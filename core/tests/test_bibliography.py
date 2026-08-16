@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import subprocess
 
 import pytest
@@ -104,6 +105,41 @@ def test_staleness_unreachable(tmp_vault):
 
 def test_staleness_skipped_without_file(tmp_vault):
     assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.SKIPPED
+
+
+def test_staleness_present_directory_is_unmatched(tmp_vault):
+    (tmp_vault / bibliography.BIB_PATH).mkdir()
+
+    assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.UNMATCHED
+
+
+def test_staleness_stat_failure_is_unreachable(tmp_vault, monkeypatch):
+    bib_path = tmp_vault / bibliography.BIB_PATH
+    real_stat = Path.stat
+
+    def denied(path, *args, **kwargs):
+        if path == bib_path:
+            raise PermissionError("stat denied")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", denied)
+
+    assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.UNREACHABLE
+
+
+def test_staleness_read_failure_is_unreachable(tmp_vault, monkeypatch):
+    bib_path = tmp_vault / bibliography.BIB_PATH
+    bib_path.write_text("[]", encoding="utf-8")
+    real_read_text = Path.read_text
+
+    def denied(path, *args, **kwargs):
+        if path == bib_path:
+            raise PermissionError("read denied")
+        return real_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", denied)
+
+    assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.UNREACHABLE
 
 
 def test_staleness_corrupt_committed_bibliography_is_unmatched(tmp_vault):

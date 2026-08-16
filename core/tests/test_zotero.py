@@ -70,6 +70,52 @@ def test_search_carries_citekey(client):
     assert client._fake.rpc_calls[0] == ("item.search", ["mortality"])
 
 
+def test_method_results_accept_valid_empty_collections(client):
+    client._fake.canned_rpc["item.search"] = []
+    client._fake.canned_rpc["item.citationkey"] = {}
+    client._fake.canned_rpc["item.attachments"] = []
+
+    assert client.search("missing") == []
+    assert client.citekey_of([]) == {}
+    assert client.attachments("noAttachments2026") == []
+
+
+def test_citekey_result_filters_live_null_absences(client):
+    client._fake.canned_rpc["item.citationkey"] = {"UNMAPPED": None}
+
+    assert client.citekey_of(["UNMAPPED"]) == {}
+
+
+@pytest.mark.parametrize(
+    ("method", "result"),
+    [
+        ("item.search", None),
+        ("item.search", 17),
+        ("item.search", [None]),
+        ("item.citationkey", None),
+        ("item.citationkey", 17),
+        ("item.citationkey", []),
+        ("item.citationkey", {"ITEMKEY": 17}),
+        ("item.citationkey", {17: "smith2020"}),
+        ("item.attachments", None),
+        ("item.attachments", 17),
+        ("item.attachments", [None]),
+    ],
+)
+def test_method_results_reject_malformed_shapes(client, method, result):
+    client._fake.canned_rpc[method] = result
+    invoke = {
+        "item.search": lambda: client.search("smith2020"),
+        "item.citationkey": lambda: client.citekey_of(["ITEMKEY"]),
+        "item.attachments": lambda: client.attachments("smith2020"),
+    }[method]
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        invoke()
+
+    assert error.value.result is Result.UNREACHABLE
+
+
 def test_attachments_raw_windows_path(client):
     attachments = client.attachments("smith2020")
     assert attachments[0]["path"].startswith("D:\\")
@@ -191,6 +237,67 @@ def test_rpc_malformed_response_shape_is_unreachable(monkeypatch, body):
         zotero_client._rpc("api.ready", [])
 
     assert error.value.result is Result.UNREACHABLE
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"id": 1, "result": {}},
+        {"jsonrpc": "1.0", "id": 1, "result": {}},
+        {"jsonrpc": "2.0", "result": {}},
+        {"jsonrpc": "2.0", "id": 2, "result": {}},
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {},
+            "error": {"code": -32603, "message": "conflicting"},
+        },
+    ],
+)
+def test_rpc_rejects_malformed_envelope_as_unreachable(monkeypatch, reply):
+    zotero_client = zotero.ZoteroClient()
+    monkeypatch.setattr(
+        zotero_client,
+        "_http",
+        lambda *args, **kwargs: (200, json.dumps(reply).encode()),
+    )
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        zotero_client._rpc("api.ready", [])
+
+    assert error.value.result is Result.UNREACHABLE
+
+
+def test_rpc_valid_success_envelope_returns_result(monkeypatch):
+    zotero_client = zotero.ZoteroClient()
+    result = {"zotero": "9.0.6", "betterbibtex": "9.0.55"}
+    reply = {"jsonrpc": "2.0", "id": 1, "result": result}
+    monkeypatch.setattr(
+        zotero_client,
+        "_http",
+        lambda *args, **kwargs: (200, json.dumps(reply).encode()),
+    )
+
+    assert zotero_client._rpc("api.ready", []) == result
+
+
+def test_rpc_valid_error_envelope_remains_unmatched(monkeypatch):
+    zotero_client = zotero.ZoteroClient()
+    reply = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {"code": -32602, "message": "invalid params"},
+    }
+    monkeypatch.setattr(
+        zotero_client,
+        "_http",
+        lambda *args, **kwargs: (200, json.dumps(reply).encode()),
+    )
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        zotero_client._rpc("item.search", ["smith2020"])
+
+    assert error.value.result is Result.UNMATCHED
 
 
 def test_whole_library_export_malformed_json_is_unreachable(client, monkeypatch):

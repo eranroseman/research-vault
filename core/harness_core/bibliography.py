@@ -1,5 +1,6 @@
 """The in-repo citekey universe: x/bibliography.json (spec §4)."""
 import json
+import stat
 import subprocess
 from pathlib import Path
 
@@ -73,8 +74,14 @@ def _fingerprint(items):
 
 def staleness(vault_root, client) -> Result:
     p = _path(vault_root)
-    if not p.is_file():
+    try:
+        path_stat = p.stat()
+    except FileNotFoundError:
         return Result.SKIPPED
+    except OSError:
+        return Result.UNREACHABLE
+    if not stat.S_ISREG(path_stat.st_mode):
+        return Result.UNMATCHED
     try:
         fresh = client.export_csl(None)
         fresh_fingerprint = _fingerprint(fresh)

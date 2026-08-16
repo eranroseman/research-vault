@@ -1,5 +1,6 @@
 """Clients for local Zotero and Better BibTeX JSON-RPC."""
 
+from collections.abc import Mapping
 import json
 import urllib.error
 import urllib.request
@@ -59,10 +60,18 @@ class ZoteroClient:
         reply = self._decode_json(body, "JSON-RPC response")
         if not isinstance(reply, dict):
             raise ZoteroError("malformed JSON-RPC response: expected an object")
-        if "error" in reply:
+        if reply.get("jsonrpc") != "2.0":
+            raise ZoteroError("malformed JSON-RPC response: invalid version")
+        if type(reply.get("id")) is not int or reply["id"] != 1:
+            raise ZoteroError("malformed JSON-RPC response: invalid id")
+        has_result = "result" in reply
+        has_error = "error" in reply
+        if has_result == has_error:
+            raise ZoteroError(
+                "malformed JSON-RPC response: expected exactly one of result or error"
+            )
+        if has_error:
             raise ZoteroError(f"JSON-RPC error: {reply['error']}", Result.UNMATCHED)
-        if "result" not in reply:
-            raise ZoteroError("malformed JSON-RPC response: missing result")
         return reply["result"]
 
     @staticmethod
@@ -73,13 +82,22 @@ class ZoteroClient:
             raise ZoteroError(f"malformed {context}: {error}") from error
 
     @staticmethod
-    def _validate_csl_items(items, context):
+    def _validate_object_list(items, context):
         if not isinstance(items, list):
             raise ZoteroError(f"malformed {context}: expected a list")
         for index, item in enumerate(items):
+            if not isinstance(item, Mapping):
+                raise ZoteroError(
+                    f"malformed {context}: invalid object at index {index}"
+                )
+        return items
+
+    @classmethod
+    def _validate_csl_items(cls, items, context):
+        cls._validate_object_list(items, context)
+        for index, item in enumerate(items):
             if (
-                not isinstance(item, dict)
-                or not isinstance(item.get("id"), str)
+                not isinstance(item.get("id"), str)
                 or not item["id"]
             ):
                 raise ZoteroError(
@@ -94,13 +112,30 @@ class ZoteroClient:
         return result
 
     def search(self, terms: str) -> list[dict]:
-        return self._rpc("item.search", [terms])
+        result = self._rpc("item.search", [terms])
+        return self._validate_object_list(result, "item.search result")
 
     def citekey_of(self, item_keys: list[str]) -> dict[str, str]:
-        return self._rpc("item.citationkey", [item_keys])
+        result = self._rpc("item.citationkey", [item_keys])
+        if not isinstance(result, Mapping):
+            raise ZoteroError(
+                "malformed item.citationkey result: expected string mapping"
+            )
+        citekeys = {}
+        for key, value in result.items():
+            if not isinstance(key, str) or (
+                value is not None and not isinstance(value, str)
+            ):
+                raise ZoteroError(
+                    "malformed item.citationkey result: expected string mapping"
+                )
+            if value is not None:
+                citekeys[key] = value
+        return citekeys
 
     def attachments(self, citekey: str) -> list[dict]:
-        return self._rpc("item.attachments", [citekey])
+        result = self._rpc("item.attachments", [citekey])
+        return self._validate_object_list(result, "item.attachments result")
 
     def export_csl(self, citekeys: list[str] | None) -> list[dict]:
         if citekeys is not None:
