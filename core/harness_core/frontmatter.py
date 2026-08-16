@@ -42,14 +42,38 @@ def _parse_scalar(raw: str):
     return raw
 
 
+def _split_unquoted(raw: str, delimiter: str, maxsplit: int = -1):
+    parts = []
+    start = 0
+    splits = 0
+    quoted = False
+    index = 0
+    while index < len(raw):
+        char = raw[index]
+        if char == "\\" and quoted:
+            index += 2
+            continue
+        if char == '"':
+            quoted = not quoted
+        elif not quoted and splits != maxsplit and raw.startswith(delimiter, index):
+            parts.append(raw[start:index])
+            start = index + len(delimiter)
+            index = start
+            splits += 1
+            continue
+        index += 1
+    parts.append(raw[start:])
+    return parts
+
+
 def _parse_item(raw: str):
     m = _INLINE_DICT.match(raw)
     if not m:
         return _parse_scalar(raw)
     out = {}
-    for part in m.group(1).split(", "):
-        k, _, v = part.partition(": ")
-        out[k.strip()] = _parse_scalar(v)
+    for part in _split_unquoted(m.group(1), ", "):
+        pair = _split_unquoted(part, ": ", 1)
+        out[pair[0].strip()] = _parse_scalar(pair[1] if len(pair) > 1 else "")
     return out
 
 
@@ -68,9 +92,10 @@ def parse(text: str) -> tuple[dict, str]:
         elif line.startswith("  "):
             raise FrontmatterError(f"nested maps unsupported (flat schema, spec §5): {line!r}")
         else:
-            key, sep, raw = line.partition(":")
-            if not sep:
+            parts = _split_unquoted(line, ":", 1)
+            if len(parts) == 1:
                 raise FrontmatterError(f"bad line: {line!r}")
+            key, raw = parts
             if raw.strip() == "":
                 current_list = []
                 data[key] = current_list

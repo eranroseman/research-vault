@@ -41,6 +41,24 @@ def test_quotes_in_titles_roundtrip():
     assert parsed == data
 
 
+def test_inline_dict_value_with_comma_space_roundtrip():
+    data = {"verified": [{"check": "title, author"}]}
+    parsed, _ = frontmatter.parse(frontmatter.serialize(data))
+    assert parsed == data
+
+
+def test_inline_dict_value_with_colon_space_roundtrip():
+    data = {"verified": [{"check": "title: author"}]}
+    parsed, _ = frontmatter.parse(frontmatter.serialize(data))
+    assert parsed == data
+
+
+def test_inline_dict_value_with_escaped_quote_roundtrip():
+    data = {"verified": [{"check": 'title "author"'}]}
+    parsed, _ = frontmatter.parse(frontmatter.serialize(data))
+    assert parsed == data
+
+
 def test_parse_rejects_nested_maps():
     bad = '---\nouter:\n  inner: "x"\n---\n'
     try:
