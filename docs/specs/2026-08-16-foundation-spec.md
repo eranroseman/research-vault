@@ -1,0 +1,140 @@
+# Knowledge-Harness Foundation — Specification
+
+Status: DRAFT pending author approval (wayfinder ticket #15).
+Consolidates the resolutions of tickets #7–#14 of the [foundation map](https://github.com/eranroseman/knowledge-harness/issues/1). Written for a reader with no shared history; every design decision links its ticket, where the full rationale and research inputs live.
+
+## 1. Purpose and success criterion
+
+A Claude Code plugin for trust-first academic research on a personal knowledge vault. First workload: the academic-research arc (question → literature → synthesis → draft → submit), validated by a thin slice; analysis/reports, PKM daily loop, and long-form writing are later effort maps.
+
+**Success criterion: trustworthy output.** Every claim traceable to a real source; zero fabricated citations; anything the harness helps produce is defensible under review. Knowledge work has no compiler, so the foundation manufactures one: every gate bottoms out in a mechanical check (a DOI resolves, a quote byte-diffs after normalization, a citekey exists in the exported bibliography), with LLM judgment confined to non-blocking, human-adjudicated findings.
+
+## 2. Substrate and environment
+
+- **Vault**: a fresh, private git repository, separate from this plugin repo, scaffolded by `vault-setup` from templates shipped in this repo ([#7](https://github.com/eranroseman/knowledge-harness/issues/7)). Plain markdown + YAML frontmatter; Obsidian-convention but not Obsidian-dependent — all machine operations work on files + git.
+- **Reference source of truth**: local Zotero (v9 at time of writing) + Better BibTeX (BBT). Verified environment facts, with dates, live in [docs/environment.md](../environment.md): local API reachable from WSL2 (mirrored networking), BBT JSON-RPC responding, Windows→WSL path translation via `wslpath` (live-verified).
+- **Version-gated features**: Zotero 10 local writes (citekey pinning, marker write-back without plugin) are feature-detected, never assumed. On Zotero 9: citekey pinning is manual; no programmatic pin path exists (live-falsified — the native `citationKey` field populates even for unpinned items and cannot serve as a pin lint).
+
+## 3. Vault structure ([#7](https://github.com/eranroseman/knowledge-harness/issues/7))
+
+```
+vault/
+├── +/            # fleeting inbox — citable sources NEVER enter here
+├── literatures/  # evidence layer: citekey-keyed projections of Zotero
+├── atlas/        # LLM-owned synthesis: topic pages, block-anchored claims
+├── calendar/     # harness-written append-only daily log
+├── efforts/      # manuscripts/deliverables, flat, one subfolder per piece
+├── x/            # templates, bases, canvases; x/bibliography.json (BBT export)
+└── AGENTS.md     # vault facts + routing (shipped by vault-setup)
+```
+
+File conventions: daily log = `calendar/YYYY-MM-DD.md`, entries `- HH:MM <actor> — <action> [links]`; the shared **review inbox** = `+/review-queue.md`, an append-only findings file — every hold/warn/alert flow in §6–§7 writes here, and the inbox-drain convention reads it. Entry serialization: one markdown list line of inline fields — `- [id:: <check>/<target>/<date>] [check:: …] [target:: …] [result:: …] [actor:: …] [reason:: …]` — where `target` is a claim address `citekey#^id`, a file path, or a gate-run reference, and `id` is the composite `check/target/date`. **Acknowledgment is itself an append-only entry**: `- [ack:: <id>] [actor:: human:…] [reason:: …]`. A closure is bypassed iff a matching human acknowledgment exists; **ack scope is standing for that check+target pair until the target's content changes** (its `source-sha256` or file hash), then it must be re-acknowledged. **Inbox drain**: `project`'s resume orientation step surfaces unacknowledged entries — that is the drain owner.
+
+- **Two-layer trust boundary**: `literatures/` is the evidence layer — machine-projected from Zotero, protected from LLM free-writing by **both** path rules (CI/hooks key on the folder) and frontmatter type (Bases-queryable). Defense in depth is deliberate.
+- **Zotero is the only admission path for evidence.** The inbox is for fleeting notes; nothing becomes citable except by being admitted into Zotero (a human act) and imported.
+- **Literature notes**: filename = citekey; a managed region (bridge-regenerated, full re-render, never hand-edited — policed by a warn hook) above a free region where human/agent prose survives regeneration.
+- **Atlas index**: `atlas/index.md`, created by `vault-setup` — the canonical machine-readable index (one line per page: wikilink + one-line gist, sectioned) that registry-first dedup queries and orientation reads. Other index/MOC pages are just topic pages that mostly link.
+- **Atlas pages**: one note kind — topic pages with block-anchored claims (`^claim-id`); title-as-filename. The LLM creates pages freely — "freely" means *without human approval*, still subject to atlas-conventions' page thresholds (§7) — logged in the daily note. Appleton-style maturity frontmatter (growth stage + planted/last-tended) makes interpretation status machine-readable.
+- **Rejected**: PARA for knowledge layers, Johnny.Decimal, folgezettel, per-claim atomic files, activity-state folders. (Rationale + survey: [research/pkm-vault-schemas.md](../../research/pkm-vault-schemas.md).)
+
+## 4. Zotero bridge ([#8](https://github.com/eranroseman/knowledge-harness/issues/8))
+
+- **In-repo bibliography**: a single BBT auto-export of **Better CSL JSON** (sorted) into the vault repo — the canonical, CI-lintable citekey universe. **Export scope: the entire user library** (ID in docs/environment.md) — no curation step between Zotero admission and the citekey universe; the same scope identifier is used in `autoexport.add` provisioning and the staleness lint's on-demand comparison export (a targeted collection is a later performance option, not a trust boundary). No machine paths in the repo, ever; PDF paths resolve at use time via BBT JSON-RPC + a `wslpath` shim with per-machine gitignored config. A Better BibLaTeX sidecar export is added only when LaTeX drafting starts.
+- **Trigger**: on-change auto-export to `x/bibliography.json` + a harness-owned commit step (BBT's git mode stays off — its commits are not file-bound). The commit step runs inside `import-source`, `verify-citations`, and doctor mode: each commits a changed export as one of its steps; when the export is stale, the JSON-RPC on-demand path is the interim truth. Provisioned programmatically via JSON-RPC `autoexport.add`. Guarded by a **staleness lint**: compare the committed export's content against a fresh on-demand JSON-RPC export of the same collection (`item.export`); a mismatch persisting past a 60-second settle window = stale (auto-export has a documented history of dying silently — BBT issues #3057/#3415). Doctor repairs by re-registering the auto-export.
+- **Note generation**: harness-owned (thin skill over JSON-RPC/local API) emitting ZotLit-convention notes — so ZotLit remains adoptable later as an interactive UI, never a dependency. Annotations extracted via BBT `item.attachments` (local API as fallback).
+- **Citekey stability**: the git-diffed bibliography is the rename detector; keys are pinned manually on first citation; `item.regenerate_key`'s old→new mapping drives mechanical vault-wide renames; Zotero 10 local writes become the programmatic pin path behind feature detection.
+- **Direction**: one-way Zotero→vault. The only write-back is a presence marker (MarkDB-Connect `has-vault-note` tag). Content write-back is banned until Zotero 10 local writes AND per-event human approval. Two-way sync is rejected permanently (no successful prior art on this substrate).
+
+## 5. Provenance schema ([#9](https://github.com/eranroseman/knowledge-harness/issues/9))
+
+Standard (Wikidata-shaped) tier; every field maps to a mass-deployed precedent (W3C PROV-O, Web Annotation, Wikidata references, ICD 203/206, CSL).
+
+**Note-type vocabulary** (the frontmatter `type` the §3 trust boundary keys on): `literature | topic | daily | effort`.
+
+**Literature-note frontmatter**: `citekey`, `doi`/`url`, `retrieved` (day one — unreconstructable later), `source-sha256` (of the primary attachment as stored by Zotero — first PDF attachment, else the web snapshot; omitted when no attachment exists; this same hash is the re-import no-op comparator and the ack-scope trigger), `archive-url` (web sources), `authority` (free text, day one), `status: unreviewed | active | superseded | rejected`. `confidence` vocabulary (used by claims and by import-source's hold policy): `low | moderate | high` (ICD 203 precedent).
+
+**Claims, inline, per claim** (never frontmatter-only — tags must survive per-claim relays). **Quotes are blockquotes** — the tag, citation, and anchor ride the claim line; the verbatim text sits in a blockquote under it:
+
+```markdown
+- (quote) [@smith2020, p. 12] ^c1
+  > Mortality fell 12% (95% CI 8–16).
+- (inference) The effect likely generalizes. [@smith2020] [confidence:: moderate] ^c2
+```
+
+Per-claim `status`: `live | deprecated:<reason>`. **Retraction acknowledgment** is an inline field on the citing claim — `[retraction-ack:: <reason>]` — defined here once; the retraction gate, `publish`, and `evidence-conventions` all key on this single syntax.
+
+- Evidence-boundary tag: `quote | paraphrase | inference | open-question` (open-question = a claim with no derivation edge — itself lintable).
+- `[@citekey, locator]` carries pinpoints (parses losslessly to CSL `locator`+`label`).
+- `^block-id` anchors claims; **`citekey#^claim-id` is the global claim address** (no prior-art donor exists — first implementation).
+- Synthesis claims add: `stance` (supports/contrasts/mentions), `confidence` (inference-only), per-claim `status`+reason, generating agent + date, `supported-by`/`contested-by` links to claim addresses.
+
+**OKF adoptions**: actor convention (`human:eran` / `claude-fable-5/<version>` / `process:<id>`) on every generating/verifying identity; **`verified` as an event list `{by, at, check}`** (`check` names the passing check — a spec-time clarification of #9's `{by, at}`). **Only MATCHED results append `verified` events**; UNMATCHED/UNREACHABLE results are recorded in the review inbox (§3), never as verification. **Attachment points**: note-level checks (DOI, metadata, retraction) append to the literature note's frontmatter `verified` list; claim-level checks (quote) append there too, with the claim address in the `check` payload; the publish event appends to the effort's frontmatter. **Trust tier derivation** per note: machine-confirmed requires all applicable note-level checks MATCHED and every quote claim MATCHED; human-reviewed additionally requires a `human:` event; anything less is unverified. `stale_after` skipped (staleness computes from `retrieved` + registry checks).
+
+**Invariants**: deprecate-with-reason, never delete; contradictions preserved, never silently resolved. **Upgrade path (deferred)**: per-quote prefix/suffix re-anchoring + a machine-owned claim ledger (Option C), gated on a consistency check, only if the slice shows prose-parsing bottlenecks. Exact inline-field syntax is validated against Dataview/Bases parsers at build time.
+
+## 6. Trust gates ([#10](https://github.com/eranroseman/knowledge-harness/issues/10))
+
+**Doctrine**: detect always-on and free; enforce opt-in per surface. **Mandatory, judgment-independent closure exists only at the publish boundary**; deterministic offline checks may additionally close at pre-commit/CI exactly where the table says so. Every closed surface ships a named bypass artifact + a liveness bound before enabling — missing either is a defect.
+
+| Check | Deterministic | Surfaces | Fail policy |
+|---|---|---|---|
+| Citekey exists in bibliography | yes, offline | PostToolUse warn; pre-commit; CI | open interactively; closed at pre-commit (bypass: `--no-verify`, honest layer is CI replay) and CI (bypass: entry in the review inbox acknowledged by `human:` actor) |
+| DOI existence (doi.org handle API) | yes, network | skill at citation-add; CI | closed at publish on UNMATCHED **or UNREACHABLE** (publishing waits); SKIPPED exempt |
+| Metadata match (Crossref; content-negotiation fallback for non-Crossref DOIs) | mostly | skill at ingest; CI batch | mismatch → review inbox; **no closure** (per #10 — compared fields title/authors/year, same normalization pipeline as quotes) |
+| Retraction (Crossref `updated-by` filtered `type=="retraction"`; nightly RW CSV batch) | yes | ingest; scheduled CI; publish | standing alert; **blocks publish only when unacknowledged** — bypass is data (`[retraction-ack:: <reason>]`, §5), never a flag |
+| Quote verification | yes, given normalization | extraction; CI; publish | NFKC + whitespace-collapse + dehyphenation then exact = pass; fuzzy-only (normalized Levenshtein ≥ 0.90) = review inbox; below = fail; closed at publish. Day-one comparison target: draft quote vs the literature note's managed region (extracted quotes/annotations); direct-PDF-text leg deferred (§10); no extractable source text = UNREACHABLE, never fabrication |
+| Factored verification (LLM decompose-and-check) | no | skill at draft→review | never blocks; adjudicated findings to the review inbox; default budget one pass per claim, capped at 30 claims, user-overridable |
+| Evidence-layer protection (LLM free-writes into `literatures/` outside import; edits inside managed regions) | yes, offline | PostToolUse warn; pre-commit; CI | warn interactively; closed at pre-commit/CI with the citekey row's bypasses |
+
+- **The closed gate**: a Stop-hook publish gate (8-block bound; bypass: a documented manual bypass token recorded in the review inbox). **"Publish" = the `publish` skill action**, not branch merge. Arming: the `publish` skill writes a state flag file the Stop hook checks; the hook runs the closed checks, clears the flag on pass or explicit bypass, and is inert when the flag is absent. CI is the async auditor. Publish's concrete effect: sets `status: published` in the effort's frontmatter, appends a `verified` event, commits and tags (`published/<effort>-<date>`). Effort `status` enum: `drafting | parked | published`. Day-one disposition menu: mark-published (full gate run + effects above) / park (sets `status: parked`, nothing else) / keep-drafting (no-op); deletion only on explicit request plus typed "discard".
+- **Four-state results everywhere**: MATCHED / UNMATCHED / UNREACHABLE / SKIPPED. An outage is never reported as fabrication. The publish gate fails closed on UNREACHABLE (publishing waits); UNREACHABLE warns everywhere else. **SKIPPED is automatic-only** — produced when the item lacks the field the check needs (no `doi` → DOI/metadata checks SKIPPED; no quote claims → quote check SKIPPED); never user- or agent-settable; SKIPPED results from publish-gate runs are recorded in the review inbox so the gate run stays auditable.
+- **Metadata author comparison**: ordered normalized family names; given names match on first initial; any divergence → review inbox.
+- Passing results append `verified` events per §5; non-passing results go to the review inbox (§3). Adjacent deterministic lints (wikilinks resolve, frontmatter parses, tags present, managed-region edit warnings) ride the citekey row's placement.
+- No adoptable prior art exists for this linter (audited: [research/adoptable-skills-audit.md](../../research/adoptable-skills-audit.md)) — it is greenfield, built to this table.
+
+## 7. Skill inventory ([#11](https://github.com/eranroseman/knowledge-harness/issues/11))
+
+**Control model: user-driven (Pocock).** Entry points ship `disable-model-invocation: true` (never in the model catalog — dissolves process-skill collisions); guard/reference skills are model-invoked AND user-invocable; `user-invocable: false` is reserved for future machine contracts (none ship). Plain descriptive names. Invocation policy must be correct in shipped frontmatter — `skillOverrides` cannot patch plugin skills.
+
+| Skill | Type | Scope |
+|---|---|---|
+| `vault-setup` | entry | idempotent scaffold + **doctor mode** (substrate verification + provisioning repair) + provisioning: detect → report → per-item consent → install scriptable companions (`claude plugin install`; restart-to-activate; the companion list is a build-time constant in the plugin's provisioning manifest — currently one candidate: kepano/obsidian-skills) → wizard-guide human-only installs (Zotero .xpi: BBT required, MarkDB-Connect optional) → verify. Ships templates, Bases (open-questions, trust-tier), vault AGENTS.md, **the vault's pre-commit hook and CI workflow files** (CI skipped if the vault has no remote — setup asks) |
+| `project` | entry | **the real-life entry point** — start/resume: question framing (inline elicitation procedure — owned, no external references; a framed question must state: the question itself, scope bounds in/out, expected source types, and success criteria), gap analysis vs atlas + bibliography, drafting frame in `efforts/` **carrying the Iron Law via evidence-conventions** |
+| `find-papers` | entry | literature search upstream of Zotero admission. **Vendored** fork of K-Dense `paper-lookup` (MIT): renamed, provenance output shaped to §5, terminates in the admission step |
+| `import-source` | entry | catalog (literature note per §3–4) + **integrate-at-import**: atlas updates + stance links land immediately except surgical auto-hold on contradiction, low/absent confidence, or schema violation — **each hold emits a reason-code review record** to the review inbox; catalog/index/log always land; batch mode for backfills; **registry-first dedup** (check the atlas index before creating, beyond the content-hash no-op); 2+-source page-creation threshold; no-op is a legitimate outcome; refresh mode for note-level maintenance |
+| `verify-citations` | entry | the deterministic suite of §6; four-state results; appends `verified` events |
+| `factcheck-draft` | entry | LLM factored verification at draft→review; adjudicated findings, never auto-blocking |
+| `publish` | entry | the closed-gate surface; fixed disposition menu |
+| `evidence-conventions` | guard | §5 schema + **the Iron Law: no claim enters a draft without a verified source first** + rationalization table; supports annotations-scatter-into-drafts via claim addresses |
+| `atlas-conventions` | guard | synthesis rules: the 2+-source page-creation threshold (the only threshold), minimum-link discipline (≥2 outgoing wikilinks per topic page), orientation-first (read `atlas/index.md` + recent log before operating) |
+
+- **Maintenance**: no dedicated maintenance skill beyond the nine — doctor mode + refresh mode own it, speaking the **fresh / stale / orphaned** vocabulary. Contradiction-probing and staleness repair form a separate cron-shaped maintenance lane (designed at build time), never the import path.
+- **Shipped architecture**: deterministic-Python-core + thin-prompt-skill split (claude-obsidian's proven shape) for every skill with a mechanical core; `verify-citations` and `factcheck-draft` fork scientific-writing's offline audit scripts (SHA-256 claim hashing, verified-evidence-only counting) as starting points.
+- **Dependency doctrine**: load-bearing capability is owned inline — no if-available branching anywhere in shipped text. Personal skills (grilling, domain-modeling, handoff, …) have **no plugin relationship**; composition is user-space (typed invocation, or routing lines in the user's own vault AGENTS.md). Docs may say "pairs well with." Vendored forks coexist harmlessly with installed originals (namespaced, typed-only, gate-protected; doctor reports duplication).
+- **Two-flow accounting**: information flow (find → human admits via Zotero → catalog → integrate) fully owned; project flow (question → gap analysis → acquire → draft-under-Iron-Law → verify → publish) owned at minimal viability. Rich pipeline machinery (charter/outline/weave analogs) belongs to the later full-arc map.
+- Hooks (§6) ship as plugin hooks, not skills.
+
+## 8. Plugin architecture ([#12](https://github.com/eranroseman/knowledge-harness/issues/12))
+
+- **Globally enabled.** Coexistence with the dev harness holds structurally: the typed-only spine claims no conversation openings; guards carry vault-scoped descriptions + `paths` globs; the residual free-form gray zone inside vault repos is routed by the vault's AGENTS.md — which `vault-setup` ships, so the mitigation self-installs per vault and touches nothing global.
+- **This repo doubles as plugin + its own marketplace** (obra pattern): `.claude-plugin/plugin.json` + `marketplace.json`; `skills/` (nine); `hooks/`; vault scaffold under `templates/`; planning artifacts (research/, analysis/, docs/, the map) remain in-repo. Install: `/plugin marketplace add eranroseman/knowledge-harness`. Private-OK solo; public if ever shared.
+- **Deferred to build**: paths-glob behavior on vault markdown; per-repo superpowers-disable (only if the gray zone proves real in the slice). Dead ends honored: no `skillOverrides` on plugin skills, no per-component toggles, no hook-ordering games, no cache edits.
+
+## 9. Validation slice ([#14](https://github.com/eranroseman/knowledge-harness/issues/14), project chosen in [#13](https://github.com/eranroseman/knowledge-harness/issues/13))
+
+One trip around the project flow over two corpora, plus a synthetic gate drill.
+
+- **Seed migration**: this repo's research corpus (all files under `research/` — 10 at time of writing — plus `sources/` PDFs and `analysis/`; ~40 cited web sources, one live contradiction) batch-imports into the fresh vault — the information flow at volume.
+- **Validation project**: *how much are retracted papers cited after retraction, and do retraction-notification tools measurably reduce it?* — bounded bibliometrics literature, Crossref-clean, naturally fires the retraction gate and the acknowledge-tag flow (retracted papers cited *as subjects*).
+- **Phases**: (0) scaffold + doctor → (1) seed migration → (2) `project` framing + gap analysis → (3) `find-papers` → human admits 15–25 papers → `import-source` with live hold policy → (4) 1,000–2,000-word evidence brief in `efforts/` under the Iron Law, ~10 atlas pages touched → (5) `verify-citations` + `factcheck-draft` adjudication → (6) `publish`. Minimum two sessions (forces one real cold resume).
+- **Synthetic gate drill** (decoupled from the research): planted fabricated citekey; mutated quote; unacknowledged retracted citation; simulated API outage (publish must wait); killed auto-export (staleness lint must fire).
+- **Validated when**: 100% of brief claims resolve mechanically per their tag — quote = normalize-then-exact pass against the source's managed region; paraphrase/inference = citekey + locator resolve to a real item; open-question = exempt from the denominator; `verified` events recorded and trust tier derivable in a Base; all five drills caught per §6; seed migration lands with zero unresolved links; cold-resume works; the author judges the brief defensible.
+- **Falsified when**: any planted error survives to publish, OR the author routes around the vault to get the work done — friction failure is foundation failure.
+
+## 10. Deferred register
+
+Rot-watch cron (provenance recorded now supports it retrofit-free) · Option C claim ledger + quote re-anchoring · direct-PDF-text quote-verification leg (parser choice open; day-one target is the managed region, §6) · PreToolUse blocking for the citekey lint (revisit only on evidence that warnings fail, staleness lint fixed first) · BibLaTeX sidecar (at LaTeX drafting) · content write-back (Zotero 10 + per-event approval) · press-check Stop opt-in for factored verification · maintenance cron lane design · full-arc pipeline machinery · other workload pipelines (reports, PKM loop, long-form) · queued next research projects: post-#13-runner-up questions (claim-level provenance-model adoption; LLM citation-accuracy evaluations).
+
+## 11. References
+
+Research: [prior-art](../../research/prior-art-knowledge-work-harness.md) · [PKM schemas](../../research/pkm-vault-schemas.md) · [bridge design space](../../research/zotero-bridge-design-space.md) · [provenance schemas](../../research/provenance-schemas.md) · [trust gates](../../research/trust-gates-prior-art.md) · [plugin mechanics](../../research/plugin-packaging-mechanics.md) · [adoptable skills](../../research/adoptable-skills-audit.md) · [skill-inventory gaps](../../research/skill-inventory-gap-analysis.md) · [llm-wiki integration](../../research/llm-wiki-integration-prior-art.md) · [Ideaverse structure](../../research/ideaverse-lite-structure.md). Recovered primaries: [sources/](../../sources/). Dev-harness anatomy: [analysis/](../../analysis/). Decisions index: [the map](https://github.com/eranroseman/knowledge-harness/issues/1).
