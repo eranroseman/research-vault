@@ -244,6 +244,8 @@ git commit -m "feat: harness_core package + plugin/marketplace skeleton"
 
 ### Task 2: Frontmatter — flat YAML subset
 
+> **Ruling (execution-time):** the round-trip contract governs over the prescribed code. `_parse_item`'s `.split(", ")` corrupts values containing `", "` — implement quote-aware tokenization (track in-quote state; no pattern splitting) and add regression tests for three cases: comma inside a value, `": "` inside a value, and an escaped quote inside a value. The code block below is superseded on this point.
+
 **Files:**
 - Create: `core/harness_core/frontmatter.py`
 - Test: `core/tests/test_frontmatter.py`
