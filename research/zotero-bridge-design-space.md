@@ -1,0 +1,178 @@
+# Zotero bridge design space: Zotero↔vault data flow
+
+Research note, 2026-08-16. Feeds decision ticket #8 "Zotero bridge design" (eranroseman/knowledge-harness). Scope: the Zotero↔vault **data-flow** design space only — export format, literature-note generation, annotation extraction, trigger/sync models, direction policy, multi-machine/WSL paths. Provenance/claim schemas and verification gates are owned by sibling notes and are out of scope here. Builds on `research/prior-art-knowledge-work-harness.md` §3/§4 (access primitives: local API for reads, BBT JSON-RPC for citekey→metadata+PDF path, BBT on-change auto-export for watching, citekey-keyed notes with managed regions) — those are treated as settled and not re-argued.
+
+All "live-verified" claims were tested 2026-08-16 against the running local stack: **Zotero 9.0.6 + Better BibTeX 9.0.55** on the Windows host, queried from WSL2 via `http://localhost:23119` (JSON-RPC `api.ready` returned `{"zotero":"9.0.6","betterbibtex":"9.0.55"}`). Probes were strictly read-only. One material limitation: **this library currently contains zero PDF annotations** (`/api/users/0/items?itemType=annotation` returns `[]`, live-verified), so §3 annotation-fidelity claims are source-verified from BBT/Zotero code, not live-verified.
+
+A live-config caveat that reframes several sections: the running BBT instance uses a **custom citekey formula** `auth.lower + year + shorttitle(1, 0)` (read from the export config block of a live `item.export` call), not BBT's documented default `auth.lower + shorttitle(3,3) + year` (https://retorque.re/zotero-better-bibtex/citing/). The bridge must treat key *format* as opaque user configuration; only key *stability discipline* (§4) can be relied on.
+
+---
+
+## 1 Export format choice for the in-repo bibliography
+
+**The candidate translators.** BBT ships eight export translators (source dir listing, https://github.com/retorquere/zotero-better-bibtex/tree/master/translators, checked 2026-08-16): Better BibTeX, Better BibLaTeX, Better CSL JSON, Better CSL YAML, BetterBibTeX JSON, Better Hayagriva, Citation graph, Collected notes, plus a Quick Copy translator. BBT's export translators support "Keep updated" auto-export registration ("With BBT's export translators (e.g., 'Better BibTeX'), checking the `Keep updated` option will register the export", https://retorque.re/zotero-better-bibtex/exporting/auto/; and JSON-RPC `autoexport.add` accepts any registered BBT translator by name or GUID, source-verified in json-rpc.ts).
+
+**Live field-fidelity comparison** (one journal article exported through each translator via JSON-RPC `item.export`, live-verified 2026-08-16):
+
+| Field | Better CSL JSON | Better BibTeX | Better BibLaTeX | BetterBibTeX JSON |
+|---|---|---|---|---|
+| Citekey | yes — `id` and `citation-key` | yes — entry key | yes — entry key | yes — `citationKey` per item |
+| Attachment path | **no** | yes — `file = {D:\Zotero\storage\...}` (absolute, machine-specific) | same as BibTeX | yes — `attachments[].path` (absolute) + `url`, `dateAdded` |
+| Annotations | no | no | no | not observed (library has none; unverified — assume absent) |
+| Collections | no | only via JabRef `groups` option, which "will disable caching in exports, which is really undesirable specifically for auto-exports" (https://retorque.re/zotero-better-bibtex/preferences/export/) | same | yes — top-level `collections` hierarchy |
+| Notes | no (not observed; `exportNotes` display option exists for exports — untested for CSL JSON) | via `exportNotes` option | via `exportNotes` option | yes — `notes[]` per item |
+| Dates | CSL `date-parts` arrays incl. `accessed` | `year`/`month` | ISO-ish `date = {1987-07}` + `urldate` | Zotero-native `date`, `dateAdded`, `dateModified` |
+| Tags/relations | no | no | no | yes |
+| Extra baggage | none | `zoteroselect` link | `zoteroselect` link | **entire BBT preferences block embedded in `config`** (live-verified) |
+
+**BetterBibTeX JSON is explicitly a debug format.** BBT's own pull-export docs name the `jzon` format "BetterBibTeX JSON debug format" (https://retorque.re/zotero-better-bibtex/exporting/pull/). Live export confirms it embeds the full preferences object — meaning any preference change churns the file in git, and it leaks local config (e.g., `baseAttachmentPath`, git settings) into the repo. It is the *only* format carrying collections + attachments + notes + citekey together, which makes it useful as an on-demand *query* payload via JSON-RPC, but a poor *committed artifact*.
+
+**Git-friendliness is a documented BBT concern:** the export preference "Sort TeX/CSL output (useful if you use version control on the output)" exists exactly for stable diffs (https://retorque.re/zotero-better-bibtex/preferences/export/); the live instance already has `exportSort: "citekey"` set (live-verified).
+
+**Trade-off shape (decision for the human, §"Implications"):**
+- *Better CSL JSON* — carries the citekey in a standardized field (`citation-key`), is pandoc/citeproc-consumable, machine-parseable for the CI citation linter, and contains **no machine-specific paths** (clean git diffs, no privacy leak). Cost: no attachment paths or collections — but the settled architecture resolves PDF paths live via JSON-RPC `item.attachments`, so paths in the repo are redundant *and* harmful (they go stale across machines).
+- *Better BibLaTeX* — needed the day drafting moves to LaTeX; carries `file` paths that are absolute Windows paths (git noise, machine-specific). Can be added later as a second auto-export without changing anything else.
+- *BetterBibTeX JSON* — full fidelity, wrong stability class (debug format, prefs churn). Use via RPC, don't commit.
+
+## 2 Literature-note generation: what established bridges actually emit
+
+**ZotLit v2** (v2.0.1, active, pushed 2026-08-15; https://github.com/aidenlx/zotlit) is the reference model on our substrate. Six template types — `filename`, `note` ("body of a new literature note"), `annotation` ("a single annotation"), `content` ("managed region that is overwritten on note update"), `cite`, `cite2` — templated in Liquid (default) or Eta/JavaScript (https://zotlit.aidenlx.site/docs/concepts/how-templates-work). The generated note = identity frontmatter (`citekey`, `zotero-key`, etc., per prior-art §4) + a heading/backlink/attachment block outside the markers + a managed region `%%zt-managed%% ... %%/zt-managed%%` whose default content is *links to Zotero child notes and PDF annotations rendered as callouts*; "Update" re-renders only inside the markers, "Overwrite" destructively regenerates the whole body behind a confirmation (https://zotlit.aidenlx.site/docs/concepts/literature-notes-and-the-managed-region). Everything human goes above/below the region. Zotero child notes import one-way, create-once, HTML→Markdown, and are *not* auto-updated afterwards (https://zotlit.aidenlx.site/docs/how-to/import-zotero-notes). Notably, ZotLit now ships a **first-party agent skill** (`npx skills@latest add https://zotlit.aidenlx.site/`) whose scope is template editing/testing via a "Template Workbench" — the agent can render templates in memory and receives Zotero metadata and annotation text (https://zotlit.aidenlx.site/docs/install-skill). So ZotLit's own answer to "what does the agent do" is: *tune the generator*, not write prose.
+
+**obsidian-zotero-integration** (community-archive, caretaker mode, last push 2026-03-06) is the convention donor for template-driven notes: a single Nunjucks template with `{% persist "name" %}` blocks; regeneration overwrites everything *except* persisted blocks, and the docs explicitly bless editing inside persisted blocks ("add block IDs to annotations, edit annotations or annotation comments") plus **incremental annotation import** via `{% set newAnnotations = annotations | filterby("date", "dateafter", lastImportDate) %}` and an `isFirstImport` flag (https://github.com/community-archive/obsidian-zotero-integration/blob/main/docs/Templating.md). This is the opposite polarity from ZotLit: ZotLit owns the region and humans stay out; OZI appends into a human-editable region and never re-renders old entries.
+
+**WenyuChiou zotero-library-curator** — corrective finding: `WenyuChiou/ai-research-skills` contains **no SKILL.md files at all** (full git tree, 118 paths, listed live 2026-08-16); it is a *marketplace/catalog* repo (`.claude-plugin/marketplace.json`, `catalog/skills.yml`) pointing at `WenyuChiou/research-hub` as the canonical skill repo. The actual skill (https://github.com/WenyuChiou/research-hub/blob/master/skills/zotero-library-curator/SKILL.md, read 2026-08-16) is a **read-only library-hygiene auditor, not a note generator**: duplicate-DOI scan, orphan/required-tag scan, tag-hygiene report, collection bloat/sparsity — emitting "preview plans, never apply", with all CRUD deferred to a separate `zotero-skills` skill or CLI. Its committed real-world output (`test-corpus/.../zotero-curator-audit-20260425.md`) audits 1,102 vault notes + live Zotero tags and found 10 duplicate DOIs and 44 case-only duplicate tag pairs. The suite's per-paper notes (emitted by the `research-hub` pipeline, e.g. `test-corpus/.../papers/01-lim-2025-vr-embodied-agents.md`) are frontmatter (`title/authors/year/venue/doi/url/citation_count/source/...`) + verbatim abstract + an explicit claims section — note filenames are numbered slugs, **not citekey-keyed**, i.e. it does not follow the ecosystem convention prior-art §4 adopts.
+
+**zotero-mcp** (54yyu, active; https://github.com/54yyyu/zotero-mcp) does not write vault files at all: `zotero_get_item_metadata` returns markdown/BibTeX/JSON, `zotero_get_annotations` returns annotations ("including direct PDF extraction", `format="json"` for normalized records), `zotero_synthesize_annotations` builds "a per-paper annotation/note digest" — the *agent* decides what becomes a note (README, read 2026-08-16).
+
+**Convergent split of labor:** every mature bridge generates only *mechanical* content — identity frontmatter, metadata, annotation/note transclusions — inside a marked regenerable region, and leaves interpretation (summaries, claims, links) to humans/agents outside it. No surveyed bridge generates prose.
+
+## 3 Annotation/highlight extraction
+
+**BBT JSON-RPC `item.attachments(citekey)`** — source-verified (https://github.com/retorquere/zotero-better-bibtex/blob/master/content/json-rpc.ts, `attachments` method, read 2026-08-16): per attachment it returns `open` (a `zotero://open-pdf/...` URI), `path` (absolute disk path), and, for file attachments with annotations, an `annotations` array of Zotero **item-JSON** objects (`annot.toJSON()`): `annotationType`, `annotationText`, `annotationComment`, `annotationColor`, `annotationPageLabel`, `annotationSortIndex`, plus `annotationPosition` *pre-parsed from JSON string to object*. For `annotationType === 'image'` BBT **triggers cache rendering if absent** (`Zotero.PDFWorker.renderAttachmentAnnotations`) and adds `annotationImagePath` — the annotation image cache path *on the Zotero machine* (Windows path here; needs the §6 shim). This is the richest single-call surface: citekey in → PDF path + full annotations out.
+
+**Field semantics** (Zotero core, https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/annotations.js, read 2026-08-16 — note it documents the *reader-JSON* shape `type/authorName/text/comment/color/pageLabel/sortIndex/position`, shorter names than the item-JSON above; don't conflate them): `pageLabel` is the *displayed* page label (may be roman/offset), while `position` carries the physical `pageIndex` + rects — a quote-locator record should store both. Colors are hex strings. Image and ink annotations are the types with cached image renditions.
+
+**Zotero local API** — Zotero 8+ serves annotation endpoints locally (prior-art §3, https://www.zotero.org/support/dev/web_api/v3/local_api); live-verified on 9.0.6 that `?itemType=annotation` item queries are accepted. Annotations are child items of attachments in the same item-JSON shape. Two local-API gaps found live: `GET /api/itemTypeFields?itemType=annotation` returns `[]` and `/api/items/new` returns "No endpoint found" (live-verified 2026-08-16) — and the public schema (https://api.zotero.org/schema, v42) lists the `annotation` itemType with an **empty `fields` array**: annotation fields are special-cased in core code, not schema-documented. Nothing in the local API triggers image-cache rendering the way BBT's RPC does (not found; treat as absent).
+
+**ZotLit** reads annotations from Zotero's SQLite; its annotation view supports drag-into-note through the `annotation` template, with "image excerpts saved to the vault automatically" and backlinks to PDF locations (https://zotlit.aidenlx.site/docs/how-to/use-annotation-view). Freshness depends on its database-refresh model (§4).
+
+**obsidian-zotero-integration** exposes `annotatedText`, `comment`, `color`, `colorCategory` (a named color bucket — useful for color→meaning conventions), `page`, and date-filterable incremental import (Templating.md, cited in §2).
+
+**zotero-mcp** additionally does *direct PDF extraction* for annotations not yet indexed by Zotero, image annotations included, and "highly recommend[s]" BBT for the annotation functions (README §"PDF Annotation Extraction").
+
+**Trade-off shape:** BBT JSON-RPC is the only path that (a) starts from a citekey, (b) returns path + annotations in one call, and (c) forces image-cache rendering — at the cost of no pagination and Windows-side cache paths. The local API is the standards-track fallback (item-JSON, stable pref-gated surface). zotero-mcp's direct-PDF fallback covers un-indexed annotations but adds a 40+-tool dependency the prior-art note already argued against.
+
+## 4 Trigger/sync models
+
+**Option A — BBT auto-export ("Keep updated") + repo watch.** Registration is per-export; scheduled runs execute "on change" / "on idle" / "paused" (https://retorque.re/zotero-better-bibtex/exporting/auto/). Live instance: `autoExport: "immediate"` with `autoExportDelay: 5`, `autoExportIdleWait: 10` (seconds; live-verified) — i.e., even "on change" has a deliberate settle window; the file on disk **lags Zotero by design**. Targeted collection exports are recommended over whole-library for performance (same page). The maintainer's own framing: background export "is technically still sort of experimental. Zotero does not in any way facilitate background exports and I have had to mock parts of zotero to make it happen", though "pretty battle-hardened" via nightly tests; "Keep updated" is nonetheless his advised default (https://github.com/retorquere/zotero-better-bibtex/discussions/3264). Failure stories exist across a decade: keep-updated silently stops updating after plugin updates (#3057 Nov 2024, https://github.com/retorquere/zotero-better-bibtex/issues/3057; #3415, https://github.com/retorquere/zotero-better-bibtex/issues/3415), library not refreshed before export (#3007, https://github.com/retorquere/zotero-better-bibtex/issues/3007), failed background-export errors (#1958, https://github.com/retorquere/zotero-better-bibtex/issues/1958). Design consequence: the watcher must treat the export as *eventually consistent* and validate-parse before ingest (export-write atomicity is undocumented — not verified either way); a staleness check (compare export mtime against a JSON-RPC probe) turns "auto-export silently died" from a trust hole into a lintable condition. BBT's built-in git mode (`git config zotero.betterbibtex.push true` → pull/export/add/commit/push) commits non-file-bound and can sweep unrelated edits (same auto.md page; already flagged in prior-art §3) — the harness's own commit step should replace it. **Provisioning is scriptable:** JSON-RPC `autoexport.add(collection, translator, path, {exportNotes, useJournalAbbreviation}, replace)` registers an auto-export programmatically, creating the collection if needed (source-verified, json-rpc.ts `NSAutoExport.add`) — setup can be a skill, not a manual UI ritual.
+
+**Option B — pull export.** `http://127.0.0.1:23119/better-bibtex/collection?[collectionID].[format]` serves the bibliography on demand (`bib|biblatex|bibtex|json|csljson|yaml|jzon|<translatorID>`, `&exportNotes=`); curl-able from build steps, browser access blocked since Zotero 5.0.71 (https://retorque.re/zotero-better-bibtex/exporting/pull/). Zero lag at read time, but only works while Zotero runs — it cannot feed CI that runs without Zotero, which the in-repo bibliography exists to serve (prior-art §4).
+
+**Option C — manual/skill invocation via JSON-RPC** (`item.search`, `item.export`, `item.attachments`): freshest data, no artifacts; per-item cost; also Zotero-must-be-running.
+
+**Option D — Zotero 10+ `?since=` polling**: version-gated, not available on this Zotero 9 stack (prior-art §3; https://www.zotero.org/support/dev/web_api/v3/local_api).
+
+**Citekey changes/renames — the stability contract.** BBT "implements a citekey generator *for those entries that don't have a citekey set explicitly*" (https://retorque.re/zotero-better-bibtex/citing/) — explicit keys always win. Unpinned keys are recomputed from metadata, so metadata edits can move them; formula changes are *not* retroactive ("existing keys are not automatically regenerated when you change the pattern"; same page), and clash postfixes (a/b/c) are always in play. Since Zotero 7.0.31 the pin store is the native Citation Key field (dstillman, https://forums.zotero.org/discussion/130917/zotero-8-9-bbt-and-citation-keys; prior-art §4). **Live probe that falsifies the obvious lint:** an item added 2026-08-15, never manually pinned, `extra` empty, carries `citationKey: "merton1987simple"` in the native field (local API, live-verified) — i.e., BBT writes *generated* keys through to the native field, so "native field non-empty" does **not** distinguish pinned from generated, and neither JSON-RPC (`item.citationkey` returns bare strings; source-verified) nor the local API exposes a pinned flag. Programmatic pinning has no path on this stack: JSON-RPC has no set-key method (full method inventory, source-verified: `collection.scanAUX`, `autoexport.add`, `user.groups`, `item.search/attachments/collections/notes/bibliography/citationkey/regenerate_key/export/pandoc_filter`, `viewPDF`, `api.ready`) and Zotero 9 local writes return 501 (prior-art §3). Pinning is a human right-click today; Zotero 10's local write of the `citationKey` field becomes the programmatic pin path, feature-detected. Two mechanical safety nets exist regardless: (1) `item.regenerate_key(citekeys)` returns an **old→new mapping** (source docstring: for items "created in two phases — initial record from partial metadata, enrichment landing later"; note it defers read-only-library handling to BBT #3430) — a rename becomes a machine-readable diff the harness can apply vault-wide; (2) every rename surfaces as a key diff in the auto-exported bibliography under git, and the citation linter (sibling scope) catches orphaned `[@key]`s. On merge, BBT can preserve absorbed keys as biblatex `ids` aliases (opt-in pref, default no; https://retorque.re/zotero-better-bibtex/preferences/miscellaneous/). **Negative knowledge:** no surveyed tool propagates a citekey rename into external markdown (searched BBT/ZotLit/OZI docs + GitHub issues 2026-08-16); the ecosystem's answer is "don't let keys move" (pin) plus breakage-on-rename (e.g., hans/obsidian-citation-plugin #201, https://github.com/hans/obsidian-citation-plugin/issues/201).
+
+**ZotLit's own trigger model** for comparison: manual update commands (per-note, per-selection, whole library) re-rendering only the managed region (https://zotlit.aidenlx.site/docs/how-to/keep-notes-updated); optional "live updates" where the Zotero-side companion **pushes over HTTP** to an Obsidian-side listener on 127.0.0.1:9091, guarded to the matching Zotero profile (https://zotlit.aidenlx.site/docs/how-to/set-up-live-updates); staleness handled by explicit "Refresh Zotero database" or an immutable-vs-full-copy SQLite read-mode switch (https://zotlit.aidenlx.site/docs/how-to/fix-stale-data). I.e., even the flagship bridge treats freshness as best-effort with a manual escape hatch.
+
+## 5 Direction policy: one-way vs write-back
+
+**One-way Zotero→vault is the ecosystem norm.** ZotLit: note import is "unidirectional: Zotero→Obsidian only", create-once (https://zotlit.aidenlx.site/docs/how-to/import-zotero-notes). obsidian-zotero-integration: import/regenerate only. The most mature Zotero→external-notes bridge, **Notero** (3,198 stars, pushed 2026-08-11), states it outright: "Bidirectional sync between Notion and Zotero, while desirable, falls outside the scope of this plugin" — it would require a separate hosted service listening for webhooks (https://github.com/dvanoni/notero README FAQ). No surveyed bridge implements two-way item sync; the one project claiming two-way citekey/frontmatter sync (zotero-redisearch-rag, surfaced only in a Feb-2026 search snippet) is fringe and unaudited — an existence proof, not prior art to adopt.
+
+**The proven middle ground is narrow, marker-style write-back.** **MarkDB-Connect** (daeh/zotero-markdb-connect, 673 stars, pushed 2026-07-22) scans the vault for citekeys/item keys and "adds a colored tag to the corresponding Zotero items" so Zotero shows which items have vault notes — and pointedly does *not* create or modify markdown, and links each file to only one item (README, https://github.com/daeh/zotero-markdb-connect). That is the entire write surface of the most-adopted write-back tool: a presence marker.
+
+**Available write surfaces on this stack, for completeness:** BBT JSON-RPC mutating methods are `collection.scanAUX` (populates/clears a collection from an AUX file), `autoexport.add`, and `item.regenerate_key` (source-verified) — no item-content writes. Zotero 10+ local API adds full CRUD behind a user-confirmed local API key; Zotero 9 returns 501 (prior-art §3). zotero-mcp ships `zotero_create_annotation`, notes create/update (README) for those who want it.
+
+**Trade-off shape:** strict one-way keeps Zotero the uncontested source of truth (trust-first alignment) at the cost of Zotero not knowing what the vault holds; marker write-back (a tag like `has-vault-note`, MarkDB-Connect-style, via Zotero 10 writes or the plugin itself) buys discoverability with a tiny, idempotent, human-auditable write; two-way content sync has zero successful prior art on this substrate and directly conflicts with the single-source-of-truth premise.
+
+## 6 Multi-machine / WSL specifics
+
+**Live-verified facts (2026-08-16, this machine):** Zotero runs on the Windows host; WSL2 reaches `localhost:23119` directly. Every path surface returns **Windows paths** — JSON-RPC `item.attachments` `path: "D:\Zotero\storage\<KEY>\<file>.pdf"`, and `file = {D:\...}` in Better BibTeX/BibLaTeX exports (live-verified). Translation is mechanical and works: `wslpath -u 'D:\Zotero\storage\...'` → `/mnt/d/Zotero/storage/...`, and `test -f` confirms the PDF is readable from WSL (live-verified). Consequence: one path-translation shim (`wslpath`, or an equivalent prefix map) at the bridge boundary makes every BBT/Zotero path usable — including §3's `annotationImagePath`. The vault/repo should store **no absolute paths at all**: store citekey (+ attachment item key if needed) and resolve to a path at use time; this is also why Better CSL JSON's lack of `file` fields is a feature (§1).
+
+**BBT-side path options:** hidden pref `relativeFilePaths` rewrites exported `file` fields relative to the export directory — but only "if the attachments are stored anywhere under the directory the bibliography is exported to", and it disables the export cache (performance) (https://retorque.re/zotero-better-bibtex/preferences/hidden-preferences/). Inapplicable here: attachments live in `D:\Zotero\storage`, not under the repo. The live config's `baseAttachmentPath` pref is empty (live-verified) and its documentation was not found on the checked BBT pref pages — do not build on it.
+
+**Zotero-side:** stored attachments (our case — files under the Zotero data directory) sync natively via Zotero and stay machine-relative to the data dir; the **Linked Attachment Base Directory** exists only for *linked* files, making their recorded paths relative so "the files can be found by Zotero on each computer even if the containing folder is at a different location" — with the caveats that linked files don't Zotero-sync and can't live in group libraries (https://www.zotero.org/support/attaching_files). Migrating to linked files to get portable paths would be a heavy layout change solving a problem the resolve-at-use-time rule already solves.
+
+**Attachment managers:** ZotFile is dead for the modern stack (last push 2024-04-16, pre-Zotero-7; https://github.com/jlegewie/zotfile); its successor in the linked-file niche is MuiseDestiny/zotero-attanger (1,325 stars, pushed 2026-07-28; https://github.com/MuiseDestiny/zotero-attanger) — relevant only if the human opts into linked-file management; irrelevant under stored attachments + live resolution.
+
+**ZotLit's multi-device answer** (if adopted): profile/data-dir paths are stored per device, "so one machine's path never overwrites another's through vault sync" (https://zotlit.aidenlx.site/docs/how-to/sync-across-devices) — the same per-machine-config principle the harness shim should follow (machine-local config file, gitignored or keyed by hostname).
+
+---
+
+## Options tables
+
+**Q1 — in-repo bibliography format**
+
+| Option | Carries | Git behavior | Verdict shape |
+|---|---|---|---|
+| Better CSL JSON | citekey, full CSL metadata, dates; no paths/collections | clean, sortable, no machine-specific data | fits CI-lint + pandoc; pairs with live path resolution |
+| Better BibLaTeX (and/or BibTeX) | citekey, `file` abs paths, biblatex dates | Windows paths churn per machine | add later only when LaTeX drafting needs it |
+| BetterBibTeX JSON | everything incl. attachments/collections/notes | embeds full prefs block; self-described debug format | RPC query payload, never a committed artifact |
+
+**Q2 — literature-note generation**
+
+| Option | Emits | Maturity | Cost |
+|---|---|---|---|
+| ZotLit v2 as generator | frontmatter + managed region (notes/annotation callouts); Liquid/Eta templates; first-party agent skill | active, v2.0.1 | Obsidian+companion runtime dependency; interactive-first |
+| Harness-owned generator (skill over JSON-RPC/local API) emitting ZotLit-convention notes | whatever we template — same markers/frontmatter | to build (thin) | we own update semantics; testable headless; convention-compatible with ZotLit if later adopted |
+| obsidian-zotero-integration | Nunjucks note + persist blocks, incremental annotations | caretaker mode | convention donor only (prior-art §4) |
+| zotero-mcp as source, agent writes notes | markdown metadata + annotation digests | active | agent-shaped, no managed-region discipline built in; 40+-tool surface |
+
+**Q3 — annotation extraction**
+
+| Option | Fidelity | Gaps |
+|---|---|---|
+| BBT JSON-RPC `item.attachments` | type/text/comment/color/pageLabel/sortIndex/position(parsed) + forced image-cache render + `annotationImagePath` | Windows cache paths (shim); no pagination; source-verified only (empty library) |
+| Zotero local API annotation items | same item-JSON fields; standards-track | no image-render trigger found; Zotero 8+ only |
+| ZotLit annotation view / templates | template-rendered callouts, image excerpts auto-saved to vault | interactive drag-first; SQLite freshness model |
+| zotero-mcp | direct-PDF extraction incl. unindexed + image annotations | heavy dependency; recommends BBT anyway |
+
+**Q4 — trigger model**
+
+| Option | Freshness | Failure modes | Works without Zotero running? |
+|---|---|---|---|
+| BBT auto-export on-change → repo file + watch/diff | 5–10 s settle window | silently stops after updates (#3057/#3415); stale-refresh (#3007); atomicity undocumented → validate-parse + staleness lint | file yes (CI), producing no |
+| Pull export URL (curl) | immediate | none observed; Zotero must run | no |
+| JSON-RPC on demand | immediate | Zotero must run | no |
+| Zotero 10 `?since` polling | poll interval | version-gated (this stack: unavailable) | no |
+
+**Q5 — direction policy**
+
+| Option | Prior art | Risk |
+|---|---|---|
+| Strict one-way Zotero→vault | ZotLit, OZI, Notero (explicitly out-of-scope statement) | Zotero blind to vault state |
+| One-way + marker write-back (tag) | MarkDB-Connect (tags only, 673★) | tiny, idempotent write; needs Zotero 10 local writes or the plugin |
+| Two-way content sync | none successful on substrate | conflicts with source-of-truth premise; no adoptable prior art |
+
+**Q6 — path handling**
+
+| Option | Fit |
+|---|---|
+| Resolve-at-use-time via JSON-RPC + `wslpath` shim; no abs paths in repo | live-verified working; zero Zotero-side change |
+| BBT `relativeFilePaths` | inapplicable (attachments not under export dir); disables cache |
+| Linked files + base directory (+attanger) | heavy migration; linked files don't Zotero-sync; only if human wants file-tree ownership |
+
+## Implications for ticket #8 — decisions for the human
+
+1. **In-repo bibliography format** — recommended default: one BBT auto-export of **Better CSL JSON** (sorted output already configured) as the canonical, CI-lintable citekey universe; no paths in the repo; add a Better BibLaTeX sidecar export only when LaTeX drafting starts. (§1)
+2. **Trigger model** — recommended default: **on-change auto-export into the repo + harness-owned commit step** (BBT git mode off), provisioned programmatically via JSON-RPC `autoexport.add`, with a staleness lint (export mtime vs live JSON-RPC probe) because auto-export has a documented history of dying silently; JSON-RPC stays the on-demand fresh path. (§4)
+3. **Note generator ownership** — recommended default: **harness-owned generation** (thin skill over JSON-RPC/local API) emitting ZotLit-convention notes (citekey filename, identity frontmatter, `%%zt-managed%%` region for metadata + annotations; prose outside) so ZotLit remains adoptable later as an interactive UI rather than a dependency. Decide also the annotation-region polarity: ZotLit-style full re-render vs OZI-style append-only incremental import — full re-render is simpler *only if* humans/agents never edit inside the region. (§2, §3)
+4. **Citekey stability policy** — recommended default: treat the exported bibliography under git as the rename detector; pin keys **manually** on first citation for now (no programmatic pin path exists on Zotero 9 — live-falsified: the native field is populated even for generated keys, so it can't serve as a pinned-lint signal); adopt Zotero 10 local writes of `citationKey` as the programmatic pin path behind feature detection; use `item.regenerate_key`'s old→new mapping to drive mechanical vault-wide renames when keys must move. (§4)
+5. **Direction policy** — recommended default: **strict one-way now**, with MarkDB-Connect-style marker write-back (a single "has-vault-note" tag) as the only sanctioned future write, behind Zotero-10 feature detection and human approval. No two-way content sync. (§5)
+
+(Path handling is not listed as a decision: the facts force resolve-at-use-time + a `wslpath` shim with per-machine config; see §6.)
+
+## Dead ends / negative knowledge
+
+- **WenyuChiou/ai-research-skills contains no skills** — it is a catalog/marketplace repo (no SKILL.md in the full 118-path tree, listed 2026-08-16); skills live in WenyuChiou/research-hub. The zotero-library-curator is a read-only hygiene auditor emitting preview plans — not a literature-note generator; and research-hub's paper notes use numbered-slug filenames, not citekeys.
+- **BetterBibTeX JSON is officially the "debug format"** (BBT pull-export docs) and embeds the full preferences block (live-verified) — disqualifying it as a committed artifact despite being the only full-fidelity export.
+- **"Native citationKey field non-empty" is not a pinning signal** — live-falsified: a never-pinned item with empty Extra carries the generated key in the native field. No API surface found (JSON-RPC, local API) exposes pinned-vs-generated; JSON-RPC has no set-key method. Programmatic pinning waits for Zotero 10 local writes.
+- **No tool propagates citekey renames into external markdown** — searched BBT/ZotLit/OZI docs and GitHub issues (2026-08-16); the ecosystem answer is pinning discipline plus breakage-on-change (even config-level citekey changes surface as breakage rather than migration, e.g. hans/obsidian-citation-plugin #201, https://github.com/hans/obsidian-citation-plugin/issues/201). zotero-redisearch-rag's claimed two-way citekey sync rests on a search snippet only — unverified, unaudited, not prior art.
+- **No BBT export translator was observed to carry PDF annotations**; annotations travel only via JSON-RPC `item.attachments`, the local API, or SQLite readers. (Empty-library limitation: BetterBibTeX JSON annotation behavior unverified.)
+- **Zotero's schema does not document annotation fields** — `annotation` itemType in https://api.zotero.org/schema (v42) has an empty `fields` array; the authority is core source (annotations.js). Local API `itemTypeFields?itemType=annotation` returns `[]` and `/api/items/new` is unsupported locally (live-verified).
+- **BBT docs pinning gap** — no page found documenting pin mechanics by name (checked: citing, citing/formulas, FAQ, extra-fields, citing/migrating, preferences/export, preferences/miscellaneous, hidden-preferences); the mechanism is established via the citing page's "generator … for those entries that don't have a citekey set explicitly" plus the dstillman forum post (prior-art §4).
+- **Notero declares bidirectional sync out of scope** (README FAQ) — the clearest primary statement of two-way-sync avoidance from a mature bridge.
+- **BBT `relativeFilePaths` is inapplicable here** (requires attachments under the export directory; disables export cache); `baseAttachmentPath` pref exists in live config but its documentation was not found on checked pages — do not build on it.
+- **Unreachables/oddities:** `site/content/installation/bundled-translators.md` 404s on BBT master (the rendered site page exists — generated elsewhere); anonymous GitHub code search API rejects unauthenticated queries (fell back to raw-file greps); retorque.re's rendered /exporting/ page yields no translator list to fetchers (list obtained from the GitHub `translators/` dir instead); BBT auto-export write-atomicity is undocumented and was not verifiable read-only.
+- **ZotFile is dead** (last push 2024-04-16, pre-Zotero-7); MuiseDestiny/zotero-attanger (pushed 2026-07-28) is the living successor — relevant only under a linked-file layout this design doesn't need.
