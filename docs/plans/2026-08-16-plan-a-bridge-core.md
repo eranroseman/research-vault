@@ -16,7 +16,9 @@
 - **Stdlib-only runtime** for `harness_core`; pytest is the only dev dependency.
 - **Four-state result vocabulary** everywhere a check can run: `MATCHED | UNMATCHED | UNREACHABLE | SKIPPED` (§6) — this plan introduces the enum; Plan B builds the checkers.
 - **Actor convention** for any recorded identity: `human:<id>` / `<agent>/<version>` / `process:<id>` (§5).
-- **Managed regions are full re-render**; anything outside the markers must survive regeneration byte-for-byte (§3/§4).
+- **Managed regions are full re-render**. Preservation contract (ruling): the **free region below the close marker survives byte-for-byte**; **frontmatter is preserved semantically** — every key outside the renderer's owned field set passes through with its value intact, serialization normalized (§3/§5).
+- **Execution isolation (ruling):** create the isolated workspace via `superpowers:using-git-worktrees` at execution start (branch `build/plan-a` in a worktree); all Run/Commit paths are relative to that worktree root, not `~/knowledge-harness` directly.
+- **Manifest code blocks (ruling):** lines like `// .claude-plugin/plugin.json` inside JSON fences are plan annotations naming the target file — never write them into the file; JSON has no comments and the tests parse strictly.
 - **Block IDs derive from stable content** (Zotero annotation key, else quote hash), never render order (§5).
 - **Zotero 9 is the floor**; Zotero 10 features are feature-detected, never assumed (§2).
 - **Quotes render as blockquotes** under a claim line carrying tag + citation + anchor (§5).
@@ -112,7 +114,12 @@ def test_tmp_vault_fixture(tmp_vault):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd ~/knowledge-harness/core && python -m pytest tests/test_skeleton.py -v`
+Run (bootstraps the venv first — PEP 668 blocks system pip, and later steps assume it exists):
+```bash
+cd core && python3 -m venv .venv && source .venv/bin/activate
+pip install -q pytest
+python -m pytest tests/test_skeleton.py -v
+```
 Expected: FAIL — `ModuleNotFoundError: No module named 'harness_core'`
 
 - [ ] **Step 3: Write the package, manifests, and conftest**
@@ -213,27 +220,25 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 ```
 
-- [ ] **Step 4: Create the venv, install editable, run tests to verify they pass**
+- [ ] **Step 4: Install the package editable, run tests to verify they pass**
 
-Run:
+Run (venv exists from Step 2):
 ```bash
-cd ~/knowledge-harness/core
-python3 -m venv .venv
-source .venv/bin/activate
+cd core && source .venv/bin/activate
 pip install -e ".[dev]" -q
 python -m pytest tests/test_skeleton.py -v
 ```
-Expected: 4 PASS. (System Python is externally managed — PEP 668 — so `pip install` outside the venv fails; all later Run steps activate this venv per the Execution conventions.)
+Expected: 4 PASS.
 
-Also add the venv to the repo ignore: `cd ~/knowledge-harness && printf 'core/.venv/\n' >> .gitignore`
+Also ignore the venv (committed with this task): `printf 'core/.venv/\n' >> .gitignore`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ~/knowledge-harness && git checkout -b build/plan-a
-git add .claude-plugin core
+git add .claude-plugin core .gitignore
 git commit -m "feat: harness_core package + plugin/marketplace skeleton"
 ```
+(The `build/plan-a` worktree from the Execution-isolation ruling is already checked out; every required artifact — including `.gitignore` — is in this commit.)
 
 ---
 
@@ -424,9 +429,9 @@ git add core && git commit -m "feat: flat-YAML frontmatter parse/serialize"
     - `search(terms: str) -> list[dict]` — BBT `item.search`; CSL-JSON items carrying `citekey`.
     - `citekey_of(item_keys: list[str]) -> dict[str, str]` — BBT `item.citationkey`.
     - `attachments(citekey: str) -> list[dict]` — BBT `item.attachments`; raw dicts with `path`, `annotations` (list, possibly empty), `open`.
-    - `export_csl(citekeys: list[str] | None) -> list[dict]` — BBT `item.export(citekeys, "Better CSL JSON")`; `None` = whole library via local API `/api/users/0/items?format=csljson` (paged).
+    - `export_csl(citekeys: list[str] | None) -> list[dict]` — BBT `item.export(citekeys, "Better CSL JSON")`; `None` = whole library via local API **`/api/users/0/items/top?format=csljson`** (paged; `/top` is the ruling — plain `/items` returns child attachments/notes with URI ids, live-verified).
     - `register_autoexport(target_path: str) -> dict` — BBT `autoexport.add`; returns the RPC result verbatim.
-    - `supports_local_writes() -> bool` — feature detect: `POST /api/users/0/items` with empty list; 501 ⇒ False (Zotero 9), anything else ⇒ True (§2).
+    - `supports_local_writes() -> bool` — **fail-closed capability check (ruling)**: True only when the Zotero major version reported by `ready()` is ≥ 10; False on Zotero 9 and on any error. HTTP-status probing is rejected — Zotero 9 answers 400, not 501, to write probes (live-verified), so status sniffing fails open (§2).
   - `_rpc(method: str, params: list) -> object` (module-private, patchable in tests).
 
 - [ ] **Step 1: Write the failing test (fixtures, no network)**
@@ -633,8 +638,10 @@ Expected: PASS (Zotero 9.0.6 + BBT 9.0.55 respond; library non-empty; ids are ci
 - [ ] **Step 6: Commit**
 
 ```bash
-git add core && git commit -m "feat: Zotero BBT JSON-RPC + local API clients with feature detection"
+git add core docs/environment.md
+git commit -m "feat: Zotero clients with fail-closed feature detection; record live-verified API facts"
 ```
+(`docs/environment.md` carries this task's live-verified facts — the 400-not-501 write probe, `/items/top` id behavior, and the observed annotation shape — and ships in the same commit.)
 
 ---
 
@@ -926,6 +933,8 @@ git add core && git commit -m "feat: bibliography universe, staleness check, har
 
 ### Task 6: Literature notes — render, managed region, free-region preservation
 
+> **Ruling: Tasks 6 and 7 are ONE implementation/review unit.** Task 6's `render_claim` stub necessarily fails for any annotated item, so no reviewable deliverable exists between them. Implement both tasks, run the combined `test_notes.py`, and **commit once at the end of Task 7** — Task 6's commit step is subsumed. Reviewers gate the unit, not the halves.
+
 **Files:**
 - Create: `core/harness_core/notes.py`
 - Test: `core/tests/test_notes.py`
@@ -1089,11 +1098,9 @@ def render_note(item, attachment_hashes, annotations, existing, retrieved) -> st
 Run: `cd ~/knowledge-harness/core && source .venv/bin/activate && python -m pytest tests/test_notes.py -v`
 Expected: 6 PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit — SUBSUMED (ruling)**
 
-```bash
-git add core && git commit -m "feat: literature-note render with managed region + preserved free region"
-```
+No commit here: Tasks 6–7 are one unit; the single commit lands at the end of Task 7.
 
 ---
 
@@ -1226,7 +1233,8 @@ Expected: all PASS (Task 6 + Task 7 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add core && git commit -m "feat: stable claim anchors, blockquote quotes, selector capture, content-hash no-op"
+git add core
+git commit -m "feat: literature notes — managed regions, stable claim anchors, blockquote quotes, content-hash no-op (Tasks 6+7)"
 ```
 
 ---
@@ -1360,6 +1368,11 @@ def cmd_import_note(args):
             ann["citekey"] = args.citekey
             annotations.append(ann)
 
+    # Refresh the bibliography BEFORE any early return (ruling): the §4 commit
+    # step runs inside import-source unconditionally — a NOOP note re-import can
+    # still coincide with a stale bibliography (other items admitted meanwhile).
+    bibliography.write_and_commit(vault, client.export_csl(None))
+
     path = notes.note_path(vault, args.citekey)
     existing = path.read_text() if path.is_file() else None
     if not notes.content_changed(existing, hashes):
@@ -1367,7 +1380,6 @@ def cmd_import_note(args):
         return 0
     today = datetime.date.today().isoformat()
     path.write_text(notes.render_note(item, hashes, annotations, existing, today))
-    bibliography.write_and_commit(vault, client.export_csl(None))
     print(str(path))
     return 0
 
