@@ -1,0 +1,11 @@
+{
+  "name": "knowledge-harness",
+  "owner": { "name": "Eran Roseman" },
+  "plugins": [
+    {
+      "name": "knowledge-harness",
+      "source": "./",
+      "description": "Trust-first academic research harness: Zotero bridge, per-claim provenance, deterministic citation gates."
+    }
+  ]
+}

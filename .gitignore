@@ -1,2 +1,5 @@
 sources/*.zip
 .worktrees/
+core/.venv/
+core/*.egg-info/
+__pycache__/
