@@ -98,7 +98,31 @@ def test_render_quote_claim():
     cid = notes.claim_id(QUOTE_ANN)
     assert lines[0] == f"- (quote) [@smith2020, p. 12] ^{cid}"
     assert lines[1] == "  > Mortality fell 12% (95% CI 8-16)."
-    assert 'hk-sel prefix="the cohort showed that "' in lines[2]
+    assert lines[2] == \
+        '  <!-- hk-sel prefix="the cohort showed that " ' \
+        'suffix=" across all strata studied" -->'
+
+
+def test_rerender_ignores_close_marker_inside_annotation_text():
+    ann = dict(QUOTE_ANN, annotationText=notes.MANAGED_CLOSE)
+    v1 = notes.render_note(ITEM, ["aa11"], [ann], existing=None,
+                           retrieved="2026-08-16")
+    edited = v1 + "\n\nfree tail with exact bytes\r\n"
+    v2 = notes.render_note(ITEM, ["aa11"], [ann], existing=edited,
+                           retrieved="2026-08-16")
+    assert v2 == edited
+
+
+def test_render_multiline_quote_prefixes_every_line():
+    ann = dict(QUOTE_ANN, annotationText="first line\n\nthird line",
+               context_prefix="", context_suffix="")
+    cid = notes.claim_id(ann)
+    assert notes.render_claim(ann).split("\n") == [
+        f"- (quote) [@smith2020, p. 12] ^{cid}",
+        "  > first line",
+        "  > ",
+        "  > third line",
+    ]
 
 
 def test_render_comment_claim():
@@ -106,6 +130,23 @@ def test_render_comment_claim():
     cid = notes.claim_id(COMMENT_ANN)
     assert out.split("\n")[0] == \
         f"- (paraphrase) Design is retrospective only [@smith2020, p. 3] ^{cid}"
+
+
+def test_render_multiline_comment_collapses_whitespace():
+    ann = dict(COMMENT_ANN, comment="  Design is\nretrospective\t only  ")
+    cid = notes.claim_id(ann)
+    assert notes.render_claim(ann) == \
+        f"- (paraphrase) Design is retrospective only [@smith2020, p. 3] ^{cid}"
+
+
+def test_selector_values_are_html_escaped():
+    ann = dict(QUOTE_ANN,
+               context_prefix='lead "quoted" & -->',
+               context_suffix='tail "quoted" & -->')
+    selector = notes.render_claim(ann).split("\n")[-1]
+    assert selector == \
+        '  <!-- hk-sel prefix="lead &quot;quoted&quot; &amp; --&gt;" ' \
+        'suffix="tail &quot;quoted&quot; &amp; --&gt;" -->'
 
 
 def test_content_changed(tmp_vault):

@@ -1,6 +1,7 @@
 """Literature-note generation: managed region + preserved free region (spec §3–§5)."""
 import hashlib
 import unicodedata
+from html import escape
 from pathlib import Path
 
 from . import frontmatter
@@ -25,12 +26,14 @@ def _managed_body(item, annotations) -> str:
 def _split_free(existing) -> str:
     if existing is None:
         return SEED_FREE
-    idx = existing.find(MANAGED_CLOSE)
-    if idx == -1:
-        return SEED_FREE
-    # verbatim tail after "CLOSE\n" — byte-for-byte, including blank lines,
-    # including a deliberately emptied free region (Global Constraint §3)
-    return existing[idx + len(MANAGED_CLOSE) + 1:]
+    offset = 0
+    for line in existing.splitlines(keepends=True):
+        if line in {MANAGED_CLOSE, f"{MANAGED_CLOSE}\n", f"{MANAGED_CLOSE}\r\n"}:
+            # Verbatim tail after the exact standalone marker line, including
+            # blank lines and a deliberately emptied free region (§3).
+            return existing[offset + len(line):]
+        offset += len(line)
+    return SEED_FREE
 
 
 # Fields the renderer owns and may rewrite; EVERYTHING else in prior frontmatter
@@ -76,13 +79,16 @@ def render_claim(annotation: dict) -> str:
         if annotation.get("pageLabel") else f"[@{annotation['citekey']}]"
     text = annotation.get("annotationText") or ""
     if text:
-        lines = [f"- (quote) {cite} ^{cid}", f"  > {text}"]
+        lines = [f"- (quote) {cite} ^{cid}"]
+        lines.extend(f"  > {line}" for line in text.split("\n"))
         pre, suf = annotation.get("context_prefix"), annotation.get("context_suffix")
         if pre or suf:
-            lines.append(f'  <!-- hk-sel prefix="{(pre or "")[-32:]}" '
-                         f'suffix="{(suf or "")[:32]}" -->')
+            prefix = escape((pre or "")[-32:], quote=True)
+            suffix = escape((suf or "")[:32], quote=True)
+            lines.append(f'  <!-- hk-sel prefix="{prefix}" suffix="{suffix}" -->')
         return "\n".join(lines)
-    return f"- (paraphrase) {annotation.get('comment', '')} {cite} ^{cid}"
+    comment = " ".join((annotation.get("comment") or "").split())
+    return f"- (paraphrase) {comment} {cite} ^{cid}"
 
 
 def sha256_file(path) -> str:
