@@ -1,0 +1,85 @@
+{
+ "thread": "agent-memory-systems",
+ "findings": [
+  {
+   "pattern": "Bi-temporal fact model: every graph edge carries valid_at/invalid_at (when true in the world) plus created_at/expired_at (when the system learned it / learned it was no longer valid); on contradiction the old edge is invalidated with timestamps set, never deleted, enabling point-in-time queries. The spec's per-claim `status: live | deprecated:<reason>` records a reason but no transition timestamp, no deprecating actor, and no pointer to the superseding claim — an auditor cannot reconstruct when a claim was deprecated, by whom, or what replaced it, and ack-scope logic has no transition event to key on.",
+   "usedWhere": "Zep (commercial agent-memory service) and its open-source engine Graphiti (~20k GitHub stars), deployed as the memory layer for production agent systems",
+   "source": "https://arxiv.org/abs/2501.13956 and https://help.getzep.com/facts",
+   "specImpact": "CHANGES-SPEC: §5 — extend per-claim status to a transition record, e.g. `[status:: deprecated] [deprecated-at:: <date>] [deprecated-by:: <actor>] [superseded-by:: <citekey#^id or address>]`, matching the OKF actor convention already used for `verified` events; deprecation is currently the only state change in the schema with no actor/date, inconsistent with the spec's own event discipline."
+  },
+  {
+   "pattern": "Supersession always links old→new: when Zep/Graphiti invalidates a fact, the invalidation is caused by and traceable to the specific new fact that superseded it (e.g. the Adidas-preference edge is invalidated by the arriving Puma-preference fact). The spec's literature-note `status: superseded` is a bare enum with no `superseded-by` field naming the superseding item, even though Crossref `updated-by` (already queried for the retraction gate) returns the target DOI of corrections/new versions for free.",
+   "usedWhere": "Zep/Graphiti edge-invalidation pipeline; same pointer-carrying supersession appears in Wikidata ('replaced by') which §5 already names as its precedent tier",
+   "source": "https://help.getzep.com/facts",
+   "specImpact": "CHANGES-SPEC: §5 — add `superseded-by: <citekey>` (or DOI) to literature-note frontmatter alongside `status: superseded`, so drafts citing a superseded note can be mechanically pointed at the successor; cheap now, unreconstructable later like `retrieved`."
+  },
+  {
+   "pattern": "LLM memory managers, when permitted, physically delete contradicted content: mem0's update phase has the LLM pick ADD/UPDATE/DELETE/NOOP via tool call, and DELETE is real removal ('M←M∖{mᵢ}' — memories are not retained). The spec's 'deprecate-with-reason, never delete' invariant has no mechanical enforcement in the LLM-owned atlas: it is guard-skill convention only, and nothing in the §6 table detects a `^claim-id` silently vanishing or being rewritten in place.",
+   "usedWhere": "mem0 (mem0ai/mem0, ~40k GitHub stars, hosted platform) — the mass-deployed default behavior for open-source agent memory",
+   "source": "https://arxiv.org/abs/2504.19413",
+   "specImpact": "CHANGES-SPEC: §6 — add a deterministic offline lint (rides the adjacent-lints/citekey row: PostToolUse warn, pre-commit, CI) that a block-anchored `^claim-id` present in HEAD never disappears or has its claim line mutated without a matching deprecation entry; git diff makes this fully mechanical, and mass-deployed practice shows the failure mode is real, not hypothetical."
+  },
+  {
+   "pattern": "Bi-temporal separation of 'when the fact ceased to be true' (invalid_at) from 'when the system learned it' (expired_at). Applied to retractions: a paper is retracted on a world date X and detected by the nightly RW/Crossref batch on system date Y. The spec's review-inbox entry id embeds only the detection date; the retraction notice's own issued date (present in both RW CSV and the Crossref retraction record) is not required anywhere in the schema.",
+   "usedWhere": "Zep production fact schema (all four timestamps on every fact)",
+   "source": "https://help.getzep.com/facts",
+   "specImpact": "CHANGES-SPEC: §6 retraction row — record the retraction notice's publication date in the alert/inbox entry alongside detection date. Doubly load-bearing here: the §9 validation project ('how much are retracted papers cited after retraction') is unanswerable from detection-time alone."
+  },
+  {
+   "pattern": "Validity metadata rides the retrieval surface: Zep assembles context for the LLM as 'FACT (Date range: from – to)', so the model sees each fact's validity window at use time rather than having to open the source record. The spec's `atlas/index.md` — the surface orientation-first and registry-first dedup actually read — is wikilink + one-line gist only; a page whose claims are largely deprecated or long untended is indistinguishable in the index from a fresh one. (Page-level maturity frontmatter exists; the delta is solely the orientation surface.)",
+   "usedWhere": "Zep context-assembly for agent prompts, production",
+   "source": "https://help.getzep.com/facts",
+   "specImpact": "CHANGES-SPEC: §3 (minor) — have index-maintaining skills carry growth stage and/or last-tended into the index line (machine-writable from frontmatter), so orientation and dedup decisions see validity status without opening every page."
+  },
+  {
+   "pattern": "Temporal-invalidation semantics — newer information supersedes and invalidates older facts — is the correct model for user/agent state ('lives in Paris now') but the wrong model for scholarly contradiction, where a contested claim remains a live, citable claim of its paper. mem0's own trajectory concedes this: its graph variant abandons deletion for 'marking them as invalid rather than physically removing them to enable temporal reasoning', converging on preserve-and-mark. The spec's 'contradictions preserved, never silently resolved' + stance links (`supported-by`/`contested-by`) + import-time auto-hold routing contradiction to a human is the appropriate scholarly refinement of that pattern — stronger than any surveyed system, all of which let the LLM arbitrate contradiction unilaterally.",
+   "usedWhere": "mem0/mem0g (LLM-arbitrated resolution), Zep/Graphiti (automatic invalidation), LangMem (LLM consolidation)",
+   "source": "https://arxiv.org/abs/2504.19413 and https://arxiv.org/abs/2501.13956",
+   "specImpact": "CONFIRMS-SPEC: §5 invariants and §7 import-source hold policy — the spec deliberately rejects what every surveyed memory system does by default, and for an audit-trail research harness the spec is right."
+  },
+  {
+   "pattern": "Memory maintenance as a separate asynchronous agent, never in the hot path: Letta's sleep-time architecture creates two agents — the primary agent has no tools to edit core memory; a sleep-time agent 'continuously improve[s] their learned context' asynchronously during idle periods, because bundling memory management with conversation (original MemGPT) caused latency and reliability problems.",
+   "usedWhere": "Letta (the MemGPT company's production platform), default architecture for sleep-time-enabled agents",
+   "source": "https://www.letta.com/blog/sleep-time-compute/",
+   "specImpact": "CONFIRMS-SPEC: §7 — the spec's 'contradiction-probing and staleness repair form a separate cron-shaped maintenance lane, never the import path' matches the architecture the field converged on after trying the bundled alternative; also supports keeping the §10 maintenance-lane deferral rather than folding maintenance into import-source."
+  },
+  {
+   "pattern": "Semantic / episodic / procedural memory typology as the standard decomposition: semantic = facts and knowledge, episodic = past interactions as ground-truth record, procedural = internalized how-to (system-prompt/skill rules). The spec's layers map one-to-one: atlas (LLM-owned semantic synthesis), append-only calendar daily log (episodic record of actor+action), skills + vault AGENTS.md (procedural).",
+   "usedWhere": "LangMem SDK (LangChain), same typology in Letta docs and the CoALA-derived literature",
+   "source": "https://www.langchain.com/blog/langmem-sdk-launch",
+   "specImpact": "CONFIRMS-SPEC: §3/§7 — the vault's layer separation matches the memory-type decomposition deployed SDKs standardized on; no missing memory kind for the research workload."
+  },
+  {
+   "pattern": "Episode provenance: 'Every derived fact traces back to the episodes (raw data) that produced it. Full lineage from derived fact to source.' The spec's analog is stronger for its domain: atlas claims carry generating agent + date, `supported-by`/`contested-by` links resolve to claim addresses in the machine-projected evidence layer, and the append-only daily log is the episode stream — lineage terminates in a human-admitted Zotero item rather than in raw conversation text.",
+   "usedWhere": "Graphiti (getzep/graphiti), core guarantee of the episode subgraph",
+   "source": "https://github.com/getzep/graphiti",
+   "specImpact": "CONFIRMS-SPEC: §5 — per-claim provenance to an evidence layer meets or exceeds the lineage guarantee of the leading temporal-KG memory engine; no delta."
+  },
+  {
+   "pattern": "Mass-deployed consumer memory is user-visible and user-editable but carries no per-memory provenance: Claude memory is one running 'memory summary' the user can 'view and edit... at any time by chatting with Claude', project-scoped, with incognito chats excluded; ChatGPT's documented controls (view, delete individual memories, forget on request, temporary chat) likewise surface no linkage from a memory to the conversation that produced it. Human editability of memory is the deployed norm; per-fact provenance is not.",
+   "usedWhere": "Claude memory (all plans as of 2026), ChatGPT memory (deployed to hundreds of millions of users)",
+   "source": "https://claude.com/blog/memory (ChatGPT leg: https://openai.com/index/memory-and-new-controls-for-chatgpt/, fetch-blocked, details from search snapshots of the owning pages)",
+   "specImpact": "CONFIRMS-SPEC: §5 — human-in-the-loop correction (review inbox + `human:` ack) matches the deployed control pattern, while per-claim provenance is exactly the dimension consumer memory omits and this harness exists to supply; the gap is the product's justification, not a defect."
+  },
+  {
+   "pattern": "No surveyed fact store forgets by time-decay: Zep/Graphiti describe no decay or eviction policy (invalidated facts are kept forever), mem0g marks-invalid rather than expiring by age, and Letta/MemGPT 'forgetting' is paging — eviction from the context window into searchable archival storage, not deletion ('intelligently manages different memory tiers... within the LLM's limited context window'). Cognee's `memify` ('prunes stale nodes, reweights edges') is the one decay-shaped exception, and its semantics are undocumented.",
+   "usedWhere": "MemGPT (arXiv 2310.08560) / Letta archival memory; Zep/Graphiti production",
+   "source": "https://arxiv.org/abs/2310.08560 and https://arxiv.org/abs/2501.13956",
+   "specImpact": "CONFIRMS-SPEC: §5/§10 — skipping `stale_after` (staleness computed from `retrieved` + registry checks) and deferring rot-watch matches practice: validity in serious fact stores is event-driven (supersession, retraction), not age-driven."
+  },
+  {
+   "pattern": "Cognee's temporal_cognify extracts event world-time from ingested text ('builds events and timestamps from your text during ingestion') into event graphs with before/after/during relations, supporting time-window queries.",
+   "usedWhere": "Cognee open-source memory platform (topoteretes/cognee), opt-in temporal mode",
+   "source": "https://docs.cognee.ai/guides/time-awareness",
+   "specImpact": "IRRELEVANT: extracting world-time from prose solves a problem the harness doesn't have — world-time for scholarly claims (publication date, study period) already lives in Zotero/CSL metadata and the source text itself; and Cognee documents no contradiction/supersession model to learn from."
+  }
+ ],
+ "deadEnds": [
+  "Cognee contradiction/supersession model: docs.cognee.ai/guides/time-awareness and search coverage document event-time extraction, feedback-based edge reweighting, and memify pruning, but no fact-invalidation or contradiction-handling model — nothing to hold the spec's invariants against.",
+  "docs.letta.com/memory/overview and docs.letta.com/concepts/memory both 404; Letta memory model reconstructed from search-indexed docs pages (docs.letta.com/guides/core-concepts/memory/*) plus the fetched letta.com/blog/sleep-time-compute.",
+  "help.openai.com Memory FAQ (articles 8590148, 11146739) and openai.com/index/memory-and-new-controls-for-chatgpt/ all return HTTP 403 to fetches; the ChatGPT-memory leg of the consumer-memory finding rests on search snapshots of those owning pages and is marked accordingly.",
+  "Third-party claim (kenhuangus.substack.com via search) that Letta drops facts past a 'forgetAfter' date and runs a 'dream cycle' reconsolidation — not present in any Letta primary source fetched; rejected, not used.",
+  "arxiv.org/abs pages for both 2501.13956 (Zep) and 2504.19413 (mem0) expose abstract-only content; details required fetching the PDF (Zep) and the HTML full text (mem0). The Zep PDF extraction also garbled the timestamp definitions (t_expired described as 'future-looking'); the authoritative definitions were taken from help.getzep.com/facts instead.",
+  "LangMem deletion/overwrite of outdated facts: the launch blog documents extract/update/consolidate but not deletion semantics; an aggregated search summary claimed overwrite/delete capability but the primary source does not confirm it, so no finding rests on it."
+ ]
+}

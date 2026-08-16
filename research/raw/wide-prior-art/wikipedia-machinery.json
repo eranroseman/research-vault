@@ -1,0 +1,91 @@
+{
+ "thread": "wikipedia-machinery",
+ "findings": [
+  {
+   "pattern": "Retraction tracking covers the full Crossref/Retraction-Watch update taxonomy, not just retractions: RetractionBot v2's 2024 revival explicitly added expressions of concern ('early warning signals'), and en.wiki maintains separate {{Expression of concern}} and {{Erratum}} templates with tracked categories (66 EoC articles, 40 errata alongside the retraction categories).",
+   "usedWhere": "English Wikipedia, RetractionBot v2 (operators Samwalton9/mdann52), running against the ~40k-entry Retraction Watch database via Crossref",
+   "source": "https://en.wikipedia.org/wiki/Wikipedia:Wikipedia_Signpost/2024-06-08/Special_report and https://en.wikipedia.org/wiki/Template:Retracted",
+   "specImpact": "CHANGES-SPEC: §6 retraction row filters Crossref updated-by to type==\"retraction\" only. Mass practice treats expression-of-concern and erratum as distinct, alertable signals on the same pipeline; the spec silently drops them. Widen the filter to the update-type set (retraction | expression_of_concern | correction/erratum), with EoC/erratum as warn-tier inbox entries (retraction stays the publish-blocking tier)."
+  },
+  {
+   "pattern": "Retracted-work matching keys on PMID as well as DOI: RetractionBot downloads the RW CSV and cross-references both retracted DOIs and PubMed IDs against citations, because biomedical papers (especially older ones) are frequently cited without a DOI.",
+   "usedWhere": "English Wikipedia RetractionBot v2, nightly runs over the full article corpus",
+   "source": "https://en.wikipedia.org/wiki/Wikipedia:Wikipedia_Signpost/2024-06-08/Special_report",
+   "specImpact": "CHANGES-SPEC: §5 literature frontmatter carries only doi/url — no pmid — so the §6 retraction check can only match on DOI. For a health-research corpus this is a real miss. Add optional `pmid` to literature frontmatter (Zotero already stores it) and match the RW CSV on both identifiers."
+  },
+  {
+   "pattern": "Missing-identifier enrichment before verification: Citation bot (5M+ edits, user-triggered) mechanically discovers and adds missing DOIs, PMIDs, ISBNs, S2CIDs, arXiv IDs to citations by querying Crossref, PubMed E-utilities, Google Books, Semantic Scholar, Unpaywall — so a citation lacking a DOI is repaired, not permanently exempted from DOI-keyed checks.",
+   "usedWhere": "English Wikipedia, Citation bot — 5M+ edits by 2025, #6 most-thanked account",
+   "source": "https://en.wikipedia.org/wiki/User:Citation_bot",
+   "specImpact": "CHANGES-SPEC: §6 makes SKIPPED automatic when the item lacks `doi` — which permanently exempts that item from the DOI, metadata, AND retraction gates. That is a standing hole in the trust boundary: a retracted DOI-less paper can never fire the retraction gate. import-source (§7) should attempt identifier discovery (Crossref bibliographic query by title/author/year) before assigning SKIPPED, and unresolvable-identifier items should land in the review inbox once rather than vanish into SKIPPED."
+  },
+  {
+   "pattern": "Archive at link-add time, not at rot time: the Internet Archive has been monitoring all new and edited outbound links from Wikipedia and archiving them 'soon after changes are made to articles' (since 2013/2015), so when IABot later finds a dead link (9M+ rescued by 2018, now 300+ wikis) an archive snapshot already exists. Recovery after death is impossible if capture wasn't proactive.",
+   "usedWhere": "All Wikimedia wikis — Internet Archive + Wikimedia partnership; IABot running on 300+ wikis",
+   "source": "https://blog.archive.org/2018/10/01/more-than-9-million-broken-links-on-wikipedia-are-now-rescued/ and https://meta.wikimedia.org/wiki/InternetArchiveBot",
+   "specImpact": "CHANGES-SPEC: §5 defines `archive-url` for web sources but no skill owns creating the archive, and rot-watch is deferred (§10). By the time a deferred rot cron runs, an unarchived dead URL is unrecoverable — the one step that cannot be retrofitted. §7 import-source should trigger Save Page Now (or record an existing Wayback snapshot) at import for URL-sourced items; the deferred cron then only detects, never has to rescue."
+  },
+  {
+   "pattern": "Verification failure is marked inline at the claim: {{failed verification|date=}} rides directly on the cited sentence (source exists but 'does not support what is contained in the article'), with a dated parameter feeding maintenance categories — the dispute travels with the claim wherever it is read or copied.",
+   "usedWhere": "English Wikipedia inline cleanup-template system, dated maintenance categories",
+   "source": "https://en.wikipedia.org/wiki/Template:Failed_verification",
+   "specImpact": "CHANGES-SPEC: §6 routes UNMATCHED quote/metadata results only to the central review inbox; the claim itself carries no marker (per-claim status is only live|deprecated). By the spec's own relay principle ('tags must survive per-claim relays', §5), a verification-failed claim can be relayed into a draft with no local signal. Add an inline machine-written field on the failing claim (e.g. [verify-failed:: <check>/<date>]) cleared on MATCHED or human resolution, mirroring the retraction-ack single-syntax pattern."
+  },
+  {
+   "pattern": "Source-level reliability status is machine-actionable with graduated enforcement: the Perennial Sources list encodes RSN consensus in five grades (generally reliable / no consensus / generally unreliable / deprecated / blacklisted); deprecated sources trigger an edit-filter warning at citation-add, blacklisted ones are technically blocked. Citing a downgraded source is caught at use time, not just recorded.",
+   "usedWhere": "English Wikipedia — WP:RSP backed by reliable-sources-noticeboard RfCs, enforced by AbuseFilter + spam blacklist",
+   "source": "https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Perennial_sources",
+   "specImpact": "CHANGES-SPEC: §5 gives literature notes status: unreviewed|active|superseded|rejected, but no §6 gate keys on it — the citekey-exists check passes even when the cited note is rejected or superseded, so the human's own source-level verdict is never enforced. Add a cheap offline lint to the citekey row's surfaces: claim cites a note with status rejected/superseded → warn + review inbox."
+  },
+  {
+   "pattern": "Bypass-as-data for retracted citations: {{retracted|intentional=yes}} — the unacked template renders a red 'Retracted' notice and files the article in a pending category (45 articles); the intentional parameter suppresses the alarm and moves it to a separate audited category (299 articles). The ack is content in the page, never an operator flag.",
+   "usedWhere": "English Wikipedia, Template:Retracted + RetractionBot categories",
+   "source": "https://en.wikipedia.org/wiki/Template:Retracted",
+   "specImpact": "CONFIRMS-SPEC: §5/§6's [retraction-ack:: <reason>] ('bypass is data, never a flag') matches the deployed mechanism exactly, and the 299-vs-45 category split independently validates the §9 validation project's premise that intentional citation of retracted work is common enough to need a first-class ack path."
+  },
+  {
+   "pattern": "False positives kill retraction automation: RetractionBot v1 was shelved for five years (2018–2024) after 'several Cochrane Reviews were flagged as retracted for technical reasons, while they were never retracted in actuality' — the RW/RetractionDatabase records had non-retraction semantics the matcher didn't check. v2 flags for human review and never removes citations.",
+   "usedWhere": "English Wikipedia — RetractionBot v1 failure and v2 redesign",
+   "source": "https://en.wikipedia.org/wiki/Wikipedia:Wikipedia_Signpost/2024-06-08/Special_report",
+   "specImpact": "CONFIRMS-SPEC: §6's standing-alert + human-ack design (never auto-edit, blocks only at publish when unacknowledged) is exactly what the v1 postmortem argues for. One build-time caution it adds: validate the RW CSV record's RetractionNature/type field before alerting, since raw RW rows include non-retraction events — precision failures discredit the whole gate."
+  },
+  {
+   "pattern": "Peer-reviewed measurement of the problem and the fix: 1,181 citations of retracted papers found on English Wikipedia, 71.6% initially problematic, persisting a median 3.68 years (1,344 days); bot-mediated flagging (RetractionBot) is associated with a significantly higher hazard of correction than waiting for human discovery.",
+   "usedWhere": "English Wikipedia corpus study (2025 preprint analyzing the RetractionBot era)",
+   "source": "https://arxiv.org/abs/2509.18403",
+   "specImpact": "CONFIRMS-SPEC: quantitative evidence that (a) unflagged retracted citations persist for years even in a heavily-patrolled corpus, so §6's scheduled retraction batch is load-bearing, and (b) automated flagging measurably accelerates correction — the spec's publish-blocking closure goes one defensible step beyond Wikipedia's warn-only practice."
+  },
+  {
+   "pattern": "The largest deployed citation generator is built on Zotero: Citoid 'generates citation data given a URL, DOI, ISBN, PMID, PMCID or QID' via 'a working installation of Zotero's translation server' and 'relies on the brilliant Zotero community' of translators — Wikimedia chose Zotero's extraction ecosystem rather than building its own.",
+   "usedWhere": "All VisualEditor-enabled Wikimedia wikis (every citation added through the visual editor's automatic tab)",
+   "source": "https://www.mediawiki.org/wiki/Citoid",
+   "specImpact": "CONFIRMS-SPEC: §2/§4's bet on Zotero as the sole evidence-admission path inherits the same translator machinery Wikimedia deemed the best available at planetary scale; find-papers→Zotero-admission→import gets Citoid-grade metadata extraction for free, with the human admission step the spec adds on top."
+  },
+  {
+   "pattern": "Dead-link determination is n-strikes over time, never single-shot: IABot marks a link dead only after it 'failed to validate as alive 3 times in a row, during 3 separately spaced out checks', pairs that with a false-positive reporting tool, and when editing 'left the original URL in the original URL field' while adding the archive URL in its own parameter.",
+   "usedWhere": "InternetArchiveBot on 300+ Wikimedia wikis",
+   "source": "https://meta.wikimedia.org/wiki/InternetArchiveBot/FAQ",
+   "specImpact": "CONFIRMS-SPEC: §6's four-state doctrine ('an outage is never reported as fabrication') and §5's never-delete invariant match IABot's deployed practice; additionally hands the §10 rot-watch cron its key design parameter retrofit-free — three spaced failures before declaring rot, one failure is UNREACHABLE-transient."
+  },
+  {
+   "pattern": "Burden-on-the-adder with quotes as the strictest class: 'The burden to demonstrate verifiability lies with the editor who adds or restores material', all quotations require an inline citation to a source that 'directly supports' them, and the standard is verifiability-not-truth — the system checks source-support mechanically and leaves truth judgment to humans.",
+   "usedWhere": "English Wikipedia core content policy WP:V, enforced by removal rights + {{citation needed}} workflow across 6M+ articles",
+   "source": "https://en.wikipedia.org/wiki/Wikipedia:Verifiability",
+   "specImpact": "CONFIRMS-SPEC: the §7 Iron Law (no claim enters a draft without a verified source first) is WP:BURDEN made stricter (every claim, not just challenged ones — appropriate for academic output); §5's quote-blockquote-with-citation matches quotations-always-cited; verifiability-not-truth is the same cut as §1's deterministic-gates-plus-non-blocking-LLM-judgment."
+  },
+  {
+   "pattern": "Constraints as hints with a mandatory tier and data-encoded exemptions: Wikidata property constraints 'are hints, not firm restrictions'; violations surface in item-page reports, Special:ConstraintReport, and database reports without blocking any edit; a 'mandatory constraint' status marks the serious tier; 'exception to constraint' lists exempted items as data on the constraint itself.",
+   "usedWhere": "Wikidata — constraint system across ~12k properties and 100M+ items, WBQC extension + community database reports",
+   "source": "https://www.wikidata.org/wiki/Help:Property_constraints_portal",
+   "specImpact": "CONFIRMS-SPEC: §6's doctrine (detect always-on and free; enforce opt-in per surface; warn-first with one mandatory closure tier) and §3's ack-as-data with defined scope mirror the largest structured-knowledge deployment's constraint architecture, including its two-severity split and data-encoded exception mechanism."
+  }
+ ],
+ "deadEnds": [
+  "Advisor tool was rate-limited on all three attempts (before research, mid-course, and pre-finalization), so no advisor review of these findings was possible.",
+  "https://en.wikipedia.org/wiki/User:RetractionBot does not state its data source or matching method — had to trace to the Signpost 2024-06-08 Special report for the RW-CSV-via-Crossref + DOI/PMID mechanics.",
+  "https://en.wikipedia.org/wiki/Wikipedia:Wikipedia_Signpost/2024-06-08/News_and_notes contains no RetractionBot coverage despite search hits pointing at the issue; the story lives in the same issue's Special_report page.",
+  "https://meta.wikimedia.org/wiki/InternetArchiveBot omits the dead-link detection threshold; it is only documented on the /FAQ subpage.",
+  "Wikipedia:WikiProject Check Wikipedia names three priority tiers but does not document the tier criteria, and neither CheckWiki nor Special:LintErrors yielded a spec delta beyond what the Wikidata-constraint finding already covers (syntax linting with severity tiers, non-blocking) — dropped as a standalone finding.",
+  "Existing repo research (research/llm-wiki-integration-prior-art.md, trust-gates-prior-art.md) was checked first: it covers Wikidata deprecation ranks but none of the citation-machinery systems in this thread (Citoid, IABot, Citation bot, RetractionBot, RSP), so no findings here duplicate prior inputs to the spec."
+ ]
+}

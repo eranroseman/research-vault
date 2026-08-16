@@ -1,0 +1,91 @@
+{
+ "thread": "research-object-standards",
+ "findings": [
+  {
+   "pattern": "Crossref's `updated-by` retraction data only exists for Crossref-registered DOIs; DOIs registered by other RAs (DataCite: all arXiv papers under prefix 10.48550, Zenodo, most datasets) return 404 from the Crossref API. The DOI Foundation's 'Which RA?' service (`https://doi.org/doiRA/<doi>`, JSON `{DOI, RA}`) mechanically determines the registering agency, and Retraction Watch's CSV is journal-article-centric, so coverage absence is detectable, not inferable from an empty result.",
+   "usedWhere": "Crossref serves retraction/update metadata for its ~150M registered DOIs only; arXiv registers DataCite DOIs for every paper; doi.org/doiRA is the DOI Foundation's production resolver service",
+   "source": "https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation and https://info.arxiv.org/help/doi.html",
+   "specImpact": "CHANGES-SPEC: §6 retraction row. §6 defines SKIPPED as automatic-only, fired 'when the item lacks the field the check needs' — but an arXiv/Zenodo item HAS a `doi`, so SKIPPED never fires; the Crossref query 404s or returns empty and the spec defines no mapping for 'check ran against the wrong registry', so a withdrawn arXiv preprint reads as clean and passes the publish gate. The metadata row explicitly handles non-Crossref DOIs (content-negotiation fallback); the retraction row has no such branch — the asymmetry is the miss. Fix is mechanical: doiRA lookup → non-Crossref DOI ⇒ SKIPPED on the Crossref leg (and note RW CSV coverage limits), preserving the spec's own 'absence of coverage never reads as clean' doctrine."
+  },
+  {
+   "pattern": "Force11 Data Citation Principle 7 (Specificity and Verifiability: citations must identify the exact version cited), JATS4R's machine-readable `<version designator=…>` recommendation, and DataCite/Zenodo version-DOI practice all require a version designator distinct from fixity. Critically, arXiv's DataCite DOIs 'always point to the latest version of the article', and Zenodo says cite the Version DOI, never the Concept DOI, for a specific release.",
+   "usedWhere": "arXiv (all papers, DataCite-registered); Zenodo's platform-wide concept/version DOI machinery; JATS4R recommendations approved through NISO",
+   "source": "https://doi.org/10.25490/a97f-egyk (Force11 JDDCP), https://info.arxiv.org/help/doi.html, https://support.zenodo.org/help/en-gb/1-upload-deposit/97-what-is-doi-versioning, https://jats4r.niso.org/data-citations/",
+   "specImpact": "CHANGES-SPEC: §5 literature-note frontmatter. The spec captures `retrieved` + `source-sha256` (fixity pins the bytes) but no version designator, and its own doctrine says capture what is 'unreconstructable later'. Scenario: quote verified against arXiv v1; the cited DOI 10.48550/arXiv.X resolves readers to v3 where the quote no longer exists — mechanically 'traceable to a real source' fails for the reader even though the vault's hash matches. Add an optional `version` field (arXiv vN, Zenodo version DOI, dataset version) captured at ingest when the source exposes one."
+  },
+  {
+   "pattern": "OAIS (ISO 14721 / CCSDS 650.0-M-3) Fixity Information covers the whole Content Information object, and NDSA Levels of Digital Preservation Level 2 requires 'fixity on all ingests' — all content files, not a designated primary. Fixity scoped to one file cannot attest the others.",
+   "usedWhere": "OAIS is the ISO baseline for national archives and repository certification (dpconline.org Technology Watch); NDSA Levels (v2.1, 2026) is the mass-deployed self-assessment ladder for preservation programs",
+   "source": "https://www.dpconline.org/docs/technology-watch-reports/1359-dpctw14-02/file and https://www.ndsa.org/publications/levels-of-digital-preservation/",
+   "specImpact": "CHANGES-SPEC: §5 `source-sha256` hashes only the first PDF attachment, but §4 extracts annotations via `item.attachments` (plural), so a quote in the managed region can originate from attachment #2 whose bytes are never fixity-tracked — and §3's ack-scope invalidation keys on that single hash, so the quoted file can change while standing acknowledgments survive. Three sections agree to miss the same file. Fix: per-attachment hash list (or hash the attachment the extraction actually read)."
+  },
+  {
+   "pattern": "OAIS: an Archival Information Package binds Content Information together with its Preservation Description Information (fixity, provenance) inside the archive boundary; a hash without the stored content lets an archive detect loss but never recover from it.",
+   "usedWhere": "OAIS/ISO 14721 conformance is the ingest/AIP baseline for institutional and national digital archives worldwide",
+   "source": "https://www.dpconline.org/docs/technology-watch-reports/1359-dpctw14-02/file",
+   "specImpact": "CHANGES-SPEC (documentation-level): §2/§6. The `published/<effort>-<date>` git tag binds notes, managed regions, and the bibliography — but the evidence artifacts (PDFs, snapshots) live only in Zotero storage, outside every stated preservation boundary; the spec sets no backup expectation for the Zotero library. Defensibility survives PDF loss (quote checks target the in-git managed region) but recoverability does not. Fix is modest: state the boundary explicitly and have vault-setup/doctor surface 'Zotero storage backup is your job' — not a new gate."
+  },
+  {
+   "pattern": "Force11 principles 5–6 (Access, Persistence) require citations to keep facilitating access beyond the resource's lifespan; the mass-deployed operationalization for web sources is proactive archiving plus link verification (Wikipedia's InternetArchiveBot has archived/repaired millions of citation links; Memento/Wayback are the resolution infrastructure).",
+   "usedWhere": "Wikipedia (InternetArchiveBot, site-wide across millions of articles); Internet Archive Wayback Machine",
+   "source": "https://doi.org/10.25490/a97f-egyk",
+   "specImpact": "CHANGES-SPEC (small): §6. §5 defines `archive-url` for web sources but no row in the gate table ever checks it exists or resolves — and web sources are exactly the items where DOI/metadata/retraction rows all SKIP, leaving `source-sha256` of the snapshot as the sole mechanical anchor. A deterministic ingest lint ('type-web item ⇒ archive-url present and resolves') is cheap, fits the §6 idiom, and covers the seed migration's ~40 cited web sources; deeper re-checking stays in the deferred rot-watch cron."
+  },
+  {
+   "pattern": "RO-Crate 1.3 (current long-term release) is the lightweight standard for packaging a research output with its files, metadata, and provenance as a self-describing unit (ro-crate-metadata.json, JSON-LD), with a profiles mechanism for domain conventions.",
+   "usedWhere": "WorkflowHub (import/export exchange format), Language Data Commons of Australia (archive format), Open Microscopy Environment, nf-prov (Nextflow provenance)",
+   "source": "https://www.researchobject.org/ro-crate/specification.html",
+   "specImpact": "CHANGES-SPEC (deferred register only): §10. Publish's effect is frontmatter + git tag — defensibility is vault-internal; handing a reviewer or repository the effort + its evidence notes + `verified` events requires vault access. A publish-time RO-Crate export is the standard portability answer, but it adds portability, not trust, so it belongs as a named entry in §10's deferred register (beside full-arc pipeline machinery), not a day-one gate."
+  },
+  {
+   "pattern": "DataCite serves DOI metadata via content negotiation with no auth: doi.org redirects non-text/html Accept headers to the RA's metadata service (data.crosscite.org for DataCite), serving CSL JSON (application/vnd.citationstyles.csl+json), BibTeX, schema.org, JATS. Coverage extends only to RAs behind crosscite (Crossref, DataCite, mEDRA); other RAs' DOIs will not negotiate.",
+   "usedWhere": "DataCite production infrastructure for all its registered DOIs (all of arXiv, Zenodo, most data repositories); doi.org proxy behavior is DOI-Foundation-wide",
+   "source": "https://support.datacite.org/docs/datacite-content-resolver",
+   "specImpact": "CONFIRMS-SPEC: §6 metadata row's 'content-negotiation fallback for non-Crossref DOIs' is implementable exactly as written, in CSL JSON matching the spec's comparison fields. Residual nuance: DOIs from RAs outside crosscite (JaLC, ISTIC, EIDR…) yield UNREACHABLE — which the row's no-closure fail policy already tolerates."
+  },
+  {
+   "pattern": "NDSA Levels of Digital Preservation ladder: Level 2 = fixity captured at ingest for all content; Level 3 = additionally verify fixity at fixed intervals and keep logs. Ingest-time capture first, periodic verification as a later maturity step, is the sanctioned sequence.",
+   "usedWhere": "NDSA Levels (2013; v2.0 2019; v2.1 March 2026) is the standard self-assessment framework across the digital-preservation community",
+   "source": "https://www.ndsa.org/publications/levels-of-digital-preservation/",
+   "specImpact": "CONFIRMS-SPEC: §5's ingest-time `source-sha256` plus §10's deferred rot-watch cron ('provenance recorded now supports it retrofit-free') is exactly the Level-2-now, Level-3-later shape — the deferral is the right structure, not a gap (modulo the per-attachment scope finding above)."
+  },
+  {
+   "pattern": "SWHID — ISO/IEC 18670:2025 (adopted April 2025), the first international standard for persistent software-artifact identification — is intrinsic and content-derived (Merkle DAG hashes), verifiable with no central registry: identity = cryptographic digest of content.",
+   "usedWhere": "Software Heritage (universal source-code archive) mints and resolves SWHIDs; ISO/IEC standardization",
+   "source": "https://www.swhid.org/",
+   "specImpact": "CONFIRMS-SPEC: §5's `source-sha256` as the identity/no-op/ack-scope primitive is the same intrinsic-identifier design the ISO standard canonizes — content-derived hashes as trust anchors are now standards-grade practice. Minor deferred note: if software is ever cited as evidence, SWHIDs are the PID type to capture; irrelevant to the day-one bibliometrics workload."
+  },
+  {
+   "pattern": "Force11 JDDCP Principle 7 (Specificity and Verifiability): citations must 'enable verification of exact versions, timeslices, or data portions through provenance and fixity information' — fixity plus provenance attached at citation granularity.",
+   "usedWhere": "JDDCP (2014, DOI 10.25490/a97f-egyk) is endorsed across publishers/repositories and is the root document behind DataCite and publisher data-citation policy",
+   "source": "https://doi.org/10.25490/a97f-egyk",
+   "specImpact": "CONFIRMS-SPEC: the fixity/provenance half — `retrieved` + `source-sha256` + `[@citekey, locator]` + `citekey#^claim-id` addresses give per-claim verifiability exceeding what P7 asks of a citation. The version half is the one part the spec misses; that delta is filed as the separate version-capture CHANGES finding above, not double-counted here."
+  },
+  {
+   "pattern": "JATS4R (NISO-approved) data-citation recommendations: references should carry a DOI or similar persistent identifier (`@pub-id-type=\"doi\"`), with `ext-link` only as fallback, and machine-readable version designators — PID-first, machine-actionable reference lists.",
+   "usedWhere": "JATS4R recommendations govern JATS XML tagging across the scholarly publishing industry via the NISO process; JATS is the archival article format for PMC and most major publishers",
+   "source": "https://jats4r.niso.org/data-citations/",
+   "specImpact": "CONFIRMS-SPEC: the DOI-first deterministic gate design (§6) matches where publisher-side machine validation is going. JATS itself is submission-side XML a publisher produces — nothing for a markdown vault to adopt day one; conversion concerns belong to the deferred submit pipeline."
+  },
+  {
+   "pattern": "FAIR operationalization via F-UJI (FAIRsFAIR): FAIRness is scored by 16 deterministic, machine-actionable metrics driven from a PID alone, using external registries (DataCite, re3data, SPDX) — principles made mechanical checks, with human judgment out of the scoring loop.",
+   "usedWhere": "F-UJI is the EU FAIRsFAIR/FAIR-IMPACT assessment tool, deployed for batch evaluation across repositories (e.g., published agriculture-dataset assessments in Ecological Informatics)",
+   "source": "https://www.f-uji.net/ and https://www.fairsfair.eu/f-uji-automated-fair-data-assessment-tool",
+   "specImpact": "CONFIRMS-SPEC: §1's 'every gate bottoms out in a mechanical check' with LLM judgment non-blocking is the same architecture the FAIR-assessment world converged on (deterministic PID-driven metrics, registries as ground truth). FAIR's findability/reuse principles themselves are IRRELEVANT to a private vault — no third-party discovery surface exists, and evidence identity is already delegated to DOIs/Zotero."
+  },
+  {
+   "pattern": "SWORD deposit protocol: v2 is the deployed standard (DSpace, EPrints, Dataverse); v3 (Cottage Labs/Jisc/NII rework for complex digital objects) has thin adoption — a prototypical InvenioRDM implementation — years after the spec.",
+   "usedWhere": "SWORD v2 in DSpace/EPrints/Dataverse institutional repositories; v3 prototype in InvenioRDM (CERN)",
+   "source": "https://swordapp.github.io/swordv3/swordv3.html and https://sword.cottagelabs.com/swordv3/",
+   "specImpact": "IRRELEVANT: deposit protocols matter only when the deferred 'submit' end of the arc is built (§10 full-arc pipeline machinery), and nothing in SWORD constrains vault structure, provenance, or gates today. At most a name to drop into the deferred register when that map is drawn."
+  }
+ ],
+ "deadEnds": [
+  "https://swordapp.github.io/swordv3/ root returns 404 — the spec actually lives at /swordv3/swordv3.html; project status had to be reconstructed via swordapp.org and sword.cottagelabs.com.",
+  "Force11 JDDCP page references an 'Endorsement List' but does not enumerate endorsers inline; endorsement breadth asserted from the document's role in downstream DataCite/publisher policy rather than a fetched list.",
+  "researchobject.org RO-Crate specification landing page confirms 1.3 as current long-term release but exposes core conformance requirements (metadata file name, root data entity, JSON-LD context) only behind navigation, not inline — packaging details taken at overview level.",
+  "arXiv's DOI help page does not date when DataCite registration for all papers began; 'all papers, latest-version resolution' confirmed, rollout date not.",
+  "JATS4R data-citations page does not name participating publishers — adoption claim rests on the NISO approval process and JATS's role in PMC/publisher archival XML, not a fetched member list.",
+  "Did not verify the 'Crossref acquired the Retraction Watch database' claim this session; the retraction finding was deliberately worded to rest only on verified facts (Crossref API scope, doiRA service, RW CSV journal focus)."
+ ]
+}

@@ -1,0 +1,80 @@
+{
+ "thread": "fact-checking-standards",
+ "findings": [
+  {
+   "pattern": "IFCN Code of Principles commitment 5: an open and honest corrections policy — signatories 'make corrections openly and transparently, seeking as far as possible to ensure that users of the original see the correction and the corrected version.' Google additionally makes a corrections policy an eligibility requirement for ClaimReview fact-check surfacing. Correction of already-published output is a first-class lifecycle state in all deployed fact-checking practice.",
+   "usedWhere": "All ~170 IFCN verified signatories (Full Fact, PolitiFact, AFP, etc.); Google Search fact-check eligibility worldwide",
+   "source": "https://ifcncodeofprinciples.poynter.org/the-commitments",
+   "specImpact": "CHANGES-SPEC: §6 publish + §5 invariants. The effort status enum `drafting | parked | published` has no corrected/withdrawn state, and the spec defines no effect when a standing retraction alert (or a claim deprecation) targets an already-published, git-tagged effort — the alert only blocks the *next* publish. Add a post-publish correction disposition: re-open published effort → corrected re-publish with a new `verified` event and tag, or a `corrected`/`withdrawn` status, and route publish-targeting review-inbox alerts to it."
+  },
+  {
+   "pattern": "Claim addresses (`citekey#^claim-id`) resolve into literature-note managed regions that are 'bridge-regenerated, full re-render, never hand-edited' — but nothing guarantees ^block-ids survive regeneration. Deployed annotation practice (Hypothesis fuzzy anchoring, W3C Web Annotation TextQuoteSelector) exists precisely because position/ID anchors orphan when the substrate re-renders; robust anchors are derived from stable content (exact quote + prefix/suffix context).",
+   "usedWhere": "Hypothesis (millions of annotations, four-stage reattachment: XPath → position → fuzzy quote match); W3C Web Annotation Data Model selectors",
+   "source": "https://web.hypothes.is/blog/fuzzy-anchoring/",
+   "specImpact": "CHANGES-SPEC: §3/§5. The Option-C re-anchoring deferral is gated on 'prose-parsing bottlenecks,' but the actual day-one breaker is managed-region full re-render: one bridge regeneration can silently orphan every supported-by link and every quote-check comparison target. Add an invariant now: regeneration must deterministically preserve block IDs (derive ^id from stable content — Zotero annotation key or quote hash — not from render order), and the staleness/consistency lint should treat a vanished anchored block as a defect. (W3C TR: https://www.w3.org/TR/annotation-model/#text-quote-selector)"
+  },
+  {
+   "pattern": "Check-worthiness ranking: when checking capacity is scarce, deployed systems score and rank claims (ClaimBuster 0–1.0 score, ≥0.7 = check-worthy; Duke Tech & Check daily alerts feed ranked claims to fact-checkers) rather than truncating arbitrarily.",
+   "usedWhere": "ClaimBuster API (164M+ calls); Duke Reporters' Lab Tech & Check alerts to PolitiFact/Washington Post/AP fact-checkers",
+   "source": "https://ranger.uta.edu/~cli/pubs/2017/claimbuster-kdd17-hassan.pdf",
+   "specImpact": "CHANGES-SPEC: §6 factored-verification row. Budget is 'one pass per claim, capped at 30 claims, user-overridable' with no selection policy — on a 60-claim draft the cap silently drops an arbitrary half. Define a deterministic priority order (e.g., inference and paraphrase claims lacking any `verified` event first; quote claims last since the deterministic quote check already covers them; deprecated-source-adjacent claims boosted) so what got skipped is knowable and auditable."
+  },
+  {
+   "pattern": "Crossref update-notice metadata distinguishes Retraction, Correction, Expression of Concern, and Reinstatement (with the underlying schema defining additional update types beyond these), and the joint Crossref/Retraction Watch feed tags records by source (publisher vs retraction-watch). Deployed retraction-tracking treats expressions of concern as standing cautions distinct from full retraction.",
+   "usedWhere": "Crossref REST API (`filter=update-type:retraction` and siblings) + Retraction Watch database, now merged and openly served by Crossref",
+   "source": "https://www.crossref.org/documentation/retrieve-metadata/retraction-watch/",
+   "specImpact": "CHANGES-SPEC: §6 retraction row. Filtering `updated-by` to `type==\"retraction\"` only silently ignores expressions of concern, corrections, and reinstatements on the Crossref ingest leg; the nightly RW CSV leg partially mitigates (RW records EoCs) but the spec never states the policy. Enumerate the handled update-type set: retraction-class types block-unless-acked as now; expression_of_concern → review-inbox warn (never closure); reinstatement should clear a standing alert. (Types tutorial: https://crossref.gitlab.io/tutorials/get-rw-metadata/)"
+  },
+  {
+   "pattern": "C2PA ingredient chains: every derived asset's manifest records its ingredients (hash-bound references to the source assets' manifests), so provenance is a connected chain and invalidation propagates — a consumer can detect that an upstream ingredient changed or was disavowed. The spec's analogue breaks at one hop: claim-level `status: deprecated:<reason>` has no propagation rule.",
+   "usedWhere": "C2PA / Content Credentials, shipped in Adobe Creative Cloud, Leica/Sony cameras, LinkedIn, OpenAI image outputs",
+   "source": "https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html",
+   "specImpact": "CHANGES-SPEC: §5 invariants / §6 table. Retraction (source-level) has a gate, but nothing lints a draft or atlas claim whose `supported-by` target claim is `deprecated:<reason>`. The check is fully mechanical and fits the spec's own doctrine: resolve claim address → read per-claim status → non-live target = review-inbox entry (and arguably publish-gate relevant, mirroring retraction-ack). Add it as a deterministic row riding the citekey lint's surfaces."
+  },
+  {
+   "pattern": "Provenance travels with the asset: C2PA requires a hard binding (cryptographic hash over asset bytes) and embeds the manifest in/alongside the file, so verification is possible without access to the producer's systems.",
+   "usedWhere": "C2PA v2.x conformant products (Adobe, camera OEMs, TruePic)",
+   "source": "https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html",
+   "specImpact": "CHANGES-SPEC: §10 deferred register (small). Publish's effects are all vault-internal (frontmatter event, git tag); a submitted manuscript carries nothing an external reviewer can verify against — at odds with the §1 'defensible under review' criterion once the artifact leaves the vault. Add a deferred item: publish-time portable verification manifest (claim addresses, four-state results, bibliography content hash) exported with the effort. Not day-one; belongs in §10 so it isn't forgotten."
+  },
+  {
+   "pattern": "Full Fact's deployed automated fact-checking architecture (Trends monitoring, Stats deterministic statistical checking, Live/Robocheck claim spotting) keeps verdict authority with humans; the field's consensus framing is 'assisting human fact-checkers,' with automation trusted only where a mechanical ground truth exists (Stats checks claims against official statistics deterministically). Verdict taxonomies likewise keep 'unverifiable' distinct from 'false.'",
+   "usedWhere": "Full Fact (UK, production since 2016); surveyed as field consensus in Nakov et al. 2021 (arXiv:2103.07769)",
+   "source": "https://fullfact.org/blog/2016/aug/automated-factchecking/",
+   "specImpact": "CONFIRMS-SPEC: §1/§6 doctrine — deterministic checks may close, LLM judgment never blocks and routes to human adjudication; and the four-state result model's refusal to conflate UNREACHABLE with fabrication matches how deployed fact-checking separates could-not-verify from false. The spec's split is the architecture the most mature AFC deployment converged on."
+  },
+  {
+   "pattern": "ClaimReview separates the claim record (itemReviewed Claim: author, datePublished, appearance/firstAppearance) from the review record (review author, date, rating with mandatory human-readable textual verdict), each with its own attributed identity.",
+   "usedWhere": "Google Search fact-check rich results; Data Commons ClaimReview corpus; ~200 fact-checking publishers",
+   "source": "https://developers.google.com/search/docs/appearance/structured-data/factcheck",
+   "specImpact": "CONFIRMS-SPEC: §5 — the inline claim record (tag, citation, anchor, confidence) kept distinct from appended `verified` events `{by, at, check}` under the actor convention mirrors the deployed claim-vs-review separation, including attributed verifier identity and event dates; textual (not numeric) confidence vocabulary matches ClaimReview's required textual `alternateName` rating practice."
+  },
+  {
+   "pattern": "Even the most mass-deployed claim data model has no stable claim identifier: ClaimReview identifies claims by ≤75-char text summary plus appearance URLs; the proposal to add claim URLs (schemaorg #1828, claimUrl/claimUrlOriginal) closed without adoption, and practitioners' sameAs usage stayed ambiguous.",
+   "usedWhere": "schema.org ClaimReview ecosystem (Google, Duke Reporters' Lab ClaimReview project, Data Commons feed)",
+   "source": "https://github.com/schemaorg/schemaorg/issues/1828",
+   "specImpact": "CONFIRMS-SPEC: §5's assertion that `citekey#^claim-id` as a global claim address has 'no prior-art donor' is accurate — the fact-checking world's own standard lacks addressable claims, so greenfield status (and the extra care §5/§10 give it) is warranted."
+  },
+  {
+   "pattern": "C2PA hard binding: a manifest is cryptographically bound to the exact bytes of the asset; content change invalidates the binding and forces re-attestation. Same mechanism class as the spec's `source-sha256` used as re-import no-op comparator and acknowledgment-scope trigger (ack stands until the hash changes).",
+   "usedWhere": "Required of every C2PA manifest in all conformant implementations",
+   "source": "https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html",
+   "specImpact": "CONFIRMS-SPEC: §5 `source-sha256` and §3 ack-scope-until-content-change match the deployed pattern exactly: attestations are scoped to a content hash and expire on content change rather than persisting as unscoped flags."
+  },
+  {
+   "pattern": "IFCN commitment 2 (Standards and Transparency of Sources): identify all significant evidence sources 'with relevant links enabling readers to replicate findings, prioritizing primary sources'; contested points require consulting multiple sources.",
+   "usedWhere": "All IFCN verified signatories, assessed against 31 criteria by independent assessors",
+   "source": "https://ifcncodeofprinciples.poynter.org/the-commitments",
+   "specImpact": "CONFIRMS-SPEC: §5/§7 — per-claim [@citekey, locator] with resolvable pinpoints plus the Iron Law (no claim enters a draft without a verified source first) is the replication requirement made mechanical; the 2+-source page-creation threshold and contradictions-preserved invariant match the multiple-sources-for-contested-points rule."
+  }
+ ],
+ "deadEnds": [
+  "MediaReview (Duke Reporters' Lab / schema.org extension for manipulated images/video): taxonomy of media manipulation verdicts (missing context, transformed, etc.) — irrelevant to a text-only markdown vault; no claim-record mechanism beyond what ClaimReview already shows.",
+  "Duke ClaimReview Markup Tool and FactStream app: authoring/consumption UIs over the same ClaimReview schema — no additional data-model content beyond the Google/schema.org docs already cited.",
+  "IFCN commitments 1 and 3 (nonpartisanship/fairness, funding & organizational transparency): organizational-conduct requirements for publisher-facing fact-checking outfits; no analogue for a single-user research vault.",
+  "Full Fact Robocheck (live TV subtitle verdict overlay) and Trends (media monitoring): claim-spotting-in-the-wild machinery; the harness's claims are self-authored, so monitoring/detection stages have no mapping — only the checking/verdict stages transferred.",
+  "schema.org issue #1969 (Claim/ClaimReview 2018 tracking issue): subsumed by #1828 for the claim-identity question; no further resolution found.",
+  "Crossref registering-updates documentation page: fetched but does not enumerate the schema's update-type vocabulary on-page; the verified enumeration (Retraction, Correction, Expression of Concern, Reinstatement, plus a longer schema list) comes from the Crossref/Retraction Watch tutorial and RW-in-Crossref docs instead.",
+  "FEVER-style SUPPORTED/REFUTED/NOT-ENOUGH-INFO verdict classes: considered as a separate precedent for the four-state result model, but not independently source-verified this session; folded into the Full Fact/AFC-survey finding rather than shipped on recall."
+ ]
+}

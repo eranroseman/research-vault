@@ -1,0 +1,72 @@
+{
+ "thread": "systematic-review-products",
+ "findings": [
+  {
+   "pattern": "Post-publication amendment taxonomy is wider than 'retraction': Crossref's Crossmark schema enumerates 12 update types (addendum, clarification, correction, corrigendum, erratum, expression_of_concern, new_edition, new_version, partial_retraction, removal, retraction, withdrawal), surfaced via updated-by/update-to; Cochrane MECIR C48 (mandatory) requires examining 'any relevant retraction statements and errata', and Cochrane's problematic-studies policy treats Expressions of Concern as exclusion-relevant when they touch data validity.",
+   "usedWhere": "Crossref metadata for ~160M registered works; MECIR governs every Cochrane intervention review; Cochrane editorial policy since 2021",
+   "source": "https://www.crossref.org/documentation/crossmark/participating-in-crossmark/ and https://www.cochrane.org/authors/handbooks-and-manuals/mecir-manual/standards-conduct-new-cochrane-intervention-reviews-c1-c75/performing-review-c24-c75/collecting-data-included-studies-c43-c51",
+   "specImpact": "CHANGES-SPEC: §6 retraction row filters Crossref updated-by on type==\"retraction\" only — it silently passes partial_retraction, withdrawal, removal, expression_of_concern, and errata that mandatory Cochrane practice requires examining. Widen the filter: partial_retraction/removal/withdrawal join retraction as standing alerts; expression_of_concern/correction/erratum land in the review inbox as warns. The [retraction-ack::] mechanism generalizes unchanged."
+  },
+  {
+   "pattern": "PRISMA flow accounting: every record is tracked from identification through dedup, screening, and full-text exclusion (exactly one reason per excluded reference, from a predefined list), and Covidence auto-populates the PRISMA diagram from those decisions; PRISMA-S additionally requires the exact search strategy as run and the last-search date for every database. A review whose screening/search trail is unreconstructable is not defensible under peer review.",
+   "usedWhere": "PRISMA 2020 is the reporting standard for essentially all published systematic reviews; Covidence (Cochrane's supported screening tool, thousands of institutional reviews/year) automates the accounting; PRISMA-S co-published by leading medical librarians' groups",
+   "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7839230/ (PRISMA-S, doi:10.1186/s13643-020-01542-z) and https://support.covidence.org/help/export-prisma",
+   "specImpact": "CHANGES-SPEC: §7 find-papers and §9's validation flow keep provenance only for admitted sources — candidates surfaced by find-papers but not admitted to Zotero vanish without a trace, and no search strategy/date artifact is recorded anywhere (literature notes get `retrieved`, searches get nothing). For the spec's own success criterion ('defensible under review'), find-papers should emit an append-only search log (query as run, source, date, counts) and the admission step should record not-admitted candidates with a reason code; this also supplies the dedup counts the spec's registry-first dedup currently discards."
+  },
+  {
+   "pattern": "Independent second extraction of outcome data is MANDATORY (MECIR C46: 'at least two people working independently... define in advance the process for resolving disagreements') because single-pass extraction errs; the mass-deployed mechanism is extract-twice-then-compare (Covidence Extraction 1 comparison/consensus screen with conflict highlighting; EPPI-Reviewer double-coding + reconciliation; SRDR+ data comparison tool flagging extraction inconsistencies).",
+   "usedWhere": "All Cochrane intervention reviews (mandatory standard); Covidence/EPPI-Reviewer/SRDR+ across academic and AHRQ evidence-synthesis programs",
+   "source": "https://www.cochrane.org/authors/handbooks-and-manuals/mecir-manual/standards-conduct-new-cochrane-intervention-reviews-c1-c75/performing-review-c24-c75/collecting-data-included-studies-c43-c51 and https://support.covidence.org/help/comparison-and-consensus",
+   "specImpact": "CHANGES-SPEC: §5/§6 — day-one quote verification compares draft against the literature note's managed region, which is itself a single machine extraction; a wrong extraction verifies its own copy and mints the 'machine-confirmed' trust tier. The deferral of the direct-PDF leg (§10) is a known trade, but the tier semantics overstate: the `verified` event's `check` payload should record the comparison target (managed-region vs source-text), and trust-tier derivation should distinguish quote-vs-extraction from quote-vs-source so the tier can be upgraded retrofit-free when the PDF leg lands."
+  },
+  {
+   "pattern": "Certainty/confidence ratings must carry explicit justification: GRADEpro makes explanatory footnotes a required component of Summary of Findings tables — every downgrade of evidence certainty must name its reason (risk of bias, inconsistency, indirectness, imprecision, publication bias), and unexplained ratings are treated as defects in methodological surveys.",
+   "usedWhere": "GRADE is used by >100 organizations including WHO and Cochrane; GRADEpro GDT is the standard tool for guideline and SoF production",
+   "source": "https://gradepro.org/handbook/ and https://www.sciencedirect.com/science/article/abs/pii/S0895435615005843 (doi:10.1016/j.jclinepi.2015.12.006)",
+   "specImpact": "CHANGES-SPEC: §5 — `[confidence:: low|moderate|high]` carries no rationale field, so a low/moderate rating is an unexplainable judgment the reader cannot audit, and the import-source hold policy triggers on a value with no recorded why. Add an optional `[confidence-reason:: …]` inline field, lint-required (warn-level) whenever confidence is below high — symmetric with the existing deprecate-with-reason invariant."
+  },
+  {
+   "pattern": "Exclusion/hold reasons are a controlled vocabulary, not free text: Covidence enforces exactly one reason per excluded full-text drawn from a team-defined hierarchy (teams order the list so co-reviewers pick deterministically), because downstream accounting (PRISMA, audits) needs reasons to be countable and comparable; Rayyan likewise manages shared exclusion-reason lists distinct from free labels.",
+   "usedWhere": "Covidence and Rayyan screening workflows across thousands of reviews",
+   "source": "https://www.covidence.org/blog/how-to-resolve-conflicts-during-screening/ and https://help.rayyan.ai/hc/en-us/articles/45706942438289-How-to-Use-Labels-and-Exclusion-Reasons-in-Rayyan",
+   "specImpact": "CHANGES-SPEC: §3/§7 (minor) — the spec's reason surfaces are mixed: import-source holds emit reason codes, but review-inbox `[reason:: …]`, `deprecated:<reason>`, and `[retraction-ack:: <reason>]` are free text, so they cannot be counted, Bases-queried, or linted for presence-of-substance. Define one small controlled reason-code vocabulary (with free-text elaboration allowed after the code) shared by holds, deprecations, and acks."
+  },
+  {
+   "pattern": "AI-as-second-reviewer with human final authority: Rayyan's AI Reviewer joins as a team member whose divergence from a human 'creates a conflict — exactly like a conflict between two human reviewers', resolved by humans; DistillerSR's AI second-reviewer evaluation concluded AI can prioritize and verify exclusions but 'more research is needed before substituting AI as a second reviewer'; a registered evaluation protocol frames four tools (ASReview, DAISY, EPPI-Reviewer, Rayyan) strictly as secondary-reviewer decision support.",
+   "usedWhere": "Rayyan (~500k+ users), DistillerSR (regulated pharma/HTA), EPPI-Reviewer (Cochrane/UCL)",
+   "source": "https://help.rayyan.ai/hc/en-us/articles/46034112564497-AI-Reviewer-ResearchPilot and https://link.springer.com/article/10.1186/s13643-025-03031-7 (doi:10.1186/s13643-025-03031-7)",
+   "specImpact": "CONFIRMS-SPEC: §6's doctrine that LLM checks never block and route findings to human-adjudicated review-inbox entries is exactly the deployed industry pattern — AI verdicts create conflicts/findings, humans adjudicate, no tool grants AI closure authority."
+  },
+  {
+   "pattern": "Machine classification is allowed to auto-exclude only after formal calibration: Cochrane's RCT Classifier was calibrated on Clinical Hedges data to a 99% recall cut-off and validated against 44,007 Cochrane-included RCTs (99.5% retrieved) before Screen4Me was permitted to place records in an auto-reject stream; the blocking authority came from a characterized, published error rate, not from model judgment.",
+   "usedWhere": "Cochrane Evidence Pipeline / Screen4Me, applied to CENTRAL's centralized search feeds across all Cochrane reviews",
+   "source": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8168828/ (Thomas et al., doi:10.1016/j.jclinepi.2020.11.003)",
+   "specImpact": "CONFIRMS-SPEC: §6's split — deterministic checks may close, LLM judgment never does — matches how the field's only mass-deployed auto-excluding classifier earned its gate: a calibration study with a fixed recall bound. Also supplies the promotion criterion for the deferred register: an LLM check may graduate to blocking only behind an equivalent published-calibration bar."
+  },
+  {
+   "pattern": "Retraction checking is a standing, review-lifecycle obligation, not an ingest-time one: Cochrane strengthened its systems after retracted publications persisted inside published reviews; MECIR C48 (mandatory) requires examining retraction statements; the policy explicitly permits retained citation of problematic/retracted studies when the review addresses them as subjects, with documented justification — while mainstream screening tools (Covidence, Rayyan) ship no retraction check at all.",
+   "usedWhere": "Cochrane Library editorial policy across ~9,000 reviews; gap confirmed across Covidence/Rayyan deployments",
+   "source": "https://www.cochrane.org/about-us/news/cochrane-strengthens-systems-manage-retracted-publications-its-published-reviews",
+   "specImpact": "CONFIRMS-SPEC: §6's retraction gate (ingest + scheduled CI + publish surfaces; blocks publish only when unacknowledged; bypass is data via [retraction-ack:: <reason>]) matches and exceeds deployed tooling, and the acknowledge-tag design mirrors Cochrane's cite-as-subject-with-justification carve-out — which §9's validation project exercises deliberately."
+  },
+  {
+   "pattern": "Immutable, per-datum audit trails are the enterprise norm: DistillerSR markets tracing 'the provenance of every cell of data' with comprehensive audit logs for regulatory submissions; Cochrane's RevMan 'What's new' events become the published Version History and cannot be changed after publication — amendments are documented as new events, never silent edits.",
+   "usedWhere": "DistillerSR in pharma/device/HTA regulatory work; RevMan across all Cochrane protocols and reviews",
+   "source": "https://documentation.cochrane.org/revman-kb/dates-and-events-261554285.html and https://casrai.org/guides/distillersr",
+   "specImpact": "CONFIRMS-SPEC: §3/§5's append-only review inbox and daily log, git history as the change record, deprecate-with-reason-never-delete, and publish-as-tagged-immutable-event (§6) are the same mechanism at personal scale; per-claim addresses are the vault's analog of per-cell provenance."
+  },
+  {
+   "pattern": "Blinded dual-human screening and inter-rater machinery: Covidence hides co-reviewers' votes during screening; Rayyan's blind mode hides decisions/labels/reasons until an owner unblinds for conflict resolution; agreement statistics (kappa) quantify reviewer independence. The entire mechanism presupposes two or more independent human judges voting before seeing each other.",
+   "usedWhere": "Default screening mode in Covidence and Rayyan for team reviews",
+   "source": "https://help.rayyan.ai/hc/en-us/articles/35305653554705-Understanding-Blinding-Labels-Reasons-and-Ratings-in-Collaborative-Reviews",
+   "specImpact": "IRRELEVANT: the harness is single-human by construction — the human never votes independently in parallel with anyone, so blinding/unblinding ceremonies and kappa have no seat; the spec's independence budget is correctly spent on the deterministic-check layer and LLM-conflict adjudication instead (see the AI-second-reviewer CONFIRMS)."
+  }
+ ],
+ "deadEnds": [
+  "Cochrane Library editorial-policies pages (problematic-studies implementation guidance, cochranelibrary.com) return HTTP 403 to fetchers; policy content had to be reconstructed from cochrane.org news/community summaries and the MECIR manual on cochrane.org, which fetched fine.",
+  "Crossref's 'registering updates' documentation page does not enumerate the update types (only worked examples); the authoritative 12-value enumeration lives on the Crossmark participation page, which is where it was finally verified.",
+  "DistillerSR's dual-extraction adjudication and audit-trail internals are not publicly documented beyond marketing/CASRAI-guide level — no primary technical doc reachable without a vendor account; per-cell provenance claim is vendor-asserted only.",
+  "EPPI-Reviewer line-level (locator-anchored) extraction provenance could not be confirmed from public web pages; only double-coding comparison/reconciliation modes are documented, and the ER4 user-manual PDF was not fetched.",
+  "SRDR+ primary AHRQ pages document the data-comparison tool and public deposition but not field-level provenance schema detail; the descriptive-characteristics paper (PMC6925515) covers the legacy SRDR, not SRDR+ internals."
+ ]
+}

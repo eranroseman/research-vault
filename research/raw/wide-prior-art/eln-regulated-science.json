@@ -1,0 +1,96 @@
+{
+ "thread": "eln-regulated-science",
+ "findings": [
+  {
+   "pattern": "Operator-immutable audit trails: 21 CFR 11.10(e) requires 'secure, computer-generated, time-stamped audit trails' that 'independently record' actions; MHRA GXP DI guidance 6.13 adds 'Users should not be able to amend or switch off the audit trail.' The spec's two audit-trail files — +/review-queue.md (whose human acks BYPASS closed gates) and calendar/ — are append-only by convention only; no row in the §6 check table polices them, and the evidence-layer-protection lint covers literatures/ only. The same LLM agent whose findings the inbox records can rewrite or delete entries, and git history rewrite (rebase/force-push) can erase the trail entirely — the exact gap vendor GxP-git guidance flags. The regulated absolute ('no user incl. admins') is unattainable solo — the human owns the machine — so the adoptable target is tamper-evidence against the agent, not the human: add an append-only diff lint row (pre-commit/CI: diffs to +/review-queue.md and calendar/*.md contain no removed or modified lines) and state that trust boundary explicitly.",
+   "usedWhere": "Universal in Part 11-claiming ELNs: SciNote ('audit trails cannot be edited or deleted'), eLabFTW (full audit log + revision history), LabArchives, Benchling; mandated for all FDA-regulated e-records and MHRA-inspected GxP labs",
+   "source": "https://www.law.cornell.edu/cfr/text/21/11.10 ; https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CHANGES-SPEC: §3 (review-inbox/calendar conventions) and §6 check table — declare the tamper-evidence-against-the-agent trust boundary and add an append-only lint row for the two trail files; without it, every closed gate's bypass ledger is silently rewritable by the actor being audited."
+  },
+  {
+   "pattern": "Attributability requires the identity behind a record to be genuine, not self-asserted: Part 11 11.10(d)/(g) demand access controls and authority checks so only authorized individuals sign/alter records; MHRA lists 'user access rights that prevent (or audit trail, if prevention is not possible) unauthorised data amendments.' The spec's actor convention ([actor:: human:eran]) is plain text the LLM can write, and a human: actor is load-bearing in exactly one place — acks that bypass closed CI gates and the human-reviewed trust tier. Git commit authorship cannot discriminate agent from human in solo Claude Code (the agent commits under the user's identity), so the honest fix is not identity verification but process: the spec should name this limitation and route ack-writing through a human-confirmed interactive flow (gate/hook prompts, human answers, hook writes the entry), leaving direct agent-typed human: entries as a lintable anomaly.",
+   "usedWhere": "All Part 11 systems (unique logins, e-signature credentials); SciNote/LabArchives tie every signature to an authenticated user account",
+   "source": "https://www.law.cornell.edu/cfr/text/21/11.10 ; https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CHANGES-SPEC: §3 ack semantics — spec is currently silent on the attribution trust model for the single spot where attribution defeats a closed gate; add the limitation statement and a hook-mediated ack-entry flow."
+  },
+  {
+   "pattern": "Audit trails must be computer-generated and independent of the operator ('secure, computer-generated... independently record' — 11.10(e)); operator-entered claims of verification are not verification. The spec's `verified` events are ordinary frontmatter any actor can write, and trust-tier derivation (§5) trusts them as stored. Closed deterministic checks are re-run at publish, which mitigates for DOI/quote/citekey — but the metadata-match check has 'no closure' anywhere, and the human-reviewed tier keys on a human: event, so both are inflatable by a fabricated frontmatter line that no gate would ever catch. Fix: make trust tier derive from recomputation where deterministic, or lint that every `verified` event cross-references a gate-run record (daily-log/inbox entry with matching check+target+date) written by the gate itself.",
+   "usedWhere": "Part 11 systems generate audit/verification records system-side, never as user-editable fields; eLabFTW logs 'nearly every action' system-side with timestamp and identity",
+   "source": "https://www.law.cornell.edu/cfr/text/21/11.10",
+   "specImpact": "CHANGES-SPEC: §5 OKF verified-event schema + §6 — verified events need a machine-checkable link to the gate run that produced them, or tiers above unverified are forgeable without tripping any check."
+  },
+  {
+   "pattern": "Lock-on-sign: every surveyed ELN freezes a record once signed/approved — LabArchives Page Signing 'locks a page... no further edits or additions can be made'; SciNote locks a task at In-review and requires signatures before Done; eLabFTW lets users 'lock entries to prevent further edits'; 21 CFR 11.70 requires signatures be linked to records so they 'cannot be excised, copied, or otherwise transferred to falsify an electronic record.' The spec's publish sets `status: published` and tags, but nothing detects post-publish edits to an effort file still carrying published status — the frontmatter 'signature' (verified event + status) silently transfers to content it never covered. Cheap deterministic fix: a lint comparing the effort file against its `published/<effort>-<date>` tag blob; drift → review inbox ('republish or revert status to drafting').",
+   "usedWhere": "LabArchives, SciNote, eLabFTW, Benchling (custom witness/review workflows) — the default integrity model of the entire ELN category",
+   "source": "https://help.labarchives.com/hc/en-us/articles/11778411173652-Signing-and-Witnessing-a-Notebook-Page ; https://www.law.cornell.edu/cfr/text/21/11.70",
+   "specImpact": "CHANGES-SPEC: §6 publish semantics — add a published-drift lint keyed on the publish tag, otherwise the one mandatory closed gate certifies a snapshot the working tree can silently diverge from."
+  },
+  {
+   "pattern": "Enduring/Available (ALCOA+) and 11.10(c) 'protection of records to enable their accurate and ready retrieval throughout the records retention period'; MHRA 6.17 requires backup and a documented retention strategy. The spec explicitly permits a remote-less vault ('CI skipped if the vault has no remote — setup asks'), leaving the entire evidence chain as a single copy on one disk with no standing signal of that state. Doctor mode already owns substrate verification and a fresh/stale/orphaned vocabulary — a 'no backup/remote' standing warning is a one-line addition.",
+   "usedWhere": "All regulated e-record systems; institutional ELN deployments (LabArchives, eLabFTW at Heidelberg URZ) run managed backups as a baseline service",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CHANGES-SPEC (minor): §7 vault-setup/doctor — surface absence of any remote/backup as a persistent doctor warning; the trust chain is only as enduring as its single disk."
+  },
+  {
+   "pattern": "MHRA defines the audit trail as capturing 'the who, what, when and why of the action.' The spec's inbox entry schema — [id:: check/target/date] [check::] [target::] [result::] [actor::] [reason::] — plus the actor convention on every generating/verifying identity carries exactly those four dimensions, including reason-for-change, which many ad-hoc systems omit.",
+   "usedWhere": "MHRA-inspected GxP labs; audit-trail content standard across SciNote/Benchling/LabArchives",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CONFIRMS-SPEC: §3 review-inbox entry serialization matches regulated audit-trail content requirements field-for-field."
+  },
+  {
+   "pattern": "11.10(e): 'Record changes shall not obscure previously recorded information'; MHRA: audit trail records alterations 'without obscuring or overwriting the original record.' The spec's invariants — deprecate-with-reason never delete, contradictions preserved never silently resolved, per-claim status live|deprecated:<reason> — are this principle verbatim.",
+   "usedWhere": "Core of every Part 11 audit-trail implementation; eLabFTW revision history retains all prior versions",
+   "source": "https://www.law.cornell.edu/cfr/text/21/11.10",
+   "specImpact": "CONFIRMS-SPEC: §5 invariants independently reinvent the non-obscuring-change rule of regulated e-records."
+  },
+  {
+   "pattern": "Contemporaneous (ALCOA): 'records captured at the time of the activity — not transcribed from scrap notes or end-of-shift memory'; MHRA 6.12: 'computer systems should be designed to ensure that the execution of critical steps is recorded contemporaneously.' The spec's `retrieved` field captured at import ('day one — unreconstructable later') and the timestamped `- HH:MM <actor> — <action>` daily-log-at-action-time convention are the contemporaneity design.",
+   "usedWhere": "Regulatory baseline in all GLP/GMP labs; ELNs stamp server time at entry",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CONFIRMS-SPEC: §5 `retrieved` + §3 daily-log convention match the contemporaneous-recording requirement."
+  },
+  {
+   "pattern": "True copy (MHRA 6.11.2): copies may stand in for originals 'if a documented system is in place to verify and record the integrity of the copy.' The spec's `source-sha256` of the Zotero-stored primary attachment — doubling as re-import no-op comparator and ack-scope trigger — is precisely a documented copy-integrity verification mechanism, plus `archive-url` for web originals.",
+   "usedWhere": "GxP true-copy/certified-copy practice; content-hash fixity is standard in digital preservation (and in eLabFTW's hash-then-timestamp flow)",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CONFIRMS-SPEC: §5 source-sha256/archive-url implement the ALCOA 'original (or certified true copy)' attribute mechanically."
+  },
+  {
+   "pattern": "Second-person verification has a sanctioned machine substitute: MHRA 6.11 — 'Where manual transcriptions occur, these should be verified by a second person or validated system.' ELN witnessing (LabArchives witness countersign, SciNote electronic witnessing, GLP scribe countersigning) exists because a second human is available; for solo research it is structurally unavailable and therefore overkill. The spec's normalize-then-exact quote gate is the 'validated system' branch for transcription, and human adjudication of LLM findings covers the judgment residue — the correct solo translation of witnessing, not a gap.",
+   "usedWhere": "LabArchives/SciNote witnessing in GLP labs and patent-evidence practice; MHRA text grants the validated-system alternative",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf ; https://help.labarchives.com/hc/en-us/articles/11778411173652-Signing-and-Witnessing-a-Notebook-Page",
+   "specImpact": "CONFIRMS-SPEC: omitting witness/countersign workflows is right for solo scale; the quote gate occupies MHRA's 'validated system' slot for transcription verification."
+  },
+  {
+   "pattern": "Regulators themselves mandate proportionality: MHRA 2.6 promotes 'a risk-based approach... data risk, criticality and lifecycle,' 3.5 states organisations 'are not expected to implement a forensic approach to data checking on a routine basis,' and 4.1-4.2 scale control to data criticality and to 'the potential to be deleted, amended or excluded without authorisation and the opportunity for detection.' The spec's doctrine — detect always-on and free, enforce opt-in per surface, mandatory closure only at the publish boundary — is this risk-tiering applied to a solo vault, with publish as the highest-criticality decision point.",
+   "usedWhere": "MHRA/FDA inspection doctrine (DIRA — data integrity risk assessment) across all GxP organizations",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CONFIRMS-SPEC: §6 gate doctrine matches regulated risk-proportionate control philosophy; blanket enforcement everywhere would be the regulated-world anti-pattern of forensic-by-default."
+  },
+  {
+   "pattern": "Risk-based audit-trail review with a named owner: MHRA 6.13 — 'routine data review should include a documented audit trail review where this is determined by a risk assessment,' optionally via 'exception reporting' that surfaces predetermined abnormal actions for a reviewer. The spec's inbox drain — project's resume orientation surfaces unacknowledged entries, with a designated drain owner — is an exception-report review cadence tied to a real recurring event (session resume) rather than a calendar SOP.",
+   "usedWhere": "GMP QA periodic audit-trail review programs; exception-reporting review is the MHRA-endorsed scalable form",
+   "source": "https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf",
+   "specImpact": "CONFIRMS-SPEC: §3 inbox-drain ownership implements the audit-trail-review requirement in solo-proportionate form — but note it depends on finding 1's append-only enforcement to review a trail that hasn't been rewritten."
+  },
+  {
+   "pattern": "Challenge-based validation: 11.10(a) requires 'validation of systems to ensure... the ability to discern invalid or altered records' — regulated CSV proves detection capability by challenging the system, not by asserting it. The spec's §9 synthetic gate drill (planted fabricated citekey, mutated quote, unacknowledged retraction, simulated outage, killed auto-export) is exactly this: each closed control demonstrated against a known-bad input before trust is placed in it.",
+   "usedWhere": "Computer system validation (CSV) practice in every Part 11 deployment; vendor IQ/OQ/PQ protocols",
+   "source": "https://www.law.cornell.edu/cfr/text/21/11.10",
+   "specImpact": "CONFIRMS-SPEC: §9's drill is the validation-evidence pattern 11.10(a) codifies — the spec independently arrived at regulated CSV's core move."
+  },
+  {
+   "pattern": "Trusted timestamping — RFC 3161 TSA tokens (eLabFTW, eIDAS/ETSI EN 319 422 qualified) and blockchain anchoring (OriginStamp on Bitcoin, eLabFTW on bloxberg) — exists to prove to a hostile third party that content existed at a time, because self-asserted timestamps (git commit dates are trivially forgeable via GIT_AUTHOR_DATE) prove nothing in priority/IP disputes. The spec's threat model is fabrication by the LLM against the author's own review standard, not adversarial priority claims; no gate in §6 consumes a when-proof, and 'defensible under review' requires provenance, not existence-at-time. If IP defense ever mattered, an RFC 3161 stamp of the publish tag is a single-call retrofit — no schema change needed now.",
+   "usedWhere": "eLabFTW institutional deployments (legally-binding timestamping), OriginStamp (~1.9M hashes anchored), patent-evidence workflows",
+   "source": "https://doi.org/10.1515/itit-2018-0020",
+   "specImpact": "IRRELEVANT: threat-model mismatch — third-party existence proofs solve a dispute class (priority/IP) the spec's solo trust-first success criterion never invokes; adding them would be the audit's canonical overkill."
+  }
+ ],
+ "deadEnds": [
+  "ecfr.gov (primary Part 11 text) blocked WebFetch with a 302 to unblock.federalregister.gov; recovered the regulation text via law.cornell.edu/cfr/text/21/11.10 and /11.70 instead.",
+  "WebFetch could not parse the MHRA GXP Data Integrity Guidance PDF (binary passthrough); recovered by extracting the auto-saved PDF locally with pypdf — all MHRA quotes come from that extraction of the official assets.publishing.service.gov.uk file.",
+  "No authoritative (regulator or peer-reviewed) source treats bare git history as a Part 11-compliant audit trail — only vendor/consultant material (IntuitionLabs, learngit.space), which itself concedes force-push/history-rewrite and tag alteration sit outside per-commit signatures; treated as corroboration of the gap in finding 1, not as prior art for git-as-audit-trail.",
+  "Did not fetch FDA's 2003 Part 11 Scope and Application guidance (enforcement-discretion narrowing) separately — search results and the regulation text sufficed for the requirements actually mapped; no finding depends on enforcement-discretion nuance.",
+  "Benchling publishes no public primary doc detailing its witness-flow internals (marketing pages only); relied on LabArchives' help-center article and SciNote's knowledge base as the documented lock-on-sign primaries."
+ ]
+}

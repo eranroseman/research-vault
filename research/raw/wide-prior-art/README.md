@@ -1,0 +1,1 @@
+Raw structured findings (pattern / usedWhere / owning source / specImpact verdict + dead ends) from the seven-domain wide prior-art sweep behind docs/2026-08-16-spec-rethink-audit.md.

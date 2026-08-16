@@ -1,0 +1,85 @@
+{
+ "thread": "sensemaking-literature",
+ "findings": [
+  {
+   "pattern": "Pirolli & Card's dual-loop sensemaking model (foraging loop: external data → shoebox → evidence file; sensemaking loop: schema → hypotheses → presentation), with bottom-up and top-down processing 'invoked in an opportunistic mix' and both effort and structure increasing at each stage.",
+   "usedWhere": "Intelligence-analysis community; canonical HCI sensemaking model (Intl. Conf. on Intelligence Analysis 2005), foundation for two decades of sensemaking-tool research",
+   "source": "https://www.phibetaiota.net/wp-content/uploads/2014/12/Sensemaking-Process-Pirolli-and-Card.pdf",
+   "specImpact": "CONFIRMS-SPEC: §3/§7 — the vault layers map cleanly onto the model (Zotero admission = shoebox, literatures/ = evidence file, atlas/ = schema, efforts/ = hypotheses/presentation) and the two-flow accounting matches the two loops; integrate-at-import matches the model's opportunistic interleaving rather than a strict pipeline; heaviest gating at publish matches effort/structure increasing toward the product stage."
+  },
+  {
+   "pattern": "Pirolli & Card's sensemaking-loop leverage points center on evidentiary reasoning — 'marshalling evidence to support or disconfirm hypotheses' — with confirmation bias the canonical failure that structured techniques (Heuer's ACH: explicitly test observations against competing hypotheses) exist to counter.",
+   "usedWhere": "Intelligence-analysis tradecraft (structured analytic techniques mandated post-Iraq-WMD reforms); digital-history and visual-analytics tooling derived from the model",
+   "source": "https://www.redalyc.org/journal/589/58980067002/html/",
+   "specImpact": "CHANGES-SPEC: §6/§7 — the spec captures stance and supported-by/contested-by links (§5) and preserves contradictions, but no surface (Iron Law, factcheck-draft, publish gate) forces disconfirming links into view when a claim is cited in a draft; contradiction-probing is deferred to the maintenance lane (§10). Add a cheap deterministic lint at draft→review or publish: a cited claim address carrying contested-by links emits a non-blocking review-inbox record. This lands verification effort exactly on the literature's top-ranked sensemaking-loop leverage point."
+  },
+  {
+   "pattern": "Cost structure of sensemaking (Russell, Stefik, Pirolli & Card, CHI '93): representations are chosen/changed to reduce cost of downstream task operations; building a representation pays off only when encoding savings exceed its construction cost; data extraction/encoding was the dominant cost in their cases, and items that fail to encode ('residue') drive representation change.",
+   "usedWhere": "Canonical CHI paper underlying information-foraging and sensemaking-tool cost analyses",
+   "source": "https://doi.org/10.1145/169059.169209",
+   "specImpact": "CONFIRMS-SPEC: §5/§7 — the spec's economics are cost-structure-correct: the LLM pays the encoding cost (atlas synthesis, claim tagging), the human pays only admission and adjudication; deferring the Option C claim ledger until 'the slice shows prose-parsing bottlenecks' is precisely the pay-off test this literature prescribes; auto-hold on contradiction/schema-violation is a residue-handling mechanism (residue surfaced, not discarded)."
+  },
+  {
+   "pattern": "Formality Considered Harmful (Shipman & Marshall): users reject or circumvent systems that force explicit formal expression — cognitive overhead, tacit knowledge, premature structure, situational structure; remedy is incremental, system-assisted formalization where the system composes structure and the human supplies intent.",
+   "usedWhere": "CSCW 1999 synthesis of a decade of deployed hypertext/argumentation systems (NoteCards, gIBIS lineage); standard design doctrine in knowledge-tool HCI",
+   "source": "https://doi.org/10.1023/A:1008716330212",
+   "specImpact": "CHANGES-SPEC: §3 — the one place the spec makes a human hand-write formal syntax is the acknowledgment entry (`- [ack:: <id>] [actor:: human:…] [reason:: …]` with an exact composite check/target/date id): exactly the formalization humans get wrong or avoid. The spec never states an affordance; it should say a skill (project resume's inbox drain, or verify-citations) composes the entry and the human act is consent plus reason text, not syntax. Same pressure, milder, on manual citekey pinning."
+  },
+  {
+   "pattern": "The same formality literature's positive prescription — incremental formalization: capture free-form first, add structure only when the user/system is ready, defer premature commitment ('leaving them out means I defer for now having to decide').",
+   "usedWhere": "Same CSCW 1999 corpus; echoed by Appleton-style maturity metadata in practitioner PKM",
+   "source": "https://people.engr.tamu.edu/shipman/formality-paper/harmful.html",
+   "specImpact": "CONFIRMS-SPEC: §3 — the fleeting inbox (structure-free capture), maturity frontmatter (growth stage as explicit deferral), the 2+-source page-creation threshold (anti-premature-structure), and the free region below the managed region (idiosyncratic prose survives regeneration) implement incremental formalization as prescribed."
+  },
+  {
+   "pattern": "Marshall's annotation studies (DL '97, HT '98): readers' annotations are predominantly telegraphic (highlights, marks, cryptic marginalia), highly idiosyncratic, and cover only a small personal subset of the source text; written-out, self-explanatory annotations are the minority.",
+   "usedWhere": "Empirical studies of hundreds of used university textbooks; Engelbart Best Paper HT '98; foundational for digital-library and annotation-tool design",
+   "source": "https://doi.org/10.1145/263690.263806",
+   "specImpact": "CHANGES-SPEC: §6/§10 — the day-one quote-verification target is the managed region built from Zotero annotations; Marshall predicts sparse coverage, so honest quotes from unannotated passages land as UNREACHABLE (no extractable text) or worse UNMATCHED (some annotations exist but not this passage → below fuzzy threshold → 'fail', reading as fabrication), and publish fails closed with only the whole-gate bypass token. Add a per-quote human acknowledgment path mirroring `[retraction-ack::]` (human eyeballed the PDF), and/or promote the direct-PDF-text leg from the deferred register — the slice's 15–25-paper brief will hit this immediately."
+  },
+  {
+   "pattern": "Preparatory organization does not repay its cost: in a 345-user field study (85,000 refinding actions), high filers were no more successful at retrieval than low filers and took longer overall; opportunistic access (scrolling, threads, search) accounted for 87% of refinding.",
+   "usedWhere": "CHI 2011 field study of long-term corporate email users (IBM Bluemail)",
+   "source": "https://doi.org/10.1145/1978942.1979457",
+   "specImpact": "CONFIRMS-SPEC: §3/§7 — the spec's division of labor is what this literature recommends: the human never pays a filing/structuring cost (LLM owns atlas filing, registry-first dedup, index maintenance); the only mandatory human acts are admission to Zotero and adjudication. Delegating preparatory structure to a non-human agent dissolves the 'wasted filing time' finding rather than fighting it."
+  },
+  {
+   "pattern": "Email overload (Whittaker & Sidner, CHI '96): a single inbox doubling as a task queue rots — deferred triage accumulates, important items get overlooked or lost in archives, and periodic 'spring cleaning' strategies collapse under volume.",
+   "usedWhere": "CHI 1996 study of 20 professional users' archives; replicated at Microsoft ten years later (CSCW 2006); structured a decade of PIM research",
+   "source": "https://doi.org/10.1145/238386.238530",
+   "specImpact": "CHANGES-SPEC: §3/§6 — the review inbox is a single append-only file whose only drain is `project` resume orientation, and non-blocking findings (metadata mismatches, factored-verification findings, SKIPPED records) can sit unacknowledged forever. The spec's own liveness-bound doctrine (§6) stops one step short of covering it because the inbox is not a closed surface. Extend the doctrine: orientation should surface count-and-age of unacknowledged entries (aging display), or the spec should state an explicit liveness expectation for inbox drain, else the drill's 'cold-resume works' criterion can pass while the queue silently rots."
+  },
+  {
+   "pattern": "Robust preference for navigation over search in personal information: users navigate folder/link structures even with good search available, and a dual-task experiment (62 participants) showed navigation consumes measurably less attention than search.",
+   "usedWhere": "Bergman & Whittaker's PIM research program (The Science of Managing Our Digital Stuff, MIT Press 2016); replicated across OSes and a decade of studies",
+   "source": "https://doi.org/10.1007/s00779-012-0544-z",
+   "specImpact": "CONFIRMS-SPEC: §3/§7 — atlas/index.md as the canonical entry point, minimum-link discipline (≥2 outgoing wikilinks), and orientation-first (read index + recent log before operating) build the navigation structure PIM research says humans and agents actually use; note the navigation-preference evidence is human-subjects, applied here by analogy to agent orientation."
+  },
+  {
+   "pattern": "Provenance left to author discipline fails at scale: of 863,878 valid Jupyter notebooks from GitHub, only 24.11% re-executed without error and 4.03% reproduced the same results — killed by hidden state, out-of-order execution, and missing dependencies; only mechanically captured, ordered, self-contained provenance survives.",
+   "usedWhere": "MSR 2019 study of 1.1M+ notebooks from 264k GitHub repositories; extended in Empirical Software Engineering 2021",
+   "source": "https://leomurta.github.io/papers/pimentel2019a.pdf",
+   "specImpact": "CONFIRMS-SPEC: §4/§5 — the spec never relies on human provenance discipline: harness-owned commits of the bibliography export, machine-projected literatures/ with managed regions, append-only daily log and verified event lists, staleness lint against silent auto-export death. This is the mechanical-capture posture the notebook literature shows is the only one that works; the 4% figure is the empirical cost of the alternative."
+  },
+  {
+   "pattern": "Hypothesis fuzzy anchoring: production annotation systems store all selectors at creation time (TextQuoteSelector exact + 32-char prefix/suffix, TextPositionSelector, RangeSelector) because anchor context is cheap at capture and expensive to reconstruct; re-anchoring cascades range → position → context-first fuzzy → text-only fuzzy (Bitap), with orphans surfaced, not dropped.",
+   "usedWhere": "Hypothesis annotation service in production since 2013 (millions of annotations); W3C Web Annotation selector model; Apache Annotator",
+   "source": "https://web.hypothes.is/blog/fuzzy-anchoring/",
+   "specImpact": "CHANGES-SPEC: §5/§10 — the deferred item 'per-quote prefix/suffix re-anchoring' bundles two things with different costs: capturing prefix/suffix context at quote-extraction time is nearly free and cannot be retrofitted without re-touching every source, while the re-anchoring cascade is the genuinely deferrable logic. Split the deferral: write prefix/suffix (Web-Annotation-shaped) alongside each quote claim from day one; defer only re-anchoring. Also names a mass-deployed donor for Option C (the spec's 'no prior-art donor' claim is true only for the citekey#^claim-id address, not for re-anchoring)."
+  },
+  {
+   "pattern": "No peer-reviewed empirical efficacy evidence exists for Zettelkasten or linked-note PKM methods — the literature is practitioner theory, blog advocacy, and at best descriptive/interview studies; no controlled or longitudinal outcome evaluation.",
+   "usedWhere": "Absence-of-evidence finding; the practitioner PKM corpus (Luhmann exegesis, Obsidian/Roam community) has no CHI/CSCW/JASIST validation",
+   "source": "https://www.researchgate.net/publication/349074447_Personal_knowledge_bases_and_the_Zettelkasten_method_as_a_way_to_manage_knowledge",
+   "specImpact": "CONFIRMS-SPEC: §9 — since PKM-method efficacy has no external evidence base, the spec's own validation slice (falsifiable criteria, 'author routes around the vault = foundation failure') is the only efficacy test this design will ever get; this raises the slice's importance and confirms the decision to gate the foundation on it rather than on PKM-community best practice, which is empirically unanchored."
+  }
+ ],
+ "deadEnds": [
+  "Peer-reviewed empirical efficacy studies of Zettelkasten/PKM: searched ('Zettelkasten empirical study effectiveness', 'personal knowledge management peer-reviewed evaluation') — only blogs, theory pieces, and one descriptive ResearchGate paper; no controlled evaluations exist. Logged as an absence finding rather than dropped.",
+  "Pirolli & Card 2005 primary text: the phibetaiota PDF mirror and the Takayama/Card CHI 2008 workshop PDF both returned unparseable binary to WebFetch; ResearchGate copies not fetchable; Semantic Scholar page returned empty content; Joel Chan's Obsidian note was an index stub. Model details verified instead via the Redalyc digital-history article (Turkel) and search-result scholarly summaries; leverage-point wording ('marshalling evidence to support or disconfirm hypotheses') cross-checked across two independent secondary sources.",
+  "rachelshadoan.com summary of Pirolli & Card leverage points: TLS unrecognized-name error, unreachable.",
+  "Pimentel MSR 2019 PDF at ic.uff.br: connection refused (ECONNREFUSED); numbers (863,878 / 24.11% / 4.03%) verified via search-result corroboration and the leomurta.github.io mirror URL instead.",
+  "Hypothesis pedagogy/scholarly-annotation research (hypothes.is education studies): not pursued — the anchoring implementation was the spec-relevant artifact; usage studies of social annotation had no §-addressable delta.",
+  "MSR/CHI notebook-mess follow-ons (Kery variolite, Head code-gathering): surveyed titles only; they add texture to the mechanical-capture point but no delta beyond the Pimentel finding, so not fetched."
+ ]
+}
