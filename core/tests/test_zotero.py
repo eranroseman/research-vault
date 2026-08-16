@@ -97,6 +97,43 @@ def test_whole_library_export_normalizes_uri_ids_and_excludes_orphans(
     ]
 
 
+def test_whole_library_export_fetches_all_pages_before_normalizing(client, monkeypatch):
+    first_page = [
+        {"id": f"first{i}", "type": "article-journal", "title": "First page item"}
+        for i in range(100)
+    ]
+    second_page = [
+        {"id": "second2024", "type": "article-journal", "title": "Second page item"},
+        {
+            "id": "http://zotero.org/users/0/items/SECOND01",
+            "type": "document",
+            "title": "Second page attachment",
+        },
+    ]
+    requested_urls = []
+
+    def http(url, *args, **kwargs):
+        requested_urls.append(url)
+        if url.endswith("start=0"):
+            return 200, json.dumps(first_page).encode()
+        if url.endswith("start=100"):
+            return 200, json.dumps(second_page).encode()
+        raise AssertionError(f"unexpected page request: {url}")
+
+    client._fake.canned_rpc["item.citationkey"] = {"SECOND01": "mapped2024"}
+    monkeypatch.setattr(client, "_http", http)
+
+    items = client.export_csl(None)
+
+    assert len(items) == 102
+    assert [item["id"] for item in items[-2:]] == ["second2024", "mapped2024"]
+    assert requested_urls == [
+        "http://localhost:23119/api/users/0/items/top?format=csljson&limit=100&start=0",
+        "http://localhost:23119/api/users/0/items/top?format=csljson&limit=100&start=100",
+    ]
+    assert client._fake.rpc_calls == [("item.citationkey", [["SECOND01"]])]
+
+
 def test_network_failure_is_unreachable():
     zotero_client = zotero.ZoteroClient(base="http://127.0.0.1:1")
     with pytest.raises(zotero.ZoteroError) as error:
