@@ -40,6 +40,50 @@ def test_write_is_idempotent(tmp_vault):
     assert bibliography.write_and_commit(tmp_vault, ITEMS) is False
 
 
+def test_write_commit_excludes_and_preserves_unrelated_staged_path(tmp_vault):
+    sentinel = tmp_vault / "sentinel.txt"
+    sentinel.write_bytes(b"unrelated staged bytes\n")
+    subprocess.run(["git", "add", "sentinel.txt"], cwd=tmp_vault, check=True)
+    staged_blob_before = subprocess.run(
+        ["git", "show", ":sentinel.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    staged_diff_before = subprocess.run(
+        ["git", "diff", "--cached", "--binary", "--", "sentinel.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    assert bibliography.write_and_commit(tmp_vault, ITEMS) is True
+
+    committed_paths = subprocess.run(
+        ["git", "show", "--pretty=format:", "--name-only", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    staged_blob_after = subprocess.run(
+        ["git", "show", ":sentinel.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    staged_diff_after = subprocess.run(
+        ["git", "diff", "--cached", "--binary", "--", "sentinel.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    assert committed_paths == [bibliography.BIB_PATH]
+    assert staged_blob_after == staged_blob_before == sentinel.read_bytes()
+    assert staged_diff_after == staged_diff_before
+
+
 def test_staleness_matched(tmp_vault):
     bibliography.write_and_commit(tmp_vault, ITEMS)
     assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.MATCHED
@@ -60,3 +104,24 @@ def test_staleness_unreachable(tmp_vault):
 
 def test_staleness_skipped_without_file(tmp_vault):
     assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.SKIPPED
+
+
+def test_staleness_corrupt_committed_bibliography_is_unmatched(tmp_vault):
+    (tmp_vault / bibliography.BIB_PATH).write_text("{", encoding="utf-8")
+
+    assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.UNMATCHED
+
+
+def test_staleness_undecodable_committed_bibliography_is_unreachable(tmp_vault):
+    (tmp_vault / bibliography.BIB_PATH).write_bytes(b"\xff")
+
+    assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.UNREACHABLE
+
+
+@pytest.mark.parametrize("malformed", [{"items": ITEMS}, ["not-an-item"]])
+def test_staleness_malformed_fresh_bibliography_is_unreachable(
+    tmp_vault, malformed
+):
+    bibliography.write_and_commit(tmp_vault, ITEMS)
+
+    assert bibliography.staleness(tmp_vault, StubClient(malformed)) is Result.UNREACHABLE

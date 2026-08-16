@@ -7,6 +7,8 @@ class FrontmatterError(ValueError):
 
 
 _INLINE_DICT = re.compile(r"^\{(.*)\}$")
+_FRONTMATTER_OPEN = re.compile(r"\A---(?:\r\n|\n)")
+_FRONTMATTER_CLOSE = re.compile(r"(?:\r\n|\n)---(?:\r\n|\n)")
 
 
 def _emit_scalar(v):
@@ -78,13 +80,17 @@ def _parse_item(raw: str):
 
 
 def parse(text: str) -> tuple[dict, str]:
-    if not text.startswith("---\n"):
+    opening = _FRONTMATTER_OPEN.match(text)
+    if opening is None:
         return {}, text
-    end = text.index("\n---\n", 4)
-    block, body = text[4:end], text[end + 5:]
+    closing = _FRONTMATTER_CLOSE.search(text, opening.end())
+    if closing is None:
+        raise FrontmatterError("unterminated frontmatter")
+    block = text[opening.end():closing.start()]
+    body = text[closing.end():]
     data: dict = {}
     current_list = None
-    for line in block.split("\n"):
+    for line in block.splitlines():
         if line.startswith("  - "):
             if current_list is None:
                 raise FrontmatterError(f"list item outside list: {line!r}")

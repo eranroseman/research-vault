@@ -56,13 +56,42 @@ class ZoteroClient:
         )
         if status != 200:
             raise ZoteroError(f"JSON-RPC HTTP {status}")
-        reply = json.loads(body)
+        reply = self._decode_json(body, "JSON-RPC response")
+        if not isinstance(reply, dict):
+            raise ZoteroError("malformed JSON-RPC response: expected an object")
         if "error" in reply:
             raise ZoteroError(f"JSON-RPC error: {reply['error']}", Result.UNMATCHED)
+        if "result" not in reply:
+            raise ZoteroError("malformed JSON-RPC response: missing result")
         return reply["result"]
 
+    @staticmethod
+    def _decode_json(payload, context):
+        try:
+            return json.loads(payload)
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as error:
+            raise ZoteroError(f"malformed {context}: {error}") from error
+
+    @staticmethod
+    def _validate_csl_items(items, context):
+        if not isinstance(items, list):
+            raise ZoteroError(f"malformed {context}: expected a list")
+        for index, item in enumerate(items):
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("id"), str)
+                or not item["id"]
+            ):
+                raise ZoteroError(
+                    f"malformed {context}: invalid item at index {index}"
+                )
+        return items
+
     def ready(self) -> dict:
-        return self._rpc("api.ready", [])
+        result = self._rpc("api.ready", [])
+        if not isinstance(result, dict):
+            raise ZoteroError("malformed api.ready result: expected an object")
+        return result
 
     def search(self, terms: str) -> list[dict]:
         return self._rpc("item.search", [terms])
@@ -76,7 +105,9 @@ class ZoteroClient:
     def export_csl(self, citekeys: list[str] | None) -> list[dict]:
         if citekeys is not None:
             exported = self._rpc("item.export", [citekeys, CSL_TRANSLATOR])
-            return exported if isinstance(exported, list) else json.loads(exported)
+            if not isinstance(exported, list):
+                exported = self._decode_json(exported, "item.export result")
+            return self._validate_csl_items(exported, "item.export result")
 
         items = []
         start = 0
@@ -86,8 +117,16 @@ class ZoteroClient:
             )
             if status != 200:
                 raise ZoteroError(f"local API HTTP {status}")
-            page = json.loads(body)
-            page_items = page["items"] if isinstance(page, dict) else page
+            page = self._decode_json(body, "local API CSL response")
+            if isinstance(page, dict):
+                if "items" not in page:
+                    raise ZoteroError(
+                        "malformed local API CSL response: missing items"
+                    )
+                page = page["items"]
+            page_items = self._validate_csl_items(
+                page, "local API CSL response"
+            )
             items.extend(page_items)
             if len(page_items) < 100:
                 return self._normalize_top_level_csl_ids(items)
@@ -115,7 +154,7 @@ class ZoteroClient:
         return normalized
 
     def register_autoexport(self, target_path: str) -> dict:
-        return self._rpc("autoexport.add", [target_path, CSL_TRANSLATOR])
+        return self._rpc("autoexport.add", ["//", CSL_TRANSLATOR, target_path])
 
     def supports_local_writes(self) -> bool:
         """Return True only for affirmatively known Zotero 10+ installs."""

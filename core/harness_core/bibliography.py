@@ -43,13 +43,32 @@ def write_and_commit(vault_root, items) -> bool:
         return False
     p.write_text(new)
     subprocess.run(["git", "add", BIB_PATH], cwd=vault_root, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "chore: bibliography export"],
-                   cwd=vault_root, check=True)
+    subprocess.run(
+        [
+            "git", "commit", "-q", "--only", "-m",
+            "chore: bibliography export", "--", BIB_PATH,
+        ],
+        cwd=vault_root,
+        check=True,
+    )
     return True
 
 
 def _fingerprint(items):
-    return sorted((i["id"], i.get("title", "")) for i in items)
+    if not isinstance(items, list):
+        raise ValueError("bibliography must be a list")
+    fingerprint = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise ValueError(f"bibliography item {index} must be an object")
+        item_id = item.get("id")
+        title = item.get("title", "")
+        if not isinstance(item_id, str) or not item_id:
+            raise ValueError(f"bibliography item {index} has no valid id")
+        if not isinstance(title, str):
+            raise ValueError(f"bibliography item {index} has no valid title")
+        fingerprint.append((item_id, title))
+    return sorted(fingerprint)
 
 
 def staleness(vault_root, client) -> Result:
@@ -58,8 +77,17 @@ def staleness(vault_root, client) -> Result:
         return Result.SKIPPED
     try:
         fresh = client.export_csl(None)
-    except ZoteroError:
+        fresh_fingerprint = _fingerprint(fresh)
+    except (ZoteroError, TypeError, ValueError):
         return Result.UNREACHABLE
-    committed = json.loads(p.read_text())
-    return Result.MATCHED if _fingerprint(committed) == _fingerprint(fresh) \
+    try:
+        committed_text = p.read_text()
+    except (OSError, UnicodeError):
+        return Result.UNREACHABLE
+    try:
+        committed = json.loads(committed_text)
+        committed_fingerprint = _fingerprint(committed)
+    except (TypeError, ValueError):
+        return Result.UNMATCHED
+    return Result.MATCHED if committed_fingerprint == fresh_fingerprint \
         else Result.UNMATCHED

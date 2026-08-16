@@ -1,5 +1,6 @@
-import pytest
 import json
+
+import pytest
 
 from harness_core import Result, zotero
 
@@ -28,7 +29,11 @@ class FakeTransport:
                 "type": "article-journal",
                 "title": "Mortality decline",
             }],
-            "autoexport.add": {"path": "/vault/x/bibliography.json"},
+            "autoexport.add": {
+                "id": 7,
+                "key": "autoexport-key",
+                "libraryID": 1,
+            },
         }
 
     def rpc(self, method, params):
@@ -50,6 +55,15 @@ def test_ready(client):
     assert info["betterbibtex"] == "9.0.55"
 
 
+def test_ready_malformed_result_is_unreachable(client):
+    client._fake.canned_rpc["api.ready"] = []
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        client.ready()
+
+    assert error.value.result is Result.UNREACHABLE
+
+
 def test_search_carries_citekey(client):
     items = client.search("mortality")
     assert items[0]["citekey"] == "smith2020"
@@ -67,6 +81,19 @@ def test_export_named_translator(client):
         "item.export",
         [["smith2020"], "Better CSL JSON"],
     )
+
+
+def test_register_autoexport_sends_personal_library_root_and_returns_result(client):
+    result = client.register_autoexport("/vault/x/bibliography.json")
+
+    assert result is client._fake.canned_rpc["autoexport.add"]
+    assert result == {"id": 7, "key": "autoexport-key", "libraryID": 1}
+    assert client._fake.rpc_calls == [
+        (
+            "autoexport.add",
+            ["//", "Better CSL JSON", "/vault/x/bibliography.json"],
+        )
+    ]
 
 
 def test_whole_library_export_normalizes_uri_ids_and_excludes_orphans(
@@ -138,6 +165,40 @@ def test_network_failure_is_unreachable():
     zotero_client = zotero.ZoteroClient(base="http://127.0.0.1:1")
     with pytest.raises(zotero.ZoteroError) as error:
         zotero_client.ready()
+    assert error.value.result is Result.UNREACHABLE
+
+
+def test_rpc_malformed_json_is_unreachable(monkeypatch):
+    zotero_client = zotero.ZoteroClient()
+    monkeypatch.setattr(zotero_client, "_http", lambda *args, **kwargs: (200, b"{"))
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        zotero_client._rpc("api.ready", [])
+
+    assert error.value.result is Result.UNREACHABLE
+
+
+@pytest.mark.parametrize("body", [b"[]", b'{"jsonrpc": "2.0", "id": 1}'])
+def test_rpc_malformed_response_shape_is_unreachable(monkeypatch, body):
+    zotero_client = zotero.ZoteroClient()
+    monkeypatch.setattr(
+        zotero_client,
+        "_http",
+        lambda *args, **kwargs: (200, body),
+    )
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        zotero_client._rpc("api.ready", [])
+
+    assert error.value.result is Result.UNREACHABLE
+
+
+def test_whole_library_export_malformed_json_is_unreachable(client, monkeypatch):
+    monkeypatch.setattr(client, "_http", lambda *args, **kwargs: (200, b"{"))
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        client.export_csl(None)
+
     assert error.value.result is Result.UNREACHABLE
 
 

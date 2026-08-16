@@ -1,3 +1,5 @@
+import pytest
+
 from harness_core import frontmatter, notes
 
 
@@ -8,6 +10,15 @@ ITEM = {"id": "smith2020", "type": "article-journal", "title": "Mortality declin
 def test_note_path(tmp_vault):
     assert notes.note_path(tmp_vault, "smith2020").as_posix().endswith(
         "literatures/smith2020.md")
+
+
+@pytest.mark.parametrize(
+    "citekey",
+    ["", "../escape", "/tmp/escape", "..\\escape", "nested/escape"],
+)
+def test_note_path_rejects_unsafe_citekeys(tmp_vault, citekey):
+    with pytest.raises(notes.InvalidCitekeyError):
+        notes.note_path(tmp_vault, citekey)
 
 
 def test_fresh_note_shape():
@@ -149,11 +160,22 @@ def test_selector_values_are_html_escaped():
         'suffix="tail &quot;quoted&quot; &amp; --&gt;" -->'
 
 
-def test_content_changed(tmp_vault):
+def test_content_changed_compares_complete_rendered_candidate():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16")
-    assert notes.content_changed(v1, ["aa11"]) is False   # no-op re-import
-    assert notes.content_changed(v1, ["aa11", "bb22"]) is True
-    assert notes.content_changed(None, ["aa11"]) is True
+    identical = notes.render_note(
+        ITEM, ["aa11"], [], existing=v1, retrieved="2026-08-17"
+    )
+    changed = notes.render_note(
+        {**ITEM, "title": "Updated title"},
+        ["aa11"],
+        [],
+        existing=v1,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(v1, identical) is False
+    assert notes.content_changed(v1, changed) is True
+    assert notes.content_changed(None, identical) is True
 
 
 def test_sha256_file(tmp_path):

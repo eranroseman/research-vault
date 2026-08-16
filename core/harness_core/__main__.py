@@ -74,7 +74,23 @@ def _attachment_hash(attachment, vault) -> str:
     return notes.sha256_file(paths.to_local(raw_path, vault))
 
 
+def _read_note(path):
+    with path.open("r", encoding="utf-8", newline="") as note:
+        return note.read()
+
+
+def _write_note(path, text):
+    with path.open("w", encoding="utf-8", newline="") as note:
+        note.write(text)
+
+
 def cmd_import_note(args):
+    try:
+        path = notes.note_path(args.vault, args.citekey)
+    except notes.InvalidCitekeyError:
+        print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
+        return 1
+
     client = ZoteroClient(base=args.base)
     vault = args.vault
     matches = [
@@ -101,17 +117,20 @@ def cmd_import_note(args):
             for annotation in _attachment_annotations(attachment)
         )
 
+    existing = _read_note(path) if path.is_file() else None
+    today = datetime.date.today().isoformat()
+    candidate = notes.render_note(
+        item, hashes, annotations, existing, today
+    )
+
     # This must precede the note NOOP check: another Zotero item may have been
-    # admitted even when this note's attachment content has not changed.
+    # admitted even when this note's complete rendered projection has not changed.
     bibliography.write_and_commit(vault, client.export_csl(None))
 
-    path = notes.note_path(vault, args.citekey)
-    existing = path.read_text() if path.is_file() else None
-    if not notes.content_changed(existing, hashes):
+    if not notes.content_changed(existing, candidate):
         print("NOOP")
         return 0
-    today = datetime.date.today().isoformat()
-    path.write_text(notes.render_note(item, hashes, annotations, existing, today))
+    _write_note(path, candidate)
     print(str(path))
     return 0
 

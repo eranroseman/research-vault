@@ -35,6 +35,16 @@ def test_parse_no_frontmatter():
     assert data == {} and body == "just a body\n"
 
 
+def test_parse_crlf_frontmatter_preserves_mixed_newline_body():
+    text = frontmatter.serialize(SAMPLE).replace("\n", "\r\n")
+    body = "free\r\nregion\nkept\r\n"
+
+    data, parsed_body = frontmatter.parse(text + body)
+
+    assert data == SAMPLE
+    assert parsed_body == body
+
+
 def test_quotes_in_titles_roundtrip():
     data = {"aliases": ['The "gold standard" myth'], "citekey": "x2020"}
     parsed, _ = frontmatter.parse(frontmatter.serialize(data))

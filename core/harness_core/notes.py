@@ -11,7 +11,21 @@ MANAGED_CLOSE = "%%/hk-managed%%"
 SEED_FREE = "\n## Notes\n"
 
 
+class InvalidCitekeyError(ValueError):
+    """A citekey that cannot safely name one file in ``literatures``."""
+
+
 def note_path(vault_root, citekey) -> Path:
+    if (
+        not isinstance(citekey, str)
+        or not citekey
+        or citekey in {".", ".."}
+        or "/" in citekey
+        or "\\" in citekey
+        or "\0" in citekey
+        or Path(citekey).is_absolute()
+    ):
+        raise InvalidCitekeyError(f"unsafe citekey: {citekey!r}")
     return Path(vault_root) / "literatures" / f"{citekey}.md"
 
 
@@ -95,8 +109,5 @@ def sha256_file(path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def content_changed(existing_text, attachment_hashes) -> bool:
-    if not existing_text:
-        return True
-    prior = frontmatter.parse(existing_text)[0]
-    return prior.get("attachment-sha256") != attachment_hashes
+def content_changed(existing_text, candidate_text) -> bool:
+    return existing_text != candidate_text
