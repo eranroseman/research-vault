@@ -25,7 +25,7 @@
 - Commit messages: conventional (`feat:`, `test:`, `chore:`).
 - Repo: `~/knowledge-harness` (this repo doubles as plugin + marketplace, §8). Work on branch `build/plan-a`.
 - **Execution conventions (cwd resets between steps under subagent execution):** every command starts from the isolated worktree root. Every test Run begins `cd core && source .venv/bin/activate`; every Commit runs from the worktree root after `cd "$(git rev-parse --show-toplevel)"`. Never `cd ~/knowledge-harness` during implementation. This machine's system Python is PEP 668 externally managed — the venv from Task 1 is mandatory, not optional.
-- **Recorded deviation (selector capture):** §5 requires quote prefix/suffix capture at extraction. BBT's annotation payload carries no surrounding context, and deriving it needs PDF text extraction — outside this stdlib-only plan. Task 6 Part B renders the selector comment whenever context fields are present; **Plan B owns producing them** (its quote-verification work requires PDF text access anyway) and must backfill selectors for any notes imported before it lands. This is an explicit, tracked deviation — not a silent drop.
+- **Recorded deviation (selector capture):** §5 requires quote prefix/suffix capture at extraction. BBT's annotation payload carries no surrounding context, and deriving it needs PDF text extraction — outside this stdlib-only plan. Task 6 Part B renders the selector comment whenever context fields are present; **Plan B owns producing them** (its quote-verification work requires PDF text access anyway) and must backfill selectors for any notes imported before it lands; Plan B's selector consumer also unescapes the HTML-escaped selector values symmetrically (Task 6/7 ruling). This is an explicit, tracked deviation — not a silent drop.
 
 ## File Structure
 
@@ -943,6 +943,8 @@ git add core && git commit -m "feat: bibliography universe, staleness check, har
 ### Task 6: Literature notes + claim anchors (composite review unit)
 
 > **Composite-task ruling:** Part A's temporary `render_claim` stub is working-tree scaffolding, not a deliverable. One implementer receives this entire Task 6 brief, completes Parts A and B, runs the combined `test_notes.py`, commits once after Part B, and then receives one task review. There is no dispatch, commit, or review boundary between the parts.
+>
+> **Ruling (execution-time, edge-case package approved):** (1) Task 6's normalized annotation contract stands; Task 7 maps raw BBT fields (`annotationPageLabel`, `annotationComment`, `annotationType`, …) to it at the boundary — mapping authority is the live shape recorded in docs/environment.md; unknown/missing fields degrade to comment-only rendering, never crash. (2) The closing marker matches only as an exact standalone line (collision regression included). (3) Multiline quotes: every line blockquote-prefixed; multiline comments whitespace-collapse to one inline claim line — single-line claims are load-bearing for `^claim-id` block addressing. (4) Selector values HTML-escaped (quotes, ampersands, `-->`); **escaping is symmetric — Plan B's selector consumer must unescape identically** (added to the selector-deviation contract).
 
 **Files:**
 - Create: `core/harness_core/notes.py`
