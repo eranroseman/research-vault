@@ -420,6 +420,8 @@ git add core && git commit -m "feat: flat-YAML frontmatter parse/serialize"
 
 ### Task 3: Zotero clients — BBT JSON-RPC + local API
 
+> **Ruling (execution-time):** the "no absolute paths in the vault repo" constraint governs persisted vault-repo content only — RPC test fixtures in the plugin repo are out of its scope, and BBT auto-export targets are necessarily absolute at runtime (stored in Zotero's profile, never in a committed file; Plan C's vault-setup computes them transiently at provisioning). Reviewer finding on the fixture path rejected. Pagination gets a two-page regression test.
+
 **Files:**
 - Create: `core/harness_core/zotero.py`
 - Test: `core/tests/test_zotero.py`
