@@ -1,0 +1,87 @@
+{
+ "thread": "citation-integrity \u2014 cheapest reliable path (all legs live-verified 2026-08-16): (a) DOI existence: GET https://doi.org/api/handles/{doi} (responseCode 1 = resolves, 100 = not found; free, agency-agnostic, no Crossref rate-limit spend), then metadata match via Crossref /works/{doi}?mailto= for Crossref DOIs; (b) retraction check comes FREE in that same Crossref call \u2014 updated-by[] entries with source==\"retraction-watch\" and type==\"retraction\" (filter by type: corrections/expressions-of-concern also appear there) \u2014 cross-check with OpenAlex is_retracted, or clone the daily-updated RW CSV from GitLab for offline batch checks; (c) citation counts free in the same calls (Crossref is-referenced-by-count, OpenAlex cited_by_count); citation CONTEXTS (quoted citing sentences + intents) only from Semantic Scholar /paper/DOI:{doi}/citations?fields=contexts,intents. Branch: Crossref /works 404s on DataCite-registered DOIs (verified on 10.5281/zenodo.3678326), so for non-Crossref DOIs get metadata via doi.org content negotiation (Accept: application/vnd.citationstyles.csl+json) and retraction status via OpenAlex/CSV. Total cost for the full pipeline: zero, using mailto polite pools everywhere.",
+ "findings": [
+  {
+   "claim": "The doi.org handle API (GET https://doi.org/api/handles/{doi}) is the cheapest DOI-existence check: responseCode 1 means the DOI resolves (payload includes the target URL), responseCode 100 means handle not found. Verified live on a real and a fabricated DOI. It covers all registration agencies (Crossref, DataCite, mEDRA), not just Crossref.",
+   "source": "https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation",
+   "relevance": "Zero-cost first gate for fabricated-citation detection: a hallucinated DOI fails here before any metadata comparison is attempted.",
+   "maturity": "stable API (DOI Foundation proxy, factsheet moved from /factsheets/DOIProxy.html to current URL)"
+  },
+  {
+   "claim": "A single Crossref REST API call, GET https://api.crossref.org/works/{doi}, returns title/author/container/year for metadata matching, is-referenced-by-count (citation count), AND retraction status \u2014 verified live: body keys include is-referenced-by-count and updated-by.",
+   "source": "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+   "relevance": "One free HTTP call per cited work covers legs (a) metadata-match, (b) retraction, and (c) count for Crossref DOIs \u2014 the core primitive of the citation-verification harness.",
+   "maturity": "actively maintained, production"
+  },
+  {
+   "claim": "Crossref REST API has three access tiers \u2014 Public (anonymous), Polite (self-identify via mailto= query param or User-Agent with mailto:), and Plus (paid token). Joining the polite pool is confirmed live by response headers: x-api-pool: polite-single, x-rate-limit-limit: 10, x-rate-limit-interval: 1s, x-concurrency-limit: 3 (observed 2026-08-16).",
+   "source": "https://github.com/Crossref/rest-api-doc/blob/master/api_tips.md",
+   "relevance": "Sets the harness's request budget for Crossref: always send mailto=, stay under 10 req/s and 3 concurrent \u2014 free and sufficient for per-manuscript verification.",
+   "maturity": "etiquette text lives in the legacy GitHub repo (rest_api.md there says main docs moved to crossref.org); headers verified live so the numbers are current"
+  },
+  {
+   "claim": "Retraction Watch data is integrated into Crossref's production REST API since Crossref acquired the database (September 2023): a retracted work's /works record carries an updated-by[] array with entries {DOI of notice, type, source: \"retraction-watch\", date}. The retraction notice itself carries update-to. Verified live on 10.1016/S0140-6736(97)11096-0 (Wakefield): updated-by contains both a type:\"correction\" (2004) and a type:\"retraction\" (2010) entry \u2014 so a harness must filter type==\"retraction\" (types are Retraction, Correction, Expression of concern, Reinstatement), not just test presence.",
+   "source": "https://www.crossref.org/documentation/retrieve-metadata/retraction-watch/",
+   "relevance": "Retraction checking is free and rides along with the metadata-verification call; the type filter prevents false-positives on merely-corrected papers.",
+   "maturity": "actively maintained; RW database updated every working day"
+  },
+  {
+   "claim": "The full Retraction Watch database is downloadable as a single retraction_watch.csv from the public GitLab repo crossref/retraction-watch-data, updated once per working day \u2014 verified live: repo contains README.md + retraction_watch.csv, last commits 'Retraction Watch data for 2026-08-14' and 2026-08-13, committed daily at 23:00 UTC.",
+   "source": "https://gitlab.com/crossref/retraction-watch-data",
+   "relevance": "A nightly git pull gives the harness offline, batch retraction checking across a whole vault bibliography without any API traffic \u2014 and git history gives auditability.",
+   "maturity": "actively maintained (daily automated commits observed August 2026)"
+  },
+  {
+   "claim": "OpenAlex works carry a documented is_retracted boolean ('True if the work is known to be retracted, per the Retraction Watch database') \u2014 verified live: false for a normal work, true for the Wakefield paper, retrievable with select=is_retracted,cited_by_count in one call keyed by DOI (GET https://api.openalex.org/works/https://doi.org/{doi}).",
+   "source": "https://help.openalex.org/data/works/attributes/",
+   "relevance": "Independent second opinion on retraction status plus a citation count in the same free call \u2014 useful for cross-checking Crossref and for covering non-Crossref DOIs.",
+   "maturity": "actively maintained, stable field"
+  },
+  {
+   "claim": "OpenAlex API access model as of August 2026: keyless casual use is free (observed live headers with mailto only: x-ratelimit-limit: 1000 credits/day, x-ratelimit-limit-usd: 0.1); a free API key (openalex.org/settings/api) raises the daily budget 10x to $1/day; hard cap 100 requests/second; singleton lookups cost 1 credit. Paid: prepaid $1 increments or annual plans ($5k/$10k/$20k+ per year for $20/$100/$200+ daily budgets). Docs now live at help.openalex.org.",
+   "source": "https://help.openalex.org/api/authentication/",
+   "relevance": "1000 free singleton lookups/day keyless (10,000 with a free key) comfortably covers per-manuscript verification; the harness should register a free key and send it plus mailto.",
+   "maturity": "actively maintained; pricing model changed in 2026 (credit/USD budgets replaced the old unlimited 100k/day polite pool)"
+  },
+  {
+   "claim": "DOI content negotiation against https://doi.org/{doi} with Accept: application/vnd.citationstyles.csl+json (also application/x-bibtex, application/x-research-info-systems, text/x-bibliography) returns publisher-deposited metadata and works across Crossref, DataCite, and mEDRA. Verified live on both a Crossref DOI and a DataCite/Zenodo DOI (10.5281/zenodo.3678326) \u2014 the latter 404s on api.crossref.org/works, making content negotiation the agency-agnostic metadata-match fallback.",
+   "source": "https://citation.doi.org/docs.html",
+   "relevance": "Covers datasets, software, and preprints with DataCite DOIs that Crossref cannot verify \u2014 closes the non-Crossref gap in the metadata-match leg.",
+   "maturity": "stable; docs relocated from citation.crosscite.org (301) to citation.doi.org"
+  },
+  {
+   "claim": "Semantic Scholar Graph API resolves papers by DOI (GET /graph/v1/paper/DOI:{doi}) returning citationCount, influentialCitationCount, and externalIds (PubMed, ArXiv, MAG), and its /citations endpoint with fields=contexts,intents returns the actual quoted sentences in which each citing paper cites the work \u2014 verified live; it is the only free source of citation contexts among the services surveyed.",
+   "source": "https://api.semanticscholar.org/api-docs/",
+   "relevance": "Citation contexts let the harness check not just that a source is cited but what claims other papers support with it \u2014 direct support for claim-to-source tracing.",
+   "maturity": "actively maintained (S2AG corpus ~214M papers, 2.49B citations)"
+  },
+  {
+   "claim": "Semantic Scholar API is free: unauthenticated users share a pool of '1000 requests per second shared among all unauthenticated users' (throttled under heavy load); a free API key (requested via form, delivered by email, sent as x-api-key header) grants a dedicated 1 request/second starting allowance.",
+   "source": "https://www.semanticscholar.org/product/api",
+   "relevance": "Free tier is sufficient for the contexts leg; the harness should request a key for reliability since the anonymous pool degrades unpredictably.",
+   "maturity": "actively maintained"
+  },
+  {
+   "claim": "Unpaywall v2 API (GET https://api.unpaywall.org/v2/{doi}?email=...) is free with no key, returns is_oa, oa_status, and best_oa_location with a direct OA PDF URL. Live behavior verified: example.com emails are rejected (HTTP 422), a real email succeeds. The documented rate limit is 100,000 calls/day per unpaywall.org/products/api \u2014 caveat: that page is JS-rendered and unfetchable programmatically, so the number was cross-checked only via secondary snapshots; endpoint behavior was verified live. The database was rebuilt May 20, 2025 by OurResearch (10x API speedup, same endpoints, oa_locations.evidence and oa_locations.updated deprecated).",
+   "source": "https://unpaywall.org/products/api",
+   "relevance": "Gives the harness a legal full-text PDF link per DOI so claims can be verified against the actual source text, not just its metadata.",
+   "maturity": "actively maintained (major rebuild May 2025; now aligned with OpenAlex under OurResearch)"
+  },
+  {
+   "claim": "Citation counts for the same DOI diverge materially across indexes \u2014 measured live 2026-08-16 for 10.1038/nature12373: Crossref is-referenced-by-count 1801, Semantic Scholar citationCount 1808, OpenAlex cited_by_count 1980.",
+   "source": "https://api.crossref.org/works/10.1038/nature12373",
+   "relevance": "For a trust-first harness, any recorded citation count must be labeled with its index and retrieval date; treating counts as index-relative facts prevents a class of subtle fabrication.",
+   "maturity": "structural property of the ecosystem, not a bug"
+  }
+ ],
+ "deadEnds": [
+  "raw.githubusercontent.com/CrossRef/rest_api_doc/... \u2014 404; the repo is Crossref/rest-api-doc (hyphens), and even its rest_api.md now says the main documentation moved to crossref.org; only api_tips.md there still holds the polite-pool etiquette prose.",
+  "docs.openalex.org \u2014 the widely-cited GitBook docs URL now 301s to help.openalex.org, so deep links into docs.openalex.org paths (e.g. /how-to-use-the-api/rate-limits-and-authentication) are dead; a frozen snapshot survives at docsold.openalex.org and developers.openalex.org paths also redirect. Current docs source of truth: help.openalex.org (built from github.com/ourresearch/openalex-help).",
+  "OpenAlex '100,000 credits per day with free API key' figure circulating in search results and the Feb-2026 'API keys required starting Feb 13' Google Groups thread is stale: live headers (x-ratelimit-limit: 1000, x-ratelimit-limit-usd: 0.1 keyless) and current docs show a $-denominated model ($0.10/day keyless, $1/day free key).",
+  "citation.crosscite.org/docs.html \u2014 301; the DOI content-negotiation documentation moved to citation.doi.org/docs.html.",
+  "api.labs.crossref.org \u2014 still returns 200 but was the interim home of Retraction Watch data; superseded for this purpose since the data is now in the production api.crossref.org /works route. No reason to build against Labs.",
+  "unpaywall.org documentation pages (products/api, api/v2, data) are a JS single-page app that returns no content to programmatic fetchers; the API self-reports its documentation_url but the rate-limit number (100k/day) could only be cross-checked via secondary snapshots, not the owning page.",
+  "retractiondatabase.org (Retraction Watch's own search UI) \u2014 unfetchable programmatically (redirect loop past 10 hops); no standalone public API is documented anywhere in Crossref's or RW's materials \u2014 Crossref's docs list exactly two programmatic routes post-acquisition: the REST API and the GitLab CSV.",
+  "api.unpaywall.org with email=...@example.com \u2014 rejected with HTTP 422; example-domain emails cannot be used even for testing, a real address is required."
+ ]
+}

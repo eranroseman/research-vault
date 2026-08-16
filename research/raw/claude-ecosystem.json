@@ -1,0 +1,86 @@
+{
+ "thread": "claude-ecosystem",
+ "findings": [
+  {
+   "claim": "Anthropic's official skills repo (anthropics/skills) contains 17 skills as of 2026-08-13 \u2014 creative/design, dev tooling, enterprise comms, plus the source-available document skills (docx, pdf, pptx, xlsx) and doc-coauthoring \u2014 and nothing for research, literature review, citations, or PKM.",
+   "source": "https://github.com/anthropics/skills",
+   "maturity": "actively maintained (pushed 2026-08-13, 169.6k stars); document skills are source-available, rest Apache-2.0",
+   "relevance": "Official channel leaves our domain uncovered, but docx/pdf skills serve the draft-to-submit end of the arc and can be installed as a plugin marketplace."
+  },
+  {
+   "claim": "kepano/obsidian-skills (installed here as obsidian@obsidian-skills v1.0.1) ships exactly 5 skills \u2014 obsidian-markdown (OFM syntax: wikilinks, callouts, properties, embeds), obsidian-bases (.base views/filters/formulas), json-canvas (.canvas per JSON Canvas 1.0 spec), obsidian-cli (drives a running Obsidian via the official CLI, help.obsidian.md/cli), and defuddle (clean markdown extraction from web pages). It covers vault format and vault operations only; it does NOT cover Zotero or any reference management, citation integrity, literature search, PDF annotation, git workflow, or research process.",
+   "source": "https://github.com/kepano/obsidian-skills",
+   "maturity": "stable, first-party from Obsidian's CEO; pushed 2026-06-08, 46.3k stars; verified by reading the 5 SKILL.md files locally at ~/.claude/plugins/cache/obsidian-skills/obsidian/1.0.1/",
+   "relevance": "Our Obsidian substrate layer is already handled; the entire research-workflow and trust/citation layer above it is the gap we must fill by install or authoring."
+  },
+  {
+   "claim": "Imbad0202/academic-research-skills is the largest community academic pipeline for Claude Code: 4 skill suites (Deep Research v2.12.1 with PRISMA systematic-review mode, Academic Paper v3.3.1, Academic Paper Reviewer v1.11.1, Academic Pipeline v3.20.1 orchestrator), with a deterministic citation-verification gate cross-checking against Semantic Scholar, OpenAlex, Crossref, and arXiv, contamination (hallucinated-source) detection, and quote/page/section citation anchors \u2014 but it has NO Zotero integration, and its license is CC-BY-NC 4.0 (non-commercial only, confirmed from the LICENSE file).",
+   "source": "https://github.com/imbad0202/academic-research-skills",
+   "maturity": "very active: v3.20.1 released 2026-08-15, pushed 2026-08-15, 42.6k stars; marketplace-installable",
+   "relevance": "Closest existing match to our zero-fabricated-citations criterion \u2014 its verification-gate design is worth studying \u2014 but the NC license constrains forking and it ignores our Zotero/Obsidian substrate."
+  },
+  {
+   "claim": "WenyuChiou/ai-research-skills is a 16-skill MIT catalog mapped to 8 research-workflow stages (literature triage \u2192 gap analysis \u2192 design \u2192 build \u2192 manuscript \u2192 review response) that explicitly targets our exact substrate: arXiv/Semantic Scholar search \u2192 Zotero metadata ingest (zotero-library-curator skill) \u2192 per-paper notes synced to Obsidian \u2192 NotebookLM brief verification, with an anti-hallucination rule that unsupported claims must carry 'status: gap' flags; installable via Claude Code plugin marketplace.",
+   "source": "https://github.com/WenyuChiou/ai-research-skills",
+   "maturity": "active but small community (pushed 2026-08-02, 207 stars, MIT); same author also maintains a standalone zotero-skills repo",
+   "relevance": "The only found suite matching Obsidian+Zotero end-to-end \u2014 MIT so freely forkable; small enough to audit fully, making it the leading fork-rather-than-author candidate."
+  },
+  {
+   "claim": "54yyyu/zotero-mcp is the mature Zotero\u2194Claude access layer: an MCP server offering keyword/advanced/tag search, semantic (vector) search with selectable embedding backends, PDF annotation extraction with page numbers, full-text retrieval, BibTeX export, and add-by-DOI/URL/ISBN; it supports Zotero's local API (fast, read-only), web API, and a hybrid local-reads/web-writes mode, and explicitly lists Claude Code as a client.",
+   "source": "https://github.com/54yyyu/zotero-mcp",
+   "maturity": "actively maintained (pushed 2026-08-13, 4,667 stars, MIT, 530 commits; pip/pipx/uv install)",
+   "relevance": "Strongest candidate for wiring 'local Zotero as reference source of truth' into the harness, including the annotation and BibTeX paths the synthesis stage needs."
+  },
+  {
+   "claim": "K-Dense-AI/scientific-agent-skills (rebranded from claude-scientific-skills) is a 161-skill MIT library for science agents including 27 scientific-communication skills: paper lookup across PubMed/bioRxiv/arXiv/Semantic Scholar, Paperclip full-text retrieval with citations pinned to line numbers rather than abstracts, evidence-traceable scientific writing, peer review, and a pyzotero citation-management skill; installs via npx/gh-skill into Claude Code and any host of the open Agent Skills standard, with per-skill licenses and contributor-required test suites.",
+   "source": "https://github.com/K-Dense-AI/scientific-agent-skills",
+   "maturity": "very active (pushed 2026-08-16, 33.6k stars, MIT repo license); skills individually licensed \u2014 must check each",
+   "relevance": "Biggest pool to cherry-pick literature-access and pyzotero skills from, and its line-pinned-citation provenance design aligns directly with the trust-first criterion."
+  },
+  {
+   "claim": "AgriciDaniel/claude-obsidian (v2.1.0, MIT) implements a local-first Obsidian second brain for Claude Code with a provenance architecture: inbox/ capture \u2192 immutable content-addressed .raw/ copies \u2192 linked wiki/ pages, plus source and claim ledgers tracking authority, freshness, support, contradiction, confidence, and review state per claim, and BM25 vault retrieval \u2014 but has no Zotero or academic reference-manager integration.",
+   "source": "https://github.com/AgriciDaniel/claude-obsidian",
+   "maturity": "active (pushed 2026-08-01, 10.9k stars, MIT); also runs on Cursor/Codex/Gemini skill hosts",
+   "relevance": "A proven claim-ledger/provenance pattern for the vault half of our design \u2014 exactly the every-claim-traceable mechanic \u2014 missing only the Zotero half we already plan to supply."
+  },
+  {
+   "claim": "yilewang/llm-for-zotero takes the inverse topology: it is a Zotero plugin (.xpi for Zotero 7/8/9, AGPL-3.0) running an agent inside Zotero with library search, note drafting, metadata/tag writes with confirmation and undo, and MinerU PDF parsing; its Claude Code integration is an experimental bridge that does not support native Zotero API operations.",
+   "source": "https://github.com/yilewang/llm-for-zotero",
+   "maturity": "active (pushed 2026-08-14, 2,646 stars, AGPL-3.0)",
+   "relevance": "Documents the agent-inside-Zotero alternative; its confirmed-write/undo safety model is instructive, but the topology and immature Claude Code bridge rule it out as our access layer."
+  },
+  {
+   "claim": "hesreallyhim/awesome-claude-code maintains a 'Research & Scientific Inquiry' category and an Obsidian subsection whose current entries include WenyuChiou/ai-research-skills, pedrohcgs/claude-code-my-workflow, ccf/agentcairn (Obsidian vault as cross-project agent memory), iurykrieger/claude-bedrock (vault \u2192 typed knowledge graph), AgriciDaniel/claude-obsidian, and ngmeyer/librarian-mcp (graph analytics over vaults).",
+   "source": "https://github.com/hesreallyhim/awesome-claude-code",
+   "maturity": "actively curated community index, 52.4k stars",
+   "relevance": "The one ecosystem index that actually tracks our niche \u2014 worth monitoring for new research/PKM tooling rather than re-searching from scratch."
+  },
+  {
+   "claim": "pedrohcgs/claude-code-my-workflow is a ready-to-fork Claude Code template for academics using LaTeX/Beamer + R, with multi-agent review, quality gates, and replication protocols.",
+   "source": "https://github.com/pedrohcgs/claude-code-my-workflow",
+   "maturity": "stable/slow (pushed 2026-06-10, 1,498 stars, MIT)",
+   "relevance": "Covers the LaTeX submission end and shows an academic's quality-gate layout, though it assumes LaTeX+R rather than an Obsidian vault."
+  },
+  {
+   "claim": "Claude Code's Agent Skills docs define the authoring surface we'd build on: a SKILL.md with YAML frontmatter per skill, living at personal (~/.claude/skills), project (.claude/skills), or plugin scope; custom commands are now merged into skills; a skill's body loads only when invoked, so long reference material is near-free until used \u2014 and the format is portable to other hosts (Codex, Cursor, Gemini CLI) via the open Agent Skills standard.",
+   "source": "https://code.claude.com/docs/en/skills",
+   "maturity": "official docs, current as of 2026-08",
+   "relevance": "Any skill we author for the research harness should follow this format so it mirrors cleanly to the user's Codex setup and stays cheap in context until invoked."
+  },
+  {
+   "claim": "urschrei/zotero_search_skill is a single small Claude Skill that wraps Pyzotero for searching Zotero research collections (per its own description) \u2014 the skill-not-MCP pattern for Zotero access, licensed BlueOak-1.0.0.",
+   "source": "https://github.com/urschrei/zotero_search_skill",
+   "maturity": "minimal/quiet (pushed 2026-02-04, 12 stars)",
+   "relevance": "Demonstrates the lightweight CLI-skill alternative to running an MCP server for Zotero \u2014 small enough to audit line-by-line, matching our trust-first preference."
+  }
+ ],
+ "deadEnds": [
+  "anthropics/claude-plugins-official (official marketplace, 286 plugins, synced locally 2026-08-16): no academic-research, Zotero, Obsidian, citation, or PKM plugin exists; keyword matches were all dev/vendor tools (Exa, Tavily, You.com web-search APIs, Notion workspace). kepano/obsidian-skills is notably absent from it \u2014 it distributes via its own repo as a marketplace.",
+  "anthropics/claude-code bundled plugin directory (14 plugins: code-review, feature-dev, security-guidance, etc.): all software-engineering focused, nothing for research or writing workflows.",
+  "VoltAgent/awesome-agent-skills (~1,400+ skills index): no research, academic-writing, PKM, note-taking, Obsidian, or Zotero category \u2014 scope is coding, cloud, testing, DevOps, and business automation only.",
+  "K-Dense-AI/claude-scientific-skills: repo name is dead (GitHub API 404) \u2014 rebranded/moved to K-Dense-AI/scientific-agent-skills.",
+  "mcpmarket.com/tools/skills/zotero-search: aggregator listing only (fetch rate-limited with HTTP 429); traced to its owning repo urschrei/zotero_search_skill instead \u2014 do not cite the aggregator's capability claims.",
+  "richardjlyon/zotero-mcp: 1 star, no license, quiet since 2026-07-28 \u2014 too immature to consider despite its Claude Code + OAuth pitch. Likewise gyger/mcp-pyzotero (56 stars, untouched since 2025-11) and kerim/zotero-mcp-skill (13 stars, 2025-10) are stale relative to 54yyyu/zotero-mcp.",
+  "Imbad0202/academic-research-skills has no Zotero integration at all \u2014 a fork would need the reference layer added, and its CC-BY-NC 4.0 license restricts commercial reuse."
+ ]
+}

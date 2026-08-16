@@ -1,0 +1,75 @@
+{
+ "component": "personal-interrogation",
+ "skills": [
+  {
+   "name": "grilling",
+   "purpose": "Interview the user relentlessly about a plan, decision, or idea until every branch of the design is explicitly settled.",
+   "mechanism": "Models the topic as a design tree worked in rounds: each round asks the entire current frontier (all questions whose prerequisites are settled), numbered with an emoji-formatted title and a recommended answer per question; facts are the agent's job (dispatched to subagents without blocking the round), decisions are the user's; done only when the frontier is empty and the user confirms shared understanding — a hard gate against acting early.",
+   "invocation": "Three-layer control: SKILL.md frontmatter has no disable-model-invocation, but settings.json skillOverrides makes it name-only (description stripped) and CLAUDE.md policy restricts it to explicit user request ('grill me', /grilling) or nested calls from triage, wayfinder, and grill-with-docs."
+  },
+  {
+   "name": "grill-with-docs",
+   "purpose": "Run a grilling interview that also produces documentation (ADRs and glossary) as decisions land.",
+   "mechanism": "Three-line composite skill: its entire body is an instruction to call the Skill tool twice, for 'grilling' and 'domain-modeling' — skills used as subroutines.",
+   "invocation": "disable-model-invocation: true — user-typed only."
+  },
+  {
+   "name": "to-questionnaire",
+   "purpose": "Turn a decision the user cannot resolve alone into a Markdown questionnaire handed to the one person who holds the missing knowledge.",
+   "mechanism": "'Grill the send, not the subject': two one-exchange interview steps (who is the recipient, what must come back) fix tone and target the knowledge gap; output is a templated file to-questionnaire-<slug>.md with purpose/context/how-to-answer headers, one-idea-per-question with answer stubs and 'why this matters' lines, most-important-first ordering, and a closing catch-all.",
+   "invocation": "disable-model-invocation: true — user-typed only."
+  },
+  {
+   "name": "teach",
+   "purpose": "Teach the user a topic across multiple sessions inside a stateful learning workspace in the current directory.",
+   "mechanism": "File-convention workspace with per-file format docs: MISSION.md (why, grilled first if vague, gates all teaching), RESOURCES.md (high-trust sources only, never parametric knowledge, Knowledge/Wisdom split), numbered learning-records/ (ADR-style insight records with supersession, written only on evidence of understanding, used to compute the zone of proximal development), GLOSSARY.md (terms promoted only once understood, opinionated aliases-to-avoid), lessons/*.html built from reusable assets/ components, reference/ cheat sheets, NOTES.md preferences; pedagogy rules split fluency vs storage strength and mandate retrieval/spacing/interleaving.",
+   "invocation": "disable-model-invocation: true — user-typed only, with argument-hint prompting for the topic."
+  },
+  {
+   "name": "triage",
+   "purpose": "Move issue-tracker items (and external PRs treated as issues-with-code) through a state machine of triage roles into agent-ready or human-ready work.",
+   "mechanism": "Two category roles (bug/enhancement) plus five state roles with defined transitions; every posted comment must open with an AI-generated disclaimer; per-item flow is gather-context (including redundancy search and .out-of-scope/ prior-rejection check) → recommend and wait → verify the claim by reproduction → grill via nested grilling+domain-modeling calls if needed → apply outcome using AGENT-BRIEF.md (durable behavioral briefs: no file paths or line numbers, testable acceptance criteria, explicit out-of-scope) or OUT-OF-SCOPE.md (one file per rejected concept, concept-similarity matching, rejected-vs-already-implemented kept distinct).",
+   "invocation": "disable-model-invocation: true — user-typed /triage with a natural-language request; it in turn invokes grilling and domain-modeling."
+  },
+  {
+   "name": "wait-what",
+   "purpose": "Interrupt the agent when its last message did not land and force a re-explanation.",
+   "mechanism": "One-sentence prompt injection: re-pitch with context, in ASD-STE100 Simplified Technical English, using the ubiquitous language from CONTEXT.md — a controlled-vocabulary reset button.",
+   "invocation": "disable-model-invocation: true — user-typed only."
+  },
+  {
+   "name": "wayfinder",
+   "purpose": "Plan an effort too big for one agent session as a shared map of decision tickets on the issue tracker, resolved one per session until the route to a named destination is clear.",
+   "mechanism": "One map issue (index, not store: destination, notes, one-line decisions-so-far, not-yet-specified fog, out-of-scope) with child decision tickets typed research/prototype/grilling/task and split HITL vs AFK; hard gates include claim-by-assignment before work, one ticket per session (research excepted), fog-vs-ticket test ('can you state the question precisely now, not answer it'), native blocking edges rendering the frontier visually, resolution recorded as a closing comment plus map pointer, and plan-don't-do (the urge to execute signals the map's edge).",
+   "invocation": "disable-model-invocation: true — user-typed only, in two modes (chart the map, work through the map); it invokes grilling, domain-modeling, research, and prototype as subroutines."
+  }
+ ],
+ "patterns": [
+  "Three-layer invocation control: SKILL.md frontmatter (disable-model-invocation), settings.json skillOverrides (name-only description stripping), and CLAUDE.md prose policy — with the explicit rule that local policy never lives in vendored skill files because updates silently overwrite them.",
+  "Frontier-in-rounds questioning: ask everything currently unblocked at once, each question numbered with a recommended answer, recompute the frontier after each batch of answers — parallelizes elicitation without guessing at unanswered prerequisites.",
+  "Hard labor split: facts are the agent's job (dispatch subagents, never block the round), decisions are the user's (always put to them, always wait) — and HITL tickets forbid the agent answering its own questions.",
+  "Skill composition as subroutines: a 3-line skill (grill-with-docs) that only calls two other skills; triage and wayfinder likewise invoke grilling+domain-modeling at defined steps.",
+  "Empty-frontier completion gate: a session is done only when no question remains and the user confirms shared understanding — nothing silently assumed, no acting before confirmation.",
+  "Durable briefs over precise ones: hand-off specs describe behavior and interfaces, ban file paths and line numbers, require independently testable acceptance criteria and explicit out-of-scope lists so they survive drift between writing and execution.",
+  "Negative-knowledge base: one file per rejected concept, matched by concept similarity not keywords, kept clean by distinguishing rejected from already-implemented — institutional memory that prevents re-litigation.",
+  "Map-as-index with single source of truth: the map gists and links, each decision lives in exactly one ticket; open work is found by query, not listed.",
+  "Fog-of-war deferral: chart only questions you can state precisely now; keep the rest as coarse 'not yet specified' patches that graduate into tickets as the frontier advances — deliberate incompleteness as a planning discipline.",
+  "One-decision-per-session budget plus claim-by-assignment, making multi-session and multi-agent concurrency safe on a shared artifact.",
+  "Elicit around the blocker: when the user can't answer the subject, interview them about what they can answer (recipient, needed outputs) and aim the artifact at the knowledge gap (to-questionnaire).",
+  "Evidence-gated state files: glossary terms and learning records are written only when understanding is demonstrated, with explicit supersession instead of deletion — append-only history of how understanding evolved.",
+  "Provenance disclaimers on every externally visible AI-generated artifact (triage's mandatory comment prefix).",
+  "Controlled-language reset command: a tiny user-typed skill that forces re-explanation in simplified technical English using the project's canonical glossary."
+ ],
+ "knowledgeWorkAnalogs": [
+  "Thesis grilling: run the frontier-in-rounds interview against a draft argument, research question, or essay outline — the agent fetches sources/facts via subagents, the author makes every interpretive decision, and writing starts only when the frontier is empty.",
+  "Expert-elicitation questionnaires: to-questionnaire almost unchanged — turn 'I need my advisor/interviewee/domain expert to resolve X' into a gap-targeted async Markdown questionnaire with answer stubs and why-this-matters lines.",
+  "Reading-inbox triage state machine: papers, clippings, and inbound notes get category plus state labels (needs-read, needs-info-from-source, ready-to-summarize, ready-to-cite, discard), with a verify step (check the claim against the primary source) before anything enters the vault.",
+  "Rejected-ideas register: an .out-of-scope/ analog in a PKM vault — one note per abandoned research direction or argument with durable reasons and links to every time it resurfaced, checked during idea triage so old directions aren't re-litigated.",
+  "Research-project wayfinding: a big literature review or book project charted as a map note with decision tickets (which framing, which corpus, which method), fog-of-war for questions not yet statable, one decision resolved per session, out-of-scope section fixing the project's boundary.",
+  "Writing briefs as agent briefs: hand a chapter or article section to a future session as a behavioral brief — desired argument and acceptance criteria (claims supported, sources cited) with explicit out-of-scope, no references to current draft line numbers or file structure.",
+  "Teach-style learning vaults: the teach workspace is already non-software knowledge work — mission-grounded curricula with evidence-gated glossaries, ADR-style learning records for spaced-retrieval planning, and curated high-trust resource lists per topic folder.",
+  "Vault glossary as ubiquitous language: a wait-what analog where any confusing summary must be re-pitched in plain controlled language using the vault's canonical term definitions.",
+  "Interview-the-source triage step: before summarizing a paper or claim into notes, reproduce it — check the cited data or primary text — mirroring triage's verify-the-claim gate; failure is a strong needs-info signal on the source.",
+  "Decision journal with supersession: learning-record mechanics applied to analysis work — record only decision-grade insights with evidence, mark superseded entries rather than deleting, and use the record to pick the next question in the zone of productive difficulty."
+ ]
+}

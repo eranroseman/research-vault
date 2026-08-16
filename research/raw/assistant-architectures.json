@@ -1,0 +1,104 @@
+{
+ "thread": "assistant-architectures",
+ "findings": [
+  {
+   "claim": "PaperQA2 (Future-House/paper-qa) structures answering as three separable phases \u2014 Paper Search (LLM-generated keyword queries, chunk+embed), Gather Evidence (retrieve top-k chunks, create a scored summary of each chunk in the context of the query, LLM re-rank), Generate Answer (answer prompt populated only with the top scored summaries, never raw retrieval). Config gates like evidence_relevance_score_cutoff drop low-scoring evidence before drafting.",
+   "source": "https://github.com/Future-House/paper-qa",
+   "relevance": "Pattern to copy directly: the harness should separate 'collect and score evidence into vault notes' from 'draft only from collected evidence', so the drafting step physically cannot see anything but vetted passages.",
+   "maturity": "Actively maintained: v5+ ('PaperQA2' = version 5+ codebase), switched to CalVer Dec 2025, Dec 2025 release added multimodal/Docling PDF support."
+  },
+  {
+   "claim": "PaperQA2's RCS (Reranking and Contextual Summarization) step has an LLM score each retrieved chunk 0-10 for relevance to the query and summarize it; the paper states RCS 'prevents irrelevant chunks from appearing in the RAG context' and lets the agent 'examine much more text per user question' without polluting the answer prompt.",
+   "source": "https://arxiv.org/abs/2409.13740",
+   "relevance": "Per-passage LLM relevance scoring before context assembly is a concrete anti-hallucination mechanism the harness can apply to excerpts pulled from Zotero PDFs before synthesis notes are written.",
+   "maturity": "Stable research artifact ('Language agents achieve superhuman synthesis of scientific knowledge', Skarlinski et al., arXiv Sept 2024)."
+  },
+  {
+   "claim": "PaperQA2 constrains the citation universe at prompt level: the answer model is instructed to 'Only cite from the context and only use the valid keys', with citation keys resolving to source + page range (e.g. '(Example2012Example pages 3-4)').",
+   "source": "https://arxiv.org/abs/2409.13740",
+   "relevance": "Direct blueprint for zero-fabricated-citations: drafts may only use citekeys from a closed set of Zotero/BibTeX keys, which makes every citation mechanically lintable against the Zotero library plus a page locator.",
+   "maturity": "Stable research artifact (arXiv Sept 2024)."
+  },
+  {
+   "claim": "PaperQA2's WikiCrow evaluation graded every statement as 'cited and supported', 'missing a citation', or 'cited and unsupported' via expert human graders: WikiCrow got 86.1% cited-and-supported vs 71.2% for human-written Wikipedia, 3.5% uncited vs 13.6%, and 13.5% cited-and-unsupported vs 24.9%. LitQA2 separately distinguishes precision (correct when answered) from accuracy (correct over all questions) via an 'insufficient information' refusal option.",
+   "source": "https://arxiv.org/abs/2409.13740",
+   "relevance": "Gives the harness both a review rubric (supported / missing citation / cited-but-unsupported) for auditing drafts and the precision-vs-accuracy-with-refusal framing for deciding when the assistant should say 'insufficient sources' instead of answering.",
+   "maturity": "Stable research artifact (arXiv Sept 2024)."
+  },
+  {
+   "claim": "STORM (stanford-oval/storm, NAACL 2024) splits work into pre-writing and writing: perspective-guided question asking plus simulated writer-expert conversations grounded in Internet sources build a curated reference set R during research; the writing stage then retrieves only from R (per section title, Sentence-BERT similarity) and generates each section with citations to those references.",
+   "source": "https://arxiv.org/abs/2402.14207",
+   "relevance": "The outline-then-write-from-a-frozen-reference-set pattern maps to the harness arc: literature phase populates Zotero/vault, and drafting is restricted to citing that curated set \u2014 plus perspective-guided questioning is a reusable technique for broadening the literature search.",
+   "maturity": "Paper static (NAACL 2024); repo maintained but slowing \u2014 pip package knowledge-storm, v1.1.0 (litellm) Jan 2025, ~31k stars; Co-STORM variant (arXiv 2408.15232) adds human-AI collaboration with a dynamic mind map."
+  },
+  {
+   "claim": "STORM gates what enters its reference set with a trust filter: 'searched results will be evaluated using a rule-based filter according to the Wikipedia guideline to exclude untrustworthy sources' before any retrieved page can ground an expert answer or be cited.",
+   "source": "https://arxiv.org/abs/2402.14207",
+   "relevance": "Precedent for a source-admission policy: the harness equivalent is that nothing gets cited unless it is first admitted into Zotero as a vetted item \u2014 trust filtering happens at ingestion, not at drafting.",
+   "maturity": "Stable research artifact (NAACL 2024)."
+  },
+  {
+   "claim": "STORM's own evaluation found 84.83% of generated sentences judged supported by their citations (Mistral 7B-Instruct judge), with error categories: improper inferential linking, inaccurate paraphrasing, and citing irrelevant sources; expert Wikipedia editors additionally flagged 'red herring fallacy or overspeculation... unverifiable connections between different pieces of information' and source bias/tone transfer (7 of 10 editors called articles 'emotional' or 'unneutral').",
+   "source": "https://arxiv.org/abs/2402.14207",
+   "relevance": "Names the failure modes the harness must check beyond citation existence: cross-source connections invented by the model (over-association) and bias inherited from sources \u2014 verification must cover the claim-to-passage entailment and the linkage between claims, not just the presence of a citekey.",
+   "maturity": "Stable research artifact (NAACL 2024)."
+  },
+  {
+   "claim": "gpt-researcher's architecture is a planner/executor split (planner generates research questions, crawler/execution agents gather per-question, publisher aggregates), and its stated anti-misinformation strategy is frequency-based aggregation: 'the more sites we scrape the less chances of incorrect data. By scraping multiple sites per research, and choosing the most frequent information, the chances that they are all wrong is extremely low' (20+ sources per research task).",
+   "source": "https://github.com/assafelovic/gpt-researcher",
+   "relevance": "Useful as an anti-pattern for a trust-first harness: majority-vote-across-scraped-pages is aggregation, not verification \u2014 repetition across web sources must never substitute for tracing a claim to a specific passage in a vetted reference.",
+   "maturity": "Actively maintained: ~29k stars, 3,077 commits, PyPI + Docker distribution, Deep Research recursive workflow added."
+  },
+  {
+   "claim": "gpt-researcher's citation model is source-level, not passage-level: the docs state it 'keeps track and context of visited and used web sources' for report citations, but neither the README nor the docs introduction documents any per-claim passage binding or claim-to-source entailment check.",
+   "source": "https://docs.gptr.dev/docs/gpt-researcher/getting-started/introduction",
+   "relevance": "Marks the architectural line the harness must stay above: citing whole sources is the weak end of the spectrum; the harness should bind each claim to a located passage (Zotero item + page/quote), which is what separates PaperQA2/Elicit/scite from gpt-researcher.",
+   "maturity": "Actively maintained docs site (docs.gptr.dev)."
+  },
+  {
+   "claim": "Elicit's stated anti-hallucination design is faithfulness to source text: 'the info we use is extracted directly from papers or generated based on research papers', with highlighted source locations in papers, plus 'process supervision, prompt engineering, ensembling multiple models, double-checking our results with custom models and internal evaluations'; extraction answers are backed by supporting quotes from the underlying paper.",
+   "source": "https://support.elicit.com/en/articles/552897",
+   "relevance": "The supporting-quote pattern is the core vault convention to adopt: every extracted claim stored in an Obsidian note carries the verbatim quote and locator from the Zotero-held source, so a human can verify in one click.",
+   "maturity": "Current first-party product documentation (Elicit Help Center); product actively developed, but architecture is closed-source."
+  },
+  {
+   "claim": "Elicit's Reports evaluation (published 2025-03-04) had 17 PhD evaluators grade the top-5 most important claims per report for accuracy and citation support (full/partial/unsupported) against ChatGPT Deep Research, Perplexity, Gemini, Undermind, and Ai2 Scholar QA; it notes 'most evaluated tools do not cite specific passages' while Elicit shows 'the exact quotes from the cited source'.",
+   "source": "https://elicit.com/blog/elicit-reports-eval/",
+   "relevance": "Ready-made human-eval protocol for the harness's success criterion: sample the top-N claims of any produced draft and grade citation support on a 3-level scale \u2014 and confirms passage-level quoting is the differentiator worth building.",
+   "maturity": "First-party evaluation post, March 2025."
+  },
+  {
+   "claim": "Elicit's Systematic Review evaluation (2025-03-18) reports screening recall of 93.6% (96.4% with well-specified criteria) over 58 published systematic reviews and data-extraction accuracy of 94% (internal, 128 gold-standard answers) to 99.4% (external VDI/VDE audit); screening results are 'transparent and editable by design' so users can inspect and override any decision.",
+   "source": "https://elicit.com/blog/how-we-evaluated-elicit-systematic-review",
+   "relevance": "Calibrates expectations: even the best-measured extraction pipeline is 94-99% accurate, so the harness must keep a human-verification checkpoint and make every automated decision inspectable and overridable rather than final.",
+   "maturity": "First-party evaluation post, March 2025."
+  },
+  {
+   "claim": "Factored Verification (George & Stuhlm\u00fcller, arXiv 2310.10627, published on Elicit's blog as internal accuracy tooling) detects hallucinations in paper summaries by decomposing the summary into claims and having an LLM assign each claim a probability of being backed by the source in context; it reaches 76.2% accuracy on HaluEval summarization, measured 0.62 (ChatGPT-16k), 0.84 (GPT-4), 1.55 (Claude 2) hallucinations per average paper summary, and self-correction with factored critiques lowered these to 0.49 / 0.46 / 0.95.",
+   "source": "https://arxiv.org/abs/2310.10627",
+   "relevance": "Directly implementable verification pass for the harness: after drafting, decompose each section into atomic claims and check each against the cited Zotero source's text \u2014 and evidence that even frontier models hallucinate roughly once per multi-claim summary, so the pass is not optional.",
+   "maturity": "Static research artifact (Oct 2023, also at ACL 2023 WIESP workshop); numbers confirmed on the arXiv abstract."
+  },
+  {
+   "claim": "scite's Smart Citation index (Nicholson et al., Quantitative Science Studies 2(3):882-898, 2021, DOI 10.1162/qss_a_00146) extracts 'citation statements' \u2014 the actual citing sentences with surrounding context \u2014 from full-text articles and classifies each with a deep-learning model as supporting, contrasting, or mentioning the cited claim, displaying the excerpt so readers can verify how and why a work is cited rather than trusting a bare citation count.",
+   "source": "https://direct.mit.edu/qss/article/2/3/882/102990/scite-A-smart-citation-index-that-displays-the",
+   "relevance": "Model for how citations should be stored in the vault: a citation is not a pointer but a quoted citing sentence plus a stance (supports/contrasts/mentions), which lets the synthesis phase weigh contested claims instead of counting citations.",
+   "maturity": "Stable published paper (QSS 2021); the product index is ongoing and much larger today. Note: MIT Press page blocks automated fetch (403) \u2014 content verified via search-surfaced abstract/PDF snippets; DOI page remains the version of record."
+  },
+  {
+   "claim": "scite's Assistant answers only against scite's own index (full-text articles plus roughly 1B searchable citation statements; scite.ai/features says its model has analyzed 1.6B+), linking every generated claim back to the specific citing sentence in a specific paper; the companion Reference Check ingests a manuscript's reference list and, using Crossref, PubMed, and Retraction Watch data, automatically flags references to retracted studies and other editorial notices, and surfaces highly disputed references via smart-citation data.",
+   "source": "https://scite.ai/features",
+   "relevance": "Two harness patterns: (1) constrain generation to an indexed corpus so citations cannot point outside it; (2) run a Reference Check-style lint over the draft's bibliography against real bibliographic/retraction databases \u2014 the direct countermeasure to fabricated and retracted citations before submission.",
+   "maturity": "Commercial product, actively marketed in 2026. Caveat: scite.ai and help.scite.ai block automated fetch (403 / TLS errors); claims verified via scite-domain-restricted search snippets, not full page fetches."
+  }
+ ],
+ "deadEnds": [
+  "Full-text fetch of the scite QSS paper is blocked everywhere tried: direct.mit.edu article page and article-PDF return HTTP 403, bioRxiv .full.pdf returns 403 \u2014 so the classifier's per-class precision/recall numbers could not be verified and were left out of the findings.",
+  "scite first-party pages resist automation: scite.ai homepage and scite.ai/blog/research-assistant-shows-its-work return 403 to WebFetch; help.scite.ai fails TLS entirely (TLSV1_ALERT_UNRECOGNIZED_NAME) via both WebFetch and curl. All scite claims had to be verified through domain-restricted search snippets.",
+  "The '1.2 billion citation statements' figure circulating in university libguides (McMaster, SMU) is not confirmed on any scite-owned page; scite's own pages say ~1B searchable citation statements and 1.6B+ analyzed. Treat the libguide number as secondary drift.",
+  "Elicit has no public architecture documentation: no repo, no whitepaper on the Reports/extraction pipeline. Support pages and blog evals describe behavior and accuracy, never implementation \u2014 the closest primary source on mechanism is the Factored Verification paper (arXiv 2310.10627), which describes internal tooling, not the product pipeline.",
+  "Elicit's dedicated 'Evaluating Elicit' support article (support.elicit.com/en/articles/2357185, updated July 2026) contains no published accuracy numbers \u2014 it tells users how to run their own evaluation. The 94%/99.4%/93.6% figures live only in the two 2025 blog posts.",
+  "gpt-researcher's README and docs contain no evaluation of citation accuracy or fabricated-citation rate \u2014 no benchmark, no human eval. Its 'most frequent information across 20+ scraped sites' heuristic is asserted, not measured.",
+  "No supersession of paper-qa found: 'PaperQA2' is not a separate successor repo, just the name for the v5+ codebase of Future-House/paper-qa (checked because 2024-era blog posts imply a separate product)."
+ ]
+}

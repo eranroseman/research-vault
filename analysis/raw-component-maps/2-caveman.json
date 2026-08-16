@@ -1,0 +1,114 @@
+{
+ "component": "caveman — token-economy plugin: output style, statusline, compressed subagents",
+ "skills": [
+  {
+   "name": "caveman (skill + /caveman command)",
+   "purpose": "Persistent compressed-output style: same technical content in ~65% fewer output tokens (prose) via terse caveman-speak.",
+   "mechanism": "SKILL.md ruleset with 6 intensity levels (lite/full/ultra/wenyan-*): drop articles/filler/hedging, byte-exact preserve list (code, errors, numbers, negations not/never/no/only/except), 'Auto-Clarity' escape hatch that reverts to normal prose for security warnings, irreversible actions, and ambiguity, plus a Boundaries rule that persisted artifacts (code, commits, docs, PR text) stay normal prose.",
+   "invocation": "auto — SessionStart hook activates it from message one; user switches level with /caveman <level> or natural phrases; off via 'stop caveman'/'normal mode'"
+  },
+  {
+   "name": "caveman-commit (skill + command)",
+   "purpose": "Terse Conventional-Commit message generation: why over what, ≤50-char subject.",
+   "mechanism": "Checklist of hard format rules (type/scope/imperative, banned phrases, body only for non-obvious why) plus an auto-clarity override forcing a full body for breaking changes, security fixes, and migrations; output-only — never runs git commit.",
+   "invocation": "model-invoked on commit-message requests; user-typed /caveman-commit"
+  },
+  {
+   "name": "caveman-review (skill + command)",
+   "purpose": "One-line-per-finding code review comments with severity tags.",
+   "mechanism": "Fixed output grammar `L<line>: <severity emoji>: <problem>. <fix>.` with a drop-list (hedging, praise, restating the diff) and a keep-list (exact lines, symbols, concrete fix); auto-clarity expands to full paragraphs for security findings and architectural disagreement.",
+   "invocation": "model-invoked on review requests; user-typed /caveman-review"
+  },
+  {
+   "name": "caveman-stats (skill + command)",
+   "purpose": "Report real session token usage, estimated savings, and USD — including the skill's own overhead and net figure.",
+   "mechanism": "The UserPromptSubmit hook intercepts /caveman-stats, runs caveman-stats.js against the actual session JSONL transcript, and injects the formatted block as additionalContext with 'print verbatim' — the model computes nothing; output includes est. rule overhead (~1,250 input tokens/turn) and a net line that plainly says when caveman is net-negative.",
+   "invocation": "user-typed /caveman-stats [--share|--all|--since]; delivered by hook, not model reasoning"
+  },
+  {
+   "name": "caveman-compress (skill)",
+   "purpose": "Permanently rewrite memory files (CLAUDE.md, todos, notes) into compressed form to cut ~46% input tokens every future session.",
+   "mechanism": "Deterministic Python pipeline: detect.py classifies file as prose vs code (skip), LLM compresses, validate.py checks zero-token invariants (headings, code fences, URLs, paths preserved byte-exact), errors get targeted cherry-pick fixes with ≤2 retries, failure leaves the original untouched; backup goes to an out-of-tree data dir so auto-loaders never re-ingest it.",
+   "invocation": "user-typed /caveman-compress <file> or 'compress memory file'"
+  },
+  {
+   "name": "cavecrew (skill)",
+   "purpose": "Decision guide telling the main thread when to delegate to compressed subagents versus vanilla agents or inline work.",
+   "mechanism": "Routing table (task type → agent), documented per-agent output contracts the caller can parse, chaining patterns (locate→fix→verify, parallel scout), and anti-patterns; rationale: subagent results inject verbatim into main context, so ~60% smaller output means the session lasts longer before context exhaustion.",
+   "invocation": "model-invoked on delegation phrases ('use cavecrew', 'save context'); a guide, not a slash command"
+  },
+  {
+   "name": "cavecrew-investigator (agent)",
+   "purpose": "Read-only code locator returning file:line tables instead of prose.",
+   "mechanism": "Haiku-pinned subagent limited to Read/Grep/Glob/Bash; contract output `path:line — symbol — ≤6-word note` grouped under one-word headers plus a totals line, `No match.` for zero hits; hard-refuses fix/design requests with canned redirect lines.",
+   "invocation": "model-invoked via Task/agent dispatch per cavecrew guide"
+  },
+  {
+   "name": "cavecrew-builder (agent)",
+   "purpose": "Surgical 1-2 file editor returning a diff receipt, not narration.",
+   "mechanism": "Read→smallest-edit→re-Read-verify workflow; no Bash tool so it cannot shell out or delete; refusals are machine-parseable terminal first tokens (`too-big.` / `needs-confirm.` / `ambiguous.` / `regressed.`) and success is a `path:line-range — change` receipt with a `verified:` line.",
+   "invocation": "model-invoked via agent dispatch when scope is bounded to ≤2 known files"
+  },
+  {
+   "name": "cavecrew-reviewer (agent)",
+   "purpose": "Diff/branch/file review emitting only severity-tagged one-line findings.",
+   "mechanism": "Haiku-pinned, read-only tools (Bash for git diff/show only); output contract `path:line: emoji severity: problem. fix.` sorted file→line plus a `totals: N🔴 N🟡...` line, `No issues.` otherwise; explicitly forbids praise, scope creep, and big-refactor proposals.",
+   "invocation": "model-invoked via agent dispatch for 'review this diff/PR/file'"
+  },
+  {
+   "name": "caveman-help (skill)",
+   "purpose": "One-shot quick-reference card for all modes and commands.",
+   "mechanism": "Displays a static table and explicitly forbids side effects — no mode change, no flag-file writes, no persistence; documents config precedence (env var > config file > default).",
+   "invocation": "user-typed /caveman-help or 'caveman help'"
+  },
+  {
+   "name": "caveman-init (command)",
+   "purpose": "Drop always-on activation rule files into the current repo for every other IDE agent (Cursor, Windsurf, Cline, Copilot, AGENTS.md).",
+   "mechanism": "Runs a self-contained Node script (local checkout or curl-piped) that writes per-agent rule files; instructs the model to use --dry-run first unless the user passed --force so existing rules are never silently overwritten.",
+   "invocation": "user-typed /caveman-init [--dry-run|--force|--only <agent>]"
+  },
+  {
+   "name": "hook + statusline pipeline (caveman-activate.js, caveman-mode-tracker.js, caveman-statusline.sh)",
+   "purpose": "Make the style survive the whole session and make its state visible outside the chat.",
+   "mechanism": "SessionStart hook writes the mode to a flag file and injects the full SKILL.md (read at runtime as single source of truth, filtered to the active level) as hidden context — distinguishing real startup from resume/compaction via the payload's source field so mid-session mode changes survive; UserPromptSubmit hook parses slash-command envelopes and natural phrases, re-injects a one-line reinforcement every turn against drift, restores the prior mode after one-shot modes via a .prev file, and bails on scheduled-task prompts; a separate statusline script renders `[CAVEMAN:ULTRA] ⛏ 12.4k` from the flag file with symlink refusal, 64-byte cap, and mode whitelist hardening.",
+   "invocation": "hook — automatic on SessionStart and every prompt; statusline runs as an independent process bridged only by the flag file"
+  },
+  {
+   "name": "caveman-shrink (MCP middleware)",
+   "purpose": "Compress the tool catalogs of any wrapped MCP server to cut input tokens on tool descriptions.",
+   "mechanism": "stdio proxy that intercepts tools/list, prompts/list, resources/list and rewrites description fields under the same preserve-boundaries; deliberately passes request bodies and tool-call responses through untouched to avoid mutating data.",
+   "invocation": "config-time — wrap any MCP server command in the client's mcpServers config"
+  }
+ ],
+ "patterns": [
+  "Compress the channel, not the artifact: transient conversation is aggressively compressed while anything persisted (code, commits, docs, files) stays normal — a clean separation between working dialogue and durable output.",
+  "Semantic-safety floor under compression: an explicit never-drop list (negations, numbers, exact quotes/errors) plus byte-exact preserve regions, so lossy style compression has a hard lossless core.",
+  "Auto-clarity escape hatch: the compressed mode is required to break itself for security warnings, irreversible actions, and any case where compression creates ambiguity, then resume — graceful degradation baked into the style rules.",
+  "Flag-file state machine outside model context: session state (active mode) lives in a hardened file bridging hooks, the model, and an independent statusline process, with symlink refusal, byte caps, and whitelists on every read.",
+  "Per-turn reinforcement against drift: SessionStart injects the full ruleset once, then a tiny per-prompt reminder keeps the behavior alive through long sessions, competing plugins, and context compaction — with startup-vs-resume detection so re-fires never clobber user state.",
+  "Single source of truth read at runtime: the hook loads SKILL.md and filters it to the active intensity level rather than duplicating rules in code, so edits propagate without staleness.",
+  "Machine-parseable subagent output contracts: each agent has a documented grammar including terminal refusal tokens (too-big./ambiguous./needs-confirm.), so the orchestrator can branch on the first token instead of parsing prose.",
+  "Compressed delegation to protect main context: subagent results are injected verbatim, so shrinking their output directly extends how long the orchestrating session can run — plus a decision matrix for when compressed vs verbose delegation is right.",
+  "Cheap models for cheap roles: locator and reviewer agents pin haiku, overridable per-agent via env vars that patch only the model line in frontmatter.",
+  "Honest accounting with a measurement loop: the stats tool reports gross savings, admits its own per-turn overhead, computes net, and tells the user to turn the feature off when net-negative; docs distinguish headline numbers from workload-dependent reality (65% prose vs 8.5% agentic).",
+  "Deterministic validation wrapping LLM rewrites: zero-token scripts detect eligibility and validate invariants; only targeted fixes go back to the model, with bounded retries and fail-safe abort leaving the original untouched.",
+  "One-shot modes with state restore: temporary modes save the displaced mode to a .prev file and auto-restore next turn, so 'persist until changed' semantics survive interruptions.",
+  "Visible-state statusline: ambient always-on indicator of which mode is active plus a lifetime-savings counter, making an invisible behavioral setting legible at a glance.",
+  "Intensity dial instead of on/off: six graded levels of the same behavior, switchable mid-session, with a documented example sentence at each level.",
+  "Compress upstream inputs, not just outputs: the same compression applied to memory files (one-time, saves every future session) and to MCP tool catalogs (middleware), attacking the input-token side an output style can never touch."
+ ],
+ "knowledgeWorkAnalogs": [
+  "Terse research-assistant mode with a preserve floor: compress all discussion and summaries but keep direct quotations, citations, statistics, dates, and proper nouns byte-exact, and never drop negations or qualifiers ('no significant effect' must survive compression).",
+  "Auto-clarity for knowledge work: compression must break itself for methodology descriptions, statistical caveats, legal/medical claims, and anything where a dropped conjunction changes the claim — then resume terse.",
+  "Cavecrew for research: a source-locator subagent returning `source:page — claim — 6-word note` tables, an extractor limited to 1-2 documents that returns a receipt not narration, and a fact-check reviewer emitting `doc:para: severity: problem. fix.` lines with a totals count — all designed so the orchestrating literature-review session doesn't exhaust context.",
+  "Terminal refusal tokens for research subagents: 'not-in-source.', 'ambiguous. ask: <one question>.', 'too-broad. split: <n queries>.' — so the main thread can branch without reading prose.",
+  "caveman-compress for PKM: compress Obsidian MOCs, literature notes, and project memory files with a validator that proves wikilinks, block refs, frontmatter, quotes, and citation keys survived byte-exact, backup stored out-of-vault so it is never re-indexed.",
+  "Manuscript margin review in caveman-review format: one line per finding — `p.4 ¶2: 🔴 claim unsupported: cite or cut.` — with severity tiers (factual error / weak support / style nit / genuine question) and a ban on praise-padding.",
+  "Reading-stats with honest accounting: track how many words a summarization layer saved versus the overhead of maintaining it, and report net — telling the user to read the primary source directly when the digest pipeline costs more than it saves.",
+  "Statusline for writing sessions: ambient badge showing active register (drafting / editing / citation-check) plus a lifetime counter (words cut, sources verified), state kept in a flag file any tool can read.",
+  "Intensity dial for prose registers: lite (tight professional), full (telegraphic notes), ultra (keyword capture) as switchable note-taking registers, with the rule that anything persisted for readers reverts to full prose.",
+  "Compress reference material at the source: a middleware pass that shrinks the descriptions/abstracts a research agent loads (database schemas, API-of-record docs, prompt libraries) while passing the underlying records through untouched.",
+  "caveman-init analog: one command that drops a house-style rule file into every writing tool a team uses (Obsidian templates, editor configs, agent AGENTS.md), dry-run by default so existing conventions are never silently overwritten.",
+  "Commit-message discipline for note edits: changelog entries for a vault or manuscript in 'why over what' format with a hard cap, body required only for breaking changes such as restructured arguments or retracted claims."
+ ]
+}

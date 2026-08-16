@@ -1,0 +1,85 @@
+{
+ "thread": "zotero-integration",
+ "findings": [
+  {
+   "claim": "The Zotero desktop client serves a local implementation of Web API v3 at http://localhost:23119/api/ (user library under /users/0/). Read requests need no authentication but the preference Settings > Advanced > 'Allow other applications on this computer to communicate with Zotero' must be enabled, else 403. It works offline, has no rate limits, returns unpaginated results by default, and supports most endpoints from the web-API Basics/Full-Text docs (Atom format returns 501).",
+   "source": "https://www.zotero.org/support/dev/web_api/v3/local_api",
+   "maturity": "stable, official; doc last updated 2026-07-29",
+   "relevance": "This is the most reliable surface for searching the library: full web-API v3 query syntax against the live local database with zero auth setup, so agent search results always reflect the user's actual Zotero state."
+  },
+  {
+   "claim": "Per the zotero.org local_api doc (updated 2026-07-29), Zotero 10+ adds write support to the local API (POST/PUT/PATCH/DELETE for items, collections, saved searches), gated by a local API key obtained via POST /api/local/authorize which triggers a user confirmation dialog; earlier clients return 501 for writes.",
+   "source": "https://www.zotero.org/support/dev/web_api/v3/local_api",
+   "maturity": "new in Zotero 10; version-dependent",
+   "relevance": "Agents could write notes/items back into Zotero locally without cloud sync, but the harness must feature-detect the client version and treat write ability as optional."
+  },
+  {
+   "claim": "Per the same doc, in Zotero 10+ local library versions increment per library per transaction, and ?since= filtering plus Last-Modified-Version headers operate on these local versions (which have no relation to synced web-API versions).",
+   "source": "https://www.zotero.org/support/dev/web_api/v3/local_api",
+   "maturity": "documented for Zotero 10+ only",
+   "relevance": "On Zotero 10+ the reliable way to watch for new items is polling the local API with a stored Last-Modified-Version and ?since=; the doc establishes no such semantics for earlier clients, so it is not version-robust on its own."
+  },
+  {
+   "claim": "Better BibTeX exposes a JSON-RPC 2.0 endpoint at http://localhost:23119/better-bibtex/json-rpc (no authentication), and its item.attachments(citekey, library?) method returns, per attachment, an object containing path: att.getFilePath() \u2014 the absolute file path on disk \u2014 plus an open: zotero://open-pdf URI and extracted annotations (verified in source, content/json-rpc.ts).",
+   "source": "https://github.com/retorquere/zotero-better-bibtex/blob/master/content/json-rpc.ts",
+   "maturity": "actively maintained plugin; method verified in current master source",
+   "relevance": "This is the most reliable surface for resolving a citekey to its attached PDF path: it is the only surface found that returns absolute disk paths directly, exactly what an agent needs to read the PDF it is about to cite."
+  },
+  {
+   "claim": "The BBT JSON-RPC method set covers citekey-centric workflows: item.search(terms) returns CSL-JSON items each tagged with citekey and library fields; item.citationkey(item_keys) maps Zotero item keys to citekeys; item.export(citekeys, translator) and item.bibliography(citekeys) produce formatted output; item.notes(citekeys) returns notes; user.groups() lists libraries; api.ready() reports Zotero/BBT versions.",
+   "source": "https://retorque.re/zotero-better-bibtex/exporting/json-rpc/",
+   "maturity": "stable documented API of an actively maintained plugin",
+   "relevance": "Citekeys are Better BibTeX-owned data, so citekey-to-metadata resolution belongs to this surface \u2014 item.search returns citekey-tagged CSL JSON in one call, making BBT the primary trust anchor between draft citations and real library items."
+  },
+  {
+   "claim": "BBT automatic export: checking 'Keep updated' on an export registers it for automation; scheduling modes are 'on change' (re-export as soon as possible after any registered item changes), 'on idle', and 'paused'. Targeted (collection-level) exports are recommended over whole-library exports for performance.",
+   "source": "https://retorque.re/zotero-better-bibtex/exporting/auto/",
+   "maturity": "stable, long-standing BBT feature",
+   "relevance": "This is the version-robust answer to watching for new items: an on-change auto-export of CSL-JSON/BibTeX into the vault plus a file watcher or git diff detects additions on any Zotero 7+ client, unlike ?since= polling which is documented only for Zotero 10+."
+  },
+  {
+   "claim": "BBT auto-export has built-in git integration: after running `git config zotero.betterbibtex.push true` in the repository clone, each auto-export performs git pull, export, git add <library file>, git commit, git push. Caveat quoted in docs: the commit is not file-bound, so other edited files in the repo get committed too.",
+   "source": "https://retorque.re/zotero-better-bibtex/exporting/auto/",
+   "maturity": "documented but flagged 'more for the technically inclined'",
+   "relevance": "Near-turnkey fit with the git-backed vault (library changes become commits), but the not-file-bound caveat means it should target a dedicated directory/repo or be replaced by the harness's own commit step."
+  },
+  {
+   "claim": "pyzotero 1.13.7 was released 2026-08-14 (Python >=3.10) and supports the local API via Zotero(..., local=True); its docs state the local server 'currently (November 2024) only allows read requests' \u2014 a dated snapshot that predates the Zotero 10 local write support documented by zotero.org.",
+   "source": "https://pypi.org/pypi/pyzotero/json",
+   "maturity": "actively maintained (release two days before this research)",
+   "relevance": "The stable Python wrapper for scripting library reads/search in harness tooling; treat its local mode as read-only until it catches up with Zotero 10 write auth."
+  },
+  {
+   "claim": "pyzotero now ships first-party extras: a CLI (pip install \"pyzotero[cli]\", e.g. `pyzotero search -q ...`) and an MCP server (pyzotero[mcp], run as pyzotero-mcp). Both require Zotero 7+ with local API access enabled, and the MCP server exposes search, get_item, get_children, list_collections, list_tags, get_fulltext plus Semantic Scholar tools (find_related, get_citations, get_references, search_semantic_scholar).",
+   "source": "https://github.com/urschrei/pyzotero",
+   "maturity": "new but from the long-maintained pyzotero project (1.4k stars)",
+   "relevance": "A minimal, first-party-maintained MCP/CLI option over the local API \u2014 a smaller trusted surface than third-party MCP servers, though it lacks BBT citekey resolution."
+  },
+  {
+   "claim": "54yyyu/zotero-mcp is the dominant third-party Zotero MCP server: 4,667 stars, MIT license, last push 2026-08-13 (per GitHub API). It exposes 40+ tools, supports local API (default, read-only), web API (read-write), and hybrid modes, includes Better BibTeX citekey lookup, PDF annotation extraction, full-text access, and optional embedding-based semantic search.",
+   "source": "https://github.com/54yyyu/zotero-mcp",
+   "maturity": "actively maintained, largest of ~8 zotero-mcp projects found",
+   "relevance": "The richest off-the-shelf option covering all three target operations, but 40+ tools is heavy for context, and its semantic-search index inserts a derived layer between agent and source that a trust-first harness must treat as a hint, not evidence."
+  },
+  {
+   "claim": "Zotero's only push-based change feed is the cloud streaming API: WebSocket wss://stream.zotero.org delivering library-level topicUpdated/topicAdded events (no item data), requiring an API key for private libraries; it is a zotero.org service, not served by the local client, and clients are told to trigger a normal sync upon notification.",
+   "source": "https://www.zotero.org/support/dev/web_api/v3/streaming_api",
+   "maturity": "stable, official, cloud-only",
+   "relevance": "Rules out push notifications for a local-first harness: watching for new items must use BBT on-change auto-export or Zotero-10+ ?since= polling, not a socket."
+  },
+  {
+   "claim": "The Zotero web API (api.zotero.org, v3, API-key auth) remains the reference specification whose endpoints the local API mirrors; the local API doc explicitly scopes itself to 'most endpoints on the Basics, Write Requests, File Uploads and Full-Text Content pages' of that spec.",
+   "source": "https://www.zotero.org/support/dev/web_api/v3/basics",
+   "maturity": "stable, official",
+   "relevance": "The web API is only needed as a fallback (remote access, group libraries not local); for a local-first trust chain the local API gives the same read semantics without keys, rate limits, or sync lag."
+  }
+ ],
+ "deadEnds": [
+  "No local push/WebSocket change feed exists: the Zotero desktop client does not serve the streaming API; wss://stream.zotero.org is cloud-only and requires zotero.org sync. Watching locally means polling or BBT auto-export.",
+  "Local API write support before Zotero 10 does not exist \u2014 POST/PUT/PATCH/DELETE returned 501 Not Implemented; older forum threads and the pyzotero docs' 'read-only (November 2024)' statement describe that era, not a permanent limitation.",
+  "MunGell/ZotServer (a pre-official local HTTP server for Zotero) is dormant: last push 2022-07-11 (GitHub API), superseded by the official local API \u2014 do not build on it.",
+  "jbaiter/zotero-cli is effectively unmaintained: last push 2024-05-15 (GitHub API); pyzotero's own new CLI supersedes it for local-API use.",
+  "No authentication mechanism exists for the BBT JSON-RPC endpoint \u2014 it is an unauthenticated localhost service; searched docs and source, nothing found. Anything on localhost can read library metadata and disk paths through it once the Zotero pref is enabled.",
+  "Atom format on the local API does not exist (format=atom returns 501), so feed-reader-style watching via the local API is not an option."
+ ]
+}

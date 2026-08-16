@@ -1,0 +1,101 @@
+{
+ "component": "knowledge-plugins — obsidian vault tools, Strunk writing, diataxis docs, security-guidance",
+ "skills": [
+  {
+   "name": "obsidian:obsidian-markdown",
+   "purpose": "Create and edit Obsidian Flavored Markdown (wikilinks, embeds, callouts, frontmatter, tags, comments, math, Mermaid).",
+   "mechanism": "Six-step note-creation workflow plus syntax tables; progressive-disclosure reference files (CALLOUTS.md, EMBEDS.md, PROPERTIES.md) loaded only when needed; routing rule: wikilinks for vault-internal, Markdown links for external.",
+   "invocation": "auto/model-invoked when .md files or Obsidian syntax terms appear"
+  },
+  {
+   "name": "obsidian:obsidian-bases",
+   "purpose": "Create .base YAML files defining database-like views (table/cards/list/map) over note frontmatter with filters, formulas, summaries.",
+   "mechanism": "Schema + 6-step workflow ending in an explicit validate step; troubleshooting section encodes known failure modes (YAML quoting, Duration-vs-number math, missing null guards, undefined formula refs); FUNCTIONS_REFERENCE.md as deferred reference.",
+   "invocation": "auto/model-invoked on .base files or Bases/table-view mentions"
+  },
+  {
+   "name": "obsidian:json-canvas",
+   "purpose": "Create and edit .canvas visual canvases (mind maps, flowcharts) per the JSON Canvas 1.0 spec.",
+   "mechanism": "Per-operation workflows each ending in validation; an 8-point post-edit checklist (ID uniqueness, dangling edge refs, enum values, JSON parseability); layout heuristics with suggested node sizes; EXAMPLES.md reference.",
+   "invocation": "auto/model-invoked on .canvas files or canvas/mind-map mentions"
+  },
+  {
+   "name": "obsidian:obsidian-cli",
+   "purpose": "Drive a running Obsidian instance from the shell to read/create/search notes and develop plugins/themes.",
+   "mechanism": "Command-syntax conventions (params vs flags, file vs path targeting) plus a 4-step develop/test loop: reload plugin -> check dev:errors -> screenshot/DOM verify -> check console; points to `obsidian help` as always-current reference.",
+   "invocation": "auto/model-invoked on vault-interaction or plugin-dev requests; requires Obsidian open"
+  },
+  {
+   "name": "obsidian:defuddle",
+   "purpose": "Extract clean markdown from web pages via Defuddle CLI instead of WebFetch to cut clutter and tokens.",
+   "mechanism": "Pure tool-routing skill: one preferred command (`defuddle parse <url> --md`), output-format table, and an explicit negative trigger (URLs ending .md use WebFetch directly).",
+   "invocation": "auto/model-invoked whenever the user supplies a URL to read"
+  },
+  {
+   "name": "writing-clearly-and-concisely",
+   "purpose": "Apply Strunk's Elements of Style rules and an AI-pattern blocklist to any prose written for humans.",
+   "mechanism": "~1,000-token SKILL.md summarizing 18 rules with the 6 core ones bolded; reference files listed with per-file token costs and a default ('most tasks need only 03-composition'); AI-tell blocklist (puffery, -ing phrases, delve/leverage vocabulary) backed by a 25k-token Wikipedia field guide; tight-context strategy dispatches a subagent with draft + one section file to copyedit.",
+   "invocation": "auto/model-invoked whenever writing docs, commits, reports, or UI text"
+  },
+  {
+   "name": "diataxis-skills:diataxis-audit",
+   "purpose": "Audit existing docs against the four Diataxis quadrants for mixing, gaps, and quality.",
+   "mechanism": "Five phases (inventory -> classify via yes/no decision table -> per-quadrant red-flag anti-pattern checklists -> gap analysis -> quality rubric); fixed markdown report template; validation gate requires line-range-cited findings and prioritized recommendations.",
+   "invocation": "auto/model-invoked when reviewing or reorganizing documentation"
+  },
+  {
+   "name": "diataxis-skills:diataxis-convert",
+   "purpose": "Split a mixed document into separate tutorial/how-to/reference/explanation documents.",
+   "mechanism": "Tags every section [T]/[H]/[R]/[E], extracts and restructures per quadrant, cross-links all outputs, and emits a conversion report where every source line must be accounted for (migrated, dropped-with-reason, or linked); ends with a replace/reduce/archive decision for the source.",
+   "invocation": "auto/model-invoked on mixed docs, typically after diataxis-audit"
+  },
+  {
+   "name": "diataxis-skills:diataxis-create",
+   "purpose": "Write new documentation in exactly one Diataxis quadrant.",
+   "mechanism": "Classifies the request via example phrase mapping, then writes from a full embedded template per quadrant with strict per-quadrant rules (tutorials get no choices, reference gets no narrative); mandates cross-links and a purity validation check; prescribes creation order tutorial -> reference -> how-to -> explanation.",
+   "invocation": "auto/model-invoked when writing docs from scratch or filling audit gaps"
+  },
+  {
+   "name": "diataxis-skills:diataxis-plan",
+   "purpose": "Design a project's documentation architecture and roadmap around the four quadrants.",
+   "mechanism": "Six phases: understand project -> per-quadrant needs inventory -> directory layout -> priority matrix (need/effort/dependencies) -> cross-link navigation map -> three-phase roadmap; fixed plan template with audience table and per-document priorities.",
+   "invocation": "auto/model-invoked when starting or restructuring a doc set"
+  },
+  {
+   "name": "security-guidance (hooks-only plugin, no SKILL.md)",
+   "purpose": "Continuously review agent-written code for vulnerabilities at three escalating checkpoints.",
+   "mechanism": "Layer 1: PostToolUse regex warnings (~25 rules) injected as provenance-tagged additionalContext on every Edit/Write; Layer 2: Stop-hook LLM diff review against a `git stash create` baseline captured at UserPromptSubmit, re-waking Claude asynchronously (asyncRewake) with findings, then advancing the baseline; Layer 3: agentic SDK reviewer on git commit/push that uses Read/Grep/Glob to trace cross-file data flow; additive-only layered policy files (user -> project -> project-local, 8 KB budget, tail-truncated) extend the prompt but cannot suppress findings; inline code comments act as finding exclusions.",
+   "invocation": "hook (SessionStart, UserPromptSubmit, PostToolUse, Stop) — fully automatic, per-layer env-var kill switches"
+  }
+ ],
+ "patterns": [
+  "Progressive disclosure with explicit token pricing: tiny SKILL.md plus reference files listed with ~token cost each and a stated default ('most tasks need only file X'), so the model budgets context deliberately.",
+  "Post-artifact validation checklists baked into the skill: every create/edit workflow ends with a concrete structural checklist (ID uniqueness, dangling refs, YAML parseability) rather than trusting generation.",
+  "Encoded failure-mode troubleshooting: skills ship WRONG/CORRECT pairs for the exact errors the format provokes (quoting, type coercion), pre-empting known model mistakes.",
+  "Lifecycle skill pipelines: four sibling skills (plan/create/audit/convert) sharing one embedded taxonomy diagram and cross-referencing each other in Related Skills, so any entry point routes to the rest.",
+  "Classification by decision table plus per-category anti-pattern red flags: a yes/no question maps content to exactly one category; anything matching two is flagged 'mixed'.",
+  "Line-level accountability reports: restructuring must show where every source line went (migrated, dropped-with-reason, or linked) in a fixed report template.",
+  "Three-tier escalating review: instant regex reminders on every edit, LLM review of the diff at turn end, deep agentic multi-file review at commit boundaries — cost scales with checkpoint significance.",
+  "Baseline snapshot diffing: capture working-state SHA at prompt submit, review only the delta at Stop, then advance the baseline so each turn reviews only new work.",
+  "Async rewake instead of blocking: background review re-invokes the agent with findings ('address or acknowledge, then continue') rather than gating the turn.",
+  "Additive-only layered policy with a trust model: user/project/local policy files concatenated under a fixed byte budget with defined truncation order, framed so repo-controlled text may add checks but never suppress them; inline justification comments serve as scoped exclusions.",
+  "Negative triggers in skill descriptions: explicit 'Do NOT use when...' clauses to disambiguate overlapping tools (defuddle vs WebFetch).",
+  "Field-tested anti-pattern corpus as reference: a large externally-maintained blocklist (Wikipedia AI-writing tells) loaded on demand rather than restated inline.",
+  "Subagent offloading for context economy: dispatch a copyedit subagent carrying only the draft plus one reference section instead of loading style rules into the main thread.",
+  "Live-app observability loop: reload -> check errors -> screenshot -> console as a closed verify cycle against the running application."
+ ],
+ "knowledgeWorkAnalogs": [
+  "Prose-quality hook pipeline: regex pass for banned AI-tells and personal writing tics on every draft edit, LLM style/Strunk review of only the changed passages at turn end, and a deep citation/fact-check subagent at the 'publish' or export boundary.",
+  "Baseline diffing for writing sessions: snapshot the draft when the user prompts, review only the delta at Stop — edits to a 200-page manuscript get reviewed incrementally, never wholesale.",
+  "Layered style-policy files: personal voice guide -> publication style guide -> per-document overrides, concatenated into every editing review under a byte budget, additive-only so a document can tighten but never waive house style.",
+  "Diataxis-for-PKM: classify vault notes into a fixed taxonomy (e.g., source note / claim / evergreen / procedure) via decision table, audit for mixed notes with red-flag checklists, then a convert skill that splits them with a line-accountability report.",
+  "Vault-as-database skills: Bases-style declarative views (reading queue, literature-review matrix, claims tracker) defined as validated YAML artifacts over note frontmatter, with encoded troubleshooting for the format's known traps.",
+  "Argument and citation canvases: JSON-canvas argument maps or literature graphs with a structural validation checklist (every claim node linked to a source node, no dangling edges).",
+  "Citation-integrity agentic reviewer: at export time a subagent traces each claim to its source note across the vault the way the commit reviewer traces data flow across files, flagging unsupported claims and broken links.",
+  "Token-priced reference shelves: style manuals, methodology handbooks, and journal author guidelines split into per-section files with listed token costs, loading only the section the task needs.",
+  "Standard ingestion path: a defuddle-style clean-capture skill as the default route from URL to markdown source note, with explicit negative triggers for content types that need a different tool.",
+  "Research-lifecycle skill pipeline: plan (question map + reading roadmap) -> create (quadrant-templated notes) -> audit (gap and quality report) -> convert (restructure), all sharing one embedded taxonomy and cross-referencing each other.",
+  "Async rewake for slow verification: background plagiarism, reference-resolution, or data-recheck jobs re-wake the writing agent with findings to address, instead of blocking the drafting turn.",
+  "Live-tool verify loop for PKM: after changing templates or vault automation, reload -> query the vault -> screenshot/render the note to confirm it works, mirroring the plugin dev cycle."
+ ]
+}

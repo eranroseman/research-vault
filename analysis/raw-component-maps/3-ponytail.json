@@ -1,0 +1,85 @@
+{
+ "component": "ponytail — anti-over-engineering plugin: YAGNI mode, reviews, audit, debt ledger (v4.9.0)",
+ "skills": [
+  {
+   "name": "ponytail (mode skill + /ponytail command)",
+   "purpose": "Persistent 'lazy senior dev' persona that forces the simplest working solution on every coding task.",
+   "mechanism": "A 7-rung 'stop at the first rung that holds' ladder (YAGNI → reuse codebase → stdlib → native platform → installed dep → one line → minimum code), run only AFTER full problem comprehension; hard never-cut floor (trust-boundary validation, data-loss handling, security, accessibility, one runnable check per non-trivial logic); deliberate corner-cuts must carry a `ponytail:` comment naming ceiling + upgrade trigger; output format is 'code first, then ≤3 lines: skipped X, add when Y'; three intensity levels (lite/full/ultra) filtered from one canonical SKILL.md by the instruction builder.",
+   "invocation": "Auto: SessionStart hook injects the mode-filtered ruleset every session (default 'full', resolution env var > config file > default) and re-injects into every subagent; also model-invoked by description triggers and user-typed /ponytail [lite|full|ultra|off]; '/ponytail default <mode>' persists across sessions; standalone 'stop ponytail'/'normal mode' deactivates."
+  },
+  {
+   "name": "ponytail-review (/ponytail-review)",
+   "purpose": "Diff review scoped exclusively to over-engineering — a delete-list, not a correctness review.",
+   "mechanism": "One line per finding in a fixed grammar 'L<line>: <tag> <what>. <replacement>.' using a closed 5-tag vocabulary (delete/stdlib/native/yagni/shrink); ends with a score footer 'net: -N lines possible' or the sentinel 'Lean already. Ship.'; correctness/security/performance explicitly out of scope and routed elsewhere; lists findings, applies nothing.",
+   "invocation": "User-typed /ponytail-review or model-invoked on trigger phrases; the UserPromptSubmit hook also flips the session flag to a special 'review' mode."
+  },
+  {
+   "name": "ponytail-audit (/ponytail-audit)",
+   "purpose": "Whole-repo over-engineering audit — ponytail-review applied to the entire tree instead of a diff.",
+   "mechanism": "Same 5-tag one-line format, findings ranked biggest cut first; hunt list (single-implementation interfaces, one-product factories, delegate-only wrappers, dead flags, hand-rolled stdlib); footer 'net: -N lines, -M deps possible'; one-shot report, applies no fixes.",
+   "invocation": "User-typed /ponytail-audit or model-invoked on 'find bloat'/'what can I delete' phrasing."
+  },
+  {
+   "name": "ponytail-debt (/ponytail-debt)",
+   "purpose": "Harvests every `ponytail:` shortcut comment into a debt ledger so deferrals don't rot into 'later means never'.",
+   "mechanism": "Greps the tree for the comment-marker convention `ponytail: <ceiling>, <upgrade path>`; one ledger row per marker (file:line, what was simplified, ceiling, upgrade trigger), optional git-blame owner; markers naming no trigger get a 'no-trigger' rot flag; footer counts markers and trigger-less ones; read-only, writes PONYTAIL-DEBT.md only if asked.",
+   "invocation": "User-typed /ponytail-debt or model-invoked on 'what did we defer' phrasing; one-shot."
+  },
+  {
+   "name": "ponytail-gain (/ponytail-gain)",
+   "purpose": "Displays the plugin's measured impact as a fixed benchmark scoreboard.",
+   "mechanism": "Renders published benchmark medians as ASCII bars (LOC, cost, speed); an explicit honesty boundary forbids inventing per-repo savings (the unbuilt version was never written, so no baseline exists) and redirects to the counted artifacts /ponytail-debt and /ponytail-audit; one-shot, changes no mode.",
+   "invocation": "User-typed /ponytail-gain or model-invoked on 'what does ponytail save'."
+  },
+  {
+   "name": "ponytail-help (/ponytail-help)",
+   "purpose": "Quick-reference card for levels, skills, deactivation, and default-mode config.",
+   "mechanism": "Static tables of levels and commands plus config instructions; explicitly one-shot — do not change mode or persist anything.",
+   "invocation": "User-typed /ponytail-help or model-invoked on 'how do I use ponytail'."
+  },
+  {
+   "name": "hook suite (activate / mode-tracker / subagent)",
+   "purpose": "Makes the mode genuinely persistent and visible rather than a one-off prompt.",
+   "mechanism": "SessionStart (matcher startup|resume|clear|compact) writes a mode flag file and injects the mode-filtered ruleset as hidden context plus a once-only statusline setup nudge (nudge flag file, shell-safe path allowlist); UserPromptSubmit parses /ponytail commands and whole-message deactivation phrases and updates the flag; SubagentStart re-injects the ruleset into every Task-spawned subagent (optional PONYTAIL_SUBAGENT_MATCHER regex scoping, fail-open) because SessionStart context never reaches subagents; all hooks are silent-fail, never-block (stdin timeout + unref).",
+   "invocation": "Hook — automatic on session start, every user prompt, and every subagent spawn."
+  },
+  {
+   "name": "statusline badge (ponytail-statusline.sh/.ps1)",
+   "purpose": "Ambient visibility of the active mode in the status bar.",
+   "mechanism": "Reads the flag file and prints [PONYTAIL] / [PONYTAIL:ULTRA], amber for ultra (color redundant to text); wired via a settings.json statusLine command the activate hook offers to configure once.",
+   "invocation": "Hook/statusline — runs on every statusline refresh once configured."
+  },
+  {
+   "name": "portability + reference layer (AGENTS.md, docs/, examples/, benchmarks/)",
+   "purpose": "Ships the same ruleset to ~20 hosts and grounds the skill's claims in evidence.",
+   "mechanism": "Compact rule copies per host (.cursor, .windsurf, .clinerules, .kiro, AGENTS.md, ...) kept aligned by scripts/check-rule-copies.js; docs/platform-native.md is a lookup table 'you think you need X → the platform has Y'; examples/ are verbatim benchmark outputs shown before/after; benchmarks/ include an adversarial rebuild (agentic, diff-scored, safety-tested) written in response to a public critique.",
+   "invocation": "Passive context files / dev-time scripts, not user commands."
+  }
+ ],
+ "patterns": [
+  "Always-on persona via hooks, not memory: SessionStart injects the discipline, UserPromptSubmit tracks mode switches, SubagentStart re-injects into every delegated agent so the constraint survives delegation.",
+  "Intensity dial (lite/full/ultra/off) projected from one canonical SKILL.md by a line-filter — single source of truth, per-mode views, resolution order env > config > default, and a session-scoped switch kept distinct from a persisted default.",
+  "Ordered decision ladder with a 'stop at the first rung that holds' rule, explicitly sequenced AFTER comprehension ('lazy about the solution, never about the reading') and bounded by a never-cut floor of non-negotiables.",
+  "Inline debt markers with mandatory ceiling + upgrade trigger, plus a separate harvester command that turns scattered markers into one ledger and flags trigger-less entries as silent-rot risk.",
+  "Single-lens review with a compressed grammar: closed tag vocabulary, one line per finding, a net-score footer, an explicit nothing-found sentinel ('Lean already. Ship.'), and declared complementarity with (not replacement of) correctness review.",
+  "Honesty boundary on self-reported metrics: only benchmark-measured numbers, never fabricated per-instance counterfactuals; redirect to counted artifacts for real figures.",
+  "Every one-shot skill states its statelessness ('do NOT change mode, write flag files, or persist anything') to separate reports from modes.",
+  "Ambient state visibility: mode lives in a flag file rendered as a statusline badge, with a one-time (flag-guarded) setup nudge instead of a recurring nag.",
+  "Deactivation phrases matched only as standalone whole messages, so ordinary prose containing the phrase can't accidentally disarm the mode.",
+  "Fail-open, never-block hook engineering: silent failure, stdin timeouts, best-effort writes — the harness feature must never cost the session.",
+  "Benchmark the harness itself against a no-skill baseline, rebuild the benchmark when publicly critiqued, and publish verbatim before/after survivors as examples.",
+  "One ruleset compiled to many host formats with a CI check that the copies stay in sync."
+ ],
+ "knowledgeWorkAnalogs": [
+  "'Ponytail for prose': a persistent minimal-writing mode with its own ladder — does this document/section need to exist? does an existing note/source already cover it (link, don't restate)? can a citation replace a summary? can it be one paragraph? — with a never-cut floor: citations, caveats, methodology, data provenance.",
+  "PKM note-creation ladder: before creating a note, stop at the first rung — belongs in an existing note? is just a link? one line in a daily note? — attacking vault sprawl the way YAGNI attacks code sprawl.",
+  "Draft review lens (/prose-review): one line per finding with a closed tag set — delete (paragraph serving no reader), cite (restated source → link), shrink (same claim, fewer words), yagni (section for a hypothetical audience), hedge (qualifier stack) — ending 'net: -N words possible' or 'Tight already. Publish.'",
+  "Vault/corpus audit: repo-wide scan of an Obsidian vault or research repo for orphan notes, duplicate summaries, empty MOCs, unused tag taxonomies, and speculative structure, ranked biggest cut first.",
+  "Research-debt ledger: inline `defer:` markers in notes ('shallow lit search — ceiling: 3 sources, upgrade: before submission') harvested by a command into one ledger, with markers lacking a revisit trigger flagged as rot risk.",
+  "Depth dial for analysis: lite = full treatment but name the quicker alternative; full = smallest analysis that answers the question; ultra = challenge whether the question needs answering before answering it.",
+  "Honest-metrics scoreboard for knowledge work: report only countable things (notes merged, words cut, open deferrals closed) and refuse invented counterfactuals like 'hours saved'.",
+  "Subagent re-injection for editorial constraints: style guide, citation policy, and scope limits re-injected into every delegated research/summarize subagent so delegation doesn't revert to bloat.",
+  "'Platform-native' lookup table for tools: 'you think you need a new app/plugin/template → what your existing stack already does' (Obsidian core search before a plugin, a saved query before a new index note, a spreadsheet before a database).",
+  "Statusline-style ambient mode badge for writing sessions ([CONCISE], [DRAFT:ULTRA]) backed by a flag file, so the active editorial regime is always visible."
+ ]
+}

@@ -1,0 +1,97 @@
+{
+ "thread": "obsidian-zotero",
+ "findings": [
+  {
+   "claim": "The mgmeyers Zotero Integration plugin no longer lives at mgmeyers/obsidian-zotero-integration \u2014 the repo was transferred to the community-archive GitHub org (community-archive/obsidian-zotero-integration, 1750 stars, last push 2026-03-06, not flag-archived but maintainer stepped back). It requires Zotero with the Better BibTeX plugin installed.",
+   "source": "https://github.com/community-archive/obsidian-zotero-integration",
+   "maturity": "community-maintained / low activity (last push 2026-03-06)",
+   "relevance": "The most-starred Obsidian-Zotero plugin is in caretaker mode, so the harness should treat it as a legacy convention source rather than the plugin to build on."
+  },
+  {
+   "claim": "Zotero Integration templates use the Nunjucks templating language; a `{% persist \"name\" %}` tag emits `%% begin name %% ... %% end name %%` markers in the note, and content inside those markers survives re-import (re-import otherwise overwrites the whole file); `{% if isFirstImport %}` gates first-import-only content; a Data Explorer command shows all template data.",
+   "source": "https://github.com/community-archive/obsidian-zotero-integration/blob/main/docs/Templating.md",
+   "maturity": "stable, documented",
+   "relevance": "The persist-marker pattern is the established convention for keeping human/agent prose safe in a note that is mechanically regenerated from Zotero \u2014 exactly the re-import-without-clobbering guarantee a trust-first harness needs."
+  },
+  {
+   "claim": "The Citations plugin (hans/obsidian-citation-plugin, 1335 stars) is stale \u2014 last push 2024-06-13, 159 open issues, never archived. It consumes a Better BibTeX-exported .bib or CSL-JSON file and established the conventions of a `@{{citekey}}` literature-note title, YAML frontmatter with title/authors/year, and Pandoc-style citation insertion.",
+   "source": "https://github.com/hans/obsidian-citation-plugin",
+   "maturity": "stale (no pushes for ~2 years)",
+   "relevance": "Don't build on this plugin, but do adopt the conventions it popularized \u2014 @citekey note titles and pandoc citations are what the rest of the ecosystem (and users' existing vaults) expect."
+  },
+  {
+   "claim": "ZotLit moved from aidenlx/obsidian-zotero to aidenlx/zotlit (990 stars, pushed 2026-08-15) and shipped a v2 rewrite. v2 supports exactly one configuration: 'Zotero 9 or later with the ZotLit companion installed'; it reads Zotero data via direct SQLite database read (works with Zotero closed), `obsidian://zotlit/...` protocol links from the companion's context menu, and an optional HTTP push channel for live updates.",
+   "source": "https://zotlit.aidenlx.site/docs/concepts/how-zotlit-connects-to-zotero",
+   "maturity": "actively maintained (pushed 2026-08-15, v2.0.1 on docs changelog)",
+   "relevance": "ZotLit is the actively maintained Obsidian-Zotero bridge as of 2026 and the natural default for a fresh vault, but it pins you to Zotero 9+ plus its companion plugin."
+  },
+  {
+   "claim": "ZotLit v2 literature-note conventions: the note filename is the item's citation key by default, notes land in a `literatures` folder, default frontmatter fields are `title`, `related`, `collections`, `citekey` plus reserved identity keys `zotero-key`, `zotero-note-key`, `zotero-lastmod`; ZotLit-controlled content sits inside `%%zt-managed%%` ... `%%/zt-managed%%` markers so user text outside survives updates.",
+   "source": "https://zotlit.aidenlx.site/docs/tutorial/first-note",
+   "maturity": "stable, documented (v2 docs)",
+   "relevance": "These are the vault conventions to adopt rather than invent: citekey-named files in a dedicated folder, citekey + zotero-key frontmatter as machine-readable identity, and a managed region separating generated metadata from human/agent synthesis."
+  },
+  {
+   "claim": "ZotLit citekey links are pandoc-style and bracket-required \u2014 `[@key]`, `[@key, p. 3]`, `[@a; @b]`; a bare `@key` outside brackets 'is ordinary text to the editor'. Links resolve by matching the frontmatter citation-key property (default `citekey`) of notes that also carry a valid `zotero-key` property, falling back to looking the item up in Zotero by citation key.",
+   "source": "https://zotlit.aidenlx.site/docs/concepts/how-citekey-links-work",
+   "maturity": "stable, documented (v2 docs)",
+   "relevance": "This confirms the ecosystem-wide convergence the harness should adopt wholesale: citekey is the canonical join key \u2014 citekey filename / frontmatter `citekey` property on the note, pandoc `[@key]` in prose, zotero://select-style backlinks to the library, managed/persist regions for safe regeneration."
+  },
+  {
+   "claim": "Zotero gained an official native Citation Key item field in version 7.0.31 \u2014 per Zotero developer dstillman on the forums (Apr 2026): 'The only change we made \u2014 in 7.0.31 \u2014 was to introduce an official Citation Key field', and 'Any special functionality about citation keys is entirely BBT'. The 7.0.31 changelog entry lists 'New item fields... Many more' without naming Citation Key explicitly. BBT keys formerly stored in the Extra field were migrated on upgrade.",
+   "source": "https://forums.zotero.org/discussion/130917/zotero-8-9-bbt-and-citation-keys",
+   "maturity": "shipped in Zotero core since 7.0.31 (Jan 2026); BBT/native-field interplay still settling per the thread",
+   "relevance": "The citekey the harness trusts now lives in Zotero core (readable via local API and ZotLit's zt.citationKey), but generation and pinning remain Better BibTeX's job \u2014 a vault without BBT gets empty citekeys."
+  },
+  {
+   "claim": "ZotLit v2's docs contain no Better BibTeX dependency: the default `citekey` frontmatter field uses `zt.citationKey` (Zotero's native field) and 'writes null when the Zotero item has no citation key'. Combined with dstillman's statement that key generation is entirely BBT, a ZotLit setup without BBT yields null citekeys and broken [@key] resolution.",
+   "source": "https://zotlit.aidenlx.site/docs/how-to/configure-frontmatter-properties",
+   "maturity": "stable, documented (v2 docs)",
+   "relevance": "Trust-architecture consequence: the harness stack must still include Better BibTeX in Zotero to generate/pin keys, even though ZotLit itself only reads the native field."
+  },
+  {
+   "claim": "Better BibTeX citation keys are deterministic and stable: default formula `auth.lower + shorttitle(3,3) + year` with automatic a/b/c disambiguation; keys can be pinned to a fixed value; generation 'takes into account other existing keys in your library in a deterministic way, regardless of what part of your library you export'; formula changes only affect items edited afterward.",
+   "source": "https://retorque.re/zotero-better-bibtex/citing/",
+   "maturity": "actively maintained (repo pushed 2026-08-12, 7025 stars)",
+   "relevance": "Stable, pinnable citekeys are the foundation of claim traceability \u2014 a `[@citekey]` written into a draft today must still resolve to the same source at submission time."
+  },
+  {
+   "claim": "Better BibTeX auto-export ('Keep updated') re-exports a library/collection to a target .bib or CSL-JSON file whenever it changes, with On change / On idle / Paused scheduling; docs recommend exporting targeted collections over whole libraries for performance.",
+   "source": "https://retorque.re/zotero-better-bibtex/exporting/auto/",
+   "maturity": "actively maintained, stable feature",
+   "relevance": "Gives the harness a continuously fresh machine-readable bibliography file inside the repo, so every citekey in the vault can be verified against it in CI/git without Zotero running."
+  },
+  {
+   "claim": "Better BibTeX exposes two localhost HTTP surfaces on Zotero's port 23119: the CAYW picker at `http://127.0.0.1:23119/better-bibtex/cayw` (returns citations in pandoc, natbib, formatted-citation and many other formats; browser access blocked since Zotero 5.0.71 but curl/editor access works) and a JSON-RPC 2.0 API at `http://localhost:23119/better-bibtex/json-rpc` with methods including item.search, item.citationkey, item.export, item.bibliography, item.attachments, item.notes.",
+   "source": "https://retorque.re/zotero-better-bibtex/citing/cayw/",
+   "maturity": "actively maintained, stable API",
+   "relevance": "item.citationkey/item.search give the harness a programmatic way to verify that a citekey used in a draft corresponds to a real item in the local Zotero library \u2014 the zero-fabricated-citations check."
+  },
+  {
+   "claim": "Zotero's desktop client serves a local mirror of the Web API v3 at `http://localhost:23119/api/` (enable via Settings \u2192 Advanced \u2192 'Allow other applications...'; `/users/0/` = local user; unpaginated by default; reads need no auth; writes require Zotero 10+ with local API keys from `POST /api/local/authorize`). The Zotero 8 changelog adds: local API returns annotations and gained /fulltext endpoints.",
+   "source": "https://www.zotero.org/support/dev/web_api/v3/local_api",
+   "maturity": "stable API, first-party documented; write support new in Zotero 10",
+   "relevance": "A first-party, offline, rate-limit-free read path to item metadata, annotations, and full text \u2014 the harness can pull source evidence directly from the reference source of truth without BBT or cloud sync."
+  },
+  {
+   "claim": "The Obsidian Local REST API plugin (coddingtonbear, 2798 stars, pushed 2026-08-03) exposes vault CRUD at /vault/{path} over HTTPS 127.0.0.1:27124 (optional HTTP 27123) with API-key bearer auth and a self-signed cert; PATCH can surgically target a heading, block reference, or frontmatter key; it also embeds an MCP server at /mcp/ (Streamable HTTP, same API key) exposing vault read/write/patch/search/command tools, with documented Claude Code configuration.",
+   "source": "https://github.com/coddingtonbear/obsidian-local-rest-api",
+   "maturity": "actively maintained (pushed 2026-08-03)",
+   "relevance": "This is the programmatic vault access path for the harness \u2014 full read/write plus a native MCP endpoint Claude Code can attach to directly, far beyond what Obsidian URI offers."
+  },
+  {
+   "claim": "The official Obsidian URI scheme supports only open, new, daily, unique, search, and choose-vault actions (values percent-encoded); there is no way to read note content via URI \u2014 x-callback-url returns only the file name and URI, not content.",
+   "source": "https://obsidian.md/help/Extending+Obsidian/Obsidian+URI",
+   "maturity": "stable, first-party documented",
+   "relevance": "Obsidian URI is fire-and-forget navigation/creation only; the harness must use the Local REST API (or direct file access to the git-tracked vault) for any read or verify operation."
+  }
+ ],
+ "deadEnds": [
+  "mgmeyers/obsidian-zotero-integration and aidenlx/obsidian-zotero are stale GitHub addresses \u2014 the API returns 301 Moved Permanently; current homes are community-archive/obsidian-zotero-integration and aidenlx/zotlit. mgmeyers/obsidian-pandoc-reference-list likewise moved to community-archive/obsidian-pandoc-reference-list (last push 2026-03-06) \u2014 the whole mgmeyers Obsidian-academic suite is in caretaker mode.",
+  "ZotLit v2 docs never mention Better BibTeX \u2014 the widely-repeated claim that ZotLit reads citekeys from BBT's database is v1-era knowledge; v2 reads Zotero's native citationKey field (but BBT is still needed to generate keys; see findings).",
+  "https://zotlit.aidenlx.site/docs/getting-started/install returns 404 \u2014 the real install pages are /docs/install-zotlit and /docs/install-companion (found via sitemap.xml).",
+  "help.obsidian.md/Extending+Obsidian/Obsidian+URI 301-redirects to obsidian.md/help/Extending+Obsidian/Obsidian+URI \u2014 the help site moved under obsidian.md.",
+  "The native Citation Key field is not announced in the Zotero 8 or Zotero 9 blog posts, nor named explicitly in the 7.0/8.0/9.0 changelogs (7.0.31 says only 'New item fields... Many more') \u2014 the only explicit first-party statement is dstillman's forum post; secondary sources (Zettlr blog) misattribute it to Zotero 8.",
+  "hans/obsidian-citation-plugin is effectively unmaintained (last push 2024-06-13) \u2014 do not search for a revival; treat it purely as the origin of the @citekey-title and pandoc-citation conventions."
+ ]
+}
