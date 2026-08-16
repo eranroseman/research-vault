@@ -1447,6 +1447,12 @@ git add core && git commit -m "feat: harness_core CLI — probe, import-note, st
 
 ---
 
+## Whole-branch rulings (execution-time)
+
+1. **`register_autoexport` sends `["//", CSL_TRANSLATOR, target_path]`** (BBT-documented personal-library root), with an exact request/response fixture. Still live-unverified until Plan C's vault-setup performs the first real registration — the caveat stands.
+2. **NOOP detection is render-first**: compare the complete newly rendered managed projection (frontmatter managed fields + managed region incl. normalized annotations) against the existing note; NOOP only on identity. Rationale: Zotero annotations live in its database — annotation and metadata changes never alter attachment bytes, so hash-keyed NOOP silently skips real changes. Attachment hashes remain recorded for their §5 roles (fixity, ack-scope trigger) — they were never a change detector. Spec §7 clarified accordingly.
+3. Ordinary fixes queued without ruling: path-limited bibliography commits, CRLF-preserving note I/O, citekey traversal rejection, malformed-JSON four-state handling.
+
 ## Self-Review (completed at authoring)
 
 **Spec coverage (this plan's slice):** §4 bibliography/export-scope/commit-step/staleness → Task 5; §4 path rule → Task 4; §3/§5 note shape, managed regions, day-one `retrieved`, attachment hashes, aliases → Task 6; §5 anchors/blockquotes/selectors + §7 content-hash no-op → Task 7; §2 feature detection → Task 3; §8 plugin/marketplace manifests → Task 1. Deliberately out (later plans): all §6 checkers and events (B), identifier discovery (B), hooks/CI/scaffold/vault-setup (C), all skills and integrate-at-import (D), `autoexport.add` *invocation at setup time* (C — the client method ships here in Task 3).
