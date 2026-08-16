@@ -24,8 +24,8 @@
 - **Quotes render as blockquotes** under a claim line carrying tag + citation + anchor (§5).
 - Commit messages: conventional (`feat:`, `test:`, `chore:`).
 - Repo: `~/knowledge-harness` (this repo doubles as plugin + marketplace, §8). Work on branch `build/plan-a`.
-- **Execution conventions (cwd resets between steps under subagent execution):** every test Run begins `cd ~/knowledge-harness/core && source .venv/bin/activate`; every Commit begins `cd ~/knowledge-harness`. This machine's system Python is PEP 668 externally managed — the venv from Task 1 is mandatory, not optional.
-- **Recorded deviation (selector capture):** §5 requires quote prefix/suffix capture at extraction. BBT's annotation payload carries no surrounding context, and deriving it needs PDF text extraction — outside this stdlib-only plan. Task 7 renders the selector comment whenever context fields are present; **Plan B owns producing them** (its quote-verification work requires PDF text access anyway) and must backfill selectors for any notes imported before it lands; Plan B's selector consumer also unescapes the HTML-escaped selector values symmetrically (Task 6/7 ruling). This is an explicit, tracked deviation — not a silent drop.
+- **Execution conventions (cwd resets between steps under subagent execution):** every command starts from the isolated worktree root. Every test Run begins `cd core && source .venv/bin/activate`; every Commit runs from the worktree root after `cd "$(git rev-parse --show-toplevel)"`. Never `cd ~/knowledge-harness` during implementation. This machine's system Python is PEP 668 externally managed — the venv from Task 1 is mandatory, not optional.
+- **Recorded deviation (selector capture):** §5 requires quote prefix/suffix capture at extraction. BBT's annotation payload carries no surrounding context, and deriving it needs PDF text extraction — outside this stdlib-only plan. Task 6 Part B renders the selector comment whenever context fields are present; **Plan B owns producing them** (its quote-verification work requires PDF text access anyway) and must backfill selectors for any notes imported before it lands; Plan B's selector consumer also unescapes the HTML-escaped selector values symmetrically (Task 6/7 ruling). This is an explicit, tracked deviation — not a silent drop.
 
 ## File Structure
 
@@ -42,8 +42,8 @@ knowledge-harness/
 │   │   ├── zotero.py         # BBT JSON-RPC + local-API clients, feature detect (Task 3)
 │   │   ├── paths.py          # machine config + wslpath shim (Task 4)
 │   │   ├── bibliography.py   # CSL JSON load, citekey universe, staleness, commit step (Task 5)
-│   │   ├── notes.py          # literature-note render/re-render, block IDs, hashes (Tasks 6–7)
-│   │   └── __main__.py       # CLI: probe / import-note / staleness (Task 8)
+│   │   ├── notes.py          # literature-note render/re-render, block IDs, hashes (Task 6)
+│   │   └── __main__.py       # CLI: probe / import-note / staleness (Task 7)
 │   └── tests/
 │       ├── conftest.py       # fixtures: canned RPC payloads, tmp vault, live-skip marker (Task 1)
 │       ├── test_frontmatter.py
@@ -54,7 +54,7 @@ knowledge-harness/
 │       └── test_cli_live.py  # live smoke, skipped without Zotero
 ```
 
-One module = one responsibility; `notes.py` is the only two-task file (render mechanics, then anchor/hash mechanics) because its halves share private helpers.
+One module = one responsibility. `notes.py` is one composite Task 6: Part A builds render mechanics and Part B completes annotation anchors/hashes before the unit's single commit and review.
 
 ---
 
@@ -230,11 +230,12 @@ python -m pytest tests/test_skeleton.py -v
 ```
 Expected: 4 PASS.
 
-Also ignore the venv (committed with this task): `printf 'core/.venv/\n' >> .gitignore`
+Also add `core/.venv/` to the worktree-root `.gitignore` (committed with this task).
 
 - [ ] **Step 5: Commit**
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add .claude-plugin core .gitignore
 git commit -m "feat: harness_core package + plugin/marketplace skeleton"
 ```
@@ -314,7 +315,7 @@ def test_parse_rejects_nested_maps():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_frontmatter.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_frontmatter.py -v`
 Expected: FAIL — `No module named 'harness_core.frontmatter'`
 
 - [ ] **Step 3: Implement**
@@ -405,12 +406,13 @@ def parse(text: str) -> tuple[dict, str]:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd ~/knowledge-harness/core && source .venv/bin/activate && python -m pytest tests/test_frontmatter.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_frontmatter.py -v`
 Expected: 5 PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: flat-YAML frontmatter parse/serialize"
 ```
 
@@ -527,7 +529,7 @@ def test_live_ready_and_export():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_zotero.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_zotero.py -v`
 Expected: FAIL — `No module named 'harness_core.zotero'`
 
 - [ ] **Step 3: Implement**
@@ -631,17 +633,18 @@ class ZoteroClient:
 
 - [ ] **Step 4: Run fixture tests to verify they pass**
 
-Run: `python -m pytest tests/test_zotero.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_zotero.py -v`
 Expected: 5 PASS, 1 SKIP (live)
 
 - [ ] **Step 5: Run the live smoke against this machine**
 
-Run: `cd ~/knowledge-harness/core && source .venv/bin/activate && HARNESS_LIVE=1 python -m pytest tests/test_zotero.py::test_live_ready_and_export -v`
+Run: `cd core && source .venv/bin/activate && HARNESS_LIVE=1 python -m pytest tests/test_zotero.py::test_live_ready_and_export -v`
 Expected: PASS (Zotero 9.0.6 + BBT 9.0.55 respond; library non-empty; ids are citekeys; `supports_local_writes()` is False on Zotero 9). The live test now exercises `search`, named-translator `item.export`, and the top-level export — the three surfaces whose signatures this plan bets on; the BBT JSON-RPC doc (retorque.re/zotero-better-bibtex/exporting/json-rpc/) is the reference for any residual deviation. **`register_autoexport` ships live-unverified until Plan C provisions it** — its first real invocation is `vault-setup`, which validates or corrects the parameter shape then. Also in this step: (a) append the verified facts to `docs/environment.md` — "Zotero 9.0.6 answers HTTP 400 (not 501) to POST /api/users/0/items (2026-08-16)" and "local API `/items/top?format=csljson` returns citekey ids; `/items` includes URI-id children"; (b) if the library has an annotated PDF, call `attachments()` on it and record the observed annotation dict shape in `docs/environment.md` — if none exists, ask your human partner to highlight one line in any PDF in Zotero, then record it (the shape is currently source-verified only).
 
 - [ ] **Step 6: Commit**
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add core docs/environment.md
 git commit -m "feat: Zotero clients with fail-closed feature detection; record live-verified API facts"
 ```
@@ -710,7 +713,7 @@ def test_unresolvable_raises(tmp_vault, monkeypatch):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_paths.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_paths.py -v`
 Expected: FAIL — `No module named 'harness_core.paths'`
 
 - [ ] **Step 3: Implement**
@@ -752,12 +755,13 @@ def to_local(path: str, vault_root: Path) -> Path:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `python -m pytest tests/test_paths.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_paths.py -v`
 Expected: 4 PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: per-machine path shim with wslpath fallback"
 ```
 
@@ -848,7 +852,7 @@ def test_staleness_skipped_without_file(tmp_vault):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_bibliography.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_bibliography.py -v`
 Expected: FAIL — `No module named 'harness_core.bibliography'`
 
 - [ ] **Step 3: Implement**
@@ -924,22 +928,23 @@ def staleness(vault_root, client) -> Result:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `python -m pytest tests/test_bibliography.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_bibliography.py -v`
 Expected: 6 PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: bibliography universe, staleness check, harness-owned commit step"
 ```
 
 ---
 
-### Task 6: Literature notes — render, managed region, free-region preservation
+### Task 6: Literature notes + claim anchors (composite review unit)
 
-> **Ruling (execution-time, edge-case package approved):** (1) Task 6's normalized annotation contract stands; Task 7 maps raw BBT fields (`annotationPageLabel`, `annotationComment`, `annotationType`, …) to it at the boundary — mapping authority is the live shape recorded in docs/environment.md; unknown/missing fields degrade to comment-only rendering, never crash. (2) The closing marker matches only as an exact standalone line (collision regression included). (3) Multiline quotes: every line blockquote-prefixed; multiline comments whitespace-collapse to one inline claim line — single-line claims are load-bearing for `^claim-id` block addressing. (4) Selector values HTML-escaped (quotes, ampersands, `-->`); **escaping is symmetric — Plan B's selector consumer must unescape identically** (added to the selector-deviation contract).
+> **Composite-task ruling:** Part A's temporary `render_claim` stub is working-tree scaffolding, not a deliverable. One implementer receives this entire Task 6 brief, completes Parts A and B, runs the combined `test_notes.py`, commits once after Part B, and then receives one task review. There is no dispatch, commit, or review boundary between the parts.
 >
-> **Ruling: Tasks 6 and 7 are ONE implementation/review unit.** Task 6's `render_claim` stub necessarily fails for any annotated item, so no reviewable deliverable exists between them. Implement both tasks, run the combined `test_notes.py`, and **commit once at the end of Task 7** — Task 6's commit step is subsumed. Reviewers gate the unit, not the halves.
+> **Ruling (execution-time, edge-case package approved):** (1) Task 6's normalized annotation contract stands; Task 7 maps raw BBT fields (`annotationPageLabel`, `annotationComment`, `annotationType`, …) to it at the boundary — mapping authority is the live shape recorded in docs/environment.md; unknown/missing fields degrade to comment-only rendering, never crash. (2) The closing marker matches only as an exact standalone line (collision regression included). (3) Multiline quotes: every line blockquote-prefixed; multiline comments whitespace-collapse to one inline claim line — single-line claims are load-bearing for `^claim-id` block addressing. (4) Selector values HTML-escaped (quotes, ampersands, `-->`); **escaping is symmetric — Plan B's selector consumer must unescape identically** (added to the selector-deviation contract).
 
 **Files:**
 - Create: `core/harness_core/notes.py`
@@ -950,11 +955,11 @@ git add core && git commit -m "feat: bibliography universe, staleness check, har
 - Produces:
   - `MANAGED_OPEN = "%%hk-managed%%"`, `MANAGED_CLOSE = "%%/hk-managed%%"` (§3 managed markers; `hk-` prefix so a later ZotLit install can't collide).
   - `note_path(vault_root, citekey) -> Path` — `literatures/<citekey>.md`.
-  - `render_note(item: dict, attachment_hashes: list[str], annotations: list[dict], existing: str | None, retrieved: str) -> str` — full note text. Frontmatter per §5 (`citekey`, `type: "literature"`, `doi`/`url`/`pmid`/`version` when present in the CSL item, `retrieved`, `attachment-sha256`, `status: "unreviewed"`, `aliases: [title]`). Managed region: title heading + one claim per annotation (Task 7 renders them). Free region: everything below `MANAGED_CLOSE` in `existing` is preserved **byte-for-byte**; a fresh note gets the seed free region `\n## Notes\n`.
+  - `render_note(item: dict, attachment_hashes: list[str], annotations: list[dict], existing: str | None, retrieved: str) -> str` — full note text. Frontmatter per §5 (`citekey`, `type: "literature"`, `doi`/`url`/`pmid`/`version` when present in the CSL item, `retrieved`, `attachment-sha256`, `status: "unreviewed"`, `aliases: [title]`). Managed region: title heading + one claim per annotation (Part B renders them). Free region: everything below `MANAGED_CLOSE` in `existing` is preserved **byte-for-byte**; a fresh note gets the seed free region `\n## Notes\n`.
   - Re-render is idempotent: `render_note(..., existing=render_note(...)) == render_note(...)` given identical inputs.
   - `retrieved` is preserved from an existing note's frontmatter (day-one, never overwritten — §5).
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Part A — Step 1: Write the foundational failing tests**
 
 ```python
 # core/tests/test_notes.py
@@ -1027,12 +1032,12 @@ def test_free_region_byte_exact():
     assert v3.endswith(notes.MANAGED_CLOSE + "\n")   # emptied region stays empty
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Part A — Step 2: Run tests to verify they fail**
 
-Run: `python -m pytest tests/test_notes.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_notes.py -v`
 Expected: FAIL — `No module named 'harness_core.notes'`
 
-- [ ] **Step 3: Implement**
+- [ ] **Part A — Step 3: Implement rendering mechanics**
 
 ```python
 # core/harness_core/notes.py
@@ -1053,7 +1058,7 @@ def note_path(vault_root, citekey) -> Path:
 def _managed_body(item, annotations) -> str:
     lines = [MANAGED_OPEN, f"# {item.get('title', item['id'])}", ""]
     for ann in annotations:
-        lines.append(render_claim(ann))          # Task 7
+        lines.append(render_claim(ann))          # completed in Part B before commit/review
     lines.append(MANAGED_CLOSE)
     return "\n".join(lines) + "\n"
 
@@ -1097,27 +1102,27 @@ def render_note(item, attachment_hashes, annotations, existing, retrieved) -> st
     return frontmatter.serialize(fm) + _managed_body(item, annotations) + _split_free(existing)
 ```
 
-(`render_claim` arrives in Task 7; for this task's tests — no annotations — add the stub `def render_claim(ann): raise NotImplementedError` at module bottom. Task 7 replaces it; no test in this task exercises it.)
+Add the temporary stub `def render_claim(ann): raise NotImplementedError` at module bottom. It exists only to run Part A's annotation-free tests; continue immediately into Part B, which replaces it before any commit or review.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Part A — Step 4: Run the foundational tests**
 
-Run: `cd ~/knowledge-harness/core && source .venv/bin/activate && python -m pytest tests/test_notes.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_notes.py -v`
 Expected: 6 PASS
 
-- [ ] **Step 5: Commit — SUBSUMED (ruling)**
+- [ ] **Part A — Step 5: Continue without a commit or review**
 
-No commit here: Tasks 6–7 are one unit; the single commit lands at the end of Task 7.
+Continue directly to Part B; the temporary stub is never committed as a task deliverable.
 
 ---
 
-### Task 7: Claim anchors — stable block IDs, blockquote quotes, selector capture
+#### Part B: Claim anchors — stable block IDs, blockquote quotes, selector capture
 
 **Files:**
 - Modify: `core/harness_core/notes.py` (replace the `render_claim` stub; add `claim_id`, `sha256_file`, `content_changed`)
 - Test: `core/tests/test_notes.py` (append)
 
 **Interfaces:**
-- Consumes: Task 6's module.
+- Consumes: Part A's in-progress `notes.py`.
 - Produces:
   - `claim_id(annotation: dict) -> str` — `c-` + first 8 hex of sha256 of the annotation's Zotero `key` if present, else of its NFKC+whitespace-normalized `annotationText`. **Stable content, never render order** (§5 invariant).
   - `render_claim(annotation: dict) -> str` — §5 shape: claim line `- (quote) [@<citekey>, p. <pageLabel>] ^<claim_id>` followed by a blockquote of the exact text, then an HTML-comment selector line `<!-- hk-sel prefix="…" suffix="…" -->` carrying 32-char context (Web-Annotation capture, §5). Comment annotations (no quoted text) render as `- (paraphrase)` claim lines with the comment text inline, no blockquote.
@@ -1125,7 +1130,7 @@ No commit here: Tasks 6–7 are one unit; the single commit lands at the end of 
   - `content_changed(existing_text: str | None, attachment_hashes: list[str]) -> bool` — the §7 content-hash no-op comparator: False when the existing note's `attachment-sha256` equals the new list.
   - Annotation dict fields consumed (BBT `item.attachments` annotation shape): `key`, `type`, `annotationText`, `comment`, `pageLabel`, plus the parent `citekey` injected by the caller as `citekey`.
 
-- [ ] **Step 1: Write the failing test (append to test_notes.py)**
+- [ ] **Part B — Step 1: Append the failing tests to `test_notes.py`**
 
 ```python
 # append to core/tests/test_notes.py
@@ -1183,12 +1188,12 @@ def test_sha256_file(tmp_path):
     assert len(notes.sha256_file(f)) == 64
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Part B — Step 2: Run tests to verify the new cases fail**
 
-Run: `python -m pytest tests/test_notes.py -v`
-Expected: new tests FAIL (`NotImplementedError` / missing names); Task 6 tests still PASS
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_notes.py -v`
+Expected: new tests FAIL (`NotImplementedError` / missing names); Part A tests still PASS
 
-- [ ] **Step 3: Implement (replace stub, add helpers)**
+- [ ] **Part B — Step 3: Replace the stub and add helpers**
 
 ```python
 # in core/harness_core/notes.py — replace the render_claim stub with:
@@ -1231,21 +1236,22 @@ def content_changed(existing_text, attachment_hashes) -> bool:
     return prior.get("attachment-sha256") != attachment_hashes
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Part B — Step 4: Run the complete Task 6 tests**
 
-Run: `python -m pytest tests/test_notes.py -v`
-Expected: all PASS (Task 6 + Task 7 tests)
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_notes.py -v`
+Expected: all Part A + Part B tests PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Part B — Step 5: Commit the complete composite task**
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add core
-git commit -m "feat: literature notes — managed regions, stable claim anchors, blockquote quotes, content-hash no-op (Tasks 6+7)"
+git commit -m "feat: literature notes with stable claim anchors and content-hash no-op"
 ```
 
 ---
 
-### Task 8: CLI — probe, import-note, staleness
+### Task 7: CLI — probe, import-note, staleness
 
 **Files:**
 - Create: `core/harness_core/__main__.py`
@@ -1322,7 +1328,7 @@ def test_probe_unreachable(monkeypatch):
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `python -m pytest tests/test_cli_live.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_cli_live.py -v`
 Expected: `test_probe_unreachable` FAIL (`No module named harness_core.__main__`); live tests SKIP
 
 - [ ] **Step 3: Implement**
@@ -1424,25 +1430,26 @@ Note: `--base` is defined via a shared `parents=[common]` parser on the root *an
 
 - [ ] **Step 4: Run offline test, then the live end-to-end**
 
-Run: `python -m pytest tests/test_cli_live.py -v`
+Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_cli_live.py -v`
 Expected: `test_probe_unreachable` PASS, 3 SKIP
 
-Run: `HARNESS_LIVE=1 python -m pytest tests/test_cli_live.py -v`
+Run: `cd core && source .venv/bin/activate && HARNESS_LIVE=1 python -m pytest tests/test_cli_live.py -v`
 Expected: 4 PASS — **this is Plan A's deliverable**: a real literature note generated from your live Zotero into a scratch vault, idempotent on re-import, bibliography committed, staleness answering.
 
 - [ ] **Step 5: Run the full suite, then commit**
 
-Run: `python -m pytest tests -v` — Expected: all PASS (live ones per `HARNESS_LIVE`)
+Run: `cd core && source .venv/bin/activate && python -m pytest tests -v` — Expected: all PASS (live ones per `HARNESS_LIVE`)
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: harness_core CLI — probe, import-note, staleness"
 ```
 
 ---
 
-### Task 9: Merge
+### Task 8: Merge
 
-- [ ] **Step 1: Full suite green** — `cd ~/knowledge-harness/core && HARNESS_LIVE=1 python -m pytest tests -v`
+- [ ] **Step 1: Full suite green** — `cd core && source .venv/bin/activate && HARNESS_LIVE=1 python -m pytest tests -v`
 - [ ] **Step 2: Merge** — use `superpowers:finishing-a-development-branch` to integrate `build/plan-a` into `main` and push.
 
 ---
@@ -1455,7 +1462,7 @@ git add core && git commit -m "feat: harness_core CLI — probe, import-note, st
 
 ## Self-Review (completed at authoring)
 
-**Spec coverage (this plan's slice):** §4 bibliography/export-scope/commit-step/staleness → Task 5; §4 path rule → Task 4; §3/§5 note shape, managed regions, day-one `retrieved`, attachment hashes, aliases → Task 6; §5 anchors/blockquotes/selectors + §7 content-hash no-op → Task 7; §2 feature detection → Task 3; §8 plugin/marketplace manifests → Task 1. Deliberately out (later plans): all §6 checkers and events (B), identifier discovery (B), hooks/CI/scaffold/vault-setup (C), all skills and integrate-at-import (D), `autoexport.add` *invocation at setup time* (C — the client method ships here in Task 3).
+**Spec coverage (this plan's slice):** §4 bibliography/export-scope/commit-step/staleness → Task 5; §4 path rule → Task 4; §3/§5 note shape, managed regions, day-one `retrieved`, attachment hashes, aliases, anchors, blockquotes, and selectors + §7 content-hash no-op → composite Task 6; §2 feature detection → Task 3; §8 plugin/marketplace manifests → Task 1. Deliberately out (later plans): all §6 checkers and events (B), identifier discovery (B), hooks/CI/scaffold/vault-setup (C), all skills and integrate-at-import (D), `autoexport.add` *invocation at setup time* (C — the client method ships here in Task 3).
 **Placeholders:** none — every step carries runnable content. Live-API risk points are exercised where the plan says they are: Task 3's live test now calls `search`, named-translator `item.export`, and top-level export; `register_autoexport` is explicitly live-unverified until Plan C. Two recorded deviations (Global Constraints): selector capture's producer lives in Plan B; `write_and_commit` is the interim bibliography writer until Plan C registers the auto-export.
 **Verification history:** three-lens adversarial pass (spec fidelity / Python desk-check in sandbox / zero-context walkthrough against live Zotero) found 2 CRITICAL + 5 IMPORTANT + 5 MINOR defects — all fixed in this revision: `item.search` param shape, `/items/top` endpoint, version-gated write detection (Zotero 9 answers 400, not 501), argparse parents, PEP 668 venv, frontmatter pass-through of unowned fields, byte-exact free region, scalar escaping, cwd discipline.
-**Type consistency:** `Result` (T1) consumed by T3/T5/T8; `frontmatter.parse/serialize` (T2) by T6/T7; `ZoteroClient` method names identical across T3/T5/T8; `render_claim`/`claim_id` names match between T6 stub and T7 replacement; CLI exit codes match `staleness` mapping.
+**Type consistency:** `Result` (T1) consumed by T3/T5/T7; `frontmatter.parse/serialize` (T2) by T6; `ZoteroClient` method names identical across T3/T5/T7; `render_claim`/`claim_id` names are completed within composite T6; CLI exit codes match `staleness` mapping.
