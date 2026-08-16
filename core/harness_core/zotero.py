@@ -90,8 +90,29 @@ class ZoteroClient:
             page_items = page["items"] if isinstance(page, dict) else page
             items.extend(page_items)
             if len(page_items) < 100:
-                return items
+                return self._normalize_top_level_csl_ids(items)
             start += 100
+
+    def _normalize_top_level_csl_ids(self, items: list[dict]) -> list[dict]:
+        uri_keys = [
+            item["id"].rsplit("/", 1)[1]
+            for item in items
+            if isinstance(item.get("id"), str) and "/items/" in item["id"]
+        ]
+        if not uri_keys:
+            return items
+
+        citekeys = self.citekey_of(uri_keys)
+        normalized = []
+        for item in items:
+            item_id = item.get("id")
+            if not isinstance(item_id, str) or "/items/" not in item_id:
+                normalized.append(item)
+                continue
+            citekey = citekeys.get(item_id.rsplit("/", 1)[1])
+            if citekey:
+                normalized.append({**item, "id": citekey})
+        return normalized
 
     def register_autoexport(self, target_path: str) -> dict:
         return self._rpc("autoexport.add", [target_path, CSL_TRANSLATOR])

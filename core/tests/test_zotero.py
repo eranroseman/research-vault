@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from harness_core import Result, zotero
 
@@ -68,6 +69,34 @@ def test_export_named_translator(client):
     )
 
 
+def test_whole_library_export_normalizes_uri_ids_and_excludes_orphans(
+    client, monkeypatch
+):
+    page = [
+        {"id": "smith2020", "type": "article-journal", "title": "Ordinary item"},
+        {
+            "id": "http://zotero.org/users/0/items/ATTACH01",
+            "type": "document",
+            "title": "Top-level attachment",
+        },
+        {
+            "id": "http://zotero.org/users/0/items/ORPHAN01",
+            "type": "document",
+            "title": "Top-level orphan",
+        },
+    ]
+    client._fake.canned_rpc["item.citationkey"] = {"ATTACH01": "mapped2024"}
+    monkeypatch.setattr(client, "_http", lambda *args, **kwargs: (200, json.dumps(page).encode()))
+
+    items = client.export_csl(None)
+
+    assert [item["id"] for item in items] == ["smith2020", "mapped2024"]
+    assert items[1]["title"] == "Top-level attachment"
+    assert client._fake.rpc_calls == [
+        ("item.citationkey", [["ATTACH01", "ORPHAN01"]]),
+    ]
+
+
 def test_network_failure_is_unreachable():
     zotero_client = zotero.ZoteroClient(base="http://127.0.0.1:1")
     with pytest.raises(zotero.ZoteroError) as error:
@@ -82,7 +111,7 @@ def test_live_ready_and_export():
     assert "betterbibtex" in info
     items = zotero_client.export_csl(None)
     assert isinstance(items, list) and len(items) > 0
-    assert all("/" not in item["id"] for item in items[:25])
+    assert all("/" not in item["id"] for item in items)
 
     one = zotero_client.export_csl([items[0]["id"]])
     assert one and one[0]["id"] == items[0]["id"]
