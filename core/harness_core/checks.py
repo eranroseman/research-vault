@@ -109,6 +109,14 @@ def check_doi_exists(vault_root, doi: str, citekey: str | None = None) -> Outcom
             "mismatch — DOI does not resolve",
             extra={"doi": doi},
         )
+    if status != 200:
+        return Outcome(
+            "doi",
+            target,
+            Result.UNREACHABLE,
+            "outage — DOI handle API unavailable",
+            extra={"doi": doi},
+        )
 
     response_code = data.get("responseCode") if isinstance(data, dict) else None
     if type(response_code) is int and response_code == 100:
@@ -147,6 +155,9 @@ def registry_agency(vault_root, doi: str) -> str | None:
     record_doi = record.get("DOI")
     agency = record.get("RA")
     if not isinstance(record_doi, str) or not isinstance(agency, str):
+        return None
+    record_doi = record_doi.strip()
+    if not record_doi or record_doi.casefold() != doi.strip().casefold():
         return None
     agency = agency.strip()
     if not agency:

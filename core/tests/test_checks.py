@@ -159,6 +159,21 @@ def test_doi_exists_marks_only_explicit_not_found_responses_unmatched(
     assert outcome.reason == "mismatch — DOI does not resolve"
 
 
+@pytest.mark.parametrize(
+    "response", [(500, {"responseCode": 1}), (503, {"responseCode": 100})]
+)
+def test_doi_exists_rejects_handle_codes_from_non_ok_statuses(
+    net_vault, monkeypatch, response
+):
+    """Only a successful handle response may carry DOI existence semantics."""
+    _fake_get(monkeypatch, {"doi.org/api/handles/": response})
+
+    outcome = checks.check_doi_exists(net_vault, "10.1000/xyz")
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+
+
 def test_doi_exists_marks_api_outages_unreachable(net_vault, monkeypatch):
     """Transport errors must not turn into fabricated-DOI findings."""
     _fake_get(monkeypatch, {"doi.org/api/handles/": webapi.ApiError("down")})
@@ -220,6 +235,8 @@ def test_registry_agency_returns_a_nonempty_ra_from_documented_shape(
         (200, [{"DOI": "10.1/x", "RA": ""}]),
         (200, [{"DOI": "10.1/x", "RA": 7}]),
         (200, [{"DOI": 7, "RA": "Crossref"}]),
+        (200, [{"DOI": "", "RA": "Crossref"}]),
+        (200, [{"DOI": "10.1/other", "RA": "Crossref"}]),
     ],
 )
 def test_registry_agency_returns_none_for_outages_or_malformed_records(
@@ -229,6 +246,23 @@ def test_registry_agency_returns_none_for_outages_or_malformed_records(
     _fake_get(monkeypatch, {"doi.org/doiRA/": response})
 
     assert checks.registry_agency(net_vault, "10.1/x") is None
+
+
+def test_registry_agency_matches_doi_case_insensitively_after_trimming(
+    net_vault, monkeypatch
+):
+    """DOI spelling differences must not reject a genuinely matching RA record."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/zenodo.1": (
+                200,
+                [{"DOI": " 10.5281/ZENODO.1 ", "RA": "DataCite"}],
+            )
+        },
+    )
+
+    assert checks.registry_agency(net_vault, "10.5281/zenodo.1") == "DataCite"
 
 
 def test_doi_paths_encode_query_and_fragment_data_without_escaping_separator(
