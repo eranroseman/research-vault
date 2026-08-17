@@ -354,6 +354,7 @@ def test_cli_prints_unacknowledged_nested_warn_notice(net_vault, monkeypatch, ca
             {"outcomes": [warning], "counts": {"MATCHED": 1}},
             [warning],
             {id(warning): "aa11"},
+            {id(warning): True},
         ),
     )
     code = cmd_verify(
@@ -379,6 +380,7 @@ def test_cli_prints_warning_alongside_blocking_update_notice(
             {"outcomes": [outcome], "counts": {"UNMATCHED": 1}},
             [outcome],
             {id(outcome): "aa11"},
+            {id(outcome): True},
         ),
     )
     cmd_verify(
@@ -493,6 +495,7 @@ def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
                 {"outcomes": items, "counts": {}},
                 items,
                 {id(item): "aa11" for item in items},
+                {id(item): True for item in items},
             ),
         )
         assert cmd_verify(args) == expected

@@ -275,7 +275,16 @@ def cmd_staleness(args):
 
 
 CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}
-_VERIFY_FAILED = re.compile(r"\s*\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]")
+
+
+def _read_note_text(path):
+    with Path(path).open(newline="") as handle:
+        return handle.read()
+
+
+def _write_note_text(path, text):
+    with Path(path).open("w", newline="") as handle:
+        handle.write(text)
 
 
 def _safe_relative(vault_root, target):
@@ -328,20 +337,20 @@ def _claim_bytes_from_text(text, claim_id):
                     block.append(continuation)
                 else:
                     break
-            return _VERIFY_FAILED.sub("", "".join(block)).encode()
+            return "".join(block).encode()
     return None
 
 
 def _claim_bytes(path, claim_id):
     try:
-        return _claim_bytes_from_text(path.read_text(), claim_id)
+        return _claim_bytes_from_text(_read_note_text(path), claim_id)
     except (OSError, UnicodeError):
         return None
 
 
 def _line_bytes(path, line_no):
     try:
-        lines = notes.canonical_content(path.read_text()).splitlines(keepends=True)
+        lines = notes.canonical_content(_read_note_text(path)).splitlines(keepends=True)
     except (OSError, UnicodeError):
         return None
     if not 0 < line_no <= len(lines):
@@ -370,7 +379,18 @@ def _directory_bytes(path):
     if not path.is_dir():
         return None
     chunks = []
-    for child in sorted(item for item in path.rglob("*") if item.is_file()):
+    root = path.resolve()
+    for child in sorted(path.rglob("*")):
+        if child.is_symlink():
+            chunks.extend((str(child.relative_to(path)).encode(), b"symlink"))
+            continue
+        if not child.is_file():
+            continue
+        try:
+            child.resolve().relative_to(root)
+        except ValueError:
+            chunks.extend((str(child.relative_to(path)).encode(), b"outside"))
+            continue
         data = child.read_bytes()
         if child.suffix == ".md":
             data = _note_bytes(data)
@@ -389,7 +409,7 @@ def _citekey_hash(vault_root, citekey):
     note = _note_for_citekey(vault_root, citekey)
     if note and note.is_file():
         try:
-            data, _ = frontmatter.parse(note.read_text())
+            data, _ = frontmatter.parse(_read_note_text(note))
         except (OSError, UnicodeError, frontmatter.FrontmatterError):
             data = {}
         attachment_hashes = data.get("attachment-sha256")
@@ -499,7 +519,7 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
         path = _safe_relative(vault_root, relative)
         if path is None or not path.is_file():
             continue
-        lines = path.read_text().splitlines(keepends=True)
+        lines = _read_note_text(path).splitlines(keepends=True)
         for index, line in enumerate(lines):
             anchored = isinstance(claim_id, str) and line.rstrip("\r\n").endswith(
                 f"^{claim_id}"
@@ -523,7 +543,7 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
                 replacement += ending
             if replacement != line:
                 lines[index] = replacement
-                path.write_text("".join(lines))
+                _write_note_text(path, "".join(lines))
             break
 
 
@@ -624,7 +644,7 @@ def _archive_outcomes(vault_root):
     outcomes = []
     for path in sorted((Path(vault_root) / "literatures").glob("*.md")):
         try:
-            data, _ = frontmatter.parse(path.read_text())
+            data, _ = frontmatter.parse(_read_note_text(path))
         except (OSError, UnicodeError, frontmatter.FrontmatterError):
             continue
         archive_url = data.get("archive-url")
@@ -633,7 +653,9 @@ def _archive_outcomes(vault_root):
         raw_target = data.get("citekey")
         target = (
             raw_target.strip()
-            if isinstance(raw_target, str) and raw_target.strip()
+            if isinstance(raw_target, str)
+            and raw_target.strip()
+            and _note_for_citekey(vault_root, raw_target.strip()) is not None
             else path.relative_to(vault_root).as_posix()
         )
         try:
@@ -680,7 +702,9 @@ def _effective(outcomes, hashes, vault_root):
     ]
 
 
-def _file_effects(vault_root, raw, effective, hashes, detection_date):
+def _file_effects(
+    vault_root, raw, effective, hashes, warning_effective, detection_date
+):
     """Apply markers, events, and inbox notices only after raw audit collection."""
     effective_ids = {id(outcome) for outcome in effective}
     for outcome in raw:
@@ -696,24 +720,26 @@ def _file_effects(vault_root, raw, effective, hashes, detection_date):
                 citekey = outcome.target.split("#^", 1)[0]
                 note = _note_for_citekey(vault_root, citekey)
                 if note and note.is_file():
-                    note.write_text(
+                    _write_note_text(
+                        note,
                         events.record_pass(
-                            note.read_text(),
+                            _read_note_text(note),
                             f"quote:{outcome.target}:{outcome.extra.get('target', 'managed-region')}",
                             Result.MATCHED,
                             at=detection_date,
-                        )
+                        ),
                     )
             elif outcome.check in {"doi", "metadata", "update-notice"}:
                 note = _note_for_citekey(vault_root, outcome.target)
                 if note and note.is_file():
-                    note.write_text(
+                    _write_note_text(
+                        note,
                         events.record_pass(
-                            note.read_text(),
+                            _read_note_text(note),
                             outcome.check,
                             Result.MATCHED,
                             at=detection_date,
-                        )
+                        ),
                     )
 
     open_keys = set()
@@ -737,9 +763,7 @@ def _file_effects(vault_root, raw, effective, hashes, detection_date):
                 )
                 open_keys.add(key)
         for warning in outcome.extra.get("warn_notices", []):
-            if inbox.is_acknowledged(
-                vault_root, outcome.check, outcome.target, target_hash
-            ):
+            if not warning_effective[id(outcome)]:
                 continue
             warning_type = warning.get("type")
             if not isinstance(warning_type, str):
@@ -812,23 +836,29 @@ def _verify_state(
         raw.extend(_archive_outcomes(vault))
     hashes = {id(outcome): _target_hash(vault, outcome) for outcome in raw}
     effective = _effective(raw, hashes, vault)
-    _file_effects(vault, raw, effective, hashes, detection_date)
+    warning_effective = {
+        id(outcome): not inbox.is_acknowledged(
+            vault, outcome.check, outcome.target, hashes[id(outcome)]
+        )
+        for outcome in raw
+    }
+    _file_effects(vault, raw, effective, hashes, warning_effective, detection_date)
     counts = {}
     for outcome in effective:
         counts[outcome.result.value] = counts.get(outcome.result.value, 0) + 1
-    return {"outcomes": raw, "counts": counts}, effective, hashes
+    return {"outcomes": raw, "counts": counts}, effective, hashes, warning_effective
 
 
 def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None):
     """Collect raw outcomes and apply their effective verification effects."""
-    report, _effective_outcomes, _hashes = _verify_state(
+    report, _effective_outcomes, _hashes, _warnings = _verify_state(
         vault_root, scope, network, detection_date, rw_csv
     )
     return report
 
 
 def cmd_verify(args):
-    report, effective, hashes = _verify_state(
+    report, effective, hashes, warning_effective = _verify_state(
         args.vault,
         network=not args.offline,
         rw_csv=args.rw_csv,
@@ -839,9 +869,7 @@ def cmd_verify(args):
             print(
                 f"{outcome.result.value} {outcome.check} {outcome.target} — {outcome.reason}"
             )
-        if not inbox.is_acknowledged(
-            args.vault, outcome.check, outcome.target, hashes[id(outcome)]
-        ):
+        if warning_effective[id(outcome)]:
             for warning in outcome.extra.get("warn_notices", []):
                 warning_type = warning.get("type")
                 if isinstance(warning_type, str):

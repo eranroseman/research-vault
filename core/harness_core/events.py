@@ -41,7 +41,8 @@ def record_pass(
         }
     )
     data["verified"] = events
-    return frontmatter.serialize(data) + body
+    rendered = frontmatter.serialize(data) + body
+    return rendered.replace("\n", "\r\n") if "\r\n" in note_text else rendered
 
 
 def verified_checks(note_text: str) -> list[dict]:

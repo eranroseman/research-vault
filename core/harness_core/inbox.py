@@ -8,6 +8,7 @@ from pathlib import Path
 from . import AGENT_ACTOR, Result
 
 INBOX_PATH = "+/review-queue.md"
+_OMITTED_HASH = object()
 REASON_CODES = frozenset(
     {
         "contradiction",
@@ -239,12 +240,12 @@ def _scope_acknowledged(entries: list[Entry], check, target, target_hash) -> boo
     return any(
         ack.ack_of in scope_ids
         and ack.actor.startswith("human:")
-        and (target_hash is None or ack.target_hash == target_hash)
+        and ack.target_hash == target_hash
         for ack in entries
     )
 
 
-def is_acknowledged(vault, check, target, current_hash=None) -> bool:
+def is_acknowledged(vault, check, target, current_hash=_OMITTED_HASH) -> bool:
     """Return whether a standing scope acknowledgement matches this hash."""
     entries = load(vault)
     latest = next(
@@ -257,7 +258,7 @@ def is_acknowledged(vault, check, target, current_hash=None) -> bool:
     )
     if latest is None:
         return False
-    target_hash = latest.target_hash if current_hash is None else current_hash
+    target_hash = latest.target_hash if current_hash is _OMITTED_HASH else current_hash
     return _scope_acknowledged(entries, check, target, target_hash)
 
 
