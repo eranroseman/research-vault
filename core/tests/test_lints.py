@@ -1,0 +1,429 @@
+import subprocess
+
+from harness_core import Result, lints
+
+
+def _write_published(draft):
+    draft.write_text(
+        draft.read_text().replace('status: "drafting"', 'status: "published"')
+        + "\nnew paragraph after publishing\n"
+    )
+
+
+def test_all_clean_on_fixture(fixture_vault):
+    assert lints.lint_append_only(fixture_vault) == []
+    assert lints.lint_claim_immutability(fixture_vault) == []
+    assert lints.lint_published_drift(fixture_vault) == []
+
+
+def test_append_only_reports_each_tracked_file_with_removed_content(fixture_vault):
+    calendar = fixture_vault / "calendar" / "2026-08-16.md"
+    queue = fixture_vault / "+" / "review-queue.md"
+    calendar.write_text("")
+    queue.write_text("- old finding\n")
+    subprocess.run(["git", "add", queue], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "queue history"], cwd=fixture_vault, check=True
+    )
+    queue.write_text("")
+
+    outs = lints.lint_append_only(fixture_vault)
+
+    assert [(out.target, out.reason) for out in outs] == [
+        ("+/review-queue.md", "drift — append-only file rewrote history"),
+        ("calendar/2026-08-16.md", "drift — append-only file rewrote history"),
+    ]
+
+
+def test_append_only_reports_whole_tracked_file_deletion_but_not_untracked_addition(
+    fixture_vault,
+):
+    (fixture_vault / "calendar" / "2026-08-16.md").unlink()
+    (fixture_vault / "calendar" / "new.md").write_text("- new event\n")
+
+    outs = lints.lint_append_only(fixture_vault)
+
+    assert [out.target for out in outs] == ["calendar/2026-08-16.md"]
+
+
+def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace("Mortality fell 12%", "Mortality fell 21%")
+    )
+
+    outs = lints.lint_claim_immutability(fixture_vault)
+
+    assert [(out.target, out.extra) for out in outs] == [
+        (
+            "smith2020#^c-11111111",
+            {"note_path": "literatures/smith2020.md", "claim_id": "c-11111111"},
+        )
+    ]
+
+
+def test_claim_immutability_reports_each_claim_when_a_tracked_note_is_deleted(
+    fixture_vault,
+):
+    (fixture_vault / "literatures" / "smith2020.md").unlink()
+
+    outs = lints.lint_claim_immutability(fixture_vault)
+
+    assert [out.target for out in outs] == [
+        "smith2020#^c-11111111",
+        "smith2020#^c-22222222",
+    ]
+
+
+def test_claim_immutability_allows_complete_deprecation_transition(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            "[deprecated-by:: human:eran] [reason:: superseded] ^c-22222222",
+        )
+    )
+
+    assert lints.lint_claim_immutability(fixture_vault) == []
+
+
+def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_mutation(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text()
+        .replace("Mortality fell 12%", "Mortality rose 12%")
+        .replace(
+            "^c-11111111",
+            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            "[deprecated-by:: human:eran] [reason:: superseded] ^c-11111111",
+        )
+        .replace("^c-22222222", "[status:: deprecated] ^c-22222222")
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-11111111",
+        "smith2020#^c-22222222",
+    ]
+
+
+def test_claim_immutability_allows_only_one_exact_verify_failed_marker_change(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111"
+        )
+    )
+
+    assert lints.lint_claim_immutability(fixture_vault) == []
+
+
+def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111"
+        )
+    )
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "stamp failure"], cwd=fixture_vault, check=True
+    )
+    note.write_text(note.read_text().replace("[verify-failed:: quote/2026-08-16] ", ""))
+
+    assert lints.lint_claim_immutability(fixture_vault) == []
+
+
+def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111"
+        )
+    )
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "stamp failure"], cwd=fixture_vault, check=True
+    )
+    note.write_text(
+        note.read_text().replace(
+            "[verify-failed:: quote/2026-08-16]",
+            "[verify-failed:: citekey/2026-08-17]",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-11111111"
+    ]
+
+
+def test_claim_immutability_rejects_verify_failed_marker_replacement_with_mutation(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text()
+        .replace("Mortality fell 12%", "Mortality rose 12%")
+        .replace("^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111")
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-11111111"
+    ]
+
+
+def test_claim_immutability_rejects_marker_change_when_a_selector_continuation_changes(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text()
+        .replace(
+            "  > Mortality fell 12% across all strata.",
+            "  > Mortality rose 12% across all strata.",
+        )
+        .replace("^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111")
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-11111111"
+    ]
+
+
+def test_claim_immutability_does_not_mask_a_continuation_newline_change(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_bytes(note.read_bytes().replace(b"\n", b"\r\n"))
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "preserve source line endings"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    note.write_bytes(
+        note.read_bytes().replace(
+            b"^c-11111111\r\n  > Mortality fell 12% across all strata.\r\n",
+            b"[verify-failed:: quote/2026-08-16] ^c-11111111\r\n"
+            b"  > Mortality fell 12% across all strata.\n",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-11111111"
+    ]
+
+
+def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_bytes(note.read_bytes().replace(b"\n", b"\r\n"))
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "preserve source line endings"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    note.write_bytes(
+        note.read_bytes().replace(
+            b"- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222\r\n",
+            b"- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            b"[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            b"[deprecated-by:: human:eran] [reason:: superseded] ^c-22222222\n",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-22222222"
+    ]
+
+
+def test_published_drift_includes_untracked_files(fixture_vault):
+    subprocess.run(
+        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+    )
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    _write_published(draft)
+    (draft.parent / "untracked.md").write_text("new material\n")
+
+    outs = lints.lint_published_drift(fixture_vault)
+
+    assert [(out.target, out.reason) for out in outs] == [
+        ("efforts/brief", "drift — published effort diverged from its tag")
+    ]
+
+
+def test_published_drift_catches_tracked_changes_after_a_published_tag(fixture_vault):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text().replace('status: "drafting"', 'status: "published"')
+    )
+    subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish brief"], cwd=fixture_vault, check=True
+    )
+    subprocess.run(
+        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+    )
+    draft.write_text(draft.read_text() + "\npost-publish edit\n")
+
+    assert [out.target for out in lints.lint_published_drift(fixture_vault)] == [
+        "efforts/brief"
+    ]
+
+
+def test_published_drift_reports_wholly_deleted_effort_from_prior_published_status(
+    fixture_vault,
+):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text().replace('status: "drafting"', 'status: "published"')
+    )
+    subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish brief"], cwd=fixture_vault, check=True
+    )
+    subprocess.run(
+        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+    )
+    draft.unlink()
+
+    assert [out.target for out in lints.lint_published_drift(fixture_vault)] == [
+        "efforts/brief"
+    ]
+
+
+def test_source_status_deduplicates_repeated_references_and_records_origin(
+    fixture_vault,
+):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text()
+        + "- (paraphrase) Old claim [@gone2019, p. 1] [@gone2019, p. 2] ^c-88888888\n"
+    )
+
+    outs = lints.lint_source_status(fixture_vault, draft)
+
+    assert [(out.target, out.extra) for out in outs] == [
+        (
+            "gone2019",
+            {"note_path": "efforts/brief/draft.md", "claim_id": "c-88888888"},
+        )
+    ]
+    assert outs[0].reason.startswith("superseded-source")
+
+
+def test_source_status_catches_rejected_sources(fixture_vault):
+    rejected = fixture_vault / "literatures" / "rejected2024.md"
+    rejected.write_text(
+        '---\ncitekey: "rejected2024"\nstatus: "rejected"\n---\n# Rejected\n'
+    )
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text() + "- (paraphrase) Bad source [@rejected2024] ^c-12121212\n"
+    )
+
+    outs = lints.lint_source_status(fixture_vault, draft)
+
+    assert len(outs) == 1
+    assert outs[0].reason.startswith("superseded-source — cites rejected2024")
+
+
+def test_source_status_sorts_mixed_anchored_origins_without_crashing(fixture_vault):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text()
+        + "- (paraphrase) Old source [@gone2019]\n"
+        + "- (paraphrase) Also old [@gone2019] ^c-34343434\n"
+    )
+
+    outs = lints.lint_source_status(fixture_vault, draft)
+
+    assert [out.extra["claim_id"] for out in outs] == ["c-34343434", None]
+
+
+def test_contested_lint_surfaces_only_carrier_and_supported_addresses(fixture_vault):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text() + "- (inference) Relies on contested support [supported-by:: "
+        "[[smith2020#^c-11111111]] [[mortality-trends#^c-55555555]] "
+        "[[gone2019#^c-22222222]] [[smith2020#^c-11111111]]] ^c-99999999\n"
+    )
+
+    outs = lints.lint_contested(fixture_vault, draft)
+
+    assert [(out.target, out.extra) for out in outs] == [
+        (
+            "mortality-trends#^c-55555555",
+            {"note_path": "efforts/brief/draft.md", "claim_id": "c-99999999"},
+        ),
+        (
+            "smith2020#^c-11111111",
+            {"note_path": "efforts/brief/draft.md", "claim_id": "c-99999999"},
+        ),
+    ]
+    assert all(out.reason.startswith("contested") for out in outs)
+
+
+def test_citing_the_counterevidence_address_is_clean(fixture_vault):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text() + "- (inference) Cites the contester [supported-by:: "
+        "[[gone2019#^c-22222222]]] ^c-99999998\n"
+    )
+
+    assert lints.lint_contested(fixture_vault, draft) == []
+
+
+def test_web_archive_lint_requires_archive_for_a_doi_less_web_source(fixture_vault):
+    web = fixture_vault / "literatures" / "webonly2024.md"
+    web.write_text(
+        '---\ncitekey: "webonly2024"\nurl: "https://example.org/post"\n---\n# Web\n'
+    )
+
+    outs = lints.lint_web_archive(fixture_vault)
+
+    assert [(out.target, out.reason) for out in outs] == [
+        ("webonly2024", "missing-archive — web source has no archive-url")
+    ]
+
+
+def test_web_archive_lint_accepts_an_archived_web_source(fixture_vault):
+    web = fixture_vault / "literatures" / "webonly2024.md"
+    web.write_text(
+        '---\ncitekey: "webonly2024"\nurl: "https://example.org/post"\n'
+        'archive-url: "https://archive.example.org/post"\n---\n# Web\n'
+    )
+
+    assert lints.lint_web_archive(fixture_vault) == []
+
+
+def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
+    web = fixture_vault / "literatures" / "webonly2024.md"
+    web.write_text('---\nurl: "https://example.org"\n')
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text() + "- (paraphrase) Old claim [@webonly2024] ^c-12345678\n"
+    )
+
+    source = lints.lint_source_status(fixture_vault, draft)
+    archive = lints.lint_web_archive(fixture_vault)
+
+    assert source == [
+        lints.Outcome(
+            "source-status",
+            "webonly2024",
+            Result.UNMATCHED,
+            "schema-violation — malformed frontmatter",
+            extra={"note_path": "efforts/brief/draft.md", "claim_id": "c-12345678"},
+        )
+    ]
+    assert any(out.reason.startswith("schema-violation") for out in archive)
