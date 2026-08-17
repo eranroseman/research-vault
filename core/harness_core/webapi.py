@@ -9,6 +9,8 @@ import urllib.request
 from . import Result, __version__
 from .paths import load_machine_config
 
+_HEAD_FALLBACK_STATUSES = {403, 405, 501}
+
 
 class ApiError(Exception):
     """An external service or its required client configuration is unavailable."""
@@ -73,23 +75,35 @@ def _request(url, vault_root, params, headers, method):
     return urllib.request.Request(full_url, headers=request_headers, method=method)
 
 
-def _open(url, vault_root, params, headers, timeout, method):
+def _check_status(status, url, method):
+    if status == 404:
+        return
+    if method == "HEAD" and status in _HEAD_FALLBACK_STATUSES:
+        return
+    if status >= 400:
+        raise ApiError(f"HTTP {status} from {url}")
+
+
+def _open(url, vault_root, params, headers, timeout, method, read_body):
     request = _request(url, vault_root, params, headers, method)
     try:
         with _urlopen(request, timeout) as response:
-            body = response.read() if method == "GET" else None
+            _check_status(response.status, url, method)
+            body = response.read() if read_body else None
             return response.status, body
     except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return 404, None
-        raise ApiError(f"HTTP {error.code} from {url}") from error
+        try:
+            _check_status(error.code, url, method)
+        except ApiError as api_error:
+            raise api_error from error
+        return error.code, None
     except OSError as error:
         raise ApiError(f"network failure: {error}") from error
 
 
 def get_json(url, vault_root, params=None, headers=None, timeout=10.0):
     """GET JSON, returning its actual status and decoded body."""
-    status, body = _open(url, vault_root, params, headers, timeout, "GET")
+    status, body = _open(url, vault_root, params, headers, timeout, "GET", True)
     if status == 404:
         return status, None
     try:
@@ -99,6 +113,8 @@ def get_json(url, vault_root, params=None, headers=None, timeout=10.0):
 
 
 def get_status(url, vault_root, params=None, headers=None, timeout=10.0):
-    """HEAD a resource and return its status without interpreting its body."""
-    status, _ = _open(url, vault_root, params, headers, timeout, "HEAD")
+    """HEAD a resource, falling back to GET if the server rejects HEAD."""
+    status, _ = _open(url, vault_root, params, headers, timeout, "HEAD", False)
+    if status in _HEAD_FALLBACK_STATUSES:
+        status, _ = _open(url, vault_root, params, headers, timeout, "GET", False)
     return status

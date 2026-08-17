@@ -23,6 +23,19 @@ class FakeResponse(io.BytesIO):
         return False
 
 
+class UnreadableHtmlResponse:
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        raise AssertionError("status-only requests must not read HTML bodies")
+
+
 @pytest.fixture
 def vault_with_mailto(fixture_vault):
     config_dir = fixture_vault / ".harness"
@@ -132,7 +145,12 @@ def test_get_status_accepts_an_html_success_response(vault_with_mailto, monkeypa
 
 
 def test_get_status_returns_404(vault_with_mailto, monkeypatch):
+    methods = []
+
     def fake_urlopen(request, timeout):
+        methods.append(request.get_method())
+        if request.get_method() == "GET":
+            raise AssertionError("a hard 404 must not fall back to GET")
         raise urllib.error.HTTPError(
             request.full_url, 404, "not found", {}, io.BytesIO()
         )
@@ -142,6 +160,81 @@ def test_get_status_returns_404(vault_with_mailto, monkeypatch):
     status = webapi.get_status("https://archive.example.test/record", vault_with_mailto)
 
     assert status == 404
+    assert methods == ["HEAD"]
+
+
+def test_get_status_retries_method_rejected_head_with_an_undecoded_get(
+    vault_with_mailto, monkeypatch
+):
+    calls = []
+
+    def fake_urlopen(request, timeout):
+        calls.append((request.get_method(), request.full_url, timeout))
+        if request.get_method() == "HEAD":
+            raise urllib.error.HTTPError(
+                request.full_url, 405, "method not allowed", {}, io.BytesIO()
+            )
+        return UnreadableHtmlResponse()
+
+    monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
+
+    status = webapi.get_status(
+        "https://archive.example.test/record?existing=value#archive",
+        vault_with_mailto,
+    )
+
+    assert status == 200
+    assert [method for method, _, _ in calls] == ["HEAD", "GET"]
+    assert calls[0][1] == calls[1][1]
+    assert "mailto=eran%40example.edu" in calls[0][1]
+    assert calls[0][2] == 10.0
+    assert calls[1][2] == 10.0
+
+
+def test_get_status_raises_api_error_when_the_get_fallback_fails(
+    vault_with_mailto, monkeypatch
+):
+    methods = []
+
+    def fake_urlopen(request, timeout):
+        methods.append(request.get_method())
+        if request.get_method() == "HEAD":
+            raise urllib.error.HTTPError(
+                request.full_url, 405, "method not allowed", {}, io.BytesIO()
+            )
+        raise urllib.error.HTTPError(
+            request.full_url, 500, "server error", {}, io.BytesIO()
+        )
+
+    monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
+
+    with pytest.raises(webapi.ApiError) as error:
+        webapi.get_status("https://archive.example.test/record", vault_with_mailto)
+
+    assert error.value.result is Result.UNREACHABLE
+    assert methods == ["HEAD", "GET"]
+
+
+def test_get_status_raises_api_error_when_the_get_fallback_is_unreachable(
+    vault_with_mailto, monkeypatch
+):
+    methods = []
+
+    def fake_urlopen(request, timeout):
+        methods.append(request.get_method())
+        if request.get_method() == "HEAD":
+            raise urllib.error.HTTPError(
+                request.full_url, 405, "method not allowed", {}, io.BytesIO()
+            )
+        raise OSError("offline")
+
+    monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
+
+    with pytest.raises(webapi.ApiError) as error:
+        webapi.get_status("https://archive.example.test/record", vault_with_mailto)
+
+    assert error.value.result is Result.UNREACHABLE
+    assert methods == ["HEAD", "GET"]
 
 
 def test_network_outage_is_unreachable(vault_with_mailto, monkeypatch):
