@@ -235,6 +235,48 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     )
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+@pytest.mark.parametrize(
+    "frontmatter_line", ["", 'status: "active"'], ids=["empty", "nonempty"]
+)
+def test_preclose_blank_event_keeps_no_attachment_ack_hash(
+    net_vault, newline, frontmatter_line
+):
+    existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
+    body = f"- (quote) body ^c-11111111{newline}"
+    text = f"---{newline}{existing_fields}{newline}---{newline}{body}"
+    note = net_vault / "literatures" / "blank.md"
+    note.write_bytes(text.encode())
+    outcome = _outcome("doi", "blank", Result.UNMATCHED, "mismatch — DOI")
+    before = _target_hash(net_vault, outcome)
+    entry = inbox.append_entry(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        outcome.result,
+        outcome.reason,
+        date="2026-08-16",
+        target_hash=before,
+    )
+    inbox.append_ack(
+        net_vault,
+        entry.id,
+        "manual — checked",
+        "human:test",
+        target_hash=before,
+    )
+
+    note.write_bytes(
+        events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17").encode()
+    )
+
+    after = _target_hash(net_vault, outcome)
+    assert after == before
+    assert inbox.is_acknowledged(
+        net_vault, outcome.check, outcome.target, current_hash=after
+    )
+
+
 def test_missing_citekey_hash_uses_exact_checked_origins_and_reopens(net_vault):
     draft = net_vault / "efforts" / "brief" / "draft.md"
     outcome = _outcome(

@@ -77,6 +77,36 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+@pytest.mark.parametrize(
+    "frontmatter_line", ["", 'status: "active"'], ids=["empty", "nonempty"]
+)
+def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_line):
+    from harness_core import notes
+
+    existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
+    body = f"- (quote) body ^c-11111111{newline}"
+    text = f"---{newline}{existing_fields}{newline}---{newline}{body}"
+
+    out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
+
+    event = '  - {by: "harness_core/0.1.0", at: "2026-08-17", check: "doi"}'
+    assert out == (
+        f"---{newline}{existing_fields}verified:{newline}{event}{newline}"
+        f"{newline}---{newline}{body}"
+    )
+    data, parsed_body = frontmatter.parse(out)
+    assert data.get("status") == ("active" if frontmatter_line else None)
+    assert parsed_body == body
+    assert events.verified_checks(out) == [
+        {"by": "harness_core/0.1.0", "at": "2026-08-17", "check": "doi"}
+    ]
+    assert notes.canonical_content(out) == notes.canonical_content(text)
+    if newline == "\r\n":
+        assert "\r\r\n" not in out
+        assert "\n" not in out.replace("\r\n", "")
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     from harness_core import notes
 

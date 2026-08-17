@@ -74,7 +74,8 @@ def _replace_verified_events(note_text: str, events: list[dict], body: str) -> s
     newline = _line_ending(lines[headers[0] if headers else close]) or "\n"
     rendered = _render_verified_events(events, newline)
     if not headers:
-        return "".join(lines[:close] + [rendered] + lines[close:])
+        insert = close - 1 if lines[close - 1] in {"\n", "\r\n"} else close
+        return "".join(lines[:insert] + [rendered] + lines[insert:])
     start = headers[0]
     end = start + 1
     while end < close and lines[end].startswith("  - "):
