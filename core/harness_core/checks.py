@@ -1,8 +1,10 @@
 """Citation checkers (spec §6). Shared Outcome dataclass; four-state everywhere."""
 
+import csv
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import date as _Date
 from pathlib import Path
 from urllib.parse import quote
 
@@ -361,3 +363,428 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             extra=extra,
         )
     return Outcome("metadata", target, Result.MATCHED, "matched", extra=extra)
+
+
+BLOCKING_TYPES = {"retraction", "partial_retraction", "removal", "withdrawal"}
+WARN_TYPES = {"expression_of_concern", "correction", "corrigendum", "erratum"}
+_INVALID = object()
+
+
+def _norm_type(value) -> str | None:
+    """Normalize a remote notice type, rejecting non-string members."""
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower().replace(" ", "_")
+    return normalized or None
+
+
+def _normalize_doi(value) -> str | None:
+    """Return a canonical DOI key without accepting arbitrary scalar values."""
+    if not isinstance(value, str):
+        return None
+    doi = value.strip()
+    if doi.casefold().startswith("doi:"):
+        doi = doi[4:].strip()
+    for prefix in ("https://doi.org/", "http://doi.org/", "http://dx.doi.org/"):
+        if doi.casefold().startswith(prefix):
+            doi = doi[len(prefix) :]
+            break
+    doi = doi.strip()
+    return doi.casefold() if doi else None
+
+
+def _normalize_pmid(value) -> str | None:
+    """Return a numeric PMID key while excluding Python's bool-as-int leak."""
+    if type(value) is int:
+        value = str(value)
+    if not isinstance(value, str):
+        return None
+    pmid = value.strip()
+    if pmid.casefold().startswith("pmid:"):
+        pmid = pmid[5:].strip()
+    return pmid if pmid.isdecimal() and pmid != "0" else None
+
+
+def _entry_identifiers(entry: dict) -> tuple[str | None, str | None]:
+    if not isinstance(entry, dict):
+        return None, None
+    return (
+        _normalize_doi(entry.get("DOI") or entry.get("doi")),
+        _normalize_pmid(entry.get("PMID") or entry.get("pmid")),
+    )
+
+
+def _notice_target(entry: dict, doi: str | None, pmid: str | None) -> str:
+    if isinstance(entry, dict) and isinstance(entry.get("id"), str) and entry["id"]:
+        return entry["id"]
+    return doi or pmid or "?"
+
+
+def _notice_date_from_updated(value):
+    """Validate Crossref's optional date-parts and return an ISO date or None."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return _INVALID
+    if "date-parts" not in value or value["date-parts"] is None:
+        return None
+    date_parts = value["date-parts"]
+    if not isinstance(date_parts, list):
+        return _INVALID
+    if not date_parts:
+        return None
+    if len(date_parts) != 1 or not isinstance(date_parts[0], list):
+        return _INVALID
+    parts = date_parts[0]
+    if not parts:
+        return None
+    if len(parts) > 3 or any(type(part) is not int for part in parts):
+        return _INVALID
+    year, month, day = (parts + [1, 1])[:3]
+    try:
+        return _Date(year, month, day).isoformat()
+    except ValueError:
+        return _INVALID
+
+
+def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
+    """Validate Crossref's envelope and separate blocking/warn notice records."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("message"), dict):
+        return None
+    message = payload["message"]
+    updates = message.get("updated-by", [])
+    if not isinstance(updates, list):
+        return None
+
+    blocking, warns = [], []
+    for update in updates:
+        if not isinstance(update, dict):
+            return None
+        notice_type = _norm_type(update.get("type"))
+        if notice_type is None:
+            return None
+        notice_date = _notice_date_from_updated(update.get("updated"))
+        if notice_date is _INVALID:
+            return None
+        notice = {"type": notice_type, "notice_date": notice_date}
+        if notice_type in BLOCKING_TYPES:
+            blocking.append(notice)
+        elif notice_type in WARN_TYPES:
+            warns.append(notice)
+        elif notice_type == "reinstatement":
+            blocking.append({"type": "reinstatement", "notice_date": notice_date})
+    return blocking, warns
+
+
+def _active_blocking_notices(notices: list[dict]) -> list[dict]:
+    """Remove only dated blocks that a later dated reinstatement clears."""
+    reinstatements = [
+        notice["notice_date"]
+        for notice in notices
+        if notice["type"] == "reinstatement" and notice["notice_date"] is not None
+    ]
+    return [
+        notice
+        for notice in notices
+        if notice["type"] != "reinstatement"
+        and (
+            notice["notice_date"] is None
+            or not any(
+                reinstatement >= notice["notice_date"]
+                for reinstatement in reinstatements
+            )
+        )
+    ]
+
+
+def _effective_blocking(notices: list[dict]) -> dict | None:
+    """Choose a stable active blocker, preferring the most recent known notice."""
+    if not notices:
+        return None
+    return max(
+        notices,
+        key=lambda notice: (
+            notice["notice_date"] is not None,
+            notice["notice_date"] or "",
+            notice["type"],
+        ),
+    )
+
+
+def _merge_warn_notices(*outcomes: Outcome | None) -> list[dict]:
+    """Merge well-formed warning notices in deterministic, de-duplicated order."""
+    notices = set()
+    for outcome in outcomes:
+        if outcome is None or not isinstance(outcome.extra, dict):
+            continue
+        values = outcome.extra.get("warn_notices", [])
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not isinstance(value, dict):
+                continue
+            notice_type = _norm_type(value.get("type"))
+            notice_date = value.get("notice_date")
+            if notice_type not in WARN_TYPES or not (
+                notice_date is None or isinstance(notice_date, str)
+            ):
+                continue
+            notices.add((notice_type, notice_date))
+    return [
+        {"type": notice_type, "notice_date": notice_date}
+        for notice_type, notice_date in sorted(
+            notices, key=lambda notice: (notice[0], notice[1] is None, notice[1] or "")
+        )
+    ]
+
+
+def _blocking_outcome(
+    target: str, notice: dict, detection_date: str, warns=()
+) -> Outcome:
+    extra = {
+        "class": "blocking",
+        "type": notice["type"],
+        "notice_date": notice["notice_date"],
+        "detection_date": detection_date,
+    }
+    if warns:
+        extra["warn_notices"] = list(warns)
+    return Outcome(
+        "update-notice",
+        target,
+        Result.UNMATCHED,
+        f"retracted — {notice['type']}",
+        extra=extra,
+    )
+
+
+def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome:
+    """Check a registered DOI for update notices, retaining warning-tier notices."""
+    doi, pmid = _entry_identifiers(entry)
+    target = _notice_target(entry, doi, pmid)
+    if doi is None and pmid is None:
+        return Outcome(
+            "update-notice", target, Result.SKIPPED, "no-identifier — no DOI or PMID"
+        )
+    if doi is None:
+        return Outcome(
+            "update-notice",
+            target,
+            Result.SKIPPED,
+            "no-identifier — live leg needs a DOI; RW batch covers PMID",
+        )
+
+    agency = registry_agency(vault_root, doi)
+    if agency is None:
+        return Outcome(
+            "update-notice",
+            target,
+            Result.UNREACHABLE,
+            "outage — registry routing unavailable",
+        )
+
+    try:
+        if agency.casefold() == "crossref":
+            status, payload = webapi.get_json(
+                f"https://api.crossref.org/works/{_doi_path(doi)}", vault_root
+            )
+            notices = _crossref_notices(payload) if status == 200 else None
+            if notices is None:
+                return Outcome(
+                    "update-notice",
+                    target,
+                    Result.UNREACHABLE,
+                    "outage — malformed Crossref notice record",
+                )
+            blocking, warns = notices
+            active = _effective_blocking(_active_blocking_notices(blocking))
+            warns = _merge_warn_notices(
+                Outcome(
+                    "update-notice",
+                    target,
+                    Result.MATCHED,
+                    "matched",
+                    {"warn_notices": warns},
+                )
+            )
+            if active is not None:
+                return _blocking_outcome(target, active, detection_date, warns)
+            return Outcome(
+                "update-notice",
+                target,
+                Result.MATCHED,
+                "matched",
+                extra={"warn_notices": warns} if warns else {},
+            )
+
+        identifier = quote(f"https://doi.org/{doi}", safe="")
+        status, payload = webapi.get_json(
+            f"https://api.openalex.org/works/{identifier}",
+            vault_root,
+            params={"select": "is_retracted"},
+        )
+        if status != 200 or not isinstance(payload, dict):
+            return Outcome(
+                "update-notice",
+                target,
+                Result.UNREACHABLE,
+                "outage — malformed OpenAlex notice record",
+            )
+        is_retracted = payload.get("is_retracted")
+        if type(is_retracted) is not bool:
+            return Outcome(
+                "update-notice",
+                target,
+                Result.UNREACHABLE,
+                "outage — malformed OpenAlex notice record",
+            )
+        if is_retracted:
+            return _blocking_outcome(
+                target,
+                {"type": "retraction", "notice_date": None},
+                detection_date,
+            )
+        return Outcome("update-notice", target, Result.MATCHED, "matched")
+    except webapi.ApiError:
+        return Outcome(
+            "update-notice",
+            target,
+            Result.UNREACHABLE,
+            "outage — update-notice service unavailable",
+        )
+
+
+def _rw_date(value) -> str | None | object:
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if not isinstance(value, str):
+        return _INVALID
+    try:
+        return _Date.fromisoformat(value.strip()).isoformat()
+    except ValueError:
+        return _INVALID
+
+
+def load_rw_csv(path: Path) -> dict:
+    """Load well-formed Retraction Watch rows into DOI and PMID indexes."""
+    by_doi: dict[str, list[dict]] = defaultdict(list)
+    by_pmid: dict[str, list[dict]] = defaultdict(list)
+    with Path(path).open(newline="", encoding="utf-8", errors="replace") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            if not isinstance(row, dict):
+                continue
+            notice_type = _norm_type(row.get("RetractionNature"))
+            notice_date = _rw_date(row.get("RetractionDate"))
+            doi = _normalize_doi(row.get("OriginalPaperDOI"))
+            pmid = _normalize_pmid(row.get("OriginalPaperPubMedID"))
+            if (
+                notice_type not in BLOCKING_TYPES | WARN_TYPES
+                or notice_date is _INVALID
+                or (doi is None and pmid is None)
+            ):
+                continue
+            record = {"type": notice_type, "notice_date": notice_date}
+            if doi is not None:
+                by_doi[doi].append(record)
+            if pmid is not None:
+                by_pmid[pmid].append(record)
+    return {"doi": dict(by_doi), "pmid": dict(by_pmid)}
+
+
+def _rw_hits(index, identifier: str | None) -> list[dict]:
+    if identifier is None or not isinstance(index, dict):
+        return []
+    values = index.get(identifier, [])
+    if isinstance(values, dict):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+    return [value for value in values if isinstance(value, dict)]
+
+
+def check_rw_batch(entry: dict, rw: dict, detection_date: str) -> Outcome | None:
+    """Return the RW leg outcome after evaluating both normalized identifiers."""
+    doi, pmid = _entry_identifiers(entry)
+    target = _notice_target(entry, doi, pmid)
+    if not isinstance(rw, dict):
+        return None
+    hits = _rw_hits(rw.get("doi"), doi) + _rw_hits(rw.get("pmid"), pmid)
+    notices = {
+        (notice_type, notice_date)
+        for hit in hits
+        for notice_type, notice_date in [
+            (_norm_type(hit.get("type", hit.get("nature"))), hit.get("notice_date"))
+        ]
+        if notice_type in BLOCKING_TYPES | WARN_TYPES
+        and (notice_date is None or isinstance(notice_date, str))
+    }
+    blocking = [
+        {"type": notice_type, "notice_date": notice_date}
+        for notice_type, notice_date in notices
+        if notice_type in BLOCKING_TYPES
+    ]
+    warns = [
+        {"type": notice_type, "notice_date": notice_date}
+        for notice_type, notice_date in notices
+        if notice_type in WARN_TYPES
+    ]
+    active = _effective_blocking(blocking)
+    warns = _merge_warn_notices(
+        Outcome(
+            "update-notice", target, Result.MATCHED, "matched", {"warn_notices": warns}
+        )
+    )
+    if active is not None:
+        return _blocking_outcome(target, active, detection_date, warns)
+    if warns:
+        return Outcome(
+            "update-notice",
+            target,
+            Result.MATCHED,
+            "matched",
+            extra={"warn_notices": warns},
+        )
+    return None
+
+
+def reduce_update_notice_outcomes(
+    live: Outcome | None, rw: Outcome | None
+) -> Outcome | None:
+    """Reduce live/RW notice legs to one deterministic outcome for orchestration."""
+    outcomes = [outcome for outcome in (live, rw) if isinstance(outcome, Outcome)]
+    if not outcomes:
+        return None
+    target = outcomes[0].target
+    warnings = _merge_warn_notices(*outcomes)
+    blocking = [
+        outcome
+        for outcome in outcomes
+        if outcome.result is Result.UNMATCHED
+        and outcome.extra.get("class") == "blocking"
+    ]
+    if blocking:
+        chosen = max(
+            blocking,
+            key=lambda outcome: (
+                outcome.extra.get("notice_date") is not None,
+                outcome.extra.get("notice_date") or "",
+                outcome.extra.get("type") or "",
+            ),
+        )
+    else:
+        chosen = next(
+            (
+                outcome
+                for result in (Result.UNREACHABLE, Result.MATCHED, Result.SKIPPED)
+                for outcome in outcomes
+                if outcome.result is result
+            ),
+            outcomes[0],
+        )
+    extra = dict(chosen.extra)
+    if warnings:
+        extra["warn_notices"] = warnings
+    else:
+        extra.pop("warn_notices", None)
+    return Outcome(chosen.check, target, chosen.result, chosen.reason, extra=extra)

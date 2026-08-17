@@ -559,6 +559,356 @@ def test_metadata_treats_api_errors_as_unreachable(net_vault, monkeypatch):
     assert outcome.extra == {"doi": "10.1000/xyz", "agency": "Crossref"}
 
 
+def _notice_route(doi, agency="Crossref"):
+    return (200, [{"DOI": doi, "RA": agency}])
+
+
+def _works(updated_by):
+    return 200, {"message": {"updated-by": updated_by}}
+
+
+def test_update_notice_crossref_uses_encoded_works_path_and_keeps_warns(
+    net_vault, monkeypatch
+):
+    """A blocking notice wins while every independent warning remains available."""
+    seen = []
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append(url)
+        if "doiRA" in url:
+            return _notice_route("10.1000/a?b#c")
+        return _works(
+            [
+                {
+                    "type": "Correction",
+                    "updated": {"date-parts": [[2023, 1, 2]]},
+                },
+                {
+                    "type": "Retraction",
+                    "updated": {"date-parts": [[2024, 2, 3]]},
+                },
+                {
+                    "type": "erratum",
+                    "updated": {"date-parts": [[2023, 1, 2]]},
+                },
+            ]
+        )
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/a?b#c"}, "2026-08-16"
+    )
+
+    assert seen == [
+        "https://doi.org/doiRA/10.1000/a%3Fb%23c",
+        "https://api.crossref.org/works/10.1000/a%3Fb%23c",
+    ]
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.target == "cite"
+    assert outcome.reason == "retracted — retraction"
+    assert outcome.extra == {
+        "class": "blocking",
+        "type": "retraction",
+        "notice_date": "2024-02-03",
+        "detection_date": "2026-08-16",
+        "warn_notices": [
+            {"type": "correction", "notice_date": "2023-01-02"},
+            {"type": "erratum", "notice_date": "2023-01-02"},
+        ],
+    }
+
+
+def test_update_notice_reinstatement_is_chronological_not_payload_order(
+    net_vault, monkeypatch
+):
+    """A later blocking notice stays active even when the response is unordered."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/chronology": _notice_route("10.1000/chronology"),
+            "api.crossref.org/works/10.1000/chronology": _works(
+                [
+                    {
+                        "type": "withdrawal",
+                        "updated": {"date-parts": [[2024, 1, 1]]},
+                    },
+                    {
+                        "type": "reinstatement",
+                        "updated": {"date-parts": [[2023, 1, 1]]},
+                    },
+                    {
+                        "type": "retraction",
+                        "updated": {"date-parts": [[2020, 1, 1]]},
+                    },
+                    {
+                        "type": "reinstatement",
+                        "updated": {"date-parts": [[2021, 1, 1]]},
+                    },
+                ]
+            ),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/chronology"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == "retracted — withdrawal"
+    assert outcome.extra["notice_date"] == "2024-01-01"
+
+
+def test_update_notice_unknown_blocking_date_never_auto_clears(net_vault, monkeypatch):
+    """A reinstatement cannot silently clear a blocking notice with no known date."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/unknown": _notice_route("10.1000/unknown"),
+            "api.crossref.org/works/10.1000/unknown": _works(
+                [
+                    {"type": "retraction"},
+                    {
+                        "type": "reinstatement",
+                        "updated": {"date-parts": [[2024, 1, 1]]},
+                    },
+                ]
+            ),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/unknown"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.extra["notice_date"] is None
+
+
+def test_update_notice_stops_when_registry_routing_is_unavailable(
+    net_vault, monkeypatch
+):
+    """An unknown agency is an outage, never permission to query OpenAlex."""
+    monkeypatch.setattr(checks, "registry_agency", lambda vault, doi: None)
+    _fake_get(monkeypatch, {"": AssertionError("remote notice API must not run")})
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/no-route"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — registry routing unavailable"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        [],
+        {},
+        {"message": []},
+        {"message": {"updated-by": {}}},
+        {"message": {"updated-by": ["not-an-object"]}},
+        {"message": {"updated-by": [{"type": 7}]}},
+        {
+            "message": {
+                "updated-by": [
+                    {
+                        "type": "retraction",
+                        "updated": {"date-parts": [[True, 1, 1]]},
+                    }
+                ]
+            }
+        },
+    ],
+)
+def test_update_notice_rejects_malformed_crossref_json(net_vault, monkeypatch, payload):
+    """Every required Crossref container/member is fail-closed."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/bad": _notice_route("10.1000/bad"),
+            "api.crossref.org/works/10.1000/bad": (200, payload),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/bad"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+
+
+@pytest.mark.parametrize("status", [404, 500])
+def test_update_notice_rejects_non_ok_crossref_responses(
+    net_vault, monkeypatch, status
+):
+    """Only a successful Crossref response has notice semantics."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/status": _notice_route("10.1000/status"),
+            "api.crossref.org/works/10.1000/status": (status, {"message": {}}),
+        },
+    )
+
+    assert (
+        checks.check_update_notice(
+            net_vault, {"id": "cite", "DOI": "10.1000/status"}, "2026-08-16"
+        ).result
+        is Result.UNREACHABLE
+    )
+
+
+def test_update_notice_openalex_requires_a_boolean_and_encodes_identifier(
+    net_vault, monkeypatch
+):
+    """Concrete non-Crossref agencies use an encoded OpenAlex DOI identifier."""
+    seen = []
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append((url, params))
+        if "doiRA" in url:
+            return _notice_route("10.5281/a?b#c", "DataCite")
+        return 200, {"is_retracted": True}
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "data", "DOI": "10.5281/a?b#c"}, "2026-08-16"
+    )
+
+    assert seen == [
+        ("https://doi.org/doiRA/10.5281/a%3Fb%23c", None),
+        (
+            "https://api.openalex.org/works/https%3A%2F%2Fdoi.org%2F10.5281%2Fa%3Fb%23c",
+            {"select": "is_retracted"},
+        ),
+    ]
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.extra == {
+        "class": "blocking",
+        "type": "retraction",
+        "notice_date": None,
+        "detection_date": "2026-08-16",
+    }
+
+
+@pytest.mark.parametrize("value", [False, "false", 0, None, []])
+def test_update_notice_openalex_rejects_non_boolean_retraction_values(
+    net_vault, monkeypatch, value
+):
+    """OpenAlex's only accepted state is an actual JSON boolean."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/openalex": _notice_route(
+                "10.5281/openalex", "DataCite"
+            ),
+            "api.openalex.org/works/": (200, {"is_retracted": value}),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "data", "DOI": "10.5281/openalex"}, "2026-08-16"
+    )
+
+    expected = Result.MATCHED if value is False else Result.UNREACHABLE
+    assert outcome.result is expected
+
+
+def test_update_notice_skips_only_when_both_identifiers_are_absent(net_vault):
+    """PMID-only entries remain live-leg SKIPPED until the RW leg is reduced."""
+    no_identifiers = checks.check_update_notice(net_vault, {"id": "none"}, "2026-08-16")
+    pmid_only = checks.check_update_notice(
+        net_vault, {"id": "pmid", "PMID": "12345"}, "2026-08-16"
+    )
+
+    assert no_identifiers.result is Result.SKIPPED
+    assert pmid_only.result is Result.SKIPPED
+    assert "RW batch" in pmid_only.reason
+
+
+def test_rw_csv_matches_both_identifiers_and_blocking_beats_warning(tmp_path):
+    """DOI and PMID hits are both considered instead of short-circuiting on DOI."""
+    csv_file = tmp_path / "rw.csv"
+    csv_file.write_text(
+        "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n"
+        "https://doi.org/10.1000/doi-warn,111,2023-01-01,Expression of concern\n"
+        ",111,2024-02-02,Retraction\n"
+        "10.1000/bad-date,222,not-a-date,Retraction\n"
+    )
+
+    rw = checks.load_rw_csv(csv_file)
+    outcome = checks.check_rw_batch(
+        {"id": "cite", "DOI": "DOI:10.1000/DOI-WARN", "PMID": 111},
+        rw,
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == "retracted — retraction"
+    assert outcome.extra == {
+        "class": "blocking",
+        "type": "retraction",
+        "notice_date": "2024-02-02",
+        "detection_date": "2026-08-16",
+        "warn_notices": [
+            {"type": "expression_of_concern", "notice_date": "2023-01-01"}
+        ],
+    }
+    assert checks.check_rw_batch({"id": "bad", "PMID": "222"}, rw, "2026-08-16") is None
+
+
+def test_reduce_update_notice_outcomes_applies_precedence_and_merges_warns():
+    """The later orchestrator gets one target/outcome and every distinct warning."""
+    live = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.SKIPPED,
+        "no-identifier — live leg needs a DOI; RW batch covers PMID",
+        extra={"warn_notices": [{"type": "erratum", "notice_date": None}]},
+    )
+    rw = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.MATCHED,
+        "matched",
+        extra={
+            "warn_notices": [
+                {"type": "correction", "notice_date": "2023-01-01"},
+                {"type": "erratum", "notice_date": None},
+            ]
+        },
+    )
+    blocking = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.UNMATCHED,
+        "retracted — withdrawal",
+        extra={
+            "class": "blocking",
+            "type": "withdrawal",
+            "notice_date": "2024-01-01",
+            "detection_date": "2026-08-16",
+        },
+    )
+    outage = checks.Outcome(
+        "update-notice", "cite", Result.UNREACHABLE, "outage — OpenAlex unavailable"
+    )
+
+    matched = checks.reduce_update_notice_outcomes(live, rw)
+    unmatched = checks.reduce_update_notice_outcomes(outage, blocking)
+
+    assert matched.result is Result.MATCHED
+    assert matched.target == "cite"
+    assert matched.extra["warn_notices"] == [
+        {"type": "correction", "notice_date": "2023-01-01"},
+        {"type": "erratum", "notice_date": None},
+    ]
+    assert unmatched.result is Result.UNMATCHED
+    assert unmatched.reason == "retracted — withdrawal"
+
+
 def test_metadata_treats_malformed_csl_shape_as_unreachable(net_vault, monkeypatch):
     """Content-negotiated CSL must still provide typed title and author containers."""
     _fake_get(
