@@ -21,7 +21,8 @@ def test_probe():
     proc = run_cli("probe")
     assert proc.returncode == 0
     info = json.loads(proc.stdout)
-    assert "betterbibtex" in info and isinstance(info["local_writes"], bool)
+    assert "betterbibtex" in info
+    assert isinstance(info["local_writes"], bool)
 
 
 @pytest.mark.live

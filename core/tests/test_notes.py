@@ -37,7 +37,8 @@ def test_fresh_note_shape():
     assert data["attachment-sha256"] == ["aa11"]
     assert data["status"] == "unreviewed"
     assert data["aliases"] == ["Mortality decline"]
-    assert notes.MANAGED_OPEN in body and notes.MANAGED_CLOSE in body
+    assert notes.MANAGED_OPEN in body
+    assert notes.MANAGED_CLOSE in body
     assert body.rstrip().endswith("## Notes")
 
 
@@ -114,7 +115,8 @@ def test_claim_id_stable_from_key():
     a = notes.claim_id(QUOTE_ANN)
     b = notes.claim_id(dict(QUOTE_ANN, annotationText="edited text"))
     assert a == b  # key wins over text
-    assert a.startswith("c-") and len(a) == 10
+    assert a.startswith("c-")
+    assert len(a) == 10
 
 
 def test_claim_id_from_text_when_no_key():

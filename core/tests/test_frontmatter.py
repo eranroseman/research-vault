@@ -1,3 +1,5 @@
+import pytest
+
 from harness_core import frontmatter
 
 SAMPLE = {
@@ -23,7 +25,8 @@ def test_roundtrip():
 
 def test_serialize_shape():
     text = frontmatter.serialize(SAMPLE)
-    assert text.startswith("---\n") and text.endswith("---\n")
+    assert text.startswith("---\n")
+    assert text.endswith("---\n")
     assert 'citekey: "smith2020"' in text
     assert "attachment-sha256:" in text
     assert '- {by: "harness_core/0.1.0", at: "2026-08-16", check: "doi"}' in text
@@ -31,7 +34,8 @@ def test_serialize_shape():
 
 def test_parse_no_frontmatter():
     data, body = frontmatter.parse("just a body\n")
-    assert data == {} and body == "just a body\n"
+    assert data == {}
+    assert body == "just a body\n"
 
 
 def test_parse_crlf_frontmatter_preserves_mixed_newline_body():
@@ -70,8 +74,5 @@ def test_inline_dict_value_with_escaped_quote_roundtrip():
 
 def test_parse_rejects_nested_maps():
     bad = '---\nouter:\n  inner: "x"\n---\n'
-    try:
+    with pytest.raises(frontmatter.FrontmatterError):
         frontmatter.parse(bad)
-        assert False, "should raise"
-    except frontmatter.FrontmatterError:
-        pass

@@ -323,11 +323,13 @@ def test_live_ready_and_export():
     info = zotero_client.ready()
     assert "betterbibtex" in info
     items = zotero_client.export_csl(None)
-    assert isinstance(items, list) and len(items) > 0
+    assert isinstance(items, list)
+    assert len(items) > 0
     assert all("/" not in item["id"] for item in items)
 
     one = zotero_client.export_csl([items[0]["id"]])
-    assert one and one[0]["id"] == items[0]["id"]
+    assert one
+    assert one[0]["id"] == items[0]["id"]
     assert isinstance(zotero_client.search(items[0]["id"]), list)
 
     major = int(str(info["zotero"]).split(".")[0])
