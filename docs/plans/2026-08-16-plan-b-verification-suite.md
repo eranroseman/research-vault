@@ -2610,6 +2610,14 @@ git add core && git commit -m "feat: verify + inbox CLI verbs — orchestration,
 
 9. **No-attachment ack hashes**: hash canonical note content excluding ONLY verifier-owned surfaces — the frontmatter `verified` list and inline `[verify-failed:: …]` fields, enumerated and frozen in a single `canonical_content(note_text) -> str` both the ack-hash and future changed-content logic use. Deprecation transition records are NOT excluded (substantive — should invalidate acks). Verification cannot invalidate itself; whole-file SHA rejected as a self-invalidation loop. CLI reuses the same pre-effect decision state.
 
+## Whole-branch rulings (final fix wave, all granted)
+
+10. **Notice-fingerprint ack scope**: update-notice acks scope to `(check, target, content-hash, class, type, notice-date)` — identical notices stay acknowledged; a warn-class ack can never suppress a later blocking-class notice. Narrowly supersedes the earlier update-notice ack rule.
+11. **Current-state trust projection**: historical `verified` events preserved; a deterministic current-failure projection demotes trust on later failures; a subsequent MATCHED clears the failure and appends a new pass; failures still file in the inbox. **Amends ruling 9**: the ack-hash exclusion set is now the frontmatter `verified` list ONLY — `[verify-failed:: …]` markers are hash-substantive (failure transitions are information; stamping is idempotent so re-runs stay stable; routine passes remain excluded to prevent the self-invalidation loop).
+12. **Version-status contract (non-Crossref)**: MATCHED only after BOTH OpenAlex retraction status AND provider version status are established. Day-one provider list: arXiv (API version/withdrawal state) and DataCite (metadata `version`); any other registry — and any missing/ambiguous version status — returns UNREACHABLE, never silently clean.
+
+Ordinary defects handled in the same wave without ruling: malformed bibliography data crashing verification; malformed event mappings elevating trust; non-atomic inbox field validation.
+
 Clerical (no ruling): ruff-driven test rewrites, exact Plan A marker matching, corrected expected test counts — HEAD governs.
 
 ## Self-Review (completed at authoring)
