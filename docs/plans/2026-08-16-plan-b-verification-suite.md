@@ -2608,6 +2608,8 @@ git add core && git commit -m "feat: verify + inbox CLI verbs — orchestration,
 7. **Targets/acks/markers**: note-level targets standardized on citekeys (DOI in `extra`); file targets never reach `note_path`; outcomes carry enough claim identity to mutate only the correct line; hash-aware acks clear the matching marker, hide the finding from inbox/summary, bypass closure, and retain the raw outcome for audit.
 8. **Warn dedup**: warn type persisted/reconstructed from entries so re-runs never re-append.
 
+9. **No-attachment ack hashes**: hash canonical note content excluding ONLY verifier-owned surfaces — the frontmatter `verified` list and inline `[verify-failed:: …]` fields, enumerated and frozen in a single `canonical_content(note_text) -> str` both the ack-hash and future changed-content logic use. Deprecation transition records are NOT excluded (substantive — should invalidate acks). Verification cannot invalidate itself; whole-file SHA rejected as a self-invalidation loop. CLI reuses the same pre-effect decision state.
+
 Clerical (no ruling): ruff-driven test rewrites, exact Plan A marker matching, corrected expected test counts — HEAD governs.
 
 ## Self-Review (completed at authoring)
