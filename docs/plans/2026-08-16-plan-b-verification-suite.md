@@ -2597,6 +2597,19 @@ git add core && git commit -m "feat: verify + inbox CLI verbs — orchestration,
 
 ---
 
+## Pre-flight rulings (execution-time, all granted: the contract governs)
+
+1. **Inbox**: notice-date/detection-date implemented as fields; controlled reason prefixes VALIDATED at append (findings, acks, deprecations); example strings corrected to open with vocabulary codes (`manual — …`, `superseded-source — …`).
+2. **HTTP boundary**: `get_json` returns the real response status; a status-only helper serves HTML archive-URL resolution; JSON shapes validated; **registry-routing failure = UNREACHABLE, never a non-Crossref match**; discovery distinguishes no-hit from provider outage (outage must not let SKIPPED stick).
+3. **Normalization**: shared quote pipeline case-sensitive; metadata/discovery casefold locally; selector offset mapping reproduces whole-string NFKC incl. composed/decomposed sequences.
+4. **Coverage**: citations scanned throughout a note, not only claim lines; quote comparison prefers the same-address source quote, falls back only when absent; SKIPPED when a note has no quote claims.
+5. **Update notices**: reinstatement computed chronologically, independent of API ordering; live + RW legs combine into ONE effective outcome (blocking precedence); trust-tier requires update-notice coverage when the note has a DOI **or** PMID.
+6. **Integrity lints**: HEAD files enumerated so whole-file deletion is detected; deterministic `[verify-failed:: …]` add/remove transitions are permitted mutations in the immutability comparison (the stamp and the lint must not trip each other).
+7. **Targets/acks/markers**: note-level targets standardized on citekeys (DOI in `extra`); file targets never reach `note_path`; outcomes carry enough claim identity to mutate only the correct line; hash-aware acks clear the matching marker, hide the finding from inbox/summary, bypass closure, and retain the raw outcome for audit.
+8. **Warn dedup**: warn type persisted/reconstructed from entries so re-runs never re-append.
+
+Clerical (no ruling): ruff-driven test rewrites, exact Plan A marker matching, corrected expected test counts — HEAD governs.
+
 ## Self-Review (completed at authoring)
 
 **Spec coverage (this plan's slice):** §3 inbox serialization/ack/scope/summary → T2; §5 events + tier + MATCHED-only → T3; §6 rows: citekey → T5, DOI+registry → T6, metadata+author rule → T7, update-notice full taxonomy + bi-temporal + RW CSV + PMID → T8, discovery-before-SKIPPED → T9, quote gate + sparsity path → T10, six integrity lints → T11; §5 selector capture (Plan A obligation + symmetric unescape) → T12; orchestration/events/dedup/exit codes → T13. Deliberately out: gate *placement* (hooks, pre-commit, CI, publish flag file — Plan C consumes the exit codes), archive-at-import and hold policies (import-source behavior — Plan D skills call these functions), RW CSV *download* (Plan C cron; T8 consumes a local file).
