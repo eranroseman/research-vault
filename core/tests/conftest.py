@@ -113,6 +113,14 @@ status: "drafting"
     return tmp_vault
 
 
+@pytest.fixture
+def net_vault(fixture_vault):
+    harness = fixture_vault / ".harness"
+    harness.mkdir(exist_ok=True)
+    (harness / "machine.json").write_text('{"mailto": "eran@example.edu"}')
+    return fixture_vault
+
+
 def pytest_collection_modifyitems(config, items):
     if os.environ.get("HARNESS_LIVE") == "1":
         return

@@ -90,14 +90,6 @@ def test_outcome_rejects_invalid_or_empty_reasons_and_has_fresh_extra_dicts():
     assert second.extra == {}
 
 
-@pytest.fixture
-def net_vault(fixture_vault):
-    harness = fixture_vault / ".harness"
-    harness.mkdir(exist_ok=True)
-    (harness / "machine.json").write_text('{"mailto": "eran@example.edu"}')
-    return fixture_vault
-
-
 def _fake_get(monkeypatch, table):
     """Install deterministic external responses keyed by a URL fragment."""
 
