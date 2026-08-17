@@ -139,3 +139,51 @@ def test_source_text_quote_coverage_is_machine_confirmed():
     )
 
     assert events.trust_tier(text) == "machine-confirmed"
+
+
+def _with_verified(value):
+    data, body = frontmatter.parse(BASE)
+    data["verified"] = value
+    return frontmatter.serialize(data) + body
+
+
+def _machine_confirmed_text():
+    text = BASE
+    for check in (
+        "doi",
+        "metadata",
+        "update-notice",
+        "quote:smith2020#^c-11111111:managed-region",
+    ):
+        text = events.record_pass(text, check, Result.MATCHED, at="2026-08-16")
+    return text
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        _with_verified("corrupt"),
+        _with_verified(
+            frontmatter.parse(_machine_confirmed_text())[0]["verified"] + ["corrupt"]
+        ),
+    ],
+    ids=["scalar", "mixed-list"],
+)
+def test_malformed_verified_events_fail_closed_on_read(malformed):
+    assert events.verified_checks(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        _with_verified("corrupt"),
+        _with_verified(
+            frontmatter.parse(_machine_confirmed_text())[0]["verified"] + ["corrupt"]
+        ),
+    ],
+    ids=["scalar", "mixed-list"],
+)
+def test_record_pass_rejects_malformed_verified_events(malformed):
+    with pytest.raises(ValueError, match="verified"):
+        events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-16")

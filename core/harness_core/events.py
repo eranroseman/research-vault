@@ -6,6 +6,18 @@ from . import AGENT_ACTOR, Result, frontmatter
 from . import claims as claims_mod
 
 
+def _verified_events(data: dict) -> tuple[list[dict], bool]:
+    """Return valid events and whether the stored collection is malformed."""
+    raw_events = data.get("verified")
+    if raw_events is None:
+        return [], False
+    if not isinstance(raw_events, list) or not all(
+        isinstance(event, dict) for event in raw_events
+    ):
+        return [], True
+    return list(raw_events), False
+
+
 def record_pass(
     note_text: str,
     check: str,
@@ -18,7 +30,9 @@ def record_pass(
         raise ValueError(f"only MATCHED mints verified events, got {result}")
 
     data, body = frontmatter.parse(note_text)
-    events = list(data.get("verified", []))
+    events, malformed = _verified_events(data)
+    if malformed:
+        raise ValueError("verified frontmatter must be a list of event mappings")
     events.append(
         {
             "by": by,
@@ -33,7 +47,8 @@ def record_pass(
 def verified_checks(note_text: str) -> list[dict]:
     """Return the note's verification-event list."""
     data, _ = frontmatter.parse(note_text)
-    return list(data.get("verified", []))
+    events, _ = _verified_events(data)
+    return events
 
 
 def _applicable_note_checks(data: dict) -> set[str]:
@@ -47,7 +62,9 @@ def _applicable_note_checks(data: dict) -> set[str]:
 def trust_tier(note_text: str) -> str:
     """Derive a note's cumulative verification tier from its events."""
     data, _ = frontmatter.parse(note_text)
-    events = verified_checks(note_text)
+    events, malformed = _verified_events(data)
+    if malformed:
+        return "unverified"
     checks = {str(event.get("check", "")) for event in events}
     machine_confirmed = _applicable_note_checks(data) <= checks
     citekey = data.get("citekey", "")
