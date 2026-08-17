@@ -42,6 +42,24 @@ def test_entry_round_trips_bitemporal_dates(fixture_vault):
     assert entry.detection_date == "2026-08-16"
 
 
+def test_entry_round_trips_brackets_field_like_text_and_literal_backslashes(
+    fixture_vault,
+):
+    reason = "mismatch — found ] beside [actor:: human:other] in C:\\vault"
+    inbox.append_entry(
+        fixture_vault,
+        "doi",
+        "smith2020",
+        Result.UNMATCHED,
+        reason,
+        date="2026-08-16",
+    )
+
+    entry = inbox.load(fixture_vault)[-1]
+
+    assert entry.reason == reason
+
+
 @pytest.mark.parametrize("reason", ["mismatched title", "manuality", "unknown"])
 def test_append_entry_rejects_invalid_reason_prefix(fixture_vault, reason):
     with pytest.raises(ValueError, match="reason"):
@@ -88,6 +106,29 @@ def test_ack_requires_human_and_valid_reason(fixture_vault):
     )
 
     assert inbox.is_acknowledged(fixture_vault, "doi", "smith2020")
+
+
+def test_load_rejects_handwritten_finding_with_invalid_reason(fixture_vault):
+    queue = fixture_vault / "+" / "review-queue.md"
+    queue.write_text(
+        "- [id:: doi/smith2020/2026-08-16] [check:: doi] "
+        "[target:: smith2020] [result:: UNMATCHED] [date:: 2026-08-16] "
+        "[actor:: harness_core/0.1.0] [reason:: invented]\n"
+    )
+
+    with pytest.raises(inbox.InboxError, match="line 1"):
+        inbox.load(fixture_vault)
+
+
+def test_load_rejects_handwritten_human_ack_with_invalid_reason(fixture_vault):
+    queue = fixture_vault / "+" / "review-queue.md"
+    queue.write_text(
+        "- [ack:: doi/smith2020/2026-08-16] [actor:: human:eran] "
+        "[reason:: manualized]\n"
+    )
+
+    with pytest.raises(inbox.InboxError, match="line 1"):
+        inbox.load(fixture_vault)
 
 
 def test_ack_scope_invalidated_by_hash_change(fixture_vault):

@@ -29,7 +29,7 @@ REASON_CODES = frozenset(
         "manual",
     }
 )
-_FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>[^\]]*)\]")
+_FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")
 _REASON = re.compile(
     rf"(?:{'|'.join(re.escape(code) for code in sorted(REASON_CODES, key=len, reverse=True))})(?:$|\s+\S.*)"
 )
@@ -72,8 +72,26 @@ def _file(vault) -> Path:
 
 def _serialize(fields: list[tuple[str, str | None]]) -> str:
     return (
-        "- " + " ".join(f"[{key}:: {value}]" for key, value in fields if value) + "\n"
+        "- "
+        + " ".join(
+            f"[{key}:: {_escape_field_value(value)}]" for key, value in fields if value
+        )
+        + "\n"
     )
+
+
+def _escape_field_value(value: str) -> str:
+    """Escape a closing bracket without changing ordinary legacy field values."""
+    if "]" not in value:
+        return value
+    return value.replace("\\", "\\\\").replace("]", r"\]")
+
+
+def _unescape_field_value(value: str) -> str:
+    """Reverse the bracket escape while preserving unescaped legacy backslashes."""
+    if r"\]" not in value:
+        return value
+    return value.replace(r"\]", "]").replace(r"\\", "\\")
 
 
 def append_entry(
@@ -149,7 +167,10 @@ def _line_fields(line: str, number: int) -> dict[str, str]:
     fields = list(_FIELD.finditer(line))
     if not fields or " ".join(field.group(0) for field in fields) != line[2:]:
         raise InboxError(f"unparseable inbox line {number}: {line!r}")
-    data = {field.group("key"): field.group("value") for field in fields}
+    data = {
+        field.group("key"): _unescape_field_value(field.group("value"))
+        for field in fields
+    }
     if len(data) != len(fields):
         raise InboxError(f"duplicate inbox field on line {number}: {line!r}")
     return data
@@ -165,6 +186,7 @@ def load(vault) -> list[Entry]:
         if "ack" in data:
             if "id" in data or not data.keys() >= _ACK_FIELDS:
                 raise InboxError(f"unparseable inbox line {number}: {line!r}")
+            _validate_loaded_reason(data["reason"], number, line)
             entries.append(
                 Entry(
                     id=f"ack/{data['ack']}",
@@ -177,6 +199,7 @@ def load(vault) -> list[Entry]:
         elif "id" in data:
             if not data.keys() >= _ENTRY_FIELDS:
                 raise InboxError(f"unparseable inbox line {number}: {line!r}")
+            _validate_loaded_reason(data["reason"], number, line)
             entries.append(
                 Entry(
                     id=data["id"],
@@ -194,6 +217,13 @@ def load(vault) -> list[Entry]:
         else:
             raise InboxError(f"unparseable inbox line {number}: {line!r}")
     return entries
+
+
+def _validate_loaded_reason(reason: str, number: int, line: str) -> None:
+    try:
+        validate_reason(reason)
+    except ValueError as error:
+        raise InboxError(f"invalid reason on inbox line {number}: {line!r}") from error
 
 
 def _is_entry_acknowledged(entries: list[Entry], entry: Entry) -> bool:
