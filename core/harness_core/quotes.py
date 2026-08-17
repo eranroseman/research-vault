@@ -29,7 +29,7 @@ def levenshtein_ratio(a: str, b: str) -> float:
     return 1.0 - previous[-1] / max(len(a), len(b))
 
 
-def _source_quotes(vault_root, citekey: str) -> dict[str | None, str | None]:
+def _source_quotes(vault_root, citekey: str) -> dict[str | None, str]:
     """Return managed source quotes keyed by their claim IDs."""
     source = note_path(vault_root, citekey)
     if not source.is_file():
@@ -37,7 +37,7 @@ def _source_quotes(vault_root, citekey: str) -> dict[str | None, str | None]:
     return {
         claim.claim_id: claim.quote_text
         for claim in claims_mod.parse_claims(source.read_text())
-        if claim.tag == "quote" and claim.in_managed
+        if claim.tag == "quote" and claim.in_managed and claim.quote_text
     }
 
 

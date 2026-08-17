@@ -46,6 +46,26 @@ def test_same_address_mismatch_does_not_fall_back_to_a_matching_other_quote(
     assert out.reason == "mismatch — quote absent from source note"
 
 
+def test_empty_same_address_source_quote_falls_back_to_extractable_quote(
+    fixture_vault,
+):
+    source = fixture_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (quote) [@smith2020, p. 13] ^c-66666666\n"
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+        )
+    )
+
+    out = quotes.check_all_quotes(
+        fixture_vault, fixture_vault / "efforts" / "brief" / "draft.md"
+    )[0]
+
+    assert out.result is Result.MATCHED
+    assert out.reason == "matched"
+
+
 def test_fuzzy_goes_to_inbox_tier(fixture_vault):
     draft = fixture_vault / "efforts" / "brief" / "draft.md"
     draft.write_text(
