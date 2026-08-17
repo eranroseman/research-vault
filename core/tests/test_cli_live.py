@@ -508,7 +508,7 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
     assert 'prefix="prefix " suffix=" suffix"' in note
     second_claim = note.split("Second attachment quote", 1)[1].split("- (quote)", 1)[0]
     assert "hk-sel" not in second_claim
-    assert "annotation quotes were not found" in capsys.readouterr().err
+    assert "no extractable PDF text" in capsys.readouterr().err
 
 
 def test_import_note_preserves_prior_selectors_when_contexts_degrade(
@@ -544,6 +544,94 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
     stderr = capsys.readouterr().err
     assert "warning: selectors degraded" in stderr
     assert "existing selector contexts retained" in stderr
+
+
+def test_import_note_migrates_and_retains_legacy_multiline_selector(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    raw = _raw_quote("Quote remains")
+    note_path = notes.note_path(tmp_vault, "smith2020")
+    original = notes.render_note(
+        {"id": "smith2020", "title": "Legacy selector"},
+        ["unresolved"],
+        [cli.normalize_annotation(raw, "smith2020")],
+        existing=None,
+        retrieved="2026-08-16",
+    )
+    legacy = '  <!-- hk-sel prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
+    note_path.write_bytes(
+        original.replace(notes.MANAGED_CLOSE, legacy + notes.MANAGED_CLOSE).encode()
+    )
+    _install_import_client(monkeypatch, cli, {"title": "Legacy selector"}, [raw])
+
+    assert (
+        cli.cmd_import_note(
+            argparse.Namespace(
+                citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+            )
+        )
+        == 0
+    )
+    migrated = note_path.read_text()
+    assert 'prefix="legacy&#13;&#10;prefix" suffix="suffix&#10;legacy"' in migrated
+    assert "existing selector contexts retained" in capsys.readouterr().err
+
+    assert (
+        cli.cmd_import_note(
+            argparse.Namespace(
+                citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+            )
+        )
+        == 0
+    )
+    assert capsys.readouterr().out.strip() == "NOOP"
+    assert note_path.read_text() == migrated
+
+
+def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    first = _raw_quote("Resolved quote")
+    second = _raw_quote("Unresolved quote")
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mixed attachments"}]
+
+        def attachments(self, citekey):
+            return [
+                {"path": "resolved.pdf", "annotations": [first]},
+                {"path": None, "annotations": [second]},
+            ]
+
+        def export_csl(self, citekeys):
+            return [{"id": "smith2020", "title": "Mixed attachments"}]
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(cli.paths, "to_local", lambda path, vault: tmp_vault / path)
+    monkeypatch.setattr(cli.notes, "sha256_file", lambda _: "hash")
+    monkeypatch.setattr(
+        "harness_core.selectors.pdf_text", lambda _: "before Resolved quote after"
+    )
+
+    assert (
+        cli.cmd_import_note(
+            argparse.Namespace(
+                citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+            )
+        )
+        == 0
+    )
+    stderr = capsys.readouterr().err
+    assert "attachment unresolved" in stderr
+    assert "quotes were not found" not in stderr
 
 
 def test_backfill_selectors_skips_malformed_and_unsafe_notes_and_aggregates_failures(

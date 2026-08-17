@@ -100,6 +100,11 @@ def claim_id(annotation: dict) -> str:
     return "c-" + hashlib.sha256(basis.encode()).hexdigest()[:8]
 
 
+def _escape_selector(value: str) -> str:
+    """Escape selector attributes without allowing markup to span source lines."""
+    return escape(value, quote=True).replace("\r", "&#13;").replace("\n", "&#10;")
+
+
 def render_claim(annotation: dict) -> str:
     cid = claim_id(annotation)
     cite = (
@@ -113,8 +118,8 @@ def render_claim(annotation: dict) -> str:
         lines.extend(f"  > {line}" for line in text.split("\n"))
         pre, suf = annotation.get("context_prefix"), annotation.get("context_suffix")
         if pre or suf:
-            prefix = escape((pre or "")[-32:], quote=True)
-            suffix = escape((suf or "")[:32], quote=True)
+            prefix = _escape_selector((pre or "")[-32:])
+            suffix = _escape_selector((suf or "")[:32])
             lines.append(f'  <!-- hk-sel prefix="{prefix}" suffix="{suffix}" -->')
         return "\n".join(lines)
     comment = " ".join((annotation.get("comment") or "").split())

@@ -195,6 +195,20 @@ def test_selector_values_are_html_escaped():
     )
 
 
+def test_selector_values_escape_newlines_on_one_line():
+    ann = dict(
+        QUOTE_ANN,
+        context_prefix="lead\r\nquoted",
+        context_suffix="tail\nquoted",
+    )
+
+    selector = notes.render_claim(ann).split("\n")[-1]
+
+    assert selector == (
+        '  <!-- hk-sel prefix="lead&#13;&#10;quoted" suffix="tail&#10;quoted" -->'
+    )
+
+
 def test_content_changed_compares_complete_rendered_candidate():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16")
     identical = notes.render_note(

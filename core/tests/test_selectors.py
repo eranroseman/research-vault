@@ -78,6 +78,25 @@ def test_unescape_inverts_notes_escaping_for_entity_looking_input():
     assert selectors.unescape_selector(prefix_escaped) == value
 
 
+def test_unescape_inverts_newline_selector_escaping():
+    value = "before\r\nafter\n"
+    ann = {
+        "key": "K2",
+        "type": "highlight",
+        "citekey": "x2020",
+        "annotationText": "quote",
+        "comment": "",
+        "pageLabel": "1",
+        "context_prefix": value,
+        "context_suffix": "tail",
+    }
+    selector = next(
+        line for line in notes.render_claim(ann).splitlines() if "hk-sel" in line
+    )
+    prefix_escaped = re.search(r'prefix="([^"]*)"', selector).group(1)
+    assert selectors.unescape_selector(prefix_escaped) == value
+
+
 def test_pdf_text_degrades_without_pypdf(monkeypatch, tmp_path):
     real_import = builtins.__import__
 

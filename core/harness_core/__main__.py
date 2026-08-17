@@ -85,29 +85,24 @@ def _write_note(path, text):
         note.write(text)
 
 
-_QUOTE_CLAIM = re.compile(r"^- \(quote\).*\^(c-[0-9a-f]{8})$")
-_SELECTOR = re.compile(r'^\s*<!-- hk-sel prefix="([^"]*)" suffix="([^"]*)" -->$')
+_QUOTE_SELECTOR = re.compile(
+    r"^- \(quote\)[^\r\n]*\^(?P<claim_id>c-[0-9a-f]{8})\r?\n"
+    r"(?:  >[^\r\n]*(?:\r\n|\n|$))*"
+    r'  <!-- hk-sel prefix="(?P<prefix>.*?)" suffix="(?P<suffix>.*?)" -->',
+    re.MULTILINE | re.DOTALL,
+)
 
 
 def _prior_contexts(existing: str | None) -> dict[str, tuple[str, str]]:
     if not existing:
         return {}
-    contexts = {}
-    claim_id = None
-    for line in existing.splitlines():
-        claim = _QUOTE_CLAIM.match(line)
-        if claim:
-            claim_id = claim.group(1)
-            continue
-        selector = _SELECTOR.match(line)
-        if claim_id and selector:
-            contexts[claim_id] = tuple(
-                map(selectors.unescape_selector, selector.groups())
-            )
-            claim_id = None
-        elif claim_id and not line.startswith("  >"):
-            claim_id = None
-    return contexts
+    return {
+        match["claim_id"]: (
+            selectors.unescape_selector(match["prefix"]),
+            selectors.unescape_selector(match["suffix"]),
+        )
+        for match in _QUOTE_SELECTOR.finditer(existing)
+    }
 
 
 def _retain_prior_contexts(annotations: list[dict], existing: str | None) -> int:
@@ -125,22 +120,10 @@ def _retain_prior_contexts(annotations: list[dict], existing: str | None) -> int
     return retained
 
 
-def _selector_warning(
-    quote_annotations: list[dict],
-    *,
-    unresolved: bool,
-    extracted: bool,
-    attached: int,
-    retained: int,
-) -> None:
-    if not quote_annotations or attached == len(quote_annotations):
+def _selector_warning(reasons: list[str], *, retained: int) -> None:
+    if not reasons:
         return
-    if extracted:
-        reason = "some annotation quotes were not found in extracted text"
-    elif unresolved:
-        reason = "attachment unresolved"
-    else:
-        reason = "no extractable PDF text"
+    reason = "; ".join(dict.fromkeys(reasons))
     if retained:
         print(
             f"warning: selectors degraded ({reason}; existing selector contexts retained)",
@@ -174,7 +157,6 @@ def cmd_import_note(args):
     hashes = []
     annotations = []
     attachment_pairs = []
-    unresolved = False
     for attachment in client.attachments(args.citekey):
         local_path = None
         try:
@@ -183,7 +165,6 @@ def cmd_import_note(args):
         except (paths.PathError, OSError) as error:
             print(f"warning: attachment unresolved: {error}", file=sys.stderr)
             hashes.append("unresolved")
-            unresolved = True
         attachment_annotations = [
             normalize_annotation(annotation, args.citekey)
             for annotation in _attachment_annotations(attachment)
@@ -191,27 +172,31 @@ def cmd_import_note(args):
         annotations.extend(attachment_annotations)
         attachment_pairs.append((local_path, attachment_annotations))
 
-    attached = 0
-    extracted = False
+    degradation_reasons = []
     for local_path, attachment_annotations in attachment_pairs:
+        needed = [
+            annotation
+            for annotation in attachment_annotations
+            if annotation["annotationText"]
+            and not (
+                annotation.get("context_prefix") or annotation.get("context_suffix")
+            )
+        ]
+        if not needed:
+            continue
         if local_path is None:
+            degradation_reasons.append("attachment unresolved")
             continue
         text = selectors.pdf_text(local_path)
         if not text:
+            degradation_reasons.append("no extractable PDF text")
             continue
-        extracted = True
-        attached += selectors.attach_contexts(attachment_annotations, text)
+        if selectors.attach_contexts(needed, text) != len(needed):
+            degradation_reasons.append(
+                "some annotation quotes were not found in extracted text"
+            )
     retained = _retain_prior_contexts(annotations, existing)
-    quote_annotations = [
-        annotation for annotation in annotations if annotation["annotationText"]
-    ]
-    _selector_warning(
-        quote_annotations,
-        unresolved=unresolved,
-        extracted=extracted,
-        attached=attached,
-        retained=retained,
-    )
+    _selector_warning(degradation_reasons, retained=retained)
 
     today = datetime.date.today().isoformat()
     candidate = notes.render_note(item, hashes, annotations, existing, today)
