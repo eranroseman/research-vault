@@ -331,7 +331,8 @@ def _claim_bytes_from_text(text, claim_id):
     """Hash one anchored claim and its continuations, ignoring our marker."""
     lines = notes.canonical_content(text).splitlines(keepends=True)
     for index, line in enumerate(lines):
-        if line.rstrip("\r\n").endswith(f"^{claim_id}"):
+        content, _ = _split_line_ending(line)
+        if _terminal_anchor_match(content, claim_id):
             block = [line]
             for continuation in lines[index + 1 :]:
                 if continuation.startswith(("  > ", "  <!-- hk-sel")):
@@ -543,13 +544,12 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             continue
         lines = _read_note_text(path).splitlines(keepends=True)
         for index, line in enumerate(lines):
-            anchored = isinstance(claim_id, str) and line.rstrip("\r\n").endswith(
-                f"^{claim_id}"
-            )
+            content, ending = _split_line_ending(line)
+            anchor = _terminal_anchor_match(content, claim_id)
+            anchored = anchor is not None
             numbered = isinstance(line_no, int) and index == line_no - 1
             if not anchored and not numbered:
                 continue
-            content, ending = _split_line_ending(line)
             terminal_claim_id = claim_id if anchored else None
             replacement = (
                 _clear_marker(content, outcome.check, terminal_claim_id)
@@ -560,11 +560,12 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
                 content, outcome.check, terminal_claim_id
             ):
                 if anchored:
-                    before, terminal_anchor = content.rsplit(f"^{claim_id}", 1)
+                    before = content[: anchor.start()]
+                    terminal_anchor = content[anchor.start() :]
                     replacement = (
                         before
                         + f"[verify-failed:: {outcome.check}/{date}] "
-                        + f"^{claim_id}{terminal_anchor}"
+                        + terminal_anchor
                     )
                 else:
                     replacement = content + f" [verify-failed:: {outcome.check}/{date}]"
@@ -597,6 +598,12 @@ def _terminal_marker_pattern(check, claim_id):
         return re.compile(rf" {marker} (?={trailing})")
     trailing = rf"(?: {_ANY_VERIFY_MARKER})*[ \t]*$"
     return re.compile(rf" {marker}(?={trailing})")
+
+
+def _terminal_anchor_match(content, claim_id):
+    if not isinstance(claim_id, str):
+        return None
+    return re.search(rf"\^{re.escape(claim_id)}[ \t]*$", content)
 
 
 def _split_line_ending(line):

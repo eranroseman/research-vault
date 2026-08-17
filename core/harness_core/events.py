@@ -47,7 +47,11 @@ def _replace_verified_events(note_text: str, events: list[dict], body: str) -> s
     """Lexically replace only the verifier-owned top-level event list."""
     lines = note_text.splitlines(keepends=True)
     if not lines or lines[0] not in {"---\n", "---\r\n"}:
-        return frontmatter.serialize({"verified": events}) + body
+        envelope = frontmatter.serialize({"verified": events})
+        newline = _first_line_ending(body)
+        if newline == "\r\n":
+            envelope = envelope.replace("\n", newline)
+        return envelope + body
     close = next(
         (
             index
@@ -90,6 +94,14 @@ def _line_ending(line: str) -> str:
     if line.endswith("\n"):
         return "\n"
     return ""
+
+
+def _first_line_ending(text: str) -> str:
+    for line in text.splitlines(keepends=True):
+        ending = _line_ending(line)
+        if ending:
+            return ending
+    return "\n"
 
 
 def verified_checks(note_text: str) -> list[dict]:

@@ -173,6 +173,8 @@ def canonical_content(note_text: str) -> str:
         # verifier-owned surface, even if the permissive flat parser kept a
         # list under the final key.
         return "".join(frontmatter_lines) + _strip_verify_fields(body)
+    if _verified_only_envelope(frontmatter_lines, verified_index):
+        return _strip_verify_fields(body)
     result = frontmatter_lines[:verified_index]
     index = verified_index + 1
     while index < close and frontmatter_lines[index].startswith("  - "):
@@ -203,6 +205,13 @@ def _verified_list_index(lines: list[str]) -> int | None:
     if lines[index].rstrip("\r\n").rstrip(" \t") != "verified:":
         return None
     return index
+
+
+def _verified_only_envelope(lines: list[str], verified_index: int) -> bool:
+    """Whether frontmatter is solely the valid verifier-owned event list."""
+    return verified_index == 1 and all(
+        line.startswith("  - ") for line in lines[verified_index + 1 : -1]
+    )
 
 
 def _strip_verify_fields(text: str) -> str:

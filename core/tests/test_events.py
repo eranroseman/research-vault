@@ -76,6 +76,34 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     assert notes.canonical_content(out) == notes.canonical_content(text)
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
+    from harness_core import notes
+
+    body = f"- (quote) body-only ^c-11111111{newline}"
+    first = events.record_pass(body, "doi", Result.MATCHED, at="2026-08-16")
+    second = events.record_pass(first, "metadata", Result.MATCHED, at="2026-08-17")
+    with_status = first.replace(
+        f"verified:{newline}", f'status: "deprecated"{newline}verified:{newline}', 1
+    )
+
+    assert first.endswith(body)
+    if newline == "\r\n":
+        assert "\r\r\n" not in first
+        assert "\n" not in first.replace("\r\n", "")
+    assert notes.canonical_content(first) == notes.canonical_content(body)
+    assert notes.canonical_content(second) == notes.canonical_content(body)
+    assert events.verified_checks(second) == [
+        {"by": "harness_core/0.1.0", "at": "2026-08-16", "check": "doi"},
+        {
+            "by": "harness_core/0.1.0",
+            "at": "2026-08-17",
+            "check": "metadata",
+        },
+    ]
+    assert notes.content_changed(body, with_status)
+
+
 def test_record_pass_rejects_non_matched():
     for result in (Result.UNMATCHED, Result.UNREACHABLE, Result.SKIPPED):
         with pytest.raises(ValueError, match="only MATCHED mints verified events"):

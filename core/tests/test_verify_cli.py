@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_core import Result, checks, events, inbox, webapi
+from harness_core import Result, checks, claims, events, inbox, webapi
 from harness_core.__main__ import (
     _archive_outcomes,
     _clear_verify_failed,
@@ -674,6 +674,63 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     _clear_verify_failed(net_vault, line_only)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, line_only) == line_hash
+
+
+def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
+    note = net_vault / "atlas" / "trailing anchor.md"
+    original = b"- (quote) trailing [@missing] ^c-1  \r\n"
+    note.write_bytes(original)
+    outcome = _outcome(
+        "quote",
+        "missing#^c-1",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="atlas/trailing anchor.md",
+        claim_id="c-1",
+        line_no=1,
+    )
+    before = _target_hash(net_vault, outcome)
+
+    assert claims.parse_claims(original.decode())[0].claim_id == "c-1"
+    _mutate_marker(net_vault, outcome, "2026-08-16")
+    stamped = note.read_bytes()
+
+    assert stamped == (
+        b"- (quote) trailing [@missing] [verify-failed:: quote/2026-08-16] ^c-1  \r\n"
+    )
+    assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
+    assert _target_hash(net_vault, outcome) == before
+    _clear_verify_failed(net_vault, outcome)
+    assert note.read_bytes() == original
+    assert _target_hash(net_vault, outcome) == before
+
+
+def test_body_only_literature_ack_survives_verifier_event_envelope(net_vault):
+    note = net_vault / "literatures" / "bodyonly.md"
+    original = "- (quote) body-only [@bodyonly] ^c-1\n"
+    note.write_text(original)
+    outcome = _outcome("doi", "bodyonly", Result.UNMATCHED, "mismatch — DOI")
+    before = _target_hash(net_vault, outcome)
+    finding = inbox.append_entry(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        outcome.result,
+        outcome.reason,
+        target_hash=before,
+    )
+    inbox.append_ack(net_vault, finding.id, "manual — checked", "human:test", before)
+
+    note.write_text(
+        events.record_pass(original, "doi", Result.MATCHED, at="2026-08-16")
+    )
+    after = _target_hash(net_vault, outcome)
+
+    assert events.verified_checks(note.read_text())[0]["check"] == "doi"
+    assert after == before
+    assert inbox.is_acknowledged(
+        net_vault, outcome.check, outcome.target, current_hash=after
+    )
 
 
 def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
