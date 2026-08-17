@@ -286,3 +286,311 @@ def test_doi_paths_encode_query_and_fragment_data_without_escaping_separator(
         "https://doi.org/api/handles/10.1000/a%3Fb%23c",
         "https://doi.org/doiRA/10.1000/a%3Fb%23c",
     ]
+
+
+CROSSREF_METADATA = {
+    "message": {
+        "title": ["Mortality  decline"],
+        "author": [{"family": "Smith", "given": "Jo"}],
+        "issued": {"date-parts": [[2020]]},
+    }
+}
+
+
+def _metadata_entry(**overrides):
+    entry = {
+        "id": "smith2020",
+        "DOI": "10.1000/xyz",
+        "title": "Mortality decline",
+        "author": [{"family": "Smith", "given": "Jo"}],
+        "issued": {"date-parts": [[2020]]},
+    }
+    entry.update(overrides)
+    return entry
+
+
+def _crossref_route(monkeypatch, remote=CROSSREF_METADATA):
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/xyz": (
+                200,
+                [{"DOI": "10.1000/xyz", "RA": "Crossref"}],
+            ),
+            "api.crossref.org/works/10.1000/xyz": (200, remote),
+        },
+    )
+
+
+def test_metadata_matches_case_insensitively_and_carries_note_target(
+    net_vault, monkeypatch
+):
+    """Metadata compares case-insensitively but files against the CSL citekey."""
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["MORTALITY DECLINE"],
+                "author": [{"family": "SMITH", "given": "Josephine"}],
+                "issued": {"date-parts": [[2020]]},
+            }
+        },
+    )
+
+    outcome = checks.check_metadata(
+        net_vault, _metadata_entry(author=[{"family": "Smith", "given": "J."}])
+    )
+
+    assert outcome.result is Result.MATCHED
+    assert outcome.target == "smith2020"
+    assert outcome.extra == {"doi": "10.1000/xyz", "agency": "Crossref"}
+
+
+def test_normalize_text_keeps_case_but_normalizes_crlf_dehyphenation():
+    """Quote normalization must not silently make a case-mutated quote exact."""
+    assert (
+        checks.normalize_text("Mortali-\r\n ty\u00ad  Decline") == "Mortali ty Decline"
+    )
+    assert checks.normalize_text("Case") != checks.normalize_text("case")
+
+
+def test_metadata_reports_title_divergence(net_vault, monkeypatch):
+    """A well-shaped registry record with another title is a mismatch, not an outage."""
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["A completely different paper"],
+                "author": [{"family": "Smith", "given": "Jo"}],
+                "issued": {"date-parts": [[2020]]},
+            }
+        },
+    )
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("mismatch — title")
+
+
+def test_metadata_reports_author_family_and_given_initial_divergence(
+    net_vault, monkeypatch
+):
+    """Ordered families and conflicting first initials are independently compared."""
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "author": [
+                    {"family": "Jones", "given": "Jo"},
+                    {"family": "Smith", "given": "Ava"},
+                ],
+            }
+        },
+    )
+    family = checks.check_metadata(
+        net_vault,
+        _metadata_entry(
+            author=[
+                {"family": "Smith", "given": "Jo"},
+                {"family": "Jones", "given": "Ava"},
+            ]
+        ),
+    )
+
+    assert family.result is Result.UNMATCHED
+    assert family.reason.startswith("mismatch — author family")
+
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "author": [{"family": "Smith", "given": "Anne"}],
+            }
+        },
+    )
+    initial = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert initial.result is Result.UNMATCHED
+    assert initial.reason.startswith("mismatch — author given-name")
+
+
+def test_metadata_compares_year_only_when_both_records_have_one(net_vault, monkeypatch):
+    """An absent optional remote year is not a mismatch, but conflicting years are."""
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "author": [{"family": "Smith", "given": "Jo"}],
+            }
+        },
+    )
+    assert checks.check_metadata(net_vault, _metadata_entry()).result is Result.MATCHED
+
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "author": [{"family": "Smith", "given": "Jo"}],
+                "issued": {"date-parts": [[2019]]},
+            }
+        },
+    )
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("mismatch — year")
+
+
+def test_metadata_uses_csl_content_negotiation_for_non_crossref_agencies(
+    net_vault, monkeypatch
+):
+    """Any concrete non-Crossref agency uses the DOI CSL endpoint."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/z.1": (
+                200,
+                [{"DOI": "10.5281/z.1", "RA": "DataCite"}],
+            ),
+            "doi.org/10.5281/z.1": (
+                200,
+                {"title": "Dataset of mortality", "author": [{"family": "Smith"}]},
+            ),
+        },
+    )
+
+    outcome = checks.check_metadata(
+        net_vault,
+        {
+            "id": "smithdata",
+            "DOI": "10.5281/z.1",
+            "title": "Dataset of mortality",
+            "author": [{"family": "Smith"}],
+        },
+    )
+
+    assert outcome.result is Result.MATCHED
+    assert outcome.extra == {"doi": "10.5281/z.1", "agency": "DataCite"}
+
+
+def test_metadata_stops_when_registry_routing_is_unavailable(net_vault, monkeypatch):
+    """An unknown route cannot silently use DOI content negotiation as a fallback."""
+    monkeypatch.setattr(checks, "registry_agency", lambda vault, doi: None)
+    _fake_get(monkeypatch, {"": AssertionError("metadata endpoint must not be called")})
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage — registry routing")
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+@pytest.mark.parametrize(
+    "remote",
+    [
+        None,
+        {"message": []},
+        {"message": {"title": "not-a-list", "author": []}},
+        {"message": {"title": [], "author": []}},
+        {"message": {"title": ["Mortality decline"], "author": [{}]}},
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "author": [],
+                "issued": {"date-parts": "bad"},
+            }
+        },
+    ],
+)
+def test_metadata_treats_malformed_crossref_shapes_as_unreachable(
+    net_vault, monkeypatch, remote
+):
+    """Malformed nested Crossref JSON is an outage, never a false comparison."""
+    _crossref_route(monkeypatch, remote)
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+
+
+@pytest.mark.parametrize(
+    "status",
+    [404, 500],
+)
+def test_metadata_rejects_non_ok_metadata_responses(net_vault, monkeypatch, status):
+    """Only a 200 response may be interpreted as registry metadata."""
+    _crossref_route(monkeypatch, CROSSREF_METADATA)
+
+    def wrong_status(url, vault_root, params=None, headers=None, timeout=10.0):
+        if "doiRA" in url:
+            return 200, [{"DOI": "10.1000/xyz", "RA": "Crossref"}]
+        return status, CROSSREF_METADATA
+
+    monkeypatch.setattr(webapi, "get_json", wrong_status)
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+
+
+def test_metadata_treats_api_errors_as_unreachable(net_vault, monkeypatch):
+    """A metadata transport failure cannot become a false metadata match."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/xyz": (
+                200,
+                [{"DOI": "10.1000/xyz", "RA": "Crossref"}],
+            ),
+            "api.crossref.org/works/10.1000/xyz": webapi.ApiError("down"),
+        },
+    )
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+    assert outcome.extra == {"doi": "10.1000/xyz", "agency": "Crossref"}
+
+
+def test_metadata_treats_malformed_csl_shape_as_unreachable(net_vault, monkeypatch):
+    """Content-negotiated CSL must still provide typed title and author containers."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/z.1": (
+                200,
+                [{"DOI": "10.5281/z.1", "RA": "DataCite"}],
+            ),
+            "doi.org/10.5281/z.1": (
+                200,
+                {"title": ["wrong CSL title type"], "author": "Smith"},
+            ),
+        },
+    )
+
+    outcome = checks.check_metadata(
+        net_vault,
+        {
+            "id": "smithdata",
+            "DOI": "10.5281/z.1",
+            "title": "Dataset",
+            "author": [{"family": "Smith"}],
+        },
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+
+
+def test_metadata_skips_entries_without_a_doi(net_vault):
+    """DOI-less sources are automatically exempt from registry metadata checks."""
+    outcome = checks.check_metadata(net_vault, {"id": "webonly2024", "title": "Blog"})
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.target == "webonly2024"
