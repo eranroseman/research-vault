@@ -110,6 +110,40 @@ def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_m
     ]
 
 
+def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            "[status:: deprecated] [status:: deprecated] "
+            "[deprecated-at:: 2026-08-16] [deprecated-by:: human:eran] "
+            "[reason:: superseded] ^c-22222222",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-22222222"
+    ]
+
+
+def test_claim_immutability_rejects_duplicate_deprecation_reason(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            "[deprecated-by:: human:eran] [reason:: superseded] "
+            "[reason:: duplicate] ^c-22222222",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-22222222"
+    ]
+
+
 def test_claim_immutability_allows_only_one_exact_verify_failed_marker_change(
     fixture_vault,
 ):
@@ -246,6 +280,26 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
     ]
 
 
+def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_bytes(
+        note.read_bytes().replace(b"  > Mortality fell", b"  > \xffortality fell", 1)
+    )
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "record invalid source byte"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    note.write_bytes(
+        note.read_bytes().replace(b"  > \xffortality fell", b"  > \xfeortality fell", 1)
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-11111111"
+    ]
+
+
 def test_published_drift_includes_untracked_files(fixture_vault):
     subprocess.run(
         ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
@@ -298,6 +352,28 @@ def test_published_drift_reports_wholly_deleted_effort_from_prior_published_stat
 
     assert [out.target for out in lints.lint_published_drift(fixture_vault)] == [
         "efforts/brief"
+    ]
+
+
+def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vault):
+    draft = fixture_vault / "efforts" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text().replace('status: "drafting"', 'status: "published"')
+    )
+    subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish brief"], cwd=fixture_vault, check=True
+    )
+    subprocess.run(
+        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+    )
+    (draft.parent / "broken.md").write_text('---\nstatus: "published"\n')
+
+    outs = lints.lint_published_drift(fixture_vault)
+
+    assert [(out.target, out.reason) for out in outs] == [
+        ("efforts/brief", "drift — published effort diverged from its tag"),
+        ("efforts/brief/broken.md", "schema-violation — malformed frontmatter"),
     ]
 
 

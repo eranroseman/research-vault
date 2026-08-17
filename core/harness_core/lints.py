@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from datetime import date
 from pathlib import Path
 
 from . import Result, frontmatter
@@ -14,6 +15,9 @@ ANCHOR = re.compile(r"\^(c-[A-Za-z0-9-]+)\s*$")
 VERIFY_FAILED = re.compile(r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]")
 ADDRESS = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
 PUBLISHED_TAG = re.compile(r"^published/(.+)-\d{4}-\d{2}-\d{2}$")
+TRANSITION_FIELD = re.compile(
+    r"\[(status|deprecated-at|deprecated-by|reason):: ([^\]]*)\]"
+)
 
 
 def _git(vault_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -102,7 +106,11 @@ def _head_text(vault_root: Path, rel: str) -> str | None:
     result = subprocess.run(
         ["git", "show", f"HEAD:{rel}"], cwd=vault_root, capture_output=True, check=False
     )
-    return result.stdout.decode(errors="replace") if result.returncode == 0 else None
+    return (
+        result.stdout.decode(errors="surrogateescape")
+        if result.returncode == 0
+        else None
+    )
 
 
 def _head_markdown_paths(vault_root: Path) -> set[str]:
@@ -215,14 +223,20 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
     if old_ending != new_ending:
         return False
     required = {"status", "deprecated-at", "deprecated-by", "reason"}
-    if not all(
-        re.search(r"\[" + re.escape(name) + r":: [^\]]+\]", new_line)
-        for name in required
-    ):
+    fields = {name: [] for name in required}
+    for name, value in TRANSITION_FIELD.findall(new_line):
+        fields[name].append(value)
+    if any(len(values) != 1 for values in fields.values()):
         return False
-    if "[status:: deprecated]" not in new_line:
+    if fields["status"] != ["deprecated"]:
         return False
-    if "[status:: deprecated]" in old_line:
+    if any(not fields[name][0].strip() for name in required - {"status"}):
+        return False
+    try:
+        date.fromisoformat(fields["deprecated-at"][0])
+    except ValueError:
+        return False
+    if TRANSITION_FIELD.search(old_line) and "[status:: deprecated]" in old_line:
         return False
     old_base = _without_fields(old_line, {"status"})
     new_base = _without_fields(new_line, required)
@@ -247,7 +261,7 @@ def lint_claim_immutability(vault_root) -> list[Outcome]:
             continue
         current_path = vault / rel
         current = (
-            current_path.read_bytes().decode(errors="replace")
+            current_path.read_bytes().decode(errors="surrogateescape")
             if current_path.is_file()
             else ""
         )
@@ -315,9 +329,9 @@ def _effort_status(
     for rel in sorted(path for path in paths if path.endswith(".md")):
         if tag:
             raw = _tag_bytes(vault_root, tag, rel)
-            text = raw.decode(errors="replace") if raw is not None else ""
+            text = raw.decode(errors="surrogateescape") if raw is not None else ""
         else:
-            text = (vault_root / rel).read_text()
+            text = (vault_root / rel).read_bytes().decode(errors="surrogateescape")
         data, parsed = _parse_frontmatter(text)
         if not parsed:
             malformed.append(rel)
@@ -351,15 +365,13 @@ def lint_published_drift(vault_root) -> list[Outcome]:
         current_statuses, malformed = _effort_status(vault, effort_dir)
         for rel in malformed:
             outcomes.append(_schema_outcome("published-drift", rel))
-        if malformed:
-            continue
         if current_statuses:
             published = "published" in current_statuses
         else:
             prior_statuses, prior_malformed = _effort_status(vault, effort_dir, tag)
             for rel in prior_malformed:
                 outcomes.append(_schema_outcome("published-drift", rel))
-            published = not prior_malformed and "published" in prior_statuses
+            published = "published" in prior_statuses
         if published:
             outcomes.append(
                 Outcome(
