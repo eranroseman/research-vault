@@ -3,10 +3,12 @@
 import argparse
 import datetime
 import json
+import re
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 
-from . import Result, bibliography, notes, paths
+from . import Result, bibliography, frontmatter, notes, paths, selectors
 from .zotero import ZoteroClient, ZoteroError
 
 QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
@@ -65,11 +67,12 @@ def _attachment_annotations(attachment):
     return annotations if isinstance(annotations, list) else []
 
 
-def _attachment_hash(attachment, vault) -> str:
+def _attachment_hash(attachment, vault) -> tuple[str, Path]:
     raw_path = attachment.get("path") if isinstance(attachment, Mapping) else None
     if not isinstance(raw_path, str) or not raw_path:
         raise paths.PathError(f"invalid attachment path: {raw_path!r}")
-    return notes.sha256_file(paths.to_local(raw_path, vault))
+    local_path = paths.to_local(raw_path, vault)
+    return notes.sha256_file(local_path), local_path
 
 
 def _read_note(path):
@@ -80,6 +83,71 @@ def _read_note(path):
 def _write_note(path, text):
     with path.open("w", encoding="utf-8", newline="") as note:
         note.write(text)
+
+
+_QUOTE_CLAIM = re.compile(r"^- \(quote\).*\^(c-[0-9a-f]{8})$")
+_SELECTOR = re.compile(r'^\s*<!-- hk-sel prefix="([^"]*)" suffix="([^"]*)" -->$')
+
+
+def _prior_contexts(existing: str | None) -> dict[str, tuple[str, str]]:
+    if not existing:
+        return {}
+    contexts = {}
+    claim_id = None
+    for line in existing.splitlines():
+        claim = _QUOTE_CLAIM.match(line)
+        if claim:
+            claim_id = claim.group(1)
+            continue
+        selector = _SELECTOR.match(line)
+        if claim_id and selector:
+            contexts[claim_id] = tuple(
+                map(selectors.unescape_selector, selector.groups())
+            )
+            claim_id = None
+        elif claim_id and not line.startswith("  >"):
+            claim_id = None
+    return contexts
+
+
+def _retain_prior_contexts(annotations: list[dict], existing: str | None) -> int:
+    prior = _prior_contexts(existing)
+    retained = 0
+    for annotation in annotations:
+        if not annotation.get("annotationText"):
+            continue
+        context = prior.get(notes.claim_id(annotation))
+        if context and not (
+            annotation.get("context_prefix") or annotation.get("context_suffix")
+        ):
+            annotation["context_prefix"], annotation["context_suffix"] = context
+            retained += 1
+    return retained
+
+
+def _selector_warning(
+    quote_annotations: list[dict],
+    *,
+    unresolved: bool,
+    extracted: bool,
+    attached: int,
+    retained: int,
+) -> None:
+    if not quote_annotations or attached == len(quote_annotations):
+        return
+    if extracted:
+        reason = "some annotation quotes were not found in extracted text"
+    elif unresolved:
+        reason = "attachment unresolved"
+    else:
+        reason = "no extractable PDF text"
+    if retained:
+        print(
+            f"warning: selectors degraded ({reason}; existing selector contexts retained)",
+            file=sys.stderr,
+        )
+    else:
+        print(f"warning: selectors skipped ({reason})", file=sys.stderr)
 
 
 def cmd_import_note(args):
@@ -102,20 +170,49 @@ def cmd_import_note(args):
     item = matches[0]
     item["id"] = args.citekey
 
+    existing = _read_note(path) if path.is_file() else None
     hashes = []
     annotations = []
+    attachment_pairs = []
+    unresolved = False
     for attachment in client.attachments(args.citekey):
+        local_path = None
         try:
-            hashes.append(_attachment_hash(attachment, vault))
+            attachment_hash, local_path = _attachment_hash(attachment, vault)
+            hashes.append(attachment_hash)
         except (paths.PathError, OSError) as error:
             print(f"warning: attachment unresolved: {error}", file=sys.stderr)
             hashes.append("unresolved")
-        annotations.extend(
+            unresolved = True
+        attachment_annotations = [
             normalize_annotation(annotation, args.citekey)
             for annotation in _attachment_annotations(attachment)
-        )
+        ]
+        annotations.extend(attachment_annotations)
+        attachment_pairs.append((local_path, attachment_annotations))
 
-    existing = _read_note(path) if path.is_file() else None
+    attached = 0
+    extracted = False
+    for local_path, attachment_annotations in attachment_pairs:
+        if local_path is None:
+            continue
+        text = selectors.pdf_text(local_path)
+        if not text:
+            continue
+        extracted = True
+        attached += selectors.attach_contexts(attachment_annotations, text)
+    retained = _retain_prior_contexts(annotations, existing)
+    quote_annotations = [
+        annotation for annotation in annotations if annotation["annotationText"]
+    ]
+    _selector_warning(
+        quote_annotations,
+        unresolved=unresolved,
+        extracted=extracted,
+        attached=attached,
+        retained=retained,
+    )
+
     today = datetime.date.today().isoformat()
     candidate = notes.render_note(item, hashes, annotations, existing, today)
 
@@ -129,6 +226,41 @@ def cmd_import_note(args):
     _write_note(path, candidate)
     print(str(path))
     return 0
+
+
+def cmd_backfill_selectors(args):
+    literature_dir = notes.note_path(args.vault, "placeholder").parent
+    failures = 0
+    for path in sorted(literature_dir.glob("*.md")):
+        try:
+            data, _ = frontmatter.parse(_read_note(path))
+        except (OSError, frontmatter.FrontmatterError) as error:
+            print(
+                f"warning: malformed literature note {path}: {error}", file=sys.stderr
+            )
+            failures += 1
+            continue
+        citekey = data.get("citekey")
+        if not isinstance(citekey, str) or not citekey:
+            print(
+                f"warning: malformed literature note {path}: missing citekey",
+                file=sys.stderr,
+            )
+            failures += 1
+            continue
+        try:
+            notes.note_path(args.vault, citekey)
+        except notes.InvalidCitekeyError:
+            print(f"invalid citekey: {citekey!r}", file=sys.stderr)
+            failures += 1
+            continue
+        failures += (
+            cmd_import_note(
+                argparse.Namespace(citekey=citekey, vault=args.vault, base=args.base)
+            )
+            != 0
+        )
+    return int(bool(failures))
 
 
 def cmd_staleness(args):
@@ -154,6 +286,8 @@ def main(argv=None):
     import_note.add_argument("--vault", required=True)
     staleness = sub.add_parser("staleness", parents=[common])
     staleness.add_argument("--vault", required=True)
+    backfill = sub.add_parser("backfill-selectors", parents=[common])
+    backfill.add_argument("--vault", required=True)
     args = parser.parse_args(argv)
     if not hasattr(args, "base"):
         args.base = DEFAULT_BASE
@@ -161,6 +295,7 @@ def main(argv=None):
         "probe": cmd_probe,
         "import-note": cmd_import_note,
         "staleness": cmd_staleness,
+        "backfill-selectors": cmd_backfill_selectors,
     }[args.cmd](args)
 
 

@@ -458,6 +458,142 @@ def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, 
     ]
 
 
+def test_import_note_applies_extracted_text_only_to_its_attachment(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    first = _raw_quote("First attachment quote")
+    second = _raw_quote("Second attachment quote")
+    attachments = [
+        {"path": "first.pdf", "annotations": [first]},
+        {"path": "second.pdf", "annotations": [second]},
+    ]
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Isolation"}]
+
+        def attachments(self, citekey):
+            return attachments
+
+        def export_csl(self, citekeys):
+            return [{"id": "smith2020", "title": "Isolation"}]
+
+    def local(path, vault):
+        return tmp_vault / path
+
+    def extracted(path):
+        return (
+            "prefix First attachment quote suffix" if path.name == "first.pdf" else ""
+        )
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(cli.paths, "to_local", local)
+    monkeypatch.setattr(cli.notes, "sha256_file", lambda _: "hash")
+    monkeypatch.setattr("harness_core.selectors.pdf_text", extracted)
+
+    assert (
+        cli.cmd_import_note(
+            argparse.Namespace(
+                citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+            )
+        )
+        == 0
+    )
+    note = (tmp_vault / "literatures" / "smith2020.md").read_text()
+    assert 'prefix="prefix " suffix=" suffix"' in note
+    second_claim = note.split("Second attachment quote", 1)[1].split("- (quote)", 1)[0]
+    assert "hk-sel" not in second_claim
+    assert "annotation quotes were not found" in capsys.readouterr().err
+
+
+def test_import_note_preserves_prior_selectors_when_contexts_degrade(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    raw = _raw_quote("Quote remains")
+    existing_ann = cli.normalize_annotation(raw, "smith2020")
+    existing_ann["context_prefix"] = "kept prefix"
+    existing_ann["context_suffix"] = "kept suffix"
+    note_path = notes.note_path(tmp_vault, "smith2020")
+    original = notes.render_note(
+        {"id": "smith2020", "title": "Retention"},
+        ["unresolved"],
+        [existing_ann],
+        existing=None,
+        retrieved="2026-08-16",
+    )
+    free_tail = b"\r\ncustom tail\r\n"
+    note_path.write_bytes(original.encode() + free_tail)
+    _install_import_client(monkeypatch, cli, {"title": "Retention"}, [raw])
+
+    assert (
+        cli.cmd_import_note(
+            argparse.Namespace(
+                citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+            )
+        )
+        == 0
+    )
+    assert note_path.read_bytes() == original.encode() + free_tail
+    stderr = capsys.readouterr().err
+    assert "warning: selectors degraded" in stderr
+    assert "existing selector contexts retained" in stderr
+
+
+def test_backfill_selectors_skips_malformed_and_unsafe_notes_and_aggregates_failures(
+    fixture_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    (fixture_vault / "literatures" / "bad.md").write_text("not frontmatter")
+    (fixture_vault / "literatures" / "unsafe.md").write_text(
+        '---\ncitekey: "../escape"\ntype: "literature"\n---\nbody\n'
+    )
+    called = []
+
+    def fake_import(args):
+        called.append((args.citekey, args.base))
+        return 1 if args.citekey == "smith2020" else 0
+
+    monkeypatch.setattr(cli, "cmd_import_note", fake_import)
+    result = cli.main(
+        ["--base", "http://base", "backfill-selectors", "--vault", str(fixture_vault)]
+    )
+
+    assert result == 1
+    assert called == [
+        ("gone2019", "http://base"),
+        ("smith2020", "http://base"),
+    ]
+    stderr = capsys.readouterr().err
+    assert "malformed literature note" in stderr
+    assert "invalid citekey" in stderr
+
+    called.clear()
+    assert (
+        cli.main(
+            [
+                "backfill-selectors",
+                "--vault",
+                str(fixture_vault),
+                "--base",
+                "http://after",
+            ]
+        )
+        == 1
+    )
+    assert called == [
+        ("gone2019", "http://after"),
+        ("smith2020", "http://after"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("state", "expected_code"),
     [
