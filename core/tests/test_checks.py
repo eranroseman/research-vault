@@ -719,6 +719,16 @@ def test_update_notice_stops_when_registry_routing_is_unavailable(
                 ]
             }
         },
+        {
+            "message": {
+                "updated-by": [{"type": "retraction", "updated": {"date-parts": []}}]
+            }
+        },
+        {
+            "message": {
+                "updated-by": [{"type": "retraction", "updated": {"date-parts": [[]]}}]
+            }
+        },
     ],
 )
 def test_update_notice_rejects_malformed_crossref_json(net_vault, monkeypatch, payload):
@@ -907,6 +917,62 @@ def test_reduce_update_notice_outcomes_applies_precedence_and_merges_warns():
     ]
     assert unmatched.result is Result.UNMATCHED
     assert unmatched.reason == "retracted — withdrawal"
+
+
+def test_reduce_update_notice_outcomes_fails_closed_on_target_mismatch():
+    """A reducer must not attach one leg's outcome data to another target."""
+    live = checks.Outcome(
+        "update-notice", "live-target", Result.SKIPPED, "no-identifier — no DOI or PMID"
+    )
+    rw = checks.Outcome(
+        "update-notice",
+        "rw-target",
+        Result.UNMATCHED,
+        "retracted — retraction",
+        extra={
+            "class": "blocking",
+            "type": "retraction",
+            "notice_date": "2024-01-01",
+            "detection_date": "2026-08-16",
+            "warn_notices": [{"type": "erratum", "notice_date": "2023-01-01"}],
+        },
+    )
+
+    outcome = checks.reduce_update_notice_outcomes(live, rw)
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.target == "live-target"
+    assert outcome.reason == "outage — update-notice target mismatch"
+    assert outcome.extra == {}
+
+
+def test_reduce_update_notice_outcomes_keeps_the_winner_identity():
+    """For matching legs, the chosen result, reason, extra, and target cohere."""
+    live = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.UNREACHABLE,
+        "outage — update-notice service unavailable",
+    )
+    rw = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.UNMATCHED,
+        "retracted — withdrawal",
+        extra={
+            "class": "blocking",
+            "type": "withdrawal",
+            "notice_date": "2024-01-01",
+            "detection_date": "2026-08-16",
+        },
+    )
+
+    outcome = checks.reduce_update_notice_outcomes(live, rw)
+
+    assert outcome.target == rw.target
+    assert outcome.result is rw.result
+    assert outcome.reason == rw.reason
+    assert outcome.extra == rw.extra
 
 
 def test_metadata_treats_malformed_csl_shape_as_unreachable(net_vault, monkeypatch):

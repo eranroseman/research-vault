@@ -432,12 +432,12 @@ def _notice_date_from_updated(value):
     if not isinstance(date_parts, list):
         return _INVALID
     if not date_parts:
-        return None
+        return _INVALID
     if len(date_parts) != 1 or not isinstance(date_parts[0], list):
         return _INVALID
     parts = date_parts[0]
     if not parts:
-        return None
+        return _INVALID
     if len(parts) > 3 or any(type(part) is not int for part in parts):
         return _INVALID
     year, month, day = (parts + [1, 1])[:3]
@@ -755,7 +755,13 @@ def reduce_update_notice_outcomes(
     outcomes = [outcome for outcome in (live, rw) if isinstance(outcome, Outcome)]
     if not outcomes:
         return None
-    target = outcomes[0].target
+    if len(outcomes) == 2 and outcomes[0].target != outcomes[1].target:
+        return Outcome(
+            "update-notice",
+            outcomes[0].target,
+            Result.UNREACHABLE,
+            "outage — update-notice target mismatch",
+        )
     warnings = _merge_warn_notices(*outcomes)
     blocking = [
         outcome
@@ -787,4 +793,6 @@ def reduce_update_notice_outcomes(
         extra["warn_notices"] = warnings
     else:
         extra.pop("warn_notices", None)
-    return Outcome(chosen.check, target, chosen.result, chosen.reason, extra=extra)
+    return Outcome(
+        chosen.check, chosen.target, chosen.result, chosen.reason, extra=extra
+    )
