@@ -3,8 +3,9 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import quote
 
-from . import Result, bibliography, claims, inbox
+from . import Result, bibliography, claims, inbox, webapi
 
 
 @dataclass
@@ -77,3 +78,77 @@ def check_citekeys(vault_root, note_path: Path) -> list[Outcome]:
             )
         )
     return outcomes
+
+
+def _doi_path(doi: str) -> str:
+    """Encode DOI path data while preserving its prefix/suffix separator."""
+    return quote(doi, safe="/")
+
+
+def check_doi_exists(vault_root, doi: str, citekey: str | None = None) -> Outcome:
+    """Return the four-state result of the DOI handle API lookup."""
+    target = citekey or doi
+    try:
+        status, data = webapi.get_json(
+            f"https://doi.org/api/handles/{_doi_path(doi)}", vault_root
+        )
+    except webapi.ApiError:
+        return Outcome(
+            "doi",
+            target,
+            Result.UNREACHABLE,
+            "outage — DOI handle API unavailable",
+            extra={"doi": doi},
+        )
+
+    if status == 404:
+        return Outcome(
+            "doi",
+            target,
+            Result.UNMATCHED,
+            "mismatch — DOI does not resolve",
+            extra={"doi": doi},
+        )
+
+    response_code = data.get("responseCode") if isinstance(data, dict) else None
+    if type(response_code) is int and response_code == 100:
+        return Outcome(
+            "doi",
+            target,
+            Result.UNMATCHED,
+            "mismatch — DOI does not resolve",
+            extra={"doi": doi},
+        )
+    if type(response_code) is int and response_code == 1:
+        return Outcome("doi", target, Result.MATCHED, "matched", extra={"doi": doi})
+    return Outcome(
+        "doi",
+        target,
+        Result.UNREACHABLE,
+        "outage — unexpected DOI handle response",
+        extra={"doi": doi},
+    )
+
+
+def registry_agency(vault_root, doi: str) -> str | None:
+    """Return a validated DOI registration agency, or no route on any uncertainty."""
+    try:
+        status, data = webapi.get_json(
+            f"https://doi.org/doiRA/{_doi_path(doi)}", vault_root
+        )
+    except webapi.ApiError:
+        return None
+
+    if status != 200 or not isinstance(data, list) or not data:
+        return None
+    record = data[0]
+    if not isinstance(record, dict):
+        return None
+    record_doi = record.get("DOI")
+    agency = record.get("RA")
+    if not isinstance(record_doi, str) or not isinstance(agency, str):
+        return None
+    agency = agency.strip()
+    if not agency:
+        return None
+    return agency

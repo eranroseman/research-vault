@@ -1,6 +1,6 @@
 import pytest
 
-from harness_core import Result, checks
+from harness_core import Result, checks, webapi
 
 
 def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):
@@ -88,3 +88,167 @@ def test_outcome_rejects_invalid_or_empty_reasons_and_has_fresh_extra_dicts():
         checks.Outcome("citekey", "bad", Result.MATCHED)
 
     assert second.extra == {}
+
+
+@pytest.fixture
+def net_vault(fixture_vault):
+    harness = fixture_vault / ".harness"
+    harness.mkdir(exist_ok=True)
+    (harness / "machine.json").write_text('{"mailto": "eran@example.edu"}')
+    return fixture_vault
+
+
+def _fake_get(monkeypatch, table):
+    """Install deterministic external responses keyed by a URL fragment."""
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        for fragment, response in table.items():
+            if fragment in url:
+                if isinstance(response, Exception):
+                    raise response
+                return response
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+
+
+def test_doi_exists_matches_a_confirmed_handle_and_keeps_its_doi(
+    net_vault, monkeypatch
+):
+    """A response-code success must remain a MATCHED DOI outcome."""
+    _fake_get(
+        monkeypatch,
+        {"doi.org/api/handles/10.1000/xyz": (200, {"responseCode": 1})},
+    )
+
+    outcome = checks.check_doi_exists(net_vault, "10.1000/xyz")
+
+    assert outcome.result is Result.MATCHED
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+def test_doi_exists_uses_an_optional_citekey_as_the_note_target(net_vault, monkeypatch):
+    """Orchestration may file note-level DOI findings against a citekey."""
+    _fake_get(
+        monkeypatch,
+        {"doi.org/api/handles/10.1000/xyz": (200, {"responseCode": 1})},
+    )
+
+    outcome = checks.check_doi_exists(net_vault, "10.1000/xyz", "smith2020")
+
+    assert outcome.target == "smith2020"
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+@pytest.mark.parametrize(
+    ("response", "doi"),
+    [
+        ((200, {"responseCode": 100}), "10.1/fake"),
+        ((404, None), "10.1/not-found"),
+    ],
+)
+def test_doi_exists_marks_only_explicit_not_found_responses_unmatched(
+    net_vault, monkeypatch, response, doi
+):
+    """A handle's explicit no-match states must not be mistaken for outages."""
+    _fake_get(monkeypatch, {"doi.org/api/handles/": response})
+
+    outcome = checks.check_doi_exists(net_vault, doi)
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == "mismatch — DOI does not resolve"
+
+
+def test_doi_exists_marks_api_outages_unreachable(net_vault, monkeypatch):
+    """Transport errors must not turn into fabricated-DOI findings."""
+    _fake_get(monkeypatch, {"doi.org/api/handles/": webapi.ApiError("down")})
+
+    outcome = checks.check_doi_exists(net_vault, "10.1000/xyz")
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        [],
+        {"responseCode": "1"},
+        {"responseCode": True},
+        {"responseCode": 2},
+    ],
+)
+def test_doi_exists_fails_closed_on_unexpected_handle_json(
+    net_vault, monkeypatch, payload
+):
+    """Only numeric handle codes 1 and 100 carry DOI existence semantics."""
+    _fake_get(monkeypatch, {"doi.org/api/handles/": (200, payload)})
+
+    outcome = checks.check_doi_exists(net_vault, "10.1000/xyz")
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason.startswith("outage")
+
+
+def test_registry_agency_returns_a_nonempty_ra_from_documented_shape(
+    net_vault, monkeypatch
+):
+    """A complete doiRA record selects its registration agency."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/zenodo.1": (
+                200,
+                [{"DOI": "10.5281/zenodo.1", "RA": "DataCite"}],
+            )
+        },
+    )
+
+    assert checks.registry_agency(net_vault, "10.5281/zenodo.1") == "DataCite"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        webapi.ApiError("down"),
+        (404, None),
+        (200, None),
+        (200, {"RA": "Crossref"}),
+        (200, ["Crossref"]),
+        (200, [{}]),
+        (200, [{"DOI": "10.1/x", "RA": ""}]),
+        (200, [{"DOI": "10.1/x", "RA": 7}]),
+        (200, [{"DOI": 7, "RA": "Crossref"}]),
+    ],
+)
+def test_registry_agency_returns_none_for_outages_or_malformed_records(
+    net_vault, monkeypatch, response
+):
+    """An invalid route must never silently choose the non-Crossref fallback."""
+    _fake_get(monkeypatch, {"doi.org/doiRA/": response})
+
+    assert checks.registry_agency(net_vault, "10.1/x") is None
+
+
+def test_doi_paths_encode_query_and_fragment_data_without_escaping_separator(
+    net_vault, monkeypatch
+):
+    """Reserved DOI suffix characters are path data, while its slash stays structural."""
+    seen = []
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append(url)
+        if "/api/handles/" in url:
+            return 200, {"responseCode": 1}
+        return 200, [{"DOI": "10.1000/a?b#c", "RA": "Crossref"}]
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+
+    checks.check_doi_exists(net_vault, "10.1000/a?b#c")
+    checks.registry_agency(net_vault, "10.1000/a?b#c")
+
+    assert seen == [
+        "https://doi.org/api/handles/10.1000/a%3Fb%23c",
+        "https://doi.org/doiRA/10.1000/a%3Fb%23c",
+    ]
