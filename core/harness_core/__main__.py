@@ -275,13 +275,20 @@ def cmd_staleness(args):
 
 
 CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}
-_SAFE_RELATIVE = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9_.+@:/-]+$")
 _VERIFY_FAILED = re.compile(r"\s*\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]")
 
 
 def _safe_relative(vault_root, target):
     """Return a real vault child for an explicitly file-shaped target."""
-    if not isinstance(target, str) or not _SAFE_RELATIVE.fullmatch(target):
+    if (
+        not isinstance(target, str)
+        or not target
+        or "\0" in target
+        or "\n" in target
+        or "\r" in target
+        or Path(target).is_absolute()
+        or ".." in Path(target).parts
+    ):
         return None
     vault = Path(vault_root).resolve()
     path = (vault / target).resolve()
@@ -304,9 +311,15 @@ def _head_bytes(vault_root, relative):
     return result.stdout if result.returncode == 0 else None
 
 
+def _note_bytes(data: bytes) -> bytes:
+    return notes.canonical_content(data.decode(errors="surrogateescape")).encode(
+        errors="surrogateescape"
+    )
+
+
 def _claim_bytes_from_text(text, claim_id):
     """Hash one anchored claim and its continuations, ignoring our marker."""
-    lines = text.splitlines(keepends=True)
+    lines = notes.canonical_content(text).splitlines(keepends=True)
     for index, line in enumerate(lines):
         if line.rstrip("\r\n").endswith(f"^{claim_id}"):
             block = [line]
@@ -328,12 +341,12 @@ def _claim_bytes(path, claim_id):
 
 def _line_bytes(path, line_no):
     try:
-        lines = path.read_text().splitlines(keepends=True)
+        lines = notes.canonical_content(path.read_text()).splitlines(keepends=True)
     except (OSError, UnicodeError):
         return None
     if not 0 < line_no <= len(lines):
         return None
-    return _VERIFY_FAILED.sub("", lines[line_no - 1]).encode()
+    return lines[line_no - 1].encode()
 
 
 def _append_only_basis(vault_root, target):
@@ -358,7 +371,10 @@ def _directory_bytes(path):
         return None
     chunks = []
     for child in sorted(item for item in path.rglob("*") if item.is_file()):
-        chunks.extend((str(child.relative_to(path)).encode(), child.read_bytes()))
+        data = child.read_bytes()
+        if child.suffix == ".md":
+            data = _note_bytes(data)
+        chunks.extend((str(child.relative_to(path)).encode(), data))
     return b"\0".join(chunks)
 
 
@@ -381,7 +397,7 @@ def _citekey_hash(vault_root, citekey):
             first = attachment_hashes[0]
             if isinstance(first, str) and first:
                 return first
-        return hashlib.sha256(note.read_bytes()).hexdigest()[:16]
+        return hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
     return None
 
 
@@ -421,10 +437,14 @@ def _target_hash(vault_root, outcome):
             data = _append_only_basis(vault_root, target)
         elif path.is_file():
             data = path.read_bytes()
+            if path.suffix == ".md":
+                data = _note_bytes(data)
         elif path.is_dir():
             data = _directory_bytes(path)
         else:
             data = _head_bytes(vault_root, target) or b""
+            if target.endswith(".md"):
+                data = _note_bytes(data)
         return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
 
     if isinstance(target, str):
@@ -433,18 +453,12 @@ def _target_hash(vault_root, outcome):
             return known_citekey_hash
         origin = _safe_relative(vault_root, outcome.extra.get("note_path"))
         if origin and origin.is_file():
-            blocks = []
-            for claim in outcome.extra.get("claims", []):
-                if isinstance(claim, dict) and isinstance(claim.get("claim_id"), str):
-                    block = _claim_bytes(origin, claim["claim_id"])
-                    if block is not None:
-                        blocks.append(block)
-            data = b"\0".join(blocks) or origin.read_bytes()
+            data = _note_bytes(origin.read_bytes())
             return hashlib.sha256(data).hexdigest()[:16]
         if origin:
             data = _head_bytes(vault_root, outcome.extra.get("note_path", ""))
             if data is not None:
-                return hashlib.sha256(data).hexdigest()[:16]
+                return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
         if origin and origin.is_file() and isinstance(line_no, int):
             data = _line_bytes(origin, line_no)
             if data is not None:
@@ -532,8 +546,8 @@ def _bibliography_entries(vault_root):
     return [bib.entry(key) for key in sorted(bib.citekeys)]
 
 
-def _staleness_outcome(vault_root):
-    result = bibliography.staleness(vault_root, ZoteroClient())
+def _staleness_outcome(vault_root, base=DEFAULT_BASE):
+    result = bibliography.staleness(vault_root, ZoteroClient(base=base))
     reasons = {
         Result.MATCHED: "matched",
         Result.SKIPPED: "no-identifier — bibliography absent",
@@ -616,7 +630,12 @@ def _archive_outcomes(vault_root):
         archive_url = data.get("archive-url")
         if not isinstance(archive_url, str) or not archive_url:
             continue
-        target = data.get("citekey", path.stem)
+        raw_target = data.get("citekey")
+        target = (
+            raw_target.strip()
+            if isinstance(raw_target, str) and raw_target.strip()
+            else path.relative_to(vault_root).as_posix()
+        )
         try:
             status = webapi.get_status(archive_url, vault_root)
         except webapi.ApiError:
@@ -740,14 +759,21 @@ def _file_effects(vault_root, raw, effective, hashes, detection_date):
                 open_keys.add(key)
 
 
-def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None):
+def _verify_state(
+    vault_root,
+    scope="all",
+    network=True,
+    detection_date=None,
+    rw_csv=None,
+    base=DEFAULT_BASE,
+):
     """Collect raw verification audit outcomes, then apply acknowledged effects."""
     del scope
     vault = Path(vault_root)
     detection_date = detection_date or datetime.date.today().isoformat()
     raw = []
     if network:
-        raw.append(_staleness_outcome(vault))
+        raw.append(_staleness_outcome(vault, base))
     else:
         raw.append(
             checks.Outcome(
@@ -790,15 +816,24 @@ def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_cs
     counts = {}
     for outcome in effective:
         counts[outcome.result.value] = counts.get(outcome.result.value, 0) + 1
-    return {"outcomes": raw, "counts": counts}
+    return {"outcomes": raw, "counts": counts}, effective, hashes
+
+
+def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None):
+    """Collect raw outcomes and apply their effective verification effects."""
+    report, _effective_outcomes, _hashes = _verify_state(
+        vault_root, scope, network, detection_date, rw_csv
+    )
+    return report
 
 
 def cmd_verify(args):
-    report = run_verify(args.vault, network=not args.offline, rw_csv=args.rw_csv)
-    hashes = {
-        id(outcome): _target_hash(args.vault, outcome) for outcome in report["outcomes"]
-    }
-    effective = _effective(report["outcomes"], hashes, args.vault)
+    report, effective, hashes = _verify_state(
+        args.vault,
+        network=not args.offline,
+        rw_csv=args.rw_csv,
+        base=getattr(args, "base", DEFAULT_BASE),
+    )
     for outcome in effective:
         if outcome.result is not Result.MATCHED:
             print(

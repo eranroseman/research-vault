@@ -349,8 +349,12 @@ def test_cli_prints_unacknowledged_nested_warn_notice(net_vault, monkeypatch, ca
         warn_notices=[{"type": "correction", "notice_date": "2026-01-01"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__.run_verify",
-        lambda *_args, **_kwargs: {"outcomes": [warning], "counts": {"MATCHED": 1}},
+        "harness_core.__main__._verify_state",
+        lambda *_args, **_kwargs: (
+            {"outcomes": [warning], "counts": {"MATCHED": 1}},
+            [warning],
+            {id(warning): "aa11"},
+        ),
     )
     code = cmd_verify(
         type("Args", (), {"vault": net_vault, "offline": True, "rw_csv": None})()
@@ -370,8 +374,12 @@ def test_cli_prints_warning_alongside_blocking_update_notice(
         warn_notices=[{"type": "correction"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__.run_verify",
-        lambda *_args, **_kwargs: {"outcomes": [outcome], "counts": {"UNMATCHED": 1}},
+        "harness_core.__main__._verify_state",
+        lambda *_args, **_kwargs: (
+            {"outcomes": [outcome], "counts": {"UNMATCHED": 1}},
+            [outcome],
+            {id(outcome): "aa11"},
+        ),
     )
     cmd_verify(
         type("Args", (), {"vault": net_vault, "offline": True, "rw_csv": None})()
@@ -407,7 +415,7 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
     monkeypatch.setattr("harness_core.__main__._network_outcomes", lambda *_: [warning])
     monkeypatch.setattr(
         "harness_core.__main__._staleness_outcome",
-        lambda _: _outcome(
+        lambda *_: _outcome(
             "staleness", "x/bibliography.json", Result.MATCHED, "matched"
         ),
     )
@@ -480,8 +488,12 @@ def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
     ]
     for outcomes, expected in cases:
         monkeypatch.setattr(
-            "harness_core.__main__.run_verify",
-            lambda *_args, items=outcomes, **_kwargs: {"outcomes": items, "counts": {}},
+            "harness_core.__main__._verify_state",
+            lambda *_args, items=outcomes, **_kwargs: (
+                {"outcomes": items, "counts": {}},
+                items,
+                {id(item): "aa11" for item in items},
+            ),
         )
         assert cmd_verify(args) == expected
 

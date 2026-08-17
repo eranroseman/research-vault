@@ -227,6 +227,36 @@ def test_content_changed_compares_complete_rendered_candidate():
     assert notes.content_changed(None, identical) is True
 
 
+def test_canonical_content_excludes_only_valid_verifier_owned_surfaces():
+    base = """---
+citekey: "x"
+verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+status: "active"
+---
+- (quote) text [verify-failed:: quote/2026-08-16] ^c-1
+plain [verify-failed:: quote/2026-08-16]
+"""
+    changed_events = base.replace('check: "doi"', 'check: "metadata"')
+    changed_marker = base.replace("quote/2026-08-16", "quote/2026-08-17", 1)
+    deprecated = base.replace('status: "active"', 'status: "deprecated"')
+
+    assert notes.canonical_content(base) == notes.canonical_content(changed_events)
+    assert notes.canonical_content(base) == notes.canonical_content(changed_marker)
+    assert notes.content_changed(base, changed_events) is False
+    assert notes.content_changed(base, deprecated) is True
+    assert "plain [verify-failed" in notes.canonical_content(base)
+
+
+def test_canonical_content_keeps_malformed_verified_scalar_and_marker_lookalike():
+    text = """---
+verified: "not-a-list"
+---
+- (quote) text [verify-failed:: bad date] ^c-1
+"""
+    assert notes.canonical_content(text) == text
+
+
 def test_sha256_file(tmp_path):
     f = tmp_path / "x.pdf"
     f.write_bytes(b"pdfbytes")

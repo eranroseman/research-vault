@@ -2,7 +2,7 @@
 
 import datetime
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import AGENT_ACTOR, Result
@@ -226,18 +226,26 @@ def _validate_loaded_reason(reason: str, number: int, line: str) -> None:
         raise InboxError(f"invalid reason on inbox line {number}: {line!r}") from error
 
 
-def _is_entry_acknowledged(entries: list[Entry], entry: Entry) -> bool:
-    """Whether a human ack closes this exact finding at its recorded hash."""
+def _scope_acknowledged(entries: list[Entry], check, target, target_hash) -> bool:
+    """Whether a human ack closes the whole check/target/hash standing scope."""
+    scope_ids = {
+        entry.id
+        for entry in entries
+        if entry.ack_of is None
+        and entry.check == check
+        and entry.target == target
+        and entry.target_hash == target_hash
+    }
     return any(
-        ack.ack_of == entry.id
+        ack.ack_of in scope_ids
         and ack.actor.startswith("human:")
-        and (entry.target_hash is None or ack.target_hash == entry.target_hash)
+        and (target_hash is None or ack.target_hash == target_hash)
         for ack in entries
     )
 
 
 def is_acknowledged(vault, check, target, current_hash=None) -> bool:
-    """Return whether the latest matching finding is acknowledged at its hash."""
+    """Return whether a standing scope acknowledgement matches this hash."""
     entries = load(vault)
     latest = next(
         (
@@ -249,9 +257,8 @@ def is_acknowledged(vault, check, target, current_hash=None) -> bool:
     )
     if latest is None:
         return False
-    if current_hash is not None:
-        latest = replace(latest, target_hash=current_hash)
-    return _is_entry_acknowledged(entries, latest)
+    target_hash = latest.target_hash if current_hash is None else current_hash
+    return _scope_acknowledged(entries, check, target, target_hash)
 
 
 def open_entries(vault) -> list[Entry]:
@@ -260,7 +267,10 @@ def open_entries(vault) -> list[Entry]:
     return [
         entry
         for entry in entries
-        if entry.ack_of is None and not _is_entry_acknowledged(entries, entry)
+        if entry.ack_of is None
+        and not _scope_acknowledged(
+            entries, entry.check, entry.target, entry.target_hash
+        )
     ]
 
 

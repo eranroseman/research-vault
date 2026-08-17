@@ -1,6 +1,7 @@
 """Literature-note generation: managed region + preserved free region (spec §3–§5)."""
 
 import hashlib
+import re
 import unicodedata
 from html import escape
 from pathlib import Path
@@ -131,4 +132,70 @@ def sha256_file(path) -> str:
 
 
 def content_changed(existing_text, candidate_text) -> bool:
-    return existing_text != candidate_text
+    return existing_text is None or canonical_content(
+        existing_text
+    ) != canonical_content(candidate_text)
+
+
+_VERIFY_MARKER = r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
+_VERIFY_BEFORE_ANCHOR = re.compile(
+    r" " + _VERIFY_MARKER + r" (?=\^[A-Za-z0-9-]+[ \t]*$)"
+)
+_VERIFY_TERMINAL = re.compile(r" " + _VERIFY_MARKER + r"(?=[ \t]*$)")
+_CLAIM_LINE = re.compile(r"^- \((?:quote|paraphrase|inference|open-question)\) ")
+
+
+def canonical_content(note_text: str) -> str:
+    """Exclude only verifier-owned events and failure markers from note comparison."""
+    try:
+        data, _ = frontmatter.parse(note_text)
+    except frontmatter.FrontmatterError:
+        data = {}
+    verified = data.get("verified")
+    valid_verified = isinstance(verified, list) and all(
+        isinstance(event, dict) for event in verified
+    )
+    if not valid_verified:
+        return _strip_verify_fields(note_text)
+    lines = note_text.splitlines(keepends=True)
+    if not lines or lines[0].rstrip("\r\n") != "---":
+        return _strip_verify_fields(note_text)
+    result = []
+    index = 0
+    in_frontmatter = True
+    while index < len(lines):
+        line = lines[index]
+        if in_frontmatter and line.rstrip("\r\n") == "---" and index:
+            in_frontmatter = False
+            result.append(line)
+            index += 1
+            continue
+        if in_frontmatter and line.rstrip("\r\n").rstrip(" \t") == "verified:":
+            index += 1
+            while index < len(lines) and lines[index].startswith("  - "):
+                index += 1
+            continue
+        result.append(line)
+        index += 1
+    return _strip_verify_fields("".join(result))
+
+
+def _strip_verify_fields(text: str) -> str:
+    """Remove deterministic verifier fields only from syntactic claim rows."""
+    lines = []
+    for line in text.splitlines(keepends=True):
+        if not _CLAIM_LINE.match(line):
+            lines.append(line)
+            continue
+        ending = (
+            "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+        )
+        content = line[: -len(ending)] if ending else line
+        while True:
+            reduced = _VERIFY_BEFORE_ANCHOR.sub(" ", content)
+            reduced = _VERIFY_TERMINAL.sub("", reduced)
+            if reduced == content:
+                break
+            content = reduced
+        lines.append(content + ending)
+    return "".join(lines)
