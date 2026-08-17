@@ -257,6 +257,107 @@ verified: "not-a-list"
     assert notes.canonical_content(text) == text
 
 
+def test_canonical_content_keeps_mixed_verified_list_byte_for_byte():
+    text = """---
+verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - "not-an-event"
+---
+- (quote) live [verify-failed:: quote/2026-08-16] ^c-1
+"""
+
+    canonical = notes.canonical_content(text)
+
+    assert '  - "not-an-event"\n' in canonical
+    assert "live [verify-failed" not in canonical
+
+
+def test_deprecation_transition_fields_are_all_substantive():
+    base = """---
+citekey: "x"
+status: "active"
+deprecated-at: ""
+deprecated-by: ""
+reason: ""
+---
+body
+"""
+    transitions = [
+        base.replace('status: "active"', 'status: "deprecated"'),
+        base.replace('deprecated-at: ""', 'deprecated-at: "2026-08-16"'),
+        base.replace('deprecated-by: ""', 'deprecated-by: "human:eran"'),
+        base.replace('reason: ""', 'reason: "superseded source"'),
+    ]
+
+    assert all(notes.content_changed(base, changed) for changed in transitions)
+
+
+def test_canonical_content_preserves_markers_in_frontmatter_prose_fences_and_continuations():
+    text = """---
+verified: "not-a-list"
+marker: "[verify-failed:: quote/2026-08-16]"
+---
+prose [verify-failed:: quote/2026-08-16]
+```md
+- (quote) code [verify-failed:: quote/2026-08-16] ^c-1
+```
+- (quote) live [verify-failed:: quote/2026-08-16] ^c-2
+  > continuation [verify-failed:: quote/2026-08-16]
+"""
+    canonical = notes.canonical_content(text)
+    assert 'marker: "[verify-failed:: quote/2026-08-16]"' in canonical
+    assert "prose [verify-failed" in canonical
+    assert "code [verify-failed" in canonical
+    assert "continuation [verify-failed" in canonical
+    assert "live [verify-failed" not in canonical
+
+
+def test_canonical_content_preserves_crlf_and_unterminated_frontmatter():
+    text = '---\r\nverified:\r\n  - {by: "bot"}\r\n---\r\n- (quote) x [verify-failed:: quote/2026-08-16] ^c-1\r\n'
+    assert "\r\n" in notes.canonical_content(text)
+    malformed = (
+        '---\nverified:\n  - {by: "bot"}\n'
+        "- (quote) unterminated [verify-failed:: quote/2026-08-16] ^c-1\n"
+    )
+    assert notes.canonical_content(malformed) == malformed
+
+
+def test_canonical_content_keeps_fenced_marker_rows_until_matching_closure():
+    text = """~~~markdown
+- (quote) tilde [verify-failed:: quote/2026-08-16] ^c-1
+```
+- (quote) mismatched [verify-failed:: quote/2026-08-16] ^c-2
+~~
+- (quote) short [verify-failed:: quote/2026-08-16] ^c-3
+~~~~
+- (quote) live [verify-failed:: quote/2026-08-16] ^c-4
+"""
+
+    canonical = notes.canonical_content(text)
+
+    assert canonical == text.replace("live [verify-failed:: quote/2026-08-16]", "live")
+    assert "live [verify-failed:: quote/2026-08-16]" not in canonical
+
+
+def test_canonical_content_preserves_short_fence_lookalike_outside_a_fence():
+    text = "~~\nprose [verify-failed:: quote/2026-08-16]\n"
+
+    assert notes.canonical_content(text) == text
+
+
+def test_canonical_content_removes_multiple_terminal_markers_only():
+    text = (
+        "- (quote) anchored [verify-failed:: quote/2026-08-16] "
+        "[verify-failed:: citekey/2026-08-17] ^c-1\n"
+        "- (paraphrase) unanchored [verify-failed:: quote/2026-08-16] "
+        "[verify-failed:: citekey/2026-08-17]\n"
+    )
+
+    assert notes.canonical_content(text) == (
+        "- (quote) anchored ^c-1\n- (paraphrase) unanchored\n"
+    )
+
+
 def test_sha256_file(tmp_path):
     f = tmp_path / "x.pdf"
     f.write_bytes(b"pdfbytes")

@@ -202,6 +202,88 @@ def test_changed_hash_recurrence_stays_open_in_summary_and_open_entries(fixture_
     )
 
 
+def test_none_hash_ack_requires_an_explicit_matching_none_hash(fixture_vault):
+    finding = inbox.append_entry(
+        fixture_vault,
+        "doi",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch",
+        date="2026-08-16",
+        target_hash=None,
+    )
+    inbox.append_ack(
+        fixture_vault,
+        finding.id,
+        "manual — wrong scope",
+        actor="human:eran",
+        target_hash="different",
+    )
+
+    assert not inbox.is_acknowledged(
+        fixture_vault, "doi", "smith2020", current_hash=None
+    )
+    assert inbox.open_entries(fixture_vault) == [finding]
+
+    inbox.append_ack(
+        fixture_vault,
+        finding.id,
+        "manual — matching scope",
+        actor="human:eran",
+        target_hash=None,
+    )
+
+    assert inbox.is_acknowledged(fixture_vault, "doi", "smith2020", current_hash=None)
+    assert inbox.open_entries(fixture_vault) == []
+
+
+def test_one_human_ack_closes_all_same_hash_warning_entries(fixture_vault):
+    correction = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-01",
+        target_hash="aa11",
+    )
+    inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — expression-of-concern",
+        date="2026-08-02",
+        target_hash="aa11",
+    )
+    inbox.append_ack(
+        fixture_vault,
+        correction.id,
+        "manual — reviewed all notices",
+        actor="human:eran",
+        target_hash="aa11",
+    )
+
+    assert inbox.open_entries(fixture_vault) == []
+    assert inbox.summary(fixture_vault) == {"unacknowledged": 0, "oldest": None}
+
+    changed = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-03",
+        target_hash="bb22",
+    )
+
+    assert inbox.open_entries(fixture_vault) == [changed]
+    assert inbox.summary(fixture_vault) == {
+        "unacknowledged": 1,
+        "oldest": "2026-08-03",
+    }
+
+
 def test_summary_counts_and_age(fixture_vault):
     inbox.append_entry(
         fixture_vault,

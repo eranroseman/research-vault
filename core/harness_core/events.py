@@ -40,9 +40,56 @@ def record_pass(
             "check": check,
         }
     )
-    data["verified"] = events
-    rendered = frontmatter.serialize(data) + body
-    return rendered.replace("\n", "\r\n") if "\r\n" in note_text else rendered
+    return _replace_verified_events(note_text, events, body)
+
+
+def _replace_verified_events(note_text: str, events: list[dict], body: str) -> str:
+    """Lexically replace only the verifier-owned top-level event list."""
+    lines = note_text.splitlines(keepends=True)
+    if not lines or lines[0] not in {"---\n", "---\r\n"}:
+        return frontmatter.serialize({"verified": events}) + body
+    close = next(
+        (
+            index
+            for index, line in enumerate(lines[1:], start=1)
+            if line in {"---\n", "---\r\n"}
+        ),
+        None,
+    )
+    if close is None:
+        # ``frontmatter.parse`` has already rejected this, but leave the
+        # defensive fallback byte-preserving if its grammar grows later.
+        return note_text
+    headers = [
+        index
+        for index, line in enumerate(lines[1:close], start=1)
+        if line.rstrip("\r\n").rstrip(" \t") == "verified:"
+    ]
+    if len(headers) > 1:
+        raise ValueError("verified frontmatter must have one event list")
+    newline = _line_ending(lines[headers[0] if headers else close]) or "\n"
+    rendered = _render_verified_events(events, newline)
+    if not headers:
+        return "".join(lines[:close] + [rendered] + lines[close:])
+    start = headers[0]
+    end = start + 1
+    while end < close and lines[end].startswith("  - "):
+        end += 1
+    return "".join(lines[:start] + [rendered] + lines[end:])
+
+
+def _render_verified_events(events: list[dict], newline: str) -> str:
+    """Serialize new event rows without touching neighboring frontmatter."""
+    rendered = frontmatter.serialize({"verified": events}).splitlines()
+    return "".join(f"{line}{newline}" for line in rendered[1:-1])
+
+
+def _line_ending(line: str) -> str:
+    if line.endswith("\r\n"):
+        return "\r\n"
+    if line.endswith("\n"):
+        return "\n"
+    return ""
 
 
 def verified_checks(note_text: str) -> list[dict]:

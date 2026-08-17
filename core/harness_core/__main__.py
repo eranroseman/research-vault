@@ -4,6 +4,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import re
 import sys
 from collections.abc import Mapping
@@ -380,29 +381,53 @@ def _directory_bytes(path):
         return None
     chunks = []
     root = path.resolve()
-    for child in sorted(path.rglob("*")):
-        if child.is_symlink():
-            chunks.extend((str(child.relative_to(path)).encode(), b"symlink"))
-            continue
-        if not child.is_file():
+    try:
+        children = sorted(path.rglob("*"))
+    except OSError:
+        return b"unreadable-directory"
+    for child in children:
+        try:
+            relative = os.fsencode(child.relative_to(path).as_posix())
+        except ValueError:
             continue
         try:
+            if child.is_symlink():
+                try:
+                    link_target = os.fsencode(os.readlink(child))
+                except OSError:
+                    link_target = b"unreadable-link"
+                chunks.extend((relative, b"symlink", link_target))
+                continue
+            if not child.is_file():
+                continue
             child.resolve().relative_to(root)
         except ValueError:
-            chunks.extend((str(child.relative_to(path)).encode(), b"outside"))
+            chunks.extend((relative, b"outside"))
             continue
-        data = child.read_bytes()
+        except OSError:
+            chunks.extend((relative, b"unreadable"))
+            continue
+        try:
+            data = child.read_bytes()
+        except OSError:
+            chunks.extend((relative, b"unreadable"))
+            continue
         if child.suffix == ".md":
             data = _note_bytes(data)
-        chunks.extend((str(child.relative_to(path)).encode(), data))
+        chunks.extend((relative, data))
     return b"\0".join(chunks)
 
 
 def _note_for_citekey(vault_root, citekey):
     try:
-        return notes.note_path(vault_root, citekey)
+        vault = Path(vault_root)
+        candidate = notes.note_path(vault, citekey)
+        relative = candidate.relative_to(vault).as_posix()
     except notes.InvalidCitekeyError:
         return None
+    except ValueError:
+        return None
+    return _safe_relative(vault, relative)
 
 
 def _citekey_hash(vault_root, citekey):
@@ -512,9 +537,6 @@ def _origins(outcome):
 def _mutate_marker(vault_root, outcome, date, *, clear=False):
     if outcome.check not in CLOSING_CHECKS:
         return
-    marker = re.compile(
-        r"\s*\[verify-failed:: " + re.escape(outcome.check) + r"/\d{4}-\d{2}-\d{2}\]"
-    )
     for relative, claim_id, line_no in _origins(outcome):
         path = _safe_relative(vault_root, relative)
         if path is None or not path.is_file():
@@ -527,10 +549,16 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             numbered = isinstance(line_no, int) and index == line_no - 1
             if not anchored and not numbered:
                 continue
-            replacement = marker.sub("", line) if clear else line
-            if not clear and not marker.search(line):
-                ending = "\n" if line.endswith("\n") else ""
-                content = line[: -len(ending)] if ending else line
+            content, ending = _split_line_ending(line)
+            terminal_claim_id = claim_id if anchored else None
+            replacement = (
+                _clear_marker(content, outcome.check, terminal_claim_id)
+                if clear
+                else line
+            )
+            if not clear and not _has_terminal_marker(
+                content, outcome.check, terminal_claim_id
+            ):
                 if anchored:
                     before, terminal_anchor = content.rsplit(f"^{claim_id}", 1)
                     replacement = (
@@ -541,10 +569,42 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
                 else:
                     replacement = content + f" [verify-failed:: {outcome.check}/{date}]"
                 replacement += ending
+            elif clear:
+                replacement += ending
             if replacement != line:
                 lines[index] = replacement
                 _write_note_text(path, "".join(lines))
             break
+
+
+_ANY_VERIFY_MARKER = r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
+
+
+def _clear_marker(content, check, claim_id):
+    """Reverse only the one-space token sequence written by the stamper."""
+    pattern = _terminal_marker_pattern(check, claim_id)
+    return pattern.sub(" " if isinstance(claim_id, str) else "", content)
+
+
+def _has_terminal_marker(content, check, claim_id):
+    return _terminal_marker_pattern(check, claim_id).search(content) is not None
+
+
+def _terminal_marker_pattern(check, claim_id):
+    marker = r"\[verify-failed:: " + re.escape(check) + r"/\d{4}-\d{2}-\d{2}\]"
+    if isinstance(claim_id, str):
+        trailing = rf"(?:{_ANY_VERIFY_MARKER} )*\^{re.escape(claim_id)}[ \t]*$"
+        return re.compile(rf" {marker} (?={trailing})")
+    trailing = rf"(?: {_ANY_VERIFY_MARKER})*[ \t]*$"
+    return re.compile(rf" {marker}(?={trailing})")
+
+
+def _split_line_ending(line):
+    if line.endswith("\r\n"):
+        return line[:-2], "\r\n"
+    if line.endswith("\n"):
+        return line[:-1], "\n"
+    return line, ""
 
 
 def _clear_verify_failed(vault_root, outcome):

@@ -49,6 +49,33 @@ Free-region content remains untouched.
     ]
 
 
+def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
+    crlf = BASE.replace("\n", "\r\n")
+    out = events.record_pass(crlf, "doi", Result.MATCHED, at="2026-08-16")
+    assert "\r\r\n" not in out
+    assert out.endswith("Free-region content remains untouched.\r\n")
+
+
+def test_record_pass_lexically_changes_only_verified_events_with_crlf():
+    from harness_core import notes
+
+    text = (
+        "---\r\n"
+        "citekey: smith2020\r\n"
+        "status: active\r\n"
+        "deprecated-at: 2026-08-16\r\n"
+        "---\r\n"
+        "- (quote) body ^c-11111111\r\n"
+    )
+
+    out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
+
+    assert "\r\r\n" not in out
+    assert "citekey: smith2020\r\nstatus: active\r\n" in out
+    assert out.endswith("- (quote) body ^c-11111111\r\n")
+    assert notes.canonical_content(out) == notes.canonical_content(text)
+
+
 def test_record_pass_rejects_non_matched():
     for result in (Result.UNMATCHED, Result.UNREACHABLE, Result.SKIPPED):
         with pytest.raises(ValueError, match="only MATCHED mints verified events"):
