@@ -3,14 +3,16 @@ from pathlib import Path
 
 import harness_core
 
-
 REPO = Path(__file__).resolve().parents[2]
 
 
 def test_version_and_result_enum():
     assert harness_core.__version__ == "0.1.0"
     assert [r.name for r in harness_core.Result] == [
-        "MATCHED", "UNMATCHED", "UNREACHABLE", "SKIPPED",
+        "MATCHED",
+        "UNMATCHED",
+        "UNREACHABLE",
+        "SKIPPED",
     ]
 
 

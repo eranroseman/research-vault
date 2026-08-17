@@ -1,15 +1,13 @@
 """CLI surface consumed by hooks (Plan C) and skills (Plan D)."""
 
 import argparse
-from collections.abc import Mapping
 import datetime
 import json
 import sys
+from collections.abc import Mapping
 
-from . import Result
-from . import bibliography, notes, paths
+from . import Result, bibliography, notes, paths
 from .zotero import ZoteroClient, ZoteroError
-
 
 QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
 DEFAULT_BASE = "http://localhost:23119"
@@ -119,9 +117,7 @@ def cmd_import_note(args):
 
     existing = _read_note(path) if path.is_file() else None
     today = datetime.date.today().isoformat()
-    candidate = notes.render_note(
-        item, hashes, annotations, existing, today
-    )
+    candidate = notes.render_note(item, hashes, annotations, existing, today)
 
     # This must precede the note NOOP check: another Zotero item may have been
     # admitted even when this note's complete rendered projection has not changed.

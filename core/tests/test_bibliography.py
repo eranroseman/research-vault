@@ -1,11 +1,9 @@
-import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from harness_core import Result, bibliography
-
 
 ITEMS = [
     {"id": "smith2020", "title": "Mortality decline", "type": "article-journal"},
@@ -21,6 +19,7 @@ class StubClient:
     def export_csl(self, citekeys):
         if self.fail:
             from harness_core.zotero import ZoteroError
+
             raise ZoteroError("down")
         return self._items
 
@@ -31,8 +30,9 @@ def test_write_and_commit_then_load(tmp_vault):
     bib = bibliography.load(tmp_vault)
     assert bib.citekeys == {"smith2020", "jones2021"}
     assert bib.entry("smith2020")["title"] == "Mortality decline"
-    log = subprocess.run(["git", "log", "--oneline"], cwd=tmp_vault,
-                         capture_output=True, text=True).stdout
+    log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=tmp_vault, capture_output=True, text=True
+    ).stdout
     assert "bibliography" in log
 
 
@@ -155,9 +155,9 @@ def test_staleness_undecodable_committed_bibliography_is_unreachable(tmp_vault):
 
 
 @pytest.mark.parametrize("malformed", [{"items": ITEMS}, ["not-an-item"]])
-def test_staleness_malformed_fresh_bibliography_is_unreachable(
-    tmp_vault, malformed
-):
+def test_staleness_malformed_fresh_bibliography_is_unreachable(tmp_vault, malformed):
     bibliography.write_and_commit(tmp_vault, ITEMS)
 
-    assert bibliography.staleness(tmp_vault, StubClient(malformed)) is Result.UNREACHABLE
+    assert (
+        bibliography.staleness(tmp_vault, StubClient(malformed)) is Result.UNREACHABLE
+    )

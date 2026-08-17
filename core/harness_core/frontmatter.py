@@ -1,4 +1,5 @@
 """Flat YAML subset for note frontmatter (spec §5: flat, Bases-queryable)."""
+
 import re
 
 
@@ -25,7 +26,9 @@ def serialize(data: dict) -> str:
             lines.append(f"{key}:")
             for item in value:
                 if isinstance(item, dict):
-                    inner = ", ".join(f"{k}: {_emit_scalar(v)}" for k, v in item.items())
+                    inner = ", ".join(
+                        f"{k}: {_emit_scalar(v)}" for k, v in item.items()
+                    )
                     lines.append(f"  - {{{inner}}}")
                 else:
                     lines.append(f"  - {_emit_scalar(item)}")
@@ -86,8 +89,8 @@ def parse(text: str) -> tuple[dict, str]:
     closing = _FRONTMATTER_CLOSE.search(text, opening.end())
     if closing is None:
         raise FrontmatterError("unterminated frontmatter")
-    block = text[opening.end():closing.start()]
-    body = text[closing.end():]
+    block = text[opening.end() : closing.start()]
+    body = text[closing.end() :]
     data: dict = {}
     current_list = None
     for line in block.splitlines():
@@ -96,7 +99,9 @@ def parse(text: str) -> tuple[dict, str]:
                 raise FrontmatterError(f"list item outside list: {line!r}")
             current_list.append(_parse_item(line[4:].strip()))
         elif line.startswith("  "):
-            raise FrontmatterError(f"nested maps unsupported (flat schema, spec §5): {line!r}")
+            raise FrontmatterError(
+                f"nested maps unsupported (flat schema, spec §5): {line!r}"
+            )
         else:
             parts = _split_unquoted(line, ":", 1)
             if len(parts) == 1:

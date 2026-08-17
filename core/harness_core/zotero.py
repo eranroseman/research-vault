@@ -1,12 +1,11 @@
 """Clients for local Zotero and Better BibTeX JSON-RPC."""
 
-from collections.abc import Mapping
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 
 from . import Result
-
 
 CSL_TRANSLATOR = "Better CSL JSON"
 
@@ -39,17 +38,17 @@ class ZoteroClient:
         except urllib.error.HTTPError as error:
             return error.code, error.read()
         except OSError as error:
-            raise ZoteroError(
-                f"Zotero unreachable at {self.base}: {error}"
-            ) from error
+            raise ZoteroError(f"Zotero unreachable at {self.base}: {error}") from error
 
     def _rpc(self, method: str, params: list) -> object:
-        payload = json.dumps({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-            "id": 1,
-        }).encode()
+        payload = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": params,
+                "id": 1,
+            }
+        ).encode()
         status, body = self._http(
             f"{self.base}/better-bibtex/json-rpc",
             data=payload,
@@ -96,13 +95,8 @@ class ZoteroClient:
     def _validate_csl_items(cls, items, context):
         cls._validate_object_list(items, context)
         for index, item in enumerate(items):
-            if (
-                not isinstance(item.get("id"), str)
-                or not item["id"]
-            ):
-                raise ZoteroError(
-                    f"malformed {context}: invalid item at index {index}"
-                )
+            if not isinstance(item.get("id"), str) or not item["id"]:
+                raise ZoteroError(f"malformed {context}: invalid item at index {index}")
         return items
 
     def ready(self) -> dict:
@@ -155,13 +149,9 @@ class ZoteroClient:
             page = self._decode_json(body, "local API CSL response")
             if isinstance(page, dict):
                 if "items" not in page:
-                    raise ZoteroError(
-                        "malformed local API CSL response: missing items"
-                    )
+                    raise ZoteroError("malformed local API CSL response: missing items")
                 page = page["items"]
-            page_items = self._validate_csl_items(
-                page, "local API CSL response"
-            )
+            page_items = self._validate_csl_items(page, "local API CSL response")
             items.extend(page_items)
             if len(page_items) < 100:
                 return self._normalize_top_level_csl_ids(items)

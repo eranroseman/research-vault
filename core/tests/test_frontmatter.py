@@ -1,6 +1,5 @@
 from harness_core import frontmatter
 
-
 SAMPLE = {
     "citekey": "smith2020",
     "type": "literature",

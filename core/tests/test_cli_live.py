@@ -120,8 +120,10 @@ def test_normalize_annotation_maps_live_bbt_shape_without_raw_aliases():
     ("raw", "expected_comment"),
     [
         ({}, ""),
-        ({"annotationType": "future", "annotationText": "Keep this safely"},
-         "Keep this safely"),
+        (
+            {"annotationType": "future", "annotationText": "Keep this safely"},
+            "Keep this safely",
+        ),
         ({"annotationType": "highlight", "annotationText": {"bad": "shape"}}, ""),
         (None, ""),
         (["not", "a", "mapping"], ""),
@@ -135,8 +137,14 @@ def test_normalize_annotation_malformed_or_unknown_degrades_to_paraphrase(
     normalized = normalize_annotation(raw, "smith2020")
 
     assert set(normalized) <= {
-        "type", "comment", "pageLabel", "key", "annotationText", "citekey",
-        "context_prefix", "context_suffix",
+        "type",
+        "comment",
+        "pageLabel",
+        "key",
+        "annotationText",
+        "citekey",
+        "context_prefix",
+        "context_suffix",
     }
     assert normalized["annotationText"] == ""
     assert normalized["comment"] == expected_comment
@@ -178,9 +186,7 @@ def _install_import_client(monkeypatch, cli, item, annotations):
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
 
 
-def test_import_note_identical_projection_is_noop(
-    tmp_vault, monkeypatch, capsys
-):
+def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys):
     import harness_core.__main__ as cli
 
     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
@@ -196,18 +202,18 @@ def test_import_note_identical_projection_is_noop(
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, item, [raw])
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey="smith2020", vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
 
     assert result == 0
     assert capsys.readouterr().out.strip() == "NOOP"
     assert note_path.read_text(encoding="utf-8") == original
 
 
-def test_import_note_annotation_only_change_rerenders(
-    tmp_vault, monkeypatch, capsys
-):
+def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, capsys):
     import harness_core.__main__ as cli
 
     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
@@ -224,9 +230,11 @@ def test_import_note_annotation_only_change_rerenders(
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, item, [new_raw])
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey="smith2020", vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
 
     updated = note_path.read_text(encoding="utf-8")
     assert result == 0
@@ -235,9 +243,7 @@ def test_import_note_annotation_only_change_rerenders(
     assert "Mortality fell.\n" not in updated
 
 
-def test_import_note_metadata_only_change_rerenders(
-    tmp_vault, monkeypatch, capsys
-):
+def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, capsys):
     import harness_core.__main__ as cli
 
     note_path = notes.note_path(tmp_vault, "smith2020")
@@ -251,9 +257,11 @@ def test_import_note_metadata_only_change_rerenders(
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, {"title": "Updated title"}, [])
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey="smith2020", vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
 
     updated = note_path.read_text(encoding="utf-8")
     assert result == 0
@@ -289,17 +297,17 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
         retrieved="2026-08-16",
     )
     managed_end = (
-        original.index(notes.MANAGED_CLOSE)
-        + len(notes.MANAGED_CLOSE)
-        + len("\n")
+        original.index(notes.MANAGED_CLOSE) + len(notes.MANAGED_CLOSE) + len("\n")
     )
     free_tail = "\r\nfree tail\r\nmixed newline\nUnicode café\r\n".encode("utf-8")
     note_path.write_bytes(original[:managed_end].encode("utf-8") + free_tail)
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey="smith2020", vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
 
     output = note_path.read_bytes()
     close = notes.MANAGED_CLOSE.encode("utf-8") + b"\n"
@@ -333,9 +341,9 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
         text=True,
     ).stdout
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey=citekey, vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(citekey=citekey, vault=str(tmp_vault), base="http://unused")
+    )
 
     status_after = subprocess.run(
         ["git", "status", "--porcelain"],
@@ -393,9 +401,11 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
     monkeypatch.setattr(cli.paths, "to_local", unresolved)
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey="smith2020", vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
 
     assert result == 0
     assert "warning: attachment unresolved" in capsys.readouterr().err
@@ -406,9 +416,7 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
     assert "annotationPageLabel" not in body
 
 
-def test_import_note_refreshes_bibliography_before_noop(
-    tmp_vault, monkeypatch, capsys
-):
+def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, capsys):
     import harness_core.__main__ as cli
 
     class FakeClient:
@@ -435,9 +443,11 @@ def test_import_note_refreshes_bibliography_before_noop(
     )
     note_path.write_text(original)
 
-    result = cli.cmd_import_note(argparse.Namespace(
-        citekey="smith2020", vault=str(tmp_vault), base="http://unused"
-    ))
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
 
     assert result == 0
     assert capsys.readouterr().out.strip() == "NOOP"
@@ -460,11 +470,13 @@ def test_staleness_exit_codes(state, expected_code, tmp_vault, monkeypatch, caps
     import harness_core.__main__ as cli
     from harness_core import Result
 
-    monkeypatch.setattr(cli.bibliography, "staleness", lambda vault, client: Result[state])
+    monkeypatch.setattr(
+        cli.bibliography, "staleness", lambda vault, client: Result[state]
+    )
 
-    code = cli.cmd_staleness(argparse.Namespace(
-        vault=str(tmp_vault), base="http://unused"
-    ))
+    code = cli.cmd_staleness(
+        argparse.Namespace(vault=str(tmp_vault), base="http://unused")
+    )
 
     assert code == expected_code
     assert capsys.readouterr().out.strip() == state
@@ -485,9 +497,9 @@ def test_staleness_cli_reports_corrupt_committed_bibliography_as_unmatched(
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
     (tmp_vault / "x" / "bibliography.json").write_text("{", encoding="utf-8")
 
-    code = cli.cmd_staleness(argparse.Namespace(
-        vault=str(tmp_vault), base="http://unused"
-    ))
+    code = cli.cmd_staleness(
+        argparse.Namespace(vault=str(tmp_vault), base="http://unused")
+    )
 
     assert code == 1
     assert capsys.readouterr().out.strip() == "UNMATCHED"

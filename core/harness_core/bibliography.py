@@ -1,4 +1,5 @@
 """The in-repo citekey universe: x/bibliography.json (spec §4)."""
+
 import json
 import stat
 import subprocess
@@ -46,8 +47,14 @@ def write_and_commit(vault_root, items) -> bool:
     subprocess.run(["git", "add", BIB_PATH], cwd=vault_root, check=True)
     subprocess.run(
         [
-            "git", "commit", "-q", "--only", "-m",
-            "chore: bibliography export", "--", BIB_PATH,
+            "git",
+            "commit",
+            "-q",
+            "--only",
+            "-m",
+            "chore: bibliography export",
+            "--",
+            BIB_PATH,
         ],
         cwd=vault_root,
         check=True,
@@ -96,5 +103,8 @@ def staleness(vault_root, client) -> Result:
         committed_fingerprint = _fingerprint(committed)
     except (TypeError, ValueError):
         return Result.UNMATCHED
-    return Result.MATCHED if committed_fingerprint == fresh_fingerprint \
+    return (
+        Result.MATCHED
+        if committed_fingerprint == fresh_fingerprint
         else Result.UNMATCHED
+    )

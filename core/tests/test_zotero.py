@@ -12,23 +12,29 @@ class FakeTransport:
         self.rpc_calls = []
         self.canned_rpc = {
             "api.ready": {"zotero": "9.0.6", "betterbibtex": "9.0.55"},
-            "item.search": [{
-                "id": "smith2020",
-                "citekey": "smith2020",
-                "title": "Mortality decline",
-                "type": "article-journal",
-            }],
+            "item.search": [
+                {
+                    "id": "smith2020",
+                    "citekey": "smith2020",
+                    "title": "Mortality decline",
+                    "type": "article-journal",
+                }
+            ],
             "item.citationkey": {"2WHVXRX3": "smith2020"},
-            "item.attachments": [{
-                "path": "D:\\Zotero\\storage\\AB12CD34\\smith2020.pdf",
-                "open": "zotero://open-pdf/library/items/AB12CD34",
-                "annotations": [],
-            }],
-            "item.export": [{
-                "id": "smith2020",
-                "type": "article-journal",
-                "title": "Mortality decline",
-            }],
+            "item.attachments": [
+                {
+                    "path": "D:\\Zotero\\storage\\AB12CD34\\smith2020.pdf",
+                    "open": "zotero://open-pdf/library/items/AB12CD34",
+                    "annotations": [],
+                }
+            ],
+            "item.export": [
+                {
+                    "id": "smith2020",
+                    "type": "article-journal",
+                    "title": "Mortality decline",
+                }
+            ],
             "autoexport.add": {
                 "id": 7,
                 "key": "autoexport-key",
@@ -159,7 +165,9 @@ def test_whole_library_export_normalizes_uri_ids_and_excludes_orphans(
         },
     ]
     client._fake.canned_rpc["item.citationkey"] = {"ATTACH01": "mapped2024"}
-    monkeypatch.setattr(client, "_http", lambda *args, **kwargs: (200, json.dumps(page).encode()))
+    monkeypatch.setattr(
+        client, "_http", lambda *args, **kwargs: (200, json.dumps(page).encode())
+    )
 
     items = client.export_csl(None)
 

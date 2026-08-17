@@ -1,4 +1,5 @@
 """Literature-note generation: managed region + preserved free region (spec §3–§5)."""
+
 import hashlib
 import unicodedata
 from html import escape
@@ -32,7 +33,7 @@ def note_path(vault_root, citekey) -> Path:
 def _managed_body(item, annotations) -> str:
     lines = [MANAGED_OPEN, f"# {item.get('title', item['id'])}", ""]
     for ann in annotations:
-        lines.append(render_claim(ann))          # completed in Part B before commit/review
+        lines.append(render_claim(ann))  # completed in Part B before commit/review
     lines.append(MANAGED_CLOSE)
     return "\n".join(lines) + "\n"
 
@@ -45,7 +46,7 @@ def _split_free(existing) -> str:
         if line in {MANAGED_CLOSE, f"{MANAGED_CLOSE}\n", f"{MANAGED_CLOSE}\r\n"}:
             # Verbatim tail after the exact standalone marker line, including
             # blank lines and a deliberately emptied free region (§3).
-            return existing[offset + len(line):]
+            return existing[offset + len(line) :]
         offset += len(line)
     return SEED_FREE
 
@@ -53,8 +54,16 @@ def _split_free(existing) -> str:
 # Fields the renderer owns and may rewrite; EVERYTHING else in prior frontmatter
 # passes through unchanged (verified events, superseded-by, authority, archive-url,
 # human-added keys — §5 never-delete applies to metadata too).
-MANAGED_FIELDS = {"citekey", "type", "attachment-sha256", "aliases",
-                  "doi", "url", "pmid", "version"}
+MANAGED_FIELDS = {
+    "citekey",
+    "type",
+    "attachment-sha256",
+    "aliases",
+    "doi",
+    "url",
+    "pmid",
+    "version",
+}
 
 
 def render_note(item, attachment_hashes, annotations, existing, retrieved) -> str:
@@ -68,14 +77,18 @@ def render_note(item, attachment_hashes, annotations, existing, retrieved) -> st
         fm["pmid"] = item["PMID"]
     if item.get("version"):
         fm["version"] = item["version"]
-    fm["retrieved"] = prior.get("retrieved", retrieved)   # day-one, never overwritten
+    fm["retrieved"] = prior.get("retrieved", retrieved)  # day-one, never overwritten
     fm["attachment-sha256"] = attachment_hashes
     fm["status"] = prior.get("status", "unreviewed")
     fm["aliases"] = [item.get("title", item["id"])]
-    for key, value in prior.items():                      # pass-through of unowned fields
+    for key, value in prior.items():  # pass-through of unowned fields
         if key not in MANAGED_FIELDS and key not in fm:
             fm[key] = value
-    return frontmatter.serialize(fm) + _managed_body(item, annotations) + _split_free(existing)
+    return (
+        frontmatter.serialize(fm)
+        + _managed_body(item, annotations)
+        + _split_free(existing)
+    )
 
 
 def _norm(text: str) -> str:
@@ -89,8 +102,11 @@ def claim_id(annotation: dict) -> str:
 
 def render_claim(annotation: dict) -> str:
     cid = claim_id(annotation)
-    cite = f"[@{annotation['citekey']}, p. {annotation['pageLabel']}]" \
-        if annotation.get("pageLabel") else f"[@{annotation['citekey']}]"
+    cite = (
+        f"[@{annotation['citekey']}, p. {annotation['pageLabel']}]"
+        if annotation.get("pageLabel")
+        else f"[@{annotation['citekey']}]"
+    )
     text = annotation.get("annotationText") or ""
     if text:
         lines = [f"- (quote) {cite} ^{cid}"]
