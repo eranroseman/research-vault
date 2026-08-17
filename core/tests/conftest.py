@@ -121,10 +121,21 @@ def net_vault(fixture_vault):
     return fixture_vault
 
 
+@pytest.fixture
+def net_vault_real_mailto(fixture_vault):
+    harness = fixture_vault / ".harness"
+    harness.mkdir(exist_ok=True)
+    (harness / "machine.json").write_text(
+        _json.dumps({"mailto": os.environ.get("HARNESS_MAILTO", "")})
+    )
+    return fixture_vault
+
+
 def pytest_collection_modifyitems(config, items):
-    if os.environ.get("HARNESS_LIVE") == "1":
-        return
-    skip = pytest.mark.skip(reason="live Zotero not enabled (HARNESS_LIVE=1)")
+    skip_live = pytest.mark.skip(reason="live Zotero not enabled (HARNESS_LIVE=1)")
+    skip_net = pytest.mark.skip(reason="live network not enabled (HARNESS_LIVE_NET=1)")
     for item in items:
-        if "live" in item.keywords:
-            item.add_marker(skip)
+        if "live" in item.keywords and os.environ.get("HARNESS_LIVE") != "1":
+            item.add_marker(skip_live)
+        if "live_net" in item.keywords and os.environ.get("HARNESS_LIVE_NET") != "1":
+            item.add_marker(skip_net)

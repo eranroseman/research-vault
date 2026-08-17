@@ -50,7 +50,7 @@ def check_citekeys(vault_root, note_path: Path) -> list[Outcome]:
         return [
             Outcome(
                 "citekey",
-                str(note),
+                str(note.relative_to(vault)),
                 Result.SKIPPED,
                 "no-identifier — note cites nothing",
             )

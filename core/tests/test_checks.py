@@ -24,7 +24,7 @@ def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
     outs = checks.check_citekeys(fixture_vault, note)
 
     assert len(outs) == 1
-    assert outs[0].target == str(note)
+    assert outs[0].target == "atlas/index.md"
     assert outs[0].result is Result.SKIPPED
     assert outs[0].reason == "no-identifier — note cites nothing"
 
