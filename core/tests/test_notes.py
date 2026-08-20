@@ -1,6 +1,6 @@
 import pytest
 
-from harness_core import frontmatter, notes
+from harness_core import Result, events, frontmatter, notes
 
 ITEM = {
     "id": "smith2020",
@@ -76,6 +76,74 @@ def test_unowned_frontmatter_fields_survive_rerender():
     assert kept["superseded-by"] == "smith2024"
     assert kept["authority"] == "peer-reviewed journal"
     assert kept["archive-url"] == "https://web.archive.org/web/x"
+
+
+def test_rerender_preserves_duplicate_key_verified_as_rejected_evidence():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified:
+  - {by: "bot", at: "2026-08-16", check: "metadata", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.verified_checks(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.verified_checks(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verified"):
+        events.record_failure(rerendered, "doi", Result.UNMATCHED)
+
+
+def test_rerender_preserves_duplicate_key_failures_as_rejected_evidence():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+verification-failures:
+  - {check: "doi", check: "legacy-check", result: "UNMATCHED"}
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.current_failures(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.current_failures(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
 
 
 def test_free_region_byte_exact():

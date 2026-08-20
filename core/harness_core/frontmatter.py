@@ -10,6 +10,10 @@ class FrontmatterError(ValueError):
 class _DuplicateKeyMapping(dict):
     """Parsed mapping that retains the fact its source repeated a key."""
 
+    def __init__(self, pairs):
+        super().__init__(pairs)
+        self.source_items = tuple(pairs)
+
 
 _INLINE_DICT = re.compile(r"^\{(.*)\}$")
 _FRONTMATTER_OPEN = re.compile(r"\A---(?:\r\n|\n)")
@@ -30,8 +34,14 @@ def serialize(data: dict) -> str:
             lines.append(f"{key}:")
             for item in value:
                 if isinstance(item, dict):
+                    items = (
+                        item.source_items
+                        if isinstance(item, _DuplicateKeyMapping)
+                        else item.items()
+                    )
                     inner = ", ".join(
-                        f"{k}: {_emit_scalar(v)}" for k, v in item.items()
+                        f"{key}: {_emit_scalar(item_value)}"
+                        for key, item_value in items
                     )
                     lines.append(f"  - {{{inner}}}")
                 else:
@@ -79,14 +89,17 @@ def _parse_item(raw: str):
     m = _INLINE_DICT.match(raw)
     if not m:
         return _parse_scalar(raw)
+    pairs = []
     out = {}
     duplicate = False
     for part in _split_unquoted(m.group(1), ", "):
         pair = _split_unquoted(part, ": ", 1)
         key = pair[0].strip()
+        value = _parse_scalar(pair[1] if len(pair) > 1 else "")
         duplicate = duplicate or key in out
-        out[key] = _parse_scalar(pair[1] if len(pair) > 1 else "")
-    return _DuplicateKeyMapping(out) if duplicate else out
+        pairs.append((key, value))
+        out[key] = value
+    return _DuplicateKeyMapping(pairs) if duplicate else out
 
 
 def parse(text: str) -> tuple[dict, str]:
