@@ -319,7 +319,7 @@ def _claim_bytes_from_text(text, claim_id):
                     block.append(continuation)
                 else:
                     break
-            return "".join(block).encode()
+            return "".join(block).encode(errors="surrogateescape")
     return None
 
 

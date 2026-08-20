@@ -68,6 +68,29 @@ def test_claim_immutability_reports_each_claim_when_a_tracked_note_is_deleted(
     ]
 
 
+def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
+    fixture_vault,
+):
+    note = fixture_vault / "atlas" / "synthèse.md"
+    note.write_text("- (inference) Unicode path claim ^c-unicode\n")
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add unicode path claim"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    note.unlink()
+
+    outs = lints.lint_claim_immutability(fixture_vault)
+
+    assert [(out.target, out.extra) for out in outs] == [
+        (
+            "atlas/synthèse.md#^c-unicode",
+            {"note_path": "atlas/synthèse.md", "claim_id": "c-unicode"},
+        )
+    ]
+
+
 def test_claim_immutability_allows_complete_deprecation_transition(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(

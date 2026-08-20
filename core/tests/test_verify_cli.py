@@ -587,6 +587,32 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
     assert _target_hash(net_vault, append) == first
 
 
+def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
+    note = net_vault / "atlas" / "invalid-utf8.md"
+    claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
+    note.write_bytes(claim_bytes)
+    subprocess.run(["git", "add", note], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add invalid utf8 claim"],
+        cwd=net_vault,
+        check=True,
+    )
+    note.unlink()
+    outcome = _outcome(
+        "claim-immutability",
+        "atlas/invalid-utf8.md#^c-invalid",
+        Result.UNMATCHED,
+        "drift — deleted claim",
+        note_path="atlas/invalid-utf8.md",
+        claim_id="c-invalid",
+    )
+
+    first = _target_hash(net_vault, outcome)
+
+    assert first == hashlib.sha256(claim_bytes).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome) == first
+
+
 def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
     other = net_vault / "atlas" / "other.md"
     other.write_text(
