@@ -338,3 +338,38 @@ def test_scaffold_cli_prints_the_created_paths(tmp_path):
     assert completed.stdout.splitlines() == sorted(
         [*EXPECTED_CREATED, ".github/workflows/verify.yml"]
     )
+
+
+def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
+    tmp_path,
+):
+    """The literal RW flag must not install or imply the read-only workflow."""
+    vault = tmp_path / "rw-vault"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness_core",
+            "scaffold",
+            "--vault",
+            str(vault),
+            "--with-rw-ci",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    assert completed.stdout.splitlines() == sorted(
+        [*EXPECTED_CREATED, ".github/workflows/rw-batch.yml"]
+    )
+    packaged_rw = resources.files("harness_core").joinpath(
+        "templates", "ci", "rw-batch.yml"
+    )
+    rw_workflow = vault / ".github/workflows/rw-batch.yml"
+    assert rw_workflow.read_bytes() == packaged_rw.read_bytes()
+    assert not (vault / ".github/workflows/verify.yml").exists()
+    assert os.stat(vault / ".git/hooks/pre-commit").st_mode & 0o111 == 0o111
+    assert os.stat(rw_workflow).st_mode & 0o111 == 0
