@@ -240,6 +240,49 @@ def test_doctor_reports_shared_observation_and_cached_staleness(
     )
 
 
+def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    vault = _doctor_vault(tmp_vault)
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    (vault / bibliography.BIB_PATH).write_text(json.dumps(items))
+
+    class ObservedClient(ReadyClient):
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def register_autoexport(self, registered_target):
+            raise AssertionError("matching target must not be registered again")
+
+    real_run = bibliography.subprocess.run
+
+    def fail_post_commit_read(command, *args, **kwargs):
+        if command == ["git", "show", f"HEAD:{bibliography.BIB_PATH}"]:
+            raise OSError("git unavailable")
+        return real_run(command, *args, **kwargs)
+
+    client = ObservedClient()
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base: client)
+    monkeypatch.setattr(bibliography.subprocess, "run", fail_post_commit_read)
+
+    code = cli.cmd_doctor(argparse.Namespace(vault=str(vault), base="http://unused"))
+
+    captured = capsys.readouterr()
+    lines = captured.out.splitlines()
+    assert code == 3
+    assert len(lines) == 9
+    assert [line.split()[1] for line in lines] == PROBE_NAMES
+    assert any(
+        line.startswith("UNREACHABLE autoexport") and "git unavailable" in line
+        for line in lines
+    )
+    assert any(line.startswith("MATCHED staleness") for line in lines)
+    assert captured.err == ""
+
+
 def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
     tmp_vault, monkeypatch
 ):

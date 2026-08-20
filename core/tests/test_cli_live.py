@@ -579,6 +579,69 @@ def test_import_note_autoexport_failure_prevents_attachment_and_note_writes(
     assert not (tmp_vault / bibliography.BIB_PATH).exists()
 
 
+def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_bytes(json.dumps(items, separators=(",", ":")).encode())
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def register_autoexport(self, registered_target):
+            raise AssertionError("matching target must not be registered again")
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    real_run = bibliography.subprocess.run
+
+    def fail_post_commit_read(command, *args, **kwargs):
+        if command == ["git", "show", f"HEAD:{bibliography.BIB_PATH}"]:
+            raise OSError("git unavailable")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(bibliography.subprocess, "run", fail_post_commit_read)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == 3
+    assert captured.out == ""
+    assert "git unavailable" in captured.err
+    assert "Traceback" not in captured.err
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    assert target.is_file()
+
+
 def test_import_note_accepts_genuine_output_created_by_registration(
     tmp_vault, monkeypatch, capsys
 ):
@@ -630,6 +693,140 @@ def test_import_note_accepts_genuine_output_created_by_registration(
     assert (tmp_vault / bibliography.BIB_PATH).read_bytes() == (
         b'[{"id":"smith2020","title":"Mortality decline"}]'
     )
+    assert capsys.readouterr().err == ""
+
+
+def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    tracked = tmp_vault / "tracked.txt"
+    tracked.write_bytes(b"baseline\n")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    tracked.write_bytes(b"unstaged bytes\n")
+    staged = tmp_vault / "staged.txt"
+    staged.write_bytes(b"staged bytes\n")
+    subprocess.run(["git", "add", "staged.txt"], cwd=tmp_vault, check=True)
+    untracked = tmp_vault / "untracked.txt"
+    untracked.write_bytes(b"untracked bytes\n")
+    staged_blob_before = subprocess.run(
+        ["git", "show", ":staged.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    staged_diff_before = subprocess.run(
+        ["git", "diff", "--cached", "--binary", "--", "staged.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    target = tmp_vault / bibliography.BIB_PATH
+    bbt_bytes = b'[ { "title": "Mortality decline", "id": "smith2020" } ]\n'
+    target.write_bytes(bbt_bytes)
+    status_before = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def register_autoexport(self, registered_target):
+            raise AssertionError("matching target must not be registered again")
+
+        def attachments(self, citekey):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    assert result == 0
+    assert target.read_bytes() == bbt_bytes
+    assert (
+        subprocess.run(
+            ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == bbt_bytes
+    )
+    assert subprocess.run(
+        ["git", "show", "--pretty=format:", "--name-only", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines() == [bibliography.BIB_PATH]
+    assert (
+        subprocess.run(
+            ["git", "show", ":staged.txt"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == staged_blob_before
+    )
+    assert (
+        subprocess.run(
+            ["git", "diff", "--cached", "--binary", "--", "staged.txt"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == staged_diff_before
+    )
+    assert tracked.read_bytes() == b"unstaged bytes\n"
+    assert untracked.read_bytes() == b"untracked bytes\n"
+
+    status_after = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    def unrelated(lines):
+        return [
+            line
+            for line in lines.splitlines()
+            if not line.endswith(b" x/bibliography.json")
+            and not line.endswith(b" literatures/smith2020.md")
+        ]
+
+    assert unrelated(status_after) == unrelated(status_before)
     assert capsys.readouterr().err == ""
 
 

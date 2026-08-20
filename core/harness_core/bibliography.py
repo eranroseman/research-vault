@@ -4,6 +4,7 @@ import json
 import os
 import stat
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import NamedTuple
@@ -45,10 +46,22 @@ class _TargetState(NamedTuple):
     result: Result
     detail: str
     fingerprint: list[tuple[str, str]] | None = None
+    snapshot: bytes | None = None
+    contained: bool = True
+
+
+class _TargetBoundary(NamedTuple):
+    vault: Path
+    target: Path
+    ancestor_ids: tuple[tuple[int, int], ...]
+
+
+class _ContainmentError(OSError):
+    """The lexical vault-to-bibliography path no longer names its pinned tree."""
 
 
 def _path(vault_root):
-    return Path(vault_root) / BIB_PATH
+    return Path(os.path.abspath(os.fspath(vault_root))) / BIB_PATH
 
 
 def load(vault_root) -> Bibliography:
@@ -108,31 +121,179 @@ def _validate_items(items) -> None:
                 raise ValueError(f"bibliography item {index} has a non-string {field}")
 
 
-def commit_autoexport(vault_root) -> bool:
-    """Commit the genuine BBT target without changing its bytes or other state."""
-    p = _path(vault_root)
+def _absolute_vault(vault_root) -> Path:
+    return Path(os.path.abspath(os.fspath(vault_root)))
+
+
+def _open_parent_chain(target: Path, expected_ids=None):
+    """Open the target's parent from / without following a symlink component."""
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(os.sep, flags)
+    identities = []
+    try:
+        root_stat = os.fstat(descriptor)
+        identities.append((root_stat.st_dev, root_stat.st_ino))
+        if expected_ids is not None and identities[0] != expected_ids[0]:
+            raise _ContainmentError("filesystem root identity changed")
+        for index, component in enumerate(target.parent.parts[1:], start=1):
+            child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+            child_stat = os.fstat(descriptor)
+            identity = (child_stat.st_dev, child_stat.st_ino)
+            identities.append(identity)
+            if expected_ids is not None and (
+                index >= len(expected_ids) or identity != expected_ids[index]
+            ):
+                raise _ContainmentError(
+                    "vault-to-bibliography ancestor identity changed"
+                )
+        if expected_ids is not None and len(identities) != len(expected_ids):
+            raise _ContainmentError("vault-to-bibliography ancestor chain changed")
+        return descriptor, tuple(identities)
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
+def _pin_target_boundary(vault_root) -> _TargetBoundary:
+    vault = _absolute_vault(vault_root)
+    target = vault / BIB_PATH
+    try:
+        descriptor, identities = _open_parent_chain(target)
+    except OSError as error:
+        raise _ContainmentError(
+            f"unsafe vault-to-bibliography path: {error}"
+        ) from error
+    os.close(descriptor)
+    return _TargetBoundary(vault, target, identities)
+
+
+def _guard_boundary(boundary: _TargetBoundary) -> None:
+    try:
+        descriptor, _identities = _open_parent_chain(
+            boundary.target, boundary.ancestor_ids
+        )
+    except OSError as error:
+        raise _ContainmentError(
+            f"unsafe vault-to-bibliography path: {error}"
+        ) from error
+    os.close(descriptor)
+
+
+def _git_output(command, *, vault, env=None, input_bytes=None) -> bytes:
+    return subprocess.run(
+        command,
+        cwd=vault,
+        env=env,
+        check=True,
+        input=input_bytes,
+        capture_output=True,
+    ).stdout
+
+
+def commit_autoexport(
+    vault_root, snapshot: bytes, *, _boundary: _TargetBoundary | None = None
+) -> bool:
+    """Commit exactly a validated BBT snapshot without rereading its target."""
+    if not isinstance(snapshot, bytes):
+        raise TypeError("snapshot must be bytes")
+    boundary = _pin_target_boundary(vault_root) if _boundary is None else _boundary
+    _guard_boundary(boundary)
+    vault = boundary.vault
+
     head = subprocess.run(
-        ["git", "show", f"HEAD:{BIB_PATH}"],
-        cwd=vault_root,
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=vault,
         check=False,
         capture_output=True,
     )
-    if head.returncode == 0 and head.stdout == p.read_bytes():
-        return False
-    subprocess.run(["git", "add", "--", BIB_PATH], cwd=vault_root, check=True)
+    has_head = head.returncode == 0
+    expected_parent = head.stdout.decode().strip() if has_head else None
+    if has_head:
+        committed = subprocess.run(
+            ["git", "show", f"{expected_parent}:{BIB_PATH}"],
+            cwd=vault,
+            check=False,
+            capture_output=True,
+        )
+        if committed.returncode == 0 and committed.stdout == snapshot:
+            return False
+
+    blob = (
+        _git_output(
+            ["git", "hash-object", "-w", "--stdin"],
+            vault=vault,
+            input_bytes=snapshot,
+        )
+        .decode()
+        .strip()
+    )
+    expected_old = expected_parent or ("0" * len(blob))
+
+    with tempfile.TemporaryDirectory(prefix="harness-bibliography-index-") as tmp:
+        index_path = str(Path(tmp) / "index")
+        environment = os.environ.copy()
+        environment["GIT_INDEX_FILE"] = index_path
+        subprocess.run(
+            ["git", "read-tree", expected_parent]
+            if expected_parent
+            else ["git", "read-tree", "--empty"],
+            cwd=vault,
+            env=environment,
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "update-index",
+                "--add",
+                "--cacheinfo",
+                "100644",
+                blob,
+                BIB_PATH,
+            ],
+            cwd=vault,
+            env=environment,
+            check=True,
+        )
+        tree = (
+            _git_output(["git", "write-tree"], vault=vault, env=environment)
+            .decode()
+            .strip()
+        )
+        commit_command = ["git", "commit-tree", tree]
+        if expected_parent:
+            commit_command.extend(["-p", expected_parent])
+        commit = (
+            _git_output(
+                commit_command,
+                vault=vault,
+                input_bytes=b"chore: bibliography export\n",
+            )
+            .decode()
+            .strip()
+        )
+        subprocess.run(
+            ["git", "update-ref", "HEAD", commit, expected_old],
+            cwd=vault,
+            check=True,
+        )
+
+    # Mirror a normal path-limited commit for the in-scope path only. This
+    # leaves every unrelated index entry intact while making a newer BBT write
+    # visible as an ordinary unstaged bibliography change.
     subprocess.run(
         [
             "git",
-            "commit",
-            "-q",
-            "--no-verify",
-            "--only",
-            "-m",
-            "chore: bibliography export",
-            "--",
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "100644",
+            blob,
             BIB_PATH,
         ],
-        cwd=vault_root,
+        cwd=vault,
         check=True,
     )
     return True
@@ -150,68 +311,79 @@ def _fingerprint(items):
     return sorted(fingerprint)
 
 
-def _target_state(vault_root) -> _TargetState:
-    target = _path(vault_root)
+def _unsafe_target(detail: str) -> _TargetState:
+    return _TargetState(Result.UNMATCHED, detail, contained=False)
+
+
+def _target_state(boundary: _TargetBoundary) -> _TargetState:
     try:
-        parent_stat = target.parent.lstat()
-    except FileNotFoundError:
-        return _TargetState(Result.UNMATCHED, "bibliography auto-export absent")
+        parent_fd, _identities = _open_parent_chain(
+            boundary.target, boundary.ancestor_ids
+        )
     except OSError as error:
-        return _TargetState(
-            Result.UNREACHABLE, f"bibliography auto-export unreadable: {error}"
-        )
-    if not stat.S_ISDIR(parent_stat.st_mode):
-        return _TargetState(
-            Result.UNMATCHED,
-            "bibliography auto-export parent is not a regular directory",
-        )
-    try:
-        path_stat = target.lstat()
-    except FileNotFoundError:
-        return _TargetState(Result.UNMATCHED, "bibliography auto-export absent")
-    except OSError as error:
-        return _TargetState(
-            Result.UNREACHABLE, f"bibliography auto-export unreadable: {error}"
-        )
-    if not stat.S_ISREG(path_stat.st_mode):
-        return _TargetState(
-            Result.UNMATCHED,
-            "bibliography auto-export is not a regular file",
-        )
+        return _unsafe_target(f"unsafe vault-to-bibliography path: {error}")
 
     descriptor = None
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(target, flags)
+        name = boundary.target.name
+        try:
+            path_stat = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return _TargetState(Result.UNMATCHED, "bibliography auto-export absent")
+        except OSError as error:
+            return _TargetState(
+                Result.UNREACHABLE,
+                f"bibliography auto-export unreadable: {error}",
+            )
+        if stat.S_ISLNK(path_stat.st_mode):
+            return _unsafe_target("bibliography auto-export is a symlink")
+        if not stat.S_ISREG(path_stat.st_mode):
+            return _TargetState(
+                Result.UNMATCHED,
+                "bibliography auto-export is not a regular file",
+            )
+
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(name, flags, dir_fd=parent_fd)
+        except FileNotFoundError:
+            return _TargetState(Result.UNMATCHED, "bibliography auto-export absent")
+        except OSError as error:
+            return _TargetState(
+                Result.UNREACHABLE,
+                f"bibliography auto-export unreadable: {error}",
+            )
         opened_stat = os.fstat(descriptor)
         if not stat.S_ISREG(opened_stat.st_mode) or (
             path_stat.st_dev,
             path_stat.st_ino,
         ) != (opened_stat.st_dev, opened_stat.st_ino):
-            return _TargetState(
-                Result.UNMATCHED,
-                "bibliography auto-export changed while being read",
-            )
-        with os.fdopen(descriptor, "r", encoding="utf-8") as export:
+            return _unsafe_target("bibliography auto-export changed while being read")
+        with os.fdopen(descriptor, "rb") as export:
             descriptor = None
-            text = export.read()
-    except (OSError, UnicodeError) as error:
-        return _TargetState(
-            Result.UNREACHABLE, f"bibliography auto-export unreadable: {error}"
-        )
+            snapshot = export.read()
     finally:
         if descriptor is not None:
             os.close(descriptor)
+        os.close(parent_fd)
 
     try:
-        fingerprint = _fingerprint(json.loads(text))
+        fingerprint = _fingerprint(json.loads(snapshot.decode("utf-8")))
+    except UnicodeError as error:
+        return _TargetState(
+            Result.UNREACHABLE,
+            f"bibliography auto-export unreadable: {error}",
+        )
     except (TypeError, ValueError):
         return _TargetState(
             Result.UNMATCHED,
             "bibliography auto-export has invalid JSON or schema",
         )
     return _TargetState(
-        Result.MATCHED, "bibliography auto-export is valid", fingerprint
+        Result.MATCHED,
+        "bibliography auto-export is valid",
+        fingerprint,
+        snapshot,
     )
 
 
@@ -223,25 +395,32 @@ def _compare_target(state: _TargetState, evidence) -> _TargetState:
             Result.UNMATCHED,
             "bibliography auto-export does not match on-demand export",
             state.fingerprint,
+            state.snapshot,
+            state.contained,
         )
     return _TargetState(
         Result.MATCHED,
         "bibliography auto-export matches on-demand export",
         state.fingerprint,
+        state.snapshot,
+        state.contained,
     )
 
 
-def _poll_window(vault_root, evidence, settle_seconds, poll_interval, clock, sleeper):
+def _poll_window(boundary, evidence, settle_seconds, poll_interval, clock, sleeper):
     deadline = clock() + max(0, settle_seconds)
     while True:
         remaining = deadline - clock()
         if remaining <= 0:
-            return _compare_target(_target_state(vault_root), evidence)
+            return _compare_target(_target_state(boundary), evidence)
         sleeper(min(poll_interval, remaining))
         if clock() >= deadline:
-            return _compare_target(_target_state(vault_root), evidence)
-        compared = _compare_target(_target_state(vault_root), evidence)
-        if compared.result in {Result.MATCHED, Result.UNREACHABLE}:
+            return _compare_target(_target_state(boundary), evidence)
+        compared = _compare_target(_target_state(boundary), evidence)
+        if not compared.contained or compared.result in {
+            Result.MATCHED,
+            Result.UNREACHABLE,
+        }:
             return compared
 
 
@@ -250,12 +429,18 @@ def _observation(state: _TargetState) -> AutoexportObservation:
 
 
 def _committed_state(vault_root, evidence) -> _TargetState:
-    committed = subprocess.run(
-        ["git", "show", f"HEAD:{BIB_PATH}"],
-        cwd=vault_root,
-        check=False,
-        capture_output=True,
-    )
+    try:
+        committed = subprocess.run(
+            ["git", "show", f"HEAD:{BIB_PATH}"],
+            cwd=vault_root,
+            check=False,
+            capture_output=True,
+        )
+    except OSError as error:
+        return _TargetState(
+            Result.UNREACHABLE,
+            f"committed bibliography is unreadable: {error}",
+        )
     if committed.returncode != 0:
         return _TargetState(
             Result.UNREACHABLE, "committed bibliography cannot be read from HEAD"
@@ -299,7 +484,13 @@ def observe_autoexport(
     clock = time.monotonic if monotonic is None else monotonic
     sleeper = time.sleep if sleep is None else sleep
 
-    captured = _target_state(vault_root)
+    try:
+        boundary = _pin_target_boundary(vault_root)
+    except OSError as error:
+        boundary = None
+        captured = _unsafe_target(f"unsafe vault-to-bibliography path: {error}")
+    else:
+        captured = _target_state(boundary)
     try:
         evidence = _fingerprint(client.export_csl(None))
     except ZoteroError as error:
@@ -310,50 +501,60 @@ def observe_autoexport(
             Result.UNREACHABLE, f"malformed on-demand export: {error}"
         )
         return _observation(failed)
+    if boundary is None or not captured.contained:
+        return _observation(captured)
     if captured.result is Result.UNREACHABLE:
         return _observation(captured)
 
     compared = _compare_target(captured, evidence)
     if compared.result is not Result.MATCHED:
         compared = _poll_window(
-            vault_root,
+            boundary,
             evidence,
             settle_seconds,
             poll_interval,
             clock,
             sleeper,
         )
-    if compared.result is Result.UNREACHABLE:
+    if not compared.contained or compared.result is Result.UNREACHABLE:
         return _observation(compared)
     if compared.result is not Result.MATCHED:
+        guard = _target_state(boundary)
+        if not guard.contained or guard.result is Result.UNREACHABLE:
+            return _observation(guard)
         try:
-            client.register_autoexport(str(_path(vault_root)))
+            client.register_autoexport(str(boundary.target))
         except ZoteroError as error:
             failed = _TargetState(error.result, str(error))
             return _observation(failed)
         compared = _poll_window(
-            vault_root,
+            boundary,
             evidence,
             settle_seconds,
             poll_interval,
             clock,
             sleeper,
         )
-    if compared.result is not Result.MATCHED:
+    if not compared.contained or compared.result is not Result.MATCHED:
         return _observation(compared)
 
+    snapshot = compared.snapshot
+    assert snapshot is not None
     try:
-        commit_autoexport(vault_root)
+        commit_autoexport(boundary.vault, snapshot, _boundary=boundary)
+    except _ContainmentError as error:
+        return _observation(_unsafe_target(str(error)))
     except (OSError, subprocess.SubprocessError) as error:
-        failed = _TargetState(
-            Result.UNREACHABLE, f"bibliography commit failed: {error}"
+        final = _compare_target(_target_state(boundary), evidence)
+        return AutoexportObservation(
+            Result.UNREACHABLE,
+            f"bibliography commit failed: {error}",
+            final.result,
+            final.detail,
         )
-        return _observation(failed)
 
-    # `git commit --only -- path` rereads the worktree. Re-observe so a genuine
-    # BBT rewrite racing bookkeeping can never be reported as the validated state.
-    final = _compare_target(_target_state(vault_root), evidence)
-    committed = _committed_state(vault_root, evidence)
+    final = _compare_target(_target_state(boundary), evidence)
+    committed = _committed_state(boundary.vault, evidence)
     if committed.result is not Result.MATCHED:
         return AutoexportObservation(
             committed.result,

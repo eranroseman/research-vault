@@ -50,10 +50,17 @@ def test_commit_autoexport_then_load_without_rewriting_bbt_bytes(tmp_vault):
     bbt_bytes = b'[ { "title": "Mortality decline", "id": "smith2020" }, { "id": "jones2021", "title": "Replication study" } ]\n'
     target.write_bytes(bbt_bytes)
 
-    changed = bibliography.commit_autoexport(tmp_vault)
+    changed = bibliography.commit_autoexport(tmp_vault, bbt_bytes)
 
     assert changed is True
     assert target.read_bytes() == bbt_bytes
+    committed = subprocess.run(
+        ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    assert committed == bbt_bytes
     bib = bibliography.load(tmp_vault)
     assert bib.citekeys == {"smith2020", "jones2021"}
     assert bib.entry("smith2020")["title"] == "Mortality decline"
@@ -66,8 +73,9 @@ def test_commit_autoexport_then_load_without_rewriting_bbt_bytes(tmp_vault):
 def test_commit_autoexport_is_idempotent(tmp_vault):
     target = tmp_vault / bibliography.BIB_PATH
     target.write_text(json.dumps(ITEMS))
-    assert bibliography.commit_autoexport(tmp_vault) is True
-    assert bibliography.commit_autoexport(tmp_vault) is False
+    snapshot = target.read_bytes()
+    assert bibliography.commit_autoexport(tmp_vault, snapshot) is True
+    assert bibliography.commit_autoexport(tmp_vault, snapshot) is False
 
 
 def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault):
@@ -103,7 +111,12 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
         capture_output=True,
     ).stdout
 
-    assert bibliography.commit_autoexport(tmp_vault) is True
+    assert (
+        bibliography.commit_autoexport(
+            tmp_vault, (tmp_vault / bibliography.BIB_PATH).read_bytes()
+        )
+        is True
+    )
 
     committed_paths = subprocess.run(
         ["git", "show", "--pretty=format:", "--name-only", "HEAD"],
@@ -142,11 +155,12 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
     assert status_after.splitlines() == unrelated_before
 
 
-def test_commit_autoexport_uses_exact_no_verify_target_only_commit(
+def test_commit_autoexport_uses_snapshot_plumbing_not_live_index_or_target(
     tmp_vault, monkeypatch
 ):
     target = tmp_vault / bibliography.BIB_PATH
-    target.write_text("[]")
+    snapshot = b'[{"id":"validated","title":"Validated"}]\n'
+    target.write_bytes(snapshot)
     calls = []
     real_run = subprocess.run
 
@@ -156,18 +170,159 @@ def test_commit_autoexport_uses_exact_no_verify_target_only_commit(
 
     monkeypatch.setattr(bibliography.subprocess, "run", recording_run)
 
-    assert bibliography.commit_autoexport(tmp_vault) is True
-    assert [
-        "git",
-        "commit",
-        "-q",
-        "--no-verify",
-        "--only",
-        "-m",
-        "chore: bibliography export",
-        "--",
-        bibliography.BIB_PATH,
-    ] in calls
+    assert bibliography.commit_autoexport(tmp_vault, snapshot) is True
+    commands = [command[:2] for command in calls]
+    assert ["git", "hash-object"] in commands
+    assert ["git", "read-tree"] in commands
+    assert ["git", "update-index"] in commands
+    assert ["git", "write-tree"] in commands
+    assert ["git", "commit-tree"] in commands
+    assert ["git", "update-ref"] in commands
+    assert not any(
+        command[:2] in (["git", "add"], ["git", "commit"]) for command in calls
+    )
+
+
+def test_commit_autoexport_commits_validated_snapshot_not_later_target_bytes(tmp_vault):
+    target = tmp_vault / bibliography.BIB_PATH
+    validated = b'[{"id":"validated","title":"Validated"}]\n'
+    later = b'[{"id":"later","title":"Later"}]\n'
+    target.write_bytes(later)
+
+    assert bibliography.commit_autoexport(tmp_vault, validated) is True
+
+    assert target.read_bytes() == later
+    assert (
+        subprocess.run(
+            ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == validated
+    )
+    assert (
+        subprocess.run(
+            ["git", "show", f":{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == validated
+    )
+    assert (
+        subprocess.run(
+            ["git", "status", "--porcelain=v1", "--", bibliography.BIB_PATH],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == b" M x/bibliography.json\n"
+    )
+
+
+def test_commit_autoexport_unborn_repo_preserves_live_index_and_commits_only_snapshot(
+    tmp_vault,
+):
+    staged = tmp_vault / "staged.txt"
+    staged.write_bytes(b"staged bytes\n")
+    subprocess.run(["git", "add", "--", "staged.txt"], cwd=tmp_vault, check=True)
+    index_before = subprocess.run(
+        ["git", "diff", "--cached", "--binary"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    snapshot = b'[{"id":"validated","title":"Validated"}]\n'
+
+    assert bibliography.commit_autoexport(tmp_vault, snapshot) is True
+
+    assert subprocess.run(
+        ["git", "show", "--pretty=format:", "--name-only", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines() == [bibliography.BIB_PATH]
+    assert (
+        subprocess.run(
+            ["git", "diff", "--cached", "--binary"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == index_before
+    )
+    assert (
+        subprocess.run(
+            ["git", "show", f":{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == snapshot
+    )
+    assert staged.read_bytes() == b"staged bytes\n"
+
+
+def test_commit_autoexport_head_cas_never_overwrites_concurrent_commit(
+    tmp_vault, monkeypatch
+):
+    baseline = tmp_vault / "baseline.txt"
+    baseline.write_text("baseline\n")
+    subprocess.run(["git", "add", "baseline.txt"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    expected_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    snapshot = b'[{"id":"validated","title":"Validated"}]\n'
+    real_run = subprocess.run
+    concurrent = []
+
+    def race_update_ref(command, *args, **kwargs):
+        if command[:3] == ["git", "update-ref", "HEAD"] and not concurrent:
+            tree = real_run(
+                ["git", "rev-parse", "HEAD^{tree}"],
+                cwd=tmp_vault,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            commit = real_run(
+                ["git", "commit-tree", tree, "-p", expected_head],
+                cwd=tmp_vault,
+                check=True,
+                input="concurrent human commit\n",
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            real_run(
+                ["git", "update-ref", "HEAD", commit, expected_head],
+                cwd=tmp_vault,
+                check=True,
+            )
+            concurrent.append(commit)
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(bibliography.subprocess, "run", race_update_ref)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        bibliography.commit_autoexport(tmp_vault, snapshot)
+
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        == concurrent[0]
+    )
 
 
 def test_staleness_matched(tmp_vault):
@@ -399,6 +554,26 @@ def test_observe_registers_once_then_accepts_output_in_second_window(tmp_vault):
     assert getattr(client, "registered", []) == [str(target)]
 
 
+def test_observe_registers_one_lexically_absolute_target_from_relative_vault(
+    tmp_vault, monkeypatch
+):
+    monkeypatch.chdir(tmp_vault.parent)
+    relative_vault = Path(tmp_vault.name)
+    target = tmp_vault / bibliography.BIB_PATH
+
+    class RegisteringClient(StubClient):
+        def register_autoexport(self, registered_target):
+            self.registered = [registered_target]
+            Path(registered_target).write_text(json.dumps(ITEMS))
+            return {"ok": True}
+
+    client = RegisteringClient(ITEMS)
+    observed = _observe(relative_vault, client, FakeClock(), settle_seconds=0)
+
+    assert observed.result is Result.MATCHED
+    assert client.registered == [str(target.absolute())]
+
+
 @pytest.mark.parametrize(
     "target_setup",
     [
@@ -425,7 +600,7 @@ def test_observe_target_io_failure_is_unreachable(tmp_vault, monkeypatch):
     real_open = bibliography.os.open
 
     def fail_target(path, *args, **kwargs):
-        if path == target:
+        if path == target.name and kwargs.get("dir_fd") is not None:
             raise PermissionError("denied")
         return real_open(path, *args, **kwargs)
 
@@ -451,7 +626,7 @@ def test_observe_fetches_fresh_evidence_once_even_when_target_read_fails(
         return original_export(citekeys)
 
     def fail_target(path, *args, **kwargs):
-        if path == target:
+        if path == target.name and kwargs.get("dir_fd") is not None:
             raise PermissionError("denied")
         return real_open(path, *args, **kwargs)
 
@@ -527,31 +702,171 @@ def test_observe_rejects_symlinked_target_or_parent(tmp_vault, tmp_path, link_ki
         target.parent.rmdir()
         target.parent.symlink_to(outside, target_is_directory=True)
 
-    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock(), settle_seconds=0)
+    client = StubClient(ITEMS)
+    observed = _observe(tmp_vault, client, FakeClock(), settle_seconds=0)
 
     assert observed.result is Result.UNMATCHED
     assert observed.staleness is Result.UNMATCHED
+    assert getattr(client, "registered", []) == []
 
 
-def test_observe_checks_committed_head_after_target_races_back_to_match(
+@pytest.mark.parametrize("link_level", ["vault", "earlier-ancestor"])
+def test_observe_rejects_symlink_anywhere_in_absolute_vault_chain_without_mutation(
+    tmp_vault, tmp_path, link_level
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(ITEMS))
+    if link_level == "vault":
+        linked_vault = tmp_path / "linked-vault"
+        linked_vault.symlink_to(tmp_vault, target_is_directory=True)
+    else:
+        linked_parent = tmp_path / "linked-parent"
+        linked_parent.symlink_to(tmp_vault.parent, target_is_directory=True)
+        linked_vault = linked_parent / tmp_vault.name
+    client = StubClient(ITEMS)
+
+    observed = _observe(linked_vault, client, FakeClock(), settle_seconds=0)
+
+    assert observed.result is Result.UNMATCHED
+    assert getattr(client, "registered", []) == []
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=tmp_vault,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
+
+
+def test_observe_parent_replacement_during_window_never_registers_or_commits(
+    tmp_vault,
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text("[]")
+    original_parent = target.parent
+    moved_parent = tmp_vault / "x-original"
+
+    def replace_parent(sleep_number, now):
+        if sleep_number == 1:
+            original_parent.rename(moved_parent)
+            original_parent.mkdir()
+            target.write_text(json.dumps(ITEMS))
+
+    client = StubClient(ITEMS)
+    observed = _observe(
+        tmp_vault,
+        client,
+        FakeClock(replace_parent),
+        settle_seconds=1,
+    )
+
+    assert observed.result is Result.UNMATCHED
+    assert getattr(client, "registered", []) == []
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=tmp_vault,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
+
+
+def test_observe_parent_replacement_at_commit_boundary_never_mutates_git(
     tmp_vault, monkeypatch
 ):
     target = tmp_vault / bibliography.BIB_PATH
     target.write_text(json.dumps(ITEMS))
+    original_parent = target.parent
+    moved_parent = tmp_vault / "x-original"
     original_commit = bibliography.commit_autoexport
 
-    def raced_commit(vault):
+    def replace_then_commit(vault, snapshot, **kwargs):
+        original_parent.rename(moved_parent)
+        original_parent.mkdir()
+        target.write_bytes(snapshot)
+        return original_commit(vault, snapshot, **kwargs)
+
+    monkeypatch.setattr(bibliography, "commit_autoexport", replace_then_commit)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
+
+    assert observed.result is Result.UNMATCHED
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=tmp_vault,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
+
+
+@pytest.mark.parametrize(
+    "change_target", [False, True], ids=["final-match", "final-change"]
+)
+def test_observe_commit_failure_preserves_cached_final_staleness(
+    tmp_vault, monkeypatch, change_target
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(ITEMS))
+
+    def fail_commit(*args, **kwargs):
+        if change_target:
+            target.write_text('[{"id":"changed","title":"Changed"}]')
+        raise OSError("commit unavailable")
+
+    monkeypatch.setattr(bibliography, "commit_autoexport", fail_commit)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
+
+    assert observed.result is Result.UNREACHABLE
+    assert observed.staleness is (Result.UNMATCHED if change_target else Result.MATCHED)
+
+
+def test_observe_post_commit_git_read_oserror_is_unreachable_with_cached_staleness(
+    tmp_vault, monkeypatch
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(ITEMS))
+    real_run = bibliography.subprocess.run
+    monkeypatch.setattr(bibliography, "commit_autoexport", lambda *a, **k: True)
+
+    def fail_head_read(command, *args, **kwargs):
+        if command[:2] == ["git", "show"] and command[-1] == (
+            f"HEAD:{bibliography.BIB_PATH}"
+        ):
+            raise OSError("git unavailable")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(bibliography.subprocess, "run", fail_head_read)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
+
+    assert observed.result is Result.UNREACHABLE
+    assert observed.staleness is Result.MATCHED
+    assert "git unavailable" in observed.detail
+
+
+def test_observe_commits_validated_snapshot_when_target_changes_before_commit(
+    tmp_vault, monkeypatch
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    validated = json.dumps(ITEMS).encode()
+    target.write_bytes(validated)
+    original_commit = bibliography.commit_autoexport
+
+    def raced_commit(vault, snapshot, **kwargs):
         target.write_text('[{"id":"raced","title":"Raced"}]')
-        committed = original_commit(vault)
-        target.write_text(json.dumps(ITEMS))
-        return committed
+        return original_commit(vault, snapshot, **kwargs)
 
     monkeypatch.setattr(bibliography, "commit_autoexport", raced_commit)
 
     observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
 
     assert observed.result is Result.UNMATCHED
-    assert observed.staleness is Result.MATCHED
+    assert observed.staleness is Result.UNMATCHED
     committed = subprocess.run(
         ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
         cwd=tmp_vault,
@@ -559,4 +874,5 @@ def test_observe_checks_committed_head_after_target_races_back_to_match(
         text=True,
         capture_output=True,
     ).stdout
-    assert json.loads(committed)[0]["id"] == "raced"
+    assert committed.encode() == validated
+    assert json.loads(target.read_text())[0]["id"] == "raced"
