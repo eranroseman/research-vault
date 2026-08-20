@@ -16,12 +16,6 @@ class FakeResponse(io.BytesIO):
         super().__init__(encoded)
         self.status = status
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
 
 class UnreadableHtmlResponse:
     status = 200
@@ -36,14 +30,6 @@ class UnreadableHtmlResponse:
         raise AssertionError("status-only requests must not read HTML bodies")
 
 
-@pytest.fixture
-def vault_with_mailto(fixture_vault):
-    config_dir = fixture_vault / ".harness"
-    config_dir.mkdir(exist_ok=True)
-    (config_dir / "machine.json").write_text('{"mailto": "eran@example.edu"}')
-    return fixture_vault
-
-
 def test_mailto_requires_a_machine_or_environment_value(fixture_vault, monkeypatch):
     monkeypatch.delenv("HARNESS_MAILTO", raising=False)
 
@@ -51,19 +37,19 @@ def test_mailto_requires_a_machine_or_environment_value(fixture_vault, monkeypat
         webapi.mailto(fixture_vault)
 
 
-def test_get_json_returns_the_actual_success_status(vault_with_mailto, monkeypatch):
+def test_get_json_returns_the_actual_success_status(net_vault, monkeypatch):
     monkeypatch.setattr(
         webapi, "_urlopen", lambda request, timeout: FakeResponse({"ok": True}, 201)
     )
 
-    status, data = webapi.get_json("https://api.example.test/record", vault_with_mailto)
+    status, data = webapi.get_json("https://api.example.test/record", net_vault)
 
     assert status == 201
     assert data == {"ok": True}
 
 
 def test_get_json_merges_query_and_fragment_with_one_canonical_mailto(
-    vault_with_mailto, monkeypatch
+    net_vault, monkeypatch
 ):
     seen = {}
 
@@ -78,7 +64,7 @@ def test_get_json_merges_query_and_fragment_with_one_canonical_mailto(
 
     webapi.get_json(
         "https://api.example.test/record?existing=value&rows=prior&mailto=wrong@example.test#part",
-        vault_with_mailto,
+        net_vault,
         params={"rows": "20", "mailto": "caller@example.test"},
         headers={"Accept": "application/json", "User-Agent": "not-canonical"},
     )
@@ -98,7 +84,7 @@ def test_get_json_merges_query_and_fragment_with_one_canonical_mailto(
     assert seen["accept"] == "application/json"
 
 
-def test_malformed_json_is_unreachable(vault_with_mailto, monkeypatch):
+def test_malformed_json_is_unreachable(net_vault, monkeypatch):
     monkeypatch.setattr(
         webapi,
         "_urlopen",
@@ -106,12 +92,12 @@ def test_malformed_json_is_unreachable(vault_with_mailto, monkeypatch):
     )
 
     with pytest.raises(webapi.ApiError) as error:
-        webapi.get_json("https://api.example.test/record", vault_with_mailto)
+        webapi.get_json("https://api.example.test/record", net_vault)
 
     assert error.value.result is Result.UNREACHABLE
 
 
-def test_get_json_returns_none_for_404(vault_with_mailto, monkeypatch):
+def test_get_json_returns_none_for_404(net_vault, monkeypatch):
     def fake_urlopen(request, timeout):
         raise urllib.error.HTTPError(
             request.full_url, 404, "not found", {}, io.BytesIO()
@@ -119,13 +105,13 @@ def test_get_json_returns_none_for_404(vault_with_mailto, monkeypatch):
 
     monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
 
-    status, data = webapi.get_json("https://api.example.test/record", vault_with_mailto)
+    status, data = webapi.get_json("https://api.example.test/record", net_vault)
 
     assert status == 404
     assert data is None
 
 
-def test_get_status_accepts_an_html_success_response(vault_with_mailto, monkeypatch):
+def test_get_status_accepts_an_html_success_response(net_vault, monkeypatch):
     seen = {}
 
     def fake_urlopen(request, timeout):
@@ -138,13 +124,13 @@ def test_get_status_accepts_an_html_success_response(vault_with_mailto, monkeypa
         fake_urlopen,
     )
 
-    status = webapi.get_status("https://archive.example.test/record", vault_with_mailto)
+    status = webapi.get_status("https://archive.example.test/record", net_vault)
 
     assert status == 200
     assert seen["method"] == "HEAD"
 
 
-def test_get_status_returns_404(vault_with_mailto, monkeypatch):
+def test_get_status_returns_404(net_vault, monkeypatch):
     methods = []
 
     def fake_urlopen(request, timeout):
@@ -157,14 +143,14 @@ def test_get_status_returns_404(vault_with_mailto, monkeypatch):
 
     monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
 
-    status = webapi.get_status("https://archive.example.test/record", vault_with_mailto)
+    status = webapi.get_status("https://archive.example.test/record", net_vault)
 
     assert status == 404
     assert methods == ["HEAD"]
 
 
 def test_get_status_retries_method_rejected_head_with_an_undecoded_get(
-    vault_with_mailto, monkeypatch
+    net_vault, monkeypatch
 ):
     calls = []
 
@@ -180,7 +166,7 @@ def test_get_status_retries_method_rejected_head_with_an_undecoded_get(
 
     status = webapi.get_status(
         "https://archive.example.test/record?existing=value#archive",
-        vault_with_mailto,
+        net_vault,
     )
 
     assert status == 200
@@ -192,7 +178,7 @@ def test_get_status_retries_method_rejected_head_with_an_undecoded_get(
 
 
 def test_get_status_raises_api_error_when_the_get_fallback_fails(
-    vault_with_mailto, monkeypatch
+    net_vault, monkeypatch
 ):
     methods = []
 
@@ -209,14 +195,14 @@ def test_get_status_raises_api_error_when_the_get_fallback_fails(
     monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
 
     with pytest.raises(webapi.ApiError) as error:
-        webapi.get_status("https://archive.example.test/record", vault_with_mailto)
+        webapi.get_status("https://archive.example.test/record", net_vault)
 
     assert error.value.result is Result.UNREACHABLE
     assert methods == ["HEAD", "GET"]
 
 
 def test_get_status_raises_api_error_when_the_get_fallback_is_unreachable(
-    vault_with_mailto, monkeypatch
+    net_vault, monkeypatch
 ):
     methods = []
 
@@ -231,13 +217,13 @@ def test_get_status_raises_api_error_when_the_get_fallback_is_unreachable(
     monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
 
     with pytest.raises(webapi.ApiError) as error:
-        webapi.get_status("https://archive.example.test/record", vault_with_mailto)
+        webapi.get_status("https://archive.example.test/record", net_vault)
 
     assert error.value.result is Result.UNREACHABLE
     assert methods == ["HEAD", "GET"]
 
 
-def test_network_outage_is_unreachable(vault_with_mailto, monkeypatch):
+def test_network_outage_is_unreachable(net_vault, monkeypatch):
     monkeypatch.setattr(
         webapi,
         "_urlopen",
@@ -245,7 +231,7 @@ def test_network_outage_is_unreachable(vault_with_mailto, monkeypatch):
     )
 
     with pytest.raises(webapi.ApiError) as error:
-        webapi.get_json("https://api.example.test/record", vault_with_mailto)
+        webapi.get_json("https://api.example.test/record", net_vault)
 
     assert error.value.result is Result.UNREACHABLE
 
@@ -262,20 +248,20 @@ def test_malformed_machine_config_is_an_api_error(fixture_vault, monkeypatch):
     assert error.value.result is Result.UNREACHABLE
 
 
-def test_get_text_returns_strict_utf8_primary_contract(vault_with_mailto, monkeypatch):
+def test_get_text_returns_strict_utf8_primary_contract(net_vault, monkeypatch):
     monkeypatch.setattr(
         webapi,
         "_urlopen",
         lambda request, timeout: FakeResponse(b"<feed>ok</feed>"),
     )
 
-    assert webapi.get_text("https://export.arxiv.org/api/query", vault_with_mailto) == (
+    assert webapi.get_text("https://export.arxiv.org/api/query", net_vault) == (
         200,
         "<feed>ok</feed>",
     )
 
 
-def test_get_text_rejects_undecodable_primary_contract(vault_with_mailto, monkeypatch):
+def test_get_text_rejects_undecodable_primary_contract(net_vault, monkeypatch):
     monkeypatch.setattr(
         webapi,
         "_urlopen",
@@ -283,4 +269,4 @@ def test_get_text_rejects_undecodable_primary_contract(vault_with_mailto, monkey
     )
 
     with pytest.raises(webapi.ApiError, match="undecodable"):
-        webapi.get_text("https://export.arxiv.org/api/query", vault_with_mailto)
+        webapi.get_text("https://export.arxiv.org/api/query", net_vault)

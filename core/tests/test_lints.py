@@ -3,13 +3,6 @@ import subprocess
 from harness_core import Result, lints
 
 
-def _write_published(draft):
-    draft.write_text(
-        draft.read_text().replace('status: "drafting"', 'status: "published"')
-        + "\nnew paragraph after publishing\n"
-    )
-
-
 def test_all_clean_on_fixture(fixture_vault):
     assert lints.lint_append_only(fixture_vault) == []
     assert lints.lint_claim_immutability(fixture_vault) == []
@@ -305,7 +298,10 @@ def test_published_drift_includes_untracked_files(fixture_vault):
         ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
     )
     draft = fixture_vault / "efforts" / "brief" / "draft.md"
-    _write_published(draft)
+    draft.write_text(
+        draft.read_text().replace('status: "drafting"', 'status: "published"')
+        + "\nnew paragraph after publishing\n"
+    )
     (draft.parent / "untracked.md").write_text("new material\n")
 
     outs = lints.lint_published_drift(fixture_vault)
