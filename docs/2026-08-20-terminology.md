@@ -13,6 +13,8 @@ Consolidated record, 2026-08-20 (merges and supersedes the same-day `terminology
 
 No class binding ⇒ the precedence order's term is adopted. Taste never justifies deviation.
 
+**The cost model governs decisions, not just names** (author correction — third instance of the settled/sunk-cost error class): pre-first-vault, ANY prior ruling reverses at churn cost unless a real cost class binds. Precedent is information, never constraint — citing a prior ruling is an input to re-deriving from current facts, not a reason by itself. This is pre-alpha: everything is ten minutes away from different.
+
 ## 2. Precedence order for anchor sources (RULED)
 
 **Seven tiers, ordered by the cost of contradiction, evaluated per surface** — a lower tier can win only on a surface the higher tiers are silent about.
