@@ -1,0 +1,6 @@
+views:
+  - type: table
+    name: Trust tier
+filters:
+  and:
+    - 'type == "literature"'
