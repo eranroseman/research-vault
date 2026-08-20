@@ -79,11 +79,17 @@ def test_commit_autoexport_is_idempotent(tmp_vault):
 
 
 def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_bytes(b'[{"id":"baseline","title":"Baseline"}]\n')
     unstaged = tmp_vault / "unstaged.txt"
     unstaged.write_bytes(b"baseline\n")
     untracked = tmp_vault / "untracked.txt"
     untracked.write_bytes(b"untracked bytes\n")
-    subprocess.run(["git", "add", "unstaged.txt"], cwd=tmp_vault, check=True)
+    subprocess.run(
+        ["git", "add", "unstaged.txt", bibliography.BIB_PATH],
+        cwd=tmp_vault,
+        check=True,
+    )
     subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
     unstaged.write_bytes(b"unstaged bytes\n")
     sentinel = tmp_vault / "sentinel.txt"
@@ -101,9 +107,7 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
         check=True,
         capture_output=True,
     ).stdout
-    (tmp_vault / bibliography.BIB_PATH).write_bytes(
-        b'[{"title":"Mortality decline","id":"smith2020"}]\n'
-    )
+    target.write_bytes(b'[{"title":"Mortality decline","id":"smith2020"}]\n')
     status_before = subprocess.run(
         ["git", "status", "--porcelain=v1"],
         cwd=tmp_vault,
@@ -111,12 +115,7 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
         capture_output=True,
     ).stdout
 
-    assert (
-        bibliography.commit_autoexport(
-            tmp_vault, (tmp_vault / bibliography.BIB_PATH).read_bytes()
-        )
-        is True
-    )
+    assert bibliography.commit_autoexport(tmp_vault, target.read_bytes()) is True
 
     committed_paths = subprocess.run(
         ["git", "show", "--pretty=format:", "--name-only", "HEAD"],
@@ -141,6 +140,15 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
     assert committed_paths == [bibliography.BIB_PATH]
     assert staged_blob_after == staged_blob_before == sentinel.read_bytes()
     assert staged_diff_after == staged_diff_before
+    assert (
+        subprocess.run(
+            ["git", "show", f":{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == target.read_bytes()
+    )
     assert unstaged.read_bytes() == b"unstaged bytes\n"
     assert untracked.read_bytes() == b"untracked bytes\n"
     status_after = subprocess.run(
@@ -150,9 +158,183 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
         capture_output=True,
     ).stdout
     unrelated_before = [
-        line for line in status_before.splitlines() if not line.endswith(b" x/")
+        line
+        for line in status_before.splitlines()
+        if not line.endswith(b" x/bibliography.json")
     ]
     assert status_after.splitlines() == unrelated_before
+
+
+def test_commit_autoexport_rejects_preexisting_staged_bibliography_intent(
+    tmp_vault,
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_bytes(b'[{"id":"baseline","title":"Baseline"}]\n')
+    subprocess.run(
+        ["git", "add", "--", bibliography.BIB_PATH], cwd=tmp_vault, check=True
+    )
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    target.write_bytes(b'[{"id":"staged","title":"User staged"}]\n')
+    subprocess.run(
+        ["git", "add", "--", bibliography.BIB_PATH], cwd=tmp_vault, check=True
+    )
+    target.write_bytes(b'[{"id":"worktree","title":"User worktree"}]\n')
+    head_before = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    index_path = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--git-path", "index"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    if not index_path.is_absolute():
+        index_path = tmp_vault / index_path
+    status_before = subprocess.run(
+        ["git", "status", "--porcelain=v1"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    index_before = index_path.read_bytes()
+    worktree_before = target.read_bytes()
+
+    with pytest.raises(OSError, match="live index bibliography") as caught:
+        bibliography.commit_autoexport(
+            tmp_vault, b'[{"id":"validated","title":"Validated"}]\n'
+        )
+
+    assert "index" in str(caught.value)
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        == head_before
+    )
+    assert index_path.read_bytes() == index_before
+    assert target.read_bytes() == worktree_before
+    assert (
+        subprocess.run(
+            ["git", "status", "--porcelain=v1"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == status_before
+    )
+
+
+def test_commit_autoexport_preserves_concurrent_bibliography_index_update(
+    tmp_vault, monkeypatch
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_bytes(b'[{"id":"baseline","title":"Baseline"}]\n')
+    subprocess.run(
+        ["git", "add", "--", bibliography.BIB_PATH], cwd=tmp_vault, check=True
+    )
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    expected_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    concurrent = b'[{"id":"concurrent","title":"Concurrent stage"}]\n'
+    real_run = subprocess.run
+    staged = []
+
+    def stage_before_index_lock(command, *args, **kwargs):
+        if command == ["git", "rev-parse", "--git-path", "index"] and not staged:
+            target.write_bytes(concurrent)
+            real_run(
+                ["git", "add", "--", bibliography.BIB_PATH],
+                cwd=tmp_vault,
+                check=True,
+            )
+            staged.append(True)
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(bibliography.subprocess, "run", stage_before_index_lock)
+
+    with pytest.raises(OSError, match="live index bibliography"):
+        bibliography.commit_autoexport(
+            tmp_vault, b'[{"id":"validated","title":"Validated"}]\n'
+        )
+
+    assert staged == [True]
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        == expected_head
+    )
+    assert (
+        subprocess.run(
+            ["git", "show", f":{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == concurrent
+    )
+    assert target.read_bytes() == concurrent
+
+
+def test_commit_autoexport_holds_live_index_lock_through_head_cas(
+    tmp_vault, monkeypatch
+):
+    index_path = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--git-path", "index"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    if not index_path.is_absolute():
+        index_path = tmp_vault / index_path
+    snapshot = b'[{"id":"validated","title":"Validated"}]\n'
+    real_run = subprocess.run
+    lock_seen = []
+
+    def require_index_lock(command, *args, **kwargs):
+        if command[:3] == ["git", "update-ref", "HEAD"]:
+            lock_seen.append(Path(f"{index_path}.lock").is_file())
+            assert lock_seen[-1]
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(bibliography.subprocess, "run", require_index_lock)
+
+    assert bibliography.commit_autoexport(tmp_vault, snapshot) is True
+
+    assert lock_seen == [True]
+    assert not Path(f"{index_path}.lock").exists()
+    assert (
+        subprocess.run(
+            ["git", "show", f":{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == snapshot
+    )
 
 
 def test_commit_autoexport_uses_snapshot_plumbing_not_live_index_or_target(

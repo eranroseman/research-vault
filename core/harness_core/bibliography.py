@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -58,6 +59,10 @@ class _TargetBoundary(NamedTuple):
 
 class _ContainmentError(OSError):
     """The lexical vault-to-bibliography path no longer names its pinned tree."""
+
+
+class _IndexIntentError(OSError):
+    """The live bibliography index entry contains user staging intent."""
 
 
 def _path(vault_root):
@@ -192,6 +197,59 @@ def _git_output(command, *, vault, env=None, input_bytes=None) -> bytes:
     ).stdout
 
 
+def _head_bibliography_entry(vault: Path, expected_parent: str | None):
+    if expected_parent is None:
+        return None
+    output = _git_output(
+        ["git", "ls-tree", "-z", expected_parent, "--", BIB_PATH], vault=vault
+    )
+    if not output:
+        return None
+    metadata, _path = output.removesuffix(b"\0").split(b"\t", 1)
+    mode, object_type, object_id = metadata.split()
+    return mode, object_type, object_id
+
+
+def _index_bibliography_entry(vault: Path, environment):
+    output = _git_output(
+        ["git", "ls-files", "--stage", "-z", "--", BIB_PATH],
+        vault=vault,
+        env=environment,
+    )
+    records = [record for record in output.split(b"\0") if record]
+    if not records:
+        return None
+    if len(records) != 1:
+        return b"conflict", output, b""
+    metadata, _path = records[0].split(b"\t", 1)
+    mode, object_id, stage = metadata.split()
+    return mode, b"blob" if stage == b"0" else b"conflict", object_id
+
+
+def _acquire_live_index_lock(vault: Path, empty_index: Path):
+    raw_path = (
+        _git_output(["git", "rev-parse", "--git-path", "index"], vault=vault)
+        .decode()
+        .strip()
+    )
+    index_path = Path(raw_path)
+    if not index_path.is_absolute():
+        index_path = vault / index_path
+    lock_path = Path(f"{index_path}.lock")
+    descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    try:
+        source = index_path if index_path.exists() else empty_index
+        with source.open("rb") as current, os.fdopen(descriptor, "wb") as locked:
+            descriptor = None
+            shutil.copyfileobj(current, locked)
+    except BaseException:
+        if descriptor is not None:
+            os.close(descriptor)
+        lock_path.unlink(missing_ok=True)
+        raise
+    return index_path, lock_path
+
+
 def commit_autoexport(
     vault_root, snapshot: bytes, *, _boundary: _TargetBoundary | None = None
 ) -> bool:
@@ -232,9 +290,9 @@ def commit_autoexport(
     expected_old = expected_parent or ("0" * len(blob))
 
     with tempfile.TemporaryDirectory(prefix="harness-bibliography-index-") as tmp:
-        index_path = str(Path(tmp) / "index")
+        tree_index = str(Path(tmp) / "tree-index")
         environment = os.environ.copy()
-        environment["GIT_INDEX_FILE"] = index_path
+        environment["GIT_INDEX_FILE"] = tree_index
         subprocess.run(
             ["git", "read-tree", expected_parent]
             if expected_parent
@@ -274,28 +332,49 @@ def commit_autoexport(
             .decode()
             .strip()
         )
+
+        empty_index = Path(tmp) / "empty-index"
+        empty_environment = os.environ.copy()
+        empty_environment["GIT_INDEX_FILE"] = str(empty_index)
         subprocess.run(
-            ["git", "update-ref", "HEAD", commit, expected_old],
+            ["git", "read-tree", "--empty"],
             cwd=vault,
+            env=empty_environment,
             check=True,
         )
 
-    # Mirror a normal path-limited commit for the in-scope path only. This
-    # leaves every unrelated index entry intact while making a newer BBT write
-    # visible as an ordinary unstaged bibliography change.
-    subprocess.run(
-        [
-            "git",
-            "update-index",
-            "--add",
-            "--cacheinfo",
-            "100644",
-            blob,
-            BIB_PATH,
-        ],
-        cwd=vault,
-        check=True,
-    )
+        live_index, locked_index = _acquire_live_index_lock(vault, empty_index)
+        try:
+            locked_environment = os.environ.copy()
+            locked_environment["GIT_INDEX_FILE"] = str(locked_index)
+            if _index_bibliography_entry(
+                vault, locked_environment
+            ) != _head_bibliography_entry(vault, expected_parent):
+                raise _IndexIntentError(
+                    "live index bibliography differs from expected HEAD"
+                )
+            subprocess.run(
+                [
+                    "git",
+                    "update-index",
+                    "--add",
+                    "--cacheinfo",
+                    "100644",
+                    blob,
+                    BIB_PATH,
+                ],
+                cwd=vault,
+                env=locked_environment,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "update-ref", "HEAD", commit, expected_old],
+                cwd=vault,
+                check=True,
+            )
+            os.replace(locked_index, live_index)
+        finally:
+            locked_index.unlink(missing_ok=True)
     return True
 
 
