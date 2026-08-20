@@ -33,7 +33,7 @@
 - Modify: `core/pyproject.toml`, `.gitignore`
 
 **Interfaces:**
-- Produces: installable `dev` extra containing `pytest-cov==7.1.0`, `mutate4py==0.1.4`, `crap4py==0.1.1`, `drywall==0.1.3` (later tasks and CI install exactly this).
+- Produces: installable `dev` extra containing `pytest-cov==7.1.0`, `mutate4py==0.1.4`, `crap4py==0.1.1`, `drywall==0.1.3`, `mypy==2.3.1` (later tasks and CI install exactly this).
 
 - [ ] **Step 1: Extend the dev extra** in `core/pyproject.toml`:
 
@@ -45,6 +45,7 @@ dev = [
     "mutate4py==0.1.4",
     "crap4py==0.1.1",
     "drywall==0.1.3",
+    "mypy==2.3.1",
 ]
 ```
 
@@ -60,7 +61,7 @@ core/.contexts.db
 
 - [ ] **Step 3: Install and verify**
 
-Run: `cd core && source .venv/bin/activate && pip install -e ".[dev]" -q && mutate4py --help >/dev/null && crap4py --help >/dev/null && drywall --help >/dev/null && python -c "import pytest_cov" && echo OK`
+Run: `cd core && source .venv/bin/activate && pip install -e ".[dev]" -q && mutate4py --help >/dev/null && crap4py --help >/dev/null && drywall --help >/dev/null && mypy --version >/dev/null && python -c "import pytest_cov" && echo OK`
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
@@ -68,21 +69,23 @@ Expected: `OK`
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 git add core/pyproject.toml .gitignore
-git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py, drywall)"
+git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py, drywall, mypy)"
 ```
 
 ---
 
-### Task 2: Ruff regression rules
+### Task 2: Ruff + mypy regression rules
 
 **Files:**
-- Modify: `core/pyproject.toml` (`[tool.ruff.lint]`), `core/harness_core/__main__.py`, any file the new rules flag, two test files (PLW1510)
+- Modify: `core/pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `core/harness_core/` (lint + type fixes), test files (PLW1510, S108 classification)
 
 **Interfaces:**
 - Consumes: Task 1's installed dev extra.
-- Produces: `ruff check harness_core tests scripts` clean under the extended rule set — Task 4's CI lint step runs exactly this (the `scripts/` package exists from Task 3 onward; until then the path is simply absent and ruff skips it).
+- Produces: `ruff check harness_core tests scripts` and `mypy harness_core` both clean — Task 4's CI runs exactly these (the `scripts/` package exists from Task 3 onward; until then the path is simply absent and ruff skips it).
 
-**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, S110/S112/S602/S604.
+**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683`, stdlib `ElementTree` on registry XML — per-line `noqa: S314` with reason: bandit's fix is defusedxml, but core's zero-runtime-dependency constraint governs; https-only registry feeds; revisit if untrusted XML sources grow). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, and the rest of the S family.
+
+**mypy, pre-measured (default mode, mypy 2.3.1): 10 genuine errors in 7 files** — `frontmatter.py:137` var-annotated + `:141` assignment (`current_list` needs `list[...] | None` typing), `inbox.py:368` var-annotated `entries`, `zotero.py:182` return-value (`object` vs `dict` — narrow with `isinstance`), `checks.py:66` assignment (`str` into a `Path` variable — split the variable), `lints.py:187`/`:440` var-annotated, `lints.py:457` arg-type (`str | None` into `Outcome` — guard before the call), `identify.py:110` var-annotated `identifiers`, plus one index-category error mypy reports in full. `--strict` is 329 (308 of them annotation-presence) — a campaign, deliberately NOT this task; the ratchet path is recorded below.
 
 **Ruling encoded (author-approved 2026-08-20): machine-generated timestamps and dates derive from an explicit timezone-aware UTC clock.** Verified events, `accessed` dates, and update-notice detection dates are bi-temporal records that live forever in git; a naive local clock is a defect class, not a style choice. DTZ enforces this from now on.
 
@@ -106,33 +109,50 @@ extend-select = [
     "PT",
     "PTH",
     "RUF",
-    "S110",
-    "S112",
-    "S602",
-    "S604",
+    "S",
     "SIM",
     "T10",
     "UP",
     "W",
 ]
+ignore = [
+    # Bandit idiom exclusions (recorded 2026-08-20): these fire on this repo's
+    # own architecture, not on findings. Subprocess hygiene is still enforced
+    # by S602/S604 (shell=True) which remain active inside "S".
+    "S310",  # urlopen IS the four-state network layer, https-only
+    "S603",  # fires on every list-form subprocess call (git plumbing is the design)
+    "S607",  # "git" by name, resolved via PATH, is the intended invocation
+]
 # Deliberately NOT selected (recorded 2026-08-20 — do not "fix"):
 #   T20   — print IS the CLI output contract (~18 uses in __main__.py)
-#   C90/PLR complexity — crap4py owns the complexity gate in this lane; no double reporting
+#   C90/PLR complexity — crap4py owns the complexity gate in this lane (risk-weighted,
+#           ratchetable ceiling); a second context-free threshold double-reports
 #   BLE   — the four-state doctrine requires broad catch -> UNREACHABLE in probe
 #           wrappers and fail-open hooks; this rule fights the architecture
-#   ANN/D — typing/docstring enforcement is a separate decision, not a lint line
+#   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
+#   D     — docstrings unenforced by decision: presence/format checks can't verify truth,
+#           and the meaning layer lives in CONTEXT.md/spec; docstrings stay by convention
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cli_live.py" = ["UP012"]
-"tests/*" = ["RUF001", "RUF002", "RUF003"]  # unicode-fixture tests exercise ambiguous chars on purpose
+"tests/*" = ["RUF001", "RUF002", "RUF003", "S101"]  # unicode fixtures deliberate; assert IS pytest
+
+[tool.mypy]
+files = ["harness_core"]
+# Ratchet path (adopt as touched code gets annotated, in this order):
+# check_untyped_defs -> disallow_incomplete_defs -> disallow_untyped_defs
+
+[[tool.mypy.overrides]]
+module = "pypdf.*"
+ignore_missing_imports = true  # optional [pdf] extra; dev lane installs [dev] only
 ```
 
-(RUF100 disappears from the list because the full `RUF` family contains it.)
+(RUF100 disappears because full `RUF` contains it; S101 in production code stays active — 3 core hits become explicit exceptions or fixes.)
 
 - [ ] **Step 2: Run to see the expected failures**
 
-Run: `cd core && source .venv/bin/activate && ruff check harness_core tests --no-cache`
-Expected: the pre-measured violations above (counts may differ at HEAD; every hit gets classified fix-vs-per-file-ignore, nothing blanket-ignored).
+Run: `cd core && source .venv/bin/activate && ruff check harness_core tests --no-cache; mypy harness_core`
+Expected: the pre-measured violations above (counts may differ at HEAD; every hit gets classified fix-vs-noqa-with-reason, nothing blanket-ignored).
 
 - [ ] **Step 3: Fix**
 
@@ -146,18 +166,21 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 - PTH115: `os.readlink(...)` becomes `Path(...).readlink()`.
 - PLW1510: add explicit `check=True` (or `check=False` with a reason) to the two test `subprocess.run` calls.
 - RUF012/RUF013-class hits: annotate mutable class attributes / make `Optional` explicit as reported.
+- S108/S314: classify per the pre-measured notes above (noqa-with-reason where the code is the deliberate design, never blanket ignores).
+- S101 in core (3 hits): replace production `assert` with explicit raises, or noqa-with-reason where it guards an internal invariant.
+- mypy's 10: annotate the six `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
 
 - [ ] **Step 4: Verify clean + suite green**
 
-Run: `ruff check harness_core tests --no-cache && python -m pytest tests -q`
-Expected: `All checks passed!` and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
+Run: `ruff check harness_core tests --no-cache && mypy harness_core && python -m pytest tests -q`
+Expected: `All checks passed!`, `Success: no issues found`, and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 git add core/pyproject.toml core/harness_core core/tests
-git commit -m "lint: extend ruff regression rules (DTZ/UTC ruling, ISC, PLW, RUF, PTH, bandit picks)"
+git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling, 10 type fixes, recorded skips)"
 ```
 
 ---
@@ -497,6 +520,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Lint (ruff)
         run: ruff check harness_core tests scripts
+      - name: Types (mypy)
+        run: mypy harness_core
       - name: Tests + branch coverage
         run: python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
       - name: CRAP ceiling (crap4py)
@@ -512,12 +537,13 @@ jobs:
 ```bash
 cd core && source .venv/bin/activate
 ruff check harness_core tests scripts && echo LINT-OK
+mypy harness_core && echo TYPE-OK
 python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
 crap4py harness_core --lcov lcov.info --max-crap 45 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `LINT-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
@@ -536,7 +562,7 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 
 ### Task 5: Merge
 
-- [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the four gate commands from Task 4 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
+- [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the gate commands from Task 4 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
 - [ ] **Step 2: Merge to main** per `superpowers:finishing-a-development-branch` (merge locally, push, remove worktree, prune).
 - [ ] **Step 3: Post-merge note** — append one line to the "Actionable backlog surfaced" section of `research/code-quality-tools-gabadi.md`: baseline landed, survivor count, and the ratchet reminder (lower `--max-crap` as items 2–3 burn down). Commit as `docs: record quality-lane baseline landing`.
 
