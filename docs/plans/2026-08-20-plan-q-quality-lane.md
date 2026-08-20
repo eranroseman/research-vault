@@ -18,6 +18,7 @@
 - mutate4py always runs with `--manifest-file` (sidecar JSON). The embedded-in-source mode appends a footer to production files — never acceptable in this repo.
 - The lane is **advisory**: the workflow fails visibly but is not a required check (no branch protection exists; do not add any).
 - Live-measured costs to expect (2026-08-20, 4 workers): ~1,250 mutation sites repo-wide; blanket with test-contexts narrowing ~10–15 min; contexts DB build (one isolated coverage session per collected test, 452 tests) ~10–15 min, one-time; full suite 37 s.
+- **Pre-baseline over-engineering pass (author-triaged, outside this plan's tasks):** after Plan T merges and before Task 3's blanket baseline, the author's session runs `/ponytail-audit` (whole-repo over-engineering sweep — delete/stdlib/native/yagni/shrink, ranked report, applies nothing); author-accepted cuts land as one simplification batch **first**, so the mutation manifests hash the simplified tree (same AST-ordering reason ruff fixes precede the baseline). It is LLM judgment — a report for triage, never a CI gate; deterministic-only closure holds.
 - Commit messages conventional; one commit per task.
 
 ## File Structure
@@ -224,6 +225,8 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 **Interfaces:**
 - Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set).
 - Produces: `python scripts/mutation_gate.py --lcov lcov.info` (gate mode, exit 0/1) and `python scripts/mutation_gate.py --update-baseline --lcov lcov.info` (rewrites `mutation-baseline.txt`); baseline line format `<relpath>::<func-id>::<mutation>`; committed sidecar manifests. Task 3's workflow calls the gate mode verbatim.
+
+- [ ] **Step 0: Confirm the pre-baseline ponytail pass has landed** (Global Constraints) — the author-triaged over-engineering cuts are merged, or the author has explicitly waived the pass. Do not build manifests over a tree with pending accepted cuts.
 
 **Design constraints the script encodes (verified live 2026-08-20):**
 - mutate4py exits 0 even when mutants survive → pass/fail must come from parsing the `Survivors:` section.
