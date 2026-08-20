@@ -351,16 +351,6 @@ def _claim_bytes(path, claim_id):
         return None
 
 
-def _line_bytes(path, line_no):
-    try:
-        lines = notes.canonical_content(_read_note_text(path)).splitlines(keepends=True)
-    except (OSError, UnicodeError):
-        return None
-    if not 0 < line_no <= len(lines):
-        return None
-    return lines[line_no - 1].encode()
-
-
 def _append_only_basis(vault_root, target):
     import subprocess
 
@@ -453,7 +443,6 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
     target = outcome.target
     claim_id = None
     origin = _safe_relative(vault_root, outcome.extra.get("note_path"))
-    line_no = outcome.extra.get("line_no")
     if isinstance(target, str) and "#^" in target:
         citekey, claim_id = target.split("#^", 1)
         known_citekey_hash = _citekey_hash(vault_root, citekey)
@@ -506,10 +495,6 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
             data = _head_bytes(vault_root, outcome.extra.get("note_path", ""))
             if data is not None:
                 return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
-        if origin and origin.is_file() and isinstance(line_no, int):
-            data = _line_bytes(origin, line_no)
-            if data is not None:
-                return hashlib.sha256(data).hexdigest()[:16]
         if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
             entry = bibliography.load(vault_root).entry(target)
         elif bibliography_universe is not None:
@@ -760,11 +745,6 @@ def _archive_outcomes(vault_root):
                     checks.Outcome("web-archive", target, Result.MATCHED, "matched")
                 )
     return outcomes
-
-
-def _warning_type(entry):
-    match = re.match(r"warn-notice\s+—\s+(.+)$", entry.reason)
-    return match.group(1) if match else None
 
 
 def _notice_fingerprint(outcome):

@@ -149,11 +149,6 @@ def record_failure(note_text: str, check: str, result: Result) -> str:
     return _replace_frontmatter_list(note_text, FAILURES_FIELD, updated, body)
 
 
-def _replace_verified_events(note_text: str, events: list[dict], body: str) -> str:
-    """Lexically replace only the verifier-owned top-level event list."""
-    return _replace_frontmatter_list(note_text, "verified", events, body)
-
-
 def _replace_frontmatter_list(
     note_text: str, field: str, rows: list[dict], body: str
 ) -> str:
@@ -198,11 +193,6 @@ def _replace_frontmatter_list(
     while end < close and lines[end].startswith("  - "):
         end += 1
     return "".join(lines[:start] + [rendered] + lines[end:])
-
-
-def _render_verified_events(events: list[dict], newline: str) -> str:
-    """Serialize new event rows without touching neighboring frontmatter."""
-    return _render_frontmatter_list("verified", events, newline)
 
 
 def _render_frontmatter_list(field: str, rows: list[dict], newline: str) -> str:
