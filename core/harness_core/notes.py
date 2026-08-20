@@ -1,11 +1,12 @@
 """Literature-note generation: managed region + preserved free region (spec §3–§5)."""
 
+import datetime
 import hashlib
 import unicodedata
 from html import escape
 from pathlib import Path
 
-from . import frontmatter
+from . import AGENT_ACTOR, frontmatter
 
 MANAGED_OPEN = "%%hk-managed%%"
 MANAGED_CLOSE = "%%/hk-managed%%"
@@ -57,16 +58,61 @@ def _split_free(existing) -> str:
 MANAGED_FIELDS = {
     "citekey",
     "type",
-    "attachment-sha256",
+    "fixity-sha256",
     "aliases",
     "doi",
     "url",
     "pmid",
     "version",
+    "accessed",
+    "generated",
 }
 
 
-def render_note(item, attachment_hashes, annotations, existing, retrieved) -> str:
+def _prior_managed_body(existing: str | None) -> str | None:
+    if existing is None:
+        return None
+    try:
+        _, body = frontmatter.parse(existing)
+    except frontmatter.FrontmatterError:
+        return None
+    offset = 0
+    for line in body.splitlines(keepends=True):
+        offset += len(line)
+        if line in {MANAGED_CLOSE, f"{MANAGED_CLOSE}\n", f"{MANAGED_CLOSE}\r\n"}:
+            return body[:offset]
+    return None
+
+
+def _managed_projection(data: dict) -> list[tuple[str, object]]:
+    return [
+        (key, value)
+        for key, value in frontmatter._mapping_items(data)
+        if key in MANAGED_FIELDS and key != "generated"
+    ]
+
+
+def _valid_generated(value) -> bool:
+    if not isinstance(value, dict):
+        return False
+    items = list(frontmatter._mapping_items(value))
+    if len(items) != 2 or {key for key, _ in items} != {"by", "at"}:
+        return False
+    actor, at = value.get("by"), value.get("at")
+    if not isinstance(actor, str) or not actor or not isinstance(at, str):
+        return False
+    try:
+        parsed = datetime.datetime.fromisoformat(at.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return at.endswith("Z") and parsed.tzinfo is not None
+
+
+def render_note(
+    item, attachment_hashes, annotations, existing, accessed, generated_at=None
+) -> str:
+    if generated_at is None:
+        generated_at = f"{accessed}T00:00:00Z"
     prior = frontmatter.parse(existing)[0] if existing else {}
     fm = {"citekey": item["id"], "type": "literature"}
     if item.get("DOI"):
@@ -77,21 +123,36 @@ def render_note(item, attachment_hashes, annotations, existing, retrieved) -> st
         fm["pmid"] = item["PMID"]
     if item.get("version"):
         fm["version"] = item["version"]
-    fm["retrieved"] = prior.get("retrieved", retrieved)  # day-one, never overwritten
-    fm["attachment-sha256"] = attachment_hashes
-    fm["status"] = prior.get("status", "unreviewed")
+    fm["accessed"] = prior.get("accessed", accessed)  # day-one, never overwritten
+    fm["fixity-sha256"] = attachment_hashes
+    fm["status"] = prior.get("status", "unscreened")
     fm["aliases"] = [item.get("title", item["id"])]
+    managed_body = _managed_body(item, annotations)
+    prior_generated = prior.get("generated")
+    prior_actor = (
+        prior_generated.get("by") if isinstance(prior_generated, dict) else None
+    )
+    projection_changed = (
+        existing is None
+        or _managed_projection(prior) != _managed_projection(fm)
+        or _prior_managed_body(existing) != managed_body
+        or prior_actor != AGENT_ACTOR
+        or not _valid_generated(prior_generated)
+    )
+    prior_generated_at = (
+        prior_generated.get("at") if isinstance(prior_generated, dict) else None
+    )
+    fm["generated"] = {
+        "by": AGENT_ACTOR,
+        "at": generated_at if projection_changed else prior_generated_at,
+    }
     rendered_keys = set(fm)
     fm_items = list(fm.items())
     for key, value in frontmatter._mapping_items(prior):
         if key not in MANAGED_FIELDS and key not in rendered_keys:
             fm_items.append((key, value))
     fm = frontmatter._mapping_from_items(fm_items)
-    return (
-        frontmatter.serialize(fm)
-        + _managed_body(item, annotations)
-        + _split_free(existing)
-    )
+    return frontmatter.serialize(fm) + managed_body + _split_free(existing)
 
 
 def _norm(text: str) -> str:

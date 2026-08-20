@@ -1,4 +1,4 @@
-"""The shared review inbox: ``+/review-queue.md`` (spec §3)."""
+"""The shared review inbox: ``inbox/review-queue.md`` (spec §3)."""
 
 import datetime
 import hashlib
@@ -6,9 +6,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import AGENT_ACTOR, Result
+from . import AGENT_ACTOR, Result, frontmatter
 
-INBOX_PATH = "+/review-queue.md"
+INBOX_PATH = "inbox/review-queue.md"
+INBOX_TYPE = "review-inbox"
 _OMITTED_HASH = object()
 REASON_CODES = frozenset(
     {
@@ -166,6 +167,31 @@ def _file(vault) -> Path:
     return Path(vault) / INBOX_PATH
 
 
+def _body(queue: Path) -> str:
+    if not queue.exists():
+        return ""
+    text = queue.read_text()
+    if not text:
+        return ""
+    try:
+        data, body = frontmatter.parse(text)
+    except frontmatter.FrontmatterError as error:
+        raise InboxError(f"malformed inbox frontmatter: {error}") from error
+    if list(frontmatter._mapping_items(data)) != [("type", INBOX_TYPE)]:
+        raise InboxError(f"inbox frontmatter must contain exactly type: {INBOX_TYPE!r}")
+    return body
+
+
+def _prepare_append(vault) -> Path:
+    queue = _file(vault)
+    if not queue.exists() or not queue.read_bytes():
+        queue.parent.mkdir(parents=True, exist_ok=True)
+        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}))
+    else:
+        _body(queue)
+    return queue
+
+
 def _finding_id(
     check,
     target,
@@ -280,7 +306,7 @@ def append_entry(
         ("notice-date", entry.notice_date),
         ("detection-date", entry.detection_date),
     ]
-    with _file(vault).open("a") as queue:
+    with _prepare_append(vault).open("a", encoding="utf-8", newline="") as queue:
         queue.write(_serialize(fields))
     return entry
 
@@ -343,7 +369,7 @@ def append_ack(
         ("notice-type", entry.notice_type),
         ("notice-date", entry.notice_date),
     ]
-    with _file(vault).open("a") as queue:
+    with _prepare_append(vault).open("a", encoding="utf-8", newline="") as queue:
         queue.write(_serialize(fields))
     return entry
 
@@ -365,8 +391,11 @@ def _line_fields(line: str, number: int) -> dict[str, str]:
 
 def load(vault) -> list[Entry]:
     """Load all finding and acknowledgment records from the append-only inbox."""
+    queue = _file(vault)
+    if not queue.exists():
+        return []
     entries = []
-    for number, line in enumerate(_file(vault).read_text().splitlines(), start=1):
+    for number, line in enumerate(_body(queue).splitlines(), start=1):
         if not line.strip():
             continue
         data = _line_fields(line, number)

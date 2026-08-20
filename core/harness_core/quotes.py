@@ -72,13 +72,13 @@ def check_quote(
     if not claim.quote_text:
         return Outcome(
             "quote",
-            claims_mod.claim_address(source_citekey, claim.claim_id),
+            claims_mod.claim_link(source_citekey, claim.claim_id),
             Result.UNMATCHED,
             "schema-violation — quote claim has no text",
             extra=extra,
         )
 
-    address = claims_mod.claim_address(source_citekey, claim.claim_id)
+    address = claims_mod.claim_link(source_citekey, claim.claim_id)
     source_quotes = _source_quotes(vault_root, source_citekey)
     if claim.claim_id in source_quotes:
         candidates = [source_quotes[claim.claim_id]]

@@ -6,7 +6,7 @@ from harness_core import Result, checks, webapi
 def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):
     """A bibliography omission must make only its cited key unmatched."""
     outs = checks.check_citekeys(
-        fixture_vault, fixture_vault / "efforts" / "brief" / "draft.md"
+        fixture_vault, fixture_vault / "projects" / "brief" / "draft.md"
     )
 
     by_target = {out.target: out for out in outs}
@@ -19,19 +19,19 @@ def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_
 
 def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
     """A citation-free note must not produce an empty or fabricated finding."""
-    note = fixture_vault / "atlas" / "index.md"
+    note = fixture_vault / "synthesis" / "index.md"
 
     outs = checks.check_citekeys(fixture_vault, note)
 
     assert len(outs) == 1
-    assert outs[0].target == "atlas/index.md"
+    assert outs[0].target == "synthesis/index.md"
     assert outs[0].result is Result.SKIPPED
     assert outs[0].reason == "no-identifier — note cites nothing"
 
 
 def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
     """A checker restricted to parsed claims would miss prose citations."""
-    note = fixture_vault / "atlas" / "prose.md"
+    note = fixture_vault / "synthesis" / "prose.md"
     note.write_text("See the background evidence [@prose-only2024].\n")
 
     outs = checks.check_citekeys(fixture_vault, note)
@@ -39,13 +39,13 @@ def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
     assert len(outs) == 1
     assert outs[0].target == "prose-only2024"
     assert outs[0].result is Result.UNMATCHED
-    assert outs[0].extra["note_path"] == "atlas/prose.md"
+    assert outs[0].extra["note_path"] == "synthesis/prose.md"
     assert outs[0].extra["claims"] == []
 
 
 def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
     """Repeated citations to one key must stay one public outcome."""
-    note = fixture_vault / "efforts" / "brief" / "draft.md"
+    note = fixture_vault / "projects" / "brief" / "draft.md"
     note.write_text(
         note.read_text()
         + "\n- (inference) A second use [@smith2020, p. 13] ^c-88888888\n"
@@ -56,21 +56,21 @@ def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
     assert [out.target for out in outs] == ["fabricated2020", "smith2020"]
     smith = next(out for out in outs if out.target == "smith2020")
     assert smith.extra["claims"] == [
-        {"claim_id": "c-66666666", "line_no": 6, "locator": "p. 12"},
-        {"claim_id": "c-88888888", "line_no": 10, "locator": "p. 13"},
+        {"claim_id": "c-66666666", "line_no": 7, "locator": "p. 12"},
+        {"claim_id": "c-88888888", "line_no": 11, "locator": "p. 13"},
     ]
 
 
 def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
     """Later marker stamping needs the exact checked note and claim line."""
-    note = fixture_vault / "efforts" / "brief" / "draft.md"
+    note = fixture_vault / "projects" / "brief" / "draft.md"
 
     outs = checks.check_citekeys(fixture_vault, note)
 
     smith = next(out for out in outs if out.target == "smith2020")
     assert smith.extra == {
-        "note_path": "efforts/brief/draft.md",
-        "claims": [{"claim_id": "c-66666666", "line_no": 6, "locator": "p. 12"}],
+        "note_path": "projects/brief/draft.md",
+        "claims": [{"claim_id": "c-66666666", "line_no": 7, "locator": "p. 12"}],
     }
 
 

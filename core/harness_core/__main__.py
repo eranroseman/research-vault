@@ -216,8 +216,16 @@ def cmd_import_note(args):
     retained = _retain_prior_contexts(annotations, existing)
     _selector_warning(degradation_reasons, retained=retained)
 
-    today = datetime.date.today().isoformat()
-    candidate = notes.render_note(item, hashes, annotations, existing, today)
+    now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    generated_at = now.isoformat().replace("+00:00", "Z")
+    candidate = notes.render_note(
+        item,
+        hashes,
+        annotations,
+        existing,
+        accessed=now.date().isoformat(),
+        generated_at=generated_at,
+    )
 
     # This must precede the note NOOP check: another Zotero item may have been
     # admitted even when this note's complete rendered projection has not changed.
@@ -408,7 +416,7 @@ def _citekey_hash(vault_root, citekey):
             data, _ = frontmatter.parse(_read_note_text(note))
         except (OSError, UnicodeError, frontmatter.FrontmatterError):
             data = {}
-        attachment_hashes = data.get("attachment-sha256")
+        attachment_hashes = data.get("fixity-sha256")
         if isinstance(attachment_hashes, list) and attachment_hashes:
             first = attachment_hashes[0]
             if isinstance(first, str) and first:
@@ -535,11 +543,13 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
                     terminal_anchor = content[anchor.start() :]
                     replacement = (
                         before
-                        + f"[verify-failed:: {outcome.check}/{date}] "
+                        + f"[failed-verification:: {outcome.check}/{date}] "
                         + terminal_anchor
                     )
                 else:
-                    replacement = content + f" [verify-failed:: {outcome.check}/{date}]"
+                    replacement = (
+                        content + f" [failed-verification:: {outcome.check}/{date}]"
+                    )
                 replacement += ending
             elif clear:
                 replacement += ending
@@ -549,11 +559,11 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             break
 
 
-_ANY_VERIFY_MARKER = r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
+_ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
 
 
 def _terminal_marker_pattern(check, claim_id):
-    marker = r"\[verify-failed:: " + re.escape(check) + r"/\d{4}-\d{2}-\d{2}\]"
+    marker = r"\[failed-verification:: " + re.escape(check) + r"/\d{4}-\d{2}-\d{2}\]"
     if isinstance(claim_id, str):
         trailing = rf"(?:{_ANY_VERIFY_MARKER} )*\^{re.escape(claim_id)}[ \t]*$"
         return re.compile(rf" {marker} (?={trailing})")
@@ -919,7 +929,7 @@ def _verify_state(
             )
     note_files = [
         path
-        for folder in ("literatures", "atlas", "efforts")
+        for folder in ("literatures", "synthesis", "projects")
         for path in sorted((vault / folder).rglob("*.md"))
     ]
     for path in note_files:

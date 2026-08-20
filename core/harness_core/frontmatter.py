@@ -56,6 +56,12 @@ def serialize(data: dict) -> str:
                     lines.append(f"  - {{{inner}}}")
                 else:
                     lines.append(f"  - {_emit_scalar(item)}")
+        elif isinstance(value, dict):
+            inner = ", ".join(
+                f"{inner_key}: {_emit_scalar(inner_value)}"
+                for inner_key, inner_value in _mapping_items(value)
+            )
+            lines.append(f"{key}: {{{inner}}}")
         else:
             lines.append(f"{key}: {_emit_scalar(value)}")
     lines.append("---")
@@ -137,7 +143,7 @@ def parse(text: str) -> tuple[dict, str]:
                 current_list = []
                 value = current_list
             else:
-                value = _parse_scalar(raw)
+                value = _parse_item(raw.strip())
                 current_list = None
             source_items.append((key, value))
     return _mapping_from_items(source_items), body

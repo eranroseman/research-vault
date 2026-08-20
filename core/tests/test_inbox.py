@@ -2,6 +2,64 @@ import pytest
 
 from harness_core import Result, inbox
 
+INBOX_HEADER = '---\ntype: "review-inbox"\n---\n'
+
+
+def _write_body(queue, body):
+    queue.write_text(INBOX_HEADER + body)
+
+
+def test_new_inbox_is_typed_and_append_preserves_header_bytes(tmp_vault):
+    (tmp_vault / "inbox").mkdir(exist_ok=True)
+
+    inbox.append_entry(
+        tmp_vault,
+        "doi",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch",
+        date="2026-08-20",
+    )
+
+    queue = tmp_vault / "inbox" / "review-queue.md"
+    first = queue.read_bytes()
+    assert first.startswith(b'---\ntype: "review-inbox"\n---\n')
+    inbox.append_entry(
+        tmp_vault,
+        "doi",
+        "smith2021",
+        Result.UNMATCHED,
+        "mismatch",
+        date="2026-08-20",
+    )
+    assert queue.read_bytes().startswith(first)
+    assert [entry.target for entry in inbox.load(tmp_vault)] == [
+        "smith2020",
+        "smith2021",
+    ]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '---\ntype: ""\n---\n- [id:: broken]\n',
+        '---\ntype: "wrong"\n---\n- [id:: broken]\n',
+        '---\ntype: "review-inbox"\n- [id:: broken]\n',
+        "- [id:: broken]\n",
+    ],
+)
+def test_load_rejects_nonempty_inbox_without_valid_required_header(tmp_vault, content):
+    queue = tmp_vault / "inbox" / "review-queue.md"
+    queue.parent.mkdir(exist_ok=True)
+    queue.write_text(content)
+
+    with pytest.raises(inbox.InboxError, match="frontmatter|type"):
+        inbox.load(tmp_vault)
+
+
+def test_missing_inbox_still_loads_as_empty(tmp_vault):
+    assert inbox.load(tmp_vault) == []
+
 
 def test_append_and_load(fixture_vault):
     inbox.append_entry(
@@ -18,7 +76,7 @@ def test_append_and_load(fixture_vault):
     assert entries[-1].id == "doi/smith2020/2026-08-16"
     assert entries[-1].result == "UNMATCHED"
     assert entries[-1].reason.startswith("mismatch")
-    line = (fixture_vault / "+" / "review-queue.md").read_text().splitlines()[-1]
+    line = (fixture_vault / "inbox" / "review-queue.md").read_text().splitlines()[-1]
     assert line.startswith("- [id:: doi/smith2020/2026-08-16]")
 
 
@@ -113,11 +171,12 @@ def test_ack_requires_human_and_valid_reason(fixture_vault):
 
 
 def test_load_rejects_handwritten_finding_with_invalid_reason(fixture_vault):
-    queue = fixture_vault / "+" / "review-queue.md"
-    queue.write_text(
+    queue = fixture_vault / "inbox" / "review-queue.md"
+    _write_body(
+        queue,
         "- [id:: doi/smith2020/2026-08-16] [check:: doi] "
         "[target:: smith2020] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: harness_core/0.1.0] [reason:: invented]\n"
+        "[actor:: harness_core/0.1.0] [reason:: invented]\n",
     )
 
     with pytest.raises(inbox.InboxError, match="line 1"):
@@ -125,10 +184,11 @@ def test_load_rejects_handwritten_finding_with_invalid_reason(fixture_vault):
 
 
 def test_load_rejects_handwritten_human_ack_with_invalid_reason(fixture_vault):
-    queue = fixture_vault / "+" / "review-queue.md"
-    queue.write_text(
+    queue = fixture_vault / "inbox" / "review-queue.md"
+    _write_body(
+        queue,
         "- [ack:: doi/smith2020/2026-08-16] [actor:: human:eran] "
-        "[reason:: manualized]\n"
+        "[reason:: manualized]\n",
     )
 
     with pytest.raises(inbox.InboxError, match="line 1"):
@@ -417,7 +477,7 @@ def test_identical_update_notice_recurrence_stays_acknowledged(fixture_vault):
     ],
 )
 def test_rejected_append_is_byte_atomic(fixture_vault, api, kwargs):
-    queue = fixture_vault / "+" / "review-queue.md"
+    queue = fixture_vault / "inbox" / "review-queue.md"
     seed = inbox.append_entry(
         fixture_vault,
         "doi",
@@ -451,7 +511,7 @@ def test_rejected_append_is_byte_atomic(fixture_vault, api, kwargs):
 
 
 def test_ack_rejects_missing_or_ambiguous_finding_without_appending(fixture_vault):
-    queue = fixture_vault / "+" / "review-queue.md"
+    queue = fixture_vault / "inbox" / "review-queue.md"
     before = queue.read_bytes()
     with pytest.raises(ValueError, match="exactly one"):
         inbox.append_ack(
@@ -470,7 +530,8 @@ def test_ack_rejects_missing_or_ambiguous_finding_without_appending(fixture_vaul
         "mismatch",
         date="2026-08-16",
     )
-    queue.write_bytes(queue.read_bytes() + queue.read_bytes())
+    body = queue.read_text().removeprefix(INBOX_HEADER)
+    _write_body(queue, body + body)
     before = queue.read_bytes()
     with pytest.raises(ValueError, match="exactly one"):
         inbox.append_ack(
@@ -491,7 +552,7 @@ def test_load_rejects_unknown_hash_mismatched_or_ambiguous_ack_references(
         "{fields}\n"
     )
 
-    queue.write_text(ack.format(entry_id="doi/missing/2026-08-16", fields=""))
+    _write_body(queue, ack.format(entry_id="doi/missing/2026-08-16", fields=""))
     with pytest.raises(inbox.InboxError, match="line 1"):
         inbox.load(fixture_vault)
 
@@ -505,18 +566,20 @@ def test_load_rejects_unknown_hash_mismatched_or_ambiguous_ack_references(
         target_hash="aa11",
     )
     finding_line = queue.read_text().splitlines()[-1]
-    queue.write_text(
+    _write_body(
+        queue,
         finding_line
         + "\n"
         + ack.format(
             entry_id=finding.id,
             fields=" [target-hash:: bb22]",
-        )
+        ),
     )
     with pytest.raises(inbox.InboxError, match="line 2"):
         inbox.load(fixture_vault)
 
-    queue.write_text(
+    _write_body(
+        queue,
         finding_line
         + "\n"
         + finding_line
@@ -524,7 +587,7 @@ def test_load_rejects_unknown_hash_mismatched_or_ambiguous_ack_references(
         + ack.format(
             entry_id=finding.id,
             fields=" [target-hash:: aa11]",
-        )
+        ),
     )
     with pytest.raises(inbox.InboxError, match="line 3"):
         inbox.load(fixture_vault)
@@ -556,7 +619,7 @@ def test_load_rejects_ack_with_incomplete_notice_fingerprint(fixture_vault):
 def test_load_rejects_invalid_dates_results_and_incomplete_notice_fingerprint(
     fixture_vault,
 ):
-    queue = fixture_vault / "+" / "review-queue.md"
+    queue = fixture_vault / "inbox" / "review-queue.md"
     rows = [
         "- [id:: doi/x/2026-02-30] [check:: doi] [target:: x] "
         "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: harness_core/0.1.0] "
@@ -570,7 +633,7 @@ def test_load_rejects_invalid_dates_results_and_incomplete_notice_fingerprint(
         "[notice-class:: warn]",
     ]
     for row in rows:
-        queue.write_text(row + "\n")
+        _write_body(queue, row + "\n")
         with pytest.raises(inbox.InboxError, match="line 1"):
             inbox.load(fixture_vault)
 

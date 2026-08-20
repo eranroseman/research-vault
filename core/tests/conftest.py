@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-VAULT_DIRS = ["+", "literatures", "atlas", "calendar", "efforts", "x"]
+VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "x"]
 
 
 @pytest.fixture
@@ -17,18 +17,23 @@ def tmp_vault(tmp_path):
 
 @pytest.fixture
 def fixture_vault(tmp_vault):
+    (tmp_vault / "index.md").write_text(
+        '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
+    )
+    (tmp_vault / "log.md").write_text("# Log\n")
     literature = tmp_vault / "literatures"
     (literature / "smith2020.md").write_text(
         """---
 citekey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
-retrieved: "2026-08-16"
-attachment-sha256:
+accessed: "2026-08-16"
+fixity-sha256:
   - "aa11"
-status: "active"
+status: "included"
 aliases:
   - "Mortality decline"
+generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 %%hk-managed%%
 # Mortality decline
@@ -46,9 +51,10 @@ aliases:
 citekey: "gone2019"
 type: "literature"
 doi: "10.1000/old"
-retrieved: "2026-08-16"
+accessed: "2026-08-16"
 status: "superseded"
 superseded-by: "smith2020"
+generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 %%hk-managed%%
 # Old result
@@ -57,24 +63,27 @@ superseded-by: "smith2020"
 ## Notes
 """
     )
-    (tmp_vault / "atlas" / "index.md").write_text(
-        "# Atlas index\n\n- [[mortality-trends]] — mortality synthesis\n"
+    (tmp_vault / "synthesis" / "index.md").write_text(
+        "# Synthesis index\n\n- [[mortality-trends]] — mortality synthesis\n"
     )
-    (tmp_vault / "atlas" / "mortality-trends.md").write_text(
+    (tmp_vault / "synthesis" / "mortality-trends.md").write_text(
         """---
 title: "Mortality trends"
-type: "topic"
+type: "synthesis"
+status: "draft"
+generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-- (inference) Decline is robust [confidence:: moderate] [supported-by:: [[smith2020#^c-11111111]]] [contested-by:: [[gone2019#^c-22222222]]] ^c-55555555
+- (inference) Decline is robust [confidence:: moderate] [supports:: [[smith2020#^c-11111111]]] [disputes:: [[gone2019#^c-22222222]]] ^c-55555555
 """
     )
-    effort = tmp_vault / "efforts" / "brief"
-    effort.mkdir()
-    (effort / "draft.md").write_text(
+    project = tmp_vault / "projects" / "brief"
+    project.mkdir()
+    (project / "draft.md").write_text(
         """---
 title: "Evidence brief"
-type: "effort"
-status: "drafting"
+type: "project"
+status: "draft"
+generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 - (quote) [@smith2020, p. 12] ^c-66666666
   > Mortality fell 12% across all strata.
@@ -102,10 +111,12 @@ status: "drafting"
     (tmp_vault / "x" / "bibliography.json").write_text(
         _json.dumps(bibliography, indent=1)
     )
-    (tmp_vault / "calendar" / "2026-08-16.md").write_text(
-        "- 09:00 human:eran — imported smith2020\n"
+    (tmp_vault / "log" / "2026-08-16.md").write_text(
+        '---\ntype: "daily"\n---\n- 09:00 human:eran — imported smith2020\n'
     )
-    (tmp_vault / "+" / "review-queue.md").write_text("")
+    (tmp_vault / "inbox" / "review-queue.md").write_text(
+        '---\ntype: "review-inbox"\n---\n'
+    )
     subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True)
     subprocess.run(
         ["git", "commit", "-q", "-m", "fixture vault"], cwd=tmp_vault, check=True

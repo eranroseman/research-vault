@@ -1,7 +1,9 @@
 import argparse
+import datetime as datetime_lib
 import json
 import subprocess
 import sys
+import types
 
 import pytest
 
@@ -187,6 +189,45 @@ def _install_import_client(monkeypatch, cli, item, annotations):
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
 
 
+def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypatch):
+    import harness_core.__main__ as cli
+
+    seen_timezones = []
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls, timezone):
+            seen_timezones.append(timezone)
+            return datetime_lib.datetime(2026, 8, 20, 12, 34, 56, tzinfo=timezone)
+
+    python_310_datetime = types.SimpleNamespace(
+        datetime=FixedDateTime,
+        timezone=datetime_lib.timezone,
+    )
+    _install_import_client(
+        monkeypatch,
+        cli,
+        {"title": "Mortality decline", "DOI": "10.1000/xyz"},
+        [],
+    )
+    monkeypatch.setattr(cli, "datetime", python_310_datetime)
+    monkeypatch.setattr(cli.bibliography, "write_and_commit", lambda *_: None)
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literatures" / "smith2020.md").read_text()
+    )
+    assert result == 0
+    assert seen_timezones == [datetime_lib.timezone.utc]
+    assert data["accessed"] == "2026-08-20"
+    assert data["generated"]["at"] == "2026-08-20T12:34:56Z"
+
+
 def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys):
     import harness_core.__main__ as cli
 
@@ -198,7 +239,8 @@ def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys
         ["unresolved"],
         [cli.normalize_annotation(raw, "smith2020")],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, item, [raw])
@@ -226,7 +268,8 @@ def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, ca
         ["unresolved"],
         [cli.normalize_annotation(old_raw, "smith2020")],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, item, [new_raw])
@@ -253,7 +296,8 @@ def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, caps
         [],
         [],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, {"title": "Updated title"}, [])
@@ -295,7 +339,8 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
         [],
         [],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     managed_end = (
         original.index(notes.MANAGED_CLOSE) + len(notes.MANAGED_CLOSE) + len("\n")
@@ -412,7 +457,7 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
     assert "warning: attachment unresolved" in capsys.readouterr().err
     note = (tmp_vault / "literatures" / "smith2020.md").read_text()
     data, body = frontmatter.parse(note)
-    assert data["attachment-sha256"] == ["unresolved"]
+    assert data["fixity-sha256"] == ["unresolved"]
     assert "- (quote) [@smith2020, p. 12]" in body
     assert "annotationPageLabel" not in body
 
@@ -440,7 +485,8 @@ def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, 
         [],
         [],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original)
 
@@ -526,7 +572,8 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
         ["unresolved"],
         [existing_ann],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     free_tail = b"\r\ncustom tail\r\n"
     note_path.write_bytes(original.encode() + free_tail)
@@ -558,7 +605,8 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
         ["unresolved"],
         [cli.normalize_annotation(raw, "smith2020")],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     legacy = '  <!-- hk-sel prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
     note_path.write_bytes(

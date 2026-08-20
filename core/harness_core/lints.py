@@ -12,7 +12,9 @@ from . import claims as claims_mod
 from .checks import Outcome
 
 ANCHOR = re.compile(r"\^(c-[A-Za-z0-9-]+)\s*$")
-VERIFY_FAILED = re.compile(r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]")
+FAILED_VERIFICATION = re.compile(
+    r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
+)
 ADDRESS = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
 PUBLISHED_TAG = re.compile(r"^published/(.+)-\d{4}-\d{2}-\d{2}$")
 TRANSITION_FIELD = re.compile(
@@ -82,7 +84,7 @@ def lint_append_only(vault_root) -> list[Outcome]:
     """Detect deleted historical content, one finding for every affected file."""
     vault = Path(vault_root)
     changed = _git(
-        vault, "diff", "--name-only", "HEAD", "--", "calendar", "+/review-queue.md"
+        vault, "diff", "--name-only", "HEAD", "--", "log/", "inbox/review-queue.md"
     )
     outcomes = []
     for rel in sorted(set(changed.stdout.splitlines())):
@@ -133,7 +135,7 @@ def _line_content_and_ending(line: str) -> tuple[str, str]:
 
 def _remove_single_marker(line: str) -> str | None:
     """Remove one marker and its one separator; reject all other marker shapes."""
-    matches = list(VERIFY_FAILED.finditer(line))
+    matches = list(FAILED_VERIFICATION.finditer(line))
     if len(matches) != 1:
         return None
     match = matches[0]
@@ -152,8 +154,8 @@ def _normalize_marker_transition(old_block: str, new_block: str) -> tuple[str, s
         return old_block, new_block
     old_content, old_ending = _line_content_and_ending(old_lines[0])
     new_content, new_ending = _line_content_and_ending(new_lines[0])
-    old_count = len(VERIFY_FAILED.findall(old_content))
-    new_count = len(VERIFY_FAILED.findall(new_content))
+    old_count = len(FAILED_VERIFICATION.findall(old_content))
+    new_count = len(FAILED_VERIFICATION.findall(new_content))
     if (old_count, new_count) == (0, 1):
         stripped = _remove_single_marker(new_content)
         if stripped is not None:
@@ -208,7 +210,7 @@ def _claim_target(rel: str, text: str, claim_id: str) -> str:
     data, parsed = _parse_frontmatter(text)
     citekey = data.get("citekey") if parsed else None
     if isinstance(citekey, str) and citekey:
-        return claims_mod.claim_address(citekey, claim_id)
+        return claims_mod.claim_link(citekey, claim_id)
     return f"{rel}#^{claim_id}"
 
 
@@ -216,7 +218,7 @@ def lint_claim_immutability(vault_root) -> list[Outcome]:
     """Require committed claims to stay byte-identical absent a real transition."""
     vault = Path(vault_root)
     outcomes = []
-    roots = ("literatures", "atlas", "efforts")
+    roots = ("literatures", "synthesis", "projects")
     head_paths = gitstate.revision_paths(vault, "HEAD", *roots)
     current_paths = {rel for root in roots for rel in _current_paths(vault, root)}
     markdown_paths = {rel for rel in head_paths | current_paths if rel.endswith(".md")}
@@ -268,7 +270,7 @@ def _current_paths(vault_root: Path, prefix: str) -> set[str]:
     return {_relative(vault_root, path) for path in base.rglob("*") if path.is_file()}
 
 
-def _effort_status(
+def _project_status(
     vault_root: Path, prefix: str, tag: str | None = None
 ) -> tuple[set[str], list[str]]:
     paths = (
@@ -291,7 +293,7 @@ def _effort_status(
     return statuses, malformed
 
 
-def _effort_differs(vault_root: Path, tag: str, prefix: str) -> bool:
+def _project_differs(vault_root: Path, tag: str, prefix: str) -> bool:
     for rel in gitstate.revision_paths(vault_root, tag, prefix) | _current_paths(
         vault_root, prefix
     ):
@@ -312,16 +314,16 @@ def lint_published_drift(vault_root) -> list[Outcome]:
         match = PUBLISHED_TAG.match(tag)
         if match is None:
             continue
-        effort_dir = f"efforts/{match.group(1)}"
-        if not _effort_differs(vault, tag, effort_dir):
+        project_dir = f"projects/{match.group(1)}"
+        if not _project_differs(vault, tag, project_dir):
             continue
-        current_statuses, malformed = _effort_status(vault, effort_dir)
+        current_statuses, malformed = _project_status(vault, project_dir)
         for rel in malformed:
             outcomes.append(_schema_outcome("published-drift", rel))
         if current_statuses:
             published = "published" in current_statuses
         else:
-            prior_statuses, prior_malformed = _effort_status(vault, effort_dir, tag)
+            prior_statuses, prior_malformed = _project_status(vault, project_dir, tag)
             for rel in prior_malformed:
                 outcomes.append(_schema_outcome("published-drift", rel))
             published = "published" in prior_statuses
@@ -329,9 +331,9 @@ def lint_published_drift(vault_root) -> list[Outcome]:
             outcomes.append(
                 Outcome(
                     "published-drift",
-                    effort_dir,
+                    project_dir,
                     Result.UNMATCHED,
-                    "drift — published effort diverged from its tag",
+                    "drift — published project diverged from its tag",
                 )
             )
     return _deduplicate(outcomes)
@@ -346,7 +348,7 @@ def _origin(
     data, parsed = _parse_frontmatter(note.read_text())
     citekey = data.get("citekey") if parsed else None
     if claim.claim_id and isinstance(citekey, str) and citekey:
-        target = claims_mod.claim_address(citekey, claim.claim_id)
+        target = claims_mod.claim_link(citekey, claim.claim_id)
     else:
         target = fallback
     return target, {"note_path": rel, "claim_id": claim.claim_id}
@@ -377,7 +379,7 @@ def lint_source_status(vault_root, note_file) -> list[Outcome]:
             status, successor, parsed = _note_status(vault, citekey)
             if not parsed:
                 outcomes.append(_schema_outcome("source-status", target, extra))
-            elif status in {"rejected", "superseded"}:
+            elif status in {"excluded", "superseded"}:
                 suffix = f" (superseded-by {successor})" if successor else ""
                 outcomes.append(
                     Outcome(
@@ -394,8 +396,8 @@ def lint_source_status(vault_root, note_file) -> list[Outcome]:
 def _contested_addresses(vault_root: Path) -> tuple[set[str], list[Outcome]]:
     contested, outcomes = set(), []
     for path in (
-        sorted((vault_root / "atlas").rglob("*.md"))
-        if (vault_root / "atlas").is_dir()
+        sorted((vault_root / "synthesis").rglob("*.md"))
+        if (vault_root / "synthesis").is_dir()
         else []
     ):
         rel = _relative(vault_root, path)
@@ -407,11 +409,11 @@ def _contested_addresses(vault_root: Path) -> tuple[set[str], list[Outcome]]:
         if not isinstance(page_key, str) or not page_key:
             page_key = path.stem
         for claim in claims_mod.parse_claims(text):
-            if "contested-by" not in claim.fields:
+            if "disputes" not in claim.fields:
                 continue
             if claim.claim_id:
-                contested.add(claims_mod.claim_address(page_key, claim.claim_id))
-            contested.update(ADDRESS.findall(claim.fields.get("supported-by", "")))
+                contested.add(claims_mod.claim_link(page_key, claim.claim_id))
+            contested.update(ADDRESS.findall(claim.fields.get("supports", "")))
     return contested, outcomes
 
 
@@ -421,7 +423,7 @@ def lint_contested(vault_root, note_file) -> list[Outcome]:
     text = note.read_text()
     for claim in claims_mod.parse_claims(text):
         target, extra = _origin(vault, note, claim, "")
-        for address in ADDRESS.findall(claim.fields.get("supported-by", "")):
+        for address in ADDRESS.findall(claim.fields.get("supports", "")):
             if address in contested:
                 outcomes.append(
                     Outcome(

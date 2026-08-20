@@ -6,9 +6,9 @@ SAMPLE = {
     "citekey": "smith2020",
     "type": "literature",
     "doi": "10.1000/xyz",
-    "retrieved": "2026-08-16",
-    "attachment-sha256": ["aa11", "bb22"],
-    "status": "unreviewed",
+    "accessed": "2026-08-16",
+    "fixity-sha256": ["aa11", "bb22"],
+    "status": "unscreened",
     "verified": [
         {"by": "harness_core/0.1.0", "at": "2026-08-16", "check": "doi"},
     ],
@@ -28,7 +28,7 @@ def test_serialize_shape():
     assert text.startswith("---\n")
     assert text.endswith("---\n")
     assert 'citekey: "smith2020"' in text
-    assert "attachment-sha256:" in text
+    assert "fixity-sha256:" in text
     assert '- {by: "harness_core/0.1.0", at: "2026-08-16", check: "doi"}' in text
 
 
@@ -70,6 +70,33 @@ def test_inline_dict_value_with_escaped_quote_roundtrip():
     data = {"verified": [{"check": 'title "author"'}]}
     parsed, _ = frontmatter.parse(frontmatter.serialize(data))
     assert parsed == data
+
+
+def test_top_level_inline_mapping_with_iso_datetime_roundtrips():
+    data = {
+        "generated": {
+            "by": "harness_core/0.1.0",
+            "at": "2026-08-20T12:34:56Z",
+        }
+    }
+
+    text = frontmatter.serialize(data)
+    parsed, _ = frontmatter.parse(text)
+
+    assert 'generated: {by: "harness_core/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
+    assert parsed == data
+
+
+def test_top_level_inline_mapping_preserves_duplicate_key_provenance():
+    parsed, _ = frontmatter.parse(
+        '---\ngenerated: {by: "first", by: "second", at: "2026-08-20T12:34:56Z"}\n---\n'
+    )
+
+    assert list(frontmatter._mapping_items(parsed["generated"])) == [
+        ("by", "first"),
+        ("by", "second"),
+        ("at", "2026-08-20T12:34:56Z"),
+    ]
 
 
 def test_parse_rejects_nested_maps():

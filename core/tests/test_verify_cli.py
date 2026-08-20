@@ -144,7 +144,7 @@ def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
 
 
 def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_vault):
-    draft = net_vault / "efforts" / "brief" / "draft.md"
+    draft = net_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
         draft.read_text().replace(
             "Mortality fell 12% across all strata.", "wrong quote"
@@ -168,7 +168,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         o is not None and o.check == "quote" and o.result is Result.UNMATCHED
         for o in second["outcomes"]
     )
-    assert "[verify-failed:: quote/" in draft.read_text()
+    assert "[failed-verification:: quote/" in draft.read_text()
     assert not any(
         e.check == "quote" and e.target == raw.target
         for e in inbox.open_entries(net_vault)
@@ -191,7 +191,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
 
 def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     file_outcome = _outcome(
-        "append-only", "calendar/2026-08-16.md", Result.UNMATCHED, "drift — file"
+        "append-only", "log/2026-08-16.md", Result.UNMATCHED, "drift — file"
     )
     claim_outcome = _outcome(
         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
@@ -202,16 +202,16 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     )
     assert (
         _target_hash(net_vault, file_outcome)
-        == hashlib.sha256(
-            (net_vault / "calendar/2026-08-16.md").read_bytes()
-        ).hexdigest()[:16]
+        == hashlib.sha256((net_vault / "log/2026-08-16.md").read_bytes()).hexdigest()[
+            :16
+        ]
     )
     claim_hash = _target_hash(net_vault, claim_outcome)
     assert claim_hash == "aa11"
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
-            "^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111"
+            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
         )
     )
     assert _target_hash(net_vault, claim_outcome) == "aa11"
@@ -233,7 +233,7 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 @pytest.mark.parametrize(
-    "frontmatter_line", ["", 'status: "active"'], ids=["empty", "nonempty"]
+    "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
 )
 def test_preclose_blank_event_keeps_no_attachment_ack_hash(
     net_vault, newline, frontmatter_line
@@ -274,13 +274,13 @@ def test_preclose_blank_event_keeps_no_attachment_ack_hash(
 
 
 def test_missing_citekey_hash_uses_exact_checked_origins_and_reopens(net_vault):
-    draft = net_vault / "efforts" / "brief" / "draft.md"
+    draft = net_vault / "projects" / "brief" / "draft.md"
     outcome = _outcome(
         "citekey",
         "fabricated2020",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         claims=[{"claim_id": "c-77777777"}],
     )
     original = _target_hash(net_vault, outcome)
@@ -299,7 +299,7 @@ def test_no_note_bibliography_target_hashes_its_canonical_entry(net_vault):
 
 
 def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
-    draft = net_vault / "efforts" / "brief" / "draft.md"
+    draft = net_vault / "projects" / "brief" / "draft.md"
     line_no = next(
         number
         for number, line in enumerate(draft.read_text().splitlines(), start=1)
@@ -310,16 +310,16 @@ def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
         "smith2020",
         Result.UNMATCHED,
         "schema-violation — quote claim has no anchor",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         line_no=line_no,
     )
     _mutate_marker(net_vault, outcome, "2026-08-16")
     assert (
-        "verify-failed:: quote/2026-08-16"
+        "failed-verification:: quote/2026-08-16"
         in draft.read_text().splitlines()[line_no - 1]
     )
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
-    assert "verify-failed" not in draft.read_text().splitlines()[line_no - 1]
+    assert "failed-verification" not in draft.read_text().splitlines()[line_no - 1]
 
 
 def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monkeypatch):
@@ -579,16 +579,17 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
         claim_id="c-11111111",
     )
     append = _outcome(
-        "append-only", "+/review-queue.md", Result.UNMATCHED, "drift — inbox"
+        "append-only", "inbox/review-queue.md", Result.UNMATCHED, "drift — inbox"
     )
     first = _target_hash(net_vault, append)
-    (net_vault / "+" / "review-queue.md").write_text("new finding\n")
+    with (net_vault / "inbox" / "review-queue.md").open("a") as queue:
+        queue.write("new finding\n")
     assert _target_hash(net_vault, claim) is not None
     assert _target_hash(net_vault, append) == first
 
 
 def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
-    note = net_vault / "atlas" / "invalid-utf8.md"
+    note = net_vault / "synthesis" / "invalid-utf8.md"
     claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
     note.write_bytes(claim_bytes)
     subprocess.run(["git", "add", note], cwd=net_vault, check=True)
@@ -600,10 +601,10 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
     note.unlink()
     outcome = _outcome(
         "claim-immutability",
-        "atlas/invalid-utf8.md#^c-invalid",
+        "synthesis/invalid-utf8.md#^c-invalid",
         Result.UNMATCHED,
         "drift — deleted claim",
-        note_path="atlas/invalid-utf8.md",
+        note_path="synthesis/invalid-utf8.md",
         claim_id="c-invalid",
     )
 
@@ -614,37 +615,39 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
 
 
 def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
-    other = net_vault / "atlas" / "other.md"
+    other = net_vault / "synthesis" / "other.md"
     other.write_text(
-        "- (quote) [@smith2020] [verify-failed:: quote/2026-08-16] ^c-66666666\n"
+        "- (quote) [@smith2020] [failed-verification:: quote/2026-08-16] ^c-66666666\n"
     )
     origin = _outcome(
         "quote",
         "smith2020#^c-66666666",
         Result.MATCHED,
         "matched",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         claim_id="c-66666666",
     )
     _mutate_marker(net_vault, origin, "2026-08-16", clear=True)
-    assert "verify-failed" not in (net_vault / "efforts/brief/draft.md").read_text()
-    assert "verify-failed" in other.read_text()
+    assert (
+        "failed-verification" not in (net_vault / "projects/brief/draft.md").read_text()
+    )
+    assert "failed-verification" in other.read_text()
     citekey = _outcome(
         "citekey",
         "fabricated2020",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         claims=[{"claim_id": "c-66666666"}, {"claim_id": "c-77777777"}],
     )
     _mutate_marker(net_vault, citekey, "2026-08-16")
-    marked = (net_vault / "efforts/brief/draft.md").read_text()
-    assert marked.count("verify-failed:: citekey/2026-08-16") == 2
-    assert "verify-failed:: quote/2026-08-16" in other.read_text()
+    marked = (net_vault / "projects/brief/draft.md").read_text()
+    assert marked.count("failed-verification:: citekey/2026-08-16") == 2
+    assert "failed-verification:: quote/2026-08-16" in other.read_text()
     _mutate_marker(net_vault, citekey, "2026-08-16", clear=True)
     assert (
-        "verify-failed:: citekey/2026-08-16"
-        not in (net_vault / "efforts/brief/draft.md").read_text()
+        "failed-verification:: citekey/2026-08-16"
+        not in (net_vault / "projects/brief/draft.md").read_text()
     )
 
 
@@ -652,7 +655,7 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
     net_vault,
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    text = source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
+    text = source.read_text().replace('fixity-sha256:\n  - "aa11"\n', "")
     source.write_bytes(text.replace("\n", "\r\n").encode())
     outcome = _outcome(
         "quote",
@@ -696,13 +699,13 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
     assert _target_hash(net_vault, outcome) != original
 
     source.write_bytes(
-        after_effects.replace(b'status: "active"', b'status: "deprecated"')
+        after_effects.replace(b'status: "included"', b'status: "deprecated"')
     )
     assert _target_hash(net_vault, outcome) != original
 
 
 def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
-    note = net_vault / "atlas" / "crlf markers.md"
+    note = net_vault / "synthesis" / "crlf markers.md"
     original = (
         b"- (quote) anchored [@missing]   ^c-1\r\n- (quote) line only [@missing]\r\n"
     )
@@ -712,7 +715,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         "missing",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="atlas/crlf markers.md",
+        note_path="synthesis/crlf markers.md",
         claims=[{"claim_id": "c-1"}],
     )
     anchored_hash = _target_hash(net_vault, anchored)
@@ -720,8 +723,8 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     _mutate_marker(net_vault, anchored, "2026-08-16")
     stamped = note.read_bytes()
 
-    assert b"   [verify-failed:: citekey/2026-08-16] ^c-1\r\n" in stamped
-    assert b"\r [verify-failed" not in stamped
+    assert b"   [failed-verification:: citekey/2026-08-16] ^c-1\r\n" in stamped
+    assert b"\r [failed-verification" not in stamped
     assert _target_hash(net_vault, anchored) != anchored_hash
     _mutate_marker(net_vault, anchored, "2026-08-16", clear=True)
     assert note.read_bytes() == original
@@ -732,14 +735,16 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         "missing",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/crlf markers.md",
+        note_path="synthesis/crlf markers.md",
         line_no=2,
     )
     line_hash = _target_hash(net_vault, line_only)
     _mutate_marker(net_vault, line_only, "2026-08-16")
     stamped = note.read_bytes()
-    assert b"line only [@missing] [verify-failed:: quote/2026-08-16]\r\n" in stamped
-    assert b"\r [verify-failed" not in stamped
+    assert (
+        b"line only [@missing] [failed-verification:: quote/2026-08-16]\r\n" in stamped
+    )
+    assert b"\r [failed-verification" not in stamped
     assert _target_hash(net_vault, line_only) != line_hash
     _mutate_marker(net_vault, line_only, "2026-08-16", clear=True)
     assert note.read_bytes() == original
@@ -747,7 +752,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
 
 
 def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
-    note = net_vault / "atlas" / "trailing anchor.md"
+    note = net_vault / "synthesis" / "trailing anchor.md"
     original = b"- (quote) trailing [@missing] ^c-1  \r\n"
     note.write_bytes(original)
     outcome = _outcome(
@@ -755,7 +760,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
         "missing#^c-1",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/trailing anchor.md",
+        note_path="synthesis/trailing anchor.md",
         claim_id="c-1",
         line_no=1,
     )
@@ -766,7 +771,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
     stamped = note.read_bytes()
 
     assert stamped == (
-        b"- (quote) trailing [@missing] [verify-failed:: quote/2026-08-16] ^c-1  \r\n"
+        b"- (quote) trailing [@missing] [failed-verification:: quote/2026-08-16] ^c-1  \r\n"
     )
     assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
     assert _target_hash(net_vault, outcome) != before
@@ -806,24 +811,22 @@ def test_body_only_literature_ack_survives_verifier_event_envelope(net_vault):
 def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
     net_vault,
 ):
-    note = net_vault / "atlas" / "marker prose.md"
-    original = (
-        "- (quote) prose [verify-failed:: quote/2026-08-16] remains human text ^c-1\n"
-    )
+    note = net_vault / "synthesis" / "marker prose.md"
+    original = "- (quote) prose [failed-verification:: quote/2026-08-16] remains human text ^c-1\n"
     note.write_text(original)
     outcome = _outcome(
         "quote",
         "missing#^c-1",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/marker prose.md",
+        note_path="synthesis/marker prose.md",
         claim_id="c-1",
     )
 
     _mutate_marker(net_vault, outcome, "2026-08-17")
 
     assert note.read_text() == original.replace(
-        " ^c-1", " [verify-failed:: quote/2026-08-17] ^c-1"
+        " ^c-1", " [failed-verification:: quote/2026-08-17] ^c-1"
     )
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_text() == original
@@ -833,9 +836,7 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
     net_vault, monkeypatch, capsys
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
-    )
+    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -889,34 +890,36 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
 
 
 def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_path):
-    note = net_vault / "atlas" / "synthèse space.md"
+    note = net_vault / "synthesis" / "synthèse space.md"
     note.write_text("- (quote) local [@missing] ^c-local\n")
     outcome = _outcome(
         "quote",
         "missing#^c-local",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/synthèse space.md",
+        note_path="synthesis/synthèse space.md",
         claim_id="c-local",
     )
 
     assert _target_hash(net_vault, outcome) is not None
     _mutate_marker(net_vault, outcome, "2026-08-16")
-    assert "verify-failed:: quote/2026-08-16" in note.read_text()
+    assert "failed-verification:: quote/2026-08-16" in note.read_text()
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
-    assert "verify-failed" not in note.read_text()
+    assert "failed-verification" not in note.read_text()
 
     outside_root = tmp_path.parent / f"{tmp_path.name}-outside"
     outside_root.mkdir()
     outside = outside_root / "outside.md"
     outside.write_text("outside remains private\n")
-    direct_link = net_vault / "atlas" / "outside-link.md"
+    direct_link = net_vault / "synthesis" / "outside-link.md"
     direct_link.symlink_to(outside)
-    assert _safe_relative(net_vault, "atlas/outside-link.md") is None
+    assert _safe_relative(net_vault, "synthesis/outside-link.md") is None
     assert (
         _target_hash(
             net_vault,
-            _outcome("append-only", "atlas/outside-link.md", Result.UNMATCHED, "drift"),
+            _outcome(
+                "append-only", "synthesis/outside-link.md", Result.UNMATCHED, "drift"
+            ),
         )
         is None
     )
@@ -930,7 +933,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
         is None
     )
 
-    directory = net_vault / "efforts" / "published"
+    directory = net_vault / "projects" / "published"
     nested = directory / "nested"
     nested.mkdir(parents=True)
     first_target = outside_root / "first-target"
@@ -940,7 +943,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     link = nested / "escape"
     link.symlink_to(first_target)
     directory_outcome = _outcome(
-        "published-drift", "efforts/published", Result.UNMATCHED, "drift"
+        "published-drift", "projects/published", Result.UNMATCHED, "drift"
     )
     first = _target_hash(net_vault, directory_outcome)
     first_target.write_text("changing outside content stays invisible\n")
@@ -1223,9 +1226,7 @@ def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
     net_vault, monkeypatch
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
-    )
+    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
     text = source.read_text()
     for check in (
         "doi",
