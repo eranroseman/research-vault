@@ -4,6 +4,8 @@ import sys
 from importlib.util import find_spec
 from pathlib import Path
 
+import pytest
+
 from harness_core import frontmatter, scaffold
 
 VAULT_DIRS = [
@@ -43,6 +45,19 @@ def git(path, *args):
     return subprocess.run(
         ["git", *args], cwd=path, check=True, text=True, capture_output=True
     ).stdout
+
+
+def git_result(path, *args):
+    return subprocess.run(
+        ["git", *args], cwd=path, text=True, capture_output=True, check=False
+    )
+
+
+def initialize_repo(path):
+    path.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    git(path, "config", "user.name", "Test User")
+    git(path, "config", "user.email", "test@example.edu")
 
 
 def test_scaffold_module_is_available():
@@ -164,6 +179,104 @@ def test_scaffold_commits_only_its_created_paths_and_preserves_user_index(tmp_pa
     )
     assert (vault / "unstaged.md").read_text() == "unstaged\n"
     assert (vault / "untracked.md").read_text() == "untracked\n"
+
+
+def test_scaffold_refuses_a_staged_deletion_of_an_owned_target_before_writing(tmp_path):
+    """Recreating an owned file that the user staged for deletion must fail."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    index = vault / "index.md"
+    index.write_text("user version\n")
+    git(vault, "add", "--", "index.md")
+    git(vault, "commit", "-qm", "baseline")
+    index.unlink()
+    git(vault, "add", "--", "index.md")
+    index_before = git(vault, "diff", "--cached", "--binary")
+
+    with pytest.raises(ValueError, match="conflict"):
+        scaffold.scaffold_vault(vault)
+
+    assert not index.exists()
+    assert git(vault, "diff", "--cached", "--binary") == index_before
+    assert not (vault / ".gitignore").exists()
+    assert not (vault / ".harness").exists()
+    assert not (vault / "inbox").exists()
+
+
+def test_scaffold_keeps_machine_configuration_local_without_an_ignore_rule(tmp_path):
+    """A missing .harness ignore rule must not make machine config committable."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    (vault / ".gitignore").write_text(".obsidian/\n")
+
+    scaffold.scaffold_vault(vault)
+
+    assert (vault / ".harness" / "machine.json").is_file()
+    assert git_result(
+        vault, "ls-files", "--error-unmatch", ".harness/machine.json"
+    ).returncode
+    assert "?? .harness/" in git(vault, "status", "--short")
+
+
+def test_scaffold_initializes_a_nested_repository_instead_of_using_an_enclosing_one(
+    tmp_path,
+):
+    """A destination inside another repository must become its own vault root."""
+    outer = tmp_path / "outer"
+    initialize_repo(outer)
+    vault = outer / "vault"
+
+    scaffold.scaffold_vault(vault)
+
+    assert git(vault, "rev-parse", "--show-toplevel").strip() == str(vault)
+    hook = Path(git(vault, "rev-parse", "--git-path", "hooks/pre-commit").strip())
+    assert (hook if hook.is_absolute() else vault / hook).is_file()
+
+
+def test_scaffold_uses_git_plumbing_for_a_linked_worktree_hook(tmp_path):
+    """A linked worktree's .git file must not be treated as a hooks directory."""
+    main = tmp_path / "main"
+    initialize_repo(main)
+    (main / "baseline.md").write_text("baseline\n")
+    git(main, "add", "--", "baseline.md")
+    git(main, "commit", "-qm", "baseline")
+    vault = tmp_path / "vault"
+    git(main, "worktree", "add", "-q", "-b", "vault", str(vault))
+
+    scaffold.scaffold_vault(vault)
+
+    hook = Path(git(vault, "rev-parse", "--git-path", "hooks/pre-commit").strip())
+    assert (hook if hook.is_absolute() else vault / hook).is_file()
+
+
+def test_scaffold_refuses_owned_symlink_paths_before_writing(tmp_path):
+    """An owned symlink must not redirect scaffold writes outside the vault."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (vault / "inbox").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="symlink"):
+        scaffold.scaffold_vault(vault)
+
+    assert not (outside / "review-queue.md").exists()
+    assert not (vault / ".git").exists()
+    assert not (vault / ".gitignore").exists()
+
+
+def test_scaffold_refuses_a_symlinked_destination_before_writing(tmp_path):
+    """A destination symlink must not redirect the entire scaffold outside."""
+    vault = tmp_path / "vault"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    vault.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="symlink"):
+        scaffold.scaffold_vault(vault)
+
+    assert not (outside / ".git").exists()
+    assert not (outside / "index.md").exists()
 
 
 def test_scaffold_cli_prints_the_created_paths(tmp_path):
