@@ -16,6 +16,7 @@ from . import (
     checks,
     events,
     frontmatter,
+    gitstate,
     identify,
     inbox,
     lints,
@@ -310,18 +311,6 @@ def _safe_relative(vault_root, target):
     return path
 
 
-def _head_bytes(vault_root, relative):
-    import subprocess
-
-    result = subprocess.run(
-        ["git", "show", f"HEAD:{relative}"],
-        cwd=vault_root,
-        capture_output=True,
-        check=False,
-    )
-    return result.stdout if result.returncode == 0 else None
-
-
 def _note_bytes(data: bytes) -> bytes:
     return notes.canonical_content(data.decode(errors="surrogateescape")).encode(
         errors="surrogateescape"
@@ -365,7 +354,7 @@ def _append_only_basis(vault_root, target):
         for line in result.stdout.splitlines(keepends=True)
         if line.startswith(b"-") and not line.startswith(b"---")
     ]
-    return b"".join(removed) or _head_bytes(vault_root, target) or b""
+    return b"".join(removed) or gitstate.blob_bytes(vault_root, "HEAD", target) or b""
 
 
 def _directory_bytes(path):
@@ -450,7 +439,7 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
             return known_citekey_hash
         data = _claim_bytes(origin, claim_id) if origin else None
         if data is None and origin is not None:
-            head = _head_bytes(vault_root, outcome.extra["note_path"])
+            head = gitstate.blob_bytes(vault_root, "HEAD", outcome.extra["note_path"])
             if head is not None:
                 data = _claim_bytes_from_text(
                     head.decode(errors="surrogateescape"), claim_id
@@ -478,7 +467,7 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
         elif path.is_dir():
             data = _directory_bytes(path)
         else:
-            data = _head_bytes(vault_root, target) or b""
+            data = gitstate.blob_bytes(vault_root, "HEAD", target) or b""
             if target.endswith(".md"):
                 data = _note_bytes(data)
         return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
@@ -492,7 +481,9 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
             data = _note_bytes(origin.read_bytes())
             return hashlib.sha256(data).hexdigest()[:16]
         if origin:
-            data = _head_bytes(vault_root, outcome.extra.get("note_path", ""))
+            data = gitstate.blob_bytes(
+                vault_root, "HEAD", outcome.extra.get("note_path", "")
+            )
             if data is not None:
                 return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
         if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
