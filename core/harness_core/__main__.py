@@ -23,6 +23,7 @@ from . import (
     notes,
     paths,
     quotes,
+    scaffold,
     selectors,
     webapi,
 )
@@ -1025,6 +1026,14 @@ def cmd_inbox(args):
     return 0
 
 
+def cmd_scaffold(args):
+    for path in scaffold.scaffold_vault(
+        args.vault, with_ci=args.with_ci, with_rw_ci=args.with_rw_ci
+    ):
+        print(path)
+    return 0
+
+
 def main(argv=None):
     # A shared parent accepts --base before or after each subcommand.
     common = argparse.ArgumentParser(add_help=False)
@@ -1045,6 +1054,10 @@ def main(argv=None):
     verify.add_argument("--rw-csv")
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
+    scaffold_vault = sub.add_parser("scaffold", parents=[common])
+    scaffold_vault.add_argument("--vault", required=True)
+    scaffold_vault.add_argument("--with-ci", action="store_true")
+    scaffold_vault.add_argument("--with-rw-ci", action="store_true")
     args = parser.parse_args(argv)
     if not hasattr(args, "base"):
         args.base = DEFAULT_BASE
@@ -1055,6 +1068,7 @@ def main(argv=None):
         "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,
         "inbox": cmd_inbox,
+        "scaffold": cmd_scaffold,
     }[args.cmd](args)
 
 
