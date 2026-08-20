@@ -85,7 +85,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 
 **Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683`, stdlib `ElementTree` on registry XML — per-line `noqa: S314` with reason: bandit's fix is defusedxml, but core's zero-runtime-dependency constraint governs; https-only registry feeds; revisit if untrusted XML sources grow). Also PERF×3 (loop/comprehension rewrites as reported). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, the rest of the S family, the future-guard block ASYNC/EXE/FA/FLY/G/INT/LOG/N/PYI/RET/TC/YTT (structurally n/a today — no async, no logging, no stubs; the guard is already armed the day such code appears), and T20 outside `__main__.py`/`scripts/` (all 18 measured prints live in `__main__.py` — library modules get the stray-debug-print guard; a rogue print in `checks.py` would corrupt the CLI stdout contract).
 
-**mypy, pre-measured (default mode, mypy 2.3.1): 10 genuine errors in 7 files** — `frontmatter.py:137` var-annotated + `:141` assignment (`current_list` needs `list[...] | None` typing), `inbox.py:368` var-annotated `entries`, `zotero.py:182` return-value (`object` vs `dict` — narrow with `isinstance`), `checks.py:66` assignment (`str` into a `Path` variable — split the variable), `lints.py:187`/`:440` var-annotated, `lints.py:457` arg-type (`str | None` into `Outcome` — guard before the call), `identify.py:110` var-annotated `identifiers`, plus one index-category error mypy reports in full. `--strict` is 329 (308 of them annotation-presence) — a campaign, deliberately NOT this task; the ratchet path is recorded below.
+**mypy, pre-measured (rung-1 config below, mypy 2.3.1): 13 genuine errors in 8 files** — the default-mode 10 plus 3 surfaced by `check_untyped_defs` — `frontmatter.py:137` var-annotated + `:141` assignment (`current_list` needs `list[...] | None` typing), `inbox.py:368` var-annotated `entries`, `zotero.py:182` return-value (`object` vs `dict` — narrow with `isinstance`), `checks.py:66` assignment (`str` into a `Path` variable — split the variable), `lints.py:187`/`:440` var-annotated, `lints.py:457` arg-type (`str | None` into `Outcome` — guard before the call), `identify.py:110` var-annotated `identifiers`, plus one index-category error and the rung-1 three, all as mypy reports them (rung-1 breakdown: var-annotated×7, assignment×2, return-value/index/arg-type×1 each; the pypdf import is handled by the override). `--strict` is 329 (316 annotation-presence) — a campaign yielding ~0 additional verified defects, deliberately NOT this task (author-ruled 2026-08-20); the ratchet path is recorded in the config comment.
 
 **Ruling encoded (author-approved 2026-08-20): machine-generated timestamps and dates derive from an explicit timezone-aware UTC clock.** Verified events, `accessed` dates, and update-notice detection dates are bi-temporal records that live forever in git; a naive local clock is a defect class, not a style choice. DTZ enforces this from now on.
 
@@ -159,8 +159,17 @@ ignore = [
 
 [tool.mypy]
 files = ["harness_core"]
-# Ratchet path (adopt as touched code gets annotated, in this order):
-# check_untyped_defs -> disallow_incomplete_defs -> disallow_untyped_defs
+check_untyped_defs = true  # rung 1: untyped function bodies are checked (+3 real errors at adoption)
+strict_equality = true     # truth flags — measured zero-cost at adoption
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Ratchet path (as touched code gets annotated): disallow_incomplete_defs ->
+# disallow_untyped_defs. Full --strict deferred by decision (measured 2026-08-20:
+# 316 of its 329 errors are annotation-presence, yielding ~0 additional verified
+# defects; at JSON boundaries strict invites cast()-laundered "asserted, not
+# verified" types). Revisit after the evidence shapes (CSL-JSON item, Zotero
+# responses, frontmatter) are modeled as TypedDicts — then the remaining rungs
+# are cheap and strict arrives as a fact, not a campaign.
 
 [[tool.mypy.overrides]]
 module = "pypdf.*"
@@ -189,7 +198,7 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 - S108/S314: classify per the pre-measured notes above (noqa-with-reason where the code is the deliberate design, never blanket ignores).
 - S101 in core (3 hits): replace production `assert` with explicit raises, or noqa-with-reason where it guards an internal invariant.
 - PERF (3 hits): apply the reported rewrites.
-- mypy's 10: annotate the six `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
+- mypy's 13: annotate the seven `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
 
 - [ ] **Step 4: Verify clean + suite green**
 
