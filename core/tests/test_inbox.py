@@ -74,11 +74,13 @@ def test_append_and_load(fixture_vault):
 
     entries = inbox.load(fixture_vault)
 
-    assert entries[-1].id == "doi/smith2020/2026-08-16"
+    assert entries[-1].id == "doi/kind-10:identifier;target-9:smith2020/2026-08-16"
     assert entries[-1].result == "UNMATCHED"
     assert entries[-1].reason.startswith("mismatch")
     line = (fixture_vault / "inbox" / "review-queue.md").read_text().splitlines()[-1]
-    assert line.startswith("- [id:: doi/smith2020/2026-08-16]")
+    assert line.startswith(
+        "- [id:: doi/kind-10:identifier;target-9:smith2020/2026-08-16]"
+    )
 
 
 def test_entry_round_trips_bitemporal_dates(fixture_vault):
@@ -225,6 +227,53 @@ def test_target_kind_round_trips_and_participates_in_identity_and_ack_scope(
     )
     ack_line = (fixture_vault / inbox.INBOX_PATH).read_text().splitlines()[-1]
     assert "[target-kind:: repo-path]" in ack_line
+
+
+def test_target_kind_identity_is_injective_when_identifier_contains_kind_syntax(
+    fixture_vault,
+):
+    identifier = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        "path-bytes:a/kind-repo-path",
+        Result.UNMATCHED,
+        "mismatch — identifier",
+        date="2026-08-16",
+        target_kind="identifier",
+    )
+    repo_path = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        "path-bytes:a",
+        Result.UNMATCHED,
+        "mismatch — repo path",
+        date="2026-08-16",
+        target_kind="repo-path",
+    )
+
+    assert identifier.id != repo_path.id
+    assert len(inbox.open_entries(fixture_vault)) == 2
+    inbox.append_ack(
+        fixture_vault,
+        repo_path.id,
+        "manual — checked repo path",
+        "human:test",
+    )
+    assert inbox.is_acknowledged(
+        fixture_vault,
+        "quote",
+        "path-bytes:a",
+        target_kind="repo-path",
+    )
+    assert not inbox.is_acknowledged(
+        fixture_vault,
+        "quote",
+        "path-bytes:a/kind-repo-path",
+        target_kind="identifier",
+    )
+    assert [
+        (entry.target, entry.target_kind) for entry in inbox.open_entries(fixture_vault)
+    ] == [("path-bytes:a/kind-repo-path", "identifier")]
 
 
 def test_legacy_missing_target_kind_defaults_only_to_identifier(fixture_vault):

@@ -219,9 +219,8 @@ def _finding_id(
     notice_date,
     target_kind="identifier",
 ) -> str:
-    entry_id = f"{check}/{target}/{date}"
-    if target_kind == "repo-path":
-        entry_id = f"{check}/{target}/kind-repo-path/{date}"
+    identity = f"kind-{len(target_kind)}:{target_kind};target-{len(target)}:{target}"
+    entry_id = f"{check}/{identity}/{date}"
     if notice_class is not None:
         entry_id += f"/{notice_class}/{notice_type}/{notice_date or 'unknown'}"
     if target_hash is not None:

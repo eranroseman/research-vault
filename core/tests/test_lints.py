@@ -594,7 +594,7 @@ def _refresh_managed_witness(path):
     path.write_text(frontmatter.serialize(data) + body)
 
 
-@pytest.mark.parametrize("change", ["edit", "delete", "rename"])
+@pytest.mark.parametrize("change", ["add", "edit", "delete", "rename"])
 def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
     fixture_vault, change
 ):
@@ -606,7 +606,11 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
         capture_output=True,
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
-    if change == "edit":
+    if change == "add":
+        added = fixture_vault / "literatures" / "added.md"
+        added.write_bytes(source.read_bytes())
+        expected = "path-bytes:literatures/added.md"
+    elif change == "edit":
         source.write_text(
             source.read_text().replace("# Mortality decline", "# Changed")
         )

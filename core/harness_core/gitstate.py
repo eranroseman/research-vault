@@ -101,11 +101,12 @@ def _git(
         check=False,
     )
     if check and result.returncode != 0:
-        detail = result.stderr.decode("utf-8", "replace").strip()
-        command = " ".join(
-            ascii(arg) if isinstance(arg, bytes) else str(arg) for arg in args
-        )
-        raise GitStateError(f"git {command} failed: {detail or result.returncode}")
+        operation = args[0] if args and isinstance(args[0], str) else "operation"
+        try:
+            operation.encode("ascii")
+        except UnicodeEncodeError:
+            operation = "operation"
+        raise GitStateError(f"git {operation} failed with status {result.returncode}")
     return result
 
 
@@ -703,7 +704,10 @@ def publish_outputs(
         )
         for output in ordered
     }
-    descriptor, index_name = tempfile.mkstemp(prefix="harness-publish-index-")
+    try:
+        descriptor, index_name = tempfile.mkstemp(prefix="harness-publish-index-")
+    except OSError as error:
+        raise GitStateError("cannot create private publication index") from error
     os.close(descriptor)
     os.unlink(index_name)
     env = {"GIT_INDEX_FILE": index_name}
@@ -738,9 +742,8 @@ def publish_outputs(
             check=False,
         )
         if published.returncode != 0:
-            detail = published.stderr.decode("utf-8", "replace").strip()
             raise GitStateError(
-                f"concurrent HEAD update-ref failed: {detail or published.returncode}"
+                f"concurrent HEAD update-ref failed with status {published.returncode}"
             )
         return commit
     finally:

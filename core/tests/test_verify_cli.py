@@ -16,6 +16,7 @@ from harness_core import (
     checks,
     claims,
     events,
+    gitstate,
     inbox,
     webapi,
 )
@@ -393,7 +394,15 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
         for entry in inbox.open_entries(net_vault)
         if entry.check == "citekey" and entry.target == "fabricated2020"
     ]
-    assert len(first_entries) == len(second_entries) == 1
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    third_entries = [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == "citekey" and entry.target == "fabricated2020"
+    ]
+    assert len(first_entries) == 1
+    assert len(second_entries) == len(third_entries) == 2
+    assert first_entries[0].target_hash != second_entries[-1].target_hash
     source = (net_vault / "literatures" / "smith2020.md").read_text()
     recorded = {event["check"] for event in events.verified_checks(source)}
     assert "quote:smith2020#^c-66666666:managed-region" in recorded
@@ -1255,52 +1264,150 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     assert not inbox.open_entries(net_vault)
 
 
-def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
-    net_vault, monkeypatch
+def _projecting_failure(check):
+    if check == "doi":
+        return _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — DOI")
+    if check == "update-notice":
+        return _outcome(
+            "update-notice",
+            "smith2020",
+            Result.UNMATCHED,
+            "retracted — retraction",
+            **{
+                "class": "blocking",
+                "type": "retraction",
+                "notice_date": "2026-01-01",
+                "detection_date": "2026-08-16",
+            },
+        )
+    return checks.Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        {
+            "note_path": RepoPathValue(b"literatures/smith2020.md"),
+            "claim_id": "c-11111111",
+            "target": "managed-region",
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "reverse", [False, True], ids=["primary-first", "primary-last"]
+)
+@pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+    net_vault, monkeypatch, check, reverse
 ):
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    primary = _projecting_failure(check)
+    companion = _outcome(
+        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+    )
+    current = [primary, companion]
+    if reverse:
+        current.reverse()
+    _isolate_network_verify(monkeypatch, current)
+
+    candidate_hash = _target_hash(net_vault, primary)
+    _report, _effective_outcomes, hashes, _warnings = _verify_state(
+        net_vault, network=True, detection_date="2026-08-16"
+    )
+    projected_hash = _target_hash(net_vault, primary)
+    finding = next(
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == check and entry.target == primary.target
+    )
+
+    assert projected_hash != candidate_hash
+    assert hashes[id(primary)] == candidate_hash
+    assert finding.target_hash == candidate_hash
+
+
+@pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
+    net_vault, monkeypatch, check
+):
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    primary = _projecting_failure(check)
+    companion = _outcome(
+        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+    )
+    _isolate_network_verify(monkeypatch, [companion, primary])
+    candidate_hash = _target_hash(net_vault, primary)
+    notice_class, notice_type, notice_date = (
+        (
+            primary.extra.get("class"),
+            primary.extra.get("type"),
+            primary.extra.get("notice_date"),
+        )
+        if check == "update-notice"
+        else (None, None, None)
+    )
+    finding = inbox.append_entry(
+        net_vault,
+        primary.check,
+        primary.target,
+        primary.result,
+        primary.reason,
+        date="2026-08-16",
+        target_hash=candidate_hash,
+        notice_class=notice_class,
+        notice_type=notice_type,
+        notice_date=notice_date,
+        target_kind=primary.target_kind,
+    )
+    inbox.append_ack(
+        net_vault,
+        finding.id,
+        "manual — checked candidate",
+        "human:test",
+        candidate_hash,
+    )
+
+    _report, effective, hashes, _warnings = _verify_state(
+        net_vault, network=True, detection_date="2026-08-16"
+    )
+
+    assert hashes[id(primary)] == candidate_hash
+    assert primary not in effective
+    assert _target_hash(net_vault, primary) != candidate_hash
+    assert not any(
+        entry.check == check and entry.target == primary.target
+        for entry in inbox.open_entries(net_vault)
+    )
+
+
+def test_current_failure_projection_keeps_exact_recovery_behavior(
+    net_vault, monkeypatch
+):
+    source = net_vault / "literatures" / "smith2020.md"
     text = source.read_text()
-    for check in (
+    for verified_check in (
         "doi",
         "metadata",
         "update-notice",
         "quote:smith2020#^c-11111111:managed-region",
     ):
-        text = events.record_pass(text, check, Result.MATCHED, at="2026-08-15")
+        text = events.record_pass(text, verified_check, Result.MATCHED, at="2026-08-15")
     source.write_text(text)
-    doi_failure = _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — DOI")
+    doi_failure = _projecting_failure("doi")
     metadata_failure = _outcome(
         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
     )
     current = [doi_failure, metadata_failure]
     _isolate_network_verify(monkeypatch, current)
 
-    before = _target_hash(net_vault, doi_failure)
     run_verify(net_vault, network=True, detection_date="2026-08-16")
-    after = _target_hash(net_vault, doi_failure)
-    findings = {
-        entry.check: entry
-        for entry in inbox.open_entries(net_vault)
-        if entry.target == "smith2020"
-    }
-
-    assert after != before
-    assert findings["doi"].target_hash == after
-    assert findings["metadata"].target_hash == after
+    assert events.current_failures(source.read_text()) == [
+        {"check": "doi", "result": "UNMATCHED"},
+        {"check": "metadata", "result": "UNREACHABLE"},
+    ]
     assert events.trust_tier(source.read_text()) == "unverified"
-    first_bytes = source.read_bytes()
-
-    inbox.append_ack(
-        net_vault,
-        findings["doi"].id,
-        "manual — checked",
-        "human:test",
-        after,
-    )
-    run_verify(net_vault, network=True, detection_date="2026-08-17")
-    assert source.read_bytes() == first_bytes
-    assert not any(entry.check == "doi" for entry in inbox.open_entries(net_vault))
 
     current[:] = [
         _outcome("doi", "smith2020", Result.MATCHED, "matched"),
@@ -1310,7 +1417,6 @@ def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
     assert events.current_failures(source.read_text()) == [
         {"check": "metadata", "result": "UNREACHABLE"}
     ]
-    assert events.trust_tier(source.read_text()) == "unverified"
 
     current[:] = [
         _outcome("doi", "smith2020", Result.MATCHED, "matched"),
@@ -1353,8 +1459,91 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     code = main(["verify", "--vault", str(net_vault), "--offline"])
     output = capsys.readouterr().out
 
-    assert code == 3
+    assert code == 0
     assert "UNREACHABLE staleness path-bytes:x/bibliography.json" in output
+
+
+@pytest.mark.parametrize(
+    ("surface", "expected"), [("audit", 0), ("commit", 3), ("publish", 3)]
+)
+def test_genuine_unreachable_closes_only_on_explicit_surfaces(
+    net_vault, monkeypatch, surface, expected
+):
+    outage = _outcome("doi", "smith2020", Result.UNREACHABLE, "outage — registry")
+    monkeypatch.setattr(
+        "harness_core.__main__._verify_state",
+        lambda *_args, **_kwargs: (
+            {"outcomes": [outage], "counts": {"UNREACHABLE": 1}},
+            [outage],
+            {id(outage): "aa11"},
+            {},
+        ),
+    )
+
+    assert (
+        cmd_verify(
+            type(
+                "Args",
+                (),
+                {
+                    "vault": net_vault,
+                    "offline": False,
+                    "rw_csv": None,
+                    "surface": surface,
+                },
+            )()
+        )
+        == expected
+    )
+
+
+def test_deleted_nested_repo_path_hashes_resolved_base_without_live_parent(
+    net_vault,
+):
+    directory = net_vault / "projects" / "nested"
+    directory.mkdir()
+    note = directory / "deleted.md"
+    note.write_bytes(b"candidate evidence\n")
+    subprocess.run(
+        ["git", "add", "projects/nested/deleted.md"], cwd=net_vault, check=True
+    )
+    subprocess.run(
+        ["git", "commit", "-qm", "nested evidence"], cwd=net_vault, check=True
+    )
+    snapshots = gitstate.resolve_snapshots(net_vault, candidate="worktree")
+    note.unlink()
+    directory.rmdir()
+    outcome = checks.Outcome(
+        "evidence-layer",
+        RepoPathValue(b"projects/nested/deleted.md"),
+        Result.UNMATCHED,
+        "drift — deleted note",
+    )
+    expected = hashlib.sha256(b"candidate evidence\n").hexdigest()[:16]
+
+    target_hash = _target_hash(net_vault, outcome, base_snapshot=snapshots.base)
+
+    assert target_hash == expected
+    finding = inbox.append_entry(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        outcome.result,
+        outcome.reason,
+        date="2026-08-16",
+        target_hash=target_hash,
+        target_kind=outcome.target_kind,
+    )
+    inbox.append_ack(
+        net_vault, finding.id, "manual — checked deletion", "human:test", target_hash
+    )
+    assert inbox.is_acknowledged(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        current_hash=_target_hash(net_vault, outcome, base_snapshot=snapshots.base),
+        target_kind=outcome.target_kind,
+    )
 
 
 def test_verify_loads_bibliography_once_at_orchestration_boundary(
@@ -1448,6 +1637,31 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
             {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
         ),
     }
+
+
+def test_managed_note_add_is_collected_and_projected_as_evidence_finding(
+    fixture_vault,
+):
+    added = fixture_vault / "literatures" / "added.md"
+    added.write_bytes((fixture_vault / "literatures" / "smith2020.md").read_bytes())
+
+    report, effective, hashes, _warnings = _verify_state(
+        fixture_vault, network=False, detection_date="2026-08-16"
+    )
+
+    finding = next(
+        outcome
+        for outcome in report["outcomes"]
+        if outcome.check == "evidence-layer"
+        and outcome.target == "path-bytes:literatures/added.md"
+        and outcome.reason == "drift — managed literature note added"
+    )
+    assert finding in effective
+    assert hashes[id(finding)] is not None
+    assert any(
+        entry.check == "evidence-layer" and entry.target == finding.target
+        for entry in inbox.open_entries(fixture_vault)
+    )
 
 
 def test_invalid_publication_flags_or_inside_manifest_exit_two_before_mutation(

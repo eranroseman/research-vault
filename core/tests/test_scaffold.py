@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+from importlib import resources
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -152,6 +153,27 @@ def test_scaffold_ci_flags_are_independent(tmp_path):
     assert ".github/workflows/rw-batch.yml" not in read_only_created
     assert ".github/workflows/rw-batch.yml" in rw_created
     assert ".github/workflows/verify.yml" not in rw_created
+
+
+def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path):
+    vault = tmp_path / "vault"
+    created = scaffold.scaffold_vault(vault, with_ci=True, with_rw_ci=True)
+    packaged = resources.files("harness_core").joinpath("templates")
+    expected = {
+        ".git/hooks/pre-commit": packaged.joinpath("git", "pre-commit"),
+        ".github/workflows/verify.yml": packaged.joinpath("ci", "verify.yml"),
+        ".github/workflows/rw-batch.yml": packaged.joinpath("ci", "rw-batch.yml"),
+        "x/templates/literature.md": packaged.joinpath(
+            "vault", "x", "templates", "literature.md"
+        ),
+    }
+
+    assert set(expected) <= set(created)
+    for relative, source in expected.items():
+        assert (vault / relative).read_bytes() == source.read_bytes()
+    assert os.stat(vault / ".git/hooks/pre-commit").st_mode & 0o111 == 0o111
+    assert os.stat(vault / ".github/workflows/verify.yml").st_mode & 0o111 == 0
+    assert os.stat(vault / ".github/workflows/rw-batch.yml").st_mode & 0o111 == 0
 
 
 def test_scaffold_commits_only_its_created_paths_and_preserves_user_index(tmp_path):

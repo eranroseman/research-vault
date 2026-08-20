@@ -407,6 +407,24 @@ def _directory_bytes(path):
     return b"\0".join(chunks)
 
 
+def _snapshot_directory_bytes(snapshot, raw_path):
+    prefix = raw_path + b"/"
+    chunks = []
+    for child_path in sorted(snapshot.images):
+        if not child_path.startswith(prefix):
+            continue
+        image = snapshot.images[child_path]
+        relative = child_path[len(prefix) :]
+        if image.kind == "symlink":
+            chunks.extend((relative, b"symlink", image.data or b""))
+        elif image.kind == "file":
+            data = image.data or b""
+            if child_path.endswith(b".md"):
+                data = _note_bytes(data)
+            chunks.extend((relative, data))
+    return b"\0".join(chunks)
+
+
 def _note_for_citekey(vault_root, citekey):
     try:
         vault = Path(vault_root)
@@ -419,7 +437,27 @@ def _note_for_citekey(vault_root, citekey):
     return _safe_relative(vault, encode_repo_path(raw_path), "repo-path")
 
 
-def _citekey_hash(vault_root, citekey):
+def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
+    if candidate_snapshot is not None:
+        try:
+            candidate = notes.note_path(Path(vault_root), citekey)
+            raw_path = os.fsencode(candidate.relative_to(vault_root))
+        except (notes.InvalidCitekeyError, ValueError):
+            return None
+        image = candidate_snapshot.image(raw_path)
+        if image is None or image.kind != "file":
+            return None
+        raw = image.data or b""
+        try:
+            data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))
+        except (UnicodeError, frontmatter.FrontmatterError):
+            data = {}
+        attachment_hashes = data.get("fixity-sha256")
+        if isinstance(attachment_hashes, list) and attachment_hashes:
+            first = attachment_hashes[0]
+            if isinstance(first, str) and first:
+                return first
+        return hashlib.sha256(_note_bytes(raw)).hexdigest()[:16]
     note = _note_for_citekey(vault_root, citekey)
     if note and note.is_file():
         try:
@@ -441,19 +479,42 @@ def _target_hash(
     bibliography_universe=_OMITTED_BIBLIOGRAPHY,
     *,
     base_snapshot=None,
+    candidate_snapshot=None,
 ):
     """Return the stable, kind-aware acknowledgment hash for an outcome."""
     target = outcome.target
-    claim_id = None
-    origin = _extra_path(vault_root, outcome, "note_path")
+    raw_origin = (
+        decode_repo_path(outcome.extra["note_path"])
+        if "note_path" in outcome.path_extra_fields
+        else None
+    )
+    origin_image = (
+        candidate_snapshot.image(raw_origin)
+        if candidate_snapshot is not None and raw_origin is not None
+        else None
+    )
+    origin = (
+        None
+        if candidate_snapshot is not None
+        else _extra_path(vault_root, outcome, "note_path")
+    )
     if isinstance(target, str) and "#^" in target:
         citekey, claim_id = target.split("#^", 1)
-        known_citekey_hash = _citekey_hash(vault_root, citekey)
+        known_citekey_hash = _citekey_hash(
+            vault_root, citekey, candidate_snapshot=candidate_snapshot
+        )
         if known_citekey_hash is not None:
             return known_citekey_hash
-        data = _claim_bytes(origin, claim_id) if origin else None
-        if data is None and "note_path" in outcome.path_extra_fields:
-            raw_origin = decode_repo_path(outcome.extra["note_path"])
+        data = (
+            _claim_bytes_from_text(
+                (origin_image.data or b"").decode(errors="surrogateescape"), claim_id
+            )
+            if origin_image is not None and origin_image.kind == "file"
+            else _claim_bytes(origin, claim_id)
+            if origin
+            else None
+        )
+        if data is None and raw_origin is not None:
             base_image = (
                 base_snapshot.image(raw_origin) if base_snapshot is not None else None
             )
@@ -468,7 +529,7 @@ def _target_hash(
                 data = _claim_bytes_from_text(
                     head.decode(errors="surrogateescape"), claim_id
                 )
-        if data is None:
+        if data is None and candidate_snapshot is None:
             note = _note_for_citekey(vault_root, citekey)
             data = _claim_bytes(note, claim_id) if note else None
         if data is not None:
@@ -476,9 +537,50 @@ def _target_hash(
 
     if outcome.target_kind == "repo-path":
         raw_target = decode_repo_path(target)
+        if candidate_snapshot is not None:
+            candidate_image = candidate_snapshot.image(raw_target)
+            if candidate_image is not None and candidate_image.kind in {
+                "symlink",
+                "special",
+            }:
+                return None
+            if outcome.check == "append-only":
+                data = _append_only_basis(vault_root, raw_target, base_snapshot)
+            elif candidate_image is not None and candidate_image.kind == "file":
+                data = candidate_image.data or b""
+                if raw_target.endswith(b".md"):
+                    data = _note_bytes(data)
+            elif candidate_image is not None and candidate_image.kind == "directory":
+                data = _snapshot_directory_bytes(candidate_snapshot, raw_target)
+            else:
+                base_image = (
+                    base_snapshot.image(raw_target)
+                    if base_snapshot is not None
+                    else None
+                )
+                data = (
+                    base_image.data
+                    if base_image is not None and base_image.kind == "file"
+                    else b""
+                ) or b""
+                if raw_target.endswith(b".md"):
+                    data = _note_bytes(data)
+            return hashlib.sha256(data).hexdigest()[:16]
+        base_image = (
+            base_snapshot.image(raw_target) if base_snapshot is not None else None
+        )
         path = _safe_relative(vault_root, target, outcome.target_kind)
         if path is None:
-            return None
+            data = (
+                base_image.data
+                if base_image is not None and base_image.kind == "file"
+                else None
+            )
+            if data is None:
+                return None
+            if raw_target.endswith(b".md"):
+                data = _note_bytes(data)
+            return hashlib.sha256(data).hexdigest()[:16]
         live_target = gitstate.live_image(Path(vault_root), raw_target)
         if live_target is not None and live_target.kind in {"symlink", "special"}:
             return None
@@ -491,9 +593,6 @@ def _target_hash(
         elif path.is_dir():
             data = _directory_bytes(path)
         else:
-            base_image = (
-                base_snapshot.image(raw_target) if base_snapshot is not None else None
-            )
             data = (
                 base_image.data
                 if base_image is not None and base_image.kind == "file"
@@ -506,15 +605,18 @@ def _target_hash(
         return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
 
     if isinstance(target, str):
-        known_citekey_hash = _citekey_hash(vault_root, target)
+        known_citekey_hash = _citekey_hash(
+            vault_root, target, candidate_snapshot=candidate_snapshot
+        )
         if known_citekey_hash is not None:
             return known_citekey_hash
-        origin = _extra_path(vault_root, outcome, "note_path")
+        if origin_image is not None and origin_image.kind == "file":
+            data = _note_bytes(origin_image.data or b"")
+            return hashlib.sha256(data).hexdigest()[:16]
         if origin and origin.is_file():
             data = _note_bytes(origin.read_bytes())
             return hashlib.sha256(data).hexdigest()[:16]
-        if origin and "note_path" in outcome.path_extra_fields:
-            raw_origin = decode_repo_path(outcome.extra["note_path"])
+        if raw_origin is not None:
             base_image = (
                 base_snapshot.image(raw_origin) if base_snapshot is not None else None
             )
@@ -819,7 +921,7 @@ def _projection_identity(outcome):
 
 
 def _apply_state_transitions(vault_root, raw, detection_date):
-    """Project raw current state before any hash or acknowledgment decision."""
+    """Project raw current state after the candidate-bound decision is frozen."""
     for outcome in raw:
         projection = _projection_identity(outcome)
         if projection is not None:
@@ -880,7 +982,7 @@ def _warning_effectiveness(outcomes, hashes, vault_root):
 
 
 def _file_effects(vault_root, effective, hashes, warning_effective, detection_date):
-    """File findings from the frozen post-transition decision state."""
+    """File findings from the frozen candidate-bound decision state."""
     open_keys = set()
     for entry in inbox.open_entries(vault_root):
         open_keys.add(
@@ -1057,18 +1159,19 @@ def _plan_state(
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]
-    _apply_state_transitions(vault, authoritative, detection_date)
     hashes = {
         id(outcome): _target_hash(
             vault,
             outcome,
             bibliography_universe,
             base_snapshot=base_snapshot,
+            candidate_snapshot=candidate_snapshot,
         )
         for outcome in authoritative
     }
     effective = _effective(authoritative, hashes, vault)
     warning_effective = _warning_effectiveness(authoritative, hashes, vault)
+    _apply_state_transitions(vault, authoritative, detection_date)
     _file_effects(vault, effective, hashes, warning_effective, detection_date)
     counts = {}
     for outcome in effective:
@@ -1210,6 +1313,8 @@ def cmd_verify(args):
         for outcome in effective
     ):
         return 1
+    if surface == "audit":
+        return 0
     return (
         3 if any(outcome.result is Result.UNREACHABLE for outcome in effective) else 0
     )

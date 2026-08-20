@@ -306,6 +306,75 @@ def test_empty_publication_is_a_noop(tmp_vault, monkeypatch):
     assert _git(tmp_vault, "rev-parse", "HEAD").stdout.decode().strip() == head
 
 
+@pytest.mark.parametrize(
+    "stage",
+    [
+        "hash-object",
+        "mkstemp",
+        "read-tree",
+        "update-index",
+        "write-tree",
+        "commit-tree",
+        "update-ref",
+    ],
+)
+def test_each_publication_stage_failure_preserves_head_index_and_captured_source(
+    tmp_vault, monkeypatch, stage
+):
+    target = tmp_vault / "synthesis" / "out.md"
+    target.write_bytes(b"base\n")
+    expected_head = _commit(tmp_vault)
+    snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
+    index_before = (tmp_vault / ".git" / "index").read_bytes()
+    captured = gitstate.CapturedOutput(
+        b"synthesis/out.md", stat.S_IFREG | 0o644, b"captured\n"
+    )
+    target.write_bytes(b"reread bytes\n")
+    real_git = gitstate._git
+    calls = []
+    commits = []
+
+    def fail_stage(vault, *args, **kwargs):
+        calls.append((args, kwargs.get("stdin")))
+        command = args[0]
+        if command == stage:
+            if stage == "update-ref":
+                return subprocess.CompletedProcess(args, 1, b"", b"injected failure")
+            raise gitstate.GitStateError(f"injected {stage} failure")
+        result = real_git(vault, *args, **kwargs)
+        if command == "commit-tree":
+            commits.append(result.stdout.decode().strip())
+        return result
+
+    monkeypatch.setattr(gitstate, "_git", fail_stage)
+    if stage == "mkstemp":
+        monkeypatch.setattr(
+            gitstate.tempfile,
+            "mkstemp",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                OSError("injected mkstemp failure")
+            ),
+        )
+
+    with pytest.raises(gitstate.GitStateError):
+        gitstate.publish_outputs(
+            tmp_vault, snapshots, [captured], "snapshot projection"
+        )
+
+    assert _git(tmp_vault, "rev-parse", "HEAD").stdout.decode().strip() == expected_head
+    assert (tmp_vault / ".git" / "index").read_bytes() == index_before
+    assert target.read_bytes() == b"reread bytes\n"
+    hash_inputs = [stdin for args, stdin in calls if args[0] == "hash-object"]
+    assert hash_inputs == [b"captured\n"]
+    assert b"reread bytes\n" not in hash_inputs
+    assert len(commits) == (1 if stage == "update-ref" else 0)
+    for commit in commits:
+        assert (
+            _git(tmp_vault, "show", f"{commit}:synthesis/out.md").stdout
+            == b"captured\n"
+        )
+
+
 def test_projection_refuses_preimage_divergence_before_first_write(tmp_vault):
     first = tmp_vault / "synthesis" / "a.md"
     second = tmp_vault / "projects" / "b.md"
@@ -563,18 +632,26 @@ def test_invalid_utf8_publication_failure_has_canonical_ascii_diagnostic(
     _commit(tmp_vault)
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
     output = gitstate.CapturedOutput(b"literatures/\xff.md", 0o100644, b"planned\n")
-    real_git = gitstate._git
+    real_run = gitstate.subprocess.run
 
-    def fail_update(vault, *args, **kwargs):
-        if args and args[0] == "update-index":
-            raise gitstate.GitStateError("injected")
-        return real_git(vault, *args, **kwargs)
+    def fail_update(command, **kwargs):
+        if len(command) > 1 and command[1] == "update-index":
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                b"",
+                b"fatal: b'literatures/\\xff.md' \xff",
+            )
+        return real_run(command, **kwargs)
 
-    monkeypatch.setattr(gitstate, "_git", fail_update)
+    monkeypatch.setattr(gitstate.subprocess, "run", fail_update)
     with pytest.raises(gitstate.GitStateError) as caught:
         gitstate.publish_outputs(tmp_vault, snapshots, [output], "snapshot")
 
     message = str(caught.value)
     message.encode("utf-8", "strict")
     assert "path-bytes:literatures/%FF.md" in message
+    assert "b'" not in message
+    assert "\\xff" not in message.lower()
+    assert "\ufffd" not in message
     assert not any(0xD800 <= ord(character) <= 0xDFFF for character in message)
