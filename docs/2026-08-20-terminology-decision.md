@@ -11,7 +11,7 @@ Decision record, 2026-08-20 (supersedes the same-day earlier versions; author's 
 3. **Semantic falsification** — the base term would make our records state something false.
 4. **Collision/ambiguity** — the base term already means something else in our context.
 
-No class binding ⇒ the OpenAlex term is adopted. Taste never justifies deviation.
+No class binding ⇒ the stack's term is adopted. Taste never justifies deviation.
 
 ## Adoptions (base applies)
 
