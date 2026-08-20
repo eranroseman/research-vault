@@ -12,12 +12,12 @@
 
 ## Global Constraints
 
-- **As-built HEAD governs** over this plan's code where they disagree (same rule as Plan B). Consumed surfaces at `238fd27`: CLI verbs `probe / import-note / staleness / backfill-selectors / verify / inbox` (all `parents=[common]`, `--base`); `CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}`; `cmd_verify` exit contract 0/1/3 (1 = closing-class UNMATCHED only); `inbox.summary(vault) -> {"unacknowledged", "oldest"}`; `notes.canonical_content`; `ZoteroClient.register_autoexport(target_path)` sending `["//", CSL_TRANSLATOR, target_path]` — **live-unverified until this plan's doctor runs it** (the standing caveat this plan discharges).
+- **As-built HEAD governs** over this plan's code where they disagree (same rule as Plan B). Consumed surfaces at `238fd27`: CLI verbs `probe / import-note / staleness / backfill-selectors / verify / inbox` (all `parents=[common]`, `--base`); `CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}` — **this plan splits it per surface** (spec §6 closes different rows at different surfaces): `COMMIT_CLOSING = {"citekey", "evidence-layer"}` (the only rows the table closes at pre-commit/CI) and `PUBLISH_CLOSING = {"citekey", "evidence-layer", "quote", "update-notice", "doi"}` (DOI closes at publish on UNMATCHED or UNREACHABLE — it was missing from the flat set). Implement as a `surface` parameter on the shared `_verify_state`/`cmd_verify` decision (`verify --surface commit|publish`, default `commit`); pre-commit uses commit, the Stop gate uses publish. `cmd_verify` exit contract 0/1/3 (1 = surface-closing UNMATCHED only); `inbox.summary(vault) -> {"unacknowledged", "oldest"}`; `notes.canonical_content`; `ZoteroClient.register_autoexport(target_path)` sending `["//", CSL_TRANSLATOR, target_path]` — **live-unverified until this plan's doctor runs it** (the standing caveat this plan discharges).
 - **Four-state doctrine** (§6): doctor reports per-probe `MATCHED | UNMATCHED | UNREACHABLE | SKIPPED`; outage never reported as breakage of the vault.
 - **Fail-open everywhere except the armed publish gate** (§6): PostToolUse warns only and must never break a session (crash ⇒ exit 0, empty output); the Stop gate blocks only while armed, with the 8-block bound and a bypass token recorded to the review inbox.
 - **Publish = the skill action** (§6): the gate arms via `.harness/publish-pending.json`, written by Plan D's `publish` skill; the Stop hook is inert without it.
 - **No absolute paths in committed vault content**; `.harness/` is gitignored by the scaffold's own `.gitignore`.
-- **Consent for installs** (§7): vault-setup's provisioning is detect → report → per-item consent → install/guide → verify; Zotero `.xpi` installs are human-only wizard steps; `claude plugin install` companions are a build-time constant list (`PROVISION_COMPANIONS`, currently `["obsidian@obsidian-skills"]`).
+- **Consent for installs** (§7): vault-setup's provisioning is detect → report → per-item consent → install/guide → verify; Zotero `.xpi` installs are human-only wizard steps; companions are a build-time constant list of {plugin, marketplace} pairs (`PROVISION_COMPANIONS`).
 - Worktree via `superpowers:using-git-worktrees`, branch `build/plan-c`; test Runs begin `cd core && python3 -m venv .venv 2>/dev/null; source .venv/bin/activate` (bootstrap on first use, PEP 668); commits from the worktree root.
 - Reason codes and inbox/event semantics exactly as Plan B built them (validated prefixes).
 
@@ -27,7 +27,7 @@
 core/harness_core/
 ├── templates/                      # package data (Task 1)
 │   ├── vault/                      # tree skeleton, mirrored by scaffold
-│   │   ├── AGENTS.md               # vault facts + routing (§3/§12 gray-zone line)
+│   │   ├── AGENTS.md               # vault facts + routing (§3/§8 gray-zone line)
 │   │   ├── gitignore               # -> .gitignore (dot-stripped on copy)
 │   │   ├── atlas/index.md
 │   │   ├── calendar/.keep  +/.keep  literatures/.keep  efforts/.keep
@@ -114,6 +114,9 @@ status: "drafting"
 
 ```markdown
 <!-- templates/vault/x/templates/daily.md -->
+---
+type: "daily"
+---
 <!-- calendar/YYYY-MM-DD.md — append-only; entries: - HH:MM <actor> — <action> [links] -->
 ```
 
@@ -254,6 +257,10 @@ def test_scaffold_fresh(tmp_path):
                 "x/bases/trust-tier.base", "atlas/index.md"):
         assert (tmp_path / rel).exists(), rel
     assert os.access(tmp_path / ".git" / "hooks" / "pre-commit", os.X_OK)
+    tracked = subprocess.run(["git", "ls-files"], cwd=tmp_path,
+                             capture_output=True, text=True).stdout
+    for d in ("literatures", "calendar", "efforts"):
+        assert f"{d}/.keep" in tracked      # empty dirs survive a fresh clone
     assert ".harness/" in (tmp_path / ".gitignore").read_text()
     log = subprocess.run(["git", "log", "--oneline"], cwd=tmp_path,
                          capture_output=True, text=True).stdout
@@ -329,6 +336,11 @@ def scaffold_vault(dest, with_ci=False) -> list[str]:
     if not (dest / "+" / "review-queue.md").exists():
         (dest / "+" / "review-queue.md").write_text("")
         created.append(str(dest / "+" / "review-queue.md"))
+    for d in ("literatures", "calendar", "efforts"):   # empty dirs must survive
+        keep = dest / d / ".keep"                      # a fresh clone (CI checkout)
+        if not keep.exists():
+            keep.write_text("")
+            created.append(str(keep))
     if not (dest / ".git").is_dir():
         subprocess.run(["git", "init", "-q"], cwd=dest, check=True)
         created.append(str(dest / ".git"))
@@ -362,6 +374,7 @@ CLI wiring in `main()`: `scaffold` subparser (`--vault` required, `--with-ci` fl
 
 **Files:**
 - Modify: `core/harness_core/scaffold.py` (doctor), `core/harness_core/__main__.py`
+- Modify: `core/harness_core/bibliography.py` — **`write_and_commit` commits with `--no-verify`** (machine bookkeeping commit of `x/bibliography.json` only; sandbox-confirmed: without it, doctor's bootstrap is blocked by the very pre-commit hook scaffold installs whenever the vault carries a pre-existing closing failure — doctor crashing in exactly the scenario it repairs). Regression test: doctor bootstraps on a vault containing a fabricated-citekey draft.
 - Content authored here, **already written in Task 1** (verify, do not rewrite): `core/harness_core/templates/git/pre-commit`
 - Test: `core/tests/test_doctor.py`
 
@@ -369,7 +382,7 @@ CLI wiring in `main()`: `scaffold` subparser (`--vault` required, `--with-ci` fl
 - Consumes: `ZoteroClient` (`ready`, `register_autoexport`, `export_csl`), `bibliography` (`BIB_PATH`, `staleness`, `write_and_commit`), `webapi.mailto`, `inbox.summary`.
 - Produces:
   - `doctor(vault_root, client=None, network=True) -> list[Probe]` where `Probe = (name, Result, detail)`. Probes, in order: `tree` (all §3 dirs present — repairs by scaffolding missing pieces); `machine-config` (mailto set and not the example placeholder); `zotero` (ready() — UNREACHABLE when down; detail carries versions); `bbt` (betterbibtex key present); `autoexport` (**the caveat-discharger**: when `x/bibliography.json` is absent or staleness is UNMATCHED, call `register_autoexport(str(vault/x/bibliography.json))` — on RPC error record UNMATCHED with the raw error in detail so the signature question surfaces loudly; then bootstrap via `write_and_commit(vault, export_csl(None))`); `staleness` (post-repair state); `remote` (git remote exists — UNMATCHED *warn* with the §2 endurance text when absent); `backup` (machine.json `zotero_backup` key documented — UNMATCHED warn when absent); `inbox` (summary; UNMATCHED warn when unacknowledged > 0 with count+oldest in detail).
-  - Exit contract: 0 all MATCHED/SKIPPED-or-warn-only; 1 any hard UNMATCHED (`tree`, `machine-config`, `autoexport`, `bbt` — BBT is REQUIRED, the skill says so); 3 any UNREACHABLE. `remote`/`backup`/`inbox`/`staleness` are warn-class (never affect exit) — doctor prints them prefixed `warn:`.
+  - Exit contract: 0 all MATCHED/SKIPPED-or-warn-only; 1 any hard UNMATCHED (`tree`, `machine-config`, `autoexport`, `bbt` — BBT is REQUIRED, the skill says so); 3 any **hard-probe** UNREACHABLE (`zotero`, `bbt`, `autoexport`) — warn-class probes never affect exit even when UNREACHABLE (staleness can flake with Zotero up). `remote`/`backup`/`inbox`/`staleness` are warn-class (never affect exit) — doctor prints them prefixed `warn:`.
   - The pre-commit template (Task 1 file, content owned here):
 
 ```bash
@@ -377,7 +390,12 @@ CLI wiring in `main()`: `scaffold` subparser (`--vault` required, `--with-ci` fl
 # knowledge-harness pre-commit: offline closing checks (spec §6).
 # Bypass: git commit --no-verify  (CI replays these checks as the honest layer.)
 vault="$(git rev-parse --show-toplevel)"
-python3 -m harness_core verify --vault "$vault" --offline
+# Fail-open when the CLI is not importable by commit-time python3 — a broken
+# install must not block commits; CI replays as the honest layer. Residual
+# honestly noted: a mid-run traceback also exits 1 and will read as a closing
+# failure until investigated.
+python3 -c "import harness_core" 2>/dev/null || exit 0
+python3 -m harness_core verify --vault "$vault" --offline --surface commit
 code=$?
 if [ "$code" -eq 1 ]; then
   echo "pre-commit: closing-class verification failure (see above)." >&2
@@ -523,6 +541,9 @@ def doctor(vault_root, client=None, network=True):
             except ZoteroError as e:
                 probes.append(("autoexport", Result.UNMATCHED,
                                f"registration failed: {e}"))
+        elif state is Result.UNREACHABLE:
+            probes.append(("autoexport", Result.UNREACHABLE,
+                           "staleness probe flaked"))
         else:
             probes.append(("autoexport", Result.MATCHED, "already fresh"))
         probes.append(("staleness", bibliography.staleness(vault, client),
@@ -649,7 +670,7 @@ def test_precommit_bypass_no_verify(fixture_vault):
 
 (The pre-commit hook invokes `python3 -m harness_core`; the test environment's venv must be active so the module resolves — the Run step below activates it, and the hook inherits the environment.)
 
-- [ ] **Step 2: Run to verify the red step** — `test_ci_templates` passes immediately (content shipped in Task 1); the **behavioral pre-commit tests are the red step** (the hook script exists but this task's tests exercise it end-to-end for the first time)
+- [ ] **Step 2: Run the tests — expected GREEN immediately** (sandbox-confirmed: with Tasks 1–2 done, both pre-commit tests and test_ci_templates pass at once; this task is the first end-to-end verification of already-shipped content, not a red step — green here is correct, not suspicious)
 - [ ] **Step 3: Verify the Task 1 file contents match the blocks above**; fix any divergence
 - [ ] **Step 4: Run to verify pass** — `python -m pytest tests/test_precommit.py tests/test_ci_templates.py -v` — 3 PASS
 - [ ] **Step 5: Commit** — `git add core && git commit -m "feat: pre-commit closing gate + CI replay and rw-batch workflows"`
@@ -743,11 +764,17 @@ def main():
         from harness_core.checks import check_citekeys
         from harness_core.lints import lint_contested, lint_source_status
         from harness_core.quotes import check_all_quotes
+        # evidence-layer surface (§6 row: PostToolUse warn): free-writes into
+        # literatures/ or edits inside managed regions — locate the as-built
+        # evidence-layer check at HEAD (grep "evidence-layer" core/) and call
+        # it per-file here; HEAD governs its exact name/signature
+        from harness_core.lints import evidence_layer_findings
         findings = []
         for o in (check_citekeys(vault, file_path)
                   + check_all_quotes(vault, file_path)
                   + lint_source_status(vault, file_path)
-                  + lint_contested(vault, file_path)):
+                  + lint_contested(vault, file_path)
+                  + evidence_layer_findings(vault, file_path)):
             if o.result is Result.UNMATCHED:
                 findings.append(f"{o.check} {o.target}: {o.reason}")
         if findings:
@@ -781,7 +808,7 @@ if __name__ == "__main__":
 - Consumes: the CLI's **effective** verification state — as-built `run_verify` returns raw pre-acknowledgment outcomes while `cmd_verify`'s 0/1/3 exit is computed over acknowledgment-suppressed (`effective`) outcomes (HEAD `__main__.py`). The gate must apply the SAME rule as `cmd_verify`: within-task, either extend `run_verify` to also return the effective outcome list, or refactor the shared decision into one function (`_verify_state`) both consume — acknowledged findings must not block the gate the CLI passes. Also `CLOSING_CHECKS`, `inbox.append_entry`.
 - Produces:
   - Flag file contract (Plan D's `publish` skill writes it): `.harness/publish-pending.json` = `{"effort": "efforts/<name>", "vault": "<abs path>", "blocks": 0}`.
-  - `hooks/stop_publish_gate.py`: reads stdin JSON; locates the flag by `vault` recorded in `~/.harness-active-publish` pointer? No — simpler: the hook reads `payload.get("cwd") or os.getcwd()` (the docs list `cwd` as a common field but the Stop example omits it; hooks run in Claude Code's cwd, so the fallback is documented-safe); looks for `.harness/publish-pending.json` walking up. Absent ⇒ exit 0 (inert). Present ⇒ run `run_verify(vault, network=True)`; **closing-class UNMATCHED or any UNREACHABLE ⇒ block** (§6: the armed gate fails closed on outage — publishing waits): emit the hooks-docs blocking JSON (`{"decision": "block", "reason": "..."}` — **verify shape against the vendored docs; docs govern**), increment `blocks` in the flag; at `blocks >= 8` ⇒ stop blocking: exit 0 emitting the documented `systemMessage` common field (`{"systemMessage": "publish gate: 8 blocks reached, verification still failing — flag left in place"}` — plain stdout at exit 0 is transcript-only, systemMessage is shown to the user), leave the flag. Pass ⇒ delete the flag, exit 0. A bypass token in the flag (`"bypass": "<reason>"`) ⇒ record a `manual — publish-gate bypass: <reason>` inbox entry, delete flag, exit 0.
+  - `hooks/stop_publish_gate.py`: reads stdin JSON; locates the flag by `vault` recorded in `~/.harness-active-publish` pointer? No — simpler: the hook reads `payload.get("cwd") or os.getcwd()` (the docs list `cwd` as a common field but the Stop example omits it; hooks run in Claude Code's cwd, so the fallback is documented-safe); looks for `.harness/publish-pending.json` iterating `[cwd, *cwd.parents]` — the directory ITSELF first (`Path.parents` alone excludes it; the session cwd typically IS the vault root, which would leave the gate permanently inert). Absent ⇒ exit 0 (inert). On every armed run (pass or block), the run's SKIPPED outcomes append to the review inbox (§6: publish-gate runs stay auditable). Present ⇒ run the shared decision with `surface="publish"` (`PUBLISH_CLOSING` — includes `doi`, per §6's publish row); **publish-closing UNMATCHED or any UNREACHABLE ⇒ block** (§6: the armed gate fails closed on outage — publishing waits): emit the hooks-docs blocking JSON (`{"decision": "block", "reason": "..."}` — **verify shape against the vendored docs; docs govern**), increment `blocks` in the flag; at `blocks >= 8` ⇒ stop blocking: exit 0 emitting the documented `systemMessage` common field (`{"systemMessage": "publish gate: 8 blocks reached, verification still failing — flag left in place"}` — plain stdout at exit 0 is transcript-only, systemMessage is shown to the user), leave the flag. Pass ⇒ delete the flag, exit 0. A bypass token in the flag (`"bypass": "<reason>"`) ⇒ record a `manual — publish-gate bypass: <reason>` inbox entry, delete flag, exit 0.
   - `hooks/hooks.json`:
 
 ```json
@@ -877,7 +904,7 @@ def test_gate_bypass_records_inbox_and_clears(fixture_vault):
 
 **Files:**
 - Create: `skills/vault-setup/SKILL.md`
-- Modify: `core/harness_core/scaffold.py` (add `PROVISION_COMPANIONS = ["obsidian@obsidian-skills"]`)
+- Modify: `core/harness_core/scaffold.py` (add `PROVISION_COMPANIONS = [{"plugin": "obsidian@obsidian-skills", "marketplace": "kepano/obsidian-skills"}]`)
 - Test: `core/tests/test_skill_files.py`
 
 **Interfaces:** the SKILL.md is the §7-decided entry point (user-typed): frontmatter `name: vault-setup`, `description` (vault-scoped trigger text), `disable-model-invocation: true`. Body (write it fully — this is content, not code):
@@ -895,10 +922,11 @@ One-time scaffold + recurring doctor for a knowledge-harness vault (spec §3/§7
 
 ## Steps
 
-1. **Locate or create the vault.** Ask for the target path if not given. Run:
-   `python3 -m harness_core scaffold --vault <path>` (add `--with-ci` when the
-   vault has or will have a GitHub remote). Scaffold is idempotent — safe on
-   existing vaults; it never overwrites existing files.
+1. **Locate or create the vault.** Ask for the target path if not given.
+   **Ask the human** whether this vault has or will have a GitHub remote
+   (spec §7: setup asks — CI is skipped without one); add `--with-ci` on yes.
+   Run: `python3 -m harness_core scaffold --vault <path> [--with-ci]`.
+   Scaffold is idempotent — safe on existing vaults; never overwrites.
 2. **Configure the machine file.** Open `.harness/machine.json`; the human fills
    `mailto` (a real address — polite API pools require it) and the Zotero path
    map if attachments live on another drive. Record their Zotero backup
@@ -913,9 +941,12 @@ One-time scaffold + recurring doctor for a knowledge-harness vault (spec §3/§7
    - MarkDB-Connect (OPTIONAL — marks Zotero items that have vault notes):
      same flow with the MarkDB-Connect `.xpi`.
 5. **Companion plugins (per-item consent).** Offer each entry in
-   `PROVISION_COMPANIONS` (currently: `obsidian@obsidian-skills` — vault
-   format/ops skills). On consent run `claude plugin install <entry>` and tell
-   the human a restart activates it. Never install without the offer.
+   `PROVISION_COMPANIONS` (currently one: plugin `obsidian@obsidian-skills`
+   from marketplace `kepano/obsidian-skills` — vault format/ops skills). On
+   consent run BOTH steps (install alone fails where the marketplace was never
+   added): `claude plugin marketplace add kepano/obsidian-skills` then
+   `claude plugin install obsidian@obsidian-skills`; a restart activates it.
+   Never install without the offer.
 6. **Finish.** Re-run doctor; read the warn-class probes aloud (remote, backup,
    inbox age) — they are standing conditions, not failures. The vault is ready
    when doctor exits 0.
@@ -942,7 +973,9 @@ def test_vault_setup_skill_frontmatter():
 
 def test_provision_companions_constant():
     from harness_core import scaffold
-    assert scaffold.PROVISION_COMPANIONS == ["obsidian@obsidian-skills"]
+    assert scaffold.PROVISION_COMPANIONS == [
+        {"plugin": "obsidian@obsidian-skills",
+         "marketplace": "kepano/obsidian-skills"}]
 ```
 
 - [ ] **Step 2–4:** fail (file absent) → write SKILL.md + constant → 2 PASS
@@ -1018,6 +1051,6 @@ git add core docs/environment.md && git commit -m "feat: live scaffold+doctor dr
 
 **Spec coverage:** §3 tree/templates/AGENTS.md/Bases → T1–T2; §7 vault-setup + doctor + provisioning consent + wizard installs → T2–T3, T7; §6 surfaces: pre-commit → T3/T4, CI replay + rw-batch async auditor → T4, PostToolUse warn (fail-open) → T5, armed Stop gate (fail-closed incl. UNREACHABLE, 8-block bound, bypass-as-data to inbox) → T6; §8 hooks.json in plugin layout → T6; Plan A caveat (autoexport live) → T3 (repair path) + T8 (discharge). Deliberately out: the eight remaining skills and the publish skill that writes the flag (Plan D); paths-frontmatter guard scoping (Plan D, with the guard skills); marketplace version bump (Plan D ships the full skill set).
 **Placeholders:** none — hook I/O field names and the Stop blocking JSON are written to best current knowledge with the vendored hooks docs named as governing authority (same HEAD-governs pattern as Plan B).
-**Verification history:** the hooks/zero-context lens ran as an independent agent against the vendored hooks docs and found 1 CRITICAL + 3 IMPORTANT + 5 MINOR — all fixed (scaffold commits --no-verify; hookSpecificOutput shape; gate consumes effective ack-suppressed state with a shared decision function; offline-knob UNREACHABLE carve-out + hermetic pass test; cwd fallback; bbt/staleness probe classes; systemMessage at the 8-block bound; docs pointer; Task 1/3/4 content-ownership rewrite; live-registration cleanup note). Spec-fidelity and desk-check lenses ran as inline self-review only (weekly agent limit) — **the SDD pre-flight is the second independent gate for this plan**; treat its findings with the usual contract-governs presumption.
+**Verification history (final):** all three lenses completed as independent agents (the hooks lens first; spec-fidelity and desk-check on resume after a limit reset — the desk-check executed plan code in a sandbox against as-built 238fd27). Total: 3 CRITICAL + 5 IMPORTANT + 15 MINOR across both passes, all fixed. Load-bearing corrections: per-surface closing sets (COMMIT_CLOSING vs PUBLISH_CLOSING — DOI was missing from publish closure, quote wrongly closed commits); bibliography bookkeeping commits bypass the hook (doctor crashed in exactly the scenario it repairs); hookSpecificOutput shape; evidence-layer check on the PostToolUse surface; gate walk-up includes cwd itself; import-guard fail-open in pre-commit; SKIPPED auditing on gate runs; .keep survival across fresh clones.
 
 **Type consistency:** `scaffold_vault`/`doctor` names consistent T2→T3→T7→T8; `PROVISION_COMPANIONS` T7; flag-file schema identical in T6 contract and tests; CLI verbs consistent with as-built `main()` wiring; `Probe` tuple shape used uniformly.
