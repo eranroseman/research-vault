@@ -27,11 +27,15 @@ from . import (
     selectors,
     webapi,
 )
+from .scaffold import doctor
 from .zotero import ZoteroClient, ZoteroError
 
 QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
 DEFAULT_BASE = "http://localhost:23119"
 _OMITTED_BIBLIOGRAPHY = object()
+DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt", "autoexport"}
+DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "autoexport"}
+DOCTOR_WARN_ONLY = {"staleness", "remote", "backup", "inbox"}
 
 
 def _text(value) -> str:
@@ -172,6 +176,11 @@ def cmd_import_note(args):
     item = matches[0]
     item["id"] = args.citekey
 
+    observed = bibliography.observe_autoexport(vault, client)
+    if observed.result is not Result.MATCHED:
+        print(observed.detail, file=sys.stderr)
+        return 1 if observed.result is Result.UNMATCHED else 3
+
     existing = _read_note_text(path) if path.is_file() else None
     hashes = []
     annotations = []
@@ -227,10 +236,6 @@ def cmd_import_note(args):
         accessed=now.date().isoformat(),
         generated_at=generated_at,
     )
-
-    # This must precede the note NOOP check: another Zotero item may have been
-    # admitted even when this note's complete rendered projection has not changed.
-    bibliography.write_and_commit(vault, client.export_csl(None))
 
     if not notes.content_changed(existing, candidate):
         print("NOOP")
@@ -1034,6 +1039,29 @@ def cmd_scaffold(args):
     return 0
 
 
+def cmd_doctor(args):
+    probes = doctor(args.vault, ZoteroClient(base=args.base))
+    for name, result, detail in probes:
+        prefix = (
+            "warn:"
+            if name in DOCTOR_WARN_ONLY
+            and result in {Result.UNMATCHED, Result.UNREACHABLE}
+            else ""
+        )
+        print(f"{prefix}{result.value} {name} — {detail}")
+    if any(
+        name in DOCTOR_HARD_UNMATCHED and result is Result.UNMATCHED
+        for name, result, _detail in probes
+    ):
+        return 1
+    if any(
+        name in DOCTOR_HARD_UNREACHABLE and result is Result.UNREACHABLE
+        for name, result, _detail in probes
+    ):
+        return 3
+    return 0
+
+
 def main(argv=None):
     # A shared parent accepts --base before or after each subcommand.
     common = argparse.ArgumentParser(add_help=False)
@@ -1058,6 +1086,8 @@ def main(argv=None):
     scaffold_vault.add_argument("--vault", required=True)
     scaffold_vault.add_argument("--with-ci", action="store_true")
     scaffold_vault.add_argument("--with-rw-ci", action="store_true")
+    doctor_vault = sub.add_parser("doctor", parents=[common])
+    doctor_vault.add_argument("--vault", required=True)
     args = parser.parse_args(argv)
     if not hasattr(args, "base"):
         args.base = DEFAULT_BASE
@@ -1069,6 +1099,7 @@ def main(argv=None):
         "verify": cmd_verify,
         "inbox": cmd_inbox,
         "scaffold": cmd_scaffold,
+        "doctor": cmd_doctor,
     }[args.cmd](args)
 
 

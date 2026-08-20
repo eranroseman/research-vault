@@ -7,7 +7,27 @@ import types
 
 import pytest
 
-from harness_core import frontmatter, notes, paths
+from harness_core import Result, bibliography, frontmatter, notes, paths
+
+REAL_OBSERVE_AUTOEXPORT = bibliography.observe_autoexport
+
+
+@pytest.fixture(autouse=True)
+def matched_autoexport_observer(monkeypatch):
+    """Keep import-unit fakes deterministic; observer behavior is tested explicitly."""
+    import harness_core.__main__ as cli
+
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda *args, **kwargs: types.SimpleNamespace(
+            result=Result.MATCHED,
+            detail="genuine BBT output",
+            staleness=Result.MATCHED,
+            staleness_detail="current",
+        ),
+        raising=False,
+    )
 
 
 def run_cli(*args):
@@ -211,8 +231,6 @@ def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypat
         [],
     )
     monkeypatch.setattr(cli, "datetime", python_310_datetime)
-    monkeypatch.setattr(cli.bibliography, "write_and_commit", lambda *_: None)
-
     result = cli.cmd_import_note(
         argparse.Namespace(
             citekey="smith2020", vault=str(tmp_vault), base="http://unused"
@@ -462,7 +480,9 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
     assert "annotationPageLabel" not in body
 
 
-def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, capsys):
+def test_import_note_observes_autoexport_before_noop_without_old_writer(
+    tmp_vault, monkeypatch, capsys
+):
     import harness_core.__main__ as cli
 
     class FakeClient:
@@ -475,10 +495,24 @@ def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, 
         def attachments(self, citekey):
             return []
 
-        def export_csl(self, citekeys):
-            return [{"id": "new2026", "title": "Newly admitted"}]
-
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    observed = []
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: (
+            observed.append((vault, client))
+            or bibliography.AutoexportObservation(
+                Result.MATCHED, "genuine BBT output", Result.MATCHED, "current"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        cli.bibliography,
+        "write_and_commit",
+        lambda *args: (_ for _ in ()).throw(AssertionError("old writer called")),
+        raising=False,
+    )
     note_path = notes.note_path(tmp_vault, "smith2020")
     original = notes.render_note(
         {"id": "smith2020", "title": "Mortality decline"},
@@ -499,9 +533,104 @@ def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, 
     assert result == 0
     assert capsys.readouterr().out.strip() == "NOOP"
     assert note_path.read_text() == original
-    assert json.loads((tmp_vault / "x" / "bibliography.json").read_text()) == [
-        {"id": "new2026", "title": "Newly admitted"}
-    ]
+    assert len(observed) == 1
+    assert not (tmp_vault / "x" / "bibliography.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("state", "expected_code"),
+    [(Result.UNMATCHED, 1), (Result.UNREACHABLE, 3)],
+)
+def test_import_note_autoexport_failure_prevents_attachment_and_note_writes(
+    tmp_vault, monkeypatch, capsys, state, expected_code
+):
+    import harness_core.__main__ as cli
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda *args, **kwargs: bibliography.AutoexportObservation(
+            state, "autoexport failed", state, "autoexport failed"
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == expected_code
+    assert captured.out == ""
+    assert captured.err.strip() == "autoexport failed"
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    assert not (tmp_vault / bibliography.BIB_PATH).exists()
+
+
+def test_import_note_accepts_genuine_output_created_by_registration(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def register_autoexport(self, target):
+            with open(target, "w", encoding="utf-8") as export:
+                json.dump(items, export, separators=(",", ":"))
+            return {"registered": True}
+
+        def attachments(self, citekey):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    assert result == 0
+    assert notes.note_path(tmp_vault, "smith2020").is_file()
+    assert (tmp_vault / bibliography.BIB_PATH).read_bytes() == (
+        b'[{"id":"smith2020","title":"Mortality decline"}]'
+    )
+    assert capsys.readouterr().err == ""
 
 
 def test_import_note_applies_extracted_text_only_to_its_attachment(

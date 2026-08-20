@@ -1,10 +1,15 @@
 """Create a new knowledge-harness vault from packaged templates."""
 
+import json
 import shutil
 import stat
 import subprocess
 from importlib import resources
 from pathlib import Path
+from typing import NamedTuple
+
+from . import Result, bibliography, inbox
+from .zotero import ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
     "inbox",
@@ -17,6 +22,12 @@ VAULT_DIRS = [
 ]
 _EMPTY_ROOTS = ("literatures", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".harness/machine.json"}
+
+
+class Probe(NamedTuple):
+    name: str
+    result: Result
+    detail: str
 
 
 def _git(vault: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -220,3 +231,152 @@ def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> lis
 
     _commit_created_paths(vault, created)
     return sorted(created)
+
+
+def _machine_config(vault: Path) -> tuple[dict, Probe]:
+    path = vault / ".harness" / "machine.json"
+    try:
+        config = json.loads(path.read_text())
+        if not isinstance(config, dict):
+            raise ValueError("expected an object")
+    except (OSError, UnicodeError, ValueError) as error:
+        return {}, Probe(
+            "machine-config", Result.UNMATCHED, f"machine config unreadable: {error}"
+        )
+    mailto = config.get("mailto")
+    if (
+        not isinstance(mailto, str)
+        or not mailto.strip()
+        or mailto.strip() == "you@example.edu"
+    ):
+        return config, Probe(
+            "machine-config",
+            Result.UNMATCHED,
+            "mailto is missing or still uses you@example.edu",
+        )
+    return config, Probe("machine-config", Result.MATCHED, f"mailto {mailto.strip()}")
+
+
+def _remote_probe(vault: Path) -> Probe:
+    try:
+        result = _git(vault, "remote", check=False)
+    except OSError as error:
+        return Probe("remote", Result.UNREACHABLE, f"Git remote unreadable: {error}")
+    if result.returncode == 0 and result.stdout.strip():
+        return Probe("remote", Result.MATCHED, result.stdout.splitlines()[0])
+    return Probe(
+        "remote",
+        Result.UNMATCHED,
+        "no remote — vault endures only on this disk (§2)",
+    )
+
+
+def _backup_probe(config: dict) -> Probe:
+    backup = config.get("zotero_backup")
+    if isinstance(backup, str) and backup.strip():
+        return Probe("backup", Result.MATCHED, backup.strip())
+    return Probe(
+        "backup",
+        Result.UNMATCHED,
+        "no stated Zotero storage backup (§2 boundary)",
+    )
+
+
+def _inbox_probe(vault: Path) -> Probe:
+    try:
+        status = inbox.summary(vault)
+    except (OSError, UnicodeError, ValueError) as error:
+        return Probe("inbox", Result.UNREACHABLE, f"inbox unreadable: {error}")
+    count = status["unacknowledged"]
+    oldest = status["oldest"]
+    if count:
+        return Probe(
+            "inbox",
+            Result.UNMATCHED,
+            f"{count} unacknowledged findings; oldest {oldest}",
+        )
+    return Probe("inbox", Result.MATCHED, "0 unacknowledged findings")
+
+
+def doctor(
+    vault_root,
+    client=None,
+    network=True,
+    settle_seconds=60,
+    poll_interval=1,
+) -> list[Probe]:
+    """Repair the scoped vault substrate and return its nine ordered probes."""
+    del network  # Historical interface only; doctor has no synthetic offline mode.
+    vault = Path(vault_root)
+    try:
+        scaffold_vault(vault)
+        tree_complete = all((vault / relative).is_dir() for relative in VAULT_DIRS)
+        tree = Probe(
+            "tree",
+            Result.MATCHED if tree_complete else Result.UNMATCHED,
+            "required vault tree complete"
+            if tree_complete
+            else "required vault tree incomplete after repair",
+        )
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        tree = Probe("tree", Result.UNMATCHED, f"vault tree repair failed: {error}")
+
+    config, machine = _machine_config(vault)
+    probes = [tree, machine]
+    client = ZoteroClient() if client is None else client
+    try:
+        versions = client.ready()
+        if not isinstance(versions, dict):
+            raise ZoteroError("malformed api.ready result: expected an object")
+    except (ZoteroError, OSError, UnicodeError, ValueError) as error:
+        probes.extend(
+            [
+                Probe("zotero", Result.UNREACHABLE, str(error)),
+                Probe("bbt", Result.UNREACHABLE, "zotero down"),
+                Probe("autoexport", Result.UNREACHABLE, "zotero down"),
+                Probe("staleness", Result.UNREACHABLE, "zotero down"),
+            ]
+        )
+    else:
+        version_detail = ", ".join(
+            f"{name}={value}" for name, value in sorted(versions.items())
+        )
+        probes.append(Probe("zotero", Result.MATCHED, version_detail))
+        bbt_version = versions.get("betterbibtex")
+        if not isinstance(bbt_version, str) or not bbt_version.strip():
+            probes.extend(
+                [
+                    Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing"),
+                    Probe(
+                        "autoexport",
+                        Result.SKIPPED,
+                        "missing Better BibTeX prerequisite",
+                    ),
+                    Probe(
+                        "staleness",
+                        Result.SKIPPED,
+                        "missing Better BibTeX prerequisite",
+                    ),
+                ]
+            )
+        else:
+            probes.append(Probe("bbt", Result.MATCHED, bbt_version.strip()))
+            observed = bibliography.observe_autoexport(
+                vault,
+                client,
+                settle_seconds=settle_seconds,
+                poll_interval=poll_interval,
+            )
+            probes.extend(
+                [
+                    Probe("autoexport", observed.result, observed.detail),
+                    Probe(
+                        "staleness",
+                        observed.staleness,
+                        observed.staleness_detail,
+                    ),
+                ]
+            )
+
+    probes.extend([_remote_probe(vault), _backup_probe(config), _inbox_probe(vault)])
+    return probes
