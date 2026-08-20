@@ -1,6 +1,6 @@
-# Terminology decision — OpenAlex as base vocabulary
+# Terminology decision — vocabulary precedence: CSL, then OpenAlex
 
-Decision record, 2026-08-20 (supersedes the same-day first version; author's ruling). **OpenAlex's vocabulary (help.openalex.org/data) is the base terminology. We deviate only where a real cost class forces it, and every deviation is documented here.** The vault glossary seed (Plan D) and the pre-slice naming pass cite this document.
+Decision record, 2026-08-20 (supersedes the same-day earlier versions; author's rulings). **Base terminology is a precedence stack: CSL first (citationstyles.org — the bibliographic contract pandoc, BBT, and Zotero speak), then OpenAlex (help.openalex.org/data) for everything CSL does not name. Domain-scoped vocabularies retain authority inside their domains (Crossref for post-publication update types; W3C Web Annotation for selector terms). We deviate only where a real cost class forces it, and every deviation is documented here.** The vault glossary seed (Plan D) and the pre-slice naming pass cite this document.
 
 ## Cost model (unchanged)
 
@@ -15,9 +15,10 @@ No class binding ⇒ the OpenAlex term is adopted. Taste never justifies deviati
 
 ## Adoptions (base applies)
 
-| OpenAlex term | Status |
-|---|---|
-| `doi`, `pmid`, `author` | Adopted (already aligned; registry/CSL-anchored on both sides). |
+| Term | Source | Status |
+|---|---|---|
+| `item`, `issued`/`date-parts`, `author`, `locator`/`label`, CSL item types | **CSL (first precedence)** | Base applications — the bibliographic layer speaks CSL wholesale; `literature note` names an item's vault projection. |
+| `doi`, `pmid` | CSL/registries + OpenAlex | Adopted (aligned everywhere). |
 | `cited_by_count` and all recorded API facts | Adopted verbatim at the recording boundary, with index + retrieval date. |
 | `is_retracted` | Adopted verbatim in checker records (`extra`); see deviations for the internal taxonomy. |
 | `dehydrated` | Adopted for our index-line/summary projections of full notes. |
@@ -25,22 +26,22 @@ No class binding ⇒ the OpenAlex term is adopted. Taste never justifies deviati
 | `topic` | Adopted for OpenAlex's classification entities. **Consequence for the naming pass:** our synthesis note (placeholder "topic page") must take a non-colliding name — the pass owns the choice. |
 | Entity framing: native IDs as curatable judgments; merge semantics (merged-away IDs permanently redirect to canonical) | Adopted as semantics (spec §5 precedents; checkers follow redirects and record the canonical ID verified against). |
 
+**Precedence resolutions (not deviations):** `work` vs `item` and `publication_date` vs `issued` are decided by the stack itself — CSL outranks OpenAlex, so `item` and `issued` are base applications, no cost class needed.
+
 ## Documented deviations (a cost class forces each)
 
-| Concept | OpenAlex term | Our term | Forcing class |
+| Concept | Base term | Our term | Forcing class |
 |---|---|---|---|
-| The bibliographic record | `work` | `item` (CSL/Zotero); `literature note` for its vault projection | **1** — Zotero's UI and CSL's fields say `item` forever; adopting `work` buys an eternal translation layer at daily surfaces. |
-| The cited document (trust core sense) | their `source` = venue | `source` (primary/cited source; `source-sha256`) | **4** — collision. Resolution: their concept enters our prose as **`venue`** (OpenAlex's own former name for the entity), freeing `source` for the scholarly-English meaning our trust core uses. |
-| Publication date | `publication_date` | CSL `issued`/`date-parts` | **1** — CSL is the bibliography format contract (pandoc, BBT, Crossref). |
-| Record-lifecycle vs access provenance | `created_date`/`updated_date` | `retrieved`; detection date | **3** — theirs describe *their record's* lifecycle; their names on our fields would misstate what we recorded. |
-| Post-publication status | `is_retracted` (boolean) internally | update-notice blocking class (Crossref 12-type, bi-temporal, reinstatement) | **2** — the boolean discards the taxonomy the gates run on. (Boundary recording stays verbatim, above.) |
-| Citation relations | `referenced_works`/`related_works` | `supported-by`/`contested-by` | **2** — theirs are untyped work-level edges; ours are stance-typed claim-level, the trust substance. |
-| Replacement relation | `merged-away` | `superseded`/`superseded-by` | **3** — scope: OpenAlex merging is identity resolution (two records, one work). Our relation also covers scholarly succession (an old study superseded by a new one — distinct works; calling that a "merge" would be false). The duplicate-work case (preprint↔published) is the overlap where semantics were adopted; if the slice shows the identity-vs-succession distinction needs its own fields, the naming pass may split `merged` out as the OpenAlex-aligned special case. |
+| The cited document (trust core sense) | OpenAlex `source` = venue | `source` (primary/cited source; `source-sha256`) | **4** — collision. Resolution: their concept enters our prose as **`venue`** (OpenAlex's own former name for the entity), freeing `source` for the scholarly-English meaning our trust core uses. |
+| Record-lifecycle vs access provenance | OpenAlex `created_date`/`updated_date` | `retrieved`; detection date | **3** — theirs describe *their record's* lifecycle; their names on our fields would misstate what we recorded. |
+| Post-publication status | OpenAlex `is_retracted` (boolean) internally | Crossref's own update-type taxonomy (domain authority), bi-temporal | **2** — the boolean discards the taxonomy the gates run on; Crossref owns this domain. (Boundary recording stays verbatim, above.) |
+| Citation relations | OpenAlex `referenced_works`/`related_works` | `supported-by`/`contested-by` | **2** — theirs are untyped work-level edges; ours are stance-typed claim-level, the trust substance. |
+| Replacement relation | OpenAlex `merged-away` | `superseded`/`superseded-by` | **3** — scope: OpenAlex merging is identity resolution (two records, one work). Our relation also covers scholarly succession (an old study superseded by a new one — distinct works; calling that a "merge" would be false). The duplicate-work case (preprint↔published) is the overlap where semantics were adopted; if the slice shows the identity-vs-succession distinction needs its own fields, the naming pass may split `merged` out as the OpenAlex-aligned special case. |
 
 ## Standing rules
 
-- **OpenAlex is the default source of names.** Any new concept checks OpenAlex first; deviation requires naming its forcing class in this document.
+- **The precedence stack is the default source of names**: CSL, then OpenAlex, with domain-scoped authorities (Crossref updates, W3C selectors) inside their domains. Any new concept walks the stack; deviation requires naming its forcing class in this document.
 - **One canonical term per concept**; adopted or deviated, never both.
 - **Recorded API facts are boundary-verbatim** (source's field names + index + retrieval date).
 - **Semantics migrate freely; deviations are about names only** — every deviation above still adopts the base semantics where they fit.
-- Interior coinages (`atlas`, `efforts`, `literatures`, `trust tier`, four-state names, `claim address`) remain **temporary placeholders — not decided, not settled**. OpenAlex has no counterparts for these concepts (it does not model vaults, claims, or verification), so the pre-slice **naming pass** owns them, under this document's rule: where OpenAlex (or another anchored vocabulary: CSL, Crossref, W3C) has a term, default to it; free coinage only where none exists. The pass also owes the synthesis-note rename (collision with adopted `topic`). **The naming pass blocks §9 slice execution** — the first real vault mints names into git history under deprecate-never-delete, the moment placeholders become permanent.
+- Interior coinages (`atlas`, `efforts`, `literatures`, `trust tier`, four-state names, `claim address`) remain **temporary placeholders — not decided, not settled**. OpenAlex has no counterparts for these concepts (it does not model vaults, claims, or verification), so the pre-slice **naming pass** owns them, under this document's rule: walk the precedence stack (CSL → OpenAlex → domain authorities) and default to the first vocabulary that names the concept; free coinage only where none does. The pass also owes the synthesis-note rename (collision with adopted `topic`). **The naming pass blocks §9 slice execution** — the first real vault mints names into git history under deprecate-never-delete, the moment placeholders become permanent.
