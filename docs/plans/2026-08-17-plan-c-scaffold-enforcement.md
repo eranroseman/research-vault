@@ -1051,6 +1051,18 @@ git add core docs/environment.md && git commit -m "feat: live scaffold+doctor dr
 
 ---
 
+## Pre-execution batched rulings (all approved, 2026-08-20)
+
+1. **Byte-preserving git paths**: NUL-delimited `git ls-tree`, surrogateescape decoding, matching re-encoding — non-ASCII/invalid-byte filenames handled correctly in lints.
+2. **BBT is the sole bibliography writer**; the harness is commit-only across import/verify/doctor. Doctor: 60 s settle before declaring staleness, re-register only on persistent mismatch, then verify and commit genuine BBT output. (Completes Plan A's interim-writer expiry as designed.)
+3. **Synthetic offline outcomes do not persist**: `--offline` runs may show "network disabled" in explicit audits but never demote trust, stamp markers, or fill the inbox; CI treats exit 3 as warning, fails only on closing exit 1; RW-only runs use the CSV leg without fabricating a failed live leg. **Genuine** network failures (attempted and failed) still persist — outage is information; self-imposed offline is not.
+4. **`managed-sha256` integrity witness** over exact managed-region bytes: pre-commit compares vs HEAD; CI gets an explicit git baseline (exposes deletion/rename); current-file validation catches managed edits; PostToolUse warns on any LLM touch of literatures/. Key is bridge-owned; harmless in canonical_content (changes iff the region changes) — document in spec §5 during the rename wave.
+5. **Surface sets govern enforcement only** — detection, verified events, current-failure projection, markers, and inbox audit are surface-independent.
+6. **Scaffold commits only files it created**, preserving unrelated staged/working-tree changes; idempotent existing-vault behavior retained.
+7. **CI authority split**: `--with-ci` installs read-only verification; the scheduled `contents: write` RW workflow is a separate explicit opt-in, fails loudly on download/infrastructure failure, commits only verifier-owned outputs.
+
+Ordinary corrections without ruling: doctor `--base` routing; exact live autoexport cleanup confirmation; `stop_hook_active` for a genuinely consecutive eight-block bound.
+
 ## Self-Review (completed at authoring)
 
 **Spec coverage:** §3 tree/templates/AGENTS.md/Bases → T1–T2; §7 vault-setup + doctor + provisioning consent + wizard installs → T2–T3, T7; §6 surfaces: pre-commit → T3/T4, CI replay + rw-batch async auditor → T4, PostToolUse warn (fail-open) → T5, armed Stop gate (fail-closed incl. UNREACHABLE, 8-block bound, bypass-as-data to inbox) → T6; §8 hooks.json in plugin layout → T6; Plan A caveat (autoexport live) → T3 (repair path) + T8 (discharge). Deliberately out: the eight remaining skills and the publish skill that writes the flag (Plan D); paths-frontmatter guard scoping (Plan D, with the guard skills); marketplace version bump (Plan D ships the full skill set).
