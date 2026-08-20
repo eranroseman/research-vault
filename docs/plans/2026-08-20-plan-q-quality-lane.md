@@ -82,7 +82,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 
 **Interfaces:**
 - Consumes: Task 1's installed dev extra.
-- Produces: `ruff check harness_core tests scripts` and `mypy harness_core` both clean — Task 4's CI runs exactly these (the `scripts/` package exists from Task 3 onward; until then the path is simply absent and ruff skips it).
+- Produces: `ruff check harness_core tests scripts` and `mypy harness_core` both clean — Task 5's CI runs exactly these (the `scripts/` package exists from Task 4 onward; until then the path is simply absent and ruff skips it).
 
 **Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683` — **resolved by admission, not noqa** (spec §8 dependency discipline; docs/2026-08-20-zero-dep-rethink.md): add `defusedxml==0.7.1` to `[project] dependencies` as core's first pinned runtime dependency — parsing externally-influenced XML is commodity-hard — lazy-imported inside the parsing function so gate-path startup is unchanged; replace the `ElementTree` parse with the `defusedxml.ElementTree` equivalent). Also PERF×3 (loop/comprehension rewrites as reported). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, the rest of the S family, the future-guard block ASYNC/EXE/FA/FLY/G/INT/LOG/N/PYI/RET/TC/YTT (structurally n/a today — no async, no logging, no stubs; the guard is already armed the day such code appears), and T20 outside `__main__.py`/`scripts/` (all 18 measured prints live in `__main__.py` — library modules get the stray-debug-print guard; a rogue print in `checks.py` would corrupt the CLI stdout contract).
 
@@ -100,6 +100,7 @@ extend-select = [
     "ASYNC",
     "B",
     "C4",
+    "C90",
     "DTZ",
     "EXE",
     "FA",
@@ -139,8 +140,13 @@ ignore = [
     "S607",  # "git" by name, resolved via PATH, is the intended invocation
 ]
 # Deliberately NOT selected (recorded 2026-08-20 — do not "fix"):
-#   C90/PLR complexity — crap4py owns the complexity gate in this lane (risk-weighted,
-#           ratchetable ceiling); a second context-free threshold double-reports
+#   PLR   — pylint-refactor thresholds: PLR0911's "too many returns" flags four-state
+#           outcome mappers (multi-return IS the doctrine's shape); PLR2004 flags HTTP
+#           codes; complexity rows are covered by C90 + the CRAP ceiling
+# C90 IS selected (2026-08-20 reversal of the earlier skip): CRAP >= CC always, so the
+# CRAP ceiling subsumes any CC cap at or above it — but BELOW the ceiling a CC cap
+# catches complexity laundered by high coverage (coverage measures execution, not
+# verification; mutation survivors live in covered lines). Backstop, not the risk gate.
 #   BLE   — the four-state doctrine requires broad catch -> UNREACHABLE in probe
 #           wrappers and fail-open hooks; this rule fights the architecture
 #   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
@@ -151,6 +157,10 @@ ignore = [
 # extend-select cannot unselect defaults. On any ruff upgrade: diff the new version's
 # defaults (ruff check --isolated --show-settings) against these skips and move any
 # violated skip into `ignore`, or the recorded rulings silently stop being true.
+
+[tool.ruff.lint.mccabe]
+max-complexity = 32  # green at adoption (worst: _target_hash CC 31); Task 3 tightens to 28
+                     # after the split; long-term ratchet target ~15 (architecture pass)
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cli_live.py" = ["UP012"]
@@ -217,13 +227,33 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 
 ---
 
-### Task 3: Mutation gate script + blanket baseline
+### Task 3: CRAP/CC backlog burn-down
+
+**Files:**
+- Modify: `core/harness_core/__main__.py` (`_target_hash` split), `core/tests/test_inbox.py` (+ any test file covering `inbox.load` paths), `core/pyproject.toml` (mccabe tighten)
+
+**Interfaces:**
+- Consumes: Task 2's config (C90 at 32, gates green).
+- Produces: `crap4py harness_core --lcov lcov.info --max-crap 30` exits 0; `ruff check harness_core` clean at `max-complexity = 28`. Task 5's workflow gates at these values.
+
+**Why these two functions (measured 2026-08-20; as-built HEAD governs — if Plan C/T added functions violating the gates, burn those down here too, same recipes):** CRAP ≥ CC always (`CC² × (1−cov)³ + CC`), so `--max-crap 30` forces exactly two outcomes — `_target_hash` (CC 31, 77.3% cov, CRAP 42.3) can never pass at any coverage and **must split**; `inbox.load` (CC 27, 72.7%, CRAP 41.8) passes at **≥84% branch coverage** and needs **tests, not surgery**.
+
+- [ ] **Step 1: Branch-coverage tests for `inbox.load`** — read the coverage report's uncovered branches for it (`python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=term-missing 2>/dev/null | grep inbox`), write failing-then-passing tests for each uncovered branch (malformed entries, ack-scope edges, empty/absent file paths — whatever the report names). Target: `inbox.load` branch coverage ≥85%.
+- [ ] **Step 2: Verify the CRAP drop** — regenerate lcov, run `crap4py harness_core --lcov lcov.info --fragment inbox`; expected: `inbox.load` CRAP ≤ 30.
+- [ ] **Step 3: Split `_target_hash`** — extract coherent legs (per its structure at HEAD: the per-kind target-resolution branches are the natural seams) into named helpers until `_target_hash` and every extracted helper have CC ≤ 28. Pure refactor: no behavior change, suite stays green with zero test edits (if a test must change, stop — that's a behavior change, escalate).
+- [ ] **Step 4: Tighten the mccabe cap** — `max-complexity = 32` → `28` in `core/pyproject.toml`; update the comment.
+- [ ] **Step 5: Verify all gates green** — `ruff check harness_core tests --no-cache && python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info && crap4py harness_core --lcov lcov.info --max-crap 30`; expected: all pass.
+- [ ] **Step 6: Commit** — `git add core && git commit -m "refactor: split _target_hash (CC<=28), branch-test inbox.load — CRAP ceiling 30, CC cap 28"`
+
+---
+
+### Task 4: Mutation gate script + blanket baseline
 
 **Files:**
 - Create: `core/scripts/mutation_gate.py`, `core/tests/test_mutation_gate.py`, `core/mutation-baseline.txt`, `core/harness_core/<module>.py.manifest.json` for every module
 
 **Interfaces:**
-- Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set).
+- Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set); Task 3's burn-down (baseline manifests must hash the post-refactor tree).
 - Produces: `python scripts/mutation_gate.py --lcov lcov.info` (gate mode, exit 0/1) and `python scripts/mutation_gate.py --update-baseline --lcov lcov.info` (rewrites `mutation-baseline.txt`); baseline line format `<relpath>::<func-id>::<mutation>`; committed sidecar manifests. Task 3's workflow calls the gate mode verbatim.
 
 - [ ] **Step 0: Confirm the pre-baseline ponytail pass has landed** (Global Constraints) — the author-triaged over-engineering cuts are merged, or the author has explicitly waived the pass. Do not build manifests over a tree with pending accepted cuts.
@@ -514,16 +544,16 @@ git commit -m "feat: mutation gate script + blanket baseline (sidecar manifests,
 
 ---
 
-### Task 4: Advisory quality workflow (ruff + crap4py ceiling + drywall + mutation gate)
+### Task 5: Advisory quality workflow (ruff + crap4py ceiling + drywall + mutation gate)
 
 **Files:**
 - Create: `.github/workflows/quality.yml`
 
 **Interfaces:**
-- Consumes: Task 1's dev extra; Task 2's ruff rule set; Task 3's `scripts/mutation_gate.py`, committed manifests and baseline.
+- Consumes: Task 1's dev extra; Task 2's ruff+mypy rule set; Task 3's burn-down (gate 30 is only green after it); Task 4's `scripts/mutation_gate.py`, committed manifests and baseline.
 - Produces: one advisory workflow, `quality`, on pull requests and manual dispatch.
 
-**Thresholds (live-measured 2026-08-20):** `crap4py --max-crap 45` — current worst is `_target_hash` at 42.3, so the lane starts green; ratchet the number down as the CRAP backlog (`research/code-quality-tools-gabadi.md`) burns down. drywall default threshold 0.82 — currently zero duplicates. crap4py exit behavior verified: exceeds → exit 1.
+**Thresholds:** `crap4py --max-crap 30` — the conventional CRAP line, green after Task 3's burn-down (CRAP ≥ CC, so 30 also enforces CC ≤ 30; the ruff C90 cap at 28 backstops below it). drywall default threshold 0.82 — currently zero duplicates. crap4py exit behavior verified live 2026-08-20: exceeds → exit 1.
 
 **Trigger reality:** this repo's practice to date is local merge + push to main — no PRs. The `push: branches: [main]` trigger exists so tests, the CRAP ceiling, and drywall run on every landing; on a push event the mutation gate no-ops by construction (`origin/main...HEAD` is empty after push) and earns its keep only on `pull_request` and `workflow_dispatch` runs. This is deliberate, not a bug — do not "fix" the gate to run on push.
 
@@ -561,7 +591,7 @@ jobs:
       - name: Tests + branch coverage
         run: python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
       - name: CRAP ceiling (crap4py)
-        run: crap4py harness_core --lcov lcov.info --max-crap 45
+        run: crap4py harness_core --lcov lcov.info --max-crap 30
       - name: Duplicate gate (drywall)
         run: drywall harness_core
       - name: Mutation gate (no new survivors)
@@ -575,7 +605,7 @@ cd core && source .venv/bin/activate
 ruff check harness_core tests scripts && echo LINT-OK
 mypy harness_core && echo TYPE-OK
 python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
-crap4py harness_core --lcov lcov.info --max-crap 45 && echo CRAP-OK
+crap4py harness_core --lcov lcov.info --max-crap 30 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
@@ -583,8 +613,8 @@ Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. (The mutation gat
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
-Run: `crap4py harness_core --lcov lcov.info --max-crap 30; echo "exit=$?"`
-Expected: `exit=1` (two known functions exceed 30). Do not commit any change from this step.
+Run: `crap4py harness_core --lcov lcov.info --max-crap 15; echo "exit=$?"`
+Expected: `exit=1` (several functions sit between 15 and 30 post-burn-down). Do not commit any change from this step.
 
 - [ ] **Step 4: Commit**
 
@@ -596,9 +626,9 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 
 ---
 
-### Task 5: Merge
+### Task 6: Merge
 
-- [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the gate commands from Task 4 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
+- [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the gate commands from Task 5 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
 - [ ] **Step 2: Merge to main** per `superpowers:finishing-a-development-branch` (merge locally, push, remove worktree, prune).
 - [ ] **Step 3: Post-merge note** — append one line to the "Actionable backlog surfaced" section of `research/code-quality-tools-gabadi.md`: baseline landed, survivor count, and the ratchet reminder (lower `--max-crap` as items 2–3 burn down). Commit as `docs: record quality-lane baseline landing`.
 
@@ -608,6 +638,6 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 
 - **Spec coverage**: this plan implements the deferred-register entry "mutation-testing baseline (post-Plan-T, parallelizable with Plan D)" in full — contexts DB, blanket, sidecar manifests, no-new-survivors CI, plus the recorded crap4py/drywall adoption order. Nothing else in the register is touched.
 - **Exit-code truths encoded**: mutate4py exit 0 with survivors (hence the parser), crap4py exit 1 over ceiling (verified), drywall exit 1 on duplicates / 2 on bad args.
-- **Type consistency**: gate entry points `parse_survivors(relpath, output)`, `new_survivors(found, baseline)`, `baseline_keys(path)`, `changed_modules(base, cwd)` match between Task 3's tests and script; Task 4 calls the CLI exactly as Task 3 produces it; the gate script carries explicit `check=False` so Task 2's PLW1510 adoption stays clean.
-- **Ruff sequencing**: Task 2 (lint fixes) runs before Task 3's blanket baseline on purpose — lint fixes change AST, and manifests hashed before them would re-test everything on the next differential.
+- **Type consistency**: gate entry points `parse_survivors(relpath, output)`, `new_survivors(found, baseline)`, `baseline_keys(path)`, `changed_modules(base, cwd)` match between Task 4's tests and script; Task 5 calls the CLI exactly as Task 4 produces it; the gate script carries explicit `check=False` so Task 2's PLW1510 adoption stays clean.
+- **AST-churn sequencing**: Tasks 2 (lint/type fixes) and 3 (burn-down refactor) both run before Task 4's blanket baseline on purpose — all pre-baseline churn lands first, so manifests hash the settled tree.
 - **Known risk left open deliberately**: if `--build-test-contexts` proves unreliable (its own help warns shared-session DBs degrade to the full test set), the blanket falls back to full-suite-per-mutant (~2.5 h) — acceptable one-time; the CI gate path never needs the contexts DB because diffs keep mutant counts small.
