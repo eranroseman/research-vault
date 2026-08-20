@@ -160,7 +160,10 @@ ignore = [
 
 [tool.ruff.lint.mccabe]
 max-complexity = 32  # green at adoption (worst: _target_hash CC 31); Task 3 tightens to 28
-                     # after the split; long-term ratchet target ~15 (architecture pass)
+                     # after the split. No pre-committed final target: the resting cap gets
+                     # set from the post-deepening CC distribution (four-state outcome
+                     # mappers legitimately run CC 17-22 — the doctrine is branchy; a
+                     # convention number like 15 could force fragmenting cohesive mappers)
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cli_live.py" = ["UP012"]
