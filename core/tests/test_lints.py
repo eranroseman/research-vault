@@ -3,13 +3,6 @@ import subprocess
 from harness_core import Result, lints
 
 
-def _write_published(draft):
-    draft.write_text(
-        draft.read_text().replace('status: "drafting"', 'status: "published"')
-        + "\nnew paragraph after publishing\n"
-    )
-
-
 def test_all_clean_on_fixture(fixture_vault):
     assert lints.lint_append_only(fixture_vault) == []
     assert lints.lint_claim_immutability(fixture_vault) == []
@@ -72,6 +65,29 @@ def test_claim_immutability_reports_each_claim_when_a_tracked_note_is_deleted(
     assert [out.target for out in outs] == [
         "smith2020#^c-11111111",
         "smith2020#^c-22222222",
+    ]
+
+
+def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
+    fixture_vault,
+):
+    note = fixture_vault / "atlas" / "synthèse.md"
+    note.write_text("- (inference) Unicode path claim ^c-unicode\n")
+    subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add unicode path claim"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    note.unlink()
+
+    outs = lints.lint_claim_immutability(fixture_vault)
+
+    assert [(out.target, out.extra) for out in outs] == [
+        (
+            "atlas/synthèse.md#^c-unicode",
+            {"note_path": "atlas/synthèse.md", "claim_id": "c-unicode"},
+        )
     ]
 
 
@@ -305,7 +321,10 @@ def test_published_drift_includes_untracked_files(fixture_vault):
         ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
     )
     draft = fixture_vault / "efforts" / "brief" / "draft.md"
-    _write_published(draft)
+    draft.write_text(
+        draft.read_text().replace('status: "drafting"', 'status: "published"')
+        + "\nnew paragraph after publishing\n"
+    )
     (draft.parent / "untracked.md").write_text("new material\n")
 
     outs = lints.lint_published_drift(fixture_vault)

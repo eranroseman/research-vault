@@ -499,13 +499,6 @@ def load(vault) -> list[Entry]:
     return entries
 
 
-def _validate_loaded_reason(reason: str, number: int, line: str) -> None:
-    try:
-        validate_reason(reason)
-    except ValueError as error:
-        raise InboxError(f"invalid reason on inbox line {number}: {line!r}") from error
-
-
 def _scope_acknowledged(entries: list[Entry], finding: Entry) -> bool:
     """Whether a human ack closes this exact standing scope."""
     fingerprint = (

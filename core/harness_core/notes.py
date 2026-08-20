@@ -1,7 +1,6 @@
 """Literature-note generation: managed region + preserved free region (spec §3–§5)."""
 
 import hashlib
-import re
 import unicodedata
 from html import escape
 from pathlib import Path
@@ -140,16 +139,6 @@ def content_changed(existing_text, candidate_text) -> bool:
     ) != canonical_content(candidate_text)
 
 
-_VERIFY_MARKER = r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
-_VERIFY_BEFORE_ANCHOR = re.compile(
-    r" " + _VERIFY_MARKER + r" (?=\^[A-Za-z0-9-]+[ \t]*$)"
-)
-_VERIFY_TERMINAL = re.compile(r" " + _VERIFY_MARKER + r"(?=[ \t]*$)")
-_CLAIM_LINE = re.compile(r"^- \((?:quote|paraphrase|inference|open-question)\) ")
-_FENCE_OPEN = re.compile(r"^[ \t]{0,3}(?P<fence>`{3,}|~{3,})")
-_FENCE_CLOSE = re.compile(r"^[ \t]{0,3}(?P<chars>`+|~+)[ \t]*$")
-
-
 def canonical_content(note_text: str) -> str:
     """Exclude only a valid verifier-owned ``verified`` event list."""
     close, lines = _frontmatter_close(note_text)
@@ -217,47 +206,3 @@ def _verified_only_envelope(lines: list[str], verified_index: int) -> bool:
     return verified_index == 1 and all(
         line.startswith("  - ") for line in lines[verified_index + 1 : -1]
     )
-
-
-def _strip_verify_fields(text: str) -> str:
-    """Remove deterministic verifier fields only from syntactic claim rows."""
-    lines = []
-    fence: tuple[str, int] | None = None
-    for line in text.splitlines(keepends=True):
-        if fence is None:
-            opener = _FENCE_OPEN.match(line)
-            if opener:
-                delimiter = opener["fence"]
-                fence = delimiter[0], len(delimiter)
-                lines.append(line)
-                continue
-        if fence is not None and _closes_fence(line, fence):
-            fence = None
-            lines.append(line)
-            continue
-        if fence is not None or not _CLAIM_LINE.match(line):
-            lines.append(line)
-            continue
-        ending = (
-            "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
-        )
-        content = line[: -len(ending)] if ending else line
-        while True:
-            reduced = _VERIFY_BEFORE_ANCHOR.sub(" ", content)
-            reduced = _VERIFY_TERMINAL.sub("", reduced)
-            if reduced == content:
-                break
-            content = reduced
-        lines.append(content + ending)
-    return "".join(lines)
-
-
-def _closes_fence(line: str, fence: tuple[str, int] | None) -> bool:
-    """A closer must use the opening character and at least its length."""
-    if fence is None:
-        return False
-    match = _FENCE_CLOSE.match(line.rstrip("\r\n"))
-    if not match:
-        return False
-    chars = match["chars"]
-    return chars[0] == fence[0] and len(chars) >= fence[1]

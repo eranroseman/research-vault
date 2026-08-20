@@ -1215,6 +1215,25 @@ def test_reduce_update_notice_outcomes_applies_precedence_and_merges_warns():
     assert unmatched.reason == "retracted — withdrawal"
 
 
+def test_merge_warn_notices_accepts_raw_groups_and_deduplicates_type_date():
+    merged = checks._merge_warn_notices(
+        [
+            {"type": "correction", "notice_date": "2020-01-01"},
+            {"type": "correction", "notice_date": "2020-01-01"},
+        ],
+        [
+            {"type": "erratum", "notice_date": None},
+            {"type": "retraction", "notice_date": "2020-01-02"},
+            {"type": 7, "notice_date": "2020-01-03"},
+        ],
+    )
+
+    assert merged == [
+        {"type": "correction", "notice_date": "2020-01-01"},
+        {"type": "erratum", "notice_date": None},
+    ]
+
+
 def test_reduce_update_notice_outcomes_fails_closed_on_target_mismatch():
     """A reducer must not attach one leg's outcome data to another target."""
     live = checks.Outcome(

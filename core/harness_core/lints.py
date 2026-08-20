@@ -7,7 +7,7 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
-from . import Result, frontmatter
+from . import Result, frontmatter, gitstate
 from . import claims as claims_mod
 from .checks import Outcome
 
@@ -100,45 +100,6 @@ def lint_append_only(vault_root) -> list[Outcome]:
                 )
             )
     return outcomes
-
-
-def _head_text(vault_root: Path, rel: str) -> str | None:
-    result = subprocess.run(
-        ["git", "show", f"HEAD:{rel}"], cwd=vault_root, capture_output=True, check=False
-    )
-    return (
-        result.stdout.decode(errors="surrogateescape")
-        if result.returncode == 0
-        else None
-    )
-
-
-def _head_markdown_paths(vault_root: Path) -> set[str]:
-    result = _git(
-        vault_root,
-        "ls-tree",
-        "-r",
-        "--name-only",
-        "HEAD",
-        "--",
-        "literatures",
-        "atlas",
-        "efforts",
-    )
-    return {path for path in result.stdout.splitlines() if path.endswith(".md")}
-
-
-def _current_markdown_paths(vault_root: Path) -> set[str]:
-    paths = set()
-    for folder in ("literatures", "atlas", "efforts"):
-        base = vault_root / folder
-        if base.is_dir():
-            paths.update(
-                _relative(vault_root, path)
-                for path in base.rglob("*.md")
-                if path.is_file()
-            )
-    return paths
 
 
 def _claim_blocks(text: str) -> dict[str, str]:
@@ -255,10 +216,15 @@ def lint_claim_immutability(vault_root) -> list[Outcome]:
     """Require committed claims to stay byte-identical absent a real transition."""
     vault = Path(vault_root)
     outcomes = []
-    for rel in sorted(_head_markdown_paths(vault) | _current_markdown_paths(vault)):
-        head = _head_text(vault, rel)
-        if head is None:
+    roots = ("literatures", "atlas", "efforts")
+    head_paths = gitstate.revision_paths(vault, "HEAD", *roots)
+    current_paths = {rel for root in roots for rel in _current_paths(vault, root)}
+    markdown_paths = {rel for rel in head_paths | current_paths if rel.endswith(".md")}
+    for rel in sorted(markdown_paths):
+        head_bytes = gitstate.blob_bytes(vault, "HEAD", rel)
+        if head_bytes is None:
             continue
+        head = head_bytes.decode(errors="surrogateescape")
         current_path = vault / rel
         current = (
             current_path.read_bytes().decode(errors="surrogateescape")
@@ -295,11 +261,6 @@ def lint_claim_immutability(vault_root) -> list[Outcome]:
     return _deduplicate(outcomes)
 
 
-def _tag_paths(vault_root: Path, tag: str, prefix: str) -> set[str]:
-    result = _git(vault_root, "ls-tree", "-r", "--name-only", tag, "--", prefix)
-    return set(result.stdout.splitlines())
-
-
 def _current_paths(vault_root: Path, prefix: str) -> set[str]:
     base = vault_root / prefix
     if not base.is_dir():
@@ -307,28 +268,18 @@ def _current_paths(vault_root: Path, prefix: str) -> set[str]:
     return {_relative(vault_root, path) for path in base.rglob("*") if path.is_file()}
 
 
-def _tag_bytes(vault_root: Path, tag: str, rel: str) -> bytes | None:
-    result = subprocess.run(
-        ["git", "show", f"{tag}:{rel}"],
-        cwd=vault_root,
-        capture_output=True,
-        check=False,
-    )
-    return result.stdout if result.returncode == 0 else None
-
-
 def _effort_status(
     vault_root: Path, prefix: str, tag: str | None = None
 ) -> tuple[set[str], list[str]]:
     paths = (
-        _tag_paths(vault_root, tag, prefix)
+        gitstate.revision_paths(vault_root, tag, prefix)
         if tag
         else _current_paths(vault_root, prefix)
     )
     statuses, malformed = set(), []
     for rel in sorted(path for path in paths if path.endswith(".md")):
         if tag:
-            raw = _tag_bytes(vault_root, tag, rel)
+            raw = gitstate.blob_bytes(vault_root, tag, rel)
             text = raw.decode(errors="surrogateescape") if raw is not None else ""
         else:
             text = (vault_root / rel).read_bytes().decode(errors="surrogateescape")
@@ -341,11 +292,13 @@ def _effort_status(
 
 
 def _effort_differs(vault_root: Path, tag: str, prefix: str) -> bool:
-    for rel in _tag_paths(vault_root, tag, prefix) | _current_paths(vault_root, prefix):
+    for rel in gitstate.revision_paths(vault_root, tag, prefix) | _current_paths(
+        vault_root, prefix
+    ):
         current = (
             (vault_root / rel).read_bytes() if (vault_root / rel).is_file() else None
         )
-        if _tag_bytes(vault_root, tag, rel) != current:
+        if gitstate.blob_bytes(vault_root, tag, rel) != current:
             return True
     return False
 

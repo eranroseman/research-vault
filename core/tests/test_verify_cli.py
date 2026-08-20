@@ -5,13 +5,13 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from harness_core import Result, bibliography, checks, claims, events, inbox, webapi
 from harness_core.__main__ import (
     _archive_outcomes,
-    _clear_verify_failed,
     _mutate_marker,
     _safe_relative,
     _target_hash,
@@ -121,23 +121,19 @@ def test_discovery_outage_with_only_pmid_keeps_live_update_unreachable(
 
 
 def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
-    net_vault, tmp_path
+    net_vault, tmp_path, monkeypatch
 ):
     csv_file = tmp_path / "rw.csv"
     csv_file.write_text(
         "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n,123,2020-01-01,Retraction\n"
     )
-    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
         "harness_core.__main__._bibliography_entries",
         lambda _: [{"id": "pmid", "PMID": "123"}],
     )
-    try:
-        report = run_verify(
-            net_vault, network=False, detection_date="2026-08-16", rw_csv=csv_file
-        )
-    finally:
-        monkeypatch.undo()
+    report = run_verify(
+        net_vault, network=False, detection_date="2026-08-16", rw_csv=csv_file
+    )
     notices = [
         o
         for o in report["outcomes"]
@@ -322,7 +318,7 @@ def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
         "verify-failed:: quote/2026-08-16"
         in draft.read_text().splitlines()[line_no - 1]
     )
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert "verify-failed" not in draft.read_text().splitlines()[line_no - 1]
 
 
@@ -591,6 +587,32 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
     assert _target_hash(net_vault, append) == first
 
 
+def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
+    note = net_vault / "atlas" / "invalid-utf8.md"
+    claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
+    note.write_bytes(claim_bytes)
+    subprocess.run(["git", "add", note], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add invalid utf8 claim"],
+        cwd=net_vault,
+        check=True,
+    )
+    note.unlink()
+    outcome = _outcome(
+        "claim-immutability",
+        "atlas/invalid-utf8.md#^c-invalid",
+        Result.UNMATCHED,
+        "drift — deleted claim",
+        note_path="atlas/invalid-utf8.md",
+        claim_id="c-invalid",
+    )
+
+    first = _target_hash(net_vault, outcome)
+
+    assert first == hashlib.sha256(claim_bytes).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome) == first
+
+
 def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
     other = net_vault / "atlas" / "other.md"
     other.write_text(
@@ -604,7 +626,7 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
         note_path="efforts/brief/draft.md",
         claim_id="c-66666666",
     )
-    _clear_verify_failed(net_vault, origin)
+    _mutate_marker(net_vault, origin, "2026-08-16", clear=True)
     assert "verify-failed" not in (net_vault / "efforts/brief/draft.md").read_text()
     assert "verify-failed" in other.read_text()
     citekey = _outcome(
@@ -619,7 +641,7 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
     marked = (net_vault / "efforts/brief/draft.md").read_text()
     assert marked.count("verify-failed:: citekey/2026-08-16") == 2
     assert "verify-failed:: quote/2026-08-16" in other.read_text()
-    _clear_verify_failed(net_vault, citekey)
+    _mutate_marker(net_vault, citekey, "2026-08-16", clear=True)
     assert (
         "verify-failed:: citekey/2026-08-16"
         not in (net_vault / "efforts/brief/draft.md").read_text()
@@ -701,7 +723,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     assert b"   [verify-failed:: citekey/2026-08-16] ^c-1\r\n" in stamped
     assert b"\r [verify-failed" not in stamped
     assert _target_hash(net_vault, anchored) != anchored_hash
-    _clear_verify_failed(net_vault, anchored)
+    _mutate_marker(net_vault, anchored, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, anchored) == anchored_hash
 
@@ -719,7 +741,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     assert b"line only [@missing] [verify-failed:: quote/2026-08-16]\r\n" in stamped
     assert b"\r [verify-failed" not in stamped
     assert _target_hash(net_vault, line_only) != line_hash
-    _clear_verify_failed(net_vault, line_only)
+    _mutate_marker(net_vault, line_only, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, line_only) == line_hash
 
@@ -748,7 +770,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
     )
     assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
     assert _target_hash(net_vault, outcome) != before
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, outcome) == before
 
@@ -803,7 +825,7 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
     assert note.read_text() == original.replace(
         " ^c-1", " [verify-failed:: quote/2026-08-17] ^c-1"
     )
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_text() == original
 
 
@@ -835,26 +857,7 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
     inbox.append_ack(
         net_vault, finding.id, "manual — checked", "human:test", target_hash
     )
-    monkeypatch.setattr("harness_core.__main__._file_outcomes", lambda *_: [])
-    monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
-        lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
-    )
-    monkeypatch.setattr("harness_core.__main__._network_outcomes", lambda *_: [warning])
-    monkeypatch.setattr(
-        "harness_core.__main__._staleness_outcome",
-        lambda *_: _outcome(
-            "staleness", "x/bibliography.json", Result.MATCHED, "matched"
-        ),
-    )
-    for name in (
-        "lint_append_only",
-        "lint_claim_immutability",
-        "lint_published_drift",
-        "lint_web_archive",
-    ):
-        monkeypatch.setattr(f"harness_core.lints.{name}", lambda *_: [])
-    monkeypatch.setattr("harness_core.__main__._archive_outcomes", lambda *_: [])
+    _isolate_network_verify(monkeypatch, [warning])
 
     first, effective, _hashes, warning_effective = _verify_state(
         net_vault, network=True, detection_date="2026-08-16"
@@ -900,7 +903,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     assert _target_hash(net_vault, outcome) is not None
     _mutate_marker(net_vault, outcome, "2026-08-16")
     assert "verify-failed:: quote/2026-08-16" in note.read_text()
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert "verify-failed" not in note.read_text()
 
     outside_root = tmp_path.parent / f"{tmp_path.name}-outside"
@@ -1132,9 +1135,6 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     )
     current = [correction]
     _isolate_network_verify(monkeypatch, current)
-    monkeypatch.setattr(
-        "harness_core.__main__._network_outcomes", lambda *_args: list(current)
-    )
 
     assert (
         cmd_verify(
@@ -1241,9 +1241,6 @@ def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
     )
     current = [doi_failure, metadata_failure]
     _isolate_network_verify(monkeypatch, current)
-    monkeypatch.setattr(
-        "harness_core.__main__._network_outcomes", lambda *_args: list(current)
-    )
 
     before = _target_hash(net_vault, doi_failure)
     run_verify(net_vault, network=True, detection_date="2026-08-16")
@@ -1329,30 +1326,18 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
 def test_verify_loads_bibliography_once_at_orchestration_boundary(
     net_vault, monkeypatch
 ):
-    real_load = __import__("harness_core.bibliography", fromlist=["load"]).load
-    calls = []
-
-    def counted(vault):
-        calls.append(vault)
-        return real_load(vault)
-
-    monkeypatch.setattr("harness_core.bibliography.load", counted)
+    load = Mock(wraps=bibliography.load)
+    monkeypatch.setattr(bibliography, "load", load)
 
     run_verify(net_vault, network=False, detection_date="2026-08-16")
 
-    assert len(calls) == 1
+    load.assert_called_once_with(net_vault)
 
 
 def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypatch):
     (net_vault / bibliography.BIB_PATH).write_text("{")
-    real_load = bibliography.load
-    calls = []
-
-    def counted(vault):
-        calls.append(vault)
-        return real_load(vault)
-
-    monkeypatch.setattr("harness_core.bibliography.load", counted)
+    load = Mock(wraps=bibliography.load)
+    monkeypatch.setattr(bibliography, "load", load)
     outcome = _outcome("custom", "missing", Result.UNMATCHED, "mismatch")
     monkeypatch.setattr(
         "harness_core.__main__._file_outcomes", lambda *_args: [outcome]
@@ -1367,7 +1352,7 @@ def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypat
 
     run_verify(net_vault, network=False, detection_date="2026-08-16")
 
-    assert len(calls) == 1
+    load.assert_called_once_with(net_vault)
 
 
 @pytest.mark.live_net

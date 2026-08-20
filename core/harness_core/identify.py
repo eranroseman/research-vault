@@ -1,7 +1,7 @@
 """Identifier discovery before an automatic SKIPPED result becomes final."""
 
 from . import Result, webapi
-from .checks import Outcome, normalize_text
+from .checks import Outcome, metadata_year, normalize_text
 
 
 def _target(entry: dict) -> str:
@@ -32,18 +32,8 @@ def _query_terms(entry: dict, title: str) -> str:
         if isinstance(candidate, str) and candidate.strip():
             family = candidate
 
-    year = ""
-    issued = entry.get("issued")
-    if isinstance(issued, dict):
-        parts = issued.get("date-parts")
-        if (
-            isinstance(parts, list)
-            and parts
-            and isinstance(parts[0], list)
-            and parts[0]
-            and type(parts[0][0]) is int
-        ):
-            year = str(parts[0][0])
+    _, issued_year = metadata_year(entry.get("issued"))
+    year = str(issued_year) if issued_year is not None else ""
     return " ".join(part for part in (title, family, year) if part)
 
 

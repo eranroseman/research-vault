@@ -16,6 +16,7 @@ from . import (
     checks,
     events,
     frontmatter,
+    gitstate,
     identify,
     inbox,
     lints,
@@ -92,13 +93,13 @@ def _attachment_hash(attachment, vault) -> tuple[str, Path]:
     return notes.sha256_file(local_path), local_path
 
 
-def _read_note(path):
-    with path.open("r", encoding="utf-8", newline="") as note:
+def _read_note_text(path):
+    with Path(path).open("r", encoding="utf-8", newline="") as note:
         return note.read()
 
 
-def _write_note(path, text):
-    with path.open("w", encoding="utf-8", newline="") as note:
+def _write_note_text(path, text):
+    with Path(path).open("w", encoding="utf-8", newline="") as note:
         note.write(text)
 
 
@@ -170,7 +171,7 @@ def cmd_import_note(args):
     item = matches[0]
     item["id"] = args.citekey
 
-    existing = _read_note(path) if path.is_file() else None
+    existing = _read_note_text(path) if path.is_file() else None
     hashes = []
     annotations = []
     attachment_pairs = []
@@ -225,7 +226,7 @@ def cmd_import_note(args):
     if not notes.content_changed(existing, candidate):
         print("NOOP")
         return 0
-    _write_note(path, candidate)
+    _write_note_text(path, candidate)
     print(str(path))
     return 0
 
@@ -235,7 +236,7 @@ def cmd_backfill_selectors(args):
     failures = 0
     for path in sorted(literature_dir.glob("*.md")):
         try:
-            data, _ = frontmatter.parse(_read_note(path))
+            data, _ = frontmatter.parse(_read_note_text(path))
         except (OSError, frontmatter.FrontmatterError) as error:
             print(
                 f"warning: malformed literature note {path}: {error}", file=sys.stderr
@@ -279,16 +280,6 @@ def cmd_staleness(args):
 CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}
 
 
-def _read_note_text(path):
-    with Path(path).open(newline="") as handle:
-        return handle.read()
-
-
-def _write_note_text(path, text):
-    with Path(path).open("w", newline="") as handle:
-        handle.write(text)
-
-
 def _safe_relative(vault_root, target):
     """Return a real vault child for an explicitly file-shaped target."""
     if (
@@ -310,18 +301,6 @@ def _safe_relative(vault_root, target):
     return path
 
 
-def _head_bytes(vault_root, relative):
-    import subprocess
-
-    result = subprocess.run(
-        ["git", "show", f"HEAD:{relative}"],
-        cwd=vault_root,
-        capture_output=True,
-        check=False,
-    )
-    return result.stdout if result.returncode == 0 else None
-
-
 def _note_bytes(data: bytes) -> bytes:
     return notes.canonical_content(data.decode(errors="surrogateescape")).encode(
         errors="surrogateescape"
@@ -340,7 +319,7 @@ def _claim_bytes_from_text(text, claim_id):
                     block.append(continuation)
                 else:
                     break
-            return "".join(block).encode()
+            return "".join(block).encode(errors="surrogateescape")
     return None
 
 
@@ -349,16 +328,6 @@ def _claim_bytes(path, claim_id):
         return _claim_bytes_from_text(_read_note_text(path), claim_id)
     except (OSError, UnicodeError):
         return None
-
-
-def _line_bytes(path, line_no):
-    try:
-        lines = notes.canonical_content(_read_note_text(path)).splitlines(keepends=True)
-    except (OSError, UnicodeError):
-        return None
-    if not 0 < line_no <= len(lines):
-        return None
-    return lines[line_no - 1].encode()
 
 
 def _append_only_basis(vault_root, target):
@@ -375,7 +344,7 @@ def _append_only_basis(vault_root, target):
         for line in result.stdout.splitlines(keepends=True)
         if line.startswith(b"-") and not line.startswith(b"---")
     ]
-    return b"".join(removed) or _head_bytes(vault_root, target) or b""
+    return b"".join(removed) or gitstate.blob_bytes(vault_root, "HEAD", target) or b""
 
 
 def _directory_bytes(path):
@@ -453,7 +422,6 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
     target = outcome.target
     claim_id = None
     origin = _safe_relative(vault_root, outcome.extra.get("note_path"))
-    line_no = outcome.extra.get("line_no")
     if isinstance(target, str) and "#^" in target:
         citekey, claim_id = target.split("#^", 1)
         known_citekey_hash = _citekey_hash(vault_root, citekey)
@@ -461,7 +429,7 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
             return known_citekey_hash
         data = _claim_bytes(origin, claim_id) if origin else None
         if data is None and origin is not None:
-            head = _head_bytes(vault_root, outcome.extra["note_path"])
+            head = gitstate.blob_bytes(vault_root, "HEAD", outcome.extra["note_path"])
             if head is not None:
                 data = _claim_bytes_from_text(
                     head.decode(errors="surrogateescape"), claim_id
@@ -489,7 +457,7 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
         elif path.is_dir():
             data = _directory_bytes(path)
         else:
-            data = _head_bytes(vault_root, target) or b""
+            data = gitstate.blob_bytes(vault_root, "HEAD", target) or b""
             if target.endswith(".md"):
                 data = _note_bytes(data)
         return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
@@ -503,13 +471,11 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
             data = _note_bytes(origin.read_bytes())
             return hashlib.sha256(data).hexdigest()[:16]
         if origin:
-            data = _head_bytes(vault_root, outcome.extra.get("note_path", ""))
+            data = gitstate.blob_bytes(
+                vault_root, "HEAD", outcome.extra.get("note_path", "")
+            )
             if data is not None:
                 return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
-        if origin and origin.is_file() and isinstance(line_no, int):
-            data = _line_bytes(origin, line_no)
-            if data is not None:
-                return hashlib.sha256(data).hexdigest()[:16]
         if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
             entry = bibliography.load(vault_root).entry(target)
         elif bibliography_universe is not None:
@@ -557,14 +523,13 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             if not anchored and not numbered:
                 continue
             terminal_claim_id = claim_id if anchored else None
+            pattern = _terminal_marker_pattern(outcome.check, terminal_claim_id)
             replacement = (
-                _clear_marker(content, outcome.check, terminal_claim_id)
+                pattern.sub(" " if isinstance(terminal_claim_id, str) else "", content)
                 if clear
                 else line
             )
-            if not clear and not _has_terminal_marker(
-                content, outcome.check, terminal_claim_id
-            ):
+            if not clear and pattern.search(content) is None:
                 if anchored:
                     before = content[: anchor.start()]
                     terminal_anchor = content[anchor.start() :]
@@ -585,16 +550,6 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
 
 
 _ANY_VERIFY_MARKER = r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
-
-
-def _clear_marker(content, check, claim_id):
-    """Reverse only the one-space token sequence written by the stamper."""
-    pattern = _terminal_marker_pattern(check, claim_id)
-    return pattern.sub(" " if isinstance(claim_id, str) else "", content)
-
-
-def _has_terminal_marker(content, check, claim_id):
-    return _terminal_marker_pattern(check, claim_id).search(content) is not None
 
 
 def _terminal_marker_pattern(check, claim_id):
@@ -618,11 +573,6 @@ def _split_line_ending(line):
     if line.endswith("\n"):
         return line[:-1], "\n"
     return line, ""
-
-
-def _clear_verify_failed(vault_root, outcome):
-    """Compatibility helper used by tests; clearing still requires exact origins."""
-    _mutate_marker(vault_root, outcome, datetime.date.today().isoformat(), clear=True)
 
 
 def _file_outcomes(vault_root, path, bibliography_universe=None):
@@ -737,34 +687,17 @@ def _archive_outcomes(vault_root):
         try:
             status = webapi.get_status(archive_url, vault_root)
         except webapi.ApiError:
-            outcomes.append(
-                checks.Outcome(
-                    "web-archive",
-                    target,
-                    Result.UNREACHABLE,
-                    "outage — archive-url unavailable",
-                )
-            )
+            result = Result.UNREACHABLE
+            reason = "outage — archive-url unavailable"
         else:
             if status == 404:
-                outcomes.append(
-                    checks.Outcome(
-                        "web-archive",
-                        target,
-                        Result.UNMATCHED,
-                        "missing-archive — archive-url 404s",
-                    )
-                )
+                result = Result.UNMATCHED
+                reason = "missing-archive — archive-url 404s"
             else:
-                outcomes.append(
-                    checks.Outcome("web-archive", target, Result.MATCHED, "matched")
-                )
+                result = Result.MATCHED
+                reason = "matched"
+        outcomes.append(checks.Outcome("web-archive", target, result, reason))
     return outcomes
-
-
-def _warning_type(entry):
-    match = re.match(r"warn-notice\s+—\s+(.+)$", entry.reason)
-    return match.group(1) if match else None
 
 
 def _notice_fingerprint(outcome):
