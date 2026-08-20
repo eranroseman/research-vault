@@ -13,10 +13,10 @@
 - Final vault roots are `inbox`, `literatures`, `synthesis`, `log`, `projects`, `x/templates`, and `x/bases`.
 - Root `index.md` has exactly `okf_version: "0.2"` frontmatter. Root `log.md` and every nested basename `index.md` or `log.md` have no frontmatter. Every other packaged concept Markdown file has parseable frontmatter and a non-empty `type`.
 - `inbox/review-queue.md` begins with exactly `type: "review-inbox"`; daily notes use exactly `type: "daily"`. Inbox and daily-note bodies are append-only and never receive `generated` updates.
-- Git path handling stays byte-preserving and NUL-delimited. No task may decode, newline-split, or lossy-normalize Git path output.
+- Raw Git path records stay byte-preserving and NUL-delimited; no task may newline-split or lossy-normalize them. A text-only consumer may decode with the filesystem `surrogateescape` convention only when it immediately proves exact re-encoding to the original bytes. Manifests remain raw bytes throughout.
 - Detection, verified pass events, current failure projection, markers, and inbox auditing are independent of enforcement surface. Surface sets decide blocking only.
 - Synthetic `--offline` network outcomes may be printed in an explicit report but never change trust, events, markers, or inbox state. A genuinely attempted outage remains persisted as UNREACHABLE.
-- `COMMIT_CLOSING = {"citekey", "evidence-layer"}`. `PUBLISH_CLOSING = {"citekey", "evidence-layer", "quote", "update-notice", "doi"}`. Exit 1 means a closing UNMATCHED; exit 3 means UNREACHABLE.
+- `COMMIT_CLOSING = {"citekey", "evidence-layer"}`. `PUBLISH_CLOSING = {"citekey", "evidence-layer", "quote", "update-notice", "doi"}`. Exit 1 means a selected-surface closing UNMATCHED; explicit commit/publish surfaces use exit 3 for a genuine UNREACHABLE. The default open audit surface returns 0 for findings/outages and 2 only for operational or usage failure.
 - BBT is the sole writer of `x/bibliography.json` after auto-export registration. The harness may stage and commit genuine BBT output; it never synthesizes or writes that export.
 - The scaffold stages and commits only paths it created. It must not sweep unrelated staged, unstaged, or untracked work.
 - `--with-ci` installs only read-only verification. `--with-rw-ci` is the distinct explicit consent for the scheduled write-capable workflow.
@@ -83,6 +83,7 @@ citekey: "{{CITEKEY}}"
 type: "literature"
 accessed: "{{TODAY}}"
 fixity-sha256:
+managed-sha256: "{{MANAGED_SHA256}}"
 status: "unscreened"
 generated: {by: "{{ACTOR}}", at: "{{NOW}}"}
 ---
@@ -159,6 +160,11 @@ filters:
 # knowledge-harness pre-commit: offline commit-closing checks.
 # Bypass: git commit --no-verify. CI replays the same checks.
 vault="$(git rev-parse --show-toplevel)" || exit 1
+if head="$(git rev-parse --verify HEAD 2>/dev/null)"; then
+  git_base="$head"
+else
+  git_base="$(git hash-object -t tree /dev/null)" || exit 1
+fi
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "pre-commit: python3 unavailable; refusing an unverifiable commit." >&2
@@ -169,7 +175,7 @@ if ! python3 -c "import harness_core" 2>/dev/null; then
   exit 0
 fi
 
-python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base HEAD
+python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index
 code=$?
 case "$code" in
   0) exit 0 ;;
@@ -204,6 +210,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -235,7 +242,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          python -m harness_core verify --vault . --offline --surface commit --git-base "${{ steps.base.outputs.sha }}"
+          python -m harness_core verify --vault . --offline --surface commit --git-base "${{ steps.base.outputs.sha }}" --git-candidate HEAD
           code=$?
           set -e
           case "$code" in
@@ -281,7 +288,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          python -m harness_core verify --vault . --offline --rw-csv "$RUNNER_TEMP/rw.csv" --changed-paths-file "$RUNNER_TEMP/harness-changed-paths"
+          python -m harness_core verify --vault . --offline --surface audit --git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" --changed-paths-file "$RUNNER_TEMP/harness-changed-paths"
           code=$?
           set -e
           case "$code" in
@@ -307,11 +314,11 @@ jobs:
           git push
 ```
 
-Task 1 is the single owner of these packaged bytes: it writes and packages them once. Tasks 3–4 implement the runtime interfaces that drive them and verify their behavior; they do not rewrite the templates unless a failing test exposes a defect and the correction receives explicit review.
+Task 1 is the single owner of these packaged bytes: it writes and packages them once. Task 4 must explicitly review and correct the already-packaged literature witness, pre-commit candidate, read-only CI candidate/credential, and RW audit commands above because its RED tests expose those defects; later work may not make unrelated template rewrites.
 
 RED tests in `test_templates.py` must enumerate every packaged path, including both Bases files and all five operational assets above. Parse every non-reserved Markdown file and assert non-empty `type`; assert root index frontmatter equals `{"okf_version": "0.2"}`; assert root log and all nested indexes have no frontmatter; assert the inbox header is exactly the required type; and assert the daily template uses exactly `type: "daily"`.
 
-The same tests must parse both `.base` files enough to prove their exact type filters; parse `machine.json.example` as JSON and assert the `mailto` and `path_map` shapes; assert `gitignore` contains both canonical entries; run `sh -n` on `git/pre-commit`, assert its executable bit, and assert the exact verify command, exit-1 block, exit-3 open path, import-only fail-open path, `--no-verify`, and CI replay text. For each workflow, assert the event/permission boundary and the exact commands above. In particular, prove `verify.yml` fetches and passes an explicit base and handles 0/1/3/unexpected exits; prove `rw-batch.yml` uses the required curl flags, performs only the offline CSV leg, passes `--changed-paths-file`, handles an empty manifest, and uses literal NUL-safe `add` plus `commit --only` with no `|| true`.
+The same tests must parse both `.base` files enough to prove their exact type filters; parse `machine.json.example` as JSON and assert the `mailto` and `path_map` shapes; assert `gitignore` contains both canonical entries; run `sh -n` on `git/pre-commit`, assert its executable bit, and assert the exact verify command, exit-1 block, exit-3 open path, import-only fail-open path, `--no-verify`, and CI replay text. For each workflow, assert the event/permission boundary and the exact commands above. In particular, prove the pre-commit hook resolves HEAD once, uses the empty-tree baseline on an unborn repository, and passes `--git-candidate index`; prove `verify.yml` fetches and passes an explicit base, passes `--git-candidate HEAD`, has read-only contents authority without persisted push credentials, and handles 0/1/3/unexpected exits; prove `rw-batch.yml` uses the required curl flags, performs only the offline CSV leg on the explicit open audit/worktree surface, passes `--changed-paths-file`, handles an empty manifest, and uses literal NUL-safe `add` plus `commit --only` with no `|| true`.
 
 Run: `python -m pytest tests/test_templates.py -v`.
 
@@ -352,7 +359,7 @@ Commit: `feat: add scoped OKF vault scaffold`.
 
 **Interfaces:**
 
-- Replace Plan A's interim `bibliography.write_and_commit(vault_root, items)` writer with `bibliography.commit_autoexport(vault_root) -> bool`. The replacement accepts no export payload and never writes the target. When the target differs from HEAD, it stages only `x/bibliography.json` and commits with the exact target-only shape `git commit -q --no-verify --only -m "chore: bibliography export" -- x/bibliography.json`; it returns whether it committed.
+- Replace Plan A's interim `bibliography.write_and_commit(vault_root, items)` writer with `bibliography.commit_autoexport(vault_root, validated_bytes) -> bool`, where `validated_bytes` is the exact in-memory buffer read and validated by the observer. The replacement captures its expected HEAD exactly once (a commit OID or the unborn state), never writes or rereads the target, never stages through the live index, and returns whether it made the race-safe snapshot commit.
 - Add `AutoexportObservation = (result, detail, staleness, staleness_detail)`, where both result fields are `Result` values and both detail fields are strings. Add one shared `bibliography.observe_autoexport(vault_root, client, *, settle_seconds=60, poll_interval=1, monotonic=None, sleep=None) -> AutoexportObservation`; doctor and `import-note` both call it. The optional clock and sleeper are injection seams; `None` selects the real monotonic clock and sleeper. Reject `poll_interval <= 0` before polling.
 
 Add `doctor(vault_root, client=None, network=True, settle_seconds=60, poll_interval=1) -> list[Probe]` and the CLI verb. `Probe = (name, Result, detail)`, with a string name, a `MATCHED | UNMATCHED | UNREACHABLE | SKIPPED` result, and a human-readable string detail. Return exactly these probes in this order and with these meanings:
@@ -380,7 +387,7 @@ The shared observer performs this exact sequence:
 3. If the first window ends with a persistent absence or mismatch, call `register_autoexport(str(target))` exactly once. Never register before that first window, and never retry registration in the same observation.
 4. Poll for one second settle window with the same bounds and the same retained evidence. At its deadline, perform one final target read and comparison before deciding failure.
 5. Require the final actual target to be a regular, valid Better CSL JSON file whose sorted `(id, title)` fingerprint matches the retained on-demand evidence. A persistent absence, non-regular target, readable malformed/invalid file, or fingerprint mismatch is UNMATCHED; target I/O/Unicode failure or inability to reach/decode the authoritative service is UNREACHABLE. Return this same final comparison as the observation's `staleness` result instead of making a second export request.
-6. If the validated BBT target differs from HEAD, call `commit_autoexport`. Commit the target's bytes exactly as BBT wrote them, without reserialization or normalization. Its exact target-only commit uses `--no-verify`; no unrelated staged, unstaged, or untracked path may enter that bookkeeping commit or change state.
+6. Pass the exact validated in-memory target buffer to `commit_autoexport`. It resolves expected HEAD once and returns `False` without a commit when that expected tree already contains the same target blob. Otherwise write the supplied buffer with `git hash-object -w --stdin`; build a temporary `GIT_INDEX_FILE` from the expected HEAD tree, or from an empty tree when unborn; and apply only `git update-index --add --cacheinfo 100644,<blob-oid>,x/bibliography.json`. The resulting tree must equal the expected HEAD tree with exactly that path replaced by the exact blob bytes. Create the bookkeeping commit without running hooks, either with a native temporary-index commit or with `git commit-tree`, and move HEAD only through an expected-old compare-and-swap (`git update-ref HEAD <new> <expected-old>` or the native equivalent, using Git's zero OID for unborn expected-old). A concurrent HEAD move raises a clean Git error and never overwrites it; the observer maps any Git/plumbing failure to UNREACHABLE with its detail. The live index and every worktree path stay untouched, and unreachable orphan objects are acceptable. Never reread or write the target after validation. If BBT writes newer target bytes meanwhile, those bytes remain uncommitted for the next staleness observation. No unrelated staged, unstaged, or untracked path may enter the tree or change state. The former `git commit --only` requirement is superseded because it rereads the live worktree and is not snapshot-safe.
 
 `import-note` invokes that observer before any note write or NOOP output, because another Zotero admission can change the bibliography while the rendered note remains identical. MATCHED continues the existing note write/NOOP path. UNMATCHED prints the observer detail to stderr, returns 1, and writes no note or comparison bytes. UNREACHABLE does the same and returns 3. Doctor reports `result`/`detail` through `autoexport` and the cached final `staleness`/`staleness_detail` through `staleness`; it makes no second on-demand export.
 
@@ -388,11 +395,11 @@ RED coverage is mandatory and exact:
 
 - `test_doctor.py`: test `cmd_doctor`'s output/exit matrix by stubbing `doctor` or injecting explicit `Probe` tuples: all-MATCHED exits 0; each hard UNMATCHED (`tree`, `machine-config`, `bbt`, `autoexport`) exits 1; each hard UNREACHABLE (`zotero`, `bbt`, `autoexport`) exits 3; every warn-only probe as UNMATCHED and UNREACHABLE stays exit 0 and prints `warn:`; if hard UNMATCHED and hard UNREACHABLE coexist, exit 1 wins. These CLI-routing cases do not add states to any probe producer.
 - `test_doctor.py`: test producer classifications separately through the concrete conditions in the probe meanings. Assert tuple shape and exact nine-probe order. A failed `client.ready()` must not call `observe_autoexport` and must return, in order, `zotero`, `bbt`, `autoexport`, and `staleness` as UNREACHABLE; the latter three details are exactly `zotero down`, and the full list continues through `remote`, `backup`, and `inbox`. Missing BBT makes `bbt` UNMATCHED and makes `autoexport`/`staleness` prerequisite-SKIPPED without downstream calls; output arriving during the first settle window prevents registration; a persistent mismatch causes exactly one registration; output arriving during the second window passes; a post-registration absence, invalid target, or mismatch remains UNMATCHED; transport/read failures remain UNREACHABLE; raw BBT errors reach detail.
-- `test_doctor.py`: monkeypatch the old bibliography writer to fail if called and prove the harness never writes the in-memory export bytes; prove only BBT-created target bytes are staged and committed, the commit uses `--no-verify`, its changed-path set contains only `x/bibliography.json`, and unrelated staged, unstaged, and untracked state is byte-for-byte unchanged.
+- `test_doctor.py`: monkeypatch the old bibliography writer to fail if called and prove the harness never writes the in-memory comparison export; prove the observer passes its exact validated BBT buffer into the snapshot commit, and that later BBT bytes remain for the next staleness pass rather than entering the current commit.
 - `test_doctor.py`: both legal `--base` positions construct `ZoteroClient` with the supplied URL.
-- `test_bibliography.py`: deterministic fake clock/poller coverage for both settle windows, `poll_interval <= 0`, a target appearing on each final-deadline read, exactly one fresh-evidence fetch reused through both windows and final staleness, the exact sorted `(id, title)` comparator (including byte-different JSON that MATCHES), exact single-registration behavior, missing/non-regular/malformed versus I/O/Unicode classification, and byte-exact target-only commit behavior without real sleeping.
+- `test_bibliography.py`: deterministic fake clock/poller coverage for both settle windows, `poll_interval <= 0`, a target appearing on each final-deadline read, exactly one fresh-evidence fetch reused through both windows and final staleness, the exact sorted `(id, title)` comparator (including byte-different JSON that MATCHES), exact single-registration behavior, missing/non-regular/malformed versus I/O/Unicode classification, and byte-exact snapshot commit behavior without real sleeping. Snapshot regressions must cover existing and unborn HEADs; assert the committed blob is the supplied validated buffer even if the worktree target changes after validation, the commit tree is the expected HEAD tree with only `x/bibliography.json` replaced, its parent is exactly the expected HEAD when one exists, hooks do not run, and the live index plus staged, unstaged, and untracked bytes/status remain exact. Inject a concurrent HEAD move and require a clean compare-and-swap failure with no overwrite. Assert the plumbing uses a temporary index and never rereads/writes the target; do not require or use `git commit --only`.
 - `test_cli_live.py`: patch the shared observer, not a duplicate import-only implementation. Cover note NOOP while the observer still runs, delayed genuine BBT output, UNMATCHED timeout/mismatch returning 1, UNREACHABLE returning 3, no note write on either failure, and no call to the old bibliography writer or write of comparison bytes.
-- `test_cli_live.py`: with unrelated staged, unstaged, and untracked files present, the bookkeeping commit contains only genuine `x/bibliography.json` bytes and preserves every unrelated index/worktree byte and status.
+- `test_cli_live.py`: with unrelated staged, unstaged, and untracked files present, the bookkeeping commit contains only the captured genuine `x/bibliography.json` bytes atop expected HEAD and preserves every live index/worktree byte and status. A target rewrite after validation is excluded from that commit and remains visible for the next observer pass.
 
 Run: `python -m pytest tests/test_doctor.py tests/test_bibliography.py tests/test_verify_cli.py tests/test_cli_live.py -m 'not live and not live_net' -v`.
 
@@ -400,42 +407,86 @@ Commit: `feat: add BBT-owned doctor and import flow`.
 
 ## Task 4: Implement verification witnesses, pre-commit, and CI authority split
 
-Extend the deterministic core and templates in one TDD sequence.
+Implement this task as one RED → GREEN sequence. It deliberately corrects the Task 1 canonical literature, pre-commit, and workflow resources after their focused tests expose the reviewed defects.
 
-### Managed-region witness
+**Files:**
 
-- `managed-sha256` hashes the exact bytes between and including the managed delimiters.
-- Rendering updates it only when those exact bytes change.
-- Current-file verification detects a stale or forged witness.
-- Pre-commit compares current files with HEAD using byte-preserving Git reads.
-- CI requires `--git-base REV`; the workflow fetches and passes an explicit base. Detection covers committed edits, deletions, and renames.
-- Renames and unusual path bytes are carried through NUL-delimited byte APIs; regression tests include spaces, non-ASCII, and a delete/rename.
+- Modify: `core/harness_core/gitstate.py`, `core/harness_core/notes.py`, `core/harness_core/lints.py`, and `core/harness_core/__main__.py`.
+- Modify the reviewed Task 1 assets: `core/harness_core/templates/vault/x/templates/literature.md`, `core/harness_core/templates/git/pre-commit`, `core/harness_core/templates/ci/verify.yml`, and `core/harness_core/templates/ci/rw-batch.yml`.
+- Create: `core/tests/test_precommit.py` and `core/tests/test_ci_templates.py`.
+- Modify: `core/tests/test_gitstate.py`, `core/tests/test_lints.py`, `core/tests/test_notes.py`, `core/tests/test_verify_cli.py`, `core/tests/test_templates.py`, and `core/tests/test_scaffold.py`.
 
-### State and surfaces
+### Base and candidate snapshots
 
-- Refactor collection from enforcement: collect once, project current failures/events/markers/inbox once, then apply the selected closing set.
-- Run the same fixture through commit and publish surfaces and assert identical raw outcomes and mutations but different blocking decisions.
-- For `--offline`, network-disabled outcomes may be present in JSON output, but compare the complete vault bytes before/after and assert no trust demotion, event, marker, or inbox write.
-- A fake genuine network attempt that raises still persists UNREACHABLE.
-- `--offline --rw-csv FILE` evaluates the CSV only; it does not invent a live registry leg.
+Expose `verify --surface {audit,commit,publish} --git-base REV --git-candidate {worktree,index,HEAD} [--changed-paths-file FILE]`. `--surface` defaults to `audit`; `--git-candidate` defaults to `worktree`; an omitted `--git-base` defaults to HEAD, or to Git's empty tree when HEAD is unborn. Resolve the base exactly once, before collection or projection, to one immutable tree OID and thread that OID through every base-dependent lint, Git collector, deleted-target fallback, and acknowledgment hash. An explicit missing, malformed, ambiguous, or non-tree-ish base is an operational error: print a concise diagnostic, return 2, and perform no verifier mutation. Published drift is the exception to base routing: it remains a comparison from the applicable `published/*` tag to the selected candidate and must not be silently rebound to `--git-base`.
+
+Resolve the selected candidate exactly once as well:
+
+- `worktree` reads the filesystem state and is the interactive/audit default.
+- `index` is the prospective commit. Snapshot it with one successful `git write-tree`; staged additions, edits, deletions, renames, and acknowledgment entries count, while unstaged scratch bytes do not. An unmerged or unreadable index is exit 2. A pre-commit comparison is therefore resolved HEAD → index, with the empty tree as the base of an unborn first commit.
+- `HEAD` is the checked-out commit tree. CI compares the explicit fetched base → this checked-out HEAD snapshot; it never substitutes the workflow's mutable worktree.
+
+Git diff/tree interfaces return raw path bytes as NUL-delimited records and preserve rename pairs without newline parsing. Manifests retain those raw bytes. Only a text-only consumer may decode a path with `os.fsdecode`/`surrogateescape`, and it must prove `os.fsencode(decoded) == raw` before use; a failed round trip is exit 2. No lossy replacement, Unicode normalization, or newline split is permitted.
+
+### Exact managed-region witness and evidence boundary
+
+The managed delimiters are the exact ASCII line contents `%%hk-managed%%` and `%%/hk-managed%%`, with no leading/trailing spaces or other bytes. A delimiter line may end in LF or CRLF; the closing delimiter may instead end at EOF. A valid literature note contains exactly one opening and one closing delimiter in that order, with no duplicate or nested delimiter. Its raw managed slice starts at the first `%` of the opening delimiter and ends after the closing delimiter's actual line ending, or at EOF when it has none. Thus the hash includes both delimiter bytes, every interior byte, and the file's actual line endings; it never normalizes text or newlines.
+
+`managed-sha256` is one top-level YAML scalar containing exactly the lowercase 64-hex SHA-256 of that raw slice. Add `managed-sha256: "{{MANAGED_SHA256}}"` to the packaged literature template and to the renderer's owned managed fields. Import/render computes it from the rendered slice and changes it only when those slice bytes change; a byte-identical managed projection preserves it and the existing `generated.at`. For an existing candidate literature note, a missing, non-string, non-lowercase-hex, or stale witness, or a missing/duplicate/misordered/malformed delimiter, produces an `evidence-layer` UNMATCHED/schema finding. A target I/O or Unicode/frontmatter-decoding failure is UNREACHABLE, while Git command/object/protocol failure is an operational exit 2 rather than an invented content state.
+
+Independently of witness correctness, every base → candidate change to a managed region is an `evidence-layer` finding: adding or deleting a managed note, editing any byte in its raw managed slice, or renaming its path. A free-region-only edit is not such a finding. No actor, importer, witness refresh, or successful import self-authorizes this change, and neither import nor verification stages or auto-commits managed-note changes. The existing append-only, content-hash-scoped human acknowledgment is the sole pass: it must have a `human:` actor and match the evidence-layer finding's check, target, and target hash. Hash against the selected candidate content, using the resolved base blob only for the existing deleted-target fallback; a changed target hash or renamed target requires a new acknowledgment. A valid acknowledgment suppresses only the effective closing decision, not collection or the raw finding/audit record.
+
+### Collection, projection, surfaces, and offline state
+
+Refactor verification into one ordered pipeline: resolve snapshots; collect every deterministic and requested network/CSV outcome once; calculate target hashes and acknowledgments against those same snapshots; project genuine pass/failure events, current markers, and inbox records once; then apply the selected surface's closing set. Surface selection must not change raw outcomes, acknowledgment lookup, or projected vault bytes.
+
+`CLOSING_BY_SURFACE` is exactly:
+
+```python
+{
+    "audit": frozenset(),
+    "commit": frozenset({"citekey", "evidence-layer"}),
+    "publish": frozenset({"citekey", "evidence-layer", "quote", "update-notice", "doi"}),
+}
+```
+
+Bare `verify` is therefore the open `audit` surface: it collects and projects everything but closes nothing and returns 0 for findings or genuine outages. Operational/usage failure still returns 2. On explicit `commit` or `publish`, return 1 when an unacknowledged closing check is UNMATCHED; otherwise return 3 when a genuine UNREACHABLE must be surfaced; otherwise return 0. The pre-commit and read-only CI callers deliberately leave exit 3 open with a warning, while the later publish gate treats it as closed. The same fixture run on commit and publish must have identical raw outcomes and mutations and differ only in the effective closing decision/exit.
+
+Represent synthetic network-disabled results structurally (for example `extra["synthetic_offline"] = True`), never by matching reason text. They may appear in explicit raw/JSON reporting, but exclude them from all target hashes, acknowledgment lookup, trust derivation, verified events, failure markers, inbox records, effective findings, changed-path manifests, and exit decisions. A network call that is genuinely attempted and raises remains a persisted UNREACHABLE. `--offline --rw-csv FILE` runs deterministic offline checks plus the supplied CSV leg only; it does not run or fabricate DOI, registry, or other live-network legs.
 
 ### Exact verifier-owned output manifest
 
-RW verification exposes `--changed-paths-file FILE`. After projecting verified/failure metadata, current markers, and inbox findings, the verifier writes a sorted, unique, NUL-delimited manifest of every repo-relative path whose bytes it changed. The exact allowed set is `inbox/review-queue.md` plus changed Markdown files under `literatures/`, `synthesis/`, and `projects/`; unchanged paths are absent. Reject absolute paths, `.`/`..` traversal, and any path outside that set. An allowed changed file missing from the manifest, or a manifest entry the verifier did not change, is an error.
+`--changed-paths-file FILE` is an audit of verifier mutations, not a caller-supplied wish list. Resolve its destination before collection and require it to be outside the vault, including through symlink resolution; an invalid or unwritable destination is exit 2 before projection. Take a complete before snapshot of the vault and a complete after snapshot once projection finishes, excluding only `.git` and its descendants. Snapshot every node by raw repo-relative path bytes, node kind, permission mode, and file bytes or raw symlink target; include directories so additions, removals, type changes, and mode-only changes cannot escape detection. Snapshot/read errors are exit 2 with a concise diagnostic and no traceback.
 
-Consumers stage and commit the complete manifest with literal NUL-safe path handling (`git --literal-pathspecs add --pathspec-from-file=FILE --pathspec-file-nul` and an exact-path `git commit --only` using the same manifest). They never use a broad pathspec, directory sweep, or `git add -A`. An empty manifest produces no commit. This interface must preserve unrelated staged, unstaged, and untracked changes.
+Derive the actual changed-path set from those snapshots. Every changed node must be a regular Markdown file in exactly one of these locations: `inbox/review-queue.md`, or recursively below `literatures/`, `synthesis/`, or `projects/`. Directories, symlinks, special files, `.git`, absolute paths, empty paths, `.`/`..` components, and every other vault path are outside the allowlist. The emitted manifest must equal the actual allowed changed-file set exactly: no missing, phantom, unchanged, duplicate, or extra entry. Serialize each repo-relative raw path once, in lexicographic raw-byte order, followed by one NUL; an empty run is a zero-byte file. Manifest generation, validation, or write failure returns 2 without a traceback.
 
-### Workflow contracts
+The RW consumer treats the manifest literally:
 
-`verify.yml` is read-only. It fetches the explicit comparison base, runs offline commit verification, fails only on exit 1, and emits a GitHub warning while succeeding on exit 3.
+```sh
+git --literal-pathspecs add --pathspec-from-file="$manifest" --pathspec-file-nul
+git --literal-pathspecs commit --only -m "chore: rw-batch findings" --pathspec-from-file="$manifest" --pathspec-file-nul
+```
 
-`rw-batch.yml` exists only after `--with-rw-ci`. It uses `curl --fail --show-error --location`, fails loudly on installation/download/infrastructure errors, runs the CSV audit without a fabricated live leg, and stages/commits the verifier's exact complete changed-path manifest. This includes every changed verifier-owned note and `inbox/review-queue.md`, not merely the inbox. It never uses `|| true` around infrastructure or download steps.
+It performs no commit for a zero-byte manifest and never uses a broad pathspec, glob, directory sweep, newline loop, decoded manifest, or `git add -A`. It stages/commits all and only verifier-created outputs and preserves every unrelated staged, unstaged, and untracked path and byte. This RW projection commit does not authorize or auto-commit a pre-existing managed-region change.
 
-The pre-commit hook runs `verify --offline --surface commit --git-base HEAD`, blocks exit 1, leaves exit 3 open, and documents `--no-verify` plus CI replay.
+### Packaged authority contracts
 
-RED tests cover every bullet in `test_precommit.py`, `test_ci_templates.py`, `test_notes.py`, and `test_verify_cli.py`, including the root `log.md` versus `log/` path collision. A RW fixture must mutate verifier-owned metadata or markers in literature, synthesis, and project notes and append the inbox; assert that the manifest and commit contain all and only those outputs. Include unrelated staged, unstaged, and untracked changes, path names with spaces/non-ASCII, an empty run, a missing changed path, and an injected out-of-allowlist manifest entry.
+Review and correct the Task 1 assets rather than assuming their current bytes are authoritative:
 
-Run: `python -m pytest tests/test_precommit.py tests/test_ci_templates.py tests/test_notes.py tests/test_verify_cli.py -v`.
+- The executable pre-commit hook resolves the current HEAD OID once, or the empty-tree OID when unborn, then invokes exactly `python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index`. It blocks exit 1, leaves exit 3 open, treats unexpected/operational codes as failures, and documents `--no-verify` plus CI replay.
+- `verify.yml` has only `permissions: contents: read`, checks out with `persist-credentials: false`, fetches/resolves its explicit event base, and invokes exactly `python -m harness_core verify --vault . --offline --surface commit --git-base "${{ steps.base.outputs.sha }}" --git-candidate HEAD`. It has no commit or push step. Verification may mutate the ephemeral checkout while projecting results; read-only means repository authority/no push, not a falsely immutable runner filesystem. Exit 1 fails, exit 3 warns and succeeds, and every unexpected code fails.
+- `rw-batch.yml` remains separately installed only by `--with-rw-ci`, has `contents: write`, downloads with `curl --fail --show-error --location`, and invokes exactly `python -m harness_core verify --vault . --offline --surface audit --git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" --changed-paths-file "$RUNNER_TEMP/harness-changed-paths"`. It runs only the CSV network-data leg, fails installation/download/infrastructure errors without `|| true`, and consumes the exact raw manifest as specified above.
+
+### Required RED coverage
+
+- `test_gitstate.py` and `test_lints.py`: exact one-time base/candidate resolution; bad explicit base and unmerged index exit 2; HEAD → index prospective-commit semantics including unborn empty-tree, staged delete/rename/ack, and ignored unstaged scratch; explicit base → HEAD CI semantics; published-tag independence; raw NUL records, rename pairs, spaces, non-ASCII and undecodable byte paths; surrogateescape round trip and rejection on any mismatch.
+- `test_notes.py` and `test_verify_cli.py`: LF, CRLF, and closing-at-EOF witness bytes; exact delimiter inclusion; missing/duplicate/nested/reordered/whitespace-altered delimiters; missing/malformed/uppercase/stale witnesses; render-only witness update and byte-identical preservation; current candidate and resolved-base error classifications.
+- `test_verify_cli.py`: managed add/edit/delete/rename each yields an evidence-layer finding even with a correct refreshed witness and an importer/agent actor; free-only edits do not. Prove import never stages/commits the note. Prove only a matching `human:` acknowledgment for the current candidate target hash makes the closing finding pass, and changing content or path invalidates it. Run identical outcomes through audit/commit/publish: audit collects/projects all and closes none; explicit surfaces use the exact sets above without changing raw outcomes or vault mutations.
+- `test_verify_cli.py`: structural synthetic-offline outcomes may report but produce no hash, ack, trust/event/marker/inbox/manifest/exit effect; a genuinely attempted outage is persisted; offline plus RW CSV runs only the CSV leg. Compare complete vault snapshots. Cover the reserved root `log.md` versus `log/` path collision.
+- `test_verify_cli.py`: manifest outside-vault preflight; complete before/after detection; exact allowlist and actual-equals-manifest invariant; raw-byte ordering, deduplication, one-NUL termination, and zero-byte empty run; regular-file/type/mode/symlink/directory changes; missing, phantom, duplicate, absolute, traversal, out-of-allowlist, snapshot, and write failures all exit 2 without traceback.
+- `test_precommit.py`, `test_ci_templates.py`, `test_templates.py`, and `test_scaffold.py`: explicitly prove the corrected Task 1 bytes, executable/mode and scaffold copies. Exercise the exact `--git-candidate index` hook contract on ordinary and unborn repos; the fetched-base → HEAD read-only workflow with no push credentials; ephemeral RO projection; the explicit open RW audit/CSV command; exact literal manifest consumers; empty manifest; and preservation of unrelated staged, unstaged, and untracked bytes/status. A RW fixture changes verifier-owned metadata/markers in literature, synthesis, and project notes plus the inbox and commits all and only those outputs.
+
+Run: `python -m pytest tests/test_gitstate.py tests/test_lints.py tests/test_notes.py tests/test_verify_cli.py tests/test_precommit.py tests/test_ci_templates.py tests/test_templates.py tests/test_scaffold.py -v`.
 
 Commit: `feat: add managed witness and CI verification surfaces`.
 
