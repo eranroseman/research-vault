@@ -83,7 +83,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 - Consumes: Task 1's installed dev extra.
 - Produces: `ruff check harness_core tests scripts` and `mypy harness_core` both clean — Task 4's CI runs exactly these (the `scripts/` package exists from Task 3 onward; until then the path is simply absent and ruff skips it).
 
-**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683`, stdlib `ElementTree` on registry XML — per-line `noqa: S314` with reason: bandit's fix is defusedxml, but core's zero-runtime-dependency constraint governs; https-only registry feeds; revisit if untrusted XML sources grow). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, and the rest of the S family.
+**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683`, stdlib `ElementTree` on registry XML — per-line `noqa: S314` with reason: bandit's fix is defusedxml, but core's zero-runtime-dependency constraint governs; https-only registry feeds; revisit if untrusted XML sources grow). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, the rest of the S family, and T20 outside `__main__.py`/`scripts/` (all 18 measured prints live in `__main__.py` — library modules get the stray-debug-print guard; a rogue print in `checks.py` would corrupt the CLI stdout contract).
 
 **mypy, pre-measured (default mode, mypy 2.3.1): 10 genuine errors in 7 files** — `frontmatter.py:137` var-annotated + `:141` assignment (`current_list` needs `list[...] | None` typing), `inbox.py:368` var-annotated `entries`, `zotero.py:182` return-value (`object` vs `dict` — narrow with `isinstance`), `checks.py:66` assignment (`str` into a `Path` variable — split the variable), `lints.py:187`/`:440` var-annotated, `lints.py:457` arg-type (`str | None` into `Outcome` — guard before the call), `identify.py:110` var-annotated `identifiers`, plus one index-category error mypy reports in full. `--strict` is 329 (308 of them annotation-presence) — a campaign, deliberately NOT this task; the ratchet path is recorded below.
 
@@ -112,6 +112,7 @@ extend-select = [
     "S",
     "SIM",
     "T10",
+    "T20",
     "UP",
     "W",
 ]
@@ -124,7 +125,6 @@ ignore = [
     "S607",  # "git" by name, resolved via PATH, is the intended invocation
 ]
 # Deliberately NOT selected (recorded 2026-08-20 — do not "fix"):
-#   T20   — print IS the CLI output contract (~18 uses in __main__.py)
 #   C90/PLR complexity — crap4py owns the complexity gate in this lane (risk-weighted,
 #           ratchetable ceiling); a second context-free threshold double-reports
 #   BLE   — the four-state doctrine requires broad catch -> UNREACHABLE in probe
@@ -136,6 +136,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cli_live.py" = ["UP012"]
 "tests/*" = ["RUF001", "RUF002", "RUF003", "S101"]  # unicode fixtures deliberate; assert IS pytest
+"harness_core/__main__.py" = ["T20"]  # print IS the CLI output contract (all 18 measured uses)
+"scripts/*" = ["T20"]  # gate scripts report via stdout by design
 
 [tool.mypy]
 files = ["harness_core"]
