@@ -272,8 +272,10 @@ The naming pass is ruled; this manifest is its implementation order. **One coher
 | type `effort` | type `project` |
 | publish flag field `"effort"` | `"project"` |
 | skill `atlas-conventions` | `synthesis-conventions` |
+| skill `vault-setup` | `setup-vault` (verb-first entry-point grammar; skills-name review, ruled 2026-08-20) |
+| skill `find-papers` | `find-sources` (vocabulary coherence with the ruled trust-core term; "papers" narrower than the admissible corpus) |
 
-Unchanged: `literatures/`, `x/`, plugin name + `hk-`/`.harness` cascade, type `literature`, type `daily`.
+Unchanged: `literatures/`, `x/`, plugin name + `hk-`/`.harness` cascade, type `literature`, type `daily`; skills `project` (noun sanctioned for the frame-opener), `import-source` (singular is honest: find many, import one), `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`. **Skill-name grammar system (ruled):** entry points verb-first; the frame-opener may be a noun; guards/references are noun phrases.
 
 **Frontmatter keys / values** (notes.py `MANAGED_FIELDS` + render, events, lints, templates, spec §5):
 
