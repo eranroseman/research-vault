@@ -2580,7 +2580,7 @@ Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_verify
 Expected: 4 PASS, 1 SKIP (live_net)
 
 Run: `HARNESS_LIVE_NET=1 HARNESS_MAILTO=<your real email> python -m pytest tests/test_verify_cli.py -v -m live_net`
-Expected: PASS — Wakefield retraction detected with notice date 2010-02-02, fabricated DOI UNMATCHED, Zenodo routes to DataCite. **These are §9 drill legs 1, 3, and the registry drill, proven against the real world.**
+Expected: PASS — Wakefield blocking retraction detected with a Crossref-sourced notice date in `2010-02` (currently `2010-02-06`; deposits may be re-issued, so the drill asserts month precision), fabricated DOI UNMATCHED, Zenodo routes to DataCite. **These are §9 drill legs 1, 3, and the registry drill, proven against the real world.**
 
 - [ ] **Step 5: Run the full suite, commit**
 
