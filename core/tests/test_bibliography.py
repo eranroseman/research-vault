@@ -337,6 +337,234 @@ def test_commit_autoexport_holds_live_index_lock_through_head_cas(
     )
 
 
+def test_commit_autoexport_preserves_lock_reacquired_after_index_publication(
+    tmp_vault, monkeypatch
+):
+    index_path = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--git-path", "index"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    if not index_path.is_absolute():
+        index_path = tmp_vault / index_path
+    lock_path = Path(f"{index_path}.lock")
+    concurrent_lock = b"concurrent writer lock\n"
+    real_replace = bibliography.os.replace
+
+    def publish_then_reacquire(source, destination):
+        real_replace(source, destination)
+        Path(source).write_bytes(concurrent_lock)
+
+    monkeypatch.setattr(bibliography.os, "replace", publish_then_reacquire)
+
+    assert (
+        bibliography.commit_autoexport(
+            tmp_vault, b'[{"id":"validated","title":"Validated"}]\n'
+        )
+        is True
+    )
+
+    assert lock_path.read_bytes() == concurrent_lock
+
+
+def test_commit_autoexport_publication_failure_rolls_back_existing_head(
+    tmp_vault, monkeypatch
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_bytes(b'[{"id":"baseline","title":"Baseline"}]\n')
+    staged = tmp_vault / "staged.txt"
+    staged.write_bytes(b"unrelated staged bytes\n")
+    subprocess.run(
+        ["git", "add", "--", bibliography.BIB_PATH, "staged.txt"],
+        cwd=tmp_vault,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    staged.write_bytes(b"new unrelated staged bytes\n")
+    subprocess.run(["git", "add", "--", "staged.txt"], cwd=tmp_vault, check=True)
+    worktree_before = b'[{"id":"worktree","title":"Worktree"}]\n'
+    target.write_bytes(worktree_before)
+    head_before = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    index_path = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--git-path", "index"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    if not index_path.is_absolute():
+        index_path = tmp_vault / index_path
+    index_before = index_path.read_bytes()
+    lock_path = Path(f"{index_path}.lock")
+
+    def fail_publication(source, destination):
+        raise OSError("index publication failed")
+
+    monkeypatch.setattr(bibliography.os, "replace", fail_publication)
+
+    with pytest.raises(OSError, match="index publication failed"):
+        bibliography.commit_autoexport(
+            tmp_vault, b'[{"id":"validated","title":"Validated"}]\n'
+        )
+
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        == head_before
+    )
+    assert index_path.read_bytes() == index_before
+    assert target.read_bytes() == worktree_before
+    assert not lock_path.exists()
+
+
+def test_commit_autoexport_publication_failure_restores_unborn_head(
+    tmp_vault, monkeypatch
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    worktree_before = b'[{"id":"worktree","title":"Worktree"}]\n'
+    target.write_bytes(worktree_before)
+    staged = tmp_vault / "staged.txt"
+    staged.write_bytes(b"unrelated staged bytes\n")
+    subprocess.run(["git", "add", "--", "staged.txt"], cwd=tmp_vault, check=True)
+    index_path = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--git-path", "index"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    if not index_path.is_absolute():
+        index_path = tmp_vault / index_path
+    index_before = index_path.read_bytes()
+    lock_path = Path(f"{index_path}.lock")
+
+    def fail_publication(source, destination):
+        raise OSError("index publication failed")
+
+    monkeypatch.setattr(bibliography.os, "replace", fail_publication)
+
+    with pytest.raises(OSError, match="index publication failed"):
+        bibliography.commit_autoexport(
+            tmp_vault, b'[{"id":"validated","title":"Validated"}]\n'
+        )
+
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=tmp_vault,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
+    assert index_path.read_bytes() == index_before
+    assert target.read_bytes() == worktree_before
+    assert not lock_path.exists()
+
+
+def test_commit_autoexport_publication_rollback_cas_preserves_concurrent_head(
+    tmp_vault, monkeypatch
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    worktree_before = b'[{"id":"baseline","title":"Baseline"}]\n'
+    target.write_bytes(worktree_before)
+    subprocess.run(
+        ["git", "add", "--", bibliography.BIB_PATH], cwd=tmp_vault, check=True
+    )
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    expected_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    index_path = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--git-path", "index"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    if not index_path.is_absolute():
+        index_path = tmp_vault / index_path
+    index_before = index_path.read_bytes()
+    lock_path = Path(f"{index_path}.lock")
+    concurrent = []
+
+    def race_then_fail_publication(source, destination):
+        published_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        tree = subprocess.run(
+            ["git", "rev-parse", f"{expected_head}^{{tree}}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        concurrent_head = subprocess.run(
+            ["git", "commit-tree", tree, "-p", expected_head],
+            cwd=tmp_vault,
+            check=True,
+            input="concurrent replacement\n",
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "update-ref", "HEAD", concurrent_head, published_head],
+            cwd=tmp_vault,
+            check=True,
+        )
+        concurrent.append(concurrent_head)
+        raise OSError("index publication failed")
+
+    monkeypatch.setattr(bibliography.os, "replace", race_then_fail_publication)
+
+    with pytest.raises(OSError, match="roll back HEAD"):
+        bibliography.commit_autoexport(
+            tmp_vault, b'[{"id":"validated","title":"Validated"}]\n'
+        )
+
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        == concurrent[0]
+    )
+    assert index_path.read_bytes() == index_before
+    assert target.read_bytes() == worktree_before
+    assert not lock_path.exists()
+
+
 def test_commit_autoexport_uses_snapshot_plumbing_not_live_index_or_target(
     tmp_vault, monkeypatch
 ):

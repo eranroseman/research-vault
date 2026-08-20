@@ -65,6 +65,16 @@ class _IndexIntentError(OSError):
     """The live bibliography index entry contains user staging intent."""
 
 
+class _IndexPublicationError(OSError):
+    """The live index could not be published and HEAD could not be restored."""
+
+
+class _LiveIndexLock(NamedTuple):
+    live_index: Path
+    path: Path
+    descriptor: int
+
+
 def _path(vault_root):
     return Path(os.path.abspath(os.fspath(vault_root))) / BIB_PATH
 
@@ -226,7 +236,38 @@ def _index_bibliography_entry(vault: Path, environment):
     return mode, b"blob" if stage == b"0" else b"conflict", object_id
 
 
-def _acquire_live_index_lock(vault: Path, empty_index: Path):
+def _lock_path_is_owned(lock: _LiveIndexLock) -> bool:
+    try:
+        descriptor_stat = os.fstat(lock.descriptor)
+        path_stat = os.stat(lock.path, follow_symlinks=False)
+    except OSError:
+        return False
+    return (descriptor_stat.st_dev, descriptor_stat.st_ino) == (
+        path_stat.st_dev,
+        path_stat.st_ino,
+    )
+
+
+def _release_live_index_lock(lock: _LiveIndexLock) -> None:
+    try:
+        if _lock_path_is_owned(lock):
+            lock.path.unlink()
+    finally:
+        os.close(lock.descriptor)
+
+
+def _refresh_live_index_lock(lock: _LiveIndexLock) -> _LiveIndexLock:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(lock.path, flags)
+    refreshed = _LiveIndexLock(lock.live_index, lock.path, descriptor)
+    if not _lock_path_is_owned(refreshed):
+        os.close(descriptor)
+        raise OSError("live index lock changed while being updated")
+    os.close(lock.descriptor)
+    return refreshed
+
+
+def _acquire_live_index_lock(vault: Path, empty_index: Path) -> _LiveIndexLock:
     raw_path = (
         _git_output(["git", "rev-parse", "--git-path", "index"], vault=vault)
         .decode()
@@ -237,17 +278,27 @@ def _acquire_live_index_lock(vault: Path, empty_index: Path):
         index_path = vault / index_path
     lock_path = Path(f"{index_path}.lock")
     descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    lock = _LiveIndexLock(index_path, lock_path, descriptor)
     try:
         source = index_path if index_path.exists() else empty_index
-        with source.open("rb") as current, os.fdopen(descriptor, "wb") as locked:
-            descriptor = None
+        with (
+            source.open("rb") as current,
+            os.fdopen(os.dup(descriptor), "wb") as locked,
+        ):
             shutil.copyfileobj(current, locked)
     except BaseException:
-        if descriptor is not None:
-            os.close(descriptor)
-        lock_path.unlink(missing_ok=True)
+        _release_live_index_lock(lock)
         raise
-    return index_path, lock_path
+    return lock
+
+
+def _rollback_head(vault: Path, expected_parent: str | None, commit: str) -> None:
+    command = (
+        ["git", "update-ref", "HEAD", expected_parent, commit]
+        if expected_parent
+        else ["git", "update-ref", "-d", "HEAD", commit]
+    )
+    subprocess.run(command, cwd=vault, check=True, capture_output=True)
 
 
 def commit_autoexport(
@@ -343,10 +394,10 @@ def commit_autoexport(
             check=True,
         )
 
-        live_index, locked_index = _acquire_live_index_lock(vault, empty_index)
+        live_index_lock = _acquire_live_index_lock(vault, empty_index)
         try:
             locked_environment = os.environ.copy()
-            locked_environment["GIT_INDEX_FILE"] = str(locked_index)
+            locked_environment["GIT_INDEX_FILE"] = str(live_index_lock.path)
             if _index_bibliography_entry(
                 vault, locked_environment
             ) != _head_bibliography_entry(vault, expected_parent):
@@ -367,14 +418,25 @@ def commit_autoexport(
                 env=locked_environment,
                 check=True,
             )
+            live_index_lock = _refresh_live_index_lock(live_index_lock)
             subprocess.run(
                 ["git", "update-ref", "HEAD", commit, expected_old],
                 cwd=vault,
                 check=True,
             )
-            os.replace(locked_index, live_index)
+            try:
+                os.replace(live_index_lock.path, live_index_lock.live_index)
+            except OSError as publication_error:
+                try:
+                    _rollback_head(vault, expected_parent, commit)
+                except (OSError, subprocess.SubprocessError) as rollback_error:
+                    raise _IndexPublicationError(
+                        "index publication failed and could not roll back HEAD "
+                        f"safely: {publication_error}; {rollback_error}"
+                    ) from rollback_error
+                raise
         finally:
-            locked_index.unlink(missing_ok=True)
+            _release_live_index_lock(live_index_lock)
     return True
 
 
