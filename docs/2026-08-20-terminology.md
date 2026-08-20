@@ -207,3 +207,40 @@ Added 2026-08-20. **S → A means one of two things**: *(adopt)* rename to the a
 - **Promote with scoped divergence:** `verified` events (OKF-derived, `check` extension documented).
 - **Defer to the naming pass (promotion would pre-empt it):** `literatures/`, `[confidence::]` ICD-vs-GRADE.
 - **Do not promote (T5 anchors cannot govern):** the five Ideaverse folder names, `literature` note kind, Appleton statuses, Ahrens-anchored terms — they stay S by design; T5 inspires, never governs.
+
+
+---
+
+## 9. Naming-pass proposal sheet (current → proposed, with rationale)
+
+Added 2026-08-20. One concrete proposal per open term, derived from the ruled tier order, tie-breakers, and the §8 promotion analysis. **Proposals, not rulings — the author confirms or amends per row.** Cascade decisions first; every A-status term not listed is unchanged by definition.
+
+| # | Current | Proposed | Rationale |
+|---|---|---|---|
+| 1 | plugin `knowledge-harness` (cascades `.harness/`, `hk-`) | **keep** | T7 free choice; descriptive, matches repo; nothing anchors an alternative. Cascade holds: `.harness/`, `hk-managed`, `hk-sel` stay. |
+| 2 | `atlas/` + `topic` note + "synthesis layer" | **`synthesis/` + `synthesis` note** (layer name unchanged) | The axis decision: T3 (Cochrane — the field is literally *evidence synthesis*) names folder, note kind, and layer with one word, and discharges the mandatory `topic` collision rename. Beats T5 `wiki/` (ecosystem) per tier order. |
+| 3 | `+/` | **`inbox/`** | GTD mass vocabulary; the folder literally holds the review inbox and fleeting captures. The `+`-sorts-first trick is configurable in Obsidian anyway — legibility beats a sort hack. |
+| 4 | `literatures/` | **keep** | The only folder with a T1 anchor (ZotLit v2 default) — keeping is a zero-cost toolchain alignment #8 deliberately preserved. Beats `references/` by tie-breaker 1 (a surface we may inhabit vs a vocabulary we resemble). |
+| 5 | `calendar/` | **`log/`** | The folder is an append-only machine-written run log, not a planner — "calendar" borders class-3 misdescription. `log/` is llm-wiki/OKF convention (T5) and plainly true. Obsidian's Daily-notes plugin points at any folder name. |
+| 6 | `efforts/` + `effort` note | **`projects/` + `project` note** | PARA/GTD mass vocabulary; the spec itself calls this the "PARA sliver"; synergy with the `project` skill (one word, one concept). |
+| 7 | `x/` | **keep** | Low stakes; shortness is functional in paths; no anchor argues otherwise. |
+| 8 | `retrieved` | **`accessed`** | Fixes the ⚠ stack defect: CSL (T1) names the variable `accessed`; tie-breaker 2 (machine identifier beats prose label). |
+| 9 | `attachment-sha256` | **`fixity-sha256`** | OAIS/NDSA `fixity` is THE archival term for exactly this role (verbatim T2-adjacent anchor); algorithm suffix stays explicit. |
+| 10 | `[verify-failed::]` | **`[failed-verification::]`** | Wikipedia's `{{failed verification}}` — mass-deployed template name, verbatim (T5 but unanimous and famous). |
+| 11 | `[supported-by::]` / `[contested-by::]` | **`[supports::]` / `[disputes::]`** | CiTO verbatim (T2 authority for citation typing) — shorter, machine-aligned, and upgrades the D-status deviation into an anchored adoption. scite's `mentioning` reserved as an optional neutral third stance. |
+| 12 | Four-state `MATCHED/UNMATCHED/UNREACHABLE/SKIPPED` | **keep** | pytest names are barred from vault prose by the T6 surface rule (these states appear in inbox entries and skill output, not just CLI), and UNMATCHED-vs-UNREACHABLE is *the* trust distinction — "failed/error" blurs it for non-developers. |
+| 13 | Source `status: unreviewed/active/rejected` | **`unscreened/included/excluded`** (+ `superseded` unchanged) | PRISMA/Covidence screening states (T3) — the academic user's professional vocabulary; the strongest domain anchor in the inventory. |
+| 14 | Effort `status: drafting` | **`draft`** | OKF verbatim (T4); also the universal word. `parked` stays — plain English, no anchor conflict. |
+| 15 | `[confidence:: low/moderate/high]` | **keep — promote to ICD-anchored** | Current name AND values are ICD 203 verbatim already. GRADE's `certainty` would force its 4-level scale (adds *very low*) — a substantive change, not a rename; note as a slice-time option. |
+| 16 | "claim address" | **"claim link"** | Micropub `claim` (cited definition) + Obsidian **block link** (T1 — the app's own name for `#^id` links). |
+| 17 | `notice-date`/`detection-date` | **keep** | Self-explaining to scholars; bi-temporal literature (`valid/transaction time`) cited as semantics, but its jargon loses legibility (tie-breaker 4: this is vault prose surface). |
+| 18 | Trust tiers, actor convention, `verified` events | **keep — promote per §8** | OKF names verbatim; derivation ours, `check` extension documented. |
+| 19 | Check names, reason codes, doctor probes | **keep** | Each domain-anchored; the sets are spec-fixed; per-word stakes low. |
+| 20 | `find-papers` | **keep** | #11 ruled plain-descriptive style; PRISMA's *identification* noted in the skill's doc line, not its name. |
+| 21 | `atlas-conventions` skill | **`synthesis-conventions`** | Cascade of row 2. |
+| 22 | Other skill names, dispositions, `park`, flags | **keep** | Plain-descriptive ruling; no anchor argues. |
+| 23 | `growth: seedling …` | **adopt Appleton's full stage set** (`seedling/budding/evergreen`) | Already S to her essay; the complete value set costs nothing and is recognizable to garden-vocabulary users. Status stays S (T5 inspires, never governs). |
+| 24 | `authority` | **keep** | Library science's own word (T3); ICD's `source-descriptor` noted as alternative in the skill doc. |
+| 25 | `+/review-queue.md` | **`inbox/review-queue.md`** | Path follows row 3; filename unchanged (Covidence review-queue semantics). |
+
+**Net effect if confirmed wholesale:** six renames in vault paths/kinds (rows 2, 3, 5, 6, 8, 13), four inline-field renames (9, 10, 11 ×2), one skill rename (21), one value-set completion (23) — all pre-vault, all ~10-minute Codex operations; the ⚠ defect closes (8); one D-status deviation upgrades to an anchored adoption (11); the collision debt clears (2). Everything else is keep-and-promote.
