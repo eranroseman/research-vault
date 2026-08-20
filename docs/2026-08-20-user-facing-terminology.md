@@ -203,10 +203,24 @@ Added 2026-08-20. For every **P** above: candidate external vocabularies or tool
 | information flow / project flow | Author's coinage | Keep — author-anchored. |
 | thin slice | XP **tracer bullet / walking skeleton** | Build-only vocabulary; optional. |
 
+
+## Anchor candidates for the documented deviations
+
+The D-marked terms deviate from the precedence stack — but each must still be anchored *somewhere*, or it is just a placeholder wearing a ruling. Anchors per deviation:
+
+| Deviation | Our term | Anchor candidates | Notes |
+|---|---|---|---|
+| Cited document ≠ OpenAlex venue | `source` | **ICD 206** — its citation unit is literally the *Source Reference Citation* (SRC); scholarly English *primary/secondary source* (the historian's-methodology sense, cf. research/pkm-vault-schemas inputs); library science | Strongly anchored; the deviation is safe. The resolution term `venue` gains a second anchor: **DBLP**, where *venue* is the standard CS-bibliography term. |
+| Access provenance ≠ OpenAlex record dates | `retrieved` | ⚠ **STACK-CONSISTENCY FINDING**: CSL — first in our own precedence — names this variable **`accessed`**. `retrieved` is anchored by Wikidata P813's English label and APA's "Retrieved from…", but by our own rule CSL outranks both. **The pass must either rename `retrieved` → `accessed` (stack-consistent, CSL verbatim) or record a forcing class for keeping `retrieved`** (candidate: none found — this looks like a straight stack application we missed). | The one deviation that may be a mistake rather than a ruling. |
+| Update-notice taxonomy ≠ OpenAlex boolean | blocking/warn classes | **Crossref update-type taxonomy** (domain authority — verbatim already) | Fully anchored; nothing to do. |
+| Stance links ≠ untyped `referenced_works` | `supported-by` / `contested-by` | **CiTO** (Citation Typing Ontology, purl.org/spar/cito) — the scholarly citation-typing vocabulary: `cito:supports`, `cito:disputes` — would anchor the names verbatim (`[supports::]` / `[disputes::]`); **scite** stance vocabulary (`supporting/contrasting/mentioning`) — already our semantic precedent, names differ | CiTO is the strongest verbatim anchor in this table; scite's `mentioning` would also name a neutral third stance if the slice ever wants one. Pass's call: CiTO verbatim vs current names citing both. |
+| Replacement relation ≠ OpenAlex `merged-away` | `superseded` / `superseded-by` | **DataCite relation types** — `IsObsoletedBy`/`Obsoletes` (registry vocabulary, machine-readable); **IETF RFC headers** — `Obsoletes:`/`Obsoleted by:` (mass-deployed standards convention); Wikidata deprecation family (current semantic anchor) | Three real anchors; `superseded` also plain scholarly English ("this study was superseded"). Well-anchored whichever way the pass goes; DataCite wins if machine-alignment with registries ever matters. |
+
 ## Suggested decision order for the pass
 
 1. **Plugin name** (cascades: `.harness/`, `hk-` markers, skill namespace).
 2. **The evidence/synthesis axis** (one choice names the layer, the folder, and the synthesis-note kind — and discharges the mandatory `topic` rename).
 3. Folders (with #2 decided, the remaining five are independent).
 4. Four-state names (pytest vs current) and screening statuses (PRISMA mapping).
-5. Everything else is S-or-keep at leisure.
+5. **The `retrieved`→`accessed` stack-consistency question** — resolve the ⚠ finding: rename per CSL or record the forcing class the original ruling lacked.
+6. Everything else is S-or-keep at leisure.
