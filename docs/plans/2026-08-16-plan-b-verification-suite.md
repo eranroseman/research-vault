@@ -2293,7 +2293,11 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
         v, {"id": "wakefield1998", "DOI": "10.1016/S0140-6736(97)11096-0"},
         detection_date="2026-08-16")
     assert o.result is Result.UNMATCHED and o.extra["class"] == "blocking"
-    assert o.extra["notice_date"] == "2010-02-02"
+    # The registry is the source of record: Crossref's updated-by carries its
+    # deposit's notice date (2010-02-06 as of 2026-08-17), not The Lancet's
+    # announcement date, and deposits can be re-issued — assert the month,
+    # not the day (ruling 13). Offline fixtures keep exact dates.
+    assert o.extra["notice_date"].startswith("2010-02")
     o2 = checks.check_doi_exists(v, "10.1000/completely-fabricated-2026")
     assert o2.result is Result.UNMATCHED
     o3 = checks.registry_agency(v, "10.5281/zenodo.3678326")
@@ -2617,6 +2621,8 @@ git add core && git commit -m "feat: verify + inbox CLI verbs — orchestration,
 12. **Version-status contract (non-Crossref)**: MATCHED only after BOTH OpenAlex retraction status AND provider version status are established. Day-one provider list: arXiv (API version/withdrawal state) and DataCite (metadata `version`); any other registry — and any missing/ambiguous version status — returns UNREACHABLE, never silently clean.
 
 Ordinary defects handled in the same wave without ruling: malformed bibliography data crashing verification; malformed event mappings elevating trust; non-atomic inbox field validation.
+
+13. **Registry dates**: the live Crossref contract governs notice dates — the check reports registry data with registry vintage, not historical announcement dates (Wakefield: Crossref says 2010-02-06; The Lancet announced 2010-02-02). Live drill assertions harden to month precision against re-deposits; offline fixtures keep exact dates as precise extraction tests.
 
 Clerical (no ruling): ruff-driven test rewrites, exact Plan A marker matching, corrected expected test counts — HEAD governs.
 
