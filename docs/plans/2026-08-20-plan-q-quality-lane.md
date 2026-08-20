@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up the dev-quality lane for the harness's own code: a one-time mutate4py blanket baseline with committed sidecar manifests, a "no new survivors" differential gate, a crap4py CRAP-score ceiling, and a drywall duplicate gate — wired into one advisory GitHub Actions workflow.
+**Goal:** Stand up the dev-quality lane for the harness's own code: an extended ruff regression-rule set, a one-time mutate4py blanket baseline with committed sidecar manifests, a "no new survivors" differential gate, a crap4py CRAP-score ceiling, and a drywall duplicate gate — wired into one advisory GitHub Actions workflow.
 
 **Architecture:** Three tool adoptions (live-reviewed 2026-08-20, see `research/code-quality-tools-gabadi.md`) land as pinned dev dependencies; a small gate script turns mutate4py's exit-0-even-with-survivors output into a baseline-compared pass/fail; the blanket run commits per-module sidecar manifests so differential reruns persist across clones with zero CI state. Everything measures **harness code quality only** — nothing here touches the vault's publish-gate closing sets.
 
@@ -22,7 +22,7 @@
 
 ## File Structure
 
-- Modify: `core/pyproject.toml` (dev extras), `.gitignore`
+- Modify: `core/pyproject.toml` (dev extras + ruff rule extension), `.gitignore`, `core/harness_core/__main__.py` + `core/tests/*` (lint fixes)
 - Create: `core/scripts/mutation_gate.py` (gate + baseline updater), `core/tests/test_mutation_gate.py`, `core/mutation-baseline.txt` (committed survivor baseline), `core/harness_core/*.py.manifest.json` (one sidecar per module, committed), `.github/workflows/quality.yml`
 
 ---
@@ -73,13 +73,102 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 
 ---
 
-### Task 2: Mutation gate script + blanket baseline
+### Task 2: Ruff regression rules
+
+**Files:**
+- Modify: `core/pyproject.toml` (`[tool.ruff.lint]`), `core/harness_core/__main__.py`, any file the new rules flag, two test files (PLW1510)
+
+**Interfaces:**
+- Consumes: Task 1's installed dev extra.
+- Produces: `ruff check harness_core tests scripts` clean under the extended rule set — Task 4's CI lint step runs exactly this (the `scripts/` package exists from Task 3 onward; until then the path is simply absent and ruff skips it).
+
+**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, S110/S112/S602/S604.
+
+**Ruling encoded (author-approved 2026-08-20): machine-generated timestamps and dates derive from an explicit timezone-aware UTC clock.** Verified events, `accessed` dates, and update-notice detection dates are bi-temporal records that live forever in git; a naive local clock is a defect class, not a style choice. DTZ enforces this from now on.
+
+- [ ] **Step 1: Extend the ruff config** in `core/pyproject.toml` — replace the existing `extend-select` list and add the per-file ignore:
+
+```toml
+[tool.ruff.lint]
+extend-select = [
+    "A",
+    "ARG",
+    "B",
+    "C4",
+    "DTZ",
+    "FURB",
+    "I",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PLE",
+    "PLW",
+    "PT",
+    "PTH",
+    "RUF",
+    "S110",
+    "S112",
+    "S602",
+    "S604",
+    "SIM",
+    "T10",
+    "UP",
+    "W",
+]
+# Deliberately NOT selected (recorded 2026-08-20 — do not "fix"):
+#   T20   — print IS the CLI output contract (~18 uses in __main__.py)
+#   C90/PLR complexity — crap4py owns the complexity gate in this lane; no double reporting
+#   BLE   — the four-state doctrine requires broad catch -> UNREACHABLE in probe
+#           wrappers and fail-open hooks; this rule fights the architecture
+#   ANN/D — typing/docstring enforcement is a separate decision, not a lint line
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_cli_live.py" = ["UP012"]
+"tests/*" = ["RUF001", "RUF002", "RUF003"]  # unicode-fixture tests exercise ambiguous chars on purpose
+```
+
+(RUF100 disappears from the list because the full `RUF` family contains it.)
+
+- [ ] **Step 2: Run to see the expected failures**
+
+Run: `cd core && source .venv/bin/activate && ruff check harness_core tests --no-cache`
+Expected: the pre-measured violations above (counts may differ at HEAD; every hit gets classified fix-vs-per-file-ignore, nothing blanket-ignored).
+
+- [ ] **Step 3: Fix**
+
+Autofix first: `ruff check harness_core tests --fix`. Then by hand:
+- DTZ: every `datetime.date.today()` becomes the UTC clock, e.g. `__main__.py:219`:
+
+```python
+    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+```
+
+- PTH115: `os.readlink(...)` becomes `Path(...).readlink()`.
+- PLW1510: add explicit `check=True` (or `check=False` with a reason) to the two test `subprocess.run` calls.
+- RUF012/RUF013-class hits: annotate mutable class attributes / make `Optional` explicit as reported.
+
+- [ ] **Step 4: Verify clean + suite green**
+
+Run: `ruff check harness_core tests --no-cache && python -m pytest tests -q`
+Expected: `All checks passed!` and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+git add core/pyproject.toml core/harness_core core/tests
+git commit -m "lint: extend ruff regression rules (DTZ/UTC ruling, ISC, PLW, RUF, PTH, bandit picks)"
+```
+
+---
+
+### Task 3: Mutation gate script + blanket baseline
 
 **Files:**
 - Create: `core/scripts/mutation_gate.py`, `core/tests/test_mutation_gate.py`, `core/mutation-baseline.txt`, `core/harness_core/<module>.py.manifest.json` for every module
 
 **Interfaces:**
-- Consumes: Task 1's installed tools.
+- Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set).
 - Produces: `python scripts/mutation_gate.py --lcov lcov.info` (gate mode, exit 0/1) and `python scripts/mutation_gate.py --update-baseline --lcov lcov.info` (rewrites `mutation-baseline.txt`); baseline line format `<relpath>::<func-id>::<mutation>`; committed sidecar manifests. Task 3's workflow calls the gate mode verbatim.
 
 **Design constraints the script encodes (verified live 2026-08-20):**
@@ -283,7 +372,8 @@ def _run_mutate(relpath: str, lcov: str, extra: list[str], max_workers: int) -> 
         "--lcov", lcov, "--manifest-file", "--max-workers", str(max_workers),
         *extra,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=CORE)
+    # check=False deliberate: mutate4py exits 0 even with survivors; stdout is the signal
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=CORE, check=False)
     sys.stderr.write(proc.stderr)
     return proc.stdout
 
@@ -365,13 +455,13 @@ git commit -m "feat: mutation gate script + blanket baseline (sidecar manifests,
 
 ---
 
-### Task 3: Advisory quality workflow (crap4py ceiling + drywall + mutation gate)
+### Task 4: Advisory quality workflow (ruff + crap4py ceiling + drywall + mutation gate)
 
 **Files:**
 - Create: `.github/workflows/quality.yml`
 
 **Interfaces:**
-- Consumes: Task 1's dev extra; Task 2's `scripts/mutation_gate.py`, committed manifests and baseline.
+- Consumes: Task 1's dev extra; Task 2's ruff rule set; Task 3's `scripts/mutation_gate.py`, committed manifests and baseline.
 - Produces: one advisory workflow, `quality`, on pull requests and manual dispatch.
 
 **Thresholds (live-measured 2026-08-20):** `crap4py --max-crap 45` — current worst is `_target_hash` at 42.3, so the lane starts green; ratchet the number down as the CRAP backlog (`research/code-quality-tools-gabadi.md`) burns down. drywall default threshold 0.82 — currently zero duplicates. crap4py exit behavior verified: exceeds → exit 1.
@@ -405,6 +495,8 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: pip install -e ".[dev]"
+      - name: Lint (ruff)
+        run: ruff check harness_core tests scripts
       - name: Tests + branch coverage
         run: python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
       - name: CRAP ceiling (crap4py)
@@ -419,12 +511,13 @@ jobs:
 
 ```bash
 cd core && source .venv/bin/activate
+ruff check harness_core tests scripts && echo LINT-OK
 python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
 crap4py harness_core --lcov lcov.info --max-crap 45 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `CRAP-OK`, `DRY-OK`, `MUT-OK`. (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
@@ -441,9 +534,9 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 
 ---
 
-### Task 4: Merge
+### Task 5: Merge
 
-- [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the three gate commands from Task 3 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
+- [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the four gate commands from Task 4 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
 - [ ] **Step 2: Merge to main** per `superpowers:finishing-a-development-branch` (merge locally, push, remove worktree, prune).
 - [ ] **Step 3: Post-merge note** — append one line to the "Actionable backlog surfaced" section of `research/code-quality-tools-gabadi.md`: baseline landed, survivor count, and the ratchet reminder (lower `--max-crap` as items 2–3 burn down). Commit as `docs: record quality-lane baseline landing`.
 
@@ -453,5 +546,6 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 
 - **Spec coverage**: this plan implements the deferred-register entry "mutation-testing baseline (post-Plan-T, parallelizable with Plan D)" in full — contexts DB, blanket, sidecar manifests, no-new-survivors CI, plus the recorded crap4py/drywall adoption order. Nothing else in the register is touched.
 - **Exit-code truths encoded**: mutate4py exit 0 with survivors (hence the parser), crap4py exit 1 over ceiling (verified), drywall exit 1 on duplicates / 2 on bad args.
-- **Type consistency**: gate entry points `parse_survivors(relpath, output)`, `new_survivors(found, baseline)`, `baseline_keys(path)` match between Task 2's tests and script; Task 3 calls the CLI exactly as Task 2 produces it.
+- **Type consistency**: gate entry points `parse_survivors(relpath, output)`, `new_survivors(found, baseline)`, `baseline_keys(path)`, `changed_modules(base, cwd)` match between Task 3's tests and script; Task 4 calls the CLI exactly as Task 3 produces it; the gate script carries explicit `check=False` so Task 2's PLW1510 adoption stays clean.
+- **Ruff sequencing**: Task 2 (lint fixes) runs before Task 3's blanket baseline on purpose — lint fixes change AST, and manifests hashed before them would re-test everything on the next differential.
 - **Known risk left open deliberately**: if `--build-test-contexts` proves unreliable (its own help warns shared-session DBs degrade to the full test set), the blanket falls back to full-suite-per-mutant (~2.5 h) — acceptable one-time; the CI gate path never needs the contexts DB because diffs keep mutant counts small.
