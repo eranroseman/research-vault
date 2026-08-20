@@ -765,7 +765,7 @@ def test_update_notice_rejects_non_ok_crossref_responses(
 def test_update_notice_openalex_requires_a_boolean_and_encodes_identifier(
     net_vault, monkeypatch
 ):
-    """Concrete non-Crossref agencies use an encoded OpenAlex DOI identifier."""
+    """A retracted OpenAlex record blocks before provider version status."""
     seen = []
 
     def fake(url, vault_root, params=None, headers=None, timeout=10.0):
@@ -795,7 +795,7 @@ def test_update_notice_openalex_requires_a_boolean_and_encodes_identifier(
     }
 
 
-@pytest.mark.parametrize("value", [False, "false", 0, None, []])
+@pytest.mark.parametrize("value", ["false", 0, None, []])
 def test_update_notice_openalex_rejects_non_boolean_retraction_values(
     net_vault, monkeypatch, value
 ):
@@ -814,8 +814,312 @@ def test_update_notice_openalex_rejects_non_boolean_retraction_values(
         net_vault, {"id": "data", "DOI": "10.5281/openalex"}, "2026-08-16"
     )
 
-    expected = Result.MATCHED if value is False else Result.UNREACHABLE
-    assert outcome.result is expected
+    assert outcome.result is Result.UNREACHABLE
+
+
+def test_update_notice_datacite_requires_matching_provider_version(
+    net_vault, monkeypatch
+):
+    seen = []
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append((url, params))
+        if "doiRA" in url:
+            return _notice_route("10.5281/versioned", "DataCite")
+        if "openalex" in url:
+            return 200, {"is_retracted": False}
+        if "api.datacite.org" in url:
+            return 200, {
+                "data": {
+                    "id": "10.5281/versioned",
+                    "type": "dois",
+                    "attributes": {
+                        "doi": "10.5281/versioned",
+                        "version": "2",
+                    },
+                }
+            }
+        raise AssertionError(url)
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {"id": "data", "DOI": "10.5281/versioned", "version": "2"},
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.MATCHED
+    assert [url for url, _ in seen] == [
+        "https://doi.org/doiRA/10.5281/versioned",
+        "https://api.openalex.org/works/https%3A%2F%2Fdoi.org%2F10.5281%2Fversioned",
+        "https://api.datacite.org/dois/10.5281/versioned",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("local_version", "payload", "expected"),
+    [
+        (None, {"data": {"attributes": {"version": "2"}}}, Result.UNREACHABLE),
+        ("2", {"data": {"attributes": {}}}, Result.UNREACHABLE),
+        ("2", {"data": {"attributes": {"version": ["2"]}}}, Result.UNREACHABLE),
+        ("2", {"data": {"attributes": {"version": "3"}}}, Result.UNMATCHED),
+    ],
+    ids=["missing-local", "missing-remote", "ambiguous-remote", "mismatch"],
+)
+def test_update_notice_datacite_fails_closed_on_version_status(
+    net_vault, monkeypatch, local_version, payload, expected
+):
+    payload["data"].setdefault("id", "10.5281/versioned")
+    payload["data"].setdefault("type", "dois")
+    payload["data"]["attributes"].setdefault("doi", "10.5281/versioned")
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/versioned": _notice_route(
+                "10.5281/versioned", "DataCite"
+            ),
+            "api.openalex.org/works/": (200, {"is_retracted": False}),
+            "api.datacite.org/dois/": (200, payload),
+        },
+    )
+    entry = {"id": "data", "DOI": "10.5281/versioned"}
+    if local_version is not None:
+        entry["version"] = local_version
+
+    assert checks.check_update_notice(net_vault, entry, "2026-08-16").result is expected
+
+
+ARXIV_FEED = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/2401.12345</id>
+    <published>2024-01-01T00:00:00Z</published>
+    <updated>2024-02-01T00:00:00Z</updated>
+    <link href="https://arxiv.org/abs/2401.12345v2" rel="alternate" type="text/html" />
+    <link href="https://arxiv.org/pdf/2401.12345v2" rel="related" type="application/pdf" title="pdf" />
+  </entry>
+</feed>
+"""
+ARXIV_MULTI_FEED = ARXIV_FEED.replace(
+    "</feed>",
+    """  <entry>
+    <id>http://arxiv.org/abs/2401.12345</id>
+    <published>2024-01-01T00:00:00Z</published>
+    <updated>2024-02-01T00:00:00Z</updated>
+    <link href="https://arxiv.org/abs/2401.12345v2" rel="alternate" type="text/html" />
+    <link href="https://arxiv.org/pdf/2401.12345v2" rel="related" type="application/pdf" title="pdf" />
+  </entry>
+</feed>""",
+)
+
+
+def test_update_notice_arxiv_establishes_latest_version_and_withdrawal_state(
+    net_vault, monkeypatch
+):
+    seen = []
+
+    def fake_json(url, vault_root, params=None, headers=None, timeout=10.0):
+        if "doiRA" in url:
+            return _notice_route("10.48550/arxiv.2401.12345", "DataCite")
+        return 200, {"is_retracted": False}
+
+    def fake_text(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append((url, params))
+        return 200, ARXIV_FEED
+
+    monkeypatch.setattr(webapi, "get_json", fake_json)
+    monkeypatch.setattr(webapi, "get_text", fake_text)
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {
+            "id": "preprint",
+            "DOI": "10.48550/arxiv.2401.12345",
+            "URL": "https://arxiv.org/abs/2401.12345v2",
+            "version": "v2",
+        },
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.MATCHED
+    assert seen == [
+        (
+            "https://export.arxiv.org/api/query",
+            {"id_list": "2401.12345"},
+        )
+    ]
+
+
+def test_update_notice_arxiv_explicit_withdrawal_is_blocking(net_vault, monkeypatch):
+    withdrawn = ARXIV_FEED.replace(
+        '<link href="https://arxiv.org/pdf/2401.12345v2" rel="related" '
+        'type="application/pdf" title="pdf" />',
+        "<arxiv:comment>This submission has been withdrawn by the authors.</arxiv:comment>",
+    )
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/": _notice_route("10.48550/arxiv.2401.12345", "DataCite"),
+            "api.openalex.org/works/": (200, {"is_retracted": False}),
+        },
+    )
+    monkeypatch.setattr(webapi, "get_text", lambda *_args, **_kwargs: (200, withdrawn))
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {
+            "id": "preprint",
+            "DOI": "10.48550/arxiv.2401.12345",
+            "URL": "https://arxiv.org/abs/2401.12345v2",
+            "version": "v2",
+        },
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.extra["class"] == "blocking"
+    assert outcome.extra["type"] == "withdrawal"
+
+
+@pytest.mark.parametrize(
+    "feed",
+    [
+        ARXIV_MULTI_FEED,
+        ARXIV_FEED.replace("2401.12345", "2401.99999", 1),
+        ARXIV_FEED.replace("2401.12345v2", "2401.12345", 1),
+        ARXIV_FEED.replace(
+            '<link href="https://arxiv.org/pdf/2401.12345v2" rel="related" '
+            'type="application/pdf" title="pdf" />',
+            "",
+        ),
+        ARXIV_FEED.replace(
+            "  </entry>",
+            "    <arxiv:comment>This submission has been withdrawn.</arxiv:comment>\n"
+            "  </entry>",
+        ),
+    ],
+    ids=[
+        "multiple-entries",
+        "wrong-id",
+        "unversioned-alternate",
+        "missing-status-signal",
+        "withdrawal-comment-with-live-pdf",
+    ],
+)
+def test_update_notice_arxiv_malformed_or_ambiguous_status_is_unreachable(
+    net_vault, monkeypatch, feed
+):
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/": _notice_route("10.48550/arxiv.2401.12345", "DataCite"),
+            "api.openalex.org/works/": (200, {"is_retracted": False}),
+        },
+    )
+    monkeypatch.setattr(webapi, "get_text", lambda *_args, **_kwargs: (200, feed))
+    outcome = checks.check_update_notice(
+        net_vault,
+        {
+            "id": "preprint",
+            "DOI": "10.48550/arxiv.2401.12345",
+            "URL": "https://arxiv.org/abs/2401.12345v2",
+            "version": "v2",
+        },
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "data": {
+                "id": "10.5281/versioned",
+                "type": "works",
+                "attributes": {"doi": "10.5281/versioned", "version": "2"},
+            }
+        },
+        {
+            "data": {
+                "id": "10.5281/wrong",
+                "type": "dois",
+                "attributes": {"doi": "10.5281/versioned", "version": "2"},
+            }
+        },
+        {
+            "data": {
+                "id": "10.5281/versioned",
+                "type": "dois",
+                "attributes": {"doi": "10.5281/wrong", "version": "2"},
+            }
+        },
+    ],
+    ids=["wrong-type", "wrong-id", "wrong-attributes-doi"],
+)
+def test_update_notice_datacite_binds_version_to_requested_doi(
+    net_vault, monkeypatch, payload
+):
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/": _notice_route("10.5281/versioned", "DataCite"),
+            "api.openalex.org/works/": (200, {"is_retracted": False}),
+            "api.datacite.org/dois/": (200, payload),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {"id": "data", "DOI": "10.5281/versioned", "version": "2"},
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+
+
+def test_update_notice_unknown_non_crossref_provider_is_unreachable(
+    net_vault, monkeypatch
+):
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.9999/other": _notice_route("10.9999/other", "mEDRA"),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {"id": "other", "DOI": "10.9999/other", "version": "1"},
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+
+
+def test_update_notice_rejects_arxiv_prefix_from_non_datacite_registry(
+    net_vault, monkeypatch
+):
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/": _notice_route("10.48550/arxiv.2401.12345", "mEDRA"),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {
+            "id": "spoofed",
+            "DOI": "10.48550/arxiv.2401.12345",
+            "version": "v2",
+        },
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNREACHABLE
 
 
 def test_update_notice_skips_only_when_both_identifiers_are_absent(net_vault):

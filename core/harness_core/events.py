@@ -1,9 +1,56 @@
 """Verified events and trust-tier derivation (spec §5)."""
 
 import datetime
+import re
 
 from . import AGENT_ACTOR, Result, frontmatter
 from . import claims as claims_mod
+
+FAILURES_FIELD = "verification-failures"
+_QUOTE_CHECK = re.compile(
+    r"^quote:(?P<address>[^\r\n:]+#\^[^\r\n:]+):(?P<target>managed-region|source-text)$"
+)
+
+
+def _single_line(value) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and "\n" not in value
+        and "\r" not in value
+        and "\0" not in value
+    )
+
+
+def _calendar_date(value) -> bool:
+    if not _single_line(value) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        return datetime.date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def _valid_event(event) -> bool:
+    return (
+        isinstance(event, dict)
+        and set(event) == {"by", "at", "check"}
+        and _single_line(event["by"])
+        and _calendar_date(event["at"])
+        and _single_line(event["check"])
+    )
+
+
+def _duplicate_header(note_text: str, field: str) -> bool:
+    lines = note_text.splitlines()
+    if not lines or lines[0] != "---":
+        return False
+    close = next(
+        (index for index, line in enumerate(lines[1:], 1) if line == "---"), None
+    )
+    if close is None:
+        return False
+    return sum(line.rstrip(" \t") == f"{field}:" for line in lines[1:close]) > 1
 
 
 def _verified_events(data: dict) -> tuple[list[dict], bool]:
@@ -12,10 +59,29 @@ def _verified_events(data: dict) -> tuple[list[dict], bool]:
     if raw_events is None:
         return [], False
     if not isinstance(raw_events, list) or not all(
-        isinstance(event, dict) for event in raw_events
+        _valid_event(event) for event in raw_events
     ):
         return [], True
     return list(raw_events), False
+
+
+def _failure_rows(data: dict) -> tuple[list[dict], bool]:
+    raw = data.get(FAILURES_FIELD)
+    if raw is None:
+        return [], False
+    valid_results = {result.value for result in Result if result is not Result.MATCHED}
+    if not isinstance(raw, list) or not all(
+        isinstance(row, dict)
+        and set(row) == {"check", "result"}
+        and _single_line(row["check"])
+        and row["result"] in valid_results
+        for row in raw
+    ):
+        return [], True
+    checks = [row["check"] for row in raw]
+    if len(checks) != len(set(checks)) or checks != sorted(checks):
+        return [], True
+    return list(raw), False
 
 
 def record_pass(
@@ -28,26 +94,75 @@ def record_pass(
     """Append a verification event for a successful deterministic check."""
     if result is not Result.MATCHED:
         raise ValueError(f"only MATCHED mints verified events, got {result}")
+    if not _single_line(by):
+        raise ValueError("verified event by must be a nonempty single-line string")
+    if not _single_line(check):
+        raise ValueError("verified event check must be a nonempty single-line string")
+    at = datetime.date.today().isoformat() if at is None else at
+    if not _calendar_date(at):
+        raise ValueError("verified event at must be a YYYY-MM-DD calendar date")
 
     data, body = frontmatter.parse(note_text)
     events, malformed = _verified_events(data)
-    if malformed:
+    if malformed or _duplicate_header(note_text, "verified"):
         raise ValueError("verified frontmatter must be a list of event mappings")
+    failures, malformed_failures = _failure_rows(data)
+    if malformed_failures or _duplicate_header(note_text, FAILURES_FIELD):
+        raise ValueError(
+            "verification-failures frontmatter must be a deterministic list of mappings"
+        )
+    failures = [row for row in failures if row["check"] != check]
     events.append(
         {
             "by": by,
-            "at": at or datetime.date.today().isoformat(),
+            "at": at,
             "check": check,
         }
     )
-    return _replace_verified_events(note_text, events, body)
+    without_failure = _replace_frontmatter_list(
+        note_text, FAILURES_FIELD, failures, body
+    )
+    _, updated_body = frontmatter.parse(without_failure)
+    return _replace_frontmatter_list(without_failure, "verified", events, updated_body)
+
+
+def record_failure(note_text: str, check: str, result: Result) -> str:
+    """Upsert one deterministic current-failure projection row."""
+    if result is Result.MATCHED or not isinstance(result, Result):
+        raise ValueError("record_failure requires a non-MATCHED Result")
+    if not _single_line(check):
+        raise ValueError("failure check must be a nonempty single-line string")
+    data, body = frontmatter.parse(note_text)
+    _, malformed_events = _verified_events(data)
+    if malformed_events or _duplicate_header(note_text, "verified"):
+        raise ValueError("verified frontmatter must be a list of event mappings")
+    failures, malformed = _failure_rows(data)
+    if malformed or _duplicate_header(note_text, FAILURES_FIELD):
+        raise ValueError(
+            "verification-failures frontmatter must be a deterministic list of mappings"
+        )
+    by_check = {row["check"]: row for row in failures}
+    by_check[check] = {"check": check, "result": result.value}
+    updated = [by_check[key] for key in sorted(by_check)]
+    if updated == failures:
+        return note_text
+    return _replace_frontmatter_list(note_text, FAILURES_FIELD, updated, body)
 
 
 def _replace_verified_events(note_text: str, events: list[dict], body: str) -> str:
     """Lexically replace only the verifier-owned top-level event list."""
+    return _replace_frontmatter_list(note_text, "verified", events, body)
+
+
+def _replace_frontmatter_list(
+    note_text: str, field: str, rows: list[dict], body: str
+) -> str:
+    """Lexically replace one top-level flat-parser list without neighboring churn."""
     lines = note_text.splitlines(keepends=True)
     if not lines or lines[0] not in {"---\n", "---\r\n"}:
-        envelope = frontmatter.serialize({"verified": events})
+        if not rows:
+            return note_text
+        envelope = frontmatter.serialize({field: rows})
         newline = _first_line_ending(body)
         if newline == "\r\n":
             envelope = envelope.replace("\n", newline)
@@ -67,12 +182,14 @@ def _replace_verified_events(note_text: str, events: list[dict], body: str) -> s
     headers = [
         index
         for index, line in enumerate(lines[1:close], start=1)
-        if line.rstrip("\r\n").rstrip(" \t") == "verified:"
+        if line.rstrip("\r\n").rstrip(" \t") == f"{field}:"
     ]
     if len(headers) > 1:
-        raise ValueError("verified frontmatter must have one event list")
+        raise ValueError(f"{field} frontmatter must have one list")
+    if not headers and not rows:
+        return note_text
     newline = _line_ending(lines[headers[0] if headers else close]) or "\n"
-    rendered = _render_verified_events(events, newline)
+    rendered = _render_frontmatter_list(field, rows, newline) if rows else ""
     if not headers:
         insert = close - 1 if lines[close - 1] in {"\n", "\r\n"} else close
         return "".join(lines[:insert] + [rendered] + lines[insert:])
@@ -85,7 +202,11 @@ def _replace_verified_events(note_text: str, events: list[dict], body: str) -> s
 
 def _render_verified_events(events: list[dict], newline: str) -> str:
     """Serialize new event rows without touching neighboring frontmatter."""
-    rendered = frontmatter.serialize({"verified": events}).splitlines()
+    return _render_frontmatter_list("verified", events, newline)
+
+
+def _render_frontmatter_list(field: str, rows: list[dict], newline: str) -> str:
+    rendered = frontmatter.serialize({field: rows}).splitlines()
     return "".join(f"{line}{newline}" for line in rendered[1:-1])
 
 
@@ -109,7 +230,14 @@ def verified_checks(note_text: str) -> list[dict]:
     """Return the note's verification-event list."""
     data, _ = frontmatter.parse(note_text)
     events, _ = _verified_events(data)
-    return events
+    return [] if _duplicate_header(note_text, "verified") else events
+
+
+def current_failures(note_text: str) -> list[dict]:
+    """Return valid deterministic current-failure projection rows."""
+    data, _ = frontmatter.parse(note_text)
+    failures, _ = _failure_rows(data)
+    return [] if _duplicate_header(note_text, FAILURES_FIELD) else failures
 
 
 def _applicable_note_checks(data: dict) -> set[str]:
@@ -124,11 +252,26 @@ def trust_tier(note_text: str) -> str:
     """Derive a note's cumulative verification tier from its events."""
     data, _ = frontmatter.parse(note_text)
     events, malformed = _verified_events(data)
-    if malformed:
+    failures, malformed_failures = _failure_rows(data)
+    if (
+        malformed
+        or malformed_failures
+        or _duplicate_header(note_text, "verified")
+        or _duplicate_header(note_text, FAILURES_FIELD)
+    ):
         return "unverified"
     checks = {str(event.get("check", "")) for event in events}
     machine_confirmed = _applicable_note_checks(data) <= checks
     citekey = data.get("citekey", "")
+
+    applicable_failures = _applicable_note_checks(data)
+    for row in failures:
+        check = row["check"]
+        quote = _QUOTE_CHECK.fullmatch(check)
+        if check in applicable_failures or (
+            quote is not None and quote.group("address").split("#^", 1)[0] == citekey
+        ):
+            machine_confirmed = False
 
     for claim in claims_mod.parse_claims(note_text):
         if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:

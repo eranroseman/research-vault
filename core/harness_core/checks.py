@@ -1,12 +1,14 @@
 """Citation checkers (spec §6). Shared Outcome dataclass; four-state everywhere."""
 
 import csv
+import re
 import unicodedata
+import xml.etree.ElementTree as ElementTree
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date as _Date
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from . import Result, bibliography, claims, inbox, webapi
 
@@ -40,7 +42,9 @@ def _claim_origins(note_text: str) -> dict[str, list[dict]]:
     return origins
 
 
-def check_citekeys(vault_root, note_path: Path) -> list[Outcome]:
+def check_citekeys(
+    vault_root, note_path: Path, bibliography_universe=None
+) -> list[Outcome]:
     """Check every citation in a note against the local bibliography universe."""
     vault = Path(vault_root).resolve()
     note = Path(note_path).resolve()
@@ -56,7 +60,8 @@ def check_citekeys(vault_root, note_path: Path) -> list[Outcome]:
             )
         ]
 
-    bibliography_universe = bibliography.load(vault)
+    if bibliography_universe is None:
+        bibliography_universe = bibliography.load(vault)
     origins = _claim_origins(note_text)
     note_path = str(note.relative_to(vault))
     outcomes = []
@@ -558,6 +563,171 @@ def _blocking_outcome(
     )
 
 
+def _provider_unreachable(target: str, provider: str) -> Outcome:
+    return Outcome(
+        "update-notice",
+        target,
+        Result.UNREACHABLE,
+        f"outage — {provider} version status unavailable",
+    )
+
+
+def _version_mismatch(target: str, provider: str) -> Outcome:
+    return Outcome(
+        "update-notice",
+        target,
+        Result.UNMATCHED,
+        f"mismatch — {provider} version differs",
+    )
+
+
+def _nonempty_version(value) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _datacite_version_outcome(
+    vault_root, entry: dict, doi: str, target: str
+) -> Outcome:
+    local_version = _nonempty_version(entry.get("version"))
+    if local_version is None:
+        return _provider_unreachable(target, "DataCite")
+    status, payload = webapi.get_json(
+        f"https://api.datacite.org/dois/{_doi_path(doi)}", vault_root
+    )
+    data = payload.get("data") if isinstance(payload, dict) else None
+    attributes = data.get("attributes") if isinstance(data, dict) else None
+    remote_version = (
+        _nonempty_version(attributes.get("version"))
+        if isinstance(attributes, dict)
+        else None
+    )
+    if (
+        status != 200
+        or not isinstance(data, dict)
+        or data.get("type") != "dois"
+        or _normalize_doi(data.get("id")) != doi
+        or not isinstance(attributes, dict)
+        or _normalize_doi(attributes.get("doi")) != doi
+        or remote_version is None
+    ):
+        return _provider_unreachable(target, "DataCite")
+    if remote_version != local_version:
+        return _version_mismatch(target, "DataCite")
+    return Outcome("update-notice", target, Result.MATCHED, "matched")
+
+
+def _arxiv_identifier(doi: str) -> str | None:
+    prefix = "10.48550/arxiv."
+    if not doi.startswith(prefix):
+        return None
+    identifier = doi[len(prefix) :]
+    if not identifier or re.fullmatch(r"[a-z0-9./-]+", identifier) is None:
+        return None
+    return identifier
+
+
+def _arxiv_identity(value: str | None, kind: str) -> tuple[str, str] | None:
+    if not isinstance(value, str):
+        return None
+    parts = urlsplit(value.strip())
+    if parts.scheme not in {"http", "https"} or parts.netloc.casefold() != "arxiv.org":
+        return None
+    match = re.fullmatch(
+        rf"/{kind}/(?P<id>.+?)(?P<version>v[1-9]\d*)(?:\.pdf)?", parts.path
+    )
+    if match is None or parts.query or parts.fragment:
+        return None
+    return match.group("id").casefold(), match.group("version")
+
+
+def _arxiv_base_identity(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    parts = urlsplit(value.strip())
+    if (
+        parts.scheme not in {"http", "https"}
+        or parts.netloc.casefold() != "arxiv.org"
+        or not parts.path.startswith("/abs/")
+        or parts.query
+        or parts.fragment
+    ):
+        return None
+    identifier = parts.path.removeprefix("/abs/")
+    return identifier.casefold() if identifier else None
+
+
+def _explicit_arxiv_withdrawal(comment: str | None) -> bool:
+    if not isinstance(comment, str):
+        return False
+    return (
+        re.search(
+            r"(?:^|\b)(?:this submission|the submission|this paper|the paper) "
+            r"(?:has been|was|is) withdrawn\b|^\s*withdrawn\b",
+            comment.casefold(),
+        )
+        is not None
+    )
+
+
+def _arxiv_version_outcome(
+    vault_root, entry: dict, identifier: str, target: str, detection_date: str
+) -> Outcome:
+    local_version = _nonempty_version(entry.get("version"))
+    if local_version is None or re.fullmatch(r"v[1-9]\d*", local_version) is None:
+        return _provider_unreachable(target, "arXiv")
+    status, text = webapi.get_text(
+        "https://export.arxiv.org/api/query",
+        vault_root,
+        params={"id_list": identifier},
+    )
+    if status != 200 or not isinstance(text, str):
+        return _provider_unreachable(target, "arXiv")
+    try:
+        root = ElementTree.fromstring(text)
+    except ElementTree.ParseError:
+        return _provider_unreachable(target, "arXiv")
+    atom = "{http://www.w3.org/2005/Atom}"
+    arxiv = "{http://arxiv.org/schemas/atom}"
+    entries = root.findall(f"{atom}entry")
+    if len(entries) != 1:
+        return _provider_unreachable(target, "arXiv")
+    remote = entries[0]
+    base_identity = _arxiv_base_identity(remote.findtext(f"{atom}id"))
+    if base_identity != identifier.casefold():
+        return _provider_unreachable(target, "arXiv")
+    alternate_identities = [
+        _arxiv_identity(link.get("href"), "abs")
+        for link in remote.findall(f"{atom}link")
+        if link.get("rel") == "alternate" and link.get("type") == "text/html"
+    ]
+    if len(alternate_identities) != 1 or alternate_identities[0] is None:
+        return _provider_unreachable(target, "arXiv")
+    identity = alternate_identities[0]
+    if identity[0] != identifier.casefold():
+        return _provider_unreachable(target, "arXiv")
+    remote_version = identity[1]
+    comment = remote.findtext(f"{arxiv}comment")
+    withdrawn = _explicit_arxiv_withdrawal(comment)
+    pdf_identities = [
+        _arxiv_identity(link.get("href"), "pdf")
+        for link in remote.findall(f"{atom}link")
+        if link.get("rel") == "related" and link.get("type") == "application/pdf"
+    ]
+    if withdrawn and not pdf_identities:
+        return _blocking_outcome(
+            target,
+            {"type": "withdrawal", "notice_date": None},
+            detection_date,
+        )
+    if withdrawn:
+        return _provider_unreachable(target, "arXiv")
+    if pdf_identities != [(identifier.casefold(), remote_version)]:
+        return _provider_unreachable(target, "arXiv")
+    if remote_version != local_version:
+        return _version_mismatch(target, "arXiv")
+    return Outcome("update-notice", target, Result.MATCHED, "matched")
+
+
 def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome:
     """Check a registered DOI for update notices, retaining warning-tier notices."""
     doi, pmid = _entry_identifiers(entry)
@@ -617,6 +787,10 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
                 extra={"warn_notices": warns} if warns else {},
             )
 
+        if agency.casefold() != "datacite":
+            return _provider_unreachable(target, "provider")
+        arxiv_identifier = _arxiv_identifier(doi)
+
         identifier = quote(f"https://doi.org/{doi}", safe="")
         status, payload = webapi.get_json(
             f"https://api.openalex.org/works/{identifier}",
@@ -644,7 +818,13 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
                 {"type": "retraction", "notice_date": None},
                 detection_date,
             )
-        return Outcome("update-notice", target, Result.MATCHED, "matched")
+        if arxiv_identifier is not None:
+            return _arxiv_version_outcome(
+                vault_root, entry, arxiv_identifier, target, detection_date
+            )
+        if agency.casefold() == "datacite":
+            return _datacite_version_outcome(vault_root, entry, doi, target)
+        return _provider_unreachable(target, "provider")
     except webapi.ApiError:
         return Outcome(
             "update-notice",

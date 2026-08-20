@@ -112,6 +112,17 @@ def get_json(url, vault_root, params=None, headers=None, timeout=10.0):
         raise ApiError(f"undecodable body from {url}") from error
 
 
+def get_text(url, vault_root, params=None, headers=None, timeout=10.0):
+    """GET strict UTF-8 text, returning its actual status and decoded body."""
+    status, body = _open(url, vault_root, params, headers, timeout, "GET", True)
+    if status == 404:
+        return status, None
+    try:
+        return status, body.decode("utf-8")
+    except (AttributeError, UnicodeError) as error:
+        raise ApiError(f"undecodable body from {url}") from error
+
+
 def get_status(url, vault_root, params=None, headers=None, timeout=10.0):
     """HEAD a resource, falling back to GET if the server rejects HEAD."""
     status, _ = _open(url, vault_root, params, headers, timeout, "HEAD", False)

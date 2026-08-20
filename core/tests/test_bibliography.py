@@ -161,3 +161,44 @@ def test_staleness_malformed_fresh_bibliography_is_unreachable(tmp_vault, malfor
     assert (
         bibliography.staleness(tmp_vault, StubClient(malformed)) is Result.UNREACHABLE
     )
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "{",
+        '{"items": []}',
+        '["not-an-entry"]',
+        '[{"id": "x", "DOI": 123}]',
+        '[{"id": ""}]',
+        '[{"id": "bad\\nkey"}]',
+        '[{"id": "../escape"}]',
+    ],
+    ids=[
+        "truncated-json",
+        "wrong-top-level",
+        "wrong-entry",
+        "non-string-doi",
+        "empty-id",
+        "multiline-id",
+        "unsafe-id",
+    ],
+)
+def test_load_classifies_readable_invalid_bibliography_as_unmatched(
+    tmp_vault, contents
+):
+    (tmp_vault / bibliography.BIB_PATH).write_text(contents)
+
+    with pytest.raises(bibliography.BibliographyError) as caught:
+        bibliography.load(tmp_vault)
+
+    assert caught.value.result is Result.UNMATCHED
+
+
+def test_load_classifies_undecodable_bibliography_as_unreachable(tmp_vault):
+    (tmp_vault / bibliography.BIB_PATH).write_bytes(b"\xff")
+
+    with pytest.raises(bibliography.BibliographyError) as caught:
+        bibliography.load(tmp_vault)
+
+    assert caught.value.result is Result.UNREACHABLE

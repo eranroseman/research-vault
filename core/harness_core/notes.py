@@ -148,10 +148,10 @@ _FENCE_CLOSE = re.compile(r"^[ \t]{0,3}(?P<chars>`+|~+)[ \t]*$")
 
 
 def canonical_content(note_text: str) -> str:
-    """Exclude only verifier-owned events and failure markers from note comparison."""
+    """Exclude only a valid verifier-owned ``verified`` event list."""
     close, lines = _frontmatter_close(note_text)
     if close is None:
-        return _strip_verify_fields(note_text)
+        return note_text
     if close < 0:
         # Do not infer body structure from an unterminated verifier boundary.
         return note_text
@@ -159,28 +159,30 @@ def canonical_content(note_text: str) -> str:
         data, _ = frontmatter.parse(note_text)
     except frontmatter.FrontmatterError:
         return note_text
+    from .events import _valid_event
+
     verified = data.get("verified")
     valid_verified = isinstance(verified, list) and all(
-        isinstance(event, dict) for event in verified
+        _valid_event(event) for event in verified
     )
     frontmatter_lines = lines[: close + 1]
     body = "".join(lines[close + 1 :])
     if not valid_verified:
-        return "".join(frontmatter_lines) + _strip_verify_fields(body)
+        return note_text
     verified_index = _verified_list_index(frontmatter_lines)
     if verified_index is None:
         # A duplicate or non-list-looking lexical definition is not a
         # verifier-owned surface, even if the permissive flat parser kept a
         # list under the final key.
-        return "".join(frontmatter_lines) + _strip_verify_fields(body)
+        return note_text
     if _verified_only_envelope(frontmatter_lines, verified_index):
-        return _strip_verify_fields(body)
+        return body
     result = frontmatter_lines[:verified_index]
     index = verified_index + 1
     while index < close and frontmatter_lines[index].startswith("  - "):
         index += 1
     result.extend(frontmatter_lines[index:])
-    return "".join(result) + _strip_verify_fields(body)
+    return "".join(result) + body
 
 
 def _frontmatter_close(text: str) -> tuple[int | None, list[str]]:

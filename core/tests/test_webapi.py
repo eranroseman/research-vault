@@ -260,3 +260,27 @@ def test_malformed_machine_config_is_an_api_error(fixture_vault, monkeypatch):
         webapi.mailto(fixture_vault)
 
     assert error.value.result is Result.UNREACHABLE
+
+
+def test_get_text_returns_strict_utf8_primary_contract(vault_with_mailto, monkeypatch):
+    monkeypatch.setattr(
+        webapi,
+        "_urlopen",
+        lambda request, timeout: FakeResponse(b"<feed>ok</feed>"),
+    )
+
+    assert webapi.get_text("https://export.arxiv.org/api/query", vault_with_mailto) == (
+        200,
+        "<feed>ok</feed>",
+    )
+
+
+def test_get_text_rejects_undecodable_primary_contract(vault_with_mailto, monkeypatch):
+    monkeypatch.setattr(
+        webapi,
+        "_urlopen",
+        lambda request, timeout: FakeResponse(b"\xff"),
+    )
+
+    with pytest.raises(webapi.ApiError, match="undecodable"):
+        webapi.get_text("https://export.arxiv.org/api/query", vault_with_mailto)

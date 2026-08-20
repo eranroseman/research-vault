@@ -23,15 +23,73 @@ class Bibliography:
         return self._by_id.get(citekey)
 
 
+class BibliographyError(ValueError):
+    """A bibliography that cannot safely participate in verification."""
+
+    def __init__(self, message: str, result: Result):
+        super().__init__(message)
+        self.result = result
+
+
 def _path(vault_root):
     return Path(vault_root) / BIB_PATH
 
 
 def load(vault_root) -> Bibliography:
     p = _path(vault_root)
-    if not p.is_file():
-        return Bibliography([])
-    return Bibliography(json.loads(p.read_text()))
+    try:
+        try:
+            path_stat = p.stat()
+        except FileNotFoundError:
+            return Bibliography([])
+        if not stat.S_ISREG(path_stat.st_mode):
+            raise BibliographyError(
+                "bibliography is not a regular file", Result.UNMATCHED
+            )
+        text = p.read_text()
+    except BibliographyError:
+        raise
+    except (OSError, UnicodeError) as error:
+        raise BibliographyError(
+            "bibliography is unreadable", Result.UNREACHABLE
+        ) from error
+    try:
+        items = json.loads(text)
+        _validate_items(items)
+    except (TypeError, ValueError) as error:
+        raise BibliographyError(
+            "bibliography has invalid JSON or schema", Result.UNMATCHED
+        ) from error
+    return Bibliography(items)
+
+
+def _validate_items(items) -> None:
+    if not isinstance(items, list):
+        raise ValueError("bibliography must be a list")
+    seen = set()
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise ValueError(f"bibliography item {index} must be an object")
+        item_id = item.get("id")
+        if not isinstance(item_id, str) or not item_id.strip():
+            raise ValueError(f"bibliography item {index} has no valid id")
+        if (
+            item_id in {".", ".."}
+            or "/" in item_id
+            or "\\" in item_id
+            or "\0" in item_id
+            or "\r" in item_id
+            or "\n" in item_id
+            or Path(item_id).is_absolute()
+        ):
+            raise ValueError(f"bibliography item {index} has an unsafe id")
+        if item_id in seen:
+            raise ValueError(f"bibliography item {index} has a duplicate id")
+        seen.add(item_id)
+        for field in ("DOI", "doi"):
+            value = item.get(field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"bibliography item {index} has a non-string {field}")
 
 
 def _canonical(items):
@@ -63,16 +121,11 @@ def write_and_commit(vault_root, items) -> bool:
 
 
 def _fingerprint(items):
-    if not isinstance(items, list):
-        raise ValueError("bibliography must be a list")
+    _validate_items(items)
     fingerprint = []
     for index, item in enumerate(items):
-        if not isinstance(item, dict):
-            raise ValueError(f"bibliography item {index} must be an object")
         item_id = item.get("id")
         title = item.get("title", "")
-        if not isinstance(item_id, str) or not item_id:
-            raise ValueError(f"bibliography item {index} has no valid id")
         if not isinstance(title, str):
             raise ValueError(f"bibliography item {index} has no valid title")
         fingerprint.append((item_id, title))

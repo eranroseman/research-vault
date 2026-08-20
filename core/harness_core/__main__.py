@@ -29,6 +29,7 @@ from .zotero import ZoteroClient, ZoteroError
 
 QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
 DEFAULT_BASE = "http://localhost:23119"
+_OMITTED_BIBLIOGRAPHY = object()
 
 
 def _text(value) -> str:
@@ -447,7 +448,7 @@ def _citekey_hash(vault_root, citekey):
     return None
 
 
-def _target_hash(vault_root, outcome):
+def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPHY):
     """Return the stable, kind-aware acknowledgment hash for an outcome."""
     target = outcome.target
     claim_id = None
@@ -509,7 +510,12 @@ def _target_hash(vault_root, outcome):
             data = _line_bytes(origin, line_no)
             if data is not None:
                 return hashlib.sha256(data).hexdigest()[:16]
-        entry = bibliography.load(vault_root).entry(target)
+        if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
+            entry = bibliography.load(vault_root).entry(target)
+        elif bibliography_universe is not None:
+            entry = bibliography_universe.entry(target)
+        else:
+            entry = None
         if entry is not None:
             data = json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
             return hashlib.sha256(data).hexdigest()[:16]
@@ -619,17 +625,20 @@ def _clear_verify_failed(vault_root, outcome):
     _mutate_marker(vault_root, outcome, datetime.date.today().isoformat(), clear=True)
 
 
-def _file_outcomes(vault_root, path):
-    return (
-        checks.check_citekeys(vault_root, path)
-        + quotes.check_all_quotes(vault_root, path)
+def _file_outcomes(vault_root, path, bibliography_universe=None):
+    outcomes = (
+        quotes.check_all_quotes(vault_root, path)
         + lints.lint_source_status(vault_root, path)
         + lints.lint_contested(vault_root, path)
     )
+    if bibliography_universe is not None:
+        outcomes = (
+            checks.check_citekeys(vault_root, path, bibliography_universe) + outcomes
+        )
+    return outcomes
 
 
-def _bibliography_entries(vault_root):
-    bib = bibliography.load(vault_root)
+def _bibliography_entries(bib):
     return [bib.entry(key) for key in sorted(bib.citekeys)]
 
 
@@ -758,65 +767,134 @@ def _warning_type(entry):
     return match.group(1) if match else None
 
 
+def _notice_fingerprint(outcome):
+    if outcome.check != "update-notice":
+        return None, None, None
+    return (
+        outcome.extra.get("class"),
+        outcome.extra.get("type"),
+        outcome.extra.get("notice_date"),
+    )
+
+
 def _effective(outcomes, hashes, vault_root):
     return [
         outcome
         for outcome in outcomes
         if outcome.result is Result.MATCHED
         or not inbox.is_acknowledged(
-            vault_root, outcome.check, outcome.target, hashes[id(outcome)]
+            vault_root,
+            outcome.check,
+            outcome.target,
+            hashes[id(outcome)],
+            *_notice_fingerprint(outcome),
         )
     ]
 
 
-def _file_effects(
-    vault_root, raw, effective, hashes, warning_effective, detection_date
-):
-    """Apply markers, events, and inbox notices only after raw audit collection."""
-    effective_ids = {id(outcome) for outcome in effective}
+def _projection_identity(outcome):
+    if outcome.check in {"doi", "metadata", "update-notice"}:
+        return outcome.target, outcome.check
+    if outcome.check == "quote" and isinstance(outcome.target, str):
+        comparison_target = outcome.extra.get("target", "managed-region")
+        if (
+            "#^" in outcome.target
+            and isinstance(comparison_target, str)
+            and comparison_target
+        ):
+            citekey = outcome.target.split("#^", 1)[0]
+            return citekey, f"quote:{outcome.target}:{comparison_target}"
+    return None
+
+
+def _apply_state_transitions(vault_root, raw, detection_date):
+    """Project raw current state before any hash or acknowledgment decision."""
     for outcome in raw:
-        if id(outcome) not in effective_ids:
-            if outcome.result is Result.UNMATCHED:
-                _mutate_marker(vault_root, outcome, detection_date, clear=True)
-            continue
+        projection = _projection_identity(outcome)
+        if projection is not None:
+            citekey, check = projection
+            note = _note_for_citekey(vault_root, citekey)
+            if note and note.is_file():
+                try:
+                    text = _read_note_text(note)
+                    updated = (
+                        events.record_pass(
+                            text,
+                            check,
+                            Result.MATCHED,
+                            at=detection_date,
+                        )
+                        if outcome.result is Result.MATCHED
+                        else events.record_failure(text, check, outcome.result)
+                    )
+                except (
+                    OSError,
+                    UnicodeError,
+                    ValueError,
+                    frontmatter.FrontmatterError,
+                ):
+                    pass
+                else:
+                    if updated != text:
+                        _write_note_text(note, updated)
         if outcome.result is Result.UNMATCHED:
             _mutate_marker(vault_root, outcome, detection_date)
         elif outcome.result is Result.MATCHED:
             _mutate_marker(vault_root, outcome, detection_date, clear=True)
-            if outcome.check == "quote" and "#^" in outcome.target:
-                citekey = outcome.target.split("#^", 1)[0]
-                note = _note_for_citekey(vault_root, citekey)
-                if note and note.is_file():
-                    _write_note_text(
-                        note,
-                        events.record_pass(
-                            _read_note_text(note),
-                            f"quote:{outcome.target}:{outcome.extra.get('target', 'managed-region')}",
-                            Result.MATCHED,
-                            at=detection_date,
-                        ),
-                    )
-            elif outcome.check in {"doi", "metadata", "update-notice"}:
-                note = _note_for_citekey(vault_root, outcome.target)
-                if note and note.is_file():
-                    _write_note_text(
-                        note,
-                        events.record_pass(
-                            _read_note_text(note),
-                            outcome.check,
-                            Result.MATCHED,
-                            at=detection_date,
-                        ),
-                    )
 
+
+def _warning_effectiveness(outcomes, hashes, vault_root):
+    frozen = {}
+    for outcome in outcomes:
+        statuses = []
+        for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
+            warning_type = warning.get("type") if isinstance(warning, dict) else None
+            notice_date = (
+                warning.get("notice_date") if isinstance(warning, dict) else None
+            )
+            effective = isinstance(warning_type, str) and not inbox.is_acknowledged(
+                vault_root,
+                outcome.check,
+                outcome.target,
+                hashes[id(outcome)],
+                "warn",
+                warning_type,
+                notice_date,
+            )
+            frozen[(id(outcome), index)] = effective
+            statuses.append(effective)
+        frozen[id(outcome)] = any(statuses)
+    return frozen
+
+
+def _file_effects(vault_root, effective, hashes, warning_effective, detection_date):
+    """File findings from the frozen post-transition decision state."""
     open_keys = set()
     for entry in inbox.open_entries(vault_root):
-        discriminator = _warning_type(entry) or entry.result
-        open_keys.add((entry.check, entry.target, discriminator, entry.target_hash))
+        open_keys.add(
+            (
+                entry.check,
+                entry.target,
+                entry.result,
+                entry.target_hash,
+                entry.notice_class,
+                entry.notice_type,
+                entry.notice_date,
+            )
+        )
     for outcome in effective:
         target_hash = hashes[id(outcome)]
         if outcome.result is not Result.MATCHED:
-            key = (outcome.check, outcome.target, outcome.result.value, target_hash)
+            notice_class, notice_type, notice_date = _notice_fingerprint(outcome)
+            key = (
+                outcome.check,
+                outcome.target,
+                outcome.result.value,
+                target_hash,
+                notice_class,
+                notice_type,
+                notice_date,
+            )
             if key not in open_keys:
                 inbox.append_entry(
                     vault_root,
@@ -824,18 +902,34 @@ def _file_effects(
                     outcome.target,
                     outcome.result,
                     outcome.reason,
+                    date=detection_date,
                     target_hash=target_hash,
-                    notice_date=outcome.extra.get("notice_date"),
-                    detection_date=outcome.extra.get("detection_date"),
+                    notice_class=notice_class,
+                    notice_type=notice_type,
+                    notice_date=notice_date,
+                    detection_date=(
+                        outcome.extra.get("detection_date", detection_date)
+                        if notice_class is not None
+                        else None
+                    ),
                 )
                 open_keys.add(key)
-        for warning in outcome.extra.get("warn_notices", []):
-            if not warning_effective[id(outcome)]:
+        for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
+            if not warning_effective[(id(outcome), index)]:
                 continue
             warning_type = warning.get("type")
             if not isinstance(warning_type, str):
                 continue
-            key = (outcome.check, outcome.target, warning_type, target_hash)
+            notice_date = warning.get("notice_date")
+            key = (
+                outcome.check,
+                outcome.target,
+                Result.UNMATCHED.value,
+                target_hash,
+                "warn",
+                warning_type,
+                notice_date,
+            )
             if key not in open_keys:
                 inbox.append_entry(
                     vault_root,
@@ -843,8 +937,11 @@ def _file_effects(
                     outcome.target,
                     Result.UNMATCHED,
                     f"warn-notice — {warning_type}",
+                    date=detection_date,
                     target_hash=target_hash,
-                    notice_date=warning.get("notice_date"),
+                    notice_class="warn",
+                    notice_type=warning_type,
+                    notice_date=notice_date,
                     detection_date=warning.get("detection_date", detection_date),
                 )
                 open_keys.add(key)
@@ -863,26 +960,44 @@ def _verify_state(
     vault = Path(vault_root)
     detection_date = detection_date or datetime.date.today().isoformat()
     raw = []
-    if network:
-        raw.append(_staleness_outcome(vault, base))
-    else:
-        raw.append(
-            checks.Outcome(
-                "staleness",
-                bibliography.BIB_PATH,
-                Result.UNREACHABLE,
-                "outage — network disabled",
-            )
+    try:
+        bibliography_universe = bibliography.load(vault)
+    except bibliography.BibliographyError as error:
+        bibliography_universe = None
+        reason = (
+            "schema-violation — bibliography JSON/schema invalid"
+            if error.result is Result.UNMATCHED
+            else "outage — bibliography unreadable"
         )
+        raw.append(
+            checks.Outcome("staleness", bibliography.BIB_PATH, error.result, reason)
+        )
+    else:
+        if network:
+            raw.append(_staleness_outcome(vault, base))
+        else:
+            raw.append(
+                checks.Outcome(
+                    "staleness",
+                    bibliography.BIB_PATH,
+                    Result.UNREACHABLE,
+                    "outage — network disabled",
+                )
+            )
     note_files = [
         path
         for folder in ("literatures", "atlas", "efforts")
         for path in sorted((vault / folder).rglob("*.md"))
     ]
     for path in note_files:
-        raw.extend(_file_outcomes(vault, path))
+        raw.extend(_file_outcomes(vault, path, bibliography_universe))
     rw = checks.load_rw_csv(rw_csv) if rw_csv else None
-    for original in _bibliography_entries(vault):
+    entries = (
+        _bibliography_entries(bibliography_universe)
+        if bibliography_universe is not None
+        else []
+    )
+    for original in entries:
         entry = dict(original)
         if network and not (entry.get("DOI") or entry.get("doi")):
             discovery = identify.discover(vault, entry)
@@ -901,15 +1016,14 @@ def _verify_state(
     raw.extend(lints.lint_web_archive(vault))
     if network:
         raw.extend(_archive_outcomes(vault))
-    hashes = {id(outcome): _target_hash(vault, outcome) for outcome in raw}
-    effective = _effective(raw, hashes, vault)
-    warning_effective = {
-        id(outcome): not inbox.is_acknowledged(
-            vault, outcome.check, outcome.target, hashes[id(outcome)]
-        )
+    _apply_state_transitions(vault, raw, detection_date)
+    hashes = {
+        id(outcome): _target_hash(vault, outcome, bibliography_universe)
         for outcome in raw
     }
-    _file_effects(vault, raw, effective, hashes, warning_effective, detection_date)
+    effective = _effective(raw, hashes, vault)
+    warning_effective = _warning_effectiveness(raw, hashes, vault)
+    _file_effects(vault, effective, hashes, warning_effective, detection_date)
     counts = {}
     for outcome in effective:
         counts[outcome.result.value] = counts.get(outcome.result.value, 0) + 1
@@ -936,8 +1050,10 @@ def cmd_verify(args):
             print(
                 f"{outcome.result.value} {outcome.check} {outcome.target} — {outcome.reason}"
             )
-        if warning_effective[id(outcome)]:
-            for warning in outcome.extra.get("warn_notices", []):
+        for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
+            if warning_effective.get(
+                (id(outcome), index), warning_effective.get(id(outcome), False)
+            ):
                 warning_type = warning.get("type")
                 if isinstance(warning_type, str):
                     print(

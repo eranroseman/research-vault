@@ -272,3 +272,107 @@ def test_malformed_verified_events_fail_closed_on_read(malformed):
 def test_record_pass_rejects_malformed_verified_events(malformed):
     with pytest.raises(ValueError, match="verified"):
         events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-16")
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"by": "human:eran", "at": "2026-08-16"},
+        {"check": "doi"},
+        {"by": 7, "at": "2026-08-16", "check": "doi"},
+        {"by": "human:eran", "at": "2026-02-30", "check": "doi"},
+        {"by": "", "at": "2026-08-16", "check": "doi"},
+    ],
+    ids=["incomplete", "check-only", "wrong-type", "invalid-date", "empty"],
+)
+def test_invalid_event_rows_never_elevate_trust_or_survive_reads(event):
+    data, body = frontmatter.parse(_machine_confirmed_text())
+    data["verified"].append(event)
+    malformed = frontmatter.serialize(data) + body
+
+    assert events.verified_checks(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+    with pytest.raises(ValueError, match="verified"):
+        events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")
+
+
+def test_historical_pass_is_demoted_by_current_failure_and_recovers_on_match():
+    confirmed = _machine_confirmed_text()
+
+    failed = events.record_failure(confirmed, "doi", Result.UNMATCHED)
+
+    assert events.trust_tier(failed) == "unverified"
+    assert events.current_failures(failed) == [{"check": "doi", "result": "UNMATCHED"}]
+    assert events.verified_checks(failed) == events.verified_checks(confirmed)
+
+    recovered = events.record_pass(failed, "doi", Result.MATCHED, at="2026-08-17")
+
+    assert events.current_failures(recovered) == []
+    assert events.trust_tier(recovered) == "machine-confirmed"
+    assert (
+        len(events.verified_checks(recovered))
+        == len(events.verified_checks(confirmed)) + 1
+    )
+
+
+def test_match_clears_only_exact_current_failure_identity():
+    confirmed = _machine_confirmed_text()
+    quote_check = "quote:smith2020#^c-11111111:managed-region"
+    failed = events.record_failure(confirmed, "doi", Result.UNMATCHED)
+    failed = events.record_failure(failed, quote_check, Result.UNREACHABLE)
+
+    doi_recovered = events.record_pass(failed, "doi", Result.MATCHED, at="2026-08-17")
+
+    assert events.current_failures(doi_recovered) == [
+        {"check": quote_check, "result": "UNREACHABLE"}
+    ]
+    assert events.trust_tier(doi_recovered) == "unverified"
+
+
+def test_failure_projection_is_sorted_idempotent_and_rejects_malformed_state():
+    first = events.record_failure(BASE, "update-notice", Result.UNREACHABLE)
+    second = events.record_failure(first, "doi", Result.UNMATCHED)
+    repeated = events.record_failure(second, "doi", Result.UNMATCHED)
+
+    assert repeated == second
+    assert events.current_failures(second) == [
+        {"check": "doi", "result": "UNMATCHED"},
+        {"check": "update-notice", "result": "UNREACHABLE"},
+    ]
+
+    data, body = frontmatter.parse(second)
+    data["verification-failures"] = [{"check": "doi"}]
+    malformed = frontmatter.serialize(data) + body
+    original = malformed.encode()
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_failure(malformed, "doi", Result.UNMATCHED)
+    assert malformed.encode() == original
+
+
+@pytest.mark.parametrize(
+    ("check", "at"),
+    [
+        ("doi", "2026-02-30"),
+        ("doi", ""),
+        ("doi\nother", "2026-08-16"),
+    ],
+)
+def test_record_pass_rejects_invalid_new_event_fields(check, at):
+    with pytest.raises(ValueError, match="must be"):
+        events.record_pass(BASE, check, Result.MATCHED, by="human:eran", at=at)
+
+
+@pytest.mark.parametrize("field", ["verified", "verification-failures"])
+def test_duplicate_verifier_state_headers_fail_closed(field):
+    rows = (
+        '  - {by: "human:eran", at: "2026-08-16", check: "doi"}\n'
+        if field == "verified"
+        else '  - {check: "doi", result: "UNMATCHED"}\n'
+    )
+    text = f"---\n{field}:\n{rows}{field}:\n{rows}---\nbody\n"
+
+    assert events.verified_checks(text) == []
+    assert events.current_failures(text) == []
+    assert events.trust_tier(text) == "unverified"
+    with pytest.raises(ValueError, match=field):
+        events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")

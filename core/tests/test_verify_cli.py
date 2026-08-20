@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_core import Result, checks, claims, events, inbox, webapi
+from harness_core import Result, bibliography, checks, claims, events, inbox, webapi
 from harness_core.__main__ import (
     _archive_outcomes,
     _clear_verify_failed,
@@ -172,7 +172,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         o is not None and o.check == "quote" and o.result is Result.UNMATCHED
         for o in second["outcomes"]
     )
-    assert "[verify-failed:: quote/" not in draft.read_text()
+    assert "[verify-failed:: quote/" in draft.read_text()
     assert not any(
         e.check == "quote" and e.target == raw.target
         for e in inbox.open_entries(net_vault)
@@ -449,6 +449,8 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         Result.UNMATCHED,
         "warn-notice — correction",
         target_hash="aa11",
+        notice_class="warn",
+        notice_type="correction",
     )
     inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11")
     warning = _outcome(
@@ -624,7 +626,7 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
     )
 
 
-def test_no_attachment_hash_ignores_event_and_marker_bytes_but_reopens_on_content(
+def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substantive(
     net_vault,
 ):
     source = net_vault / "literatures" / "smith2020.md"
@@ -639,29 +641,33 @@ def test_no_attachment_hash_ignores_event_and_marker_bytes_but_reopens_on_conten
         claim_id="c-11111111",
     )
     original = _target_hash(net_vault, outcome)
-    finding = inbox.append_entry(
-        net_vault,
-        outcome.check,
-        outcome.target,
-        outcome.result,
-        outcome.reason,
-        target_hash=original,
-    )
-    inbox.append_ack(net_vault, finding.id, "manual — checked", "human:test", original)
-
     source.write_text(
         events.record_pass(
             source.read_bytes().decode(), "doi", Result.MATCHED, at="2026-08-16"
         ),
         newline="",
     )
+    assert _target_hash(net_vault, outcome) == original
+
     _mutate_marker(net_vault, outcome, "2026-08-17")
     after_effects = source.read_bytes()
+    marked_hash = _target_hash(net_vault, outcome)
+    finding = inbox.append_entry(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        outcome.result,
+        outcome.reason,
+        target_hash=marked_hash,
+    )
+    inbox.append_ack(
+        net_vault, finding.id, "manual — checked", "human:test", marked_hash
+    )
 
     assert b"\r\r\n" not in after_effects
-    assert _target_hash(net_vault, outcome) == original
+    assert marked_hash != original
     assert inbox.is_acknowledged(
-        net_vault, outcome.check, outcome.target, current_hash=original
+        net_vault, outcome.check, outcome.target, current_hash=marked_hash
     )
 
     source.write_bytes(after_effects.replace(b"Mortality fell", b"Mortality rose", 1))
@@ -694,7 +700,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
 
     assert b"   [verify-failed:: citekey/2026-08-16] ^c-1\r\n" in stamped
     assert b"\r [verify-failed" not in stamped
-    assert _target_hash(net_vault, anchored) == anchored_hash
+    assert _target_hash(net_vault, anchored) != anchored_hash
     _clear_verify_failed(net_vault, anchored)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, anchored) == anchored_hash
@@ -712,7 +718,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     stamped = note.read_bytes()
     assert b"line only [@missing] [verify-failed:: quote/2026-08-16]\r\n" in stamped
     assert b"\r [verify-failed" not in stamped
-    assert _target_hash(net_vault, line_only) == line_hash
+    assert _target_hash(net_vault, line_only) != line_hash
     _clear_verify_failed(net_vault, line_only)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, line_only) == line_hash
@@ -741,7 +747,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
         b"- (quote) trailing [@missing] [verify-failed:: quote/2026-08-16] ^c-1  \r\n"
     )
     assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
-    assert _target_hash(net_vault, outcome) == before
+    assert _target_hash(net_vault, outcome) != before
     _clear_verify_failed(net_vault, outcome)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, outcome) == before
@@ -823,6 +829,8 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
         Result.UNMATCHED,
         "warn-notice — correction",
         target_hash=target_hash,
+        notice_class="warn",
+        notice_type="correction",
     )
     inbox.append_ack(
         net_vault, finding.id, "manual — checked", "human:test", target_hash
@@ -1060,6 +1068,8 @@ def test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first(net_vault, capsy
         "warn-notice — correction",
         date="2026-08-01",
         target_hash="aa11",
+        notice_class="warn",
+        notice_type="correction",
     )
     inbox.append_entry(
         net_vault,
@@ -1083,6 +1093,281 @@ def test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first(net_vault, capsy
         )
         == 1
     )
+
+
+def _isolate_network_verify(monkeypatch, outcomes):
+    monkeypatch.setattr("harness_core.__main__._file_outcomes", lambda *_args: [])
+    monkeypatch.setattr(
+        "harness_core.__main__._bibliography_entries",
+        lambda *_args: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
+    )
+    monkeypatch.setattr(
+        "harness_core.__main__._network_outcomes", lambda *_args: list(outcomes)
+    )
+    monkeypatch.setattr(
+        "harness_core.__main__._staleness_outcome",
+        lambda *_args: _outcome(
+            "staleness", "x/bibliography.json", Result.MATCHED, "matched"
+        ),
+    )
+    for name in (
+        "lint_append_only",
+        "lint_claim_immutability",
+        "lint_published_drift",
+        "lint_web_archive",
+    ):
+        monkeypatch.setattr(f"harness_core.lints.{name}", lambda *_args: [])
+    monkeypatch.setattr("harness_core.__main__._archive_outcomes", lambda *_args: [])
+
+
+def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
+    net_vault, monkeypatch, capsys
+):
+    correction = _outcome(
+        "update-notice",
+        "smith2020",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction", "notice_date": "2026-01-01"}],
+    )
+    current = [correction]
+    _isolate_network_verify(monkeypatch, current)
+    monkeypatch.setattr(
+        "harness_core.__main__._network_outcomes", lambda *_args: list(current)
+    )
+
+    assert (
+        cmd_verify(
+            type(
+                "Args",
+                (),
+                {"vault": net_vault, "offline": False, "rw_csv": None},
+            )()
+        )
+        == 0
+    )
+    warning = next(
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.notice_type == "correction"
+    )
+    inbox.append_ack(
+        net_vault,
+        warning.id,
+        "manual — reviewed correction",
+        "human:test",
+        warning.target_hash,
+    )
+    capsys.readouterr()
+
+    current[:] = [
+        _outcome(
+            "update-notice",
+            "smith2020",
+            Result.UNMATCHED,
+            "retracted — retraction",
+            **{
+                "class": "blocking",
+                "type": "retraction",
+                "notice_date": "2026-01-01",
+                "detection_date": "2026-08-17",
+            },
+        )
+    ]
+    assert (
+        cmd_verify(
+            type(
+                "Args",
+                (),
+                {"vault": net_vault, "offline": False, "rw_csv": None},
+            )()
+        )
+        == 1
+    )
+    output = capsys.readouterr().out
+    blocker = next(
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.notice_type == "retraction"
+    )
+
+    assert "retracted — retraction" in output
+    assert blocker.target_hash == warning.target_hash == "aa11"
+    assert (
+        events.trust_tier((net_vault / "literatures" / "smith2020.md").read_text())
+        == "unverified"
+    )
+
+    inbox.append_ack(
+        net_vault,
+        blocker.id,
+        "manual — reviewed retraction",
+        "human:test",
+        blocker.target_hash,
+    )
+    assert (
+        cmd_verify(
+            type(
+                "Args",
+                (),
+                {"vault": net_vault, "offline": False, "rw_csv": None},
+            )()
+        )
+        == 0
+    )
+    assert "retracted — retraction" not in capsys.readouterr().out
+    assert not inbox.open_entries(net_vault)
+
+
+def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
+    net_vault, monkeypatch
+):
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
+    )
+    text = source.read_text()
+    for check in (
+        "doi",
+        "metadata",
+        "update-notice",
+        "quote:smith2020#^c-11111111:managed-region",
+    ):
+        text = events.record_pass(text, check, Result.MATCHED, at="2026-08-15")
+    source.write_text(text)
+    doi_failure = _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — DOI")
+    metadata_failure = _outcome(
+        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+    )
+    current = [doi_failure, metadata_failure]
+    _isolate_network_verify(monkeypatch, current)
+    monkeypatch.setattr(
+        "harness_core.__main__._network_outcomes", lambda *_args: list(current)
+    )
+
+    before = _target_hash(net_vault, doi_failure)
+    run_verify(net_vault, network=True, detection_date="2026-08-16")
+    after = _target_hash(net_vault, doi_failure)
+    findings = {
+        entry.check: entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.target == "smith2020"
+    }
+
+    assert after != before
+    assert findings["doi"].target_hash == after
+    assert findings["metadata"].target_hash == after
+    assert events.trust_tier(source.read_text()) == "unverified"
+    first_bytes = source.read_bytes()
+
+    inbox.append_ack(
+        net_vault,
+        findings["doi"].id,
+        "manual — checked",
+        "human:test",
+        after,
+    )
+    run_verify(net_vault, network=True, detection_date="2026-08-17")
+    assert source.read_bytes() == first_bytes
+    assert not any(entry.check == "doi" for entry in inbox.open_entries(net_vault))
+
+    current[:] = [
+        _outcome("doi", "smith2020", Result.MATCHED, "matched"),
+        metadata_failure,
+    ]
+    run_verify(net_vault, network=True, detection_date="2026-08-18")
+    assert events.current_failures(source.read_text()) == [
+        {"check": "metadata", "result": "UNREACHABLE"}
+    ]
+    assert events.trust_tier(source.read_text()) == "unverified"
+
+    current[:] = [
+        _outcome("doi", "smith2020", Result.MATCHED, "matched"),
+        _outcome("metadata", "smith2020", Result.MATCHED, "matched"),
+    ]
+    run_verify(net_vault, network=True, detection_date="2026-08-19")
+    assert events.current_failures(source.read_text()) == []
+    assert events.trust_tier(source.read_text()) == "machine-confirmed"
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "{",
+        '{"items": []}',
+        '[{"id": "bad", "DOI": 123}]',
+        '[{"id": "bad\\nkey"}]',
+    ],
+    ids=["truncated-json", "wrong-top-level", "non-string-doi", "multiline-id"],
+)
+def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
+    net_vault, capsys, contents
+):
+    (net_vault / "x" / "bibliography.json").write_text(contents)
+
+    code = main(["verify", "--vault", str(net_vault), "--offline"])
+    output = capsys.readouterr().out
+
+    assert code == 0
+    assert "UNMATCHED staleness x/bibliography.json" in output
+    assert "schema-violation" in output
+    assert "Traceback" not in output
+
+
+def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
+    net_vault, capsys
+):
+    (net_vault / "x" / "bibliography.json").write_bytes(b"\xff")
+
+    code = main(["verify", "--vault", str(net_vault), "--offline"])
+    output = capsys.readouterr().out
+
+    assert code == 3
+    assert "UNREACHABLE staleness x/bibliography.json" in output
+
+
+def test_verify_loads_bibliography_once_at_orchestration_boundary(
+    net_vault, monkeypatch
+):
+    real_load = __import__("harness_core.bibliography", fromlist=["load"]).load
+    calls = []
+
+    def counted(vault):
+        calls.append(vault)
+        return real_load(vault)
+
+    monkeypatch.setattr("harness_core.bibliography.load", counted)
+
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+
+    assert len(calls) == 1
+
+
+def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypatch):
+    (net_vault / bibliography.BIB_PATH).write_text("{")
+    real_load = bibliography.load
+    calls = []
+
+    def counted(vault):
+        calls.append(vault)
+        return real_load(vault)
+
+    monkeypatch.setattr("harness_core.bibliography.load", counted)
+    outcome = _outcome("custom", "missing", Result.UNMATCHED, "mismatch")
+    monkeypatch.setattr(
+        "harness_core.__main__._file_outcomes", lambda *_args: [outcome]
+    )
+    for name in (
+        "lint_append_only",
+        "lint_claim_immutability",
+        "lint_published_drift",
+        "lint_web_archive",
+    ):
+        monkeypatch.setattr(f"harness_core.lints.{name}", lambda *_args: [])
+
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+
+    assert len(calls) == 1
 
 
 @pytest.mark.live_net

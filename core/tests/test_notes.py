@@ -242,8 +242,9 @@ plain [verify-failed:: quote/2026-08-16]
     deprecated = base.replace('status: "active"', 'status: "deprecated"')
 
     assert notes.canonical_content(base) == notes.canonical_content(changed_events)
-    assert notes.canonical_content(base) == notes.canonical_content(changed_marker)
+    assert notes.canonical_content(base) != notes.canonical_content(changed_marker)
     assert notes.content_changed(base, changed_events) is False
+    assert notes.content_changed(base, changed_marker) is True
     assert notes.content_changed(base, deprecated) is True
     assert "plain [verify-failed" in notes.canonical_content(base)
 
@@ -269,7 +270,7 @@ verified:
     canonical = notes.canonical_content(text)
 
     assert '  - "not-an-event"\n' in canonical
-    assert "live [verify-failed" not in canonical
+    assert "live [verify-failed" in canonical
 
 
 def test_deprecation_transition_fields_are_all_substantive():
@@ -309,7 +310,7 @@ prose [verify-failed:: quote/2026-08-16]
     assert "prose [verify-failed" in canonical
     assert "code [verify-failed" in canonical
     assert "continuation [verify-failed" in canonical
-    assert "live [verify-failed" not in canonical
+    assert "live [verify-failed" in canonical
 
 
 def test_canonical_content_preserves_crlf_and_unterminated_frontmatter():
@@ -335,8 +336,7 @@ def test_canonical_content_keeps_fenced_marker_rows_until_matching_closure():
 
     canonical = notes.canonical_content(text)
 
-    assert canonical == text.replace("live [verify-failed:: quote/2026-08-16]", "live")
-    assert "live [verify-failed:: quote/2026-08-16]" not in canonical
+    assert canonical == text
 
 
 def test_canonical_content_preserves_short_fence_lookalike_outside_a_fence():
@@ -345,7 +345,7 @@ def test_canonical_content_preserves_short_fence_lookalike_outside_a_fence():
     assert notes.canonical_content(text) == text
 
 
-def test_canonical_content_removes_multiple_terminal_markers_only():
+def test_canonical_content_keeps_multiple_terminal_markers_substantive():
     text = (
         "- (quote) anchored [verify-failed:: quote/2026-08-16] "
         "[verify-failed:: citekey/2026-08-17] ^c-1\n"
@@ -353,9 +353,7 @@ def test_canonical_content_removes_multiple_terminal_markers_only():
         "[verify-failed:: citekey/2026-08-17]\n"
     )
 
-    assert notes.canonical_content(text) == (
-        "- (quote) anchored ^c-1\n- (paraphrase) unanchored\n"
-    )
+    assert notes.canonical_content(text) == text
 
 
 def test_sha256_file(tmp_path):
