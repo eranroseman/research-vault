@@ -904,7 +904,7 @@ def test_gate_bypass_records_inbox_and_clears(fixture_vault):
 
 **Files:**
 - Create: `skills/vault-setup/SKILL.md`
-- Modify: `core/harness_core/scaffold.py` (add `PROVISION_COMPANIONS = [{"plugin": "obsidian@obsidian-skills", "marketplace": "kepano/obsidian-skills"}]`)
+- Modify: `core/harness_core/scaffold.py` (add `PROVISION_COMPANIONS = [{"plugin": "obsidian@obsidian-skills", "marketplace": "kepano/obsidian-skills"}, {"plugin": "*", "marketplace": "mattpocock/skills"}]` — `"*"` means: after the consent-gated `marketplace add`, list that marketplace's plugins and offer each individually; the mattpocock set is the process-skill companion the #11 doctrine allows as install-never-depend)
 - Test: `core/tests/test_skill_files.py`
 
 **Interfaces:** the SKILL.md is the §7-decided entry point (user-typed): frontmatter `name: vault-setup`, `description` (vault-scoped trigger text), `disable-model-invocation: true`. Body (write it fully — this is content, not code):
@@ -941,11 +941,14 @@ One-time scaffold + recurring doctor for a knowledge-harness vault (spec §3/§7
    - MarkDB-Connect (OPTIONAL — marks Zotero items that have vault notes):
      same flow with the MarkDB-Connect `.xpi`.
 5. **Companion plugins (per-item consent).** Offer each entry in
-   `PROVISION_COMPANIONS` (currently one: plugin `obsidian@obsidian-skills`
-   from marketplace `kepano/obsidian-skills` — vault format/ops skills). On
-   consent run BOTH steps (install alone fails where the marketplace was never
-   added): `claude plugin marketplace add kepano/obsidian-skills` then
-   `claude plugin install obsidian@obsidian-skills`; a restart activates it.
+   `PROVISION_COMPANIONS`: plugin `obsidian@obsidian-skills` from marketplace
+   `kepano/obsidian-skills` (vault format/ops), and the `mattpocock/skills`
+   marketplace (process skills — grilling, domain-modeling, wayfinder, … ;
+   optional enrichment per the dependency doctrine: install-never-depend).
+   On consent run BOTH steps (install alone fails where the marketplace was
+   never added): `claude plugin marketplace add <marketplace>`, then for a
+   `"*"` entry list that marketplace's plugins and offer each individually,
+   else `claude plugin install <plugin>`; a restart activates them.
    Never install without the offer.
 6. **Finish.** Re-run doctor; read the warn-class probes aloud (remote, backup,
    inbox age) — they are standing conditions, not failures. The vault is ready
@@ -975,7 +978,8 @@ def test_provision_companions_constant():
     from harness_core import scaffold
     assert scaffold.PROVISION_COMPANIONS == [
         {"plugin": "obsidian@obsidian-skills",
-         "marketplace": "kepano/obsidian-skills"}]
+         "marketplace": "kepano/obsidian-skills"},
+        {"plugin": "*", "marketplace": "mattpocock/skills"}]
 ```
 
 - [ ] **Step 2–4:** fail (file absent) → write SKILL.md + constant → 2 PASS
