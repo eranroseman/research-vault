@@ -6,13 +6,17 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
+pdf = ["pypdf>=4"]
 dev = [
     "pytest>=8",
     "ruff==0.15.21",
 ]
 
 [tool.pytest.ini_options]
-markers = ["live: requires a running local Zotero (set HARNESS_LIVE=1)"]
+markers = [
+    "live: requires a running local Zotero (set HARNESS_LIVE=1)",
+    "live_net: hits real external APIs (set HARNESS_LIVE_NET=1 and HARNESS_MAILTO)",
+]
 
 [tool.ruff]
 required-version = "==0.15.21"

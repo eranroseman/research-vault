@@ -7,6 +7,29 @@ class FrontmatterError(ValueError):
     pass
 
 
+class _DuplicateKeyMapping(dict):
+    """Parsed mapping that retains the fact its source repeated a key."""
+
+    def __init__(self, pairs):
+        pairs = tuple(pairs)
+        super().__init__(pairs)
+        self.source_items = pairs
+
+
+def _mapping_items(mapping):
+    return (
+        mapping.source_items
+        if isinstance(mapping, _DuplicateKeyMapping)
+        else mapping.items()
+    )
+
+
+def _mapping_from_items(items):
+    items = tuple(items)
+    mapping = dict(items)
+    return _DuplicateKeyMapping(items) if len(mapping) != len(items) else mapping
+
+
 _INLINE_DICT = re.compile(r"^\{(.*)\}$")
 _FRONTMATTER_OPEN = re.compile(r"\A---(?:\r\n|\n)")
 _FRONTMATTER_CLOSE = re.compile(r"(?:\r\n|\n)---(?:\r\n|\n)")
@@ -21,13 +44,14 @@ def _emit_scalar(v):
 
 def serialize(data: dict) -> str:
     lines = ["---"]
-    for key, value in data.items():
+    for key, value in _mapping_items(data):
         if isinstance(value, list):
             lines.append(f"{key}:")
             for item in value:
                 if isinstance(item, dict):
                     inner = ", ".join(
-                        f"{k}: {_emit_scalar(v)}" for k, v in item.items()
+                        f"{key}: {_emit_scalar(item_value)}"
+                        for key, item_value in _mapping_items(item)
                     )
                     lines.append(f"  - {{{inner}}}")
                 else:
@@ -75,11 +99,13 @@ def _parse_item(raw: str):
     m = _INLINE_DICT.match(raw)
     if not m:
         return _parse_scalar(raw)
-    out = {}
+    pairs = []
     for part in _split_unquoted(m.group(1), ", "):
         pair = _split_unquoted(part, ": ", 1)
-        out[pair[0].strip()] = _parse_scalar(pair[1] if len(pair) > 1 else "")
-    return out
+        key = pair[0].strip()
+        value = _parse_scalar(pair[1] if len(pair) > 1 else "")
+        pairs.append((key, value))
+    return _mapping_from_items(pairs)
 
 
 def parse(text: str) -> tuple[dict, str]:
@@ -91,7 +117,7 @@ def parse(text: str) -> tuple[dict, str]:
         raise FrontmatterError("unterminated frontmatter")
     block = text[opening.end() : closing.start()]
     body = text[closing.end() :]
-    data: dict = {}
+    source_items = []
     current_list = None
     for line in block.splitlines():
         if line.startswith("  - "):
@@ -109,8 +135,9 @@ def parse(text: str) -> tuple[dict, str]:
             key, raw = parts
             if raw.strip() == "":
                 current_list = []
-                data[key] = current_list
+                value = current_list
             else:
-                data[key] = _parse_scalar(raw)
+                value = _parse_scalar(raw)
                 current_list = None
-    return data, body
+            source_items.append((key, value))
+    return _mapping_from_items(source_items), body

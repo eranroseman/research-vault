@@ -1,6 +1,6 @@
 import pytest
 
-from harness_core import frontmatter, notes
+from harness_core import Result, events, frontmatter, notes
 
 ITEM = {
     "id": "smith2020",
@@ -76,6 +76,142 @@ def test_unowned_frontmatter_fields_survive_rerender():
     assert kept["superseded-by"] == "smith2024"
     assert kept["authority"] == "peer-reviewed journal"
     assert kept["archive-url"] == "https://web.archive.org/web/x"
+
+
+def test_rerender_preserves_duplicate_key_verified_as_rejected_evidence():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified:
+  - {by: "bot", at: "2026-08-16", check: "metadata", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.verified_checks(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.verified_checks(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verified"):
+        events.record_failure(rerendered, "doi", Result.UNMATCHED)
+
+
+def test_rerender_preserves_duplicate_key_failures_as_rejected_evidence():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+verification-failures:
+  - {check: "doi", check: "legacy-check", result: "UNMATCHED"}
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.current_failures(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.current_failures(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
+
+
+def test_rerender_preserves_scalar_before_verified_list_as_rejected_evidence():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified: "shadow"
+verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.verified_checks(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verified"):
+        events.record_failure(rerendered, "doi", Result.UNMATCHED)
+
+
+def test_rerender_preserves_failure_list_before_empty_duplicate_as_rejected():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+verification-failures:
+  - {check: "doi", result: "UNMATCHED"}
+verification-failures:
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.current_failures(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
 
 
 def test_free_region_byte_exact():
@@ -195,6 +331,20 @@ def test_selector_values_are_html_escaped():
     )
 
 
+def test_selector_values_escape_newlines_on_one_line():
+    ann = dict(
+        QUOTE_ANN,
+        context_prefix="lead\r\nquoted",
+        context_suffix="tail\nquoted",
+    )
+
+    selector = notes.render_claim(ann).split("\n")[-1]
+
+    assert selector == (
+        '  <!-- hk-sel prefix="lead&#13;&#10;quoted" suffix="tail&#10;quoted" -->'
+    )
+
+
 def test_content_changed_compares_complete_rendered_candidate():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16")
     identical = notes.render_note(
@@ -211,6 +361,135 @@ def test_content_changed_compares_complete_rendered_candidate():
     assert notes.content_changed(v1, identical) is False
     assert notes.content_changed(v1, changed) is True
     assert notes.content_changed(None, identical) is True
+
+
+def test_canonical_content_excludes_only_valid_verifier_owned_surfaces():
+    base = """---
+citekey: "x"
+verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+status: "active"
+---
+- (quote) text [verify-failed:: quote/2026-08-16] ^c-1
+plain [verify-failed:: quote/2026-08-16]
+"""
+    changed_events = base.replace('check: "doi"', 'check: "metadata"')
+    changed_marker = base.replace("quote/2026-08-16", "quote/2026-08-17", 1)
+    deprecated = base.replace('status: "active"', 'status: "deprecated"')
+
+    assert notes.canonical_content(base) == notes.canonical_content(changed_events)
+    assert notes.canonical_content(base) != notes.canonical_content(changed_marker)
+    assert notes.content_changed(base, changed_events) is False
+    assert notes.content_changed(base, changed_marker) is True
+    assert notes.content_changed(base, deprecated) is True
+    assert "plain [verify-failed" in notes.canonical_content(base)
+
+
+def test_canonical_content_keeps_malformed_verified_scalar_and_marker_lookalike():
+    text = """---
+verified: "not-a-list"
+---
+- (quote) text [verify-failed:: bad date] ^c-1
+"""
+    assert notes.canonical_content(text) == text
+
+
+def test_canonical_content_keeps_mixed_verified_list_byte_for_byte():
+    text = """---
+verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - "not-an-event"
+---
+- (quote) live [verify-failed:: quote/2026-08-16] ^c-1
+"""
+
+    canonical = notes.canonical_content(text)
+
+    assert '  - "not-an-event"\n' in canonical
+    assert "live [verify-failed" in canonical
+
+
+def test_deprecation_transition_fields_are_all_substantive():
+    base = """---
+citekey: "x"
+status: "active"
+deprecated-at: ""
+deprecated-by: ""
+reason: ""
+---
+body
+"""
+    transitions = [
+        base.replace('status: "active"', 'status: "deprecated"'),
+        base.replace('deprecated-at: ""', 'deprecated-at: "2026-08-16"'),
+        base.replace('deprecated-by: ""', 'deprecated-by: "human:eran"'),
+        base.replace('reason: ""', 'reason: "superseded source"'),
+    ]
+
+    assert all(notes.content_changed(base, changed) for changed in transitions)
+
+
+def test_canonical_content_preserves_markers_in_frontmatter_prose_fences_and_continuations():
+    text = """---
+verified: "not-a-list"
+marker: "[verify-failed:: quote/2026-08-16]"
+---
+prose [verify-failed:: quote/2026-08-16]
+```md
+- (quote) code [verify-failed:: quote/2026-08-16] ^c-1
+```
+- (quote) live [verify-failed:: quote/2026-08-16] ^c-2
+  > continuation [verify-failed:: quote/2026-08-16]
+"""
+    canonical = notes.canonical_content(text)
+    assert 'marker: "[verify-failed:: quote/2026-08-16]"' in canonical
+    assert "prose [verify-failed" in canonical
+    assert "code [verify-failed" in canonical
+    assert "continuation [verify-failed" in canonical
+    assert "live [verify-failed" in canonical
+
+
+def test_canonical_content_preserves_crlf_and_unterminated_frontmatter():
+    text = '---\r\nverified:\r\n  - {by: "bot"}\r\n---\r\n- (quote) x [verify-failed:: quote/2026-08-16] ^c-1\r\n'
+    assert "\r\n" in notes.canonical_content(text)
+    malformed = (
+        '---\nverified:\n  - {by: "bot"}\n'
+        "- (quote) unterminated [verify-failed:: quote/2026-08-16] ^c-1\n"
+    )
+    assert notes.canonical_content(malformed) == malformed
+
+
+def test_canonical_content_keeps_fenced_marker_rows_until_matching_closure():
+    text = """~~~markdown
+- (quote) tilde [verify-failed:: quote/2026-08-16] ^c-1
+```
+- (quote) mismatched [verify-failed:: quote/2026-08-16] ^c-2
+~~
+- (quote) short [verify-failed:: quote/2026-08-16] ^c-3
+~~~~
+- (quote) live [verify-failed:: quote/2026-08-16] ^c-4
+"""
+
+    canonical = notes.canonical_content(text)
+
+    assert canonical == text
+
+
+def test_canonical_content_preserves_short_fence_lookalike_outside_a_fence():
+    text = "~~\nprose [verify-failed:: quote/2026-08-16]\n"
+
+    assert notes.canonical_content(text) == text
+
+
+def test_canonical_content_keeps_multiple_terminal_markers_substantive():
+    text = (
+        "- (quote) anchored [verify-failed:: quote/2026-08-16] "
+        "[verify-failed:: citekey/2026-08-17] ^c-1\n"
+        "- (paraphrase) unanchored [verify-failed:: quote/2026-08-16] "
+        "[verify-failed:: citekey/2026-08-17]\n"
+    )
+
+    assert notes.canonical_content(text) == text
 
 
 def test_sha256_file(tmp_path):
