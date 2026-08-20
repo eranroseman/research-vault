@@ -49,7 +49,7 @@ No class binding ⇒ the stack's term is adopted. Taste never justifies deviatio
 
 ---
 
-# Proposed full precedence order for anchor sources (awaiting author ruling)
+# Full precedence order for anchor sources (RULED — author confirmed, 2026-08-20)
 
 The naming-pass research surfaced ~25 candidate vocabularies. The ruled stack (CSL → OpenAlex → domain authorities "inside their domains") needs those domains made explicit. Proposal: **seven tiers, ordered by the cost of contradiction, evaluated per surface** — a lower tier can win only on a surface the higher tiers are silent about.
 
