@@ -1063,6 +1063,12 @@ git add core docs/environment.md && git commit -m "feat: live scaffold+doctor dr
 
 Ordinary corrections without ruling: doctor `--base` routing; exact live autoexport cleanup confirmation; `stop_hook_active` for a genuinely consecutive eight-block bound.
 
+## Task 4 preflight rulings (all approved, 2026-08-20)
+
+1. **Pre-commit compares HEAD to the git index** — the prospective commit — never the worktree. The commit gate's subject is what becomes durable: staged deletes/renames are commit content even when unstaged bytes mask them, and unstaged scratch never triggers holds. First-commit edge: no HEAD → diff against the empty tree.
+2. **No actor self-authorizes managed-region changes — including the deterministic importer.** The commit hook cannot verify byte provenance, and re-rendering from Zotero to prove machine origin would put a network dependency inside a closing check (UNREACHABLE cannot close; an outage would block commits). Any managed-region base→candidate change is an evidence-layer finding routed to the review inbox; the existing hash-scoped human acknowledgment is the sole pass, standing until the target's content hash changes. No auto-commit shortcut: the importer writes, the human commits. (Consistent reading of the user-driven control model.)
+3. **Bare `verify` is an open audit surface**: collect and project everything, close nothing. Closing sets bind only to explicitly named surfaces (commit, publish) — detect-always / enforce-at-surface verbatim.
+
 ## Self-Review (completed at authoring)
 
 **Spec coverage:** §3 tree/templates/AGENTS.md/Bases → T1–T2; §7 vault-setup + doctor + provisioning consent + wizard installs → T2–T3, T7; §6 surfaces: pre-commit → T3/T4, CI replay + rw-batch async auditor → T4, PostToolUse warn (fail-open) → T5, armed Stop gate (fail-closed incl. UNREACHABLE, 8-block bound, bypass-as-data to inbox) → T6; §8 hooks.json in plugin layout → T6; Plan A caveat (autoexport live) → T3 (repair path) + T8 (discharge). Deliberately out: the eight remaining skills and the publish skill that writes the flag (Plan D); paths-frontmatter guard scoping (Plan D, with the guard skills); marketplace version bump (Plan D ships the full skill set).
