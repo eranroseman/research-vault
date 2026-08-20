@@ -307,4 +307,6 @@ Unchanged: `literatures/`, `x/`, plugin name + `hk-`/`.harness` cascade, type `l
 4. This document's §6 inventory updated: confirmed terms move to their new names with status A/S per §8's promotion shortlist; §4's stance-link row moves from deviation to anchored adoption (CiTO); the ⚠ defect row closes.
 5. Terminology-related spec sections (§3, §5, §7 skill list, §9 drills) reflect the ruled names.
 
+**OKF structural conformance (ruled 2026-08-20, rides this wave):** add root `index.md` (home page, `okf_version: "0.2"` frontmatter — the one index permitted frontmatter), root `log.md` (machine-maintained dehydrated tail over `log/YYYY-MM-DD.md`, single writer, regenerated), and `type` frontmatter on every machine-written `.md` (`inbox/review-queue.md`, `AGENTS.md`, scaffolded files). OKF's status in §8 upgrades from "OKF-derived, documented divergence" to **structural conformance target** — version-tracking obligation accepted for vault survivability. Fleeting human notes remain the tolerated residual.
+
 **Post-wave: the naming-pass gate on §9 slice execution is CLEARED.**
