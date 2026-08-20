@@ -6,7 +6,7 @@ The vault must outlive this harness, and OKF is becoming an ecosystem of agent-f
 
 ## Considered Options
 
-Export-boundary-only OKF projection (rejected: insures published efforts, not the living vault); no conformance — the prior "documented divergence" ruling (rejected: rested on a misreading of conformance as vocabulary-total; it is structural).
+Export-boundary-only OKF projection (rejected: insures published efforts, not the living vault). Vocabulary-borrowing without structural conformance (rejected: conformance is structural-only and tolerates unknown keys, so it costs almost nothing beyond the version-tracking commitment — the survivability gain is nearly free).
 
 ## Consequences
 
