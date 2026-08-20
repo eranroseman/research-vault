@@ -169,3 +169,41 @@ Harvested from the approved spec and as-built code (Plans A–B merged, Plan C i
 5. **The ⚠ `retrieved`→`accessed` defect** — rename per CSL (T1) or supply the forcing class the original ruling lacked.
 6. Check names, reason codes, remaining inline fields (`failed-verification`, `fixity`), skill verbs — S-or-keep at leisure, before the vault exists.
 7. Everything marked A or D (post-⚠-resolution) is out of scope.
+
+
+---
+
+## 8. Promotion analysis: implications of making each S an A
+
+Added 2026-08-20. **S → A means one of two things**: *(adopt)* rename to the anchor's exact term so the word IS the external vocabulary, or *(commit)* declare the anchor normative — we track its changes and owe conformance. Either way, promotion **locks the term against the naming pass** (A is out of the pass's scope) and prices every future rename at a real cost class. General law surfaced by this analysis: **promotion is sound only for T1–T3 anchors (stable, versioned, or professionally spoken); T5 community anchors can inspire but cannot govern — promoting against them creates fictional conformance to an unversioned source.** T4 is case-by-case.
+
+| S term | Anchor (tier) | Promotion path | What we gain | What it costs / risks | Verdict |
+|---|---|---|---|---|---|
+| `literatures/` | ZotLit default folder (T1) | commit (name already matches) | If ZotLit is ever adopted as UI (#8 kept the door open), zero-config compatibility becomes *guaranteed*, not incidental | Couples a folder name to one plugin's default; ZotLit could change it; blocks the `references/` naming-pass option | **Defer to the pass** — promote only if the pass keeps the name *because of* ZotLit |
+| `literature` (note kind) | Ahrens (T5 mass term) + ZotLit docs | commit | The PKM world's own word; every tutorial ever written explains it for us | Ahrens is a book, not a spec — nothing to conform to; harmless but fictional | **Leave S** — the anchor governs usage, not us |
+| `atlas/`, `calendar/`, `efforts/`, `x/`, `+` | Ideaverse (T5, informal artifact) | commit | None beyond familiarity to LYT users | Milo can reorganize Ideaverse tomorrow; conformance is fiction; **locks the six folders the naming pass most needs freedom on** | **Leave S / actively do not promote** — strongest do-not case in the table |
+| `atlas/index.md` | llm-wiki convention (T5, but unanimous across 7 implementations) | commit | Interop with any llm-wiki-reading tool; `index.md` is also a web-server convention (near-T1) | Convention is informal but redundantly anchored; risk ≈ nil | **Promote** — cheap, real, survives the atlas folder rename (filename is what matters) |
+| "managed region" | ZotLit (T1 convention) | commit | Regeneration semantics documented by ZotLit for free; marker interop if ZotLit adopted | Our markers are `hk-` not `zt-` — promotion covers the *concept*, not the delimiter; fine | **Promote the concept**, keep `hk-` delimiters (plugin-name cascade) |
+| Evidence-boundary tags | PROV/ICD 203 semantics (T2/T3) | commit (semantic conformance) | The tags gain an auditable definition: quote ⇔ `wasQuotedFrom`, inference ⇔ ICD judgment — reviewers can check our usage against a spec | Obligates the evidence-conventions skill to teach the mapping; PROV is frozen (safe); ICD amendable (slow) | **Promote semantically** — this is the trust core; an external definition strengthens it. Names stay ours (already plainer) |
+| `[confidence::]` scale | ICD 203 (T3) | adopt values verbatim (already `low/moderate/high`) + commit | The IC's calibrated usage guidance comes free; GRADE crosswalk documented | GRADE says *certainty* — committing to ICD forecloses the GRADE rename | **Promote to ICD** unless the pass prefers GRADE's word; both T3, either sound |
+| Status/transition fields (`live/deprecated` + actor/date/reason) | Wikidata deprecation family (T4) | commit | Mass-deployed semantics for deprecate-never-delete; ranks precedent for future needs | Wikidata property semantics evolve by community process; loose coupling only | **Promote semantics, not names** — current state, made explicit |
+| Selector fields (`exact/prefix/suffix`) | W3C WADM (T2) | **already verbatim** — commit formally | Conformance claim becomes checkable; future WADM export is a projection, not a translation | W3C TR is frozen — no drift risk | **Promote** — free and real; the strongest promotion candidate |
+| "claim" | Micropublications/nanopub (T2-ish, academic spec) | commit | The trust object gains a published formal model; "claim" usage auditable against it | Micropub is a paper-spec (frozen, unmaintained) — anchor is stable but dead; conformance partial by design (we flattened the tri-graph) | **Promote as cited definition**, not conformance |
+| `version` | Force11 (T3 principles) | commit | Citation-principles pedigree for reviewers | Principles, not schema — nothing concrete to conform to | **Leave S** — cite, don't commit |
+| `archive-url` | Wikidata P1065 (T4) | adopt name? (`archive-url` vs P1065 "archive URL" — already matches) | Alignment is already exact | None | **Promote by observation** — it is A in all but label; record it |
+| `authority` | Library-science authority control + ICD 206 source descriptors (T3) | adopt ICD's `source-descriptor`? | ICD verbatim would make the field auditable against ICD 206's descriptor list | Renames a field for a standard the user doesn't read daily; `authority` is the librarian's own word | **Leave S**, offer the pass both words |
+| `verified` events | OKF (T4, versioned v0.2) | commit to OKF conformance | Interop with OKF consumers; schema documented externally; `{by, at, check}` = their shape + our extension | OKF is young (v0.2, one vendor); committing means tracking 0.3+; our `check` field is already an extension — full conformance impossible | **Promote as "OKF-derived, documented divergence"** — commit to the actor convention and tier names, not whole-schema conformance |
+| Actor convention | OKF (T4) | adopt verbatim (already is) + commit | One line of external doc replaces ours | Same OKF-youth risk, but the convention is tiny and stable | **Promote** — smallest possible conformance surface |
+| Trust tiers | OKF tier names verbatim (T4) | commit | Names externally defined; derivation stays ours | Tier *derivation* is ours (stricter than OKF's advisory tiers) — commit names only or the divergence becomes non-conformance | **Promote names only**, derivation explicitly ours |
+| `growth/planted/last-tended` + stages | Appleton (T5, personal essay) | adopt her full stage set | Digital-garden users recognize it instantly | Essay-anchored — no spec; her stages are hers to change | **Adopt values, leave status S** — same as Ahrens |
+| Publish gate family | GitHub required checks + press-check (T6/precedent) | commit to GitHub vocabulary? | CI users' instant legibility | T6 never names vault prose — the gate speaks in skill prose too; partial surface only | **Leave S** — T6 scope rule bars full promotion |
+| `doctor`, CLI verbs | CLI conventions (T6) | commit (names already conventional) | Self-documenting to any developer | Convention, not spec — nothing to track | **Promote by observation** — costless; record as A-by-convention on the CLI surface |
+| "admission" | STORM (T4 paper) | commit as cited definition | The trust boundary's key verb gains a citable origin | Paper-anchored; frozen | **Promote as cited definition** (like "claim") |
+
+### Promotion summary
+
+- **Promote now (real, free):** WADM selector fields; `atlas/index.md`; managed-region concept; actor convention; OKF tier *names*; `archive-url`; CLI-surface verbs by observation; evidence-boundary tags *semantically*.
+- **Promote as cited definition (anchor frozen/dead but stable):** "claim" (micropub), "admission" (STORM).
+- **Promote with scoped divergence:** `verified` events (OKF-derived, `check` extension documented).
+- **Defer to the naming pass (promotion would pre-empt it):** `literatures/`, `[confidence::]` ICD-vs-GRADE.
+- **Do not promote (T5 anchors cannot govern):** the five Ideaverse folder names, `literature` note kind, Appleton statuses, Ahrens-anchored terms — they stay S by design; T5 inspires, never governs.
