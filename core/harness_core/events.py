@@ -33,7 +33,7 @@ def _calendar_date(value) -> bool:
 
 def _valid_event(event) -> bool:
     return (
-        isinstance(event, dict)
+        type(event) is dict
         and set(event) == {"by", "at", "check"}
         and _single_line(event["by"])
         and _calendar_date(event["at"])
@@ -50,7 +50,7 @@ def _duplicate_header(note_text: str, field: str) -> bool:
     )
     if close is None:
         return False
-    return sum(line.rstrip(" \t") == f"{field}:" for line in lines[1:close]) > 1
+    return sum(line.startswith(f"{field}:") for line in lines[1:close]) > 1
 
 
 def _verified_events(data: dict) -> tuple[list[dict], bool]:
@@ -71,7 +71,7 @@ def _failure_rows(data: dict) -> tuple[list[dict], bool]:
         return [], False
     valid_results = {result.value for result in Result if result is not Result.MATCHED}
     if not isinstance(raw, list) or not all(
-        isinstance(row, dict)
+        type(row) is dict
         and set(row) == {"check", "result"}
         and _single_line(row["check"])
         and row["result"] in valid_results

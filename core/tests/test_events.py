@@ -376,3 +376,45 @@ def test_duplicate_verifier_state_headers_fail_closed(field):
     assert events.trust_tier(text) == "unverified"
     with pytest.raises(ValueError, match=field):
         events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
+
+
+def test_duplicate_keys_inside_verified_event_fail_closed():
+    confirmed = _machine_confirmed_text()
+    malformed = confirmed.replace(
+        'check: "doi"}', 'check: "metadata", check: "doi"}', 1
+    )
+
+    assert events.verified_checks(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+    with pytest.raises(ValueError, match="verified"):
+        events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")
+    with pytest.raises(ValueError, match="verified"):
+        events.record_failure(malformed, "doi", Result.UNMATCHED)
+
+
+def test_duplicate_keys_inside_current_failure_fail_closed():
+    failed = events.record_failure(_machine_confirmed_text(), "doi", Result.UNMATCHED)
+    malformed = failed.replace(
+        'check: "doi", result: "UNMATCHED"}',
+        'check: "metadata", check: "doi", result: "UNMATCHED"}',
+        1,
+    )
+
+    assert events.current_failures(malformed) == []
+    assert events.trust_tier(malformed) == "unverified"
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_failure(malformed, "doi", Result.UNMATCHED)
+
+
+@pytest.mark.parametrize("field", ["verified", "verification-failures"])
+def test_duplicate_scalar_and_list_verifier_headers_fail_closed(field):
+    text = _machine_confirmed_text()
+    if field == "verification-failures":
+        text = events.record_failure(text, "doi", Result.UNMATCHED)
+    malformed = text.replace(f"{field}:\n", f'{field}: "shadow"\n{field}:\n', 1)
+
+    assert events.trust_tier(malformed) == "unverified"
+    with pytest.raises(ValueError, match=field):
+        events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")

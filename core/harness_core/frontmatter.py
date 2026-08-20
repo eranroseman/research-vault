@@ -7,6 +7,10 @@ class FrontmatterError(ValueError):
     pass
 
 
+class _DuplicateKeyMapping(dict):
+    """Parsed mapping that retains the fact its source repeated a key."""
+
+
 _INLINE_DICT = re.compile(r"^\{(.*)\}$")
 _FRONTMATTER_OPEN = re.compile(r"\A---(?:\r\n|\n)")
 _FRONTMATTER_CLOSE = re.compile(r"(?:\r\n|\n)---(?:\r\n|\n)")
@@ -76,10 +80,13 @@ def _parse_item(raw: str):
     if not m:
         return _parse_scalar(raw)
     out = {}
+    duplicate = False
     for part in _split_unquoted(m.group(1), ", "):
         pair = _split_unquoted(part, ": ", 1)
-        out[pair[0].strip()] = _parse_scalar(pair[1] if len(pair) > 1 else "")
-    return out
+        key = pair[0].strip()
+        duplicate = duplicate or key in out
+        out[key] = _parse_scalar(pair[1] if len(pair) > 1 else "")
+    return _DuplicateKeyMapping(out) if duplicate else out
 
 
 def parse(text: str) -> tuple[dict, str]:
