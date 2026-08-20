@@ -83,7 +83,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 - Consumes: Task 1's installed dev extra.
 - Produces: `ruff check harness_core tests scripts` and `mypy harness_core` both clean — Task 4's CI runs exactly these (the `scripts/` package exists from Task 3 onward; until then the path is simply absent and ruff skips it).
 
-**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683`, stdlib `ElementTree` on registry XML — per-line `noqa: S314` with reason: bandit's fix is defusedxml, but core's zero-runtime-dependency constraint governs; https-only registry feeds; revisit if untrusted XML sources grow). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, the rest of the S family, and T20 outside `__main__.py`/`scripts/` (all 18 measured prints live in `__main__.py` — library modules get the stray-debug-print guard; a rogue print in `checks.py` would corrupt the CLI stdout contract).
+**Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683`, stdlib `ElementTree` on registry XML — per-line `noqa: S314` with reason: bandit's fix is defusedxml, but core's zero-runtime-dependency constraint governs; https-only registry feeds; revisit if untrusted XML sources grow). Also PERF×3 (loop/comprehension rewrites as reported). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, the rest of the S family, the future-guard block ASYNC/EXE/FA/FLY/G/INT/LOG/N/PYI/RET/TC/YTT (structurally n/a today — no async, no logging, no stubs; the guard is already armed the day such code appears), and T20 outside `__main__.py`/`scripts/` (all 18 measured prints live in `__main__.py` — library modules get the stray-debug-print guard; a rogue print in `checks.py` would corrupt the CLI stdout contract).
 
 **mypy, pre-measured (default mode, mypy 2.3.1): 10 genuine errors in 7 files** — `frontmatter.py:137` var-annotated + `:141` assignment (`current_list` needs `list[...] | None` typing), `inbox.py:368` var-annotated `entries`, `zotero.py:182` return-value (`object` vs `dict` — narrow with `isinstance`), `checks.py:66` assignment (`str` into a `Path` variable — split the variable), `lints.py:187`/`:440` var-annotated, `lints.py:457` arg-type (`str | None` into `Outcome` — guard before the call), `identify.py:110` var-annotated `identifiers`, plus one index-category error mypy reports in full. `--strict` is 329 (308 of them annotation-presence) — a campaign, deliberately NOT this task; the ratchet path is recorded below.
 
@@ -96,25 +96,38 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 extend-select = [
     "A",
     "ARG",
+    "ASYNC",
     "B",
     "C4",
     "DTZ",
+    "EXE",
+    "FA",
+    "FLY",
     "FURB",
+    "G",
     "I",
+    "INT",
     "ISC",
+    "LOG",
+    "N",
+    "PERF",
     "PGH",
     "PIE",
     "PLE",
     "PLW",
     "PT",
     "PTH",
+    "PYI",
+    "RET",
     "RUF",
     "S",
     "SIM",
     "T10",
     "T20",
+    "TC",
     "UP",
     "W",
+    "YTT",
 ]
 ignore = [
     # Bandit idiom exclusions (recorded 2026-08-20): these fire on this repo's
@@ -132,6 +145,11 @@ ignore = [
 #   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
 #   D     — docstrings unenforced by decision: presence/format checks can't verify truth,
 #           and the meaning layer lives in CONTEXT.md/spec; docstrings stay by convention
+# Upgrade protocol (ruff pinned; upgrades are deliberate acts): newer ruff versions
+# default-enable curated singles from BLE/D/TRY/PL — the skip list above — and
+# extend-select cannot unselect defaults. On any ruff upgrade: diff the new version's
+# defaults (ruff check --isolated --show-settings) against these skips and move any
+# violated skip into `ignore`, or the recorded rulings silently stop being true.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cli_live.py" = ["UP012"]
@@ -170,6 +188,7 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 - RUF012/RUF013-class hits: annotate mutable class attributes / make `Optional` explicit as reported.
 - S108/S314: classify per the pre-measured notes above (noqa-with-reason where the code is the deliberate design, never blanket ignores).
 - S101 in core (3 hits): replace production `assert` with explicit raises, or noqa-with-reason where it guards an internal invariant.
+- PERF (3 hits): apply the reported rewrites.
 - mypy's 10: annotate the six `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
 
 - [ ] **Step 4: Verify clean + suite green**
@@ -312,8 +331,10 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'scripts'`
 - [ ] **Step 3: Write the script** — `core/scripts/__init__.py` (empty) and `core/scripts/mutation_gate.py`:
 
 ```python
-#!/usr/bin/env python3
 """No-new-survivors mutation gate over mutate4py.
+
+Invoked explicitly as `python scripts/mutation_gate.py` — no shebang on purpose
+(EXE001 fires on a shebang in a non-executable file, and nothing execs this directly).
 
 Gate mode (default): mutation-test the harness_core files changed since --base,
 fail (exit 1) on any survivor whose key is absent from the committed baseline.
