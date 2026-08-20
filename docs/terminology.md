@@ -17,19 +17,40 @@ No class binding ⇒ the precedence order's term is adopted. Taste never justifi
 
 ## 2. Precedence order for anchor sources (RULED)
 
-**Seven tiers, ordered by the cost of contradiction, evaluated per surface** — a lower tier can win only on a surface the higher tiers are silent about.
+**INVERTED by author ruling 2026-08-20 (Reading A: OKF leads; the four-cost model still governs every deviation).** Eight tiers, ordered by the ruling and then by cost of contradiction, evaluated per surface — a lower tier wins only where higher tiers are silent.
 
-- **T1 — Toolchain surfaces the user physically inhabits** (contradiction = class-1, paid daily): **CSL first** (fields in `bibliography.json`, pandoc citations), Zotero UI, BBT/ZotLit conventions, Obsidian (aliases, block links, properties, Bases), Dataview field syntax, Markdown.
-- **T2 — Authorities of record** (own semantics AND the data we record; contradiction risks class-3 at boundaries): Crossref (update types), DataCite (relation types), DOI system, W3C (Web Annotation selectors, PROV), CiTO/SPAR (citation typing), IETF where applicable.
-- **T3 — Scholarly-method vocabularies** the target user speaks professionally: PRISMA/Cochrane/Covidence (screening, evidence synthesis), GRADE (certainty), ICD 203/206 (sourcing, analytic confidence), plain scholarly English.
-- **T4 — Cross-cutting aggregators** (documented, maintained, not inhabited): **OpenAlex** (its ruled home, after CSL), Wikidata, OKF, scite.
-- **T5 — Community conventions**: llm-wiki (index.md, wiki/, log), Ideaverse/LYT, Ahrens/PKM, Appleton, GTD/PARA, Wikipedia template vocabulary.
-- **T6 — Developer-tool conventions, dev-facing surfaces only** (never vault prose): pytest outcomes, GitHub checks/branch protection, Vale severities, CLI verb lore (doctor, scaffold, probe).
-- **T7 — Author's coinage** — only where T1–T6 are silent; author-anchored terms (information flow / project flow) live here by choice.
+- **T1 — OKF** (Open Knowledge Format; the vault is a structurally conformant OKF bundle per ADR 0001): its vocabulary is the first source of names wherever it speaks.
+- **T2 — Toolchain surfaces the user physically inhabits** (contradiction = class-1, paid daily): **CSL first** (fields in `bibliography.json`, pandoc citations), Zotero UI, BBT/ZotLit conventions, Obsidian (aliases, block links, properties, Bases), Dataview field syntax, Markdown.
+- **T3 — Authorities of record**: Crossref (update types), DataCite (relation types), DOI system, W3C (Web Annotation selectors, PROV), CiTO/SPAR (citation typing), IETF where applicable.
+- **T4 — Scholarly-method vocabularies**: PRISMA/Cochrane/Covidence, GRADE, ICD 203/206, plain scholarly English.
+- **T5 — Cross-cutting aggregators**: OpenAlex, Wikidata, scite.
+- **T6 — Community conventions**: llm-wiki, Ideaverse/LYT, Ahrens/PKM, Appleton, GTD/PARA, Wikipedia template vocabulary.
+- **T7 — Developer-tool conventions, dev-facing surfaces only** (never vault prose): pytest outcomes, GitHub checks, Vale severities, CLI verb lore.
+- **T8 — Author's coinage** — only where T1–T7 are silent.
 
 **Tie-breakers:** (1) the vocabulary whose data we record beats the one we merely resemble; (2) verbatim machine-readable identifiers beat prose labels; (3) versioned spec beats living wiki beats blog; (4) surface fit is absolute.
 
 Domain-scoped authorities (Crossref updates, W3C selectors) retain authority inside their domains regardless of tier walk order.
+
+### Inversion deltas (ruled with the inversion; supersede conflicting rows below)
+
+Applying the cost model against OKF-as-T1 across its whole vocabulary (`type, title, description, resource, tags, sources, generated, verified, status, stale_after`, footnote attribution, actor convention, reserved files):
+
+**New adoptions (no class binds):**
+- `stale_after` — optional per-note expiry, adopted (the earlier skip rationale, "duplicates what rot-watch derives," is not one of the four classes).
+- `generated` (`generated.by`/`generated.at`) — adopted on machine-written notes alongside `verified` events.
+- `description` — adopted as an optional frontmatter field (OKF recommended; no incumbent).
+- **Synthesis-page lifecycle**: `status: draft | stable | deprecated` (OKF) replaces the Appleton maturity fields — `growth`/`planted`/`last-tended` are superseded (`generated.at` covers recency; Appleton is T6 and no cost class rescues a parallel three-state system). Supersedes §9 row 23.
+- Actor convention, `verified` event shape, tier names, reserved `index.md`/`log.md`: previously S-promotions — now plain T1 base applications.
+
+**New documented deviations (classes bind):**
+- **Per-claim attribution**: OKF footnotes keyed to `sources[].id` vs `[@citekey, locator]` — deviation, **class 1** (pandoc/CSL/BBT/Zotero surfaces; the §6 citekey universe and its gates are built on citekeys).
+- **`sources` frontmatter field / `resource` URI**: vs our `citekey`/`doi`/`url` provenance keys — deviation, **class 1 + 2** (CSL/registry identity is richer and toolchain-bound; adding OKF's synonyms would violate one-term-per-concept).
+- **Lineage as untyped links**: vs stance-typed `supports`/`disputes` claim links — deviation, **class 2** (trust substance).
+- **Screening states**: OKF's three-state lifecycle vs PRISMA `unscreened/included/excluded` on literature notes — deviation, **class 2** (screening is not a document lifecycle).
+- **Project lifecycle**: OKF's three states vs `draft/parked/published/corrected/withdrawn` — deviation, **class 2** (publication and correction states carry gate semantics OKF's set cannot express). `draft` itself is now a T1 base application.
+
+CSL's bibliographic vocabulary (`item`, `issued`, `author`, `locator`) is untouched — OKF is silent on bibliographic identity, so T2 governs there exactly as T1 CSL did before.
 
 ## 3. Adoptions (precedence applies)
 
@@ -308,6 +329,8 @@ Unchanged: `literatures/`, `x/`, plugin name + `hk-`/`.harness` cascade, type `l
 3. Spec, templates, and code agree on every renamed string; Plan C document updated to match its own implementation.
 4. This document's §6 inventory updated: confirmed terms move to their new names with status A/S per §8's promotion shortlist; §4's stance-link row moves from deviation to anchored adoption (CiTO); the ⚠ defect row closes.
 5. Terminology-related spec sections (§3, §5, §7 skill list, §9 drills) reflect the ruled names.
+
+**Inversion additions (ride this wave):** adopt `stale_after` (optional) + `generated.by/.at` on machine-written notes + optional `description`; synthesis-page frontmatter `growth`/`planted`/`last-tended` → `status: draft|stable|deprecated` + `generated.at` (supersedes the earlier Appleton row); spec §3/§5 updated accordingly.
 
 **OKF structural conformance (ruled 2026-08-20, rides this wave):** add root `index.md` (home page, `okf_version: "0.2"` frontmatter — the one index permitted frontmatter), root `log.md` (machine-maintained dehydrated tail over `log/YYYY-MM-DD.md`, single writer, regenerated), and `type` frontmatter on every machine-written `.md` (`inbox/review-queue.md`, `AGENTS.md`, scaffolded files). OKF's status in §8 upgrades from "OKF-derived, documented divergence" to **structural conformance target** — version-tracking obligation accepted for vault survivability. Fleeting human notes remain the tolerated residual.
 
