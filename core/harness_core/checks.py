@@ -208,7 +208,7 @@ def _metadata_authors(value) -> list[tuple[str, str]] | None:
     return authors
 
 
-def _metadata_year(value) -> tuple[bool, int | None]:
+def metadata_year(value) -> tuple[bool, int | None]:
     """Return (well_formed, optional_year) for CSL's optional issued date."""
     if value is None:
         return True, None
@@ -302,7 +302,7 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
 
     remote_title = remote.get("title")
     remote_authors = _metadata_authors(remote.get("author"))
-    remote_year_ok, remote_year = _metadata_year(remote.get("issued"))
+    remote_year_ok, remote_year = metadata_year(remote.get("issued"))
     if (
         not isinstance(remote_title, str)
         or remote_authors is None
@@ -318,7 +318,7 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
 
     local_title = entry.get("title")
     local_authors = _metadata_authors(entry.get("author"))
-    local_year_ok, local_year = _metadata_year(entry.get("issued"))
+    local_year_ok, local_year = metadata_year(entry.get("issued"))
     if not isinstance(local_title, str) or local_authors is None or not local_year_ok:
         return Outcome(
             "metadata",
@@ -516,13 +516,10 @@ def _effective_blocking(notices: list[dict]) -> dict | None:
     )
 
 
-def _merge_warn_notices(*outcomes: Outcome | None) -> list[dict]:
-    """Merge well-formed warning notices in deterministic, de-duplicated order."""
+def _merge_warn_notices(*notice_groups) -> list[dict]:
+    """Merge warning notices in deterministic, de-duplicated order."""
     notices = set()
-    for outcome in outcomes:
-        if outcome is None or not isinstance(outcome.extra, dict):
-            continue
-        values = outcome.extra.get("warn_notices", [])
+    for values in notice_groups:
         if not isinstance(values, list):
             continue
         for value in values:
@@ -768,15 +765,7 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
                 )
             blocking, warns = notices
             active = _effective_blocking(_active_blocking_notices(blocking))
-            warns = _merge_warn_notices(
-                Outcome(
-                    "update-notice",
-                    target,
-                    Result.MATCHED,
-                    "matched",
-                    {"warn_notices": warns},
-                )
-            )
+            warns = _merge_warn_notices(warns)
             if active is not None:
                 return _blocking_outcome(target, active, detection_date, warns)
             return Outcome(
@@ -910,11 +899,7 @@ def check_rw_batch(entry: dict, rw: dict, detection_date: str) -> Outcome | None
         if notice_type in WARN_TYPES
     ]
     active = _effective_blocking(blocking)
-    warns = _merge_warn_notices(
-        Outcome(
-            "update-notice", target, Result.MATCHED, "matched", {"warn_notices": warns}
-        )
-    )
+    warns = _merge_warn_notices(warns)
     if active is not None:
         return _blocking_outcome(target, active, detection_date, warns)
     if warns:
@@ -942,7 +927,9 @@ def reduce_update_notice_outcomes(
             Result.UNREACHABLE,
             "outage — update-notice target mismatch",
         )
-    warnings = _merge_warn_notices(*outcomes)
+    warnings = _merge_warn_notices(
+        *(outcome.extra.get("warn_notices", []) for outcome in outcomes)
+    )
     blocking = [
         outcome
         for outcome in outcomes

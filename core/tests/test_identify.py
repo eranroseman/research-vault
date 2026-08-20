@@ -198,6 +198,35 @@ def test_discover_uses_the_documented_crossref_and_pubmed_query_parameters(
     }
 
 
+@pytest.mark.parametrize(
+    "issued",
+    [None, {"date-parts": "malformed"}, {"date-parts": [[True]]}],
+)
+def test_discover_omits_an_absent_or_malformed_issued_year_without_failing(
+    net_vault, monkeypatch, issued
+):
+    crossref_queries = []
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        if "api.crossref.org/works" in url:
+            crossref_queries.append(params["query.bibliographic"])
+            return 200, {"message": {"items": []}}
+        if "esearch.fcgi" in url:
+            return 200, {"esearchresult": {"idlist": []}}
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+
+    outcome = identify.discover(
+        net_vault,
+        _entry(issued=issued),
+    )
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.extra == {"identifiers": {}}
+    assert crossref_queries == ["Mortality  Decline Smith"]
+
+
 def test_discover_does_not_query_an_entry_that_already_has_a_doi(
     net_vault, monkeypatch
 ):

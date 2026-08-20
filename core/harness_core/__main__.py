@@ -713,28 +713,16 @@ def _archive_outcomes(vault_root):
         try:
             status = webapi.get_status(archive_url, vault_root)
         except webapi.ApiError:
-            outcomes.append(
-                checks.Outcome(
-                    "web-archive",
-                    target,
-                    Result.UNREACHABLE,
-                    "outage — archive-url unavailable",
-                )
-            )
+            result = Result.UNREACHABLE
+            reason = "outage — archive-url unavailable"
         else:
             if status == 404:
-                outcomes.append(
-                    checks.Outcome(
-                        "web-archive",
-                        target,
-                        Result.UNMATCHED,
-                        "missing-archive — archive-url 404s",
-                    )
-                )
+                result = Result.UNMATCHED
+                reason = "missing-archive — archive-url 404s"
             else:
-                outcomes.append(
-                    checks.Outcome("web-archive", target, Result.MATCHED, "matched")
-                )
+                result = Result.MATCHED
+                reason = "matched"
+        outcomes.append(checks.Outcome("web-archive", target, result, reason))
     return outcomes
 
 
