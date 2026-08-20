@@ -1378,7 +1378,8 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
         "2026-08-16",
     )
     assert outcome.result is Result.UNMATCHED
-    assert outcome.extra["notice_date"] == "2010-02-02"
+    # Crossref is authoritative; deposits may be re-issued within the month.
+    assert outcome.extra["notice_date"].startswith("2010-02")
     fabricated = checks.check_doi_exists(
         net_vault_real_mailto, "10.1000/completely-fabricated-2026"
     )
