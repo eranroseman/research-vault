@@ -642,6 +642,62 @@ def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write
     assert target.is_file()
 
 
+def test_import_note_target_read_oserror_exits_three_without_note_write(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(items))
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        bibliography.os,
+        "fdopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("target read denied")),
+    )
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == 3
+    assert captured.out == ""
+    assert "target read denied" in captured.err
+    assert "Traceback" not in captured.err
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+
+
 def test_import_note_accepts_genuine_output_created_by_registration(
     tmp_vault, monkeypatch, capsys
 ):

@@ -283,6 +283,42 @@ def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
     assert captured.err == ""
 
 
+def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    vault = _doctor_vault(tmp_vault)
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    (vault / bibliography.BIB_PATH).write_text(json.dumps(items))
+
+    class ObservedClient(ReadyClient):
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+    client = ObservedClient()
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base: client)
+    monkeypatch.setattr(
+        bibliography.os,
+        "fdopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("target read denied")),
+    )
+
+    code = cli.cmd_doctor(argparse.Namespace(vault=str(vault), base="http://unused"))
+
+    captured = capsys.readouterr()
+    lines = captured.out.splitlines()
+    assert code == 3
+    assert len(lines) == 9
+    assert [line.split()[1] for line in lines] == PROBE_NAMES
+    assert any(
+        line.startswith("UNREACHABLE autoexport") and "target read denied" in line
+        for line in lines
+    )
+    assert captured.err == ""
+
+
 def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
     tmp_vault, monkeypatch
 ):

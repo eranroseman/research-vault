@@ -611,6 +611,40 @@ def test_observe_target_io_failure_is_unreachable(tmp_vault, monkeypatch):
     assert observed.staleness is Result.UNREACHABLE
 
 
+@pytest.mark.parametrize("failure_point", ["fdopen", "read"])
+def test_observe_target_buffer_read_oserror_is_unreachable(
+    tmp_vault, monkeypatch, failure_point
+):
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(ITEMS))
+
+    class FailingRead:
+        def __init__(self, descriptor):
+            self.descriptor = descriptor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            bibliography.os.close(self.descriptor)
+
+        def read(self):
+            raise OSError("target read denied")
+
+    def fail_target_read(descriptor, *args, **kwargs):
+        if failure_point == "fdopen":
+            raise OSError("target fdopen denied")
+        return FailingRead(descriptor)
+
+    monkeypatch.setattr(bibliography.os, "fdopen", fail_target_read)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
+
+    assert observed.result is Result.UNREACHABLE
+    assert observed.staleness is Result.UNREACHABLE
+    assert "denied" in observed.detail
+
+
 def test_observe_fetches_fresh_evidence_once_even_when_target_read_fails(
     tmp_vault, monkeypatch
 ):

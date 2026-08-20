@@ -362,6 +362,11 @@ def _target_state(boundary: _TargetBoundary) -> _TargetState:
         with os.fdopen(descriptor, "rb") as export:
             descriptor = None
             snapshot = export.read()
+    except OSError as error:
+        return _TargetState(
+            Result.UNREACHABLE,
+            f"bibliography auto-export unreadable: {error}",
+        )
     finally:
         if descriptor is not None:
             os.close(descriptor)
