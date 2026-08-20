@@ -2,7 +2,7 @@
 
 Status: accepted (2026-08-20)
 
-The vault must outlive this harness, and OKF is becoming an ecosystem of agent-facing knowledge tools — so the vault conforms to OKF v0.2's structural rules (parseable frontmatter with non-empty `type` in every machine-written `.md`; root `index.md` with `okf_version`; root `log.md` as a machine-maintained dehydrated tail over the per-day log files). Conformance is cheap because OKF is structural-only and tolerates unknown keys/types by design, so our schema extensions ride inside it; vocabulary is NOT adopted — names stay governed by docs/2026-08-20-terminology.md (OKF at T4). Fleeting human notes remain frontmatter-free (Shipman/Marshall rule); OKF consumers tolerate them.
+The vault must outlive this harness, and OKF is becoming an ecosystem of agent-facing knowledge tools — so the vault conforms to OKF v0.2's structural rules (parseable frontmatter with non-empty `type` in every machine-written `.md`; root `index.md` with `okf_version`; root `log.md` as a machine-maintained dehydrated tail over the per-day log files). Conformance is cheap because OKF is structural-only and tolerates unknown keys/types by design, so our schema extensions ride inside it; vocabulary is NOT adopted — names stay governed by docs/terminology.md (OKF at T4). Fleeting human notes remain frontmatter-free (Shipman/Marshall rule); OKF consumers tolerate them.
 
 ## Considered Options
 

@@ -1,6 +1,6 @@
 # Terminology — decisions, precedence, inventory, and the naming pass
 
-Consolidated record, 2026-08-20 (merges and supersedes the same-day `terminology-decision` and `user-facing-terminology` documents; all rulings author-confirmed). Owns four things: the **cost model**, the **ruled precedence order** for anchor sources, the **decisions** taken against it (adoptions and deviations), and the **complete user-facing inventory** with anchor candidates — the working package for the **naming pass, which blocks §9 slice execution**.
+Consolidated living record (consolidated 2026-08-20 from the same-day `terminology-decision` and `user-facing-terminology` documents; all rulings author-confirmed; rulings carry their dates inline). Owns four things: the **cost model**, the **ruled precedence order** for anchor sources, the **decisions** taken against it (adoptions and deviations), and the **complete user-facing inventory** with anchor candidates — the working package for the **naming pass, which blocks §9 slice execution**.
 
 ## 1. Cost model
 
