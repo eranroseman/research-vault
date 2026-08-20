@@ -1,40 +1,46 @@
-# Terminology decision — OpenAlex vocabulary vs harness vocabulary
+# Terminology decision — OpenAlex as base vocabulary
 
-Decision record, 2026-08-20. Question: adopt OpenAlex terms (help.openalex.org/data) as standard terminology? **Answer: no wholesale adoption; one borrow; boundary-verbatim rule for recorded API facts.** The vault glossary seed (Plan D) cites this document.
+Decision record, 2026-08-20 (supersedes the same-day first version; author's ruling). **OpenAlex's vocabulary (help.openalex.org/data) is the base terminology. We deviate only where a real cost class forces it, and every deviation is documented here.** The vault glossary seed (Plan D) and the pre-slice naming pass cite this document.
 
-## Cost model
+## Cost model (unchanged)
 
-**Rename churn is priced at zero.** Pre-users, with mechanical rename tooling and a test suite, any interior rename is ~10 minutes of implementation time; occurrence counts are not costs, and defending a term by implementation weight is sunk-effort reasoning. Exactly four real cost classes exist:
+**Rename churn is priced at zero** (~10 minutes of implementation time pre-users; occurrence counts are not costs; sunk effort is not an argument). Exactly four real cost classes justify deviating from the base:
 
-1. **Permanent surface mismatch** — with tool surfaces we don't control (Zotero UI, CSL fields, Obsidian, Crossref taxonomy): a perpetual translation burden, paid forever.
-2. **Information loss** — the foreign term carries less structure than ours.
-3. **Semantic falsification** — the foreign term would make our records state something false.
-4. **Collision/ambiguity** — same word, different concept; permanent per-reader cost.
+1. **Permanent surface mismatch** — with tool surfaces we don't control (Zotero UI, CSL fields, Obsidian, Crossref taxonomy).
+2. **Information loss** — the base term carries less structure than the concept needs.
+3. **Semantic falsification** — the base term would make our records state something false.
+4. **Collision/ambiguity** — the base term already means something else in our context.
 
-A switch with none of these costs is **free**, and the verdict on it is taste — which must be said plainly, not dressed as necessity.
+No class binding ⇒ the OpenAlex term is adopted. Taste never justifies deviation.
 
-## The comparison
+## Adoptions (base applies)
 
-| OpenAlex term | Our term | Same concept? | Verdict | Real cost of switching to theirs |
-|---|---|---|---|---|
-| `work` | `item` (CSL/Zotero); `literature note` (vault projection) | Mostly | **Ours** | Class 1: Zotero UI and CSL fields say `item` forever — eternal translation at daily surfaces. (Their `work`-as-abstract-entity advantage is covered by our supersession.) |
-| `source` (venue: journal/repository) | `source` (the cited document; `source-sha256`, admission) | **No — collision** | **Ours; theirs stays API-side** | Class 4: adopting theirs makes the trust core's own language ambiguous. |
-| `topic` (classification taxonomy) | `topic page` (atlas synthesis note) | **No — collision** | **Ours; label theirs `openalex-topic` if recorded** | Class 4. |
-| `is_retracted` (boolean) | update-notice blocking class (12-type, bi-temporal) | Ours ⊃ theirs | **Ours; theirs verbatim in checker `extra`** | Class 2: boolean discards taxonomy, dates, reinstatement. |
-| `created_date` / `updated_date` | `retrieved`; detection date | **No** | **Ours** | Class 3: theirs describe *their record's* lifecycle; using their names would misstate our access provenance. |
-| `publication_date` | CSL `issued`/`date-parts` | Yes | **Ours (CSL)** | Class 1: CSL is the bibliography format contract (pandoc, BBT, Crossref). |
-| `referenced_works` / `related_works` | `supported-by` / `contested-by` | **No** | **Ours** | Class 2: theirs are untyped work-level edges; ours are stance-typed claim-level. |
-| `cited_by_count` | index-labeled counts | Yes | **Theirs at the boundary** | Free — already the rule: recorded API facts carry the source's field names + retrieval date. |
-| `doi`, `pmid` | `doi`, `pmid` | Yes | Tie | Already aligned (registry-anchored). |
-| `author` | CSL `author` | Yes | Tie | Already aligned. |
-| `merged-away` / canonical | `superseded` / `superseded-by` | Yes | **Ours — by taste only** | **None.** No class applies; a genuinely free switch. Default rests on family coherence with the Wikidata-anchored deprecation vocabulary (§5). Standing offer: call it the other way and it renames in minutes. |
-| `dehydrated` (object) | *(no incumbent)* | — | **Borrow** | Free; enters the glossary with source attribution — names our index-line/summary projections. |
-| native/vocabulary entities; IDs as curatable judgments | citekey (judgment) / zotero-key (invariant) | Analogous | **Ours** | Nothing to adopt beyond the framing (cited in §5 precedents). |
-| institutions, publishers, funders, keywords, locations, abstract_inverted_index | *(no counterpart)* | — | — | Outside the harness's model. |
+| OpenAlex term | Status |
+|---|---|
+| `doi`, `pmid`, `author` | Adopted (already aligned; registry/CSL-anchored on both sides). |
+| `cited_by_count` and all recorded API facts | Adopted verbatim at the recording boundary, with index + retrieval date. |
+| `is_retracted` | Adopted verbatim in checker records (`extra`); see deviations for the internal taxonomy. |
+| `dehydrated` | Adopted for our index-line/summary projections of full notes. |
+| `canonical` | Adopted as the adjective for the surviving entity in any merge/supersession. |
+| `topic` | Adopted for OpenAlex's classification entities. **Consequence for the naming pass:** our synthesis note (placeholder "topic page") must take a non-colliding name — the pass owns the choice. |
+| Entity framing: native IDs as curatable judgments; merge semantics (merged-away IDs permanently redirect to canonical) | Adopted as semantics (spec §5 precedents; checkers follow redirects and record the canonical ID verified against). |
+
+## Documented deviations (a cost class forces each)
+
+| Concept | OpenAlex term | Our term | Forcing class |
+|---|---|---|---|
+| The bibliographic record | `work` | `item` (CSL/Zotero); `literature note` for its vault projection | **1** — Zotero's UI and CSL's fields say `item` forever; adopting `work` buys an eternal translation layer at daily surfaces. |
+| The cited document (trust core sense) | their `source` = venue | `source` (primary/cited source; `source-sha256`) | **4** — collision. Resolution: their concept enters our prose as **`venue`** (OpenAlex's own former name for the entity), freeing `source` for the scholarly-English meaning our trust core uses. |
+| Publication date | `publication_date` | CSL `issued`/`date-parts` | **1** — CSL is the bibliography format contract (pandoc, BBT, Crossref). |
+| Record-lifecycle vs access provenance | `created_date`/`updated_date` | `retrieved`; detection date | **3** — theirs describe *their record's* lifecycle; their names on our fields would misstate what we recorded. |
+| Post-publication status | `is_retracted` (boolean) internally | update-notice blocking class (Crossref 12-type, bi-temporal, reinstatement) | **2** — the boolean discards the taxonomy the gates run on. (Boundary recording stays verbatim, above.) |
+| Citation relations | `referenced_works`/`related_works` | `supported-by`/`contested-by` | **2** — theirs are untyped work-level edges; ours are stance-typed claim-level, the trust substance. |
+| Replacement relation | `merged-away` | `superseded`/`superseded-by` | **3** — scope: OpenAlex merging is identity resolution (two records, one work). Our relation also covers scholarly succession (an old study superseded by a new one — distinct works; calling that a "merge" would be false). The duplicate-work case (preprint↔published) is the overlap where semantics were adopted; if the slice shows the identity-vs-succession distinction needs its own fields, the naming pass may split `merged` out as the OpenAlex-aligned special case. |
 
 ## Standing rules
 
-- **One canonical term per concept**; foreign vocabularies live at their API boundaries; loanwords enter through the glossary with source attribution.
-- **Recorded API facts are boundary-verbatim**: the checker records what it verified under the source's own field names, plus index + retrieval date.
-- **Semantics migrate freely; names migrate only when a real cost class favors it.** (OpenAlex's merge/redirect semantics are adopted in §5 under our names — the intended direction of travel.)
-- Interior coinages (`atlas`, `efforts`, `literatures`, `trust tier`, four-state names, `claim address`) are **temporary placeholders — not decided, not settled** (author's ruling, 2026-08-20). They exist so implementation could proceed; none carries any commitment. **A deliberate naming pass is REQUIRED before the first real vault exists** — that vault mints these strings into git history under deprecate-never-delete, which is the moment placeholders silently become permanent vocabulary. The naming pass is a pre-slice gate: it blocks §9 slice execution, not Plan D implementation (renames stay ~10 minutes until then).
+- **OpenAlex is the default source of names.** Any new concept checks OpenAlex first; deviation requires naming its forcing class in this document.
+- **One canonical term per concept**; adopted or deviated, never both.
+- **Recorded API facts are boundary-verbatim** (source's field names + index + retrieval date).
+- **Semantics migrate freely; deviations are about names only** — every deviation above still adopts the base semantics where they fit.
+- Interior coinages (`atlas`, `efforts`, `literatures`, `trust tier`, four-state names, `claim address`) remain **temporary placeholders — not decided, not settled**. OpenAlex has no counterparts for these concepts (it does not model vaults, claims, or verification), so the pre-slice **naming pass** owns them, under this document's rule: where OpenAlex (or another anchored vocabulary: CSL, Crossref, W3C) has a term, default to it; free coinage only where none exists. The pass also owes the synthesis-note rename (collision with adopted `topic`). **The naming pass blocks §9 slice execution** — the first real vault mints names into git history under deprecate-never-delete, the moment placeholders become permanent.
