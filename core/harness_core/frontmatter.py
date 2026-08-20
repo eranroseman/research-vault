@@ -11,8 +11,23 @@ class _DuplicateKeyMapping(dict):
     """Parsed mapping that retains the fact its source repeated a key."""
 
     def __init__(self, pairs):
+        pairs = tuple(pairs)
         super().__init__(pairs)
-        self.source_items = tuple(pairs)
+        self.source_items = pairs
+
+
+def _mapping_items(mapping):
+    return (
+        mapping.source_items
+        if isinstance(mapping, _DuplicateKeyMapping)
+        else mapping.items()
+    )
+
+
+def _mapping_from_items(items):
+    items = tuple(items)
+    mapping = dict(items)
+    return _DuplicateKeyMapping(items) if len(mapping) != len(items) else mapping
 
 
 _INLINE_DICT = re.compile(r"^\{(.*)\}$")
@@ -29,19 +44,14 @@ def _emit_scalar(v):
 
 def serialize(data: dict) -> str:
     lines = ["---"]
-    for key, value in data.items():
+    for key, value in _mapping_items(data):
         if isinstance(value, list):
             lines.append(f"{key}:")
             for item in value:
                 if isinstance(item, dict):
-                    items = (
-                        item.source_items
-                        if isinstance(item, _DuplicateKeyMapping)
-                        else item.items()
-                    )
                     inner = ", ".join(
                         f"{key}: {_emit_scalar(item_value)}"
-                        for key, item_value in items
+                        for key, item_value in _mapping_items(item)
                     )
                     lines.append(f"  - {{{inner}}}")
                 else:
@@ -90,16 +100,12 @@ def _parse_item(raw: str):
     if not m:
         return _parse_scalar(raw)
     pairs = []
-    out = {}
-    duplicate = False
     for part in _split_unquoted(m.group(1), ", "):
         pair = _split_unquoted(part, ": ", 1)
         key = pair[0].strip()
         value = _parse_scalar(pair[1] if len(pair) > 1 else "")
-        duplicate = duplicate or key in out
         pairs.append((key, value))
-        out[key] = value
-    return _DuplicateKeyMapping(pairs) if duplicate else out
+    return _mapping_from_items(pairs)
 
 
 def parse(text: str) -> tuple[dict, str]:
@@ -111,7 +117,7 @@ def parse(text: str) -> tuple[dict, str]:
         raise FrontmatterError("unterminated frontmatter")
     block = text[opening.end() : closing.start()]
     body = text[closing.end() :]
-    data: dict = {}
+    source_items = []
     current_list = None
     for line in block.splitlines():
         if line.startswith("  - "):
@@ -129,8 +135,9 @@ def parse(text: str) -> tuple[dict, str]:
             key, raw = parts
             if raw.strip() == "":
                 current_list = []
-                data[key] = current_list
+                value = current_list
             else:
-                data[key] = _parse_scalar(raw)
+                value = _parse_scalar(raw)
                 current_list = None
-    return data, body
+            source_items.append((key, value))
+    return _mapping_from_items(source_items), body

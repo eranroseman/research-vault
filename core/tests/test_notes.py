@@ -146,6 +146,74 @@ verification-failures:
         events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
 
 
+def test_rerender_preserves_scalar_before_verified_list_as_rejected_evidence():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified: "shadow"
+verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.verified_checks(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verified"):
+        events.record_failure(rerendered, "doi", Result.UNMATCHED)
+
+
+def test_rerender_preserves_failure_list_before_empty_duplicate_as_rejected():
+    existing = notes.render_note(
+        ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16"
+    )
+    verifier_state = """verified:
+  - {by: "bot", at: "2026-08-16", check: "doi"}
+  - {by: "bot", at: "2026-08-16", check: "metadata"}
+  - {by: "bot", at: "2026-08-16", check: "update-notice"}
+verification-failures:
+  - {check: "doi", result: "UNMATCHED"}
+verification-failures:
+"""
+    malformed = existing.replace(
+        f"---\n{notes.MANAGED_OPEN}",
+        f"{verifier_state}---\n{notes.MANAGED_OPEN}",
+        1,
+    )
+
+    assert events.trust_tier(malformed) == "unverified"
+
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Revised title"},
+        ["aa11"],
+        [],
+        existing=malformed,
+        retrieved="2026-08-17",
+    )
+
+    assert notes.content_changed(malformed, rerendered) is True
+    assert events.current_failures(rerendered) == []
+    assert events.trust_tier(rerendered) == "unverified"
+    with pytest.raises(ValueError, match="verification-failures"):
+        events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
+
+
 def test_free_region_byte_exact():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, retrieved="2026-08-16")
     with_blanks = v1 + "\n\n\nspaced prose\n"

@@ -82,9 +82,12 @@ def render_note(item, attachment_hashes, annotations, existing, retrieved) -> st
     fm["attachment-sha256"] = attachment_hashes
     fm["status"] = prior.get("status", "unreviewed")
     fm["aliases"] = [item.get("title", item["id"])]
-    for key, value in prior.items():  # pass-through of unowned fields
-        if key not in MANAGED_FIELDS and key not in fm:
-            fm[key] = value
+    rendered_keys = set(fm)
+    fm_items = list(fm.items())
+    for key, value in frontmatter._mapping_items(prior):
+        if key not in MANAGED_FIELDS and key not in rendered_keys:
+            fm_items.append((key, value))
+    fm = frontmatter._mapping_from_items(fm_items)
     return (
         frontmatter.serialize(fm)
         + _managed_body(item, annotations)
