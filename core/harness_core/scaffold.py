@@ -80,8 +80,9 @@ def _owned_paths(templates, with_ci: bool, with_rw_ci: bool) -> list[str]:
 
 
 def _reject_owned_symlinks(vault: Path, owned_paths: list[str]) -> None:
-    if vault.is_symlink():
-        raise ValueError(f"scaffold symlink conflict: {vault}")
+    for current in (vault, *vault.parents):
+        if current.is_symlink():
+            raise ValueError(f"scaffold symlink conflict: {current}")
     for relative in owned_paths:
         current = vault
         for component in Path(relative).parts:

@@ -279,6 +279,20 @@ def test_scaffold_refuses_a_symlinked_destination_before_writing(tmp_path):
     assert not (outside / "index.md").exists()
 
 
+def test_scaffold_refuses_a_symlinked_destination_ancestor_before_writing(tmp_path):
+    """A lexical parent symlink must not redirect a missing vault leaf."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    parent = tmp_path / "symlinked-parent"
+    parent.symlink_to(outside, target_is_directory=True)
+    vault = parent / "vault"
+
+    with pytest.raises(ValueError, match="symlink"):
+        scaffold.scaffold_vault(vault)
+
+    assert not (outside / "vault").exists()
+
+
 def test_scaffold_cli_prints_the_created_paths(tmp_path):
     """A CLI that hides local-only creation or ignores the flags fails."""
     vault = tmp_path / "vault"
