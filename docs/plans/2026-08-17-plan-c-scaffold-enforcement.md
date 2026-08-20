@@ -1063,6 +1063,10 @@ git add core docs/environment.md && git commit -m "feat: live scaffold+doctor dr
 
 Ordinary corrections without ruling: doctor `--base` routing; exact live autoexport cleanup confirmation; `stop_hook_active` for a genuinely consecutive eight-block bound.
 
+## Task 3 review ruling (approved, 2026-08-20)
+
+**Bibliography commit uses an isolated temporary-index snapshot, not `git commit --only`.** `--only` re-reads the live worktree at commit time; BBT can atomically replace the file after validation, so Git may commit bytes that were never compared (TOCTOU — post-checking detects only after history changed). The ownership contract governs. Required properties, implementation free: (1) committed blob is the exact validated in-memory bytes (`hash-object --stdin`, no re-read); (2) tree = HEAD tree + that one blob, temp index built from HEAD never the live index, so nothing rides along; (3) live index/worktree untouched; (4) HEAD update race-safe (native commit lock via temporary `GIT_INDEX_FILE`, or `commit-tree` + compare-and-swap `update-ref` that fails cleanly on a concurrent commit). Harness still never writes `x/bibliography.json`; commit contains only that path; BBT remains sole writer; newer mid-window BBT bytes are the next staleness pass's business.
+
 ## Task 4 preflight rulings (all approved, 2026-08-20)
 
 1. **Pre-commit compares HEAD to the git index** — the prospective commit — never the worktree. The commit gate's subject is what becomes durable: staged deletes/renames are commit content even when unstaged bytes mask them, and unstaged scratch never triggers holds. First-commit edge: no HEAD → diff against the empty tree.
