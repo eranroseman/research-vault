@@ -45,3 +45,46 @@ No class binding ⇒ the stack's term is adopted. Taste never justifies deviatio
 - **Recorded API facts are boundary-verbatim** (source's field names + index + retrieval date).
 - **Semantics migrate freely; deviations are about names only** — every deviation above still adopts the base semantics where they fit.
 - Interior coinages (`atlas`, `efforts`, `literatures`, `trust tier`, four-state names, `claim address`) remain **temporary placeholders — not decided, not settled**. OpenAlex has no counterparts for these concepts (it does not model vaults, claims, or verification), so the pre-slice **naming pass** owns them, under this document's rule: walk the precedence stack (CSL → OpenAlex → domain authorities) and default to the first vocabulary that names the concept; free coinage only where none does. The pass also owes the synthesis-note rename (collision with adopted `topic`). **The naming pass blocks §9 slice execution** — the first real vault mints names into git history under deprecate-never-delete, the moment placeholders become permanent.
+
+
+---
+
+# Proposed full precedence order for anchor sources (awaiting author ruling)
+
+The naming-pass research surfaced ~25 candidate vocabularies. The ruled stack (CSL → OpenAlex → domain authorities "inside their domains") needs those domains made explicit. Proposal: **seven tiers, ordered by the cost of contradiction, evaluated per surface** — a lower tier can win only on a surface the higher tiers are silent about.
+
+## The tiers
+
+**T1 — Toolchain surfaces the user physically inhabits.** Words appearing in UIs and file formats the vault interoperates with; contradiction = class-1 permanent mismatch, paid daily.
+→ CSL (fields in `bibliography.json`, pandoc citations) · Zotero UI · BBT/ZotLit conventions · Obsidian (aliases, block links, properties, Bases) · Dataview field syntax · Markdown itself.
+*CSL-first, as ruled — it is the T1 member that reaches deepest into our files.*
+
+**T2 — Authorities of record for a concept.** Versioned specs and registries that own both the semantics and the data we verify against; contradiction risks class-3 falsification at the recording boundary.
+→ Crossref (update-type taxonomy) · DataCite (relation types) · DOI system · W3C (Web Annotation selectors, PROV) · CiTO/SPAR (citation typing) · IETF conventions where applicable.
+
+**T3 — Scholarly-method vocabularies the target user speaks professionally.** The academic's own working language; contradiction costs domain legibility.
+→ PRISMA/Cochrane/Covidence (screening states, evidence synthesis) · GRADE (certainty language) · ICD 203/206 (sourcing, analytic confidence) · plain scholarly English (primary source, superseded).
+
+**T4 — Cross-cutting aggregator vocabularies.** Broad, documented, maintained — but not surfaces we inhabit nor authorities we record against; good defaults where T1–T3 are silent.
+→ **OpenAlex** (as ruled: after CSL — this tier is its formalized home) · Wikidata (property semantics) · OKF (tiers, verified events, actor convention) · scite (stance).
+
+**T5 — Community/ecosystem conventions.** Mass usage, informal, unversioned; fine anchors where nothing above speaks.
+→ llm-wiki convention (index.md, wiki/, log) · Ideaverse/LYT (current folder names) · Ahrens/PKM ("literature note") · Appleton (garden stages) · GTD/PARA (inbox, projects) · Wikipedia template vocabulary (failed verification).
+
+**T6 — Developer-tool conventions, scoped to dev-facing surfaces only.** Strong on the CLI/CI/hook surface; never inside note prose.
+→ pytest outcomes · GitHub checks/branch-protection vocabulary · Vale severities · CLI verb conventions (doctor, scaffold, probe).
+
+**T7 — Author's coinage.** Free coinage only where T1–T6 are all silent (spec's own rule); author-anchored terms (information flow / project flow) live here by choice, not necessity.
+
+## Tie-breakers (within or across adjacent tiers)
+
+1. **The vocabulary whose data we record beats the one we merely resemble** (Crossref's taxonomy beats anyone's retraction words — we store their strings).
+2. **Verbatim machine-readable identifiers beat prose labels** (CSL variable `accessed` beats Wikidata's English label "retrieved").
+3. **Versioned spec beats living wiki beats blog.**
+4. **Surface fit is absolute**: T6 never names vault prose; T3 never renames a CLI flag that T6 conventions settle.
+
+## Consistency notes
+
+- This proposal *contains* the ruled stack: CSL first (T1), OpenAlex after it (T4), domain authorities explicit (T2–T3 are "their domains", now enumerated).
+- The ⚠ `retrieved`→`accessed` finding is this order working as intended: T1 (CSL) beats T4 (Wikidata label).
+- The synthesis-note rename gets its tier guidance: T3 offers `synthesis` (evidence-synthesis field vocabulary) before T5 offers `concept`/`evergreen`.
