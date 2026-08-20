@@ -87,6 +87,9 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 - Survivor lines look like `  line 79 char == "-" -> char != "-" func/_norm_with_map`. Baseline keys **exclude the line number** (`file::func/_norm_with_map::char == "-" -> char != "-"`) so unrelated edits shifting lines don't churn the baseline.
 - Policy: survivors matching a baseline key pass (pre-existing = backlog, never gate); any other survivor fails. Uncovered sites never fail the gate (coverage is crap4py's beat).
 - Gate mode scopes to files changed vs a base ref (merge-base diff); no changed core files → exit 0.
+- **git pathspecs resolve relative to the cwd.** The diff runs with `cwd=core/`, flag `--relative`, and pathspec `harness_core/*.py`. A repo-root-style pathspec (`core/harness_core/*.py`) from that cwd silently matches nothing and the gate passes forever — which is why `changed_modules` gets its own unit test against a scratch git repo (a dead gate and a working gate are otherwise indistinguishable on a quiet branch).
+- Baseline keys collapse duplicate identical mutations within one function (the real selectors output has `1 -> 0` twice on line 79) — deliberate: an advisory lane prefers a stable baseline over distinguishing repeats of an already-recorded survivor.
+- Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from `core/` (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
 
 - [ ] **Step 1: Write the failing tests** — `core/tests/test_mutation_gate.py`:
 
@@ -96,7 +99,12 @@ no subprocess — the mutate4py invocation itself is exercised by the baseline r
 
 from pathlib import Path
 
-from scripts.mutation_gate import baseline_keys, new_survivors, parse_survivors
+from scripts.mutation_gate import (
+    baseline_keys,
+    changed_modules,
+    new_survivors,
+    parse_survivors,
+)
 
 SAMPLE_OUTPUT = """\
 Mutation run: harness_core/selectors.py
@@ -153,6 +161,33 @@ def test_baseline_round_trip(tmp_path: Path):
 
 def test_baseline_missing_file_is_empty(tmp_path: Path):
     assert baseline_keys(tmp_path / "absent.txt") == set()
+
+
+def test_changed_modules_lists_modified_core_files(tmp_path: Path):
+    """The one function deciding whether the gate ever runs must be proven live:
+    a wrong pathspec makes the diff silently empty and the gate passes forever."""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    core = repo / "core"
+    (core / "harness_core").mkdir(parents=True)
+
+    def git(*argv: str) -> None:
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "t")
+    (core / "harness_core" / "x.py").write_text("A = 1\n", encoding="utf-8")
+    (core / "harness_core" / "__init__.py").write_text("", encoding="utf-8")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    git("checkout", "-q", "-b", "feature")
+    (core / "harness_core" / "x.py").write_text("A = 2\n", encoding="utf-8")
+    (core / "harness_core" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
+    git("commit", "-q", "-a", "-m", "change")
+
+    assert changed_modules("main", cwd=core) == ["harness_core/x.py"]
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -217,18 +252,20 @@ def baseline_keys(path: Path) -> set[str]:
     return {line for line in path.read_text(encoding="utf-8").splitlines() if line}
 
 
-def _changed_modules(base: str) -> list[str]:
+def changed_modules(base: str, cwd: Path = CORE) -> list[str]:
+    # --relative + a cwd-relative pathspec, both resolved from core/: a
+    # repo-root-style pathspec here matches nothing and kills the gate silently.
     diff = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...HEAD", "--", "core/harness_core/*.py"],
+        ["git", "diff", "--name-only", "--relative", f"{base}...HEAD", "--", "harness_core/*.py"],
         capture_output=True,
         text=True,
         check=True,
-        cwd=CORE,
+        cwd=cwd,
     ).stdout.split()
     return sorted(
-        p.removeprefix("core/")
+        p
         for p in diff
-        if p.endswith(".py") and not p.endswith("__init__.py") and (CORE / p.removeprefix("core/")).exists()
+        if p.endswith(".py") and not p.endswith("__init__.py") and (cwd / p).exists()
     )
 
 
@@ -274,7 +311,7 @@ def main() -> int:
         print(f"[baseline] {len(keys)} survivors written to {baseline_path}")
         return 0
 
-    modules = _changed_modules(args.base)
+    modules = changed_modules(args.base)
     if not modules:
         print("[gate] no changed harness_core modules; pass")
         return 0
@@ -301,7 +338,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run to verify green**
 
 Run: `python -m pytest tests/test_mutation_gate.py -q`
-Expected: 5 PASS. Then full suite: `python -m pytest tests -q` — all PASS (452+ at HEAD).
+Expected: 6 PASS. Then full suite: `python -m pytest tests -q` — all PASS (452+ at HEAD).
 
 - [ ] **Step 5: Build the contexts DB** (one-time, ~10–15 min; no mutation run)
 
@@ -339,6 +376,8 @@ git commit -m "feat: mutation gate script + blanket baseline (sidecar manifests,
 
 **Thresholds (live-measured 2026-08-20):** `crap4py --max-crap 45` — current worst is `_target_hash` at 42.3, so the lane starts green; ratchet the number down as the CRAP backlog (`research/code-quality-tools-gabadi.md`) burns down. drywall default threshold 0.82 — currently zero duplicates. crap4py exit behavior verified: exceeds → exit 1.
 
+**Trigger reality:** this repo's practice to date is local merge + push to main — no PRs. The `push: branches: [main]` trigger exists so tests, the CRAP ceiling, and drywall run on every landing; on a push event the mutation gate no-ops by construction (`origin/main...HEAD` is empty after push) and earns its keep only on `pull_request` and `workflow_dispatch` runs. This is deliberate, not a bug — do not "fix" the gate to run on push.
+
 - [ ] **Step 1: Write the workflow** — `.github/workflows/quality.yml`:
 
 ```yaml
@@ -346,6 +385,8 @@ name: quality
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
