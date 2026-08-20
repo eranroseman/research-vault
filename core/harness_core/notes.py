@@ -2,19 +2,93 @@
 
 import datetime
 import hashlib
+import re
 import unicodedata
 from html import escape
 from pathlib import Path
 
-from . import AGENT_ACTOR, frontmatter
+from . import AGENT_ACTOR, Result, frontmatter
 
 MANAGED_OPEN = "%%hk-managed%%"
 MANAGED_CLOSE = "%%/hk-managed%%"
+MANAGED_OPEN_BYTES = MANAGED_OPEN.encode("ascii")
+MANAGED_CLOSE_BYTES = MANAGED_CLOSE.encode("ascii")
 SEED_FREE = "\n## Notes\n"
 
 
 class InvalidCitekeyError(ValueError):
     """A citekey that cannot safely name one file in ``literatures``."""
+
+
+class ManagedRegionError(ValueError):
+    """The exact byte-level managed delimiter grammar is invalid."""
+
+
+def _raw_lines(data: bytes):
+    offset = 0
+    while offset < len(data):
+        newline = data.find(b"\n", offset)
+        if newline < 0:
+            yield offset, len(data), data[offset:]
+            return
+        content = data[offset:newline]
+        if content.endswith(b"\r"):
+            content = content[:-1]
+        end = newline + 1
+        yield offset, end, content
+        offset = end
+
+
+def managed_slice_bytes(note_bytes: bytes) -> bytes:
+    """Return the one exact managed slice, delimiters and line endings included."""
+    if type(note_bytes) is not bytes:
+        raise TypeError("note bytes must be bytes")
+    openings = []
+    closings = []
+    for start, end, content in _raw_lines(note_bytes):
+        if content == MANAGED_OPEN_BYTES:
+            openings.append((start, end))
+        elif content == MANAGED_CLOSE_BYTES:
+            closings.append((start, end))
+    if len(openings) != 1 or len(closings) != 1:
+        raise ManagedRegionError("managed delimiters must each appear exactly once")
+    opening_start, _ = openings[0]
+    closing_start, closing_end = closings[0]
+    if opening_start >= closing_start:
+        raise ManagedRegionError("managed delimiters are misordered")
+    return note_bytes[opening_start:closing_end]
+
+
+def managed_sha256(note_bytes: bytes) -> str:
+    return hashlib.sha256(managed_slice_bytes(note_bytes)).hexdigest()
+
+
+def validate_managed_witness(note_bytes: bytes):
+    """Return the four-state witness result without inventing I/O state."""
+    try:
+        text = note_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return Result.UNREACHABLE, "outage — literature note is not UTF-8"
+    try:
+        data, _ = frontmatter.parse(text)
+        actual = managed_sha256(note_bytes)
+    except (frontmatter.FrontmatterError, ManagedRegionError):
+        return Result.UNMATCHED, "schema-violation — malformed managed boundary"
+    witnesses = [
+        value
+        for key, value in frontmatter._mapping_items(data)
+        if key == "managed-sha256"
+    ]
+    if not witnesses:
+        return Result.UNMATCHED, "schema-violation — missing managed-sha256"
+    if len(witnesses) != 1:
+        return Result.UNMATCHED, "schema-violation — duplicate managed-sha256"
+    witness = witnesses[0]
+    if not isinstance(witness, str) or re.fullmatch(r"[0-9a-f]{64}", witness) is None:
+        return Result.UNMATCHED, "schema-violation — invalid managed-sha256"
+    if witness != actual:
+        return Result.UNMATCHED, "schema-violation — stale managed-sha256"
+    return Result.MATCHED, "matched"
 
 
 def note_path(vault_root, citekey) -> Path:
@@ -59,6 +133,7 @@ MANAGED_FIELDS = {
     "citekey",
     "type",
     "fixity-sha256",
+    "managed-sha256",
     "aliases",
     "doi",
     "url",
@@ -128,6 +203,7 @@ def render_note(
     fm["status"] = prior.get("status", "unscreened")
     fm["aliases"] = [item.get("title", item["id"])]
     managed_body = _managed_body(item, annotations)
+    fm["managed-sha256"] = hashlib.sha256(managed_body.encode("utf-8")).hexdigest()
     prior_generated = prior.get("generated")
     prior_actor = (
         prior_generated.get("by") if isinstance(prior_generated, dict) else None

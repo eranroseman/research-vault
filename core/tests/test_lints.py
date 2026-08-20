@@ -1,6 +1,8 @@
 import subprocess
 
-from harness_core import Result, lints
+import pytest
+
+from harness_core import Result, frontmatter, gitstate, lints, notes
 
 
 def test_all_clean_on_fixture(fixture_vault):
@@ -23,8 +25,11 @@ def test_append_only_reports_each_tracked_file_with_removed_content(fixture_vaul
     outs = lints.lint_append_only(fixture_vault)
 
     assert [(out.target, out.reason) for out in outs] == [
-        ("inbox/review-queue.md", "drift — append-only file rewrote history"),
-        ("log/2026-08-16.md", "drift — append-only file rewrote history"),
+        (
+            "path-bytes:inbox/review-queue.md",
+            "drift — append-only file rewrote history",
+        ),
+        ("path-bytes:log/2026-08-16.md", "drift — append-only file rewrote history"),
     ]
 
 
@@ -36,7 +41,7 @@ def test_append_only_reports_whole_tracked_file_deletion_but_not_untracked_addit
 
     outs = lints.lint_append_only(fixture_vault)
 
-    assert [out.target for out in outs] == ["log/2026-08-16.md"]
+    assert [out.target for out in outs] == ["path-bytes:log/2026-08-16.md"]
 
 
 def test_append_only_log_pathspec_excludes_reserved_root_log(tmp_vault):
@@ -54,7 +59,7 @@ def test_append_only_log_pathspec_excludes_reserved_root_log(tmp_vault):
 
     outs = lints.lint_append_only(tmp_vault)
 
-    assert [out.target for out in outs] == ["log/2026-08-20.md"]
+    assert [out.target for out in outs] == ["path-bytes:log/2026-08-20.md"]
 
 
 def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault):
@@ -68,7 +73,10 @@ def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault
     assert [(out.target, out.extra) for out in outs] == [
         (
             "smith2020#^c-11111111",
-            {"note_path": "literatures/smith2020.md", "claim_id": "c-11111111"},
+            {
+                "note_path": "path-bytes:literatures/smith2020.md",
+                "claim_id": "c-11111111",
+            },
         )
     ]
 
@@ -103,8 +111,11 @@ def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
 
     assert [(out.target, out.extra) for out in outs] == [
         (
-            "synthesis/synthèse.md#^c-unicode",
-            {"note_path": "synthesis/synthèse.md", "claim_id": "c-unicode"},
+            "path-bytes:synthesis/synth%C3%A8se.md",
+            {
+                "note_path": "path-bytes:synthesis/synth%C3%A8se.md",
+                "claim_id": "c-unicode",
+            },
         )
     ]
 
@@ -364,7 +375,7 @@ def test_published_drift_includes_untracked_files(fixture_vault):
     outs = lints.lint_published_drift(fixture_vault)
 
     assert [(out.target, out.reason) for out in outs] == [
-        ("projects/brief", "drift — published project diverged from its tag")
+        ("path-bytes:projects/brief", "drift — published project diverged from its tag")
     ]
 
 
@@ -383,7 +394,7 @@ def test_published_drift_catches_tracked_changes_after_a_published_tag(fixture_v
     draft.write_text(draft.read_text() + "\npost-publish edit\n")
 
     assert [out.target for out in lints.lint_published_drift(fixture_vault)] == [
-        "projects/brief"
+        "path-bytes:projects/brief"
     ]
 
 
@@ -404,7 +415,7 @@ def test_published_drift_reports_wholly_deleted_effort_from_prior_published_stat
     draft.unlink()
 
     assert [out.target for out in lints.lint_published_drift(fixture_vault)] == [
-        "projects/brief"
+        "path-bytes:projects/brief"
     ]
 
 
@@ -425,8 +436,14 @@ def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vaul
     outs = lints.lint_published_drift(fixture_vault)
 
     assert [(out.target, out.reason) for out in outs] == [
-        ("projects/brief", "drift — published project diverged from its tag"),
-        ("projects/brief/broken.md", "schema-violation — malformed frontmatter"),
+        (
+            "path-bytes:projects/brief",
+            "drift — published project diverged from its tag",
+        ),
+        (
+            "path-bytes:projects/brief/broken.md",
+            "schema-violation — malformed frontmatter",
+        ),
     ]
 
 
@@ -444,7 +461,10 @@ def test_source_status_deduplicates_repeated_references_and_records_origin(
     assert [(out.target, out.extra) for out in outs] == [
         (
             "gone2019",
-            {"note_path": "projects/brief/draft.md", "claim_id": "c-88888888"},
+            {
+                "note_path": "path-bytes:projects/brief/draft.md",
+                "claim_id": "c-88888888",
+            },
         )
     ]
     assert outs[0].reason.startswith("superseded-source")
@@ -492,11 +512,17 @@ def test_contested_lint_surfaces_only_carrier_and_supported_addresses(fixture_va
     assert [(out.target, out.extra) for out in outs] == [
         (
             "mortality-trends#^c-55555555",
-            {"note_path": "projects/brief/draft.md", "claim_id": "c-99999999"},
+            {
+                "note_path": "path-bytes:projects/brief/draft.md",
+                "claim_id": "c-99999999",
+            },
         ),
         (
             "smith2020#^c-11111111",
-            {"note_path": "projects/brief/draft.md", "claim_id": "c-99999999"},
+            {
+                "note_path": "path-bytes:projects/brief/draft.md",
+                "claim_id": "c-99999999",
+            },
         ),
     ]
     assert all(out.reason.startswith("contested") for out in outs)
@@ -552,7 +578,96 @@ def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
             "webonly2024",
             Result.UNMATCHED,
             "schema-violation — malformed frontmatter",
-            extra={"note_path": "projects/brief/draft.md", "claim_id": "c-12345678"},
+            extra={
+                "note_path": lints.RepoPathValue(b"projects/brief/draft.md"),
+                "claim_id": "c-12345678",
+            },
         )
     ]
     assert any(out.reason.startswith("schema-violation") for out in archive)
+
+
+def _refresh_managed_witness(path):
+    text = path.read_text()
+    data, body = frontmatter.parse(text)
+    data["managed-sha256"] = notes.managed_sha256(text.encode())
+    path.write_text(frontmatter.serialize(data) + body)
+
+
+@pytest.mark.parametrize("change", ["edit", "delete", "rename"])
+def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
+    fixture_vault, change
+):
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    source = fixture_vault / "literatures" / "smith2020.md"
+    if change == "edit":
+        source.write_text(
+            source.read_text().replace("# Mortality decline", "# Changed")
+        )
+        _refresh_managed_witness(source)
+        expected = "path-bytes:literatures/smith2020.md"
+    elif change == "delete":
+        source.unlink()
+        expected = "path-bytes:literatures/smith2020.md"
+    else:
+        renamed = fixture_vault / "literatures" / "renamed.md"
+        source.rename(renamed)
+        expected = "path-bytes:literatures/renamed.md"
+
+    outcomes = lints.lint_evidence_layer(
+        fixture_vault,
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    finding = next(item for item in outcomes if item.result is Result.UNMATCHED)
+    assert finding.check == "evidence-layer"
+    assert finding.target == expected
+    assert finding.target_kind == "repo-path"
+    assert finding.reason.startswith("drift")
+
+
+def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    source = fixture_vault / "literatures" / "smith2020.md"
+    source.write_text(source.read_text() + "human free prose\n")
+
+    outcomes = lints.lint_evidence_layer(
+        fixture_vault,
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    assert not any(
+        item.result is Result.UNMATCHED and item.reason.startswith("drift")
+        for item in outcomes
+    )
+
+
+def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
+    fixture_vault,
+):
+    source = fixture_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace('managed-sha256: "', 'managed-sha256: "A', 1)
+    )
+    candidate = gitstate.snapshot_worktree(fixture_vault)
+
+    outcomes = lints.lint_evidence_layer(fixture_vault, candidate, candidate)
+
+    finding = next(item for item in outcomes if item.result is Result.UNMATCHED)
+    assert finding.check == "evidence-layer"
+    assert finding.target_kind == "repo-path"
+    assert finding.reason.startswith("schema-violation")

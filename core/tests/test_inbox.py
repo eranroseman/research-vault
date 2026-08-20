@@ -1,6 +1,7 @@
 import pytest
 
 from harness_core import Result, inbox
+from harness_core.pathcodec import encode_repo_path
 
 INBOX_HEADER = '---\ntype: "review-inbox"\n---\n'
 
@@ -168,6 +169,118 @@ def test_ack_requires_human_and_valid_reason(fixture_vault):
     )
 
     assert inbox.is_acknowledged(fixture_vault, "doi", "smith2020")
+
+
+def test_target_kind_round_trips_and_participates_in_identity_and_ack_scope(
+    fixture_vault,
+):
+    token = encode_repo_path(b"synthesis/a.md")
+    identifier = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        token,
+        Result.UNMATCHED,
+        "mismatch — identifier",
+        date="2026-08-16",
+        target_hash="aa11",
+        target_kind="identifier",
+    )
+    path = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        token,
+        Result.UNMATCHED,
+        "mismatch — path",
+        date="2026-08-16",
+        target_hash="aa11",
+        target_kind="repo-path",
+    )
+
+    assert identifier.id != path.id
+    loaded = inbox.load(fixture_vault)
+    assert [(entry.target, entry.target_kind) for entry in loaded[-2:]] == [
+        (token, "identifier"),
+        (token, "repo-path"),
+    ]
+    inbox.append_ack(
+        fixture_vault,
+        path.id,
+        "manual — checked path",
+        "human:test",
+        "aa11",
+    )
+    assert inbox.is_acknowledged(
+        fixture_vault,
+        "quote",
+        token,
+        current_hash="aa11",
+        target_kind="repo-path",
+    )
+    assert not inbox.is_acknowledged(
+        fixture_vault,
+        "quote",
+        token,
+        current_hash="aa11",
+        target_kind="identifier",
+    )
+    ack_line = (fixture_vault / inbox.INBOX_PATH).read_text().splitlines()[-1]
+    assert "[target-kind:: repo-path]" in ack_line
+
+
+def test_legacy_missing_target_kind_defaults_only_to_identifier(fixture_vault):
+    queue = fixture_vault / inbox.INBOX_PATH
+    _write_body(
+        queue,
+        "- [id:: quote/path-bytes:a/2026-08-16] [check:: quote] "
+        "[target:: path-bytes:a] [result:: UNMATCHED] [date:: 2026-08-16] "
+        "[actor:: harness_core/0.1.0] [reason:: mismatch — legacy]\n",
+    )
+
+    loaded = inbox.load(fixture_vault)
+
+    assert loaded[0].target_kind == "identifier"
+
+
+def test_explicit_repo_path_kind_rejects_a_legacy_identifier_finding_id(
+    fixture_vault,
+):
+    queue = fixture_vault / inbox.INBOX_PATH
+    _write_body(
+        queue,
+        "- [id:: quote/path-bytes:a/2026-08-16] [check:: quote] "
+        "[target:: path-bytes:a] [target-kind:: repo-path] "
+        "[result:: UNMATCHED] [date:: 2026-08-16] "
+        "[actor:: harness_core/0.1.0] [reason:: mismatch — wrong identity]\n",
+    )
+
+    with pytest.raises(inbox.InboxError):
+        inbox.load(fixture_vault)
+
+
+@pytest.mark.parametrize(
+    ("target", "kind"),
+    [
+        ("path-bytes:a%2f", "repo-path"),
+        ("path-bytes:a%2F", "repo-path"),
+        ("path-bytes:a", "unknown"),
+    ],
+)
+def test_load_rejects_noncanonical_repo_path_or_unknown_kind_before_mutation(
+    fixture_vault, target, kind
+):
+    queue = fixture_vault / inbox.INBOX_PATH
+    _write_body(
+        queue,
+        f"- [id:: x] [check:: quote] [target:: {target}] "
+        f"[target-kind:: {kind}] [result:: UNMATCHED] [date:: 2026-08-16] "
+        "[actor:: harness_core/0.1.0] [reason:: mismatch — invalid]\n",
+    )
+    before = queue.read_bytes()
+
+    with pytest.raises(inbox.InboxError):
+        inbox.load(fixture_vault)
+
+    assert queue.read_bytes() == before
 
 
 def test_load_rejects_handwritten_finding_with_invalid_reason(fixture_vault):

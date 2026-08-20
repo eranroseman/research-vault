@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -26,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           zero=0000000000000000000000000000000000000000
-          empty_tree="$(git hash-object -t tree /dev/null)"
+          empty_tree="$(git hash-object -w -t tree /dev/null)"
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base="$PR_BASE"
           elif [[ -n "$PUSH_BASE" && "$PUSH_BASE" != "$zero" ]]; then
@@ -37,12 +38,13 @@ jobs:
           if [[ "$base" != "$empty_tree" ]]; then
             git fetch --no-tags origin "$base"
           fi
+          git cat-file -e "$base^{tree}"
           printf 'sha=%s\n' "$base" >> "$GITHUB_OUTPUT"
       - name: Verify committed changes
         shell: bash
         run: |
           set +e
-          python -m harness_core verify --vault . --offline --surface commit --git-base "${{ steps.base.outputs.sha }}"
+          python -m harness_core verify --vault . --offline --surface commit --git-base "${{ steps.base.outputs.sha }}" --git-candidate HEAD
           code=$?
           set -e
           case "$code" in

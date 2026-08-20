@@ -1,4 +1,6 @@
 from harness_core import Result, quotes
+from harness_core.checks import Outcome
+from harness_core.pathcodec import RepoPathValue
 
 
 def test_levenshtein_ratio_bounds():
@@ -18,7 +20,7 @@ def test_exact_after_normalization_uses_a_different_managed_quote_as_fallback(
     assert outs[0].result is Result.MATCHED
     assert outs[0].target == "smith2020#^c-66666666"
     assert outs[0].extra == {
-        "note_path": "projects/brief/draft.md",
+        "note_path": "path-bytes:projects/brief/draft.md",
         "claim_id": "c-66666666",
         "line_no": 7,
         "target": "managed-region",
@@ -121,7 +123,7 @@ def test_no_comparison_text_is_unreachable(fixture_vault):
     assert out.result is Result.UNREACHABLE
     assert out.reason == "outage — no extractable comparison text"
     assert out.extra == {
-        "note_path": "projects/brief/draft.md",
+        "note_path": "path-bytes:projects/brief/draft.md",
         "claim_id": "c-66666666",
         "line_no": 7,
         "target": "managed-region",
@@ -135,7 +137,7 @@ def test_no_quote_claims_returns_one_controlled_skipped_outcome(fixture_vault):
 
     assert len(outs) == 1
     assert outs[0].check == "quote"
-    assert outs[0].target == "synthesis/index.md"
+    assert outs[0].target == "path-bytes:synthesis/index.md"
     assert outs[0].result is Result.SKIPPED
     assert outs[0].reason == "no-identifier — note has no quote claims"
 
@@ -150,7 +152,7 @@ def test_unanchored_quote_is_schema_violation_with_its_note_origin(fixture_vault
     assert out.result is Result.UNMATCHED
     assert out.reason == "schema-violation — quote claim has no anchor"
     assert out.extra == {
-        "note_path": "projects/brief/draft.md",
+        "note_path": "path-bytes:projects/brief/draft.md",
         "claim_id": None,
         "line_no": 7,
         "target": "managed-region",
@@ -163,12 +165,43 @@ def test_uncited_quote_is_schema_violation_with_its_note_origin(fixture_vault):
 
     out = quotes.check_all_quotes(fixture_vault, draft)[0]
 
-    assert out.target == "projects/brief/draft.md"
+    assert out.target == "path-bytes:projects/brief/draft.md"
     assert out.result is Result.UNMATCHED
     assert out.reason == "schema-violation — quote claim has no citekey"
     assert out.extra == {
-        "note_path": "projects/brief/draft.md",
+        "note_path": "path-bytes:projects/brief/draft.md",
         "claim_id": "c-66666666",
         "line_no": 7,
         "target": "managed-region",
     }
+
+
+def test_quote_producers_type_note_paths_but_keep_claim_links_identifiers(
+    fixture_vault,
+):
+    note = fixture_vault / "projects" / "brief" / "draft.md"
+    claim = quotes.check_all_quotes(fixture_vault, note)[0]
+
+    assert claim.target_kind == "identifier"
+    assert claim.path_extra_fields == ("note_path",)
+    assert claim.extra["note_path"] == "path-bytes:projects/brief/draft.md"
+
+    fallback = quotes.check_all_quotes(
+        fixture_vault, fixture_vault / "synthesis" / "index.md"
+    )[0]
+    assert fallback.target == "path-bytes:synthesis/index.md"
+    assert fallback.target_kind == "repo-path"
+
+
+def test_kind_is_not_inferred_from_slash_or_prefix_text():
+    path_outcome = Outcome(
+        "quote", RepoPathValue(b"note.md"), Result.SKIPPED, "no-identifier — none"
+    )
+    identifier = Outcome(
+        "quote", "path-bytes:note.md", Result.SKIPPED, "no-identifier — none"
+    )
+    slash_identifier = Outcome("quote", "doi/with/slash", Result.MATCHED, "matched")
+
+    assert path_outcome.target == identifier.target
+    assert path_outcome.target_kind == "repo-path"
+    assert identifier.target_kind == slash_identifier.target_kind == "identifier"

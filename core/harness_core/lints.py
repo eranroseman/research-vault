@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 
-from . import Result, frontmatter, gitstate
+from . import Result, frontmatter, gitstate, notes
 from . import claims as claims_mod
 from .checks import Outcome
+from .pathcodec import RepoPathValue
 
 ANCHOR = re.compile(r"\^(c-[A-Za-z0-9-]+)\s*$")
 FAILED_VERIFICATION = re.compile(
@@ -31,7 +34,7 @@ def _git(vault_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def _deduplicate(outcomes: list[Outcome]) -> list[Outcome]:
     """Return stable findings; repeated references must not flood the inbox."""
 
-    def extra_key(extra: dict) -> tuple[tuple[str, str], ...]:
+    def extra_key(extra: Mapping) -> tuple[tuple[str, str], ...]:
         return tuple(sorted((key, repr(value)) for key, value in extra.items()))
 
     seen = set()
@@ -58,8 +61,14 @@ def _deduplicate(outcomes: list[Outcome]) -> list[Outcome]:
     return result
 
 
-def _relative(vault_root: Path, path: Path) -> str:
-    return path.relative_to(vault_root).as_posix()
+def _relative(vault_root: Path, path: Path) -> bytes:
+    return os.fsencode(path.relative_to(vault_root))
+
+
+def _path(vault_root: Path, raw_path: bytes) -> Path:
+    return Path(
+        os.path.join(os.fsencode(vault_root), raw_path).decode(errors="surrogateescape")
+    )
 
 
 def _parse_frontmatter(text: str) -> tuple[dict, bool]:
@@ -70,7 +79,7 @@ def _parse_frontmatter(text: str) -> tuple[dict, bool]:
     return data, True
 
 
-def _schema_outcome(check: str, target: str, extra: dict | None = None) -> Outcome:
+def _schema_outcome(check: str, target, extra: dict | None = None) -> Outcome:
     return Outcome(
         check,
         target,
@@ -80,23 +89,36 @@ def _schema_outcome(check: str, target: str, extra: dict | None = None) -> Outco
     )
 
 
-def lint_append_only(vault_root) -> list[Outcome]:
+def lint_append_only(
+    vault_root,
+    base_snapshot: gitstate.Snapshot | None = None,
+    candidate_snapshot: gitstate.Snapshot | None = None,
+) -> list[Outcome]:
     """Detect deleted historical content, one finding for every affected file."""
     vault = Path(vault_root)
-    changed = _git(
-        vault, "diff", "--name-only", "HEAD", "--", "log/", "inbox/review-queue.md"
-    )
+    if base_snapshot is None:
+        try:
+            base_snapshot = gitstate.snapshot_tree(vault, "HEAD")
+        except gitstate.GitStateError:
+            base_snapshot = gitstate.Snapshot({})
+    if candidate_snapshot is None:
+        candidate_snapshot = gitstate.snapshot_worktree(vault)
     outcomes = []
-    for rel in sorted(set(changed.stdout.splitlines())):
-        diff = _git(vault, "diff", "HEAD", "--unified=0", "--", rel).stdout
-        if any(
-            line.startswith("-") and not line.startswith("---")
-            for line in diff.splitlines()
+    paths = set(base_snapshot.images) | set(candidate_snapshot.images)
+    for rel in sorted(paths):
+        if rel != b"inbox/review-queue.md" and not rel.startswith(b"log/"):
+            continue
+        old = base_snapshot.image(rel)
+        new = candidate_snapshot.image(rel)
+        old_bytes = old.data if old is not None and old.kind == "file" else None
+        new_bytes = new.data if new is not None and new.kind == "file" else None
+        if old_bytes is not None and (
+            new_bytes is None or not new_bytes.startswith(old_bytes)
         ):
             outcomes.append(
                 Outcome(
                     "append-only",
-                    rel,
+                    RepoPathValue(rel),
                     Result.UNMATCHED,
                     "drift — append-only file rewrote history",
                 )
@@ -206,36 +228,50 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
     return old_base == new_base
 
 
-def _claim_target(rel: str, text: str, claim_id: str) -> str:
+def _claim_target(rel: bytes, text: str, claim_id: str):
     data, parsed = _parse_frontmatter(text)
     citekey = data.get("citekey") if parsed else None
     if isinstance(citekey, str) and citekey:
         return claims_mod.claim_link(citekey, claim_id)
-    return f"{rel}#^{claim_id}"
+    return RepoPathValue(rel)
 
 
-def lint_claim_immutability(vault_root) -> list[Outcome]:
+def lint_claim_immutability(
+    vault_root,
+    base_snapshot: gitstate.Snapshot | None = None,
+    candidate_snapshot: gitstate.Snapshot | None = None,
+) -> list[Outcome]:
     """Require committed claims to stay byte-identical absent a real transition."""
     vault = Path(vault_root)
     outcomes = []
-    roots = ("literatures", "synthesis", "projects")
-    head_paths = gitstate.revision_paths(vault, "HEAD", *roots)
-    current_paths = {rel for root in roots for rel in _current_paths(vault, root)}
-    markdown_paths = {rel for rel in head_paths | current_paths if rel.endswith(".md")}
+    roots = (b"literatures/", b"synthesis/", b"projects/")
+    if base_snapshot is None:
+        try:
+            base_snapshot = gitstate.snapshot_tree(vault, "HEAD")
+        except gitstate.GitStateError:
+            base_snapshot = gitstate.Snapshot({})
+    if candidate_snapshot is None:
+        candidate_snapshot = gitstate.snapshot_worktree(vault)
+    markdown_paths = {
+        rel
+        for rel in set(base_snapshot.images) | set(candidate_snapshot.images)
+        if rel.endswith(b".md") and any(rel.startswith(root) for root in roots)
+    }
     for rel in sorted(markdown_paths):
-        head_bytes = gitstate.blob_bytes(vault, "HEAD", rel)
-        if head_bytes is None:
+        base_image = base_snapshot.image(rel)
+        if base_image is None or base_image.kind != "file":
             continue
+        head_bytes = base_image.data or b""
         head = head_bytes.decode(errors="surrogateescape")
-        current_path = vault / rel
+        candidate_image = candidate_snapshot.image(rel)
         current = (
-            current_path.read_bytes().decode(errors="surrogateescape")
-            if current_path.is_file()
+            (candidate_image.data or b"").decode(errors="surrogateescape")
+            if candidate_image is not None and candidate_image.kind == "file"
             else ""
         )
-        _, parsed = _parse_frontmatter(current if current_path.is_file() else head)
-        if current_path.is_file() and not parsed:
-            outcomes.append(_schema_outcome("claim-immutability", rel))
+        _, parsed = _parse_frontmatter(current if candidate_image is not None else head)
+        if candidate_image is not None and not parsed:
+            outcomes.append(_schema_outcome("claim-immutability", RepoPathValue(rel)))
         old_blocks = _claim_blocks(head)
         new_blocks = _claim_blocks(current)
         for claim_id, old_block in old_blocks.items():
@@ -257,13 +293,13 @@ def lint_claim_immutability(vault_root) -> list[Outcome]:
                     _claim_target(rel, head, claim_id),
                     Result.UNMATCHED,
                     f"drift — claim ^{claim_id} mutated or vanished without deprecation",
-                    extra={"note_path": rel, "claim_id": claim_id},
+                    extra={"note_path": RepoPathValue(rel), "claim_id": claim_id},
                 )
             )
     return _deduplicate(outcomes)
 
 
-def _current_paths(vault_root: Path, prefix: str) -> set[str]:
+def _current_paths(vault_root: Path, prefix: str) -> set[bytes]:
     base = vault_root / prefix
     if not base.is_dir():
         return set()
@@ -271,20 +307,34 @@ def _current_paths(vault_root: Path, prefix: str) -> set[str]:
 
 
 def _project_status(
-    vault_root: Path, prefix: str, tag: str | None = None
-) -> tuple[set[str], list[str]]:
+    vault_root: Path,
+    prefix: str,
+    tag: str | None = None,
+    snapshot: gitstate.Snapshot | None = None,
+) -> tuple[set[str], list[bytes]]:
     paths = (
         gitstate.revision_paths(vault_root, tag, prefix)
         if tag
-        else _current_paths(vault_root, prefix)
+        else (
+            {
+                path
+                for path, image in snapshot.images.items()
+                if path.startswith(prefix.encode() + b"/") and image.kind == "file"
+            }
+            if snapshot is not None
+            else _current_paths(vault_root, prefix)
+        )
     )
     statuses, malformed = set(), []
-    for rel in sorted(path for path in paths if path.endswith(".md")):
+    for rel in sorted(path for path in paths if path.endswith(b".md")):
         if tag:
             raw = gitstate.blob_bytes(vault_root, tag, rel)
             text = raw.decode(errors="surrogateescape") if raw is not None else ""
+        elif snapshot is not None:
+            image = snapshot.image(rel)
+            text = (image.data or b"").decode(errors="surrogateescape")
         else:
-            text = (vault_root / rel).read_bytes().decode(errors="surrogateescape")
+            text = _path(vault_root, rel).read_bytes().decode(errors="surrogateescape")
         data, parsed = _parse_frontmatter(text)
         if not parsed:
             malformed.append(rel)
@@ -293,19 +343,28 @@ def _project_status(
     return statuses, malformed
 
 
-def _project_differs(vault_root: Path, tag: str, prefix: str) -> bool:
-    for rel in gitstate.revision_paths(vault_root, tag, prefix) | _current_paths(
-        vault_root, prefix
-    ):
-        current = (
-            (vault_root / rel).read_bytes() if (vault_root / rel).is_file() else None
-        )
-        if gitstate.blob_bytes(vault_root, tag, rel) != current:
-            return True
-    return False
+def _project_differs(
+    vault_root: Path,
+    tag: str,
+    prefix: str,
+    snapshot: gitstate.Snapshot | None = None,
+) -> bool:
+    prior = gitstate.snapshot_tree(vault_root, tag)
+    current = (
+        snapshot if snapshot is not None else gitstate.snapshot_worktree(vault_root)
+    )
+    raw_prefix = prefix.encode() + b"/"
+    paths = {
+        path
+        for path in set(prior.images) | set(current.images)
+        if path == prefix.encode() or path.startswith(raw_prefix)
+    }
+    return any(prior.image(path) != current.image(path) for path in paths)
 
 
-def lint_published_drift(vault_root) -> list[Outcome]:
+def lint_published_drift(
+    vault_root, candidate_snapshot: gitstate.Snapshot | None = None
+) -> list[Outcome]:
     """Compare every published tag to the working tree, including untracked files."""
     vault = Path(vault_root)
     tags = sorted(_git(vault, "tag", "--list", "published/*").stdout.split())
@@ -315,23 +374,25 @@ def lint_published_drift(vault_root) -> list[Outcome]:
         if match is None:
             continue
         project_dir = f"projects/{match.group(1)}"
-        if not _project_differs(vault, tag, project_dir):
+        if not _project_differs(vault, tag, project_dir, candidate_snapshot):
             continue
-        current_statuses, malformed = _project_status(vault, project_dir)
+        current_statuses, malformed = _project_status(
+            vault, project_dir, snapshot=candidate_snapshot
+        )
         for rel in malformed:
-            outcomes.append(_schema_outcome("published-drift", rel))
+            outcomes.append(_schema_outcome("published-drift", RepoPathValue(rel)))
         if current_statuses:
             published = "published" in current_statuses
         else:
             prior_statuses, prior_malformed = _project_status(vault, project_dir, tag)
             for rel in prior_malformed:
-                outcomes.append(_schema_outcome("published-drift", rel))
+                outcomes.append(_schema_outcome("published-drift", RepoPathValue(rel)))
             published = "published" in prior_statuses
         if published:
             outcomes.append(
                 Outcome(
                     "published-drift",
-                    project_dir,
+                    RepoPathValue(project_dir.encode()),
                     Result.UNMATCHED,
                     "drift — published project diverged from its tag",
                 )
@@ -341,7 +402,7 @@ def lint_published_drift(vault_root) -> list[Outcome]:
 
 def _origin(
     vault_root: Path, note_file: Path, claim, fallback: str
-) -> tuple[str, dict]:
+) -> tuple[object, dict]:
     vault = Path(vault_root)
     note = Path(note_file)
     rel = _relative(vault, note)
@@ -350,8 +411,11 @@ def _origin(
     if claim.claim_id and isinstance(citekey, str) and citekey:
         target = claims_mod.claim_link(citekey, claim.claim_id)
     else:
-        target = fallback
-    return target, {"note_path": rel, "claim_id": claim.claim_id}
+        target = fallback if fallback else RepoPathValue(rel)
+    return target, {
+        "note_path": RepoPathValue(rel),
+        "claim_id": claim.claim_id,
+    }
 
 
 def _note_status(vault_root: Path, citekey: str) -> tuple[str | None, str | None, bool]:
@@ -404,7 +468,7 @@ def _contested_addresses(vault_root: Path) -> tuple[set[str], list[Outcome]]:
         text = path.read_text()
         data, parsed = _parse_frontmatter(text)
         if not parsed:
-            outcomes.append(_schema_outcome("contested", rel))
+            outcomes.append(_schema_outcome("contested", RepoPathValue(rel)))
         page_key = data.get("citekey") if parsed else None
         if not isinstance(page_key, str) or not page_key:
             page_key = path.stem
@@ -447,11 +511,13 @@ def lint_web_archive(vault_root) -> list[Outcome]:
         rel = _relative(vault, path)
         data, parsed = _parse_frontmatter(path.read_text())
         if not parsed:
-            outcomes.append(_schema_outcome("web-archive", rel))
+            outcomes.append(_schema_outcome("web-archive", RepoPathValue(rel)))
             continue
         if data.get("url") and not data.get("doi") and not data.get("archive-url"):
             target = (
-                data.get("citekey") if isinstance(data.get("citekey"), str) else rel
+                data.get("citekey")
+                if isinstance(data.get("citekey"), str)
+                else RepoPathValue(rel)
             )
             outcomes.append(
                 Outcome(
@@ -459,6 +525,107 @@ def lint_web_archive(vault_root) -> list[Outcome]:
                     target,
                     Result.UNMATCHED,
                     "missing-archive — web source has no archive-url",
+                )
+            )
+    return _deduplicate(outcomes)
+
+
+def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileImage]:
+    return {
+        raw_path: image
+        for raw_path, image in snapshot.images.items()
+        if raw_path.startswith(b"literatures/")
+        and raw_path.endswith(b".md")
+        and image.kind == "file"
+    }
+
+
+def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
+    if image is None or image.kind != "file":
+        return None
+    try:
+        return notes.managed_slice_bytes(image.data or b"")
+    except notes.ManagedRegionError:
+        return None
+
+
+def lint_evidence_layer(
+    vault_root,
+    base_snapshot: gitstate.Snapshot,
+    candidate_snapshot: gitstate.Snapshot,
+) -> list[Outcome]:
+    """Validate witnesses and expose every base-to-candidate managed change."""
+    del vault_root
+    outcomes = []
+    base_files = _literature_files(base_snapshot)
+    candidate_files = _literature_files(candidate_snapshot)
+
+    for raw_path, image in sorted(candidate_files.items()):
+        result, reason = notes.validate_managed_witness(image.data or b"")
+        if result is not Result.MATCHED:
+            outcomes.append(
+                Outcome(
+                    "evidence-layer",
+                    RepoPathValue(raw_path),
+                    result,
+                    reason,
+                )
+            )
+
+    removed = set(base_files) - set(candidate_files)
+    added = set(candidate_files) - set(base_files)
+    paired_removed = set()
+    paired_added = set()
+    removed_by_managed = {}
+    for raw_path in removed:
+        managed = _managed_bytes(base_files[raw_path])
+        if managed is not None:
+            removed_by_managed.setdefault(managed, []).append(raw_path)
+    for raw_path in sorted(added):
+        managed = _managed_bytes(candidate_files[raw_path])
+        candidates = removed_by_managed.get(managed, []) if managed is not None else []
+        if candidates:
+            old_path = sorted(candidates)[0]
+            candidates.remove(old_path)
+            paired_removed.add(old_path)
+            paired_added.add(raw_path)
+            outcomes.append(
+                Outcome(
+                    "evidence-layer",
+                    RepoPathValue(raw_path),
+                    Result.UNMATCHED,
+                    "drift — managed literature note renamed",
+                    extra={"prior_path": RepoPathValue(old_path)},
+                )
+            )
+    for raw_path in sorted(added - paired_added):
+        outcomes.append(
+            Outcome(
+                "evidence-layer",
+                RepoPathValue(raw_path),
+                Result.UNMATCHED,
+                "drift — managed literature note added",
+            )
+        )
+    for raw_path in sorted(removed - paired_removed):
+        outcomes.append(
+            Outcome(
+                "evidence-layer",
+                RepoPathValue(raw_path),
+                Result.UNMATCHED,
+                "drift — managed literature note deleted",
+            )
+        )
+    for raw_path in sorted(set(base_files) & set(candidate_files)):
+        old = _managed_bytes(base_files[raw_path])
+        new = _managed_bytes(candidate_files[raw_path])
+        if old != new:
+            outcomes.append(
+                Outcome(
+                    "evidence-layer",
+                    RepoPathValue(raw_path),
+                    Result.UNMATCHED,
+                    "drift — managed literature region changed",
                 )
             )
     return _deduplicate(outcomes)

@@ -90,7 +90,8 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/synthesis/index.md").read_text() == "# Synthesis index\n"
     assert asset("vault/x/templates/literature.md").read_text() == (
         '---\ncitekey: "{{CITEKEY}}"\ntype: "literature"\n'
-        'accessed: "{{TODAY}}"\nfixity-sha256:\nstatus: "unscreened"\n'
+        'accessed: "{{TODAY}}"\nfixity-sha256:\n'
+        'managed-sha256: "{{MANAGED_SHA256}}"\nstatus: "unscreened"\n'
         'generated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
         "%%hk-managed%%\n# {{TITLE}}\n%%/hk-managed%%\n\n## Notes\n"
     )
@@ -138,9 +139,12 @@ def test_precommit_hook_is_executable_and_has_exact_contract():
     assert hook.stat().st_mode & os.X_OK
     subprocess.run(["sh", "-n", str(hook)], check=True)
     assert (
-        'python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base HEAD'
+        'python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index'
         in text
     )
+    assert 'git_base="$(git rev-parse --verify HEAD 2>/dev/null)"' in text
+    assert "git hash-object -w -t tree /dev/null" in text
+    assert 'git cat-file -e "$git_base^{tree}"' in text
     assert "git commit --no-verify" in text
     assert 'if ! python3 -c "import harness_core" 2>/dev/null; then' in text
     assert (
@@ -176,10 +180,14 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert "PR_BASE: ${{ github.event.pull_request.base.sha }}" in text
     assert "PUSH_BASE: ${{ github.event.before }}" in text
     assert "zero=0000000000000000000000000000000000000000" in text
-    assert 'empty_tree="$(git hash-object -t tree /dev/null)"' in text
+    assert "persist-credentials: false" in text
+    assert 'empty_tree="$(git hash-object -w -t tree /dev/null)"' in text
     assert 'git fetch --no-tags origin "$base"' in text
+    assert 'git cat-file -e "$base^{tree}"' in text
     assert 'printf \'sha=%s\\n\' "$base" >> "$GITHUB_OUTPUT"' in text
     assert 'git-base "${{ steps.base.outputs.sha }}"' in text
+    assert "--git-candidate HEAD" in text
+    assert "git push" not in text
     assert "0) exit 0 ;;" in text
     assert "1) exit 1 ;;" in text
     assert (
@@ -212,21 +220,18 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
         in text
     )
     assert (
-        '--offline --rw-csv "$RUNNER_TEMP/rw.csv" --changed-paths-file "$RUNNER_TEMP/harness-changed-paths"'
+        '--offline --surface audit --git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" --changed-paths-file "$RUNNER_TEMP/harness-changed-paths" --commit-projected "chore: rw-batch findings"'
         in text
     )
     assert "No verifier-owned changes." in text
     assert 'git config user.name "harness-ci"' in text
     assert 'git config user.email "actions@users.noreply.github.com"' in text
     assert "git push" in text
-    assert "0|1) exit 0 ;;" in text
+    assert "0) exit 0 ;;" in text
+    assert "1)" in text
+    assert "3)" in text
     assert 'if [[ ! -s "$manifest" ]]; then' in text
-    assert (
-        'git --literal-pathspecs add --pathspec-from-file="$manifest" --pathspec-file-nul'
-        in text
-    )
-    assert (
-        'git --literal-pathspecs commit --only -m "chore: rw-batch findings" --pathspec-from-file="$manifest" --pathspec-file-nul'
-        in text
-    )
+    assert "git add" not in text
+    assert "git commit" not in text
+    assert "--pathspec-from-file" not in text
     assert "|| true" not in text

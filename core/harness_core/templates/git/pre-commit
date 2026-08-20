@@ -12,7 +12,14 @@ if ! python3 -c "import harness_core" 2>/dev/null; then
   exit 0
 fi
 
-python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base HEAD
+git_base="$(git rev-parse --verify HEAD 2>/dev/null)" ||
+  git_base="$(git hash-object -w -t tree /dev/null)" || exit 1
+if ! git cat-file -e "$git_base^{tree}"; then
+  echo "pre-commit: comparison base is not an available tree." >&2
+  exit 1
+fi
+
+python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index
 code=$?
 case "$code" in
   0) exit 0 ;;

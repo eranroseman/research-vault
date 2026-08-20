@@ -1,3 +1,4 @@
+import hashlib as _hashlib
 import json as _json
 import os
 import subprocess
@@ -5,6 +6,19 @@ import subprocess
 import pytest
 
 VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "x"]
+
+
+def _with_managed_witness(text):
+    opening = text.index("%%hk-managed%%")
+    closing = text.index("%%/hk-managed%%", opening) + len("%%/hk-managed%%")
+    if text[closing : closing + 2] == "\r\n":
+        closing += 2
+    elif text[closing : closing + 1] == "\n":
+        closing += 1
+    digest = _hashlib.sha256(text[opening:closing].encode()).hexdigest()
+    return text.replace(
+        'type: "literature"\n', f'type: "literature"\nmanaged-sha256: "{digest}"\n', 1
+    )
 
 
 @pytest.fixture
@@ -23,7 +37,7 @@ def fixture_vault(tmp_vault):
     (tmp_vault / "log.md").write_text("# Log\n")
     literature = tmp_vault / "literatures"
     (literature / "smith2020.md").write_text(
-        """---
+        _with_managed_witness("""---
 citekey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
@@ -44,10 +58,10 @@ generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 %%/hk-managed%%
 
 ## Notes
-"""
+""")
     )
     (literature / "gone2019.md").write_text(
-        """---
+        _with_managed_witness("""---
 citekey: "gone2019"
 type: "literature"
 doi: "10.1000/old"
@@ -61,7 +75,7 @@ generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 %%/hk-managed%%
 
 ## Notes
-"""
+""")
     )
     (tmp_vault / "synthesis" / "index.md").write_text(
         "# Synthesis index\n\n- [[mortality-trends]] — mortality synthesis\n"

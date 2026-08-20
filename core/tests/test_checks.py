@@ -1,6 +1,11 @@
+import dataclasses
+import json
+from types import MappingProxyType
+
 import pytest
 
 from harness_core import Result, checks, webapi
+from harness_core.pathcodec import RepoPathValue
 
 
 def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):
@@ -24,7 +29,8 @@ def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
     outs = checks.check_citekeys(fixture_vault, note)
 
     assert len(outs) == 1
-    assert outs[0].target == "synthesis/index.md"
+    assert outs[0].target == "path-bytes:synthesis/index.md"
+    assert outs[0].target_kind == "repo-path"
     assert outs[0].result is Result.SKIPPED
     assert outs[0].reason == "no-identifier — note cites nothing"
 
@@ -39,8 +45,8 @@ def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
     assert len(outs) == 1
     assert outs[0].target == "prose-only2024"
     assert outs[0].result is Result.UNMATCHED
-    assert outs[0].extra["note_path"] == "synthesis/prose.md"
-    assert outs[0].extra["claims"] == []
+    assert outs[0].extra["note_path"] == "path-bytes:synthesis/prose.md"
+    assert checks.outcome_to_record(outs[0])["extra"]["claims"] == []
 
 
 def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
@@ -55,7 +61,7 @@ def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
 
     assert [out.target for out in outs] == ["fabricated2020", "smith2020"]
     smith = next(out for out in outs if out.target == "smith2020")
-    assert smith.extra["claims"] == [
+    assert checks.outcome_to_record(smith)["extra"]["claims"] == [
         {"claim_id": "c-66666666", "line_no": 7, "locator": "p. 12"},
         {"claim_id": "c-88888888", "line_no": 11, "locator": "p. 13"},
     ]
@@ -68,17 +74,24 @@ def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
     outs = checks.check_citekeys(fixture_vault, note)
 
     smith = next(out for out in outs if out.target == "smith2020")
-    assert smith.extra == {
-        "note_path": "projects/brief/draft.md",
+    assert checks.outcome_to_record(smith)["extra"] == {
+        "note_path": "path-bytes:projects/brief/draft.md",
         "claims": [{"claim_id": "c-66666666", "line_no": 7, "locator": "p. 12"}],
     }
 
 
-def test_outcome_rejects_invalid_or_empty_reasons_and_has_fresh_extra_dicts():
-    """Invalid reasons and shared metadata could corrupt every later check."""
-    first = checks.Outcome("citekey", "smith2020", Result.MATCHED, "matched")
-    second = checks.Outcome("citekey", "gone2019", Result.MATCHED, "matched")
-    first.extra["origin"] = "one"
+def test_outcome_rejects_invalid_reasons_and_has_independent_frozen_graphs():
+    """Outcome detaches every caller graph and exposes no mutation path."""
+    first_input = {"nested": {"items": ["one"]}}
+    second_input = {"nested": {"items": ["two"]}}
+    first = checks.Outcome(
+        "citekey", "smith2020", Result.MATCHED, "matched", first_input
+    )
+    second = checks.Outcome(
+        "citekey", "gone2019", Result.MATCHED, "matched", second_input
+    )
+    first_input["nested"]["items"].append("caller mutation")
+    second_input["nested"] = {"items": []}
 
     with pytest.raises(ValueError, match="reason"):
         checks.Outcome("citekey", "bad", Result.MATCHED, "")
@@ -87,7 +100,146 @@ def test_outcome_rejects_invalid_or_empty_reasons_and_has_fresh_extra_dicts():
     with pytest.raises(TypeError):
         checks.Outcome("citekey", "bad", Result.MATCHED)
 
-    assert second.extra == {}
+    assert first.extra["nested"]["items"] == ("one",)
+    assert second.extra["nested"]["items"] == ("two",)
+    with pytest.raises(TypeError):
+        first.extra["origin"] = "one"
+    with pytest.raises(TypeError):
+        first.extra["nested"]["items"] += ("three",)
+
+
+def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
+    outcome = checks.Outcome(
+        "quote",
+        RepoPathValue(b"synthesis/no-slash-needed.md"),
+        Result.UNMATCHED,
+        "mismatch — quote",
+        extra={
+            "note_path": RepoPathValue(b"projects/a b.md"),
+            "origin": RepoPathValue(b"literatures/\xff.md"),
+            "identifier": "path-bytes:looks/like/a/path",
+        },
+    )
+
+    assert outcome.target == "path-bytes:synthesis/no-slash-needed.md"
+    assert outcome.target_kind == "repo-path"
+    assert outcome.path_extra_fields == ("note_path", "origin")
+    assert outcome.extra["note_path"] == "path-bytes:projects/a%20b.md"
+    assert outcome.extra["origin"] == "path-bytes:literatures/%FF.md"
+    assert outcome.extra["identifier"] == "path-bytes:looks/like/a/path"
+    assert isinstance(outcome.extra, MappingProxyType)
+    for name in ("target", "target_kind", "path_extra_fields"):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(outcome, name, "changed")
+    with pytest.raises(TypeError):
+        hash(outcome)
+
+    replaced = dataclasses.replace(
+        outcome,
+        target=RepoPathValue(b"synthesis/new.md"),
+        extra={"identifier": "plain"},
+    )
+    assert replaced.target_kind == "repo-path"
+    assert replaced.target == "path-bytes:synthesis/new.md"
+    assert replaced.path_extra_fields == ()
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"raw": b"bytes"},
+        {"nested": [b"bytes"]},
+        {"nested": {"path": RepoPathValue(b"x/a.md")}},
+        {1: "non-string key"},
+        {"set": {"x"}},
+        {"frozen": frozenset({"x"})},
+        {"object": object()},
+    ],
+)
+def test_outcome_rejects_non_json_or_nested_typed_path_values(extra):
+    with pytest.raises((TypeError, ValueError)):
+        checks.Outcome("doi", "id", Result.MATCHED, "matched", extra)
+
+
+def test_outcome_rejects_cycles_at_any_depth():
+    cycle = {}
+    cycle["self"] = cycle
+    with pytest.raises(ValueError, match="cycle"):
+        checks.Outcome("doi", "id", Result.MATCHED, "matched", cycle)
+
+
+def test_record_and_csv_round_trip_thaw_fresh_typed_values():
+    source = checks.Outcome(
+        "quote",
+        RepoPathValue(b"synthesis/\xff.md"),
+        Result.UNMATCHED,
+        "mismatch — quote",
+        {
+            "note_path": RepoPathValue(b"projects/a.md"),
+            "claims": [{"id": "c-1", "locators": [1, 2]}],
+        },
+    )
+    record = checks.outcome_to_record(source)
+    assert record == {
+        "check": "quote",
+        "target": "path-bytes:synthesis/%FF.md",
+        "target_kind": "repo-path",
+        "result": "UNMATCHED",
+        "reason": "mismatch — quote",
+        "extra": {
+            "note_path": "path-bytes:projects/a.md",
+            "claims": [{"id": "c-1", "locators": [1, 2]}],
+        },
+        "path_extra_fields": ["note_path"],
+    }
+    record["extra"]["claims"][0]["locators"].append(3)
+    assert source.extra["claims"][0]["locators"] == (1, 2)
+
+    rebuilt = checks.outcome_from_record(checks.outcome_to_record(source))
+    assert checks.outcome_to_record(rebuilt) == checks.outcome_to_record(source)
+    row = checks.outcome_to_csv_row(source)
+    assert set(row) == {
+        "check",
+        "target",
+        "target_kind",
+        "result",
+        "reason",
+        "extra",
+        "path_extra_fields",
+    }
+    assert row["extra"] == json.dumps(
+        checks.outcome_to_record(source)["extra"],
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    assert checks.outcome_to_record(checks.outcome_from_csv_row(row)) == (
+        checks.outcome_to_record(source)
+    )
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        lambda r: r.pop("target_kind"),
+        lambda r: r.__setitem__("target_kind", "path"),
+        lambda r: r.__setitem__("path_extra_fields", ["x", "x"]),
+        lambda r: r.__setitem__("path_extra_fields", ["z", "a"]),
+        lambda r: (
+            r.__setitem__("extra", {"note_path": "path-bytes:a%2f"}),
+            r.__setitem__("path_extra_fields", ["note_path"]),
+        ),
+        lambda r: r.__setitem__("unknown", 1),
+    ],
+)
+def test_record_reconstruction_rejects_missing_malformed_or_duplicate_metadata(
+    mutator,
+):
+    record = checks.outcome_to_record(
+        checks.Outcome("doi", "id", Result.MATCHED, "matched")
+    )
+    mutator(record)
+    with pytest.raises((TypeError, ValueError)):
+        checks.outcome_from_record(record)
 
 
 def _fake_get(monkeypatch, table):
@@ -598,7 +750,7 @@ def test_update_notice_crossref_uses_encoded_works_path_and_keeps_warns(
     assert outcome.result is Result.UNMATCHED
     assert outcome.target == "cite"
     assert outcome.reason == "retracted — retraction"
-    assert outcome.extra == {
+    assert checks.outcome_to_record(outcome)["extra"] == {
         "class": "blocking",
         "type": "retraction",
         "notice_date": "2024-02-03",
@@ -787,7 +939,7 @@ def test_update_notice_openalex_requires_a_boolean_and_encodes_identifier(
         ),
     ]
     assert outcome.result is Result.UNMATCHED
-    assert outcome.extra == {
+    assert checks.outcome_to_record(outcome)["extra"] == {
         "class": "blocking",
         "type": "retraction",
         "notice_date": None,
@@ -1153,7 +1305,7 @@ def test_rw_csv_matches_both_identifiers_and_blocking_beats_warning(tmp_path):
 
     assert outcome.result is Result.UNMATCHED
     assert outcome.reason == "retracted — retraction"
-    assert outcome.extra == {
+    assert checks.outcome_to_record(outcome)["extra"] == {
         "class": "blocking",
         "type": "retraction",
         "notice_date": "2024-02-02",
@@ -1207,7 +1359,7 @@ def test_reduce_update_notice_outcomes_applies_precedence_and_merges_warns():
 
     assert matched.result is Result.MATCHED
     assert matched.target == "cite"
-    assert matched.extra["warn_notices"] == [
+    assert checks.outcome_to_record(matched)["extra"]["warn_notices"] == [
         {"type": "correction", "notice_date": "2023-01-01"},
         {"type": "erratum", "notice_date": None},
     ]
@@ -1325,3 +1477,35 @@ def test_metadata_skips_entries_without_a_doi(net_vault):
 
     assert outcome.result is Result.SKIPPED
     assert outcome.target == "webonly2024"
+
+
+def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():
+    live = checks.Outcome(
+        "update-notice",
+        RepoPathValue(b"literatures/\xff.md"),
+        Result.MATCHED,
+        "matched",
+        {
+            "note_path": RepoPathValue(b"literatures/\xff.md"),
+            "warn_notices": [{"type": "correction", "notice_date": "2026-01-01"}],
+        },
+    )
+    rw = checks.Outcome(
+        "update-notice",
+        RepoPathValue(b"literatures/\xff.md"),
+        Result.UNREACHABLE,
+        "outage — RW unavailable",
+        {"note_path": RepoPathValue(b"literatures/\xff.md")},
+    )
+    live_record = checks.outcome_to_record(live)
+    rw_record = checks.outcome_to_record(rw)
+
+    reduced = checks.reduce_update_notice_outcomes(live, rw)
+
+    assert reduced is not live
+    assert reduced is not rw
+    assert reduced.target_kind == "repo-path"
+    assert reduced.path_extra_fields == ("note_path",)
+    assert reduced.extra["warn_notices"][0]["type"] == "correction"
+    assert checks.outcome_to_record(live) == live_record
+    assert checks.outcome_to_record(rw) == rw_record

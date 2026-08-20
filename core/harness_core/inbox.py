@@ -3,10 +3,11 @@
 import datetime
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from . import AGENT_ACTOR, Result, frontmatter
+from .pathcodec import PathCodecError, decode_repo_path
 
 INBOX_PATH = "inbox/review-queue.md"
 INBOX_TYPE = "review-inbox"
@@ -39,13 +40,20 @@ _REASON = re.compile(
 _ENTRY_FIELDS = {"id", "check", "target", "result", "date", "actor", "reason"}
 _ACK_FIELDS = {"ack", "actor", "reason"}
 _ENTRY_OPTIONAL_FIELDS = {
+    "target-kind",
     "target-hash",
     "notice-class",
     "notice-type",
     "notice-date",
     "detection-date",
 }
-_ACK_OPTIONAL_FIELDS = {"target-hash", "notice-class", "notice-type", "notice-date"}
+_ACK_OPTIONAL_FIELDS = {
+    "target-kind",
+    "target-hash",
+    "notice-class",
+    "notice-type",
+    "notice-date",
+}
 _NOTICE_TYPES = {
     "blocking": {"retraction", "partial_retraction", "removal", "withdrawal"},
     "warn": {"expression_of_concern", "correction", "corrigendum", "erratum"},
@@ -56,11 +64,12 @@ class InboxError(ValueError):
     """Raised when an inbox line cannot be parsed as a review record."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class Entry:
     id: str
     check: str = ""
     target: str = ""
+    target_kind: str = "identifier"
     result: str = ""
     date: str = ""
     actor: str = ""
@@ -105,6 +114,14 @@ def _validate_optional_text(name: str, value) -> str | None:
     if value is None:
         return None
     return _validate_text(name, value)
+
+
+def _validate_target_kind(target: str, target_kind) -> str:
+    if target_kind not in {"identifier", "repo-path"}:
+        raise ValueError("target_kind must be identifier or repo-path")
+    if target_kind == "repo-path":
+        decode_repo_path(target)
+    return target_kind
 
 
 def _validate_date(name: str, value) -> str:
@@ -200,8 +217,11 @@ def _finding_id(
     notice_class,
     notice_type,
     notice_date,
+    target_kind="identifier",
 ) -> str:
     entry_id = f"{check}/{target}/{date}"
+    if target_kind == "repo-path":
+        entry_id = f"{check}/{target}/kind-repo-path/{date}"
     if notice_class is not None:
         entry_id += f"/{notice_class}/{notice_type}/{notice_date or 'unknown'}"
     if target_hash is not None:
@@ -247,10 +267,15 @@ def append_entry(
     notice_type: str | None = None,
     notice_date: str | None = None,
     detection_date: str | None = None,
+    target_kind: str = "identifier",
 ) -> Entry:
     """Append a finding record and return its immutable representation."""
     check = _validate_text("check", check)
     target = _validate_text("target", target)
+    try:
+        target_kind = _validate_target_kind(target, target_kind)
+    except PathCodecError as error:
+        raise ValueError("target is not a canonical repo path") from error
     if not isinstance(result, Result):
         raise TypeError("result must be a Result")
     validate_reason(reason)
@@ -277,11 +302,13 @@ def append_entry(
         notice_class,
         notice_type,
         notice_date,
+        target_kind,
     )
     entry = Entry(
         id=entry_id,
         check=check,
         target=target,
+        target_kind=target_kind,
         result=result.value,
         date=date,
         actor=actor,
@@ -296,6 +323,7 @@ def append_entry(
         ("id", entry.id),
         ("check", entry.check),
         ("target", entry.target),
+        ("target-kind", entry.target_kind),
         ("result", entry.result),
         ("date", entry.date),
         ("actor", entry.actor),
@@ -353,6 +381,7 @@ def append_ack(
     entry = Entry(
         id=f"ack/{entry_id}",
         ack_of=entry_id,
+        target_kind=finding.target_kind,
         actor=actor,
         reason=reason,
         target_hash=target_hash,
@@ -364,6 +393,7 @@ def append_ack(
         ("ack", entry.ack_of),
         ("actor", entry.actor),
         ("reason", entry.reason),
+        ("target-kind", entry.target_kind),
         ("target-hash", entry.target_hash),
         ("notice-class", entry.notice_class),
         ("notice-type", entry.notice_type),
@@ -436,6 +466,7 @@ def load(vault) -> list[Entry]:
                     entry
                     for entry in candidates
                     if entry.target_hash == data.get("target-hash")
+                    and entry.target_kind == data.get("target-kind", "identifier")
                     and (
                         entry.notice_class,
                         entry.notice_type,
@@ -457,6 +488,7 @@ def load(vault) -> list[Entry]:
                     ack_of=data["ack"],
                     actor=data["actor"],
                     reason=data["reason"],
+                    target_kind=data.get("target-kind", "identifier"),
                     target_hash=data.get("target-hash"),
                     notice_class=notice_class,
                     notice_type=notice_type,
@@ -472,6 +504,9 @@ def load(vault) -> list[Entry]:
             try:
                 check = _validate_text("check", data["check"])
                 target = _validate_text("target", data["target"])
+                target_kind = _validate_target_kind(
+                    target, data.get("target-kind", "identifier")
+                )
                 actor = _validate_text("actor", data["actor"])
                 date = _validate_date("date", data["date"])
                 if data["result"] not in Result.__members__:
@@ -500,8 +535,12 @@ def load(vault) -> list[Entry]:
                     notice_class,
                     notice_type,
                     notice_date,
+                    target_kind,
                 )
-                if data["id"] not in {base_id, expected_id}:
+                valid_ids = {expected_id}
+                if "target-kind" not in data:
+                    valid_ids.add(base_id)
+                if data["id"] not in valid_ids:
                     raise ValueError("finding id does not match fields")
             except (TypeError, ValueError) as error:
                 raise InboxError(
@@ -512,6 +551,7 @@ def load(vault) -> list[Entry]:
                     id=data["id"],
                     check=check,
                     target=target,
+                    target_kind=target_kind,
                     result=data["result"],
                     date=date,
                     actor=actor,
@@ -557,6 +597,7 @@ def _scope_acknowledged(entries: list[Entry], finding: Entry) -> bool:
         if entry.ack_of is None
         and entry.check == finding.check
         and entry.target == finding.target
+        and entry.target_kind == finding.target_kind
         and entry.target_hash == finding.target_hash
         and (
             finding.check != "update-notice"
@@ -583,9 +624,14 @@ def is_acknowledged(
     notice_class=None,
     notice_type=None,
     notice_date=None,
+    target_kind="identifier",
 ) -> bool:
     """Return whether a standing scope acknowledgement matches this hash."""
     entries = load(vault)
+    try:
+        target_kind = _validate_target_kind(target, target_kind)
+    except (TypeError, ValueError, PathCodecError):
+        return False
     latest = next(
         (
             entry
@@ -593,6 +639,7 @@ def is_acknowledged(
             if entry.ack_of is None
             and entry.check == check
             and entry.target == target
+            and entry.target_kind == target_kind
             and (
                 check != "update-notice"
                 or (
@@ -607,8 +654,11 @@ def is_acknowledged(
     )
     if latest is None:
         return False
-    latest.target_hash = (
-        latest.target_hash if current_hash is _OMITTED_HASH else current_hash
+    latest = replace(
+        latest,
+        target_hash=(
+            latest.target_hash if current_hash is _OMITTED_HASH else current_hash
+        ),
     )
     return _scope_acknowledged(entries, latest)
 

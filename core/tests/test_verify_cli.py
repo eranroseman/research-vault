@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,15 @@ from unittest.mock import Mock
 
 import pytest
 
-from harness_core import Result, bibliography, checks, claims, events, inbox, webapi
+from harness_core import (
+    Result,
+    bibliography,
+    checks,
+    claims,
+    events,
+    inbox,
+    webapi,
+)
 from harness_core.__main__ import (
     _archive_outcomes,
     _mutate_marker,
@@ -21,10 +30,21 @@ from harness_core.__main__ import (
     main,
     run_verify,
 )
+from harness_core.pathcodec import PathCodecError, RepoPathValue, encode_repo_path
 
 
 def _outcome(check, target, result, reason, **extra):
+    if isinstance(extra.get("note_path"), str):
+        extra["note_path"] = RepoPathValue(os.fsencode(extra["note_path"]))
+    if check in {"append-only", "staleness"} and isinstance(target, str):
+        target = RepoPathValue(os.fsencode(target))
     return checks.Outcome(check, target, result, reason, extra)
+
+
+def _git_bytes(vault, *args, stdin=None):
+    return subprocess.run(
+        ["git", *args], cwd=vault, input=stdin, check=True, capture_output=True
+    ).stdout
 
 
 def test_discovery_partial_identifiers_survive_outage_and_run_recovered_doi(
@@ -222,13 +242,8 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
             :16
         ]
     )
-    assert (
-        _target_hash(
-            net_vault,
-            _outcome("append-only", "../outside", Result.UNMATCHED, "drift — unsafe"),
-        )
-        is None
-    )
+    with pytest.raises(PathCodecError):
+        RepoPathValue(b"../outside")
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -517,7 +532,11 @@ def test_archive_resolution_uses_status_and_distinguishes_404_from_outage(
 def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
     net_vault, monkeypatch
 ):
-    args = type("Args", (), {"vault": net_vault, "offline": True, "rw_csv": None})()
+    args = type(
+        "Args",
+        (),
+        {"vault": net_vault, "offline": True, "rw_csv": None, "surface": "publish"},
+    )()
     cases = [
         (
             [
@@ -943,7 +962,10 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     link = nested / "escape"
     link.symlink_to(first_target)
     directory_outcome = _outcome(
-        "published-drift", "projects/published", Result.UNMATCHED, "drift"
+        "published-drift",
+        RepoPathValue(b"projects/published"),
+        Result.UNMATCHED,
+        "drift",
     )
     first = _target_hash(net_vault, directory_outcome)
     first_target.write_text("changing outside content stays invisible\n")
@@ -979,7 +1001,8 @@ def test_archive_invalid_citekey_falls_back_to_safe_note_target(
 
     outcome = _archive_outcomes(net_vault)[0]
 
-    assert outcome.target == "literatures/smith2020.md"
+    assert outcome.target == "path-bytes:literatures/smith2020.md"
+    assert outcome.target_kind == "repo-path"
     assert _target_hash(net_vault, outcome) is not None
     filed = inbox.append_entry(
         net_vault,
@@ -1049,7 +1072,7 @@ def test_python_module_verify_and_inbox_acceptance(net_vault):
         check=False,
     )
 
-    assert verify.returncode == 1
+    assert verify.returncode == 0
     assert "fabricated2020" in verify.stdout
 
     review = subprocess.run(
@@ -1144,7 +1167,12 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
             type(
                 "Args",
                 (),
-                {"vault": net_vault, "offline": False, "rw_csv": None},
+                {
+                    "vault": net_vault,
+                    "offline": False,
+                    "rw_csv": None,
+                    "surface": "audit",
+                },
             )()
         )
         == 0
@@ -1182,7 +1210,12 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
             type(
                 "Args",
                 (),
-                {"vault": net_vault, "offline": False, "rw_csv": None},
+                {
+                    "vault": net_vault,
+                    "offline": False,
+                    "rw_csv": None,
+                    "surface": "publish",
+                },
             )()
         )
         == 1
@@ -1307,7 +1340,7 @@ def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNMATCHED staleness x/bibliography.json" in output
+    assert "UNMATCHED staleness path-bytes:x/bibliography.json" in output
     assert "schema-violation" in output
     assert "Traceback" not in output
 
@@ -1321,7 +1354,7 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     output = capsys.readouterr().out
 
     assert code == 3
-    assert "UNREACHABLE staleness x/bibliography.json" in output
+    assert "UNREACHABLE staleness path-bytes:x/bibliography.json" in output
 
 
 def test_verify_loads_bibliography_once_at_orchestration_boundary(
@@ -1332,7 +1365,8 @@ def test_verify_loads_bibliography_once_at_orchestration_boundary(
 
     run_verify(net_vault, network=False, detection_date="2026-08-16")
 
-    load.assert_called_once_with(net_vault)
+    assert load.call_count == 1
+    assert load.call_args.args[0] != net_vault
 
 
 def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypatch):
@@ -1353,7 +1387,8 @@ def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypat
 
     run_verify(net_vault, network=False, detection_date="2026-08-16")
 
-    load.assert_called_once_with(net_vault)
+    assert load.call_count == 1
+    assert load.call_args.args[0] != net_vault
 
 
 @pytest.mark.live_net
@@ -1374,3 +1409,235 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
         checks.registry_agency(net_vault_real_mailto, "10.5281/zenodo.3678326")
         == "DataCite"
     )
+
+
+def _vault_bytes(vault):
+    return {
+        os.fsencode(path.relative_to(vault)): path.read_bytes()
+        for path in vault.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(vault).parts
+    }
+
+
+def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
+    fixture_vault,
+):
+    assert main(["verify", "--vault", str(fixture_vault), "--offline"]) == 0
+    assert (
+        main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--offline",
+                "--surface",
+                "commit",
+            ]
+        )
+        == 1
+    )
+    assert {
+        key: frozenset(value)
+        for key, value in __import__(
+            "harness_core.__main__", fromlist=["CLOSING_BY_SURFACE"]
+        ).CLOSING_BY_SURFACE.items()
+    } == {
+        "audit": frozenset(),
+        "commit": frozenset({"citekey", "evidence-layer"}),
+        "publish": frozenset(
+            {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
+        ),
+    }
+
+
+def test_invalid_publication_flags_or_inside_manifest_exit_two_before_mutation(
+    fixture_vault, tmp_path
+):
+    before = _vault_bytes(fixture_vault)
+    with pytest.raises(SystemExit) as missing_manifest:
+        main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--commit-projected",
+                "message",
+            ]
+        )
+    assert missing_manifest.value.code == 2
+    assert _vault_bytes(fixture_vault) == before
+
+    assert (
+        main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--offline",
+                "--changed-paths-file",
+                str(fixture_vault / "manifest"),
+            ]
+        )
+        == 2
+    )
+    assert _vault_bytes(fixture_vault) == before
+
+
+def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault):
+    before = _vault_bytes(tmp_vault)
+
+    report = run_verify(tmp_vault, network=False, detection_date="2026-08-16")
+
+    synthetic = [
+        item
+        for item in report["outcomes"]
+        if item.extra.get("synthetic_offline") is True
+    ]
+    assert synthetic
+    assert all(item.result is Result.UNREACHABLE for item in synthetic)
+    assert _vault_bytes(tmp_vault) == before
+    assert inbox.load(tmp_vault) == []
+
+
+def test_invalid_utf8_path_has_one_typed_token_across_outcome_record_and_inbox(
+    fixture_vault,
+):
+    raw = b"synthesis/bad-\xff.md"
+    absolute = os.path.join(os.fsencode(fixture_vault), raw)
+    with open(absolute, "wb") as stream:
+        stream.write(b"plain text\n")
+
+    report = run_verify(fixture_vault, network=False, detection_date="2026-08-16")
+
+    token = encode_repo_path(raw)
+    outcome = next(
+        item
+        for item in report["outcomes"]
+        if item.target == token and item.target_kind == "repo-path"
+    )
+    record = checks.outcome_to_record(outcome)
+    assert record["target"] == token
+    assert "\udcff" not in json.dumps(record)
+    matching = [
+        item
+        for item in inbox.load(fixture_vault)
+        if item.target == token and item.target_kind == "repo-path"
+    ]
+    assert matching
+    assert "\udcff" not in (fixture_vault / inbox.INBOX_PATH).read_text()
+
+
+def test_hash_and_marker_filesystem_routing_requires_explicit_repo_path_kind(
+    fixture_vault,
+):
+    raw = b"synthesis/path-bytes:looks-like-id.md"
+    path = os.path.join(os.fsencode(fixture_vault), raw)
+    with open(path, "wb") as stream:
+        stream.write(b"- (quote) body ^c-1\n")
+    repo_target = RepoPathValue(raw)
+    typed = checks.Outcome(
+        "append-only", repo_target, Result.UNMATCHED, "drift — typed path"
+    )
+    identifier = checks.Outcome(
+        "append-only",
+        encode_repo_path(raw),
+        Result.UNMATCHED,
+        "drift — identifier text",
+    )
+
+    assert _target_hash(fixture_vault, typed) is not None
+    assert _target_hash(fixture_vault, identifier) is None
+    with open(path, "rb") as stream:
+        before = stream.read()
+    _mutate_marker(fixture_vault, identifier, "2026-08-16")
+    with open(path, "rb") as stream:
+        assert stream.read() == before
+
+
+def test_commit_projected_publishes_only_manifest_captured_outputs_and_keeps_index(
+    fixture_vault, tmp_path
+):
+    unrelated = fixture_vault / "unrelated.txt"
+    unrelated.write_bytes(b"staged\n")
+    subprocess.run(["git", "add", "unrelated.txt"], cwd=fixture_vault, check=True)
+    unrelated.write_bytes(b"unstaged\n")
+    untracked = fixture_vault / "scratch.txt"
+    untracked.write_bytes(b"scratch\n")
+    index_path = Path(
+        _git_bytes(fixture_vault, "rev-parse", "--git-path", "index").decode().strip()
+    )
+    if not index_path.is_absolute():
+        index_path = fixture_vault / index_path
+    index_before = index_path.read_bytes()
+    expected = _git_bytes(fixture_vault, "rev-parse", "HEAD").decode().strip()
+    manifest = tmp_path.parent / f"{tmp_path.name}-changed"
+
+    code = main(
+        [
+            "verify",
+            "--vault",
+            str(fixture_vault),
+            "--offline",
+            "--surface",
+            "audit",
+            "--git-candidate",
+            "worktree",
+            "--changed-paths-file",
+            str(manifest),
+            "--commit-projected",
+            "snapshot projection",
+        ]
+    )
+
+    assert code == 0
+    head = _git_bytes(fixture_vault, "rev-parse", "HEAD").decode().strip()
+    assert _git_bytes(fixture_vault, "rev-parse", "HEAD^").decode().strip() == expected
+    changed = {
+        item
+        for item in _git_bytes(
+            fixture_vault,
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "-z",
+            head,
+        ).split(b"\0")
+        if item
+    }
+    manifest_paths = {item for item in manifest.read_bytes().split(b"\0") if item}
+    assert changed == manifest_paths
+    assert b"unrelated.txt" not in changed
+    assert index_path.read_bytes() == index_before
+    assert unrelated.read_bytes() == b"unstaged\n"
+    assert untracked.read_bytes() == b"scratch\n"
+
+
+def test_commit_projected_rejects_dirty_output_overlap_before_any_projection(
+    fixture_vault, tmp_path
+):
+    queue = fixture_vault / inbox.INBOX_PATH
+    queue.write_text(queue.read_text() + "human scratch\n")
+    before = _vault_bytes(fixture_vault)
+    head = _git_bytes(fixture_vault, "rev-parse", "HEAD")
+    index = _git_bytes(fixture_vault, "diff", "--cached", "--binary")
+    manifest = tmp_path.parent / f"{tmp_path.name}-changed"
+
+    code = main(
+        [
+            "verify",
+            "--vault",
+            str(fixture_vault),
+            "--offline",
+            "--changed-paths-file",
+            str(manifest),
+            "--commit-projected",
+            "snapshot projection",
+        ]
+    )
+
+    assert code == 2
+    assert _vault_bytes(fixture_vault) == before
+    assert _git_bytes(fixture_vault, "rev-parse", "HEAD") == head
+    assert _git_bytes(fixture_vault, "diff", "--cached", "--binary") == index
+    assert not manifest.exists()

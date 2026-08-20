@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 from harness_core import Result, events, frontmatter, notes
@@ -630,3 +632,120 @@ def test_sha256_file(tmp_path):
     f = tmp_path / "x.pdf"
     f.write_bytes(b"pdfbytes")
     assert len(notes.sha256_file(f)) == 64
+
+
+@pytest.mark.parametrize(
+    ("managed", "expected"),
+    [
+        (
+            b"%%hk-managed%%\nbody\n%%/hk-managed%%\nfree",
+            b"%%hk-managed%%\nbody\n%%/hk-managed%%\n",
+        ),
+        (
+            b"%%hk-managed%%\r\nbody\r\n%%/hk-managed%%\r\nfree",
+            b"%%hk-managed%%\r\nbody\r\n%%/hk-managed%%\r\n",
+        ),
+        (
+            b"%%hk-managed%%\nbody\n%%/hk-managed%%",
+            b"%%hk-managed%%\nbody\n%%/hk-managed%%",
+        ),
+    ],
+)
+def test_managed_slice_hashes_exact_delimiters_and_actual_line_endings(
+    managed, expected
+):
+    note = b'---\ntype: "literature"\n---\n' + managed
+    assert notes.managed_slice_bytes(note) == expected
+    assert notes.managed_sha256(note) == hashlib.sha256(expected).hexdigest()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"body only\n",
+        b"%%hk-managed%%\nbody\n",
+        b"%%/hk-managed%%\n%%hk-managed%%\n",
+        b"%%hk-managed%%\n%%hk-managed%%\n%%/hk-managed%%\n",
+        b"%%hk-managed%%\n%%/hk-managed%%\n%%/hk-managed%%\n",
+        b" %%hk-managed%%\n%%/hk-managed%%\n",
+        b"%%hk-managed%% \n%%/hk-managed%%\n",
+        b"%%hk-managed%%\n\t%%/hk-managed%%\n",
+        b"%%hk-managed%%\vbody\n%%/hk-managed%%\n",
+        b"%%hk-managed%%\nbody\n%%/hk-managed%%\v",
+    ],
+)
+def test_managed_slice_rejects_missing_duplicate_nested_reordered_or_fuzzy_markers(
+    body,
+):
+    with pytest.raises(notes.ManagedRegionError):
+        notes.managed_slice_bytes(b"---\n---\n" + body)
+
+
+def test_renderer_emits_and_preserves_exact_managed_witness():
+    first = notes.render_note(
+        ITEM,
+        ["aa11"],
+        [],
+        existing=None,
+        accessed="2026-08-20",
+        generated_at=GENERATED_AT,
+    )
+    data, _ = frontmatter.parse(first)
+    assert data["managed-sha256"] == notes.managed_sha256(first.encode())
+
+    same = notes.render_note(
+        ITEM,
+        ["aa11"],
+        [],
+        existing=first,
+        accessed="2026-08-21",
+        generated_at=LATER_GENERATED_AT,
+    )
+    assert same == first
+
+    changed = first.replace("# Mortality decline", "# Changed")
+    rerendered = notes.render_note(
+        {**ITEM, "title": "Changed"},
+        ["aa11"],
+        [],
+        existing=changed,
+        accessed="2026-08-21",
+        generated_at=LATER_GENERATED_AT,
+    )
+    changed_data, _ = frontmatter.parse(rerendered)
+    assert changed_data["managed-sha256"] == notes.managed_sha256(rerendered.encode())
+    assert changed_data["generated"]["at"] == LATER_GENERATED_AT
+
+
+@pytest.mark.parametrize(
+    "witness",
+    [None, 42, "", "A" * 64, "a" * 63, "g" * 64, "0" * 64],
+)
+def test_managed_witness_validation_rejects_missing_malformed_or_stale(witness):
+    text = notes.render_note(ITEM, ["aa11"], [], existing=None, accessed="2026-08-20")
+    data, body = frontmatter.parse(text)
+    if witness is None:
+        data.pop("managed-sha256")
+    else:
+        data["managed-sha256"] = witness
+    invalid = (frontmatter.serialize(data) + body).encode()
+
+    result, reason = notes.validate_managed_witness(invalid)
+
+    assert result is Result.UNMATCHED
+    assert reason.startswith("schema-violation")
+
+
+@pytest.mark.parametrize("valid_last", [False, True])
+def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_last):
+    text = notes.render_note(ITEM, ["aa11"], [], existing=None, accessed="2026-08-20")
+    valid = frontmatter.parse(text)[0]["managed-sha256"]
+    bad, good = 'managed-sha256: "bad"\n', f'managed-sha256: "{valid}"\n'
+    duplicate = (bad + good) if valid_last else (good + bad)
+    original_line = f'managed-sha256: "{valid}"\n'
+    note = text.replace(original_line, duplicate, 1).encode()
+
+    result, reason = notes.validate_managed_witness(note)
+
+    assert result is Result.UNMATCHED
+    assert reason.startswith("schema-violation")

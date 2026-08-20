@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -26,6 +27,12 @@ from . import (
     scaffold,
     selectors,
     webapi,
+)
+from .pathcodec import (
+    PathCodecError,
+    RepoPathValue,
+    decode_repo_path,
+    encode_repo_path,
 )
 from .scaffold import doctor
 from .zotero import ZoteroClient, ZoteroError
@@ -291,28 +298,35 @@ def cmd_staleness(args):
     }[result]
 
 
-CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}
+CLOSING_BY_SURFACE = {
+    "audit": frozenset(),
+    "commit": frozenset({"citekey", "evidence-layer"}),
+    "publish": frozenset(
+        {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
+    ),
+}
+CLOSING_CHECKS = frozenset().union(*CLOSING_BY_SURFACE.values())
 
 
-def _safe_relative(vault_root, target):
-    """Return a real vault child for an explicitly file-shaped target."""
-    if (
-        not isinstance(target, str)
-        or not target
-        or "\0" in target
-        or "\n" in target
-        or "\r" in target
-        or Path(target).is_absolute()
-        or ".." in Path(target).parts
-    ):
+def _safe_relative(vault_root, target, target_kind="identifier"):
+    """Return an exact vault path only for explicit canonical repo-path metadata."""
+    if target_kind != "repo-path" or not isinstance(target, str):
         return None
-    vault = Path(vault_root).resolve()
-    path = (vault / target).resolve()
     try:
-        path.relative_to(vault)
-    except ValueError:
+        raw = decode_repo_path(target)
+        absolute = gitstate._absolute(Path(vault_root), raw)
+        image = gitstate.live_image(Path(vault_root), raw)
+    except (PathCodecError, gitstate.GitStateError, OSError):
         return None
-    return path
+    if image is not None and image.kind in {"symlink", "special"}:
+        return None
+    return Path(os.fsdecode(absolute))
+
+
+def _extra_path(vault_root, outcome, key):
+    if key not in outcome.path_extra_fields:
+        return None
+    return _safe_relative(vault_root, outcome.extra.get(key), "repo-path")
 
 
 def _note_bytes(data: bytes) -> bytes:
@@ -344,21 +358,11 @@ def _claim_bytes(path, claim_id):
         return None
 
 
-def _append_only_basis(vault_root, target):
-    import subprocess
-
-    result = subprocess.run(
-        ["git", "diff", "HEAD", "--unified=0", "--", target],
-        cwd=vault_root,
-        capture_output=True,
-        check=False,
-    )
-    removed = [
-        line[1:]
-        for line in result.stdout.splitlines(keepends=True)
-        if line.startswith(b"-") and not line.startswith(b"---")
-    ]
-    return b"".join(removed) or gitstate.blob_bytes(vault_root, "HEAD", target) or b""
+def _append_only_basis(vault_root, raw_path, base_snapshot=None):
+    if base_snapshot is not None:
+        image = base_snapshot.image(raw_path)
+        return image.data or b"" if image is not None and image.kind == "file" else b""
+    return gitstate.blob_bytes(vault_root, "HEAD", raw_path) or b""
 
 
 def _directory_bytes(path):
@@ -407,12 +411,12 @@ def _note_for_citekey(vault_root, citekey):
     try:
         vault = Path(vault_root)
         candidate = notes.note_path(vault, citekey)
-        relative = candidate.relative_to(vault).as_posix()
+        raw_path = os.fsencode(candidate.relative_to(vault))
     except notes.InvalidCitekeyError:
         return None
     except ValueError:
         return None
-    return _safe_relative(vault, relative)
+    return _safe_relative(vault, encode_repo_path(raw_path), "repo-path")
 
 
 def _citekey_hash(vault_root, citekey):
@@ -431,19 +435,35 @@ def _citekey_hash(vault_root, citekey):
     return None
 
 
-def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPHY):
+def _target_hash(
+    vault_root,
+    outcome,
+    bibliography_universe=_OMITTED_BIBLIOGRAPHY,
+    *,
+    base_snapshot=None,
+):
     """Return the stable, kind-aware acknowledgment hash for an outcome."""
     target = outcome.target
     claim_id = None
-    origin = _safe_relative(vault_root, outcome.extra.get("note_path"))
+    origin = _extra_path(vault_root, outcome, "note_path")
     if isinstance(target, str) and "#^" in target:
         citekey, claim_id = target.split("#^", 1)
         known_citekey_hash = _citekey_hash(vault_root, citekey)
         if known_citekey_hash is not None:
             return known_citekey_hash
         data = _claim_bytes(origin, claim_id) if origin else None
-        if data is None and origin is not None:
-            head = gitstate.blob_bytes(vault_root, "HEAD", outcome.extra["note_path"])
+        if data is None and "note_path" in outcome.path_extra_fields:
+            raw_origin = decode_repo_path(outcome.extra["note_path"])
+            base_image = (
+                base_snapshot.image(raw_origin) if base_snapshot is not None else None
+            )
+            head = (
+                base_image.data
+                if base_image is not None and base_image.kind == "file"
+                else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)
+                if base_snapshot is None
+                else None
+            )
             if head is not None:
                 data = _claim_bytes_from_text(
                     head.decode(errors="surrogateescape"), claim_id
@@ -454,16 +474,16 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
         if data is not None:
             return hashlib.sha256(data).hexdigest()[:16]
 
-    # File targets are deliberately routed before citekeys; a slash must never
-    # be interpreted as a citekey by notes.note_path().
-    if outcome.check == "staleness":
-        target = bibliography.BIB_PATH
-    if isinstance(target, str) and "/" in target:
-        path = _safe_relative(vault_root, target)
+    if outcome.target_kind == "repo-path":
+        raw_target = decode_repo_path(target)
+        path = _safe_relative(vault_root, target, outcome.target_kind)
         if path is None:
             return None
+        live_target = gitstate.live_image(Path(vault_root), raw_target)
+        if live_target is not None and live_target.kind in {"symlink", "special"}:
+            return None
         if outcome.check == "append-only":
-            data = _append_only_basis(vault_root, target)
+            data = _append_only_basis(vault_root, raw_target, base_snapshot)
         elif path.is_file():
             data = path.read_bytes()
             if path.suffix == ".md":
@@ -471,8 +491,17 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
         elif path.is_dir():
             data = _directory_bytes(path)
         else:
-            data = gitstate.blob_bytes(vault_root, "HEAD", target) or b""
-            if target.endswith(".md"):
+            base_image = (
+                base_snapshot.image(raw_target) if base_snapshot is not None else None
+            )
+            data = (
+                base_image.data
+                if base_image is not None and base_image.kind == "file"
+                else gitstate.blob_bytes(vault_root, "HEAD", raw_target)
+                if base_snapshot is None
+                else b""
+            ) or b""
+            if raw_target.endswith(b".md"):
                 data = _note_bytes(data)
         return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
 
@@ -480,13 +509,21 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
         known_citekey_hash = _citekey_hash(vault_root, target)
         if known_citekey_hash is not None:
             return known_citekey_hash
-        origin = _safe_relative(vault_root, outcome.extra.get("note_path"))
+        origin = _extra_path(vault_root, outcome, "note_path")
         if origin and origin.is_file():
             data = _note_bytes(origin.read_bytes())
             return hashlib.sha256(data).hexdigest()[:16]
-        if origin:
-            data = gitstate.blob_bytes(
-                vault_root, "HEAD", outcome.extra.get("note_path", "")
+        if origin and "note_path" in outcome.path_extra_fields:
+            raw_origin = decode_repo_path(outcome.extra["note_path"])
+            base_image = (
+                base_snapshot.image(raw_origin) if base_snapshot is not None else None
+            )
+            data = (
+                base_image.data
+                if base_image is not None and base_image.kind == "file"
+                else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)
+                if base_snapshot is None
+                else None
             )
             if data is not None:
                 return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
@@ -504,10 +541,14 @@ def _target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPH
 
 def _origins(outcome):
     """Yield only the exact claim origins supplied by a checker."""
-    note_path = outcome.extra.get("note_path")
+    note_path = (
+        outcome.extra.get("note_path")
+        if "note_path" in outcome.path_extra_fields
+        else None
+    )
     if outcome.check == "citekey":
         for claim in outcome.extra.get("claims", []):
-            if isinstance(claim, dict):
+            if isinstance(claim, Mapping):
                 claim_id = claim.get("claim_id")
                 line_no = claim.get("line_no")
                 if isinstance(claim_id, str) or isinstance(line_no, int):
@@ -525,7 +566,7 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
     if outcome.check not in CLOSING_CHECKS:
         return
     for relative, claim_id, line_no in _origins(outcome):
-        path = _safe_relative(vault_root, relative)
+        path = _safe_relative(vault_root, relative, "repo-path")
         if path is None or not path.is_file():
             continue
         lines = _read_note_text(path).splitlines(keepends=True)
@@ -616,7 +657,12 @@ def _staleness_outcome(vault_root, base=DEFAULT_BASE):
         Result.UNMATCHED: "stale — bibliography differs or is invalid",
         Result.UNREACHABLE: "outage — bibliography comparison unavailable",
     }
-    return checks.Outcome("staleness", bibliography.BIB_PATH, result, reasons[result])
+    return checks.Outcome(
+        "staleness",
+        RepoPathValue(os.fsencode(bibliography.BIB_PATH)),
+        result,
+        reasons[result],
+    )
 
 
 def _network_outcomes(vault_root, entry, detection_date, rw):
@@ -666,20 +712,35 @@ def _network_outcomes(vault_root, entry, detection_date, rw):
 
 def _offline_network_outcomes(entry, detection_date, rw):
     target = entry["id"]
-    live = checks.Outcome(
-        "update-notice", target, Result.UNREACHABLE, "outage — network disabled"
-    )
     rw_leg = (
         checks.check_rw_batch(entry, rw, detection_date) if rw is not None else None
     )
-    reduced = checks.reduce_update_notice_outcomes(live, rw_leg)
-    return [
-        checks.Outcome("doi", target, Result.UNREACHABLE, "outage — network disabled"),
+    if rw_leg is not None:
+        return [rw_leg]
+    outcomes = [
         checks.Outcome(
-            "metadata", target, Result.UNREACHABLE, "outage — network disabled"
+            "doi",
+            target,
+            Result.UNREACHABLE,
+            "outage — network disabled",
+            {"synthetic_offline": True},
         ),
-        reduced,
+        checks.Outcome(
+            "metadata",
+            target,
+            Result.UNREACHABLE,
+            "outage — network disabled",
+            {"synthetic_offline": True},
+        ),
+        checks.Outcome(
+            "update-notice",
+            target,
+            Result.UNREACHABLE,
+            "outage — network disabled",
+            {"synthetic_offline": True},
+        ),
     ]
+    return outcomes
 
 
 def _archive_outcomes(vault_root):
@@ -698,7 +759,7 @@ def _archive_outcomes(vault_root):
             if isinstance(raw_target, str)
             and raw_target.strip()
             and _note_for_citekey(vault_root, raw_target.strip()) is not None
-            else path.relative_to(vault_root).as_posix()
+            else RepoPathValue(os.fsencode(path.relative_to(vault_root)))
         )
         try:
             status = webapi.get_status(archive_url, vault_root)
@@ -737,6 +798,7 @@ def _effective(outcomes, hashes, vault_root):
             outcome.target,
             hashes[id(outcome)],
             *_notice_fingerprint(outcome),
+            target_kind=outcome.target_kind,
         )
     ]
 
@@ -797,9 +859,9 @@ def _warning_effectiveness(outcomes, hashes, vault_root):
     for outcome in outcomes:
         statuses = []
         for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
-            warning_type = warning.get("type") if isinstance(warning, dict) else None
+            warning_type = warning.get("type") if isinstance(warning, Mapping) else None
             notice_date = (
-                warning.get("notice_date") if isinstance(warning, dict) else None
+                warning.get("notice_date") if isinstance(warning, Mapping) else None
             )
             effective = isinstance(warning_type, str) and not inbox.is_acknowledged(
                 vault_root,
@@ -809,6 +871,7 @@ def _warning_effectiveness(outcomes, hashes, vault_root):
                 "warn",
                 warning_type,
                 notice_date,
+                target_kind=outcome.target_kind,
             )
             frozen[(id(outcome), index)] = effective
             statuses.append(effective)
@@ -824,6 +887,7 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
             (
                 entry.check,
                 entry.target,
+                entry.target_kind,
                 entry.result,
                 entry.target_hash,
                 entry.notice_class,
@@ -838,6 +902,7 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
             key = (
                 outcome.check,
                 outcome.target,
+                outcome.target_kind,
                 outcome.result.value,
                 target_hash,
                 notice_class,
@@ -861,6 +926,7 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
                         if notice_class is not None
                         else None
                     ),
+                    target_kind=outcome.target_kind,
                 )
                 open_keys.add(key)
         for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
@@ -873,6 +939,7 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
             key = (
                 outcome.check,
                 outcome.target,
+                outcome.target_kind,
                 Result.UNMATCHED.value,
                 target_hash,
                 "warn",
@@ -892,21 +959,26 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
                     notice_type=warning_type,
                     notice_date=notice_date,
                     detection_date=warning.get("detection_date", detection_date),
+                    target_kind=outcome.target_kind,
                 )
                 open_keys.add(key)
 
 
-def _verify_state(
+def _plan_state(
     vault_root,
     scope="all",
     network=True,
     detection_date=None,
     rw_csv=None,
     base=DEFAULT_BASE,
+    *,
+    repository_root=None,
+    snapshots=None,
 ):
-    """Collect raw verification audit outcomes, then apply acknowledged effects."""
+    """Compute one complete projection inside a materialized candidate."""
     del scope
     vault = Path(vault_root)
+    repository = Path(repository_root) if repository_root is not None else vault
     detection_date = detection_date or datetime.date.today().isoformat()
     raw = []
     try:
@@ -919,7 +991,12 @@ def _verify_state(
             else "outage — bibliography unreadable"
         )
         raw.append(
-            checks.Outcome("staleness", bibliography.BIB_PATH, error.result, reason)
+            checks.Outcome(
+                "staleness",
+                RepoPathValue(os.fsencode(bibliography.BIB_PATH)),
+                error.result,
+                reason,
+            )
         )
     else:
         if network:
@@ -928,9 +1005,10 @@ def _verify_state(
             raw.append(
                 checks.Outcome(
                     "staleness",
-                    bibliography.BIB_PATH,
+                    RepoPathValue(os.fsencode(bibliography.BIB_PATH)),
                     Result.UNREACHABLE,
                     "outage — network disabled",
+                    {"synthetic_offline": True},
                 )
             )
     note_files = [
@@ -952,31 +1030,133 @@ def _verify_state(
             discovery = identify.discover(vault, entry)
             raw.append(discovery)
             identifiers = discovery.extra.get("identifiers", {})
-            if isinstance(identifiers, dict):
+            if isinstance(identifiers, Mapping):
                 entry.update(identifiers)
             entry["_discovery_unreachable"] = discovery.result is Result.UNREACHABLE
         if network:
             raw.extend(_network_outcomes(vault, entry, detection_date, rw))
         else:
             raw.extend(_offline_network_outcomes(entry, detection_date, rw))
-    raw.extend(lints.lint_append_only(vault))
-    raw.extend(lints.lint_claim_immutability(vault))
-    raw.extend(lints.lint_published_drift(vault))
+    if snapshots is None:
+        base_snapshot = None
+        candidate_snapshot = None
+    else:
+        base_snapshot = snapshots.base
+        candidate_snapshot = snapshots.candidate
+        raw.extend(
+            lints.lint_evidence_layer(repository, base_snapshot, candidate_snapshot)
+        )
+    raw.extend(lints.lint_append_only(repository, base_snapshot, candidate_snapshot))
+    raw.extend(
+        lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
+    )
+    raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
     raw.extend(lints.lint_web_archive(vault))
     if network:
         raw.extend(_archive_outcomes(vault))
-    _apply_state_transitions(vault, raw, detection_date)
+    authoritative = [
+        outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
+    ]
+    _apply_state_transitions(vault, authoritative, detection_date)
     hashes = {
-        id(outcome): _target_hash(vault, outcome, bibliography_universe)
-        for outcome in raw
+        id(outcome): _target_hash(
+            vault,
+            outcome,
+            bibliography_universe,
+            base_snapshot=base_snapshot,
+        )
+        for outcome in authoritative
     }
-    effective = _effective(raw, hashes, vault)
-    warning_effective = _warning_effectiveness(raw, hashes, vault)
+    effective = _effective(authoritative, hashes, vault)
+    warning_effective = _warning_effectiveness(authoritative, hashes, vault)
     _file_effects(vault, effective, hashes, warning_effective, detection_date)
     counts = {}
     for outcome in effective:
         counts[outcome.result.value] = counts.get(outcome.result.value, 0) + 1
     return {"outcomes": raw, "counts": counts}, effective, hashes, warning_effective
+
+
+def _candidate_destinations_match_live(snapshots, outputs):
+    if snapshots.candidate_name == "worktree":
+        return
+    for output in outputs:
+        if snapshots.candidate.image(output.raw_path) != snapshots.live.image(
+            output.raw_path
+        ):
+            raise gitstate.GitStateError(
+                "selected candidate differs from live projection destination: "
+                f"{encode_repo_path(output.raw_path)}"
+            )
+
+
+def _rollback_prepublication(vault, snapshots, outputs, primary):
+    try:
+        gitstate.rollback_outputs(vault, snapshots.live, outputs)
+    except gitstate.GitStateError as rollback:
+        raise gitstate.GitStateError(f"{primary}; {rollback}") from primary
+    raise primary
+
+
+def _verify_state(
+    vault_root,
+    scope="all",
+    network=True,
+    detection_date=None,
+    rw_csv=None,
+    base=DEFAULT_BASE,
+    *,
+    git_base=None,
+    git_candidate="worktree",
+    changed_paths_file=None,
+    commit_projected=None,
+):
+    """Run one immutable collect/plan/apply/manifest/publication transaction."""
+    vault = Path(vault_root)
+    resolved_manifest = (
+        gitstate.validate_manifest_destination(vault, Path(changed_paths_file))
+        if changed_paths_file is not None
+        else None
+    )
+    snapshots = gitstate.resolve_snapshots(
+        vault, git_base=git_base, candidate=git_candidate
+    )
+    with tempfile.TemporaryDirectory(prefix="harness-verification-plan-") as temporary:
+        planning = Path(temporary)
+        gitstate.materialize_snapshot(snapshots.candidate, planning)
+        report, effective, hashes, warning_effective = _plan_state(
+            planning,
+            scope,
+            network,
+            detection_date,
+            rw_csv,
+            base,
+            repository_root=vault,
+            snapshots=snapshots,
+        )
+        planned_snapshot = gitstate.restore_candidate_nonfiles(
+            snapshots.candidate, gitstate.snapshot_worktree(planning)
+        )
+        outputs = gitstate.outputs_between(snapshots.candidate, planned_snapshot)
+    outputs = gitstate.validate_planned_outputs(outputs)
+    _candidate_destinations_match_live(snapshots, outputs)
+    if commit_projected is not None:
+        gitstate.validate_dirty_overlap(vault, snapshots, outputs)
+    gitstate.apply_outputs(vault, snapshots.live, outputs)
+    captured = outputs
+    if resolved_manifest is not None:
+        try:
+            captured = gitstate.audit_and_write_manifest(
+                vault,
+                snapshots.live,
+                outputs,
+                resolved_manifest,
+                resolved_destination=resolved_manifest,
+            )
+        except gitstate.GitStateError as error:
+            _rollback_prepublication(vault, snapshots, outputs, error)
+    if commit_projected is not None:
+        gitstate.publish_outputs(vault, snapshots, captured, commit_projected)
+    return report, effective, hashes, warning_effective
 
 
 def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None):
@@ -988,12 +1168,21 @@ def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_cs
 
 
 def cmd_verify(args):
-    report, effective, hashes, warning_effective = _verify_state(
-        args.vault,
-        network=not args.offline,
-        rw_csv=args.rw_csv,
-        base=getattr(args, "base", DEFAULT_BASE),
-    )
+    surface = getattr(args, "surface", "audit")
+    try:
+        report, effective, hashes, warning_effective = _verify_state(
+            args.vault,
+            network=not args.offline,
+            rw_csv=args.rw_csv,
+            base=getattr(args, "base", DEFAULT_BASE),
+            git_base=getattr(args, "git_base", None),
+            git_candidate=getattr(args, "git_candidate", "worktree"),
+            changed_paths_file=getattr(args, "changed_paths_file", None),
+            commit_projected=getattr(args, "commit_projected", None),
+        )
+    except (gitstate.GitStateError, PathCodecError, OSError, ValueError) as error:
+        print(f"verification unavailable: {error}", file=sys.stderr)
+        return 2
     for outcome in effective:
         if outcome.result is not Result.MATCHED:
             print(
@@ -1010,8 +1199,14 @@ def cmd_verify(args):
                         f"warn-notice — {warning_type}"
                     )
     print(json.dumps(report["counts"], sort_keys=True))
-    if any(
-        outcome.result is Result.UNMATCHED and outcome.check in CLOSING_CHECKS
+    closing = CLOSING_BY_SURFACE[surface]
+    blocking_warning = any(
+        outcome.check in closing and warning_effective.get((id(outcome), index), False)
+        for outcome in effective
+        for index, _warning in enumerate(outcome.extra.get("warn_notices", ()))
+    )
+    if blocking_warning or any(
+        outcome.result is Result.UNMATCHED and outcome.check in closing
         for outcome in effective
     ):
         return 1
@@ -1080,6 +1275,13 @@ def main(argv=None):
     verify.add_argument("--vault", required=True)
     verify.add_argument("--offline", action="store_true")
     verify.add_argument("--rw-csv")
+    verify.add_argument("--surface", choices=tuple(CLOSING_BY_SURFACE), default="audit")
+    verify.add_argument("--git-base")
+    verify.add_argument(
+        "--git-candidate", choices=("worktree", "index", "HEAD"), default="worktree"
+    )
+    verify.add_argument("--changed-paths-file")
+    verify.add_argument("--commit-projected")
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
     scaffold_vault = sub.add_parser("scaffold", parents=[common])
@@ -1089,6 +1291,11 @@ def main(argv=None):
     doctor_vault = sub.add_parser("doctor", parents=[common])
     doctor_vault.add_argument("--vault", required=True)
     args = parser.parse_args(argv)
+    if args.cmd == "verify" and args.commit_projected is not None:
+        if not args.commit_projected.strip():
+            parser.error("--commit-projected requires a non-empty message")
+        if args.changed_paths_file is None:
+            parser.error("--commit-projected requires --changed-paths-file")
     if not hasattr(args, "base"):
         args.base = DEFAULT_BASE
     return {
