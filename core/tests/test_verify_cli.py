@@ -11,7 +11,6 @@ import pytest
 from harness_core import Result, bibliography, checks, claims, events, inbox, webapi
 from harness_core.__main__ import (
     _archive_outcomes,
-    _clear_verify_failed,
     _mutate_marker,
     _safe_relative,
     _target_hash,
@@ -322,7 +321,7 @@ def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
         "verify-failed:: quote/2026-08-16"
         in draft.read_text().splitlines()[line_no - 1]
     )
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert "verify-failed" not in draft.read_text().splitlines()[line_no - 1]
 
 
@@ -604,7 +603,7 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
         note_path="efforts/brief/draft.md",
         claim_id="c-66666666",
     )
-    _clear_verify_failed(net_vault, origin)
+    _mutate_marker(net_vault, origin, "2026-08-16", clear=True)
     assert "verify-failed" not in (net_vault / "efforts/brief/draft.md").read_text()
     assert "verify-failed" in other.read_text()
     citekey = _outcome(
@@ -619,7 +618,7 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
     marked = (net_vault / "efforts/brief/draft.md").read_text()
     assert marked.count("verify-failed:: citekey/2026-08-16") == 2
     assert "verify-failed:: quote/2026-08-16" in other.read_text()
-    _clear_verify_failed(net_vault, citekey)
+    _mutate_marker(net_vault, citekey, "2026-08-16", clear=True)
     assert (
         "verify-failed:: citekey/2026-08-16"
         not in (net_vault / "efforts/brief/draft.md").read_text()
@@ -701,7 +700,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     assert b"   [verify-failed:: citekey/2026-08-16] ^c-1\r\n" in stamped
     assert b"\r [verify-failed" not in stamped
     assert _target_hash(net_vault, anchored) != anchored_hash
-    _clear_verify_failed(net_vault, anchored)
+    _mutate_marker(net_vault, anchored, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, anchored) == anchored_hash
 
@@ -719,7 +718,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     assert b"line only [@missing] [verify-failed:: quote/2026-08-16]\r\n" in stamped
     assert b"\r [verify-failed" not in stamped
     assert _target_hash(net_vault, line_only) != line_hash
-    _clear_verify_failed(net_vault, line_only)
+    _mutate_marker(net_vault, line_only, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, line_only) == line_hash
 
@@ -748,7 +747,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
     )
     assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
     assert _target_hash(net_vault, outcome) != before
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, outcome) == before
 
@@ -803,7 +802,7 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
     assert note.read_text() == original.replace(
         " ^c-1", " [verify-failed:: quote/2026-08-17] ^c-1"
     )
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_text() == original
 
 
@@ -900,7 +899,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     assert _target_hash(net_vault, outcome) is not None
     _mutate_marker(net_vault, outcome, "2026-08-16")
     assert "verify-failed:: quote/2026-08-16" in note.read_text()
-    _clear_verify_failed(net_vault, outcome)
+    _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert "verify-failed" not in note.read_text()
 
     outside_root = tmp_path.parent / f"{tmp_path.name}-outside"

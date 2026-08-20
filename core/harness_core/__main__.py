@@ -93,13 +93,13 @@ def _attachment_hash(attachment, vault) -> tuple[str, Path]:
     return notes.sha256_file(local_path), local_path
 
 
-def _read_note(path):
-    with path.open("r", encoding="utf-8", newline="") as note:
+def _read_note_text(path):
+    with Path(path).open("r", encoding="utf-8", newline="") as note:
         return note.read()
 
 
-def _write_note(path, text):
-    with path.open("w", encoding="utf-8", newline="") as note:
+def _write_note_text(path, text):
+    with Path(path).open("w", encoding="utf-8", newline="") as note:
         note.write(text)
 
 
@@ -171,7 +171,7 @@ def cmd_import_note(args):
     item = matches[0]
     item["id"] = args.citekey
 
-    existing = _read_note(path) if path.is_file() else None
+    existing = _read_note_text(path) if path.is_file() else None
     hashes = []
     annotations = []
     attachment_pairs = []
@@ -226,7 +226,7 @@ def cmd_import_note(args):
     if not notes.content_changed(existing, candidate):
         print("NOOP")
         return 0
-    _write_note(path, candidate)
+    _write_note_text(path, candidate)
     print(str(path))
     return 0
 
@@ -236,7 +236,7 @@ def cmd_backfill_selectors(args):
     failures = 0
     for path in sorted(literature_dir.glob("*.md")):
         try:
-            data, _ = frontmatter.parse(_read_note(path))
+            data, _ = frontmatter.parse(_read_note_text(path))
         except (OSError, frontmatter.FrontmatterError) as error:
             print(
                 f"warning: malformed literature note {path}: {error}", file=sys.stderr
@@ -278,16 +278,6 @@ def cmd_staleness(args):
 
 
 CLOSING_CHECKS = {"citekey", "quote", "update-notice", "evidence-layer"}
-
-
-def _read_note_text(path):
-    with Path(path).open(newline="") as handle:
-        return handle.read()
-
-
-def _write_note_text(path, text):
-    with Path(path).open("w", newline="") as handle:
-        handle.write(text)
 
 
 def _safe_relative(vault_root, target):
@@ -533,14 +523,13 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             if not anchored and not numbered:
                 continue
             terminal_claim_id = claim_id if anchored else None
+            pattern = _terminal_marker_pattern(outcome.check, terminal_claim_id)
             replacement = (
-                _clear_marker(content, outcome.check, terminal_claim_id)
+                pattern.sub(" " if isinstance(terminal_claim_id, str) else "", content)
                 if clear
                 else line
             )
-            if not clear and not _has_terminal_marker(
-                content, outcome.check, terminal_claim_id
-            ):
+            if not clear and pattern.search(content) is None:
                 if anchored:
                     before = content[: anchor.start()]
                     terminal_anchor = content[anchor.start() :]
@@ -561,16 +550,6 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
 
 
 _ANY_VERIFY_MARKER = r"\[verify-failed:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
-
-
-def _clear_marker(content, check, claim_id):
-    """Reverse only the one-space token sequence written by the stamper."""
-    pattern = _terminal_marker_pattern(check, claim_id)
-    return pattern.sub(" " if isinstance(claim_id, str) else "", content)
-
-
-def _has_terminal_marker(content, check, claim_id):
-    return _terminal_marker_pattern(check, claim_id).search(content) is not None
 
 
 def _terminal_marker_pattern(check, claim_id):
@@ -594,11 +573,6 @@ def _split_line_ending(line):
     if line.endswith("\n"):
         return line[:-1], "\n"
     return line, ""
-
-
-def _clear_verify_failed(vault_root, outcome):
-    """Compatibility helper used by tests; clearing still requires exact origins."""
-    _mutate_marker(vault_root, outcome, datetime.date.today().isoformat(), clear=True)
 
 
 def _file_outcomes(vault_root, path, bibliography_universe=None):
