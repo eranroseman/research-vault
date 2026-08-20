@@ -268,10 +268,11 @@ Run the §10 acceptance grep (item 2) over `core/ hooks/ skills/ docs/specs/ REA
 
 ---
 
-### Task 8: `docs/terminology.md` becomes reference-only
+### Task 8: `docs/terminology.md` becomes reference-only + root `CONTEXT.md`
 
 **Files:**
 - Modify: `docs/terminology.md` (full restructure)
+- Create: `CONTEXT.md` (repo root — the meaning layer, per the domain-modeling CONTEXT format: is-definitions + _Avoid_ lists, zero implementation detail)
 
 The working package is executed; what remains must be **all and only what future readers need** (the ADR standard applied to the reference). Restructure to exactly five sections — everything else is deleted (git history preserves deliberation):
 
@@ -284,8 +285,114 @@ The working package is executed; what remains must be **all and only what future
 **Deleted entirely**: §7 decision order, §8 promotion analysis, §9 proposal sheet, §10 manifest (all executed; recoverable from git history).
 
 - [ ] **Step 1: Write the restructured document** (single Write; content assembled per the five sections above from the post-wave state).
-- [ ] **Step 2: Verify internal consistency** — every name in the reference matches a grep of the post-wave code (`grep -c` spot-checks for `synthesis`, `accessed`, `fixity-sha256`, `supports`, `unscreened` in `core/`); no section references §7–§10 or "proposal"/"pending".
-- [ ] **Step 3: Commit** — `git add docs/terminology.md && git commit -m "docs: terminology.md is reference-only — working package executed and removed"`
+
+- [ ] **Step 1b: Write root `CONTEXT.md`** — the glossary derived from the reference. Canonical content (adapt names to post-wave HEAD truth; definitions say what a thing IS, never how it is implemented):
+
+```markdown
+# knowledge-harness
+
+Trust-first academic research on a personal knowledge vault: every claim traceable to a real source, verified by mechanical checks. This glossary is the meaning layer; naming governance (why these words) lives in docs/terminology.md.
+
+## Vault
+
+**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, structured as an OKF bundle.
+_Avoid_: knowledge base, second brain
+
+**Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
+_Avoid_: sources folder, references layer
+
+**Synthesis layer**: The LLM-maintained topic pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
+_Avoid_: atlas, wiki, topic pages
+
+**Literature note**: The vault projection of one Zotero item, filename = citekey; a managed region above free prose.
+_Avoid_: source note, paper note, reference note
+
+**Synthesis note**: One page of the synthesis layer, carrying block-anchored claims with stance links.
+_Avoid_: topic page (collides with OpenAlex topics), evergreen note, concept page
+
+**Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
+_Avoid_: effort, draft folder
+
+**Inbox**: Fleeting captures and the review queue (`inbox/`); never an admission path for citable sources.
+_Avoid_: `+`, capture folder
+
+**Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
+_Avoid_: calendar, journal, daily notes folder
+
+**Managed region**: The bridge-regenerated span of a literature note between `%%hk-managed%%` markers; never hand-edited.
+_Avoid_: generated section, machine block
+
+## Evidence and claims
+
+**Item**: A bibliographic record in Zotero/CSL terms — the thing a citekey names.
+_Avoid_: work (OpenAlex sense), paper (narrower than the corpus)
+
+**Source**: The cited document itself, in the scholarly sense (primary/secondary source).
+_Avoid_: using "source" for a journal or repository — that is a **venue**
+
+**Venue**: The journal, repository, or outlet an item appeared in.
+_Avoid_: OpenAlex's "source" sense in our prose
+
+**Citekey**: The stable, human-readable key (Better BibTeX) joining prose citations, filenames, and the bibliography.
+_Avoid_: reference ID, bibkey
+
+**Claim**: One assertion carried by a note line, tagged with its evidence boundary and anchored for linking.
+_Avoid_: statement, fact
+
+**Evidence-boundary tag**: The per-claim marker of epistemic status — quote, paraphrase, inference, or open-question.
+_Avoid_: claim type, epistemic label
+
+**Claim link**: The global address of a claim: `citekey#^claim-id` (an Obsidian block link).
+_Avoid_: claim address, claim ID (that is only the anchor fragment)
+
+**Stance link**: A typed claim-to-claim relation — `supports` or `disputes` (CiTO senses).
+_Avoid_: supported-by/contested-by (old names), related links
+
+**Admission**: The human act of accepting a source into Zotero — the only way anything becomes citable.
+_Avoid_: import (that is the projection step that follows), ingestion
+
+**Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded.
+_Avoid_: unreviewed/active/rejected (old values), review status
+
+## Verification
+
+**Check**: One mechanical verification (citekey exists, DOI resolves, quote matches, update-notice scan, …).
+_Avoid_: test, validation
+
+**Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply — automatic only).
+_Avoid_: pass/fail, pytest vocabulary in vault prose
+
+**Verified event**: The record `{by, at, check}` a passing check appends to a note; only MATCHED mints one.
+_Avoid_: verification log entry, audit record
+
+**Trust tier**: A note's derived standing: unverified → machine-confirmed → human-reviewed (cumulative).
+_Avoid_: confidence level (that is a per-claim field), quality score
+
+**Review inbox**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to; drained at project orientation.
+_Avoid_: issue list, warning log
+
+**Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the only bypass any closed check has.
+_Avoid_: dismissal, override (an ack keeps the record; it never deletes)
+
+**Publish gate**: The armed, fail-closed verification boundary a project crosses at publish; inert unless armed.
+_Avoid_: release check, CI gate (CI is the async auditor, not the gate)
+
+**Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …), recorded bi-temporally.
+_Avoid_: retraction flag (one class of notice, not the concept)
+
+## Process
+
+**Information flow**: How a source is added, cataloged, and linked — continuous, project-independent.
+
+**Project flow**: How a question becomes a defensible draft — framing, gap analysis, acquisition, drafting, verification, publish.
+
+**Doctor**: The repair-capable diagnostic pass over the vault's substrate (Zotero, exports, tree, conformance).
+_Avoid_: health check, setup validator
+```
+
+(Every `_Avoid_` entry derives from the reference's deviations and old names; anything the wave renames must appear here under its NEW name with the old name in _Avoid_.)
+- [ ] **Step 2: Verify internal consistency** — every name in CONTEXT.md and the reference matches a grep of the post-wave code (`grep -c` spot-checks for `synthesis`, `accessed`, `fixity-sha256`, `supports`, `unscreened` in `core/`); no section references §7–§10 or "proposal"/"pending".
+- [ ] **Step 3: Commit** — `git add docs/terminology.md CONTEXT.md && git commit -m "docs: terminology reference + root CONTEXT.md glossary (meaning layer)"`
 
 ---
 
@@ -297,6 +404,6 @@ The working package is executed; what remains must be **all and only what future
 
 ## Self-Review (completed at authoring)
 
-**Manifest coverage:** §10 path/type pairs → T1; frontmatter pairs → T2; inline-field pairs + claim_link → T3; inversion additions → T4; OKF artifacts → T5; skill renames → T6; spec/plan/README alignment + acceptance → T7; the §10 "statuses flip / deviation upgrade / defect closes" bookkeeping → T8 (as the reference rewrite); post-wave gate-clear declared by T8's standing-rules rewrite. Nothing in §10 lacks a task.
+**Manifest coverage:** §10 path/type pairs → T1; frontmatter pairs → T2; inline-field pairs + claim_link → T3; inversion additions → T4; OKF artifacts → T5; skill renames → T6; spec/plan/README alignment + acceptance → T7; the §10 "statuses flip / deviation upgrade / defect closes" bookkeeping → T8 (as the reference rewrite); root CONTEXT.md glossary (meaning layer, format-conformant, _Avoid_ lists from deviations) → T8 Step 1b; post-wave gate-clear declared by T8's standing-rules rewrite. Nothing in §10 lacks a task.
 **Placeholders:** none — where HEAD shapes are unknown (Plan C in flight), tasks give exact discovery commands, exact target strings, and the HEAD-governs escalation rule instead of invented code; all genuinely new code (T4 tests, T5 module/tests/templates) is written out.
 **Type consistency:** `INBOX_PATH`, type values, `claim_link`, `fixity-sha256`, `accessed`, `generated` shape, `okf.regenerate_log` signature used identically across tasks; T8's reference tables are defined as the post-wave truth of T1–T7's strings.
