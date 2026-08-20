@@ -34,6 +34,10 @@ Discovers mutation sites, applies each, runs pytest, reports killed/survived/unc
 
 All three belong in the **dev-quality lane** (advisory CI / pre-merge), never in the vault's publish-gate closing sets — they measure the harness's code, not the vault's claims. Adoption order: crap4py → mutate4py (targeted) → drywall. Risk to price in: v0.1.x single-maintainer tools; pin versions, treat as removable.
 
+## Baseline-then-differential plan (author-ruled 2026-08-20)
+
+Blanket baseline once, then per-diff differential — the manifest's designed workflow. Trigger: **after Plan D lands** (hard constraint is only post-Plan-T — the terminology wave renames identifiers, which changes `ast.unparse()` hashes and invalidates a pre-wave baseline wholesale; post-D additionally avoids a re-baseline if D touches core Python, and the baseline earns value only once the CI check is wired, which lands naturally with D). Measured scan: ~1,250 sites across `harness_core` (`__main__.py` 216, `inbox.py` 124, `lints.py` 102, `events.py` 101, plus `checks.py`/`bibliography.py`); ~10–15 min blanket with test-contexts narrowing at 4 workers vs ~2.5 h without. Mechanics: `--build-test-contexts` once → blanket with `--test-contexts` and `--manifest-file` (sidecar; embedded mode is a repo-hygiene violation) → commit sidecars so differential persists across clones/CI → gitignore `.mutate4py/` → gate policy "no new survivors" on diffs; pre-existing survivors are backlog, never gate.
+
 ## Actionable backlog surfaced
 
 1. Kill the 19 selectors.py survivors — boundary tests for hyphen-join, context-window clamps, combining-mark ordering.
