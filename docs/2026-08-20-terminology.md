@@ -211,9 +211,9 @@ Added 2026-08-20. **S → A means one of two things**: *(adopt)* rename to the a
 
 ---
 
-## 9. Naming-pass proposal sheet (current → proposed, with rationale)
+## 9. Naming-pass proposal sheet — **RULED (author confirmed wholesale, 2026-08-20)**
 
-Added 2026-08-20. One concrete proposal per open term, derived from the ruled tier order, tie-breakers, and the §8 promotion analysis. **Proposals, not rulings — the author confirms or amends per row.** Cascade decisions first; every A-status term not listed is unchanged by definition.
+One concrete proposal per open term, derived from the ruled tier order, tie-breakers, and the §8 promotion analysis. **All 25 rows confirmed wholesale — the naming pass is DECIDED; the §9-slice gate clears when the rename wave (§10) lands.** Cascade decisions first; every A-status term not listed is unchanged by definition.
 
 | # | Current | Proposed | Rationale |
 |---|---|---|---|
@@ -244,3 +244,65 @@ Added 2026-08-20. One concrete proposal per open term, derived from the ruled ti
 | 25 | `+/review-queue.md` | **`inbox/review-queue.md`** | Path follows row 3; filename unchanged (Covidence review-queue semantics). |
 
 **Net effect if confirmed wholesale:** six renames in vault paths/kinds (rows 2, 3, 5, 6, 8, 13), four inline-field renames (9, 10, 11 ×2), one skill rename (21), one value-set completion (23) — all pre-vault, all ~10-minute Codex operations; the ⚠ defect closes (8); one D-status deviation upgrades to an anchored adoption (11); the collision debt clears (2). Everything else is keep-and-promote.
+
+
+---
+
+## 10. Rename-wave execution manifest (for the implementing agent)
+
+The naming pass is ruled; this manifest is its implementation order. **One coherent wave**: spec + code + templates + active plan documents move in a single commit (or one commit immediately after the in-flight Plan C merge — implementer's call on worktree state; do not interleave with unrelated work).
+
+### History rule
+
+**Living surfaces rename; history does not.** In scope: `core/` (code, templates, tests), `hooks/`, `skills/`, `docs/specs/` (the spec), the ACTIVE plan (`2026-08-17-plan-c-*`), `README.md`, this document's §6 inventory (statuses flip to current after the wave). Out of scope — never rewrite: `research/`, `analysis/`, completed plans (A, B), audit documents, closed GitHub tickets, git history.
+
+### Rename pairs
+
+**Paths / folders / types** (scaffold `VAULT_DIRS`, templates, fixtures, spec §3 tree, AGENTS.md template, hook vault-detection, tests):
+
+| Old | New |
+|---|---|
+| `atlas/` | `synthesis/` |
+| `atlas/index.md` | `synthesis/index.md` |
+| `+/` | `inbox/` |
+| `+/review-queue.md` | `inbox/review-queue.md` (`INBOX_PATH` constant) |
+| `calendar/` | `log/` (daily log files `log/YYYY-MM-DD.md`) |
+| `efforts/` | `projects/` |
+| type `topic` | type `synthesis` |
+| type `effort` | type `project` |
+| publish flag field `"effort"` | `"project"` |
+| skill `atlas-conventions` | `synthesis-conventions` |
+
+Unchanged: `literatures/`, `x/`, plugin name + `hk-`/`.harness` cascade, type `literature`, type `daily`.
+
+**Frontmatter keys / values** (notes.py `MANAGED_FIELDS` + render, events, lints, templates, spec §5):
+
+| Old | New |
+|---|---|
+| `retrieved` | `accessed` (day-one preservation logic follows the key) |
+| `attachment-sha256` | `fixity-sha256` (ack-scope and no-op references follow) |
+| status `unreviewed` | `unscreened` |
+| status `active` | `included` |
+| status `rejected` | `excluded` (`superseded` unchanged; source-status lint strings follow) |
+| effort/project status `drafting` | `draft` (`parked/published/corrected/withdrawn` unchanged) |
+| `growth` values | full Appleton set `seedling/budding/evergreen` |
+
+**Inline fields** (claims parser, stamp/clear logic, canonical_content exclusion set per rulings 9/11, contested-set lint, fixtures, spec §5):
+
+| Old | New |
+|---|---|
+| `[verify-failed:: …]` | `[failed-verification:: …]` |
+| `[supported-by:: …]` | `[supports:: …]` |
+| `[contested-by:: …]` | `[disputes:: …]` |
+
+**Prose/identifiers**: "claim address" → "claim link" in user-facing prose and docstrings; rename the `claim_address()` identifier too (one-term rule), signature unchanged.
+
+### Acceptance
+
+1. Full suite green, offline and live (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1`).
+2. `grep -rE "atlas|efforts/|calendar/|retrieved|attachment-sha256|verify-failed|supported-by|contested-by|unreviewed|drafting|\+/review-queue" core/ hooks/ skills/ docs/specs/ README.md` returns nothing (modulo the words in ordinary prose senses — judge hits, don't blind-replace).
+3. Spec, templates, and code agree on every renamed string; Plan C document updated to match its own implementation.
+4. This document's §6 inventory updated: confirmed terms move to their new names with status A/S per §8's promotion shortlist; §4's stance-link row moves from deviation to anchored adoption (CiTO); the ⚠ defect row closes.
+5. Terminology-related spec sections (§3, §5, §7 skill list, §9 drills) reflect the ruled names.
+
+**Post-wave: the naming-pass gate on §9 slice execution is CLEARED.**
