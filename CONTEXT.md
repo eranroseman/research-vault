@@ -4,7 +4,7 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 ## Vault
 
-**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, structured as an OKF bundle.
+**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, packaged to survive its tools (currently as an OKF — Open Knowledge Format — bundle; ADR 0001).
 _Avoid_: knowledge base, second brain
 
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
@@ -63,6 +63,12 @@ _Avoid_: supported-by/contested-by (old names), related links
 **Admission**: The human act of accepting a source into Zotero — the only way anything becomes citable.
 _Avoid_: import (that is the projection step that follows), ingestion
 
+**Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered from Zotero, never authored.
+_Avoid_: admission (that is the human act before), sync
+
+**Bibliography export**: The citekey universe: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT, that citations, filenames, and checks all join against.
+_Avoid_: bibliography file, reference list
+
 **Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded.
 _Avoid_: unreviewed/active/rejected (old values), review status
 
@@ -74,8 +80,11 @@ _Avoid_: test, validation
 **Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply — automatic only).
 _Avoid_: pass/fail, pytest vocabulary in vault prose
 
-**Verified event**: The record `{by, at, check}` a passing check appends to a note; only MATCHED mints one.
+**Verified event**: The dated, attributed record of which check passed, appended to a note; only MATCHED mints one.
 _Avoid_: verification log entry, audit record
+
+**Closing check**: A check that can hold a surface (commit, publish) when it fails; warn-tier findings only inform, through the review inbox.
+_Avoid_: blocking check, hard check
 
 **Trust tier**: A note's derived standing: unverified → machine-confirmed → human-reviewed (cumulative).
 _Avoid_: confidence level (that is a per-claim field), quality score

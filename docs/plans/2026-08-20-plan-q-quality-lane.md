@@ -400,7 +400,7 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set); Task 3's burn-down (baseline manifests must hash the post-refactor tree).
 - Produces: `python scripts/mutation_gate.py --lcov lcov.info` (gate mode, exit 0/1) and `python scripts/mutation_gate.py --update-baseline --lcov lcov.info` (rewrites `mutation-baseline.txt`); baseline line format `<relpath>::<func-id>::<mutation>`; committed sidecar manifests. Task 3's workflow calls the gate mode verbatim.
 
-- [ ] **Step 0: Confirm the pre-baseline ponytail pass has landed** (Global Constraints) — the author-triaged over-engineering cuts are merged, or the author has explicitly waived the pass. Do not build manifests over a tree with pending accepted cuts.
+- [ ] **Step 0: Confirm Plan R (pre-baseline remediation batch, `docs/plans/2026-08-21-plan-r-prebaseline-remediation.md`) is merged** — it carries the security fixes, seam moves, triaged cuts, and follow-ups. Do not build manifests over a tree with any of that churn pending; the author may explicitly waive.
 
 **Design constraints the script encodes (verified live 2026-08-20):**
 - mutate4py exits 0 even when mutants survive → pass/fail must come from parsing the `Survivors:` section.
