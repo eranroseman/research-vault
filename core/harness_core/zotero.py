@@ -178,11 +178,16 @@ class ZoteroClient:
                 normalized.append({**item, "id": citekey})
         return normalized
 
-    def register_autoexport(self, target_path: str) -> dict:
-        try:
-            host_target = paths.to_bbt_host(target_path)
-        except paths.PathError as error:
-            raise ZoteroError(str(error)) from error
+    def register_autoexport(
+        self, target_path: str, *, host_target: str | None = None
+    ) -> dict:
+        if host_target is None:
+            try:
+                host_target = paths.to_bbt_host(target_path)
+            except paths.PathError as error:
+                raise ZoteroError(str(error)) from error
+        elif not isinstance(host_target, str) or not host_target:
+            raise ZoteroError("BBT auto-export host target is empty")
         return self._rpc("autoexport.add", ["//", CSL_TRANSLATOR, host_target])
 
     def supports_local_writes(self) -> bool:
