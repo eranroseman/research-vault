@@ -161,7 +161,7 @@ def test_commit_autoexport_excludes_and_preserves_all_unrelated_state(tmp_vault)
     unrelated_before = [
         line
         for line in status_before.splitlines()
-        if not line.endswith(b" x/bibliography.json")
+        if not line.endswith(b" system/bibliography.json")
     ]
     assert status_after.splitlines() == unrelated_before
 
@@ -628,7 +628,7 @@ def test_commit_autoexport_commits_validated_snapshot_not_later_target_bytes(tmp
             check=True,
             capture_output=True,
         ).stdout
-        == b" M x/bibliography.json\n"
+        == b" M system/bibliography.json\n"
     )
 
 

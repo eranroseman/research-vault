@@ -19,7 +19,7 @@ DEFERRAL_REASON = (
     "reaches a throwaway vault. Set "
     f"{PROVISIONED_VAULT_ENV} to the absolute path of a vault after a person "
     "creates the whole-library Better CSL JSON auto-export in BBT Preferences "
-    "targeting that vault's x/bibliography.json."
+    "targeting that vault's system/bibliography.json."
 )
 
 
@@ -50,7 +50,7 @@ def test_end_to_end_legs_defer_aloud_until_a_person_provisions_a_vault():
     reason = str(deferred.value)
     assert PROVISIONED_VAULT_ENV in reason
     assert "whole-library Better CSL JSON auto-export in BBT Preferences" in reason
-    assert "x/bibliography.json" in reason
+    assert "system/bibliography.json" in reason
 
 
 def test_provisioned_vault_opt_in_rejects_a_path_that_is_not_a_vault(tmp_path):
@@ -107,7 +107,7 @@ def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
     note = (provisioned_vault / "literatures" / f"{citekey}.md").read_text()
     assert f'citekey: "{citekey}"' in note
     assert "%%hk-managed%%" in note
-    assert (provisioned_vault / "x" / "bibliography.json").is_file()
+    assert (provisioned_vault / "system" / "bibliography.json").is_file()
 
     # Second import is a no-op.
     proc2 = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
@@ -471,7 +471,7 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
     assert constructed == []
     assert status_after == status_before
     assert list((tmp_vault / "literatures").iterdir()) == []
-    assert list((tmp_vault / "x").iterdir()) == []
+    assert list((tmp_vault / "system").iterdir()) == []
 
 
 @pytest.mark.parametrize(
@@ -584,7 +584,7 @@ def test_import_note_observes_autoexport_before_noop_without_old_writer(
     assert capsys.readouterr().out.strip() == "NOOP"
     assert note_path.read_text() == original
     assert len(observed) == 1
-    assert not (tmp_vault / "x" / "bibliography.json").exists()
+    assert not (tmp_vault / "system" / "bibliography.json").exists()
 
 
 @pytest.mark.parametrize(
@@ -972,7 +972,7 @@ def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
         return [
             line
             for line in lines.splitlines()
-            if not line.endswith(b" x/bibliography.json")
+            if not line.endswith(b" system/bibliography.json")
             and not line.endswith(b" literatures/smith2020.md")
             and not line.endswith(b" log.md")
         ]
@@ -1245,7 +1245,7 @@ def test_staleness_cli_reports_corrupt_committed_bibliography_as_unmatched(
             return [{"id": "smith2020", "title": "Mortality decline"}]
 
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
-    (tmp_vault / "x" / "bibliography.json").write_text("{", encoding="utf-8")
+    (tmp_vault / "system" / "bibliography.json").write_text("{", encoding="utf-8")
 
     code = cli.cmd_staleness(
         argparse.Namespace(vault=str(tmp_vault), base="http://unused")

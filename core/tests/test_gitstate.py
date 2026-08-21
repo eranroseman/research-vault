@@ -397,9 +397,9 @@ def test_projection_refuses_preimage_divergence_before_first_write(tmp_vault):
 def test_planned_out_of_allowlist_output_is_rejected_before_apply(
     tmp_vault, monkeypatch
 ):
-    path = tmp_vault / "x" / "forbidden.md"
+    path = tmp_vault / "system" / "forbidden.md"
     path.write_bytes(b"before\n")
-    output = gitstate.CapturedOutput(b"x/forbidden.md", 0o100644, b"planned\n")
+    output = gitstate.CapturedOutput(b"system/forbidden.md", 0o100644, b"planned\n")
     called = []
     monkeypatch.setattr(
         gitstate,
@@ -503,7 +503,7 @@ def test_manifest_is_raw_sorted_exact_and_rejects_out_of_allowlist(tmp_vault, tm
     ]
 
     bad_before = gitstate.snapshot_worktree(tmp_vault)
-    (tmp_vault / "x" / "unexpected.txt").write_bytes(b"bad\n")
+    (tmp_vault / "system" / "unexpected.txt").write_bytes(b"bad\n")
     with pytest.raises(gitstate.GitStateError, match="allowlist|actual"):
         gitstate.audit_and_write_manifest(tmp_vault, bad_before, [], manifest)
 

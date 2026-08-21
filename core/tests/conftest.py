@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "x"]
+VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "system"]
 
 
 def _with_managed_witness(text):
@@ -122,7 +122,7 @@ generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
             "issued": {"date-parts": [[2020]]},
         },
     ]
-    (tmp_vault / "x" / "bibliography.json").write_text(
+    (tmp_vault / "system" / "bibliography.json").write_text(
         _json.dumps(bibliography, indent=1)
     )
     (tmp_vault / "log" / "2026-08-16.md").write_text(

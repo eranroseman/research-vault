@@ -101,8 +101,8 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
     for path in (
         "AGENTS.md",
         "inbox/review-queue.md",
-        "x/templates/",
-        "x/bases/",
+        "system/templates/",
+        "system/bases/",
         ".git/hooks/pre-commit",
     ):
         assert path in text

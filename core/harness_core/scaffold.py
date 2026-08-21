@@ -17,8 +17,8 @@ VAULT_DIRS = [
     "synthesis",
     "log",
     "projects",
-    "x/templates",
-    "x/bases",
+    "system/templates",
+    "system/bases",
 ]
 PROVISION_COMPANIONS = ["kepano/obsidian-skills"]
 _EMPTY_ROOTS = ("literatures", "log", "projects")

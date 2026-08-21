@@ -15,12 +15,12 @@ EXPECTED_PATHS = {
     "vault/AGENTS.md",
     "vault/inbox/review-queue.md",
     "vault/synthesis/index.md",
-    "vault/x/templates/literature.md",
-    "vault/x/templates/synthesis.md",
-    "vault/x/templates/project.md",
-    "vault/x/templates/daily.md",
-    "vault/x/bases/open-questions.base",
-    "vault/x/bases/trust-tier.base",
+    "vault/system/templates/literature.md",
+    "vault/system/templates/synthesis.md",
+    "vault/system/templates/project.md",
+    "vault/system/templates/daily.md",
+    "vault/system/bases/open-questions.base",
+    "vault/system/bases/trust-tier.base",
     "vault/gitignore",
     "harness/machine.json.example",
     "git/pre-commit",
@@ -68,7 +68,9 @@ def test_markdown_templates_have_expected_okf_frontmatter():
 
     queue_data, _ = frontmatter.parse(asset("vault/inbox/review-queue.md").read_text())
     assert queue_data == {"type": "review-queue"}
-    daily_data, _ = frontmatter.parse(asset("vault/x/templates/daily.md").read_text())
+    daily_data, _ = frontmatter.parse(
+        asset("vault/system/templates/daily.md").read_text()
+    )
     assert daily_data == {"type": "daily"}
 
 
@@ -81,6 +83,7 @@ def test_markdown_templates_match_canonical_content():
         "- [[projects/]] — manuscripts and deliverables\n"
         "- [[log/]] — daily activity log (summary: [[log]])\n"
         "- [[inbox/]] — fleeting notes and the review queue\n"
+        "- [[system/]] — support artifacts: templates, bases, the bibliography export\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
     assert asset("vault/AGENTS.md").read_text() == (
@@ -94,7 +97,7 @@ def test_markdown_templates_match_canonical_content():
         '---\ntype: "review-queue"\n---\n'
     )
     assert asset("vault/synthesis/index.md").read_text() == "# Synthesis index\n"
-    assert asset("vault/x/templates/literature.md").read_text() == (
+    assert asset("vault/system/templates/literature.md").read_text() == (
         '---\ncitekey: "{{CITEKEY}}"\ntype: "literature"\n'
         'accessed: "{{TODAY}}"\nfixity-sha256:\n'
         'managed-sha256: "{{MANAGED_SHA256}}"\nstatus: "unscreened"\n'
@@ -102,18 +105,18 @@ def test_markdown_templates_match_canonical_content():
         "%%hk-managed%%\n# {{TITLE}}\n%%/hk-managed%%\n\n## Notes\n"
     )
     for kind in ("synthesis", "project"):
-        assert asset(f"vault/x/templates/{kind}.md").read_text() == (
+        assert asset(f"vault/system/templates/{kind}.md").read_text() == (
             f'---\ntitle: "{{{{TITLE}}}}"\ntype: "{kind}"\n'
             'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
         )
-    assert asset("vault/x/templates/daily.md").read_text() == (
+    assert asset("vault/system/templates/daily.md").read_text() == (
         '---\ntype: "daily"\n---\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
     )
 
 
 def test_bases_and_machine_example_match_canonical_shapes():
-    open_questions = asset("vault/x/bases/open-questions.base").read_text()
-    trust_tier = asset("vault/x/bases/trust-tier.base").read_text()
+    open_questions = asset("vault/system/bases/open-questions.base").read_text()
+    trust_tier = asset("vault/system/bases/trust-tier.base").read_text()
     assert re.search(
         r"name: Open questions\nfilters:\n  and:\n    - 'type == \"synthesis\"'",
         open_questions,

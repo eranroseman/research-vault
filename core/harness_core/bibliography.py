@@ -1,4 +1,4 @@
-"""The in-repo citekey universe: x/bibliography.json (spec §4)."""
+"""The in-repo citekey universe: system/bibliography.json (spec §4)."""
 
 import json
 import os
@@ -13,7 +13,7 @@ from typing import NamedTuple
 from . import Result, paths
 from .zotero import ZoteroError
 
-BIB_PATH = "x/bibliography.json"
+BIB_PATH = "system/bibliography.json"
 
 
 class Bibliography:

@@ -51,8 +51,8 @@ def test_unresolvable_raises(tmp_vault, monkeypatch):
 def test_bbt_host_target_is_the_native_absolute_path_off_wsl(monkeypatch):
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: False)
 
-    assert paths.to_bbt_host("relative-vault/x/bibliography.json") == str(
-        Path("relative-vault/x/bibliography.json").absolute()
+    assert paths.to_bbt_host("relative-vault/system/bibliography.json") == str(
+        Path("relative-vault/system/bibliography.json").absolute()
     )
 
 
@@ -60,17 +60,17 @@ def test_bbt_host_target_translates_through_wslpath_on_wsl(monkeypatch):
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
     def translate(command, **kwargs):
-        assert command == ["wslpath", "-w", "/vault/x/bibliography.json"]
+        assert command == ["wslpath", "-w", "/vault/system/bibliography.json"]
         assert kwargs == {"capture_output": True, "text": True, "check": False}
         return subprocess.CompletedProcess(
-            command, 0, stdout="C:\\vault\\x\\bibliography.json\n"
+            command, 0, stdout="C:\\vault\\system\\bibliography.json\n"
         )
 
     monkeypatch.setattr(paths.subprocess, "run", translate)
 
     assert (
-        paths.to_bbt_host("/vault/x/bibliography.json")
-        == "C:\\vault\\x\\bibliography.json"
+        paths.to_bbt_host("/vault/system/bibliography.json")
+        == "C:\\vault\\system\\bibliography.json"
     )
 
 
@@ -88,7 +88,7 @@ def test_bbt_host_translation_refuses_failed_wslpath_output(
     )
 
     with pytest.raises(paths.PathError):
-        paths.to_bbt_host("/vault/x/bibliography.json")
+        paths.to_bbt_host("/vault/system/bibliography.json")
 
 
 def test_bbt_host_translation_refuses_a_wslpath_that_cannot_launch(monkeypatch):
@@ -100,7 +100,7 @@ def test_bbt_host_translation_refuses_a_wslpath_that_cannot_launch(monkeypatch):
     monkeypatch.setattr(paths.subprocess, "run", unavailable)
 
     with pytest.raises(paths.PathError):
-        paths.to_bbt_host("/vault/x/bibliography.json")
+        paths.to_bbt_host("/vault/system/bibliography.json")
 
 
 def test_wsl_detection_uses_environment_or_kernel_release(monkeypatch):
