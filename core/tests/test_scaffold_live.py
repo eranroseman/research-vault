@@ -6,6 +6,14 @@ absent auto-export against a throwaway vault. The MATCHED end-to-end leg —
 genuine BBT output observed, one real item imported, rerun to NOOP — is
 deferred by author decision 2026-08-20 because no human-created auto-export
 points at a throwaway vault.
+
+`HARNESS_LIVE=1` alone means "run everything that can honestly run on this
+machine". The end-to-end legs that need genuine BBT output — the import and
+staleness legs in `test_cli_live.py` — additionally read
+`HARNESS_LIVE_AUTOEXPORT_VAULT`, the absolute path of a vault a person has
+already pointed a whole-library Better CSL JSON auto-export at in BBT
+Preferences. Unset, those legs skip aloud naming that human step; they never
+fabricate the export, and the harness still writes nothing to it.
 """
 
 import argparse

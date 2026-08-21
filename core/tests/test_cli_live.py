@@ -1,15 +1,62 @@
 import argparse
 import datetime as datetime_lib
 import json
+import os
 import subprocess
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
 from harness_core import Result, bibliography, frontmatter, notes, paths
 
 REAL_OBSERVE_AUTOEXPORT = bibliography.observe_autoexport
+
+PROVISIONED_VAULT_ENV = "HARNESS_LIVE_AUTOEXPORT_VAULT"
+DEFERRAL_REASON = (
+    "deferred: the harness never registers an auto-export, so no BBT output "
+    "reaches a throwaway vault. Set "
+    f"{PROVISIONED_VAULT_ENV} to the absolute path of a vault after a person "
+    "creates the whole-library Better CSL JSON auto-export in BBT Preferences "
+    "targeting that vault's x/bibliography.json."
+)
+
+
+def _provisioned_vault_or_defer(environ):
+    """Return the human-provisioned vault, or defer aloud naming the human step."""
+    configured = environ.get(PROVISIONED_VAULT_ENV, "").strip()
+    if not configured:
+        pytest.skip(DEFERRAL_REASON)
+    vault = Path(configured)
+    if not vault.is_absolute() or not vault.is_dir():
+        pytest.fail(
+            f"{PROVISIONED_VAULT_ENV} must name an existing vault by absolute "
+            f"path; got {configured!r}"
+        )
+    return vault
+
+
+@pytest.fixture
+def provisioned_vault():
+    return _provisioned_vault_or_defer(os.environ)
+
+
+def test_end_to_end_legs_defer_aloud_until_a_person_provisions_a_vault():
+    """Deferring the falsified-contract legs silently must fail."""
+    with pytest.raises(pytest.skip.Exception) as deferred:
+        _provisioned_vault_or_defer({})
+
+    reason = str(deferred.value)
+    assert PROVISIONED_VAULT_ENV in reason
+    assert "whole-library Better CSL JSON auto-export in BBT Preferences" in reason
+    assert "x/bibliography.json" in reason
+
+
+def test_provisioned_vault_opt_in_rejects_a_path_that_is_not_a_vault(tmp_path):
+    """Letting a mistyped opt-in quietly skip the end-to-end legs must fail."""
+    with pytest.raises(pytest.fail.Exception, match=PROVISIONED_VAULT_ENV):
+        _provisioned_vault_or_defer({PROVISIONED_VAULT_ENV: str(tmp_path / "absent")})
 
 
 @pytest.fixture(autouse=True)
@@ -48,32 +95,35 @@ def test_probe():
 
 
 @pytest.mark.live
-def test_import_note_end_to_end(tmp_vault):
+def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
     # Pick any real citekey from the live library.
     from harness_core.zotero import ZoteroClient
 
     items = ZoteroClient().export_csl(None)
     citekey = items[0]["id"]
 
-    proc = run_cli("import-note", citekey, "--vault", str(tmp_vault))
+    proc = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
     assert proc.returncode == 0, proc.stderr
-    note = (tmp_vault / "literatures" / f"{citekey}.md").read_text()
+    note = (provisioned_vault / "literatures" / f"{citekey}.md").read_text()
     assert f'citekey: "{citekey}"' in note
     assert "%%hk-managed%%" in note
-    assert (tmp_vault / "x" / "bibliography.json").is_file()
+    assert (provisioned_vault / "x" / "bibliography.json").is_file()
 
     # Second import is a no-op.
-    proc2 = run_cli("import-note", citekey, "--vault", str(tmp_vault))
+    proc2 = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
     assert "NOOP" in proc2.stdout
 
 
 @pytest.mark.live
-def test_staleness_after_import(tmp_vault):
+def test_staleness_after_import_into_a_provisioned_vault(provisioned_vault):
     from harness_core.zotero import ZoteroClient
 
     citekey = ZoteroClient().export_csl(None)[0]["id"]
-    run_cli("import-note", citekey, "--vault", str(tmp_vault))
-    proc = run_cli("staleness", "--vault", str(tmp_vault))
+
+    imported = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
+    proc = run_cli("staleness", "--vault", str(provisioned_vault))
+
+    assert imported.returncode == 0, imported.stderr
     assert proc.stdout.strip() in {"MATCHED", "UNMATCHED"}
     assert proc.returncode in (0, 1)
 
