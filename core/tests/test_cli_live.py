@@ -974,6 +974,7 @@ def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
             for line in lines.splitlines()
             if not line.endswith(b" x/bibliography.json")
             and not line.endswith(b" literatures/smith2020.md")
+            and not line.endswith(b" log.md")
         ]
 
     assert unrelated(status_after) == unrelated(status_before)

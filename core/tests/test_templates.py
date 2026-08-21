@@ -61,31 +61,37 @@ def test_markdown_templates_have_expected_okf_frontmatter():
         assert data.get("type"), path
 
     root_data, _ = frontmatter.parse(asset("vault/index.md").read_text())
-    assert root_data == {"okf_version": "0.2"}
+    assert root_data == {"type": "index", "okf_version": "0.2"}
     for path in reserved:
         data, _ = frontmatter.parse(asset(path).read_text())
         assert data == {}, path
 
     queue_data, _ = frontmatter.parse(asset("vault/inbox/review-queue.md").read_text())
-    assert queue_data == {"type": "review-inbox"}
+    assert queue_data == {"type": "review-queue"}
     daily_data, _ = frontmatter.parse(asset("vault/x/templates/daily.md").read_text())
     assert daily_data == {"type": "daily"}
 
 
 def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
-        '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
+        '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+        "# Vault index\n\n"
+        "- [[literatures/]] — evidence layer: citekey-keyed source notes\n"
+        "- [[synthesis/]] — synthesis pages (see [[synthesis/index]])\n"
+        "- [[projects/]] — manuscripts and deliverables\n"
+        "- [[log/]] — daily activity log (summary: [[log]])\n"
+        "- [[inbox/]] — fleeting notes and the review queue\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
     assert asset("vault/AGENTS.md").read_text() == (
-        '---\ntype: "vault-guide"\n---\n# Vault agents guide\n\n'
+        '---\ntype: "guide"\n---\n# Vault agents guide\n\n'
         "Evidence is admitted through Zotero and projected into `literatures/`. "
         "Read `synthesis/index.md` and recent `log/` entries before editing. "
         "Use the knowledge-harness `project`, `verify-citations`, and `publish` "
         "skills for delivery work. Review findings live in `inbox/review-queue.md`.\n"
     )
     assert asset("vault/inbox/review-queue.md").read_text() == (
-        '---\ntype: "review-inbox"\n---\n'
+        '---\ntype: "review-queue"\n---\n'
     )
     assert asset("vault/synthesis/index.md").read_text() == "# Synthesis index\n"
     assert asset("vault/x/templates/literature.md").read_text() == (

@@ -22,6 +22,7 @@ from . import (
     inbox,
     lints,
     notes,
+    okf,
     paths,
     quotes,
     scaffold,
@@ -42,7 +43,7 @@ DEFAULT_BASE = "http://localhost:23119"
 _OMITTED_BIBLIOGRAPHY = object()
 DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt", "autoexport"}
 DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "autoexport"}
-DOCTOR_WARN_ONLY = {"staleness", "remote", "backup", "inbox"}
+DOCTOR_WARN_ONLY = {"staleness", "remote", "backup", "inbox", "okf"}
 
 
 def _text(value) -> str:
@@ -248,6 +249,7 @@ def cmd_import_note(args):
         print("NOOP")
         return 0
     _write_note_text(path, candidate)
+    okf.regenerate_log(vault)
     print(str(path))
     return 0
 

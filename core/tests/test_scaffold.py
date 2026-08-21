@@ -78,9 +78,17 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert all((vault / path).is_dir() for path in VAULT_DIRS)
     assert (vault / ".git").is_dir()
     assert (vault / "index.md").read_text() == (
-        '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
+        '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+        "# Vault index\n\n"
+        "- [[literatures/]] — evidence layer: citekey-keyed source notes\n"
+        "- [[synthesis/]] — synthesis pages (see [[synthesis/index]])\n"
+        "- [[projects/]] — manuscripts and deliverables\n"
+        "- [[log/]] — daily activity log (summary: [[log]])\n"
+        "- [[inbox/]] — fleeting notes and the review queue\n"
     )
-    assert (vault / "log.md").read_text() == "# Log\n"
+    assert (vault / "log.md").read_text() == (
+        '---\ntype: "log"\n---\n# Log\n\n## Days\n'
+    )
     assert (vault / ".gitignore").read_text() == ".harness/\n.obsidian/workspace*\n"
     assert (vault / ".harness" / "machine.json").read_text() == (
         '{\n  "mailto": "you@example.edu",\n'
@@ -96,9 +104,10 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     ):
         data, _ = frontmatter.parse((vault / path).read_text())
         assert data["type"]
-    for path in ("log.md", "synthesis/index.md"):
-        data, _ = frontmatter.parse((vault / path).read_text())
-        assert data == {}
+    data, _ = frontmatter.parse((vault / "synthesis/index.md").read_text())
+    assert data == {}
+    log_data, _ = frontmatter.parse((vault / "log.md").read_text())
+    assert log_data == {"type": "log"}
 
 
 def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):

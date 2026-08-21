@@ -129,7 +129,7 @@ generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
         '---\ntype: "daily"\n---\n- 09:00 human:eran — imported smith2020\n'
     )
     (tmp_vault / "inbox" / "review-queue.md").write_text(
-        '---\ntype: "review-inbox"\n---\n'
+        '---\ntype: "review-queue"\n---\n'
     )
     subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True)
     subprocess.run(

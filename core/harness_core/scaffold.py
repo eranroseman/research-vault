@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, bibliography, inbox
+from . import Result, bibliography, frontmatter, inbox, okf
 from .zotero import ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
@@ -201,6 +201,11 @@ def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> lis
         (vault / directory).mkdir(parents=True, exist_ok=True)
 
     _copy_vault_templates(vault, templates, created)
+    if "log.md" in created:
+        # Ship a freshly-scaffolded vault's log.md already OKF-conformant
+        # (type: "log") rather than leaving the inert packaged placeholder
+        # until the first import-note/verify call regenerates it.
+        okf.regenerate_log(vault)
     _add_empty_root_sentinels(vault, created)
     _copy_if_absent(
         templates.joinpath("harness", "machine.json.example"),
@@ -299,6 +304,54 @@ def _inbox_probe(vault: Path) -> Probe:
     return Probe("inbox", Result.MATCHED, "0 unacknowledged findings")
 
 
+def _okf_typed_markdown(vault: Path):
+    """Every ``.md`` path the OKF probe expects to carry a non-empty ``type``.
+
+    Root ``index.md`` (checked separately for ``okf_version``) and root
+    ``log.md`` (checked separately for existence) are reserved and excluded,
+    as is any nested ``index.md`` (e.g. ``synthesis/index.md``).
+    """
+    for path in sorted(vault.rglob("*.md")):
+        if ".git" in path.parts:
+            continue
+        relative = path.relative_to(vault).as_posix()
+        if path.name == "index.md" or relative == "log.md":
+            continue
+        yield relative, path
+
+
+def _okf_probe(vault: Path) -> Probe:
+    problems = []
+    for relative, path in _okf_typed_markdown(vault):
+        try:
+            data, _body = frontmatter.parse(path.read_text())
+        except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
+            problems.append(f"{relative}: unreadable ({error})")
+            continue
+        okf_type = data.get("type")
+        if not isinstance(okf_type, str) or not okf_type.strip():
+            problems.append(f"{relative}: missing type")
+
+    index_path = vault / "index.md"
+    try:
+        index_data, _body = frontmatter.parse(index_path.read_text())
+    except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
+        problems.append(f"index.md: unreadable ({error})")
+    else:
+        okf_version = index_data.get("okf_version")
+        if not isinstance(okf_version, str) or not okf_version.strip():
+            problems.append("index.md: missing okf_version")
+
+    log_dir = vault / "log"
+    has_day_files = log_dir.is_dir() and any(log_dir.glob("*.md"))
+    if has_day_files and not (vault / "log.md").exists():
+        problems.append("log.md missing despite day files present")
+
+    if problems:
+        return Probe("okf", Result.UNMATCHED, "; ".join(problems))
+    return Probe("okf", Result.MATCHED, "OKF artifacts conformant")
+
+
 def doctor(
     vault_root,
     client=None,
@@ -306,7 +359,7 @@ def doctor(
     settle_seconds=60,
     poll_interval=1,
 ) -> list[Probe]:
-    """Repair the scoped vault substrate and return its nine ordered probes."""
+    """Repair the scoped vault substrate and return its ten ordered probes."""
     del network  # Historical interface only; doctor has no synthetic offline mode.
     vault = Path(vault_root)
     try:
@@ -379,5 +432,12 @@ def doctor(
                 ]
             )
 
-    probes.extend([_remote_probe(vault), _backup_probe(config), _inbox_probe(vault)])
+    probes.extend(
+        [
+            _remote_probe(vault),
+            _backup_probe(config),
+            _inbox_probe(vault),
+            _okf_probe(vault),
+        ]
+    )
     return probes

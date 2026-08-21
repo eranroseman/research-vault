@@ -11,7 +11,7 @@ from . import AGENT_ACTOR, Result, frontmatter
 from .pathcodec import PathCodecError, decode_repo_path
 
 INBOX_PATH = "inbox/review-queue.md"
-INBOX_TYPE = "review-inbox"
+INBOX_TYPE = "review-queue"
 _OMITTED_HASH = object()
 REASON_CODES = frozenset(
     {

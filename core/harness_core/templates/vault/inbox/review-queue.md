@@ -1,3 +1,3 @@
 ---
-type: "review-inbox"
+type: "review-queue"
 ---

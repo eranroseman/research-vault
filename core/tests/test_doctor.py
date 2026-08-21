@@ -17,10 +17,11 @@ PROBE_NAMES = [
     "remote",
     "backup",
     "inbox",
+    "okf",
 ]
 HARD_UNMATCHED = ["tree", "machine-config", "bbt", "autoexport"]
 HARD_UNREACHABLE = ["zotero", "bbt", "autoexport"]
-WARN_ONLY = ["staleness", "remote", "backup", "inbox"]
+WARN_ONLY = ["staleness", "remote", "backup", "inbox", "okf"]
 
 
 def _probes(**states):
@@ -108,7 +109,7 @@ def _doctor_vault(tmp_vault, *, backup="/backup"):
     return tmp_vault
 
 
-def test_doctor_returns_exact_nine_tuple_probes_and_repairs_tree(
+def test_doctor_returns_exact_ten_tuple_probes_and_repairs_tree(
     tmp_vault, monkeypatch
 ):
     vault = _doctor_vault(tmp_vault)
@@ -153,7 +154,12 @@ def test_doctor_ready_failure_short_circuits_bbt_observation_but_keeps_all_probe
     for name in ("bbt", "autoexport", "staleness"):
         assert by_name[name].result is Result.UNREACHABLE
         assert by_name[name].detail == "zotero down"
-    assert [probe.name for probe in probes[-3:]] == ["remote", "backup", "inbox"]
+    assert [probe.name for probe in probes[-4:]] == [
+        "remote",
+        "backup",
+        "inbox",
+        "okf",
+    ]
 
 
 def test_doctor_missing_bbt_skips_observation_with_prerequisite_detail(
@@ -195,7 +201,7 @@ def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault, monkeypatch)
     assert {probe.name: probe.result for probe in probes}["bbt"] is Result.UNMATCHED
 
 
-def test_doctor_scaffold_failure_still_returns_all_nine_probes(tmp_path, monkeypatch):
+def test_doctor_scaffold_failure_still_returns_all_ten_probes(tmp_path, monkeypatch):
     vault = tmp_path / "missing-vault"
     monkeypatch.setattr(
         scaffold,
@@ -332,7 +338,7 @@ def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert code == 3
-    assert len(lines) == 9
+    assert len(lines) == 10
     assert [line.split()[1] for line in lines] == PROBE_NAMES
     assert any(
         line.startswith("UNREACHABLE autoexport") and "git unavailable" in line
@@ -369,7 +375,7 @@ def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert code == 3
-    assert len(lines) == 9
+    assert len(lines) == 10
     assert [line.split()[1] for line in lines] == PROBE_NAMES
     assert any(
         line.startswith("UNREACHABLE autoexport") and "target read denied" in line
@@ -387,7 +393,7 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
         '{"mailto":"you@example.edu","zotero_backup":""}'
     )
     (vault / "inbox" / "review-queue.md").write_text(
-        '---\ntype: "review-inbox"\n---\n'
+        '---\ntype: "review-queue"\n---\n'
         "- [id:: citekey/x/2026-08-01] [check:: citekey] [target:: x] "
         "[result:: UNMATCHED] [date:: 2026-08-01] [actor:: process:test] "
         "[reason:: mismatch — test]\n"
@@ -442,4 +448,4 @@ def test_doctor_base_routes_before_and_after_subcommand(
 
     assert cli.main(argv) == 0
     assert bases == [expected]
-    assert len(capsys.readouterr().out.splitlines()) == 9
+    assert len(capsys.readouterr().out.splitlines()) == 10
