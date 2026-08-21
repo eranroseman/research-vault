@@ -220,19 +220,21 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 
 - [ ] **Step 3b: Markdown canonical form (mdformat)** — author-ruled 2026-08-21 after two rounds of push-back; the drift-protection argument governs: multi-agent authorship makes style drift the default, and a pinned formatter is the standing protection.
 
-**Format set** (everything under future edit): `README.md`, `docs/specs/`, `docs/terminology.md`, active plan docs, `skills/`, `hooks/*.md` if any, and `core/harness_core/templates/vault/**/*.md` (verified 2026-08-21: `{{tokens}}`, `%%hk-managed%%` markers, and frontmatter survive mdformat byte-intact; only blank-line normalization). **Exclusions, each by named reason, nothing by fear**: `research/`, `analysis/`, completed plan docs, `docs/adr/` (dead records — no future edits, so no drift to protect; formatting buys only blame pollution); `core/tests/` fixtures (byte-asserting — formatting breaks what the test tests).
+**Format set (author-ruled 2026-08-21, third push-back — "one-time churn, lifetime of certainty, no rule to enforce" governs): ALL repo markdown**, including `research/`, `analysis/`, completed plans, and `docs/adr/` — verified 2026-08-21: mdformat with `--wrap keep` preserves content (fences byte-safe, no prose reflow), so one-time canonicalization does not violate the history rule's substance. **The history rule's reading is hereby amended: content and meaning are never rewritten; form was canonicalized once** (this commit, carried in `.git-blame-ignore-revs`). The single invocation-level exclusion is `core/tests/` — some fixtures are deliberately malformed inputs (a lint test needs its bad formatting), and goldens must equal system output; both are enforced mechanically by the suite, not by memory.
 
-Run: `mdformat --wrap keep README.md docs/specs docs/terminology.md docs/plans/2026-08-20-plan-q-quality-lane.md docs/plans/2026-08-20-plan-t-terminology-wave.md skills core/harness_core/templates/vault` (adjust the active-plan list to HEAD). Template formatting changes rendered-note bytes: update render tests/fixtures to the canonical form **in this same commit** (pre-vault window — free). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section.
+Run: `mdformat --wrap keep README.md docs skills core/harness_core/templates` (everything but `core/tests/`; adjust to HEAD's tree). Template formatting changes rendered-note bytes: update render tests/fixtures to the canonical form **in this same commit** (pre-vault window — free). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section.
+
+**Zero remembered exclusion rules** — the surviving boundaries are all mechanically self-enforcing: goldens fail the suite if formatted away from system output; vault machine surfaces reject foreign writers by construction (append-only lint, hash-scoped acks lapse, managed-region witness, bibliography staleness lint against the BBT sole writer). None of these needs an agent to remember anything.
 
 **Contract notes recorded in pyproject comment**: the mdformat pin is a render-contract component (canonical template form leaks into rendered vault notes — a formatter upgrade is judged like a render change, with re-import expectations); oxfmt rejected 2026-08-21 with the mismatch named (it reformats *inside* fenced code blocks — quoted material — the prettier-incident class; measured live: respacing YAML in a quoted workflow snippet; plus a Node toolchain in a Python dev lane).
 
-**Vault-side rule (add one line to the AGENTS.md template)**: formatters are writers — never run one over the vault's machine surfaces (`log/`, `inbox/review-queue.md`, literature managed regions, `system/bibliography.json`); each has an owner and a byte contract.
+**Vault-side note (one line in the AGENTS.md template, informative not normative)**: formatters are writers; the vault's machine surfaces (`log/`, `inbox/review-queue.md`, literature managed regions, `system/bibliography.json`) each have an owner and a byte contract, and the trust machinery rejects foreign writers mechanically — this line explains why the alarms fire, it is not itself the enforcement.
 
 - [ ] **Step 3c: Config validity test** — `core/tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`core/pyproject.toml`) with `tomllib`; assert each loads. A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI.
 
 - [ ] **Step 4: Verify clean + suite green**
 
-Run: `ruff check harness_core tests --no-cache && mypy harness_core && mdformat --check --wrap keep README.md docs/specs docs/terminology.md skills core/harness_core/templates/vault && python -m pytest tests -q`
+Run: `ruff check harness_core tests --no-cache && mypy harness_core && mdformat --check --wrap keep README.md docs skills core/harness_core/templates && python -m pytest tests -q`
 Expected: `All checks passed!`, `Success: no issues found`, mdformat silent, and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
 
 - [ ] **Step 5: Commit**
@@ -607,7 +609,7 @@ jobs:
       - name: Types (mypy)
         run: mypy harness_core
       - name: Markdown canonical form (mdformat)
-        run: mdformat --check --wrap keep ../README.md ../docs/specs ../docs/terminology.md ../skills harness_core/templates/vault
+        run: mdformat --check --wrap keep ../README.md ../docs ../skills harness_core/templates
       - name: Config validity + workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Shell lint (shellcheck)
