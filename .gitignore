@@ -1,5 +1,6 @@
 sources/*.zip
 .worktrees/
+.claude/worktrees/
 .venv/
 *.egg-info/
 __pycache__/
