@@ -81,11 +81,7 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
     )
     assert (vault / "log.md").read_text() == "# Log\n"
-    assert (
-        (vault / ".gitignore")
-        .read_text()
-        .startswith("# vault/gitignore; scaffold copies this to .gitignore\n")
-    )
+    assert (vault / ".gitignore").read_text() == ".harness/\n.obsidian/workspace*\n"
     assert (vault / ".harness" / "machine.json").read_text() == (
         '{\n  "mailto": "you@example.edu",\n'
         '  "path_map": {"D:\\\\Zotero\\\\": "/mnt/d/Zotero/"}\n}\n'

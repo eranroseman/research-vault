@@ -1,3 +1,2 @@
-# vault/gitignore; scaffold copies this to .gitignore
 .harness/
 .obsidian/workspace*

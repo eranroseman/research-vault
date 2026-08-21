@@ -4,6 +4,10 @@ on:
     - cron: "17 3 * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: rw-batch
+  cancel-in-progress: false
+
 permissions:
   contents: write
 

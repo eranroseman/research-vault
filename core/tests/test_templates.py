@@ -185,7 +185,8 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert 'git fetch --no-tags origin "$base"' in text
     assert 'git cat-file -e "$base^{tree}"' in text
     assert 'printf \'sha=%s\\n\' "$base" >> "$GITHUB_OUTPUT"' in text
-    assert 'git-base "${{ steps.base.outputs.sha }}"' in text
+    assert "BASE: ${{ steps.base.outputs.sha }}" in text
+    assert 'git-base "$BASE"' in text
     assert "--git-candidate HEAD" in text
     assert "git push" not in text
     assert "0) exit 0 ;;" in text
@@ -205,6 +206,7 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert "name: rw-batch\non:" in text
     assert 'cron: "17 3 * * *"' in text
     assert "workflow_dispatch: {}" in text
+    assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
     assert "permissions:\n  contents: write" in text
     assert "- uses: actions/checkout@v4" in text
     assert "fetch-depth: 0" in text

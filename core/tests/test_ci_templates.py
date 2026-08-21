@@ -11,10 +11,12 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
     assert "git hash-object -w -t tree /dev/null" in text
     assert 'git fetch --no-tags origin "$base"' in text
     assert 'git cat-file -e "$base^{tree}"' in text
+    assert "BASE: ${{ steps.base.outputs.sha }}" in text
     assert (
         "python -m harness_core verify --vault . --offline --surface commit "
-        '--git-base "${{ steps.base.outputs.sha }}" --git-candidate HEAD'
+        '--git-base "$BASE" --git-candidate HEAD'
     ) in text
+    assert '--git-base "${{' not in text
     assert "git push" not in text
     assert "git commit" not in text
     assert "contents: write" not in text
@@ -32,6 +34,7 @@ def test_rw_ci_delegates_exact_snapshot_commit_to_verifier_and_accepts_only_zero
         '--commit-projected "chore: rw-batch findings"'
     )
     assert "permissions:\n  contents: write" in text
+    assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
     assert 'git config user.name "harness-ci"' in text
     assert 'git config user.email "actions@users.noreply.github.com"' in text
     assert "curl --fail --show-error --location" in text

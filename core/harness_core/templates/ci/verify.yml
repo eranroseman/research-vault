@@ -42,9 +42,11 @@ jobs:
           printf 'sha=%s\n' "$base" >> "$GITHUB_OUTPUT"
       - name: Verify committed changes
         shell: bash
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           set +e
-          python -m harness_core verify --vault . --offline --surface commit --git-base "${{ steps.base.outputs.sha }}" --git-candidate HEAD
+          python -m harness_core verify --vault . --offline --surface commit --git-base "$BASE" --git-candidate HEAD
           code=$?
           set -e
           case "$code" in
