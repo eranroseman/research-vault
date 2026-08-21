@@ -1,4 +1,4 @@
-from harness_core import Result, frontmatter, okf, scaffold
+from knowledge_harness import Result, frontmatter, okf, scaffold
 
 
 def test_scaffold_ships_okf_artifacts(tmp_path):
@@ -27,7 +27,7 @@ def test_inbox_load_tolerates_frontmatter(fixture_vault):
     # HEAD already wraps review-queue.md in a `type` frontmatter block (Plan
     # C); build a clean single block from whatever body is already there
     # rather than concatenating a second header onto an existing one.
-    from harness_core import Result, inbox
+    from knowledge_harness import Result, inbox
     p = fixture_vault / "inbox" / "review-queue.md"
     _data, body = frontmatter.parse(p.read_text())
     p.write_text('---\ntype: "review-queue"\n---\n' + body)

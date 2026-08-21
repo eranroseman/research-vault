@@ -47,7 +47,7 @@ fixity-sha256:
 status: "included"
 aliases:
   - "Mortality decline"
-generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 %%hk-managed%%
 # Mortality decline
@@ -68,7 +68,7 @@ doi: "10.1000/old"
 accessed: "2026-08-16"
 status: "superseded"
 superseded-by: "smith2020"
-generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 %%hk-managed%%
 # Old result
@@ -85,7 +85,7 @@ generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 title: "Mortality trends"
 type: "synthesis"
 status: "draft"
-generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 - (inference) Decline is robust [confidence:: moderate] [supports:: [[smith2020#^c-11111111]]] [disputes:: [[gone2019#^c-22222222]]] ^c-55555555
 """
@@ -97,7 +97,7 @@ generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
 title: "Evidence brief"
 type: "project"
 status: "draft"
-generated: {by: "harness_core/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 - (quote) [@smith2020, p. 12] ^c-66666666
   > Mortality fell 12% across all strata.

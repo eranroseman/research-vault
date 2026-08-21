@@ -388,7 +388,7 @@ def main(argv=None):
     # A shared parent accepts --base before or after each subcommand.
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--base", default=argparse.SUPPRESS)
-    parser = argparse.ArgumentParser(prog="harness_core", parents=[common])
+    parser = argparse.ArgumentParser(prog="knowledge_harness", parents=[common])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("probe", parents=[common])
     import_note = sub.add_parser("import-note", parents=[common])

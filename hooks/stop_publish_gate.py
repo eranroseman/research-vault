@@ -85,7 +85,7 @@ def _core_path() -> None:
 def _verify_publish(vault: Path) -> PublishState:
     """Run the production network-capable verification transaction."""
     _core_path()
-    from harness_core.verify import verify_state
+    from knowledge_harness.verify import verify_state
 
     report, effective, _hashes, warning_effective = verify_state(
         vault,
@@ -100,7 +100,7 @@ def _verify_publish(vault: Path) -> PublishState:
 
 def _publish_decision(state: PublishState) -> tuple[int, tuple[str, ...]]:
     _core_path()
-    from harness_core.verify import surface_decision
+    from knowledge_harness.verify import surface_decision
 
     return surface_decision(
         "publish",
@@ -112,8 +112,8 @@ def _publish_decision(state: PublishState) -> tuple[int, tuple[str, ...]]:
 def _append_bypass(vault: Path, project: str, reason: str) -> None:
     """Record this bypass exactly once; a retry must not duplicate its finding."""
     _core_path()
-    from harness_core import Result, inbox
-    from harness_core.pathcodec import encode_repo_path
+    from knowledge_harness import Result, inbox
+    from knowledge_harness.pathcodec import encode_repo_path
 
     target = encode_repo_path(os.fsencode(project))
     date = datetime.date.today().isoformat()

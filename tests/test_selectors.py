@@ -1,7 +1,7 @@
 import builtins
 import re
 
-from harness_core import checks, notes, selectors
+from knowledge_harness import checks, notes, selectors
 
 TEXT = (
     "Background prose before the finding. The cohort showed that "

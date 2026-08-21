@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from harness_core import Result, frontmatter, gitstate, lints, notes
+from knowledge_harness import Result, frontmatter, gitstate, lints, notes
 
 
 def test_all_clean_on_fixture(fixture_vault):

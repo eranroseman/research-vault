@@ -5,7 +5,7 @@ import urllib.parse
 
 import pytest
 
-from harness_core import Result, webapi
+from knowledge_harness import Result, webapi
 
 
 class FakeResponse(io.BytesIO):
@@ -80,7 +80,7 @@ def test_get_json_merges_query_and_fragment_with_one_canonical_mailto(
         key == "mailto" and value != "eran@example.edu" for key, value in query
     )
     assert seen["timeout"] == 10.0
-    assert seen["ua"] == "harness_core/0.1.0 (mailto:eran@example.edu)"
+    assert seen["ua"] == "knowledge_harness/0.1.0 (mailto:eran@example.edu)"
     assert seen["accept"] == "application/json"
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from harness_core import Result, events, frontmatter
+from knowledge_harness import Result, events, frontmatter
 
 BASE = """---
 citekey: "smith2020"
@@ -45,7 +45,7 @@ Free-region content remains untouched.
 """
     )
     assert events.verified_checks(out) == [
-        {"by": "harness_core/0.1.0", "at": "2026-08-16", "check": "doi"}
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"}
     ]
 
 
@@ -57,7 +57,7 @@ def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
 
 
 def test_record_pass_lexically_changes_only_verified_events_with_crlf():
-    from harness_core import notes
+    from knowledge_harness import notes
 
     text = (
         "---\r\n"
@@ -81,7 +81,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
 )
 def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_line):
-    from harness_core import notes
+    from knowledge_harness import notes
 
     existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
     body = f"- (quote) body ^c-11111111{newline}"
@@ -89,7 +89,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
 
     out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
 
-    event = '  - {by: "harness_core/0.1.0", at: "2026-08-17", check: "doi"}'
+    event = '  - {by: "knowledge_harness/0.1.0", at: "2026-08-17", check: "doi"}'
     assert out == (
         f"---{newline}{existing_fields}verified:{newline}{event}{newline}"
         f"{newline}---{newline}{body}"
@@ -98,7 +98,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
     assert data.get("status") == ("included" if frontmatter_line else None)
     assert parsed_body == body
     assert events.verified_checks(out) == [
-        {"by": "harness_core/0.1.0", "at": "2026-08-17", "check": "doi"}
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-17", "check": "doi"}
     ]
     assert notes.canonical_content(out) == notes.canonical_content(text)
     if newline == "\r\n":
@@ -108,7 +108,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
-    from harness_core import notes
+    from knowledge_harness import notes
 
     body = f"- (quote) body-only ^c-11111111{newline}"
     first = events.record_pass(body, "doi", Result.MATCHED, at="2026-08-16")
@@ -124,9 +124,9 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     assert notes.canonical_content(first) == notes.canonical_content(body)
     assert notes.canonical_content(second) == notes.canonical_content(body)
     assert events.verified_checks(second) == [
-        {"by": "harness_core/0.1.0", "at": "2026-08-16", "check": "doi"},
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"},
         {
-            "by": "harness_core/0.1.0",
+            "by": "knowledge_harness/0.1.0",
             "at": "2026-08-17",
             "check": "metadata",
         },

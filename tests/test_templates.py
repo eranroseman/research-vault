@@ -4,10 +4,10 @@ import re
 import subprocess
 from pathlib import Path
 
-from harness_core import frontmatter
+from knowledge_harness import frontmatter
 
 REPO = Path(__file__).resolve().parents[1]
-TEMPLATES = REPO / "harness_core" / "templates"
+TEMPLATES = REPO / "knowledge_harness" / "templates"
 
 EXPECTED_PATHS = {
     "vault/index.md",
@@ -163,16 +163,16 @@ def test_precommit_hook_is_executable_and_has_exact_contract():
     assert hook.stat().st_mode & os.X_OK
     subprocess.run(["sh", "-n", str(hook)], check=True)
     assert (
-        'python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index'
+        'python3 -m knowledge_harness verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index'
         in text
     )
     assert 'git_base="$(git rev-parse --verify HEAD 2>/dev/null)"' in text
     assert "git hash-object -w -t tree /dev/null" in text
     assert 'git cat-file -e "$git_base^{tree}"' in text
     assert "git commit --no-verify" in text
-    assert 'if ! python3 -c "import harness_core" 2>/dev/null; then' in text
+    assert 'if ! python3 -c "import knowledge_harness" 2>/dev/null; then' in text
     assert (
-        "pre-commit: harness_core is not importable; CI will replay verification."
+        "pre-commit: knowledge_harness is not importable; CI will replay verification."
         in text
     )
     assert "1)" in text
@@ -197,7 +197,7 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert "- uses: actions/setup-python@v5" in text
     assert 'python-version: "3.12"' in text
     assert (
-        'python -m pip install "harness-core @ git+https://github.com/eranroseman/'
+        'python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/'
         'knowledge-harness.git#subdirectory=core"'
     ) in text
     assert "EVENT_NAME: ${{ github.event_name }}" in text
@@ -237,7 +237,7 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert "- uses: actions/setup-python@v5" in text
     assert 'python-version: "3.12"' in text
     assert (
-        'python -m pip install "harness-core @ git+https://github.com/eranroseman/'
+        'python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/'
         'knowledge-harness.git#subdirectory=core"'
     ) in text
     assert 'curl --fail --show-error --location --output "$RUNNER_TEMP/rw.csv"' in text

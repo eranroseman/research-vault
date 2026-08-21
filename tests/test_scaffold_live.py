@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 
-import harness_core.__main__ as cli
-from harness_core import Result, bibliography, paths, scaffold
-from harness_core.zotero import ZoteroClient
+import knowledge_harness.__main__ as cli
+from knowledge_harness import Result, bibliography, paths, scaffold
+from knowledge_harness.zotero import ZoteroClient
 
 REPO = Path(__file__).resolve().parents[1]
 DRILL_USER_NAME = "knowledge-harness-live-drill"

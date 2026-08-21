@@ -4,6 +4,5 @@ from .outcome import Result  # noqa: F401  (re-exported vocabulary)
 
 __version__ = "0.1.0"
 
-AGENT_ACTOR = (
-    f"harness_core/{__version__}"  # §5 actor convention for process-written records
-)
+# §5 actor convention for process-written records
+AGENT_ACTOR = f"knowledge_harness/{__version__}"

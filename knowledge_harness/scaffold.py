@@ -192,7 +192,7 @@ def _commit_created_paths(vault: Path, created: list[str]) -> None:
 def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> list[str]:
     """Create missing vault assets and commit only the newly created trackable paths."""
     vault = Path(dest).absolute()
-    templates = resources.files("harness_core").joinpath("templates")
+    templates = resources.files("knowledge_harness").joinpath("templates")
     owned_paths = _owned_paths(templates, with_ci, with_rw_ci)
     _reject_owned_symlinks(vault, owned_paths)
     _prepare_repository(vault)

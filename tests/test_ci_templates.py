@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ASSETS = Path(__file__).resolve().parents[1] / "harness_core" / "templates" / "ci"
+ASSETS = Path(__file__).resolve().parents[1] / "knowledge_harness" / "templates" / "ci"
 
 
 def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authority():
@@ -13,7 +13,7 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
     assert 'git cat-file -e "$base^{tree}"' in text
     assert "BASE: ${{ steps.base.outputs.sha }}" in text
     assert (
-        "python -m harness_core verify --vault . --offline --surface commit "
+        "python -m knowledge_harness verify --vault . --offline --surface commit "
         '--git-base "$BASE" --git-candidate HEAD'
     ) in text
     assert '--git-base "${{' not in text
@@ -28,7 +28,7 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
 def test_rw_ci_delegates_exact_snapshot_commit_to_verifier_and_accepts_only_zero():
     text = (ASSETS / "rw-batch.yml").read_text()
     command = (
-        "python -m harness_core verify --vault . --offline --surface audit "
+        "python -m knowledge_harness verify --vault . --offline --surface audit "
         '--git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" '
         '--changed-paths-file "$RUNNER_TEMP/harness-changed-paths" '
         '--commit-projected "chore: rw-batch findings"'

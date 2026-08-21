@@ -3,8 +3,8 @@ import stat
 
 import pytest
 
-from harness_core import Result, inbox
-from harness_core.pathcodec import encode_repo_path
+from knowledge_harness import Result, inbox
+from knowledge_harness.pathcodec import encode_repo_path
 
 INBOX_HEADER = '---\ntype: "review-queue"\n---\n'
 
@@ -191,7 +191,7 @@ def test_ack_requires_human_and_valid_reason(fixture_vault):
             fixture_vault,
             entry.id,
             "manual — verified by hand",
-            actor="harness_core/0.1.0",
+            actor="knowledge_harness/0.1.0",
         )
     with pytest.raises(ValueError, match="reason"):
         inbox.append_ack(
@@ -321,7 +321,7 @@ def test_missing_target_kind_defaults_only_to_identifier(fixture_vault):
         "- [id:: quote/kind-10:identifier;target-12:path-bytes:a/2026-08-16] "
         "[check:: quote] "
         "[target:: path-bytes:a] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: harness_core/0.1.0] [reason:: mismatch — legacy]\n",
+        "[actor:: knowledge_harness/0.1.0] [reason:: mismatch — legacy]\n",
     )
 
     loaded = inbox.load(fixture_vault)
@@ -338,7 +338,7 @@ def test_explicit_repo_path_kind_rejects_a_legacy_identifier_finding_id(
         "- [id:: quote/path-bytes:a/2026-08-16] [check:: quote] "
         "[target:: path-bytes:a] [target-kind:: repo-path] "
         "[result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: harness_core/0.1.0] [reason:: mismatch — wrong identity]\n",
+        "[actor:: knowledge_harness/0.1.0] [reason:: mismatch — wrong identity]\n",
     )
 
     with pytest.raises(inbox.InboxError):
@@ -361,7 +361,7 @@ def test_load_rejects_noncanonical_repo_path_or_unknown_kind_before_mutation(
         queue,
         f"- [id:: x] [check:: quote] [target:: {target}] "
         f"[target-kind:: {kind}] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: harness_core/0.1.0] [reason:: mismatch — invalid]\n",
+        "[actor:: knowledge_harness/0.1.0] [reason:: mismatch — invalid]\n",
     )
     before = queue.read_bytes()
 
@@ -377,7 +377,7 @@ def test_load_rejects_handwritten_finding_with_invalid_reason(fixture_vault):
         queue,
         "- [id:: doi/smith2020/2026-08-16] [check:: doi] "
         "[target:: smith2020] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: harness_core/0.1.0] [reason:: invented]\n",
+        "[actor:: knowledge_harness/0.1.0] [reason:: invented]\n",
     )
 
     with pytest.raises(inbox.InboxError, match="line 1"):
@@ -823,14 +823,14 @@ def test_load_rejects_invalid_dates_results_and_incomplete_notice_fingerprint(
     queue = fixture_vault / "inbox" / "review-queue.md"
     rows = [
         "- [id:: doi/x/2026-02-30] [check:: doi] [target:: x] "
-        "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: harness_core/0.1.0] "
+        "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: knowledge_harness/0.1.0] "
         "[reason:: mismatch]",
         "- [id:: doi/x/2026-08-16] [check:: doi] [target:: x] "
-        "[result:: MAYBE] [date:: 2026-08-16] [actor:: harness_core/0.1.0] "
+        "[result:: MAYBE] [date:: 2026-08-16] [actor:: knowledge_harness/0.1.0] "
         "[reason:: mismatch]",
         "- [id:: update-notice/x/2026-08-16] [check:: update-notice] "
         "[target:: x] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: harness_core/0.1.0] [reason:: warn-notice — correction] "
+        "[actor:: knowledge_harness/0.1.0] [reason:: warn-notice — correction] "
         "[notice-class:: warn]",
     ]
     for row in rows:

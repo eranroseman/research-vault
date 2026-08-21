@@ -1,4 +1,4 @@
-from harness_core import claims
+from knowledge_harness import claims
 
 NOTE = """---
 citekey: "smith2020"

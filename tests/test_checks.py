@@ -2,8 +2,8 @@ import dataclasses
 
 import pytest
 
-from harness_core import Result, checks, webapi
-from harness_core.pathcodec import RepoPath
+from knowledge_harness import Result, checks, webapi
+from knowledge_harness.pathcodec import RepoPath
 
 
 def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):

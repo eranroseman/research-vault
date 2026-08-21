@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_core import Result, zotero
+from knowledge_harness import Result, zotero
 
 
 class FakeTransport:

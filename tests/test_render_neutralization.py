@@ -11,7 +11,7 @@ import types
 
 import pytest
 
-from harness_core import Result, claims, frontmatter, notes
+from knowledge_harness import Result, claims, frontmatter, notes
 
 
 def _annotation(**overrides):
@@ -36,7 +36,7 @@ def _item(**overrides):
 @pytest.fixture(autouse=True)
 def matched_autoexport_observer(monkeypatch):
     """Import-level tests exercise rendering, not the auto-export observer."""
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     monkeypatch.setattr(
         cli.bibliography,
@@ -196,7 +196,7 @@ def test_import_note_render_rejection_is_loud_and_writes_nothing(
     Ruled 2026-08-21: this class does not file an inbox hold on its own —
     uniform hold-to-inbox wiring lands with integrate-at-import.
     """
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     _install_import_client(monkeypatch, cli, _item(), [])
 
@@ -220,7 +220,7 @@ def test_import_note_render_rejection_is_loud_and_writes_nothing(
 def test_import_note_render_rejection_leaves_a_prior_note_untouched(
     tmp_vault, monkeypatch
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     _install_import_client(monkeypatch, cli, _item(), [])
     destination = notes.note_path(tmp_vault, "smith2020")

@@ -4,8 +4,8 @@ import subprocess
 
 import pytest
 
-from harness_core import Result, bibliography, scaffold
-from harness_core.zotero import ZoteroError
+from knowledge_harness import Result, bibliography, scaffold
+from knowledge_harness.zotero import ZoteroError
 
 PROBE_NAMES = [
     "tree",
@@ -32,7 +32,7 @@ def _probes(**states):
 
 
 def _run_cmd(monkeypatch, capsys, probes):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     monkeypatch.setattr(cli, "doctor", lambda *args, **kwargs: probes)
     code = cli.cmd_doctor(argparse.Namespace(vault="/unused", base="http://unused"))
@@ -311,7 +311,7 @@ def test_doctor_probe_five_carries_the_observer_repair_guidance(tmp_vault, monke
 def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     vault = _doctor_vault(tmp_vault)
     items = [{"id": "smith2020", "title": "Mortality decline"}]
@@ -351,7 +351,7 @@ def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
 def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     vault = _doctor_vault(tmp_vault)
     items = [{"id": "smith2020", "title": "Mortality decline"}]
@@ -435,7 +435,7 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
 def test_doctor_base_routes_before_and_after_subcommand(
     argv, expected, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     bases = []
 

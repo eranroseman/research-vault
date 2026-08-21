@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from harness_core import Result, inbox
-from harness_core.checks import Outcome
+from knowledge_harness import Result, inbox
+from knowledge_harness.checks import Outcome
 
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "hooks" / "posttooluse_lint.py"
@@ -1465,7 +1465,7 @@ def test_stop_gate_bypass_retry_after_a_failed_clear_keeps_one_ackable_record(
 def test_stop_gate_matches_direct_publish_state_and_effects(
     fixture_vault, tmp_path_factory, monkeypatch, capsys
 ):
-    from harness_core import verify
+    from knowledge_harness import verify
 
     root = tmp_path_factory.mktemp("stop-publish-integration")
     direct_vault = shutil.copytree(fixture_vault, root / "direct")
