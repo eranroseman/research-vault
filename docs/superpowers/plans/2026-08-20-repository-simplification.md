@@ -33,7 +33,7 @@
 ## File Structure
 
 - Delete `notes.md`: redundant root copy; `analysis/dev-harness-analysis.md` remains canonical.
-- Modify `docs/specs/2026-08-16-foundation-spec.md`: make §5’s attachment-hash wording agree with §7’s render-first correction.
+- Modify `docs/superpowers/specs/2026-08-16-foundation-spec.md`: make §5’s attachment-hash wording agree with §7’s render-first correction.
 - Create `core/harness_core/gitstate.py`: the sole revision-aware, byte-preserving Git blob/tree boundary.
 - Modify `core/harness_core/__main__.py`: consume `gitstate`, remove dead hash/warning helpers, collapse note I/O and marker wrappers, and simplify archive outcome construction.
 - Modify `core/harness_core/lints.py`: consume `gitstate` while retaining `HEAD ∪ working tree` enumeration.
@@ -62,7 +62,7 @@
 **Files:**
 - Delete: `notes.md`
 - Preserve unchanged: `analysis/dev-harness-analysis.md`
-- Modify: `docs/specs/2026-08-16-foundation-spec.md:55`
+- Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md:55`
 
 **Interfaces:**
 - Consumes: Foundation spec §7’s render-first managed-projection rule at line 110.
@@ -123,8 +123,8 @@ Run:
 test ! -e notes.md
 test -f analysis/dev-harness-analysis.md
 git diff --exit-code -- analysis/dev-harness-analysis.md
-rg -n 'render-first managed-projection comparison governs no-op detection' docs/specs/2026-08-16-foundation-spec.md
-! rg -n 're-import no-op comparator' docs/specs/2026-08-16-foundation-spec.md
+rg -n 'render-first managed-projection comparison governs no-op detection' docs/superpowers/specs/2026-08-16-foundation-spec.md
+! rg -n 're-import no-op comparator' docs/superpowers/specs/2026-08-16-foundation-spec.md
 git diff --check
 ```
 
@@ -133,7 +133,7 @@ Expected: the first four commands pass; the stale-phrase search returns no match
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/specs/2026-08-16-foundation-spec.md
+git add docs/superpowers/specs/2026-08-16-foundation-spec.md
 git commit -m "docs: clarify render-first no-op detection"
 ```
 
@@ -1008,8 +1008,8 @@ Run from the repository root:
 test ! -e notes.md
 test -f analysis/dev-harness-analysis.md
 ! rg -n '_strip_verify_fields|_closes_fence|_replace_verified_events|_render_verified_events|_validate_loaded_reason|_warning_type|_line_bytes|_head_bytes|_head_text|_head_markdown_paths|_current_markdown_paths|_tag_paths|_tag_bytes|_metadata_year|_clear_marker|_has_terminal_marker|_clear_verify_failed|_write_published|^def _read_note\(|^def _write_note\(|vault_with_mailto' core
-rg -n 'render-first managed-projection comparison governs no-op detection' docs/specs/2026-08-16-foundation-spec.md
-! rg -n 're-import no-op comparator' docs/specs/2026-08-16-foundation-spec.md
+rg -n 'render-first managed-projection comparison governs no-op detection' docs/superpowers/specs/2026-08-16-foundation-spec.md
+! rg -n 're-import no-op comparator' docs/superpowers/specs/2026-08-16-foundation-spec.md
 MERGE_BASE="$(git merge-base main HEAD)"
 git diff --check "$MERGE_BASE"..HEAD
 git diff --quiet "$MERGE_BASE"..HEAD -- core/pyproject.toml

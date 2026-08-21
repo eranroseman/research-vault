@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.10 stdlib; optional extras group `pdf` (`pypdf>=4`) for selector production only. pytest dev-only. Live-network tests behind a `live_net` marker.
 
-**Spec:** `docs/specs/2026-08-16-foundation-spec.md` (§3 inbox, §5 schema/events, §6 gates, §7 import-source duties). Plan A obligations inherited: selector production + backfill, symmetric selector unescaping.
+**Spec:** `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§3 inbox, §5 schema/events, §6 gates, §7 import-source duties). Plan A obligations inherited: selector production + backfill, symmetric selector unescaping.
 
 ## Global Constraints
 

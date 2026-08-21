@@ -174,7 +174,7 @@ Original sheet retained below for the audit trail (superseded rows: 1 technique,
 
 ### Task 4: Recorded Plan C follow-ups
 
-**Files:** per the "final review non-blocking follow-ups" section of `docs/plans/2026-08-17-plan-c-scaffold-enforcement.md` (recorded at 34cf831) — that section is the contract; read it first.
+**Files:** per the "final review non-blocking follow-ups" section of `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md` (recorded at 34cf831) — that section is the contract; read it first.
 
 - [ ] **Step 1: Bypass id discriminator** (leads — doctrine weight: an unacknowledgeable finding id is a liveness hole in the review-inbox contract). Implement per the recorded description; regression test: two bypasses same day produce distinct, individually acknowledgeable ids.
 - [ ] **Step 2:** `cmd_verify` broad except narrowed; projection scratch files cleaned up; standing-scope acks item per its recorded text. (Duplicate `staleness()` already fell to Task 3.6.)
@@ -185,7 +185,7 @@ Original sheet retained below for the audit trail (superseded rows: 1 technique,
 ### Task 5: Naming corrections (terminology audit 2026-08-21, author-ruled)
 
 **Files:**
-- Modify: `core/harness_core/{quotes,lints,events,inbox,checks,scaffold,notes,bibliography,__main__ or verify}.py`, `core/harness_core/templates/vault/index.md`, `docs/specs/2026-08-16-foundation-spec.md` (§6 rows), tests throughout.
+- Modify: `core/harness_core/{quotes,lints,events,inbox,checks,scaffold,notes,bibliography,__main__ or verify}.py`, `core/harness_core/templates/vault/index.md`, `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§6 rows), tests throughout.
 
 **The ruling sheet is the contract (docs/terminology.md §4.4 carries the adopted inventory):**
 

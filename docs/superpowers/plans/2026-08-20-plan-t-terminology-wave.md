@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.10 stdlib (as-built `harness_core`), pytest, git.
 
-**Authority:** `docs/terminology.md` §10 manifest is the contract (all rulings author-confirmed), **plus one grafted author ruling (2026-08-21): `x/` → `system/`** — T6-adjacent plain name, keeps the sorts-last position, ruled before the BBT auto-export path hardens at provisioning; treat it as a §10 rename pair everywhere (folder, `templates/vault/x/`, the bibliography path constant `x/bibliography.json` → `system/bibliography.json`, AGENTS.md/skill prose). **As-built HEAD governs** over any code shape this plan assumes; where a named symbol or file differs at HEAD, adapt within-task and record it in the commit message. The **history rule** binds every task: living surfaces rename (`core/`, `hooks/`, `skills/`, `docs/specs/`, active plan docs, `README.md`, `docs/terminology.md`); history never does (`research/`, `analysis/`, completed plans A/B, audit docs, ADRs already accepted, git history).
+**Authority:** `docs/terminology.md` §10 manifest is the contract (all rulings author-confirmed), **plus one grafted author ruling (2026-08-21): `x/` → `system/`** — T6-adjacent plain name, keeps the sorts-last position, ruled before the BBT auto-export path hardens at provisioning; treat it as a §10 rename pair everywhere (folder, `templates/vault/x/`, the bibliography path constant `x/bibliography.json` → `system/bibliography.json`, AGENTS.md/skill prose). **As-built HEAD governs** over any code shape this plan assumes; where a named symbol or file differs at HEAD, adapt within-task and record it in the commit message. The **history rule** binds every task: living surfaces rename (`core/`, `hooks/`, `skills/`, `docs/superpowers/specs/`, active plan docs, `README.md`, `docs/terminology.md`); history never does (`research/`, `analysis/`, completed plans A/B, audit docs, ADRs already accepted, git history).
 
 ## Global Constraints
 
@@ -21,7 +21,7 @@
 
 ## File Structure
 
-No new modules. Touched: `core/harness_core/*.py` (constants, parsers, render, lints, verbs), `core/harness_core/templates/**` (vault tree, note templates, AGENTS.md, pre-commit, CI), `core/tests/**`, `hooks/*.py`, `skills/*` (directory renames + SKILL.md bodies), `docs/specs/2026-08-16-foundation-spec.md`, `docs/plans/2026-08-17-plan-c-scaffold-enforcement.md` (alignment only), `README.md`, `docs/terminology.md` (Task 8 restructure).
+No new modules. Touched: `core/harness_core/*.py` (constants, parsers, render, lints, verbs), `core/harness_core/templates/**` (vault tree, note templates, AGENTS.md, pre-commit, CI), `core/tests/**`, `hooks/*.py`, `skills/*` (directory renames + SKILL.md bodies), `docs/superpowers/specs/2026-08-16-foundation-spec.md`, `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md` (alignment only), `README.md`, `docs/terminology.md` (Task 8 restructure).
 
 ---
 
@@ -102,7 +102,7 @@ git add core hooks skills && git commit -m "rename: vault paths and type values 
 ### Task 4: Inversion additions (stale_after, generated, description, synthesis lifecycle)
 
 **Files:**
-- Modify: `core/harness_core/notes.py` (render: `generated` on machine-written notes), `core/harness_core/templates/vault/system/templates/synthesis.md` (post-graft path) (lifecycle frontmatter), `core/harness_core/frontmatter.py` (verify inline-dict support covers `generated` — it shipped for `verified`), spec `docs/specs/2026-08-16-foundation-spec.md` §3/§5, tests.
+- Modify: `core/harness_core/notes.py` (render: `generated` on machine-written notes), `core/harness_core/templates/vault/system/templates/synthesis.md` (post-graft path) (lifecycle frontmatter), `core/harness_core/frontmatter.py` (verify inline-dict support covers `generated` — it shipped for `verified`), spec `docs/superpowers/specs/2026-08-16-foundation-spec.md` §3/§5, tests.
 
 **Interfaces:**
 - Produces: literature/synthesis machine-written notes carry `generated: [{by, at}]`-compatible field `generated` as a single inline dict `{by: "...", at: "..."}` (OKF shape); optional keys `stale_after`, `description` are **pass-through-preserved** (no writer yet — they are user/OKF-tool supplied; the renderer's unowned-field pass-through already keeps them — add regression test); synthesis template frontmatter becomes:
@@ -179,7 +179,7 @@ okf_version: "0.2"
 
   - Review queue created with frontmatter `---\ntype: "review-queue"\n---\n` (inbox parser skips frontmatter — extend `inbox.load` to tolerate/skip a leading frontmatter block; regression test).
   - AGENTS.md template gains `---\ntype: "guide"\n---\n` at top.
-  - `okf.regenerate_log(vault_root, tail_entries: int = 20) -> str` — writes root `log.md`: frontmatter `type: "log"`, then the last `tail_entries` lines across `log/*.md` (chronological), then links to each day file. Single writer; called from `import-note` after its log append. **Amended by task-review ruling (2026-08-21): `verify` is not wired.** As-built HEAD has no log-append mechanism for either command — the "after their log appends" premise this line originally assumed doesn't hold — and `verify`'s writes flow through `gitstate`'s transactional manifest/publish pipeline, whose output allowlist doesn't carry `log.md`; wiring it there is transactional-pipeline surgery outside this task's scope and outside this rename wave's "semantics must not change" constraint. `import-note`-only is the correct, current scope. If/when `verify` gains a log-append mechanism, its transaction must carry `log.md` too (`gitstate._allowed_manifest_path` allowlist + `_plan_state` projection) — tracked in `docs/plans/2026-08-17-plan-c-scaffold-enforcement.md`'s Post-merge follow-ups (item 7), conditioned on that trigger, not scheduled work. The doctor `okf` probe already backstops the gap behaviorally in the meantime (warns when `log.md` is missing despite day files being present, regardless of writer).
+  - `okf.regenerate_log(vault_root, tail_entries: int = 20) -> str` — writes root `log.md`: frontmatter `type: "log"`, then the last `tail_entries` lines across `log/*.md` (chronological), then links to each day file. Single writer; called from `import-note` after its log append. **Amended by task-review ruling (2026-08-21): `verify` is not wired.** As-built HEAD has no log-append mechanism for either command — the "after their log appends" premise this line originally assumed doesn't hold — and `verify`'s writes flow through `gitstate`'s transactional manifest/publish pipeline, whose output allowlist doesn't carry `log.md`; wiring it there is transactional-pipeline surgery outside this task's scope and outside this rename wave's "semantics must not change" constraint. `import-note`-only is the correct, current scope. If/when `verify` gains a log-append mechanism, its transaction must carry `log.md` too (`gitstate._allowed_manifest_path` allowlist + `_plan_state` projection) — tracked in `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md`'s Post-merge follow-ups (item 7), conditioned on that trigger, not scheduled work. The doctor `okf` probe already backstops the gap behaviorally in the meantime (warns when `log.md` is missing despite day files being present, regardless of writer).
   - Doctor probe `okf` (warn-class): every machine-written `.md` parses with non-empty `type`; root `index.md` has `okf_version`; `log.md` exists when any day file does.
 
 - [ ] **Step 1: Write failing tests**
@@ -252,18 +252,18 @@ def test_doctor_okf_probe(tmp_path):
 ### Task 7: Spec + active-plan alignment and full acceptance
 
 **Files:**
-- Modify: `docs/specs/2026-08-16-foundation-spec.md` (§3 tree, §5 schema table, §6 mentions, §7 skill list, §9 drills — every ruled name), `docs/plans/2026-08-17-plan-c-scaffold-enforcement.md` (alignment to its as-built implementation), `README.md`.
+- Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§3 tree, §5 schema table, §6 mentions, §7 skill list, §9 drills — every ruled name), `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md` (alignment to its as-built implementation), `README.md`.
 
 - [ ] **Step 1: Judged grep over living docs**
 
-Run: `grep -nE 'atlas|calendar/|efforts|retrieved|attachment-sha256|verify-failed|supported-by|contested-by|unreviewed|drafting|vault-setup|find-papers|\+/review-queue' docs/specs/*.md docs/plans/2026-08-17-plan-c-scaffold-enforcement.md README.md`
+Run: `grep -nE 'atlas|calendar/|efforts|retrieved|attachment-sha256|verify-failed|supported-by|contested-by|unreviewed|drafting|vault-setup|find-papers|\+/review-queue' docs/superpowers/specs/*.md docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md README.md`
 Classify hits; apply ruled pairs to the rename class only (spec prose keeps e.g. "PARA sliver" history mentions verbatim where they describe rationale, not names).
 
 - [ ] **Step 2: Full-suite + acceptance greps**
 
 Run: `cd core && source .venv/bin/activate && HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real address> python -m pytest tests -q`
 Expected: all PASS.
-Run the §10 acceptance grep (item 2) over `core/ hooks/ skills/ docs/specs/ README.md` — Expected: only judged-acceptable hits, each named in the task report.
+Run the §10 acceptance grep (item 2) over `core/ hooks/ skills/ docs/superpowers/specs/ README.md` — Expected: only judged-acceptable hits, each named in the task report.
 
 - [ ] **Step 3: Commit** — `git add docs README.md && git commit -m "docs: spec and active plan aligned to the terminology wave"`
 

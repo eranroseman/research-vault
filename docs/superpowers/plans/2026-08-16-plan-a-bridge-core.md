@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.10, stdlib only (urllib, json, hashlib, subprocess, pathlib). pytest (dev-only). No third-party runtime dependencies — auditability is a trust feature (spec §1).
 
-**Spec:** `docs/specs/2026-08-16-foundation-spec.md` (APPROVED 2026-08-16). Section references (§N) below point there.
+**Spec:** `docs/superpowers/specs/2026-08-16-foundation-spec.md` (APPROVED 2026-08-16). Section references (§N) below point there.
 
 ## Global Constraints
 
@@ -149,7 +149,7 @@ include = ["harness_core*"]
 
 ```python
 # core/harness_core/__init__.py
-"""Deterministic core for the knowledge-harness plugin (spec docs/specs/2026-08-16-foundation-spec.md)."""
+"""Deterministic core for the knowledge-harness plugin (spec docs/superpowers/specs/2026-08-16-foundation-spec.md)."""
 import enum
 
 __version__ = "0.1.0"

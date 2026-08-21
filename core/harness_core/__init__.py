@@ -1,4 +1,4 @@
-"""Deterministic core for the knowledge-harness plugin (spec docs/specs/2026-08-16-foundation-spec.md)."""
+"""Deterministic core for the knowledge-harness plugin (spec docs/superpowers/specs/2026-08-16-foundation-spec.md)."""
 
 import enum
 
