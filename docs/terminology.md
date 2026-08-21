@@ -67,7 +67,7 @@ Two of the rows below are not OKF-forced — they deviate from a lower tier (Cro
 | Literature lifecycle (screening states) | `draft`/`stable`/`deprecated` (OKF, T1) | `unscreened`/`included`/`excluded`/`superseded` | **2** — screening is not document maturity |
 | Project lifecycle | `draft`/`stable`/`deprecated` (OKF, T1) | `draft`/`parked`/`published`/`corrected`/`withdrawn` | **2** — publication/correction gate states would be lost |
 | Source vs. venue | `source` = journal/repository/outlet (OpenAlex, T5) | `source` = the cited document (scholarly sense, T4); `venue` names the outlet | **4** — OpenAlex's term already means something else in our context |
-| Update-notice taxonomy | Flat `update-type` taxonomy, Crossref-DOI-scoped only (Crossref, T3) | Two-class blocking/warn split spanning all registries — non-Crossref DOIs route through OpenAlex `is_retracted`, reusing Crossref's own type names rather than inventing new ones | **1 + 2** — registry-scope mismatch (DataCite/arXiv items don't expose Crossref's taxonomy at all) plus the flat taxonomy carries no closure-class structure |
+| Update-notice taxonomy | Flat `update-type` taxonomy, Crossref-DOI-scoped only (Crossref, T3) | Two-class blocking/warn split; DataCite-registered DOIs route through OpenAlex `is_retracted` (reusing Crossref's own `retraction` type name rather than inventing a new one) — any other non-Crossref, non-DataCite registration agency returns UNREACHABLE rather than being silently treated as clean | **1 + 2** — registry-scope mismatch (DataCite/arXiv items don't expose Crossref's taxonomy at all) plus the flat taxonomy carries no closure-class structure |
 | Replacement relation | Identity merge (OKF, T1) | `superseded` / `superseded-by` | **3** — also covers succession between distinct scholarly works |
 
 The former `retrieved` deviation (⚠ stack-consistency defect) is closed: `accessed` shipped with this wave (§3.1).
@@ -79,7 +79,7 @@ The former `retrieved` deviation (⚠ stack-consistency defect) is closed: `acce
 - The inverted T1–T8 precedence order remains the default source of names; deviation requires one of the four cost classes.
 - One canonical term represents each concept. No compatibility aliases are needed before the first vault.
 - Recorded API facts remain boundary-verbatim, with source field names, index, and access date.
-- Reserved basenames `index.md` and `log.md` carry exactly `type` frontmatter (`"index"` / `"log"`) and nothing else, except the bundle-root `index.md`, which additionally carries `okf_version: "0.2"` — the one concept field beyond `type` permitted on a reserved file.
+- Reserved basenames: root `index.md` carries `type: "index"` and `okf_version: "0.2"`; root `log.md` carries exactly `type: "log"` (machine-regenerated). Every *nested* `index.md` (e.g. `synthesis/index.md`) is permanently frontmatter-free — reserved and excluded from the OKF `type` requirement outright, not merely lacking one yet.
 - The naming pass completed 2026-08-20; the foundation spec's validation-slice gate is cleared. New terms walk the tiers; placeholder status no longer exists — every term is A, S, or D.
 
 ### 4.1 Vault paths and note kinds
