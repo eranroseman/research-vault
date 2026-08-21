@@ -363,6 +363,7 @@ def test_rpc_malformed_response_shape_is_unreachable(monkeypatch, body):
         {"id": 1, "result": {}},
         {"jsonrpc": "1.0", "id": 1, "result": {}},
         {"jsonrpc": "2.0", "result": {}},
+        {"jsonrpc": "2.0", "id": None, "result": {}},
         {"jsonrpc": "2.0", "id": 2, "result": {}},
         {
             "jsonrpc": "2.0",
@@ -414,6 +415,25 @@ def test_rpc_valid_error_envelope_remains_unmatched(monkeypatch):
 
     with pytest.raises(zotero.ZoteroError) as error:
         zotero_client._rpc("item.search", ["smith2020"])
+
+    assert error.value.result is Result.UNMATCHED
+
+
+def test_rpc_bbt_null_id_error_envelope_surfaces_error_as_unmatched(monkeypatch):
+    zotero_client = zotero.ZoteroClient()
+    reply = {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32602, "message": "sentinel"},
+    }
+    monkeypatch.setattr(
+        zotero_client,
+        "_http",
+        lambda *args, **kwargs: (200, json.dumps(reply).encode()),
+    )
+
+    with pytest.raises(zotero.ZoteroError, match="sentinel") as error:
+        zotero_client._rpc("autoexport.add", ["//", "Better CSL JSON", "C:\\tmp"])
 
     assert error.value.result is Result.UNMATCHED
 
