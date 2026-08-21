@@ -41,7 +41,7 @@
 - **Display class** (`pageLabel`, `title`, `comment` already does this): collapse all whitespace runs to single spaces (`" ".join(value.split())`) — total (no import ever held on ugly-but-real metadata), and sufficient: without a newline, injected text cannot create a claim line, a blockquote line, or a marker line.
 - **Serializer boundary** (`frontmatter._emit_scalar`): raise `FrontmatterError` on the FULL line-break set of the parse authority — `[\x00-\x1f\x7f\x85\u2028\u2029]` (amended 2026-08-21 at execution: `str.splitlines()` is the parser's line-break definition in both `frontmatter.py` and `claims.py`, and it breaks on `\x85`/`\u2028`/`\u2029` too; a narrower class is corrupt-on-write — live-demonstrated with a U+2028-poisoned DOI). Two accepted execution disclosures: catching `FrontmatterError` in `cmd_import_note` also converts malformed existing-note frontmatter from crash to loud hold; U+2028-bearing quote text holds via the self-check rather than being collapsed (correct — quote bytes are the verified object; real PDF extraction emits U+2028, so this is a live hold path).
 
-- [ ] **Step 1: Write the failing tests** — `core/tests/test_render_neutralization.py`:
+- [x] **Step 1: Write the failing tests** — `core/tests/test_render_neutralization.py`:
 
 ```python
 """Regression tests for the 2026-08-21 evidence-text injection review findings."""
@@ -99,8 +99,8 @@ def test_render_note_round_trip_assertion_catches_forged_body(monkeypatch):
 
 (The two `...` bodies are written against HEAD signatures in this step — no test lands unimplemented.)
 
-- [ ] **Step 2: Run to verify the injection reproduces** — before fixing, temporarily run the pageLabel test against unfixed code: it FAILS with two claim lines (this run is the review's evidence, reproduced).
-- [ ] **Step 3: Implement** — display-class collapse where `normalize_annotation` builds the dict (`__main__.py`) AND defensively in `render_claim`/heading rendering (`notes.py`); citekey rejection in `note_path`; `_emit_scalar` control-char raise; then the round-trip self-check at the end of `render_note`:
+- [x] **Step 2: Run to verify the injection reproduces** — before fixing, temporarily run the pageLabel test against unfixed code: it FAILS with two claim lines (this run is the review's evidence, reproduced).
+- [x] **Step 3: Implement** — display-class collapse where `normalize_annotation` builds the dict (`__main__.py`) AND defensively in `render_claim`/heading rendering (`notes.py`); citekey rejection in `note_path`; `_emit_scalar` control-char raise; then the round-trip self-check at the end of `render_note`:
 
 ```python
 class RenderIntegrityError(RuntimeError):
@@ -115,8 +115,8 @@ if parsed_ids != expected_ids:
     )
 ```
 
-- [ ] **Step 4: Wire the failure mode (ruled 2026-08-21 — the plan's original text assumed a hold-to-inbox path that does not exist for ANY `cmd_import_note` failure exit):** rejection is loud and fail-closed — stderr reason + nonzero exit + **no note file written, no partial managed region**. Verify by test that `import-note` on a poisoned item exits nonzero and leaves no file. Do NOT wire inbox filing for this one failure class alone: uniform hold-to-inbox wiring for every import failure exit is a recorded follow-up landing with spec §121's integrate-at-import contract (deferred register).
-- [ ] **Step 5: Run full suite** — all PASS. **Step 6: Commit** — `git commit -m "fix: neutralize evidence-text injection at the render boundary (review 2026-08-21 C1/I2/M3) + render_note round-trip self-check"`
+- [x] **Step 4: Wire the failure mode (ruled 2026-08-21 — the plan's original text assumed a hold-to-inbox path that does not exist for ANY `cmd_import_note` failure exit):** rejection is loud and fail-closed — stderr reason + nonzero exit + **no note file written, no partial managed region**. Verify by test that `import-note` on a poisoned item exits nonzero and leaves no file. Do NOT wire inbox filing for this one failure class alone: uniform hold-to-inbox wiring for every import failure exit is a recorded follow-up landing with spec §121's integrate-at-import contract (deferred register).
+- [x] **Step 5: Run full suite** — all PASS. **Step 6: Commit** — `git commit -m "fix: neutralize evidence-text injection at the render boundary (review 2026-08-21 C1/I2/M3) + render_note round-trip self-check"`
 
 ---
 
