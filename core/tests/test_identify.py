@@ -53,8 +53,6 @@ def test_discover_matches_exact_casefolded_crossref_title_and_single_pmid(
 
     assert outcome.result is Result.MATCHED
     assert outcome.extra == {"identifiers": {"DOI": "10.1000/found", "PMID": "11111"}}
-    with pytest.raises(TypeError):
-        outcome.extra["identifiers"]["DOI"] = "changed"
     record = checks.outcome_to_record(outcome)
     assert record["extra"]["identifiers"] == {
         "DOI": "10.1000/found",

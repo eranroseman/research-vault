@@ -1054,7 +1054,6 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
 
 def _plan_state(
     vault_root,
-    scope="all",
     network=True,
     detection_date=None,
     rw_csv=None,
@@ -1064,7 +1063,6 @@ def _plan_state(
     snapshots=None,
 ):
     """Compute one complete projection inside a materialized candidate."""
-    del scope
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
     detection_date = detection_date or datetime.date.today().isoformat()
@@ -1188,7 +1186,6 @@ def _rollback_prepublication(vault, snapshots, outputs, primary):
 
 def _verify_state(
     vault_root,
-    scope="all",
     network=True,
     detection_date=None,
     rw_csv=None,
@@ -1214,7 +1211,6 @@ def _verify_state(
         gitstate.materialize_snapshot(snapshots.candidate, planning)
         report, effective, hashes, warning_effective = _plan_state(
             planning,
-            scope,
             network,
             detection_date,
             rw_csv,
@@ -1245,14 +1241,6 @@ def _verify_state(
     if commit_projected is not None:
         gitstate.publish_outputs(vault, snapshots, captured, commit_projected)
     return report, effective, hashes, warning_effective
-
-
-def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None):
-    """Collect raw outcomes and apply their effective verification effects."""
-    report, _effective_outcomes, _hashes, _warnings = _verify_state(
-        vault_root, scope, network, detection_date, rw_csv
-    )
-    return report
 
 
 def _surface_decision(surface, effective, warning_effective):

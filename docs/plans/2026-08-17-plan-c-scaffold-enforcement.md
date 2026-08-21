@@ -761,3 +761,45 @@ The final whole-branch review's Important findings were fixed in the branch (`b5
 5. **Projection scratch files** (`.harness-projection-<pid>-<n>`) are unlinked in a `finally`, so a SIGKILL mid-write strands one inside the vault; a startup sweep or an out-of-vault temp dir would close it.
 6. **Standing-scope acks** mean one acknowledgment of a `publish-gate` finding filters every later finding for that project out of `open_entries`/`summary`. Pre-existing inbox behavior, surfaced here because the bypass record depends on it.
 7. **`verify`'s `log.md` regeneration is unwired, conditioned on a trigger that hasn't happened yet.** Plan T's Task 5 (`docs/plans/2026-08-20-plan-t-terminology-wave.md`) shipped `okf.regenerate_log`, called from `import-note` only — `verify` has no log-append mechanism at HEAD to call it after, and its writes flow through `gitstate`'s transactional manifest/publish pipeline (`_allowed_manifest_path` doesn't carry `log.md`). Not scheduled work: **if/when `verify` gains a log-append mechanism**, its transaction must carry `log.md` too — extend `gitstate._allowed_manifest_path` and project `log.md` through `_plan_state` as a tracked output, the same way every other verify-owned write is handled. The doctor `okf` probe already backstops the gap behaviorally (warns when `log.md` is missing despite day files being present) until then.
+
+## Supersessions (2026-08-21)
+
+Recorded from the over-engineering audit of `core/`. Each entry names the plan
+text it retires so a later reader does not treat this document's contract
+sections as current.
+
+1. **Outcome-CSV export surface superseded — never wired; rebuild deliberately
+   if CI reporting ever wants it.** The "Raw CSV uses the exact columns
+   `check,target,target_kind,result,reason,extra,path_extra_fields`" contract
+   above described `outcome_to_csv_row`/`outcome_from_csv_row`, which no writer
+   or reader ever called. A column contract for a format nothing emits is a plan
+   artifact, not a live surface. Both functions and `_CSV_FIELDS` are removed.
+   The raw **JSON** record surface (`outcome_to_record`/`outcome_from_record`) is
+   unaffected and remains the record contract.
+
+2. **Freeze machinery superseded by a single detaching copy; the
+   no-reconstruction prohibition is unchanged.** The recursive detach/freeze
+   routine described above — cycle detection, `types.MappingProxyType` exposure,
+   list-and-tuple-to-tuple conversion, float-finiteness rejection — is replaced
+   by `_detached_extra`, which copies the caller's graph, validates string keys
+   and JSON scalars, and stores plain `dict`/`list` values. Construction still
+   detaches, so mutating a caller-owned graph afterwards cannot affect the
+   Outcome; nested extras are no longer immutable, which was defence against
+   this package's own constructors.
+
+   The audit proposed replacing the reducer's record round-trip with
+   `dataclasses.replace`. **That substitution was attempted and reverted: it is
+   unsound here.** `target_kind` and `path_extra_fields` are `init=False`, so
+   `replace` omits them and `__post_init__` re-derives both from the target it
+   is handed — by then the already-encoded `path-bytes:` string, which
+   classifies as `identifier`. A repo-path Outcome silently returns from
+   `replace` with `target_kind == "identifier"` and empty `path_extra_fields`
+   (verified directly, 2026-08-21), which is exactly the byte-preservation break
+   the prohibition exists to prevent, and which
+   `test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources`
+   pins against. Re-wrapping the typed target and path extras before `replace`
+   would recover kind from the old canonical string — also prohibited. The
+   `outcome_to_record` → modify → `outcome_from_record` round-trip in
+   `reduce_update_notice_outcomes` therefore stands as written, and remains the
+   only mechanism that carries kind metadata explicitly rather than inferring
+   it.

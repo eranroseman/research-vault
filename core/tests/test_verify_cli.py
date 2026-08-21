@@ -29,9 +29,13 @@ from harness_core.__main__ import (
     cmd_inbox,
     cmd_verify,
     main,
-    run_verify,
 )
 from harness_core.pathcodec import PathCodecError, RepoPathValue, encode_repo_path
+
+
+def run_verify(vault_root, **kwargs):
+    """Report projection of the verification transaction, for assertions only."""
+    return _verify_state(vault_root, **kwargs)[0]
 
 
 def _outcome(check, target, result, reason, **extra):

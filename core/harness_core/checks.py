@@ -1,8 +1,6 @@
 """Citation checkers (spec §6). Shared Outcome dataclass; four-state everywhere."""
 
 import csv
-import json
-import math
 import os
 import re
 import unicodedata
@@ -12,7 +10,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date as _Date
 from pathlib import Path
-from types import MappingProxyType
 from typing import Literal
 from urllib.parse import quote, urlsplit
 
@@ -28,60 +25,26 @@ _RECORD_FIELDS = {
     "extra",
     "path_extra_fields",
 }
-_CSV_FIELDS = (
-    "check",
-    "target",
-    "target_kind",
-    "result",
-    "reason",
-    "extra",
-    "path_extra_fields",
-)
+def _detached_extra(value, key_path="extra"):
+    """Copy one JSON-shaped extra graph away from the caller's own objects.
 
-
-def _freeze_json(value, active: set[int]):
-    if value is None or type(value) in {str, bool, int}:
-        return value
-    if type(value) is float:
-        if not math.isfinite(value):
-            raise ValueError("Outcome extras require finite JSON numbers")
-        return value
-    if isinstance(value, RepoPathValue):
-        raise TypeError("RepoPathValue is valid only as a direct extra value")
-    if isinstance(value, (bytes, bytearray, memoryview, set, frozenset)):
-        raise TypeError("Outcome extras must be a JSON-shaped graph")
+    Outcomes are built from literals this package constructs, so this validates
+    shape and detaches; it does not defend against cycles or exotic scalars.
+    """
     if isinstance(value, Mapping):
-        identity = id(value)
-        if identity in active:
-            raise ValueError("Outcome extra graph contains a cycle")
-        active.add(identity)
-        try:
-            result = {}
-            for key, item in value.items():
-                if type(key) is not str:
-                    raise TypeError("Outcome extra mapping keys must be strings")
-                result[key] = _freeze_json(item, active)
-            return MappingProxyType(result)
-        finally:
-            active.remove(identity)
+        detached = {}
+        for key, item in value.items():
+            if type(key) is not str:
+                raise TypeError("Outcome extra mapping keys must be strings")
+            detached[key] = _detached_extra(item, key)
+        return detached
     if isinstance(value, (list, tuple)):
-        identity = id(value)
-        if identity in active:
-            raise ValueError("Outcome extra graph contains a cycle")
-        active.add(identity)
-        try:
-            return tuple(_freeze_json(item, active) for item in value)
-        finally:
-            active.remove(identity)
-    raise TypeError(f"unsupported Outcome extra value: {type(value).__name__}")
-
-
-def _thaw_json(value):
-    if isinstance(value, Mapping):
-        return {key: _thaw_json(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return [_thaw_json(item) for item in value]
-    return value
+        return [_detached_extra(item, key_path) for item in value]
+    if value is None or type(value) in {str, bool, int, float}:
+        return value
+    raise TypeError(
+        f"unsupported Outcome extra value at {key_path}: {type(value).__name__}"
+    )
 
 
 @dataclass(frozen=True)
@@ -126,7 +89,7 @@ class Outcome:
         object.__setattr__(self, "target_kind", target_kind)
         object.__setattr__(self, "path_extra_fields", tuple(sorted(path_fields)))
         object.__setattr__(self, "reason", inbox.validate_reason(self.reason))
-        object.__setattr__(self, "extra", _freeze_json(direct, set()))
+        object.__setattr__(self, "extra", _detached_extra(direct))
 
 
 def outcome_to_record(outcome: Outcome) -> dict[str, object]:
@@ -150,7 +113,7 @@ def outcome_to_record(outcome: Outcome) -> dict[str, object]:
         "target_kind": outcome.target_kind,
         "result": outcome.result.value,
         "reason": outcome.reason,
-        "extra": _thaw_json(outcome.extra),
+        "extra": _detached_extra(outcome.extra),
         "path_extra_fields": list(outcome.path_extra_fields),
     }
 
@@ -184,7 +147,7 @@ def outcome_from_record(record: Mapping[str, object]) -> Outcome:
         raise TypeError("Outcome path_extra_fields must be a JSON array of strings")
     if path_fields != sorted(set(path_fields)):
         raise ValueError("Outcome path_extra_fields must be sorted and unique")
-    mutable_extra = _thaw_json(_freeze_json(extra, set()))
+    mutable_extra = _detached_extra(extra)
     for field_name in path_fields:
         if (
             field_name not in mutable_extra
@@ -205,46 +168,6 @@ def outcome_from_record(record: Mapping[str, object]) -> Outcome:
     ):
         raise ValueError("Outcome record path metadata is incoherent")
     return outcome
-
-
-def outcome_to_csv_row(outcome: Outcome) -> dict[str, str]:
-    record = outcome_to_record(outcome)
-    return {
-        "check": record["check"],
-        "target": record["target"],
-        "target_kind": record["target_kind"],
-        "result": record["result"],
-        "reason": record["reason"],
-        "extra": json.dumps(record["extra"], sort_keys=True, separators=(",", ":")),
-        "path_extra_fields": json.dumps(
-            record["path_extra_fields"], separators=(",", ":")
-        ),
-    }
-
-
-def outcome_from_csv_row(row: Mapping[str, str]) -> Outcome:
-    if (
-        not isinstance(row, Mapping)
-        or set(row) != set(_CSV_FIELDS)
-        or any(type(value) is not str for value in row.values())
-    ):
-        raise ValueError("Outcome CSV row has invalid columns")
-    try:
-        extra = json.loads(row["extra"])
-        path_fields = json.loads(row["path_extra_fields"])
-    except (TypeError, json.JSONDecodeError) as error:
-        raise ValueError("Outcome CSV JSON columns are invalid") from error
-    return outcome_from_record(
-        {
-            "check": row["check"],
-            "target": row["target"],
-            "target_kind": row["target_kind"],
-            "result": row["result"],
-            "reason": row["reason"],
-            "extra": extra,
-            "path_extra_fields": path_fields,
-        }
-    )
 
 
 def _claim_origins(note_text: str) -> dict[str, list[dict]]:
