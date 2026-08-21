@@ -655,3 +655,25 @@ def test_invalid_utf8_publication_failure_has_canonical_ascii_diagnostic(
     assert "\\xff" not in message.lower()
     assert "\ufffd" not in message
     assert not any(0xD800 <= ord(character) <= 0xDFFF for character in message)
+
+
+def test_apply_outputs_sweeps_scratch_files_stranded_by_a_killed_run(tmp_vault):
+    """A SIGKILL mid-write leaves a scratch file the finally block never ran."""
+    target = tmp_vault / "synthesis" / "note.md"
+    target.write_bytes(b"base\n")
+    _commit(tmp_vault)
+    dead_pid = 999999
+    while gitstate._owner_is_live(dead_pid):
+        dead_pid += 1
+    stranded = tmp_vault / "synthesis" / f".harness-projection-{dead_pid}-0"
+    stranded.write_bytes(b"half-written\n")
+    live = tmp_vault / "synthesis" / f".harness-projection-{os.getpid()}-0"
+    live.write_bytes(b"mine\n")
+
+    before = gitstate.snapshot_worktree(tmp_vault)
+    output = gitstate.CapturedOutput(b"synthesis/note.md", 0o100644, b"projected\n")
+    gitstate.apply_outputs(tmp_vault, before, [output])
+
+    assert not stranded.exists(), "a dead owner's scratch file must be swept"
+    assert live.exists(), "this process's own scratch namespace is never swept"
+    assert target.read_bytes() == b"projected\n"

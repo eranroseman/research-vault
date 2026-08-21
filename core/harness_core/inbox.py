@@ -39,6 +39,11 @@ _FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")
 _REASON = re.compile(
     rf"(?:{'|'.join(re.escape(code) for code in sorted(REASON_CODES, key=len, reverse=True))})(?:$|\s+\S.*)"
 )
+# Checks whose findings record a repeatable human act rather than a machine
+# observation. Their ids carry a reason discriminator so two genuinely distinct
+# acts on one target on one day stay separately acknowledgeable, while a retry
+# of the same act still collapses to one row.
+REPEATABLE_ACT_CHECKS = frozenset({"publish-gate"})
 _ENTRY_FIELDS = {"id", "check", "target", "result", "date", "actor", "reason"}
 _ACK_FIELDS = {"ack", "actor", "reason"}
 _ENTRY_OPTIONAL_FIELDS = {
@@ -226,6 +231,7 @@ def _finding_id(
     notice_type,
     notice_date,
     target_kind="identifier",
+    reason=None,
 ) -> str:
     identity = f"kind-{len(target_kind)}:{target_kind};target-{len(target)}:{target}"
     entry_id = f"{check}/{identity}/{date}"
@@ -234,6 +240,11 @@ def _finding_id(
     if target_hash is not None:
         discriminator = hashlib.sha256(target_hash.encode()).hexdigest()[:16]
         entry_id += f"/scope-{discriminator}"
+    if check in REPEATABLE_ACT_CHECKS and reason is not None:
+        # Reconstructible on load: reason is already a persisted, validated
+        # field, so this needs no addition to the inline-field grammar.
+        discriminator = hashlib.sha256(reason.encode()).hexdigest()[:16]
+        entry_id += f"/act-{discriminator}"
     return entry_id
 
 
@@ -311,6 +322,7 @@ def append_entry(
         notice_type,
         notice_date,
         target_kind,
+        reason,
     )
     entry = Entry(
         id=entry_id,
@@ -547,6 +559,7 @@ def load(vault) -> list[Entry]:
                     notice_type,
                     notice_date,
                     target_kind,
+                    data["reason"],
                 )
                 if data["id"] != expected_id:
                     raise ValueError("finding id does not match fields")
@@ -597,6 +610,17 @@ def _scope_acknowledged(entries: list[Entry], finding: Entry) -> bool:
             and ack.actor.startswith("human:")
             and ack.target_hash == finding.target_hash
             and ack.notice_class is None
+            for ack in entries
+        )
+    if finding.check in REPEATABLE_ACT_CHECKS:
+        # A repeatable human act is a discrete event, not a standing condition:
+        # an acknowledgment closes exactly the act it references. Without this,
+        # the per-act id discriminator is defeated — one ack would filter every
+        # later act on the same target out of open_entries/summary.
+        return any(
+            ack.ack_of == finding.id
+            and ack.actor.startswith("human:")
+            and ack.target_hash == finding.target_hash
             for ack in entries
         )
     scope_ids = {

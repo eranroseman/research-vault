@@ -178,9 +178,9 @@ Original sheet retained below for the audit trail (superseded rows: 1 technique,
 
 **Files:** per the "final review non-blocking follow-ups" section of `docs/plans/2026-08-17-plan-c-scaffold-enforcement.md` (recorded at 34cf831) — that section is the contract; read it first.
 
-- [ ] **Step 1: Bypass id discriminator** (leads — doctrine weight: an unacknowledgeable finding id is a liveness hole in the review-inbox contract). Implement per the recorded description; regression test: two bypasses same day produce distinct, individually acknowledgeable ids.
-- [ ] **Step 2:** `cmd_verify` broad except narrowed; projection scratch files cleaned up; standing-scope acks item per its recorded text. (Duplicate `staleness()` already fell to Task 3.6.)
-- [ ] **Step 3:** Suite green; commit — `fix: Plan C follow-up batch (bypass id discriminator first)`.
+- [x] **Step 1: Bypass id discriminator** (leads — doctrine weight: an unacknowledgeable finding id is a liveness hole in the review-inbox contract). Implement per the recorded description; regression test: two bypasses same day produce distinct, individually acknowledgeable ids.
+- [x] **Step 2:** `cmd_verify` broad except narrowed; projection scratch files cleaned up; standing-scope acks item per its recorded text. (Duplicate `staleness()` already fell to Task 3.6.)
+- [x] **Step 3:** Suite green; commit — `fix: Plan C follow-up batch (bypass id discriminator first)`.
 
 ---
 

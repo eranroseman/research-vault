@@ -307,7 +307,19 @@ def cmd_verify(args):
             changed_paths_file=getattr(args, "changed_paths_file", None),
             commit_projected=getattr(args, "commit_projected", None),
         )
-    except (gitstate.GitStateError, PathCodecError, OSError, ValueError) as error:
+    except (
+        # Named domain failures only. A bare ValueError here would dress an
+        # implementation bug as a tidy exit 2 with no traceback.
+        gitstate.GitStateError,
+        PathCodecError,
+        bibliography.BibliographyError,
+        inbox.InboxError,
+        frontmatter.FrontmatterError,
+        notes.ManagedRegionError,
+        notes.InvalidCitekeyError,
+        notes.RenderIntegrityError,
+        OSError,
+    ) as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2
     for outcome in effective:

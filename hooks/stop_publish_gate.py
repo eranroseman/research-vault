@@ -117,14 +117,17 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
 
     target = encode_repo_path(os.fsencode(project))
     date = datetime.date.today().isoformat()
-    # A finding id is (check, target, date, ...); a second row under one id makes
-    # the entry permanently un-acknowledgeable, so a same-day retry is a no-op.
+    recorded_reason = f"manual — publish-gate bypass: {reason}"
+    # A publish-gate finding id carries a reason discriminator, so a retry of
+    # THIS bypass collapses to one row while a genuinely distinct bypass of the
+    # same project on the same day still records and stays acknowledgeable.
     for entry in inbox.load(vault):
         if (
             entry.ack_of is None
             and entry.check == "publish-gate"
             and entry.target == target
             and entry.date == date
+            and entry.reason == recorded_reason
         ):
             return
     inbox.append_entry(
@@ -132,7 +135,7 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
         "publish-gate",
         target,
         Result.UNMATCHED,
-        f"manual — publish-gate bypass: {reason}",
+        recorded_reason,
         actor="human:publish-bypass",
         date=date,
         target_kind="repo-path",
