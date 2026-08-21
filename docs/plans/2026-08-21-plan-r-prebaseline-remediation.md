@@ -39,7 +39,7 @@
 **Fix contract (from the review, ruled):** three neutralization rules by field class —
 - **Identifier class** (`citekey`): REJECT on any whitespace or control character (a citekey with a space is never valid; altering it would silently mis-key). Extend the `note_path` guard to reject `\r`/`\n` too.
 - **Display class** (`pageLabel`, `title`, `comment` already does this): collapse all whitespace runs to single spaces (`" ".join(value.split())`) — total (no import ever held on ugly-but-real metadata), and sufficient: without a newline, injected text cannot create a claim line, a blockquote line, or a marker line.
-- **Serializer boundary** (`frontmatter._emit_scalar`): raise `FrontmatterError` on `\r`, `\n`, or other C0 controls — by the time a value reaches the serializer, upstream collapse has run; a surviving control char is a bug and must fail loudly, not serialize unreadably.
+- **Serializer boundary** (`frontmatter._emit_scalar`): raise `FrontmatterError` on the FULL line-break set of the parse authority — `[\x00-\x1f\x7f\x85\u2028\u2029]` (amended 2026-08-21 at execution: `str.splitlines()` is the parser's line-break definition in both `frontmatter.py` and `claims.py`, and it breaks on `\x85`/`\u2028`/`\u2029` too; a narrower class is corrupt-on-write — live-demonstrated with a U+2028-poisoned DOI). Two accepted execution disclosures: catching `FrontmatterError` in `cmd_import_note` also converts malformed existing-note frontmatter from crash to loud hold; U+2028-bearing quote text holds via the self-check rather than being collapsed (correct — quote bytes are the verified object; real PDF extraction emits U+2028, so this is a live hold path).
 
 - [ ] **Step 1: Write the failing tests** — `core/tests/test_render_neutralization.py`:
 
