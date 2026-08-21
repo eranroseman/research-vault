@@ -35,9 +35,11 @@ _FRONTMATTER_OPEN = re.compile(r"\A---(?:\r\n|\n)")
 _FRONTMATTER_CLOSE = re.compile(r"(?:\r\n|\n)---(?:\r\n|\n)")
 
 
-# The reject class is exactly what ``str.splitlines()`` treats as a line
-# break, because that is the parser this serializer must not outrun:
-# C0, DEL, NEL, and the Unicode line/paragraph separators.
+# The reject class is a superset of what ``str.splitlines()`` treats as a
+# line break, because that is the parser this serializer must not outrun:
+# C0, DEL, NEL, and the Unicode line/paragraph separators. (DEL and the
+# non-break C0 controls are rejected too, even though splitlines() does not
+# treat them as breaks — over-rejecting here is safe.)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f\x85\u2028\u2029]")
 
 
