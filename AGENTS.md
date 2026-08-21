@@ -1,18 +1,15 @@
 # knowledge-harness — repository facts and policy
 
-Meaning layer: `CONTEXT.md` (glossary). Naming governance: `docs/terminology.md`. Behavior contract: `docs/specs/2026-08-16-foundation-spec.md`. Decisions: `docs/adr/`. Plans: `docs/plans/` (executed by Codex under subagent-driven development; the author session issues rulings — when a plan and reality disagree, as-built HEAD governs and the deviation is recorded in the commit message).
+Meaning: `CONTEXT.md`. Naming: `docs/terminology.md` (identifiers §4.4 — check ids, probe ids, reason codes are governed; additions need a reference row). Behavior: `docs/specs/2026-08-16-foundation-spec.md`. Decisions: `docs/adr/`. Execution: `docs/plans/` — Codex executes, the author session rules; when plan and reality disagree, as-built HEAD governs and the commit message records the deviation.
 
 ## Multi-writer git discipline
 
-Two clones of this repo exist on this machine (`~/knowledge-harness`, `~/New folder`) plus per-plan worktrees under `.worktrees/`. The rule that prevents forked history: **whoever merges to main pushes immediately** — an unpushed main merge is invisible state every other writer forks around (it happened twice on 2026-08-21). Corollaries: fetch before claiming something is absent from origin; never rewrite pushed history; worktrees rebase onto origin main before their merge.
+Two clones (`~/knowledge-harness`, `~/New folder`) plus worktrees under `.worktrees/` write this repo. **Whoever merges to main pushes in the same motion** — an unpushed main merge is invisible state other writers fork around (twice on 2026-08-21). Fetch before claiming something is absent from origin. Worktree branches rebase onto origin main before merging.
 
 ## Repository rules
 
-- `core/` is stdlib-shaped by discipline, not dogma: dependencies are admitted case-by-case by contract match (spec §8; `docs/2026-08-21-lint-format-rethink.md` records the format/lint owners). Nothing heavy imports on the gate path.
-- The history rule: living surfaces may be edited; `research/`, `analysis/`, completed plans, and accepted ADRs are records — content is never rewritten. Form canonicalization is a one-time ruled event (lands with Plan Q); `.git-blame-ignore-revs` carries its commit hashes.
-- Vault templates (`core/harness_core/templates/vault/`) are dialect surfaces owned by the render/scaffold contract — no external formatter touches them; template text changes carry their test assertions.
-- Check ids, probe ids, and reason codes are governed identifiers (`docs/terminology.md` §4.4); additions require a reference row.
-- Quality lane (post-Plan-Q): one command locally == CI — `source core/.venv/bin/activate && pre-commit run --all-files`.
-- Filing: ALL plans live in `docs/plans/` — the user preference that overrides the superpowers default location (`docs/superpowers/plans/`), which is retired. Dated one-off records (rethink audits, reviews) live flat in `docs/` root: the date prefix IS their filing (date-prefix = record, bare name = living surface); genre folders exist only where a genre carries machinery (`specs/`, `adr/`, `plans/`). Records reference paths as they were — do not move record files to satisfy filing taste.
-- Caller-less entry points are guarded by config/tests, never convention: `marketplace add` rests on validity-tested manifests; bare `pytest` from `core/` equals `python -m pytest` once Plan Q pins `pythonpath`; the one-command lane line above is explicitly post-Plan-Q until its implementation lands.
-- **Root namespace belongs to the plugin loader.** Add root files only where a tool requires that exact path, and name each here: `LICENSE` (matches plugin.json's MIT declaration), `.gitignore`, `.git-blame-ignore-revs` (canonical-form churn commits), `.pre-commit-config.yaml` (lands WITH Plan Q's implementation, not before), `.vscode/` (IDE alignment, Plan Q). The plugin payload ships the whole repo pre-alpha; the split is a recorded release gate (spec §10).
+- `core/` admits dependencies case-by-case by **contract match** (spec §8; owners recorded in `docs/2026-08-21-lint-format-rethink.md`); the gate path imports light.
+- **History rule**: `research/`, `analysis/`, completed plans, and accepted ADRs are records — content stands as written, and their internal paths stand with them. Living surfaces edit freely. Date-prefix = record, bare name = living surface; dated records file flat in `docs/`.
+- Vault templates (`core/harness_core/templates/vault/`) are dialect surfaces owned by the render/scaffold contract; template text changes carry their test assertions.
+- **Root namespace is the plugin loader's.** A new root file needs a tool that requires that exact path, plus a line here saying which (`.pre-commit-config.yaml` arrives with Plan Q's implementation, not before).
+- Quality lane (arrives with Plan Q): one command locally == CI — `pre-commit run --all-files` from the activated venv.
