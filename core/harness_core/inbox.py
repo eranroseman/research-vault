@@ -2,6 +2,7 @@
 
 import datetime
 import hashlib
+import os
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -199,14 +200,24 @@ def _body(queue: Path) -> str:
     return body
 
 
-def _prepare_append(vault) -> Path:
+def _prepare_append(vault) -> tuple[Path, bool]:
     queue = _file(vault)
-    if not queue.exists() or not queue.read_bytes():
+    created = not queue.exists()
+    if created or not queue.read_bytes():
         queue.parent.mkdir(parents=True, exist_ok=True)
         queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}))
     else:
         _body(queue)
-    return queue
+    return queue, created
+
+
+def _sync_directory(path: Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    descriptor = os.open(path, flags)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def _finding_id(
@@ -267,6 +278,7 @@ def append_entry(
     notice_date: str | None = None,
     detection_date: str | None = None,
     target_kind: str = "identifier",
+    durable: bool = False,
 ) -> Entry:
     """Append a finding record and return its immutable representation."""
     check = _validate_text("check", check)
@@ -333,8 +345,14 @@ def append_entry(
         ("notice-date", entry.notice_date),
         ("detection-date", entry.detection_date),
     ]
-    with _prepare_append(vault).open("a", encoding="utf-8", newline="") as queue:
+    queue_path, created = _prepare_append(vault)
+    with queue_path.open("a", encoding="utf-8", newline="") as queue:
         queue.write(_serialize(fields))
+        if durable:
+            queue.flush()
+            os.fsync(queue.fileno())
+    if durable and created:
+        _sync_directory(queue_path.parent)
     return entry
 
 
@@ -398,7 +416,8 @@ def append_ack(
         ("notice-type", entry.notice_type),
         ("notice-date", entry.notice_date),
     ]
-    with _prepare_append(vault).open("a", encoding="utf-8", newline="") as queue:
+    queue_path, _created = _prepare_append(vault)
+    with queue_path.open("a", encoding="utf-8", newline="") as queue:
         queue.write(_serialize(fields))
     return entry
 

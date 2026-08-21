@@ -1,3 +1,6 @@
+import os
+import stat
+
 import pytest
 
 from harness_core import Result, inbox
@@ -38,6 +41,41 @@ def test_new_inbox_is_typed_and_append_preserves_header_bytes(tmp_vault):
         "smith2020",
         "smith2021",
     ]
+
+
+@pytest.mark.parametrize("existing", [False, True], ids=["new", "existing"])
+def test_durable_append_syncs_visible_bytes_and_new_directory_entry(
+    tmp_vault, monkeypatch, existing
+):
+    queue = tmp_vault / inbox.INBOX_PATH
+    queue.parent.mkdir(exist_ok=True)
+    if existing:
+        queue.write_text(INBOX_HEADER)
+    events = []
+    original_fsync = os.fsync
+
+    def fsync(descriptor):
+        mode = os.fstat(descriptor).st_mode
+        if stat.S_ISREG(mode):
+            assert b"smith2020" in queue.read_bytes()
+            events.append("file")
+        elif stat.S_ISDIR(mode):
+            events.append("directory")
+        return original_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fsync)
+
+    inbox.append_entry(
+        tmp_vault,
+        "doi",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch",
+        date="2026-08-20",
+        durable=True,
+    )
+
+    assert events == (["file"] if existing else ["file", "directory"])
 
 
 @pytest.mark.parametrize(

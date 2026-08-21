@@ -87,6 +87,12 @@ def _arm_publish(
     return flag
 
 
+def _private_publish_files(flag: Path) -> list[Path]:
+    return sorted(
+        path for path in flag.parent.iterdir() if path.name.startswith(f".{flag.name}.")
+    )
+
+
 def _publish_state(
     *effective: Outcome,
     raw: tuple[Outcome, ...] | None = None,
@@ -508,6 +514,41 @@ def test_stop_gate_is_inert_for_malformed_payload_without_flag(tmp_path):
     assert result.returncode == 0
     assert result.stdout == ""
     assert result.stderr == ""
+
+
+@pytest.mark.parametrize("nested", [False, True], ids=["direct", "nested"])
+def test_stop_gate_rejects_symlinked_payload_cwd_before_importing_core(
+    tmp_path, nested
+):
+    plugin = tmp_path / "plugin"
+    hooks = plugin / "hooks"
+    hooks.mkdir(parents=True)
+    copied_hook = hooks / "stop_publish_gate.py"
+    shutil.copyfile(STOP_HOOK, copied_hook)
+    vault = tmp_path / "vault"
+    (vault / "projects" / "brief").mkdir(parents=True)
+    flag = _arm_publish(vault)
+    before = flag.read_bytes()
+    alias_parent = tmp_path / "alias-parent"
+    alias_parent.mkdir()
+    alias = alias_parent / "vault-alias" if nested else tmp_path / "vault-alias"
+    alias.symlink_to(vault, target_is_directory=True)
+    cwd = alias / "projects" / "brief" if nested else alias
+
+    result = subprocess.run(
+        [sys.executable, str(copied_hook)],
+        cwd=tmp_path,
+        input=json.dumps(_stop_payload(cwd)),
+        text=True,
+        capture_output=True,
+        check=False,
+        env={"PATH": os.environ["PATH"], "PYTHONPATH": ""},
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
+    assert flag.read_bytes() == before
 
 
 def test_stop_gate_pass_clears_flag(fixture_vault, monkeypatch, capsys):
@@ -1032,10 +1073,150 @@ def test_stop_gate_counter_install_never_clobbers_last_moment_rearm(
     assert json.loads(flag.read_text()) == replacement
 
 
+def test_stop_gate_counter_install_failure_restores_exact_claim_without_stale_files(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, blocks=2)
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    original_link = hook.os.link
+
+    def fail_install(source, destination):
+        source = Path(source)
+        if Path(destination) == flag and ".claimed." not in source.name:
+            raise OSError("counter install failed")
+        return original_link(source, destination)
+
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    monkeypatch.setattr(hook.os, "link", fail_install)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output == {
+        "decision": "block",
+        "reason": hook.FAIL_CLOSED_REASON,
+    }
+    assert flag.read_bytes() == before
+    assert _private_publish_files(flag) == []
+
+
+def test_stop_gate_counter_install_failure_preserves_concurrent_successor(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    replacement = {
+        "project": "projects/brief",
+        "vault": str(fixture_vault),
+        "blocks": 6,
+    }
+    original_link = hook.os.link
+    installed = False
+
+    def install_successor_then_fail(source, destination):
+        nonlocal installed
+        source = Path(source)
+        if (
+            Path(destination) == flag
+            and ".claimed." not in source.name
+            and not installed
+        ):
+            installed = True
+            flag.write_text(json.dumps(replacement))
+            raise FileExistsError("concurrent successor")
+        return original_link(source, destination)
+
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    monkeypatch.setattr(hook.os, "link", install_successor_then_fail)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output == {
+        "decision": "block",
+        "reason": hook.FAIL_CLOSED_REASON,
+    }
+    assert json.loads(flag.read_text()) == replacement
+    assert _private_publish_files(flag) == []
+
+
+def test_stop_gate_recovers_retained_claim_after_install_and_restore_failures(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, blocks=2)
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    original_link = hook.os.link
+
+    def fail_install_and_restore(source, destination):
+        if Path(destination) == flag:
+            raise OSError("link unavailable")
+        return original_link(source, destination)
+
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    monkeypatch.setattr(hook.os, "link", fail_install_and_restore)
+
+    first = json.loads(
+        _invoke_stop(
+            hook,
+            monkeypatch,
+            capsys,
+            _stop_payload(fixture_vault, active=True),
+        )
+    )
+
+    assert first == {
+        "decision": "block",
+        "reason": hook.FAIL_CLOSED_REASON,
+    }
+    assert not flag.exists()
+    claims = _private_publish_files(flag)
+    assert len(claims) == 1
+    assert ".claimed." in claims[0].name
+    assert claims[0].read_bytes() == before
+
+    monkeypatch.setattr(hook.os, "link", original_link)
+
+    second = json.loads(
+        _invoke_stop(
+            hook,
+            monkeypatch,
+            capsys,
+            _stop_payload(fixture_vault, active=True),
+        )
+    )
+
+    assert second["decision"] == "block"
+    assert json.loads(flag.read_text())["blocks"] == 3
+    assert _private_publish_files(flag) == []
+
+
 def test_stop_gate_bypass_inbox_failure_blocks_and_retains_flag(
     fixture_vault, monkeypatch, capsys
 ):
     flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    before = flag.read_bytes()
     hook = _load_stop_hook()
     monkeypatch.setattr(
         hook,
@@ -1048,9 +1229,122 @@ def test_stop_gate_bypass_inbox_failure_blocks_and_retains_flag(
     )
 
     assert output["decision"] == "block"
-    assert flag.exists()
-    assert json.loads(flag.read_text())["blocks"] == 1
+    assert flag.read_bytes() == before
     assert inbox.load(fixture_vault) == []
+
+
+def test_stop_gate_bypass_durable_append_finishes_before_flag_clear(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    hook = _load_stop_hook()
+    events = []
+    original_append = inbox.append_entry
+    original_fsync = os.fsync
+    original_clear = hook._clear_flag
+    queue = fixture_vault / inbox.INBOX_PATH
+
+    def fsync(descriptor):
+        if stat.S_ISREG(os.fstat(descriptor).st_mode):
+            assert "manual — publish-gate bypass".encode() in queue.read_bytes()
+            events.append("file-synced")
+        return original_fsync(descriptor)
+
+    def append(*args, **kwargs):
+        assert kwargs["durable"] is True
+        return original_append(*args, **kwargs)
+
+    def clear(armed):
+        events.append("clear")
+        return original_clear(armed)
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    monkeypatch.setattr(inbox, "append_entry", append)
+    monkeypatch.setattr(hook, "_clear_flag", clear)
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert events == ["file-synced", "clear"]
+    assert not flag.exists()
+
+
+def test_stop_gate_bypass_flush_failure_blocks_and_retains_exact_flag(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+    queue = fixture_vault / inbox.INBOX_PATH
+    original_open = Path.open
+
+    class FlushFailure:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            self.stream.close()
+
+        def write(self, value):
+            return self.stream.write(value)
+
+        def flush(self):
+            raise OSError("flush failed")
+
+        def fileno(self):
+            return self.stream.fileno()
+
+    def open_path(path, *args, **kwargs):
+        stream = original_open(path, *args, **kwargs)
+        if Path(path) == queue and args and args[0] == "a":
+            return FlushFailure(stream)
+        return stream
+
+    monkeypatch.setattr(Path, "open", open_path)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output == {
+        "decision": "block",
+        "reason": hook.FAIL_CLOSED_REASON,
+    }
+    assert flag.read_bytes() == before
+
+
+@pytest.mark.parametrize("failure", ["file", "directory"])
+def test_stop_gate_bypass_sync_failure_blocks_and_retains_exact_flag(
+    fixture_vault, monkeypatch, capsys, failure
+):
+    queue = fixture_vault / inbox.INBOX_PATH
+    if failure == "directory":
+        queue.unlink()
+    flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+    original_fsync = os.fsync
+
+    def fsync(descriptor):
+        mode = os.fstat(descriptor).st_mode
+        if failure == "file" and stat.S_ISREG(mode):
+            raise OSError("file sync failed")
+        if failure == "directory" and stat.S_ISDIR(mode):
+            raise OSError("directory sync failed")
+        return original_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fsync)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output == {
+        "decision": "block",
+        "reason": hook.FAIL_CLOSED_REASON,
+    }
+    assert flag.read_bytes() == before
 
 
 def test_stop_gate_bypass_clear_race_blocks_and_preserves_rearmed_flag(

@@ -7,6 +7,7 @@ import os
 import stat
 import sys
 import tempfile
+from contextlib import suppress
 from pathlib import Path
 
 CORE = Path(__file__).resolve().parents[1] / "core"
@@ -23,6 +24,14 @@ BOUND_MESSAGE = (
 
 class FlagChanged(RuntimeError):
     """The armed flag changed after this invocation read it."""
+
+
+class ClaimRecoveryPending(RuntimeError):
+    """A valid private claim could not yet be restored to the public path."""
+
+
+class BypassFailure(RuntimeError):
+    """The audited bypass did not durably complete."""
 
 
 class ArmedFlag:
@@ -112,17 +121,31 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
         f"manual — publish-gate bypass: {reason}",
         actor="human:publish-bypass",
         target_kind="repo-path",
+        durable=True,
     )
 
 
 def _vault_from_cwd(cwd: str) -> Path | None:
     """Find the nearest real vault marker, including cwd itself."""
+    if not os.path.isabs(cwd) or "\0" in cwd:
+        return None
+    current = Path(os.path.sep)
     try:
-        current = Path(cwd).resolve(strict=True)
+        for component in cwd.split(os.path.sep)[1:]:
+            if not component:
+                continue
+            if component in {".", ".."}:
+                return None
+            current /= component
+            metadata = os.lstat(current)
+            if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+                return None
+        resolved = current.resolve(strict=True)
     except (OSError, RuntimeError):
         return None
-    if not current.is_dir():
+    if resolved != current:
         return None
+    current = resolved
     for candidate in (current, *current.parents):
         marker = candidate / ".harness"
         try:
@@ -191,12 +214,15 @@ def _single_line(value: object) -> str | None:
     return value.strip()
 
 
-def _load_flag(vault: Path) -> ArmedFlag | None:
-    path = vault / ".harness" / FLAG_NAME
+def _decode_flag(
+    vault: Path,
+    path: Path,
+    encoded: bytes,
+    identity: tuple[int, int],
+) -> ArmedFlag | None:
     try:
-        encoded, identity = _read_regular(path)
         state = json.loads(encoded)
-    except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+    except (UnicodeError, ValueError, TypeError, json.JSONDecodeError):
         return None
     allowed = {"project", "vault", "blocks"}
     if not isinstance(state, dict):
@@ -237,12 +263,100 @@ def _load_flag(vault: Path) -> ArmedFlag | None:
     )
 
 
-def _restore_claimed(claimed: Path, path: Path) -> None:
+def _read_flag(vault: Path, path: Path) -> ArmedFlag | None:
+    try:
+        encoded, identity = _read_regular(path)
+    except (OSError, ValueError):
+        return None
+    return _decode_flag(vault, path, encoded, identity)
+
+
+def _unlink_owned(path: Path, identity: tuple[int, int]) -> None:
+    metadata = os.lstat(path)
+    if not stat.S_ISREG(metadata.st_mode):
+        raise FlagChanged("private flag artifact changed type")
+    if (metadata.st_dev, metadata.st_ino) != identity:
+        raise FlagChanged("private flag artifact changed identity")
+    path.unlink()
+
+
+def _restore_owned_claim(
+    vault: Path,
+    claimed: Path,
+    path: Path,
+    expected_bytes: bytes,
+    identity: tuple[int, int],
+) -> None:
+    current_bytes, current_identity = _read_regular(claimed)
+    if current_identity != identity or current_bytes != expected_bytes:
+        raise FlagChanged("private flag claim changed before restore")
     try:
         os.link(claimed, path)
-    except FileExistsError:
-        return
-    claimed.unlink()
+    except Exception as error:
+        successor = _read_flag(vault, path)
+        if successor is None:
+            raise error
+    installed_bytes, installed_identity = _read_regular(path)
+    if installed_identity != identity or installed_bytes != expected_bytes:
+        successor = _decode_flag(vault, path, installed_bytes, installed_identity)
+        if successor is None:
+            raise FlagChanged("public flag is not a valid successor")
+    _unlink_owned(claimed, identity)
+
+
+def _recover_claimed_flag(vault: Path, path: Path) -> ArmedFlag | None:
+    prefix = f".{path.name}.claimed."
+    try:
+        candidates = tuple(
+            candidate
+            for candidate in path.parent.iterdir()
+            if candidate.name.startswith(prefix)
+        )
+    except OSError:
+        return None
+    valid: list[tuple[Path, ArmedFlag]] = []
+    for candidate in candidates:
+        try:
+            encoded, identity = _read_regular(candidate)
+        except (OSError, ValueError):
+            continue
+        armed = _decode_flag(vault, path, encoded, identity)
+        if armed is not None:
+            valid.append((candidate, armed))
+    if not valid:
+        return None
+    if len(valid) != 1:
+        raise ClaimRecoveryPending("multiple valid private flag claims")
+    claimed, armed = valid[0]
+    try:
+        _restore_owned_claim(
+            vault,
+            claimed,
+            path,
+            armed.expected_bytes,
+            armed.identity,
+        )
+    except Exception as error:
+        successor = _read_flag(vault, path)
+        if successor is not None:
+            return successor
+        raise ClaimRecoveryPending("private flag claim restore failed") from error
+    restored = _read_flag(vault, path)
+    if restored is None:
+        raise ClaimRecoveryPending("restored flag could not be validated")
+    return restored
+
+
+def _load_flag(vault: Path) -> ArmedFlag | None:
+    path = vault / ".harness" / FLAG_NAME
+    try:
+        encoded, identity = _read_regular(path)
+    except FileNotFoundError:
+        return _recover_claimed_flag(vault, path)
+    except (OSError, ValueError):
+        return _recover_claimed_flag(vault, path)
+    armed = _decode_flag(vault, path, encoded, identity)
+    return armed if armed is not None else _recover_claimed_flag(vault, path)
 
 
 def _claim_flag(armed: ArmedFlag) -> Path:
@@ -253,15 +367,33 @@ def _claim_flag(armed: ArmedFlag) -> Path:
     os.close(descriptor)
     claimed = Path(claimed_name)
     claimed.unlink()
+    moved = False
     try:
         os.replace(armed.path, claimed)
+        moved = True
         current_bytes, current_identity = _read_regular(claimed)
     except Exception:
-        if claimed.exists():
-            _restore_claimed(claimed, armed.path)
+        if moved:
+            try:
+                current_bytes, current_identity = _read_regular(claimed)
+                _restore_owned_claim(
+                    armed.vault,
+                    claimed,
+                    armed.path,
+                    current_bytes,
+                    current_identity,
+                )
+            except Exception:
+                pass
         raise
     if current_identity != armed.identity or current_bytes != armed.expected_bytes:
-        _restore_claimed(claimed, armed.path)
+        _restore_owned_claim(
+            armed.vault,
+            claimed,
+            armed.path,
+            current_bytes,
+            current_identity,
+        )
         raise FlagChanged("publish flag changed before claim")
     return claimed
 
@@ -276,8 +408,11 @@ def _write_blocks(armed: ArmedFlag, blocks: int) -> None:
     )
     temporary = Path(temporary_name)
     claimed = None
+    temporary_identity = None
     try:
         with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            metadata = os.fstat(stream.fileno())
+            temporary_identity = (metadata.st_dev, metadata.st_ino)
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
@@ -285,19 +420,46 @@ def _write_blocks(armed: ArmedFlag, blocks: int) -> None:
         try:
             os.link(temporary, armed.path)
         except Exception:
-            claimed.unlink(missing_ok=True)
+            try:
+                _restore_owned_claim(
+                    armed.vault,
+                    claimed,
+                    armed.path,
+                    armed.expected_bytes,
+                    armed.identity,
+                )
+                claimed = None
+            except Exception:
+                pass
             raise
-        claimed.unlink()
+        installed_bytes, installed_identity = _read_regular(armed.path)
+        if (
+            temporary_identity is None
+            or installed_identity != temporary_identity
+            or installed_bytes != encoded
+        ):
+            successor = _decode_flag(
+                armed.vault,
+                armed.path,
+                installed_bytes,
+                installed_identity,
+            )
+            if successor is None:
+                raise FlagChanged("counter install did not retain a valid flag")
+            _unlink_owned(claimed, armed.identity)
+            claimed = None
+            raise FlagChanged("counter install was replaced by a valid successor")
+        _unlink_owned(claimed, armed.identity)
         claimed = None
     finally:
-        temporary.unlink(missing_ok=True)
-        if claimed is not None:
-            claimed.unlink(missing_ok=True)
+        if temporary_identity is not None:
+            with suppress(FileNotFoundError, FlagChanged):
+                _unlink_owned(temporary, temporary_identity)
 
 
 def _clear_flag(armed: ArmedFlag) -> None:
     claimed = _claim_flag(armed)
-    claimed.unlink()
+    _unlink_owned(claimed, armed.identity)
 
 
 def _json_output(output: dict[str, str]) -> None:
@@ -326,8 +488,11 @@ def _process(payload: dict[str, object], armed: ArmedFlag) -> None:
     if type(active) is not bool:
         raise ValueError("stop_hook_active must be a boolean")
     if armed.bypass is not None:
-        _append_bypass(armed.vault, armed.project, armed.bypass)
-        _clear_flag(armed)
+        try:
+            _append_bypass(armed.vault, armed.project, armed.bypass)
+            _clear_flag(armed)
+        except Exception as error:
+            raise BypassFailure("audited bypass did not complete") from error
         return
     state = _verify_publish(armed.vault)
     decision, blockers = _publish_decision(state)
@@ -349,12 +514,18 @@ def _handle(payload: object) -> None:
     vault = _vault_from_cwd(cwd)
     if vault is None:
         return
-    armed = _load_flag(vault)
+    try:
+        armed = _load_flag(vault)
+    except ClaimRecoveryPending:
+        _json_output({"decision": "block", "reason": FAIL_CLOSED_REASON})
+        return
     if armed is None:
         return
     active = payload.get("stop_hook_active") is True
     try:
         _process(payload, armed)
+    except BypassFailure:
+        _json_output({"decision": "block", "reason": FAIL_CLOSED_REASON})
     except Exception:
         _bounded_block(armed, active, FAIL_CLOSED_REASON)
 
@@ -365,10 +536,8 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except Exception:
         return 0
-    try:
+    with suppress(Exception):
         _handle(payload)
-    except Exception:
-        pass
     return 0
 
 
