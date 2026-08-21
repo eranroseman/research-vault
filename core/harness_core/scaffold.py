@@ -20,6 +20,7 @@ VAULT_DIRS = [
     "x/templates",
     "x/bases",
 ]
+PROVISION_COMPANIONS = ["kepano/obsidian-skills"]
 _EMPTY_ROOTS = ("literatures", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".harness/machine.json"}
 
