@@ -2,16 +2,23 @@ import importlib.util
 import io
 import json
 import os
+import shlex
 import shutil
 import stat
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from harness_core import Result, inbox
+from harness_core.checks import Outcome
+
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / "hooks" / "posttooluse_lint.py"
+STOP_HOOK = REPO / "hooks" / "stop_publish_gate.py"
+HOOKS_MANIFEST = REPO / "hooks" / "hooks.json"
 
 
 def _make_hook_vault(vault: Path) -> None:
@@ -44,6 +51,60 @@ def _load_hook():
     hook = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(hook)
     return hook
+
+
+def _load_stop_hook():
+    spec = importlib.util.spec_from_file_location("stop_publish_gate", STOP_HOOK)
+    assert spec is not None
+    assert spec.loader is not None
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+    return hook
+
+
+def _stop_payload(vault: Path, *, active: bool = False) -> dict:
+    return {
+        "cwd": str(vault),
+        "hook_event_name": "Stop",
+        "stop_hook_active": active,
+    }
+
+
+def _arm_publish(
+    vault: Path,
+    *,
+    project: str = "projects/brief",
+    blocks: int = 0,
+    bypass: str | None = None,
+) -> Path:
+    harness = vault / ".harness"
+    harness.mkdir(exist_ok=True)
+    flag = harness / "publish-pending.json"
+    state = {"project": project, "vault": str(vault), "blocks": blocks}
+    if bypass is not None:
+        state["bypass"] = bypass
+    flag.write_text(json.dumps(state))
+    return flag
+
+
+def _publish_state(
+    *effective: Outcome,
+    raw: tuple[Outcome, ...] | None = None,
+    warning_effective: dict | None = None,
+):
+    return SimpleNamespace(
+        raw=tuple(effective) if raw is None else raw,
+        effective=effective,
+        warning_effective={} if warning_effective is None else warning_effective,
+    )
+
+
+def _invoke_stop(hook, monkeypatch, capsys, payload: object) -> str:
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    assert hook.main() == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    return captured.out
 
 
 def _vault_state(vault: Path) -> tuple[tuple[str, int, bytes], ...]:
@@ -372,3 +433,693 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
 
     context = _warning(result)
     assert "UNREACHABLE quote" in context
+
+
+def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
+    assert json.loads(HOOKS_MANIFEST.read_text()) == {
+        "description": "Knowledge-harness verification hooks",
+        "hooks": {
+            "PostToolUse": [
+                {
+                    "matcher": "Edit|Write",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": (
+                                'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/'
+                                'posttooluse_lint.py"'
+                            ),
+                        }
+                    ],
+                }
+            ],
+            "Stop": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": (
+                                'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/'
+                                'stop_publish_gate.py"'
+                            ),
+                        }
+                    ]
+                }
+            ],
+        },
+    }
+
+
+def test_stop_gate_is_inert_without_flag_before_importing_core(tmp_path):
+    plugin = tmp_path / "plugin"
+    hooks = plugin / "hooks"
+    hooks.mkdir(parents=True)
+    copied_hook = hooks / "stop_publish_gate.py"
+    shutil.copyfile(STOP_HOOK, copied_hook)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _make_hook_vault(vault)
+
+    result = subprocess.run(
+        [sys.executable, str(copied_hook)],
+        cwd=tmp_path,
+        input=json.dumps(_stop_payload(vault)),
+        text=True,
+        capture_output=True,
+        check=False,
+        env={"PATH": os.environ["PATH"], "PYTHONPATH": ""},
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
+
+
+def test_stop_gate_is_inert_for_malformed_payload_without_flag(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(STOP_HOOK)],
+        cwd=tmp_path,
+        input="{",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
+
+
+def test_stop_gate_pass_clears_flag(fixture_vault, monkeypatch, capsys):
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+    seen = []
+
+    def verify(vault):
+        seen.append(vault)
+        return _publish_state(
+            Outcome("quote", "smith2020#^c-11111111", Result.MATCHED, "matched")
+        )
+
+    monkeypatch.setattr(hook, "_verify_publish", verify)
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert seen == [fixture_vault]
+    assert not flag.exists()
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        Outcome(
+            "quote",
+            "smith2020#^c-11111111",
+            Result.UNMATCHED,
+            "mismatch — quote differs",
+        ),
+        Outcome(
+            "web-archive",
+            "https://example.test/archive",
+            Result.UNREACHABLE,
+            "outage — archive unavailable",
+        ),
+    ],
+)
+def test_stop_gate_blocks_publish_closing_unmatched_or_genuine_unreachable(
+    fixture_vault, monkeypatch, capsys, outcome
+):
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert set(output) == {"decision", "reason"}
+    assert output["decision"] == "block"
+    assert outcome.check in output["reason"]
+    assert json.loads(flag.read_text()) == {
+        "project": "projects/brief",
+        "vault": str(fixture_vault),
+        "blocks": 1,
+    }
+
+
+def test_stop_gate_uses_effective_publish_state_for_acknowledged_failure(
+    fixture_vault, monkeypatch, capsys
+):
+    raw = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — acknowledged quote",
+    )
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: _publish_state(raw=(raw,)),
+    )
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert not flag.exists()
+
+
+def test_stop_gate_blocks_effective_publish_warning(fixture_vault, monkeypatch, capsys):
+    warning = {"type": "correction", "notice_date": "2026-08-20"}
+    outcome = Outcome(
+        "update-notice",
+        "smith2020",
+        Result.MATCHED,
+        "matched",
+        {"warn_notices": [warning]},
+    )
+    hook = _load_stop_hook()
+    _arm_publish(fixture_vault)
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: _publish_state(
+            outcome,
+            warning_effective={(id(outcome), 0): True},
+        ),
+    )
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output["decision"] == "block"
+    assert "correction" in output["reason"]
+
+
+def test_stop_gate_synthetic_offline_outcome_never_blocks_or_mutates(
+    fixture_vault, monkeypatch, capsys
+):
+    synthetic = Outcome(
+        "doi",
+        "smith2020",
+        Result.UNREACHABLE,
+        "outage — network disabled",
+        {"synthetic_offline": True},
+    )
+    flag = _arm_publish(fixture_vault, blocks=4)
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: _publish_state(raw=(synthetic,)),
+    )
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert flag.read_bytes() == before
+
+
+def test_stop_gate_bypass_appends_exact_human_record_and_clears_flag(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, bypass="source checked by hand")
+    hook = _load_stop_hook()
+
+    def should_not_verify(_vault):
+        raise AssertionError("bypass must precede verification")
+
+    monkeypatch.setattr(hook, "_verify_publish", should_not_verify)
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert not flag.exists()
+    entries = inbox.load(fixture_vault)
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.check == "publish-gate"
+    assert entry.target == "path-bytes:projects/brief"
+    assert entry.target_kind == "repo-path"
+    assert entry.result == "UNMATCHED"
+    assert entry.actor == "human:publish-bypass"
+    assert entry.reason == "manual — publish-gate bypass: source checked by hand"
+
+
+def test_stop_gate_exception_fails_closed_while_armed(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+
+    def explode(_vault):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(hook, "_verify_publish", explode)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output["decision"] == "block"
+    assert "verification unavailable" in output["reason"]
+    assert json.loads(flag.read_text())["blocks"] == 1
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        {"project_path": "projects/brief", "blocks": 0},
+        {"project": "projects/../outside", "blocks": 0},
+        {"project": "/projects/brief", "blocks": 0},
+        {"project": "projects/brief", "blocks": True},
+        {"project": "projects/brief", "blocks": -1},
+        {"project": "projects/brief", "blocks": 0, "unknown": "field"},
+        {"project": "projects/brief", "blocks": 0, "bypass": "two\nlines"},
+    ],
+)
+def test_stop_gate_rejects_malformed_project_key_path_or_blocks(
+    fixture_vault, monkeypatch, capsys, state
+):
+    harness = fixture_vault / ".harness"
+    harness.mkdir(exist_ok=True)
+    flag = harness / "publish-pending.json"
+    state["vault"] = str(fixture_vault)
+    flag.write_text(json.dumps(state))
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+
+    def should_not_verify(_vault):
+        raise AssertionError("malformed flag must stay unarmed")
+
+    monkeypatch.setattr(hook, "_verify_publish", should_not_verify)
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert flag.read_bytes() == before
+
+
+def test_stop_gate_rejects_mismatched_vault_and_escaped_project_symlink(
+    fixture_vault, tmp_path, monkeypatch, capsys
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    escaped = fixture_vault / "projects" / "escaped"
+    escaped.symlink_to(outside, target_is_directory=True)
+    hook = _load_stop_hook()
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: pytest.fail("unsafe flag must stay unarmed"),
+    )
+    flag = _arm_publish(fixture_vault, project="projects/escaped")
+    before = flag.read_bytes()
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert flag.read_bytes() == before
+
+    flag.write_text(
+        json.dumps(
+            {
+                "project": "projects/brief",
+                "vault": str(fixture_vault.parent),
+                "blocks": 0,
+            }
+        )
+    )
+    before = flag.read_bytes()
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+    assert flag.read_bytes() == before
+
+
+def test_stop_gate_blocks_seven_times_then_warns_visibly_on_eighth(
+    fixture_vault, monkeypatch, capsys
+):
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    hook = _load_stop_hook()
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    flag = _arm_publish(fixture_vault, blocks=6)
+
+    seventh = json.loads(
+        _invoke_stop(
+            hook,
+            monkeypatch,
+            capsys,
+            _stop_payload(fixture_vault, active=True),
+        )
+    )
+
+    assert seventh["decision"] == "block"
+    assert json.loads(flag.read_text())["blocks"] == 7
+
+    eighth = json.loads(
+        _invoke_stop(
+            hook,
+            monkeypatch,
+            capsys,
+            _stop_payload(fixture_vault, active=True),
+        )
+    )
+
+    assert set(eighth) == {"systemMessage"}
+    assert "eight" in eighth["systemMessage"]
+    assert flag.exists()
+    assert json.loads(flag.read_text())["blocks"] == 8
+
+
+def test_stop_gate_inactive_payload_resets_consecutive_blocks(
+    fixture_vault, monkeypatch, capsys
+):
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    hook = _load_stop_hook()
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    flag = _arm_publish(fixture_vault, blocks=7)
+
+    output = json.loads(
+        _invoke_stop(
+            hook,
+            monkeypatch,
+            capsys,
+            _stop_payload(fixture_vault, active=False),
+        )
+    )
+
+    assert output["decision"] == "block"
+    assert json.loads(flag.read_text())["blocks"] == 1
+
+
+def test_stop_hook_manifest_commands_execute_from_plugin_path_with_spaces(tmp_path):
+    plugin = tmp_path / "plugin with spaces"
+    shutil.copytree(REPO / "hooks", plugin / "hooks")
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _make_hook_vault(vault)
+    payloads = {
+        "PostToolUse": {},
+        "Stop": _stop_payload(vault),
+    }
+    manifest = json.loads((plugin / "hooks" / "hooks.json").read_text())
+
+    for event, payload in payloads.items():
+        command = manifest["hooks"][event][0]["hooks"][0]["command"]
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin))
+        result = subprocess.run(
+            shlex.split(command),
+            cwd=tmp_path,
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={"PATH": os.environ["PATH"], "PYTHONPATH": ""},
+        )
+
+        assert result.returncode == 0
+        assert result.stdout == ""
+        assert result.stderr == ""
+
+
+def test_stop_gate_armed_missing_core_fails_closed(tmp_path):
+    plugin = tmp_path / "plugin"
+    hooks = plugin / "hooks"
+    hooks.mkdir(parents=True)
+    copied_hook = hooks / "stop_publish_gate.py"
+    shutil.copyfile(STOP_HOOK, copied_hook)
+    vault = tmp_path / "vault"
+    (vault / "projects" / "brief").mkdir(parents=True)
+    flag = _arm_publish(vault)
+
+    result = subprocess.run(
+        [sys.executable, str(copied_hook)],
+        cwd=tmp_path,
+        input=json.dumps(_stop_payload(vault)),
+        text=True,
+        capture_output=True,
+        check=False,
+        env={"PATH": os.environ["PATH"], "PYTHONPATH": ""},
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    output = json.loads(result.stdout)
+    assert set(output) == {"decision", "reason"}
+    assert output["decision"] == "block"
+    assert "verification unavailable" in output["reason"]
+    assert json.loads(flag.read_text())["blocks"] == 1
+
+
+def test_stop_gate_rejects_symlinked_harness_and_flag(tmp_path, monkeypatch, capsys):
+    hook = _load_stop_hook()
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    outside_harness = tmp_path / "outside-harness"
+    outside_harness.mkdir()
+    (vault / ".harness").symlink_to(outside_harness, target_is_directory=True)
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: pytest.fail("symlinked harness must stay unarmed"),
+    )
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(vault)) == ""
+
+    (vault / ".harness").unlink()
+    (vault / ".harness").mkdir()
+    outside_flag = tmp_path / "outside-flag.json"
+    outside_flag.write_text(
+        json.dumps({"project": "projects/brief", "vault": str(vault), "blocks": 0})
+    )
+    (vault / ".harness" / "publish-pending.json").symlink_to(outside_flag)
+
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(vault)) == ""
+    assert json.loads(outside_flag.read_text())["blocks"] == 0
+
+
+@pytest.mark.parametrize("active", [None, 1, "true"])
+def test_stop_gate_requires_boolean_stop_hook_active_while_armed(
+    fixture_vault, monkeypatch, capsys, active
+):
+    flag = _arm_publish(fixture_vault, blocks=5)
+    hook = _load_stop_hook()
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: pytest.fail(
+            "malformed Stop input must fail before verification"
+        ),
+    )
+    payload = _stop_payload(fixture_vault)
+    if active is None:
+        payload.pop("stop_hook_active")
+    else:
+        payload["stop_hook_active"] = active
+
+    output = json.loads(_invoke_stop(hook, monkeypatch, capsys, payload))
+
+    assert output["decision"] == "block"
+    assert json.loads(flag.read_text())["blocks"] == 1
+
+
+def test_stop_gate_counter_update_failure_blocks_and_retains_flag(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, blocks=2)
+    before = flag.read_bytes()
+    hook = _load_stop_hook()
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    monkeypatch.setattr(
+        hook,
+        "_write_blocks",
+        lambda *_args: (_ for _ in ()).throw(OSError("write failed")),
+    )
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert set(output) == {"decision", "reason"}
+    assert output["decision"] == "block"
+    assert flag.read_bytes() == before
+
+
+def test_stop_gate_does_not_clear_concurrently_rearmed_flag(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+    replacement = {
+        "project": "projects/brief",
+        "vault": str(fixture_vault),
+        "blocks": 5,
+    }
+
+    def verify(_vault):
+        flag.unlink()
+        flag.write_text(json.dumps(replacement))
+        return _publish_state(
+            Outcome("quote", "smith2020#^c-11111111", Result.MATCHED, "matched")
+        )
+
+    monkeypatch.setattr(hook, "_verify_publish", verify)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output["decision"] == "block"
+    assert json.loads(flag.read_text()) == replacement
+
+
+def test_stop_gate_counter_install_never_clobbers_last_moment_rearm(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault)
+    hook = _load_stop_hook()
+    outcome = Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote differs",
+    )
+    replacement = {
+        "project": "projects/brief",
+        "vault": str(fixture_vault),
+        "blocks": 6,
+    }
+    original_replace = hook.os.replace
+    original_link = hook.os.link
+    raced = False
+
+    def rearm() -> None:
+        nonlocal raced
+        if raced:
+            return
+        raced = True
+        flag.unlink(missing_ok=True)
+        flag.write_text(json.dumps(replacement))
+
+    def replace(source, destination):
+        if Path(destination) == flag:
+            rearm()
+        return original_replace(source, destination)
+
+    def link(source, destination):
+        if Path(destination) == flag:
+            rearm()
+        return original_link(source, destination)
+
+    monkeypatch.setattr(hook, "_verify_publish", lambda _vault: _publish_state(outcome))
+    monkeypatch.setattr(hook.os, "replace", replace)
+    monkeypatch.setattr(hook.os, "link", link)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert raced is True
+    assert output["decision"] == "block"
+    assert json.loads(flag.read_text()) == replacement
+
+
+def test_stop_gate_bypass_inbox_failure_blocks_and_retains_flag(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    hook = _load_stop_hook()
+    monkeypatch.setattr(
+        hook,
+        "_append_bypass",
+        lambda *_args: (_ for _ in ()).throw(OSError("inbox unavailable")),
+    )
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output["decision"] == "block"
+    assert flag.exists()
+    assert json.loads(flag.read_text())["blocks"] == 1
+    assert inbox.load(fixture_vault) == []
+
+
+def test_stop_gate_bypass_clear_race_blocks_and_preserves_rearmed_flag(
+    fixture_vault, monkeypatch, capsys
+):
+    flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    hook = _load_stop_hook()
+    append = hook._append_bypass
+    replacement = {
+        "project": "projects/brief",
+        "vault": str(fixture_vault),
+        "blocks": 4,
+    }
+
+    def append_then_rearm(vault, project, reason):
+        append(vault, project, reason)
+        flag.unlink()
+        flag.write_text(json.dumps(replacement))
+
+    monkeypatch.setattr(hook, "_append_bypass", append_then_rearm)
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert output["decision"] == "block"
+    assert json.loads(flag.read_text()) == replacement
+    assert len(inbox.load(fixture_vault)) == 1
+
+
+def test_stop_gate_matches_direct_publish_state_and_effects(
+    fixture_vault, tmp_path_factory, monkeypatch, capsys
+):
+    from harness_core import __main__ as harness_main
+
+    root = tmp_path_factory.mktemp("stop-publish-integration")
+    direct_vault = shutil.copytree(fixture_vault, root / "direct")
+    hook_vault = shutil.copytree(fixture_vault, root / "hook")
+    monkeypatch.setattr(
+        harness_main.bibliography,
+        "staleness",
+        lambda *_args, **_kwargs: Result.MATCHED,
+    )
+    monkeypatch.setattr(harness_main, "_network_outcomes", lambda *_args: [])
+    monkeypatch.setattr(harness_main, "_archive_outcomes", lambda *_args: [])
+
+    _report, effective, _hashes, warning_effective = harness_main._verify_state(
+        direct_vault,
+        network=True,
+    )
+    direct_code, direct_reasons = harness_main._surface_decision(
+        "publish", effective, warning_effective
+    )
+    _arm_publish(hook_vault)
+    hook = _load_stop_hook()
+
+    output = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(hook_vault))
+    )
+
+    def projected_state(vault):
+        return tuple(
+            (str(path.relative_to(vault)), path.read_bytes())
+            for root_name in ("inbox", "literatures", "projects")
+            for path in sorted((vault / root_name).rglob("*"))
+            if path.is_file()
+        )
+
+    assert direct_code == 1
+    assert output["decision"] == "block"
+    assert all(reason in output["reason"] for reason in direct_reasons)
+    assert projected_state(hook_vault) == projected_state(direct_vault)

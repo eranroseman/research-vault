@@ -1270,6 +1270,43 @@ def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_cs
     return report
 
 
+def _surface_decision(surface, effective, warning_effective):
+    """Return the shared exit decision and rendered blockers for one surface."""
+    closing = CLOSING_BY_SURFACE[surface]
+    blockers = []
+    genuine = [
+        outcome
+        for outcome in effective
+        if outcome.extra.get("synthetic_offline") is not True
+    ]
+    for outcome in genuine:
+        if outcome.result is Result.UNMATCHED and outcome.check in closing:
+            blockers.append(
+                f"UNMATCHED {outcome.check} {outcome.target} — {outcome.reason}"
+            )
+        for index, warning in enumerate(outcome.extra.get("warn_notices", ())):
+            if outcome.check not in closing or not warning_effective.get(
+                (id(outcome), index), warning_effective.get(id(outcome), False)
+            ):
+                continue
+            warning_type = warning.get("type") if isinstance(warning, Mapping) else None
+            if isinstance(warning_type, str):
+                blockers.append(
+                    f"UNMATCHED {outcome.check} {outcome.target} — "
+                    f"warn-notice — {warning_type}"
+                )
+    if blockers:
+        return 1, tuple(blockers)
+    if surface == "audit":
+        return 0, ()
+    unreachable = [
+        f"UNREACHABLE {outcome.check} {outcome.target} — {outcome.reason}"
+        for outcome in genuine
+        if outcome.result is Result.UNREACHABLE
+    ]
+    return (3, tuple(unreachable)) if unreachable else (0, ())
+
+
 def cmd_verify(args):
     surface = getattr(args, "surface", "audit")
     try:
@@ -1302,22 +1339,8 @@ def cmd_verify(args):
                         f"warn-notice — {warning_type}"
                     )
     print(json.dumps(report["counts"], sort_keys=True))
-    closing = CLOSING_BY_SURFACE[surface]
-    blocking_warning = any(
-        outcome.check in closing and warning_effective.get((id(outcome), index), False)
-        for outcome in effective
-        for index, _warning in enumerate(outcome.extra.get("warn_notices", ()))
-    )
-    if blocking_warning or any(
-        outcome.result is Result.UNMATCHED and outcome.check in closing
-        for outcome in effective
-    ):
-        return 1
-    if surface == "audit":
-        return 0
-    return (
-        3 if any(outcome.result is Result.UNREACHABLE for outcome in effective) else 0
-    )
+    decision, _blockers = _surface_decision(surface, effective, warning_effective)
+    return decision
 
 
 def cmd_inbox(args):
