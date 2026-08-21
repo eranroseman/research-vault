@@ -47,6 +47,9 @@ dev = [
     "crap4py==0.1.1",
     "drywall==0.1.3",
     "mypy==2.3.1",
+    "mdformat==1.0.0",
+    "mdformat-gfm==1.0.0",
+    "mdformat-frontmatter==2.1.2",
 ]
 ```
 
@@ -75,7 +78,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 
 ---
 
-### Task 2: Ruff + mypy regression rules
+### Task 2: Ruff + mypy regression rules, mdformat, config validity
 
 **Files:**
 - Modify: `core/pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `core/harness_core/` (lint + type fixes), test files (PLW1510, S108 classification)
@@ -215,10 +218,22 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 - PERF (3 hits): apply the reported rewrites.
 - mypy's 13: annotate the seven `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
 
+- [ ] **Step 3b: Markdown canonical form (mdformat)** — author-ruled 2026-08-21 after two rounds of push-back; the drift-protection argument governs: multi-agent authorship makes style drift the default, and a pinned formatter is the standing protection.
+
+**Format set** (everything under future edit): `README.md`, `docs/specs/`, `docs/terminology.md`, active plan docs, `skills/`, `hooks/*.md` if any, and `core/harness_core/templates/vault/**/*.md` (verified 2026-08-21: `{{tokens}}`, `%%hk-managed%%` markers, and frontmatter survive mdformat byte-intact; only blank-line normalization). **Exclusions, each by named reason, nothing by fear**: `research/`, `analysis/`, completed plan docs, `docs/adr/` (dead records — no future edits, so no drift to protect; formatting buys only blame pollution); `core/tests/` fixtures (byte-asserting — formatting breaks what the test tests).
+
+Run: `mdformat --wrap keep README.md docs/specs docs/terminology.md docs/plans/2026-08-20-plan-q-quality-lane.md docs/plans/2026-08-20-plan-t-terminology-wave.md skills core/harness_core/templates/vault` (adjust the active-plan list to HEAD). Template formatting changes rendered-note bytes: update render tests/fixtures to the canonical form **in this same commit** (pre-vault window — free). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section.
+
+**Contract notes recorded in pyproject comment**: the mdformat pin is a render-contract component (canonical template form leaks into rendered vault notes — a formatter upgrade is judged like a render change, with re-import expectations); oxfmt rejected 2026-08-21 with the mismatch named (it reformats *inside* fenced code blocks — quoted material — the prettier-incident class; measured live: respacing YAML in a quoted workflow snippet; plus a Node toolchain in a Python dev lane).
+
+**Vault-side rule (add one line to the AGENTS.md template)**: formatters are writers — never run one over the vault's machine surfaces (`log/`, `inbox/review-queue.md`, literature managed regions, `system/bibliography.json`); each has an owner and a byte contract.
+
+- [ ] **Step 3c: Config validity test** — `core/tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`core/pyproject.toml`) with `tomllib`; assert each loads. A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI.
+
 - [ ] **Step 4: Verify clean + suite green**
 
-Run: `ruff check harness_core tests --no-cache && mypy harness_core && python -m pytest tests -q`
-Expected: `All checks passed!`, `Success: no issues found`, and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
+Run: `ruff check harness_core tests --no-cache && mypy harness_core && mdformat --check --wrap keep README.md docs/specs docs/terminology.md skills core/harness_core/templates/vault && python -m pytest tests -q`
+Expected: `All checks passed!`, `Success: no issues found`, mdformat silent, and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
 
 - [ ] **Step 5: Commit**
 
@@ -591,6 +606,12 @@ jobs:
         run: ruff check harness_core tests scripts
       - name: Types (mypy)
         run: mypy harness_core
+      - name: Markdown canonical form (mdformat)
+        run: mdformat --check --wrap keep ../README.md ../docs/specs ../docs/terminology.md ../skills harness_core/templates/vault
+      - name: Config validity + workflow lint (actionlint)
+        uses: raven-actions/actionlint@v2
+      - name: Shell lint (shellcheck)
+        run: shellcheck harness_core/templates/git/pre-commit
       - name: Tests + branch coverage
         run: python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
       - name: CRAP ceiling (crap4py)
@@ -612,7 +633,7 @@ crap4py harness_core --lcov lcov.info --max-crap 30 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `mdformat --check` silent on the format set; `shellcheck core/harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
