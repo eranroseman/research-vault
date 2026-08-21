@@ -57,7 +57,14 @@ Create the template tree and package it through `core/pyproject.toml`. The canon
 type: "index"
 okf_version: "0.2"
 ---
-# Knowledge bundle
+# Vault index
+
+- [[literatures/]] — evidence layer: citekey-keyed source notes
+- [[synthesis/]] — synthesis pages (see [[synthesis/index]])
+- [[projects/]] — manuscripts and deliverables
+- [[log/]] — daily activity log (summary: [[log]])
+- [[inbox/]] — fleeting notes and the review queue
+- [[system/]] — support artifacts: templates, bases, the bibliography export
 
 <!-- vault/log.md: packaged bare; okf.regenerate_log adds type: "log" frontmatter + tail after scaffold -->
 # Log
@@ -753,4 +760,4 @@ The final whole-branch review's Important findings were fixed in the branch (`b5
 4. **`cmd_verify` catches bare `ValueError`/`OSError`**, which can convert an implementation bug into a tidy exit 2 with no traceback.
 5. **Projection scratch files** (`.harness-projection-<pid>-<n>`) are unlinked in a `finally`, so a SIGKILL mid-write strands one inside the vault; a startup sweep or an out-of-vault temp dir would close it.
 6. **Standing-scope acks** mean one acknowledgment of a `publish-gate` finding filters every later finding for that project out of `open_entries`/`summary`. Pre-existing inbox behavior, surfaced here because the bypass record depends on it.
-7. **`verify`'s `log.md` regeneration is unwired, conditioned on a trigger that hasn't happened yet.** Plan T's Task 5 (`docs/plans/2026-08-20-plan-t-terminology-wave.md`) shipped `okf.regenerate_log`, called from `import-note` only — `verify` has no log-append mechanism at HEAD to call it after, and its writes flow through `gitstate`'s transactional manifest/publish pipeline (`_allowed_manifest_path` doesn't carry `log.md`). Not scheduled work: **if/when `verify` gains a log-append mechanism**, its transaction must carry `log.md` too — extend `gitstate._allowed_manifest_path` and project `log.md` through `_plan_state` as a tracked output, the same way every other verify-owned write is handled. The doctor `okf` probe already backstops the gap behaviorally (warns when `log.md` is missing or stale relative to day files) until then.
+7. **`verify`'s `log.md` regeneration is unwired, conditioned on a trigger that hasn't happened yet.** Plan T's Task 5 (`docs/plans/2026-08-20-plan-t-terminology-wave.md`) shipped `okf.regenerate_log`, called from `import-note` only — `verify` has no log-append mechanism at HEAD to call it after, and its writes flow through `gitstate`'s transactional manifest/publish pipeline (`_allowed_manifest_path` doesn't carry `log.md`). Not scheduled work: **if/when `verify` gains a log-append mechanism**, its transaction must carry `log.md` too — extend `gitstate._allowed_manifest_path` and project `log.md` through `_plan_state` as a tracked output, the same way every other verify-owned write is handled. The doctor `okf` probe already backstops the gap behaviorally (warns when `log.md` is missing despite day files being present) until then.

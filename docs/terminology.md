@@ -91,7 +91,7 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 | `inbox/`; `inbox/review-queue.md` (`type: "review-queue"`) | A/S — GTD inbox; typed append-only review queue |
 | `literatures/`; `type: literature` | A/S — ZotLit/Ahrens projection vocabulary |
 | `synthesis/`; `synthesis/index.md`; `type: synthesis` | A — evidence-synthesis vocabulary; nested index is reserved |
-| `log/`; `log/YYYY-MM-DD.md`; root `log.md` (`type: "log"`, single writer via `okf.regenerate_log`, called from `import-note` only) | A/S — append-only daily directory plus distinct reserved root tail |
+| `log/`; `log/YYYY-MM-DD.md`; root `log.md` (`type: "log"`, single writer via `okf.regenerate_log`, called from `import-note` (and once at scaffold time)) | A/S — append-only daily directory plus distinct reserved root tail |
 | `projects/`; `type: project` | A/S — PARA/GTD project vocabulary |
 | `system/`; `system/templates/`; `system/bases/`; `AGENTS.md` (`type: "guide"`); `.harness/`; `hk-` markers | S — ruled harness conventions; `system/` sorts last, out of the knowledge folders' way (renamed from `x/`) |
 | root `index.md` (`type: "index"`, `okf_version: "0.2"`) | A — OKF bundle root, links to every vault folder |
@@ -116,6 +116,6 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 | Current term | Status |
 |---|---|
 | CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` | A/S — conventional CLI verbs |
-| skills `setup-vault`, `project`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | Ruled current names |
+| skills `setup-vault`, `project`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names |
 | `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED` | S — trust distinction retained over developer-only pytest vocabulary |
 | evidence layer, synthesis layer, admission, information flow, project flow | A/S — current process vocabulary |

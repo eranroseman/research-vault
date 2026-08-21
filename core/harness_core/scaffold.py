@@ -307,15 +307,21 @@ def _inbox_probe(vault: Path) -> Probe:
 def _okf_typed_markdown(vault: Path):
     """Every ``.md`` path the OKF probe expects to carry a non-empty ``type``.
 
-    Root ``index.md`` (checked separately for ``okf_version``) and root
-    ``log.md`` (checked separately for existence) are reserved and excluded,
-    as is any nested ``index.md`` (e.g. ``synthesis/index.md``).
+    Root ``index.md`` (checked separately for ``type``/``okf_version``) and
+    root ``log.md`` (checked separately for existence) are reserved and
+    excluded, as is any nested ``index.md`` (e.g. ``synthesis/index.md``).
+    ``inbox/`` is a fleeting-capture surface (spec §2: "fleeting human notes
+    are the tolerated residual; frontmatter arrives at triage") — only its
+    machine-owned ``review-queue.md`` is typed, so every other ``inbox/``
+    note is excluded too.
     """
     for path in sorted(vault.rglob("*.md")):
         if ".git" in path.parts:
             continue
         relative = path.relative_to(vault).as_posix()
         if path.name == "index.md" or relative == "log.md":
+            continue
+        if relative.startswith("inbox/") and relative != "inbox/review-queue.md":
             continue
         yield relative, path
 
@@ -338,6 +344,9 @@ def _okf_probe(vault: Path) -> Probe:
     except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
         problems.append(f"index.md: unreadable ({error})")
     else:
+        index_type = index_data.get("type")
+        if index_type != "index":
+            problems.append('index.md: type must be "index"')
         okf_version = index_data.get("okf_version")
         if not isinstance(okf_version, str) or not okf_version.strip():
             problems.append("index.md: missing okf_version")
