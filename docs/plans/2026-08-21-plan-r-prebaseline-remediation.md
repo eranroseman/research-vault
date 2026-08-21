@@ -129,11 +129,11 @@ if parsed_ids != expected_ids:
 **Interfaces:**
 - Produces: `verify.verify_state(...)`, `verify.surface_decision(...)`, `verify.file_outcomes(...)` — public names, signatures identical to today's `_verify_state`/`_surface_decision`/`_file_outcomes`; `outcome.Result`, `outcome.Outcome`, `outcome.normalize_text` (checks.py re-exports during this plan; importers move now).
 
-- [ ] **Step 1: Move the engine block** (`__main__.py` ~313–1345 at the review's anchor: `_target_hash`, `_apply_state_transitions`, `_file_effects`, `_file_outcomes`, `_plan_state`, `_verify_state`, `_surface_decision`, and their private helpers) to `verify.py` verbatim; public-rename the three hook-consumed entry points; `__main__` imports them for its cmd_ functions.
-- [ ] **Step 2: Switch the hooks** — `stop_publish_gate.py` and `posttooluse_lint.py` import the public names from `harness_core.verify`; no hook imports `__main__` afterward (grep-verified).
-- [ ] **Step 3: Vocabulary move** — `Result` (from `__init__`), `Outcome`, `normalize_text` (from `checks`) into `outcome.py`; `__init__` and `checks` re-export; importing modules (`identify`, `quotes`, `selectors`, `lints`, `events`, `inbox`) switch to `outcome`.
-- [ ] **Step 4: Verify** — `python -m pytest tests -q` all PASS; `grep -rn "from harness_core.__main__ import\|__main__ import" hooks core/harness_core | grep -v cmd_` returns nothing; behavior-preservation check: `git diff` shows moves + import edits only, no logic edits.
-- [ ] **Step 5: Commit** — `git commit -m "refactor: extract verify engine to verify.py (public seam for hooks); co-locate Result/Outcome/normalize_text in outcome.py"`
+- [x] **Step 1: Move the engine block** (`__main__.py` ~313–1345 at the review's anchor: `_target_hash`, `_apply_state_transitions`, `_file_effects`, `_file_outcomes`, `_plan_state`, `_verify_state`, `_surface_decision`, and their private helpers) to `verify.py` verbatim; public-rename the three hook-consumed entry points; `__main__` imports them for its cmd_ functions.
+- [x] **Step 2: Switch the hooks** — `stop_publish_gate.py` and `posttooluse_lint.py` import the public names from `harness_core.verify`; no hook imports `__main__` afterward (grep-verified).
+- [x] **Step 3: Vocabulary move** — `Result` (from `__init__`), `Outcome`, `normalize_text` (from `checks`) into `outcome.py`; `__init__` and `checks` re-export; importing modules (`identify`, `quotes`, `selectors`, `lints`, `events`, `inbox`) switch to `outcome`.
+- [x] **Step 4: Verify** — `python -m pytest tests -q` all PASS; `grep -rn "from harness_core.__main__ import\|__main__ import" hooks core/harness_core | grep -v cmd_` returns nothing; behavior-preservation check: `git diff` shows moves + import edits only, no logic edits.
+- [x] **Step 5: Commit** — `git commit -m "refactor: extract verify engine to verify.py (public seam for hooks); co-locate Result/Outcome/normalize_text in outcome.py"`
 
 ---
 

@@ -85,9 +85,9 @@ def _core_path() -> None:
 def _verify_publish(vault: Path) -> PublishState:
     """Run the production network-capable verification transaction."""
     _core_path()
-    from harness_core.__main__ import _verify_state
+    from harness_core.verify import verify_state
 
-    report, effective, _hashes, warning_effective = _verify_state(
+    report, effective, _hashes, warning_effective = verify_state(
         vault,
         network=True,
     )
@@ -100,9 +100,9 @@ def _verify_publish(vault: Path) -> PublishState:
 
 def _publish_decision(state: PublishState) -> tuple[int, tuple[str, ...]]:
     _core_path()
-    from harness_core.__main__ import _surface_decision
+    from harness_core.verify import surface_decision
 
-    return _surface_decision(
+    return surface_decision(
         "publish",
         state.effective,
         state.warning_effective,

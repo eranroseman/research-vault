@@ -7,7 +7,8 @@ import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from . import AGENT_ACTOR, Result, frontmatter
+from . import AGENT_ACTOR, frontmatter
+from .outcome import Result
 from .pathcodec import PathCodecError, decode_repo_path
 
 INBOX_PATH = "inbox/review-queue.md"

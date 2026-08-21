@@ -9,9 +9,9 @@ from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 
-from . import Result, frontmatter, gitstate, notes
 from . import claims as claims_mod
-from .checks import Outcome
+from . import frontmatter, gitstate, notes
+from .outcome import Outcome, Result
 from .pathcodec import RepoPathValue
 
 ANCHOR = re.compile(r"\^(c-[A-Za-z0-9-]+)\s*$")

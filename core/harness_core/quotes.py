@@ -3,10 +3,9 @@
 import os
 from pathlib import Path
 
-from . import Result
 from . import claims as claims_mod
-from .checks import Outcome, normalize_text
 from .notes import note_path
+from .outcome import Outcome, Result, normalize_text
 from .pathcodec import RepoPathValue
 
 FUZZY_THRESHOLD = 0.90

@@ -27,7 +27,7 @@ def _load_bibliography(vault: Path):
 
 def _file_outcomes(vault: Path, path: Path, bibliography_universe):
     _core_path()
-    from harness_core.__main__ import _file_outcomes as collect
+    from harness_core.verify import file_outcomes as collect
 
     return collect(vault, path, bibliography_universe)
 

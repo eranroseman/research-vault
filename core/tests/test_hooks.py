@@ -1425,24 +1425,24 @@ def test_stop_gate_bypass_retry_after_a_failed_clear_keeps_one_ackable_record(
 def test_stop_gate_matches_direct_publish_state_and_effects(
     fixture_vault, tmp_path_factory, monkeypatch, capsys
 ):
-    from harness_core import __main__ as harness_main
+    from harness_core import verify
 
     root = tmp_path_factory.mktemp("stop-publish-integration")
     direct_vault = shutil.copytree(fixture_vault, root / "direct")
     hook_vault = shutil.copytree(fixture_vault, root / "hook")
     monkeypatch.setattr(
-        harness_main.bibliography,
+        verify.bibliography,
         "staleness",
         lambda *_args, **_kwargs: Result.MATCHED,
     )
-    monkeypatch.setattr(harness_main, "_network_outcomes", lambda *_args: [])
-    monkeypatch.setattr(harness_main, "_archive_outcomes", lambda *_args: [])
+    monkeypatch.setattr(verify, "_network_outcomes", lambda *_args: [])
+    monkeypatch.setattr(verify, "_archive_outcomes", lambda *_args: [])
 
-    _report, effective, _hashes, warning_effective = harness_main._verify_state(
+    _report, effective, _hashes, warning_effective = verify.verify_state(
         direct_vault,
         network=True,
     )
-    direct_code, direct_reasons = harness_main._surface_decision(
+    direct_code, direct_reasons = verify.surface_decision(
         "publish", effective, warning_effective
     )
     _arm_publish(hook_vault)

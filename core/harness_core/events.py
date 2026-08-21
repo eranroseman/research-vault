@@ -3,8 +3,9 @@
 import datetime
 import re
 
-from . import AGENT_ACTOR, Result, frontmatter
+from . import AGENT_ACTOR, frontmatter
 from . import claims as claims_mod
+from .outcome import Result
 
 FAILURES_FIELD = "verification-failures"
 _QUOTE_CHECK = re.compile(
