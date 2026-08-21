@@ -1,0 +1,3 @@
+# Commits ignored by git blame (canonical-form churn only — never content).
+# Append the hash of each one-time format churn commit here.
+# Activate locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
