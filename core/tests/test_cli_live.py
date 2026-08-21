@@ -1026,7 +1026,7 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
     note = (tmp_vault / "literatures" / "smith2020.md").read_text()
     assert 'prefix="prefix " suffix=" suffix"' in note
     second_claim = note.split("Second attachment quote", 1)[1].split("- (quote)", 1)[0]
-    assert "hk-sel" not in second_claim
+    assert "hk-selector" not in second_claim
     assert "no extractable PDF text" in capsys.readouterr().err
 
 
@@ -1081,7 +1081,7 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
         accessed="2026-08-16",
         generated_at="2026-08-16T00:00:00Z",
     )
-    legacy = '  <!-- hk-sel prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
+    legacy = '  <!-- hk-selector prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
     note_path.write_bytes(
         original.replace(notes.MANAGED_CLOSE, legacy + notes.MANAGED_CLOSE).encode()
     )

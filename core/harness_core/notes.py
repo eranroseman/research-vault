@@ -297,7 +297,7 @@ def render_claim(annotation: dict) -> str:
         if pre or suf:
             prefix = _escape_selector((pre or "")[-32:])
             suffix = _escape_selector((suf or "")[:32])
-            lines.append(f'  <!-- hk-sel prefix="{prefix}" suffix="{suffix}" -->')
+            lines.append(f'  <!-- hk-selector prefix="{prefix}" suffix="{suffix}" -->')
         return "\n".join(lines)
     comment = " ".join((annotation.get("comment") or "").split())
     return f"- (paraphrase) {comment} {cite} ^{cid}"

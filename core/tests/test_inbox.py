@@ -660,17 +660,17 @@ def test_identical_update_notice_recurrence_stays_acknowledged(fixture_vault):
                 "result": Result.MATCHED,
             },
         ),
-        ("ack", {"entry_id": "", "actor": "human:eran"}),
-        ("ack", {"entry_id": "doi/x/2026-08-16", "actor": "human:\nother"}),
-        ("ack", {"entry_id": "doi/x/2026-08-16", "actor": "human:"}),
+        ("ack", {"finding_id": "", "actor": "human:eran"}),
+        ("ack", {"finding_id": "doi/x/2026-08-16", "actor": "human:\nother"}),
+        ("ack", {"finding_id": "doi/x/2026-08-16", "actor": "human:"}),
         (
             "ack",
-            {"entry_id": "doi/x/2026-08-16", "actor": "human:eran", "target_hash": 7},
+            {"finding_id": "doi/x/2026-08-16", "actor": "human:eran", "target_hash": 7},
         ),
         (
             "ack",
             {
-                "entry_id": "doi/x/2026-08-16",
+                "finding_id": "doi/x/2026-08-16",
                 "actor": "human:eran",
                 "target_hash": "different",
             },
@@ -689,8 +689,8 @@ def test_rejected_append_is_byte_atomic(fixture_vault, api, kwargs):
     )
     before = queue.read_bytes()
     kwargs = dict(kwargs)
-    if api == "ack" and kwargs["entry_id"]:
-        kwargs["entry_id"] = seed.id
+    if api == "ack" and kwargs["finding_id"]:
+        kwargs["finding_id"] = seed.id
 
     if api == "finding":
         with pytest.raises((TypeError, ValueError)):
@@ -749,11 +749,11 @@ def test_load_rejects_unknown_hash_mismatched_or_ambiguous_ack_references(
 ):
     queue = fixture_vault / inbox.INBOX_PATH
     ack = (
-        "- [ack:: {entry_id}] [actor:: human:eran] [reason:: manual — checked]"
+        "- [ack:: {finding_id}] [actor:: human:eran] [reason:: manual — checked]"
         "{fields}\n"
     )
 
-    _write_body(queue, ack.format(entry_id="doi/missing/2026-08-16", fields=""))
+    _write_body(queue, ack.format(finding_id="doi/missing/2026-08-16", fields=""))
     with pytest.raises(inbox.InboxError, match="line 1"):
         inbox.load(fixture_vault)
 
@@ -772,7 +772,7 @@ def test_load_rejects_unknown_hash_mismatched_or_ambiguous_ack_references(
         finding_line
         + "\n"
         + ack.format(
-            entry_id=finding.id,
+            finding_id=finding.id,
             fields=" [target-hash:: bb22]",
         ),
     )
@@ -786,7 +786,7 @@ def test_load_rejects_unknown_hash_mismatched_or_ambiguous_ack_references(
         + finding_line
         + "\n"
         + ack.format(
-            entry_id=finding.id,
+            finding_id=finding.id,
             fields=" [target-hash:: aa11]",
         ),
     )

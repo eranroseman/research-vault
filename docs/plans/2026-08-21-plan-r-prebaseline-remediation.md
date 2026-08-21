@@ -209,8 +209,8 @@ Renames (mechanical; judged greps, history rule holds):
 
 Ruled keeps (do NOT rename): `surface` (spec §6 anchored; register split recorded in §4.4) · `ack` (spec §3 serialization grammar) · `rw` flags (registry recorded) · `hk-` prefix (ZotLit-anchored form) · `identify`/`discover`/`identifier-discovery` trio (inventoried as one concept; "fixing" creates stutter). Deferred to the deepening pass: stutter/noun-function conventions, `FileImage`/`CapturedOutput`.
 
-- [ ] **Step 1:** Apply renames 1–13 tests-first per group; judged grep for each retired identifier returns only history-rule-protected hits.
-- [ ] **Step 2:** Suite green; commit — `rename: naming-audit corrections (screening-state, disputed-claim, Finding, Outcome-unified doctor, hk-selector)`.
+- [x] **Step 1:** Apply renames 1–13 tests-first per group; judged grep for each retired identifier returns only history-rule-protected hits.
+- [x] **Step 2:** Suite green; commit — `rename: naming-audit corrections (screening-state, disputed-claim, Finding, Outcome-unified doctor, hk-selector)`.
 
 ---
 

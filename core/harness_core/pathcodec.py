@@ -30,7 +30,7 @@ def _validate_raw(raw: bytes) -> bytes:
 
 
 @dataclass(frozen=True)
-class RepoPathValue:
+class RepoPath:
     """An explicitly typed raw repository-relative path."""
 
     raw: bytes
@@ -71,7 +71,7 @@ def decode_repo_path(value: str) -> bytes:
 __all__ = [
     "PATH_BYTES_PREFIX",
     "PathCodecError",
-    "RepoPathValue",
+    "RepoPath",
     "decode_repo_path",
     "encode_repo_path",
 ]

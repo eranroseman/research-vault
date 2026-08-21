@@ -7,9 +7,9 @@ from . import AGENT_ACTOR, frontmatter
 from . import claims as claims_mod
 from .outcome import Result
 
-FAILURES_FIELD = "verification-failures"
+FAILURES_FIELD = "failed-verification"
 _QUOTE_CHECK = re.compile(
-    r"^quote:(?P<address>[^\r\n:]+#\^[^\r\n:]+):(?P<target>managed-region|source-text)$"
+    r"^quote:(?P<claim_link>[^\r\n:]+#\^[^\r\n:]+):(?P<target>managed-region|source-text)$"
 )
 
 
@@ -110,7 +110,7 @@ def record_pass(
     failures, malformed_failures = _failure_rows(data)
     if malformed_failures or _duplicate_header(note_text, FAILURES_FIELD):
         raise ValueError(
-            "verification-failures frontmatter must be a deterministic list of mappings"
+            "failed-verification frontmatter must be a deterministic list of mappings"
         )
     failures = [row for row in failures if row["check"] != check]
     events.append(
@@ -140,7 +140,7 @@ def record_failure(note_text: str, check: str, result: Result) -> str:
     failures, malformed = _failure_rows(data)
     if malformed or _duplicate_header(note_text, FAILURES_FIELD):
         raise ValueError(
-            "verification-failures frontmatter must be a deterministic list of mappings"
+            "failed-verification frontmatter must be a deterministic list of mappings"
         )
     by_check = {row["check"]: row for row in failures}
     by_check[check] = {"check": check, "result": result.value}
@@ -260,17 +260,17 @@ def trust_tier(note_text: str) -> str:
         check = row["check"]
         quote = _QUOTE_CHECK.fullmatch(check)
         if check in applicable_failures or (
-            quote is not None and quote.group("address").split("#^", 1)[0] == citekey
+            quote is not None and quote.group("claim_link").split("#^", 1)[0] == citekey
         ):
             machine_confirmed = False
 
     for claim in claims_mod.parse_claims(note_text):
         if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:
             continue
-        address = claims_mod.claim_link(citekey, claim.claim_id)
+        claim_link = claims_mod.claim_link(citekey, claim.claim_id)
         quote_checks = {
-            f"quote:{address}:managed-region",
-            f"quote:{address}:source-text",
+            f"quote:{claim_link}:managed-region",
+            f"quote:{claim_link}:source-text",
         }
         if checks.isdisjoint(quote_checks):
             machine_confirmed = False

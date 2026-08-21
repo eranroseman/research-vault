@@ -102,7 +102,7 @@ def _attachment_hash(attachment, vault) -> tuple[str, Path]:
 _QUOTE_SELECTOR = re.compile(
     r"^- \(quote\)[^\r\n]*\^(?P<claim_id>c-[0-9a-f]{8})\r?\n"
     r"(?:  >[^\r\n]*(?:\r\n|\n|$))*"
-    r'  <!-- hk-sel prefix="(?P<prefix>.*?)" suffix="(?P<suffix>.*?)" -->',
+    r'  <!-- hk-selector prefix="(?P<prefix>.*?)" suffix="(?P<suffix>.*?)" -->',
     re.MULTILINE | re.DOTALL,
 )
 
@@ -363,22 +363,22 @@ def cmd_scaffold(args):
 
 def cmd_doctor(args):
     probes = doctor(args.vault, ZoteroClient(base=args.base))
-    for name, result, detail in probes:
+    for check, result, reason in probes:
         prefix = (
             "warn:"
-            if name in DOCTOR_WARN_ONLY
+            if check in DOCTOR_WARN_ONLY
             and result in {Result.UNMATCHED, Result.UNREACHABLE}
             else ""
         )
-        print(f"{prefix}{result.value} {name} — {detail}")
+        print(f"{prefix}{result.value} {check} — {reason}")
     if any(
-        name in DOCTOR_HARD_UNMATCHED and result is Result.UNMATCHED
-        for name, result, _detail in probes
+        check in DOCTOR_HARD_UNMATCHED and result is Result.UNMATCHED
+        for check, result, _reason in probes
     ):
         return 1
     if any(
-        name in DOCTOR_HARD_UNREACHABLE and result is Result.UNREACHABLE
-        for name, result, _detail in probes
+        check in DOCTOR_HARD_UNREACHABLE and result is Result.UNREACHABLE
+        for check, result, _reason in probes
     ):
         return 3
     return 0

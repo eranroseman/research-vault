@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
-from .pathcodec import RepoPathValue, encode_repo_path
+from .pathcodec import RepoPath, encode_repo_path
 
 ZERO_OID = "0" * 40
 
@@ -29,7 +29,7 @@ class FileImage:
     data: bytes | None
 
     def __post_init__(self) -> None:
-        RepoPathValue(self.raw_path)
+        RepoPath(self.raw_path)
         if self.kind not in {"file", "directory", "symlink", "special"}:
             raise ValueError("unknown file-image kind")
         if self.kind in {"file", "symlink"} and type(self.data) is not bytes:
@@ -73,7 +73,7 @@ class CapturedOutput:
     data: bytes
 
     def __post_init__(self) -> None:
-        RepoPathValue(self.raw_path)
+        RepoPath(self.raw_path)
         if type(self.data) is not bytes:
             raise TypeError("captured output data must be bytes")
         if self.mode not in {0o100644, 0o100755}:
@@ -168,7 +168,7 @@ def snapshot_tree(vault_root: Path, tree: str) -> Snapshot:
             mode = int(mode_text, 8)
         except (ValueError, TypeError) as error:
             raise GitStateError("malformed NUL-delimited ls-tree record") from error
-        RepoPathValue(raw_path)
+        RepoPath(raw_path)
         kind, normalized_mode = _git_mode(mode)
         data = None
         if kind in {"file", "symlink"}:
@@ -241,7 +241,7 @@ def snapshot_worktree(vault_root: Path) -> Snapshot:
             if not relative and name == b".git":
                 continue
             raw_path = name if not relative else relative + b"/" + name
-            RepoPathValue(raw_path)
+            RepoPath(raw_path)
             try:
                 st = entry.stat(follow_symlinks=False)
                 image = _normalized_live_image(root, raw_path, st)
@@ -377,7 +377,7 @@ def _root_bytes(vault_root: Path) -> bytes:
 
 
 def _absolute(vault_root: Path, raw_path: bytes) -> bytes:
-    RepoPathValue(raw_path)
+    RepoPath(raw_path)
     root = _root_bytes(vault_root)
     current = root
     for component in raw_path.split(b"/")[:-1]:

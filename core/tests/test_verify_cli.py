@@ -21,7 +21,7 @@ from harness_core import (
     webapi,
 )
 from harness_core.__main__ import cmd_inbox, cmd_verify, main
-from harness_core.pathcodec import PathCodecError, RepoPathValue, encode_repo_path
+from harness_core.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from harness_core.verify import (
     _archive_outcomes,
     _mutate_marker,
@@ -38,9 +38,9 @@ def run_verify(vault_root, **kwargs):
 
 def _outcome(check, target, result, reason, **extra):
     if isinstance(extra.get("note_path"), str):
-        extra["note_path"] = RepoPathValue(os.fsencode(extra["note_path"]))
+        extra["note_path"] = RepoPath(os.fsencode(extra["note_path"]))
     if check in {"append-only", "staleness"} and isinstance(target, str):
-        target = RepoPathValue(os.fsencode(target))
+        target = RepoPath(os.fsencode(target))
     return checks.Outcome(check, target, result, reason, extra)
 
 
@@ -246,7 +246,7 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
         ]
     )
     with pytest.raises(PathCodecError):
-        RepoPathValue(b"../outside")
+        RepoPath(b"../outside")
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -974,7 +974,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     link.symlink_to(first_target)
     directory_outcome = _outcome(
         "published-drift",
-        RepoPathValue(b"projects/published"),
+        RepoPath(b"projects/published"),
         Result.UNMATCHED,
         "drift",
     )
@@ -1288,7 +1288,7 @@ def _projecting_failure(check):
         Result.UNMATCHED,
         "mismatch — quote",
         {
-            "note_path": RepoPathValue(b"literatures/smith2020.md"),
+            "note_path": RepoPath(b"literatures/smith2020.md"),
             "claim_id": "c-11111111",
             "target": "managed-region",
         },
@@ -1517,7 +1517,7 @@ def test_deleted_nested_repo_path_hashes_resolved_base_without_live_parent(
     directory.rmdir()
     outcome = checks.Outcome(
         "evidence-layer",
-        RepoPathValue(b"projects/nested/deleted.md"),
+        RepoPath(b"projects/nested/deleted.md"),
         Result.UNMATCHED,
         "drift — deleted note",
     )
@@ -1750,7 +1750,7 @@ def test_hash_and_marker_filesystem_routing_requires_explicit_repo_path_kind(
     path = os.path.join(os.fsencode(fixture_vault), raw)
     with open(path, "wb") as stream:
         stream.write(b"- (quote) body ^c-1\n")
-    repo_target = RepoPathValue(raw)
+    repo_target = RepoPath(raw)
     typed = checks.Outcome(
         "append-only", repo_target, Result.UNMATCHED, "drift — typed path"
     )

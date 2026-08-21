@@ -26,9 +26,11 @@ _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".harness/machine.json"}
 
 
 class Probe(NamedTuple):
-    name: str
+    """One doctor row, in the Outcome vocabulary (check/result/reason)."""
+
+    check: str
     result: Result
-    detail: str
+    reason: str
 
 
 def _git(vault: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:

@@ -17,7 +17,7 @@ from .outcome import (  # re-exported vocabulary
     _detached_extra,
     normalize_text,
 )
-from .pathcodec import RepoPathValue, decode_repo_path
+from .pathcodec import RepoPath, decode_repo_path
 
 _RECORD_FIELDS = {
     "check",
@@ -90,12 +90,12 @@ def outcome_from_record(record: Mapping[str, object]) -> Outcome:
             or type(mutable_extra[field_name]) is not str
         ):
             raise ValueError("Outcome path extra metadata does not name a string")
-        mutable_extra[field_name] = RepoPathValue(
+        mutable_extra[field_name] = RepoPath(
             decode_repo_path(mutable_extra[field_name])
         )
-    typed_target: str | RepoPathValue = target
+    typed_target: str | RepoPath = target
     if kind == "repo-path":
-        typed_target = RepoPathValue(decode_repo_path(target))
+        typed_target = RepoPath(decode_repo_path(target))
     outcome = Outcome(check, typed_target, result_value, reason, mutable_extra)
     if (
         outcome.target_kind != kind
@@ -135,7 +135,7 @@ def check_citekeys(
         return [
             Outcome(
                 "citekey",
-                RepoPathValue(relative_raw),
+                RepoPath(relative_raw),
                 Result.SKIPPED,
                 "no-identifier — note cites nothing",
             )
@@ -144,7 +144,7 @@ def check_citekeys(
     if bibliography_universe is None:
         bibliography_universe = bibliography.load(vault)
     origins = _claim_origins(note_text)
-    typed_note_path = RepoPathValue(relative_raw)
+    typed_note_path = RepoPath(relative_raw)
     outcomes = []
     for citekey in cited:
         result = (

@@ -31,7 +31,7 @@ class AutoexportObservation(NamedTuple):
     staleness_detail: str
 
 
-class _TargetState(NamedTuple):
+class _ExportState(NamedTuple):
     result: Result
     detail: str
     fingerprint: list[tuple[str, str]] | None = None
@@ -39,7 +39,7 @@ class _TargetState(NamedTuple):
     contained: bool = True
 
 
-class _TargetBoundary(NamedTuple):
+class _ExportBoundary(NamedTuple):
     vault: Path
     target: Path
     ancestor_ids: tuple[tuple[int, int], ...]
@@ -159,7 +159,7 @@ def _open_parent_chain(target: Path, expected_ids=None):
         raise
 
 
-def _pin_target_boundary(vault_root) -> _TargetBoundary:
+def _pin_target_boundary(vault_root) -> _ExportBoundary:
     vault = _absolute_vault(vault_root)
     target = vault / BIB_PATH
     try:
@@ -169,10 +169,10 @@ def _pin_target_boundary(vault_root) -> _TargetBoundary:
             f"unsafe vault-to-bibliography path: {error}"
         ) from error
     os.close(descriptor)
-    return _TargetBoundary(vault, target, identities)
+    return _ExportBoundary(vault, target, identities)
 
 
-def _guard_boundary(boundary: _TargetBoundary) -> None:
+def _guard_boundary(boundary: _ExportBoundary) -> None:
     try:
         descriptor, _identities = _open_parent_chain(
             boundary.target, boundary.ancestor_ids
@@ -290,7 +290,7 @@ def _rollback_head(vault: Path, expected_parent: str | None, commit: str) -> Non
 
 
 def commit_autoexport(
-    vault_root, snapshot: bytes, *, _boundary: _TargetBoundary | None = None
+    vault_root, snapshot: bytes, *, _boundary: _ExportBoundary | None = None
 ) -> bool:
     """Commit exactly a validated BBT snapshot without rereading its target."""
     if not isinstance(snapshot, bytes):
@@ -455,11 +455,11 @@ def _fingerprint_serialized(raw: bytes):
         return None, Result.UNMATCHED
 
 
-def _unsafe_target(detail: str) -> _TargetState:
-    return _TargetState(Result.UNMATCHED, detail, contained=False)
+def _unsafe_target(detail: str) -> _ExportState:
+    return _ExportState(Result.UNMATCHED, detail, contained=False)
 
 
-def _target_state(boundary: _TargetBoundary) -> _TargetState:
+def _target_state(boundary: _ExportBoundary) -> _ExportState:
     try:
         parent_fd, _identities = _open_parent_chain(
             boundary.target, boundary.ancestor_ids
@@ -473,16 +473,16 @@ def _target_state(boundary: _TargetBoundary) -> _TargetState:
         try:
             path_stat = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
         except FileNotFoundError:
-            return _TargetState(Result.UNMATCHED, "bibliography auto-export absent")
+            return _ExportState(Result.UNMATCHED, "bibliography auto-export absent")
         except OSError as error:
-            return _TargetState(
+            return _ExportState(
                 Result.UNREACHABLE,
                 f"bibliography auto-export unreadable: {error}",
             )
         if stat.S_ISLNK(path_stat.st_mode):
             return _unsafe_target("bibliography auto-export is a symlink")
         if not stat.S_ISREG(path_stat.st_mode):
-            return _TargetState(
+            return _ExportState(
                 Result.UNMATCHED,
                 "bibliography auto-export is not a regular file",
             )
@@ -491,9 +491,9 @@ def _target_state(boundary: _TargetBoundary) -> _TargetState:
         try:
             descriptor = os.open(name, flags, dir_fd=parent_fd)
         except FileNotFoundError:
-            return _TargetState(Result.UNMATCHED, "bibliography auto-export absent")
+            return _ExportState(Result.UNMATCHED, "bibliography auto-export absent")
         except OSError as error:
-            return _TargetState(
+            return _ExportState(
                 Result.UNREACHABLE,
                 f"bibliography auto-export unreadable: {error}",
             )
@@ -507,7 +507,7 @@ def _target_state(boundary: _TargetBoundary) -> _TargetState:
             descriptor = None
             snapshot = export.read()
     except OSError as error:
-        return _TargetState(
+        return _ExportState(
             Result.UNREACHABLE,
             f"bibliography auto-export unreadable: {error}",
         )
@@ -519,16 +519,16 @@ def _target_state(boundary: _TargetBoundary) -> _TargetState:
     try:
         fingerprint = _fingerprint(json.loads(snapshot.decode("utf-8")))
     except UnicodeError as error:
-        return _TargetState(
+        return _ExportState(
             Result.UNREACHABLE,
             f"bibliography auto-export unreadable: {error}",
         )
     except (TypeError, ValueError):
-        return _TargetState(
+        return _ExportState(
             Result.UNMATCHED,
             "bibliography auto-export has invalid JSON or schema",
         )
-    return _TargetState(
+    return _ExportState(
         Result.MATCHED,
         "bibliography auto-export is valid",
         fingerprint,
@@ -536,18 +536,18 @@ def _target_state(boundary: _TargetBoundary) -> _TargetState:
     )
 
 
-def _compare_target(state: _TargetState, evidence) -> _TargetState:
+def _compare_target(state: _ExportState, evidence) -> _ExportState:
     if state.result is not Result.MATCHED:
         return state
     if state.fingerprint != evidence:
-        return _TargetState(
+        return _ExportState(
             Result.UNMATCHED,
             "bibliography auto-export does not match on-demand export",
             state.fingerprint,
             state.snapshot,
             state.contained,
         )
-    return _TargetState(
+    return _ExportState(
         Result.MATCHED,
         "bibliography auto-export matches on-demand export",
         state.fingerprint,
@@ -573,11 +573,11 @@ def _poll_window(boundary, evidence, settle_seconds, poll_interval, clock, sleep
             return compared
 
 
-def _observation(state: _TargetState) -> AutoexportObservation:
+def _observation(state: _ExportState) -> AutoexportObservation:
     return AutoexportObservation(state.result, state.detail, state.result, state.detail)
 
 
-def _repair_guidance(vault: Path, state: _TargetState) -> str:
+def _repair_guidance(vault: Path, state: _ExportState) -> str:
     """Name the target and its human repair on a contained target mismatch."""
     if state.result is not Result.UNMATCHED or not state.contained:
         return state.detail
@@ -592,7 +592,7 @@ def _repair_guidance(vault: Path, state: _TargetState) -> str:
     )
 
 
-def _target_observation(vault: Path, state: _TargetState) -> AutoexportObservation:
+def _target_observation(vault: Path, state: _ExportState) -> AutoexportObservation:
     """Carry the repair guidance in the hard detail; staleness stays diagnostic."""
     return AutoexportObservation(
         state.result,
@@ -602,7 +602,7 @@ def _target_observation(vault: Path, state: _TargetState) -> AutoexportObservati
     )
 
 
-def _committed_state(vault_root, evidence) -> _TargetState:
+def _committed_state(vault_root, evidence) -> _ExportState:
     try:
         committed = subprocess.run(
             ["git", "show", f"HEAD:{BIB_PATH}"],
@@ -611,31 +611,31 @@ def _committed_state(vault_root, evidence) -> _TargetState:
             capture_output=True,
         )
     except OSError as error:
-        return _TargetState(
+        return _ExportState(
             Result.UNREACHABLE,
             f"committed bibliography is unreadable: {error}",
         )
     if committed.returncode != 0:
-        return _TargetState(
+        return _ExportState(
             Result.UNREACHABLE, "committed bibliography cannot be read from HEAD"
         )
     fingerprint, parsed = _fingerprint_serialized(committed.stdout)
     if parsed is Result.UNREACHABLE:
-        return _TargetState(
+        return _ExportState(
             Result.UNREACHABLE, "committed bibliography is unreadable: invalid UTF-8"
         )
     if parsed is Result.UNMATCHED:
-        return _TargetState(
+        return _ExportState(
             Result.UNMATCHED,
             "committed bibliography has invalid JSON or schema",
         )
     if fingerprint != evidence:
-        return _TargetState(
+        return _ExportState(
             Result.UNMATCHED,
             "committed bibliography does not match on-demand export",
             fingerprint,
         )
-    return _TargetState(
+    return _ExportState(
         Result.MATCHED,
         "committed bibliography matches on-demand export",
         fingerprint,
@@ -667,10 +667,10 @@ def observe_autoexport(
     try:
         evidence = _fingerprint(client.export_csl(None))
     except ZoteroError as error:
-        failed = _TargetState(error.result, str(error))
+        failed = _ExportState(error.result, str(error))
         return _observation(failed)
     except (TypeError, ValueError) as error:
-        failed = _TargetState(
+        failed = _ExportState(
             Result.UNREACHABLE, f"malformed on-demand export: {error}"
         )
         return _observation(failed)

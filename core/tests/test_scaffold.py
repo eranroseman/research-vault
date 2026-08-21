@@ -80,8 +80,8 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert (vault / "index.md").read_text() == (
         '---\ntype: "index"\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [[literatures/]] — evidence layer: citekey-keyed source notes\n"
-        "- [[synthesis/]] — synthesis pages (see [[synthesis/index]])\n"
+        "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
+        "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"
         "- [[projects/]] — manuscripts and deliverables\n"
         "- [[log/]] — daily activity log (summary: [[log]])\n"
         "- [[inbox/]] — fleeting notes and the review queue\n"

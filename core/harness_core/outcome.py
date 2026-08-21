@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
-from .pathcodec import RepoPathValue, encode_repo_path
+from .pathcodec import RepoPath, encode_repo_path
 
 
 class Result(enum.Enum):
@@ -45,7 +45,7 @@ def _detached_extra(value, key_path="extra"):
 @dataclass(frozen=True)
 class Outcome:
     check: str
-    target: str | RepoPathValue
+    target: str | RepoPath
     result: Result
     reason: str
     extra: Mapping[str, object] = field(default_factory=dict)
@@ -61,11 +61,11 @@ class Outcome:
         if type(self.target) is str:
             target = self.target
             target_kind = "identifier"
-        elif isinstance(self.target, RepoPathValue):
+        elif isinstance(self.target, RepoPath):
             target = encode_repo_path(self.target.raw)
             target_kind = "repo-path"
         else:
-            raise TypeError("Outcome target must be an identifier or RepoPathValue")
+            raise TypeError("Outcome target must be an identifier or RepoPath")
         if not target or any(character in target for character in "\r\n\0"):
             raise ValueError("Outcome target must be nonempty single-line text")
         if not isinstance(self.extra, Mapping):
@@ -75,7 +75,7 @@ class Outcome:
         for key, value in self.extra.items():
             if type(key) is not str:
                 raise TypeError("Outcome extra mapping keys must be strings")
-            if isinstance(value, RepoPathValue):
+            if isinstance(value, RepoPath):
                 direct[key] = encode_repo_path(value.raw)
                 path_fields.append(key)
             else:

@@ -29,7 +29,7 @@ from . import (
 )
 from .pathcodec import (
     PathCodecError,
-    RepoPathValue,
+    RepoPath,
     decode_repo_path,
     encode_repo_path,
 )
@@ -94,7 +94,7 @@ def _claim_bytes_from_text(text, claim_id):
         if _terminal_anchor_match(content, claim_id):
             block = [line]
             for continuation in lines[index + 1 :]:
-                if continuation.startswith(("  > ", "  <!-- hk-sel")):
+                if continuation.startswith(("  > ", "  <!-- hk-selector")):
                     block.append(continuation)
                 else:
                     break
@@ -488,8 +488,8 @@ def _split_line_ending(line):
 def file_outcomes(vault_root, path, bibliography_universe=None):
     outcomes = (
         quotes.check_all_quotes(vault_root, path)
-        + lints.lint_source_status(vault_root, path)
-        + lints.lint_contested(vault_root, path)
+        + lints.lint_screening_state(vault_root, path)
+        + lints.lint_disputed_claim(vault_root, path)
     )
     if bibliography_universe is not None:
         outcomes = (
@@ -512,13 +512,13 @@ def _staleness_outcome(vault_root, base=DEFAULT_BASE):
     }
     return checks.Outcome(
         "staleness",
-        RepoPathValue(os.fsencode(bibliography.BIB_PATH)),
+        RepoPath(os.fsencode(bibliography.BIB_PATH)),
         result,
         reasons[result],
     )
 
 
-def _network_outcomes(vault_root, entry, detection_date, rw):
+def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
     """Produce DOI/metadata and one reduced update-notice outcome."""
     outcomes = []
     doi = entry.get("DOI") or entry.get("doi")
@@ -555,7 +555,9 @@ def _network_outcomes(vault_root, entry, detection_date, rw):
     else:
         live = checks.check_update_notice(vault_root, entry, detection_date)
     rw_leg = (
-        checks.check_rw_batch(entry, rw, detection_date) if rw is not None else None
+        checks.check_rw_batch(entry, notice_lookup, detection_date)
+        if notice_lookup is not None
+        else None
     )
     reduced = checks.reduce_update_notice_outcomes(live, rw_leg)
     if reduced is not None:
@@ -563,9 +565,11 @@ def _network_outcomes(vault_root, entry, detection_date, rw):
     return outcomes
 
 
-def _offline_network_outcomes(entry, detection_date, rw):
+def _offline_network_outcomes(entry, detection_date, notice_lookup):
     rw_leg = (
-        checks.check_rw_batch(entry, rw, detection_date) if rw is not None else None
+        checks.check_rw_batch(entry, notice_lookup, detection_date)
+        if notice_lookup is not None
+        else None
     )
     if rw_leg is not None:
         return [rw_leg]
@@ -597,7 +601,7 @@ def _archive_outcomes(vault_root):
             if isinstance(raw_target, str)
             and raw_target.strip()
             and _note_for_citekey(vault_root, raw_target.strip()) is not None
-            else RepoPathValue(os.fsencode(path.relative_to(vault_root)))
+            else RepoPath(os.fsencode(path.relative_to(vault_root)))
         )
         try:
             status = webapi.get_status(archive_url, vault_root)
@@ -829,7 +833,7 @@ def _plan_state(
         raw.append(
             checks.Outcome(
                 "staleness",
-                RepoPathValue(os.fsencode(bibliography.BIB_PATH)),
+                RepoPath(os.fsencode(bibliography.BIB_PATH)),
                 error.result,
                 reason,
             )
@@ -841,7 +845,7 @@ def _plan_state(
             raw.append(
                 checks.Outcome(
                     "staleness",
-                    RepoPathValue(os.fsencode(bibliography.BIB_PATH)),
+                    RepoPath(os.fsencode(bibliography.BIB_PATH)),
                     Result.UNREACHABLE,
                     "outage — network disabled",
                     {"synthetic_offline": True},
@@ -854,7 +858,7 @@ def _plan_state(
     ]
     for path in note_files:
         raw.extend(file_outcomes(vault, path, bibliography_universe))
-    rw = checks.load_rw_csv(rw_csv) if rw_csv else None
+    notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None
     entries = (
         _bibliography_entries(bibliography_universe)
         if bibliography_universe is not None
@@ -870,9 +874,9 @@ def _plan_state(
                 entry.update(identifiers)
             entry["_discovery_unreachable"] = discovery.result is Result.UNREACHABLE
         if network:
-            raw.extend(_network_outcomes(vault, entry, detection_date, rw))
+            raw.extend(_network_outcomes(vault, entry, detection_date, notice_lookup))
         else:
-            raw.extend(_offline_network_outcomes(entry, detection_date, rw))
+            raw.extend(_offline_network_outcomes(entry, detection_date, notice_lookup))
     base_snapshot = snapshots.base
     candidate_snapshot = snapshots.candidate
     raw.extend(lints.lint_evidence_layer(base_snapshot, candidate_snapshot))

@@ -136,7 +136,7 @@ def test_live_doctor_reports_the_absent_human_created_auto_export(
     client = RecordingClient()
 
     probes = {
-        probe.name: probe
+        probe.check: probe
         for probe in scaffold.doctor(vault, client, settle_seconds=SETTLE_SECONDS)
     }
 

@@ -1,6 +1,6 @@
 from harness_core import Result, quotes
 from harness_core.checks import Outcome
-from harness_core.pathcodec import RepoPathValue
+from harness_core.pathcodec import RepoPath
 
 
 def test_levenshtein_ratio_bounds():
@@ -45,7 +45,7 @@ def test_same_address_mismatch_does_not_fall_back_to_a_matching_other_quote(
     )[0]
 
     assert out.result is Result.UNMATCHED
-    assert out.reason == "mismatch — quote absent from source note"
+    assert out.reason == "mismatch — quote absent from literature note"
 
 
 def test_empty_same_address_source_quote_falls_back_to_extractable_quote(
@@ -195,7 +195,7 @@ def test_quote_producers_type_note_paths_but_keep_claim_links_identifiers(
 
 def test_kind_is_not_inferred_from_slash_or_prefix_text():
     path_outcome = Outcome(
-        "quote", RepoPathValue(b"note.md"), Result.SKIPPED, "no-identifier — none"
+        "quote", RepoPath(b"note.md"), Result.SKIPPED, "no-identifier — none"
     )
     identifier = Outcome(
         "quote", "path-bytes:note.md", Result.SKIPPED, "no-identifier — none"
