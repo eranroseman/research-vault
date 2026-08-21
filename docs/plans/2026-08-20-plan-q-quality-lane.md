@@ -50,6 +50,8 @@ dev = [
     "mdformat==1.0.0",
     "mdformat-gfm==1.0.0",
     "mdformat-frontmatter==2.1.2",
+    "yamlfix==1.19.1",
+    "pyproject-fmt==2.28.0",
 ]
 ```
 
@@ -227,13 +229,27 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 
 Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templates deliberately absent — dialect surface). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section. After the churn: `grep -rn '\\\[\[' docs skills README.md` must return nothing (no wikilink escaping happened — the CommonMark set was truly dialect-free).
 
+- [ ] **Step 3b-1: Canonical form for the remaining file types** (author-ruled 2026-08-21 — "that's for md files"; the one-form-owner matrix completes over every type in the repo, all candidates comment-preservation-tested live):
+
+| Type | Owner | Enforcement |
+|---|---|---|
+| Python | ruff format (pinned) | CI check (existing) |
+| Markdown, CommonMark | mdformat (pinned) | CI `--check` |
+| Markdown, vault dialect + `.base` | the sole writer (render/scaffold) | canonicality property tests |
+| YAML (workflows, `templates/ci/`) | yamlfix (pinned; verified: only doc-start normalization, comments preserved) | CI `yamlfix --check` |
+| TOML (`pyproject.toml`) | pyproject-fmt (pinned; verified: tool-section comments preserved, zero spurious churn; taplo rejected — collapses arrays, general tool where a targeted one suffices) | CI `pyproject-fmt --check` |
+| JSON (manifests, `hooks.json`) | stdlib `json.tool` canonical form | asserted inside `test_config_validity.py` — formatter and check in one, zero deps |
+| Shell (`templates/git/pre-commit`) | shfmt (CI action, pinned) | CI diff mode |
+
+Apply the one-time churn: `yamlfix .github/workflows core/harness_core/templates/ci && pyproject-fmt core/pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
+
 - [ ] **Step 3b-2: Emitter canonicality property tests** — `core/tests/test_canonical_form.py`, making the sole-writer-is-the-formatter principle mechanical: (1) render idempotence — rendering the same item twice yields identical bytes, and re-rendering rendered output changes nothing; (2) every ledger/inbox line the emitters produce matches the entry-grammar regex exactly; (3) scaffold output from templates is byte-stable across two runs into fresh directories. These give vault surfaces lifetime form-certainty with zero rules — enforced by the owners, verified by the suite.
 
 **Contract notes recorded in pyproject comment**: the mdformat pin is a render-contract component (canonical template form leaks into rendered vault notes — a formatter upgrade is judged like a render change, with re-import expectations); oxfmt rejected 2026-08-21 with the mismatch named (it reformats *inside* fenced code blocks — quoted material — the prettier-incident class; measured live: respacing YAML in a quoted workflow snippet; plus a Node toolchain in a Python dev lane).
 
 **Vault-side note (one line in the AGENTS.md template, informative not normative)**: formatters are writers; the vault's machine surfaces (`log/`, `inbox/review-queue.md`, literature managed regions, `system/bibliography.json`) each have an owner and a byte contract, and the trust machinery rejects foreign writers mechanically — this line explains why the alarms fire, it is not itself the enforcement.
 
-- [ ] **Step 3c: Config validity test** — `core/tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`core/pyproject.toml`) with `tomllib`; assert each loads. A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI.
+- [ ] **Step 3c: Config validity test** — `core/tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`core/pyproject.toml`) with `tomllib`; assert each loads **and that every JSON file equals its `json.dumps(obj, indent=2, ensure_ascii=False) + newline` canonical form** (the failure message prints the `python -m json.tool` command that fixes it). A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI.
 
 - [ ] **Step 4: Verify clean + suite green**
 
@@ -613,6 +629,12 @@ jobs:
         run: mypy harness_core
       - name: Markdown canonical form (mdformat)
         run: mdformat --check --wrap keep ../README.md ../docs ../skills
+      - name: YAML + TOML canonical form
+        run: yamlfix --check ../.github/workflows harness_core/templates/ci && pyproject-fmt --check pyproject.toml
+      - name: Shell format (shfmt)
+        uses: mvdan/sh@v3
+        with:
+          args: -d core/harness_core/templates/git/pre-commit
       - name: Config validity + workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Shell lint (shellcheck)
@@ -638,7 +660,7 @@ crap4py harness_core --lcov lcov.info --max-crap 30 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `mdformat --check` silent on the format set; `shellcheck core/harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `mdformat --check` silent on the format set; `yamlfix --check` and `pyproject-fmt --check` silent; `shellcheck core/harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
