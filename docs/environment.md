@@ -15,6 +15,7 @@ Machine facts the harness design depends on. Each dated — recheck on stack cha
 | Zotero local write probe | Malformed-JSON `POST /api/users/0/items` returns HTTP 400 (not 501); write support must be version-gated fail-closed, not inferred from HTTP status | 2026-08-16 |
 | CSL-JSON read scope | Paged `/api/users/0/items/top?format=csljson` returned 1,407 citekey-ID records and 4 URI-ID top-level attachment/note records; plain `/items` returned 1,341 URI-ID child records among 2,748 total. Whole-library client reads use `/items/top`, normalize URI IDs through BBT citation-key lookup, and exclude only records with no mapping. | 2026-08-16 |
 | BBT citation-key lookup | `item.citationkey` returns JSON `null` values for item keys with no citekey; the client filters those absent mappings and exposes only string-to-string entries. No item identifiers recorded. | 2026-08-16 |
+| BBT version drift | BBT auto-updated 9.0.55 → **9.0.57**; live re-probe 2026-08-22: `autoexport.list` still `-32601 METHOD_NOT_FOUND` — the add-only/collection-only RPC surface facts hold at 9.0.57 | 2026-08-22 |
 | PDF path translation | BBT returns Windows paths (`D:\...`); `wslpath -u` resolves them from WSL (live-verified against a real PDF, see research/zotero-bridge-design-space.md) | 2026-08-16 |
 | obsidian-cli | Installed at `~/.local/bin/obsidian-cli` but cannot find Obsidian from WSL ("Please make sure Obsidian is running") — app-level integration unresolved | 2026-08-15 |
 | git | 2.43.0 (WSL) | 2026-08-15 |

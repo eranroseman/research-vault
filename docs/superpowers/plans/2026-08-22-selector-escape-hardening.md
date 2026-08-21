@@ -7,4 +7,6 @@
 
 3. **CI templates: stale `#subdirectory=core`** (parked from the package-rename merge; pre-existing — Plan L's flip orphaned it): both `knowledge_harness/templates/ci/*.yml` install lines drop the subdirectory fragment (the package now lives at repo root). Must land before any vault scaffolds from these templates. Update any template test asserting the install line.
 
-Acceptance: suite green at baseline; one commit; merge + push in the same motion. (The one-line ruff-format drift at `tests/test_frontmatter.py:86` is Plan Q's canonicalization business — noted, not this task's.)
+4. **Live-leg rename fallout** (found 2026-08-22 by the first live run since Plan R): `tests/test_scaffold_live.py` still reads the pre-unification `.detail` attribute at lines 146-153 — rename to `.reason`, then judged-grep ALL env-gated test files for retired vocabulary (`.detail`, old check ids, `entry_id`, `RepoPathValue`): gated tests are invisible to offline suite-green, so the wave's acceptance never executed them.
+
+Acceptance: **full suite green INCLUDING the live legs** (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>` — Zotero confirmed reachable 2026-08-22); one commit; merge + push in the same motion. (The one-line ruff-format drift at `tests/test_frontmatter.py:86` is Plan Q's canonicalization business — noted, not this task's.)
