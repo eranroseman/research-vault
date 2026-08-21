@@ -480,6 +480,47 @@ def test_selector_values_escape_newlines_on_one_line():
     )
 
 
+def test_selector_values_escape_full_control_class_on_one_line():
+    # NEL (\x85), DEL (\x7f), and the Unicode line/paragraph separators are
+    # not touched by html.escape() and are not among the \r/\n pair the old
+    # implementation handled, but str.splitlines() (used by the claims
+    # parser) treats all of them as line breaks. They are stripped rather
+    # than entity-escaped like \r/\n: html.unescape (the real round-trip
+    # consumer, harness_core.selectors.unescape_selector) maps a numeric
+    # reference like "&#133;" to an unrelated Windows-1252 lookalike instead
+    # of back to \x85, so entity-escaping them would silently corrupt
+    # retained context on a future round trip. A prefix carrying NEL
+    # immediately followed by claim-list-item markup must stay neutralized
+    # on one physical line rather than risk being read back as a new line.
+    ann = dict(
+        QUOTE_ANN,
+        context_prefix="lead\x85- (quote) [@evil] ^c-x",
+        context_suffix="tail\x7f\u2028\u2029",
+    )
+
+    selector = notes.render_claim(ann).split("\n")[-1]
+
+    assert selector == (
+        '  <!-- hk-selector prefix="lead- (quote) [@evil] ^c-x" suffix="tail" -->'
+    )
+
+
+def test_render_note_round_trip_stays_quiet_with_hostile_selector_context():
+    # Before the escaping hardening, this exact context_prefix (a bare NEL
+    # immediately followed by "- (quote) [@evil] ^c-x") survived into the
+    # rendered selector comment unescaped. The claims parser splits on NEL
+    # the same way it splits on \n, so the tail forged a second, bogus claim
+    # line inside the managed body and render_note's own round-trip
+    # parse-back check raised RenderIntegrityError. It must now stay quiet.
+    ann = dict(QUOTE_ANN, context_prefix="lead\x85- (quote) [@evil] ^c-x")
+
+    text = notes.render_note(
+        ITEM, ["aa11"], [ann], existing=None, accessed="2026-08-16"
+    )
+
+    assert "\x85" not in text
+
+
 def test_content_changed_compares_complete_rendered_candidate():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, accessed="2026-08-16")
     identical = notes.render_note(

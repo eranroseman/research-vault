@@ -30,6 +30,13 @@ class RenderIntegrityError(RuntimeError):
 
 _UNSAFE_IDENTIFIER = re.compile(r"[\s\x00-\x1f\x7f]")
 
+# Matches harness_core.frontmatter._CONTROL (C0, DEL, NEL, and the Unicode
+# line/paragraph separators): every code point that some downstream parser
+# treats as a line break, not only the \r/\n pair. Selector attribute values
+# come from PDF-extracted context and must not be able to forge a rendered
+# line using any of them.
+_SELECTOR_CONTROL = re.compile(r"[\x00-\x1f\x7f\x85\u2028\u2029]")
+
 
 def display_text(value) -> str:
     """Collapse a display-class value so it can never span a rendered line.
@@ -277,7 +284,19 @@ def claim_id(annotation: dict) -> str:
 
 def _escape_selector(value: str) -> str:
     """Escape selector attributes without allowing markup to span source lines."""
-    return escape(value, quote=True).replace("\r", "&#13;").replace("\n", "&#10;")
+    escaped = escape(value, quote=True).replace("\r", "&#13;").replace("\n", "&#10;")
+    # \r/\n keep their existing numeric-entity spelling: harness_core.selectors
+    # .unescape_selector (the real round-trip consumer, via html.unescape)
+    # decodes &#13;/&#10; back correctly. The rest of the control class is
+    # dropped outright rather than entity-escaped the same way: per the
+    # HTML5 numeric-character-reference algorithm that html.unescape follows,
+    # C1 controls such as NEL (\x85) decode to unrelated Windows-1252
+    # lookalikes (e.g. "&#133;" -> "…") and most other C0 references
+    # decode to nothing, so entity-escaping them would corrupt rather than
+    # preserve retained context on a future round trip. Stripping is lossy
+    # but never silently wrong, and still guarantees no surviving code point
+    # can be read back as a line break by a downstream parser.
+    return _SELECTOR_CONTROL.sub("", escaped)
 
 
 def render_claim(annotation: dict) -> str:
