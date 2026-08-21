@@ -657,14 +657,43 @@ Commit: `feat: add setup-vault workflow`.
 
 ## Task 8: Run the live scaffold/doctor caveat discharge
 
-Add `test_scaffold_live.py`, guarded by the existing live marker/environment convention. It scaffolds a temporary vault, invokes doctor against real Zotero/BBT, waits for genuine BBT output, imports one real item, verifies the bibliography and note, reruns to NOOP, and runs the offline suite.
+**Files:**
 
-Cleanup is part of the test contract, not a note: remove the exact auto-export registration created for the temporary path, require the BBT removal RPC to confirm that target, query registrations again and assert the target is absent, then remove the temporary vault. A human verifies the same target is absent in BBT preferences. Record the accepted add/remove signatures and confirmation in `docs/environment.md`.
+- Modify: `core/harness_core/paths.py` and `core/harness_core/zotero.py`.
+- Create: `core/tests/test_scaffold_live.py`.
+- Modify: `core/tests/test_zotero.py`.
+- Modify after the corresponding evidence exists: `docs/environment.md`.
+
+Add `test_scaffold_live.py` with these exact environment names:
+
+```python
+CREATE_ENV = "HARNESS_LIVE_BBT_REGISTER"
+CONFIRMED_ENV = "HARNESS_LIVE_AUTOEXPORT_REMOVED"
+VAULT_ENV = "HARNESS_LIVE_SCAFFOLD_VAULT"
+```
+
+`HARNESS_LIVE=1` remains the ordinary live-test gate. A new registration additionally requires `CREATE_ENV=1`. If `VAULT_ENV` is absent, that consent branch creates and reserves a persistent empty vault with `tempfile.mkdtemp(prefix="knowledge-harness-live-")`, never pytest's `tmp_path`, `TemporaryDirectory`, or another automatic cleanup owner, and immediately prints the exact absolute `VAULT_ENV` assignment needed to resume it. If `VAULT_ENV` is present, require an absolute path below the system temporary root with the `knowledge-harness-live-` basename prefix. A supplied vault without recovery state still requires `CREATE_ENV=1`; a supplied vault with exact recovery state enters recovery without new-creation consent and must never register again.
+
+On the new-creation branch, establish and record the owned empty vault identity as specified below before running `git init -q`. Set the synthetic local identity exactly to `user.name=knowledge-harness-live-drill` and `user.email=live-drill@example.invalid`, then run scaffold. The live drill must not depend on or change global Git identity.
+
+BBT 9.0.55's verified live/public auto-export contract exposes `autoexport.add` only. `autoexport.list`, `autoexport.remove`, `autoexport.delete`, and `autoexport.get` each return JSON-RPC `-32601`; do not add client helpers, test calls, cleanup calls, or assertions that invent any of them. Reuse the existing `register_autoexport` path for the sole registration call.
+
+`paths.to_bbt_host(path)` owns transient provisioning-target conversion. Detect WSL from `WSL_INTEROP`, `WSL_DISTRO_NAME`, or `"microsoft"` in `platform.release().lower()`. On WSL, `wslpath -w PATH` must launch, return zero, and produce non-empty stripped stdout; any launch error, nonzero status, or empty output raises `PathError`, which `register_autoexport` maps to `ZoteroError(Result.UNREACHABLE)` before calling `autoexport.add`. Never fall back to a WSL-native path. Only off WSL, return the native absolute path directly. Never write either machine path to the repository, a tracked fixture, or `docs/environment.md`.
+
+After transient target conversion succeeds, the new-creation branch creates or validates the owned empty non-symlink vault, captures its `lstat()` device and inode once, and writes a sibling recovery file named `.<vault-name>.state.json` before `git init`, scaffold, or any BBT call. Schema `1` records the exact vault, local target, transient host target, phase, `st_dev`, and `st_ino`; those identity fields never change. Retain and advance this state on success or interruption. It remains outside the vault so it survives later vault removal. Recovery and cleanup require the live path to remain a non-symlink directory whose current `lstat()` device/inode exactly match the recorded pair. A missing vault, symlink, replacement directory at the same spelling, malformed state, or vault/target/identity mismatch is a hard refusal; never delete the replacement or treat it as license to create, register, or clean up.
+
+The live test invokes doctor against real Zotero/BBT, makes exactly one registration for the retained vault's `x/bibliography.json`, waits for genuine BBT output, imports one real item, verifies the bibliography and note, and reruns to NOOP. It then prints the exact `VAULT_ENV`, temporary vault, host target, and mandatory cleanup command and deliberately retains the vault plus recovery state. A human must open BBT Preferences, remove that exact automatic-export entry, and confirm the target absent there. The cleanup rerun requires `CONFIRMED_ENV=1` plus the exact matching recovery state; it does not require `CREATE_ENV`, does not call `autoexport.add`, and removes only the recorded vault before marking the sibling state with the actual confirmation time. Automation never reports or infers BBT cleanup before that explicit human assertion.
+
+`docs/environment.md` records two evidence events only: the dated 2026-08-20 API fact for BBT 9.0.55 (`autoexport.add` supported; the four names above returned `-32601`), and, later, a separate entry dated on the day a human actually confirms the exact test registration absent in BBT Preferences. Do not pre-record human confirmation or commit either machine path.
+
+Task 8 RED/acceptance coverage proves: new creation cannot occur without `CREATE_ENV=1`; absent `VAULT_ENV` reserves a persistent vault and prints its resume value; explicit-path creation and exact-state recovery are distinct; recovery plus `CONFIRMED_ENV=1` works without creation consent; corrupt/mismatched state and unsafe vault paths refuse all mutation; replacing the recorded directory or substituting a symlink preserves that successor and refuses cleanup because device/inode ownership no longer matches; local synthetic Git identity is in force before scaffold; off-WSL uses the native absolute target; WSL uses only successful non-empty `wslpath -w`; failed WSL translation is UNREACHABLE with zero RPC calls; the opted-in live path makes exactly one `autoexport.add` call and no call to the four unsupported names; interruption retains exact recovery evidence; and confirmed cleanup deletes only the same recorded directory identity while retaining the audit state. The live assertions may be explicitly deferred for unavailable authorization. If registration ran, acceptance also requires later human cleanup confirmation; a passing pytest process alone does not discharge cleanup.
 
 Run:
 
 ```bash
-HARNESS_LIVE=1 python -m pytest tests/test_scaffold_live.py -v
+python -m pytest tests/test_zotero.py tests/test_scaffold_live.py -m 'not live' -v
+HARNESS_LIVE=1 HARNESS_LIVE_BBT_REGISTER=1 python -m pytest tests/test_scaffold_live.py -v
+HARNESS_LIVE=1 HARNESS_LIVE_SCAFFOLD_VAULT='/exact/path/printed/by/first/run' HARNESS_LIVE_AUTOEXPORT_REMOVED=1 python -m pytest tests/test_scaffold_live.py -v
 HARNESS_LIVE=1 HARNESS_LIVE_NET=1 python -m pytest tests -v
 ```
 
@@ -693,11 +722,11 @@ Then run `git diff --check` and the scoped terminology scan from the repository 
 - RW verification commits the exact captured postimage bytes/modes from expected HEAD with an expected-old HEAD CAS, separately audits them against the raw manifest, and preserves the live index plus unrelated paths;
 - `--with-ci` and `--with-rw-ci` remain separate authorities;
 - the Stop bound is consecutive through `stop_hook_active`;
-- exact live auto-export cleanup is confirmed;
-- the required live gates pass or are explicitly deferred only for unavailable authorization.
+- Task 8 never claims automated auto-export cleanup: an opted-in registration retains its exact target and temporary vault until a human removes the entry in BBT Preferences and records actual confirmation;
+- the required live gates pass or are explicitly deferred only for unavailable authorization, and any run that called `autoexport.add` remains incomplete until that human cleanup confirmation exists.
 
 Merge only after all nine task commits and acceptance evidence are present.
 
 ## Self-review
 
-Tasks 1–2 own templates and scoped creation. Task 3 owns the BBT-writer boundary for doctor and import plus doctor routing. Task 4 owns managed witnesses, state/surface separation, the exact verifier-output manifest, pre-commit, and both CI contracts. Task 5 owns the unconditional literature-touch warning. Task 6 owns publish arming and the consecutive bound. Task 7 owns user consent. Task 8 owns real add/remove validation. No task depends on a trailing ruling block to override its snippets.
+Tasks 1–2 own templates and scoped creation. Task 3 owns the BBT-writer boundary for doctor and import plus doctor routing. Task 4 owns managed witnesses, state/surface separation, the exact verifier-output manifest, pre-commit, and both CI contracts. Task 5 owns the unconditional literature-touch warning. Task 6 owns publish arming and the consecutive bound. Task 7 owns user consent. Task 8 owns real `autoexport.add` validation and retained, human-confirmed cleanup. No task depends on a trailing ruling block to override its snippets.
