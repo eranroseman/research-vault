@@ -52,6 +52,7 @@ dev = [
     "mdformat-frontmatter==2.1.2",
     "yamlfix==1.19.1",
     "pyproject-fmt==2.28.0",
+    "pre-commit==4.6.2",
 ]
 ```
 
@@ -242,6 +243,110 @@ Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templa
 | Shell (`templates/git/pre-commit`) | shfmt (CI action, pinned) | CI diff mode |
 
 Apply the one-time churn: `yamlfix .github/workflows core/harness_core/templates/ci && pyproject-fmt core/pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
+
+- [ ] **Step 3b-1b: The orchestration seam** (rethink audit 2026-08-21, `docs/2026-08-21-lint-format-rethink.md` — closes R7 "one command locally == CI"). Create `.pre-commit-config.yaml` at repo root:
+
+```yaml
+# Dev-lane orchestration seam (docs/2026-08-21-lint-format-rethink.md): the ONE
+# command for every form/lint check, locally and in CI:
+#     source core/.venv/bin/activate && pre-commit run --all-files
+# All hooks are repo-local system hooks over the pinned venv — no remote hook
+# repos, no env building, no network at check time. The one-form-owner matrix
+# lives here as config; quality metrics (CRAP/drywall/mutation) are a different
+# axis and run as separate workflow steps.
+# NAME COLLISION, deliberate: this is the repo's DEV-LANE pre-commit (style and
+# correctness). The vault's pre-commit (core/harness_core/templates/git/pre-commit)
+# is a TRUST GATE owned by the harness — a different system; do not conflate.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: "form: python (ruff format)"
+        language: system
+        entry: bash -c 'cd core && ruff format harness_core tests scripts'
+        pass_filenames: false
+        always_run: true
+      - id: ruff-check
+        name: "lint: python (ruff)"
+        language: system
+        entry: bash -c 'cd core && ruff check harness_core tests scripts'
+        pass_filenames: false
+        always_run: true
+      - id: mypy
+        name: "types: python (mypy rung-1)"
+        language: system
+        entry: bash -c 'cd core && mypy harness_core'
+        pass_filenames: false
+        always_run: true
+      - id: mdformat
+        name: "form: markdown CommonMark (mdformat)"
+        language: system
+        entry: bash -c 'mdformat --wrap keep README.md docs skills'
+        pass_filenames: false
+        always_run: true
+      - id: yamlfix
+        name: "form: yaml (yamlfix)"
+        language: system
+        entry: bash -c 'yamlfix .github/workflows core/harness_core/templates/ci'
+        pass_filenames: false
+        always_run: true
+      - id: pyproject-fmt
+        name: "form: toml (pyproject-fmt)"
+        language: system
+        entry: bash -c 'pyproject-fmt core/pyproject.toml'
+        pass_filenames: false
+        always_run: true
+      - id: config-validity
+        name: "lint: json canonical + skill frontmatter (suite)"
+        language: system
+        entry: bash -c 'cd core && python -m pytest tests/test_config_validity.py -q'
+        pass_filenames: false
+        always_run: true
+      # Manual stage: binary tools R5 declines to require locally (ruff-repo
+      # precedent for stage-tiering). CI runs them; local runs are optional.
+      - id: shellcheck
+        name: "lint: shell (shellcheck)"
+        language: system
+        entry: shellcheck core/harness_core/templates/git/pre-commit
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+      - id: shfmt
+        name: "form: shell (shfmt, diff mode)"
+        language: system
+        entry: shfmt -d core/harness_core/templates/git/pre-commit
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+```
+
+(Formatter hooks run in write mode; pre-commit's contract fails a hook whose files changed, so the same command is check-mode in CI with `--show-diff-on-failure`. If a hook needs adjustment against pre-commit 4.6.2's actual behavior at execution, adapt and record — the seam's contract is only: one command, all owners, no network.)
+
+- [ ] **Step 3b-1c: IDE alignment** — create `.vscode/settings.json` and `.vscode/extensions.json` so the editor can never fight the form-owners (the original markdown corruption came from IDE prettier):
+
+```jsonc
+// .vscode/settings.json — JSONC, a dialect surface owned by VS Code itself
+// (outside the json.tool owner, same class as .base files).
+{
+  // One form-owner per type: the IDE must never fight the owners
+  // (docs/2026-08-21-lint-format-rethink.md). Python alone formats on save,
+  // via the same pinned ruff the seam runs.
+  "editor.formatOnSave": false,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "prettier.enable": false,
+  "python.defaultInterpreterPath": "${workspaceFolder}/core/.venv/bin/python",
+  "files.insertFinalNewline": true
+}
+```
+
+```json
+{
+  "recommendations": ["charliermarsh.ruff"]
+}
+```
 
 - [ ] **Step 3b-2: Emitter canonicality property tests** — `core/tests/test_canonical_form.py`, making the sole-writer-is-the-formatter principle mechanical: (1) render idempotence — rendering the same item twice yields identical bytes, and re-rendering rendered output changes nothing; (2) every ledger/inbox line the emitters produce matches the entry-grammar regex exactly; (3) scaffold output from templates is byte-stable across two runs into fresh directories. These give vault surfaces lifetime form-certainty with zero rules — enforced by the owners, verified by the suite.
 
@@ -623,19 +728,13 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: pip install -e ".[dev]"
-      - name: Lint (ruff)
-        run: ruff check harness_core tests scripts
-      - name: Types (mypy)
-        run: mypy harness_core
-      - name: Markdown canonical form (mdformat)
-        run: mdformat --check --wrap keep ../README.md ../docs ../skills
-      - name: YAML + TOML canonical form
-        run: yamlfix --check ../.github/workflows harness_core/templates/ci && pyproject-fmt --check pyproject.toml
-      - name: Shell format (shfmt)
-        uses: mvdan/sh@v3
-        with:
-          args: -d core/harness_core/templates/git/pre-commit
-      - name: Config validity + workflow lint (actionlint)
+      - name: Form + lint (the one command — same as local)
+        run: pre-commit run --all-files --show-diff-on-failure
+        working-directory: .
+      - name: Residual binary hooks (manual stage)
+        run: pre-commit run --all-files --hook-stage manual
+        working-directory: .
+      - name: Workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Shell lint (shellcheck)
         run: shellcheck harness_core/templates/git/pre-commit
@@ -660,7 +759,7 @@ crap4py harness_core --lcov lcov.info --max-crap 30 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `mdformat --check` silent on the format set; `yamlfix --check` and `pyproject-fmt --check` silent; `shellcheck core/harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `pre-commit run --all-files` clean (the one command — supersedes per-tool invocations); `shellcheck core/harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
