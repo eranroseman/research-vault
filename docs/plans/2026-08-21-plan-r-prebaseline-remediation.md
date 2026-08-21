@@ -115,7 +115,7 @@ if parsed_ids != expected_ids:
     )
 ```
 
-- [ ] **Step 4: Wire the failure mode** — a `RenderIntegrityError`/rejection during import surfaces as the existing reason-coded hold to the review inbox (spec §7); verify by test that `import-note` on a poisoned item holds instead of crashing, and writes no note file.
+- [ ] **Step 4: Wire the failure mode (ruled 2026-08-21 — the plan's original text assumed a hold-to-inbox path that does not exist for ANY `cmd_import_note` failure exit):** rejection is loud and fail-closed — stderr reason + nonzero exit + **no note file written, no partial managed region**. Verify by test that `import-note` on a poisoned item exits nonzero and leaves no file. Do NOT wire inbox filing for this one failure class alone: uniform hold-to-inbox wiring for every import failure exit is a recorded follow-up landing with spec §121's integrate-at-import contract (deferred register).
 - [ ] **Step 5: Run full suite** — all PASS. **Step 6: Commit** — `git commit -m "fix: neutralize evidence-text injection at the render boundary (review 2026-08-21 C1/I2/M3) + render_note round-trip self-check"`
 
 ---
@@ -137,7 +137,17 @@ if parsed_ids != expected_ids:
 
 ---
 
-### Task 3: Author-triaged over-engineering cuts
+### Task 3: VERIFY the landed cuts (rewritten 2026-08-21 — the cuts pre-executed on `refactor/ponytail-audit-cuts`, merged as 561ff36, before this plan's ordering could apply; Task-3-before-Task-2 inversion is harmless — cut sites move with the engine in Task 2)
+
+**The contract is now verification, not implementation.** Against the FINAL triage state (this section, as corrected below — not the original sheet):
+- All accepted cuts present as landed, including the four approved deviations: legacy-id full cut (plan-required test rewritten, flagged and accepted); `audit_and_write_manifest` post-apply revalidation; `base_tree` RETAINED (tests assert real behavior — supersedes the original sheet's row 5); freeze apparatus replaced by one detaching copy with the record round-trip standing (`dataclasses.replace` was proven unsound — repo-path typing degrades via `init=False` re-derivation — and reverted; supersedes the original row 1's technique).
+- Deferred by ruling, must remain PRESENT: lints `snapshot=None` fallbacks and `_project_status` tri-mode (original row 2 items, deferral accepted 2026-08-21).
+- All five rejects untouched: selector/context feature, fd-pinning/lock chain, `inbox.append_ack`, `events.trust_tier` + friends, `levenshtein_ratio`. `probe` verb intact.
+- Supersessions recorded in Plans B/C (CSV surface, `run_verify`+`scope`, freeze reasoning) — confirm the annotations exist.
+
+- [ ] **Step 1:** Run the verification greps + read the landed diff (561ff36 range); report any divergence from the list above as an SDD escalation, else record "Task 3 verified".
+
+Original sheet retained below for the audit trail (superseded rows: 1 technique, 2 partially, 5 partially):
 
 **Files:** per finding, at HEAD (post-Task-2 locations — some sites now live in `verify.py`).
 
