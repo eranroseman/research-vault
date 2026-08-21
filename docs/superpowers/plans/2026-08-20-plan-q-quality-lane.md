@@ -13,7 +13,7 @@
 - **Sequencing gate: execute only after Plan T (terminology wave) is merged to main.** The wave renames identifiers; `ast.unparse()` manifest hashes change wholesale, and a pre-wave baseline is dead weight. **Parallelizable with Plan D** (author ruling 2026-08-20) — D is skills/markdown; any core-Python overlap costs one differential top-up after both merge.
 - Worktree via `superpowers:using-git-worktrees`, branch `build/quality-lane`.
 - **As-built HEAD governs**: the module list, folder names, and skill names in this plan reflect pre-wave state; use the post-wave names at HEAD wherever they differ, and record adaptations in the commit message.
-- Every test Run begins `cd core && python3 -m venv .venv 2>/dev/null; source .venv/bin/activate && pip install -e ".[dev]" -q` (idempotent; PEP 668).
+- Every test Run begins `python3 -m venv .venv 2>/dev/null; source .venv/bin/activate && pip install -e ".[dev]" -q` (idempotent; PEP 668).
 - Tool versions are **pinned exact** (single-maintainer v0.1.x tools — treat as removable; upgrades are deliberate acts).
 - mutate4py always runs with `--manifest-file` (sidecar JSON). The embedded-in-source mode appends a footer to production files — never acceptable in this repo.
 - The lane is **advisory**: the workflow fails visibly but is not a required check (no branch protection exists; do not add any).
@@ -23,20 +23,20 @@
 
 ## File Structure
 
-- Modify: `core/pyproject.toml` (dev extras + ruff rule extension), `.gitignore`, `core/harness_core/__main__.py` + `core/tests/*` (lint fixes)
-- Create: `core/scripts/mutation_gate.py` (gate + baseline updater), `core/tests/test_mutation_gate.py`, `core/mutation-baseline.txt` (committed survivor baseline), `core/harness_core/*.py.manifest.json` (one sidecar per module, committed), `.github/workflows/quality.yml`
+- Modify: `pyproject.toml` (dev extras + ruff rule extension), `.gitignore`, `harness_core/__main__.py` + `tests/*` (lint fixes)
+- Create: `scripts/mutation_gate.py` (gate + baseline updater), `tests/test_mutation_gate.py`, `mutation-baseline.txt` (committed survivor baseline), `harness_core/*.py.manifest.json` (one sidecar per module, committed), `.github/workflows/quality.yml`
 
 ---
 
 ### Task 1: Pinned dev dependencies and hygiene
 
 **Files:**
-- Modify: `core/pyproject.toml`, `.gitignore`
+- Modify: `pyproject.toml`, `.gitignore`
 
 **Interfaces:**
 - Produces: installable `dev` extra containing `pytest-cov==7.1.0`, `mutate4py==0.1.4`, `crap4py==0.1.1`, `drywall==0.1.3`, `mypy==2.3.1` (later tasks and CI install exactly this).
 
-- [ ] **Step 1: Extend the dev extra** in `core/pyproject.toml`:
+- [ ] **Step 1: Extend the dev extra** in `pyproject.toml`:
 
 ```toml
 dev = [
@@ -59,23 +59,22 @@ dev = [
 - [ ] **Step 2: Extend `.gitignore`** (repo root) with the lane's transient artifacts:
 
 ```
-core/.mutate4py/
-core/lcov.info
-core/.coverage
-core/.coverage.*
-core/.contexts.db
+.mutate4py/
+lcov.info
+.coverage.*
+.contexts.db
 ```
 
 - [ ] **Step 3: Install and verify**
 
-Run: `cd core && source .venv/bin/activate && pip install -e ".[dev]" -q && mutate4py --help >/dev/null && crap4py --help >/dev/null && drywall --help >/dev/null && mypy --version >/dev/null && python -c "import pytest_cov" && echo OK`
+Run: `source .venv/bin/activate && pip install -e ".[dev]" -q && mutate4py --help >/dev/null && crap4py --help >/dev/null && drywall --help >/dev/null && mypy --version >/dev/null && python -c "import pytest_cov" && echo OK`
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add core/pyproject.toml .gitignore
+git add pyproject.toml .gitignore
 git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py, drywall, mypy)"
 ```
 
@@ -84,7 +83,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 ### Task 2: Ruff + mypy regression rules, mdformat, config validity
 
 **Files:**
-- Modify: `core/pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `core/harness_core/` (lint + type fixes), test files (PLW1510, S108 classification)
+- Modify: `pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `harness_core/` (lint + type fixes), test files (PLW1510, S108 classification)
 
 **Interfaces:**
 - Consumes: Task 1's installed dev extra.
@@ -96,7 +95,7 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 
 **Ruling encoded (author-approved 2026-08-20): machine-generated timestamps and dates derive from an explicit timezone-aware UTC clock.** Verified events, `accessed` dates, and update-notice detection dates are bi-temporal records that live forever in git; a naive local clock is a defect class, not a style choice. DTZ enforces this from now on.
 
-- [ ] **Step 1: Extend the ruff config** in `core/pyproject.toml` — replace the existing `extend-select` list and add the per-file ignore:
+- [ ] **Step 1: Extend the ruff config** in `pyproject.toml` — replace the existing `extend-select` list and add the per-file ignore:
 
 ```toml
 [tool.ruff.lint]
@@ -200,7 +199,7 @@ ignore_missing_imports = true  # optional [pdf] extra; dev lane installs [dev] o
 
 - [ ] **Step 2: Run to see the expected failures**
 
-Run: `cd core && source .venv/bin/activate && ruff check harness_core tests --no-cache; mypy harness_core`
+Run: `source .venv/bin/activate && ruff check harness_core tests --no-cache; mypy harness_core`
 Expected: the pre-measured violations above (counts may differ at HEAD; every hit gets classified fix-vs-noqa-with-reason, nothing blanket-ignored).
 
 - [ ] **Step 3: Fix**
@@ -225,8 +224,8 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 
 **Format policy (author-ruled 2026-08-21 across four push-backs; the governing principle: uniformity everywhere, zero remembered rules, each surface canonicalized by the right owner):**
 
-- **mdformat owns all CommonMark repo markdown**: `README.md`, all of `docs/` (history surfaces included — verified: `--wrap keep` preserves content, fences byte-safe, no prose reflow; **the history rule's reading is amended: content and meaning are never rewritten; form was canonicalized once**, commit carried in `.git-blame-ignore-revs`), and `skills/`. `core/tests/` needs no exclusion — it contains zero `.md` files (verified; inline string fixtures are invisible to mdformat by construction).
-- **The sole writer IS the formatter for vault-dialect surfaces** (`core/harness_core/templates/vault/**` and everything the harness emits): measured 2026-08-21, mdformat escapes the dialect — wikilinks `[[x]]` → `\[[x]\]`, inline fields `[supports:: …]` escaped, `%%/hk-managed%%` indented — and `mdformat-obsidian` 0.3.2 does the same, so no off-the-shelf formatter speaks Obsidian dialect. Canonical form there is the render/scaffold contract's output, per the author's principle ("having the sole writer use the formatter eliminates the problem"): managed regions canonicalize by full re-render (witnessed by `managed-sha256`), ledgers by the entry grammar + append-only discipline. This is a dialect boundary in tool config (invocation path list), not a remembered rule.
+- **mdformat owns all CommonMark repo markdown**: `README.md`, all of `docs/` (history surfaces included — verified: `--wrap keep` preserves content, fences byte-safe, no prose reflow; **the history rule's reading is amended: content and meaning are never rewritten; form was canonicalized once**, commit carried in `.git-blame-ignore-revs`), and `skills/`. `tests/` needs no exclusion — it contains zero `.md` files (verified; inline string fixtures are invisible to mdformat by construction).
+- **The sole writer IS the formatter for vault-dialect surfaces** (`harness_core/templates/vault/**` and everything the harness emits): measured 2026-08-21, mdformat escapes the dialect — wikilinks `[[x]]` → `\[[x]\]`, inline fields `[supports:: …]` escaped, `%%/hk-managed%%` indented — and `mdformat-obsidian` 0.3.2 does the same, so no off-the-shelf formatter speaks Obsidian dialect. Canonical form there is the render/scaffold contract's output, per the author's principle ("having the sole writer use the formatter eliminates the problem"): managed regions canonicalize by full re-render (witnessed by `managed-sha256`), ledgers by the entry grammar + append-only discipline. This is a dialect boundary in tool config (invocation path list), not a remembered rule.
 
 Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templates deliberately absent — dialect surface). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section. After the churn: `grep -rn '\\\[\[' docs skills README.md` must return nothing (no wikilink escaping happened — the CommonMark set was truly dialect-free).
 
@@ -242,20 +241,20 @@ Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templa
 | JSON (manifests, `hooks.json`) | stdlib `json.tool` canonical form | asserted inside `test_config_validity.py` — formatter and check in one, zero deps |
 | Shell (`templates/git/pre-commit`) | shfmt (CI action, pinned) | CI diff mode |
 
-Apply the one-time churn: `yamlfix .github/workflows core/harness_core/templates/ci && pyproject-fmt core/pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
+Apply the one-time churn: `yamlfix .github/workflows harness_core/templates/ci && pyproject-fmt pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
 
 - [ ] **Step 3b-1b: The orchestration seam** (rethink audit 2026-08-21, `docs/2026-08-21-lint-format-rethink.md` — closes R7 "one command locally == CI"). Create `.pre-commit-config.yaml` at repo root:
 
 ```yaml
 # Dev-lane orchestration seam (docs/2026-08-21-lint-format-rethink.md): the ONE
 # command for every form/lint check, locally and in CI:
-#     source core/.venv/bin/activate && pre-commit run --all-files
+#     source .venv/bin/activate && pre-commit run --all-files
 # All hooks are repo-local system hooks over the pinned venv — no remote hook
 # repos, no env building, no network at check time. The one-form-owner matrix
 # lives here as config; quality metrics (CRAP/drywall/mutation) are a different
 # axis and run as separate workflow steps.
 # NAME COLLISION, deliberate: this is the repo's DEV-LANE pre-commit (style and
-# correctness). The vault's pre-commit (core/harness_core/templates/git/pre-commit)
+# correctness). The vault's pre-commit (harness_core/templates/git/pre-commit)
 # is a TRUST GATE owned by the harness — a different system; do not conflate.
 repos:
   - repo: local
@@ -263,19 +262,19 @@ repos:
       - id: ruff-format
         name: "form: python (ruff format)"
         language: system
-        entry: bash -c 'cd core && ruff format harness_core tests scripts'
+        entry: bash -c 'ruff format harness_core tests scripts'
         pass_filenames: false
         always_run: true
       - id: ruff-check
         name: "lint: python (ruff)"
         language: system
-        entry: bash -c 'cd core && ruff check harness_core tests scripts'
+        entry: bash -c 'ruff check harness_core tests scripts'
         pass_filenames: false
         always_run: true
       - id: mypy
         name: "types: python (mypy rung-1)"
         language: system
-        entry: bash -c 'cd core && mypy harness_core'
+        entry: bash -c 'mypy harness_core'
         pass_filenames: false
         always_run: true
       - id: mdformat
@@ -287,19 +286,19 @@ repos:
       - id: yamlfix
         name: "form: yaml (yamlfix)"
         language: system
-        entry: bash -c 'yamlfix .github/workflows core/harness_core/templates/ci'
+        entry: bash -c 'yamlfix .github/workflows harness_core/templates/ci'
         pass_filenames: false
         always_run: true
       - id: pyproject-fmt
         name: "form: toml (pyproject-fmt)"
         language: system
-        entry: bash -c 'pyproject-fmt core/pyproject.toml'
+        entry: bash -c 'pyproject-fmt pyproject.toml'
         pass_filenames: false
         always_run: true
       - id: config-validity
         name: "lint: json canonical + skill frontmatter (suite)"
         language: system
-        entry: bash -c 'cd core && python -m pytest tests/test_config_validity.py -q'
+        entry: bash -c 'python -m pytest tests/test_config_validity.py -q'
         pass_filenames: false
         always_run: true
       # Manual stage: binary tools R5 declines to require locally (ruff-repo
@@ -307,14 +306,14 @@ repos:
       - id: shellcheck
         name: "lint: shell (shellcheck)"
         language: system
-        entry: shellcheck core/harness_core/templates/git/pre-commit
+        entry: shellcheck harness_core/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]
       - id: shfmt
         name: "form: shell (shfmt, diff mode)"
         language: system
-        entry: shfmt -d core/harness_core/templates/git/pre-commit
+        entry: shfmt -d harness_core/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]
@@ -337,7 +336,7 @@ repos:
     "editor.formatOnSave": true
   },
   "prettier.enable": false,
-  "python.defaultInterpreterPath": "${workspaceFolder}/core/.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "files.insertFinalNewline": true
 }
 ```
@@ -348,13 +347,13 @@ repos:
 }
 ```
 
-- [ ] **Step 3b-2: Emitter canonicality property tests** — `core/tests/test_canonical_form.py`, making the sole-writer-is-the-formatter principle mechanical: (1) render idempotence — rendering the same item twice yields identical bytes, and re-rendering rendered output changes nothing; (2) every ledger/inbox line the emitters produce matches the entry-grammar regex exactly; (3) scaffold output from templates is byte-stable across two runs into fresh directories. These give vault surfaces lifetime form-certainty with zero rules — enforced by the owners, verified by the suite.
+- [ ] **Step 3b-2: Emitter canonicality property tests** — `tests/test_canonical_form.py`, making the sole-writer-is-the-formatter principle mechanical: (1) render idempotence — rendering the same item twice yields identical bytes, and re-rendering rendered output changes nothing; (2) every ledger/inbox line the emitters produce matches the entry-grammar regex exactly; (3) scaffold output from templates is byte-stable across two runs into fresh directories. These give vault surfaces lifetime form-certainty with zero rules — enforced by the owners, verified by the suite.
 
 **Contract notes recorded in pyproject comment**: the mdformat pin is a render-contract component (canonical template form leaks into rendered vault notes — a formatter upgrade is judged like a render change, with re-import expectations); oxfmt rejected 2026-08-21 with the mismatch named (it reformats *inside* fenced code blocks — quoted material — the prettier-incident class; measured live: respacing YAML in a quoted workflow snippet; plus a Node toolchain in a Python dev lane).
 
 **Vault-side note (one line in the AGENTS.md template, informative not normative)**: formatters are writers; the vault's machine surfaces (`log/`, `inbox/review-queue.md`, literature managed regions, `system/bibliography.json`) each have an owner and a byte contract, and the trust machinery rejects foreign writers mechanically — this line explains why the alarms fire, it is not itself the enforcement.
 
-- [ ] **Step 3c: Config validity test** — `core/tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`core/pyproject.toml`) with `tomllib`; assert each loads **and that every JSON file equals its `json.dumps(obj, indent=2, ensure_ascii=False) + newline` canonical form** (the failure message prints the `python -m json.tool` command that fixes it). A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI. **Identifier-governance parity (added 2026-08-22, replacing an AGENTS.md context rule with mechanical enforcement):** the same test parses `docs/terminology.md` §4.4's tables and asserts every member of the code's reason-code registry, check-id set, and doctor probe-id set at HEAD has a row — an ungoverned identifier fails the suite instead of waiting for an audit. **Record-immutability check (added 2026-08-22 — mechanizes AGENTS.md's history rule per the eliminate>mechanism>rule ladder):** a pre-commit-config hook diffing the branch against origin/main and failing on any modification, rename, or deletion under the record paths (`research/`, `analysis/`, `docs/adr/`, completed plans — the manifest is a path list in the hook entry itself); once green in CI, the AGENTS.md sentence becomes a candidate for retirement. **Same test, same class — skill frontmatter**: for every `skills/*/SKILL.md`, parse the frontmatter with the core's own `frontmatter.parse` (dogfooding the tokenizer on real files, zero new deps) and assert the plugin contract: `name` present and equal to the skill's directory name, `description` present and non-empty, any `disable-model-invocation` value boolean. A typo'd SKILL.md frontmatter is the `hooks.json` failure class — silent at plugin load. (Vault-dialect frontmatter needs nothing here: its parser IS the lint, its sole writer IS the formatter, and the canonicality tests enforce both.)
+- [ ] **Step 3c: Config validity test** — `tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`pyproject.toml`) with `tomllib`; assert each loads **and that every JSON file equals its `json.dumps(obj, indent=2, ensure_ascii=False) + newline` canonical form** (the failure message prints the `python -m json.tool` command that fixes it). A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI. **Identifier-governance parity (added 2026-08-22, replacing an AGENTS.md context rule with mechanical enforcement):** the same test parses `docs/terminology.md` §4.4's tables and asserts every member of the code's reason-code registry, check-id set, and doctor probe-id set at HEAD has a row — an ungoverned identifier fails the suite instead of waiting for an audit. **Record-immutability check (added 2026-08-22 — mechanizes AGENTS.md's history rule per the eliminate>mechanism>rule ladder):** a pre-commit-config hook diffing the branch against origin/main and failing on any modification, rename, or deletion under the record paths (`research/`, `analysis/`, `docs/adr/`, completed plans — the manifest is a path list in the hook entry itself); once green in CI, the AGENTS.md sentence becomes a candidate for retirement. **Same test, same class — skill frontmatter**: for every `skills/*/SKILL.md`, parse the frontmatter with the core's own `frontmatter.parse` (dogfooding the tokenizer on real files, zero new deps) and assert the plugin contract: `name` present and equal to the skill's directory name, `description` present and non-empty, any `disable-model-invocation` value boolean. A typo'd SKILL.md frontmatter is the `hooks.json` failure class — silent at plugin load. (Vault-dialect frontmatter needs nothing here: its parser IS the lint, its sole writer IS the formatter, and the canonicality tests enforce both.)
 
 - [ ] **Step 4: Verify clean + suite green**
 
@@ -365,7 +364,7 @@ Expected: `All checks passed!`, `Success: no issues found`, mdformat silent, and
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add core/pyproject.toml core/harness_core core/tests
+git add pyproject.toml harness_core tests
 git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling, 10 type fixes, recorded skips)"
 ```
 
@@ -374,7 +373,7 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 ### Task 3: CRAP/CC backlog burn-down
 
 **Files:**
-- Modify: `core/harness_core/__main__.py` (`_target_hash` split), `core/tests/test_inbox.py` (+ any test file covering `inbox.load` paths), `core/pyproject.toml` (mccabe tighten)
+- Modify: `harness_core/__main__.py` (`_target_hash` split), `tests/test_inbox.py` (+ any test file covering `inbox.load` paths), `pyproject.toml` (mccabe tighten)
 
 **Interfaces:**
 - Consumes: Task 2's config (C90 at 32, gates green).
@@ -385,16 +384,16 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - [ ] **Step 1: Branch-coverage tests for `inbox.load`** — read the coverage report's uncovered branches for it (`python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=term-missing 2>/dev/null | grep inbox`), write failing-then-passing tests for each uncovered branch (malformed entries, ack-scope edges, empty/absent file paths — whatever the report names). Target: `inbox.load` branch coverage ≥85%.
 - [ ] **Step 2: Verify the CRAP drop** — regenerate lcov, run `crap4py harness_core --lcov lcov.info --fragment inbox`; expected: `inbox.load` CRAP ≤ 30.
 - [ ] **Step 3: Split `_target_hash`** — extract coherent legs (per its structure at HEAD: the per-kind target-resolution branches are the natural seams) into named helpers until `_target_hash` and every extracted helper have CC ≤ 28. Pure refactor: no behavior change, suite stays green with zero test edits (if a test must change, stop — that's a behavior change, escalate).
-- [ ] **Step 4: Tighten the mccabe cap** — `max-complexity = 32` → `28` in `core/pyproject.toml`; update the comment.
+- [ ] **Step 4: Tighten the mccabe cap** — `max-complexity = 32` → `28` in `pyproject.toml`; update the comment.
 - [ ] **Step 5: Verify all gates green** — `ruff check harness_core tests --no-cache && python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info && crap4py harness_core --lcov lcov.info --max-crap 30`; expected: all pass.
-- [ ] **Step 6: Commit** — `git add core && git commit -m "refactor: split _target_hash (CC<=28), branch-test inbox.load — CRAP ceiling 30, CC cap 28"`
+- [ ] **Step 6: Commit** — `git add harness_core tests pyproject.toml && git commit -m "refactor: split _target_hash (CC<=28), branch-test inbox.load — CRAP ceiling 30, CC cap 28"`
 
 ---
 
 ### Task 4: Mutation gate script + blanket baseline
 
 **Files:**
-- Create: `core/scripts/mutation_gate.py`, `core/tests/test_mutation_gate.py`, `core/mutation-baseline.txt`, `core/harness_core/<module>.py.manifest.json` for every module
+- Create: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`, `mutation-baseline.txt`, `harness_core/<module>.py.manifest.json` for every module
 
 **Interfaces:**
 - Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set); Task 3's burn-down (baseline manifests must hash the post-refactor tree).
@@ -407,13 +406,13 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - Survivor lines look like `  line 79 char == "-" -> char != "-" func/_norm_with_map`. Baseline keys **exclude the line number** (`file::func/_norm_with_map::char == "-" -> char != "-"`) so unrelated edits shifting lines don't churn the baseline.
 - Policy: survivors matching a baseline key pass (pre-existing = backlog, never gate); any other survivor fails. Uncovered sites never fail the gate (coverage is crap4py's beat).
 - Gate mode scopes to files changed vs a base ref (merge-base diff); no changed core files → exit 0.
-- **git pathspecs resolve relative to the cwd.** The diff runs with `cwd=core/`, flag `--relative`, and pathspec `harness_core/*.py`. A repo-root-style pathspec (`core/harness_core/*.py`) from that cwd silently matches nothing and the gate passes forever — which is why `changed_modules` gets its own unit test against a scratch git repo (a dead gate and a working gate are otherwise indistinguishable on a quiet branch).
+- **git pathspecs resolve relative to the cwd.** The diff runs with `cwd=CORE` (the repository root), flag `--relative`, and pathspec `harness_core/*.py`. A stale, `core/`-prefixed pathspec (`core/harness_core/*.py` — the pre-flip nested layout) matches nothing and the gate passes forever — which is why `changed_modules` gets its own unit test against a scratch git repo (a dead gate and a working gate are otherwise indistinguishable on a quiet branch).
 - Baseline keys collapse duplicate identical mutations within one function (the real selectors output has `1 -> 0` twice on line 79) — deliberate: an advisory lane prefers a stable baseline over distinguishing repeats of an already-recorded survivor.
-- Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from `core/` (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
+- Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from the repository root (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
 
-- [ ] **Step 0b: Kill the bare-pytest footgun** — add `pythonpath = ["."]` to `[tool.pytest.ini_options]` in `core/pyproject.toml`, so bare `pytest` and `python -m pytest` resolve `scripts.*` imports identically (config beats remembered convention; the entry-point audit 2026-08-21 flagged bare `pytest` as a caller-less entry point that silently breaks).
+- [ ] **Step 0b: Kill the bare-pytest footgun** — add `pythonpath = ["."]` to `[tool.pytest.ini_options]` in `pyproject.toml`, so bare `pytest` and `python -m pytest` resolve `scripts.*` imports identically (config beats remembered convention; the entry-point audit 2026-08-21 flagged bare `pytest` as a caller-less entry point that silently breaks).
 
-- [ ] **Step 1: Write the failing tests** — `core/tests/test_mutation_gate.py`:
+- [ ] **Step 1: Write the failing tests** — `tests/test_mutation_gate.py`:
 
 ```python
 """Unit tests for the no-new-survivors mutation gate (parsing + comparison only;
@@ -491,8 +490,7 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     import subprocess
 
     repo = tmp_path / "repo"
-    core = repo / "core"
-    (core / "harness_core").mkdir(parents=True)
+    (repo / "harness_core").mkdir(parents=True)
 
     def git(*argv: str) -> None:
         subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
@@ -500,24 +498,24 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     git("init", "-q", "-b", "main")
     git("config", "user.email", "t@example.invalid")
     git("config", "user.name", "t")
-    (core / "harness_core" / "x.py").write_text("A = 1\n", encoding="utf-8")
-    (core / "harness_core" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "harness_core" / "x.py").write_text("A = 1\n", encoding="utf-8")
+    (repo / "harness_core" / "__init__.py").write_text("", encoding="utf-8")
     git("add", ".")
     git("commit", "-q", "-m", "base")
     git("checkout", "-q", "-b", "feature")
-    (core / "harness_core" / "x.py").write_text("A = 2\n", encoding="utf-8")
-    (core / "harness_core" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
+    (repo / "harness_core" / "x.py").write_text("A = 2\n", encoding="utf-8")
+    (repo / "harness_core" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
     git("commit", "-q", "-a", "-m", "change")
 
-    assert changed_modules("main", cwd=core) == ["harness_core/x.py"]
+    assert changed_modules("main", cwd=repo) == ["harness_core/x.py"]
 ```
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd core && source .venv/bin/activate && python -m pytest tests/test_mutation_gate.py -q`
+Run: `source .venv/bin/activate && python -m pytest tests/test_mutation_gate.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'scripts'`
 
-- [ ] **Step 3: Write the script** — `core/scripts/__init__.py` (empty) and `core/scripts/mutation_gate.py`:
+- [ ] **Step 3: Write the script** — `scripts/__init__.py` (empty) and `scripts/mutation_gate.py`:
 
 ```python
 """No-new-survivors mutation gate over mutate4py.
@@ -545,7 +543,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-CORE = Path(__file__).resolve().parent.parent  # .../core
+CORE = Path(__file__).resolve().parent.parent  # repo root
 SURVIVOR_RE = re.compile(r"^\s+line \d+ (?P<mutation>.+) (?P<func>func/\S+)$")
 
 
@@ -577,8 +575,8 @@ def baseline_keys(path: Path) -> set[str]:
 
 
 def changed_modules(base: str, cwd: Path = CORE) -> list[str]:
-    # --relative + a cwd-relative pathspec, both resolved from core/: a
-    # repo-root-style pathspec here matches nothing and kills the gate silently.
+    # --relative + a cwd-relative pathspec, both resolved from the repo root: a
+    # stale core/-prefixed pathspec here matches nothing and kills the gate silently.
     diff = subprocess.run(
         ["git", "diff", "--name-only", "--relative", f"{base}...HEAD", "--", "harness_core/*.py"],
         capture_output=True,
@@ -684,7 +682,7 @@ Run: `python scripts/mutation_gate.py --lcov lcov.info --base HEAD` — Expected
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add core/scripts core/tests/test_mutation_gate.py core/mutation-baseline.txt core/harness_core/*.manifest.json
+git add scripts tests/test_mutation_gate.py mutation-baseline.txt harness_core/*.manifest.json
 git commit -m "feat: mutation gate script + blanket baseline (sidecar manifests, no-new-survivors policy)"
 ```
 
@@ -718,9 +716,6 @@ jobs:
   quality:
     name: dev-quality lane (advisory)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: core
     steps:
       - uses: actions/checkout@v4
         with:
@@ -732,10 +727,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Form + lint (the one command — same as local)
         run: pre-commit run --all-files --show-diff-on-failure
-        working-directory: .
       - name: Residual binary hooks (manual stage)
         run: pre-commit run --all-files --hook-stage manual
-        working-directory: .
       - name: Workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Shell lint (shellcheck)
@@ -753,7 +746,7 @@ jobs:
 - [ ] **Step 2: Verify each gate command locally** (worktree stand-in for CI)
 
 ```bash
-cd core && source .venv/bin/activate
+source .venv/bin/activate
 ruff check harness_core tests scripts && echo LINT-OK
 mypy harness_core && echo TYPE-OK
 python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
@@ -761,7 +754,7 @@ crap4py harness_core --lcov lcov.info --max-crap 30 && echo CRAP-OK
 drywall harness_core && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `pre-commit run --all-files` clean (the one command — supersedes per-tool invocations); `shellcheck core/harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `pre-commit run --all-files` clean (the one command — supersedes per-tool invocations); `shellcheck harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 

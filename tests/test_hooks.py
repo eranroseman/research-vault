@@ -15,7 +15,7 @@ import pytest
 from harness_core import Result, inbox
 from harness_core.checks import Outcome
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "hooks" / "posttooluse_lint.py"
 STOP_HOOK = REPO / "hooks" / "stop_publish_gate.py"
 HOOKS_MANIFEST = REPO / "hooks" / "hooks.json"

@@ -1,6 +1,6 @@
 sources/*.zip
 .worktrees/
-core/.venv/
-core/*.egg-info/
+.venv/
+*.egg-info/
 __pycache__/
 .coverage

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from harness_core import scaffold
 
-REPOSITORY = Path(__file__).resolve().parents[2]
+REPOSITORY = Path(__file__).resolve().parents[1]
 SKILL = REPOSITORY / "skills" / "setup-vault" / "SKILL.md"
 
 
