@@ -32,7 +32,7 @@ def test_marketplace_lists_plugin():
 
 
 def test_tmp_vault_fixture(tmp_vault):
-    for d in ("inbox", "literatures", "synthesis", "log", "projects", "x"):
+    for d in ("inbox", "literatures", "synthesis", "log", "projects", "system"):
         assert (tmp_vault / d).is_dir()
     assert (tmp_vault / ".git").is_dir()
 

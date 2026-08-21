@@ -18,7 +18,7 @@ Construct one command, with only the flags the user consented to:
 python3 -m harness_core scaffold --vault PATH [--with-ci] [--with-rw-ci]
 ```
 
-Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, `inbox/review-queue.md`, `index.md`, `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`, `synthesis/index.md`, `x/bases/open-questions.base`, `x/bases/trust-tier.base`, and `x/templates/` daily, literature, project, and synthesis templates; CI paths appear only for their separately consented flags. It may create fewer paths when repairing an existing vault. Say only scaffold-created paths are committed; never claim unrelated changes were committed.
+Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, `inbox/review-queue.md`, `index.md`, `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`, `synthesis/index.md`, `system/bases/open-questions.base`, `system/bases/trust-tier.base`, and `system/templates/` daily, literature, project, and synthesis templates; CI paths appear only for their separately consented flags. It may create fewer paths when repairing an existing vault. Say only scaffold-created paths are committed; never claim unrelated changes were committed.
 
 ## Diagnose
 

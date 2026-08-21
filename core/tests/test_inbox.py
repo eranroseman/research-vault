@@ -6,7 +6,7 @@ import pytest
 from harness_core import Result, inbox
 from harness_core.pathcodec import encode_repo_path
 
-INBOX_HEADER = '---\ntype: "review-inbox"\n---\n'
+INBOX_HEADER = '---\ntype: "review-queue"\n---\n'
 
 
 def _write_body(queue, body):
@@ -27,7 +27,7 @@ def test_new_inbox_is_typed_and_append_preserves_header_bytes(tmp_vault):
 
     queue = tmp_vault / "inbox" / "review-queue.md"
     first = queue.read_bytes()
-    assert first.startswith(b'---\ntype: "review-inbox"\n---\n')
+    assert first.startswith(b'---\ntype: "review-queue"\n---\n')
     inbox.append_entry(
         tmp_vault,
         "doi",
@@ -83,7 +83,7 @@ def test_durable_append_syncs_visible_bytes_and_new_directory_entry(
     [
         '---\ntype: ""\n---\n- [id:: broken]\n',
         '---\ntype: "wrong"\n---\n- [id:: broken]\n',
-        '---\ntype: "review-inbox"\n- [id:: broken]\n',
+        '---\ntype: "review-queue"\n- [id:: broken]\n',
         "- [id:: broken]\n",
     ],
 )

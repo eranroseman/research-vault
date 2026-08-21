@@ -219,7 +219,7 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     )
     citekey_outcome = _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — doi")
     stale = _outcome(
-        "staleness", "x/bibliography.json", Result.UNMATCHED, "stale — old"
+        "staleness", "system/bibliography.json", Result.UNMATCHED, "stale — old"
     )
     assert (
         _target_hash(net_vault, file_outcome)
@@ -239,7 +239,7 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     assert _target_hash(net_vault, citekey_outcome) == "aa11"
     assert (
         _target_hash(net_vault, stale)
-        == hashlib.sha256((net_vault / "x/bibliography.json").read_bytes()).hexdigest()[
+        == hashlib.sha256((net_vault / "system/bibliography.json").read_bytes()).hexdigest()[
             :16
         ]
     )
@@ -306,7 +306,7 @@ def test_missing_citekey_hash_uses_exact_checked_origins_and_reopens(net_vault):
 
 
 def test_no_note_bibliography_target_hashes_its_canonical_entry(net_vault):
-    path = net_vault / "x" / "bibliography.json"
+    path = net_vault / "system" / "bibliography.json"
     entries = json.loads(path.read_text())
     entries.append({"id": "noted-yet", "title": "Admitted bibliography entry"})
     path.write_text(json.dumps(entries))
@@ -488,7 +488,7 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
     monkeypatch.setattr(
         "harness_core.__main__._staleness_outcome",
         lambda *_: _outcome(
-            "staleness", "x/bibliography.json", Result.MATCHED, "matched"
+            "staleness", "system/bibliography.json", Result.MATCHED, "matched"
         ),
     )
     cmd_verify(
@@ -1145,7 +1145,7 @@ def _isolate_network_verify(monkeypatch, outcomes):
     monkeypatch.setattr(
         "harness_core.__main__._staleness_outcome",
         lambda *_args: _outcome(
-            "staleness", "x/bibliography.json", Result.MATCHED, "matched"
+            "staleness", "system/bibliography.json", Result.MATCHED, "matched"
         ),
     )
     for name in (
@@ -1440,13 +1440,13 @@ def test_current_failure_projection_keeps_exact_recovery_behavior(
 def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
     net_vault, capsys, contents
 ):
-    (net_vault / "x" / "bibliography.json").write_text(contents)
+    (net_vault / "system" / "bibliography.json").write_text(contents)
 
     code = main(["verify", "--vault", str(net_vault), "--offline"])
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNMATCHED staleness path-bytes:x/bibliography.json" in output
+    assert "UNMATCHED staleness path-bytes:system/bibliography.json" in output
     assert "schema-violation" in output
     assert "Traceback" not in output
 
@@ -1454,13 +1454,13 @@ def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
 def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     net_vault, capsys
 ):
-    (net_vault / "x" / "bibliography.json").write_bytes(b"\xff")
+    (net_vault / "system" / "bibliography.json").write_bytes(b"\xff")
 
     code = main(["verify", "--vault", str(net_vault), "--offline"])
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNREACHABLE staleness path-bytes:x/bibliography.json" in output
+    assert "UNREACHABLE staleness path-bytes:system/bibliography.json" in output
 
 
 @pytest.mark.parametrize(

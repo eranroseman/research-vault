@@ -10,14 +10,14 @@
 
 ## Global contracts
 
-- Final vault roots are `inbox`, `literatures`, `synthesis`, `log`, `projects`, `x/templates`, and `x/bases`.
-- Root `index.md` has exactly `okf_version: "0.2"` frontmatter. Root `log.md` and every nested basename `index.md` or `log.md` have no frontmatter. Every other packaged concept Markdown file has parseable frontmatter and a non-empty `type`.
-- `inbox/review-queue.md` begins with exactly `type: "review-inbox"`; daily notes use exactly `type: "daily"`. Inbox and daily-note bodies are append-only and never receive `generated` updates.
+- Final vault roots are `inbox`, `literatures`, `synthesis`, `log`, `projects`, `system/templates`, and `system/bases`.
+- Root `index.md` has `type: "index"` + `okf_version: "0.2"` frontmatter. Root `log.md` is the single-writer regeneration target (`okf.regenerate_log`) and carries `type: "log"` frontmatter. Every nested basename `index.md` or `log.md` has no frontmatter. Every other packaged concept Markdown file has parseable frontmatter and a non-empty `type`.
+- `inbox/review-queue.md` begins with exactly `type: "review-queue"`; daily notes use exactly `type: "daily"`. Inbox and daily-note bodies are append-only and never receive `generated` updates.
 - Raw Git path records and changed-path manifests stay byte-preserving and NUL-delimited; no task may newline-split or lossy-normalize them. Internal filesystem adapters may use `surrogateescape` only transiently with an exact byte round trip. Every path that crosses into an `Outcome`, inbox/ack identity, JSON, CSV, or diagnostic uses Task 4's canonical ASCII `path-bytes:` encoding; no surrogate code point may enter persisted or displayed text.
 - Detection, verified pass events, current failure projection, markers, and inbox auditing are independent of enforcement surface. Surface sets decide blocking only.
 - Synthetic `--offline` network outcomes may be printed in an explicit report but never change trust, events, markers, or inbox state. A genuinely attempted outage remains persisted as UNREACHABLE.
 - `COMMIT_CLOSING = {"citekey", "evidence-layer"}`. `PUBLISH_CLOSING = {"citekey", "evidence-layer", "quote", "update-notice", "doi"}`. Exit 1 means a selected-surface closing UNMATCHED; explicit commit/publish surfaces use exit 3 for a genuine UNREACHABLE. The default open audit surface returns 0 for findings/outages and 2 only for operational or usage failure.
-- BBT is the sole writer of `x/bibliography.json` after a human creates the whole-library auto-export in BBT Preferences. The harness may stage and commit genuine BBT output; it never synthesizes or writes that export, and it never registers an auto-export (author ruling 2026-08-20, Task 8: BBT 9.0.55's public `autoexport.add` is collection-scoped and rejects whole-library `//` before storage, so provisioning is a human wizard step).
+- BBT is the sole writer of `system/bibliography.json` after a human creates the whole-library auto-export in BBT Preferences. The harness may stage and commit genuine BBT output; it never synthesizes or writes that export, and it never registers an auto-export (author ruling 2026-08-20, Task 8: BBT 9.0.55's public `autoexport.add` is collection-scoped and rejects whole-library `//` before storage, so provisioning is a human wizard step).
 - The scaffold stages and commits only paths it created. It must not sweep unrelated staged, unstaged, or untracked work.
 - `--with-ci` installs only read-only verification. `--with-rw-ci` is the distinct explicit consent for the scheduled write-capable workflow.
 - Work in an isolated worktree. Run commands from `core/` unless stated otherwise.
@@ -34,7 +34,7 @@ core/harness_core/
 │   │   ├── gitignore
 │   │   ├── inbox/review-queue.md
 │   │   ├── synthesis/index.md
-│   │   └── x/
+│   │   └── system/
 │   │       ├── templates/{literature,synthesis,project,daily}.md
 │   │       └── bases/{open-questions,trust-tier}.base
 │   ├── harness/machine.json.example
@@ -54,16 +54,24 @@ Create the template tree and package it through `core/pyproject.toml`. The canon
 ```markdown
 <!-- vault/index.md -->
 ---
+type: "index"
 okf_version: "0.2"
 ---
-# Knowledge bundle
+# Vault index
 
-<!-- vault/log.md: reserved; no frontmatter -->
+- [[literatures/]] — evidence layer: citekey-keyed source notes
+- [[synthesis/]] — synthesis pages (see [[synthesis/index]])
+- [[projects/]] — manuscripts and deliverables
+- [[log/]] — daily activity log (summary: [[log]])
+- [[inbox/]] — fleeting notes and the review queue
+- [[system/]] — support artifacts: templates, bases, the bibliography export
+
+<!-- vault/log.md: packaged bare; okf.regenerate_log adds type: "log" frontmatter + tail after scaffold -->
 # Log
 
 <!-- vault/AGENTS.md -->
 ---
-type: "vault-guide"
+type: "guide"
 ---
 # Vault agents guide
 
@@ -71,13 +79,13 @@ Evidence is admitted through Zotero and projected into `literatures/`. Read `syn
 
 <!-- vault/inbox/review-queue.md -->
 ---
-type: "review-inbox"
+type: "review-queue"
 ---
 
 <!-- vault/synthesis/index.md: reserved; no frontmatter -->
 # Synthesis index
 
-<!-- vault/x/templates/literature.md -->
+<!-- vault/system/templates/literature.md -->
 ---
 citekey: "{{CITEKEY}}"
 type: "literature"
@@ -93,7 +101,7 @@ generated: {by: "{{ACTOR}}", at: "{{NOW}}"}
 
 ## Notes
 
-<!-- vault/x/templates/synthesis.md -->
+<!-- vault/system/templates/synthesis.md -->
 ---
 title: "{{TITLE}}"
 type: "synthesis"
@@ -101,7 +109,7 @@ status: "draft"
 generated: {by: "{{ACTOR}}", at: "{{NOW}}"}
 ---
 
-<!-- vault/x/templates/project.md -->
+<!-- vault/system/templates/project.md -->
 ---
 title: "{{TITLE}}"
 type: "project"
@@ -109,7 +117,7 @@ status: "draft"
 generated: {by: "{{ACTOR}}", at: "{{NOW}}"}
 ---
 
-<!-- vault/x/templates/daily.md -->
+<!-- vault/system/templates/daily.md -->
 ---
 type: "daily"
 ---
@@ -119,7 +127,7 @@ type: "daily"
 Package these remaining canonical assets exactly as shown:
 
 ```yaml
-# vault/x/bases/open-questions.base
+# vault/system/bases/open-questions.base
 views:
   - type: table
     name: Open questions
@@ -131,7 +139,7 @@ formulas:
 ```
 
 ```yaml
-# vault/x/bases/trust-tier.base
+# vault/system/bases/trust-tier.base
 views:
   - type: table
     name: Trust tier
@@ -316,7 +324,7 @@ jobs:
 
 Task 1 is the single owner of these packaged bytes: it writes and packages them once. Task 4 must explicitly review and correct the already-packaged literature witness, pre-commit candidate, read-only CI candidate/credential, and RW audit commands above because its RED tests expose those defects; later work may not make unrelated template rewrites.
 
-RED tests in `test_templates.py` must enumerate every packaged path, including both Bases files and all five operational assets above. Parse every non-reserved Markdown file and assert non-empty `type`; assert root index frontmatter equals `{"okf_version": "0.2"}`; assert root log and all nested indexes have no frontmatter; assert the inbox header is exactly the required type; and assert the daily template uses exactly `type: "daily"`.
+RED tests in `test_templates.py` must enumerate every packaged path, including both Bases files and all five operational assets above. Parse every non-reserved Markdown file and assert non-empty `type`; assert root index frontmatter equals `{"type": "index", "okf_version": "0.2"}`; assert the packaged root log and all nested indexes have no frontmatter (root log gains `type: "log"` frontmatter only once `okf.regenerate_log` runs post-scaffold); assert the inbox header is exactly the required type; and assert the daily template uses exactly `type: "daily"`.
 
 The same tests must parse both `.base` files enough to prove their exact type filters; parse `machine.json.example` as JSON and assert the `mailto` and `path_map` shapes; assert `gitignore` contains both canonical entries; run `sh -n` on `git/pre-commit`, assert its executable bit, and assert the exact verify command, exit-1 block, exit-3 open path, import-only fail-open path, `--no-verify`, and CI replay text. For each workflow, assert the event/permission boundary and the exact commands above. In particular, prove the pre-commit hook resolves HEAD once, stores the empty-tree object on an unborn repository, verifies `"$git_base^{tree}"`, and passes `--git-candidate index`; prove `verify.yml` stores the empty-tree fallback, fetches and verifies an explicit base tree, passes `--git-candidate HEAD`, has read-only contents authority without persisted push credentials, and handles 0/1/3/unexpected exits; prove `rw-batch.yml` uses the required curl flags, performs only the offline CSV leg on the explicit open audit/worktree surface, accepts only verifier exit 0, rejects 1, 3, and every other status, passes `--changed-paths-file` and `--commit-projected`, handles a zero-byte manifest without a commit or push, pushes only the verifier-created snapshot commit, and contains no `git add`, pathspec commit, or `commit --only` path.
 
@@ -331,7 +339,7 @@ Create `scaffold.py` with:
 ```python
 VAULT_DIRS = [
     "inbox", "literatures", "synthesis", "log", "projects",
-    "x/templates", "x/bases",
+    "system/templates", "system/bases",
 ]
 
 def scaffold_vault(dest, with_ci=False, with_rw_ci=False) -> list[str]: ...
@@ -364,11 +372,11 @@ Commit: `feat: add scoped OKF vault scaffold`.
 
 Add `doctor(vault_root, client=None, network=True, settle_seconds=60, poll_interval=1) -> list[Probe]` and the CLI verb. `Probe = (name, Result, detail)`, with a string name, a `MATCHED | UNMATCHED | UNREACHABLE | SKIPPED` result, and a human-readable string detail. Return exactly these probes in this order and with these meanings:
 
-1. `tree`: every required directory exists: `inbox`, `literatures`, `synthesis`, `log`, `projects`, `x/templates`, and `x/bases`. Repair missing pieces through the scoped scaffold, then report MATCHED only when this exact tree is complete.
+1. `tree`: every required directory exists: `inbox`, `literatures`, `synthesis`, `log`, `projects`, `system/templates`, and `system/bases`. Repair missing pieces through the scoped scaffold, then report MATCHED only when this exact tree is complete.
 2. `machine-config`: `.harness/machine.json` is readable and its `mailto` value is present and differs from the packaged `you@example.edu` placeholder.
 3. `zotero`: `client.ready()` succeeds; MATCHED detail includes the reported versions, and inability to reach or decode the service is UNREACHABLE.
 4. `bbt`: the ready response contains a non-empty `betterbibtex` version; absence is UNMATCHED, while a failed ready call is UNREACHABLE. If `client.ready()` fails, do not call `observe_autoexport`: report `bbt`, `autoexport`, and `staleness` as UNREACHABLE, with the exact downstream detail `zotero down`, then continue with `remote`, `backup`, and `inbox` so the returned list still contains all nine probes in order. When Zotero is ready but this required BBT version is absent, do not attempt downstream BBT operations: report `autoexport` and `staleness` as SKIPPED with a missing-BBT prerequisite detail; the hard `bbt` UNMATCHED still exits 1.
-5. `autoexport`: the sole-writer observation flow below proves that the genuine `x/bibliography.json` target matches the on-demand comparison export by Plan A's exact sorted `(id, title)` fingerprint. A persistent absence, persistent mismatch, invalid target, or BBT JSON-RPC rejection is UNMATCHED; an I/O, transport, or malformed-response failure is UNREACHABLE. The UNMATCHED detail is human-repair guidance: it names the exact `x/bibliography.json` target — in BBT's host path syntax through `paths.to_bbt_host` where that translation succeeds, otherwise the native absolute path — and states that a person must create or fix the whole-library Better CSL JSON auto-export in BBT Preferences. The harness never registers an auto-export. Preserve `ZoteroError.result` and put the raw error text in detail. Missing BBT is the prerequisite SKIPPED case defined above, not a synthetic outage.
+5. `autoexport`: the sole-writer observation flow below proves that the genuine `system/bibliography.json` target matches the on-demand comparison export by Plan A's exact sorted `(id, title)` fingerprint. A persistent absence, persistent mismatch, invalid target, or BBT JSON-RPC rejection is UNMATCHED; an I/O, transport, or malformed-response failure is UNREACHABLE. The UNMATCHED detail is human-repair guidance: it names the exact `system/bibliography.json` target — in BBT's host path syntax through `paths.to_bbt_host` where that translation succeeds, otherwise the native absolute path — and states that a person must create or fix the whole-library Better CSL JSON auto-export in BBT Preferences. The harness never registers an auto-export. Preserve `ZoteroError.result` and put the raw error text in detail. Missing BBT is the prerequisite SKIPPED case defined above, not a synthetic outage.
 6. `staleness`: the post-observation sorted-`(id, title)` target-versus-on-demand comparison result. This is diagnostic and warn-only, including when it is UNREACHABLE; it is SKIPPED when BBT is the known missing prerequisite.
 7. `remote`: the vault Git repository has a remote; otherwise report UNMATCHED with `no remote — vault endures only on this disk (§2)`.
 8. `backup`: machine config contains a non-empty `zotero_backup`; otherwise report UNMATCHED with `no stated Zotero storage backup (§2 boundary)`.
@@ -378,7 +386,7 @@ The hard-UNMATCHED set is exactly `{"tree", "machine-config", "bbt", "autoexport
 
 The foundation spec defines synthetic offline behavior for verification, not for doctor. Keep `network=True` in the historical doctor interface, but Task 3 must not invent `network=False` probe results, mutations, output, or RED expectations.
 
-Replace the existing import path that calls `bibliography.write_and_commit(vault, client.export_csl(None))`. Doctor and `import-note` must call the same auto-export observer and receive the same MATCHED/UNMATCHED/UNREACHABLE classification and detail. Fetch and validate the whole-library on-demand export exactly once per observation, retain it in memory only as comparison evidence, and reuse its fingerprint through the settle window and the final staleness result; do not race the target against a second fresh export. Compare the actual target and that evidence by their sorted `(id, title)` fingerprints, so serialization and byte-layout differences do not make the bibliography stale. No doctor or import path may pass the on-demand payload or its serialized bytes to a file writer, replace the target, or otherwise synthesize `x/bibliography.json`; BBT remains its sole writer.
+Replace the existing import path that calls `bibliography.write_and_commit(vault, client.export_csl(None))`. Doctor and `import-note` must call the same auto-export observer and receive the same MATCHED/UNMATCHED/UNREACHABLE classification and detail. Fetch and validate the whole-library on-demand export exactly once per observation, retain it in memory only as comparison evidence, and reuse its fingerprint through the settle window and the final staleness result; do not race the target against a second fresh export. Compare the actual target and that evidence by their sorted `(id, title)` fingerprints, so serialization and byte-layout differences do not make the bibliography stale. No doctor or import path may pass the on-demand payload or its serialized bytes to a file writer, replace the target, or otherwise synthesize `system/bibliography.json`; BBT remains its sole writer.
 
 The shared observer performs this exact sequence:
 
@@ -387,10 +395,10 @@ The shared observer performs this exact sequence:
 3. There is no registration step and no second window: the observation closes on that first window's final comparison. No code path may call `autoexport.add` or any other `autoexport.*` JSON-RPC method.
 4. Require the final actual target to be a regular, valid Better CSL JSON file whose sorted `(id, title)` fingerprint matches the retained on-demand evidence. A persistent absence, non-regular target, readable malformed/invalid file, or fingerprint mismatch is UNMATCHED; target I/O/Unicode failure or inability to reach/decode the authoritative service is UNREACHABLE. Return this same final comparison as the observation's `staleness` result instead of making a second export request.
 5. Pass the exact validated in-memory target buffer to `commit_autoexport`, which performs this transaction:
-   - Resolve expected HEAD once and return `False` when its bibliography blob already equals the supplied buffer. Otherwise write the buffer with `git hash-object -w --stdin`; build a temporary `GIT_INDEX_FILE` from expected HEAD, or an empty tree when unborn; update only `x/bibliography.json` to mode `100644` and that blob; and create a hook-free commit whose tree is exactly expected HEAD plus that one replacement.
+   - Resolve expected HEAD once and return `False` when its bibliography blob already equals the supplied buffer. Otherwise write the buffer with `git hash-object -w --stdin`; build a temporary `GIT_INDEX_FILE` from expected HEAD, or an empty tree when unborn; update only `system/bibliography.json` to mode `100644` and that blob; and create a hook-free commit whose tree is exactly expected HEAD plus that one replacement.
    - Before moving HEAD, resolve the current worktree's standard live index with `git rev-parse --git-path index` and acquire that linked-worktree-specific `<index>.lock` with exclusive creation. Seed the lock from the complete live index, or from a valid empty index when it does not yet exist. Keep the lock through the HEAD compare-and-swap and index publication.
-   - Read the locked index's `x/bibliography.json` entry. It must equal expected HEAD's entry, including matching absence: when present it is exactly one matching stage-0 mode/blob entry, and when HEAD is unborn it is absent. A pre-staged bibliography entry, conflict stages, or a concurrent bibliography stage that lands before lock acquisition fails without changing HEAD, the live index, or any worktree byte. Preserve every unrelated live-index entry byte-for-byte.
-   - Update only the locked index's `x/bibliography.json` entry to the captured validated blob. Move HEAD with an expected-old compare-and-swap (`git update-ref HEAD <new> <expected-old>`, using Git's zero OID when unborn), then atomically publish the locked index over the live index. A concurrent HEAD move fails without overwriting it or publishing the locked index.
+   - Read the locked index's `system/bibliography.json` entry. It must equal expected HEAD's entry, including matching absence: when present it is exactly one matching stage-0 mode/blob entry, and when HEAD is unborn it is absent. A pre-staged bibliography entry, conflict stages, or a concurrent bibliography stage that lands before lock acquisition fails without changing HEAD, the live index, or any worktree byte. Preserve every unrelated live-index entry byte-for-byte.
+   - Update only the locked index's `system/bibliography.json` entry to the captured validated blob. Move HEAD with an expected-old compare-and-swap (`git update-ref HEAD <new> <expected-old>`, using Git's zero OID when unborn), then atomically publish the locked index over the live index. A concurrent HEAD move fails without overwriting it or publishing the locked index.
    - After a successful commit, an unchanged BBT target is clean because HEAD and the live index contain the captured blob. If BBT has written newer target bytes, HEAD and the live index still contain the captured blob and the newer worktree target remains an unstaged bibliography change for the next staleness pass. Never reread or write the target after validation; no unrelated staged, unstaged, or untracked path may enter the commit or change state.
    - Cleanup may unlink `<index>.lock` only while the path still names the same lock inode held by this process. If atomic publication removes that inode and a concurrent writer reacquires the lock path, preserve the successor lock.
    - If atomic index publication fails after the HEAD CAS, roll HEAD back by expected-old CAS to the exact expected parent, or delete the new ref to restore the unborn state. Preserve the original live index and worktree. If a concurrent writer moved HEAD after the forward CAS, the rollback CAS must fail rather than overwrite that writer; surface a clean combined publication/rollback failure. Unreachable temporary objects are acceptable.
@@ -406,10 +414,10 @@ RED coverage is mandatory and exact:
 - `test_doctor.py`: monkeypatch the old bibliography writer to fail if called and prove the harness never writes the in-memory comparison export; prove the observer passes its exact validated BBT buffer into the snapshot commit, and that later BBT bytes remain for the next staleness pass rather than entering the current commit.
 - `test_doctor.py`: both legal `--base` positions construct `ZoteroClient` with the supplied URL.
 - `test_bibliography.py`: deterministic fake clock/poller coverage for the settle window, `poll_interval <= 0`, a target appearing on the final-deadline read, exactly one fresh-evidence fetch reused through the window and final staleness, the exact sorted `(id, title)` comparator (including byte-different JSON that MATCHES), a client stub that fails the test if any `autoexport.*` call is attempted, and missing/non-regular/malformed versus I/O/Unicode classification without real sleeping.
-- `test_bibliography.py`: transaction regressions cover existing and unborn HEADs. Assert the committed blob is the supplied validated buffer even if the worktree target changes after validation; the commit tree is expected HEAD with only `x/bibliography.json` replaced; its parent is exactly expected HEAD when one exists; and hooks, `git add`, and `git commit --only` never run. Resolve and lock the linked-worktree-specific live index. A pre-staged/conflicted bibliography entry and a concurrent bibliography index writer must fail before HEAD/index/worktree mutation; the standard lock must remain held through HEAD CAS. Assert every unrelated live-index entry remains byte-for-byte identical while only the bibliography entry becomes the captured blob. After success, an unchanged target is clean and a newer BBT target is exactly an unstaged bibliography change.
+- `test_bibliography.py`: transaction regressions cover existing and unborn HEADs. Assert the committed blob is the supplied validated buffer even if the worktree target changes after validation; the commit tree is expected HEAD with only `system/bibliography.json` replaced; its parent is exactly expected HEAD when one exists; and hooks, `git add`, and `git commit --only` never run. Resolve and lock the linked-worktree-specific live index. A pre-staged/conflicted bibliography entry and a concurrent bibliography index writer must fail before HEAD/index/worktree mutation; the standard lock must remain held through HEAD CAS. Assert every unrelated live-index entry remains byte-for-byte identical while only the bibliography entry becomes the captured blob. After success, an unchanged target is clean and a newer BBT target is exactly an unstaged bibliography change.
 - `test_bibliography.py`: inject a concurrent HEAD move and require forward CAS failure with no overwrite or index publication. Simulate lock-path reacquisition after successful publication and prove cleanup preserves the successor inode. Simulate index-publication failure for both existing and unborn HEAD and require exact HEAD rollback plus original index/worktree preservation. Race a new HEAD after the forward CAS and require rollback CAS to preserve that concurrent HEAD and surface the combined failure. Repeat the ordinary transaction in a real linked worktree and prove it uses that worktree's own standard index/lock without changing the main worktree's index. Assert cleanup removes only the still-owned lock inode and the code never rereads or writes the target.
 - `test_cli_live.py`: patch the shared observer, not a duplicate import-only implementation. Cover note NOOP while the observer still runs, delayed genuine BBT output, UNMATCHED timeout/mismatch returning 1, UNREACHABLE returning 3, no note write on either failure, and no call to the old bibliography writer or write of comparison bytes.
-- `test_cli_live.py`: with unrelated staged, unstaged, and untracked files present, the bookkeeping commit contains only the captured genuine `x/bibliography.json` bytes atop expected HEAD. Every unrelated live-index entry, worktree byte, and status remains exact; the intended bibliography index entry advances with HEAD. A target rewrite after validation is excluded from that commit and remains as an unstaged bibliography change for the next observer pass.
+- `test_cli_live.py`: with unrelated staged, unstaged, and untracked files present, the bookkeeping commit contains only the captured genuine `system/bibliography.json` bytes atop expected HEAD. Every unrelated live-index entry, worktree byte, and status remains exact; the intended bibliography index entry advances with HEAD. A target rewrite after validation is excluded from that commit and remains as an unstaged bibliography change for the next observer pass.
 
 Run: `python -m pytest tests/test_doctor.py tests/test_bibliography.py tests/test_verify_cli.py tests/test_cli_live.py -m 'not live and not live_net' -v`.
 
@@ -423,7 +431,7 @@ Implement this task as one RED → GREEN sequence. It deliberately corrects the 
 
 - Create: `core/harness_core/pathcodec.py`.
 - Modify: `core/harness_core/gitstate.py`, `core/harness_core/checks.py`, `core/harness_core/quotes.py`, `core/harness_core/inbox.py`, `core/harness_core/notes.py`, `core/harness_core/lints.py`, and `core/harness_core/__main__.py`.
-- Modify the reviewed Task 1 assets: `core/harness_core/templates/vault/x/templates/literature.md`, `core/harness_core/templates/git/pre-commit`, `core/harness_core/templates/ci/verify.yml`, and `core/harness_core/templates/ci/rw-batch.yml`.
+- Modify the reviewed Task 1 assets: `core/harness_core/templates/vault/system/templates/literature.md`, `core/harness_core/templates/git/pre-commit`, `core/harness_core/templates/ci/verify.yml`, and `core/harness_core/templates/ci/rw-batch.yml`.
 - Create: `core/tests/test_pathcodec.py`, `core/tests/test_precommit.py`, and `core/tests/test_ci_templates.py`.
 - Modify: `core/tests/test_checks.py`, `core/tests/test_quotes.py`, `core/tests/test_identify.py`, `core/tests/test_gitstate.py`, `core/tests/test_lints.py`, `core/tests/test_inbox.py`, `core/tests/test_notes.py`, `core/tests/test_verify_cli.py`, `core/tests/test_templates.py`, and `core/tests/test_scaffold.py`.
 
@@ -678,8 +686,8 @@ Remove the dead registration path; Git history preserves it:
 1. scaffolds a fresh `tmp_path` vault under a synthetic local Git identity — exactly `user.name=knowledge-harness-live-drill` and `user.email=live-drill@example.invalid`, set locally before scaffold; the drill never depends on or changes global Git identity;
 2. runs `doctor` against real Zotero/BBT through a real `ZoteroClient`;
 3. requires `zotero` MATCHED with the reported versions in detail and `bbt` MATCHED with the live BBT version;
-4. requires `autoexport` UNMATCHED — no human has created an auto-export for a throwaway vault — with a detail that names the exact `x/bibliography.json` target and the BBT Preferences repair, and requires `staleness` to stay warn-only;
-5. requires that the run issued zero `autoexport.*` JSON-RPC calls (record every method name the transport sends) and that `x/bibliography.json` was never created;
+4. requires `autoexport` UNMATCHED — no human has created an auto-export for a throwaway vault — with a detail that names the exact `system/bibliography.json` target and the BBT Preferences repair, and requires `staleness` to stay warn-only;
+5. requires that the run issued zero `autoexport.*` JSON-RPC calls (record every method name the transport sends) and that `system/bibliography.json` was never created;
 6. requires the `doctor` CLI to exit 1 on that hard UNMATCHED and to print the guidance line.
 
 **Explicitly deferred, by author decision 2026-08-20:** the MATCHED end-to-end leg — genuine BBT output observed, one real item imported, rerun to NOOP — requires a human-created whole-library auto-export pointing at the drill vault. None was created, so that leg is deferred, not silently skipped, and Task 9 accepts the deferral only while this record stands.
@@ -752,3 +760,4 @@ The final whole-branch review's Important findings were fixed in the branch (`b5
 4. **`cmd_verify` catches bare `ValueError`/`OSError`**, which can convert an implementation bug into a tidy exit 2 with no traceback.
 5. **Projection scratch files** (`.harness-projection-<pid>-<n>`) are unlinked in a `finally`, so a SIGKILL mid-write strands one inside the vault; a startup sweep or an out-of-vault temp dir would close it.
 6. **Standing-scope acks** mean one acknowledgment of a `publish-gate` finding filters every later finding for that project out of `open_entries`/`summary`. Pre-existing inbox behavior, surfaced here because the bypass record depends on it.
+7. **`verify`'s `log.md` regeneration is unwired, conditioned on a trigger that hasn't happened yet.** Plan T's Task 5 (`docs/plans/2026-08-20-plan-t-terminology-wave.md`) shipped `okf.regenerate_log`, called from `import-note` only — `verify` has no log-append mechanism at HEAD to call it after, and its writes flow through `gitstate`'s transactional manifest/publish pipeline (`_allowed_manifest_path` doesn't carry `log.md`). Not scheduled work: **if/when `verify` gains a log-append mechanism**, its transaction must carry `log.md` too — extend `gitstate._allowed_manifest_path` and project `log.md` through `_plan_state` as a tracked output, the same way every other verify-owned write is handled. The doctor `okf` probe already backstops the gap behaviorally (warns when `log.md` is missing despite day files being present) until then.

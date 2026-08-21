@@ -15,8 +15,8 @@ VAULT_DIRS = [
     "synthesis",
     "log",
     "projects",
-    "x/templates",
-    "x/bases",
+    "system/templates",
+    "system/bases",
 ]
 EXPECTED_CREATED = [
     ".git/hooks/pre-commit",
@@ -30,12 +30,12 @@ EXPECTED_CREATED = [
     "log/.gitkeep",
     "projects/.gitkeep",
     "synthesis/index.md",
-    "x/bases/open-questions.base",
-    "x/bases/trust-tier.base",
-    "x/templates/daily.md",
-    "x/templates/literature.md",
-    "x/templates/project.md",
-    "x/templates/synthesis.md",
+    "system/bases/open-questions.base",
+    "system/bases/trust-tier.base",
+    "system/templates/daily.md",
+    "system/templates/literature.md",
+    "system/templates/project.md",
+    "system/templates/synthesis.md",
 ]
 TRACKABLE_CREATED = [
     path for path in EXPECTED_CREATED if not path.startswith((".git/", ".harness/"))
@@ -78,9 +78,18 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert all((vault / path).is_dir() for path in VAULT_DIRS)
     assert (vault / ".git").is_dir()
     assert (vault / "index.md").read_text() == (
-        '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
+        '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+        "# Vault index\n\n"
+        "- [[literatures/]] — evidence layer: citekey-keyed source notes\n"
+        "- [[synthesis/]] — synthesis pages (see [[synthesis/index]])\n"
+        "- [[projects/]] — manuscripts and deliverables\n"
+        "- [[log/]] — daily activity log (summary: [[log]])\n"
+        "- [[inbox/]] — fleeting notes and the review queue\n"
+        "- [[system/]] — support artifacts: templates, bases, the bibliography export\n"
     )
-    assert (vault / "log.md").read_text() == "# Log\n"
+    assert (vault / "log.md").read_text() == (
+        '---\ntype: "log"\n---\n# Log\n\n## Days\n'
+    )
     assert (vault / ".gitignore").read_text() == ".harness/\n.obsidian/workspace*\n"
     assert (vault / ".harness" / "machine.json").read_text() == (
         '{\n  "mailto": "you@example.edu",\n'
@@ -89,16 +98,17 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     for path in (
         "AGENTS.md",
         "inbox/review-queue.md",
-        "x/templates/daily.md",
-        "x/templates/literature.md",
-        "x/templates/project.md",
-        "x/templates/synthesis.md",
+        "system/templates/daily.md",
+        "system/templates/literature.md",
+        "system/templates/project.md",
+        "system/templates/synthesis.md",
     ):
         data, _ = frontmatter.parse((vault / path).read_text())
         assert data["type"]
-    for path in ("log.md", "synthesis/index.md"):
-        data, _ = frontmatter.parse((vault / path).read_text())
-        assert data == {}
+    data, _ = frontmatter.parse((vault / "synthesis/index.md").read_text())
+    assert data == {}
+    log_data, _ = frontmatter.parse((vault / "log.md").read_text())
+    assert log_data == {"type": "log"}
 
 
 def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
@@ -159,8 +169,8 @@ def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path)
         ".git/hooks/pre-commit": packaged.joinpath("git", "pre-commit"),
         ".github/workflows/verify.yml": packaged.joinpath("ci", "verify.yml"),
         ".github/workflows/rw-batch.yml": packaged.joinpath("ci", "rw-batch.yml"),
-        "x/templates/literature.md": packaged.joinpath(
-            "vault", "x", "templates", "literature.md"
+        "system/templates/literature.md": packaged.joinpath(
+            "vault", "system", "templates", "literature.md"
         ),
     }
 

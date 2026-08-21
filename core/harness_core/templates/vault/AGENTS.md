@@ -1,5 +1,5 @@
 ---
-type: "vault-guide"
+type: "guide"
 ---
 # Vault agents guide
 
