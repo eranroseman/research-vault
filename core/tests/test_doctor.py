@@ -394,7 +394,7 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
     )
     (vault / "inbox" / "review-queue.md").write_text(
         '---\ntype: "review-queue"\n---\n'
-        "- [id:: citekey/x/2026-08-01] [check:: citekey] [target:: x] "
+        "- [id:: citekey/kind-10:identifier;target-1:x/2026-08-01] [check:: citekey] [target:: x] "
         "[result:: UNMATCHED] [date:: 2026-08-01] [actor:: process:test] "
         "[reason:: mismatch — test]\n"
     )

@@ -550,12 +550,10 @@ def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
 
 
 def lint_evidence_layer(
-    vault_root,
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
 ) -> list[Outcome]:
     """Validate witnesses and expose every base-to-candidate managed change."""
-    del vault_root
     outcomes = []
     base_files = _literature_files(base_snapshot)
     candidate_files = _literature_files(candidate_snapshot)

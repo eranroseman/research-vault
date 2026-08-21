@@ -314,11 +314,12 @@ def test_target_kind_identity_is_injective_when_identifier_contains_kind_syntax(
     ] == [("path-bytes:a/kind-repo-path", "identifier")]
 
 
-def test_legacy_missing_target_kind_defaults_only_to_identifier(fixture_vault):
+def test_missing_target_kind_defaults_only_to_identifier(fixture_vault):
     queue = fixture_vault / inbox.INBOX_PATH
     _write_body(
         queue,
-        "- [id:: quote/path-bytes:a/2026-08-16] [check:: quote] "
+        "- [id:: quote/kind-10:identifier;target-12:path-bytes:a/2026-08-16] "
+        "[check:: quote] "
         "[target:: path-bytes:a] [result:: UNMATCHED] [date:: 2026-08-16] "
         "[actor:: harness_core/0.1.0] [reason:: mismatch — legacy]\n",
     )

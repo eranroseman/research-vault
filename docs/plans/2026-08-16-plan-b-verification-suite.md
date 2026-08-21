@@ -2633,3 +2633,16 @@ Clerical (no ruling): ruff-driven test rewrites, exact Plan A marker matching, c
 **Verification history:** three-lens adversarial pass (spec fidelity / desk-check vs as-built Plan A in sandbox / zero-context walkthrough) found 6 CRITICAL + 13 IMPORTANT + 11 MINOR defects — all fixed in this revision: quote events now mint via the verify verb (machine-confirmed reachable), DOI-less entries route to update-notice with re-derived identifiers (never structurally exempt), FIELD_RE admits wikilinks, claim-immutability compares whole claim blocks, contested-set semantics corrected, casefold split out of the quote pipeline, offline = UNREACHABLE never SKIPPED, bi-temporal inbox fields, verify-failed stamping/clearing, dedup keyed on target hash with warn-tier keys, closing-class exit contract, selectors index map rebuilt per emitted char, apostrophe in the symmetry inversion, venv bootstrap, conftest two-conditional skip logic.
 
 **Type consistency:** `Outcome` defined T5, consumed T6–T13; `normalize_text` defined T7, consumed T9/T10/T12; `Claim`/`claim_address` defined T1, consumed T3/T10/T11; `Entry`/`INBOX_PATH` defined T2, consumed T13; `Result` semantics uniform; `parents=[common]` argparse pattern continues Plan A's.
+
+## Supersessions (2026-08-21)
+
+1. **`run_verify` superseded — the public seam is the verification transaction
+   itself.** The `run_verify(vault_root, scope="all", network=True,
+   detection_date=None, rw_csv=None)` signature above is description, not
+   contract: it carried no ruling marker, and by 2026-08-21 the function had no
+   caller outside the test suite, which used it as a report-projecting wrapper.
+   It is removed; its tests call `_verify_state` and project the report locally.
+   The `scope` parameter is removed with it — it was deleted unread on entry to
+   `_plan_state` and no caller ever passed a non-default value, so no behaviour
+   depended on it. Plan R Task 2 renames the remaining private seam
+   (`_verify_state`/`_surface_decision`/`_file_outcomes`) to its public spelling.

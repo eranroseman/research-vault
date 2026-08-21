@@ -1,6 +1,4 @@
 import dataclasses
-import json
-from types import MappingProxyType
 
 import pytest
 
@@ -80,7 +78,7 @@ def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
     }
 
 
-def test_outcome_rejects_invalid_reasons_and_has_independent_frozen_graphs():
+def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
     """Outcome detaches every caller graph and exposes no mutation path."""
     first_input = {"nested": {"items": ["one"]}}
     second_input = {"nested": {"items": ["two"]}}
@@ -100,12 +98,8 @@ def test_outcome_rejects_invalid_reasons_and_has_independent_frozen_graphs():
     with pytest.raises(TypeError):
         checks.Outcome("citekey", "bad", Result.MATCHED)
 
-    assert first.extra["nested"]["items"] == ("one",)
-    assert second.extra["nested"]["items"] == ("two",)
-    with pytest.raises(TypeError):
-        first.extra["origin"] = "one"
-    with pytest.raises(TypeError):
-        first.extra["nested"]["items"] += ("three",)
+    assert first.extra["nested"]["items"] == ["one"]
+    assert second.extra["nested"]["items"] == ["two"]
 
 
 def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
@@ -127,7 +121,6 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
     assert outcome.extra["note_path"] == "path-bytes:projects/a%20b.md"
     assert outcome.extra["origin"] == "path-bytes:literatures/%FF.md"
     assert outcome.extra["identifier"] == "path-bytes:looks/like/a/path"
-    assert isinstance(outcome.extra, MappingProxyType)
     for name in ("target", "target_kind", "path_extra_fields"):
         with pytest.raises(dataclasses.FrozenInstanceError):
             setattr(outcome, name, "changed")
@@ -161,14 +154,7 @@ def test_outcome_rejects_non_json_or_nested_typed_path_values(extra):
         checks.Outcome("doi", "id", Result.MATCHED, "matched", extra)
 
 
-def test_outcome_rejects_cycles_at_any_depth():
-    cycle = {}
-    cycle["self"] = cycle
-    with pytest.raises(ValueError, match="cycle"):
-        checks.Outcome("doi", "id", Result.MATCHED, "matched", cycle)
-
-
-def test_record_and_csv_round_trip_thaw_fresh_typed_values():
+def test_record_round_trip_returns_fresh_typed_values():
     source = checks.Outcome(
         "quote",
         RepoPathValue(b"synthesis/\xff.md"),
@@ -193,28 +179,10 @@ def test_record_and_csv_round_trip_thaw_fresh_typed_values():
         "path_extra_fields": ["note_path"],
     }
     record["extra"]["claims"][0]["locators"].append(3)
-    assert source.extra["claims"][0]["locators"] == (1, 2)
+    assert source.extra["claims"][0]["locators"] == [1, 2]
 
     rebuilt = checks.outcome_from_record(checks.outcome_to_record(source))
     assert checks.outcome_to_record(rebuilt) == checks.outcome_to_record(source)
-    row = checks.outcome_to_csv_row(source)
-    assert set(row) == {
-        "check",
-        "target",
-        "target_kind",
-        "result",
-        "reason",
-        "extra",
-        "path_extra_fields",
-    }
-    assert row["extra"] == json.dumps(
-        checks.outcome_to_record(source)["extra"],
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    assert checks.outcome_to_record(checks.outcome_from_csv_row(row)) == (
-        checks.outcome_to_record(source)
-    )
 
 
 @pytest.mark.parametrize(

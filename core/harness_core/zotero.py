@@ -179,11 +179,3 @@ class ZoteroClient:
             if citekey:
                 normalized.append({**item, "id": citekey})
         return normalized
-
-    def supports_local_writes(self) -> bool:
-        """Return True only for affirmatively known Zotero 10+ installs."""
-        try:
-            major = int(str(self.ready().get("zotero", "0")).split(".")[0])
-        except Exception:
-            return False
-        return major >= 10

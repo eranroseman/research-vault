@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from urllib.parse import quote, unquote_to_bytes
 
 PATH_BYTES_PREFIX = "path-bytes:"
-_SAFE = frozenset(
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._~-/"
-)
-_HEX = frozenset(b"0123456789ABCDEF")
 _DRIVE = re.compile(rb"^[A-Za-z]:")
 
 
@@ -44,11 +41,9 @@ class RepoPathValue:
 
 def encode_repo_path(raw: bytes) -> str:
     """Encode one raw path to its unique ASCII persistence token."""
-    raw = _validate_raw(raw)
-    payload = "".join(
-        chr(value) if value in _SAFE else f"%{value:02X}" for value in raw
-    )
-    return PATH_BYTES_PREFIX + payload
+    # quote() leaves exactly the RFC 3986 unreserved set literal and emits every
+    # other byte as uppercase %HH, which is this codec's canonical spelling.
+    return PATH_BYTES_PREFIX + quote(_validate_raw(raw), safe="/")
 
 
 def decode_repo_path(value: str) -> bytes:
@@ -64,32 +59,13 @@ def decode_repo_path(value: str) -> bytes:
         encoded = payload.encode("ascii")
     except (UnicodeEncodeError, UnicodeError) as error:
         raise PathCodecError("encoded repository path must be ASCII") from error
-    raw = bytearray()
-    index = 0
-    while index < len(encoded):
-        value_byte = encoded[index]
-        if value_byte == ord("%"):
-            if index + 2 >= len(encoded):
-                raise PathCodecError("truncated repository path escape")
-            first, second = encoded[index + 1 : index + 3]
-            if first not in _HEX or second not in _HEX:
-                raise PathCodecError(
-                    "repository path escapes use uppercase hexadecimal"
-                )
-            decoded = int(bytes((first, second)), 16)
-            if decoded in _SAFE:
-                raise PathCodecError("repository path over-encodes a safe byte")
-            raw.append(decoded)
-            index += 3
-            continue
-        if value_byte not in _SAFE:
-            raise PathCodecError("repository path contains a literal reserved byte")
-        raw.append(value_byte)
-        index += 1
-    result = _validate_raw(bytes(raw))
-    if encode_repo_path(result) != value:
+    raw = _validate_raw(unquote_to_bytes(encoded))
+    # unquote_to_bytes is permissive: it accepts lowercase escapes, over-encoded
+    # safe bytes, literal reserved bytes, and truncated escapes alike. Requiring
+    # the round trip to reproduce the input rejects every non-canonical spelling.
+    if encode_repo_path(raw) != value:
         raise PathCodecError("repository path is not canonically encoded")
-    return result
+    return raw
 
 
 __all__ = [

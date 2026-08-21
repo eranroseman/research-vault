@@ -83,7 +83,6 @@ def cmd_probe(args):
     client = ZoteroClient(base=args.base)
     try:
         info = client.ready()
-        info["local_writes"] = client.supports_local_writes()
     except ZoteroError:
         print(json.dumps({"result": Result.UNREACHABLE.value}))
         return 3
@@ -632,9 +631,9 @@ def _target_hash(
             if data is not None:
                 return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
         if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
-            entry = bibliography.load(vault_root).entry(target)
+            entry = bibliography.load(vault_root).get(target)
         elif bibliography_universe is not None:
-            entry = bibliography_universe.entry(target)
+            entry = bibliography_universe.get(target)
         else:
             entry = None
         if entry is not None:
@@ -750,7 +749,7 @@ def _file_outcomes(vault_root, path, bibliography_universe=None):
 
 
 def _bibliography_entries(bib):
-    return [bib.entry(key) for key in sorted(bib.citekeys)]
+    return [bib[citekey] for citekey in sorted(bib)]
 
 
 def _staleness_outcome(vault_root, base=DEFAULT_BASE):
@@ -815,36 +814,21 @@ def _network_outcomes(vault_root, entry, detection_date, rw):
 
 
 def _offline_network_outcomes(entry, detection_date, rw):
-    target = entry["id"]
     rw_leg = (
         checks.check_rw_batch(entry, rw, detection_date) if rw is not None else None
     )
     if rw_leg is not None:
         return [rw_leg]
-    outcomes = [
+    return [
         checks.Outcome(
-            "doi",
-            target,
+            check,
+            entry["id"],
             Result.UNREACHABLE,
             "outage — network disabled",
             {"synthetic_offline": True},
-        ),
-        checks.Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — network disabled",
-            {"synthetic_offline": True},
-        ),
-        checks.Outcome(
-            "update-notice",
-            target,
-            Result.UNREACHABLE,
-            "outage — network disabled",
-            {"synthetic_offline": True},
-        ),
+        )
+        for check in ("doi", "metadata", "update-notice")
     ]
-    return outcomes
 
 
 def _archive_outcomes(vault_root):
@@ -1070,7 +1054,6 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
 
 def _plan_state(
     vault_root,
-    scope="all",
     network=True,
     detection_date=None,
     rw_csv=None,
@@ -1080,7 +1063,6 @@ def _plan_state(
     snapshots=None,
 ):
     """Compute one complete projection inside a materialized candidate."""
-    del scope
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
     detection_date = detection_date or datetime.date.today().isoformat()
@@ -1148,7 +1130,7 @@ def _plan_state(
         base_snapshot = snapshots.base
         candidate_snapshot = snapshots.candidate
         raw.extend(
-            lints.lint_evidence_layer(repository, base_snapshot, candidate_snapshot)
+            lints.lint_evidence_layer(base_snapshot, candidate_snapshot)
         )
     raw.extend(lints.lint_append_only(repository, base_snapshot, candidate_snapshot))
     raw.extend(
@@ -1204,7 +1186,6 @@ def _rollback_prepublication(vault, snapshots, outputs, primary):
 
 def _verify_state(
     vault_root,
-    scope="all",
     network=True,
     detection_date=None,
     rw_csv=None,
@@ -1230,7 +1211,6 @@ def _verify_state(
         gitstate.materialize_snapshot(snapshots.candidate, planning)
         report, effective, hashes, warning_effective = _plan_state(
             planning,
-            scope,
             network,
             detection_date,
             rw_csv,
@@ -1255,21 +1235,12 @@ def _verify_state(
                 snapshots.live,
                 outputs,
                 resolved_manifest,
-                resolved_destination=resolved_manifest,
             )
         except gitstate.GitStateError as error:
             _rollback_prepublication(vault, snapshots, outputs, error)
     if commit_projected is not None:
         gitstate.publish_outputs(vault, snapshots, captured, commit_projected)
     return report, effective, hashes, warning_effective
-
-
-def run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None):
-    """Collect raw outcomes and apply their effective verification effects."""
-    report, _effective_outcomes, _hashes, _warnings = _verify_state(
-        vault_root, scope, network, detection_date, rw_csv
-    )
-    return report
 
 
 def _surface_decision(surface, effective, warning_effective):

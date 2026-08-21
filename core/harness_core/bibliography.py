@@ -16,18 +16,6 @@ from .zotero import ZoteroError
 BIB_PATH = "system/bibliography.json"
 
 
-class Bibliography:
-    def __init__(self, items):
-        self._by_id = {i["id"]: i for i in items}
-
-    @property
-    def citekeys(self):
-        return set(self._by_id)
-
-    def entry(self, citekey):
-        return self._by_id.get(citekey)
-
-
 class BibliographyError(ValueError):
     """A bibliography that cannot safely participate in verification."""
 
@@ -79,13 +67,13 @@ def _path(vault_root):
     return Path(os.path.abspath(os.fspath(vault_root))) / BIB_PATH
 
 
-def load(vault_root) -> Bibliography:
+def load(vault_root) -> dict[str, dict]:
     p = _path(vault_root)
     try:
         try:
             path_stat = p.stat()
         except FileNotFoundError:
-            return Bibliography([])
+            return {}
         if not stat.S_ISREG(path_stat.st_mode):
             raise BibliographyError(
                 "bibliography is not a regular file", Result.UNMATCHED
@@ -104,7 +92,7 @@ def load(vault_root) -> Bibliography:
         raise BibliographyError(
             "bibliography has invalid JSON or schema", Result.UNMATCHED
         ) from error
-    return Bibliography(items)
+    return {item["id"]: item for item in items}
 
 
 def _validate_items(items) -> None:
@@ -452,6 +440,21 @@ def _fingerprint(items):
     return sorted(fingerprint)
 
 
+def _fingerprint_serialized(raw: bytes):
+    """Fingerprint one serialized bibliography.
+
+    Returns ``(fingerprint, MATCHED)`` when usable, ``(None, UNREACHABLE)`` when
+    the bytes are not UTF-8, and ``(None, UNMATCHED)`` when JSON or schema is
+    invalid — the ladder both the live target and the committed blob share.
+    """
+    try:
+        return _fingerprint(json.loads(raw.decode("utf-8"))), Result.MATCHED
+    except UnicodeError:
+        return None, Result.UNREACHABLE
+    except (TypeError, ValueError):
+        return None, Result.UNMATCHED
+
+
 def _unsafe_target(detail: str) -> _TargetState:
     return _TargetState(Result.UNMATCHED, detail, contained=False)
 
@@ -616,13 +619,12 @@ def _committed_state(vault_root, evidence) -> _TargetState:
         return _TargetState(
             Result.UNREACHABLE, "committed bibliography cannot be read from HEAD"
         )
-    try:
-        fingerprint = _fingerprint(json.loads(committed.stdout.decode("utf-8")))
-    except UnicodeError as error:
+    fingerprint, parsed = _fingerprint_serialized(committed.stdout)
+    if parsed is Result.UNREACHABLE:
         return _TargetState(
-            Result.UNREACHABLE, f"committed bibliography is unreadable: {error}"
+            Result.UNREACHABLE, "committed bibliography is unreadable: invalid UTF-8"
         )
-    except (TypeError, ValueError):
+    if parsed is Result.UNMATCHED:
         return _TargetState(
             Result.UNMATCHED,
             "committed bibliography has invalid JSON or schema",
@@ -735,19 +737,16 @@ def staleness(vault_root, client) -> Result:
     if not stat.S_ISREG(path_stat.st_mode):
         return Result.UNMATCHED
     try:
-        fresh = client.export_csl(None)
-        fresh_fingerprint = _fingerprint(fresh)
+        fresh_fingerprint = _fingerprint(client.export_csl(None))
     except (ZoteroError, TypeError, ValueError):
         return Result.UNREACHABLE
     try:
-        committed_text = p.read_text()
-    except (OSError, UnicodeError):
+        committed_bytes = p.read_bytes()
+    except OSError:
         return Result.UNREACHABLE
-    try:
-        committed = json.loads(committed_text)
-        committed_fingerprint = _fingerprint(committed)
-    except (TypeError, ValueError):
-        return Result.UNMATCHED
+    committed_fingerprint, parsed = _fingerprint_serialized(committed_bytes)
+    if parsed is not Result.MATCHED:
+        return parsed
     return (
         Result.MATCHED
         if committed_fingerprint == fresh_fingerprint
