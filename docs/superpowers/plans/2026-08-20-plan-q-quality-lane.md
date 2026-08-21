@@ -61,7 +61,6 @@ dev = [
 ```
 .mutate4py/
 lcov.info
-.coverage
 .coverage.*
 .contexts.db
 ```
@@ -491,8 +490,7 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     import subprocess
 
     repo = tmp_path / "repo"
-    core = repo / "core"
-    (core / "harness_core").mkdir(parents=True)
+    (repo / "harness_core").mkdir(parents=True)
 
     def git(*argv: str) -> None:
         subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
@@ -500,16 +498,16 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     git("init", "-q", "-b", "main")
     git("config", "user.email", "t@example.invalid")
     git("config", "user.name", "t")
-    (core / "harness_core" / "x.py").write_text("A = 1\n", encoding="utf-8")
-    (core / "harness_core" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "harness_core" / "x.py").write_text("A = 1\n", encoding="utf-8")
+    (repo / "harness_core" / "__init__.py").write_text("", encoding="utf-8")
     git("add", ".")
     git("commit", "-q", "-m", "base")
     git("checkout", "-q", "-b", "feature")
-    (core / "harness_core" / "x.py").write_text("A = 2\n", encoding="utf-8")
-    (core / "harness_core" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
+    (repo / "harness_core" / "x.py").write_text("A = 2\n", encoding="utf-8")
+    (repo / "harness_core" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
     git("commit", "-q", "-a", "-m", "change")
 
-    assert changed_modules("main", cwd=core) == ["harness_core/x.py"]
+    assert changed_modules("main", cwd=repo) == ["harness_core/x.py"]
 ```
 
 - [ ] **Step 2: Run to verify failure**
