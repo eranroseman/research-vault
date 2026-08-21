@@ -256,9 +256,6 @@ def _write_state(config, state: dict) -> None:
     path = config.state
     payload = (json.dumps(state, indent=2, sort_keys=True) + "\n").encode("utf-8")
     original_stat = _state_artifact_stat(path)
-    original_payload = (
-        _read_state_bytes(path, original_stat) if original_stat is not None else None
-    )
     temporary = _write_replacement(path, payload)
     try:
         current_stat = _state_artifact_stat(path)
@@ -273,24 +270,22 @@ def _write_state(config, state: dict) -> None:
         try:
             _fsync_parent(path)
         except OSError as error:
-            installed = True
-            if original_payload is not None:
-                rollback = _write_replacement(path, original_payload)
-                try:
-                    if _state_artifact_stat(path) is None:
-                        raise RuntimeError(
-                            "live drill recovery state disappeared before rollback"
-                        )
-                    os.replace(rollback, path)
-                    installed = False
-                finally:
-                    rollback.unlink(missing_ok=True)
-            raise StateDurabilityError(str(error), installed=installed) from error
+            raise StateDurabilityError(str(error), installed=True) from error
     finally:
         temporary.unlink(missing_ok=True)
 
 
-def _run_retaining_state(config, *, target, host_target, operation):
+def _run_retaining_state(config, *, target, operation):
+    target = Path(target)
+    expected_target = config.vault / "x" / "bibliography.json"
+    if not target.is_absolute() or target != expected_target:
+        raise RuntimeError("live drill target is not the exact bibliography path")
+    translate_to_host = paths.to_bbt_host
+    host_target = translate_to_host(target)
+    if not isinstance(host_target, str) or not host_target:
+        raise paths.PathError(
+            "live drill BBT host target translation returned no usable target"
+        )
     if _state_artifact_stat(config.state) is not None:
         raise RuntimeError(f"live drill recovery state already exists: {config.state}")
     if config.precreated and (
@@ -306,10 +301,6 @@ def _run_retaining_state(config, *, target, host_target, operation):
     vault_stat = os.lstat(config.vault)
     if not stat.S_ISDIR(vault_stat.st_mode):
         raise RuntimeError("live drill vault is not an owned directory")
-    target = Path(target).absolute()
-    expected_target = config.vault / "x" / "bibliography.json"
-    if target != expected_target:
-        raise RuntimeError("live drill target is not the exact bibliography path")
     state = {
         "schema": 1,
         "phase": "prepared",
@@ -322,8 +313,21 @@ def _run_retaining_state(config, *, target, host_target, operation):
     _write_state(config, state)
     if not config.assignment_printed:
         print(f"{VAULT_ENV}={shlex.quote(str(config.vault))}", flush=True)
+
+    def pinned_host_target(path):
+        requested_target = Path(path)
+        if not requested_target.is_absolute() or requested_target != target:
+            raise paths.PathError(
+                "live drill operation requested a different local BBT target"
+            )
+        return host_target
+
     try:
-        result = operation()
+        paths.to_bbt_host = pinned_host_target
+        try:
+            result = operation(host_target)
+        finally:
+            paths.to_bbt_host = translate_to_host
     except BaseException as error:
         state["phase"] = "manual-removal-check-required"
         state["interruption"] = type(error).__name__
@@ -332,7 +336,7 @@ def _run_retaining_state(config, *, target, host_target, operation):
     state["phase"] = "manual-removal-required"
     state.pop("interruption", None)
     _write_state(config, state)
-    return result
+    return result, state.copy()
 
 
 def _load_state(config) -> dict:
@@ -614,16 +618,24 @@ def _completed_drill(tmp_path, name):
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     target = vault / "x" / "bibliography.json"
 
-    def completed_operation():
+    def completed_operation(_host_target):
         target.parent.mkdir(parents=True)
         target.write_text("[]")
 
-    _run_retaining_state(
-        config,
-        target=target,
-        host_target=OFFLINE_HOST_TARGET,
-        operation=completed_operation,
-    )
+    def offline_translation(path):
+        assert Path(path).absolute() == target
+        return OFFLINE_HOST_TARGET
+
+    original_translation = paths.to_bbt_host
+    try:
+        paths.to_bbt_host = offline_translation
+        _run_retaining_state(
+            config,
+            target=target,
+            operation=completed_operation,
+        )
+    finally:
+        paths.to_bbt_host = original_translation
     return config, target
 
 
@@ -668,19 +680,19 @@ def test_live_drill_config_refuses_nonregular_state_artifacts(tmp_path, artifact
     assert not vault.exists()
 
 
-def test_state_artifact_created_after_config_is_not_overwritten(tmp_path):
+def test_state_artifact_created_after_config_is_not_overwritten(tmp_path, monkeypatch):
     vault = tmp_path / "knowledge-harness-live-state-race"
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     missing = tmp_path / "missing-state.json"
     config.state.symlink_to(missing)
     operation_calls = []
+    _pin_offline_host_target(monkeypatch, vault / "x" / "bibliography.json")
 
     with pytest.raises(RuntimeError, match="regular non-symlink"):
         _run_retaining_state(
             config,
             target=vault / "x" / "bibliography.json",
-            host_target=OFFLINE_HOST_TARGET,
-            operation=lambda: operation_calls.append("called"),
+            operation=lambda _host_target: operation_calls.append("called"),
         )
 
     assert operation_calls == []
@@ -703,14 +715,14 @@ def test_live_drill_creates_a_persistent_temp_vault_when_path_is_omitted(
     assert f"{VAULT_ENV}={shlex.quote(str(config.vault))}" in capsys.readouterr().out
     target = config.vault / "x" / "bibliography.json"
 
-    def completed_operation():
+    def completed_operation(_host_target):
         target.parent.mkdir(parents=True)
         target.write_text("[]")
 
+    _pin_offline_host_target(monkeypatch, target)
     _run_retaining_state(
         config,
         target=target,
-        host_target=r"C:\live\x\bibliography.json",
         operation=completed_operation,
     )
 
@@ -719,19 +731,21 @@ def test_live_drill_creates_a_persistent_temp_vault_when_path_is_omitted(
     assert config.precreated is True
 
 
-def test_existing_recovery_state_enters_cleanup_without_creation_consent(tmp_path):
+def test_existing_recovery_state_enters_cleanup_without_creation_consent(
+    tmp_path, monkeypatch
+):
     vault = tmp_path / "knowledge-harness-live-existing"
     initial = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     target = vault / "x" / "bibliography.json"
 
-    def completed_operation():
+    def completed_operation(_host_target):
         target.parent.mkdir(parents=True)
         target.write_text("[]")
 
+    _pin_offline_host_target(monkeypatch, target)
     _run_retaining_state(
         initial,
         target=target,
-        host_target=r"C:\live\x\bibliography.json",
         operation=completed_operation,
     )
 
@@ -758,20 +772,22 @@ def test_live_vault_uses_hermetic_synthetic_git_identity(tmp_path):
     assert identity == "knowledge-harness-live-drill <live-drill@example.invalid>"
 
 
-def test_failed_creation_phase_retains_exact_vault_and_recovery_state(tmp_path):
+def test_failed_creation_phase_retains_exact_vault_and_recovery_state(
+    tmp_path, monkeypatch
+):
     vault = tmp_path / "knowledge-harness-live-recovery"
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     target = vault / "x" / "bibliography.json"
 
-    def interrupted_operation():
+    def interrupted_operation(_host_target):
         (vault / "evidence.txt").write_text("retain me")
         raise RuntimeError("doctor interrupted")
 
+    _pin_offline_host_target(monkeypatch, target)
     with pytest.raises(RuntimeError, match="doctor interrupted"):
         _run_retaining_state(
             config,
             target=target,
-            host_target=r"C:\live\x\bibliography.json",
             operation=interrupted_operation,
         )
 
@@ -782,24 +798,26 @@ def test_failed_creation_phase_retains_exact_vault_and_recovery_state(tmp_path):
     assert type(state["st_dev"]) is int
     assert type(state["st_ino"]) is int
     assert state["target"] == str(target)
-    assert state["host_target"] == r"C:\live\x\bibliography.json"
+    assert state["host_target"] == OFFLINE_HOST_TARGET
 
 
-def test_recovery_state_write_preserves_unrelated_sibling_temp_file(tmp_path):
+def test_recovery_state_write_preserves_unrelated_sibling_temp_file(
+    tmp_path, monkeypatch
+):
     vault = tmp_path / "knowledge-harness-live-state-write"
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     target = vault / "x" / "bibliography.json"
     unrelated = config.state.with_name(f".{config.state.name}.tmp")
     unrelated.write_text("unrelated")
 
-    def completed_operation():
+    def completed_operation(_host_target):
         target.parent.mkdir(parents=True)
         target.write_text("[]")
 
+    _pin_offline_host_target(monkeypatch, target)
     _run_retaining_state(
         config,
         target=target,
-        host_target=r"C:\live\x\bibliography.json",
         operation=completed_operation,
     )
 
@@ -821,35 +839,102 @@ def test_parent_directory_fsync_failure_stops_before_live_operation(
         return real_fsync(descriptor)
 
     monkeypatch.setattr(os, "fsync", fail_directory_fsync)
+    _pin_offline_host_target(monkeypatch, target)
 
     with pytest.raises(OSError, match="directory fsync unavailable"):
         _run_retaining_state(
             config,
             target=target,
-            host_target=OFFLINE_HOST_TARGET,
-            operation=lambda: operation_calls.append("called"),
+            operation=lambda _host_target: operation_calls.append("called"),
         )
 
     assert operation_calls == []
     assert json.loads(config.state.read_text())["phase"] == "prepared"
 
 
-def test_recovery_assignment_prints_before_the_live_operation(tmp_path, capsys):
+def test_recovery_assignment_prints_before_the_live_operation(
+    tmp_path, monkeypatch, capsys
+):
     vault = tmp_path / "knowledge-harness-live-recovery-output"
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     target = vault / "x" / "bibliography.json"
 
-    def observe_output_before_operation():
+    def observe_output_before_operation(_host_target):
         assert f"{VAULT_ENV}={shlex.quote(str(vault))}" in capsys.readouterr().out
         target.parent.mkdir(parents=True)
         target.write_text("[]")
 
+    _pin_offline_host_target(monkeypatch, target)
     _run_retaining_state(
         config,
         target=target,
-        host_target=r"C:\live\x\bibliography.json",
         operation=observe_output_before_operation,
     )
+
+
+def test_live_run_rejects_the_wrong_local_target_before_translation_or_mutation(
+    tmp_path, monkeypatch
+):
+    vault = tmp_path / "knowledge-harness-live-wrong-target"
+    config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
+    calls = []
+
+    def forbidden(*args):
+        calls.append(args)
+        raise AssertionError("invalid local target reached translation or operation")
+
+    monkeypatch.setattr(paths, "to_bbt_host", forbidden)
+
+    with pytest.raises(RuntimeError, match="exact bibliography path"):
+        _run_retaining_state(
+            config,
+            target=vault / "wrong.json",
+            operation=forbidden,
+        )
+    relative_target = Path(
+        os.path.relpath(vault / "x" / "bibliography.json", Path.cwd())
+    )
+    with pytest.raises(RuntimeError, match="exact bibliography path"):
+        _run_retaining_state(
+            config,
+            target=relative_target,
+            operation=forbidden,
+        )
+
+    assert calls == []
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("outcome", ["empty", "non-string", "error"])
+def test_live_run_translation_failure_precedes_vault_and_state_creation(
+    tmp_path, monkeypatch, outcome
+):
+    vault = tmp_path / f"knowledge-harness-live-translation-{outcome}"
+    config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
+    target = vault / "x" / "bibliography.json"
+    translation_calls = []
+    operation_calls = []
+
+    def translate(path):
+        translation_calls.append(Path(path).absolute())
+        if outcome == "error":
+            raise paths.PathError("cannot translate live target")
+        if outcome == "non-string":
+            return None
+        return ""
+
+    monkeypatch.setattr(paths, "to_bbt_host", translate)
+
+    with pytest.raises(paths.PathError, match="translate|host target"):
+        _run_retaining_state(
+            config,
+            target=target,
+            operation=lambda host_target: operation_calls.append(host_target),
+        )
+
+    assert translation_calls == [target]
+    assert operation_calls == []
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_one_translation_value_drives_recovery_state_and_autoexport_rpc(
@@ -865,13 +950,6 @@ def test_one_translation_value_drives_recovery_state_and_autoexport_rpc(
         return OFFLINE_HOST_TARGET
 
     monkeypatch.setattr(paths, "to_bbt_host", translate_once)
-    host_target = paths.to_bbt_host(target)
-
-    def pinned_translation(path):
-        assert Path(path).absolute() == target
-        return host_target
-
-    monkeypatch.setattr(paths, "to_bbt_host", pinned_translation)
     client = ZoteroClient()
     rpc_calls = []
 
@@ -881,7 +959,13 @@ def test_one_translation_value_drives_recovery_state_and_autoexport_rpc(
 
     monkeypatch.setattr(client, "_rpc", rpc)
 
-    def register():
+    def register(host_target):
+        assert host_target == OFFLINE_HOST_TARGET
+        with pytest.raises(paths.PathError, match="different local BBT target"):
+            paths.to_bbt_host(vault / "wrong.json")
+        relative_target = Path(os.path.relpath(target, Path.cwd()))
+        with pytest.raises(paths.PathError, match="different local BBT target"):
+            paths.to_bbt_host(relative_target)
         target.parent.mkdir(parents=True)
         target.write_text("[]")
         client.register_autoexport(str(target))
@@ -889,12 +973,12 @@ def test_one_translation_value_drives_recovery_state_and_autoexport_rpc(
     _run_retaining_state(
         config,
         target=target,
-        host_target=host_target,
         operation=register,
     )
 
     state = json.loads(config.state.read_text())
     assert real_translation_calls == [target]
+    assert paths.to_bbt_host is translate_once
     assert state["host_target"] == OFFLINE_HOST_TARGET
     assert rpc_calls == [
         ("autoexport.add", ["//", "Better CSL JSON", OFFLINE_HOST_TARGET])
@@ -1009,19 +1093,24 @@ def test_invalid_confirmation_timestamp_precedes_quarantine_creation(
     assert target.is_file()
 
 
-def test_pending_state_directory_fsync_failure_precedes_quarantine_claim(
+def test_pending_state_directory_fsync_failure_preserves_both_recovery_artifacts(
     tmp_path, monkeypatch
 ):
     config, target = _completed_drill(
         tmp_path, "knowledge-harness-live-pending-durability"
     )
     _pin_offline_host_target(monkeypatch, target)
+    prior_state = json.loads(config.state.read_text())
     real_fsync = os.fsync
+    directory_fsyncs = 0
     rename_calls = []
 
     def fail_directory_fsync(descriptor):
+        nonlocal directory_fsyncs
         if stat.S_ISDIR(os.fstat(descriptor).st_mode):
-            raise OSError("directory fsync unavailable")
+            directory_fsyncs += 1
+            if directory_fsyncs == 1:
+                raise OSError("directory fsync unavailable")
         return real_fsync(descriptor)
 
     def forbidden_rename(source, destination):
@@ -1035,9 +1124,15 @@ def test_pending_state_directory_fsync_failure_precedes_quarantine_claim(
         _confirm_and_remove(config, {CONFIRMED_ENV: "1"})
 
     assert rename_calls == []
+    assert directory_fsyncs == 1
+    assert Path(prior_state["vault"]) == config.vault
     assert target.is_file()
-    assert json.loads(config.state.read_text())["phase"] == "manual-removal-required"
-    assert list(config.vault.parent.glob(f".{config.vault.name}.cleanup-*")) == []
+    state = json.loads(config.state.read_text())
+    container = Path(state["quarantine_container"])
+    assert state["phase"] == "cleanup-confirmed-removal-pending"
+    assert container.is_dir()
+    assert Path(state["quarantine"]) == container / "vault"
+    assert not Path(state["quarantine"]).exists()
 
 
 def test_confirmed_cleanup_refuses_a_replacement_at_the_recorded_path(
@@ -1189,7 +1284,7 @@ def test_cleanup_refuses_to_infer_removal_after_final_state_write_failure(
     )
 
 
-def test_final_directory_fsync_failure_retains_pending_fail_closed_state(
+def test_final_directory_fsync_failure_leaves_installed_terminal_state(
     tmp_path, monkeypatch
 ):
     config, target = _completed_drill(
@@ -1213,9 +1308,7 @@ def test_final_directory_fsync_failure_retains_pending_fail_closed_state(
         _confirm_and_remove(config, {CONFIRMED_ENV: "1"})
 
     assert directory_fsyncs == 2
-    assert json.loads(config.state.read_text())["phase"] == (
-        "cleanup-confirmed-removal-pending"
-    )
+    assert json.loads(config.state.read_text())["phase"] == "cleanup-confirmed"
     assert not config.vault.exists()
 
 
@@ -1329,14 +1422,14 @@ def test_recovery_instruction_fails_closed_when_host_target_cannot_be_recomputed
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
     target = vault / "x" / "bibliography.json"
 
-    def completed_operation():
+    def completed_operation(_host_target):
         target.parent.mkdir(parents=True)
         target.write_text("[]")
 
+    _pin_offline_host_target(monkeypatch, target)
     _run_retaining_state(
         config,
         target=target,
-        host_target=r"C:\live\x\bibliography.json",
         operation=completed_operation,
     )
 
@@ -1554,16 +1647,8 @@ def test_live_scaffold_doctor_import_noop_with_manual_cleanup(monkeypatch):
         pytest.skip(_cleanup_instruction(config, state))
 
     target = config.vault / "x" / "bibliography.json"
-    host_target = paths.to_bbt_host(target)
 
-    def pinned_host_target(path):
-        if Path(path).absolute() != target:
-            raise AssertionError("observer translated a different local target")
-        return host_target
-
-    monkeypatch.setattr(paths, "to_bbt_host", pinned_host_target)
-
-    def exercise():
+    def exercise(_host_target):
         _prepare_live_vault(config)
         scaffold.scaffold_vault(config.vault)
         machine = config.vault / ".harness" / "machine.json"
@@ -1616,10 +1701,9 @@ def test_live_scaffold_doctor_import_noop_with_manual_cleanup(monkeypatch):
             "autoexport.get",
         }.intersection(client.rpc_methods)
 
-    _run_retaining_state(
+    _, completed_state = _run_retaining_state(
         config,
         target=target,
-        host_target=host_target,
         operation=exercise,
     )
-    pytest.skip(_cleanup_instruction(config))
+    pytest.skip(_cleanup_instruction(config, completed_state))
