@@ -411,6 +411,8 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - Baseline keys collapse duplicate identical mutations within one function (the real selectors output has `1 -> 0` twice on line 79) — deliberate: an advisory lane prefers a stable baseline over distinguishing repeats of an already-recorded survivor.
 - Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from `core/` (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
 
+- [ ] **Step 0b: Kill the bare-pytest footgun** — add `pythonpath = ["."]` to `[tool.pytest.ini_options]` in `core/pyproject.toml`, so bare `pytest` and `python -m pytest` resolve `scripts.*` imports identically (config beats remembered convention; the entry-point audit 2026-08-21 flagged bare `pytest` as a caller-less entry point that silently breaks).
+
 - [ ] **Step 1: Write the failing tests** — `core/tests/test_mutation_gate.py`:
 
 ```python
