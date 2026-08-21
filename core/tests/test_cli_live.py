@@ -629,6 +629,58 @@ def test_import_note_autoexport_failure_prevents_attachment_and_note_writes(
     assert not (tmp_vault / bibliography.BIB_PATH).exists()
 
 
+def test_import_note_stderr_carries_the_bbt_preferences_repair(
+    tmp_vault, monkeypatch, capsys
+):
+    """Telling a person the auto-export is broken without the remedy must fail."""
+    import harness_core.__main__ as cli
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return [{"id": "smith2020", "title": "Mortality decline"}]
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: False)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert captured.err.strip() == (
+        "bibliography auto-export absent; a person must create or fix the "
+        "whole-library Better CSL JSON auto-export in BBT Preferences with "
+        f"target {tmp_vault / bibliography.BIB_PATH}"
+    )
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    assert not (tmp_vault / bibliography.BIB_PATH).exists()
+
+
 def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write(
     tmp_vault, monkeypatch, capsys
 ):

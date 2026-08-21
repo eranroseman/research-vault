@@ -1331,3 +1331,83 @@ def test_observe_committed_bibliography_mismatch_stays_hard_unmatched(
     assert observed.result is Result.UNMATCHED
     assert observed.detail == ("committed bibliography does not match on-demand export")
     assert observed.staleness is Result.MATCHED
+
+
+def _wsl_translation(monkeypatch, translated: str) -> None:
+    """Answer only wslpath -w so every other subprocess call stays real."""
+    real_run = bibliography.paths.subprocess.run
+
+    def translate(command, *args, **kwargs):
+        if list(command[:2]) == ["wslpath", "-w"]:
+            return subprocess.CompletedProcess(command, 0, stdout=f"{translated}\n")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(bibliography.paths, "_running_in_wsl", lambda: True)
+    monkeypatch.setattr(bibliography.paths.subprocess, "run", translate)
+
+
+def test_observe_unmatched_detail_names_the_bbt_host_target_and_the_repair(
+    tmp_vault, monkeypatch
+):
+    """Losing the BBT Preferences repair or the host-syntax target must fail."""
+    _wsl_translation(monkeypatch, "C:\\live\\x\\bibliography.json")
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock(), settle_seconds=0)
+
+    assert observed.result is Result.UNMATCHED
+    assert observed.detail == (
+        "bibliography auto-export absent; a person must create or fix the "
+        "whole-library Better CSL JSON auto-export in BBT Preferences with "
+        "target C:\\live\\x\\bibliography.json"
+    )
+    assert observed.staleness is Result.UNMATCHED
+    assert observed.staleness_detail == "bibliography auto-export absent"
+
+
+def test_observe_unmatched_detail_names_the_native_target_off_wsl(
+    tmp_vault, monkeypatch
+):
+    """Naming a target a non-WSL person cannot paste into BBT must fail."""
+    monkeypatch.setattr(bibliography.paths, "_running_in_wsl", lambda: False)
+    (tmp_vault / bibliography.BIB_PATH).write_text('[{"id":"other","title":"Other"}]')
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock(), settle_seconds=0)
+
+    assert observed.result is Result.UNMATCHED
+    assert observed.detail == (
+        "bibliography auto-export does not match on-demand export; a person "
+        "must create or fix the whole-library Better CSL JSON auto-export in "
+        f"BBT Preferences with target {tmp_vault / bibliography.BIB_PATH}"
+    )
+
+
+def test_observe_untranslatable_target_degrades_guidance_without_changing_result(
+    tmp_vault, monkeypatch
+):
+    """Turning a failed path translation into an outage or silence must fail."""
+
+    def untranslatable(_target):
+        raise bibliography.paths.PathError("wslpath missing")
+
+    monkeypatch.setattr(bibliography.paths, "to_bbt_host", untranslatable)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock(), settle_seconds=0)
+
+    assert observed.result is Result.UNMATCHED
+    assert observed.detail.endswith(
+        f"BBT Preferences with target {tmp_vault / bibliography.BIB_PATH}"
+    )
+
+
+def test_observe_containment_failure_keeps_its_own_detail(tmp_vault, tmp_path):
+    """Advising a BBT auto-export repair for an unsafe target path must fail."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_target = outside / "bibliography.json"
+    outside_target.write_text(json.dumps(ITEMS))
+    (tmp_vault / bibliography.BIB_PATH).symlink_to(outside_target)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock(), settle_seconds=0)
+
+    assert observed.result is Result.UNMATCHED
+    assert observed.detail == "bibliography auto-export is a symlink"

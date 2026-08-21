@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result
+from . import Result, paths
 from .zotero import ZoteroError
 
 BIB_PATH = "x/bibliography.json"
@@ -574,6 +574,31 @@ def _observation(state: _TargetState) -> AutoexportObservation:
     return AutoexportObservation(state.result, state.detail, state.result, state.detail)
 
 
+def _repair_guidance(vault: Path, state: _TargetState) -> str:
+    """Name the target and its human repair on a contained target mismatch."""
+    if state.result is not Result.UNMATCHED or not state.contained:
+        return state.detail
+    target = vault / BIB_PATH
+    try:
+        shown = paths.to_bbt_host(target)
+    except paths.PathError:
+        shown = str(target)
+    return (
+        f"{state.detail}; a person must create or fix the whole-library "
+        f"Better CSL JSON auto-export in BBT Preferences with target {shown}"
+    )
+
+
+def _target_observation(vault: Path, state: _TargetState) -> AutoexportObservation:
+    """Carry the repair guidance in the hard detail; staleness stays diagnostic."""
+    return AutoexportObservation(
+        state.result,
+        _repair_guidance(vault, state),
+        state.result,
+        state.detail,
+    )
+
+
 def _committed_state(vault_root, evidence) -> _TargetState:
     try:
         committed = subprocess.run(
@@ -663,7 +688,7 @@ def observe_autoexport(
             sleeper,
         )
     if not compared.contained or compared.result is not Result.MATCHED:
-        return _observation(compared)
+        return _target_observation(boundary.vault, compared)
 
     snapshot = compared.snapshot
     assert snapshot is not None

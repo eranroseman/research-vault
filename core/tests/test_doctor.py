@@ -245,32 +245,22 @@ def test_doctor_reports_an_unreachable_observation_verbatim_with_cached_stalenes
     )
 
 
-def test_doctor_unmatched_autoexport_asks_a_person_to_repair_the_bbt_host_target(
+def test_doctor_reports_an_unmatched_observation_verbatim_with_cached_staleness(
     tmp_vault, monkeypatch
 ):
-    """Losing the BBT Preferences repair or the host-syntax target must fail."""
+    """Re-composing or dropping the observer's repair guidance must fail."""
     vault = _doctor_vault(tmp_vault)
-    real_run = scaffold.paths.subprocess.run
-
-    def translate(command, *args, **kwargs):
-        if list(command[:2]) == ["wslpath", "-w"]:
-            return subprocess.CompletedProcess(
-                command, 0, stdout="C:\\live\\x\\bibliography.json\n"
-            )
-        return real_run(command, *args, **kwargs)
-
-    monkeypatch.setattr(scaffold.paths, "_running_in_wsl", lambda: True)
-    monkeypatch.setattr(scaffold.paths.subprocess, "run", translate)
-
-    by_name = _observed_probes(
-        vault, monkeypatch, Result.UNMATCHED, "bibliography auto-export absent"
-    )
-
-    assert by_name["autoexport"].result is Result.UNMATCHED
-    assert by_name["autoexport"].detail == (
+    detail = (
         "bibliography auto-export absent; a person must create or fix the "
         "whole-library Better CSL JSON auto-export in BBT Preferences with "
         "target C:\\live\\x\\bibliography.json"
+    )
+
+    by_name = _observed_probes(vault, monkeypatch, Result.UNMATCHED, detail)
+
+    assert (by_name["autoexport"].result, by_name["autoexport"].detail) == (
+        Result.UNMATCHED,
+        detail,
     )
     assert (by_name["staleness"].result, by_name["staleness"].detail) == (
         Result.UNMATCHED,
@@ -283,46 +273,33 @@ def test_doctor_unmatched_autoexport_asks_a_person_to_repair_the_bbt_host_target
     )
 
 
-def test_doctor_unmatched_autoexport_names_the_native_target_off_wsl(
-    tmp_vault, monkeypatch
-):
-    """Reporting a target a non-WSL person cannot paste into BBT must fail."""
+def test_doctor_probe_five_carries_the_observer_repair_guidance(tmp_vault, monkeypatch):
+    """Leaving doctor's autoexport probe without the BBT Preferences repair fails."""
     vault = _doctor_vault(tmp_vault)
-    monkeypatch.setattr(scaffold.paths, "_running_in_wsl", lambda: False)
+    monkeypatch.setattr(bibliography.paths, "_running_in_wsl", lambda: False)
 
-    by_name = _observed_probes(
-        vault,
-        monkeypatch,
+    class ExportingClient(ReadyClient):
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return [{"id": "smith2020", "title": "Mortality decline"}]
+
+    probes = {
+        probe.name: probe
+        for probe in scaffold.doctor(vault, ExportingClient(), settle_seconds=0)
+    }
+
+    assert probes["tree"].result is Result.MATCHED
+    assert probes["autoexport"].result is Result.UNMATCHED
+    assert probes["autoexport"].detail == (
+        "bibliography auto-export absent; a person must create or fix the "
+        "whole-library Better CSL JSON auto-export in BBT Preferences with "
+        f"target {vault / bibliography.BIB_PATH}"
+    )
+    assert (probes["staleness"].result, probes["staleness"].detail) == (
         Result.UNMATCHED,
-        "bibliography auto-export does not match on-demand export",
+        "bibliography auto-export absent",
     )
-
-    assert by_name["autoexport"].detail == (
-        "bibliography auto-export does not match on-demand export; a person "
-        "must create or fix the whole-library Better CSL JSON auto-export in "
-        f"BBT Preferences with target {vault / bibliography.BIB_PATH}"
-    )
-
-
-def test_doctor_untranslatable_target_degrades_guidance_without_changing_the_result(
-    tmp_vault, monkeypatch
-):
-    """Turning a failed path translation into an outage or a silent probe must fail."""
-    vault = _doctor_vault(tmp_vault)
-
-    def untranslatable(_target):
-        raise scaffold.paths.PathError("wslpath missing")
-
-    monkeypatch.setattr(scaffold.paths, "to_bbt_host", untranslatable)
-
-    by_name = _observed_probes(
-        vault, monkeypatch, Result.UNMATCHED, "bibliography auto-export absent"
-    )
-
-    assert by_name["autoexport"].result is Result.UNMATCHED
-    assert by_name["autoexport"].detail.endswith(
-        f"BBT Preferences with target {vault / bibliography.BIB_PATH}"
-    )
+    assert not (vault / bibliography.BIB_PATH).exists()
 
 
 def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
