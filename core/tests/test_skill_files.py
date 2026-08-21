@@ -113,3 +113,26 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
 def test_scaffold_provisioning_companions_are_exact_and_current():
     """Changing the ruled companion package spelling must fail."""
     assert scaffold.PROVISION_COMPANIONS == ["kepano/obsidian-skills"]
+
+
+def test_no_old_skill_names_survive():
+    """Guarding against skill name regressions — old names must not survive."""
+    old_names = ["vault-setup", "find-papers", "atlas-conventions"]
+
+    # Glob all SKILL.md files in skills/
+    skill_files = list(REPOSITORY.glob("skills/**/SKILL.md"))
+
+    # Must have at least one skill file to guard against
+    assert skill_files, "No SKILL.md files found in skills/"
+
+    for skill_file in skill_files:
+        file_path = str(skill_file)
+        file_content = skill_file.read_text(encoding="utf-8")
+
+        for old_name in old_names:
+            assert old_name not in file_path, (
+                f"Old skill name '{old_name}' found in path: {file_path}"
+            )
+            assert old_name not in file_content, (
+                f"Old skill name '{old_name}' found in content of {skill_file}"
+            )
