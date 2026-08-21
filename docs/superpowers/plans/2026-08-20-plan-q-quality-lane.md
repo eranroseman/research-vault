@@ -197,6 +197,8 @@ ignore_missing_imports = true  # optional [pdf] extra; dev lane installs [dev] o
 
 (RUF100 disappears because full `RUF` contains it; S101 in production code stays active — 3 core hits become explicit exceptions or fixes.)
 
+- [ ] **Step 1b: Post-flip naming residue (parked from Plan L)** — rename the `CORE` constant/name to `ROOT` at its five sites (both hooks, `test_precommit`, `test_verify_cli`, this plan's `mutation_gate` sketch): the name describes a directory that no longer exists.
+
 - [ ] **Step 2: Run to see the expected failures**
 
 Run: `source .venv/bin/activate && ruff check harness_core tests --no-cache; mypy harness_core`
