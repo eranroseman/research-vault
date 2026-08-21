@@ -1079,6 +1079,13 @@ Ordinary corrections without ruling: doctor `--base` routing; exact live autoexp
 2. **Projection**: one immutable live-worktree snapshot; compute ALL postimages first, then apply with rollback-safe byte-CAS; any divergence → exit 2 before mutation; the live index is never altered. Byte-CAS is discipline not a kernel lock — acceptable because divergence is detected and refused, never silently absorbed.
 3. **Persisted git paths**: canonical ASCII path-bytes — identities `/` + RFC 3986 unreserved; every other byte including `%` encoded uppercase `%HH`; decode validates exact round-trip (re-encode reproduces input) before any filesystem use, rejecting non-canonical aliases.
 
+## Task 8 rulings (all approved, 2026-08-20)
+
+Live-contract blocker: installed BBT 9.0.55 JSON-RPC exposes `autoexport.add` only — `.list`/`.remove`/`.delete`/`.get` all live-probed `-32601 METHOD_NOT_FOUND`. The live call is the authority; no fictional RPC methods.
+
+1. **Gated manual cleanup replaces automated cleanup.** The drill creates nothing unless explicitly enabled (§7 consent); it retains the exact target and the temporary vault until removal in BBT Preferences is human-confirmed (deleting the vault first would leave a dangling registration exporting to a dead path), then records that confirmation. Record the probed API surface in `docs/environment.md` with the date, so the constraint is a documented environment fact.
+2. **WSL path translation for the transient target**: `wslpath -w` before sending to Windows-host BBT; native absolute path otherwise. Nothing machine-specific is committed (standing shim doctrine applied).
+
 ## Self-Review (completed at authoring)
 
 **Spec coverage:** §3 tree/templates/AGENTS.md/Bases → T1–T2; §7 vault-setup + doctor + provisioning consent + wizard installs → T2–T3, T7; §6 surfaces: pre-commit → T3/T4, CI replay + rw-batch async auditor → T4, PostToolUse warn (fail-open) → T5, armed Stop gate (fail-closed incl. UNREACHABLE, 8-block bound, bypass-as-data to inbox) → T6; §8 hooks.json in plugin layout → T6; Plan A caveat (autoexport live) → T3 (repair path) + T8 (discharge). Deliberately out: the eight remaining skills and the publish skill that writes the flag (Plan D); paths-frontmatter guard scoping (Plan D, with the guard skills); marketplace version bump (Plan D ships the full skill set).
