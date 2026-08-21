@@ -67,7 +67,7 @@ def normalize_annotation(annotation, citekey: str) -> dict:
     normalized = {
         "type": annotation_type,
         "comment": comment,
-        "pageLabel": _text(raw.get("annotationPageLabel")),
+        "pageLabel": notes.display_text(_text(raw.get("annotationPageLabel"))),
         "key": _text(raw.get("key")),
         "annotationText": annotation_text,
         "citekey": _text(citekey),
@@ -235,14 +235,25 @@ def cmd_import_note(args):
 
     now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     generated_at = now.isoformat().replace("+00:00", "Z")
-    candidate = notes.render_note(
-        item,
-        hashes,
-        annotations,
-        existing,
-        accessed=now.date().isoformat(),
-        generated_at=generated_at,
-    )
+    try:
+        candidate = notes.render_note(
+            item,
+            hashes,
+            annotations,
+            existing,
+            accessed=now.date().isoformat(),
+            generated_at=generated_at,
+        )
+    except (
+        notes.RenderIntegrityError,
+        notes.InvalidCitekeyError,
+        frontmatter.FrontmatterError,
+    ) as error:
+        # Ruled 2026-08-21: this class is loud and fail-closed — nothing is
+        # written, and it does not file an inbox hold on its own. Uniform
+        # hold-to-inbox wiring arrives with integrate-at-import.
+        print(f"render rejected for {args.citekey}: {error}", file=sys.stderr)
+        return 1
 
     if not notes.content_changed(existing, candidate):
         print("NOOP")

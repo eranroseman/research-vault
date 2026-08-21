@@ -35,10 +35,25 @@ _FRONTMATTER_OPEN = re.compile(r"\A---(?:\r\n|\n)")
 _FRONTMATTER_CLOSE = re.compile(r"(?:\r\n|\n)---(?:\r\n|\n)")
 
 
+# The reject class is exactly what ``str.splitlines()`` treats as a line
+# break, because that is the parser this serializer must not outrun:
+# C0, DEL, NEL, and the Unicode line/paragraph separators.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f\x85\u2028\u2029]")
+
+
 def _emit_scalar(v):
     if isinstance(v, int):
         return str(v)
-    escaped = str(v).replace("\\", "\\\\").replace('"', '\\"')
+    text = str(v)
+    if _CONTROL.search(text) is not None:
+        # Upstream display-class collapse has already run by the time a value
+        # reaches the serializer, so a surviving control character is a bug:
+        # fail loudly rather than emit frontmatter that cannot be re-parsed.
+        raise FrontmatterError(
+            f"frontmatter scalars cannot carry control or line-break "
+            f"characters: {text!r}"
+        )
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
 
 
