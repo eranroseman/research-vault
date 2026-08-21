@@ -17,7 +17,7 @@
 - Detection, verified pass events, current failure projection, markers, and inbox auditing are independent of enforcement surface. Surface sets decide blocking only.
 - Synthetic `--offline` network outcomes may be printed in an explicit report but never change trust, events, markers, or inbox state. A genuinely attempted outage remains persisted as UNREACHABLE.
 - `COMMIT_CLOSING = {"citekey", "evidence-layer"}`. `PUBLISH_CLOSING = {"citekey", "evidence-layer", "quote", "update-notice", "doi"}`. Exit 1 means a selected-surface closing UNMATCHED; explicit commit/publish surfaces use exit 3 for a genuine UNREACHABLE. The default open audit surface returns 0 for findings/outages and 2 only for operational or usage failure.
-- BBT is the sole writer of `x/bibliography.json` after auto-export registration. The harness may stage and commit genuine BBT output; it never synthesizes or writes that export.
+- BBT is the sole writer of `x/bibliography.json` after a human creates the whole-library auto-export in BBT Preferences. The harness may stage and commit genuine BBT output; it never synthesizes or writes that export, and it never registers an auto-export (author ruling 2026-08-20, Task 8: BBT 9.0.55's public `autoexport.add` is collection-scoped and rejects whole-library `//` before storage, so provisioning is a human wizard step).
 - The scaffold stages and commits only paths it created. It must not sweep unrelated staged, unstaged, or untracked work.
 - `--with-ci` installs only read-only verification. `--with-rw-ci` is the distinct explicit consent for the scheduled write-capable workflow.
 - Work in an isolated worktree. Run commands from `core/` unless stated otherwise.
@@ -368,7 +368,7 @@ Add `doctor(vault_root, client=None, network=True, settle_seconds=60, poll_inter
 2. `machine-config`: `.harness/machine.json` is readable and its `mailto` value is present and differs from the packaged `you@example.edu` placeholder.
 3. `zotero`: `client.ready()` succeeds; MATCHED detail includes the reported versions, and inability to reach or decode the service is UNREACHABLE.
 4. `bbt`: the ready response contains a non-empty `betterbibtex` version; absence is UNMATCHED, while a failed ready call is UNREACHABLE. If `client.ready()` fails, do not call `observe_autoexport`: report `bbt`, `autoexport`, and `staleness` as UNREACHABLE, with the exact downstream detail `zotero down`, then continue with `remote`, `backup`, and `inbox` so the returned list still contains all nine probes in order. When Zotero is ready but this required BBT version is absent, do not attempt downstream BBT operations: report `autoexport` and `staleness` as SKIPPED with a missing-BBT prerequisite detail; the hard `bbt` UNMATCHED still exits 1.
-5. `autoexport`: the sole-writer observation flow below proves that the genuine `x/bibliography.json` target matches the on-demand comparison export by Plan A's exact sorted `(id, title)` fingerprint. A persistent mismatch, invalid target, or BBT JSON-RPC rejection is UNMATCHED; an I/O, transport, or malformed-response failure is UNREACHABLE. Preserve `ZoteroError.result` and put the raw error text in detail. Missing BBT is the prerequisite SKIPPED case defined above, not a synthetic outage.
+5. `autoexport`: the sole-writer observation flow below proves that the genuine `x/bibliography.json` target matches the on-demand comparison export by Plan A's exact sorted `(id, title)` fingerprint. A persistent absence, persistent mismatch, invalid target, or BBT JSON-RPC rejection is UNMATCHED; an I/O, transport, or malformed-response failure is UNREACHABLE. The UNMATCHED detail is human-repair guidance: it names the exact `x/bibliography.json` target — in BBT's host path syntax through `paths.to_bbt_host` where that translation succeeds, otherwise the native absolute path — and states that a person must create or fix the whole-library Better CSL JSON auto-export in BBT Preferences. The harness never registers an auto-export. Preserve `ZoteroError.result` and put the raw error text in detail. Missing BBT is the prerequisite SKIPPED case defined above, not a synthetic outage.
 6. `staleness`: the post-observation sorted-`(id, title)` target-versus-on-demand comparison result. This is diagnostic and warn-only, including when it is UNREACHABLE; it is SKIPPED when BBT is the known missing prerequisite.
 7. `remote`: the vault Git repository has a remote; otherwise report UNMATCHED with `no remote — vault endures only on this disk (§2)`.
 8. `backup`: machine config contains a non-empty `zotero_backup`; otherwise report UNMATCHED with `no stated Zotero storage backup (§2 boundary)`.
@@ -378,16 +378,15 @@ The hard-UNMATCHED set is exactly `{"tree", "machine-config", "bbt", "autoexport
 
 The foundation spec defines synthetic offline behavior for verification, not for doctor. Keep `network=True` in the historical doctor interface, but Task 3 must not invent `network=False` probe results, mutations, output, or RED expectations.
 
-Replace the existing import path that calls `bibliography.write_and_commit(vault, client.export_csl(None))`. Doctor and `import-note` must call the same auto-export observer and receive the same MATCHED/UNMATCHED/UNREACHABLE classification and detail. Fetch and validate the whole-library on-demand export exactly once per observation, retain it in memory only as comparison evidence, and reuse its fingerprint through both settle windows and the final staleness result; do not race the target against a second fresh export. Compare the actual target and that evidence by their sorted `(id, title)` fingerprints, so serialization and byte-layout differences do not make the bibliography stale. No doctor or import path may pass the on-demand payload or its serialized bytes to a file writer, replace the target, or otherwise synthesize `x/bibliography.json`; BBT remains its sole writer.
+Replace the existing import path that calls `bibliography.write_and_commit(vault, client.export_csl(None))`. Doctor and `import-note` must call the same auto-export observer and receive the same MATCHED/UNMATCHED/UNREACHABLE classification and detail. Fetch and validate the whole-library on-demand export exactly once per observation, retain it in memory only as comparison evidence, and reuse its fingerprint through the settle window and the final staleness result; do not race the target against a second fresh export. Compare the actual target and that evidence by their sorted `(id, title)` fingerprints, so serialization and byte-layout differences do not make the bibliography stale. No doctor or import path may pass the on-demand payload or its serialized bytes to a file writer, replace the target, or otherwise synthesize `x/bibliography.json`; BBT remains its sole writer.
 
 The shared observer performs this exact sequence:
 
 1. Capture the current target state, obtain and validate the whole-library on-demand comparison export once, and retain its sorted `(id, title)` fingerprint for every later comparison in this observation.
 2. If the target is absent, non-regular, readable but malformed/invalid, or fingerprint-mismatched, poll for genuine BBT output for one settle window of at most `settle_seconds` using `poll_interval`. Target I/O or Unicode failures are UNREACHABLE rather than mismatch. At the deadline, perform one final read and comparison before declaring the first window persistently mismatched.
-3. If the first window ends with a persistent absence or mismatch, call `register_autoexport(str(target))` exactly once. Never register before that first window, and never retry registration in the same observation.
-4. Poll for one second settle window with the same bounds and the same retained evidence. At its deadline, perform one final target read and comparison before deciding failure.
-5. Require the final actual target to be a regular, valid Better CSL JSON file whose sorted `(id, title)` fingerprint matches the retained on-demand evidence. A persistent absence, non-regular target, readable malformed/invalid file, or fingerprint mismatch is UNMATCHED; target I/O/Unicode failure or inability to reach/decode the authoritative service is UNREACHABLE. Return this same final comparison as the observation's `staleness` result instead of making a second export request.
-6. Pass the exact validated in-memory target buffer to `commit_autoexport`, which performs this transaction:
+3. There is no registration step and no second window: the observation closes on that first window's final comparison. No code path may call `autoexport.add` or any other `autoexport.*` JSON-RPC method.
+4. Require the final actual target to be a regular, valid Better CSL JSON file whose sorted `(id, title)` fingerprint matches the retained on-demand evidence. A persistent absence, non-regular target, readable malformed/invalid file, or fingerprint mismatch is UNMATCHED; target I/O/Unicode failure or inability to reach/decode the authoritative service is UNREACHABLE. Return this same final comparison as the observation's `staleness` result instead of making a second export request.
+5. Pass the exact validated in-memory target buffer to `commit_autoexport`, which performs this transaction:
    - Resolve expected HEAD once and return `False` when its bibliography blob already equals the supplied buffer. Otherwise write the buffer with `git hash-object -w --stdin`; build a temporary `GIT_INDEX_FILE` from expected HEAD, or an empty tree when unborn; update only `x/bibliography.json` to mode `100644` and that blob; and create a hook-free commit whose tree is exactly expected HEAD plus that one replacement.
    - Before moving HEAD, resolve the current worktree's standard live index with `git rev-parse --git-path index` and acquire that linked-worktree-specific `<index>.lock` with exclusive creation. Seed the lock from the complete live index, or from a valid empty index when it does not yet exist. Keep the lock through the HEAD compare-and-swap and index publication.
    - Read the locked index's `x/bibliography.json` entry. It must equal expected HEAD's entry, including matching absence: when present it is exactly one matching stage-0 mode/blob entry, and when HEAD is unborn it is absent. A pre-staged bibliography entry, conflict stages, or a concurrent bibliography stage that lands before lock acquisition fails without changing HEAD, the live index, or any worktree byte. Preserve every unrelated live-index entry byte-for-byte.
@@ -403,10 +402,10 @@ The observer maps every lock, Git, publication, or rollback failure to UNREACHAB
 RED coverage is mandatory and exact:
 
 - `test_doctor.py`: test `cmd_doctor`'s output/exit matrix by stubbing `doctor` or injecting explicit `Probe` tuples: all-MATCHED exits 0; each hard UNMATCHED (`tree`, `machine-config`, `bbt`, `autoexport`) exits 1; each hard UNREACHABLE (`zotero`, `bbt`, `autoexport`) exits 3; every warn-only probe as UNMATCHED and UNREACHABLE stays exit 0 and prints `warn:`; if hard UNMATCHED and hard UNREACHABLE coexist, exit 1 wins. These CLI-routing cases do not add states to any probe producer.
-- `test_doctor.py`: test producer classifications separately through the concrete conditions in the probe meanings. Assert tuple shape and exact nine-probe order. A failed `client.ready()` must not call `observe_autoexport` and must return, in order, `zotero`, `bbt`, `autoexport`, and `staleness` as UNREACHABLE; the latter three details are exactly `zotero down`, and the full list continues through `remote`, `backup`, and `inbox`. Missing BBT makes `bbt` UNMATCHED and makes `autoexport`/`staleness` prerequisite-SKIPPED without downstream calls; output arriving during the first settle window prevents registration; a persistent mismatch causes exactly one registration; output arriving during the second window passes; a post-registration absence, invalid target, or mismatch remains UNMATCHED; transport/read failures remain UNREACHABLE; raw BBT errors reach detail.
+- `test_doctor.py`: test producer classifications separately through the concrete conditions in the probe meanings. Assert tuple shape and exact nine-probe order. A failed `client.ready()` must not call `observe_autoexport` and must return, in order, `zotero`, `bbt`, `autoexport`, and `staleness` as UNREACHABLE; the latter three details are exactly `zotero down`, and the full list continues through `remote`, `backup`, and `inbox`. Missing BBT makes `bbt` UNMATCHED and makes `autoexport`/`staleness` prerequisite-SKIPPED without downstream calls; output arriving during the settle window passes; a persistent absence, invalid target, or mismatch remains UNMATCHED and its detail carries the BBT Preferences repair guidance with the exact target; no observation issues any `autoexport.*` RPC; transport/read failures remain UNREACHABLE; raw BBT errors reach detail.
 - `test_doctor.py`: monkeypatch the old bibliography writer to fail if called and prove the harness never writes the in-memory comparison export; prove the observer passes its exact validated BBT buffer into the snapshot commit, and that later BBT bytes remain for the next staleness pass rather than entering the current commit.
 - `test_doctor.py`: both legal `--base` positions construct `ZoteroClient` with the supplied URL.
-- `test_bibliography.py`: deterministic fake clock/poller coverage for both settle windows, `poll_interval <= 0`, a target appearing on each final-deadline read, exactly one fresh-evidence fetch reused through both windows and final staleness, the exact sorted `(id, title)` comparator (including byte-different JSON that MATCHES), exact single-registration behavior, and missing/non-regular/malformed versus I/O/Unicode classification without real sleeping.
+- `test_bibliography.py`: deterministic fake clock/poller coverage for the settle window, `poll_interval <= 0`, a target appearing on the final-deadline read, exactly one fresh-evidence fetch reused through the window and final staleness, the exact sorted `(id, title)` comparator (including byte-different JSON that MATCHES), a client stub that fails the test if any `autoexport.*` call is attempted, and missing/non-regular/malformed versus I/O/Unicode classification without real sleeping.
 - `test_bibliography.py`: transaction regressions cover existing and unborn HEADs. Assert the committed blob is the supplied validated buffer even if the worktree target changes after validation; the commit tree is expected HEAD with only `x/bibliography.json` replaced; its parent is exactly expected HEAD when one exists; and hooks, `git add`, and `git commit --only` never run. Resolve and lock the linked-worktree-specific live index. A pre-staged/conflicted bibliography entry and a concurrent bibliography index writer must fail before HEAD/index/worktree mutation; the standard lock must remain held through HEAD CAS. Assert every unrelated live-index entry remains byte-for-byte identical while only the bibliography entry becomes the captured blob. After success, an unchanged target is clean and a newer BBT target is exactly an unstaged bibliography change.
 - `test_bibliography.py`: inject a concurrent HEAD move and require forward CAS failure with no overwrite or index publication. Simulate lock-path reacquisition after successful publication and prove cleanup preserves the successor inode. Simulate index-publication failure for both existing and unborn HEAD and require exact HEAD rollback plus original index/worktree preservation. Race a new HEAD after the forward CAS and require rollback CAS to preserve that concurrent HEAD and surface the combined failure. Repeat the ordinary transaction in a real linked worktree and prove it uses that worktree's own standard index/lock without changing the main worktree's index. Assert cleanup removes only the still-owned lock inode and the code never rereads or writes the target.
 - `test_cli_live.py`: patch the shared observer, not a duplicate import-only implementation. Cover note NOOP while the observer still runs, delayed genuine BBT output, UNMATCHED timeout/mismatch returning 1, UNREACHABLE returning 3, no note write on either failure, and no call to the old bibliography writer or write of comparison bytes.
@@ -647,59 +646,61 @@ Create `skills/setup-vault/SKILL.md` with frontmatter `name: setup-vault` and `d
 5. runs doctor, showing the URL override both before and after the verb;
 6. reports every probe, inbox count, and age;
 7. performs detect → report → per-item consent → install/guide → verify for companions;
-8. treats Zotero `.xpi` installs as human-only wizard steps.
+8. treats Zotero `.xpi` installs as human-only wizard steps;
+9. treats creation of the whole-library Better CSL JSON auto-export in BBT Preferences as the same class of human-only wizard step (author ruling 2026-08-20): the skill states the exact target path doctor reported, the whole-library scope, the Better CSL JSON translator, and the keep-updated setting, then re-runs doctor to verify — it never registers an auto-export itself and never claims one exists before doctor reports `autoexport` MATCHED.
 
-Add the ruled `PROVISION_COMPANIONS` constant and tests for exact frontmatter, commands, separate CI consent, doctor routing, and human-only installs.
+Add the ruled `PROVISION_COMPANIONS` constant and tests for exact frontmatter, commands, separate CI consent, doctor routing, human-only installs, and the human-only auto-export wizard step.
 
 Run: `python -m pytest tests/test_skill_files.py -v`.
 
 Commit: `feat: add setup-vault workflow`.
 
-## Task 8: Run the live scaffold/doctor caveat discharge
+## Task 8: Run the live observation drill (registration-free caveat discharge)
 
 **Files:**
 
-- Modify: `core/harness_core/paths.py` and `core/harness_core/zotero.py`.
-- Create: `core/tests/test_scaffold_live.py`.
-- Modify: `core/tests/test_zotero.py`.
+- Modify: `core/harness_core/zotero.py`, `core/harness_core/bibliography.py`, and `core/harness_core/paths.py`.
+- Rewrite: `core/tests/test_scaffold_live.py`.
+- Modify: `core/tests/test_zotero.py`, `core/tests/test_bibliography.py`, `core/tests/test_doctor.py`, `core/tests/test_cli_live.py`, and `core/tests/test_paths.py` exactly as removing the registration surface requires.
 - Modify after the corresponding evidence exists: `docs/environment.md`.
 
-Add `test_scaffold_live.py` with these exact environment names:
+**Governing ruling (author, 2026-08-20) — supersedes every earlier Task 3/Task 8 registration contract in this plan.** The live drill falsified programmatic provisioning: `autoexport.add("//", …)` returns 404 `path is too short` before registration storage, because BBT 9.0.55's public JSON-RPC hardcodes collection scope (source-verified). Whole-library scope and BBT sole-writer ownership stand; provisioning becomes a **one-time human creation of the whole-library auto-export in BBT Preferences**, guided and verified by setup-vault and doctor — the same §7 class as the `.xpi` wizard steps (detect → guide → verify). The harness is observation/commit-only for this contract.
 
-```python
-CREATE_ENV = "HARNESS_LIVE_BBT_REGISTER"
-CONFIRMED_ENV = "HARNESS_LIVE_AUTOEXPORT_REMOVED"
-VAULT_ENV = "HARNESS_LIVE_SCAFFOLD_VAULT"
-```
+Remove the dead registration path; Git history preserves it:
 
-`HARNESS_LIVE=1` remains the ordinary live-test gate. A new registration additionally requires `CREATE_ENV=1`. If `VAULT_ENV` is absent, that consent branch creates and reserves a persistent empty vault with `tempfile.mkdtemp(prefix="knowledge-harness-live-")`, never pytest's `tmp_path`, `TemporaryDirectory`, or another automatic cleanup owner, and immediately prints the exact absolute `VAULT_ENV` assignment needed to resume it. If `VAULT_ENV` is present, require an absolute path below the system temporary root with the `knowledge-harness-live-` basename prefix. A supplied vault without recovery state still requires `CREATE_ENV=1`; a supplied vault with exact recovery state enters recovery without new-creation consent and must never register again.
+- Delete the client's auto-export registration method and every stub, fake client method, test, and assertion that exercises it. No client method may issue `autoexport.add` or any other `autoexport.*` JSON-RPC method, and no test may assert one is issued.
+- Delete the observer's registration branch and its second settle window (Task 3 as amended above): one settle window, one final comparison, then MATCHED/UNMATCHED/UNREACHABLE.
+- `paths.to_bbt_host(path)` keeps its exact WSL contract — detect WSL from `WSL_INTEROP`, `WSL_DISTRO_NAME`, or `"microsoft"` in `platform.release().lower()`; on WSL require `wslpath -w PATH` to launch, exit zero, and print non-empty stripped output, raising `PathError` otherwise and never falling back to a WSL-native path; off WSL return the native absolute path. Its only remaining consumer is the human-facing repair guidance, where `PathError` degrades the guidance to the native absolute path and never changes a probe result. Never write either machine path to the repository, a tracked fixture, or `docs/environment.md`.
+- Delete the registration-protection machinery with the registration it protected — the harness now creates nothing on the Zotero side, so no dangling export can survive a drill: `HARNESS_LIVE_BBT_REGISTER`, `HARNESS_LIVE_AUTOEXPORT_REMOVED`, `HARNESS_LIVE_SCAFFOLD_VAULT`, the persistent `tempfile.mkdtemp` reservation, the sibling `.<vault-name>.state.json` schema-1 recovery file, its device/inode ownership rules, and the human cleanup-confirmation protocol all go. The drill uses pytest's `tmp_path`.
 
-On the new-creation branch, establish and record the owned empty vault identity as specified below before running `git init -q`. Set the synthetic local identity exactly to `user.name=knowledge-harness-live-drill` and `user.email=live-drill@example.invalid`, then run scaffold. The live drill must not depend on or change global Git identity.
+`HARNESS_LIVE=1` is the drill's only gate. With it set, the drill:
 
-BBT 9.0.55's verified live/public auto-export contract exposes `autoexport.add` only. `autoexport.list`, `autoexport.remove`, `autoexport.delete`, and `autoexport.get` each return JSON-RPC `-32601`; do not add client helpers, test calls, cleanup calls, or assertions that invent any of them. Reuse the existing `register_autoexport` path for the sole registration call.
+1. scaffolds a fresh `tmp_path` vault under a synthetic local Git identity — exactly `user.name=knowledge-harness-live-drill` and `user.email=live-drill@example.invalid`, set locally before scaffold; the drill never depends on or changes global Git identity;
+2. runs `doctor` against real Zotero/BBT through a real `ZoteroClient`;
+3. requires `zotero` MATCHED with the reported versions in detail and `bbt` MATCHED with the live BBT version;
+4. requires `autoexport` UNMATCHED — no human has created an auto-export for a throwaway vault — with a detail that names the exact `x/bibliography.json` target and the BBT Preferences repair, and requires `staleness` to stay warn-only;
+5. requires that the run issued zero `autoexport.*` JSON-RPC calls (record every method name the transport sends) and that `x/bibliography.json` was never created;
+6. requires the `doctor` CLI to exit 1 on that hard UNMATCHED and to print the guidance line.
 
-`paths.to_bbt_host(path)` owns transient provisioning-target conversion. Detect WSL from `WSL_INTEROP`, `WSL_DISTRO_NAME`, or `"microsoft"` in `platform.release().lower()`. On WSL, `wslpath -w PATH` must launch, return zero, and produce non-empty stripped stdout; any launch error, nonzero status, or empty output raises `PathError`, which `register_autoexport` maps to `ZoteroError(Result.UNREACHABLE)` before calling `autoexport.add`. Never fall back to a WSL-native path. Only off WSL, return the native absolute path directly. Never write either machine path to the repository, a tracked fixture, or `docs/environment.md`.
+**Explicitly deferred, by author decision 2026-08-20:** the MATCHED end-to-end leg — genuine BBT output observed, one real item imported, rerun to NOOP — requires a human-created whole-library auto-export pointing at the drill vault. None was created, so that leg is deferred, not silently skipped, and Task 9 accepts the deferral only while this record stands.
 
-After transient target conversion succeeds, the new-creation branch creates or validates the owned empty non-symlink vault, captures its `lstat()` device and inode once, and writes a sibling recovery file named `.<vault-name>.state.json` before `git init`, scaffold, or any BBT call. Schema `1` records the exact vault, local target, transient host target, phase, `st_dev`, and `st_ino`; those identity fields never change. Retain and advance this state on success or interruption. It remains outside the vault so it survives later vault removal. Recovery and cleanup require the live path to remain a non-symlink directory whose current `lstat()` device/inode exactly match the recorded pair. A missing vault, symlink, replacement directory at the same spelling, malformed state, or vault/target/identity mismatch is a hard refusal; never delete the replacement or treat it as license to create, register, or clean up.
+`docs/environment.md` records exactly these dated facts and no machine path:
 
-The live test invokes doctor against real Zotero/BBT, makes exactly one registration for the retained vault's `x/bibliography.json`, waits for genuine BBT output, imports one real item, verifies the bibliography and note, and reruns to NOOP. It then prints the exact `VAULT_ENV`, temporary vault, host target, and mandatory cleanup command and deliberately retains the vault plus recovery state. A human must open BBT Preferences, remove that exact automatic-export entry, and confirm the target absent there. The cleanup rerun requires `CONFIRMED_ENV=1` plus the exact matching recovery state; it does not require `CREATE_ENV`, does not call `autoexport.add`, and removes only the recorded vault before marking the sibling state with the actual confirmation time. Automation never reports or infers BBT cleanup before that explicit human assertion.
+1. 2026-08-20 — BBT 9.0.55's public JSON-RPC auto-export surface is `autoexport.add` only; `.list`, `.remove`, `.delete`, and `.get` each returned `-32601 METHOD_NOT_FOUND`; `add` is collection-scoped by implementation (source-verified).
+2. 2026-08-20 — `autoexport.add("//", …)` fails 404 `path is too short` before registration storage: no entry is created, so whole-library registration is impossible through the public RPC.
+3. 2026-08-20 — BBT persists auto-exports as profile preference keys `better-bibtex.autoExport.<encoded-path>`. Human-debugging fact only: doctor detection stays behavioral (target presence plus staleness) and never scrapes preferences.
+4. 2026-08-20 — the retained drill vault and its recovery state were disposed after read-only inspection of the Windows profile preferences and `zotero.sqlite` confirmed no registration was ever stored for its target.
 
-`docs/environment.md` records two evidence events only: the dated 2026-08-20 API fact for BBT 9.0.55 (`autoexport.add` supported; the four names above returned `-32601`), and, later, a separate entry dated on the day a human actually confirms the exact test registration absent in BBT Preferences. Do not pre-record human confirmation or commit either machine path.
-
-Task 8 RED/acceptance coverage proves: new creation cannot occur without `CREATE_ENV=1`; absent `VAULT_ENV` reserves a persistent vault and prints its resume value; explicit-path creation and exact-state recovery are distinct; recovery plus `CONFIRMED_ENV=1` works without creation consent; corrupt/mismatched state and unsafe vault paths refuse all mutation; replacing the recorded directory or substituting a symlink preserves that successor and refuses cleanup because device/inode ownership no longer matches; local synthetic Git identity is in force before scaffold; off-WSL uses the native absolute target; WSL uses only successful non-empty `wslpath -w`; failed WSL translation is UNREACHABLE with zero RPC calls; the opted-in live path makes exactly one `autoexport.add` call and no call to the four unsupported names; interruption retains exact recovery evidence; and confirmed cleanup deletes only the same recorded directory identity while retaining the audit state. The live assertions may be explicitly deferred for unavailable authorization. If registration ran, acceptance also requires later human cleanup confirmation; a passing pytest process alone does not discharge cleanup.
+Task 8 RED/acceptance coverage proves: no importable module exposes an auto-export registration call, and no `autoexport.*` method name is reachable from the client; the observer closes a persistent absence or mismatch after exactly one settle window with zero RPC registration attempts; the UNMATCHED detail names the target and the BBT Preferences repair; `to_bbt_host` still translates through `wslpath -w` on WSL and returns the native absolute path off WSL, while a `PathError` degrades guidance to the native path instead of changing a probe result; the live drill assertions above. Live assertions may be deferred only for genuinely unavailable authorization, recorded explicitly.
 
 Run:
 
 ```bash
-python -m pytest tests/test_zotero.py tests/test_scaffold_live.py -m 'not live' -v
-HARNESS_LIVE=1 HARNESS_LIVE_BBT_REGISTER=1 python -m pytest tests/test_scaffold_live.py -v
-HARNESS_LIVE=1 HARNESS_LIVE_SCAFFOLD_VAULT='/exact/path/printed/by/first/run' HARNESS_LIVE_AUTOEXPORT_REMOVED=1 python -m pytest tests/test_scaffold_live.py -v
-HARNESS_LIVE=1 HARNESS_LIVE_NET=1 python -m pytest tests -v
+python -m pytest tests/test_zotero.py tests/test_bibliography.py tests/test_doctor.py tests/test_paths.py tests/test_scaffold_live.py tests/test_cli_live.py -m 'not live and not live_net' -v
+HARNESS_LIVE=1 python -m pytest tests/test_scaffold_live.py -v
 ```
 
-Do not transmit credentials merely to satisfy this gate. If the environment is not already authorized, defer the live run explicitly to this task.
-
-Commit: `feat: verify live scaffold and BBT cleanup`.
+Commit: `feat: observe the human-created auto-export in the live drill`.
 
 ## Task 9: Final acceptance and merge
 
@@ -707,26 +708,30 @@ Run from `core/`:
 
 ```bash
 python -m pytest tests -m 'not live and not live_net' -q -p no:cacheprovider
+HARNESS_LIVE=1 python -m pytest tests -m 'live' -q -p no:cacheprovider
+HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<authorized address> python -m pytest tests -q -p no:cacheprovider
 python -m ruff format --check . --no-cache
 python -m ruff check . --no-cache
 ```
+
+The network leg transmits the supplied `HARNESS_MAILTO` to the polite API pools; run it only with an address the author authorized for this run, and record which legs ran and which were deferred.
 
 Then run `git diff --check` and the scoped terminology scan from the repository root. Verify:
 
 - all packaged paths and OKF exceptions match Task 1;
 - scaffold commits only created paths;
-- BBT alone writes the export; doctor waits/re-registers/verifies, and import waits/observes/commits genuine output;
+- BBT alone writes the export after a human creates it; doctor and import wait, observe, and commit genuine output, and no code path registers an auto-export;
 - offline audits are non-mutating while genuine outages persist;
 - managed witnesses cover current, HEAD, and explicit CI-base comparisons;
 - detection/state projection is surface-independent;
 - RW verification commits the exact captured postimage bytes/modes from expected HEAD with an expected-old HEAD CAS, separately audits them against the raw manifest, and preserves the live index plus unrelated paths;
 - `--with-ci` and `--with-rw-ci` remain separate authorities;
 - the Stop bound is consecutive through `stop_hook_active`;
-- Task 8 never claims automated auto-export cleanup: an opted-in registration retains its exact target and temporary vault until a human removes the entry in BBT Preferences and records actual confirmation;
-- the required live gates pass or are explicitly deferred only for unavailable authorization, and any run that called `autoexport.add` remains incomplete until that human cleanup confirmation exists.
+- Task 8 creates nothing on the Zotero side: the drill issues zero `autoexport.*` calls, leaves no registration and no retained vault, and its `docs/environment.md` entries carry no machine path;
+- the required live gates pass or are explicitly deferred with a recorded reason, and the deferred MATCHED end-to-end leg names the human step it waits on.
 
 Merge only after all nine task commits and acceptance evidence are present.
 
 ## Self-review
 
-Tasks 1–2 own templates and scoped creation. Task 3 owns the BBT-writer boundary for doctor and import plus doctor routing. Task 4 owns managed witnesses, state/surface separation, the exact verifier-output manifest, pre-commit, and both CI contracts. Task 5 owns the unconditional literature-touch warning. Task 6 owns publish arming and the consecutive bound. Task 7 owns user consent. Task 8 owns real `autoexport.add` validation and retained, human-confirmed cleanup. No task depends on a trailing ruling block to override its snippets.
+Tasks 1–2 own templates and scoped creation. Task 3 owns the BBT-writer boundary for doctor and import plus doctor routing. Task 4 owns managed witnesses, state/surface separation, the exact verifier-output manifest, pre-commit, and both CI contracts. Task 5 owns the unconditional literature-touch warning. Task 6 owns publish arming and the consecutive bound. Task 7 owns user consent. Task 8 owns the live observation drill and the removal of the falsified registration path. No task depends on a trailing ruling block to override its snippets.
