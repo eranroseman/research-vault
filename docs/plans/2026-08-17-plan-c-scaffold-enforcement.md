@@ -735,3 +735,14 @@ Merge only after all nine task commits and acceptance evidence are present.
 ## Self-review
 
 Tasks 1–2 own templates and scoped creation. Task 3 owns the BBT-writer boundary for doctor and import plus doctor routing. Task 4 owns managed witnesses, state/surface separation, the exact verifier-output manifest, pre-commit, and both CI contracts. Task 5 owns the unconditional literature-touch warning. Task 6 owns publish arming and the consecutive bound. Task 7 owns user consent. Task 8 owns the live observation drill and the removal of the falsified registration path. No task depends on a trailing ruling block to override its snippets.
+
+## Post-merge follow-ups (final review, 2026-08-21)
+
+The final whole-branch review's Important findings were fixed in the branch (`b5bdedf..843596f`). These survive as recorded, non-blocking follow-ups — each real, none load-bearing for a later task in this plan:
+
+1. **Vault-root symlink strictness.** `scaffold._reject_owned_symlinks` and `bibliography._open_parent_chain` reject any symlink in the vault's own path or above it, so a symlinked `$HOME` or vault root hard-fails scaffold and turns doctor's `tree` probe into an exit-1 failure. The strictness is deliberate — an earlier review round introduced it to close an ancestor-symlink escape — so loosening it (resolve the root once, pin `(st_dev, st_ino)`, enforce no-symlinks only below the resolved root) is an author decision, not a fix-wave one. The misleading-guidance half was already fixed: repair prose is now gated on containment.
+2. **Repeated same-day bypasses collapse into one record.** `_finding_id` is `check/kind;target/date` with no reason component, so the audited-bypass dedupe that makes the record idempotent also means a second, genuinely distinct bypass of the same project on the same day is not separately recorded. Fixing it needs an id-schema discriminator for repeatable human acts; the day's bypass still stands recorded and open.
+3. **Two staleness implementations.** The legacy `bibliography.staleness()` still backs `cmd_staleness` and `_staleness_outcome`; it issues a second on-demand export, rereads with `read_text()`, and is the one bibliography read path without `_open_parent_chain` containment.
+4. **`cmd_verify` catches bare `ValueError`/`OSError`**, which can convert an implementation bug into a tidy exit 2 with no traceback.
+5. **Projection scratch files** (`.harness-projection-<pid>-<n>`) are unlinked in a `finally`, so a SIGKILL mid-write strands one inside the vault; a startup sweep or an out-of-vault temp dir would close it.
+6. **Standing-scope acks** mean one acknowledgment of a `publish-gate` finding filters every later finding for that project out of `open_entries`/`summary`. Pre-existing inbox behavior, surfaced here because the bypass record depends on it.
