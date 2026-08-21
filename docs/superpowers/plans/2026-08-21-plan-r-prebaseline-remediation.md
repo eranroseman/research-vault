@@ -41,7 +41,7 @@
 - **Display class** (`pageLabel`, `title`, `comment` already does this): collapse all whitespace runs to single spaces (`" ".join(value.split())`) — total (no import ever held on ugly-but-real metadata), and sufficient: without a newline, injected text cannot create a claim line, a blockquote line, or a marker line.
 - **Serializer boundary** (`frontmatter._emit_scalar`): raise `FrontmatterError` on the FULL line-break set of the parse authority — `[\x00-\x1f\x7f\x85\u2028\u2029]` (amended 2026-08-21 at execution: `str.splitlines()` is the parser's line-break definition in both `frontmatter.py` and `claims.py`, and it breaks on `\x85`/`\u2028`/`\u2029` too; a narrower class is corrupt-on-write — live-demonstrated with a U+2028-poisoned DOI). Two accepted execution disclosures: catching `FrontmatterError` in `cmd_import_note` also converts malformed existing-note frontmatter from crash to loud hold; U+2028-bearing quote text holds via the self-check rather than being collapsed (correct — quote bytes are the verified object; real PDF extraction emits U+2028, so this is a live hold path).
 
-- [ ] **Step 1: Write the failing tests** — `core/tests/test_render_neutralization.py`:
+- [x] **Step 1: Write the failing tests** — `core/tests/test_render_neutralization.py`:
 
 ```python
 """Regression tests for the 2026-08-21 evidence-text injection review findings."""
@@ -99,8 +99,8 @@ def test_render_note_round_trip_assertion_catches_forged_body(monkeypatch):
 
 (The two `...` bodies are written against HEAD signatures in this step — no test lands unimplemented.)
 
-- [ ] **Step 2: Run to verify the injection reproduces** — before fixing, temporarily run the pageLabel test against unfixed code: it FAILS with two claim lines (this run is the review's evidence, reproduced).
-- [ ] **Step 3: Implement** — display-class collapse where `normalize_annotation` builds the dict (`__main__.py`) AND defensively in `render_claim`/heading rendering (`notes.py`); citekey rejection in `note_path`; `_emit_scalar` control-char raise; then the round-trip self-check at the end of `render_note`:
+- [x] **Step 2: Run to verify the injection reproduces** — before fixing, temporarily run the pageLabel test against unfixed code: it FAILS with two claim lines (this run is the review's evidence, reproduced).
+- [x] **Step 3: Implement** — display-class collapse where `normalize_annotation` builds the dict (`__main__.py`) AND defensively in `render_claim`/heading rendering (`notes.py`); citekey rejection in `note_path`; `_emit_scalar` control-char raise; then the round-trip self-check at the end of `render_note`:
 
 ```python
 class RenderIntegrityError(RuntimeError):
@@ -115,8 +115,8 @@ if parsed_ids != expected_ids:
     )
 ```
 
-- [ ] **Step 4: Wire the failure mode (ruled 2026-08-21 — the plan's original text assumed a hold-to-inbox path that does not exist for ANY `cmd_import_note` failure exit):** rejection is loud and fail-closed — stderr reason + nonzero exit + **no note file written, no partial managed region**. Verify by test that `import-note` on a poisoned item exits nonzero and leaves no file. Do NOT wire inbox filing for this one failure class alone: uniform hold-to-inbox wiring for every import failure exit is a recorded follow-up landing with spec §121's integrate-at-import contract (deferred register).
-- [ ] **Step 5: Run full suite** — all PASS. **Step 6: Commit** — `git commit -m "fix: neutralize evidence-text injection at the render boundary (review 2026-08-21 C1/I2/M3) + render_note round-trip self-check"`
+- [x] **Step 4: Wire the failure mode (ruled 2026-08-21 — the plan's original text assumed a hold-to-inbox path that does not exist for ANY `cmd_import_note` failure exit):** rejection is loud and fail-closed — stderr reason + nonzero exit + **no note file written, no partial managed region**. Verify by test that `import-note` on a poisoned item exits nonzero and leaves no file. Do NOT wire inbox filing for this one failure class alone: uniform hold-to-inbox wiring for every import failure exit is a recorded follow-up landing with spec §121's integrate-at-import contract (deferred register).
+- [x] **Step 5: Run full suite** — all PASS. **Step 6: Commit** — `git commit -m "fix: neutralize evidence-text injection at the render boundary (review 2026-08-21 C1/I2/M3) + render_note round-trip self-check"`
 
 ---
 
@@ -129,11 +129,11 @@ if parsed_ids != expected_ids:
 **Interfaces:**
 - Produces: `verify.verify_state(...)`, `verify.surface_decision(...)`, `verify.file_outcomes(...)` — public names, signatures identical to today's `_verify_state`/`_surface_decision`/`_file_outcomes`; `outcome.Result`, `outcome.Outcome`, `outcome.normalize_text` (checks.py re-exports during this plan; importers move now).
 
-- [ ] **Step 1: Move the engine block** (`__main__.py` ~313–1345 at the review's anchor: `_target_hash`, `_apply_state_transitions`, `_file_effects`, `_file_outcomes`, `_plan_state`, `_verify_state`, `_surface_decision`, and their private helpers) to `verify.py` verbatim; public-rename the three hook-consumed entry points; `__main__` imports them for its cmd_ functions.
-- [ ] **Step 2: Switch the hooks** — `stop_publish_gate.py` and `posttooluse_lint.py` import the public names from `harness_core.verify`; no hook imports `__main__` afterward (grep-verified).
-- [ ] **Step 3: Vocabulary move** — `Result` (from `__init__`), `Outcome`, `normalize_text` (from `checks`) into `outcome.py`; `__init__` and `checks` re-export; importing modules (`identify`, `quotes`, `selectors`, `lints`, `events`, `inbox`) switch to `outcome`.
-- [ ] **Step 4: Verify** — `python -m pytest tests -q` all PASS; `grep -rn "from harness_core.__main__ import\|__main__ import" hooks core/harness_core | grep -v cmd_` returns nothing; behavior-preservation check: `git diff` shows moves + import edits only, no logic edits.
-- [ ] **Step 5: Commit** — `git commit -m "refactor: extract verify engine to verify.py (public seam for hooks); co-locate Result/Outcome/normalize_text in outcome.py"`
+- [x] **Step 1: Move the engine block** (`__main__.py` ~313–1345 at the review's anchor: `_target_hash`, `_apply_state_transitions`, `_file_effects`, `_file_outcomes`, `_plan_state`, `_verify_state`, `_surface_decision`, and their private helpers) to `verify.py` verbatim; public-rename the three hook-consumed entry points; `__main__` imports them for its cmd_ functions.
+- [x] **Step 2: Switch the hooks** — `stop_publish_gate.py` and `posttooluse_lint.py` import the public names from `harness_core.verify`; no hook imports `__main__` afterward (grep-verified).
+- [x] **Step 3: Vocabulary move** — `Result` (from `__init__`), `Outcome`, `normalize_text` (from `checks`) into `outcome.py`; `__init__` and `checks` re-export; importing modules (`identify`, `quotes`, `selectors`, `lints`, `events`, `inbox`) switch to `outcome`.
+- [x] **Step 4: Verify** — `python -m pytest tests -q` all PASS; `grep -rn "from harness_core.__main__ import\|__main__ import" hooks core/harness_core | grep -v cmd_` returns nothing; behavior-preservation check: `git diff` shows moves + import edits only, no logic edits.
+- [x] **Step 5: Commit** — `git commit -m "refactor: extract verify engine to verify.py (public seam for hooks); co-locate Result/Outcome/normalize_text in outcome.py"`
 
 ---
 
@@ -145,7 +145,9 @@ if parsed_ids != expected_ids:
 - All five rejects untouched: selector/context feature, fd-pinning/lock chain, `inbox.append_ack`, `events.trust_tier` + friends, `levenshtein_ratio`. `probe` verb intact.
 - Supersessions recorded in Plans B/C (CSV surface, `run_verify`+`scope`, freeze reasoning) — confirm the annotations exist.
 
-- [ ] **Step 1:** Run the verification greps + read the landed diff (561ff36 range); report any divergence from the list above as an SDD escalation, else record "Task 3 verified".
+- [x] **Step 1:** Run the verification greps + read the landed diff (561ff36 range); report any divergence from the list above as an SDD escalation, else record "Task 3 verified".
+
+  **Task 3 verified 2026-08-21**, with one divergence found and closed in this branch: accepted row 2's `snapshots is None` branch in `_plan_state` had not been cut on `refactor/ponytail-audit-cuts`. `_plan_state` has exactly one caller (`verify_state`), which always passes snapshots, and no test calls it — the branch was unreachable, so removing it is behavior-preserving and does not touch the deferred lints `snapshot=None` fallbacks, which remain present as ruled. Everything else matches: all other accepted cuts landed including the four approved deviations; both deferrals present; all five rejects and the `probe` verb untouched (the only diff in `selectors.py`/`quotes.py` since the audit is Task 2's import move); supersession sections present in Plans B and C.
 
 Original sheet retained below for the audit trail (superseded rows: 1 technique, 2 partially, 5 partially):
 
@@ -176,9 +178,9 @@ Original sheet retained below for the audit trail (superseded rows: 1 technique,
 
 **Files:** per the "final review non-blocking follow-ups" section of `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md` (recorded at 34cf831) — that section is the contract; read it first.
 
-- [ ] **Step 1: Bypass id discriminator** (leads — doctrine weight: an unacknowledgeable finding id is a liveness hole in the review-inbox contract). Implement per the recorded description; regression test: two bypasses same day produce distinct, individually acknowledgeable ids.
-- [ ] **Step 2:** `cmd_verify` broad except narrowed; projection scratch files cleaned up; standing-scope acks item per its recorded text. (Duplicate `staleness()` already fell to Task 3.6.)
-- [ ] **Step 3:** Suite green; commit — `fix: Plan C follow-up batch (bypass id discriminator first)`.
+- [x] **Step 1: Bypass id discriminator** (leads — doctrine weight: an unacknowledgeable finding id is a liveness hole in the review-inbox contract). Implement per the recorded description; regression test: two bypasses same day produce distinct, individually acknowledgeable ids.
+- [x] **Step 2:** `cmd_verify` broad except narrowed; projection scratch files cleaned up; standing-scope acks item per its recorded text. (Duplicate `staleness()` already fell to Task 3.6.)
+- [x] **Step 3:** Suite green; commit — `fix: Plan C follow-up batch (bypass id discriminator first)`.
 
 ---
 
@@ -207,17 +209,17 @@ Renames (mechanical; judged greps, history rule holds):
 
 Ruled keeps (do NOT rename): `surface` (spec §6 anchored; register split recorded in §4.4) · `ack` (spec §3 serialization grammar) · `rw` flags (registry recorded) · `hk-` prefix (ZotLit-anchored form) · `identify`/`discover`/`identifier-discovery` trio (inventoried as one concept; "fixing" creates stutter). Deferred to the deepening pass: stutter/noun-function conventions, `FileImage`/`CapturedOutput`.
 
-- [ ] **Step 1:** Apply renames 1–13 tests-first per group; judged grep for each retired identifier returns only history-rule-protected hits.
-- [ ] **Step 2:** Suite green; commit — `rename: naming-audit corrections (screening-state, disputed-claim, Finding, Outcome-unified doctor, hk-selector)`.
+- [x] **Step 1:** Apply renames 1–13 tests-first per group; judged grep for each retired identifier returns only history-rule-protected hits.
+- [x] **Step 2:** Suite green; commit — `rename: naming-audit corrections (screening-state, disputed-claim, Finding, Outcome-unified doctor, hk-selector)`.
 
 ---
 
 ### Task 6: Acceptance + merge
 
-- [ ] **Step 1:** Full suite offline green; live suite if the environment allows (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`).
-- [ ] **Step 2:** `ruff format --check` + `ruff check` clean at current config (Plan Q's extended set arrives later — do not pre-adopt it here).
-- [ ] **Step 3:** Boundary greps: no hook imports `__main__`; no production reference to any cut symbol; `git diff main --stat` shows only this plan's files.
-- [ ] **Step 4:** Verify Task 5's retired identifiers are absent on living surfaces (judged grep: `contested|source-status|verification-failures|hk-sel\b|RepoPathValue|entry_id` — history-rule paths excluded).
+- [x] **Step 1:** Full suite offline green; live suite if the environment allows (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`).
+- [x] **Step 2:** `ruff format --check` + `ruff check` clean at current config (Plan Q's extended set arrives later — do not pre-adopt it here).
+- [x] **Step 3:** Boundary greps: no hook imports `__main__`; no production reference to any cut symbol; `git diff main --stat` shows only this plan's files.
+- [x] **Step 4:** Verify Task 5's retired identifiers are absent on living surfaces (judged grep: `contested|source-status|verification-failures|hk-sel\b|RepoPathValue|entry_id` — history-rule paths excluded).
 - [ ] **Step 5:** Merge per `superpowers:finishing-a-development-branch`; report the merge SHA. The author then runs `/code-review ultra` on the trust-critical modules; Plan Q's Step 0 gate is satisfied.
 
 ## Self-Review (at authoring)

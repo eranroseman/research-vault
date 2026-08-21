@@ -5,7 +5,7 @@ import pytest
 from harness_core.pathcodec import (
     PATH_BYTES_PREFIX,
     PathCodecError,
-    RepoPathValue,
+    RepoPath,
     decode_repo_path,
     encode_repo_path,
 )
@@ -78,7 +78,7 @@ def test_encoder_and_wrapper_reject_nonbytes_or_invalid_repo_paths(raw):
     with pytest.raises((TypeError, PathCodecError)):
         encode_repo_path(raw)
     with pytest.raises((TypeError, PathCodecError)):
-        RepoPathValue(raw)
+        RepoPath(raw)
 
 
 @pytest.mark.parametrize(

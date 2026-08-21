@@ -3,7 +3,7 @@ import dataclasses
 import pytest
 
 from harness_core import Result, checks, webapi
-from harness_core.pathcodec import RepoPathValue
+from harness_core.pathcodec import RepoPath
 
 
 def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):
@@ -105,12 +105,12 @@ def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
 def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
     outcome = checks.Outcome(
         "quote",
-        RepoPathValue(b"synthesis/no-slash-needed.md"),
+        RepoPath(b"synthesis/no-slash-needed.md"),
         Result.UNMATCHED,
         "mismatch — quote",
         extra={
-            "note_path": RepoPathValue(b"projects/a b.md"),
-            "origin": RepoPathValue(b"literatures/\xff.md"),
+            "note_path": RepoPath(b"projects/a b.md"),
+            "origin": RepoPath(b"literatures/\xff.md"),
             "identifier": "path-bytes:looks/like/a/path",
         },
     )
@@ -129,7 +129,7 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
 
     replaced = dataclasses.replace(
         outcome,
-        target=RepoPathValue(b"synthesis/new.md"),
+        target=RepoPath(b"synthesis/new.md"),
         extra={"identifier": "plain"},
     )
     assert replaced.target_kind == "repo-path"
@@ -142,7 +142,7 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
     [
         {"raw": b"bytes"},
         {"nested": [b"bytes"]},
-        {"nested": {"path": RepoPathValue(b"x/a.md")}},
+        {"nested": {"path": RepoPath(b"x/a.md")}},
         {1: "non-string key"},
         {"set": {"x"}},
         {"frozen": frozenset({"x"})},
@@ -157,11 +157,11 @@ def test_outcome_rejects_non_json_or_nested_typed_path_values(extra):
 def test_record_round_trip_returns_fresh_typed_values():
     source = checks.Outcome(
         "quote",
-        RepoPathValue(b"synthesis/\xff.md"),
+        RepoPath(b"synthesis/\xff.md"),
         Result.UNMATCHED,
         "mismatch — quote",
         {
-            "note_path": RepoPathValue(b"projects/a.md"),
+            "note_path": RepoPath(b"projects/a.md"),
             "claims": [{"id": "c-1", "locators": [1, 2]}],
         },
     )
@@ -1450,20 +1450,20 @@ def test_metadata_skips_entries_without_a_doi(net_vault):
 def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():
     live = checks.Outcome(
         "update-notice",
-        RepoPathValue(b"literatures/\xff.md"),
+        RepoPath(b"literatures/\xff.md"),
         Result.MATCHED,
         "matched",
         {
-            "note_path": RepoPathValue(b"literatures/\xff.md"),
+            "note_path": RepoPath(b"literatures/\xff.md"),
             "warn_notices": [{"type": "correction", "notice_date": "2026-01-01"}],
         },
     )
     rw = checks.Outcome(
         "update-notice",
-        RepoPathValue(b"literatures/\xff.md"),
+        RepoPath(b"literatures/\xff.md"),
         Result.UNREACHABLE,
         "outage — RW unavailable",
-        {"note_path": RepoPathValue(b"literatures/\xff.md")},
+        {"note_path": RepoPath(b"literatures/\xff.md")},
     )
     live_record = checks.outcome_to_record(live)
     rw_record = checks.outcome_to_record(rw)

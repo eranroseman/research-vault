@@ -78,21 +78,36 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
         '---\ntype: "index"\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [[literatures/]] — evidence layer: citekey-keyed source notes\n"
-        "- [[synthesis/]] — synthesis pages (see [[synthesis/index]])\n"
+        "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
+        "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"
         "- [[projects/]] — manuscripts and deliverables\n"
         "- [[log/]] — daily activity log (summary: [[log]])\n"
         "- [[inbox/]] — fleeting notes and the review queue\n"
         "- [[system/]] — support artifacts: templates, bases, the bibliography export\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
-    assert asset("vault/AGENTS.md").read_text() == (
+    vault_agents = asset("vault/AGENTS.md").read_text()
+    assert vault_agents.startswith(
         '---\ntype: "guide"\n---\n# Vault agents guide\n\n'
         "Evidence is admitted through Zotero and projected into `literatures/`. "
         "Read `synthesis/index.md` and recent `log/` entries before editing. "
         "Use the knowledge-harness `project`, `verify-citations`, and `publish` "
         "skills for delivery work. Review findings live in `inbox/review-queue.md`.\n"
     )
+    # Ruled content, restored 2026-08-21 after drift. Each line is load-bearing:
+    # the gray-zone routing sentence is spec §8's coexistence mitigation, and
+    # dropping any of these silently removes a ruled instruction from every vault.
+    assert (
+        "Prefer the knowledge-harness skills over generic drafting **even for "
+        "free-form requests** — this line is the coexistence mitigation, spec §8."
+    ) in vault_agents
+    assert "Run `evidence-conventions` for claim syntax." in vault_agents
+    assert (
+        "Formatters are writers — the machine surfaces (`log/`, "
+        "`inbox/review-queue.md`, managed regions, `system/bibliography.json`) "
+        "each have an owner and a byte contract."
+    ) in vault_agents
+    assert "`.harness/` is machine-local" in vault_agents
     assert asset("vault/inbox/review-queue.md").read_text() == (
         '---\ntype: "review-queue"\n---\n'
     )

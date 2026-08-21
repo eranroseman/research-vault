@@ -76,7 +76,7 @@ def test_okf_probe_ignores_fleeting_inbox_notes_but_flags_machine_owned_files(tm
     (tmp_path / "literatures" / "untyped.md").write_text("# no frontmatter\n")
     probe = scaffold._okf_probe(tmp_path)
     assert probe.result == Result.UNMATCHED
-    assert "literatures/untyped.md: missing type" in probe.detail
+    assert "literatures/untyped.md: missing type" in probe.reason
 
 
 def test_okf_probe_root_index_missing_okf_version(tmp_path):
@@ -84,7 +84,7 @@ def test_okf_probe_root_index_missing_okf_version(tmp_path):
     (tmp_path / "index.md").write_text('---\ntype: "index"\n---\n# Vault index\n')
     probe = scaffold._okf_probe(tmp_path)
     assert probe.result == Result.UNMATCHED
-    assert "index.md: missing okf_version" in probe.detail
+    assert "index.md: missing okf_version" in probe.reason
 
 
 def test_okf_probe_root_index_missing_type(tmp_path):
@@ -92,7 +92,7 @@ def test_okf_probe_root_index_missing_type(tmp_path):
     (tmp_path / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Vault index\n')
     probe = scaffold._okf_probe(tmp_path)
     assert probe.result == Result.UNMATCHED
-    assert 'index.md: type must be "index"' in probe.detail
+    assert 'index.md: type must be "index"' in probe.reason
 
 
 def test_okf_probe_missing_log_md_with_a_day_file_present(tmp_path):
@@ -101,4 +101,4 @@ def test_okf_probe_missing_log_md_with_a_day_file_present(tmp_path):
     (tmp_path / "log" / "2026-08-20.md").write_text('---\ntype: "daily"\n---\n')
     probe = scaffold._okf_probe(tmp_path)
     assert probe.result == Result.UNMATCHED
-    assert "log.md missing despite day files present" in probe.detail
+    assert "log.md missing despite day files present" in probe.reason

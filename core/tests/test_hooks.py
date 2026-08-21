@@ -703,6 +703,46 @@ def test_stop_gate_bypass_appends_exact_human_record_and_clears_flag(
     assert entry.reason == "manual — publish-gate bypass: source checked by hand"
 
 
+def _bypass_once(hook, fixture_vault, monkeypatch, capsys, reason):
+    _arm_publish(fixture_vault, bypass=reason)
+    monkeypatch.setattr(
+        hook,
+        "_verify_publish",
+        lambda _vault: (_ for _ in ()).throw(
+            AssertionError("bypass must precede verification")
+        ),
+    )
+    assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault)) == ""
+
+
+def test_two_distinct_same_day_bypasses_stay_separately_acknowledgeable(
+    fixture_vault, monkeypatch, capsys
+):
+    """Plan C follow-up 2: one id per act, not one id per day.
+
+    A same-day retry of the SAME bypass still collapses to one row; two
+    genuinely distinct bypasses must each be recordable and closable on their
+    own, or acknowledging the first silently closes the second.
+    """
+    hook = _load_stop_hook()
+
+    _bypass_once(hook, fixture_vault, monkeypatch, capsys, "source checked by hand")
+    _bypass_once(hook, fixture_vault, monkeypatch, capsys, "source checked by hand")
+    _bypass_once(hook, fixture_vault, monkeypatch, capsys, "second, unrelated call")
+
+    findings = [entry for entry in inbox.load(fixture_vault) if entry.ack_of is None]
+    assert len(findings) == 2, "the identical retry must not create a third row"
+    assert len({finding.id for finding in findings}) == 2
+    assert [finding.reason for finding in findings] == [
+        "manual — publish-gate bypass: source checked by hand",
+        "manual — publish-gate bypass: second, unrelated call",
+    ]
+
+    inbox.append_ack(fixture_vault, findings[0].id, "manual", actor="human:eran")
+    still_open = [entry.id for entry in inbox.open_entries(fixture_vault)]
+    assert still_open == [findings[1].id], "closing one act must not close the other"
+
+
 def test_stop_gate_exception_fails_closed_while_armed(
     fixture_vault, monkeypatch, capsys
 ):
@@ -1425,24 +1465,24 @@ def test_stop_gate_bypass_retry_after_a_failed_clear_keeps_one_ackable_record(
 def test_stop_gate_matches_direct_publish_state_and_effects(
     fixture_vault, tmp_path_factory, monkeypatch, capsys
 ):
-    from harness_core import __main__ as harness_main
+    from harness_core import verify
 
     root = tmp_path_factory.mktemp("stop-publish-integration")
     direct_vault = shutil.copytree(fixture_vault, root / "direct")
     hook_vault = shutil.copytree(fixture_vault, root / "hook")
     monkeypatch.setattr(
-        harness_main.bibliography,
+        verify.bibliography,
         "staleness",
         lambda *_args, **_kwargs: Result.MATCHED,
     )
-    monkeypatch.setattr(harness_main, "_network_outcomes", lambda *_args: [])
-    monkeypatch.setattr(harness_main, "_archive_outcomes", lambda *_args: [])
+    monkeypatch.setattr(verify, "_network_outcomes", lambda *_args: [])
+    monkeypatch.setattr(verify, "_archive_outcomes", lambda *_args: [])
 
-    _report, effective, _hashes, warning_effective = harness_main._verify_state(
+    _report, effective, _hashes, warning_effective = verify.verify_state(
         direct_vault,
         network=True,
     )
-    direct_code, direct_reasons = harness_main._surface_decision(
+    direct_code, direct_reasons = verify.surface_decision(
         "publish", effective, warning_effective
     )
     _arm_publish(hook_vault)

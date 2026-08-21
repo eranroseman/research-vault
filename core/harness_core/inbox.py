@@ -7,7 +7,8 @@ import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from . import AGENT_ACTOR, Result, frontmatter
+from . import AGENT_ACTOR, frontmatter
+from .outcome import Result
 from .pathcodec import PathCodecError, decode_repo_path
 
 INBOX_PATH = "inbox/review-queue.md"
@@ -23,8 +24,8 @@ REASON_CODES = frozenset(
         "outage",
         "stale",
         "drift",
-        "contested",
-        "superseded-source",
+        "disputed-claim",
+        "superseded-note",
         "missing-archive",
         "fuzzy-quote",
         "no-identifier",
@@ -38,9 +39,14 @@ _FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")
 _REASON = re.compile(
     rf"(?:{'|'.join(re.escape(code) for code in sorted(REASON_CODES, key=len, reverse=True))})(?:$|\s+\S.*)"
 )
-_ENTRY_FIELDS = {"id", "check", "target", "result", "date", "actor", "reason"}
+# Checks whose findings record a repeatable human act rather than a machine
+# observation. Their ids carry a reason discriminator so two genuinely distinct
+# acts on one target on one day stay separately acknowledgeable, while a retry
+# of the same act still collapses to one row.
+REPEATABLE_ACT_CHECKS = frozenset({"publish-gate"})
+_FINDING_FIELDS = {"id", "check", "target", "result", "date", "actor", "reason"}
 _ACK_FIELDS = {"ack", "actor", "reason"}
-_ENTRY_OPTIONAL_FIELDS = {
+_FINDING_OPTIONAL_FIELDS = {
     "target-kind",
     "target-hash",
     "notice-class",
@@ -66,7 +72,7 @@ class InboxError(ValueError):
 
 
 @dataclass(frozen=True)
-class Entry:
+class Finding:
     id: str
     check: str = ""
     target: str = ""
@@ -216,7 +222,7 @@ def _sync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
-def _finding_id(
+def finding_id(
     check,
     target,
     date,
@@ -225,15 +231,21 @@ def _finding_id(
     notice_type,
     notice_date,
     target_kind="identifier",
+    reason=None,
 ) -> str:
     identity = f"kind-{len(target_kind)}:{target_kind};target-{len(target)}:{target}"
-    entry_id = f"{check}/{identity}/{date}"
+    finding_id = f"{check}/{identity}/{date}"
     if notice_class is not None:
-        entry_id += f"/{notice_class}/{notice_type}/{notice_date or 'unknown'}"
+        finding_id += f"/{notice_class}/{notice_type}/{notice_date or 'unknown'}"
     if target_hash is not None:
         discriminator = hashlib.sha256(target_hash.encode()).hexdigest()[:16]
-        entry_id += f"/scope-{discriminator}"
-    return entry_id
+        finding_id += f"/scope-{discriminator}"
+    if check in REPEATABLE_ACT_CHECKS and reason is not None:
+        # Reconstructible on load: reason is already a persisted, validated
+        # field, so this needs no addition to the inline-field grammar.
+        discriminator = hashlib.sha256(reason.encode()).hexdigest()[:16]
+        finding_id += f"/act-{discriminator}"
+    return finding_id
 
 
 def _serialize(fields: list[tuple[str, str | None]]) -> str:
@@ -275,7 +287,7 @@ def append_entry(
     detection_date: str | None = None,
     target_kind: str = "identifier",
     durable: bool = False,
-) -> Entry:
+) -> Finding:
     """Append a finding record and return its immutable representation."""
     check = _validate_text("check", check)
     target = _validate_text("target", target)
@@ -301,18 +313,18 @@ def append_entry(
         )
     )
     _validate_notice_record(result, notice_class)
-    entry_id = _finding_id(
-        check,
-        target,
-        date,
-        target_hash,
-        notice_class,
-        notice_type,
-        notice_date,
-        target_kind,
-    )
-    entry = Entry(
-        id=entry_id,
+    entry = Finding(
+        id=finding_id(
+            check,
+            target,
+            date,
+            target_hash,
+            notice_class,
+            notice_type,
+            notice_date,
+            target_kind,
+            reason,
+        ),
         check=check,
         target=target,
         target_kind=target_kind,
@@ -354,16 +366,16 @@ def append_entry(
 
 def append_ack(
     vault,
-    entry_id,
+    finding_id,
     reason: str,
     actor: str,
     target_hash=None,
     notice_class=None,
     notice_type=None,
     notice_date=None,
-) -> Entry:
+) -> Finding:
     """Append a human acknowledgment for a finding."""
-    entry_id = _validate_text("entry_id", entry_id)
+    finding_id = _validate_text("finding_id", finding_id)
     actor = _validate_text("actor", actor)
     if not actor.startswith("human:") or not actor.removeprefix("human:").strip():
         raise ValueError(f"acknowledgment requires a human: actor, got {actor!r}")
@@ -376,7 +388,9 @@ def append_ack(
         notice_date,
     )
     matches = [
-        entry for entry in load(vault) if entry.ack_of is None and entry.id == entry_id
+        entry
+        for entry in load(vault)
+        if entry.ack_of is None and entry.id == finding_id
     ]
     if len(matches) != 1:
         raise ValueError("acknowledgment must reference exactly one finding")
@@ -391,9 +405,9 @@ def append_ack(
         notice_class, notice_type, notice_date = fingerprint
     elif supplied != fingerprint:
         raise ValueError("acknowledgment notice fingerprint does not match finding")
-    entry = Entry(
-        id=f"ack/{entry_id}",
-        ack_of=entry_id,
+    entry = Finding(
+        id=f"ack/{finding_id}",
+        ack_of=finding_id,
         target_kind=finding.target_kind,
         actor=actor,
         reason=reason,
@@ -433,7 +447,7 @@ def _line_fields(line: str, number: int) -> dict[str, str]:
     return data
 
 
-def load(vault) -> list[Entry]:
+def load(vault) -> list[Finding]:
     """Load all finding and acknowledgment records from the append-only inbox."""
     queue = _file(vault)
     if not queue.exists():
@@ -497,7 +511,7 @@ def load(vault) -> list[Entry]:
                     f"invalid acknowledgment on inbox line {number}: {line!r}"
                 ) from error
             entries.append(
-                Entry(
+                Finding(
                     id=f"ack/{data['ack']}",
                     ack_of=data["ack"],
                     actor=data["actor"],
@@ -511,8 +525,8 @@ def load(vault) -> list[Entry]:
             )
         elif "id" in data:
             if (
-                not data.keys() >= _ENTRY_FIELDS
-                or not data.keys() <= _ENTRY_FIELDS | _ENTRY_OPTIONAL_FIELDS
+                not data.keys() >= _FINDING_FIELDS
+                or not data.keys() <= _FINDING_FIELDS | _FINDING_OPTIONAL_FIELDS
             ):
                 raise InboxError(f"unparseable inbox line {number}: {line!r}")
             try:
@@ -537,7 +551,7 @@ def load(vault) -> list[Entry]:
                 )
                 validate_reason(data["reason"])
                 _validate_notice_record(data["result"], notice_class)
-                expected_id = _finding_id(
+                expected_id = finding_id(
                     check,
                     target,
                     date,
@@ -546,6 +560,7 @@ def load(vault) -> list[Entry]:
                     notice_type,
                     notice_date,
                     target_kind,
+                    data["reason"],
                 )
                 if data["id"] != expected_id:
                     raise ValueError("finding id does not match fields")
@@ -554,7 +569,7 @@ def load(vault) -> list[Entry]:
                     f"invalid finding on inbox line {number}: {line!r}"
                 ) from error
             entries.append(
-                Entry(
+                Finding(
                     id=data["id"],
                     check=check,
                     target=target,
@@ -575,7 +590,7 @@ def load(vault) -> list[Entry]:
     return entries
 
 
-def _scope_acknowledged(entries: list[Entry], finding: Entry) -> bool:
+def _scope_acknowledged(entries: list[Finding], finding: Finding) -> bool:
     """Whether a human ack closes this exact standing scope."""
     fingerprint = (
         finding.notice_class,
@@ -596,6 +611,17 @@ def _scope_acknowledged(entries: list[Entry], finding: Entry) -> bool:
             and ack.actor.startswith("human:")
             and ack.target_hash == finding.target_hash
             and ack.notice_class is None
+            for ack in entries
+        )
+    if finding.check in REPEATABLE_ACT_CHECKS:
+        # A repeatable human act is a discrete event, not a standing condition:
+        # an acknowledgment closes exactly the act it references. Without this,
+        # the per-act id discriminator is defeated — one ack would filter every
+        # later act on the same target out of open_entries/summary.
+        return any(
+            ack.ack_of == finding.id
+            and ack.actor.startswith("human:")
+            and ack.target_hash == finding.target_hash
             for ack in entries
         )
     scope_ids = {
@@ -670,7 +696,7 @@ def is_acknowledged(
     return _scope_acknowledged(entries, latest)
 
 
-def open_entries(vault) -> list[Entry]:
+def open_entries(vault) -> list[Finding]:
     """Return findings not closed by a matching human acknowledgment."""
     entries = load(vault)
     return [

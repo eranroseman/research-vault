@@ -251,7 +251,7 @@ def test_rerender_preserves_duplicate_key_failures_as_rejected_evidence():
   - {by: "bot", at: "2026-08-16", check: "doi"}
   - {by: "bot", at: "2026-08-16", check: "metadata"}
   - {by: "bot", at: "2026-08-16", check: "update-notice"}
-verification-failures:
+failed-verification:
   - {check: "doi", check: "legacy-check", result: "UNMATCHED"}
 """
     malformed = existing.replace(
@@ -275,7 +275,7 @@ verification-failures:
     assert notes.content_changed(malformed, rerendered) is True
     assert events.current_failures(rerendered) == []
     assert events.trust_tier(rerendered) == "unverified"
-    with pytest.raises(ValueError, match="verification-failures"):
+    with pytest.raises(ValueError, match="failed-verification"):
         events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
 
 
@@ -321,9 +321,9 @@ def test_rerender_preserves_failure_list_before_empty_duplicate_as_rejected():
   - {by: "bot", at: "2026-08-16", check: "doi"}
   - {by: "bot", at: "2026-08-16", check: "metadata"}
   - {by: "bot", at: "2026-08-16", check: "update-notice"}
-verification-failures:
+failed-verification:
   - {check: "doi", result: "UNMATCHED"}
-verification-failures:
+failed-verification:
 """
     malformed = existing.replace(
         f"---\n{notes.MANAGED_OPEN}",
@@ -345,7 +345,7 @@ verification-failures:
     assert notes.content_changed(malformed, rerendered) is True
     assert events.current_failures(rerendered) == []
     assert events.trust_tier(rerendered) == "unverified"
-    with pytest.raises(ValueError, match="verification-failures"):
+    with pytest.raises(ValueError, match="failed-verification"):
         events.record_pass(rerendered, "doi", Result.MATCHED, at="2026-08-17")
 
 
@@ -404,7 +404,7 @@ def test_render_quote_claim():
     assert lines[0] == f"- (quote) [@smith2020, p. 12] ^{cid}"
     assert lines[1] == "  > Mortality fell 12% (95% CI 8-16)."
     assert (
-        lines[2] == '  <!-- hk-sel prefix="the cohort showed that " '
+        lines[2] == '  <!-- hk-selector prefix="the cohort showed that " '
         'suffix=" across all strata studied" -->'
     )
 
@@ -461,7 +461,7 @@ def test_selector_values_are_html_escaped():
     )
     selector = notes.render_claim(ann).split("\n")[-1]
     assert (
-        selector == '  <!-- hk-sel prefix="lead &quot;quoted&quot; &amp; --&gt;" '
+        selector == '  <!-- hk-selector prefix="lead &quot;quoted&quot; &amp; --&gt;" '
         'suffix="tail &quot;quoted&quot; &amp; --&gt;" -->'
     )
 
@@ -476,7 +476,7 @@ def test_selector_values_escape_newlines_on_one_line():
     selector = notes.render_claim(ann).split("\n")[-1]
 
     assert selector == (
-        '  <!-- hk-sel prefix="lead&#13;&#10;quoted" suffix="tail&#10;quoted" -->'
+        '  <!-- hk-selector prefix="lead&#13;&#10;quoted" suffix="tail&#10;quoted" -->'
     )
 
 

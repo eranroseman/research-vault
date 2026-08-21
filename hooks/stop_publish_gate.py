@@ -85,9 +85,9 @@ def _core_path() -> None:
 def _verify_publish(vault: Path) -> PublishState:
     """Run the production network-capable verification transaction."""
     _core_path()
-    from harness_core.__main__ import _verify_state
+    from harness_core.verify import verify_state
 
-    report, effective, _hashes, warning_effective = _verify_state(
+    report, effective, _hashes, warning_effective = verify_state(
         vault,
         network=True,
     )
@@ -100,9 +100,9 @@ def _verify_publish(vault: Path) -> PublishState:
 
 def _publish_decision(state: PublishState) -> tuple[int, tuple[str, ...]]:
     _core_path()
-    from harness_core.__main__ import _surface_decision
+    from harness_core.verify import surface_decision
 
-    return _surface_decision(
+    return surface_decision(
         "publish",
         state.effective,
         state.warning_effective,
@@ -117,14 +117,17 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
 
     target = encode_repo_path(os.fsencode(project))
     date = datetime.date.today().isoformat()
-    # A finding id is (check, target, date, ...); a second row under one id makes
-    # the entry permanently un-acknowledgeable, so a same-day retry is a no-op.
+    recorded_reason = f"manual — publish-gate bypass: {reason}"
+    # A publish-gate finding id carries a reason discriminator, so a retry of
+    # THIS bypass collapses to one row while a genuinely distinct bypass of the
+    # same project on the same day still records and stays acknowledgeable.
     for entry in inbox.load(vault):
         if (
             entry.ack_of is None
             and entry.check == "publish-gate"
             and entry.target == target
             and entry.date == date
+            and entry.reason == recorded_reason
         ):
             return
     inbox.append_entry(
@@ -132,7 +135,7 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
         "publish-gate",
         target,
         Result.UNMATCHED,
-        f"manual — publish-gate bypass: {reason}",
+        recorded_reason,
         actor="human:publish-bypass",
         date=date,
         target_kind="repo-path",

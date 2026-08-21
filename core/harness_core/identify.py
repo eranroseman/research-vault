@@ -1,7 +1,8 @@
 """Identifier discovery before an automatic SKIPPED result becomes final."""
 
-from . import Result, webapi
-from .checks import Outcome, metadata_year, normalize_text
+from . import webapi
+from .checks import metadata_year
+from .outcome import Outcome, Result, normalize_text
 
 
 def _target(entry: dict) -> str:

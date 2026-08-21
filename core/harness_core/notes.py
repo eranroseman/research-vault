@@ -24,6 +24,23 @@ class ManagedRegionError(ValueError):
     """The exact byte-level managed delimiter grammar is invalid."""
 
 
+class RenderIntegrityError(RuntimeError):
+    """The rendered managed body does not parse back to the intended claims."""
+
+
+_UNSAFE_IDENTIFIER = re.compile(r"[\s\x00-\x1f\x7f]")
+
+
+def display_text(value) -> str:
+    """Collapse a display-class value so it can never span a rendered line.
+
+    Total by design: an import is never held on ugly-but-real metadata. Without
+    a line break, injected text cannot forge a claim line, a blockquote line, a
+    managed delimiter, or a frontmatter boundary.
+    """
+    return "" if value is None else " ".join(str(value).split())
+
+
 def _raw_lines(data: bytes):
     offset = 0
     while offset < len(data):
@@ -98,7 +115,7 @@ def note_path(vault_root, citekey) -> Path:
         or citekey in {".", ".."}
         or "/" in citekey
         or "\\" in citekey
-        or "\0" in citekey
+        or _UNSAFE_IDENTIFIER.search(citekey) is not None
         or Path(citekey).is_absolute()
     ):
         raise InvalidCitekeyError(f"unsafe citekey: {citekey!r}")
@@ -106,7 +123,8 @@ def note_path(vault_root, citekey) -> Path:
 
 
 def _managed_body(item, annotations) -> str:
-    lines = [MANAGED_OPEN, f"# {item.get('title', item['id'])}", ""]
+    heading = display_text(item.get("title", item["id"]))
+    lines = [MANAGED_OPEN, f"# {heading}", ""]
     for ann in annotations:
         lines.append(render_claim(ann))  # completed in Part B before commit/review
     lines.append(MANAGED_CLOSE)
@@ -201,7 +219,7 @@ def render_note(
     fm["accessed"] = prior.get("accessed", accessed)  # day-one, never overwritten
     fm["fixity-sha256"] = attachment_hashes
     fm["status"] = prior.get("status", "unscreened")
-    fm["aliases"] = [item.get("title", item["id"])]
+    fm["aliases"] = [display_text(item.get("title", item["id"]))]
     managed_body = _managed_body(item, annotations)
     fm["managed-sha256"] = hashlib.sha256(managed_body.encode("utf-8")).hexdigest()
     prior_generated = prior.get("generated")
@@ -228,7 +246,24 @@ def render_note(
         if key not in MANAGED_FIELDS and key not in rendered_keys:
             fm_items.append((key, value))
     fm = frontmatter._mapping_from_items(fm_items)
+    _assert_managed_body_parses(managed_body, annotations)
     return frontmatter.serialize(fm) + managed_body + _split_free(existing)
+
+
+def _assert_managed_body_parses(managed_body: str, annotations) -> None:
+    """Re-parse the emitter's own output before it can reach a note file."""
+    from . import claims as claims_mod
+
+    expected = [claim_id(annotation) for annotation in annotations]
+    parsed = [
+        claim.claim_id
+        for claim in claims_mod.parse_claims(managed_body)
+        if claim.in_managed
+    ]
+    if parsed != expected:
+        raise RenderIntegrityError(
+            f"managed body parsed to {parsed!r}, expected {expected!r}"
+        )
 
 
 def _norm(text: str) -> str:
@@ -247,11 +282,13 @@ def _escape_selector(value: str) -> str:
 
 def render_claim(annotation: dict) -> str:
     cid = claim_id(annotation)
-    cite = (
-        f"[@{annotation['citekey']}, p. {annotation['pageLabel']}]"
-        if annotation.get("pageLabel")
-        else f"[@{annotation['citekey']}]"
-    )
+    citekey = annotation["citekey"]
+    # Identifier class rejects rather than repairs: altering a citekey would
+    # silently mis-key the claim against the bibliography.
+    if not isinstance(citekey, str) or _UNSAFE_IDENTIFIER.search(citekey) is not None:
+        raise InvalidCitekeyError(f"unsafe citekey: {citekey!r}")
+    page_label = display_text(annotation.get("pageLabel"))
+    cite = f"[@{citekey}, p. {page_label}]" if page_label else f"[@{citekey}]"
     text = annotation.get("annotationText") or ""
     if text:
         lines = [f"- (quote) {cite} ^{cid}"]
@@ -260,7 +297,7 @@ def render_claim(annotation: dict) -> str:
         if pre or suf:
             prefix = _escape_selector((pre or "")[-32:])
             suffix = _escape_selector((suf or "")[:32])
-            lines.append(f'  <!-- hk-sel prefix="{prefix}" suffix="{suffix}" -->')
+            lines.append(f'  <!-- hk-selector prefix="{prefix}" suffix="{suffix}" -->')
         return "\n".join(lines)
     comment = " ".join((annotation.get("comment") or "").split())
     return f"- (paraphrase) {comment} {cite} ^{cid}"

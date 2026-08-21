@@ -123,12 +123,12 @@ def test_doctor_returns_exact_ten_tuple_probes_and_repairs_tree(
 
     probes = scaffold.doctor(vault, client=ReadyClient(), settle_seconds=0)
 
-    assert [probe.name for probe in probes] == PROBE_NAMES
+    assert [probe.check for probe in probes] == PROBE_NAMES
     assert all(isinstance(probe, tuple) and len(probe) == 3 for probe in probes)
     assert (vault / "projects").is_dir()
     assert probes[0].result is Result.MATCHED
-    assert "9.0.6" in probes[2].detail
-    assert "9.0.55" in probes[2].detail
+    assert "9.0.6" in probes[2].reason
+    assert "9.0.55" in probes[2].reason
 
 
 def test_doctor_ready_failure_short_circuits_bbt_observation_but_keeps_all_probes(
@@ -147,14 +147,14 @@ def test_doctor_ready_failure_short_circuits_bbt_observation_but_keeps_all_probe
     )
 
     probes = scaffold.doctor(vault, client=DownClient(), settle_seconds=0)
-    by_name = {probe.name: probe for probe in probes}
+    by_check = {probe.check: probe for probe in probes}
 
-    assert [probe.name for probe in probes] == PROBE_NAMES
-    assert by_name["zotero"].result is Result.UNREACHABLE
+    assert [probe.check for probe in probes] == PROBE_NAMES
+    assert by_check["zotero"].result is Result.UNREACHABLE
     for name in ("bbt", "autoexport", "staleness"):
-        assert by_name[name].result is Result.UNREACHABLE
-        assert by_name[name].detail == "zotero down"
-    assert [probe.name for probe in probes[-4:]] == [
+        assert by_check[name].result is Result.UNREACHABLE
+        assert by_check[name].reason == "zotero down"
+    assert [probe.check for probe in probes[-4:]] == [
         "remote",
         "backup",
         "inbox",
@@ -175,13 +175,13 @@ def test_doctor_missing_bbt_skips_observation_with_prerequisite_detail(
     probes = scaffold.doctor(
         vault, client=ReadyClient({"zotero": "9.0.6"}), settle_seconds=0
     )
-    by_name = {probe.name: probe for probe in probes}
+    by_check = {probe.check: probe for probe in probes}
 
-    assert by_name["bbt"].result is Result.UNMATCHED
+    assert by_check["bbt"].result is Result.UNMATCHED
     for name in ("autoexport", "staleness"):
-        assert by_name[name].result is Result.SKIPPED
-        assert "Better BibTeX" in by_name[name].detail
-        assert "prerequisite" in by_name[name].detail
+        assert by_check[name].result is Result.SKIPPED
+        assert "Better BibTeX" in by_check[name].reason
+        assert "prerequisite" in by_check[name].reason
 
 
 def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault, monkeypatch):
@@ -198,7 +198,7 @@ def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault, monkeypatch)
         settle_seconds=0,
     )
 
-    assert {probe.name: probe.result for probe in probes}["bbt"] is Result.UNMATCHED
+    assert {probe.check: probe.result for probe in probes}["bbt"] is Result.UNMATCHED
 
 
 def test_doctor_scaffold_failure_still_returns_all_ten_probes(tmp_path, monkeypatch):
@@ -213,7 +213,7 @@ def test_doctor_scaffold_failure_still_returns_all_ten_probes(tmp_path, monkeypa
         vault, client=ReadyClient({"zotero": "9.0.6"}), settle_seconds=0
     )
 
-    assert [probe.name for probe in probes] == PROBE_NAMES
+    assert [probe.check for probe in probes] == PROBE_NAMES
     assert probes[0].result is Result.UNMATCHED
 
 
@@ -230,7 +230,7 @@ def _observed_probes(vault, monkeypatch, result, detail):
     monkeypatch.setattr(scaffold.bibliography, "observe_autoexport", observe)
     probes = scaffold.doctor(vault, client=ReadyClient(), settle_seconds=0)
     assert len(calls) == 1
-    return {probe.name: probe for probe in probes}
+    return {probe.check: probe for probe in probes}
 
 
 def test_doctor_reports_an_unreachable_observation_verbatim_with_cached_staleness(
@@ -239,13 +239,13 @@ def test_doctor_reports_an_unreachable_observation_verbatim_with_cached_stalenes
     """Dressing a Zotero outage up as repair guidance must fail."""
     vault = _doctor_vault(tmp_vault)
 
-    by_name = _observed_probes(vault, monkeypatch, Result.UNREACHABLE, "raw BBT detail")
+    by_check = _observed_probes(vault, monkeypatch, Result.UNREACHABLE, "raw BBT detail")
 
-    assert (by_name["autoexport"].result, by_name["autoexport"].detail) == (
+    assert (by_check["autoexport"].result, by_check["autoexport"].reason) == (
         Result.UNREACHABLE,
         "raw BBT detail",
     )
-    assert (by_name["staleness"].result, by_name["staleness"].detail) == (
+    assert (by_check["staleness"].result, by_check["staleness"].reason) == (
         Result.UNMATCHED,
         "cached stale detail",
     )
@@ -262,18 +262,18 @@ def test_doctor_reports_an_unmatched_observation_verbatim_with_cached_staleness(
         "target C:\\live\\x\\bibliography.json"
     )
 
-    by_name = _observed_probes(vault, monkeypatch, Result.UNMATCHED, detail)
+    by_check = _observed_probes(vault, monkeypatch, Result.UNMATCHED, detail)
 
-    assert (by_name["autoexport"].result, by_name["autoexport"].detail) == (
+    assert (by_check["autoexport"].result, by_check["autoexport"].reason) == (
         Result.UNMATCHED,
         detail,
     )
-    assert (by_name["staleness"].result, by_name["staleness"].detail) == (
+    assert (by_check["staleness"].result, by_check["staleness"].reason) == (
         Result.UNMATCHED,
         "cached stale detail",
     )
-    assert by_name["tree"].result is Result.MATCHED
-    assert (by_name["remote"].result, by_name["remote"].detail) == (
+    assert by_check["tree"].result is Result.MATCHED
+    assert (by_check["remote"].result, by_check["remote"].reason) == (
         Result.MATCHED,
         "origin",
     )
@@ -290,18 +290,18 @@ def test_doctor_probe_five_carries_the_observer_repair_guidance(tmp_vault, monke
             return [{"id": "smith2020", "title": "Mortality decline"}]
 
     probes = {
-        probe.name: probe
+        probe.check: probe
         for probe in scaffold.doctor(vault, ExportingClient(), settle_seconds=0)
     }
 
     assert probes["tree"].result is Result.MATCHED
     assert probes["autoexport"].result is Result.UNMATCHED
-    assert probes["autoexport"].detail == (
+    assert probes["autoexport"].reason == (
         "bibliography auto-export absent; a person must create or fix the "
         "whole-library Better CSL JSON auto-export in BBT Preferences with "
         f"target {vault / bibliography.BIB_PATH}"
     )
-    assert (probes["staleness"].result, probes["staleness"].detail) == (
+    assert (probes["staleness"].result, probes["staleness"].reason) == (
         Result.UNMATCHED,
         "bibliography auto-export absent",
     )
@@ -407,22 +407,22 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
     )
 
     probes = scaffold.doctor(vault, client=ReadyClient(), settle_seconds=0)
-    by_name = {probe.name: probe for probe in probes}
+    by_check = {probe.check: probe for probe in probes}
 
-    assert by_name["machine-config"].result is Result.UNMATCHED
-    assert by_name["remote"] == scaffold.Probe(
+    assert by_check["machine-config"].result is Result.UNMATCHED
+    assert by_check["remote"] == scaffold.Probe(
         "remote",
         Result.UNMATCHED,
         "no remote — vault endures only on this disk (§2)",
     )
-    assert by_name["backup"] == scaffold.Probe(
+    assert by_check["backup"] == scaffold.Probe(
         "backup",
         Result.UNMATCHED,
         "no stated Zotero storage backup (§2 boundary)",
     )
-    assert by_name["inbox"].result is Result.UNMATCHED
-    assert "1" in by_name["inbox"].detail
-    assert "2026-08-01" in by_name["inbox"].detail
+    assert by_check["inbox"].result is Result.UNMATCHED
+    assert "1" in by_check["inbox"].reason
+    assert "2026-08-01" in by_check["inbox"].reason
 
 
 @pytest.mark.parametrize(

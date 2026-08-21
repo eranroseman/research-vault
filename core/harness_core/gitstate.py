@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
-from .pathcodec import RepoPathValue, encode_repo_path
+from .pathcodec import RepoPath, encode_repo_path
 
 ZERO_OID = "0" * 40
 
@@ -29,7 +29,7 @@ class FileImage:
     data: bytes | None
 
     def __post_init__(self) -> None:
-        RepoPathValue(self.raw_path)
+        RepoPath(self.raw_path)
         if self.kind not in {"file", "directory", "symlink", "special"}:
             raise ValueError("unknown file-image kind")
         if self.kind in {"file", "symlink"} and type(self.data) is not bytes:
@@ -73,7 +73,7 @@ class CapturedOutput:
     data: bytes
 
     def __post_init__(self) -> None:
-        RepoPathValue(self.raw_path)
+        RepoPath(self.raw_path)
         if type(self.data) is not bytes:
             raise TypeError("captured output data must be bytes")
         if self.mode not in {0o100644, 0o100755}:
@@ -168,7 +168,7 @@ def snapshot_tree(vault_root: Path, tree: str) -> Snapshot:
             mode = int(mode_text, 8)
         except (ValueError, TypeError) as error:
             raise GitStateError("malformed NUL-delimited ls-tree record") from error
-        RepoPathValue(raw_path)
+        RepoPath(raw_path)
         kind, normalized_mode = _git_mode(mode)
         data = None
         if kind in {"file", "symlink"}:
@@ -241,7 +241,7 @@ def snapshot_worktree(vault_root: Path) -> Snapshot:
             if not relative and name == b".git":
                 continue
             raw_path = name if not relative else relative + b"/" + name
-            RepoPathValue(raw_path)
+            RepoPath(raw_path)
             try:
                 st = entry.stat(follow_symlinks=False)
                 image = _normalized_live_image(root, raw_path, st)
@@ -377,7 +377,7 @@ def _root_bytes(vault_root: Path) -> bytes:
 
 
 def _absolute(vault_root: Path, raw_path: bytes) -> bytes:
-    RepoPathValue(raw_path)
+    RepoPath(raw_path)
     root = _root_bytes(vault_root)
     current = root
     for component in raw_path.split(b"/")[:-1]:
@@ -404,6 +404,57 @@ def live_image(vault_root: Path, raw_path: bytes) -> FileImage | None:
             f"cannot read {encode_repo_path(raw_path)}: {error}"
         ) from error
     return _normalized_live_image(_root_bytes(vault_root), raw_path, st)
+
+
+_SCRATCH_PREFIX = b".harness-projection-"
+
+
+def _scratch_owner(name: bytes) -> int | None:
+    """Return the pid a projection scratch name encodes, else None."""
+    if not name.startswith(_SCRATCH_PREFIX):
+        return None
+    parts = name[len(_SCRATCH_PREFIX) :].split(b"-")
+    if len(parts) != 2 or not all(part.isdigit() for part in parts):
+        return None
+    return int(parts[0])
+
+
+def _owner_is_live(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def _sweep_stranded_scratch(vault_root: Path, outputs) -> None:
+    """Remove projection scratch files stranded by a killed run.
+
+    A scratch file must sit beside its destination or ``os.replace`` stops
+    being atomic, so it cannot live outside the vault; one left by a SIGKILL
+    is unreachable and would otherwise surface as an untracked vault node.
+    Only files whose owning process is gone are swept, so a concurrent
+    projection's live scratch is never touched.
+    """
+    swept = set()
+    for output in outputs:
+        parent = os.path.dirname(_absolute(vault_root, output.raw_path))
+        if parent in swept:
+            continue
+        swept.add(parent)
+        try:
+            names = os.listdir(parent)
+        except OSError:
+            continue
+        for name in names:
+            raw = name if type(name) is bytes else os.fsencode(name)
+            pid = _scratch_owner(raw)
+            if pid is None or pid == os.getpid() or _owner_is_live(pid):
+                continue
+            with suppress(OSError):
+                os.unlink(os.path.join(parent, raw))
 
 
 def _temp_name(parent: bytes) -> tuple[int, bytes]:
@@ -471,6 +522,7 @@ def apply_outputs(
 ) -> tuple[CapturedOutput, ...]:
     """Apply one sorted projection with preimage CAS and owned rollback."""
     ordered = _unique_outputs(outputs)
+    _sweep_stranded_scratch(vault_root, ordered)
     for output in ordered:
         if live_image(vault_root, output.raw_path) != preimage.image(output.raw_path):
             raise GitStateError(

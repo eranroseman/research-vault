@@ -4,7 +4,7 @@ import html
 import unicodedata
 from pathlib import Path
 
-from .checks import normalize_text
+from .outcome import normalize_text
 
 CONTEXT_CHARS = 32
 

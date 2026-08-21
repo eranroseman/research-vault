@@ -20,29 +20,27 @@ from harness_core import (
     inbox,
     webapi,
 )
-from harness_core.__main__ import (
+from harness_core.__main__ import cmd_inbox, cmd_verify, main
+from harness_core.pathcodec import PathCodecError, RepoPath, encode_repo_path
+from harness_core.verify import (
     _archive_outcomes,
     _mutate_marker,
     _safe_relative,
     _target_hash,
-    _verify_state,
-    cmd_inbox,
-    cmd_verify,
-    main,
+    verify_state,
 )
-from harness_core.pathcodec import PathCodecError, RepoPathValue, encode_repo_path
 
 
 def run_verify(vault_root, **kwargs):
     """Report projection of the verification transaction, for assertions only."""
-    return _verify_state(vault_root, **kwargs)[0]
+    return verify_state(vault_root, **kwargs)[0]
 
 
 def _outcome(check, target, result, reason, **extra):
     if isinstance(extra.get("note_path"), str):
-        extra["note_path"] = RepoPathValue(os.fsencode(extra["note_path"]))
+        extra["note_path"] = RepoPath(os.fsencode(extra["note_path"]))
     if check in {"append-only", "staleness"} and isinstance(target, str):
-        target = RepoPathValue(os.fsencode(target))
+        target = RepoPath(os.fsencode(target))
     return checks.Outcome(check, target, result, reason, extra)
 
 
@@ -67,10 +65,10 @@ def test_discovery_partial_identifiers_survive_outage_and_run_recovered_doi(
         ),
     )
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries", lambda _: [entry]
+        "harness_core.verify._bibliography_entries", lambda _: [entry]
     )
     monkeypatch.setattr(
-        "harness_core.__main__._network_outcomes",
+        "harness_core.verify._network_outcomes",
         lambda _v, item, _d, _rw: [
             _outcome("doi", item["id"], Result.MATCHED, "matched"),
             _outcome("metadata", item["id"], Result.MATCHED, "matched"),
@@ -97,7 +95,7 @@ def test_no_doi_distinguishes_healthy_no_hit_from_discovery_outage(
     net_vault, monkeypatch, discovery_result, want
 ):
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
+        "harness_core.verify._bibliography_entries",
         lambda _: [{"id": "empty", "title": "T"}],
     )
     monkeypatch.setattr(
@@ -123,7 +121,7 @@ def test_discovery_outage_with_only_pmid_keeps_live_update_unreachable(
     net_vault, monkeypatch
 ):
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
+        "harness_core.verify._bibliography_entries",
         lambda _: [{"id": "pmid-only", "title": "T"}],
     )
     monkeypatch.setattr(
@@ -153,7 +151,7 @@ def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
         "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n,123,2020-01-01,Retraction\n"
     )
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
+        "harness_core.verify._bibliography_entries",
         lambda _: [{"id": "pmid", "PMID": "123"}],
     )
     report = run_verify(
@@ -248,7 +246,7 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
         ]
     )
     with pytest.raises(PathCodecError):
-        RepoPathValue(b"../outside")
+        RepoPath(b"../outside")
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -353,11 +351,11 @@ def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monke
     )
     inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11")
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
+        "harness_core.verify._bibliography_entries",
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__._network_outcomes",
+        "harness_core.verify._network_outcomes",
         lambda *_: [_outcome("doi", "smith2020", Result.MATCHED, "matched")],
     )
     run_verify(net_vault, network=True, detection_date="2026-08-16")
@@ -421,7 +419,7 @@ def test_cli_prints_unacknowledged_nested_warn_notice(net_vault, monkeypatch, ca
         warn_notices=[{"type": "correction", "notice_date": "2026-01-01"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__._verify_state",
+        "harness_core.__main__.verify_state",
         lambda *_args, **_kwargs: (
             {"outcomes": [warning], "counts": {"MATCHED": 1}},
             [warning],
@@ -447,7 +445,7 @@ def test_cli_prints_warning_alongside_blocking_update_notice(
         warn_notices=[{"type": "correction"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__._verify_state",
+        "harness_core.__main__.verify_state",
         lambda *_args, **_kwargs: (
             {"outcomes": [outcome], "counts": {"UNMATCHED": 1}},
             [outcome],
@@ -485,12 +483,12 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         warn_notices=[{"type": "correction"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
+        "harness_core.verify._bibliography_entries",
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
     )
-    monkeypatch.setattr("harness_core.__main__._network_outcomes", lambda *_: [warning])
+    monkeypatch.setattr("harness_core.verify._network_outcomes", lambda *_: [warning])
     monkeypatch.setattr(
-        "harness_core.__main__._staleness_outcome",
+        "harness_core.verify._staleness_outcome",
         lambda *_: _outcome(
             "staleness", "system/bibliography.json", Result.MATCHED, "matched"
         ),
@@ -568,7 +566,7 @@ def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
     ]
     for outcomes, expected in cases:
         monkeypatch.setattr(
-            "harness_core.__main__._verify_state",
+            "harness_core.__main__.verify_state",
             lambda *_args, items=outcomes, **_kwargs: (
                 {"outcomes": items, "counts": {}},
                 items,
@@ -592,7 +590,7 @@ def test_staleness_reason_reflects_its_actual_result(
     net_vault, monkeypatch, result, reason
 ):
     monkeypatch.setattr("harness_core.bibliography.staleness", lambda *_: result)
-    monkeypatch.setattr("harness_core.__main__._bibliography_entries", lambda _: [])
+    monkeypatch.setattr("harness_core.verify._bibliography_entries", lambda _: [])
     report = run_verify(net_vault, network=True, detection_date="2026-08-16")
     staleness = next(o for o in report["outcomes"] if o.check == "staleness")
     assert staleness.result is result
@@ -892,10 +890,10 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
     )
     _isolate_network_verify(monkeypatch, [warning])
 
-    first, effective, _hashes, warning_effective = _verify_state(
+    first, effective, _hashes, warning_effective = verify_state(
         net_vault, network=True, detection_date="2026-08-16"
     )
-    second, _, _, second_warning_effective = _verify_state(
+    second, _, _, second_warning_effective = verify_state(
         net_vault, network=True, detection_date="2026-08-17"
     )
 
@@ -976,7 +974,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     link.symlink_to(first_target)
     directory_outcome = _outcome(
         "published-drift",
-        RepoPathValue(b"projects/published"),
+        RepoPath(b"projects/published"),
         Result.UNMATCHED,
         "drift",
     )
@@ -1035,7 +1033,7 @@ def test_main_routes_base_before_and_after_verify(net_vault, monkeypatch, capsys
         bases.append(kwargs["base"])
         return {"outcomes": [], "counts": {}}, [], {}, {}
 
-    monkeypatch.setattr("harness_core.__main__._verify_state", state)
+    monkeypatch.setattr("harness_core.__main__.verify_state", state)
 
     assert (
         main(
@@ -1138,16 +1136,16 @@ def test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first(net_vault, capsy
 
 
 def _isolate_network_verify(monkeypatch, outcomes):
-    monkeypatch.setattr("harness_core.__main__._file_outcomes", lambda *_args: [])
+    monkeypatch.setattr("harness_core.verify.file_outcomes", lambda *_args: [])
     monkeypatch.setattr(
-        "harness_core.__main__._bibliography_entries",
+        "harness_core.verify._bibliography_entries",
         lambda *_args: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
     )
     monkeypatch.setattr(
-        "harness_core.__main__._network_outcomes", lambda *_args: list(outcomes)
+        "harness_core.verify._network_outcomes", lambda *_args: list(outcomes)
     )
     monkeypatch.setattr(
-        "harness_core.__main__._staleness_outcome",
+        "harness_core.verify._staleness_outcome",
         lambda *_args: _outcome(
             "staleness", "system/bibliography.json", Result.MATCHED, "matched"
         ),
@@ -1159,7 +1157,7 @@ def _isolate_network_verify(monkeypatch, outcomes):
         "lint_web_archive",
     ):
         monkeypatch.setattr(f"harness_core.lints.{name}", lambda *_args: [])
-    monkeypatch.setattr("harness_core.__main__._archive_outcomes", lambda *_args: [])
+    monkeypatch.setattr("harness_core.verify._archive_outcomes", lambda *_args: [])
 
 
 def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
@@ -1290,7 +1288,7 @@ def _projecting_failure(check):
         Result.UNMATCHED,
         "mismatch — quote",
         {
-            "note_path": RepoPathValue(b"literatures/smith2020.md"),
+            "note_path": RepoPath(b"literatures/smith2020.md"),
             "claim_id": "c-11111111",
             "target": "managed-region",
         },
@@ -1316,7 +1314,7 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
     _isolate_network_verify(monkeypatch, current)
 
     candidate_hash = _target_hash(net_vault, primary)
-    _report, _effective_outcomes, hashes, _warnings = _verify_state(
+    _report, _effective_outcomes, hashes, _warnings = verify_state(
         net_vault, network=True, detection_date="2026-08-16"
     )
     projected_hash = _target_hash(net_vault, primary)
@@ -1373,7 +1371,7 @@ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
         candidate_hash,
     )
 
-    _report, effective, hashes, _warnings = _verify_state(
+    _report, effective, hashes, _warnings = verify_state(
         net_vault, network=True, detection_date="2026-08-16"
     )
 
@@ -1475,7 +1473,7 @@ def test_genuine_unreachable_closes_only_on_explicit_surfaces(
 ):
     outage = _outcome("doi", "smith2020", Result.UNREACHABLE, "outage — registry")
     monkeypatch.setattr(
-        "harness_core.__main__._verify_state",
+        "harness_core.__main__.verify_state",
         lambda *_args, **_kwargs: (
             {"outcomes": [outage], "counts": {"UNREACHABLE": 1}},
             [outage],
@@ -1519,7 +1517,7 @@ def test_deleted_nested_repo_path_hashes_resolved_base_without_live_parent(
     directory.rmdir()
     outcome = checks.Outcome(
         "evidence-layer",
-        RepoPathValue(b"projects/nested/deleted.md"),
+        RepoPath(b"projects/nested/deleted.md"),
         Result.UNMATCHED,
         "drift — deleted note",
     )
@@ -1568,7 +1566,7 @@ def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypat
     monkeypatch.setattr(bibliography, "load", load)
     outcome = _outcome("custom", "missing", Result.UNMATCHED, "mismatch")
     monkeypatch.setattr(
-        "harness_core.__main__._file_outcomes", lambda *_args: [outcome]
+        "harness_core.verify.file_outcomes", lambda *_args: [outcome]
     )
     for name in (
         "lint_append_only",
@@ -1649,7 +1647,7 @@ def test_managed_note_add_is_collected_and_projected_as_evidence_finding(
     added = fixture_vault / "literatures" / "added.md"
     added.write_bytes((fixture_vault / "literatures" / "smith2020.md").read_bytes())
 
-    report, effective, hashes, _warnings = _verify_state(
+    report, effective, hashes, _warnings = verify_state(
         fixture_vault, network=False, detection_date="2026-08-16"
     )
 
@@ -1752,7 +1750,7 @@ def test_hash_and_marker_filesystem_routing_requires_explicit_repo_path_kind(
     path = os.path.join(os.fsencode(fixture_vault), raw)
     with open(path, "wb") as stream:
         stream.write(b"- (quote) body ^c-1\n")
-    repo_target = RepoPathValue(raw)
+    repo_target = RepoPath(raw)
     typed = checks.Outcome(
         "append-only", repo_target, Result.UNMATCHED, "drift — typed path"
     )

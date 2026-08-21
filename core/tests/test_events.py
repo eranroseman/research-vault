@@ -341,10 +341,10 @@ def test_failure_projection_is_sorted_idempotent_and_rejects_malformed_state():
     ]
 
     data, body = frontmatter.parse(second)
-    data["verification-failures"] = [{"check": "doi"}]
+    data["failed-verification"] = [{"check": "doi"}]
     malformed = frontmatter.serialize(data) + body
     original = malformed.encode()
-    with pytest.raises(ValueError, match="verification-failures"):
+    with pytest.raises(ValueError, match="failed-verification"):
         events.record_failure(malformed, "doi", Result.UNMATCHED)
     assert malformed.encode() == original
 
@@ -362,7 +362,7 @@ def test_record_pass_rejects_invalid_new_event_fields(check, at):
         events.record_pass(BASE, check, Result.MATCHED, by="human:eran", at=at)
 
 
-@pytest.mark.parametrize("field", ["verified", "verification-failures"])
+@pytest.mark.parametrize("field", ["verified", "failed-verification"])
 def test_duplicate_verifier_state_headers_fail_closed(field):
     rows = (
         '  - {by: "human:eran", at: "2026-08-16", check: "doi"}\n'
@@ -402,16 +402,16 @@ def test_duplicate_keys_inside_current_failure_fail_closed():
 
     assert events.current_failures(malformed) == []
     assert events.trust_tier(malformed) == "unverified"
-    with pytest.raises(ValueError, match="verification-failures"):
+    with pytest.raises(ValueError, match="failed-verification"):
         events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")
-    with pytest.raises(ValueError, match="verification-failures"):
+    with pytest.raises(ValueError, match="failed-verification"):
         events.record_failure(malformed, "doi", Result.UNMATCHED)
 
 
-@pytest.mark.parametrize("field", ["verified", "verification-failures"])
+@pytest.mark.parametrize("field", ["verified", "failed-verification"])
 def test_duplicate_scalar_and_list_verifier_headers_fail_closed(field):
     text = _machine_confirmed_text()
-    if field == "verification-failures":
+    if field == "failed-verification":
         text = events.record_failure(text, "doi", Result.UNMATCHED)
     malformed = text.replace(f"{field}:\n", f'{field}: "shadow"\n{field}:\n', 1)
 

@@ -447,7 +447,7 @@ def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vaul
     ]
 
 
-def test_source_status_deduplicates_repeated_references_and_records_origin(
+def test_screening_state_deduplicates_repeated_references_and_records_origin(
     fixture_vault,
 ):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
@@ -456,7 +456,7 @@ def test_source_status_deduplicates_repeated_references_and_records_origin(
         + "- (paraphrase) Old claim [@gone2019, p. 1] [@gone2019, p. 2] ^c-88888888\n"
     )
 
-    outs = lints.lint_source_status(fixture_vault, draft)
+    outs = lints.lint_screening_state(fixture_vault, draft)
 
     assert [(out.target, out.extra) for out in outs] == [
         (
@@ -467,10 +467,10 @@ def test_source_status_deduplicates_repeated_references_and_records_origin(
             },
         )
     ]
-    assert outs[0].reason.startswith("superseded-source")
+    assert outs[0].reason.startswith("superseded-note")
 
 
-def test_source_status_catches_excluded_sources(fixture_vault):
+def test_screening_state_catches_excluded_sources(fixture_vault):
     excluded = fixture_vault / "literatures" / "excluded2024.md"
     excluded.write_text(
         '---\ncitekey: "excluded2024"\nstatus: "excluded"\n---\n# Excluded\n'
@@ -480,13 +480,13 @@ def test_source_status_catches_excluded_sources(fixture_vault):
         draft.read_text() + "- (paraphrase) Bad source [@excluded2024] ^c-12121212\n"
     )
 
-    outs = lints.lint_source_status(fixture_vault, draft)
+    outs = lints.lint_screening_state(fixture_vault, draft)
 
     assert len(outs) == 1
-    assert outs[0].reason.startswith("superseded-source — cites excluded2024")
+    assert outs[0].reason.startswith("superseded-note — cites excluded2024")
 
 
-def test_source_status_sorts_mixed_anchored_origins_without_crashing(fixture_vault):
+def test_screening_state_sorts_mixed_anchored_origins_without_crashing(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
         draft.read_text()
@@ -494,12 +494,14 @@ def test_source_status_sorts_mixed_anchored_origins_without_crashing(fixture_vau
         + "- (paraphrase) Also old [@gone2019] ^c-34343434\n"
     )
 
-    outs = lints.lint_source_status(fixture_vault, draft)
+    outs = lints.lint_screening_state(fixture_vault, draft)
 
     assert [out.extra["claim_id"] for out in outs] == ["c-34343434", None]
 
 
-def test_contested_lint_surfaces_only_carrier_and_supported_addresses(fixture_vault):
+def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(
+    fixture_vault,
+):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
         draft.read_text() + "- (inference) Relies on contested support [supports:: "
@@ -507,7 +509,7 @@ def test_contested_lint_surfaces_only_carrier_and_supported_addresses(fixture_va
         "[[gone2019#^c-22222222]] [[smith2020#^c-11111111]]] ^c-99999999\n"
     )
 
-    outs = lints.lint_contested(fixture_vault, draft)
+    outs = lints.lint_disputed_claim(fixture_vault, draft)
 
     assert [(out.target, out.extra) for out in outs] == [
         (
@@ -525,7 +527,7 @@ def test_contested_lint_surfaces_only_carrier_and_supported_addresses(fixture_va
             },
         ),
     ]
-    assert all(out.reason.startswith("contested") for out in outs)
+    assert all(out.reason.startswith("disputed-claim") for out in outs)
 
 
 def test_citing_the_counterevidence_address_is_clean(fixture_vault):
@@ -535,7 +537,7 @@ def test_citing_the_counterevidence_address_is_clean(fixture_vault):
         "[[gone2019#^c-22222222]]] ^c-99999998\n"
     )
 
-    assert lints.lint_contested(fixture_vault, draft) == []
+    assert lints.lint_disputed_claim(fixture_vault, draft) == []
 
 
 def test_web_archive_lint_requires_archive_for_a_doi_less_web_source(fixture_vault):
@@ -569,17 +571,17 @@ def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
         draft.read_text() + "- (paraphrase) Old claim [@webonly2024] ^c-12345678\n"
     )
 
-    source = lints.lint_source_status(fixture_vault, draft)
+    source = lints.lint_screening_state(fixture_vault, draft)
     archive = lints.lint_web_archive(fixture_vault)
 
     assert source == [
         lints.Outcome(
-            "source-status",
+            "screening-state",
             "webonly2024",
             Result.UNMATCHED,
             "schema-violation — malformed frontmatter",
             extra={
-                "note_path": lints.RepoPathValue(b"projects/brief/draft.md"),
+                "note_path": lints.RepoPath(b"projects/brief/draft.md"),
                 "claim_id": "c-12345678",
             },
         )

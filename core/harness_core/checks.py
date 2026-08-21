@@ -3,18 +3,21 @@
 import csv
 import os
 import re
-import unicodedata
 import xml.etree.ElementTree as ElementTree
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import dataclass, field
 from datetime import date as _Date
 from pathlib import Path
-from typing import Literal
 from urllib.parse import quote, urlsplit
 
-from . import Result, bibliography, claims, inbox, webapi
-from .pathcodec import RepoPathValue, decode_repo_path, encode_repo_path
+from . import bibliography, claims, webapi
+from .outcome import (  # re-exported vocabulary
+    Outcome,
+    Result,
+    _detached_extra,
+    normalize_text,
+)
+from .pathcodec import RepoPath, decode_repo_path
 
 _RECORD_FIELDS = {
     "check",
@@ -25,73 +28,6 @@ _RECORD_FIELDS = {
     "extra",
     "path_extra_fields",
 }
-def _detached_extra(value, key_path="extra"):
-    """Copy one JSON-shaped extra graph away from the caller's own objects.
-
-    Outcomes are built from literals this package constructs, so this validates
-    shape and detaches; it does not defend against cycles or exotic scalars.
-    """
-    if isinstance(value, Mapping):
-        detached = {}
-        for key, item in value.items():
-            if type(key) is not str:
-                raise TypeError("Outcome extra mapping keys must be strings")
-            detached[key] = _detached_extra(item, key)
-        return detached
-    if isinstance(value, (list, tuple)):
-        return [_detached_extra(item, key_path) for item in value]
-    if value is None or type(value) in {str, bool, int, float}:
-        return value
-    raise TypeError(
-        f"unsupported Outcome extra value at {key_path}: {type(value).__name__}"
-    )
-
-
-@dataclass(frozen=True)
-class Outcome:
-    check: str
-    target: str | RepoPathValue
-    result: Result
-    reason: str
-    extra: Mapping[str, object] = field(default_factory=dict)
-    target_kind: Literal["identifier", "repo-path"] = field(init=False)
-    path_extra_fields: tuple[str, ...] = field(init=False)
-    __hash__ = None
-
-    def __post_init__(self):
-        if type(self.check) is not str or not self.check:
-            raise TypeError("Outcome check must be a nonempty string")
-        if not isinstance(self.result, Result):
-            raise TypeError("Outcome result must be a Result")
-        if type(self.target) is str:
-            target = self.target
-            target_kind = "identifier"
-        elif isinstance(self.target, RepoPathValue):
-            target = encode_repo_path(self.target.raw)
-            target_kind = "repo-path"
-        else:
-            raise TypeError("Outcome target must be an identifier or RepoPathValue")
-        if not target or any(character in target for character in "\r\n\0"):
-            raise ValueError("Outcome target must be nonempty single-line text")
-        if not isinstance(self.extra, Mapping):
-            raise TypeError("Outcome extra must be a mapping")
-        direct = {}
-        path_fields = []
-        for key, value in self.extra.items():
-            if type(key) is not str:
-                raise TypeError("Outcome extra mapping keys must be strings")
-            if isinstance(value, RepoPathValue):
-                direct[key] = encode_repo_path(value.raw)
-                path_fields.append(key)
-            else:
-                direct[key] = value
-        object.__setattr__(self, "target", target)
-        object.__setattr__(self, "target_kind", target_kind)
-        object.__setattr__(self, "path_extra_fields", tuple(sorted(path_fields)))
-        object.__setattr__(self, "reason", inbox.validate_reason(self.reason))
-        object.__setattr__(self, "extra", _detached_extra(direct))
-
-
 def outcome_to_record(outcome: Outcome) -> dict[str, object]:
     """Return one detached JSON record after revalidating typed path metadata."""
     if not isinstance(outcome, Outcome):
@@ -154,12 +90,12 @@ def outcome_from_record(record: Mapping[str, object]) -> Outcome:
             or type(mutable_extra[field_name]) is not str
         ):
             raise ValueError("Outcome path extra metadata does not name a string")
-        mutable_extra[field_name] = RepoPathValue(
+        mutable_extra[field_name] = RepoPath(
             decode_repo_path(mutable_extra[field_name])
         )
-    typed_target: str | RepoPathValue = target
+    typed_target: str | RepoPath = target
     if kind == "repo-path":
-        typed_target = RepoPathValue(decode_repo_path(target))
+        typed_target = RepoPath(decode_repo_path(target))
     outcome = Outcome(check, typed_target, result_value, reason, mutable_extra)
     if (
         outcome.target_kind != kind
@@ -199,7 +135,7 @@ def check_citekeys(
         return [
             Outcome(
                 "citekey",
-                RepoPathValue(relative_raw),
+                RepoPath(relative_raw),
                 Result.SKIPPED,
                 "no-identifier — note cites nothing",
             )
@@ -208,7 +144,7 @@ def check_citekeys(
     if bibliography_universe is None:
         bibliography_universe = bibliography.load(vault)
     origins = _claim_origins(note_text)
-    typed_note_path = RepoPathValue(relative_raw)
+    typed_note_path = RepoPath(relative_raw)
     outcomes = []
     for citekey in cited:
         result = (
@@ -316,13 +252,6 @@ def registry_agency(vault_root, doi: str) -> str | None:
     if not agency:
         return None
     return agency
-
-
-def normalize_text(s: str) -> str:
-    """Normalize quote text without changing its case."""
-    text = unicodedata.normalize("NFKC", s or "")
-    text = text.replace("\u00ad", "").replace("-\r\n", "").replace("-\n", "")
-    return " ".join(text.split())
 
 
 def _metadata_text(value: str) -> str:

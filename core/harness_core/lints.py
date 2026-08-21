@@ -9,16 +9,16 @@ from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 
-from . import Result, frontmatter, gitstate, notes
 from . import claims as claims_mod
-from .checks import Outcome
-from .pathcodec import RepoPathValue
+from . import frontmatter, gitstate, notes
+from .outcome import Outcome, Result
+from .pathcodec import RepoPath
 
 ANCHOR = re.compile(r"\^(c-[A-Za-z0-9-]+)\s*$")
 FAILED_VERIFICATION = re.compile(
     r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
 )
-ADDRESS = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
+CLAIM_LINK = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
 PUBLISHED_TAG = re.compile(r"^published/(.+)-\d{4}-\d{2}-\d{2}$")
 TRANSITION_FIELD = re.compile(
     r"\[(status|deprecated-at|deprecated-by|reason):: ([^\]]*)\]"
@@ -118,7 +118,7 @@ def lint_append_only(
             outcomes.append(
                 Outcome(
                     "append-only",
-                    RepoPathValue(rel),
+                    RepoPath(rel),
                     Result.UNMATCHED,
                     "drift — append-only file rewrote history",
                 )
@@ -136,7 +136,7 @@ def _claim_blocks(text: str) -> dict[str, str]:
             continue
         block = [line]
         for continuation in lines[index + 1 :]:
-            if continuation.startswith(("  > ", "  <!-- hk-sel")):
+            if continuation.startswith(("  > ", "  <!-- hk-selector")):
                 block.append(continuation)
             else:
                 break
@@ -233,7 +233,7 @@ def _claim_target(rel: bytes, text: str, claim_id: str):
     citekey = data.get("citekey") if parsed else None
     if isinstance(citekey, str) and citekey:
         return claims_mod.claim_link(citekey, claim_id)
-    return RepoPathValue(rel)
+    return RepoPath(rel)
 
 
 def lint_claim_immutability(
@@ -271,7 +271,7 @@ def lint_claim_immutability(
         )
         _, parsed = _parse_frontmatter(current if candidate_image is not None else head)
         if candidate_image is not None and not parsed:
-            outcomes.append(_schema_outcome("claim-immutability", RepoPathValue(rel)))
+            outcomes.append(_schema_outcome("claim-immutability", RepoPath(rel)))
         old_blocks = _claim_blocks(head)
         new_blocks = _claim_blocks(current)
         for claim_id, old_block in old_blocks.items():
@@ -293,7 +293,7 @@ def lint_claim_immutability(
                     _claim_target(rel, head, claim_id),
                     Result.UNMATCHED,
                     f"drift — claim ^{claim_id} mutated or vanished without deprecation",
-                    extra={"note_path": RepoPathValue(rel), "claim_id": claim_id},
+                    extra={"note_path": RepoPath(rel), "claim_id": claim_id},
                 )
             )
     return _deduplicate(outcomes)
@@ -380,19 +380,19 @@ def lint_published_drift(
             vault, project_dir, snapshot=candidate_snapshot
         )
         for rel in malformed:
-            outcomes.append(_schema_outcome("published-drift", RepoPathValue(rel)))
+            outcomes.append(_schema_outcome("published-drift", RepoPath(rel)))
         if current_statuses:
             published = "published" in current_statuses
         else:
             prior_statuses, prior_malformed = _project_status(vault, project_dir, tag)
             for rel in prior_malformed:
-                outcomes.append(_schema_outcome("published-drift", RepoPathValue(rel)))
+                outcomes.append(_schema_outcome("published-drift", RepoPath(rel)))
             published = "published" in prior_statuses
         if published:
             outcomes.append(
                 Outcome(
                     "published-drift",
-                    RepoPathValue(project_dir.encode()),
+                    RepoPath(project_dir.encode()),
                     Result.UNMATCHED,
                     "drift — published project diverged from its tag",
                 )
@@ -411,9 +411,9 @@ def _origin(
     if claim.claim_id and isinstance(citekey, str) and citekey:
         target = claims_mod.claim_link(citekey, claim.claim_id)
     else:
-        target = fallback if fallback else RepoPathValue(rel)
+        target = fallback if fallback else RepoPath(rel)
     return target, {
-        "note_path": RepoPathValue(rel),
+        "note_path": RepoPath(rel),
         "claim_id": claim.claim_id,
     }
 
@@ -428,7 +428,7 @@ def _note_status(vault_root: Path, citekey: str) -> tuple[str | None, str | None
     return data.get("status"), data.get("superseded-by"), True
 
 
-def lint_source_status(vault_root, note_file) -> list[Outcome]:
+def lint_screening_state(vault_root, note_file) -> list[Outcome]:
     vault, note = Path(vault_root), Path(note_file)
     text = note.read_text()
     outcomes = []
@@ -442,23 +442,23 @@ def lint_source_status(vault_root, note_file) -> list[Outcome]:
             target, extra = _origin(vault, note, claim, citekey)
             status, successor, parsed = _note_status(vault, citekey)
             if not parsed:
-                outcomes.append(_schema_outcome("source-status", target, extra))
+                outcomes.append(_schema_outcome("screening-state", target, extra))
             elif status in {"excluded", "superseded"}:
                 suffix = f" (superseded-by {successor})" if successor else ""
                 outcomes.append(
                     Outcome(
-                        "source-status",
+                        "screening-state",
                         target,
                         Result.UNMATCHED,
-                        f"superseded-source — cites {citekey} with status {status}{suffix}",
+                        f"superseded-note — cites {citekey} with status {status}{suffix}",
                         extra=extra,
                     )
                 )
     return _deduplicate(outcomes)
 
 
-def _contested_addresses(vault_root: Path) -> tuple[set[str], list[Outcome]]:
-    contested, outcomes = set(), []
+def _disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
+    disputed, outcomes = set(), []
     for path in (
         sorted((vault_root / "synthesis").rglob("*.md"))
         if (vault_root / "synthesis").is_dir()
@@ -468,7 +468,7 @@ def _contested_addresses(vault_root: Path) -> tuple[set[str], list[Outcome]]:
         text = path.read_text()
         data, parsed = _parse_frontmatter(text)
         if not parsed:
-            outcomes.append(_schema_outcome("contested", RepoPathValue(rel)))
+            outcomes.append(_schema_outcome("disputed-claim", RepoPath(rel)))
         page_key = data.get("citekey") if parsed else None
         if not isinstance(page_key, str) or not page_key:
             page_key = path.stem
@@ -476,25 +476,25 @@ def _contested_addresses(vault_root: Path) -> tuple[set[str], list[Outcome]]:
             if "disputes" not in claim.fields:
                 continue
             if claim.claim_id:
-                contested.add(claims_mod.claim_link(page_key, claim.claim_id))
-            contested.update(ADDRESS.findall(claim.fields.get("supports", "")))
-    return contested, outcomes
+                disputed.add(claims_mod.claim_link(page_key, claim.claim_id))
+            disputed.update(CLAIM_LINK.findall(claim.fields.get("supports", "")))
+    return disputed, outcomes
 
 
-def lint_contested(vault_root, note_file) -> list[Outcome]:
+def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     vault, note = Path(vault_root), Path(note_file)
-    contested, outcomes = _contested_addresses(vault)
+    disputed, outcomes = _disputed_claim_links(vault)
     text = note.read_text()
     for claim in claims_mod.parse_claims(text):
         target, extra = _origin(vault, note, claim, "")
-        for address in ADDRESS.findall(claim.fields.get("supports", "")):
-            if address in contested:
+        for claim_link in CLAIM_LINK.findall(claim.fields.get("supports", "")):
+            if claim_link in disputed:
                 outcomes.append(
                     Outcome(
-                        "contested",
-                        address,
+                        "disputed-claim",
+                        claim_link,
                         Result.UNMATCHED,
-                        f"contested — {address} has standing counter-evidence",
+                        f"disputed-claim — {claim_link} has standing counter-evidence",
                         extra=extra,
                     )
                 )
@@ -511,13 +511,13 @@ def lint_web_archive(vault_root) -> list[Outcome]:
         rel = _relative(vault, path)
         data, parsed = _parse_frontmatter(path.read_text())
         if not parsed:
-            outcomes.append(_schema_outcome("web-archive", RepoPathValue(rel)))
+            outcomes.append(_schema_outcome("web-archive", RepoPath(rel)))
             continue
         if data.get("url") and not data.get("doi") and not data.get("archive-url"):
             target = (
                 data.get("citekey")
                 if isinstance(data.get("citekey"), str)
-                else RepoPathValue(rel)
+                else RepoPath(rel)
             )
             outcomes.append(
                 Outcome(
@@ -564,7 +564,7 @@ def lint_evidence_layer(
             outcomes.append(
                 Outcome(
                     "evidence-layer",
-                    RepoPathValue(raw_path),
+                    RepoPath(raw_path),
                     result,
                     reason,
                 )
@@ -590,17 +590,17 @@ def lint_evidence_layer(
             outcomes.append(
                 Outcome(
                     "evidence-layer",
-                    RepoPathValue(raw_path),
+                    RepoPath(raw_path),
                     Result.UNMATCHED,
                     "drift — managed literature note renamed",
-                    extra={"prior_path": RepoPathValue(old_path)},
+                    extra={"prior_path": RepoPath(old_path)},
                 )
             )
     for raw_path in sorted(added - paired_added):
         outcomes.append(
             Outcome(
                 "evidence-layer",
-                RepoPathValue(raw_path),
+                RepoPath(raw_path),
                 Result.UNMATCHED,
                 "drift — managed literature note added",
             )
@@ -609,7 +609,7 @@ def lint_evidence_layer(
         outcomes.append(
             Outcome(
                 "evidence-layer",
-                RepoPathValue(raw_path),
+                RepoPath(raw_path),
                 Result.UNMATCHED,
                 "drift — managed literature note deleted",
             )
@@ -621,7 +621,7 @@ def lint_evidence_layer(
             outcomes.append(
                 Outcome(
                     "evidence-layer",
-                    RepoPathValue(raw_path),
+                    RepoPath(raw_path),
                     Result.UNMATCHED,
                     "drift — managed literature region changed",
                 )
