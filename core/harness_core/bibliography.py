@@ -662,25 +662,6 @@ def observe_autoexport(
             clock,
             sleeper,
         )
-    if not compared.contained or compared.result is Result.UNREACHABLE:
-        return _observation(compared)
-    if compared.result is not Result.MATCHED:
-        guard = _target_state(boundary)
-        if not guard.contained or guard.result is Result.UNREACHABLE:
-            return _observation(guard)
-        try:
-            client.register_autoexport(str(boundary.target))
-        except ZoteroError as error:
-            failed = _TargetState(error.result, str(error))
-            return _observation(failed)
-        compared = _poll_window(
-            boundary,
-            evidence,
-            settle_seconds,
-            poll_interval,
-            clock,
-            sleeper,
-        )
     if not compared.contained or compared.result is not Result.MATCHED:
         return _observation(compared)
 

@@ -38,3 +38,5 @@ For each candidate in `PROVISION_COMPANIONS`, use this order: **Detect** → **R
 After per-item consent, the scriptable candidate may use `claude plugin install kepano/obsidian-skills`; tell the person it is restart-to-activate, then verify after restart. If consent is absent, give the install command as an optional next step and do not run it.
 
 Zotero .xpi installs are human-only wizard steps: BBT required; MarkDB-Connect optional. Explain where the person performs the wizard and what to verify afterward, but never download, never install, never click, and never close Zotero for the user.
+
+The whole-library bibliography auto-export is a human-only wizard step of the same class. Doctor reports it `UNMATCHED` with the target it expects, so give the person the exact target path doctor reported and have them add an auto-export in BBT Preferences with whole-library scope, the Better CSL JSON translator, and keep updated enabled. Then re-run doctor to verify. Never register an auto-export for them, and never say an auto-export exists until doctor reports `autoexport` MATCHED.

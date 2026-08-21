@@ -24,9 +24,10 @@ class StubClient:
             raise ZoteroError("down")
         return self._items
 
-    def register_autoexport(self, target):
-        self.registered = getattr(self, "registered", []) + [target]
-        return {"ok": True}
+    def __getattr__(self, name):
+        raise AssertionError(
+            f"observation reached client.{name}; only export_csl may be called"
+        )
 
 
 class FakeClock:
@@ -888,19 +889,31 @@ def test_observe_matches_byte_different_json_by_sorted_id_title(tmp_vault):
 
     assert observed.result is Result.MATCHED
     assert observed.staleness is Result.MATCHED
-    assert getattr(client, "registered", []) == []
     assert clock.sleeps == []
 
 
-@pytest.mark.parametrize("deadline_read", [1, 2], ids=["first-window", "second-window"])
-def test_observe_accepts_target_appearing_on_each_final_deadline_read(
-    tmp_vault, deadline_read
-):
+def test_observe_accepts_output_arriving_during_the_settle_window(tmp_vault):
+    target = tmp_vault / bibliography.BIB_PATH
+    client = StubClient(ITEMS)
+    clock = FakeClock(
+        lambda sleep_number, now: (
+            target.write_text(json.dumps(ITEMS)) if sleep_number == 1 else None
+        )
+    )
+
+    observed = _observe(tmp_vault, client, clock, settle_seconds=2)
+
+    assert observed.result is Result.MATCHED
+    assert observed.staleness is Result.MATCHED
+    assert clock.sleeps == [1]
+
+
+def test_observe_accepts_output_arriving_on_the_final_deadline_read(tmp_vault):
     target = tmp_vault / bibliography.BIB_PATH
     client = StubClient(ITEMS)
 
     def write_at_deadline(sleep_number, now):
-        if sleep_number == deadline_read:
+        if sleep_number == 1:
             target.write_text(json.dumps(ITEMS))
 
     clock = FakeClock(write_at_deadline)
@@ -908,12 +921,10 @@ def test_observe_accepts_target_appearing_on_each_final_deadline_read(
 
     assert observed.result is Result.MATCHED
     assert observed.staleness is Result.MATCHED
-    assert getattr(client, "registered", []) == (
-        [] if deadline_read == 1 else [str(target)]
-    )
+    assert clock.sleeps == [1]
 
 
-def test_observe_uses_one_fresh_export_through_both_windows_and_staleness(
+def test_observe_closes_a_persistent_mismatch_after_exactly_one_settle_window(
     tmp_vault,
 ):
     calls = []
@@ -925,63 +936,28 @@ def test_observe_uses_one_fresh_export_through_both_windows_and_staleness(
 
     client = ChangingClient(ITEMS)
     clock = FakeClock()
-    observed = _observe(tmp_vault, client, clock, settle_seconds=1)
+    observed = _observe(tmp_vault, client, clock, settle_seconds=3)
 
     assert observed.result is Result.UNMATCHED
     assert observed.staleness is Result.UNMATCHED
     assert calls == [None]
-    assert getattr(client, "registered", []) == [str(tmp_vault / bibliography.BIB_PATH)]
-    assert clock.sleeps == [1, 1]
+    assert clock.sleeps == [1, 1, 1]
 
 
-def test_observe_output_during_first_window_prevents_registration(tmp_vault):
-    target = tmp_vault / bibliography.BIB_PATH
-    clock = FakeClock(
-        lambda sleep_number, now: (
-            target.write_text(json.dumps(ITEMS)) if sleep_number == 1 else None
-        )
-    )
-    client = StubClient(ITEMS)
-
-    observed = _observe(tmp_vault, client, clock)
-
-    assert observed.result is Result.MATCHED
-    assert getattr(client, "registered", []) == []
-
-
-def test_observe_registers_once_then_accepts_output_in_second_window(tmp_vault):
-    target = tmp_vault / bibliography.BIB_PATH
-    clock = FakeClock(
-        lambda sleep_number, now: (
-            target.write_text(json.dumps(ITEMS)) if sleep_number == 3 else None
-        )
-    )
-    client = StubClient(ITEMS)
-
-    observed = _observe(tmp_vault, client, clock)
-
-    assert observed.result is Result.MATCHED
-    assert getattr(client, "registered", []) == [str(target)]
-
-
-def test_observe_registers_one_lexically_absolute_target_from_relative_vault(
+def test_observe_pins_the_lexically_absolute_target_from_a_relative_vault(
     tmp_vault, monkeypatch
 ):
     monkeypatch.chdir(tmp_vault.parent)
     relative_vault = Path(tmp_vault.name)
     target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(ITEMS))
 
-    class RegisteringClient(StubClient):
-        def register_autoexport(self, registered_target):
-            self.registered = [registered_target]
-            Path(registered_target).write_text(json.dumps(ITEMS))
-            return {"ok": True}
-
-    client = RegisteringClient(ITEMS)
-    observed = _observe(relative_vault, client, FakeClock(), settle_seconds=0)
+    observed = _observe(
+        relative_vault, StubClient(ITEMS), FakeClock(), settle_seconds=0
+    )
 
     assert observed.result is Result.MATCHED
-    assert client.registered == [str(target.absolute())]
+    assert target.absolute().is_file()
 
 
 @pytest.mark.parametrize(
@@ -1001,7 +977,6 @@ def test_observe_persistent_target_failures_are_unmatched(tmp_vault, target_setu
 
     assert observed.result is Result.UNMATCHED
     assert observed.staleness is Result.UNMATCHED
-    assert getattr(client, "registered", []) == [str(tmp_vault / bibliography.BIB_PATH)]
 
 
 def test_observe_target_io_failure_is_unreachable(tmp_vault, monkeypatch):
@@ -1108,29 +1083,12 @@ def test_observe_preserves_raw_zotero_error_and_classification(tmp_vault, result
     assert observed.staleness is result
 
 
-def test_observe_malformed_fresh_evidence_is_unreachable_without_registration(
-    tmp_vault,
-):
+def test_observe_malformed_fresh_evidence_is_unreachable(tmp_vault):
     client = StubClient([{"id": "valid", "title": 42}])
 
     observed = _observe(tmp_vault, client, FakeClock())
 
     assert observed.result is Result.UNREACHABLE
-    assert getattr(client, "registered", []) == []
-
-
-@pytest.mark.parametrize("result", [Result.UNMATCHED, Result.UNREACHABLE])
-def test_observe_preserves_registration_error_result_and_raw_text(tmp_vault, result):
-    from harness_core.zotero import ZoteroError
-
-    class RegistrationFailure(StubClient):
-        def register_autoexport(self, target):
-            raise ZoteroError("raw registration failure", result)
-
-    observed = _observe(tmp_vault, RegistrationFailure(ITEMS), FakeClock())
-
-    assert observed.result is result
-    assert observed.detail == "raw registration failure"
 
 
 @pytest.mark.parametrize("link_kind", ["target", "parent"])
@@ -1151,7 +1109,6 @@ def test_observe_rejects_symlinked_target_or_parent(tmp_vault, tmp_path, link_ki
 
     assert observed.result is Result.UNMATCHED
     assert observed.staleness is Result.UNMATCHED
-    assert getattr(client, "registered", []) == []
 
 
 @pytest.mark.parametrize("link_level", ["vault", "earlier-ancestor"])
@@ -1172,7 +1129,6 @@ def test_observe_rejects_symlink_anywhere_in_absolute_vault_chain_without_mutati
     observed = _observe(linked_vault, client, FakeClock(), settle_seconds=0)
 
     assert observed.result is Result.UNMATCHED
-    assert getattr(client, "registered", []) == []
     assert (
         subprocess.run(
             ["git", "rev-parse", "--verify", "HEAD"],
@@ -1183,7 +1139,7 @@ def test_observe_rejects_symlink_anywhere_in_absolute_vault_chain_without_mutati
     )
 
 
-def test_observe_parent_replacement_during_window_never_registers_or_commits(
+def test_observe_parent_replacement_during_the_window_never_commits(
     tmp_vault,
 ):
     target = tmp_vault / bibliography.BIB_PATH
@@ -1206,7 +1162,6 @@ def test_observe_parent_replacement_during_window_never_registers_or_commits(
     )
 
     assert observed.result is Result.UNMATCHED
-    assert getattr(client, "registered", []) == []
     assert (
         subprocess.run(
             ["git", "rev-parse", "--verify", "HEAD"],

@@ -599,9 +599,6 @@ def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write
             assert citekeys is None
             return items
 
-        def register_autoexport(self, registered_target):
-            raise AssertionError("matching target must not be registered again")
-
         def attachments(self, citekey):
             raise AssertionError("attachments must not be read after observer failure")
 
@@ -698,12 +695,15 @@ def test_import_note_target_read_oserror_exits_three_without_note_write(
     assert not notes.note_path(tmp_vault, "smith2020").exists()
 
 
-def test_import_note_accepts_genuine_output_created_by_registration(
+def test_import_note_accepts_genuine_bbt_output_already_at_the_target(
     tmp_vault, monkeypatch, capsys
 ):
     import harness_core.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
+    (tmp_vault / bibliography.BIB_PATH).write_bytes(
+        b'[{"id":"smith2020","title":"Mortality decline"}]'
+    )
 
     class FakeClient:
         def __init__(self, base):
@@ -715,11 +715,6 @@ def test_import_note_accepts_genuine_output_created_by_registration(
         def export_csl(self, citekeys):
             assert citekeys is None
             return items
-
-        def register_autoexport(self, target):
-            with open(target, "w", encoding="utf-8") as export:
-                json.dump(items, export, separators=(",", ":"))
-            return {"registered": True}
 
         def attachments(self, citekey):
             return []
@@ -801,9 +796,6 @@ def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
         def export_csl(self, citekeys):
             assert citekeys is None
             return items
-
-        def register_autoexport(self, registered_target):
-            raise AssertionError("matching target must not be registered again")
 
         def attachments(self, citekey):
             return []

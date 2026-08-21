@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, bibliography, inbox
+from . import Result, bibliography, inbox, paths
 from .zotero import ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
@@ -299,6 +299,21 @@ def _inbox_probe(vault: Path) -> Probe:
     return Probe("inbox", Result.MATCHED, "0 unacknowledged findings")
 
 
+def _autoexport_detail(vault: Path, observed) -> str:
+    """Add human-repair guidance naming the target only to an UNMATCHED observation."""
+    if observed.result is not Result.UNMATCHED:
+        return observed.detail
+    target = (vault / bibliography.BIB_PATH).absolute()
+    try:
+        shown = paths.to_bbt_host(target)
+    except paths.PathError:
+        shown = str(target)
+    return (
+        f"{observed.detail}; a person must create or fix the whole-library "
+        f"Better CSL JSON auto-export in BBT Preferences with target {shown}"
+    )
+
+
 def doctor(
     vault_root,
     client=None,
@@ -370,7 +385,11 @@ def doctor(
             )
             probes.extend(
                 [
-                    Probe("autoexport", observed.result, observed.detail),
+                    Probe(
+                        "autoexport",
+                        observed.result,
+                        _autoexport_detail(vault, observed),
+                    ),
                     Probe(
                         "staleness",
                         observed.staleness,
