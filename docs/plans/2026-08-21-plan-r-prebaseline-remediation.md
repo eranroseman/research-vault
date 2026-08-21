@@ -203,6 +203,7 @@ Renames (mechanical; judged greps, history rule holds):
 11. `hk-sel` → `hk-selector` in the rendered comment AND its parser (`_prior_contexts` reads it back — both sides plus tests; pre-vault, no legacy form to tolerate).
 12. `RepoPathValue` → `RepoPath` (wire prefix `path-bytes:` unchanged).
 13. Spec §6: "web-source archive" row gains backticked `web-archive`.
+14. **Vault AGENTS.md template — restore ruled content** (drift found 2026-08-21): the spec-§8 gray-zone routing sentence ("prefer the knowledge-harness skills over generic drafting **even for free-form requests** — this line is the coexistence mitigation, spec §8"), the claim-grammar pointer ("run `evidence-conventions` for claim syntax"), the `.harness/` machine-local note, and Plan Q's ruled vault-side line ("formatters are writers — the machine surfaces (`log/`, `inbox/review-queue.md`, managed regions, `system/bibliography.json`) each have an owner and a byte contract"). Update the template test assertions in the same commit.
 
 Ruled keeps (do NOT rename): `surface` (spec §6 anchored; register split recorded in §4.4) · `ack` (spec §3 serialization grammar) · `rw` flags (registry recorded) · `hk-` prefix (ZotLit-anchored form) · `identify`/`discover`/`identifier-discovery` trio (inventoried as one concept; "fixing" creates stutter). Deferred to the deepening pass: stutter/noun-function conventions, `FileImage`/`CapturedOutput`.
 
