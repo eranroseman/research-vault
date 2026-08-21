@@ -115,7 +115,7 @@ if parsed_ids != expected_ids:
     )
 ```
 
-- [ ] **Step 4: Wire the failure mode** — a `RenderIntegrityError`/rejection during import surfaces as the existing reason-coded hold to the review inbox (spec §7); verify by test that `import-note` on a poisoned item holds instead of crashing, and writes no note file.
+- [ ] **Step 4: Wire the failure mode (ruled 2026-08-21 — the plan's original text assumed a hold-to-inbox path that does not exist for ANY `cmd_import_note` failure exit):** rejection is loud and fail-closed — stderr reason + nonzero exit + **no note file written, no partial managed region**. Verify by test that `import-note` on a poisoned item exits nonzero and leaves no file. Do NOT wire inbox filing for this one failure class alone: uniform hold-to-inbox wiring for every import failure exit is a recorded follow-up landing with spec §121's integrate-at-import contract (deferred register).
 - [ ] **Step 5: Run full suite** — all PASS. **Step 6: Commit** — `git commit -m "fix: neutralize evidence-text injection at the render boundary (review 2026-08-21 C1/I2/M3) + render_note round-trip self-check"`
 
 ---
@@ -137,7 +137,17 @@ if parsed_ids != expected_ids:
 
 ---
 
-### Task 3: Author-triaged over-engineering cuts
+### Task 3: VERIFY the landed cuts (rewritten 2026-08-21 — the cuts pre-executed on `refactor/ponytail-audit-cuts`, merged as 561ff36, before this plan's ordering could apply; Task-3-before-Task-2 inversion is harmless — cut sites move with the engine in Task 2)
+
+**The contract is now verification, not implementation.** Against the FINAL triage state (this section, as corrected below — not the original sheet):
+- All accepted cuts present as landed, including the four approved deviations: legacy-id full cut (plan-required test rewritten, flagged and accepted); `audit_and_write_manifest` post-apply revalidation; `base_tree` RETAINED (tests assert real behavior — supersedes the original sheet's row 5); freeze apparatus replaced by one detaching copy with the record round-trip standing (`dataclasses.replace` was proven unsound — repo-path typing degrades via `init=False` re-derivation — and reverted; supersedes the original row 1's technique).
+- Deferred by ruling, must remain PRESENT: lints `snapshot=None` fallbacks and `_project_status` tri-mode (original row 2 items, deferral accepted 2026-08-21).
+- All five rejects untouched: selector/context feature, fd-pinning/lock chain, `inbox.append_ack`, `events.trust_tier` + friends, `levenshtein_ratio`. `probe` verb intact.
+- Supersessions recorded in Plans B/C (CSV surface, `run_verify`+`scope`, freeze reasoning) — confirm the annotations exist.
+
+- [ ] **Step 1:** Run the verification greps + read the landed diff (561ff36 range); report any divergence from the list above as an SDD escalation, else record "Task 3 verified".
+
+Original sheet retained below for the audit trail (superseded rows: 1 technique, 2 partially, 5 partially):
 
 **Files:** per finding, at HEAD (post-Task-2 locations — some sites now live in `verify.py`).
 
@@ -172,12 +182,42 @@ if parsed_ids != expected_ids:
 
 ---
 
-### Task 5: Acceptance + merge
+### Task 5: Naming corrections (terminology audit 2026-08-21, author-ruled)
+
+**Files:**
+- Modify: `core/harness_core/{quotes,lints,events,inbox,checks,scaffold,notes,bibliography,__main__ or verify}.py`, `core/harness_core/templates/vault/index.md`, `docs/specs/2026-08-16-foundation-spec.md` (§6 rows), tests throughout.
+
+**The ruling sheet is the contract (docs/terminology.md §4.4 carries the adopted inventory):**
+
+Renames (mechanical; judged greps, history rule holds):
+1. Template `index.md`: "citekey-keyed source notes" → "citekey-keyed literature notes"; "synthesis pages" → "synthesis notes".
+2. `quotes.py` reason string "quote absent from source note" → "…literature note".
+3. Claim-link residue: `ADDRESS` regex constant → `CLAIM_LINK`, `_contested_addresses` → per rename 4, local `address` variables (`quotes.py:83`, `events.py:269`) → `claim_link`.
+4. Check id `contested` → `disputed-claim` (retired stance root); `lint_contested` → `lint_disputed_claim`; spec §6 row gains the backticked slug.
+5. Check id `source-status` → `screening-state`; `lint_source_status` → `lint_screening_state` (CONTEXT.md: Source is the document, the status is the note's Screening state).
+6. Reason code `superseded-source` → `superseded-note` IF its referent is the note's screening state (judge at HEAD; if it refers to the document itself, escalate).
+7. `FAILURES_FIELD` `"verification-failures"` → `"failed-verification"` (match the ruled inline field's word order; pre-vault, no migration).
+8. Inbox `Entry` → `Finding`; `entry_id`/`_finding_id` → `finding_id` (CONTEXT.md: the review inbox holds findings).
+9. `Probe` result rows unify to the `Outcome` vocabulary: fields `name`→`check`, `detail`→`reason`; doctor display and tests follow. One result vocabulary on the first-run surface.
+10. `_TargetState`/`_TargetBoundary` → `_ExportState`/`_ExportBoundary`; RW lookup dict local → `notice_lookup`.
+11. `hk-sel` → `hk-selector` in the rendered comment AND its parser (`_prior_contexts` reads it back — both sides plus tests; pre-vault, no legacy form to tolerate).
+12. `RepoPathValue` → `RepoPath` (wire prefix `path-bytes:` unchanged).
+13. Spec §6: "web-source archive" row gains backticked `web-archive`.
+
+Ruled keeps (do NOT rename): `surface` (spec §6 anchored; register split recorded in §4.4) · `ack` (spec §3 serialization grammar) · `rw` flags (registry recorded) · `hk-` prefix (ZotLit-anchored form) · `identify`/`discover`/`identifier-discovery` trio (inventoried as one concept; "fixing" creates stutter). Deferred to the deepening pass: stutter/noun-function conventions, `FileImage`/`CapturedOutput`.
+
+- [ ] **Step 1:** Apply renames 1–13 tests-first per group; judged grep for each retired identifier returns only history-rule-protected hits.
+- [ ] **Step 2:** Suite green; commit — `rename: naming-audit corrections (screening-state, disputed-claim, Finding, Outcome-unified doctor, hk-selector)`.
+
+---
+
+### Task 6: Acceptance + merge
 
 - [ ] **Step 1:** Full suite offline green; live suite if the environment allows (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`).
 - [ ] **Step 2:** `ruff format --check` + `ruff check` clean at current config (Plan Q's extended set arrives later — do not pre-adopt it here).
 - [ ] **Step 3:** Boundary greps: no hook imports `__main__`; no production reference to any cut symbol; `git diff main --stat` shows only this plan's files.
-- [ ] **Step 4:** Merge per `superpowers:finishing-a-development-branch`; report the merge SHA. The author then runs `/code-review ultra` on the trust-critical modules; Plan Q's Step 0 gate is satisfied.
+- [ ] **Step 4:** Verify Task 5's retired identifiers are absent on living surfaces (judged grep: `contested|source-status|verification-failures|hk-sel\b|RepoPathValue|entry_id` — history-rule paths excluded).
+- [ ] **Step 5:** Merge per `superpowers:finishing-a-development-branch`; report the merge SHA. The author then runs `/code-review ultra` on the trust-critical modules; Plan Q's Step 0 gate is satisfied.
 
 ## Self-Review (at authoring)
 
