@@ -250,14 +250,17 @@ def test_doctor_unmatched_autoexport_asks_a_person_to_repair_the_bbt_host_target
 ):
     """Losing the BBT Preferences repair or the host-syntax target must fail."""
     vault = _doctor_vault(tmp_vault)
+    real_run = scaffold.paths.subprocess.run
+
+    def translate(command, *args, **kwargs):
+        if list(command[:2]) == ["wslpath", "-w"]:
+            return subprocess.CompletedProcess(
+                command, 0, stdout="C:\\live\\x\\bibliography.json\n"
+            )
+        return real_run(command, *args, **kwargs)
+
     monkeypatch.setattr(scaffold.paths, "_running_in_wsl", lambda: True)
-    monkeypatch.setattr(
-        scaffold.paths.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args, 0, stdout="C:\\live\\x\\bibliography.json\n"
-        ),
-    )
+    monkeypatch.setattr(scaffold.paths.subprocess, "run", translate)
 
     by_name = _observed_probes(
         vault, monkeypatch, Result.UNMATCHED, "bibliography auto-export absent"
@@ -272,6 +275,11 @@ def test_doctor_unmatched_autoexport_asks_a_person_to_repair_the_bbt_host_target
     assert (by_name["staleness"].result, by_name["staleness"].detail) == (
         Result.UNMATCHED,
         "cached stale detail",
+    )
+    assert by_name["tree"].result is Result.MATCHED
+    assert (by_name["remote"].result, by_name["remote"].detail) == (
+        Result.MATCHED,
+        "origin",
     )
 
 
