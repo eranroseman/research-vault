@@ -738,6 +738,12 @@ Tasks 1–2 own templates and scoped creation. Task 3 owns the BBT-writer bounda
 
 ## Post-merge follow-ups (final review, 2026-08-21)
 
+**Author dispositions (2026-08-21).** Item 1 stands as built: **vault-root symlink strictness stays strict.** A deliberate hardening holds until real friction produces evidence against it — the same rule every other precedent here follows: information, not constraint. Every piece of information available says the strictness was chosen on purpose, so loosening it without a driving case would be un-deciding rather than deciding. Revisit only if the validation slice actually hits it.
+
+Items 2-6 are **batched as one small maintenance pass scheduled after Plan T** — they are code fixes, and the terminology wave's renames land first (same AST-ordering logic as the mutation baseline). **The bypass id discriminator (item 2) leads that batch**: an unacknowledgeable finding ID is a liveness hole in the review-inbox contract, the same class as the duplicate same-day ID already fixed in this plan, so it carries doctrine weight the other four do not.
+
+The one-time human auto-export creation in BBT Preferences is queued but not yet actionable — no real vault exists until `setup-vault` scaffolds one. It is the first human step on the validation-slice setup checklist, and it unlocks the deferred MATCHED end-to-end leg through `HARNESS_LIVE_AUTOEXPORT_VAULT`.
+
 The final whole-branch review's Important findings were fixed in the branch (`b5bdedf..843596f`). These survive as recorded, non-blocking follow-ups — each real, none load-bearing for a later task in this plan:
 
 1. **Vault-root symlink strictness.** `scaffold._reject_owned_symlinks` and `bibliography._open_parent_chain` reject any symlink in the vault's own path or above it, so a symlinked `$HOME` or vault root hard-fails scaffold and turns doctor's `tree` probe into an exit-1 failure. The strictness is deliberate — an earlier review round introduced it to close an ancestor-symlink escape — so loosening it (resolve the root once, pin `(st_dev, st_ino)`, enforce no-symlinks only below the resolved root) is an author decision, not a fix-wave one. The misleading-guidance half was already fixed: repair prose is now gated on containment.
