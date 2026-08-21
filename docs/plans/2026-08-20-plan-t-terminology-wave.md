@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.10 stdlib (as-built `harness_core`), pytest, git.
 
-**Authority:** `docs/terminology.md` §10 manifest is the contract (all rulings author-confirmed). **As-built HEAD governs** over any code shape this plan assumes; where a named symbol or file differs at HEAD, adapt within-task and record it in the commit message. The **history rule** binds every task: living surfaces rename (`core/`, `hooks/`, `skills/`, `docs/specs/`, active plan docs, `README.md`, `docs/terminology.md`); history never does (`research/`, `analysis/`, completed plans A/B, audit docs, ADRs already accepted, git history).
+**Authority:** `docs/terminology.md` §10 manifest is the contract (all rulings author-confirmed), **plus one grafted author ruling (2026-08-21): `x/` → `system/`** — T6-adjacent plain name, keeps the sorts-last position, ruled before the BBT auto-export path hardens at provisioning; treat it as a §10 rename pair everywhere (folder, `templates/vault/x/`, the bibliography path constant `x/bibliography.json` → `system/bibliography.json`, AGENTS.md/skill prose). **As-built HEAD governs** over any code shape this plan assumes; where a named symbol or file differs at HEAD, adapt within-task and record it in the commit message. The **history rule** binds every task: living surfaces rename (`core/`, `hooks/`, `skills/`, `docs/specs/`, active plan docs, `README.md`, `docs/terminology.md`); history never does (`research/`, `analysis/`, completed plans A/B, audit docs, ADRs already accepted, git history).
 
 ## Global Constraints
 
@@ -32,7 +32,7 @@ No new modules. Touched: `core/harness_core/*.py` (constants, parsers, render, l
 
 **Interfaces:**
 - Consumes: §10 manifest path/type pairs.
-- Produces (later tasks rely on these exact strings): folders `inbox/ literatures/ synthesis/ log/ projects/ x/`; `INBOX_PATH = "inbox/review-queue.md"`; type values `literature | synthesis | project | daily`; daily log files `log/YYYY-MM-DD.md`; publish flag field `"project"`; synthesis index `synthesis/index.md`.
+- Produces (later tasks rely on these exact strings): folders `inbox/ literatures/ synthesis/ log/ projects/ system/`; `INBOX_PATH = "inbox/review-queue.md"`; type values `literature | synthesis | project | daily`; daily log files `log/YYYY-MM-DD.md`; publish flag field `"project"`; synthesis index `synthesis/index.md`.
 
 - [ ] **Step 1: Discover every occurrence (judged)**
 
@@ -53,7 +53,7 @@ Expected: FAIL — fixtures now build the new tree; production constants still b
 
 - [ ] **Step 4: Apply the same pairs to production code and templates**
 
-`VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "x/templates", "x/bases"]`; `INBOX_PATH = "inbox/review-queue.md"`; every folder glob in lints/verbs/hooks; template directory renames (`templates/vault/synthesis/index.md`, `.keep` set per scaffold's list — now `literatures`, `log`, `projects`); template frontmatter `type: "synthesis"` / `type: "project"`; AGENTS.md template text (folder mentions + `inbox/review-queue.md`); publish flag field `"project"` in gate + its tests.
+`VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "system/templates", "system/bases"]`; template tree `templates/vault/x/` → `templates/vault/system/`; bibliography path constant `"x/bibliography.json"` → `"system/bibliography.json"` (`bibliography.py`, `scaffold.py`, doctor guidance text); `INBOX_PATH = "inbox/review-queue.md"`; every folder glob in lints/verbs/hooks; template directory renames (`templates/vault/synthesis/index.md`, `.keep` set per scaffold's list — now `literatures`, `log`, `projects`); template frontmatter `type: "synthesis"` / `type: "project"`; AGENTS.md template text (folder mentions + `inbox/review-queue.md`); publish flag field `"project"` in gate + its tests.
 
 - [ ] **Step 5: Run to verify green, judged-grep, commit**
 
@@ -102,7 +102,7 @@ git add core hooks skills && git commit -m "rename: vault paths and type values 
 ### Task 4: Inversion additions (stale_after, generated, description, synthesis lifecycle)
 
 **Files:**
-- Modify: `core/harness_core/notes.py` (render: `generated` on machine-written notes), `core/harness_core/templates/vault/x/templates/synthesis.md` (lifecycle frontmatter), `core/harness_core/frontmatter.py` (verify inline-dict support covers `generated` — it shipped for `verified`), spec `docs/specs/2026-08-16-foundation-spec.md` §3/§5, tests.
+- Modify: `core/harness_core/notes.py` (render: `generated` on machine-written notes), `core/harness_core/templates/vault/system/templates/synthesis.md` (post-graft path) (lifecycle frontmatter), `core/harness_core/frontmatter.py` (verify inline-dict support covers `generated` — it shipped for `verified`), spec `docs/specs/2026-08-16-foundation-spec.md` §3/§5, tests.
 
 **Interfaces:**
 - Produces: literature/synthesis machine-written notes carry `generated: [{by, at}]`-compatible field `generated` as a single inline dict `{by: "...", at: "..."}` (OKF shape); optional keys `stale_after`, `description` are **pass-through-preserved** (no writer yet — they are user/OKF-tool supplied; the renderer's unowned-field pass-through already keeps them — add regression test); synthesis template frontmatter becomes:
@@ -174,6 +174,7 @@ okf_version: "0.2"
 - [[projects/]] — manuscripts and deliverables
 - [[log/]] — daily activity log (summary: [[log]])
 - [[inbox/]] — fleeting notes and the review queue
+- [[system/]] — support artifacts: templates, bases, the bibliography export
 ```
 
   - Review queue created with frontmatter `---\ntype: "review-queue"\n---\n` (inbox parser skips frontmatter — extend `inbox.load` to tolerate/skip a leading frontmatter block; regression test).
@@ -318,6 +319,9 @@ _Avoid_: `+`, capture folder
 
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
 _Avoid_: calendar, journal, daily notes folder
+
+**System folder**: The vault's support artifacts (`system/`): templates, bases, the bibliography export. Sorts last, out of the knowledge folders' way.
+_Avoid_: x (old name), assets, meta
 
 **Managed region**: The bridge-regenerated span of a literature note between `%%hk-managed%%` markers; never hand-edited.
 _Avoid_: generated section, machine block
