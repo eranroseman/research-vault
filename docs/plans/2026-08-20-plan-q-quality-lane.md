@@ -220,11 +220,14 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 
 - [ ] **Step 3b: Markdown canonical form (mdformat)** — author-ruled 2026-08-21 after two rounds of push-back; the drift-protection argument governs: multi-agent authorship makes style drift the default, and a pinned formatter is the standing protection.
 
-**Format set (author-ruled 2026-08-21, third push-back — "one-time churn, lifetime of certainty, no rule to enforce" governs): ALL repo markdown**, including `research/`, `analysis/`, completed plans, and `docs/adr/` — verified 2026-08-21: mdformat with `--wrap keep` preserves content (fences byte-safe, no prose reflow), so one-time canonicalization does not violate the history rule's substance. **The history rule's reading is hereby amended: content and meaning are never rewritten; form was canonicalized once** (this commit, carried in `.git-blame-ignore-revs`). The single invocation-level exclusion is `core/tests/` — some fixtures are deliberately malformed inputs (a lint test needs its bad formatting), and goldens must equal system output; both are enforced mechanically by the suite, not by memory.
+**Format policy (author-ruled 2026-08-21 across four push-backs; the governing principle: uniformity everywhere, zero remembered rules, each surface canonicalized by the right owner):**
 
-Run: `mdformat --wrap keep README.md docs skills core/harness_core/templates` (everything but `core/tests/`; adjust to HEAD's tree). Template formatting changes rendered-note bytes: update render tests/fixtures to the canonical form **in this same commit** (pre-vault window — free). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section.
+- **mdformat owns all CommonMark repo markdown**: `README.md`, all of `docs/` (history surfaces included — verified: `--wrap keep` preserves content, fences byte-safe, no prose reflow; **the history rule's reading is amended: content and meaning are never rewritten; form was canonicalized once**, commit carried in `.git-blame-ignore-revs`), and `skills/`. `core/tests/` needs no exclusion — it contains zero `.md` files (verified; inline string fixtures are invisible to mdformat by construction).
+- **The sole writer IS the formatter for vault-dialect surfaces** (`core/harness_core/templates/vault/**` and everything the harness emits): measured 2026-08-21, mdformat escapes the dialect — wikilinks `[[x]]` → `\[[x]\]`, inline fields `[supports:: …]` escaped, `%%/hk-managed%%` indented — and `mdformat-obsidian` 0.3.2 does the same, so no off-the-shelf formatter speaks Obsidian dialect. Canonical form there is the render/scaffold contract's output, per the author's principle ("having the sole writer use the formatter eliminates the problem"): managed regions canonicalize by full re-render (witnessed by `managed-sha256`), ledgers by the entry grammar + append-only discipline. This is a dialect boundary in tool config (invocation path list), not a remembered rule.
 
-**Zero remembered exclusion rules** — the surviving boundaries are all mechanically self-enforcing: goldens fail the suite if formatted away from system output; vault machine surfaces reject foreign writers by construction (append-only lint, hash-scoped acks lapse, managed-region witness, bibliography staleness lint against the BBT sole writer). None of these needs an agent to remember anything.
+Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templates deliberately absent — dialect surface). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section. After the churn: `grep -rn '\\\[\[' docs skills README.md` must return nothing (no wikilink escaping happened — the CommonMark set was truly dialect-free).
+
+- [ ] **Step 3b-2: Emitter canonicality property tests** — `core/tests/test_canonical_form.py`, making the sole-writer-is-the-formatter principle mechanical: (1) render idempotence — rendering the same item twice yields identical bytes, and re-rendering rendered output changes nothing; (2) every ledger/inbox line the emitters produce matches the entry-grammar regex exactly; (3) scaffold output from templates is byte-stable across two runs into fresh directories. These give vault surfaces lifetime form-certainty with zero rules — enforced by the owners, verified by the suite.
 
 **Contract notes recorded in pyproject comment**: the mdformat pin is a render-contract component (canonical template form leaks into rendered vault notes — a formatter upgrade is judged like a render change, with re-import expectations); oxfmt rejected 2026-08-21 with the mismatch named (it reformats *inside* fenced code blocks — quoted material — the prettier-incident class; measured live: respacing YAML in a quoted workflow snippet; plus a Node toolchain in a Python dev lane).
 
@@ -234,7 +237,7 @@ Run: `mdformat --wrap keep README.md docs skills core/harness_core/templates` (e
 
 - [ ] **Step 4: Verify clean + suite green**
 
-Run: `ruff check harness_core tests --no-cache && mypy harness_core && mdformat --check --wrap keep README.md docs skills core/harness_core/templates && python -m pytest tests -q`
+Run: `ruff check harness_core tests --no-cache && mypy harness_core && mdformat --check --wrap keep README.md docs skills && python -m pytest tests -q`
 Expected: `All checks passed!`, `Success: no issues found`, mdformat silent, and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
 
 - [ ] **Step 5: Commit**
@@ -609,7 +612,7 @@ jobs:
       - name: Types (mypy)
         run: mypy harness_core
       - name: Markdown canonical form (mdformat)
-        run: mdformat --check --wrap keep ../README.md ../docs ../skills harness_core/templates
+        run: mdformat --check --wrap keep ../README.md ../docs ../skills
       - name: Config validity + workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Shell lint (shellcheck)
