@@ -322,7 +322,7 @@ repos:
 
 (Formatter hooks run in write mode; pre-commit's contract fails a hook whose files changed, so the same command is check-mode in CI with `--show-diff-on-failure`. If a hook needs adjustment against pre-commit 4.6.2's actual behavior at execution, adapt and record — the seam's contract is only: one command, all owners, no network.)
 
-- [ ] **Step 3b-1c: IDE alignment** — create `.vscode/settings.json` and `.vscode/extensions.json` so the editor can never fight the form-owners (the original markdown corruption came from IDE prettier):
+- [ ] **Step 3b-1c: IDE alignment — PRE-LANDED 2026-08-22** (`.vscode/settings.json` + `extensions.json` committed early because the prettier extension was live while the threat shield was only `.prettierignore`, now deleted as redundant; verify the files match this contract, adjust only if drifted):
 
 ```jsonc
 // .vscode/settings.json — JSONC, a dialect surface owned by VS Code itself

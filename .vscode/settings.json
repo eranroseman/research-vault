@@ -1,0 +1,12 @@
+// One form-owner per type (docs/2026-08-21-lint-format-rethink.md): the IDE never
+// fights the owners. Python alone formats on save, via the same pinned ruff.
+{
+  "editor.formatOnSave": false,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "prettier.enable": false,
+  "python.defaultInterpreterPath": "${workspaceFolder}/core/.venv/bin/python",
+  "files.insertFinalNewline": true
+}
