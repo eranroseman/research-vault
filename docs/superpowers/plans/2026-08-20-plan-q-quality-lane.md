@@ -164,7 +164,7 @@ ignore = [
 # violated skip into `ignore`, or the recorded rulings silently stop being true.
 
 [tool.ruff.lint.mccabe]
-max-complexity = 32  # green at adoption (worst: _target_hash CC 31); Task 3 tightens to 28
+max-complexity = 32  # green at adoption (worst: _target_hash CC 31); Task 3 tightens to 28 [gate value is 30 everywhere; any residual '45' in this doc is stale authoring prose]
                      # after the split. No pre-committed final target: the resting cap gets
                      # set from the post-deepening CC distribution (four-state outcome
                      # mappers legitimately run CC 17-22 — the doctrine is branchy; a
@@ -412,7 +412,7 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - Baseline keys collapse duplicate identical mutations within one function (the real selectors output has `1 -> 0` twice on line 79) — deliberate: an advisory lane prefers a stable baseline over distinguishing repeats of an already-recorded survivor.
 - Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from the repository root (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
 
-- [ ] **Step 0b: Kill the bare-pytest footgun** — add `pythonpath = ["."]` to `[tool.pytest.ini_options]` in `pyproject.toml`, so bare `pytest` and `python -m pytest` resolve `scripts.*` imports identically (config beats remembered convention; the entry-point audit 2026-08-21 flagged bare `pytest` as a caller-less entry point that silently breaks).
+- [ ] **Step 0b: Kill the bare-pytest footgun** — add `pythonpath = ["."]` and `testpaths = ["tests"]` (parked from Plan L: post-flip, pytest's rootdir is the whole repo; pinning collection was deliberately excluded from L's zero-behavior-change branch) to `[tool.pytest.ini_options]` in `pyproject.toml`, so bare `pytest` and `python -m pytest` resolve `scripts.*` imports identically (config beats remembered convention; the entry-point audit 2026-08-21 flagged bare `pytest` as a caller-less entry point that silently breaks).
 
 - [ ] **Step 1: Write the failing tests** — `tests/test_mutation_gate.py`:
 

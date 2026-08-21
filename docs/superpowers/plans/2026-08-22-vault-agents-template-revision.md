@@ -2,7 +2,7 @@
 
 > Single-task contract for the executing agent (post-Plan-L; dialect surface, so template text and its per-line test assertions change in the same commit). Ruled 2026-08-22 from a review under the every-vault-agent context bar.
 
-**Files:** `harness_core/templates/vault/AGENTS.md` (post-flip path; `core/harness_core/...` if L has not merged), its per-line assertions in the template test.
+**Files:** `harness_core/templates/vault/AGENTS.md`, its per-line assertions in the template test.
 
 **The new template content is the contract (write exactly):**
 
