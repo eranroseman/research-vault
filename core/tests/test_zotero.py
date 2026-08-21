@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -135,7 +136,10 @@ def test_export_named_translator(client):
     )
 
 
-def test_register_autoexport_sends_personal_library_root_and_returns_result(client):
+def test_register_autoexport_sends_personal_library_root_and_returns_result(
+    client, monkeypatch
+):
+    monkeypatch.setattr(zotero.paths, "_running_in_wsl", lambda: False)
     result = client.register_autoexport("/vault/x/bibliography.json")
 
     assert result is client._fake.canned_rpc["autoexport.add"]
@@ -146,6 +150,102 @@ def test_register_autoexport_sends_personal_library_root_and_returns_result(clie
             ["//", "Better CSL JSON", "/vault/x/bibliography.json"],
         )
     ]
+
+
+def test_register_autoexport_translates_outbound_target_for_windows_host(
+    client, monkeypatch
+):
+    monkeypatch.setattr(zotero.paths, "_running_in_wsl", lambda: True)
+
+    def translate(command, **kwargs):
+        assert command == ["wslpath", "-w", "/vault/x/bibliography.json"]
+        assert kwargs == {"capture_output": True, "text": True, "check": False}
+        return zotero.paths.subprocess.CompletedProcess(
+            command, 0, stdout="C:\\vault\\x\\bibliography.json\n"
+        )
+
+    monkeypatch.setattr(
+        zotero.paths.subprocess,
+        "run",
+        translate,
+    )
+
+    client.register_autoexport("/vault/x/bibliography.json")
+
+    assert client._fake.rpc_calls == [
+        (
+            "autoexport.add",
+            ["//", "Better CSL JSON", "C:\\vault\\x\\bibliography.json"],
+        )
+    ]
+
+
+def test_register_autoexport_uses_native_absolute_target_off_wsl(client, monkeypatch):
+    monkeypatch.setattr(zotero.paths, "_running_in_wsl", lambda: False)
+
+    client.register_autoexport("relative-vault/x/bibliography.json")
+
+    assert client._fake.rpc_calls == [
+        (
+            "autoexport.add",
+            [
+                "//",
+                "Better CSL JSON",
+                str(Path("relative-vault/x/bibliography.json").absolute()),
+            ],
+        )
+    ]
+
+
+@pytest.mark.parametrize(("returncode", "stdout"), [(1, "ignored"), (0, "")])
+def test_register_autoexport_refuses_failed_wsl_translation(
+    client, monkeypatch, returncode, stdout
+):
+    monkeypatch.setattr(zotero.paths, "_running_in_wsl", lambda: True)
+    monkeypatch.setattr(
+        zotero.paths.subprocess,
+        "run",
+        lambda *args, **kwargs: zotero.paths.subprocess.CompletedProcess(
+            args, returncode, stdout=stdout, stderr="translation failed"
+        ),
+    )
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        client.register_autoexport("/vault/x/bibliography.json")
+
+    assert error.value.result is Result.UNREACHABLE
+    assert client._fake.rpc_calls == []
+
+
+def test_register_autoexport_refuses_wslpath_launch_failure(client, monkeypatch):
+    monkeypatch.setattr(zotero.paths, "_running_in_wsl", lambda: True)
+
+    def unavailable(*args, **kwargs):
+        raise FileNotFoundError("wslpath missing")
+
+    monkeypatch.setattr(zotero.paths.subprocess, "run", unavailable)
+
+    with pytest.raises(zotero.ZoteroError) as error:
+        client.register_autoexport("/vault/x/bibliography.json")
+
+    assert error.value.result is Result.UNREACHABLE
+    assert client._fake.rpc_calls == []
+
+
+def test_wsl_detection_uses_environment_or_kernel_release(monkeypatch):
+    monkeypatch.delenv("WSL_INTEROP", raising=False)
+    monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
+    monkeypatch.setattr(zotero.paths.platform, "release", lambda: "ordinary-linux")
+    assert zotero.paths._running_in_wsl() is False
+
+    monkeypatch.setenv("WSL_INTEROP", "/run/WSL/1_interop")
+    assert zotero.paths._running_in_wsl() is True
+    monkeypatch.delenv("WSL_INTEROP")
+
+    monkeypatch.setattr(
+        zotero.paths.platform, "release", lambda: "6.6.87.2-microsoft-standard-WSL2"
+    )
+    assert zotero.paths._running_in_wsl() is True
 
 
 def test_whole_library_export_normalizes_uri_ids_and_excludes_orphans(

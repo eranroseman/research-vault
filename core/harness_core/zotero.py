@@ -5,7 +5,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping
 
-from . import Result
+from . import Result, paths
 
 CSL_TRANSLATOR = "Better CSL JSON"
 
@@ -179,7 +179,11 @@ class ZoteroClient:
         return normalized
 
     def register_autoexport(self, target_path: str) -> dict:
-        return self._rpc("autoexport.add", ["//", CSL_TRANSLATOR, target_path])
+        try:
+            host_target = paths.to_bbt_host(target_path)
+        except paths.PathError as error:
+            raise ZoteroError(str(error)) from error
+        return self._rpc("autoexport.add", ["//", CSL_TRANSLATOR, host_target])
 
     def supports_local_writes(self) -> bool:
         """Return True only for affirmatively known Zotero 10+ installs."""
