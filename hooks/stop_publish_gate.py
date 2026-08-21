@@ -11,7 +11,7 @@ import tempfile
 from contextlib import suppress
 from pathlib import Path
 
-CORE = Path(__file__).resolve().parents[1] / "core"
+CORE = Path(__file__).resolve().parents[1]
 FLAG_NAME = "publish-pending.json"
 MAX_ACTIVE_BLOCKS = 8
 FAIL_CLOSED_REASON = (

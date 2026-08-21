@@ -8,7 +8,7 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
-CORE = Path(__file__).resolve().parents[1] / "core"
+CORE = Path(__file__).resolve().parents[1]
 
 CONCEPT_ROOTS = frozenset({"synthesis", "projects"})
 

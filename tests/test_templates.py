@@ -6,8 +6,8 @@ from pathlib import Path
 
 from harness_core import frontmatter
 
-REPO = Path(__file__).resolve().parents[2]
-TEMPLATES = REPO / "core" / "harness_core" / "templates"
+REPO = Path(__file__).resolve().parents[1]
+TEMPLATES = REPO / "harness_core" / "templates"
 
 EXPECTED_PATHS = {
     "vault/index.md",
@@ -40,7 +40,7 @@ def test_all_canonical_template_paths_are_packaged():
         if path.is_file()
     }
     assert actual == EXPECTED_PATHS
-    package_data = (REPO / "core" / "pyproject.toml").read_text()
+    package_data = (REPO / "pyproject.toml").read_text()
     assert '"templates/**/*"' in package_data
 
 

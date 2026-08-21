@@ -4,7 +4,7 @@ from pathlib import Path
 import harness_core
 from harness_core import frontmatter
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 
 
 def test_version_and_result_enum():

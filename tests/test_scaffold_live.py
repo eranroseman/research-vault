@@ -27,7 +27,7 @@ import harness_core.__main__ as cli
 from harness_core import Result, bibliography, paths, scaffold
 from harness_core.zotero import ZoteroClient
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 DRILL_USER_NAME = "knowledge-harness-live-drill"
 DRILL_USER_EMAIL = "live-drill@example.invalid"
 SETTLE_SECONDS = 2
