@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import stat
@@ -109,17 +110,31 @@ def _publish_decision(state: PublishState) -> tuple[int, tuple[str, ...]]:
 
 
 def _append_bypass(vault: Path, project: str, reason: str) -> None:
+    """Record this bypass exactly once; a retry must not duplicate its finding."""
     _core_path()
     from harness_core import Result, inbox
     from harness_core.pathcodec import encode_repo_path
 
+    target = encode_repo_path(os.fsencode(project))
+    date = datetime.date.today().isoformat()
+    # A finding id is (check, target, date, ...); a second row under one id makes
+    # the entry permanently un-acknowledgeable, so a same-day retry is a no-op.
+    for entry in inbox.load(vault):
+        if (
+            entry.ack_of is None
+            and entry.check == "publish-gate"
+            and entry.target == target
+            and entry.date == date
+        ):
+            return
     inbox.append_entry(
         vault,
         "publish-gate",
-        encode_repo_path(os.fsencode(project)),
+        target,
         Result.UNMATCHED,
         f"manual — publish-gate bypass: {reason}",
         actor="human:publish-bypass",
+        date=date,
         target_kind="repo-path",
         durable=True,
     )

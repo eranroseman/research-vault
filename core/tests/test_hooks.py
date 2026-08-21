@@ -1375,6 +1375,53 @@ def test_stop_gate_bypass_clear_race_blocks_and_preserves_rearmed_flag(
     assert len(inbox.load(fixture_vault)) == 1
 
 
+def test_stop_gate_bypass_retry_after_a_failed_clear_keeps_one_ackable_record(
+    fixture_vault, monkeypatch, capsys
+):
+    """Letting a retried bypass duplicate its finding id must fail."""
+    flag = _arm_publish(fixture_vault, bypass="checked by hand")
+    hook = _load_stop_hook()
+    original_clear = hook._clear_flag
+
+    monkeypatch.setattr(
+        hook,
+        "_clear_flag",
+        lambda _armed: (_ for _ in ()).throw(OSError("flag clear failed")),
+    )
+
+    first = json.loads(
+        _invoke_stop(hook, monkeypatch, capsys, _stop_payload(fixture_vault))
+    )
+
+    assert first == {"decision": "block", "reason": hook.FAIL_CLOSED_REASON}
+    assert flag.exists()
+    assert len(inbox.load(fixture_vault)) == 1
+
+    monkeypatch.setattr(hook, "_clear_flag", original_clear)
+
+    assert (
+        _invoke_stop(
+            hook,
+            monkeypatch,
+            capsys,
+            _stop_payload(fixture_vault, active=True),
+        )
+        == ""
+    )
+    assert not flag.exists()
+    entries = inbox.load(fixture_vault)
+    assert len(entries) == 1
+    assert entries[0].reason == "manual — publish-gate bypass: checked by hand"
+    acknowledged = inbox.append_ack(
+        fixture_vault,
+        entries[0].id,
+        "manual — bypass reviewed",
+        "human:reviewer",
+    )
+    assert acknowledged.ack_of == entries[0].id
+    assert inbox.open_entries(fixture_vault) == []
+
+
 def test_stop_gate_matches_direct_publish_state_and_effects(
     fixture_vault, tmp_path_factory, monkeypatch, capsys
 ):
