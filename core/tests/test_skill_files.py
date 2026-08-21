@@ -16,11 +16,7 @@ def test_setup_vault_frontmatter_is_user_invoked_and_discoverable():
     """Removing the user-only setup-vault frontmatter must fail."""
     text = _skill_text()
 
-    assert text.startswith(
-        "---\n"
-        "name: setup-vault\n"
-        "description: Use when "
-    )
+    assert text.startswith("---\nname: setup-vault\ndescription: Use when ")
     assert "disable-model-invocation: true\n---\n" in text
 
 
