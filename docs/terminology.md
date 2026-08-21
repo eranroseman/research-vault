@@ -115,7 +115,33 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 
 | Current term | Status |
 |---|---|
-| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` | A/S — conventional CLI verbs |
+| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` | A/S — CLI subcommand set (mixed verb/noun forms — conventional for CLIs, not uniformly verbs) |
 | skills `setup-vault`, `project`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names |
 | `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED` | S — trust distinction retained over developer-only pytest vocabulary |
 | evidence layer, synthesis layer, admission, information flow, project flow | A/S — current process vocabulary |
+
+### 4.4 Identifier inventory (adopted 2026-08-21, core naming audit)
+
+Check ids, doctor probe ids, and reason codes are governed coined identifiers (S) written verbatim
+to durable surfaces (`inbox/review-queue.md`, doctor output). Grammar: kebab-case slugs; per-claim
+checks use composite ids `check:{claim-link}:{target-kind}` (e.g. `quote:{claim-link}:managed-region`).
+
+| Group | Members | Status |
+|---|---|---|
+| check ids | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`) | S — spec §6 rows carry these slugs backticked |
+| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf` | S — doctor rows use the Outcome vocabulary (`check`/`result`/`reason`; `Probe` shape unified 2026-08-21) |
+| reason codes | the `REASON_CODES` set at HEAD, incl. `superseded-note` (renamed from `superseded-source`), `fuzzy-quote`, `not-admitted`, `drift`, `outage` | S — one registry, code is authoritative; additions require a reference row |
+
+Register split, ruled: **`surface`** (enforcement point — `--surface`, `CLOSING_BY_SURFACE`) is spec §6's
+anchored vocabulary; this document's "tool surface" (T2 prose) is a different register and never
+co-occurs with it on a vault/CLI surface. Both stand.
+
+Field/concept pairs, ruled: **`ack`** is the spec-§3 serialization spelling of the concept
+**Acknowledgment** (CONTEXT.md) — not an ungoverned abbreviation. **`rw`** = Retraction Watch
+(community's own shorthand) on CLI flags and internal names; registry recorded here.
+`hk-selector` (renamed from `hk-sel` 2026-08-21) spells its noun on the durable note surface.
+
+Deferred with a home (not endorsed, not lost): module/function stutter (`checks.check_metadata` …)
+and noun-named functions — per-name judgment at the architecture deepening pass (the two findings
+collide: de-stuttering creates noun functions); `FileImage`/`CapturedOutput` naming vs git's `blob`
+vocabulary — same pass.

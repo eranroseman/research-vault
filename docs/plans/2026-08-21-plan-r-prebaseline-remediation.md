@@ -172,12 +172,42 @@ if parsed_ids != expected_ids:
 
 ---
 
-### Task 5: Acceptance + merge
+### Task 5: Naming corrections (terminology audit 2026-08-21, author-ruled)
+
+**Files:**
+- Modify: `core/harness_core/{quotes,lints,events,inbox,checks,scaffold,notes,bibliography,__main__ or verify}.py`, `core/harness_core/templates/vault/index.md`, `docs/specs/2026-08-16-foundation-spec.md` (§6 rows), tests throughout.
+
+**The ruling sheet is the contract (docs/terminology.md §4.4 carries the adopted inventory):**
+
+Renames (mechanical; judged greps, history rule holds):
+1. Template `index.md`: "citekey-keyed source notes" → "citekey-keyed literature notes"; "synthesis pages" → "synthesis notes".
+2. `quotes.py` reason string "quote absent from source note" → "…literature note".
+3. Claim-link residue: `ADDRESS` regex constant → `CLAIM_LINK`, `_contested_addresses` → per rename 4, local `address` variables (`quotes.py:83`, `events.py:269`) → `claim_link`.
+4. Check id `contested` → `disputed-claim` (retired stance root); `lint_contested` → `lint_disputed_claim`; spec §6 row gains the backticked slug.
+5. Check id `source-status` → `screening-state`; `lint_source_status` → `lint_screening_state` (CONTEXT.md: Source is the document, the status is the note's Screening state).
+6. Reason code `superseded-source` → `superseded-note` IF its referent is the note's screening state (judge at HEAD; if it refers to the document itself, escalate).
+7. `FAILURES_FIELD` `"verification-failures"` → `"failed-verification"` (match the ruled inline field's word order; pre-vault, no migration).
+8. Inbox `Entry` → `Finding`; `entry_id`/`_finding_id` → `finding_id` (CONTEXT.md: the review inbox holds findings).
+9. `Probe` result rows unify to the `Outcome` vocabulary: fields `name`→`check`, `detail`→`reason`; doctor display and tests follow. One result vocabulary on the first-run surface.
+10. `_TargetState`/`_TargetBoundary` → `_ExportState`/`_ExportBoundary`; RW lookup dict local → `notice_lookup`.
+11. `hk-sel` → `hk-selector` in the rendered comment AND its parser (`_prior_contexts` reads it back — both sides plus tests; pre-vault, no legacy form to tolerate).
+12. `RepoPathValue` → `RepoPath` (wire prefix `path-bytes:` unchanged).
+13. Spec §6: "web-source archive" row gains backticked `web-archive`.
+
+Ruled keeps (do NOT rename): `surface` (spec §6 anchored; register split recorded in §4.4) · `ack` (spec §3 serialization grammar) · `rw` flags (registry recorded) · `hk-` prefix (ZotLit-anchored form) · `identify`/`discover`/`identifier-discovery` trio (inventoried as one concept; "fixing" creates stutter). Deferred to the deepening pass: stutter/noun-function conventions, `FileImage`/`CapturedOutput`.
+
+- [ ] **Step 1:** Apply renames 1–13 tests-first per group; judged grep for each retired identifier returns only history-rule-protected hits.
+- [ ] **Step 2:** Suite green; commit — `rename: naming-audit corrections (screening-state, disputed-claim, Finding, Outcome-unified doctor, hk-selector)`.
+
+---
+
+### Task 6: Acceptance + merge
 
 - [ ] **Step 1:** Full suite offline green; live suite if the environment allows (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`).
 - [ ] **Step 2:** `ruff format --check` + `ruff check` clean at current config (Plan Q's extended set arrives later — do not pre-adopt it here).
 - [ ] **Step 3:** Boundary greps: no hook imports `__main__`; no production reference to any cut symbol; `git diff main --stat` shows only this plan's files.
-- [ ] **Step 4:** Merge per `superpowers:finishing-a-development-branch`; report the merge SHA. The author then runs `/code-review ultra` on the trust-critical modules; Plan Q's Step 0 gate is satisfied.
+- [ ] **Step 4:** Verify Task 5's retired identifiers are absent on living surfaces (judged grep: `contested|source-status|verification-failures|hk-sel\b|RepoPathValue|entry_id` — history-rule paths excluded).
+- [ ] **Step 5:** Merge per `superpowers:finishing-a-development-branch`; report the merge SHA. The author then runs `/code-review ultra` on the trust-critical modules; Plan Q's Step 0 gate is satisfied.
 
 ## Self-Review (at authoring)
 
