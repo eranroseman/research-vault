@@ -689,7 +689,14 @@ def observe_autoexport(
             final.result,
             final.detail,
         )
-    return _observation(final)
+    # The validated window comparison is the result; a target BBT rewrote after
+    # it was captured is warn-only staleness for the next pass, not a failure.
+    return AutoexportObservation(
+        compared.result,
+        compared.detail,
+        final.result,
+        final.detail,
+    )
 
 
 def staleness(vault_root, client) -> Result:

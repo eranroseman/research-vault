@@ -1264,8 +1264,12 @@ def test_observe_commits_validated_snapshot_when_target_changes_before_commit(
 
     observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
 
-    assert observed.result is Result.UNMATCHED
+    assert observed.result is Result.MATCHED
+    assert observed.detail == "bibliography auto-export matches on-demand export"
     assert observed.staleness is Result.UNMATCHED
+    assert observed.staleness_detail == (
+        "bibliography auto-export does not match on-demand export"
+    )
     committed = subprocess.run(
         ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
         cwd=tmp_vault,
@@ -1275,3 +1279,55 @@ def test_observe_commits_validated_snapshot_when_target_changes_before_commit(
     ).stdout
     assert committed.encode() == validated
     assert json.loads(target.read_text())[0]["id"] == "raced"
+
+
+def test_observe_target_rewrite_after_the_commit_is_warn_only_staleness(
+    tmp_vault, monkeypatch
+):
+    """Turning a post-commit BBT rewrite into a hard failure must fail."""
+    target = tmp_vault / bibliography.BIB_PATH
+    validated = json.dumps(ITEMS).encode()
+    target.write_bytes(validated)
+    original_commit = bibliography.commit_autoexport
+
+    def rewrite_after_commit(vault, snapshot, **kwargs):
+        changed = original_commit(vault, snapshot, **kwargs)
+        target.write_text('[{"id":"later","title":"Later"}]')
+        return changed
+
+    monkeypatch.setattr(bibliography, "commit_autoexport", rewrite_after_commit)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
+
+    assert observed.result is Result.MATCHED
+    assert observed.detail == "bibliography auto-export matches on-demand export"
+    assert observed.staleness is Result.UNMATCHED
+    assert observed.staleness_detail == (
+        "bibliography auto-export does not match on-demand export"
+    )
+    committed = subprocess.run(
+        ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
+        cwd=tmp_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    assert committed.encode() == validated
+
+
+def test_observe_committed_bibliography_mismatch_stays_hard_unmatched(
+    tmp_vault, monkeypatch
+):
+    """Letting a commit that did not land pass as MATCHED must fail."""
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text('[{"id":"stale","title":"Stale"}]')
+    subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "stale"], cwd=tmp_vault, check=True)
+    target.write_bytes(json.dumps(ITEMS).encode())
+    monkeypatch.setattr(bibliography, "commit_autoexport", lambda *a, **k: True)
+
+    observed = _observe(tmp_vault, StubClient(ITEMS), FakeClock())
+
+    assert observed.result is Result.UNMATCHED
+    assert observed.detail == ("committed bibliography does not match on-demand export")
+    assert observed.staleness is Result.MATCHED
