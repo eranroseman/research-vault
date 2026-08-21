@@ -388,7 +388,9 @@ def append_ack(
         notice_date,
     )
     matches = [
-        entry for entry in load(vault) if entry.ack_of is None and entry.id == finding_id
+        entry
+        for entry in load(vault)
+        if entry.ack_of is None and entry.id == finding_id
     ]
     if len(matches) != 1:
         raise ValueError("acknowledgment must reference exactly one finding")

@@ -499,7 +499,9 @@ def test_screening_state_sorts_mixed_anchored_origins_without_crashing(fixture_v
     assert [out.extra["claim_id"] for out in outs] == ["c-34343434", None]
 
 
-def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(fixture_vault):
+def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(
+    fixture_vault,
+):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
         draft.read_text() + "- (inference) Relies on contested support [supports:: "

@@ -216,10 +216,10 @@ Ruled keeps (do NOT rename): `surface` (spec §6 anchored; register split record
 
 ### Task 6: Acceptance + merge
 
-- [ ] **Step 1:** Full suite offline green; live suite if the environment allows (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`).
-- [ ] **Step 2:** `ruff format --check` + `ruff check` clean at current config (Plan Q's extended set arrives later — do not pre-adopt it here).
-- [ ] **Step 3:** Boundary greps: no hook imports `__main__`; no production reference to any cut symbol; `git diff main --stat` shows only this plan's files.
-- [ ] **Step 4:** Verify Task 5's retired identifiers are absent on living surfaces (judged grep: `contested|source-status|verification-failures|hk-sel\b|RepoPathValue|entry_id` — history-rule paths excluded).
+- [x] **Step 1:** Full suite offline green; live suite if the environment allows (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`).
+- [x] **Step 2:** `ruff format --check` + `ruff check` clean at current config (Plan Q's extended set arrives later — do not pre-adopt it here).
+- [x] **Step 3:** Boundary greps: no hook imports `__main__`; no production reference to any cut symbol; `git diff main --stat` shows only this plan's files.
+- [x] **Step 4:** Verify Task 5's retired identifiers are absent on living surfaces (judged grep: `contested|source-status|verification-failures|hk-sel\b|RepoPathValue|entry_id` — history-rule paths excluded).
 - [ ] **Step 5:** Merge per `superpowers:finishing-a-development-branch`; report the merge SHA. The author then runs `/code-review ultra` on the trust-critical modules; Plan Q's Step 0 gate is satisfied.
 
 ## Self-Review (at authoring)

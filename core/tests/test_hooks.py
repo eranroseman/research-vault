@@ -738,9 +738,7 @@ def test_two_distinct_same_day_bypasses_stay_separately_acknowledgeable(
         "manual — publish-gate bypass: second, unrelated call",
     ]
 
-    inbox.append_ack(
-        fixture_vault, findings[0].id, "manual", actor="human:eran"
-    )
+    inbox.append_ack(fixture_vault, findings[0].id, "manual", actor="human:eran")
     still_open = [entry.id for entry in inbox.open_entries(fixture_vault)]
     assert still_open == [findings[1].id], "closing one act must not close the other"
 

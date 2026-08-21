@@ -225,7 +225,7 @@ def test_import_note_render_rejection_leaves_a_prior_note_untouched(
     _install_import_client(monkeypatch, cli, _item(), [])
     destination = notes.note_path(tmp_vault, "smith2020")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text("---\ncitekey: \"smith2020\"\n---\nprior\n")
+    destination.write_text('---\ncitekey: "smith2020"\n---\nprior\n')
     before = destination.read_bytes()
 
     def refuse(*args, **kwargs):
@@ -233,9 +233,12 @@ def test_import_note_render_rejection_leaves_a_prior_note_untouched(
 
     monkeypatch.setattr(cli.notes, "render_note", refuse)
 
-    assert cli.cmd_import_note(
-        argparse.Namespace(
-            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+    assert (
+        cli.cmd_import_note(
+            argparse.Namespace(
+                citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+            )
         )
-    ) != 0
+        != 0
+    )
     assert destination.read_bytes() == before

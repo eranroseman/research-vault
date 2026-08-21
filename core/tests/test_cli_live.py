@@ -1081,7 +1081,9 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
         accessed="2026-08-16",
         generated_at="2026-08-16T00:00:00Z",
     )
-    legacy = '  <!-- hk-selector prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
+    legacy = (
+        '  <!-- hk-selector prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
+    )
     note_path.write_bytes(
         original.replace(notes.MANAGED_CLOSE, legacy + notes.MANAGED_CLOSE).encode()
     )
