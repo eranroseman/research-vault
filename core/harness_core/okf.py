@@ -6,7 +6,13 @@ from . import frontmatter
 
 
 def _day_lines(day_file: Path) -> list[str]:
-    _data, body = frontmatter.parse(day_file.read_text())
+    try:
+        _data, body = frontmatter.parse(day_file.read_text())
+    except (OSError, UnicodeError, frontmatter.FrontmatterError):
+        # A malformed or unreadable day file (hand-edited by a human) must
+        # not crash regeneration for every other, well-formed day file — the
+        # same tolerance _okf_probe already applies when scanning day files.
+        return []
     return [line for line in body.splitlines() if line.strip()]
 
 

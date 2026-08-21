@@ -36,6 +36,22 @@ def test_inbox_load_tolerates_frontmatter(fixture_vault):
     assert inbox.load(fixture_vault)[-1].check == "doi"
 
 
+def test_regenerate_log_skips_a_malformed_day_file(tmp_path):
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "log" / "2026-08-19.md").write_text("- 09:00 human:eran — a\n")
+    # Unterminated frontmatter: a plausible hand-edit mistake in a daily note.
+    (tmp_path / "log" / "2026-08-20.md").write_text(
+        '---\ntype: "daily"\n- 10:00 human:eran — broken\n'
+    )
+
+    text = okf.regenerate_log(tmp_path)
+
+    data, body = frontmatter.parse(text)
+    assert data["type"] == "log"
+    assert "— a" in body
+    assert "[[log/2026-08-19]]" in body and "[[log/2026-08-20]]" in body
+
+
 def test_doctor_okf_probe(tmp_path):
     scaffold.scaffold_vault(tmp_path)
     probes = {p[0] for p in scaffold.doctor(tmp_path, client=None, network=False)}
