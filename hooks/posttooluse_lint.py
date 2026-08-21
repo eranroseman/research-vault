@@ -20,21 +20,21 @@ def _core_path() -> None:
 
 def _load_bibliography(vault: Path):
     _core_path()
-    from harness_core import bibliography
+    from knowledge_harness import bibliography
 
     return bibliography.load(vault)
 
 
 def _file_outcomes(vault: Path, path: Path, bibliography_universe):
     _core_path()
-    from harness_core.verify import file_outcomes as collect
+    from knowledge_harness.verify import file_outcomes as collect
 
     return collect(vault, path, bibliography_universe)
 
 
 def _encode_repo_path(raw: bytes) -> str:
     _core_path()
-    from harness_core.pathcodec import encode_repo_path
+    from knowledge_harness.pathcodec import encode_repo_path
 
     return encode_repo_path(raw)
 

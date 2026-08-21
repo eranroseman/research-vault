@@ -2,7 +2,7 @@ import hashlib
 
 import pytest
 
-from harness_core import Result, events, frontmatter, notes
+from knowledge_harness import Result, events, frontmatter, notes
 
 ITEM = {
     "id": "smith2020",
@@ -31,7 +31,7 @@ def test_fresh_note_uses_okf_literature_metadata():
     assert data["fixity-sha256"] == ["aa11"]
     assert data["status"] == "unscreened"
     assert data["generated"] == {
-        "by": "harness_core/0.1.0",
+        "by": "knowledge_harness/0.1.0",
         "at": GENERATED_AT,
     }
 
@@ -81,7 +81,7 @@ def test_rerender_repairs_incomplete_generation_metadata_with_injected_time():
         generated_at=GENERATED_AT,
     )
     data, body = frontmatter.parse(first)
-    data["generated"] = {"by": "harness_core/0.1.0"}
+    data["generated"] = {"by": "knowledge_harness/0.1.0"}
     incomplete = frontmatter.serialize(data) + body
 
     repaired = notes.render_note(
@@ -195,7 +195,7 @@ def test_unowned_frontmatter_fields_survive_rerender():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, accessed="2026-08-16")
     data, body = frontmatter.parse(v1)
     data["verified"] = [
-        {"by": "harness_core/0.1.0", "at": "2026-08-16", "check": "doi"}
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"}
     ]
     data["superseded-by"] = "smith2024"
     data["authority"] = "peer-reviewed journal"

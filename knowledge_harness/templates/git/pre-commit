@@ -7,8 +7,8 @@ if ! command -v python3 >/dev/null 2>&1; then
   echo "pre-commit: python3 unavailable; refusing an unverifiable commit." >&2
   exit 1
 fi
-if ! python3 -c "import harness_core" 2>/dev/null; then
-  echo "pre-commit: harness_core is not importable; CI will replay verification." >&2
+if ! python3 -c "import knowledge_harness" 2>/dev/null; then
+  echo "pre-commit: knowledge_harness is not importable; CI will replay verification." >&2
   exit 0
 fi
 
@@ -19,7 +19,7 @@ if ! git cat-file -e "$git_base^{tree}"; then
   exit 1
 fi
 
-python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index
+python3 -m knowledge_harness verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index
 code=$?
 case "$code" in
   0) exit 0 ;;

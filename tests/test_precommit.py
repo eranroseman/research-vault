@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 CORE = Path(__file__).resolve().parents[1]
-HOOK = CORE / "harness_core" / "templates" / "git" / "pre-commit"
+HOOK = CORE / "knowledge_harness" / "templates" / "git" / "pre-commit"
 
 
 def _git(repo, *args):
@@ -61,7 +61,7 @@ def test_hook_resolves_one_verified_tree_and_invokes_exact_index_contract(
     argv = args_file.read_bytes().split(b"\0")[:-1]
     assert argv[:5] == [
         b"-m",
-        b"harness_core",
+        b"knowledge_harness",
         b"verify",
         b"--vault",
         os.fsencode(repo),

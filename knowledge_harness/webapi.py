@@ -71,7 +71,8 @@ def _request(url, vault_root, params, headers, method):
         for key, value in (headers or {}).items()
         if key.lower() != "user-agent"
     }
-    request_headers["User-Agent"] = f"harness_core/{__version__} (mailto:{address})"
+    ua = f"knowledge_harness/{__version__} (mailto:{address})"
+    request_headers["User-Agent"] = ua
     return urllib.request.Request(full_url, headers=request_headers, method=method)
 
 

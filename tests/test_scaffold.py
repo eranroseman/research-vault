@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_core import frontmatter, scaffold
+from knowledge_harness import frontmatter, scaffold
 
 VAULT_DIRS = [
     "inbox",
@@ -63,7 +63,7 @@ def initialize_repo(path):
 
 def test_scaffold_module_is_available():
     """Removing the scaffold command implementation makes this fail."""
-    assert find_spec("harness_core.scaffold") is not None
+    assert find_spec("knowledge_harness.scaffold") is not None
 
 
 def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
@@ -164,7 +164,7 @@ def test_scaffold_ci_flags_are_independent(tmp_path):
 def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path):
     vault = tmp_path / "vault"
     created = scaffold.scaffold_vault(vault, with_ci=True, with_rw_ci=True)
-    packaged = resources.files("harness_core").joinpath("templates")
+    packaged = resources.files("knowledge_harness").joinpath("templates")
     expected = {
         ".git/hooks/pre-commit": packaged.joinpath("git", "pre-commit"),
         ".github/workflows/verify.yml": packaged.joinpath("ci", "verify.yml"),
@@ -329,7 +329,7 @@ def test_scaffold_cli_prints_the_created_paths(tmp_path):
         [
             sys.executable,
             "-m",
-            "harness_core",
+            "knowledge_harness",
             "scaffold",
             "--vault",
             str(vault),
@@ -356,7 +356,7 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
         [
             sys.executable,
             "-m",
-            "harness_core",
+            "knowledge_harness",
             "scaffold",
             "--vault",
             str(vault),
@@ -371,7 +371,7 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
     assert completed.stdout.splitlines() == sorted(
         [*EXPECTED_CREATED, ".github/workflows/rw-batch.yml"]
     )
-    packaged_rw = resources.files("harness_core").joinpath(
+    packaged_rw = resources.files("knowledge_harness").joinpath(
         "templates", "ci", "rw-batch.yml"
     )
     rw_workflow = vault / ".github/workflows/rw-batch.yml"

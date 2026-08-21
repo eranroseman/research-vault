@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from harness_core import gitstate
+from knowledge_harness import gitstate
 
 
 def test_revision_paths_and_blob_bytes_preserve_an_arbitrary_revision(tmp_vault):

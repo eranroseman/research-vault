@@ -23,8 +23,8 @@
 
 ## File Structure
 
-- Modify: `pyproject.toml` (dev extras + ruff rule extension), `.gitignore`, `harness_core/__main__.py` + `tests/*` (lint fixes)
-- Create: `scripts/mutation_gate.py` (gate + baseline updater), `tests/test_mutation_gate.py`, `mutation-baseline.txt` (committed survivor baseline), `harness_core/*.py.manifest.json` (one sidecar per module, committed), `.github/workflows/quality.yml`
+- Modify: `pyproject.toml` (dev extras + ruff rule extension), `.gitignore`, `knowledge_harness/__main__.py` + `tests/*` (lint fixes)
+- Create: `scripts/mutation_gate.py` (gate + baseline updater), `tests/test_mutation_gate.py`, `mutation-baseline.txt` (committed survivor baseline), `knowledge_harness/*.py.manifest.json` (one sidecar per module, committed), `.github/workflows/quality.yml`
 
 ---
 
@@ -83,11 +83,11 @@ git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py
 ### Task 2: Ruff + mypy regression rules, mdformat, config validity
 
 **Files:**
-- Modify: `pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `harness_core/` (lint + type fixes), test files (PLW1510, S108 classification)
+- Modify: `pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `knowledge_harness/` (lint + type fixes), test files (PLW1510, S108 classification)
 
 **Interfaces:**
 - Consumes: Task 1's installed dev extra.
-- Produces: `ruff check harness_core tests scripts` and `mypy harness_core` both clean — Task 5's CI runs exactly these (the `scripts/` package exists from Task 4 onward; until then the path is simply absent and ruff skips it).
+- Produces: `ruff check knowledge_harness tests scripts` and `mypy knowledge_harness` both clean — Task 5's CI runs exactly these (the `scripts/` package exists from Task 4 onward; until then the path is simply absent and ruff skips it).
 
 **Pre-measured violations at 2026-08-20 HEAD** (pre-Plan-C/T; as-built HEAD governs — C/T code may add hits, fix those in the same sweep): DTZ×4 (`datetime.date.today()` in `__main__.py`), PTH115×1 (`os.readlink`, `__main__.py:367`), RUF×6 (5 core + 1 tests), PLW1510×2 (tests call `subprocess.run` without explicit `check`), S108×2 (`"/tmp/escape"` in `tests/test_cli_live.py:322` and `tests/test_notes.py:23` — classify: if these are deliberate absolute-path-escape fixtures, per-line `noqa: S108` with that reason; otherwise `tmp_path`), S314×1 (`checks.py:683` — **resolved by admission, not noqa** (spec §8 dependency discipline; docs/2026-08-20-zero-dep-rethink.md): add `defusedxml==0.7.1` to `[project] dependencies` as core's first pinned runtime dependency — parsing externally-influenced XML is commodity-hard — lazy-imported inside the parsing function so gate-path startup is unchanged; replace the `ElementTree` parse with the `defusedxml.ElementTree` equivalent). Also PERF×3 (loop/comprehension rewrites as reported). Zero-hit adoptions (pure regression guards): ARG, FURB, ISC, PGH, the rest of the S family, the future-guard block ASYNC/EXE/FA/FLY/G/INT/LOG/N/PYI/RET/TC/YTT (structurally n/a today — no async, no logging, no stubs; the guard is already armed the day such code appears), and T20 outside `__main__.py`/`scripts/` (all 18 measured prints live in `__main__.py` — library modules get the stray-debug-print guard; a rogue print in `checks.py` would corrupt the CLI stdout contract).
 
@@ -173,11 +173,11 @@ max-complexity = 32  # green at adoption (worst: _target_hash CC 31); Task 3 tig
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cli_live.py" = ["UP012"]
 "tests/*" = ["RUF001", "RUF002", "RUF003", "S101"]  # unicode fixtures deliberate; assert IS pytest
-"harness_core/__main__.py" = ["T20"]  # print IS the CLI output contract (all 18 measured uses)
+"knowledge_harness/__main__.py" = ["T20"]  # print IS the CLI output contract (all 18 measured uses)
 "scripts/*" = ["T20"]  # gate scripts report via stdout by design
 
 [tool.mypy]
-files = ["harness_core"]
+files = ["knowledge_harness"]
 check_untyped_defs = true  # rung 1: untyped function bodies are checked (+3 real errors at adoption)
 strict_equality = true     # truth flags — measured zero-cost at adoption
 warn_unused_ignores = true
@@ -201,12 +201,12 @@ ignore_missing_imports = true  # optional [pdf] extra; dev lane installs [dev] o
 
 - [ ] **Step 2: Run to see the expected failures**
 
-Run: `source .venv/bin/activate && ruff check harness_core tests --no-cache; mypy harness_core`
+Run: `source .venv/bin/activate && ruff check knowledge_harness tests --no-cache; mypy knowledge_harness`
 Expected: the pre-measured violations above (counts may differ at HEAD; every hit gets classified fix-vs-noqa-with-reason, nothing blanket-ignored).
 
 - [ ] **Step 3: Fix**
 
-Autofix first: `ruff check harness_core tests --fix`. Then by hand:
+Autofix first: `ruff check knowledge_harness tests --fix`. Then by hand:
 - DTZ: every `datetime.date.today()` becomes the UTC clock, e.g. `__main__.py:219`:
 
 ```python
@@ -217,7 +217,7 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 - PLW1510: add explicit `check=True` (or `check=False` with a reason) to the two test `subprocess.run` calls.
 - RUF012/RUF013-class hits: annotate mutable class attributes / make `Optional` explicit as reported.
 - S108: classify per the pre-measured note (noqa-with-reason if a deliberate escape fixture, else `tmp_path`).
-- S314: the defusedxml admission per the pre-measured note — dependency added, lazy import at the parse site, no noqa. Verify gate-path startup unaffected: `python -c "import time,subprocess,sys; t=time.perf_counter(); subprocess.run([sys.executable,'-m','harness_core','--help'],capture_output=True); print(time.perf_counter()-t)"` before and after — the delta must be noise.
+- S314: the defusedxml admission per the pre-measured note — dependency added, lazy import at the parse site, no noqa. Verify gate-path startup unaffected: `python -c "import time,subprocess,sys; t=time.perf_counter(); subprocess.run([sys.executable,'-m','knowledge_harness','--help'],capture_output=True); print(time.perf_counter()-t)"` before and after — the delta must be noise.
 - S101 in core (3 hits): replace production `assert` with explicit raises, or noqa-with-reason where it guards an internal invariant.
 - PERF (3 hits): apply the reported rewrites.
 - mypy's 13: annotate the seven `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
@@ -227,7 +227,7 @@ Autofix first: `ruff check harness_core tests --fix`. Then by hand:
 **Format policy (author-ruled 2026-08-21 across four push-backs; the governing principle: uniformity everywhere, zero remembered rules, each surface canonicalized by the right owner):**
 
 - **mdformat owns all CommonMark repo markdown**: `README.md`, all of `docs/` (history surfaces included — verified: `--wrap keep` preserves content, fences byte-safe, no prose reflow; **the history rule's reading is amended: content and meaning are never rewritten; form was canonicalized once**, commit carried in `.git-blame-ignore-revs`), and `skills/`. `tests/` needs no exclusion — it contains zero `.md` files (verified; inline string fixtures are invisible to mdformat by construction).
-- **The sole writer IS the formatter for vault-dialect surfaces** (`harness_core/templates/vault/**` and everything the harness emits): measured 2026-08-21, mdformat escapes the dialect — wikilinks `[[x]]` → `\[[x]\]`, inline fields `[supports:: …]` escaped, `%%/hk-managed%%` indented — and `mdformat-obsidian` 0.3.2 does the same, so no off-the-shelf formatter speaks Obsidian dialect. Canonical form there is the render/scaffold contract's output, per the author's principle ("having the sole writer use the formatter eliminates the problem"): managed regions canonicalize by full re-render (witnessed by `managed-sha256`), ledgers by the entry grammar + append-only discipline. This is a dialect boundary in tool config (invocation path list), not a remembered rule.
+- **The sole writer IS the formatter for vault-dialect surfaces** (`knowledge_harness/templates/vault/**` and everything the harness emits): measured 2026-08-21, mdformat escapes the dialect — wikilinks `[[x]]` → `\[[x]\]`, inline fields `[supports:: …]` escaped, `%%/hk-managed%%` indented — and `mdformat-obsidian` 0.3.2 does the same, so no off-the-shelf formatter speaks Obsidian dialect. Canonical form there is the render/scaffold contract's output, per the author's principle ("having the sole writer use the formatter eliminates the problem"): managed regions canonicalize by full re-render (witnessed by `managed-sha256`), ledgers by the entry grammar + append-only discipline. This is a dialect boundary in tool config (invocation path list), not a remembered rule.
 
 Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templates deliberately absent — dialect surface). Record the churn commit hash in a new `.git-blame-ignore-revs` file and note `git config blame.ignoreRevsFile .git-blame-ignore-revs` in README's dev section. After the churn: `grep -rn '\\\[\[' docs skills README.md` must return nothing (no wikilink escaping happened — the CommonMark set was truly dialect-free).
 
@@ -243,7 +243,7 @@ Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templa
 | JSON (manifests, `hooks.json`) | stdlib `json.tool` canonical form | asserted inside `test_config_validity.py` — formatter and check in one, zero deps |
 | Shell (`templates/git/pre-commit`) | shfmt (CI action, pinned) | CI diff mode |
 
-Apply the one-time churn: `yamlfix .github/workflows harness_core/templates/ci && pyproject-fmt pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
+Apply the one-time churn: `yamlfix .github/workflows knowledge_harness/templates/ci && pyproject-fmt pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
 
 - [ ] **Step 3b-1b: The orchestration seam** (rethink audit 2026-08-21, `docs/2026-08-21-lint-format-rethink.md` — closes R7 "one command locally == CI"). Create `.pre-commit-config.yaml` at repo root:
 
@@ -256,7 +256,7 @@ Apply the one-time churn: `yamlfix .github/workflows harness_core/templates/ci &
 # lives here as config; quality metrics (CRAP/drywall/mutation) are a different
 # axis and run as separate workflow steps.
 # NAME COLLISION, deliberate: this is the repo's DEV-LANE pre-commit (style and
-# correctness). The vault's pre-commit (harness_core/templates/git/pre-commit)
+# correctness). The vault's pre-commit (knowledge_harness/templates/git/pre-commit)
 # is a TRUST GATE owned by the harness — a different system; do not conflate.
 repos:
   - repo: local
@@ -264,19 +264,19 @@ repos:
       - id: ruff-format
         name: "form: python (ruff format)"
         language: system
-        entry: bash -c 'ruff format harness_core tests scripts'
+        entry: bash -c 'ruff format knowledge_harness tests scripts'
         pass_filenames: false
         always_run: true
       - id: ruff-check
         name: "lint: python (ruff)"
         language: system
-        entry: bash -c 'ruff check harness_core tests scripts'
+        entry: bash -c 'ruff check knowledge_harness tests scripts'
         pass_filenames: false
         always_run: true
       - id: mypy
         name: "types: python (mypy rung-1)"
         language: system
-        entry: bash -c 'mypy harness_core'
+        entry: bash -c 'mypy knowledge_harness'
         pass_filenames: false
         always_run: true
       - id: mdformat
@@ -288,7 +288,7 @@ repos:
       - id: yamlfix
         name: "form: yaml (yamlfix)"
         language: system
-        entry: bash -c 'yamlfix .github/workflows harness_core/templates/ci'
+        entry: bash -c 'yamlfix .github/workflows knowledge_harness/templates/ci'
         pass_filenames: false
         always_run: true
       - id: pyproject-fmt
@@ -308,14 +308,14 @@ repos:
       - id: shellcheck
         name: "lint: shell (shellcheck)"
         language: system
-        entry: shellcheck harness_core/templates/git/pre-commit
+        entry: shellcheck knowledge_harness/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]
       - id: shfmt
         name: "form: shell (shfmt, diff mode)"
         language: system
-        entry: shfmt -d harness_core/templates/git/pre-commit
+        entry: shfmt -d knowledge_harness/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]
@@ -355,18 +355,18 @@ repos:
 
 **Vault-side note (one line in the AGENTS.md template, informative not normative)**: formatters are writers; the vault's machine surfaces (`log/`, `inbox/review-queue.md`, literature managed regions, `system/bibliography.json`) each have an owner and a byte contract, and the trust machinery rejects foreign writers mechanically — this line explains why the alarms fire, it is not itself the enforcement.
 
-- [ ] **Step 3c: Config validity test** — `tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `harness_core/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`pyproject.toml`) with `tomllib`; assert each loads **and that every JSON file equals its `json.dumps(obj, indent=2, ensure_ascii=False) + newline` canonical form** (the failure message prints the `python -m json.tool` command that fixes it). A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI. **Identifier-governance parity (added 2026-08-22, replacing an AGENTS.md context rule with mechanical enforcement):** the same test parses `docs/terminology.md` §4.4's tables and asserts every member of the code's reason-code registry, check-id set, and doctor probe-id set at HEAD has a row — an ungoverned identifier fails the suite instead of waiting for an audit. **Record-immutability check (added 2026-08-22 — mechanizes AGENTS.md's history rule per the eliminate>mechanism>rule ladder):** a pre-commit-config hook diffing the branch against origin/main and failing on any modification, rename, or deletion under the record paths (`research/`, `analysis/`, `docs/adr/`, completed plans — the manifest is a path list in the hook entry itself); once green in CI, the AGENTS.md sentence becomes a candidate for retirement. **Same test, same class — skill frontmatter**: for every `skills/*/SKILL.md`, parse the frontmatter with the core's own `frontmatter.parse` (dogfooding the tokenizer on real files, zero new deps) and assert the plugin contract: `name` present and equal to the skill's directory name, `description` present and non-empty, any `disable-model-invocation` value boolean. A typo'd SKILL.md frontmatter is the `hooks.json` failure class — silent at plugin load. (Vault-dialect frontmatter needs nothing here: its parser IS the lint, its sole writer IS the formatter, and the canonicality tests enforce both.)
+- [ ] **Step 3c: Config validity test** — `tests/test_config_validity.py`: parse every repo JSON (`hooks/hooks.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `knowledge_harness/templates/harness/machine.json.example`) with stdlib `json` and every TOML (`pyproject.toml`) with `tomllib`; assert each loads **and that every JSON file equals its `json.dumps(obj, indent=2, ensure_ascii=False) + newline` canonical form** (the failure message prints the `python -m json.tool` command that fixes it). A malformed `hooks.json` currently fails silently at plugin load — this makes it fail loudly in CI. **Identifier-governance parity (added 2026-08-22, replacing an AGENTS.md context rule with mechanical enforcement):** the same test parses `docs/terminology.md` §4.4's tables and asserts every member of the code's reason-code registry, check-id set, and doctor probe-id set at HEAD has a row — an ungoverned identifier fails the suite instead of waiting for an audit. **Record-immutability check (added 2026-08-22 — mechanizes AGENTS.md's history rule per the eliminate>mechanism>rule ladder):** a pre-commit-config hook diffing the branch against origin/main and failing on any modification, rename, or deletion under the record paths (`research/`, `analysis/`, `docs/adr/`, completed plans — the manifest is a path list in the hook entry itself); once green in CI, the AGENTS.md sentence becomes a candidate for retirement. **Same test, same class — skill frontmatter**: for every `skills/*/SKILL.md`, parse the frontmatter with the core's own `frontmatter.parse` (dogfooding the tokenizer on real files, zero new deps) and assert the plugin contract: `name` present and equal to the skill's directory name, `description` present and non-empty, any `disable-model-invocation` value boolean. A typo'd SKILL.md frontmatter is the `hooks.json` failure class — silent at plugin load. (Vault-dialect frontmatter needs nothing here: its parser IS the lint, its sole writer IS the formatter, and the canonicality tests enforce both.)
 
 - [ ] **Step 4: Verify clean + suite green**
 
-Run: `ruff check harness_core tests --no-cache && mypy harness_core && mdformat --check --wrap keep README.md docs skills && python -m pytest tests -q`
+Run: `ruff check knowledge_harness tests --no-cache && mypy knowledge_harness && mdformat --check --wrap keep README.md docs skills && python -m pytest tests -q`
 Expected: `All checks passed!`, `Success: no issues found`, mdformat silent, and all tests PASS (the DTZ fix must not break date-based assertions; if a test pinned a local-clock date, fix the test to the UTC clock — same ruling).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add pyproject.toml harness_core tests
+git add pyproject.toml knowledge_harness tests
 git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling, 10 type fixes, recorded skips)"
 ```
 
@@ -375,27 +375,27 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 ### Task 3: CRAP/CC backlog burn-down
 
 **Files:**
-- Modify: `harness_core/__main__.py` (`_target_hash` split), `tests/test_inbox.py` (+ any test file covering `inbox.load` paths), `pyproject.toml` (mccabe tighten)
+- Modify: `knowledge_harness/__main__.py` (`_target_hash` split), `tests/test_inbox.py` (+ any test file covering `inbox.load` paths), `pyproject.toml` (mccabe tighten)
 
 **Interfaces:**
 - Consumes: Task 2's config (C90 at 32, gates green).
-- Produces: `crap4py harness_core --lcov lcov.info --max-crap 30` exits 0; `ruff check harness_core` clean at `max-complexity = 28`. Task 5's workflow gates at these values.
+- Produces: `crap4py knowledge_harness --lcov lcov.info --max-crap 30` exits 0; `ruff check knowledge_harness` clean at `max-complexity = 28`. Task 5's workflow gates at these values.
 
 **Why these two functions (measured 2026-08-20; as-built HEAD governs — if Plan C/T added functions violating the gates, burn those down here too, same recipes):** CRAP ≥ CC always (`CC² × (1−cov)³ + CC`), so `--max-crap 30` forces exactly two outcomes — `_target_hash` (CC 31, 77.3% cov, CRAP 42.3) can never pass at any coverage and **must split**; `inbox.load` (CC 27, 72.7%, CRAP 41.8) passes at **≥84% branch coverage** and needs **tests, not surgery**.
 
-- [ ] **Step 1: Branch-coverage tests for `inbox.load`** — read the coverage report's uncovered branches for it (`python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=term-missing 2>/dev/null | grep inbox`), write failing-then-passing tests for each uncovered branch (malformed entries, ack-scope edges, empty/absent file paths — whatever the report names). Target: `inbox.load` branch coverage ≥85%.
-- [ ] **Step 2: Verify the CRAP drop** — regenerate lcov, run `crap4py harness_core --lcov lcov.info --fragment inbox`; expected: `inbox.load` CRAP ≤ 30.
+- [ ] **Step 1: Branch-coverage tests for `inbox.load`** — read the coverage report's uncovered branches for it (`python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=term-missing 2>/dev/null | grep inbox`), write failing-then-passing tests for each uncovered branch (malformed entries, ack-scope edges, empty/absent file paths — whatever the report names). Target: `inbox.load` branch coverage ≥85%.
+- [ ] **Step 2: Verify the CRAP drop** — regenerate lcov, run `crap4py knowledge_harness --lcov lcov.info --fragment inbox`; expected: `inbox.load` CRAP ≤ 30.
 - [ ] **Step 3: Split `_target_hash`** — extract coherent legs (per its structure at HEAD: the per-kind target-resolution branches are the natural seams) into named helpers until `_target_hash` and every extracted helper have CC ≤ 28. Pure refactor: no behavior change, suite stays green with zero test edits (if a test must change, stop — that's a behavior change, escalate).
 - [ ] **Step 4: Tighten the mccabe cap** — `max-complexity = 32` → `28` in `pyproject.toml`; update the comment.
-- [ ] **Step 5: Verify all gates green** — `ruff check harness_core tests --no-cache && python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info && crap4py harness_core --lcov lcov.info --max-crap 30`; expected: all pass.
-- [ ] **Step 6: Commit** — `git add harness_core tests pyproject.toml && git commit -m "refactor: split _target_hash (CC<=28), branch-test inbox.load — CRAP ceiling 30, CC cap 28"`
+- [ ] **Step 5: Verify all gates green** — `ruff check knowledge_harness tests --no-cache && python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info && crap4py knowledge_harness --lcov lcov.info --max-crap 30`; expected: all pass.
+- [ ] **Step 6: Commit** — `git add knowledge_harness tests pyproject.toml && git commit -m "refactor: split _target_hash (CC<=28), branch-test inbox.load — CRAP ceiling 30, CC cap 28"`
 
 ---
 
 ### Task 4: Mutation gate script + blanket baseline
 
 **Files:**
-- Create: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`, `mutation-baseline.txt`, `harness_core/<module>.py.manifest.json` for every module
+- Create: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`, `mutation-baseline.txt`, `knowledge_harness/<module>.py.manifest.json` for every module
 
 **Interfaces:**
 - Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set); Task 3's burn-down (baseline manifests must hash the post-refactor tree).
@@ -408,7 +408,7 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - Survivor lines look like `  line 79 char == "-" -> char != "-" func/_norm_with_map`. Baseline keys **exclude the line number** (`file::func/_norm_with_map::char == "-" -> char != "-"`) so unrelated edits shifting lines don't churn the baseline.
 - Policy: survivors matching a baseline key pass (pre-existing = backlog, never gate); any other survivor fails. Uncovered sites never fail the gate (coverage is crap4py's beat).
 - Gate mode scopes to files changed vs a base ref (merge-base diff); no changed core files → exit 0.
-- **git pathspecs resolve relative to the cwd.** The diff runs with `cwd=CORE` (the repository root), flag `--relative`, and pathspec `harness_core/*.py`. A stale, `core/`-prefixed pathspec (`core/harness_core/*.py` — the pre-flip nested layout) matches nothing and the gate passes forever — which is why `changed_modules` gets its own unit test against a scratch git repo (a dead gate and a working gate are otherwise indistinguishable on a quiet branch).
+- **git pathspecs resolve relative to the cwd.** The diff runs with `cwd=CORE` (the repository root), flag `--relative`, and pathspec `knowledge_harness/*.py`. A stale, `core/`-prefixed pathspec (`core/knowledge_harness/*.py` — the pre-flip nested layout) matches nothing and the gate passes forever — which is why `changed_modules` gets its own unit test against a scratch git repo (a dead gate and a working gate are otherwise indistinguishable on a quiet branch).
 - Baseline keys collapse duplicate identical mutations within one function (the real selectors output has `1 -> 0` twice on line 79) — deliberate: an advisory lane prefers a stable baseline over distinguishing repeats of an already-recorded survivor.
 - Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from the repository root (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
 
@@ -430,7 +430,7 @@ from scripts.mutation_gate import (
 )
 
 SAMPLE_OUTPUT = """\
-Mutation run: harness_core/selectors.py
+Mutation run: knowledge_harness/selectors.py
 Total mutation sites: 71
 Covered mutation sites: 54
 Uncovered mutation sites: 17
@@ -451,27 +451,27 @@ Survivors:
 
 
 def test_parse_survivors_extracts_file_func_and_mutation():
-    keys = parse_survivors("harness_core/selectors.py", SAMPLE_OUTPUT)
+    keys = parse_survivors("knowledge_harness/selectors.py", SAMPLE_OUTPUT)
     assert keys == {
-        'harness_core/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
-        "harness_core/selectors.py::func/find_context::position < 0 -> position <= 0",
-        "harness_core/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
+        'knowledge_harness/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
+        "knowledge_harness/selectors.py::func/find_context::position < 0 -> position <= 0",
+        "knowledge_harness/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
     }
 
 
 def test_parse_survivors_empty_when_no_survivors_section():
-    assert parse_survivors("harness_core/paths.py", "Killed: 5\nSurvived: 0\n") == set()
+    assert parse_survivors("knowledge_harness/paths.py", "Killed: 5\nSurvived: 0\n") == set()
 
 
 def test_new_survivors_ignores_baselined_keys():
     baseline = {
-        'harness_core/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
+        'knowledge_harness/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
     }
-    found = parse_survivors("harness_core/selectors.py", SAMPLE_OUTPUT)
+    found = parse_survivors("knowledge_harness/selectors.py", SAMPLE_OUTPUT)
     fresh = new_survivors(found, baseline)
     assert fresh == {
-        "harness_core/selectors.py::func/find_context::position < 0 -> position <= 0",
-        "harness_core/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
+        "knowledge_harness/selectors.py::func/find_context::position < 0 -> position <= 0",
+        "knowledge_harness/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
     }
 
 
@@ -492,7 +492,7 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     import subprocess
 
     repo = tmp_path / "repo"
-    (repo / "harness_core").mkdir(parents=True)
+    (repo / "knowledge_harness").mkdir(parents=True)
 
     def git(*argv: str) -> None:
         subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
@@ -500,16 +500,16 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     git("init", "-q", "-b", "main")
     git("config", "user.email", "t@example.invalid")
     git("config", "user.name", "t")
-    (repo / "harness_core" / "x.py").write_text("A = 1\n", encoding="utf-8")
-    (repo / "harness_core" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "knowledge_harness" / "x.py").write_text("A = 1\n", encoding="utf-8")
+    (repo / "knowledge_harness" / "__init__.py").write_text("", encoding="utf-8")
     git("add", ".")
     git("commit", "-q", "-m", "base")
     git("checkout", "-q", "-b", "feature")
-    (repo / "harness_core" / "x.py").write_text("A = 2\n", encoding="utf-8")
-    (repo / "harness_core" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
+    (repo / "knowledge_harness" / "x.py").write_text("A = 2\n", encoding="utf-8")
+    (repo / "knowledge_harness" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
     git("commit", "-q", "-a", "-m", "change")
 
-    assert changed_modules("main", cwd=repo) == ["harness_core/x.py"]
+    assert changed_modules("main", cwd=repo) == ["knowledge_harness/x.py"]
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -525,9 +525,9 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'scripts'`
 Invoked explicitly as `python scripts/mutation_gate.py` — no shebang on purpose
 (EXE001 fires on a shebang in a non-executable file, and nothing execs this directly).
 
-Gate mode (default): mutation-test the harness_core files changed since --base,
+Gate mode (default): mutation-test the knowledge_harness files changed since --base,
 fail (exit 1) on any survivor whose key is absent from the committed baseline.
---update-baseline: blanket-run every harness_core module (--mutate-all) and
+--update-baseline: blanket-run every knowledge_harness module (--mutate-all) and
 rewrite the baseline file with every current survivor.
 
 mutate4py exits 0 even when mutants survive, so pass/fail is parsed from the
@@ -580,7 +580,7 @@ def changed_modules(base: str, cwd: Path = CORE) -> list[str]:
     # --relative + a cwd-relative pathspec, both resolved from the repo root: a
     # stale core/-prefixed pathspec here matches nothing and kills the gate silently.
     diff = subprocess.run(
-        ["git", "diff", "--name-only", "--relative", f"{base}...HEAD", "--", "harness_core/*.py"],
+        ["git", "diff", "--name-only", "--relative", f"{base}...HEAD", "--", "knowledge_harness/*.py"],
         capture_output=True,
         text=True,
         check=True,
@@ -595,8 +595,8 @@ def changed_modules(base: str, cwd: Path = CORE) -> list[str]:
 
 def _all_modules() -> list[str]:
     return sorted(
-        f"harness_core/{p.name}"
-        for p in (CORE / "harness_core").glob("*.py")
+        f"knowledge_harness/{p.name}"
+        for p in (CORE / "knowledge_harness").glob("*.py")
         if p.name != "__init__.py"
     )
 
@@ -638,7 +638,7 @@ def main() -> int:
 
     modules = changed_modules(args.base)
     if not modules:
-        print("[gate] no changed harness_core modules; pass")
+        print("[gate] no changed knowledge_harness modules; pass")
         return 0
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()
@@ -673,18 +673,18 @@ Expected: `.contexts.db` written (gitignored). If the build degrades or errors, 
 - [ ] **Step 6: Blanket baseline run** (~10–15 min with contexts)
 
 ```bash
-python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
+python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
 python scripts/mutation_gate.py --update-baseline --lcov lcov.info --test-contexts .contexts.db
 ```
-Expected: `mutation-baseline.txt` written (expect roughly 150–250 keys); one `<module>.py.manifest.json` sidecar beside every module. Spot-check: `test -f harness_core/selectors.py.manifest.json` and `git diff --stat harness_core/*.py` shows **zero** source-file modifications (sidecar mode holds).
+Expected: `mutation-baseline.txt` written (expect roughly 150–250 keys); one `<module>.py.manifest.json` sidecar beside every module. Spot-check: `test -f knowledge_harness/selectors.py.manifest.json` and `git diff --stat knowledge_harness/*.py` shows **zero** source-file modifications (sidecar mode holds).
 
 - [ ] **Step 7: Verify the differential is quiet, then commit**
 
-Run: `python scripts/mutation_gate.py --lcov lcov.info --base HEAD` — Expected: `no changed harness_core modules; pass` (exit 0).
+Run: `python scripts/mutation_gate.py --lcov lcov.info --base HEAD` — Expected: `no changed knowledge_harness modules; pass` (exit 0).
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add scripts tests/test_mutation_gate.py mutation-baseline.txt harness_core/*.manifest.json
+git add scripts tests/test_mutation_gate.py mutation-baseline.txt knowledge_harness/*.manifest.json
 git commit -m "feat: mutation gate script + blanket baseline (sidecar manifests, no-new-survivors policy)"
 ```
 
@@ -734,13 +734,13 @@ jobs:
       - name: Workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Shell lint (shellcheck)
-        run: shellcheck harness_core/templates/git/pre-commit
+        run: shellcheck knowledge_harness/templates/git/pre-commit
       - name: Tests + branch coverage
-        run: python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
+        run: python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
       - name: CRAP ceiling (crap4py)
-        run: crap4py harness_core --lcov lcov.info --max-crap 30
+        run: crap4py knowledge_harness --lcov lcov.info --max-crap 30
       - name: Duplicate gate (drywall)
-        run: drywall harness_core
+        run: drywall knowledge_harness
       - name: Mutation gate (no new survivors)
         run: python scripts/mutation_gate.py --lcov lcov.info --base "origin/${{ github.base_ref || 'main' }}"
 ```
@@ -749,18 +749,18 @@ jobs:
 
 ```bash
 source .venv/bin/activate
-ruff check harness_core tests scripts && echo LINT-OK
-mypy harness_core && echo TYPE-OK
-python -m pytest tests -q --cov=harness_core --cov-branch --cov-report=lcov:lcov.info
-crap4py harness_core --lcov lcov.info --max-crap 30 && echo CRAP-OK
-drywall harness_core && echo DRY-OK
+ruff check knowledge_harness tests scripts && echo LINT-OK
+mypy knowledge_harness && echo TYPE-OK
+python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
+crap4py knowledge_harness --lcov lcov.info --max-crap 30 && echo CRAP-OK
+drywall knowledge_harness && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
-Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `pre-commit run --all-files` clean (the one command — supersedes per-tool invocations); `shellcheck harness_core/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `harness_core`, so expect a small or empty module list.)
+Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `pre-commit run --all-files` clean (the one command — supersedes per-tool invocations); `shellcheck knowledge_harness/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `knowledge_harness`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
 
-Run: `crap4py harness_core --lcov lcov.info --max-crap 15; echo "exit=$?"`
+Run: `crap4py knowledge_harness --lcov lcov.info --max-crap 15; echo "exit=$?"`
 Expected: `exit=1` (several functions sit between 15 and 30 post-burn-down). Do not commit any change from this step.
 
 - [ ] **Step 4: Commit**

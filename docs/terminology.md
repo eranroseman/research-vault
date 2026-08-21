@@ -41,7 +41,7 @@ Domain-scoped authorities (Crossref updates, W3C selectors) retain authority ins
 | OKF v0.2 reserved files (`index.md`, `log.md`), non-empty concept `type` | OKF (T1) | Adopted; vaults are structural OKF bundles. |
 | Optional `description` / `stale_after` (pass-through fields; no writer rewrites them) | OKF (T1) | Adopted per-note fields. |
 | `generated: {by, at}` on machine-written notes | OKF (T1) | Adopted alongside `verified` events. |
-| Actor convention (`harness_core/<version>` for process-written records; `human:`-prefixed actor for human-attributed ones) | OKF (T1) | Adopted; previously an S-promotion, now a plain T1 base application. |
+| Actor convention (`knowledge_harness/<version>` for process-written records; `human:`-prefixed actor for human-attributed ones) | OKF (T1) | Adopted; previously an S-promotion, now a plain T1 base application. |
 | `verified` event shape `{by, at, check}` | OKF (T1), harness `check` extension | Adopted; previously an S-promotion, now a plain T1 base application. |
 | Trust tier names: `unverified` → `machine-confirmed` → `human-reviewed` (cumulative) | OKF (T1) | Adopted; previously an S-promotion, now a plain T1 base application. |
 | `accessed` | CSL (T2) | Adopted; the former stack-consistency defect is closed. |

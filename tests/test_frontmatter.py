@@ -1,6 +1,6 @@
 import pytest
 
-from harness_core import frontmatter
+from knowledge_harness import frontmatter
 
 SAMPLE = {
     "citekey": "smith2020",
@@ -10,7 +10,7 @@ SAMPLE = {
     "fixity-sha256": ["aa11", "bb22"],
     "status": "unscreened",
     "verified": [
-        {"by": "harness_core/0.1.0", "at": "2026-08-16", "check": "doi"},
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"},
     ],
     "aliases": ["Smith 2020 — Mortality decline"],
 }
@@ -29,7 +29,7 @@ def test_serialize_shape():
     assert text.endswith("---\n")
     assert 'citekey: "smith2020"' in text
     assert "fixity-sha256:" in text
-    assert '- {by: "harness_core/0.1.0", at: "2026-08-16", check: "doi"}' in text
+    assert '- {by: "knowledge_harness/0.1.0", at: "2026-08-16", check: "doi"}' in text
 
 
 def test_parse_no_frontmatter():
@@ -75,7 +75,7 @@ def test_inline_dict_value_with_escaped_quote_roundtrip():
 def test_top_level_inline_mapping_with_iso_datetime_roundtrips():
     data = {
         "generated": {
-            "by": "harness_core/0.1.0",
+            "by": "knowledge_harness/0.1.0",
             "at": "2026-08-20T12:34:56Z",
         }
     }
@@ -83,7 +83,7 @@ def test_top_level_inline_mapping_with_iso_datetime_roundtrips():
     text = frontmatter.serialize(data)
     parsed, _ = frontmatter.parse(text)
 
-    assert 'generated: {by: "harness_core/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
+    assert 'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
     assert parsed == data
 
 

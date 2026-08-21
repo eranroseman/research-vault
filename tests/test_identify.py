@@ -2,7 +2,7 @@
 
 import pytest
 
-from harness_core import Result, checks, identify, webapi
+from knowledge_harness import Result, checks, identify, webapi
 
 
 def _fake_get(monkeypatch, table):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_core import Result, bibliography, frontmatter, notes, paths
+from knowledge_harness import Result, bibliography, frontmatter, notes, paths
 
 REAL_OBSERVE_AUTOEXPORT = bibliography.observe_autoexport
 
@@ -62,7 +62,7 @@ def test_provisioned_vault_opt_in_rejects_a_path_that_is_not_a_vault(tmp_path):
 @pytest.fixture(autouse=True)
 def matched_autoexport_observer(monkeypatch):
     """Keep import-unit fakes deterministic; observer behavior is tested explicitly."""
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     monkeypatch.setattr(
         cli.bibliography,
@@ -79,7 +79,7 @@ def matched_autoexport_observer(monkeypatch):
 
 def run_cli(*args):
     return subprocess.run(
-        [sys.executable, "-m", "harness_core", *args],
+        [sys.executable, "-m", "knowledge_harness", *args],
         capture_output=True,
         text=True,
     )
@@ -96,7 +96,7 @@ def test_probe():
 @pytest.mark.live
 def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
     # Pick any real citekey from the live library.
-    from harness_core.zotero import ZoteroClient
+    from knowledge_harness.zotero import ZoteroClient
 
     items = ZoteroClient().export_csl(None)
     citekey = items[0]["id"]
@@ -115,7 +115,7 @@ def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
 
 @pytest.mark.live
 def test_staleness_after_import_into_a_provisioned_vault(provisioned_vault):
-    from harness_core.zotero import ZoteroClient
+    from knowledge_harness.zotero import ZoteroClient
 
     citekey = ZoteroClient().export_csl(None)[0]["id"]
 
@@ -134,7 +134,7 @@ def test_probe_unreachable():
 
 
 def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     bases = []
 
@@ -155,7 +155,7 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
 
 
 def test_normalize_annotation_maps_live_bbt_shape_without_raw_aliases():
-    from harness_core.__main__ import normalize_annotation
+    from knowledge_harness.__main__ import normalize_annotation
 
     raw = {
         "annotationType": "highlight",
@@ -201,7 +201,7 @@ def test_normalize_annotation_maps_live_bbt_shape_without_raw_aliases():
 def test_normalize_annotation_malformed_or_unknown_degrades_to_paraphrase(
     raw, expected_comment
 ):
-    from harness_core.__main__ import normalize_annotation
+    from knowledge_harness.__main__ import normalize_annotation
 
     normalized = normalize_annotation(raw, "smith2020")
 
@@ -256,7 +256,7 @@ def _install_import_client(monkeypatch, cli, item, annotations):
 
 
 def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypatch):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     seen_timezones = []
 
@@ -293,7 +293,7 @@ def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypat
 
 
 def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
     raw = _raw_quote("Mortality fell.")
@@ -321,7 +321,7 @@ def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys
 
 
 def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, capsys):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
     old_raw = _raw_quote("Mortality fell.")
@@ -352,7 +352,7 @@ def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, ca
 
 
 def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, capsys):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     note_path = notes.note_path(tmp_vault, "smith2020")
     original = notes.render_note(
@@ -382,7 +382,7 @@ def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, caps
 def test_import_note_rerender_preserves_crlf_free_tail_bytes(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -433,7 +433,7 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
 def test_import_note_rejects_unsafe_citekey_before_side_effects(
     citekey, tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     constructed = []
 
@@ -482,7 +482,7 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
 def test_import_note_unresolved_attachment_and_normalized_annotation(
     attachment, tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     raw_annotation = {
         "annotationType": "highlight",
@@ -529,7 +529,7 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
 def test_import_note_observes_autoexport_before_noop_without_old_writer(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -590,7 +590,7 @@ def test_import_note_observes_autoexport_before_noop_without_old_writer(
 def test_import_note_autoexport_failure_prevents_attachment_and_note_writes(
     tmp_vault, monkeypatch, capsys, state, expected_code
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -629,7 +629,7 @@ def test_import_note_stderr_carries_the_bbt_preferences_repair(
     tmp_vault, monkeypatch, capsys
 ):
     """Telling a person the auto-export is broken without the remedy must fail."""
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -680,7 +680,7 @@ def test_import_note_stderr_carries_the_bbt_preferences_repair(
 def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
     target = tmp_vault / bibliography.BIB_PATH
@@ -740,7 +740,7 @@ def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write
 def test_import_note_target_read_oserror_exits_three_without_note_write(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
     target = tmp_vault / bibliography.BIB_PATH
@@ -796,7 +796,7 @@ def test_import_note_target_read_oserror_exits_three_without_note_write(
 def test_import_note_accepts_genuine_bbt_output_already_at_the_target(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
     (tmp_vault / bibliography.BIB_PATH).write_bytes(
@@ -848,7 +848,7 @@ def test_import_note_accepts_genuine_bbt_output_already_at_the_target(
 def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     tracked = tmp_vault / "tracked.txt"
     tracked.write_bytes(b"baseline\n")
@@ -980,7 +980,7 @@ def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
 def test_import_note_applies_extracted_text_only_to_its_attachment(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     first = _raw_quote("First attachment quote")
     second = _raw_quote("Second attachment quote")
@@ -1013,7 +1013,7 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
     monkeypatch.setattr(cli.paths, "to_local", local)
     monkeypatch.setattr(cli.notes, "sha256_file", lambda _: "hash")
-    monkeypatch.setattr("harness_core.selectors.pdf_text", extracted)
+    monkeypatch.setattr("knowledge_harness.selectors.pdf_text", extracted)
 
     assert (
         cli.cmd_import_note(
@@ -1033,7 +1033,7 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
 def test_import_note_preserves_prior_selectors_when_contexts_degrade(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     raw = _raw_quote("Quote remains")
     existing_ann = cli.normalize_annotation(raw, "smith2020")
@@ -1069,7 +1069,7 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
 def test_import_note_migrates_and_retains_legacy_multiline_selector(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     raw = _raw_quote("Quote remains")
     note_path = notes.note_path(tmp_vault, "smith2020")
@@ -1116,7 +1116,7 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
 def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     first = _raw_quote("Resolved quote")
     second = _raw_quote("Unresolved quote")
@@ -1141,7 +1141,7 @@ def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
     monkeypatch.setattr(cli.paths, "to_local", lambda path, vault: tmp_vault / path)
     monkeypatch.setattr(cli.notes, "sha256_file", lambda _: "hash")
     monkeypatch.setattr(
-        "harness_core.selectors.pdf_text", lambda _: "before Resolved quote after"
+        "knowledge_harness.selectors.pdf_text", lambda _: "before Resolved quote after"
     )
 
     assert (
@@ -1160,7 +1160,7 @@ def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
 def test_backfill_selectors_skips_malformed_and_unsafe_notes_and_aggregates_failures(
     fixture_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     (fixture_vault / "literatures" / "bad.md").write_text("not frontmatter")
     (fixture_vault / "literatures" / "unsafe.md").write_text(
@@ -1215,8 +1215,8 @@ def test_backfill_selectors_skips_malformed_and_unsafe_notes_and_aggregates_fail
     ],
 )
 def test_staleness_exit_codes(state, expected_code, tmp_vault, monkeypatch, capsys):
-    import harness_core.__main__ as cli
-    from harness_core import Result
+    import knowledge_harness.__main__ as cli
+    from knowledge_harness import Result
 
     monkeypatch.setattr(
         cli.bibliography, "staleness", lambda vault, client: Result[state]
@@ -1233,7 +1233,7 @@ def test_staleness_exit_codes(state, expected_code, tmp_vault, monkeypatch, caps
 def test_staleness_cli_reports_corrupt_committed_bibliography_as_unmatched(
     tmp_vault, monkeypatch, capsys
 ):
-    import harness_core.__main__ as cli
+    import knowledge_harness.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):

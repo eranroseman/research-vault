@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
 
-import harness_core
-from harness_core import frontmatter
+import knowledge_harness
+from knowledge_harness import frontmatter
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def test_version_and_result_enum():
-    assert harness_core.__version__ == "0.1.0"
-    assert [r.name for r in harness_core.Result] == [
+    assert knowledge_harness.__version__ == "0.1.0"
+    assert [r.name for r in knowledge_harness.Result] == [
         "MATCHED",
         "UNMATCHED",
         "UNREACHABLE",

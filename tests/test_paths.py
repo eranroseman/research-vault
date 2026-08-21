@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_core import paths
+from knowledge_harness import paths
 
 
 @pytest.fixture
