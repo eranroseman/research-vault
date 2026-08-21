@@ -3,3 +3,4 @@ sources/*.zip
 core/.venv/
 core/*.egg-info/
 __pycache__/
+.coverage
