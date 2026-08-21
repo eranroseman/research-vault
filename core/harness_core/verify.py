@@ -810,7 +810,7 @@ def _plan_state(
     base=DEFAULT_BASE,
     *,
     repository_root=None,
-    snapshots=None,
+    snapshots,
 ):
     """Compute one complete projection inside a materialized candidate."""
     vault = Path(vault_root)
@@ -873,15 +873,9 @@ def _plan_state(
             raw.extend(_network_outcomes(vault, entry, detection_date, rw))
         else:
             raw.extend(_offline_network_outcomes(entry, detection_date, rw))
-    if snapshots is None:
-        base_snapshot = None
-        candidate_snapshot = None
-    else:
-        base_snapshot = snapshots.base
-        candidate_snapshot = snapshots.candidate
-        raw.extend(
-            lints.lint_evidence_layer(base_snapshot, candidate_snapshot)
-        )
+    base_snapshot = snapshots.base
+    candidate_snapshot = snapshots.candidate
+    raw.extend(lints.lint_evidence_layer(base_snapshot, candidate_snapshot))
     raw.extend(lints.lint_append_only(repository, base_snapshot, candidate_snapshot))
     raw.extend(
         lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)

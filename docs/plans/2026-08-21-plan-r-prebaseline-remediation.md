@@ -145,7 +145,9 @@ if parsed_ids != expected_ids:
 - All five rejects untouched: selector/context feature, fd-pinning/lock chain, `inbox.append_ack`, `events.trust_tier` + friends, `levenshtein_ratio`. `probe` verb intact.
 - Supersessions recorded in Plans B/C (CSV surface, `run_verify`+`scope`, freeze reasoning) — confirm the annotations exist.
 
-- [ ] **Step 1:** Run the verification greps + read the landed diff (561ff36 range); report any divergence from the list above as an SDD escalation, else record "Task 3 verified".
+- [x] **Step 1:** Run the verification greps + read the landed diff (561ff36 range); report any divergence from the list above as an SDD escalation, else record "Task 3 verified".
+
+  **Task 3 verified 2026-08-21**, with one divergence found and closed in this branch: accepted row 2's `snapshots is None` branch in `_plan_state` had not been cut on `refactor/ponytail-audit-cuts`. `_plan_state` has exactly one caller (`verify_state`), which always passes snapshots, and no test calls it — the branch was unreachable, so removing it is behavior-preserving and does not touch the deferred lints `snapshot=None` fallbacks, which remain present as ruled. Everything else matches: all other accepted cuts landed including the four approved deviations; both deferrals present; all five rejects and the `probe` verb untouched (the only diff in `selectors.py`/`quotes.py` since the audit is Task 2's import move); supersession sections present in Plans B and C.
 
 Original sheet retained below for the audit trail (superseded rows: 1 technique, 2 partially, 5 partially):
 
