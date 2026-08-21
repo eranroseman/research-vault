@@ -1,0 +1,8 @@
+views:
+  - type: table
+    name: Open questions
+filters:
+  and:
+    - 'type == "synthesis"'
+formulas:
+  open_q: 'file.content.contains("(open-question)")'

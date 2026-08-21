@@ -1,11 +1,80 @@
 import argparse
+import datetime as datetime_lib
 import json
+import os
 import subprocess
 import sys
+import types
+from pathlib import Path
 
 import pytest
 
-from harness_core import frontmatter, notes, paths
+from harness_core import Result, bibliography, frontmatter, notes, paths
+
+REAL_OBSERVE_AUTOEXPORT = bibliography.observe_autoexport
+
+PROVISIONED_VAULT_ENV = "HARNESS_LIVE_AUTOEXPORT_VAULT"
+DEFERRAL_REASON = (
+    "deferred: the harness never registers an auto-export, so no BBT output "
+    "reaches a throwaway vault. Set "
+    f"{PROVISIONED_VAULT_ENV} to the absolute path of a vault after a person "
+    "creates the whole-library Better CSL JSON auto-export in BBT Preferences "
+    "targeting that vault's x/bibliography.json."
+)
+
+
+def _provisioned_vault_or_defer(environ):
+    """Return the human-provisioned vault, or defer aloud naming the human step."""
+    configured = environ.get(PROVISIONED_VAULT_ENV, "").strip()
+    if not configured:
+        pytest.skip(DEFERRAL_REASON)
+    vault = Path(configured)
+    if not vault.is_absolute() or not vault.is_dir():
+        pytest.fail(
+            f"{PROVISIONED_VAULT_ENV} must name an existing vault by absolute "
+            f"path; got {configured!r}"
+        )
+    return vault
+
+
+@pytest.fixture
+def provisioned_vault():
+    return _provisioned_vault_or_defer(os.environ)
+
+
+def test_end_to_end_legs_defer_aloud_until_a_person_provisions_a_vault():
+    """Deferring the falsified-contract legs silently must fail."""
+    with pytest.raises(pytest.skip.Exception) as deferred:
+        _provisioned_vault_or_defer({})
+
+    reason = str(deferred.value)
+    assert PROVISIONED_VAULT_ENV in reason
+    assert "whole-library Better CSL JSON auto-export in BBT Preferences" in reason
+    assert "x/bibliography.json" in reason
+
+
+def test_provisioned_vault_opt_in_rejects_a_path_that_is_not_a_vault(tmp_path):
+    """Letting a mistyped opt-in quietly skip the end-to-end legs must fail."""
+    with pytest.raises(pytest.fail.Exception, match=PROVISIONED_VAULT_ENV):
+        _provisioned_vault_or_defer({PROVISIONED_VAULT_ENV: str(tmp_path / "absent")})
+
+
+@pytest.fixture(autouse=True)
+def matched_autoexport_observer(monkeypatch):
+    """Keep import-unit fakes deterministic; observer behavior is tested explicitly."""
+    import harness_core.__main__ as cli
+
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda *args, **kwargs: types.SimpleNamespace(
+            result=Result.MATCHED,
+            detail="genuine BBT output",
+            staleness=Result.MATCHED,
+            staleness_detail="current",
+        ),
+        raising=False,
+    )
 
 
 def run_cli(*args):
@@ -26,32 +95,35 @@ def test_probe():
 
 
 @pytest.mark.live
-def test_import_note_end_to_end(tmp_vault):
+def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
     # Pick any real citekey from the live library.
     from harness_core.zotero import ZoteroClient
 
     items = ZoteroClient().export_csl(None)
     citekey = items[0]["id"]
 
-    proc = run_cli("import-note", citekey, "--vault", str(tmp_vault))
+    proc = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
     assert proc.returncode == 0, proc.stderr
-    note = (tmp_vault / "literatures" / f"{citekey}.md").read_text()
+    note = (provisioned_vault / "literatures" / f"{citekey}.md").read_text()
     assert f'citekey: "{citekey}"' in note
     assert "%%hk-managed%%" in note
-    assert (tmp_vault / "x" / "bibliography.json").is_file()
+    assert (provisioned_vault / "x" / "bibliography.json").is_file()
 
     # Second import is a no-op.
-    proc2 = run_cli("import-note", citekey, "--vault", str(tmp_vault))
+    proc2 = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
     assert "NOOP" in proc2.stdout
 
 
 @pytest.mark.live
-def test_staleness_after_import(tmp_vault):
+def test_staleness_after_import_into_a_provisioned_vault(provisioned_vault):
     from harness_core.zotero import ZoteroClient
 
     citekey = ZoteroClient().export_csl(None)[0]["id"]
-    run_cli("import-note", citekey, "--vault", str(tmp_vault))
-    proc = run_cli("staleness", "--vault", str(tmp_vault))
+
+    imported = run_cli("import-note", citekey, "--vault", str(provisioned_vault))
+    proc = run_cli("staleness", "--vault", str(provisioned_vault))
+
+    assert imported.returncode == 0, imported.stderr
     assert proc.stdout.strip() in {"MATCHED", "UNMATCHED"}
     assert proc.returncode in (0, 1)
 
@@ -187,6 +259,43 @@ def _install_import_client(monkeypatch, cli, item, annotations):
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
 
 
+def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypatch):
+    import harness_core.__main__ as cli
+
+    seen_timezones = []
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls, timezone):
+            seen_timezones.append(timezone)
+            return datetime_lib.datetime(2026, 8, 20, 12, 34, 56, tzinfo=timezone)
+
+    python_310_datetime = types.SimpleNamespace(
+        datetime=FixedDateTime,
+        timezone=datetime_lib.timezone,
+    )
+    _install_import_client(
+        monkeypatch,
+        cli,
+        {"title": "Mortality decline", "DOI": "10.1000/xyz"},
+        [],
+    )
+    monkeypatch.setattr(cli, "datetime", python_310_datetime)
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literatures" / "smith2020.md").read_text()
+    )
+    assert result == 0
+    assert seen_timezones == [datetime_lib.timezone.utc]
+    assert data["accessed"] == "2026-08-20"
+    assert data["generated"]["at"] == "2026-08-20T12:34:56Z"
+
+
 def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys):
     import harness_core.__main__ as cli
 
@@ -198,7 +307,8 @@ def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys
         ["unresolved"],
         [cli.normalize_annotation(raw, "smith2020")],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, item, [raw])
@@ -226,7 +336,8 @@ def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, ca
         ["unresolved"],
         [cli.normalize_annotation(old_raw, "smith2020")],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, item, [new_raw])
@@ -253,7 +364,8 @@ def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, caps
         [],
         [],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original, encoding="utf-8")
     _install_import_client(monkeypatch, cli, {"title": "Updated title"}, [])
@@ -295,7 +407,8 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
         [],
         [],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     managed_end = (
         original.index(notes.MANAGED_CLOSE) + len(notes.MANAGED_CLOSE) + len("\n")
@@ -412,12 +525,14 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
     assert "warning: attachment unresolved" in capsys.readouterr().err
     note = (tmp_vault / "literatures" / "smith2020.md").read_text()
     data, body = frontmatter.parse(note)
-    assert data["attachment-sha256"] == ["unresolved"]
+    assert data["fixity-sha256"] == ["unresolved"]
     assert "- (quote) [@smith2020, p. 12]" in body
     assert "annotationPageLabel" not in body
 
 
-def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, capsys):
+def test_import_note_observes_autoexport_before_noop_without_old_writer(
+    tmp_vault, monkeypatch, capsys
+):
     import harness_core.__main__ as cli
 
     class FakeClient:
@@ -430,17 +545,32 @@ def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, 
         def attachments(self, citekey):
             return []
 
-        def export_csl(self, citekeys):
-            return [{"id": "new2026", "title": "Newly admitted"}]
-
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    observed = []
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: (
+            observed.append((vault, client))
+            or bibliography.AutoexportObservation(
+                Result.MATCHED, "genuine BBT output", Result.MATCHED, "current"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        cli.bibliography,
+        "write_and_commit",
+        lambda *args: (_ for _ in ()).throw(AssertionError("old writer called")),
+        raising=False,
+    )
     note_path = notes.note_path(tmp_vault, "smith2020")
     original = notes.render_note(
         {"id": "smith2020", "title": "Mortality decline"},
         [],
         [],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     note_path.write_text(original)
 
@@ -453,9 +583,401 @@ def test_import_note_refreshes_bibliography_before_noop(tmp_vault, monkeypatch, 
     assert result == 0
     assert capsys.readouterr().out.strip() == "NOOP"
     assert note_path.read_text() == original
-    assert json.loads((tmp_vault / "x" / "bibliography.json").read_text()) == [
-        {"id": "new2026", "title": "Newly admitted"}
-    ]
+    assert len(observed) == 1
+    assert not (tmp_vault / "x" / "bibliography.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("state", "expected_code"),
+    [(Result.UNMATCHED, 1), (Result.UNREACHABLE, 3)],
+)
+def test_import_note_autoexport_failure_prevents_attachment_and_note_writes(
+    tmp_vault, monkeypatch, capsys, state, expected_code
+):
+    import harness_core.__main__ as cli
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda *args, **kwargs: bibliography.AutoexportObservation(
+            state, "autoexport failed", state, "autoexport failed"
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == expected_code
+    assert captured.out == ""
+    assert captured.err.strip() == "autoexport failed"
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    assert not (tmp_vault / bibliography.BIB_PATH).exists()
+
+
+def test_import_note_stderr_carries_the_bbt_preferences_repair(
+    tmp_vault, monkeypatch, capsys
+):
+    """Telling a person the auto-export is broken without the remedy must fail."""
+    import harness_core.__main__ as cli
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return [{"id": "smith2020", "title": "Mortality decline"}]
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: False)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert captured.err.strip() == (
+        "bibliography auto-export absent; a person must create or fix the "
+        "whole-library Better CSL JSON auto-export in BBT Preferences with "
+        f"target {tmp_vault / bibliography.BIB_PATH}"
+    )
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    assert not (tmp_vault / bibliography.BIB_PATH).exists()
+
+
+def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_bytes(json.dumps(items, separators=(",", ":")).encode())
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    real_run = bibliography.subprocess.run
+
+    def fail_post_commit_read(command, *args, **kwargs):
+        if command == ["git", "show", f"HEAD:{bibliography.BIB_PATH}"]:
+            raise OSError("git unavailable")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(bibliography.subprocess, "run", fail_post_commit_read)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == 3
+    assert captured.out == ""
+    assert "git unavailable" in captured.err
+    assert "Traceback" not in captured.err
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    assert target.is_file()
+
+
+def test_import_note_target_read_oserror_exits_three_without_note_write(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    target = tmp_vault / bibliography.BIB_PATH
+    target.write_text(json.dumps(items))
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def attachments(self, citekey):
+            raise AssertionError("attachments must not be read after observer failure")
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        bibliography.os,
+        "fdopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("target read denied")),
+    )
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result == 3
+    assert captured.out == ""
+    assert "target read denied" in captured.err
+    assert "Traceback" not in captured.err
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+
+
+def test_import_note_accepts_genuine_bbt_output_already_at_the_target(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    (tmp_vault / bibliography.BIB_PATH).write_bytes(
+        b'[{"id":"smith2020","title":"Mortality decline"}]'
+    )
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def attachments(self, citekey):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    assert result == 0
+    assert notes.note_path(tmp_vault, "smith2020").is_file()
+    assert (tmp_vault / bibliography.BIB_PATH).read_bytes() == (
+        b'[{"id":"smith2020","title":"Mortality decline"}]'
+    )
+    assert capsys.readouterr().err == ""
+
+
+def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
+    tmp_vault, monkeypatch, capsys
+):
+    import harness_core.__main__ as cli
+
+    tracked = tmp_vault / "tracked.txt"
+    tracked.write_bytes(b"baseline\n")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=tmp_vault, check=True)
+    tracked.write_bytes(b"unstaged bytes\n")
+    staged = tmp_vault / "staged.txt"
+    staged.write_bytes(b"staged bytes\n")
+    subprocess.run(["git", "add", "staged.txt"], cwd=tmp_vault, check=True)
+    untracked = tmp_vault / "untracked.txt"
+    untracked.write_bytes(b"untracked bytes\n")
+    staged_blob_before = subprocess.run(
+        ["git", "show", ":staged.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    staged_diff_before = subprocess.run(
+        ["git", "diff", "--cached", "--binary", "--", "staged.txt"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    items = [{"id": "smith2020", "title": "Mortality decline"}]
+    target = tmp_vault / bibliography.BIB_PATH
+    bbt_bytes = b'[ { "title": "Mortality decline", "id": "smith2020" } ]\n'
+    target.write_bytes(bbt_bytes)
+    status_before = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    class FakeClient:
+        def __init__(self, base):
+            self.base = base
+
+        def search(self, terms):
+            return [{"citekey": terms, "title": "Mortality decline"}]
+
+        def export_csl(self, citekeys):
+            assert citekeys is None
+            return items
+
+        def attachments(self, citekey):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda vault, client: REAL_OBSERVE_AUTOEXPORT(
+            vault,
+            client,
+            settle_seconds=0,
+            poll_interval=1,
+            monotonic=lambda: 0,
+            sleep=lambda seconds: None,
+        ),
+    )
+
+    result = cli.cmd_import_note(
+        argparse.Namespace(
+            citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+        )
+    )
+
+    assert result == 0
+    assert target.read_bytes() == bbt_bytes
+    assert (
+        subprocess.run(
+            ["git", "show", f"HEAD:{bibliography.BIB_PATH}"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == bbt_bytes
+    )
+    assert subprocess.run(
+        ["git", "show", "--pretty=format:", "--name-only", "HEAD"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines() == [bibliography.BIB_PATH]
+    assert (
+        subprocess.run(
+            ["git", "show", ":staged.txt"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == staged_blob_before
+    )
+    assert (
+        subprocess.run(
+            ["git", "diff", "--cached", "--binary", "--", "staged.txt"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == staged_diff_before
+    )
+    assert tracked.read_bytes() == b"unstaged bytes\n"
+    assert untracked.read_bytes() == b"untracked bytes\n"
+
+    status_after = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+    def unrelated(lines):
+        return [
+            line
+            for line in lines.splitlines()
+            if not line.endswith(b" x/bibliography.json")
+            and not line.endswith(b" literatures/smith2020.md")
+        ]
+
+    assert unrelated(status_after) == unrelated(status_before)
+    assert capsys.readouterr().err == ""
 
 
 def test_import_note_applies_extracted_text_only_to_its_attachment(
@@ -526,7 +1048,8 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
         ["unresolved"],
         [existing_ann],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     free_tail = b"\r\ncustom tail\r\n"
     note_path.write_bytes(original.encode() + free_tail)
@@ -558,7 +1081,8 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
         ["unresolved"],
         [cli.normalize_annotation(raw, "smith2020")],
         existing=None,
-        retrieved="2026-08-16",
+        accessed="2026-08-16",
+        generated_at="2026-08-16T00:00:00Z",
     )
     legacy = '  <!-- hk-sel prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
     note_path.write_bytes(

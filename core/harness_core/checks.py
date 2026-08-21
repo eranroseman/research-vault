@@ -1,29 +1,250 @@
 """Citation checkers (spec §6). Shared Outcome dataclass; four-state everywhere."""
 
 import csv
+import json
+import math
+import os
 import re
 import unicodedata
 import xml.etree.ElementTree as ElementTree
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date as _Date
 from pathlib import Path
+from types import MappingProxyType
+from typing import Literal
 from urllib.parse import quote, urlsplit
 
 from . import Result, bibliography, claims, inbox, webapi
+from .pathcodec import RepoPathValue, decode_repo_path, encode_repo_path
+
+_RECORD_FIELDS = {
+    "check",
+    "target",
+    "target_kind",
+    "result",
+    "reason",
+    "extra",
+    "path_extra_fields",
+}
+_CSV_FIELDS = (
+    "check",
+    "target",
+    "target_kind",
+    "result",
+    "reason",
+    "extra",
+    "path_extra_fields",
+)
 
 
-@dataclass
+def _freeze_json(value, active: set[int]):
+    if value is None or type(value) in {str, bool, int}:
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("Outcome extras require finite JSON numbers")
+        return value
+    if isinstance(value, RepoPathValue):
+        raise TypeError("RepoPathValue is valid only as a direct extra value")
+    if isinstance(value, (bytes, bytearray, memoryview, set, frozenset)):
+        raise TypeError("Outcome extras must be a JSON-shaped graph")
+    if isinstance(value, Mapping):
+        identity = id(value)
+        if identity in active:
+            raise ValueError("Outcome extra graph contains a cycle")
+        active.add(identity)
+        try:
+            result = {}
+            for key, item in value.items():
+                if type(key) is not str:
+                    raise TypeError("Outcome extra mapping keys must be strings")
+                result[key] = _freeze_json(item, active)
+            return MappingProxyType(result)
+        finally:
+            active.remove(identity)
+    if isinstance(value, (list, tuple)):
+        identity = id(value)
+        if identity in active:
+            raise ValueError("Outcome extra graph contains a cycle")
+        active.add(identity)
+        try:
+            return tuple(_freeze_json(item, active) for item in value)
+        finally:
+            active.remove(identity)
+    raise TypeError(f"unsupported Outcome extra value: {type(value).__name__}")
+
+
+def _thaw_json(value):
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_json(item) for item in value]
+    return value
+
+
+@dataclass(frozen=True)
 class Outcome:
     check: str
-    target: str
+    target: str | RepoPathValue
     result: Result
     reason: str
-    extra: dict = field(default_factory=dict)
+    extra: Mapping[str, object] = field(default_factory=dict)
+    target_kind: Literal["identifier", "repo-path"] = field(init=False)
+    path_extra_fields: tuple[str, ...] = field(init=False)
+    __hash__ = None
 
     def __post_init__(self):
-        self.reason = inbox.validate_reason(self.reason)
-        self.extra = dict(self.extra)
+        if type(self.check) is not str or not self.check:
+            raise TypeError("Outcome check must be a nonempty string")
+        if not isinstance(self.result, Result):
+            raise TypeError("Outcome result must be a Result")
+        if type(self.target) is str:
+            target = self.target
+            target_kind = "identifier"
+        elif isinstance(self.target, RepoPathValue):
+            target = encode_repo_path(self.target.raw)
+            target_kind = "repo-path"
+        else:
+            raise TypeError("Outcome target must be an identifier or RepoPathValue")
+        if not target or any(character in target for character in "\r\n\0"):
+            raise ValueError("Outcome target must be nonempty single-line text")
+        if not isinstance(self.extra, Mapping):
+            raise TypeError("Outcome extra must be a mapping")
+        direct = {}
+        path_fields = []
+        for key, value in self.extra.items():
+            if type(key) is not str:
+                raise TypeError("Outcome extra mapping keys must be strings")
+            if isinstance(value, RepoPathValue):
+                direct[key] = encode_repo_path(value.raw)
+                path_fields.append(key)
+            else:
+                direct[key] = value
+        object.__setattr__(self, "target", target)
+        object.__setattr__(self, "target_kind", target_kind)
+        object.__setattr__(self, "path_extra_fields", tuple(sorted(path_fields)))
+        object.__setattr__(self, "reason", inbox.validate_reason(self.reason))
+        object.__setattr__(self, "extra", _freeze_json(direct, set()))
+
+
+def outcome_to_record(outcome: Outcome) -> dict[str, object]:
+    """Return one detached JSON record after revalidating typed path metadata."""
+    if not isinstance(outcome, Outcome):
+        raise TypeError("expected Outcome")
+    if outcome.target_kind == "repo-path":
+        decode_repo_path(outcome.target)
+    elif outcome.target_kind != "identifier":
+        raise ValueError("invalid Outcome target kind")
+    if tuple(sorted(set(outcome.path_extra_fields))) != outcome.path_extra_fields:
+        raise ValueError("invalid Outcome path metadata")
+    for field_name in outcome.path_extra_fields:
+        value = outcome.extra.get(field_name)
+        if type(value) is not str:
+            raise ValueError("typed Outcome path extra is missing")
+        decode_repo_path(value)
+    return {
+        "check": outcome.check,
+        "target": outcome.target,
+        "target_kind": outcome.target_kind,
+        "result": outcome.result.value,
+        "reason": outcome.reason,
+        "extra": _thaw_json(outcome.extra),
+        "path_extra_fields": list(outcome.path_extra_fields),
+    }
+
+
+def outcome_from_record(record: Mapping[str, object]) -> Outcome:
+    """Rebuild a typed Outcome from its exact JSON record contract."""
+    if not isinstance(record, Mapping) or set(record) != _RECORD_FIELDS:
+        raise ValueError("Outcome record has missing or unknown fields")
+    check = record["check"]
+    target = record["target"]
+    kind = record["target_kind"]
+    result = record["result"]
+    reason = record["reason"]
+    extra = record["extra"]
+    path_fields = record["path_extra_fields"]
+    if type(check) is not str or type(target) is not str or type(reason) is not str:
+        raise TypeError("Outcome record text fields must be strings")
+    if kind not in {"identifier", "repo-path"}:
+        raise ValueError("Outcome record target_kind is invalid")
+    if type(result) is not str:
+        raise TypeError("Outcome record result must be text")
+    try:
+        result_value = Result(result)
+    except ValueError as error:
+        raise ValueError("Outcome record result is invalid") from error
+    if not isinstance(extra, Mapping):
+        raise TypeError("Outcome record extra must be an object")
+    if not isinstance(path_fields, list) or any(
+        type(field_name) is not str for field_name in path_fields
+    ):
+        raise TypeError("Outcome path_extra_fields must be a JSON array of strings")
+    if path_fields != sorted(set(path_fields)):
+        raise ValueError("Outcome path_extra_fields must be sorted and unique")
+    mutable_extra = _thaw_json(_freeze_json(extra, set()))
+    for field_name in path_fields:
+        if (
+            field_name not in mutable_extra
+            or type(mutable_extra[field_name]) is not str
+        ):
+            raise ValueError("Outcome path extra metadata does not name a string")
+        mutable_extra[field_name] = RepoPathValue(
+            decode_repo_path(mutable_extra[field_name])
+        )
+    typed_target: str | RepoPathValue = target
+    if kind == "repo-path":
+        typed_target = RepoPathValue(decode_repo_path(target))
+    outcome = Outcome(check, typed_target, result_value, reason, mutable_extra)
+    if (
+        outcome.target_kind != kind
+        or list(outcome.path_extra_fields) != path_fields
+        or outcome.target != target
+    ):
+        raise ValueError("Outcome record path metadata is incoherent")
+    return outcome
+
+
+def outcome_to_csv_row(outcome: Outcome) -> dict[str, str]:
+    record = outcome_to_record(outcome)
+    return {
+        "check": record["check"],
+        "target": record["target"],
+        "target_kind": record["target_kind"],
+        "result": record["result"],
+        "reason": record["reason"],
+        "extra": json.dumps(record["extra"], sort_keys=True, separators=(",", ":")),
+        "path_extra_fields": json.dumps(
+            record["path_extra_fields"], separators=(",", ":")
+        ),
+    }
+
+
+def outcome_from_csv_row(row: Mapping[str, str]) -> Outcome:
+    if (
+        not isinstance(row, Mapping)
+        or set(row) != set(_CSV_FIELDS)
+        or any(type(value) is not str for value in row.values())
+    ):
+        raise ValueError("Outcome CSV row has invalid columns")
+    try:
+        extra = json.loads(row["extra"])
+        path_fields = json.loads(row["path_extra_fields"])
+    except (TypeError, json.JSONDecodeError) as error:
+        raise ValueError("Outcome CSV JSON columns are invalid") from error
+    return outcome_from_record(
+        {
+            "check": row["check"],
+            "target": row["target"],
+            "target_kind": row["target_kind"],
+            "result": row["result"],
+            "reason": row["reason"],
+            "extra": extra,
+            "path_extra_fields": path_fields,
+        }
+    )
 
 
 def _claim_origins(note_text: str) -> dict[str, list[dict]]:
@@ -48,13 +269,14 @@ def check_citekeys(
     """Check every citation in a note against the local bibliography universe."""
     vault = Path(vault_root).resolve()
     note = Path(note_path).resolve()
+    relative_raw = os.fsencode(note.relative_to(vault))
     note_text = note.read_text()
     cited = sorted({match.group("key") for match in claims.CITE_RE.finditer(note_text)})
     if not cited:
         return [
             Outcome(
                 "citekey",
-                str(note.relative_to(vault)),
+                RepoPathValue(relative_raw),
                 Result.SKIPPED,
                 "no-identifier — note cites nothing",
             )
@@ -63,7 +285,7 @@ def check_citekeys(
     if bibliography_universe is None:
         bibliography_universe = bibliography.load(vault)
     origins = _claim_origins(note_text)
-    note_path = str(note.relative_to(vault))
+    typed_note_path = RepoPathValue(relative_raw)
     outcomes = []
     for citekey in cited:
         result = (
@@ -82,7 +304,7 @@ def check_citekeys(
                 citekey,
                 result,
                 reason,
-                extra={"note_path": note_path, "claims": origins[citekey]},
+                extra={"note_path": typed_note_path, "claims": origins[citekey]},
             )
         )
     return outcomes
@@ -520,10 +742,10 @@ def _merge_warn_notices(*notice_groups) -> list[dict]:
     """Merge warning notices in deterministic, de-duplicated order."""
     notices = set()
     for values in notice_groups:
-        if not isinstance(values, list):
+        if not isinstance(values, (list, tuple)):
             continue
         for value in values:
-            if not isinstance(value, dict):
+            if not isinstance(value, Mapping):
                 continue
             notice_type = _norm_type(value.get("type"))
             notice_date = value.get("notice_date")
@@ -920,13 +1142,16 @@ def reduce_update_notice_outcomes(
     outcomes = [outcome for outcome in (live, rw) if isinstance(outcome, Outcome)]
     if not outcomes:
         return None
-    if len(outcomes) == 2 and outcomes[0].target != outcomes[1].target:
-        return Outcome(
-            "update-notice",
-            outcomes[0].target,
-            Result.UNREACHABLE,
-            "outage — update-notice target mismatch",
-        )
+    if len(outcomes) == 2 and (
+        outcomes[0].target != outcomes[1].target
+        or outcomes[0].target_kind != outcomes[1].target_kind
+    ):
+        record = outcome_to_record(outcomes[0])
+        record["result"] = Result.UNREACHABLE.value
+        record["reason"] = "outage — update-notice target mismatch"
+        record["extra"] = {}
+        record["path_extra_fields"] = []
+        return outcome_from_record(record)
     warnings = _merge_warn_notices(
         *(outcome.extra.get("warn_notices", []) for outcome in outcomes)
     )
@@ -955,11 +1180,10 @@ def reduce_update_notice_outcomes(
             ),
             outcomes[0],
         )
-    extra = dict(chosen.extra)
+    record = outcome_to_record(chosen)
+    extra = record["extra"]
     if warnings:
         extra["warn_notices"] = warnings
     else:
         extra.pop("warn_notices", None)
-    return Outcome(
-        chosen.check, chosen.target, chosen.result, chosen.reason, extra=extra
-    )
+    return outcome_from_record(record)

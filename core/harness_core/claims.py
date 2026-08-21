@@ -26,7 +26,7 @@ class Claim:
     in_managed: bool = False
 
 
-def claim_address(citekey: str, claim_id: str) -> str:
+def claim_link(citekey: str, claim_id: str) -> str:
     return f"{citekey}#^{claim_id}"
 
 

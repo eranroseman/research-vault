@@ -1,4 +1,6 @@
 import json
+import re
+from pathlib import Path
 
 import pytest
 
@@ -35,11 +37,6 @@ class FakeTransport:
                     "title": "Mortality decline",
                 }
             ],
-            "autoexport.add": {
-                "id": 7,
-                "key": "autoexport-key",
-                "libraryID": 1,
-            },
         }
 
     def rpc(self, method, params):
@@ -135,17 +132,17 @@ def test_export_named_translator(client):
     )
 
 
-def test_register_autoexport_sends_personal_library_root_and_returns_result(client):
-    result = client.register_autoexport("/vault/x/bibliography.json")
+def test_no_harness_module_can_issue_an_autoexport_rpc():
+    """Restoring any autoexport.* JSON-RPC call or client registration must fail."""
+    package = Path(zotero.__file__).parent
+    callers = sorted(
+        module.name
+        for module in package.glob("*.py")
+        if re.search(r"autoexport\.[A-Za-z]", module.read_text(encoding="utf-8"))
+    )
 
-    assert result is client._fake.canned_rpc["autoexport.add"]
-    assert result == {"id": 7, "key": "autoexport-key", "libraryID": 1}
-    assert client._fake.rpc_calls == [
-        (
-            "autoexport.add",
-            ["//", "Better CSL JSON", "/vault/x/bibliography.json"],
-        )
-    ]
+    assert callers == []
+    assert [name for name in dir(zotero.ZoteroClient) if "register" in name] == []
 
 
 def test_whole_library_export_normalizes_uri_ids_and_excludes_orphans(
@@ -253,6 +250,7 @@ def test_rpc_malformed_response_shape_is_unreachable(monkeypatch, body):
         {"id": 1, "result": {}},
         {"jsonrpc": "1.0", "id": 1, "result": {}},
         {"jsonrpc": "2.0", "result": {}},
+        {"jsonrpc": "2.0", "id": None, "result": {}},
         {"jsonrpc": "2.0", "id": 2, "result": {}},
         {
             "jsonrpc": "2.0",
@@ -304,6 +302,25 @@ def test_rpc_valid_error_envelope_remains_unmatched(monkeypatch):
 
     with pytest.raises(zotero.ZoteroError) as error:
         zotero_client._rpc("item.search", ["smith2020"])
+
+    assert error.value.result is Result.UNMATCHED
+
+
+def test_rpc_bbt_null_id_error_envelope_surfaces_error_as_unmatched(monkeypatch):
+    zotero_client = zotero.ZoteroClient()
+    reply = {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32602, "message": "sentinel"},
+    }
+    monkeypatch.setattr(
+        zotero_client,
+        "_http",
+        lambda *args, **kwargs: (200, json.dumps(reply).encode()),
+    )
+
+    with pytest.raises(zotero.ZoteroError, match="sentinel") as error:
+        zotero_client._rpc("item.export", [["smith2020"], "Better CSL JSON"])
 
     assert error.value.result is Result.UNMATCHED
 

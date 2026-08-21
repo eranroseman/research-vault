@@ -61,14 +61,16 @@ class ZoteroClient:
             raise ZoteroError("malformed JSON-RPC response: expected an object")
         if reply.get("jsonrpc") != "2.0":
             raise ZoteroError("malformed JSON-RPC response: invalid version")
-        if type(reply.get("id")) is not int or reply["id"] != 1:
-            raise ZoteroError("malformed JSON-RPC response: invalid id")
         has_result = "result" in reply
         has_error = "error" in reply
         if has_result == has_error:
             raise ZoteroError(
                 "malformed JSON-RPC response: expected exactly one of result or error"
             )
+        valid_id = type(reply.get("id")) is int and reply["id"] == 1
+        bbt_null_error_id = has_error and "id" in reply and reply["id"] is None
+        if not (valid_id or bbt_null_error_id):
+            raise ZoteroError("malformed JSON-RPC response: invalid id")
         if has_error:
             raise ZoteroError(f"JSON-RPC error: {reply['error']}", Result.UNMATCHED)
         return reply["result"]
@@ -177,9 +179,6 @@ class ZoteroClient:
             if citekey:
                 normalized.append({**item, "id": citekey})
         return normalized
-
-    def register_autoexport(self, target_path: str) -> dict:
-        return self._rpc("autoexport.add", ["//", CSL_TRANSLATOR, target_path])
 
     def supports_local_writes(self) -> bool:
         """Return True only for affirmatively known Zotero 10+ installs."""

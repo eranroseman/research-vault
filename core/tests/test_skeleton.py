@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import harness_core
+from harness_core import frontmatter
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -31,6 +32,12 @@ def test_marketplace_lists_plugin():
 
 
 def test_tmp_vault_fixture(tmp_vault):
-    for d in ("+", "literatures", "atlas", "calendar", "efforts", "x"):
+    for d in ("inbox", "literatures", "synthesis", "log", "projects", "x"):
         assert (tmp_vault / d).is_dir()
     assert (tmp_vault / ".git").is_dir()
+
+
+def test_fixture_daily_note_uses_ruled_type(fixture_vault):
+    data, _ = frontmatter.parse((fixture_vault / "log" / "2026-08-16.md").read_text())
+
+    assert data["type"] == "daily"

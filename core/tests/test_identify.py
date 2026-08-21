@@ -2,7 +2,7 @@
 
 import pytest
 
-from harness_core import Result, identify, webapi
+from harness_core import Result, checks, identify, webapi
 
 
 def _fake_get(monkeypatch, table):
@@ -53,6 +53,15 @@ def test_discover_matches_exact_casefolded_crossref_title_and_single_pmid(
 
     assert outcome.result is Result.MATCHED
     assert outcome.extra == {"identifiers": {"DOI": "10.1000/found", "PMID": "11111"}}
+    with pytest.raises(TypeError):
+        outcome.extra["identifiers"]["DOI"] = "changed"
+    record = checks.outcome_to_record(outcome)
+    assert record["extra"]["identifiers"] == {
+        "DOI": "10.1000/found",
+        "PMID": "11111",
+    }
+    record["extra"]["identifiers"]["DOI"] = "detached"
+    assert outcome.extra["identifiers"]["DOI"] == "10.1000/found"
 
 
 def test_discover_skips_when_both_healthy_providers_find_no_identifier(

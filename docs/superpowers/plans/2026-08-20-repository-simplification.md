@@ -50,7 +50,7 @@
 
 ## Explicitly Out of Scope
 
-- Do not remove or redesign `run_verify`'s `scope="all"` parameter, the `Bibliography` wrapper, or `ZoteroClient.register_autoexport`; earlier implementation plans prescribe those surfaces and Plan C consumes the auto-export call.
+- Do not remove or redesign `run_verify`'s `scope="all"` parameter or the `Bibliography` wrapper; earlier implementation plans prescribe those surfaces. (`ZoteroClient.register_autoexport` no longer exists: Plan C Task 8's author ruling of 2026-08-20 deleted it once the live drill falsified programmatic whole-library registration — auto-export provisioning is a human BBT Preferences step, and the harness is observation/commit-only.)
 - Do not change acknowledgment scope, failure-projection semantics, trust-tier derivation, provider routing, selector behavior, or any CLI argument/exit code.
 - Do not split `__main__.py`, `checks.py`, or `lints.py` beyond the focused `gitstate.py` extraction; broad restructuring would turn a deletion pass into an architecture migration.
 - Do not create a shared line-ending utility for the three tiny local parsers in `__main__.py`, `events.py`, and `lints.py`: one consumer needs only an ending while two need `(content, ending)`, so a cross-module API would add coupling for negligible net deletion.

@@ -1,11 +1,13 @@
 """Quote verification against managed literature-note quote claims (spec §6)."""
 
+import os
 from pathlib import Path
 
 from . import Result
 from . import claims as claims_mod
 from .checks import Outcome, normalize_text
 from .notes import note_path
+from .pathcodec import RepoPathValue
 
 FUZZY_THRESHOLD = 0.90
 
@@ -41,7 +43,7 @@ def _source_quotes(vault_root, citekey: str) -> dict[str | None, str]:
     }
 
 
-def _extra(claim, checked_note_path: str | None) -> dict:
+def _extra(claim, checked_note_path: RepoPathValue | None) -> dict:
     extra = {"target": "managed-region"}
     if checked_note_path is not None:
         extra = {
@@ -57,7 +59,7 @@ def check_quote(
     vault_root,
     claim,
     source_citekey: str,
-    checked_note_path: str | None = None,
+    checked_note_path: RepoPathValue | None = None,
 ) -> Outcome:
     """Compare one quote claim with its addressed managed-region source text."""
     extra = _extra(claim, checked_note_path)
@@ -72,13 +74,13 @@ def check_quote(
     if not claim.quote_text:
         return Outcome(
             "quote",
-            claims_mod.claim_address(source_citekey, claim.claim_id),
+            claims_mod.claim_link(source_citekey, claim.claim_id),
             Result.UNMATCHED,
             "schema-violation — quote claim has no text",
             extra=extra,
         )
 
-    address = claims_mod.claim_address(source_citekey, claim.claim_id)
+    address = claims_mod.claim_link(source_citekey, claim.claim_id)
     source_quotes = _source_quotes(vault_root, source_citekey)
     if claim.claim_id in source_quotes:
         candidates = [source_quotes[claim.claim_id]]
@@ -123,7 +125,7 @@ def check_all_quotes(vault_root, note_file: Path) -> list[Outcome]:
     """Check all citable quote claims in a note against managed source regions."""
     vault = Path(vault_root).resolve()
     note = Path(note_file).resolve()
-    relative_note_path = str(note.relative_to(vault))
+    relative_note_path = RepoPathValue(os.fsencode(note.relative_to(vault)))
     quote_claims = [
         claim
         for claim in claims_mod.parse_claims(note.read_text())

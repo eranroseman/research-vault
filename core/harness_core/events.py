@@ -266,7 +266,7 @@ def trust_tier(note_text: str) -> str:
     for claim in claims_mod.parse_claims(note_text):
         if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:
             continue
-        address = claims_mod.claim_address(citekey, claim.claim_id)
+        address = claims_mod.claim_link(citekey, claim.claim_id)
         quote_checks = {
             f"quote:{address}:managed-region",
             f"quote:{address}:source-text",

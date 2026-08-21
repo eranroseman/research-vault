@@ -62,7 +62,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     text = (
         "---\r\n"
         "citekey: smith2020\r\n"
-        "status: active\r\n"
+        "status: included\r\n"
         "deprecated-at: 2026-08-16\r\n"
         "---\r\n"
         "- (quote) body ^c-11111111\r\n"
@@ -71,14 +71,14 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
 
     assert "\r\r\n" not in out
-    assert "citekey: smith2020\r\nstatus: active\r\n" in out
+    assert "citekey: smith2020\r\nstatus: included\r\n" in out
     assert out.endswith("- (quote) body ^c-11111111\r\n")
     assert notes.canonical_content(out) == notes.canonical_content(text)
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 @pytest.mark.parametrize(
-    "frontmatter_line", ["", 'status: "active"'], ids=["empty", "nonempty"]
+    "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
 )
 def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_line):
     from harness_core import notes
@@ -95,7 +95,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
         f"{newline}---{newline}{body}"
     )
     data, parsed_body = frontmatter.parse(out)
-    assert data.get("status") == ("active" if frontmatter_line else None)
+    assert data.get("status") == ("included" if frontmatter_line else None)
     assert parsed_body == body
     assert events.verified_checks(out) == [
         {"by": "harness_core/0.1.0", "at": "2026-08-17", "check": "doi"}

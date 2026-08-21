@@ -52,191 +52,93 @@ Applying the cost model against OKF-as-T1 across its whole vocabulary (`type, ti
 
 CSL's bibliographic vocabulary (`item`, `issued`, `author`, `locator`) is untouched — OKF is silent on bibliographic identity, so T2 governs there exactly as T1 CSL did before.
 
-## 3. Adoptions (precedence applies)
+## 3. Current adoptions (inverted T1–T8 order)
 
-| Term | Source | Status |
+| Term or contract | Authority | Current status |
 |---|---|---|
-| `item`, `issued`/`date-parts`, `author`, `locator`/`label`, CSL item types | CSL (T1) | Base applications — the bibliographic layer speaks CSL wholesale; `literature note` names an item's vault projection. |
-| `doi`, `pmid` | Registries + CSL + OpenAlex | Aligned everywhere. |
-| `cited_by_count` and all recorded API facts | Boundary rule | Recorded verbatim under the source's field names + index + retrieval date. |
-| `is_retracted` | OpenAlex (T4) | Verbatim in checker records; internal taxonomy is Crossref's (deviation table). |
-| `dehydrated` | OpenAlex | Adopted for index-line/summary projections of full notes. |
-| `canonical` | OpenAlex | The surviving entity in any merge/supersession. |
-| `topic` | OpenAlex | Adopted for their classification entities ⇒ our synthesis note must be renamed (naming pass, mandatory). |
-| Entity framing: IDs as curatable judgments; merged-away IDs permanently redirect to canonical | OpenAlex | Adopted as semantics (spec §5); checkers follow redirects and record the canonical ID verified against. |
+| OKF v0.2 reserved files, non-empty concept type, optional description/stale_after, generated.by/at, and verified events | OKF (T1) | Adopted; vaults are structural OKF bundles. |
+| accessed | CSL (T2) | Adopted; the former stack-consistency defect is closed. |
+| supports / disputes | CiTO (T3) | Anchored adoption for typed claim links, not a naming deviation. |
+| unscreened / included / excluded | PRISMA/Covidence (T4) | Adopted for literature screening; superseded remains the scholarly-succession state. |
+| synthesis/ and type: synthesis | Evidence-synthesis vocabulary (T4) | Adopted; the OpenAlex topic collision is gone. |
+| inbox/, log/, projects/ | GTD/PARA and log convention (T6) | Ruled current folder vocabulary. |
+| fixity-sha256 | OAIS/NDSA (T3/T4) | Adopted archival term. |
+| failed-verification | Wikipedia template vocabulary (T6) | Adopted exact inline-field name. |
+| draft | OKF (T1) | Adopted where shared; synthesis and project lifecycles remain kind-specific. |
+| item, issued/date-parts, author, locator/label, CSL item types | CSL (T2) | Base applications in the bibliographic layer. |
 
-**Precedence resolutions (not deviations):** `work` vs `item` and `publication_date` vs `issued` are decided by the order itself — CSL (T1) outranks OpenAlex (T4).
+## 4. Current documented deviations
 
-## 4. Documented deviations (a cost class forces each; anchors per deviation)
+| Concept | OKF base | Harness contract | Forcing class |
+|---|---|---|---|
+| Per-claim attribution | footnotes keyed to sources[].id | Pandoc [@citekey, locator] | **1** — permanent CSL/BBT/Zotero/Pandoc surface mismatch |
+| Source identity | sources / resource | citekey / doi / url | **1 + 2** — toolchain binding and richer registry identity |
+| Lineage | untyped links | typed supports / disputes claim links | **2** — stance is trust substance; the names themselves are CiTO-anchored |
+| Literature lifecycle | draft/stable/deprecated | unscreened/included/excluded/superseded | **2** — screening is not document maturity |
+| Project lifecycle | draft/stable/deprecated | draft/parked/published/corrected/withdrawn | **2** — publication/correction gate states would be lost |
+| Replacement relation | identity merge | superseded / superseded-by | **3** — also covers succession between distinct scholarly works |
 
-| Concept | Base term | Our term | Forcing class | Our term's own anchors |
-|---|---|---|---|---|
-| The cited document (trust core) | OpenAlex `source` = venue | `source` (primary/cited source; `source-sha256`) | **4** — collision | ICD 206 *Source Reference Citation*; scholarly English. Resolution: their entity enters our prose as **`venue`** (OpenAlex's own former name; also DBLP's standard term). |
-| Access provenance | OpenAlex `created_date`/`updated_date` | `retrieved` | **3** — theirs describe their record's lifecycle | ⚠ **STACK-CONSISTENCY DEFECT**: CSL (T1) names this variable **`accessed`**; `retrieved` leans on Wikidata's label and APA prose (T4/below). No forcing class was recorded. **Naming pass must rename to `accessed` or supply the missing class.** |
-| Post-publication status (internal) | OpenAlex `is_retracted` boolean | Crossref update-type taxonomy, bi-temporal | **2** — boolean discards the taxonomy the gates run on | Crossref (T2) — verbatim already. |
-| Citation relations | OpenAlex `referenced_works`/`related_works` | `supported-by`/`contested-by` | **2** — untyped work-level vs stance-typed claim-level | **CiTO** `cito:supports`/`cito:disputes` (T2 — would anchor names verbatim as `[supports::]`/`[disputes::]`); scite stance vocabulary (semantic precedent; its `mentioning` offers a neutral third stance if wanted). Pass's call. |
-| Replacement relation | OpenAlex `merged-away` | `superseded`/`superseded-by` | **3** — merging is identity resolution; ours also covers scholarly succession (distinct works) | DataCite `IsObsoletedBy`/`Obsoletes` (T2), IETF `Obsoletes:` headers, Wikidata deprecation family, scholarly English. If the slice shows identity-vs-succession needs separate fields, the pass may split `merged` out as the OpenAlex-aligned special case. |
+The prior retrieved defect is closed by accessed. The prior stance-link deviation is now the lineage deviation above with CiTO-anchored field names.
 
 ## 5. Standing rules
 
-- **The precedence order is the default source of names.** Any new concept walks the tiers; deviation requires naming its forcing class in this document.
-- **One canonical term per concept**; adopted or deviated, never both.
-- **Recorded API facts are boundary-verbatim** (source's field names + index + retrieval date).
-- **Semantics migrate freely; deviations are about names only.**
-- Interior coinages are **temporary placeholders — not decided, not settled** (author's ruling). The pre-slice **naming pass** owns them: walk the tiers, default to the first vocabulary that names the concept, free coinage only where none does. **The pass blocks §9 slice execution** — the first real vault mints names into git history under deprecate-never-delete, the moment placeholders become permanent.
+- The inverted T1–T8 precedence order remains the default source of names; deviation requires one of the four cost classes.
+- One canonical term represents each concept. No compatibility aliases are needed before the first vault.
+- Recorded API facts remain boundary-verbatim, with source field names, index, and access date.
+- Reserved basename index.md and log.md files have no concept frontmatter, except the bundle-root index.md, whose frontmatter is exactly okf_version: "0.2".
+- The naming pass is complete. Section 10 remains the intentional old/new migration record; older proposal reasoning in §9 is historical, not current authority.
 
-## 6. User-facing inventory
+## 6. Current user-facing inventory
 
-Harvested from the approved spec and as-built code (Plans A–B merged, Plan C in flight; the grep pass included live check names such as `identifier-discovery`). Legend: **A** anchored · **S** semi-anchored (our name, adopted precedent) · **P** placeholder · **D** documented deviation (§4).
+Plans A–B are built and Plan C is active. Legend: **A** externally anchored · **S** ruled convention · **D** documented deviation.
 
-### 6.1 Vault folders and files
+### 6.1 Vault paths and note kinds
 
-| Term | Status | Anchor candidates (for P) |
-|---|---|---|
-| `+/` (fleeting inbox) | S-weak (Ideaverse `+`; sorts first) | GTD **`inbox/`** (mass vocabulary) vs keep `+` (functional sort argument). |
-| `literatures/` | S (ZotLit v2 default folder — toolchain; Ideaverse-adjacent) | Keep (zero-cost ZotLit alignment, #8 kept that UI door open) vs `references/` (CSL: a bibliography is a reference list; Ahrens). |
-| `atlas/` | S-weak (Ideaverse) | **llm-wiki `wiki/`** (all 7 surveyed implementations) vs evidence-synthesis **`synthesis/`** (T3 — pairs with the layer name) vs keep. |
-| `calendar/` | S-weak (Ideaverse) | Obsidian **Daily notes** plugin (`daily/`, T1-ish) vs llm-wiki/OKF **`log/`** (append-only semantics) vs keep. |
-| `efforts/` | S-weak (Ideaverse) | PARA/GTD **`projects/`** (mass; synergy with the `project` skill; spec already calls this the "PARA sliver") vs keep. |
-| `x/` | S-weak (Ideaverse) | Keep, or `system/`/`meta/` (weak). Low stakes. |
-| `AGENTS.md` | A (harness-ecosystem convention) | — |
-| `+/review-queue.md` | P | Covidence/Rayyan **screening/review queue** (T3) anchors the semantics; name survives. |
-| `atlas/index.md` | S (llm-wiki convention — every surveyed implementation) | Keep `index.md`. |
-| `x/bibliography.json` | S (content is CSL) | — |
-| `calendar/YYYY-MM-DD.md` + entry format | P | Follows the calendar/daily/log folder decision. |
-| `.harness/`, `hk-` marker prefixes (`%%hk-managed%%`, `hk-sel`) | P | Cascade from the **plugin name** decision — decide that first. |
-| "managed region" | S (ZotLit convention) | — |
+| Current term | Status |
+|---|---|
+| inbox/; inbox/review-queue.md | A/S — GTD inbox; typed append-only review queue |
+| literatures/; type: literature | A/S — ZotLit/Ahrens projection vocabulary |
+| synthesis/; synthesis/index.md; type: synthesis | A — evidence-synthesis vocabulary; nested index is reserved |
+| log/; log/YYYY-MM-DD.md; root log.md | A/S — append-only daily directory plus distinct reserved root tail |
+| projects/; type: project | A/S — PARA/GTD project vocabulary |
+| x/; AGENTS.md; .harness/; hk- markers | S — ruled harness conventions |
+| root index.md | A — OKF bundle root with exactly okf_version: "0.2" |
 
-### 6.2 Note kinds (`type` values)
+### 6.2 Claim and metadata language
 
-| Term | Status | Anchor candidates |
-|---|---|---|
-| `literature` | S (Ahrens "literature note" — the PKM mass term; ZotLit's own docs) | Keep. |
-| `topic` (synthesis page) | **P + collision — mandatory rename** | **`synthesis`** (T3, Cochrane/PRISMA — one word could name folder, layer, and note kind) vs llm-wiki **`concept`** (T5; weak collision with OpenAlex's deprecated concepts) vs Matuschak **`evergreen`** (T5). |
-| `effort` | P | PARA **`project`** (with the folder decision). |
-| `daily` | S (Obsidian Daily notes plugin — toolchain) | Keep. |
+| Current term | Status |
+|---|---|
+| [@citekey, locator], ^claim-id, claim link | A/D — Pandoc/CSL and Obsidian block-link surfaces |
+| [supports::] / [disputes::] | A — CiTO names; typed lineage is a class-2 OKF deviation |
+| [failed-verification::] | A/S — exact verifier-owned failure projection |
+| accessed, fixity-sha256 | A — CSL and OAIS/NDSA |
+| generated: {by, at}, optional description/stale_after | A — OKF v0.2 |
+| literature unscreened/included/excluded/superseded | D — PRISMA screening semantics |
+| synthesis draft/stable/deprecated | A — OKF lifecycle |
+| project draft/parked/published/corrected/withdrawn | D — publication lifecycle |
+| verified events {by, at, check}; actor convention | A — OKF with harness check extension |
+| managed-sha256 | S — bridge/verifier-owned exact managed-region witness |
 
-### 6.3 Claim language
+### 6.3 Commands and process vocabulary
 
-| Term | Status | Anchor candidates (for P) |
-|---|---|---|
-| Evidence-boundary tags `(quote)(paraphrase)(inference)(open-question)` | S (PROV/ICD 203 semantics) | Current names plainer than both anchors; keep, cite. |
-| `[@citekey]`, `[@citekey, p. N]` | A (pandoc/CSL) | — |
-| `^claim-id` anchors; "claim address" | Syntax A (Obsidian block links); "claim" S (micropub/nanopub); "address" P | **"claim link"** = micropub `claim` + Obsidian **block link** at once. |
-| Blockquotes; inline fields `[k:: v]` | A (Markdown; Dataview) | — |
-| `[confidence:: low\|moderate\|high]` | S (ICD 203) | GRADE alternative name: `[certainty-…]` (GRADE says *certainty*). |
-| `[confidence-reason::]` | P | **GRADE** explanatory-footnote/downgrade-reason semantics. |
-| `[status:: live/deprecated]` + transition fields | S (Wikidata-shaped); `superseded-by` D | — |
-| `[supported-by::]`/`[contested-by::]` | D | CiTO verbatim option — §4. |
-| `[retraction-ack::]` | P (name); mechanism spec-fixed | Wikipedia intentional-citation convention (semantics). |
-| `[verify-failed::]` | P | **Wikipedia `{{failed verification}}`** — rename `[failed-verification::]` for a verbatim mass-deployed anchor. |
-| Selector comment `hk-sel prefix/suffix` | S (W3C selector semantics); `hk-` P | Prefix cascades from plugin name; fields already WADM-named. |
+| Current term | Status |
+|---|---|
+| CLI probe, import-note, staleness, backfill-selectors, verify, inbox, scaffold, doctor | A/S — conventional CLI verbs |
+| skills setup-vault, project, find-sources, import-source, verify-citations, factcheck-draft, publish, evidence-conventions, synthesis-conventions | Ruled current names |
+| MATCHED/UNMATCHED/UNREACHABLE/SKIPPED | S — trust distinction retained over developer-only pytest vocabulary |
+| evidence layer, synthesis layer, admission, information flow, project flow | A/S — current process vocabulary |
 
-### 6.4 Frontmatter keys
+## 7. Naming-pass status
 
-| Term | Status | Anchor candidates (for P) |
-|---|---|---|
-| `citekey`, `zotero-key`, `doi`, `pmid`, `url`, `aliases`, `title` | A | — |
-| `version` | S (Force11) | — |
-| `retrieved` | D ⚠ | See §4 — likely becomes CSL `accessed`. |
-| `attachment-sha256` | P (name; OAIS semantics) | **OAIS/NDSA `fixity`** — `fixity-sha256` anchors verbatim. |
-| `archive-url` | S (Wikidata P1065) | — |
-| `authority` | S (library-science authority control; ICD 206 source descriptors) | Alternative verbatim name: `source-descriptor` (ICD 206). |
-| Source `status: unreviewed/active/rejected` (+ `superseded` D) | P (values) | **PRISMA/Covidence screening states**: `unscreened/included/excluded` — the strongest domain anchor in the inventory. |
-| `verified` events `{by, at, check}` | S (OKF's exact field name + shape) | Keep. |
-| Actor convention `human:`/`agent/ver`/`process:` | S (OKF) | — |
-| `growth`, `planted`, `last-tended` | S (Appleton) | Adopt her full stage set verbatim (seedling/budding/evergreen). |
-| Effort `status: drafting/parked` (+ `published/corrected/withdrawn` anchored) | P | OKF `draft`; journal lifecycle (*in preparation/submitted*); `parked` ↔ GTD *someday* / Ideaverse *sleeping*. |
+The pass is complete under the inverted order: OKF structural and metadata terms first; toolchain-bound CSL/Pandoc terms next; CiTO stance names and PRISMA screening language where their domains govern; community vocabulary only where higher tiers are silent. Section 10 is the binding execution manifest. There are no remaining placeholder names blocking the validation slice.
 
-### 6.5 Verification vocabulary
+## 8. Superseded promotion analysis
 
-| Term | Status | Anchor candidates (for P) |
-|---|---|---|
-| Four-state `MATCHED/UNMATCHED/UNREACHABLE/SKIPPED` | P (names; distinction spec-fixed) | **pytest `passed/failed/error/skipped`** (T6, 1:1 — *error* = could-not-run is exactly UNREACHABLE) vs GitHub check conclusions vs keep (more precise about comparison semantics). Genuine trade-off. |
-| Check names (`citekey, doi, metadata, update-notice, quote, staleness, identifier-discovery, web-archive, evidence-layer, append-only, claim-immutability, published-drift, source-status, contested`) | P each | Each check's own domain anchors it; keep, cite per-check. |
-| Trust tiers `unverified/machine-confirmed/human-reviewed` | S (OKF's tier names verbatim) | Keep at zero cost. |
-| Reason codes (17, spec-fixed set) | P (words) | Covidence exclusion-reason discipline anchors the *set*; per-word stakes low. |
-| Update-notice blocking/warn type sets | A (Crossref) | — |
-| `notice-date`/`detection-date` | P (names; bi-temporal semantics anchored) | Bi-temporal DB vocabulary (Snodgrass/SQL:2011 *valid/transaction time*; Zep `valid_at/created_at`) — `valid-at`/`recorded-at` verbatim option vs keep (more self-explaining). |
-| Inbox entry/ack fields (`[id::]`, `[ack::]`, `[target-hash::]`); "review inbox", "standing ack" | P | Covidence review-queue semantics; keep names. |
-| `COMMIT_CLOSING`/`PUBLISH_CLOSING`; closing-class/warn-tier | P | **Vale severities** `error/warning` (T6) — instantly legible to CI users. |
-| Publish gate / armed / 8-block bound / bypass token | S (GitHub required-checks + press-check precedent) | Keep. |
-| `doctor` + probe names | S (`doctor` = brew/flutter/npm CLI convention); probes anchored by subjects | Keep. |
+This section previously analyzed semi-anchored names before the naming pass. That analysis is retained only in Git history; its live conclusions were superseded by the 2026-08-20 inversion and wholesale ruling. In particular, the former Appleton-stage adoption and the conclusion that find-papers should remain were superseded: synthesis now uses OKF draft/stable/deprecated, and the entry skill is find-sources. Current promotions and deviations are recorded in §§3–6; §9 below is a historical proposal sheet and §10 is preserved migration evidence.
 
-### 6.6 Commands
+## 9. Historical naming-pass proposal sheet — **RULED, THEN PARTLY SUPERSEDED**
 
-| Term | Status | Anchor candidates |
-|---|---|---|
-| CLI verbs `probe, import-note, staleness, backfill-selectors, verify, inbox, scaffold, doctor` + flags | S (CLI conventions: doctor, scaffold=Rails/Yeoman, probe=k8s, verify=git family) | Keep; `import-note` follows folder/kind renames. |
-| Skill names (nine) | P each | `find-papers` → PRISMA *identification* (`identify-papers`) option; `factcheck-draft` S (IFCN "fact-check"); conventions skills cascade from folder/layer renames; style (plain-descriptive) is a #11 decision, words are not. |
-| Dispositions `mark-published/park/keep-drafting`; typed `discard` | P | `park` ↔ GTD someday / Ideaverse sleeping. Low stakes. |
-| Plugin name `knowledge-harness` | P — **the one genuinely free name; cascades to `.harness/`, `hk-`, skill namespace** | Decide first. |
-
-### 6.7 Process vocabulary
-
-| Term | Status | Anchor candidates |
-|---|---|---|
-| "vault" | A (Obsidian) | — |
-| evidence layer / synthesis layer | P | **Evidence synthesis** (Cochrane — the field's own name splits into exactly our two layers; best single anchor discovery of the pass). |
-| "admission" | S (STORM source-admission, cited in spec) | Keep. |
-| information flow / project flow | T7 by choice (author's coinage) | Keep. |
-| "thin slice", "drill" | P (pre-user build vocabulary) | XP *tracer bullet/walking skeleton*; optional. |
-| `dehydrated`, `canonical`, `venue` | A/D per §3–§4 | — |
-
-## 7. Naming-pass decision order
-
-1. **Plugin name** (cascades: `.harness/`, `hk-` markers, skill namespace).
-2. **The evidence/synthesis axis** — one choice names the layer, the folder, and the synthesis-note kind, and discharges the mandatory `topic` rename (T3 `synthesis` leads unless ruled otherwise).
-3. **Folders** — with #2 decided, the remaining five are independent (`inbox/`, `references/` vs `literatures/`, `daily/` vs `log/` vs `calendar/`, `projects/` vs `efforts/`, `x/`).
-4. **Four-state names** (pytest vs current) and **screening statuses** (PRISMA mapping) — recorded into events/inbox forever after the first vault.
-5. **The ⚠ `retrieved`→`accessed` defect** — rename per CSL (T1) or supply the forcing class the original ruling lacked.
-6. Check names, reason codes, remaining inline fields (`failed-verification`, `fixity`), skill verbs — S-or-keep at leisure, before the vault exists.
-7. Everything marked A or D (post-⚠-resolution) is out of scope.
-
-
----
-
-## 8. Promotion analysis: implications of making each S an A
-
-Added 2026-08-20. **S → A means one of two things**: *(adopt)* rename to the anchor's exact term so the word IS the external vocabulary, or *(commit)* declare the anchor normative — we track its changes and owe conformance. Either way, promotion **locks the term against the naming pass** (A is out of the pass's scope) and prices every future rename at a real cost class. General law surfaced by this analysis: **promotion is sound only for T1–T3 anchors (stable, versioned, or professionally spoken); T5 community anchors can inspire but cannot govern — promoting against them creates fictional conformance to an unversioned source.** T4 is case-by-case.
-
-| S term | Anchor (tier) | Promotion path | What we gain | What it costs / risks | Verdict |
-|---|---|---|---|---|---|
-| `literatures/` | ZotLit default folder (T1) | commit (name already matches) | If ZotLit is ever adopted as UI (#8 kept the door open), zero-config compatibility becomes *guaranteed*, not incidental | Couples a folder name to one plugin's default; ZotLit could change it; blocks the `references/` naming-pass option | **Defer to the pass** — promote only if the pass keeps the name *because of* ZotLit |
-| `literature` (note kind) | Ahrens (T5 mass term) + ZotLit docs | commit | The PKM world's own word; every tutorial ever written explains it for us | Ahrens is a book, not a spec — nothing to conform to; harmless but fictional | **Leave S** — the anchor governs usage, not us |
-| `atlas/`, `calendar/`, `efforts/`, `x/`, `+` | Ideaverse (T5, informal artifact) | commit | None beyond familiarity to LYT users | Milo can reorganize Ideaverse tomorrow; conformance is fiction; **locks the six folders the naming pass most needs freedom on** | **Leave S / actively do not promote** — strongest do-not case in the table |
-| `atlas/index.md` | llm-wiki convention (T5, but unanimous across 7 implementations) | commit | Interop with any llm-wiki-reading tool; `index.md` is also a web-server convention (near-T1) | Convention is informal but redundantly anchored; risk ≈ nil | **Promote** — cheap, real, survives the atlas folder rename (filename is what matters) |
-| "managed region" | ZotLit (T1 convention) | commit | Regeneration semantics documented by ZotLit for free; marker interop if ZotLit adopted | Our markers are `hk-` not `zt-` — promotion covers the *concept*, not the delimiter; fine | **Promote the concept**, keep `hk-` delimiters (plugin-name cascade) |
-| Evidence-boundary tags | PROV/ICD 203 semantics (T2/T3) | commit (semantic conformance) | The tags gain an auditable definition: quote ⇔ `wasQuotedFrom`, inference ⇔ ICD judgment — reviewers can check our usage against a spec | Obligates the evidence-conventions skill to teach the mapping; PROV is frozen (safe); ICD amendable (slow) | **Promote semantically** — this is the trust core; an external definition strengthens it. Names stay ours (already plainer) |
-| `[confidence::]` scale | ICD 203 (T3) | adopt values verbatim (already `low/moderate/high`) + commit | The IC's calibrated usage guidance comes free; GRADE crosswalk documented | GRADE says *certainty* — committing to ICD forecloses the GRADE rename | **Promote to ICD** unless the pass prefers GRADE's word; both T3, either sound |
-| Status/transition fields (`live/deprecated` + actor/date/reason) | Wikidata deprecation family (T4) | commit | Mass-deployed semantics for deprecate-never-delete; ranks precedent for future needs | Wikidata property semantics evolve by community process; loose coupling only | **Promote semantics, not names** — current state, made explicit |
-| Selector fields (`exact/prefix/suffix`) | W3C WADM (T2) | **already verbatim** — commit formally | Conformance claim becomes checkable; future WADM export is a projection, not a translation | W3C TR is frozen — no drift risk | **Promote** — free and real; the strongest promotion candidate |
-| "claim" | Micropublications/nanopub (T2-ish, academic spec) | commit | The trust object gains a published formal model; "claim" usage auditable against it | Micropub is a paper-spec (frozen, unmaintained) — anchor is stable but dead; conformance partial by design (we flattened the tri-graph) | **Promote as cited definition**, not conformance |
-| `version` | Force11 (T3 principles) | commit | Citation-principles pedigree for reviewers | Principles, not schema — nothing concrete to conform to | **Leave S** — cite, don't commit |
-| `archive-url` | Wikidata P1065 (T4) | adopt name? (`archive-url` vs P1065 "archive URL" — already matches) | Alignment is already exact | None | **Promote by observation** — it is A in all but label; record it |
-| `authority` | Library-science authority control + ICD 206 source descriptors (T3) | adopt ICD's `source-descriptor`? | ICD verbatim would make the field auditable against ICD 206's descriptor list | Renames a field for a standard the user doesn't read daily; `authority` is the librarian's own word | **Leave S**, offer the pass both words |
-| `verified` events | OKF (T4, versioned v0.2) | commit to OKF conformance | Interop with OKF consumers; schema documented externally; `{by, at, check}` = their shape + our extension | OKF is young (v0.2, one vendor); committing means tracking 0.3+; our `check` field is already an extension — full conformance impossible | **Promote as "OKF-derived, documented divergence"** — commit to the actor convention and tier names, not whole-schema conformance |
-| Actor convention | OKF (T4) | adopt verbatim (already is) + commit | One line of external doc replaces ours | Same OKF-youth risk, but the convention is tiny and stable | **Promote** — smallest possible conformance surface |
-| Trust tiers | OKF tier names verbatim (T4) | commit | Names externally defined; derivation stays ours | Tier *derivation* is ours (stricter than OKF's advisory tiers) — commit names only or the divergence becomes non-conformance | **Promote names only**, derivation explicitly ours |
-| `growth/planted/last-tended` + stages | Appleton (T5, personal essay) | adopt her full stage set | Digital-garden users recognize it instantly | Essay-anchored — no spec; her stages are hers to change | **Adopt values, leave status S** — same as Ahrens |
-| Publish gate family | GitHub required checks + press-check (T6/precedent) | commit to GitHub vocabulary? | CI users' instant legibility | T6 never names vault prose — the gate speaks in skill prose too; partial surface only | **Leave S** — T6 scope rule bars full promotion |
-| `doctor`, CLI verbs | CLI conventions (T6) | commit (names already conventional) | Self-documenting to any developer | Convention, not spec — nothing to track | **Promote by observation** — costless; record as A-by-convention on the CLI surface |
-| "admission" | STORM (T4 paper) | commit as cited definition | The trust boundary's key verb gains a citable origin | Paper-anchored; frozen | **Promote as cited definition** (like "claim") |
-
-### Promotion summary
-
-- **Promote now (real, free):** WADM selector fields; `atlas/index.md`; managed-region concept; actor convention; OKF tier *names*; `archive-url`; CLI-surface verbs by observation; evidence-boundary tags *semantically*.
-- **Promote as cited definition (anchor frozen/dead but stable):** "claim" (micropub), "admission" (STORM).
-- **Promote with scoped divergence:** `verified` events (OKF-derived, `check` extension documented).
-- **Defer to the naming pass (promotion would pre-empt it):** `literatures/`, `[confidence::]` ICD-vs-GRADE.
-- **Do not promote (T5 anchors cannot govern):** the five Ideaverse folder names, `literature` note kind, Appleton statuses, Ahrens-anchored terms — they stay S by design; T5 inspires, never governs.
-
-
----
-
-## 9. Naming-pass proposal sheet — **RULED (author confirmed wholesale, 2026-08-20)**
-
-One concrete proposal per open term, derived from the ruled tier order, tie-breakers, and the §8 promotion analysis. **All 25 rows confirmed wholesale — the naming pass is DECIDED; the §9-slice gate clears when the rename wave (§10) lands.** Cascade decisions first; every A-status term not listed is unchanged by definition.
+This table preserves the pre-inversion decision record. All 25 rows were confirmed wholesale on 2026-08-20, but the later OKF inversion and skill-name review supersede rows 20 and 23 as noted; §10 is the binding migration record.
 
 | # | Current | Proposed | Rationale |
 |---|---|---|---|
@@ -259,10 +161,10 @@ One concrete proposal per open term, derived from the ruled tier order, tie-brea
 | 17 | `notice-date`/`detection-date` | **keep** | Self-explaining to scholars; bi-temporal literature (`valid/transaction time`) cited as semantics, but its jargon loses legibility (tie-breaker 4: this is vault prose surface). |
 | 18 | Trust tiers, actor convention, `verified` events | **keep — promote per §8** | OKF names verbatim; derivation ours, `check` extension documented. |
 | 19 | Check names, reason codes, doctor probes | **keep** | Each domain-anchored; the sets are spec-fixed; per-word stakes low. |
-| 20 | `find-papers` | **keep** | #11 ruled plain-descriptive style; PRISMA's *identification* noted in the skill's doc line, not its name. |
+| 20 | `find-papers` | **historical keep; superseded by `find-sources`** | The later skill-name review chose the broader trust-core term because admissible sources are not limited to papers. |
 | 21 | `atlas-conventions` skill | **`synthesis-conventions`** | Cascade of row 2. |
 | 22 | Other skill names, dispositions, `park`, flags | **keep** | Plain-descriptive ruling; no anchor argues. |
-| 23 | `growth: seedling …` | **adopt Appleton's full stage set** (`seedling/budding/evergreen`) | Already S to her essay; the complete value set costs nothing and is recognizable to garden-vocabulary users. Status stays S (T5 inspires, never governs). |
+| 23 | `growth: seedling …` | **historical adoption; superseded by synthesis `status: draft/stable/deprecated`** | The OKF inversion made the T1 lifecycle binding; `generated.at` supplies recency without parallel Appleton fields. |
 | 24 | `authority` | **keep** | Library science's own word (T3); ICD's `source-descriptor` noted as alternative in the skill doc. |
 | 25 | `+/review-queue.md` | **`inbox/review-queue.md`** | Path follows row 3; filename unchanged (Covidence review-queue semantics). |
 
@@ -310,7 +212,7 @@ Unchanged: `literatures/`, `x/`, plugin name + `hk-`/`.harness` cascade, type `l
 | status `active` | `included` |
 | status `rejected` | `excluded` (`superseded` unchanged; source-status lint strings follow) |
 | effort/project status `drafting` | `draft` (`parked/published/corrected/withdrawn` unchanged) |
-| `growth` values | full Appleton set `seedling/budding/evergreen` |
+| `growth`/`planted`/`last-tended` | removed; synthesis uses `status: draft/stable/deprecated` plus `generated.at` (inversion supersession) |
 
 **Inline fields** (claims parser, stamp/clear logic, canonical_content exclusion set per rulings 9/11, contested-set lint, fixtures, spec §5):
 

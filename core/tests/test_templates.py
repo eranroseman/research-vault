@@ -1,0 +1,239 @@
+import json
+import os
+import re
+import subprocess
+from pathlib import Path
+
+from harness_core import frontmatter
+
+REPO = Path(__file__).resolve().parents[2]
+TEMPLATES = REPO / "core" / "harness_core" / "templates"
+
+EXPECTED_PATHS = {
+    "vault/index.md",
+    "vault/log.md",
+    "vault/AGENTS.md",
+    "vault/inbox/review-queue.md",
+    "vault/synthesis/index.md",
+    "vault/x/templates/literature.md",
+    "vault/x/templates/synthesis.md",
+    "vault/x/templates/project.md",
+    "vault/x/templates/daily.md",
+    "vault/x/bases/open-questions.base",
+    "vault/x/bases/trust-tier.base",
+    "vault/gitignore",
+    "harness/machine.json.example",
+    "git/pre-commit",
+    "ci/verify.yml",
+    "ci/rw-batch.yml",
+}
+
+
+def asset(path):
+    return TEMPLATES / path
+
+
+def test_all_canonical_template_paths_are_packaged():
+    actual = {
+        path.relative_to(TEMPLATES).as_posix()
+        for path in TEMPLATES.rglob("*")
+        if path.is_file()
+    }
+    assert actual == EXPECTED_PATHS
+    package_data = (REPO / "core" / "pyproject.toml").read_text()
+    assert '"templates/**/*"' in package_data
+
+
+def test_markdown_templates_have_expected_okf_frontmatter():
+    reserved = {
+        path
+        for path in EXPECTED_PATHS
+        if path == "vault/log.md"
+        or (path.endswith("/index.md") and path != "vault/index.md")
+    }
+    concept_paths = {
+        path
+        for path in EXPECTED_PATHS
+        if path.startswith("vault/") and path.endswith(".md")
+    }
+    for path in sorted(concept_paths - reserved - {"vault/index.md"}):
+        data, _ = frontmatter.parse(asset(path).read_text())
+        assert data.get("type"), path
+
+    root_data, _ = frontmatter.parse(asset("vault/index.md").read_text())
+    assert root_data == {"okf_version": "0.2"}
+    for path in reserved:
+        data, _ = frontmatter.parse(asset(path).read_text())
+        assert data == {}, path
+
+    queue_data, _ = frontmatter.parse(asset("vault/inbox/review-queue.md").read_text())
+    assert queue_data == {"type": "review-inbox"}
+    daily_data, _ = frontmatter.parse(asset("vault/x/templates/daily.md").read_text())
+    assert daily_data == {"type": "daily"}
+
+
+def test_markdown_templates_match_canonical_content():
+    assert asset("vault/index.md").read_text() == (
+        '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
+    )
+    assert asset("vault/log.md").read_text() == "# Log\n"
+    assert asset("vault/AGENTS.md").read_text() == (
+        '---\ntype: "vault-guide"\n---\n# Vault agents guide\n\n'
+        "Evidence is admitted through Zotero and projected into `literatures/`. "
+        "Read `synthesis/index.md` and recent `log/` entries before editing. "
+        "Use the knowledge-harness `project`, `verify-citations`, and `publish` "
+        "skills for delivery work. Review findings live in `inbox/review-queue.md`.\n"
+    )
+    assert asset("vault/inbox/review-queue.md").read_text() == (
+        '---\ntype: "review-inbox"\n---\n'
+    )
+    assert asset("vault/synthesis/index.md").read_text() == "# Synthesis index\n"
+    assert asset("vault/x/templates/literature.md").read_text() == (
+        '---\ncitekey: "{{CITEKEY}}"\ntype: "literature"\n'
+        'accessed: "{{TODAY}}"\nfixity-sha256:\n'
+        'managed-sha256: "{{MANAGED_SHA256}}"\nstatus: "unscreened"\n'
+        'generated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
+        "%%hk-managed%%\n# {{TITLE}}\n%%/hk-managed%%\n\n## Notes\n"
+    )
+    for kind in ("synthesis", "project"):
+        assert asset(f"vault/x/templates/{kind}.md").read_text() == (
+            f'---\ntitle: "{{{{TITLE}}}}"\ntype: "{kind}"\n'
+            'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
+        )
+    assert asset("vault/x/templates/daily.md").read_text() == (
+        '---\ntype: "daily"\n---\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
+    )
+
+
+def test_bases_and_machine_example_match_canonical_shapes():
+    open_questions = asset("vault/x/bases/open-questions.base").read_text()
+    trust_tier = asset("vault/x/bases/trust-tier.base").read_text()
+    assert re.search(
+        r"name: Open questions\nfilters:\n  and:\n    - 'type == \"synthesis\"'",
+        open_questions,
+    )
+    assert (
+        "formulas:\n  open_q: 'file.content.contains(\"(open-question)\")'\n"
+        in open_questions
+    )
+    assert open_questions.count("type ==") == 1
+    assert re.search(
+        r"name: Trust tier\nfilters:\n  and:\n    - 'type == \"literature\"'",
+        trust_tier,
+    )
+    assert trust_tier.count("type ==") == 1
+
+    machine = json.loads(asset("harness/machine.json.example").read_text())
+    assert machine == {
+        "mailto": "you@example.edu",
+        "path_map": {"D:\\Zotero\\": "/mnt/d/Zotero/"},
+    }
+    gitignore = asset("vault/gitignore").read_text()
+    assert ".harness/\n" in gitignore
+    assert ".obsidian/workspace*\n" in gitignore
+
+
+def test_precommit_hook_is_executable_and_has_exact_contract():
+    hook = asset("git/pre-commit")
+    text = hook.read_text()
+    assert hook.stat().st_mode & os.X_OK
+    subprocess.run(["sh", "-n", str(hook)], check=True)
+    assert (
+        'python3 -m harness_core verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index'
+        in text
+    )
+    assert 'git_base="$(git rev-parse --verify HEAD 2>/dev/null)"' in text
+    assert "git hash-object -w -t tree /dev/null" in text
+    assert 'git cat-file -e "$git_base^{tree}"' in text
+    assert "git commit --no-verify" in text
+    assert 'if ! python3 -c "import harness_core" 2>/dev/null; then' in text
+    assert (
+        "pre-commit: harness_core is not importable; CI will replay verification."
+        in text
+    )
+    assert "1)" in text
+    assert "pre-commit: commit-closing verification failed." in text
+    assert "3)" in text
+    assert (
+        "pre-commit: verification unreachable; leaving commit open for CI replay."
+        in text
+    )
+    assert (
+        '*)\n    echo "pre-commit: verifier exited unexpectedly with status $code."'
+        in text
+    )
+
+
+def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
+    text = asset("ci/verify.yml").read_text()
+    assert "name: verify\non: [push, pull_request]" in text
+    assert "permissions:\n  contents: read" in text
+    assert "- uses: actions/checkout@v4" in text
+    assert "fetch-depth: 0" in text
+    assert "- uses: actions/setup-python@v5" in text
+    assert 'python-version: "3.12"' in text
+    assert (
+        'python -m pip install "harness-core @ git+https://github.com/eranroseman/'
+        'knowledge-harness.git#subdirectory=core"'
+    ) in text
+    assert "EVENT_NAME: ${{ github.event_name }}" in text
+    assert "PR_BASE: ${{ github.event.pull_request.base.sha }}" in text
+    assert "PUSH_BASE: ${{ github.event.before }}" in text
+    assert "zero=0000000000000000000000000000000000000000" in text
+    assert "persist-credentials: false" in text
+    assert 'empty_tree="$(git hash-object -w -t tree /dev/null)"' in text
+    assert 'git fetch --no-tags origin "$base"' in text
+    assert 'git cat-file -e "$base^{tree}"' in text
+    assert 'printf \'sha=%s\\n\' "$base" >> "$GITHUB_OUTPUT"' in text
+    assert "BASE: ${{ steps.base.outputs.sha }}" in text
+    assert 'git-base "$BASE"' in text
+    assert "--git-candidate HEAD" in text
+    assert "git push" not in text
+    assert "0) exit 0 ;;" in text
+    assert "1) exit 1 ;;" in text
+    assert (
+        '3)\n              echo "::warning::verification unreachable; no closing mismatch reported"'
+        in text
+    )
+    assert (
+        '*)\n              echo "::error::verifier exited unexpectedly with status $code"'
+        in text
+    )
+
+
+def test_rw_workflow_has_explicit_csv_only_write_boundary():
+    text = asset("ci/rw-batch.yml").read_text()
+    assert "name: rw-batch\non:" in text
+    assert 'cron: "17 3 * * *"' in text
+    assert "workflow_dispatch: {}" in text
+    assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
+    assert "permissions:\n  contents: write" in text
+    assert "- uses: actions/checkout@v4" in text
+    assert "fetch-depth: 0" in text
+    assert "- uses: actions/setup-python@v5" in text
+    assert 'python-version: "3.12"' in text
+    assert (
+        'python -m pip install "harness-core @ git+https://github.com/eranroseman/'
+        'knowledge-harness.git#subdirectory=core"'
+    ) in text
+    assert 'curl --fail --show-error --location --output "$RUNNER_TEMP/rw.csv"' in text
+    assert (
+        "https://gitlab.com/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv"
+        in text
+    )
+    assert (
+        '--offline --surface audit --git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" --changed-paths-file "$RUNNER_TEMP/harness-changed-paths" --commit-projected "chore: rw-batch findings"'
+        in text
+    )
+    assert "No verifier-owned changes." in text
+    assert 'git config user.name "harness-ci"' in text
+    assert 'git config user.email "actions@users.noreply.github.com"' in text
+    assert "git push" in text
+    assert "0) exit 0 ;;" in text
+    assert "1)" in text
+    assert "3)" in text
+    assert 'if [[ ! -s "$manifest" ]]; then' in text
+    assert "git add" not in text
+    assert "git commit" not in text
+    assert "--pathspec-from-file" not in text
+    assert "|| true" not in text

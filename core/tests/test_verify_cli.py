@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,16 @@ from unittest.mock import Mock
 
 import pytest
 
-from harness_core import Result, bibliography, checks, claims, events, inbox, webapi
+from harness_core import (
+    Result,
+    bibliography,
+    checks,
+    claims,
+    events,
+    gitstate,
+    inbox,
+    webapi,
+)
 from harness_core.__main__ import (
     _archive_outcomes,
     _mutate_marker,
@@ -21,10 +31,21 @@ from harness_core.__main__ import (
     main,
     run_verify,
 )
+from harness_core.pathcodec import PathCodecError, RepoPathValue, encode_repo_path
 
 
 def _outcome(check, target, result, reason, **extra):
+    if isinstance(extra.get("note_path"), str):
+        extra["note_path"] = RepoPathValue(os.fsencode(extra["note_path"]))
+    if check in {"append-only", "staleness"} and isinstance(target, str):
+        target = RepoPathValue(os.fsencode(target))
     return checks.Outcome(check, target, result, reason, extra)
+
+
+def _git_bytes(vault, *args, stdin=None):
+    return subprocess.run(
+        ["git", *args], cwd=vault, input=stdin, check=True, capture_output=True
+    ).stdout
 
 
 def test_discovery_partial_identifiers_survive_outage_and_run_recovered_doi(
@@ -144,7 +165,7 @@ def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
 
 
 def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_vault):
-    draft = net_vault / "efforts" / "brief" / "draft.md"
+    draft = net_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
         draft.read_text().replace(
             "Mortality fell 12% across all strata.", "wrong quote"
@@ -168,7 +189,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         o is not None and o.check == "quote" and o.result is Result.UNMATCHED
         for o in second["outcomes"]
     )
-    assert "[verify-failed:: quote/" in draft.read_text()
+    assert "[failed-verification:: quote/" in draft.read_text()
     assert not any(
         e.check == "quote" and e.target == raw.target
         for e in inbox.open_entries(net_vault)
@@ -191,7 +212,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
 
 def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     file_outcome = _outcome(
-        "append-only", "calendar/2026-08-16.md", Result.UNMATCHED, "drift — file"
+        "append-only", "log/2026-08-16.md", Result.UNMATCHED, "drift — file"
     )
     claim_outcome = _outcome(
         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
@@ -202,16 +223,16 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     )
     assert (
         _target_hash(net_vault, file_outcome)
-        == hashlib.sha256(
-            (net_vault / "calendar/2026-08-16.md").read_bytes()
-        ).hexdigest()[:16]
+        == hashlib.sha256((net_vault / "log/2026-08-16.md").read_bytes()).hexdigest()[
+            :16
+        ]
     )
     claim_hash = _target_hash(net_vault, claim_outcome)
     assert claim_hash == "aa11"
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
-            "^c-11111111", "[verify-failed:: quote/2026-08-16] ^c-11111111"
+            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
         )
     )
     assert _target_hash(net_vault, claim_outcome) == "aa11"
@@ -222,18 +243,13 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
             :16
         ]
     )
-    assert (
-        _target_hash(
-            net_vault,
-            _outcome("append-only", "../outside", Result.UNMATCHED, "drift — unsafe"),
-        )
-        is None
-    )
+    with pytest.raises(PathCodecError):
+        RepoPathValue(b"../outside")
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 @pytest.mark.parametrize(
-    "frontmatter_line", ["", 'status: "active"'], ids=["empty", "nonempty"]
+    "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
 )
 def test_preclose_blank_event_keeps_no_attachment_ack_hash(
     net_vault, newline, frontmatter_line
@@ -274,13 +290,13 @@ def test_preclose_blank_event_keeps_no_attachment_ack_hash(
 
 
 def test_missing_citekey_hash_uses_exact_checked_origins_and_reopens(net_vault):
-    draft = net_vault / "efforts" / "brief" / "draft.md"
+    draft = net_vault / "projects" / "brief" / "draft.md"
     outcome = _outcome(
         "citekey",
         "fabricated2020",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         claims=[{"claim_id": "c-77777777"}],
     )
     original = _target_hash(net_vault, outcome)
@@ -299,7 +315,7 @@ def test_no_note_bibliography_target_hashes_its_canonical_entry(net_vault):
 
 
 def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
-    draft = net_vault / "efforts" / "brief" / "draft.md"
+    draft = net_vault / "projects" / "brief" / "draft.md"
     line_no = next(
         number
         for number, line in enumerate(draft.read_text().splitlines(), start=1)
@@ -310,16 +326,16 @@ def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
         "smith2020",
         Result.UNMATCHED,
         "schema-violation — quote claim has no anchor",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         line_no=line_no,
     )
     _mutate_marker(net_vault, outcome, "2026-08-16")
     assert (
-        "verify-failed:: quote/2026-08-16"
+        "failed-verification:: quote/2026-08-16"
         in draft.read_text().splitlines()[line_no - 1]
     )
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
-    assert "verify-failed" not in draft.read_text().splitlines()[line_no - 1]
+    assert "failed-verification" not in draft.read_text().splitlines()[line_no - 1]
 
 
 def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monkeypatch):
@@ -378,7 +394,15 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
         for entry in inbox.open_entries(net_vault)
         if entry.check == "citekey" and entry.target == "fabricated2020"
     ]
-    assert len(first_entries) == len(second_entries) == 1
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    third_entries = [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == "citekey" and entry.target == "fabricated2020"
+    ]
+    assert len(first_entries) == 1
+    assert len(second_entries) == len(third_entries) == 2
+    assert first_entries[0].target_hash != second_entries[-1].target_hash
     source = (net_vault / "literatures" / "smith2020.md").read_text()
     recorded = {event["check"] for event in events.verified_checks(source)}
     assert "quote:smith2020#^c-66666666:managed-region" in recorded
@@ -517,7 +541,11 @@ def test_archive_resolution_uses_status_and_distinguishes_404_from_outage(
 def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
     net_vault, monkeypatch
 ):
-    args = type("Args", (), {"vault": net_vault, "offline": True, "rw_csv": None})()
+    args = type(
+        "Args",
+        (),
+        {"vault": net_vault, "offline": True, "rw_csv": None, "surface": "publish"},
+    )()
     cases = [
         (
             [
@@ -579,16 +607,17 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
         claim_id="c-11111111",
     )
     append = _outcome(
-        "append-only", "+/review-queue.md", Result.UNMATCHED, "drift — inbox"
+        "append-only", "inbox/review-queue.md", Result.UNMATCHED, "drift — inbox"
     )
     first = _target_hash(net_vault, append)
-    (net_vault / "+" / "review-queue.md").write_text("new finding\n")
+    with (net_vault / "inbox" / "review-queue.md").open("a") as queue:
+        queue.write("new finding\n")
     assert _target_hash(net_vault, claim) is not None
     assert _target_hash(net_vault, append) == first
 
 
 def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
-    note = net_vault / "atlas" / "invalid-utf8.md"
+    note = net_vault / "synthesis" / "invalid-utf8.md"
     claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
     note.write_bytes(claim_bytes)
     subprocess.run(["git", "add", note], cwd=net_vault, check=True)
@@ -600,10 +629,10 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
     note.unlink()
     outcome = _outcome(
         "claim-immutability",
-        "atlas/invalid-utf8.md#^c-invalid",
+        "synthesis/invalid-utf8.md#^c-invalid",
         Result.UNMATCHED,
         "drift — deleted claim",
-        note_path="atlas/invalid-utf8.md",
+        note_path="synthesis/invalid-utf8.md",
         claim_id="c-invalid",
     )
 
@@ -614,37 +643,39 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
 
 
 def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
-    other = net_vault / "atlas" / "other.md"
+    other = net_vault / "synthesis" / "other.md"
     other.write_text(
-        "- (quote) [@smith2020] [verify-failed:: quote/2026-08-16] ^c-66666666\n"
+        "- (quote) [@smith2020] [failed-verification:: quote/2026-08-16] ^c-66666666\n"
     )
     origin = _outcome(
         "quote",
         "smith2020#^c-66666666",
         Result.MATCHED,
         "matched",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         claim_id="c-66666666",
     )
     _mutate_marker(net_vault, origin, "2026-08-16", clear=True)
-    assert "verify-failed" not in (net_vault / "efforts/brief/draft.md").read_text()
-    assert "verify-failed" in other.read_text()
+    assert (
+        "failed-verification" not in (net_vault / "projects/brief/draft.md").read_text()
+    )
+    assert "failed-verification" in other.read_text()
     citekey = _outcome(
         "citekey",
         "fabricated2020",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="efforts/brief/draft.md",
+        note_path="projects/brief/draft.md",
         claims=[{"claim_id": "c-66666666"}, {"claim_id": "c-77777777"}],
     )
     _mutate_marker(net_vault, citekey, "2026-08-16")
-    marked = (net_vault / "efforts/brief/draft.md").read_text()
-    assert marked.count("verify-failed:: citekey/2026-08-16") == 2
-    assert "verify-failed:: quote/2026-08-16" in other.read_text()
+    marked = (net_vault / "projects/brief/draft.md").read_text()
+    assert marked.count("failed-verification:: citekey/2026-08-16") == 2
+    assert "failed-verification:: quote/2026-08-16" in other.read_text()
     _mutate_marker(net_vault, citekey, "2026-08-16", clear=True)
     assert (
-        "verify-failed:: citekey/2026-08-16"
-        not in (net_vault / "efforts/brief/draft.md").read_text()
+        "failed-verification:: citekey/2026-08-16"
+        not in (net_vault / "projects/brief/draft.md").read_text()
     )
 
 
@@ -652,7 +683,7 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
     net_vault,
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    text = source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
+    text = source.read_text().replace('fixity-sha256:\n  - "aa11"\n', "")
     source.write_bytes(text.replace("\n", "\r\n").encode())
     outcome = _outcome(
         "quote",
@@ -696,13 +727,13 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
     assert _target_hash(net_vault, outcome) != original
 
     source.write_bytes(
-        after_effects.replace(b'status: "active"', b'status: "deprecated"')
+        after_effects.replace(b'status: "included"', b'status: "deprecated"')
     )
     assert _target_hash(net_vault, outcome) != original
 
 
 def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
-    note = net_vault / "atlas" / "crlf markers.md"
+    note = net_vault / "synthesis" / "crlf markers.md"
     original = (
         b"- (quote) anchored [@missing]   ^c-1\r\n- (quote) line only [@missing]\r\n"
     )
@@ -712,7 +743,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         "missing",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="atlas/crlf markers.md",
+        note_path="synthesis/crlf markers.md",
         claims=[{"claim_id": "c-1"}],
     )
     anchored_hash = _target_hash(net_vault, anchored)
@@ -720,8 +751,8 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     _mutate_marker(net_vault, anchored, "2026-08-16")
     stamped = note.read_bytes()
 
-    assert b"   [verify-failed:: citekey/2026-08-16] ^c-1\r\n" in stamped
-    assert b"\r [verify-failed" not in stamped
+    assert b"   [failed-verification:: citekey/2026-08-16] ^c-1\r\n" in stamped
+    assert b"\r [failed-verification" not in stamped
     assert _target_hash(net_vault, anchored) != anchored_hash
     _mutate_marker(net_vault, anchored, "2026-08-16", clear=True)
     assert note.read_bytes() == original
@@ -732,14 +763,16 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         "missing",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/crlf markers.md",
+        note_path="synthesis/crlf markers.md",
         line_no=2,
     )
     line_hash = _target_hash(net_vault, line_only)
     _mutate_marker(net_vault, line_only, "2026-08-16")
     stamped = note.read_bytes()
-    assert b"line only [@missing] [verify-failed:: quote/2026-08-16]\r\n" in stamped
-    assert b"\r [verify-failed" not in stamped
+    assert (
+        b"line only [@missing] [failed-verification:: quote/2026-08-16]\r\n" in stamped
+    )
+    assert b"\r [failed-verification" not in stamped
     assert _target_hash(net_vault, line_only) != line_hash
     _mutate_marker(net_vault, line_only, "2026-08-16", clear=True)
     assert note.read_bytes() == original
@@ -747,7 +780,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
 
 
 def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
-    note = net_vault / "atlas" / "trailing anchor.md"
+    note = net_vault / "synthesis" / "trailing anchor.md"
     original = b"- (quote) trailing [@missing] ^c-1  \r\n"
     note.write_bytes(original)
     outcome = _outcome(
@@ -755,7 +788,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
         "missing#^c-1",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/trailing anchor.md",
+        note_path="synthesis/trailing anchor.md",
         claim_id="c-1",
         line_no=1,
     )
@@ -766,7 +799,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
     stamped = note.read_bytes()
 
     assert stamped == (
-        b"- (quote) trailing [@missing] [verify-failed:: quote/2026-08-16] ^c-1  \r\n"
+        b"- (quote) trailing [@missing] [failed-verification:: quote/2026-08-16] ^c-1  \r\n"
     )
     assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
     assert _target_hash(net_vault, outcome) != before
@@ -806,24 +839,22 @@ def test_body_only_literature_ack_survives_verifier_event_envelope(net_vault):
 def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
     net_vault,
 ):
-    note = net_vault / "atlas" / "marker prose.md"
-    original = (
-        "- (quote) prose [verify-failed:: quote/2026-08-16] remains human text ^c-1\n"
-    )
+    note = net_vault / "synthesis" / "marker prose.md"
+    original = "- (quote) prose [failed-verification:: quote/2026-08-16] remains human text ^c-1\n"
     note.write_text(original)
     outcome = _outcome(
         "quote",
         "missing#^c-1",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/marker prose.md",
+        note_path="synthesis/marker prose.md",
         claim_id="c-1",
     )
 
     _mutate_marker(net_vault, outcome, "2026-08-17")
 
     assert note.read_text() == original.replace(
-        " ^c-1", " [verify-failed:: quote/2026-08-17] ^c-1"
+        " ^c-1", " [failed-verification:: quote/2026-08-17] ^c-1"
     )
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_text() == original
@@ -833,9 +864,7 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
     net_vault, monkeypatch, capsys
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
-    )
+    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -889,34 +918,36 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
 
 
 def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_path):
-    note = net_vault / "atlas" / "synthèse space.md"
+    note = net_vault / "synthesis" / "synthèse space.md"
     note.write_text("- (quote) local [@missing] ^c-local\n")
     outcome = _outcome(
         "quote",
         "missing#^c-local",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="atlas/synthèse space.md",
+        note_path="synthesis/synthèse space.md",
         claim_id="c-local",
     )
 
     assert _target_hash(net_vault, outcome) is not None
     _mutate_marker(net_vault, outcome, "2026-08-16")
-    assert "verify-failed:: quote/2026-08-16" in note.read_text()
+    assert "failed-verification:: quote/2026-08-16" in note.read_text()
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
-    assert "verify-failed" not in note.read_text()
+    assert "failed-verification" not in note.read_text()
 
     outside_root = tmp_path.parent / f"{tmp_path.name}-outside"
     outside_root.mkdir()
     outside = outside_root / "outside.md"
     outside.write_text("outside remains private\n")
-    direct_link = net_vault / "atlas" / "outside-link.md"
+    direct_link = net_vault / "synthesis" / "outside-link.md"
     direct_link.symlink_to(outside)
-    assert _safe_relative(net_vault, "atlas/outside-link.md") is None
+    assert _safe_relative(net_vault, "synthesis/outside-link.md") is None
     assert (
         _target_hash(
             net_vault,
-            _outcome("append-only", "atlas/outside-link.md", Result.UNMATCHED, "drift"),
+            _outcome(
+                "append-only", "synthesis/outside-link.md", Result.UNMATCHED, "drift"
+            ),
         )
         is None
     )
@@ -930,7 +961,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
         is None
     )
 
-    directory = net_vault / "efforts" / "published"
+    directory = net_vault / "projects" / "published"
     nested = directory / "nested"
     nested.mkdir(parents=True)
     first_target = outside_root / "first-target"
@@ -940,7 +971,10 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     link = nested / "escape"
     link.symlink_to(first_target)
     directory_outcome = _outcome(
-        "published-drift", "efforts/published", Result.UNMATCHED, "drift"
+        "published-drift",
+        RepoPathValue(b"projects/published"),
+        Result.UNMATCHED,
+        "drift",
     )
     first = _target_hash(net_vault, directory_outcome)
     first_target.write_text("changing outside content stays invisible\n")
@@ -976,7 +1010,8 @@ def test_archive_invalid_citekey_falls_back_to_safe_note_target(
 
     outcome = _archive_outcomes(net_vault)[0]
 
-    assert outcome.target == "literatures/smith2020.md"
+    assert outcome.target == "path-bytes:literatures/smith2020.md"
+    assert outcome.target_kind == "repo-path"
     assert _target_hash(net_vault, outcome) is not None
     filed = inbox.append_entry(
         net_vault,
@@ -1046,7 +1081,7 @@ def test_python_module_verify_and_inbox_acceptance(net_vault):
         check=False,
     )
 
-    assert verify.returncode == 1
+    assert verify.returncode == 0
     assert "fabricated2020" in verify.stdout
 
     review = subprocess.run(
@@ -1141,7 +1176,12 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
             type(
                 "Args",
                 (),
-                {"vault": net_vault, "offline": False, "rw_csv": None},
+                {
+                    "vault": net_vault,
+                    "offline": False,
+                    "rw_csv": None,
+                    "surface": "audit",
+                },
             )()
         )
         == 0
@@ -1179,7 +1219,12 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
             type(
                 "Args",
                 (),
-                {"vault": net_vault, "offline": False, "rw_csv": None},
+                {
+                    "vault": net_vault,
+                    "offline": False,
+                    "rw_csv": None,
+                    "surface": "publish",
+                },
             )()
         )
         == 1
@@ -1219,54 +1264,150 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     assert not inbox.open_entries(net_vault)
 
 
-def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
+def _projecting_failure(check):
+    if check == "doi":
+        return _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — DOI")
+    if check == "update-notice":
+        return _outcome(
+            "update-notice",
+            "smith2020",
+            Result.UNMATCHED,
+            "retracted — retraction",
+            **{
+                "class": "blocking",
+                "type": "retraction",
+                "notice_date": "2026-01-01",
+                "detection_date": "2026-08-16",
+            },
+        )
+    return checks.Outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        {
+            "note_path": RepoPathValue(b"literatures/smith2020.md"),
+            "claim_id": "c-11111111",
+            "target": "managed-region",
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "reverse", [False, True], ids=["primary-first", "primary-last"]
+)
+@pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+    net_vault, monkeypatch, check, reverse
+):
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    primary = _projecting_failure(check)
+    companion = _outcome(
+        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+    )
+    current = [primary, companion]
+    if reverse:
+        current.reverse()
+    _isolate_network_verify(monkeypatch, current)
+
+    candidate_hash = _target_hash(net_vault, primary)
+    _report, _effective_outcomes, hashes, _warnings = _verify_state(
+        net_vault, network=True, detection_date="2026-08-16"
+    )
+    projected_hash = _target_hash(net_vault, primary)
+    finding = next(
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == check and entry.target == primary.target
+    )
+
+    assert projected_hash != candidate_hash
+    assert hashes[id(primary)] == candidate_hash
+    assert finding.target_hash == candidate_hash
+
+
+@pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
+    net_vault, monkeypatch, check
+):
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    primary = _projecting_failure(check)
+    companion = _outcome(
+        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+    )
+    _isolate_network_verify(monkeypatch, [companion, primary])
+    candidate_hash = _target_hash(net_vault, primary)
+    notice_class, notice_type, notice_date = (
+        (
+            primary.extra.get("class"),
+            primary.extra.get("type"),
+            primary.extra.get("notice_date"),
+        )
+        if check == "update-notice"
+        else (None, None, None)
+    )
+    finding = inbox.append_entry(
+        net_vault,
+        primary.check,
+        primary.target,
+        primary.result,
+        primary.reason,
+        date="2026-08-16",
+        target_hash=candidate_hash,
+        notice_class=notice_class,
+        notice_type=notice_type,
+        notice_date=notice_date,
+        target_kind=primary.target_kind,
+    )
+    inbox.append_ack(
+        net_vault,
+        finding.id,
+        "manual — checked candidate",
+        "human:test",
+        candidate_hash,
+    )
+
+    _report, effective, hashes, _warnings = _verify_state(
+        net_vault, network=True, detection_date="2026-08-16"
+    )
+
+    assert hashes[id(primary)] == candidate_hash
+    assert primary not in effective
+    assert _target_hash(net_vault, primary) != candidate_hash
+    assert not any(
+        entry.check == check and entry.target == primary.target
+        for entry in inbox.open_entries(net_vault)
+    )
+
+
+def test_current_failure_projection_keeps_exact_recovery_behavior(
     net_vault, monkeypatch
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace('attachment-sha256:\n  - "aa11"\n', "")
-    )
     text = source.read_text()
-    for check in (
+    for verified_check in (
         "doi",
         "metadata",
         "update-notice",
         "quote:smith2020#^c-11111111:managed-region",
     ):
-        text = events.record_pass(text, check, Result.MATCHED, at="2026-08-15")
+        text = events.record_pass(text, verified_check, Result.MATCHED, at="2026-08-15")
     source.write_text(text)
-    doi_failure = _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — DOI")
+    doi_failure = _projecting_failure("doi")
     metadata_failure = _outcome(
         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
     )
     current = [doi_failure, metadata_failure]
     _isolate_network_verify(monkeypatch, current)
 
-    before = _target_hash(net_vault, doi_failure)
     run_verify(net_vault, network=True, detection_date="2026-08-16")
-    after = _target_hash(net_vault, doi_failure)
-    findings = {
-        entry.check: entry
-        for entry in inbox.open_entries(net_vault)
-        if entry.target == "smith2020"
-    }
-
-    assert after != before
-    assert findings["doi"].target_hash == after
-    assert findings["metadata"].target_hash == after
+    assert events.current_failures(source.read_text()) == [
+        {"check": "doi", "result": "UNMATCHED"},
+        {"check": "metadata", "result": "UNREACHABLE"},
+    ]
     assert events.trust_tier(source.read_text()) == "unverified"
-    first_bytes = source.read_bytes()
-
-    inbox.append_ack(
-        net_vault,
-        findings["doi"].id,
-        "manual — checked",
-        "human:test",
-        after,
-    )
-    run_verify(net_vault, network=True, detection_date="2026-08-17")
-    assert source.read_bytes() == first_bytes
-    assert not any(entry.check == "doi" for entry in inbox.open_entries(net_vault))
 
     current[:] = [
         _outcome("doi", "smith2020", Result.MATCHED, "matched"),
@@ -1276,7 +1417,6 @@ def test_current_failure_projection_uses_final_stable_hash_and_exact_recovery(
     assert events.current_failures(source.read_text()) == [
         {"check": "metadata", "result": "UNREACHABLE"}
     ]
-    assert events.trust_tier(source.read_text()) == "unverified"
 
     current[:] = [
         _outcome("doi", "smith2020", Result.MATCHED, "matched"),
@@ -1306,7 +1446,7 @@ def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNMATCHED staleness x/bibliography.json" in output
+    assert "UNMATCHED staleness path-bytes:x/bibliography.json" in output
     assert "schema-violation" in output
     assert "Traceback" not in output
 
@@ -1319,8 +1459,91 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     code = main(["verify", "--vault", str(net_vault), "--offline"])
     output = capsys.readouterr().out
 
-    assert code == 3
-    assert "UNREACHABLE staleness x/bibliography.json" in output
+    assert code == 0
+    assert "UNREACHABLE staleness path-bytes:x/bibliography.json" in output
+
+
+@pytest.mark.parametrize(
+    ("surface", "expected"), [("audit", 0), ("commit", 3), ("publish", 3)]
+)
+def test_genuine_unreachable_closes_only_on_explicit_surfaces(
+    net_vault, monkeypatch, surface, expected
+):
+    outage = _outcome("doi", "smith2020", Result.UNREACHABLE, "outage — registry")
+    monkeypatch.setattr(
+        "harness_core.__main__._verify_state",
+        lambda *_args, **_kwargs: (
+            {"outcomes": [outage], "counts": {"UNREACHABLE": 1}},
+            [outage],
+            {id(outage): "aa11"},
+            {},
+        ),
+    )
+
+    assert (
+        cmd_verify(
+            type(
+                "Args",
+                (),
+                {
+                    "vault": net_vault,
+                    "offline": False,
+                    "rw_csv": None,
+                    "surface": surface,
+                },
+            )()
+        )
+        == expected
+    )
+
+
+def test_deleted_nested_repo_path_hashes_resolved_base_without_live_parent(
+    net_vault,
+):
+    directory = net_vault / "projects" / "nested"
+    directory.mkdir()
+    note = directory / "deleted.md"
+    note.write_bytes(b"candidate evidence\n")
+    subprocess.run(
+        ["git", "add", "projects/nested/deleted.md"], cwd=net_vault, check=True
+    )
+    subprocess.run(
+        ["git", "commit", "-qm", "nested evidence"], cwd=net_vault, check=True
+    )
+    snapshots = gitstate.resolve_snapshots(net_vault, candidate="worktree")
+    note.unlink()
+    directory.rmdir()
+    outcome = checks.Outcome(
+        "evidence-layer",
+        RepoPathValue(b"projects/nested/deleted.md"),
+        Result.UNMATCHED,
+        "drift — deleted note",
+    )
+    expected = hashlib.sha256(b"candidate evidence\n").hexdigest()[:16]
+
+    target_hash = _target_hash(net_vault, outcome, base_snapshot=snapshots.base)
+
+    assert target_hash == expected
+    finding = inbox.append_entry(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        outcome.result,
+        outcome.reason,
+        date="2026-08-16",
+        target_hash=target_hash,
+        target_kind=outcome.target_kind,
+    )
+    inbox.append_ack(
+        net_vault, finding.id, "manual — checked deletion", "human:test", target_hash
+    )
+    assert inbox.is_acknowledged(
+        net_vault,
+        outcome.check,
+        outcome.target,
+        current_hash=_target_hash(net_vault, outcome, base_snapshot=snapshots.base),
+        target_kind=outcome.target_kind,
+    )
 
 
 def test_verify_loads_bibliography_once_at_orchestration_boundary(
@@ -1331,7 +1554,8 @@ def test_verify_loads_bibliography_once_at_orchestration_boundary(
 
     run_verify(net_vault, network=False, detection_date="2026-08-16")
 
-    load.assert_called_once_with(net_vault)
+    assert load.call_count == 1
+    assert load.call_args.args[0] != net_vault
 
 
 def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypatch):
@@ -1352,7 +1576,8 @@ def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypat
 
     run_verify(net_vault, network=False, detection_date="2026-08-16")
 
-    load.assert_called_once_with(net_vault)
+    assert load.call_count == 1
+    assert load.call_args.args[0] != net_vault
 
 
 @pytest.mark.live_net
@@ -1373,3 +1598,260 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
         checks.registry_agency(net_vault_real_mailto, "10.5281/zenodo.3678326")
         == "DataCite"
     )
+
+
+def _vault_bytes(vault):
+    return {
+        os.fsencode(path.relative_to(vault)): path.read_bytes()
+        for path in vault.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(vault).parts
+    }
+
+
+def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
+    fixture_vault,
+):
+    assert main(["verify", "--vault", str(fixture_vault), "--offline"]) == 0
+    assert (
+        main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--offline",
+                "--surface",
+                "commit",
+            ]
+        )
+        == 1
+    )
+    assert {
+        key: frozenset(value)
+        for key, value in __import__(
+            "harness_core.__main__", fromlist=["CLOSING_BY_SURFACE"]
+        ).CLOSING_BY_SURFACE.items()
+    } == {
+        "audit": frozenset(),
+        "commit": frozenset({"citekey", "evidence-layer"}),
+        "publish": frozenset(
+            {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
+        ),
+    }
+
+
+def test_managed_note_add_is_collected_and_projected_as_evidence_finding(
+    fixture_vault,
+):
+    added = fixture_vault / "literatures" / "added.md"
+    added.write_bytes((fixture_vault / "literatures" / "smith2020.md").read_bytes())
+
+    report, effective, hashes, _warnings = _verify_state(
+        fixture_vault, network=False, detection_date="2026-08-16"
+    )
+
+    finding = next(
+        outcome
+        for outcome in report["outcomes"]
+        if outcome.check == "evidence-layer"
+        and outcome.target == "path-bytes:literatures/added.md"
+        and outcome.reason == "drift — managed literature note added"
+    )
+    assert finding in effective
+    assert hashes[id(finding)] is not None
+    assert any(
+        entry.check == "evidence-layer" and entry.target == finding.target
+        for entry in inbox.open_entries(fixture_vault)
+    )
+
+
+def test_invalid_publication_flags_or_inside_manifest_exit_two_before_mutation(
+    fixture_vault, tmp_path
+):
+    before = _vault_bytes(fixture_vault)
+    with pytest.raises(SystemExit) as missing_manifest:
+        main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--commit-projected",
+                "message",
+            ]
+        )
+    assert missing_manifest.value.code == 2
+    assert _vault_bytes(fixture_vault) == before
+
+    assert (
+        main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--offline",
+                "--changed-paths-file",
+                str(fixture_vault / "manifest"),
+            ]
+        )
+        == 2
+    )
+    assert _vault_bytes(fixture_vault) == before
+
+
+def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault):
+    before = _vault_bytes(tmp_vault)
+
+    report = run_verify(tmp_vault, network=False, detection_date="2026-08-16")
+
+    synthetic = [
+        item
+        for item in report["outcomes"]
+        if item.extra.get("synthetic_offline") is True
+    ]
+    assert synthetic
+    assert all(item.result is Result.UNREACHABLE for item in synthetic)
+    assert _vault_bytes(tmp_vault) == before
+    assert inbox.load(tmp_vault) == []
+
+
+def test_invalid_utf8_path_has_one_typed_token_across_outcome_record_and_inbox(
+    fixture_vault,
+):
+    raw = b"synthesis/bad-\xff.md"
+    absolute = os.path.join(os.fsencode(fixture_vault), raw)
+    with open(absolute, "wb") as stream:
+        stream.write(b"plain text\n")
+
+    report = run_verify(fixture_vault, network=False, detection_date="2026-08-16")
+
+    token = encode_repo_path(raw)
+    outcome = next(
+        item
+        for item in report["outcomes"]
+        if item.target == token and item.target_kind == "repo-path"
+    )
+    record = checks.outcome_to_record(outcome)
+    assert record["target"] == token
+    assert "\udcff" not in json.dumps(record)
+    matching = [
+        item
+        for item in inbox.load(fixture_vault)
+        if item.target == token and item.target_kind == "repo-path"
+    ]
+    assert matching
+    assert "\udcff" not in (fixture_vault / inbox.INBOX_PATH).read_text()
+
+
+def test_hash_and_marker_filesystem_routing_requires_explicit_repo_path_kind(
+    fixture_vault,
+):
+    raw = b"synthesis/path-bytes:looks-like-id.md"
+    path = os.path.join(os.fsencode(fixture_vault), raw)
+    with open(path, "wb") as stream:
+        stream.write(b"- (quote) body ^c-1\n")
+    repo_target = RepoPathValue(raw)
+    typed = checks.Outcome(
+        "append-only", repo_target, Result.UNMATCHED, "drift — typed path"
+    )
+    identifier = checks.Outcome(
+        "append-only",
+        encode_repo_path(raw),
+        Result.UNMATCHED,
+        "drift — identifier text",
+    )
+
+    assert _target_hash(fixture_vault, typed) is not None
+    assert _target_hash(fixture_vault, identifier) is None
+    with open(path, "rb") as stream:
+        before = stream.read()
+    _mutate_marker(fixture_vault, identifier, "2026-08-16")
+    with open(path, "rb") as stream:
+        assert stream.read() == before
+
+
+def test_commit_projected_publishes_only_manifest_captured_outputs_and_keeps_index(
+    fixture_vault, tmp_path
+):
+    unrelated = fixture_vault / "unrelated.txt"
+    unrelated.write_bytes(b"staged\n")
+    subprocess.run(["git", "add", "unrelated.txt"], cwd=fixture_vault, check=True)
+    unrelated.write_bytes(b"unstaged\n")
+    untracked = fixture_vault / "scratch.txt"
+    untracked.write_bytes(b"scratch\n")
+    index_path = Path(
+        _git_bytes(fixture_vault, "rev-parse", "--git-path", "index").decode().strip()
+    )
+    if not index_path.is_absolute():
+        index_path = fixture_vault / index_path
+    index_before = index_path.read_bytes()
+    expected = _git_bytes(fixture_vault, "rev-parse", "HEAD").decode().strip()
+    manifest = tmp_path.parent / f"{tmp_path.name}-changed"
+
+    code = main(
+        [
+            "verify",
+            "--vault",
+            str(fixture_vault),
+            "--offline",
+            "--surface",
+            "audit",
+            "--git-candidate",
+            "worktree",
+            "--changed-paths-file",
+            str(manifest),
+            "--commit-projected",
+            "snapshot projection",
+        ]
+    )
+
+    assert code == 0
+    head = _git_bytes(fixture_vault, "rev-parse", "HEAD").decode().strip()
+    assert _git_bytes(fixture_vault, "rev-parse", "HEAD^").decode().strip() == expected
+    changed = {
+        item
+        for item in _git_bytes(
+            fixture_vault,
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "-z",
+            head,
+        ).split(b"\0")
+        if item
+    }
+    manifest_paths = {item for item in manifest.read_bytes().split(b"\0") if item}
+    assert changed == manifest_paths
+    assert b"unrelated.txt" not in changed
+    assert index_path.read_bytes() == index_before
+    assert unrelated.read_bytes() == b"unstaged\n"
+    assert untracked.read_bytes() == b"scratch\n"
+
+
+def test_commit_projected_rejects_dirty_output_overlap_before_any_projection(
+    fixture_vault, tmp_path
+):
+    queue = fixture_vault / inbox.INBOX_PATH
+    queue.write_text(queue.read_text() + "human scratch\n")
+    before = _vault_bytes(fixture_vault)
+    head = _git_bytes(fixture_vault, "rev-parse", "HEAD")
+    index = _git_bytes(fixture_vault, "diff", "--cached", "--binary")
+    manifest = tmp_path.parent / f"{tmp_path.name}-changed"
+
+    code = main(
+        [
+            "verify",
+            "--vault",
+            str(fixture_vault),
+            "--offline",
+            "--changed-paths-file",
+            str(manifest),
+            "--commit-projected",
+            "snapshot projection",
+        ]
+    )
+
+    assert code == 2
+    assert _vault_bytes(fixture_vault) == before
+    assert _git_bytes(fixture_vault, "rev-parse", "HEAD") == head
+    assert _git_bytes(fixture_vault, "diff", "--cached", "--binary") == index
+    assert not manifest.exists()
