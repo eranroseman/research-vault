@@ -91,7 +91,6 @@ def test_probe():
     assert proc.returncode == 0
     info = json.loads(proc.stdout)
     assert "betterbibtex" in info
-    assert isinstance(info["local_writes"], bool)
 
 
 @pytest.mark.live
@@ -145,9 +144,6 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
 
         def ready(self):
             return {"zotero": "9.0.6", "betterbibtex": "9.0.55"}
-
-        def supports_local_writes(self):
-            return False
 
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
 

@@ -63,8 +63,8 @@ def test_commit_autoexport_then_load_without_rewriting_bbt_bytes(tmp_vault):
     ).stdout
     assert committed == bbt_bytes
     bib = bibliography.load(tmp_vault)
-    assert bib.citekeys == {"smith2020", "jones2021"}
-    assert bib.entry("smith2020")["title"] == "Mortality decline"
+    assert set(bib) == {"smith2020", "jones2021"}
+    assert bib["smith2020"]["title"] == "Mortality decline"
     log = subprocess.run(
         ["git", "log", "--oneline"], cwd=tmp_vault, capture_output=True, text=True
     ).stdout
@@ -781,14 +781,14 @@ def test_staleness_stat_failure_is_unreachable(tmp_vault, monkeypatch):
 def test_staleness_read_failure_is_unreachable(tmp_vault, monkeypatch):
     bib_path = tmp_vault / bibliography.BIB_PATH
     bib_path.write_text("[]", encoding="utf-8")
-    real_read_text = Path.read_text
+    real_read_bytes = Path.read_bytes
 
     def denied(path, *args, **kwargs):
         if path == bib_path:
             raise PermissionError("read denied")
-        return real_read_text(path, *args, **kwargs)
+        return real_read_bytes(path, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "read_text", denied)
+    monkeypatch.setattr(Path, "read_bytes", denied)
 
     assert bibliography.staleness(tmp_vault, StubClient(ITEMS)) is Result.UNREACHABLE
 

@@ -290,7 +290,7 @@ def check_citekeys(
     for citekey in cited:
         result = (
             Result.MATCHED
-            if citekey in bibliography_universe.citekeys
+            if citekey in bibliography_universe
             else Result.UNMATCHED
         )
         reason = (
@@ -1033,9 +1033,7 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
             return _arxiv_version_outcome(
                 vault_root, entry, arxiv_identifier, target, detection_date
             )
-        if agency.casefold() == "datacite":
-            return _datacite_version_outcome(vault_root, entry, doi, target)
-        return _provider_unreachable(target, "provider")
+        return _datacite_version_outcome(vault_root, entry, doi, target)
     except webapi.ApiError:
         return Outcome(
             "update-notice",

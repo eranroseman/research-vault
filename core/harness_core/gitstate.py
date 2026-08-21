@@ -62,7 +62,6 @@ class VerificationSnapshots:
     head_tree: str
     head: Snapshot
     candidate_name: str
-    candidate_tree: str | None
     candidate: Snapshot
     live: Snapshot
 
@@ -344,7 +343,6 @@ def resolve_snapshots(
         head_tree,
         head_snapshot,
         candidate,
-        candidate_tree,
         candidate_snapshot,
         live,
     )
@@ -490,26 +488,12 @@ def apply_outputs(
             _atomic_install(vault_root, output)
             installed.append(output)
     except (OSError, GitStateError) as primary:
-        rollback_error = None
-        rollback_path = None
-        for output in reversed(installed):
-            try:
-                if live_image(vault_root, output.raw_path) != output.image:
-                    raise GitStateError("diverged")
-                _restore_image(
-                    vault_root, output.raw_path, preimage.image(output.raw_path)
-                )
-            except (OSError, GitStateError) as error:
-                if rollback_error is None:
-                    rollback_error = error
-                    rollback_path = output.raw_path
         primary_path = failed_path or (ordered[0].raw_path if ordered else b"unknown")
         message = f"projection failed at {encode_repo_path(primary_path)}: {primary}"
-        if rollback_error is not None and rollback_path is not None:
-            message += (
-                f"; rollback failed at {encode_repo_path(rollback_path)}: "
-                f"{rollback_error}"
-            )
+        try:
+            rollback_outputs(vault_root, preimage, installed)
+        except GitStateError as rollback:
+            message += f"; {rollback}"
         raise GitStateError(message) from primary
     return tuple(ordered)
 
@@ -602,15 +586,9 @@ def audit_and_write_manifest(
     before: Snapshot,
     planned_outputs,
     destination: Path,
-    *,
-    resolved_destination: Path | None = None,
 ) -> tuple[CapturedOutput, ...]:
     """Require planned == actual == manifest and return exact after buffers."""
-    manifest = (
-        validate_manifest_destination(vault_root, destination)
-        if resolved_destination is None
-        else Path(resolved_destination)
-    )
+    manifest = validate_manifest_destination(vault_root, destination)
     planned = _unique_outputs(planned_outputs)
     planned_by_path = {output.raw_path: output for output in planned}
     planned_paths = set(planned_by_path)

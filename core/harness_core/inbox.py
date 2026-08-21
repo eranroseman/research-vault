@@ -148,17 +148,13 @@ def _validate_notice_fingerprint(
     notice_type,
     notice_date,
     detection_date=None,
-    *,
-    allow_legacy_dates=False,
 ):
     notice_class = _validate_optional_text("notice_class", notice_class)
     notice_type = _validate_optional_text("notice_type", notice_type)
     notice_date = _validate_optional_date("notice_date", notice_date)
     detection_date = _validate_optional_date("detection_date", detection_date)
     if notice_class is None and notice_type is None:
-        if (
-            notice_date is not None or detection_date is not None
-        ) and not allow_legacy_dates:
+        if notice_date is not None or detection_date is not None:
             raise ValueError("notice dates require a complete notice fingerprint")
         return notice_class, notice_type, notice_date, detection_date
     if notice_class is None or notice_type is None:
@@ -537,14 +533,10 @@ def load(vault) -> list[Entry]:
                         data.get("notice-type"),
                         data.get("notice-date"),
                         data.get("detection-date"),
-                        allow_legacy_dates=True,
                     )
                 )
                 validate_reason(data["reason"])
                 _validate_notice_record(data["result"], notice_class)
-                base_id = f"{check}/{target}/{date}"
-                if notice_class is not None:
-                    base_id = f"{base_id}/{notice_class}/{notice_type}/{notice_date or 'unknown'}"
                 expected_id = _finding_id(
                     check,
                     target,
@@ -555,10 +547,7 @@ def load(vault) -> list[Entry]:
                     notice_date,
                     target_kind,
                 )
-                valid_ids = {expected_id}
-                if "target-kind" not in data:
-                    valid_ids.add(base_id)
-                if data["id"] not in valid_ids:
+                if data["id"] != expected_id:
                     raise ValueError("finding id does not match fields")
             except (TypeError, ValueError) as error:
                 raise InboxError(

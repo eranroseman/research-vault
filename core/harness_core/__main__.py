@@ -83,7 +83,6 @@ def cmd_probe(args):
     client = ZoteroClient(base=args.base)
     try:
         info = client.ready()
-        info["local_writes"] = client.supports_local_writes()
     except ZoteroError:
         print(json.dumps({"result": Result.UNREACHABLE.value}))
         return 3
@@ -632,9 +631,9 @@ def _target_hash(
             if data is not None:
                 return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
         if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
-            entry = bibliography.load(vault_root).entry(target)
+            entry = bibliography.load(vault_root).get(target)
         elif bibliography_universe is not None:
-            entry = bibliography_universe.entry(target)
+            entry = bibliography_universe.get(target)
         else:
             entry = None
         if entry is not None:
@@ -750,7 +749,7 @@ def _file_outcomes(vault_root, path, bibliography_universe=None):
 
 
 def _bibliography_entries(bib):
-    return [bib.entry(key) for key in sorted(bib.citekeys)]
+    return [bib[citekey] for citekey in sorted(bib)]
 
 
 def _staleness_outcome(vault_root, base=DEFAULT_BASE):
@@ -815,36 +814,21 @@ def _network_outcomes(vault_root, entry, detection_date, rw):
 
 
 def _offline_network_outcomes(entry, detection_date, rw):
-    target = entry["id"]
     rw_leg = (
         checks.check_rw_batch(entry, rw, detection_date) if rw is not None else None
     )
     if rw_leg is not None:
         return [rw_leg]
-    outcomes = [
+    return [
         checks.Outcome(
-            "doi",
-            target,
+            check,
+            entry["id"],
             Result.UNREACHABLE,
             "outage — network disabled",
             {"synthetic_offline": True},
-        ),
-        checks.Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — network disabled",
-            {"synthetic_offline": True},
-        ),
-        checks.Outcome(
-            "update-notice",
-            target,
-            Result.UNREACHABLE,
-            "outage — network disabled",
-            {"synthetic_offline": True},
-        ),
+        )
+        for check in ("doi", "metadata", "update-notice")
     ]
-    return outcomes
 
 
 def _archive_outcomes(vault_root):
@@ -1148,7 +1132,7 @@ def _plan_state(
         base_snapshot = snapshots.base
         candidate_snapshot = snapshots.candidate
         raw.extend(
-            lints.lint_evidence_layer(repository, base_snapshot, candidate_snapshot)
+            lints.lint_evidence_layer(base_snapshot, candidate_snapshot)
         )
     raw.extend(lints.lint_append_only(repository, base_snapshot, candidate_snapshot))
     raw.extend(
@@ -1255,7 +1239,6 @@ def _verify_state(
                 snapshots.live,
                 outputs,
                 resolved_manifest,
-                resolved_destination=resolved_manifest,
             )
         except gitstate.GitStateError as error:
             _rollback_prepublication(vault, snapshots, outputs, error)

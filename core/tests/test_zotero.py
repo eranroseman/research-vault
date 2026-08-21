@@ -348,6 +348,3 @@ def test_live_ready_and_export():
     assert one
     assert one[0]["id"] == items[0]["id"]
     assert isinstance(zotero_client.search(items[0]["id"]), list)
-
-    major = int(str(info["zotero"]).split(".")[0])
-    assert zotero_client.supports_local_writes() is (major >= 10)

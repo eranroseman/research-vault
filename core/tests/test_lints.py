@@ -625,7 +625,6 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
         expected = "path-bytes:literatures/renamed.md"
 
     outcomes = lints.lint_evidence_layer(
-        fixture_vault,
         gitstate.snapshot_tree(fixture_vault, base),
         gitstate.snapshot_worktree(fixture_vault),
     )
@@ -649,7 +648,6 @@ def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
     source.write_text(source.read_text() + "human free prose\n")
 
     outcomes = lints.lint_evidence_layer(
-        fixture_vault,
         gitstate.snapshot_tree(fixture_vault, base),
         gitstate.snapshot_worktree(fixture_vault),
     )
@@ -669,7 +667,7 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
     )
     candidate = gitstate.snapshot_worktree(fixture_vault)
 
-    outcomes = lints.lint_evidence_layer(fixture_vault, candidate, candidate)
+    outcomes = lints.lint_evidence_layer(candidate, candidate)
 
     finding = next(item for item in outcomes if item.result is Result.UNMATCHED)
     assert finding.check == "evidence-layer"

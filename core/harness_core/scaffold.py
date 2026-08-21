@@ -364,12 +364,10 @@ def _okf_probe(vault: Path) -> Probe:
 def doctor(
     vault_root,
     client=None,
-    network=True,
     settle_seconds=60,
     poll_interval=1,
 ) -> list[Probe]:
     """Repair the scoped vault substrate and return its ten ordered probes."""
-    del network  # Historical interface only; doctor has no synthetic offline mode.
     vault = Path(vault_root)
     try:
         scaffold_vault(vault)
