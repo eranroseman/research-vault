@@ -23,10 +23,25 @@ CREATE_ENV = "HARNESS_LIVE_BBT_REGISTER"
 CONFIRMED_ENV = "HARNESS_LIVE_AUTOEXPORT_REMOVED"
 VAULT_ENV = "HARNESS_LIVE_SCAFFOLD_VAULT"
 OFFLINE_HOST_TARGET = r"C:\live\x\bibliography.json"
+BASE_STATE_KEYS = (
+    "schema",
+    "phase",
+    "vault",
+    "st_dev",
+    "st_ino",
+    "target",
+    "host_target",
+)
 
 
 class LiveDrillConsentError(ValueError):
     pass
+
+
+class StateDurabilityError(OSError):
+    def __init__(self, message, *, installed):
+        super().__init__(message)
+        self.installed = installed
 
 
 class LiveDrillConfig(NamedTuple):
@@ -34,6 +49,110 @@ class LiveDrillConfig(NamedTuple):
     state: Path
     precreated: bool
     assignment_printed: bool
+
+
+def _state_artifact_stat(path: Path, error_type=RuntimeError):
+    try:
+        artifact_stat = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise error_type("live drill recovery state cannot be inspected") from error
+    if not stat.S_ISREG(artifact_stat.st_mode):
+        raise error_type("live drill recovery state must be a regular non-symlink file")
+    return artifact_stat
+
+
+def _valid_utc_z_timestamp(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ") == value
+
+
+def _validate_state(config, state) -> dict:
+    invalid = "live drill recovery state has invalid schema-1 phase shape"
+    if not isinstance(state, dict):
+        raise RuntimeError(invalid)
+    phase = state.get("phase")
+    base = set(BASE_STATE_KEYS)
+    cleanup = {
+        "human_removal_confirmed_at",
+        "quarantine_container",
+        "quarantine",
+    }
+    shapes = {
+        "prepared": (base, set()),
+        "manual-removal-check-required": (base | {"interruption"}, set()),
+        "manual-removal-required": (base, set()),
+        "cleanup-confirmed-removal-pending": (base | cleanup, {"cleanup_error"}),
+        "cleanup-refused": (
+            base | cleanup | {"cleanup_error", "claimed_st_dev", "claimed_st_ino"},
+            set(),
+        ),
+        "cleanup-confirmed": (
+            base | cleanup,
+            {"quarantine_container_cleanup_error"},
+        ),
+    }
+    if not isinstance(phase, str) or phase not in shapes:
+        raise RuntimeError(invalid)
+    required, optional = shapes[phase]
+    if not required.issubset(state) or set(state) - required - optional:
+        raise RuntimeError(invalid)
+    expected_target = config.vault / "x" / "bibliography.json"
+    if (
+        type(state["schema"]) is not int
+        or state["schema"] != 1
+        or state["vault"] != str(config.vault)
+        or state["target"] != str(expected_target)
+        or type(state["st_dev"]) is not int
+        or type(state["st_ino"]) is not int
+        or not isinstance(state["host_target"], str)
+        or not state["host_target"]
+    ):
+        raise RuntimeError(invalid)
+    if phase == "manual-removal-check-required" and (
+        not isinstance(state["interruption"], str) or not state["interruption"]
+    ):
+        raise RuntimeError(invalid)
+    if phase.startswith("cleanup-"):
+        container_value = state["quarantine_container"]
+        quarantine_value = state["quarantine"]
+        if (
+            not _valid_utc_z_timestamp(state["human_removal_confirmed_at"])
+            or not isinstance(container_value, str)
+            or not isinstance(quarantine_value, str)
+        ):
+            raise RuntimeError(invalid)
+        container = Path(container_value)
+        quarantine = Path(quarantine_value)
+        prefix = f".{config.vault.name}.cleanup-"
+        if (
+            not container.is_absolute()
+            or str(container) != container_value
+            or container.parent != config.vault.parent
+            or not container.name.startswith(prefix)
+            or len(container.name) == len(prefix)
+            or not quarantine.is_absolute()
+            or str(quarantine) != quarantine_value
+            or quarantine != container / "vault"
+        ):
+            raise RuntimeError(invalid)
+    for error_field in ("cleanup_error", "quarantine_container_cleanup_error"):
+        if error_field in state and (
+            not isinstance(state[error_field], str) or not state[error_field]
+        ):
+            raise RuntimeError(invalid)
+    if phase == "cleanup-refused" and (
+        type(state["claimed_st_dev"]) is not int
+        or type(state["claimed_st_ino"]) is not int
+    ):
+        raise RuntimeError(invalid)
+    return state
 
 
 def _drill_config(environ) -> LiveDrillConfig:
@@ -72,12 +191,38 @@ def _drill_config(environ) -> LiveDrillConfig:
         precreated=False,
         assignment_printed=False,
     )
-    if not config.state.exists() and environ.get(CREATE_ENV) != "1":
+    state_stat = _state_artifact_stat(config.state, LiveDrillConsentError)
+    if state_stat is None and environ.get(CREATE_ENV) != "1":
         raise LiveDrillConsentError(f"set {CREATE_ENV}=1 to authorize creation")
     return config
 
 
-def _write_state(path: Path, state: dict) -> None:
+def _read_state_bytes(path: Path, expected_stat=None) -> bytes:
+    descriptor = None
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+        )
+        opened_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(opened_stat.st_mode) or (
+            expected_stat is not None
+            and (opened_stat.st_dev, opened_stat.st_ino)
+            != (expected_stat.st_dev, expected_stat.st_ino)
+        ):
+            raise RuntimeError(
+                "live drill recovery state must be a stable regular non-symlink file"
+            )
+        chunks = []
+        while chunk := os.read(descriptor, 65536):
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _write_replacement(path: Path, payload: bytes) -> Path:
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent,
         prefix=f".{path.name}.",
@@ -85,17 +230,68 @@ def _write_state(path: Path, state: dict) -> None:
     )
     temporary = Path(temporary_name)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-            output.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(payload)
             output.flush()
             os.fsync(output.fileno())
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+    return temporary
+
+
+def _fsync_parent(path: Path) -> None:
+    descriptor = os.open(
+        path.parent,
+        os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0),
+    )
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _write_state(config, state: dict) -> None:
+    state = _validate_state(config, state)
+    path = config.state
+    payload = (json.dumps(state, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    original_stat = _state_artifact_stat(path)
+    original_payload = (
+        _read_state_bytes(path, original_stat) if original_stat is not None else None
+    )
+    temporary = _write_replacement(path, payload)
+    try:
+        current_stat = _state_artifact_stat(path)
+        if (original_stat is None) != (current_stat is None) or (
+            original_stat is not None
+            and current_stat is not None
+            and (original_stat.st_dev, original_stat.st_ino)
+            != (current_stat.st_dev, current_stat.st_ino)
+        ):
+            raise RuntimeError("live drill recovery state changed during write")
         os.replace(temporary, path)
+        try:
+            _fsync_parent(path)
+        except OSError as error:
+            installed = True
+            if original_payload is not None:
+                rollback = _write_replacement(path, original_payload)
+                try:
+                    if _state_artifact_stat(path) is None:
+                        raise RuntimeError(
+                            "live drill recovery state disappeared before rollback"
+                        )
+                    os.replace(rollback, path)
+                    installed = False
+                finally:
+                    rollback.unlink(missing_ok=True)
+            raise StateDurabilityError(str(error), installed=installed) from error
     finally:
         temporary.unlink(missing_ok=True)
 
 
 def _run_retaining_state(config, *, target, host_target, operation):
-    if config.state.exists():
+    if _state_artifact_stat(config.state) is not None:
         raise RuntimeError(f"live drill recovery state already exists: {config.state}")
     if config.precreated and (
         not config.vault.is_dir()
@@ -123,7 +319,7 @@ def _run_retaining_state(config, *, target, host_target, operation):
         "target": str(target),
         "host_target": host_target,
     }
-    _write_state(config.state, state)
+    _write_state(config, state)
     if not config.assignment_printed:
         print(f"{VAULT_ENV}={shlex.quote(str(config.vault))}", flush=True)
     try:
@@ -131,33 +327,28 @@ def _run_retaining_state(config, *, target, host_target, operation):
     except BaseException as error:
         state["phase"] = "manual-removal-check-required"
         state["interruption"] = type(error).__name__
-        _write_state(config.state, state)
+        _write_state(config, state)
         raise
     state["phase"] = "manual-removal-required"
-    _write_state(config.state, state)
+    state.pop("interruption", None)
+    _write_state(config, state)
     return result
 
 
 def _load_state(config) -> dict:
+    artifact_stat = _state_artifact_stat(config.state)
+    if artifact_stat is None:
+        raise RuntimeError("live drill recovery state is absent")
     try:
-        state = json.loads(config.state.read_text())
+        state = json.loads(
+            _read_state_bytes(config.state, artifact_stat).decode("utf-8")
+        )
     except (OSError, UnicodeError, ValueError) as error:
         raise RuntimeError(
             f"live drill recovery state is unreadable: {error}"
         ) from error
+    state = _validate_state(config, state)
     expected_target = config.vault / "x" / "bibliography.json"
-    if (
-        not isinstance(state, dict)
-        or type(state.get("schema")) is not int
-        or state["schema"] != 1
-        or state.get("vault") != str(config.vault)
-        or state.get("target") != str(expected_target)
-        or type(state.get("st_dev")) is not int
-        or type(state.get("st_ino")) is not int
-        or not isinstance(state.get("host_target"), str)
-        or not state["host_target"]
-    ):
-        raise RuntimeError("live drill recovery state does not match the exact vault")
     try:
         expected_host_target = paths.to_bbt_host(expected_target)
     except paths.PathError as error:
@@ -230,8 +421,9 @@ def _finish_quarantined_cleanup(config, state) -> None:
         try:
             os.rename(config.vault, quarantine)
         except OSError as error:
-            state["cleanup_error"] = f"quarantine claim failed: {error}"
-            _write_state(config.state, state)
+            detail = str(error) or type(error).__name__
+            state["cleanup_error"] = f"quarantine claim failed: {detail}"
+            _write_state(config, state)
             raise RuntimeError("live drill quarantine claim failed") from error
 
     claimed_stat = _vault_stat(
@@ -242,23 +434,24 @@ def _finish_quarantined_cleanup(config, state) -> None:
         state["cleanup_error"] = "claimed vault identity changed"
         state["claimed_st_dev"] = claimed_stat.st_dev
         state["claimed_st_ino"] = claimed_stat.st_ino
-        _write_state(config.state, state)
+        _write_state(config, state)
         raise RuntimeError(f"claimed vault identity changed; preserved at {quarantine}")
     try:
         shutil.rmtree(quarantine)
     except OSError as error:
-        state["cleanup_error"] = f"quarantine removal failed: {error}"
-        _write_state(config.state, state)
+        detail = str(error) or type(error).__name__
+        state["cleanup_error"] = f"quarantine removal failed: {detail}"
+        _write_state(config, state)
         raise RuntimeError(
             f"quarantined live drill vault retained at {quarantine}"
         ) from error
     try:
         container.rmdir()
     except OSError as error:
-        state["quarantine_container_cleanup_error"] = str(error)
+        state["quarantine_container_cleanup_error"] = str(error) or type(error).__name__
     state["phase"] = "cleanup-confirmed"
     state.pop("cleanup_error", None)
-    _write_state(config.state, state)
+    _write_state(config, state)
 
 
 def _confirm_and_remove(config, environ, *, confirmed_at=None) -> None:
@@ -282,14 +475,18 @@ def _confirm_and_remove(config, environ, *, confirmed_at=None) -> None:
     )
     if not _identity_matches(vault_stat, state):
         raise RuntimeError("recorded live drill vault identity changed")
-    stamp = state.get("human_removal_confirmed_at") or confirmed_at
-    if not isinstance(stamp, str) or not stamp:
+    stamp = confirmed_at
+    if stamp is None:
         stamp = (
             datetime.now(timezone.utc)
             .replace(microsecond=0)
             .isoformat()
             .replace("+00:00", "Z")
         )
+    if not _valid_utc_z_timestamp(stamp):
+        raise RuntimeError("live drill recovery state has invalid schema-1 phase shape")
+    # A random mode-0700 sibling is sufficient for this repository's solo-local,
+    # trusted-same-UID model; hostile same-UID swaps are intentionally out of scope.
     container = Path(
         tempfile.mkdtemp(
             dir=config.vault.parent,
@@ -297,12 +494,27 @@ def _confirm_and_remove(config, environ, *, confirmed_at=None) -> None:
         )
     )
     quarantine = container / "vault"
-    state["phase"] = "cleanup-confirmed-removal-pending"
-    state["human_removal_confirmed_at"] = stamp
-    state["quarantine_container"] = str(container)
-    state["quarantine"] = str(quarantine)
+    state = {key: state[key] for key in BASE_STATE_KEYS}
+    state.update(
+        {
+            "phase": "cleanup-confirmed-removal-pending",
+            "human_removal_confirmed_at": stamp,
+            "quarantine_container": str(container),
+            "quarantine": str(quarantine),
+        }
+    )
     try:
-        _write_state(config.state, state)
+        _write_state(config, state)
+    except StateDurabilityError as error:
+        if error.installed:
+            raise
+        try:
+            container.rmdir()
+        except OSError as cleanup_error:
+            raise RuntimeError(
+                f"unpersisted live drill quarantine retained at {container}"
+            ) from cleanup_error
+        raise
     except BaseException:
         try:
             container.rmdir()
@@ -374,8 +586,19 @@ def _live_config_or_skip(environ):
         pytest.skip(str(error))
 
 
-def _cleanup_instruction(config) -> str:
-    state = _load_state(config)
+def _cleanup_instruction(config, state=None) -> str:
+    if state is None:
+        state = _load_state(config)
+    if state["phase"] == "cleanup-confirmed":
+        raise RuntimeError("live drill cleanup is already complete")
+    if state["phase"] == "cleanup-refused":
+        raise RuntimeError("live drill cleanup was refused; inspect the recovery state")
+    if state["phase"] == "cleanup-confirmed-removal-pending":
+        return (
+            "cleanup retry required for retained recovery state; run `"
+            f"HARNESS_LIVE=1 {VAULT_ENV}={shlex.quote(str(config.vault))} "
+            f"{CONFIRMED_ENV}=1 python -m pytest tests/test_scaffold_live.py -v`"
+        )
     return (
         "manual cleanup required: remove the exact auto-export target "
         f"{state['host_target']!r} in BBT Preferences, retain {config.vault}, then "
@@ -428,6 +651,42 @@ def test_live_drill_requires_an_explicit_absolute_temporary_vault(tmp_path):
 
     assert config.vault == vault
     assert config.state == vault.with_name(f".{vault.name}.state.json")
+
+
+@pytest.mark.parametrize("artifact", ["directory", "dangling-symlink"])
+def test_live_drill_config_refuses_nonregular_state_artifacts(tmp_path, artifact):
+    vault = tmp_path / f"knowledge-harness-live-state-{artifact}"
+    state = vault.with_name(f".{vault.name}.state.json")
+    if artifact == "directory":
+        state.mkdir()
+    else:
+        state.symlink_to(tmp_path / "missing-state.json")
+
+    with pytest.raises(LiveDrillConsentError, match="regular non-symlink"):
+        _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
+
+    assert not vault.exists()
+
+
+def test_state_artifact_created_after_config_is_not_overwritten(tmp_path):
+    vault = tmp_path / "knowledge-harness-live-state-race"
+    config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
+    missing = tmp_path / "missing-state.json"
+    config.state.symlink_to(missing)
+    operation_calls = []
+
+    with pytest.raises(RuntimeError, match="regular non-symlink"):
+        _run_retaining_state(
+            config,
+            target=vault / "x" / "bibliography.json",
+            host_target=OFFLINE_HOST_TARGET,
+            operation=lambda: operation_calls.append("called"),
+        )
+
+    assert operation_calls == []
+    assert not vault.exists()
+    assert config.state.is_symlink()
+    assert not config.state.exists()
 
 
 def test_live_drill_creates_a_persistent_temp_vault_when_path_is_omitted(
@@ -547,6 +806,34 @@ def test_recovery_state_write_preserves_unrelated_sibling_temp_file(tmp_path):
     assert unrelated.read_text() == "unrelated"
 
 
+def test_parent_directory_fsync_failure_stops_before_live_operation(
+    tmp_path, monkeypatch
+):
+    vault = tmp_path / "knowledge-harness-live-state-durability"
+    config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
+    target = vault / "x" / "bibliography.json"
+    real_fsync = os.fsync
+    operation_calls = []
+
+    def fail_directory_fsync(descriptor):
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("directory fsync unavailable")
+        return real_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fail_directory_fsync)
+
+    with pytest.raises(OSError, match="directory fsync unavailable"):
+        _run_retaining_state(
+            config,
+            target=target,
+            host_target=OFFLINE_HOST_TARGET,
+            operation=lambda: operation_calls.append("called"),
+        )
+
+    assert operation_calls == []
+    assert json.loads(config.state.read_text())["phase"] == "prepared"
+
+
 def test_recovery_assignment_prints_before_the_live_operation(tmp_path, capsys):
     vault = tmp_path / "knowledge-harness-live-recovery-output"
     config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
@@ -563,6 +850,55 @@ def test_recovery_assignment_prints_before_the_live_operation(tmp_path, capsys):
         host_target=r"C:\live\x\bibliography.json",
         operation=observe_output_before_operation,
     )
+
+
+def test_one_translation_value_drives_recovery_state_and_autoexport_rpc(
+    tmp_path, monkeypatch
+):
+    vault = tmp_path / "knowledge-harness-live-pinned-target"
+    config = _drill_config({CREATE_ENV: "1", VAULT_ENV: str(vault)})
+    target = vault / "x" / "bibliography.json"
+    real_translation_calls = []
+
+    def translate_once(path):
+        real_translation_calls.append(Path(path).absolute())
+        return OFFLINE_HOST_TARGET
+
+    monkeypatch.setattr(paths, "to_bbt_host", translate_once)
+    host_target = paths.to_bbt_host(target)
+
+    def pinned_translation(path):
+        assert Path(path).absolute() == target
+        return host_target
+
+    monkeypatch.setattr(paths, "to_bbt_host", pinned_translation)
+    client = ZoteroClient()
+    rpc_calls = []
+
+    def rpc(method, params):
+        rpc_calls.append((method, params))
+        return {"id": 7}
+
+    monkeypatch.setattr(client, "_rpc", rpc)
+
+    def register():
+        target.parent.mkdir(parents=True)
+        target.write_text("[]")
+        client.register_autoexport(str(target))
+
+    _run_retaining_state(
+        config,
+        target=target,
+        host_target=host_target,
+        operation=register,
+    )
+
+    state = json.loads(config.state.read_text())
+    assert real_translation_calls == [target]
+    assert state["host_target"] == OFFLINE_HOST_TARGET
+    assert rpc_calls == [
+        ("autoexport.add", ["//", "Better CSL JSON", OFFLINE_HOST_TARGET])
+    ]
 
 
 def test_implicit_vault_is_printed_and_retained_when_host_translation_fails(
@@ -648,6 +984,60 @@ def test_cleanup_discards_an_unpersisted_empty_quarantine_container(
     assert not unpersisted[0].exists()
     assert target.is_file()
     assert json.loads(config.state.read_text())["phase"] == "manual-removal-required"
+
+
+def test_invalid_confirmation_timestamp_precedes_quarantine_creation(
+    tmp_path, monkeypatch
+):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-invalid-confirmation-time"
+    )
+    _pin_offline_host_target(monkeypatch, target)
+
+    def forbidden_quarantine(*args, **kwargs):
+        raise AssertionError("invalid timestamp reached quarantine creation")
+
+    monkeypatch.setattr(tempfile, "mkdtemp", forbidden_quarantine)
+
+    with pytest.raises(RuntimeError, match="schema-1 phase shape"):
+        _confirm_and_remove(
+            config,
+            {CONFIRMED_ENV: "1"},
+            confirmed_at="invalid",
+        )
+
+    assert target.is_file()
+
+
+def test_pending_state_directory_fsync_failure_precedes_quarantine_claim(
+    tmp_path, monkeypatch
+):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-pending-durability"
+    )
+    _pin_offline_host_target(monkeypatch, target)
+    real_fsync = os.fsync
+    rename_calls = []
+
+    def fail_directory_fsync(descriptor):
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("directory fsync unavailable")
+        return real_fsync(descriptor)
+
+    def forbidden_rename(source, destination):
+        rename_calls.append((source, destination))
+        raise AssertionError("cleanup claimed the vault before state durability")
+
+    monkeypatch.setattr(os, "fsync", fail_directory_fsync)
+    monkeypatch.setattr(os, "rename", forbidden_rename)
+
+    with pytest.raises(OSError, match="directory fsync unavailable"):
+        _confirm_and_remove(config, {CONFIRMED_ENV: "1"})
+
+    assert rename_calls == []
+    assert target.is_file()
+    assert json.loads(config.state.read_text())["phase"] == "manual-removal-required"
+    assert list(config.vault.parent.glob(f".{config.vault.name}.cleanup-*")) == []
 
 
 def test_confirmed_cleanup_refuses_a_replacement_at_the_recorded_path(
@@ -799,6 +1189,36 @@ def test_cleanup_refuses_to_infer_removal_after_final_state_write_failure(
     )
 
 
+def test_final_directory_fsync_failure_retains_pending_fail_closed_state(
+    tmp_path, monkeypatch
+):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-final-durability"
+    )
+    _pin_offline_host_target(monkeypatch, target)
+    real_fsync = os.fsync
+    directory_fsyncs = 0
+
+    def fail_second_directory_fsync(descriptor):
+        nonlocal directory_fsyncs
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            directory_fsyncs += 1
+            if directory_fsyncs == 2:
+                raise OSError("final directory fsync unavailable")
+        return real_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fail_second_directory_fsync)
+
+    with pytest.raises(OSError, match="final directory fsync unavailable"):
+        _confirm_and_remove(config, {CONFIRMED_ENV: "1"})
+
+    assert directory_fsyncs == 2
+    assert json.loads(config.state.read_text())["phase"] == (
+        "cleanup-confirmed-removal-pending"
+    )
+    assert not config.vault.exists()
+
+
 def test_successor_created_after_quarantine_claim_survives_cleanup(
     tmp_path, monkeypatch
 ):
@@ -853,9 +1273,36 @@ def test_confirmed_cleanup_refuses_corrupt_or_mismatched_state(tmp_path, payload
     assert (vault / "keep.txt").read_text() == "keep"
 
 
+def test_symlinked_recovery_state_cannot_authorize_cleanup(tmp_path, monkeypatch):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-symlinked-state"
+    )
+    backing = tmp_path / "backing-state.json"
+    config.state.rename(backing)
+    config.state.symlink_to(backing)
+    _pin_offline_host_target(monkeypatch, target)
+
+    def forbidden_mutation(*args, **kwargs):
+        raise AssertionError("symlinked state authorized cleanup mutation")
+
+    monkeypatch.setattr(tempfile, "mkdtemp", forbidden_mutation)
+
+    with pytest.raises(RuntimeError, match="regular non-symlink"):
+        _confirm_and_remove(config, {CONFIRMED_ENV: "1"})
+
+    assert target.is_file()
+    assert config.state.is_symlink()
+    assert backing.is_file()
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("schema", True), ("host_target", ""), ("host_target", r"C:\wrong")],
+    [
+        ("schema", True),
+        ("phase", []),
+        ("host_target", ""),
+        ("host_target", r"C:\wrong"),
+    ],
 )
 def test_recovery_instruction_rejects_noncanonical_state(
     tmp_path, monkeypatch, field, value
@@ -902,6 +1349,141 @@ def test_recovery_instruction_fails_closed_when_host_target_cannot_be_recomputed
         _cleanup_instruction(config)
 
     assert target.is_file()
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "pending-missing-timestamp",
+        "pending-invalid-timestamp",
+        "pending-unexpected-field",
+        "pending-relative-container",
+        "manual-check-empty-interruption",
+        "manual-required-stale-interruption",
+        "refused-missing-claimed-inode",
+        "confirmed-stale-cleanup-error",
+    ],
+)
+def test_recovery_rejects_invalid_schema_one_phase_shapes(
+    tmp_path, monkeypatch, defect
+):
+    config, target = _completed_drill(
+        tmp_path, f"knowledge-harness-live-schema-{defect}"
+    )
+    state = json.loads(config.state.read_text())
+    container = config.vault.with_name(f".{config.vault.name}.cleanup-fixed")
+    state.update(
+        {
+            "phase": "cleanup-confirmed-removal-pending",
+            "human_removal_confirmed_at": "2026-08-20T21:00:00Z",
+            "quarantine_container": str(container),
+            "quarantine": str(container / "vault"),
+        }
+    )
+    if defect == "pending-missing-timestamp":
+        state.pop("human_removal_confirmed_at")
+    elif defect == "pending-invalid-timestamp":
+        state["human_removal_confirmed_at"] = "2026-08-20"
+    elif defect == "pending-unexpected-field":
+        state["unexpected"] = "stale"
+    elif defect == "pending-relative-container":
+        state["quarantine_container"] = "relative-container"
+        state["quarantine"] = "relative-container/vault"
+    elif defect == "manual-check-empty-interruption":
+        state = {
+            key: value
+            for key, value in state.items()
+            if key
+            not in {
+                "human_removal_confirmed_at",
+                "quarantine_container",
+                "quarantine",
+            }
+        }
+        state["phase"] = "manual-removal-check-required"
+        state["interruption"] = ""
+    elif defect == "manual-required-stale-interruption":
+        state = {
+            key: value
+            for key, value in state.items()
+            if key
+            not in {
+                "human_removal_confirmed_at",
+                "quarantine_container",
+                "quarantine",
+            }
+        }
+        state["phase"] = "manual-removal-required"
+        state["interruption"] = "RuntimeError"
+    elif defect == "refused-missing-claimed-inode":
+        state["phase"] = "cleanup-refused"
+        state["cleanup_error"] = "claimed vault identity changed"
+        state["claimed_st_dev"] = 1
+    elif defect == "confirmed-stale-cleanup-error":
+        state["phase"] = "cleanup-confirmed"
+        state["cleanup_error"] = "stale failure"
+    config.state.write_text(json.dumps(state))
+    _pin_offline_host_target(monkeypatch, target)
+
+    with pytest.raises(RuntimeError, match="schema-1 phase shape"):
+        _load_state(config)
+
+    assert target.is_file()
+
+
+def test_state_writer_validates_phase_shape_before_temp_creation(tmp_path, monkeypatch):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-write-validation"
+    )
+    state = json.loads(config.state.read_text())
+    state["unexpected"] = "stale"
+
+    def forbidden_temp(*args, **kwargs):
+        raise AssertionError("invalid state reached temporary-file creation")
+
+    monkeypatch.setattr(tempfile, "mkstemp", forbidden_temp)
+
+    with pytest.raises(RuntimeError, match="schema-1 phase shape"):
+        _write_state(config, state)
+
+    assert target.is_file()
+    assert "unexpected" not in json.loads(config.state.read_text())
+
+
+def test_completed_cleanup_state_produces_no_new_removal_instruction(
+    tmp_path, monkeypatch
+):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-completed-instruction"
+    )
+    _pin_offline_host_target(monkeypatch, target)
+    _confirm_and_remove(
+        config,
+        {CONFIRMED_ENV: "1"},
+        confirmed_at="2026-08-20T21:00:00Z",
+    )
+
+    with pytest.raises(RuntimeError, match="already complete"):
+        _cleanup_instruction(config)
+
+
+def test_completed_cleanup_state_is_terminal_in_live_dispatch(tmp_path, monkeypatch):
+    config, target = _completed_drill(
+        tmp_path, "knowledge-harness-live-completed-dispatch"
+    )
+    _pin_offline_host_target(monkeypatch, target)
+    _confirm_and_remove(
+        config,
+        {CONFIRMED_ENV: "1"},
+        confirmed_at="2026-08-20T21:00:00Z",
+    )
+    monkeypatch.setenv(VAULT_ENV, str(config.vault))
+    monkeypatch.delenv(CREATE_ENV, raising=False)
+    monkeypatch.delenv(CONFIRMED_ENV, raising=False)
+
+    assert (
+        test_live_scaffold_doctor_import_noop_with_manual_cleanup(monkeypatch) is None
+    )
 
 
 def test_safe_item_choice_skips_unsafe_and_unresolvable_citekeys(tmp_path):
@@ -962,14 +1544,24 @@ def test_pending_cleanup_never_contacts_bbt_or_creates_another_vault(
 @pytest.mark.live
 def test_live_scaffold_doctor_import_noop_with_manual_cleanup(monkeypatch):
     config = _live_config_or_skip(os.environ)
-    if config.state.exists():
-        if os.environ.get(CONFIRMED_ENV) != "1":
-            pytest.skip(_cleanup_instruction(config))
-        _confirm_and_remove(config, os.environ)
-        return
+    if _state_artifact_stat(config.state) is not None:
+        if os.environ.get(CONFIRMED_ENV) == "1":
+            _confirm_and_remove(config, os.environ)
+            return
+        state = _load_state(config)
+        if state["phase"] == "cleanup-confirmed":
+            return
+        pytest.skip(_cleanup_instruction(config, state))
 
     target = config.vault / "x" / "bibliography.json"
     host_target = paths.to_bbt_host(target)
+
+    def pinned_host_target(path):
+        if Path(path).absolute() != target:
+            raise AssertionError("observer translated a different local target")
+        return host_target
+
+    monkeypatch.setattr(paths, "to_bbt_host", pinned_host_target)
 
     def exercise():
         _prepare_live_vault(config)
@@ -992,14 +1584,6 @@ def test_live_scaffold_doctor_import_noop_with_manual_cleanup(monkeypatch):
             def _rpc(self, method, params):
                 self.rpc_methods.append(method)
                 return super()._rpc(method, params)
-
-            def register_autoexport(self, target_path):
-                if str(Path(target_path).absolute()) != str(target):
-                    raise AssertionError("observer registered a different local target")
-                return super().register_autoexport(
-                    target_path,
-                    host_target=host_target,
-                )
 
         client = RecordingClient()
         citekey = _select_safe_citekey(client, config.vault)

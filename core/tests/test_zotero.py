@@ -197,25 +197,14 @@ def test_register_autoexport_uses_native_absolute_target_off_wsl(client, monkeyp
     ]
 
 
-def test_register_autoexport_uses_a_pinned_host_target_without_retranslation(
-    client, monkeypatch
-):
-    def forbidden(path):
-        raise AssertionError(f"pinned target was retranslated: {path}")
-
-    monkeypatch.setattr(zotero.paths, "to_bbt_host", forbidden)
-
-    client.register_autoexport(
-        "/vault/x/bibliography.json",
-        host_target=r"C:\pinned\x\bibliography.json",
-    )
-
-    assert client._fake.rpc_calls == [
-        (
-            "autoexport.add",
-            ["//", "Better CSL JSON", r"C:\pinned\x\bibliography.json"],
+def test_register_autoexport_has_no_host_target_override(client):
+    with pytest.raises(TypeError, match="host_target"):
+        client.register_autoexport(
+            "relative-vault/x/bibliography.json",
+            host_target=r"C:\arbitrary\x\bibliography.json",
         )
-    ]
+
+    assert client._fake.rpc_calls == []
 
 
 @pytest.mark.parametrize(("returncode", "stdout"), [(1, "ignored"), (0, "")])
