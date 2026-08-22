@@ -93,6 +93,22 @@ def _schema_outcome(check: str, target, extra: dict | None = None) -> Outcome:
     )
 
 
+def _is_append_only_path(rel: bytes) -> bool:
+    """Every durable-append surface this lint protects (terminology §4.1).
+
+    ``inbox/review-queue.md`` and every ``log/`` day file are the original
+    two; ``projects/<name>/search-log.md`` (Task 6, spec §7's `find-sources`
+    row) is a third for the same reason — it is a PRISMA-S search trail, and
+    a trail that can be silently rewritten is not a trail a methods reviewer
+    can trust.
+    """
+    if rel == b"inbox/review-queue.md":
+        return True
+    if rel.startswith(b"log/"):
+        return True
+    return rel.startswith(b"projects/") and rel.endswith(b"/search-log.md")
+
+
 def lint_append_only(
     vault_root,
     base_snapshot: gitstate.Snapshot | None = None,
@@ -110,7 +126,7 @@ def lint_append_only(
     outcomes = []
     paths = set(base_snapshot.images) | set(candidate_snapshot.images)
     for rel in sorted(paths):
-        if rel != b"inbox/review-queue.md" and not rel.startswith(b"log/"):
+        if not _is_append_only_path(rel):
             continue
         old = base_snapshot.image(rel)
         new = candidate_snapshot.image(rel)

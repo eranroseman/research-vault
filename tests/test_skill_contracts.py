@@ -35,6 +35,7 @@ ENTRY_SKILLS = {
     "factcheck-draft",
     "project",
     "import-source",
+    "find-sources",
 }
 
 # A bare kebab-case token in backticks, e.g. `` `evidence-conventions` `` —

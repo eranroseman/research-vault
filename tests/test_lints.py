@@ -44,6 +44,28 @@ def test_append_only_reports_whole_tracked_file_deletion_but_not_untracked_addit
     assert [out.target for out in outs] == ["path-bytes:log/2026-08-16.md"]
 
 
+def test_append_only_guards_project_search_logs(fixture_vault):
+    """`projects/<name>/search-log.md` (Task 6) joins the same guard as
+    ``inbox/review-queue.md`` and ``log/``: it is a PRISMA-S search trail,
+    and a trail that can be silently rewritten cannot be trusted."""
+    search_log = fixture_vault / "projects" / "brief" / "search-log.md"
+    search_log.write_text('---\ntype: "search-log"\n---\n- [query:: q] [source:: PubMed] [date:: 2026-08-20] [hits:: 5] [actor:: human:eran]\n')
+    subprocess.run(["git", "add", search_log], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "search log history"], cwd=fixture_vault, check=True
+    )
+    search_log.write_text('---\ntype: "search-log"\n---\n')
+
+    outs = lints.lint_append_only(fixture_vault)
+
+    assert [(out.target, out.reason) for out in outs] == [
+        (
+            "path-bytes:projects/brief/search-log.md",
+            "drift — append-only file rewrote history",
+        )
+    ]
+
+
 def test_append_only_log_pathspec_excludes_reserved_root_log(tmp_vault):
     daily = tmp_vault / "log" / "2026-08-20.md"
     daily.parent.mkdir(exist_ok=True)

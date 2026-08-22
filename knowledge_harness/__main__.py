@@ -23,6 +23,7 @@ from . import (
     paths,
     publish,
     scaffold,
+    searchlog,
     selectors,
 )
 from .pathcodec import (
@@ -693,6 +694,66 @@ def cmd_finding(args):
     return 0
 
 
+def cmd_search_log(args):
+    """Append one PRISMA-S search-log record (spec §7 `find-sources` row).
+
+    Two record kinds through one verb, mutually exclusive per call: a search
+    run (``--query``, with ``--source`` and ``--hits``) or a not-admitted
+    candidate (``--not-admitted``, with ``--reason``). `find-sources` never
+    hand-writes ``projects/<name>/search-log.md`` — every line, of either
+    kind, is this verb.
+    """
+    query_given = args.query is not None
+    not_admitted_given = args.not_admitted is not None
+    if query_given == not_admitted_given:
+        print(
+            "search-log refused: pass exactly one of --query (a search run) "
+            "or --not-admitted (a candidate)",
+            file=sys.stderr,
+        )
+        return 2
+    actor = args.actor or AGENT_ACTOR
+    try:
+        if query_given:
+            if args.source is None or args.hits is None:
+                print(
+                    "search-log refused: --query requires --source and --hits",
+                    file=sys.stderr,
+                )
+                return 2
+            entry = searchlog.append_search(
+                args.vault,
+                args.project,
+                args.query,
+                args.source,
+                args.hits,
+                date=args.date,
+                actor=actor,
+            )
+            print(f"{entry.date} {entry.source} — {entry.hits} hits — {entry.query}")
+        else:
+            if args.reason is None:
+                print(
+                    "search-log refused: --not-admitted requires --reason",
+                    file=sys.stderr,
+                )
+                return 2
+            entry = searchlog.append_not_admitted(
+                args.vault,
+                args.project,
+                args.not_admitted,
+                args.reason,
+                source=args.source,
+                date=args.date,
+                actor=actor,
+            )
+            print(f"{entry.date} not-admitted {entry.candidate} — {entry.reason}")
+    except (searchlog.SearchLogError, ValueError, OSError) as error:
+        print(f"search-log refused: {error}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def cmd_inbox(args):
     print(json.dumps(inbox.summary(args.vault), sort_keys=True))
     for entry in sorted(
@@ -801,6 +862,16 @@ def main(argv=None):
     finding.add_argument("--actor")
     finding.add_argument("--date")
     finding.add_argument("--target-hash")
+    search_log = sub.add_parser("search-log", parents=[common])
+    search_log.add_argument("--vault", required=True)
+    search_log.add_argument("--project", required=True)
+    search_log.add_argument("--query")
+    search_log.add_argument("--source")
+    search_log.add_argument("--hits", type=int)
+    search_log.add_argument("--not-admitted", dest="not_admitted")
+    search_log.add_argument("--reason")
+    search_log.add_argument("--date")
+    search_log.add_argument("--actor")
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
     scaffold_vault = sub.add_parser("scaffold", parents=[common])
@@ -834,6 +905,7 @@ def main(argv=None):
         "park": cmd_park,
         "ack": cmd_ack,
         "finding": cmd_finding,
+        "search-log": cmd_search_log,
         "inbox": cmd_inbox,
         "scaffold": cmd_scaffold,
         "doctor": cmd_doctor,
