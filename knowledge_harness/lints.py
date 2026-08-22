@@ -21,8 +21,12 @@ FAILED_VERIFICATION = re.compile(
 CLAIM_LINK = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
 PUBLISHED_TAG = re.compile(r"^published/(.+)-\d{4}-\d{2}-\d{2}$")
 TRANSITION_FIELD = re.compile(
-    r"\[(status|deprecated-at|deprecated-by|reason):: ([^\]]*)\]"
+    r"\[(status|deprecated-at|deprecated-by|reason|superseded-by):: ([^\]]*)\]"
 )
+# §5: deprecation is a transition record carrying these four fields; a
+# successor pointer is optional (present only "where a successor exists").
+_DEPRECATION_REQUIRED_FIELDS = {"status", "deprecated-at", "deprecated-by", "reason"}
+_DEPRECATION_OPTIONAL_FIELDS = {"superseded-by"}
 
 
 def _git(vault_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -207,15 +211,20 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
     new_line, new_ending = _line_content_and_ending(new_lines[0])
     if old_ending != new_ending:
         return False
-    required = {"status", "deprecated-at", "deprecated-by", "reason"}
-    fields = {name: [] for name in required}
+    required = _DEPRECATION_REQUIRED_FIELDS
+    optional = _DEPRECATION_OPTIONAL_FIELDS
+    fields = {name: [] for name in required | optional}
     for name, value in TRANSITION_FIELD.findall(new_line):
         fields[name].append(value)
-    if any(len(values) != 1 for values in fields.values()):
+    if any(len(fields[name]) != 1 for name in required):
+        return False
+    if any(len(fields[name]) > 1 for name in optional):
         return False
     if fields["status"] != ["deprecated"]:
         return False
     if any(not fields[name][0].strip() for name in required - {"status"}):
+        return False
+    if fields["superseded-by"] and not fields["superseded-by"][0].strip():
         return False
     try:
         date.fromisoformat(fields["deprecated-at"][0])
@@ -224,7 +233,7 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
     if TRANSITION_FIELD.search(old_line) and "[status:: deprecated]" in old_line:
         return False
     old_base = _without_fields(old_line, {"status"})
-    new_base = _without_fields(new_line, required)
+    new_base = _without_fields(new_line, required | optional)
     return old_base == new_base
 
 

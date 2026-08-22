@@ -134,6 +134,63 @@ def test_claim_immutability_allows_complete_deprecation_transition(fixture_vault
     assert lints.lint_claim_immutability(fixture_vault) == []
 
 
+def test_claim_immutability_allows_complete_deprecation_transition_with_a_successor(
+    fixture_vault,
+):
+    """§5: `superseded-by` is optional but load-bearing when present — a
+    deprecation transition that names a successor claim link must pass
+    exactly like one that doesn't (the "both ways" pair)."""
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            "[deprecated-by:: human:eran] [reason:: superseded] "
+            "[superseded-by:: jones2024#^c-11111111] ^c-22222222",
+        )
+    )
+
+    assert lints.lint_claim_immutability(fixture_vault) == []
+
+
+def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
+    fixture_vault,
+):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            "[deprecated-by:: human:eran] [reason:: superseded] "
+            "[superseded-by:: ] ^c-22222222",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-22222222"
+    ]
+
+
+def test_claim_immutability_rejects_duplicate_superseded_by(fixture_vault):
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "- (paraphrase) Retrospective design [@smith2020, p. 3] "
+            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+            "[deprecated-by:: human:eran] [reason:: superseded] "
+            "[superseded-by:: jones2024#^c-11111111] "
+            "[superseded-by:: other2024#^c-33333333] ^c-22222222",
+        )
+    )
+
+    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
+        "smith2020#^c-22222222"
+    ]
+
+
 def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_mutation(
     fixture_vault,
 ):
