@@ -143,14 +143,14 @@ def test_live_doctor_reports_the_absent_human_created_auto_export(
     assert probes["tree"].result is Result.MATCHED
     assert probes["machine-config"].result is Result.MATCHED
     assert probes["zotero"].result is Result.MATCHED
-    assert "zotero=" in probes["zotero"].detail
+    assert "zotero=" in probes["zotero"].reason
     assert probes["bbt"].result is Result.MATCHED
-    assert f"betterbibtex={probes['bbt'].detail}" in probes["zotero"].detail
+    assert f"betterbibtex={probes['bbt'].reason}" in probes["zotero"].reason
     assert probes["autoexport"].result is Result.UNMATCHED
-    assert host_target in probes["autoexport"].detail
+    assert host_target in probes["autoexport"].reason
     assert (
         "create or fix the whole-library Better CSL JSON auto-export in BBT Preferences"
-        in probes["autoexport"].detail
+        in probes["autoexport"].reason
     )
     assert not target.exists()
     assert [method for method in client.rpc_methods if "autoexport" in method] == []

@@ -199,7 +199,7 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert 'python-version: "3.12"' in text
     assert (
         'python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/'
-        'knowledge-harness.git#subdirectory=core"'
+        'knowledge-harness.git"'
     ) in text
     assert "EVENT_NAME: ${{ github.event_name }}" in text
     assert "PR_BASE: ${{ github.event.pull_request.base.sha }}" in text
@@ -239,7 +239,7 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert 'python-version: "3.12"' in text
     assert (
         'python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/'
-        'knowledge-harness.git#subdirectory=core"'
+        'knowledge-harness.git"'
     ) in text
     assert 'curl --fail --show-error --location --output "$RUNNER_TEMP/rw.csv"' in text
     assert (
