@@ -11,6 +11,7 @@ from pathlib import Path
 from . import (
     AGENT_ACTOR,
     Result,
+    archive,
     bibliography,
     events,
     factcheck,
@@ -344,8 +345,6 @@ def cmd_archive_source(args):
     every other four-state report in this binary: 0 recorded or not applicable,
     1 the archive is serving nothing, 3 an outage, 2 the verb could not run.
     """
-    from . import archive
-
     try:
         outcome = archive.archive_source(args.vault, args.citekey, args.snapshot)
     except archive.ArchiveError as error:

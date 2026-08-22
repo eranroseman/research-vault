@@ -187,7 +187,7 @@ def test_an_unconfirmed_snapshot_is_never_recorded(net_vault, monkeypatch, paylo
         "ftp://web.archive.org/x",
         "web.archive.org/no-scheme",
         "",
-        "https://web.archive.org/a b",
+        "https://web.archive.org/a\u2028b",
     ],
 )
 def test_a_snapshot_url_off_the_archives_host_is_never_recorded(
