@@ -159,10 +159,12 @@ ignore = [ "S310", "S603", "S607" ]
 # at adoption because verify._target_hash measured 33; splitting it into
 # claim-anchor / repo-path / identifier legs left the whole package at C901 <= 14
 # (measured: `ruff check knowledge_harness --select C901 --config
-# "lint.mccabe.max-complexity=14"` is clean). 28 is therefore slack, deliberately:
-# no pre-committed target was owed, and four-state outcome mappers legitimately run
-# CC 17-22 — the doctrine is branchy, so a convention number like 15 would force
-# fragmenting cohesive mappers to satisfy a backstop rather than a risk gate.
+# "lint.mccabe.max-complexity=14"` is clean). The package maximum under C901 is
+# now 14, at bibliography.observe_autoexport and inbox.load. 28 is therefore
+# deliberate slack — about 2x the real maximum — and no pre-committed target was
+# owed. The slack is the point: this cap must never compete with the CRAP ceiling
+# for authorship of the same decision. Complexity that matters surfaces as CRAP
+# first; C901 exists to catch only what a high coverage number hid from it.
 #
 # C901 and crap4py's CC are DIFFERENT metrics and neither subsumes the other.
 # crap4py follows radon's expression-aware model (each `and`/`or` operand, each
