@@ -12,6 +12,7 @@ import re
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from . import (
     Result,
@@ -119,7 +120,7 @@ def _append_only_basis(vault_root, raw_path, base_snapshot=None):
 def _directory_bytes(path):
     if not path.is_dir():
         return None
-    chunks = []
+    chunks: list[bytes] = []
     root = path.resolve()
     try:
         children = sorted(path.rglob("*"))
@@ -133,7 +134,10 @@ def _directory_bytes(path):
         try:
             if child.is_symlink():
                 try:
-                    link_target = os.fsencode(os.readlink(child))
+                    # os.readlink, NOT Path.readlink(): pathlib normalises the stored
+                    # target ("./a//b" -> "a/b", "t/" -> "t"), and this byte string
+                    # feeds the verification hash, so normalising would change it.
+                    link_target = os.fsencode(os.readlink(child))  # noqa: PTH115
                 except OSError:
                     link_target = b"unreadable-link"
                 chunks.extend((relative, b"symlink", link_target))
@@ -160,7 +164,7 @@ def _directory_bytes(path):
 
 def _snapshot_directory_bytes(snapshot, raw_path):
     prefix = raw_path + b"/"
-    chunks = []
+    chunks: list[bytes] = []
     for child_path in sorted(snapshot.images):
         if not child_path.startswith(prefix):
             continue
@@ -619,7 +623,11 @@ def _archive_outcomes(vault_root):
     return outcomes
 
 
-def _notice_fingerprint(outcome):
+# The annotation pins the ARITY (exactly three), which is what the splat at the
+# is_acknowledged call site needs; the element types stay Any because they are read
+# straight off the JSON extra mapping and nothing here verifies them. Claiming
+# `str | None` would be asserted, not verified.
+def _notice_fingerprint(outcome) -> tuple[Any, Any, Any]:
     if outcome.check != "update-notice":
         return None, None, None
     return (
@@ -697,7 +705,7 @@ def _apply_state_transitions(vault_root, raw, detection_date):
 
 
 def _warning_effectiveness(outcomes, hashes, vault_root):
-    frozen = {}
+    frozen: dict[object, bool] = {}
     for outcome in outcomes:
         statuses = []
         for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
@@ -819,7 +827,10 @@ def _plan_state(
     """Compute one complete projection inside a materialized candidate."""
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
-    detection_date = detection_date or datetime.date.today().isoformat()
+    detection_date = (
+        detection_date
+        or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    )
     raw = []
     try:
         bibliography_universe = bibliography.load(vault)
@@ -905,7 +916,7 @@ def _plan_state(
     warning_effective = _warning_effectiveness(authoritative, hashes, vault)
     _apply_state_transitions(vault, authoritative, detection_date)
     _file_effects(vault, effective, hashes, warning_effective, detection_date)
-    counts = {}
+    counts: dict[str, int] = {}
     for outcome in effective:
         counts[outcome.result.value] = counts.get(outcome.result.value, 0) + 1
     return {"outcomes": raw, "counts": counts}, effective, hashes, warning_effective

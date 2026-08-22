@@ -8,14 +8,14 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
-CORE = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 
 CONCEPT_ROOTS = frozenset({"synthesis", "projects"})
 
 
 def _core_path() -> None:
-    if str(CORE) not in sys.path:
-        sys.path.insert(0, str(CORE))
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
 
 
 def _load_bibliography(vault: Path):

@@ -243,9 +243,9 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     assert _target_hash(net_vault, citekey_outcome) == "aa11"
     assert (
         _target_hash(net_vault, stale)
-        == hashlib.sha256((net_vault / "system/bibliography.json").read_bytes()).hexdigest()[
-            :16
-        ]
+        == hashlib.sha256(
+            (net_vault / "system/bibliography.json").read_bytes()
+        ).hexdigest()[:16]
     )
     with pytest.raises(PathCodecError):
         RepoPath(b"../outside")
@@ -488,7 +488,9 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         "knowledge_harness.verify._bibliography_entries",
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
     )
-    monkeypatch.setattr("knowledge_harness.verify._network_outcomes", lambda *_: [warning])
+    monkeypatch.setattr(
+        "knowledge_harness.verify._network_outcomes", lambda *_: [warning]
+    )
     monkeypatch.setattr(
         "knowledge_harness.verify._staleness_outcome",
         lambda *_: _outcome(

@@ -66,7 +66,11 @@ def test_commit_autoexport_then_load_without_rewriting_bbt_bytes(tmp_vault):
     assert set(bib) == {"smith2020", "jones2021"}
     assert bib["smith2020"]["title"] == "Mortality decline"
     log = subprocess.run(
-        ["git", "log", "--oneline"], cwd=tmp_vault, capture_output=True, text=True
+        ["git", "log", "--oneline"],
+        cwd=tmp_vault,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     assert "bibliography" in log
 
@@ -469,10 +473,11 @@ def test_commit_autoexport_publication_failure_restores_unborn_head(
         )
 
     assert (
-        subprocess.run(
+        subprocess.run(  # check=False: the nonzero status IS the assertion below
             ["git", "rev-parse", "--verify", "HEAD"],
             cwd=tmp_vault,
             capture_output=True,
+            check=False,
         ).returncode
         != 0
     )
@@ -743,7 +748,10 @@ def test_staleness_matched(tmp_vault):
 
 def test_staleness_unmatched(tmp_vault):
     (tmp_vault / bibliography.BIB_PATH).write_text(json.dumps(ITEMS))
-    newer = ITEMS + [{"id": "lee2022", "title": "New paper", "type": "article-journal"}]
+    newer = [
+        *ITEMS,
+        {"id": "lee2022", "title": "New paper", "type": "article-journal"},
+    ]
     assert bibliography.staleness(tmp_vault, StubClient(newer)) is Result.UNMATCHED
 
 
@@ -1130,10 +1138,11 @@ def test_observe_rejects_symlink_anywhere_in_absolute_vault_chain_without_mutati
 
     assert observed.result is Result.UNMATCHED
     assert (
-        subprocess.run(
+        subprocess.run(  # check=False: the nonzero status IS the assertion below
             ["git", "rev-parse", "--verify", "HEAD"],
             cwd=tmp_vault,
             capture_output=True,
+            check=False,
         ).returncode
         != 0
     )
@@ -1163,10 +1172,11 @@ def test_observe_parent_replacement_during_the_window_never_commits(
 
     assert observed.result is Result.UNMATCHED
     assert (
-        subprocess.run(
+        subprocess.run(  # check=False: the nonzero status IS the assertion below
             ["git", "rev-parse", "--verify", "HEAD"],
             cwd=tmp_vault,
             capture_output=True,
+            check=False,
         ).returncode
         != 0
     )
@@ -1193,10 +1203,11 @@ def test_observe_parent_replacement_at_commit_boundary_never_mutates_git(
 
     assert observed.result is Result.UNMATCHED
     assert (
-        subprocess.run(
+        subprocess.run(  # check=False: the nonzero status IS the assertion below
             ["git", "rev-parse", "--verify", "HEAD"],
             cwd=tmp_vault,
             capture_output=True,
+            check=False,
         ).returncode
         != 0
     )

@@ -99,7 +99,11 @@ def record_pass(
         raise ValueError("verified event by must be a nonempty single-line string")
     if not _single_line(check):
         raise ValueError("verified event check must be a nonempty single-line string")
-    at = datetime.date.today().isoformat() if at is None else at
+    at = (
+        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        if at is None
+        else at
+    )
     if not _calendar_date(at):
         raise ValueError("verified event at must be a YYYY-MM-DD calendar date")
 
@@ -188,12 +192,12 @@ def _replace_frontmatter_list(
     rendered = _render_frontmatter_list(field, rows, newline) if rows else ""
     if not headers:
         insert = close - 1 if lines[close - 1] in {"\n", "\r\n"} else close
-        return "".join(lines[:insert] + [rendered] + lines[insert:])
+        return "".join([*lines[:insert], rendered, *lines[insert:]])
     start = headers[0]
     end = start + 1
     while end < close and lines[end].startswith("  - "):
         end += 1
-    return "".join(lines[:start] + [rendered] + lines[end:])
+    return "".join([*lines[:start], rendered, *lines[end:]])
 
 
 def _render_frontmatter_list(field: str, rows: list[dict], newline: str) -> str:

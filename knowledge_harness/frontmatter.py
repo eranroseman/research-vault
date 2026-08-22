@@ -141,7 +141,7 @@ def parse(text: str) -> tuple[dict, str]:
     block = text[opening.end() : closing.start()]
     body = text[closing.end() :]
     source_items = []
-    current_list = None
+    current_list: list[object] | None = None
     for line in block.splitlines():
         if line.startswith("  - "):
             if current_list is None:

@@ -43,7 +43,7 @@ def _source_quotes(vault_root, citekey: str) -> dict[str | None, str]:
 
 
 def _extra(claim, checked_note_path: RepoPath | None) -> dict:
-    extra = {"target": "managed-region"}
+    extra: dict[str, object] = {"target": "managed-region"}
     if checked_note_path is not None:
         extra = {
             "note_path": checked_note_path,

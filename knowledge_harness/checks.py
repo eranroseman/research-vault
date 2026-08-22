@@ -3,10 +3,9 @@
 import csv
 import os
 import re
-import xml.etree.ElementTree as ElementTree
 from collections import defaultdict
 from collections.abc import Mapping
-from datetime import date as _Date
+from datetime import date as _date
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -28,11 +27,18 @@ _RECORD_FIELDS = {
     "extra",
     "path_extra_fields",
 }
+
+
 def outcome_to_record(outcome: Outcome) -> dict[str, object]:
     """Return one detached JSON record after revalidating typed path metadata."""
     if not isinstance(outcome, Outcome):
         raise TypeError("expected Outcome")
     if outcome.target_kind == "repo-path":
+        # __post_init__ encodes every RepoPath target to text, so this narrow only
+        # re-states an established invariant; it raises exactly what the delegated
+        # decode_repo_path type check would raise, so behaviour is unchanged.
+        if not isinstance(outcome.target, str):
+            raise TypeError("encoded repository path must be text")
         decode_repo_path(outcome.target)
     elif outcome.target_kind != "identifier":
         raise ValueError("invalid Outcome target kind")
@@ -148,9 +154,7 @@ def check_citekeys(
     outcomes = []
     for citekey in cited:
         result = (
-            Result.MATCHED
-            if citekey in bibliography_universe
-            else Result.UNMATCHED
+            Result.MATCHED if citekey in bibliography_universe else Result.UNMATCHED
         )
         reason = (
             "matched"
@@ -519,9 +523,9 @@ def _notice_date_from_updated(value):
         return _INVALID
     if len(parts) > 3 or any(type(part) is not int for part in parts):
         return _INVALID
-    year, month, day = (parts + [1, 1])[:3]
+    year, month, day = [*parts, 1, 1][:3]
     try:
-        return _Date(year, month, day).isoformat()
+        return _date(year, month, day).isoformat()
     except ValueError:
         return _INVALID
 
@@ -753,9 +757,17 @@ def _arxiv_version_outcome(
     )
     if status != 200 or not isinstance(text, str):
         return _provider_unreachable(target, "arXiv")
+    # defusedxml is lazy-imported here (spec §8 dependency discipline): the gate path
+    # never parses XML, so core startup is unchanged. Its hardened parser is
+    # byte-equivalent on well-formed input and still raises the stdlib ParseError on
+    # malformed input; entity/DTD/external-reference attacks raise DefusedXmlException
+    # (a ValueError, NOT a ParseError), which maps to the same UNREACHABLE outcome.
+    from defusedxml.common import DefusedXmlException
+    from defusedxml.ElementTree import ParseError, fromstring
+
     try:
-        root = ElementTree.fromstring(text)
-    except ElementTree.ParseError:
+        root = fromstring(text)
+    except (ParseError, DefusedXmlException):
         return _provider_unreachable(target, "arXiv")
     atom = "{http://www.w3.org/2005/Atom}"
     arxiv = "{http://arxiv.org/schemas/atom}"
@@ -901,7 +913,7 @@ def _rw_date(value) -> str | None | object:
     if not isinstance(value, str):
         return _INVALID
     try:
-        return _Date.fromisoformat(value.strip()).isoformat()
+        return _date.fromisoformat(value.strip()).isoformat()
     except ValueError:
         return _INVALID
 
@@ -1032,6 +1044,8 @@ def reduce_update_notice_outcomes(
         )
     record = outcome_to_record(chosen)
     extra = record["extra"]
+    if not isinstance(extra, dict):  # outcome_to_record always detaches extra to a dict
+        raise TypeError("Outcome record extra must be an object")
     if warnings:
         extra["warn_notices"] = warnings
     else:

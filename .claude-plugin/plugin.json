@@ -2,9 +2,17 @@
   "name": "knowledge-harness",
   "description": "Trust-first academic research on an Obsidian-convention vault: Zotero bridge, per-claim provenance, deterministic citation gates.",
   "version": "0.1.0",
-  "author": { "name": "Eran Roseman" },
+  "author": {
+    "name": "Eran Roseman"
+  },
   "homepage": "https://github.com/eranroseman/knowledge-harness",
   "repository": "https://github.com/eranroseman/knowledge-harness",
   "license": "MIT",
-  "keywords": ["research", "zotero", "citations", "provenance", "obsidian"]
+  "keywords": [
+    "research",
+    "zotero",
+    "citations",
+    "provenance",
+    "obsidian"
+  ]
 }

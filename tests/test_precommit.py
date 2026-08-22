@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-CORE = Path(__file__).resolve().parents[1]
-HOOK = CORE / "knowledge_harness" / "templates" / "git" / "pre-commit"
+ROOT = Path(__file__).resolve().parents[1]
+HOOK = ROOT / "knowledge_harness" / "templates" / "git" / "pre-commit"
 
 
 def _git(repo, *args):

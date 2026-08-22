@@ -51,7 +51,9 @@ class Outcome:
     extra: Mapping[str, object] = field(default_factory=dict)
     target_kind: Literal["identifier", "repo-path"] = field(init=False)
     path_extra_fields: tuple[str, ...] = field(init=False)
-    __hash__ = None
+    # Deliberately unhashable: `extra` is a mutable mapping, so a hash would lie.
+    # mypy has no way to spell "remove the inherited __hash__" other than this ignore.
+    __hash__ = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if type(self.check) is not str or not self.check:
@@ -70,7 +72,7 @@ class Outcome:
             raise ValueError("Outcome target must be nonempty single-line text")
         if not isinstance(self.extra, Mapping):
             raise TypeError("Outcome extra must be a mapping")
-        direct = {}
+        direct: dict[str, object] = {}
         path_fields = []
         for key, value in self.extra.items():
             if type(key) is not str:

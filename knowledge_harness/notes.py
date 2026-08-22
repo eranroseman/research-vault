@@ -1,4 +1,4 @@
-"""Literature-note generation: managed region + preserved free region (spec §3–§5)."""
+"""Literature-note generation: managed region + preserved free region (spec §3-§5)."""
 
 import datetime
 import hashlib
@@ -132,8 +132,8 @@ def note_path(vault_root, citekey) -> Path:
 def _managed_body(item, annotations) -> str:
     heading = display_text(item.get("title", item["id"]))
     lines = [MANAGED_OPEN, f"# {heading}", ""]
-    for ann in annotations:
-        lines.append(render_claim(ann))  # completed in Part B before commit/review
+    # completed in Part B before commit/review
+    lines.extend(render_claim(ann) for ann in annotations)
     lines.append(MANAGED_CLOSE)
     return "\n".join(lines) + "\n"
 

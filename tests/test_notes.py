@@ -151,7 +151,9 @@ def test_note_path(tmp_vault):
 
 @pytest.mark.parametrize(
     "citekey",
-    ["", "../escape", "/tmp/escape", "..\\escape", "nested/escape"],
+    # An absolute-path ESCAPE fixture: the value is a citekey that note_path must
+    # reject, never a temporary file this test writes to.
+    ["", "../escape", "/tmp/escape", "..\\escape", "nested/escape"],  # noqa: S108
 )
 def test_note_path_rejects_unsafe_citekeys(tmp_vault, citekey):
     with pytest.raises(notes.InvalidCitekeyError):

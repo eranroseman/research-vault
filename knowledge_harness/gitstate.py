@@ -6,13 +6,16 @@ import os
 import stat
 import subprocess
 import tempfile
-from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 from .pathcodec import RepoPath, encode_repo_path
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ZERO_OID = "0" * 40
 
@@ -573,11 +576,13 @@ def rollback_outputs(vault_root: Path, preimage: Snapshot, outputs) -> None:
     first_error = None
     first_path = None
     for output in reversed(ordered):
+        # The try/except cannot be hoisted out of the loop: rollback must attempt
+        # every remaining output and surface only the first failure.
         try:
             if live_image(vault_root, output.raw_path) != output.image:
                 raise GitStateError("diverged")
             _restore_image(vault_root, output.raw_path, preimage.image(output.raw_path))
-        except (OSError, GitStateError) as error:
+        except (OSError, GitStateError) as error:  # noqa: PERF203
             if first_error is None:
                 first_error = error
                 first_path = output.raw_path
@@ -691,7 +696,7 @@ def audit_and_write_manifest(
 def _snapshot_index(vault_root: Path, raw_paths: set[bytes]) -> Snapshot:
     result = _git(Path(vault_root), "ls-files", "--stage", "-z")
     images = {}
-    stages = {}
+    stages: dict[bytes, list[int]] = {}
     for record in result.stdout.split(b"\0"):
         if not record:
             continue

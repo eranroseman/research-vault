@@ -13,6 +13,7 @@ import datetime as datetime_lib
 import importlib.util
 import io
 import json
+import re
 import subprocess
 import sys
 import types
@@ -819,7 +820,12 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
     and the correction `verify-citations` already carries.
     """
     text = PUBLISH_SKILL.read_text(encoding="utf-8")
-    row = next(line for line in text.splitlines() if line.startswith("| MATCHED |"))
+    # Padding-tolerant: mdformat owns skills/ and pads table cells to align
+    # columns, so an exact-prefix match would break on the next reflow. The row's
+    # CONTENT is what this test is about, and every assertion below still reads it.
+    row = next(
+        line for line in text.splitlines() if re.match(r"\|\s*MATCHED\s*\|", line)
+    )
 
     assert _minting_check_ids() == {"doi", "metadata", "update-notice", "quote"}
     for check in sorted(_minting_check_ids()):

@@ -377,7 +377,7 @@ def cmd_staleness(args):
 def cmd_verify(args):
     surface = getattr(args, "surface", "audit")
     try:
-        report, effective, hashes, warning_effective = verify_state(
+        report, effective, _hashes, warning_effective = verify_state(
             args.vault,
             network=not args.offline,
             rw_csv=args.rw_csv,
@@ -605,7 +605,11 @@ def record_finding(
     except ValueError as error:
         return 2, str(error)
     actor = AGENT_ACTOR if actor is None else actor
-    resolved_date = datetime.date.today().isoformat() if date is None else date
+    resolved_date = (
+        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        if date is None
+        else date
+    )
     try:
         candidate_id = inbox.finding_id(
             check,
@@ -737,7 +741,7 @@ def cmd_search_log(args):
                     file=sys.stderr,
                 )
                 return 2
-            entry = searchlog.append_not_admitted(
+            declined = searchlog.append_not_admitted(
                 args.vault,
                 args.project,
                 args.not_admitted,
@@ -746,7 +750,9 @@ def cmd_search_log(args):
                 date=args.date,
                 actor=actor,
             )
-            print(f"{entry.date} not-admitted {entry.candidate} — {entry.reason}")
+            print(
+                f"{declined.date} not-admitted {declined.candidate} — {declined.reason}"
+            )
     except (searchlog.SearchLogError, ValueError, OSError) as error:
         print(f"search-log refused: {error}", file=sys.stderr)
         return 2

@@ -93,7 +93,7 @@ def test_load_rejects_nonempty_inbox_without_valid_required_header(tmp_vault, co
     queue.parent.mkdir(exist_ok=True)
     queue.write_text(content)
 
-    with pytest.raises(inbox.InboxError, match="frontmatter|type"):
+    with pytest.raises(inbox.InboxError, match=r"frontmatter|type"):
         inbox.load(tmp_vault)
 
 

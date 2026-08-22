@@ -92,9 +92,16 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         '---\ntype: "log"\n---\n# Log\n\n## Days\n'
     )
     assert (vault / ".gitignore").read_text() == ".harness/\n.obsidian/workspace*\n"
+    # Byte-pinned against the CANONICAL json.tool form the JSON owner produces
+    # (tests/test_config_validity.py asserts the template itself equals it). Same
+    # object, expanded nesting; the one-time canonicalization is its own commit.
     assert (vault / ".harness" / "machine.json").read_text() == (
-        '{\n  "mailto": "you@example.edu",\n'
-        '  "path_map": {"D:\\\\Zotero\\\\": "/mnt/d/Zotero/"}\n}\n'
+        "{\n"
+        '  "mailto": "you@example.edu",\n'
+        '  "path_map": {\n'
+        '    "D:\\\\Zotero\\\\": "/mnt/d/Zotero/"\n'
+        "  }\n"
+        "}\n"
     )
     for path in (
         "AGENTS.md",
@@ -179,9 +186,9 @@ def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path)
     assert set(expected) <= set(created)
     for relative, source in expected.items():
         assert (vault / relative).read_bytes() == source.read_bytes()
-    assert os.stat(vault / ".git/hooks/pre-commit").st_mode & 0o111 == 0o111
-    assert os.stat(vault / ".github/workflows/verify.yml").st_mode & 0o111 == 0
-    assert os.stat(vault / ".github/workflows/rw-batch.yml").st_mode & 0o111 == 0
+    assert (vault / ".git/hooks/pre-commit").stat().st_mode & 0o111 == 0o111
+    assert (vault / ".github/workflows/verify.yml").stat().st_mode & 0o111 == 0
+    assert (vault / ".github/workflows/rw-batch.yml").stat().st_mode & 0o111 == 0
 
 
 def test_scaffold_commits_only_its_created_paths_and_preserves_user_index(tmp_path):
@@ -379,5 +386,5 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
     rw_workflow = vault / ".github/workflows/rw-batch.yml"
     assert rw_workflow.read_bytes() == packaged_rw.read_bytes()
     assert not (vault / ".github/workflows/verify.yml").exists()
-    assert os.stat(vault / ".git/hooks/pre-commit").st_mode & 0o111 == 0o111
-    assert os.stat(rw_workflow).st_mode & 0o111 == 0
+    assert (vault / ".git/hooks/pre-commit").stat().st_mode & 0o111 == 0o111
+    assert rw_workflow.stat().st_mode & 0o111 == 0

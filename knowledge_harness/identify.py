@@ -108,7 +108,7 @@ def _pubmed_pmid(vault_root, title: str) -> tuple[str | None, bool]:
 def discover(vault_root, entry: dict) -> Outcome:
     """Discover DOI/PMID safely, returning a four-state discovery outcome."""
     target = _target(entry)
-    identifiers = {}
+    identifiers: dict[str, str] = {}
     extra = {"identifiers": identifiers}
     if not isinstance(entry, dict) or not _missing_doi(entry):
         return Outcome(

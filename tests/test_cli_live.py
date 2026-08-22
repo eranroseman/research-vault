@@ -78,10 +78,13 @@ def matched_autoexport_observer(monkeypatch):
 
 
 def run_cli(*args):
+    # check=False: callers assert on returncode, and a nonzero exit is a normal
+    # expected outcome for the refusal tests, not a harness failure.
     return subprocess.run(
         [sys.executable, "-m", "knowledge_harness", *args],
         capture_output=True,
         text=True,
+        check=False,
     )
 
 
@@ -474,7 +477,7 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
     # string to the review-queue writer. If that writer accepts it, the row is
     # written across two physical lines and the append-only queue never parses
     # again.
-    ["", "../escape", "/tmp/escape", "..\\escape", "a\vb", "a\u2028b"],
+    ["", "../escape", "/tmp/escape", "..\\escape", "a\vb", "a\u2028b"],  # noqa: S108
 )
 def test_import_note_rejects_unsafe_citekey_before_side_effects(
     citekey, tmp_vault, monkeypatch, capsys

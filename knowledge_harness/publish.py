@@ -182,10 +182,10 @@ def arm(vault, project, bypass=None) -> Path:
                 )
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary, path)
+            Path(temporary).replace(path)
         except OSError:
             with suppress(OSError):
-                os.unlink(temporary)
+                Path(temporary).unlink()
             raise
     except OSError as error:
         raise PublishError(f"cannot arm the publish gate: {error}") from error

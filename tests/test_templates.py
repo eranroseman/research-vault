@@ -181,7 +181,7 @@ def test_markdown_templates_match_canonical_content():
         '_Avoid_: using "source" for a journal or repository — that is a '
         "**venue**\n\n"
         "**Venue**: The journal, repository, or outlet an item appeared in.\n"
-        "_Avoid_: OpenAlex's \"source\" sense in our prose\n\n"
+        '_Avoid_: OpenAlex\'s "source" sense in our prose\n\n'
         "**Citekey**: The stable, human-readable key (Better BibTeX) joining "
         "prose citations, filenames, and the bibliography.\n"
         "_Avoid_: reference ID, bibkey\n\n"
@@ -307,7 +307,7 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert "- uses: actions/checkout@v4" in text
     assert "fetch-depth: 0" in text
     assert "- uses: actions/setup-python@v5" in text
-    assert 'python-version: "3.12"' in text
+    assert "python-version: '3.12'" in text
     assert (
         'python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/'
         'knowledge-harness.git"'
@@ -340,14 +340,14 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
 def test_rw_workflow_has_explicit_csv_only_write_boundary():
     text = asset("ci/rw-batch.yml").read_text()
     assert "name: rw-batch\non:" in text
-    assert 'cron: "17 3 * * *"' in text
+    assert "cron: 17 3 * * *" in text
     assert "workflow_dispatch: {}" in text
     assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
     assert "permissions:\n  contents: write" in text
     assert "- uses: actions/checkout@v4" in text
     assert "fetch-depth: 0" in text
     assert "- uses: actions/setup-python@v5" in text
-    assert 'python-version: "3.12"' in text
+    assert "python-version: '3.12'" in text
     assert (
         'python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/'
         'knowledge-harness.git"'

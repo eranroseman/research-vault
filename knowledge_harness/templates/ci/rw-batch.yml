@@ -1,16 +1,14 @@
+---
 name: rw-batch
 on:
   schedule:
-    - cron: "17 3 * * *"
+    - cron: 17 3 * * *
   workflow_dispatch: {}
-
 concurrency:
   group: rw-batch
   cancel-in-progress: false
-
 permissions:
   contents: write
-
 jobs:
   retraction-batch:
     runs-on: ubuntu-latest
@@ -20,7 +18,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - name: Install harness
         run: python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/knowledge-harness.git"
       - name: Download Retraction Watch CSV
@@ -53,7 +51,7 @@ jobs:
           esac
       - name: Push verifier-created snapshot
         shell: bash
-        run: |
+        run: |-
           set -euo pipefail
           manifest="$RUNNER_TEMP/harness-changed-paths"
           if [[ ! -s "$manifest" ]]; then

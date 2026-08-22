@@ -278,7 +278,7 @@ def test_publish_outputs_loses_concurrent_head_cas_without_touching_index(
         return real_git(vault, *args, **kwargs)
 
     monkeypatch.setattr(gitstate, "_git", race)
-    with pytest.raises(gitstate.GitStateError, match="concurrent|update-ref"):
+    with pytest.raises(gitstate.GitStateError, match=r"concurrent|update-ref"):
         gitstate.publish_outputs(
             tmp_vault,
             snapshots,
@@ -504,7 +504,7 @@ def test_manifest_is_raw_sorted_exact_and_rejects_out_of_allowlist(tmp_vault, tm
 
     bad_before = gitstate.snapshot_worktree(tmp_vault)
     (tmp_vault / "system" / "unexpected.txt").write_bytes(b"bad\n")
-    with pytest.raises(gitstate.GitStateError, match="allowlist|actual"):
+    with pytest.raises(gitstate.GitStateError, match=r"allowlist|actual"):
         gitstate.audit_and_write_manifest(tmp_vault, bad_before, [], manifest)
 
 
@@ -554,7 +554,7 @@ def test_manifest_rejects_same_path_rewrite_and_never_recaptures_raced_bytes(
     path.write_bytes(b"concurrent rewrite\n")
     manifest = tmp_path.parent / f"{tmp_path.name}-manifest-race"
 
-    with pytest.raises(gitstate.GitStateError, match="postimage|actual"):
+    with pytest.raises(gitstate.GitStateError, match=r"postimage|actual"):
         gitstate.audit_and_write_manifest(tmp_vault, before, [planned], manifest)
 
     assert path.read_bytes() == b"concurrent rewrite\n"
@@ -617,7 +617,7 @@ def test_dirty_overlap_rejects_conflict_or_gitlink_at_output(tmp_vault, overlap_
         records = [(0o160000, head, 0, b"synthesis/out.md")]
     _index_info(tmp_vault, records)
 
-    with pytest.raises(gitstate.GitStateError, match="unmerged|dirty overlapping"):
+    with pytest.raises(gitstate.GitStateError, match=r"unmerged|dirty overlapping"):
         gitstate.validate_dirty_overlap(
             tmp_vault,
             snapshots,

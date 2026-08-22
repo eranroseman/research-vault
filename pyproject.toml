@@ -1,71 +1,191 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [ "setuptools>=68" ]
+
 [project]
 name = "knowledge-harness"
 version = "0.1.0"
 description = "Deterministic core for the knowledge-harness plugin"
 requires-python = ">=3.10"
-dependencies = []
-
+dependencies = [
+  # Core's first pinned runtime dependency (admitted 2026-08-20, spec §8 dependency
+  # discipline; docs/2026-08-20-zero-dep-rethink.md): parsing externally-influenced
+  # XML is commodity-hard, so S314 is resolved by admission rather than by noqa.
+  # Lazy-imported at the single parse site so gate-path startup is unchanged.
+  "defusedxml==0.7.1",
+]
 [project.optional-dependencies]
-pdf = ["pypdf>=4"]
+pdf = [ "pypdf>=4" ]
 dev = [
-    "pytest>=8",
-    "ruff==0.15.21",
-    "pytest-cov==7.1.0",
-    "mutate4py==0.1.4",
-    "crap4py==0.1.1",
-    "drywall==0.1.3",
-    "mypy==2.3.1",
-    "pyzotero[cli]==1.14.0",  # dev-lane agent instrument (adopted 2026-08-22 by contract match:
-                              # canonical library, local-API-first, read-only by default, local
-                              # writes gated behind Zotero's own consent dialog — admission stays
-                              # human by construction; live-verified local read at adoption).
-                              # Web API permitted for tests: read-only key by default; a
-                              # write-capable key only for a test that needs it, never against
-                              # the real library. No key is stored in this repo.
-    "mdformat==1.0.0",
-    "mdformat-gfm==1.0.0",
-    "mdformat-frontmatter==2.1.2",
-    "yamlfix==1.19.1",
-    "pyproject-fmt==2.28.0",
-    "pre-commit==4.6.2",
+  "crap4py==0.1.1",
+  "drywall==0.1.3",
+  # The mdformat pin is a RENDER-CONTRACT component, not just a dev convenience:
+  # canonical template form leaks into rendered vault notes, so an mdformat upgrade is
+  # judged like a render change, with re-import expectations. oxfmt was rejected
+  # 2026-08-21 with the mismatch named — it reformats INSIDE fenced code blocks, i.e.
+  # quoted material (the prettier-incident class; measured live: it respaced YAML in a
+  # quoted workflow snippet) — plus it drags a Node toolchain into a Python dev lane.
+  "mdformat==1.0.0",
+  "mdformat-frontmatter==2.1.2",
+  "mdformat-gfm==1.0.0",
+  "mutate4py==0.1.4",
+  "mypy==2.3.1",
+  "pre-commit==4.6.2",
+  "pyproject-fmt==2.28.0",
+  "pytest>=8",
+  "pytest-cov==7.1.0",
+  # pyzotero: dev-lane agent instrument (adopted 2026-08-22 by contract match:
+  # canonical library, local-API-first, read-only by default, local writes gated
+  # behind Zotero's own consent dialog — admission stays human by construction;
+  # live-verified local read at adoption). Web API permitted for tests: read-only
+  # key by default; a write-capable key only for a test that needs it, never
+  # against the real library. No key is stored in this repo.
+  "pyzotero[cli]==1.14.0",
+  "ruff==0.15.21",
+  "yamlfix==1.19.1",
 ]
 
-[tool.pytest.ini_options]
-markers = [
-    "live: requires a running local Zotero (set HARNESS_LIVE=1)",
-    "live_net: hits real external APIs (set HARNESS_LIVE_NET=1 and HARNESS_MAILTO)",
-]
+[tool.setuptools.packages.find]
+include = [ "knowledge_harness*" ]
+[tool.setuptools.package-data]
+knowledge_harness = [ "templates/**/*" ]
 
 [tool.ruff]
 required-version = "==0.15.21"
 target-version = "py310"
 line-length = 88
-
 [tool.ruff.lint]
+# Bandit idiom exclusions (recorded 2026-08-20) — see `ignore` below: these fire on
+# this repo's own architecture, not on findings. Subprocess hygiene is still enforced
+# by S602/S604 (shell=True), which remain active inside "S".
+#   S310 - urlopen IS the four-state network layer, https-only
+#   S603 - fires on every list-form subprocess call (git plumbing is the design)
+#   S607 - "git" by name, resolved via PATH, is the intended invocation
+# Deliberately NOT selected (recorded 2026-08-20 — do not "fix"):
+#   PLR   — pylint-refactor thresholds: PLR0911's "too many returns" flags four-state
+#           outcome mappers (multi-return IS the doctrine's shape); PLR2004 flags HTTP
+#           codes; complexity rows are covered by C90 + the CRAP ceiling
+#   BLE   — the four-state doctrine requires broad catch -> UNREACHABLE in probe
+#           wrappers and fail-open hooks; this rule fights the architecture
+#   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
+#   D     — docstrings unenforced by decision: presence/format checks can't verify truth,
+#           and the meaning layer lives in CONTEXT.md/spec; docstrings stay by convention
+# C90 IS selected (2026-08-20 reversal of the earlier skip): CRAP >= CC always, so the
+# CRAP ceiling subsumes any CC cap at or above it — but BELOW the ceiling a CC cap
+# catches complexity laundered by high coverage (coverage measures execution, not
+# verification; mutation survivors live in covered lines). Backstop, not the risk gate.
+# Upgrade protocol (ruff pinned; upgrades are deliberate acts): newer ruff versions
+# default-enable curated singles from BLE/D/TRY/PL — the skip list above — and
+# extend-select cannot unselect defaults. On any ruff upgrade: diff the new version's
+# defaults (ruff check --isolated --show-settings) against these skips and move any
+# violated skip into `ignore`, or the recorded rulings silently stop being true.
 extend-select = [
-    "A",
-    "B",
-    "C4",
-    "I",
-    "PIE",
-    "PLE",
-    "PT",
-    "RUF100",
-    "SIM",
-    "T10",
-    "UP",
-    "W",
+  "A",
+  "ARG",
+  "ASYNC",
+  "B",
+  "C4",
+  "C90",
+  "DTZ",
+  "EXE",
+  "FA",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "INT",
+  "ISC",
+  "LOG",
+  "N",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PLE",
+  "PLW",
+  "PT",
+  "PTH",
+  "PYI",
+  "RET",
+  "RUF",
+  "S",
+  "SIM",
+  "T10",
+  "T20",
+  "TC",
+  "UP",
+  "W",
+  "YTT",
 ]
-
+ignore = [ "S310", "S603", "S607" ]
 [tool.ruff.lint.per-file-ignores]
-"tests/test_cli_live.py" = ["UP012"]
+# unicode fixtures deliberate; assert IS pytest.
+# ARG in tests (measured 2026-08-22: 199 hits in tests, ZERO in knowledge_harness — the
+# plan's "zero-hit adoption" was true only of core). Two structural idioms produce them
+# and neither is a defect: a monkeypatch double must accept the signature it replaces,
+# so the unused parameters ARE the contract it is honouring (same class as "assert IS
+# pytest"), and a pytest fixture requested for its side effect is named in the signature
+# and never read. "Fixing" either would damage the tests. The guard stays armed in core.
+"tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
+"tests/test_cli_live.py" = [ "UP012" ]
+# print IS the CLI output contract (all 18 measured uses).
+"knowledge_harness/__main__.py" = [ "T20" ]
+# Gate scripts report via stdout by design.
+"scripts/*" = [ "T20" ]
+# PTH off in gitstate ONLY (classified 2026-08-22, 24 hits): this module IS the
+# byte-exact path plane. Vault paths are raw `bytes` that need not be valid UTF-8 —
+# the reason RepoPath and pathcodec exist — and pathlib cannot hold them at all
+# (verified: `Path(b"a/b")` raises TypeError). os.path.join/dirname/listdir/unlink/
+# chmod/replace/symlink/open here all take bytes, so "use pathlib" is not a fix, it is
+# a rewrite that would destroy the guarantee. Two further traps make the rule wrong
+# even on the str sites: os.path.abspath is NOT Path.resolve() (resolve follows
+# symlinks; the containment contract requires it not to), and Path.readlink()
+# normalises the stored target ("./a//b" -> "a/b") where snapshot/restore must be
+# byte-exact. The handful of tempfile.mkstemp str paths stay on the same os idiom
+# rather than mixing two path vocabularies inside one module.
+"knowledge_harness/gitstate.py" = [ "PTH" ]
+# Same ruling, test side: these two exercise the byte plane with fixtures whose names
+# are deliberately not valid UTF-8 (b"synthesis/old\xff\nname.md", b"literatures/\x80.md").
+# pathlib cannot construct those paths at all, so the rule cannot be satisfied here
+# without deleting the coverage that proves the byte-exactness contract holds.
+"tests/test_gitstate.py" = [ "PTH" ]
+"tests/test_verify_cli.py" = [ "PTH" ]
+# max-complexity is green at adoption (worst: verify._target_hash CC 33, measured
+# 2026-08-22; the plan predicted 31 against an older HEAD). Task 3 tightens it after
+# the split. No pre-committed final target: the resting cap gets set from the
+# post-deepening CC distribution (four-state outcome mappers legitimately run CC
+# 17-22 — the doctrine is branchy; a convention number like 15 could force
+# fragmenting cohesive mappers).
+[tool.ruff.lint.mccabe]
+max-complexity = 33
 
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+# Ratchet path (as touched code gets annotated): disallow_incomplete_defs ->
+# disallow_untyped_defs. Full --strict deferred by decision (measured 2026-08-20:
+# 316 of its 329 errors are annotation-presence, yielding ~0 additional verified
+# defects; at JSON boundaries strict invites cast()-laundered "asserted, not
+# verified" types). Revisit after the evidence shapes (CSL-JSON item, Zotero
+# responses, frontmatter) are modeled as TypedDicts — then the remaining rungs
+# are cheap and strict arrives as a fact, not a campaign.
+[tool.mypy]
+files = [ "knowledge_harness" ]
+# rung 1: untyped function bodies are checked (+3 real errors at adoption).
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+# strict_equality: truth flags — measured zero-cost at adoption.
+strict_equality = true
+# pypdf: optional [pdf] extra; the dev lane installs [dev] only.
+[[tool.mypy.overrides]]
+module = "pypdf.*"
+ignore_missing_imports = true
 
-[tool.setuptools.packages.find]
-include = ["knowledge_harness*"]
+# defusedxml ships no py.typed (verified 0.7.1); its stubs live in typeshed's
+# third-party set, which this lane deliberately does not install.
+[[tool.mypy.overrides]]
+module = "defusedxml.*"
+ignore_missing_imports = true
 
-[tool.setuptools.package-data]
-knowledge_harness = ["templates/**/*"]
+[tool.pytest.ini_options]
+markers = [
+  "live: requires a running local Zotero (set HARNESS_LIVE=1)",
+  "live_net: hits real external APIs (set HARNESS_LIVE_NET=1 and HARNESS_MAILTO)",
+]

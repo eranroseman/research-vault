@@ -1,9 +1,8 @@
+---
 name: verify
 on: [push, pull_request]
-
 permissions:
   contents: read
-
 jobs:
   offline-verify:
     runs-on: ubuntu-latest
@@ -14,7 +13,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - name: Install harness
         run: python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/knowledge-harness.git"
       - name: Resolve and fetch comparison base
@@ -44,7 +43,7 @@ jobs:
         shell: bash
         env:
           BASE: ${{ steps.base.outputs.sha }}
-        run: |
+        run: |-
           set +e
           python -m knowledge_harness verify --vault . --offline --surface commit --git-base "$BASE" --git-candidate HEAD
           code=$?

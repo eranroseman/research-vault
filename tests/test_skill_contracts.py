@@ -124,9 +124,11 @@ _FINDING_INVOCATION = "python3 -m knowledge_harness finding "
 def _shipped_finding_invocations() -> list[tuple[Path, list[str]]]:
     invocations = []
     for skill_md in _skill_md_files():
-        for line in skill_md.read_text(encoding="utf-8").splitlines():
-            if line.strip().startswith(_FINDING_INVOCATION):
-                invocations.append((skill_md, shlex.split(line.strip())))
+        invocations.extend(
+            (skill_md, shlex.split(line.strip()))
+            for line in skill_md.read_text(encoding="utf-8").splitlines()
+            if line.strip().startswith(_FINDING_INVOCATION)
+        )
     return invocations
 
 

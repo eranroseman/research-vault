@@ -300,7 +300,10 @@ def append_entry(
     actor = _validate_text("actor", actor)
     target_hash = _validate_optional_text("target_hash", target_hash)
     date = _validate_date(
-        "date", datetime.date.today().isoformat() if date is None else date
+        "date",
+        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        if date is None
+        else date,
     )
     notice_class, notice_type, notice_date, detection_date = (
         _validate_notice_fingerprint(
@@ -451,7 +454,7 @@ def load(vault) -> list[Finding]:
     queue = _file(vault)
     if not queue.exists():
         return []
-    entries = []
+    entries: list[Finding] = []
     for number, line in enumerate(_body(queue).splitlines(), start=1):
         if not line.strip():
             continue

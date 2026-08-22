@@ -303,8 +303,8 @@ def test_finding_refiles_when_the_target_hash_changes(tmp_vault):
         str(tmp_vault),
     ]
 
-    main(base + ["--target-hash", "aa11"])
-    main(base + ["--target-hash", "bb22"])
+    main([*base, "--target-hash", "aa11"])
+    main([*base, "--target-hash", "bb22"])
 
     entries = inbox.open_entries(tmp_vault)
     assert {entry.target_hash for entry in entries} == {"aa11", "bb22"}
@@ -329,7 +329,7 @@ def test_two_distinct_skipped_sets_same_day_stay_separately_acknowledgeable(tmp_
     ]
     first_id = None
     for target_hash in ("digest-aaaa", "digest-bbbb"):
-        code = main(base + ["--target-hash", target_hash])
+        code = main([*base, "--target-hash", target_hash])
         assert code == 0
         if first_id is None:
             first_id = inbox.open_entries(tmp_vault)[0].id

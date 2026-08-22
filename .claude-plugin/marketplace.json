@@ -1,6 +1,8 @@
 {
   "name": "knowledge-harness",
-  "owner": { "name": "Eran Roseman" },
+  "owner": {
+    "name": "Eran Roseman"
+  },
   "plugins": [
     {
       "name": "knowledge-harness",

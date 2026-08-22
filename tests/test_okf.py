@@ -4,7 +4,8 @@ from knowledge_harness import Result, frontmatter, okf, scaffold
 def test_scaffold_ships_okf_artifacts(tmp_path):
     scaffold.scaffold_vault(tmp_path)
     idx, _ = frontmatter.parse((tmp_path / "index.md").read_text())
-    assert idx["okf_version"] == "0.2" and idx["type"] == "index"
+    assert idx["okf_version"] == "0.2"
+    assert idx["type"] == "index"
     rq, _ = frontmatter.parse((tmp_path / "inbox" / "review-queue.md").read_text())
     assert rq["type"] == "review-queue"
     ag, _ = frontmatter.parse((tmp_path / "AGENTS.md").read_text())
@@ -19,8 +20,10 @@ def test_regenerate_log_tail(tmp_path):
     text = (tmp_path / "log.md").read_text()
     data, body = frontmatter.parse(text)
     assert data["type"] == "log"
-    assert "— b" in body and "— a" not in body
-    assert "[[log/2026-08-19]]" in body and "[[log/2026-08-20]]" in body
+    assert "— b" in body
+    assert "— a" not in body
+    assert "[[log/2026-08-19]]" in body
+    assert "[[log/2026-08-20]]" in body
 
 
 def test_inbox_load_tolerates_frontmatter(fixture_vault):
@@ -28,11 +31,13 @@ def test_inbox_load_tolerates_frontmatter(fixture_vault):
     # C); build a clean single block from whatever body is already there
     # rather than concatenating a second header onto an existing one.
     from knowledge_harness import Result, inbox
+
     p = fixture_vault / "inbox" / "review-queue.md"
     _data, body = frontmatter.parse(p.read_text())
     p.write_text('---\ntype: "review-queue"\n---\n' + body)
-    inbox.append_entry(fixture_vault, "doi", "x", Result.UNMATCHED, "mismatch — t",
-                       date="2026-08-20")
+    inbox.append_entry(
+        fixture_vault, "doi", "x", Result.UNMATCHED, "mismatch — t", date="2026-08-20"
+    )
     assert inbox.load(fixture_vault)[-1].check == "doi"
 
 
@@ -49,7 +54,8 @@ def test_regenerate_log_skips_a_malformed_day_file(tmp_path):
     data, body = frontmatter.parse(text)
     assert data["type"] == "log"
     assert "— a" in body
-    assert "[[log/2026-08-19]]" in body and "[[log/2026-08-20]]" in body
+    assert "[[log/2026-08-19]]" in body
+    assert "[[log/2026-08-20]]" in body
 
 
 def test_doctor_okf_probe(tmp_path):

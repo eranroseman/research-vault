@@ -1,0 +1,123 @@
+# Dev-lane orchestration seam (docs/2026-08-21-lint-format-rethink.md): the ONE
+# command for every form/lint check, locally and in CI:
+#     source .venv/bin/activate && pre-commit run --all-files
+# All hooks are repo-local system hooks over the pinned venv — no remote hook
+# repos, no env building, no network at check time. The one-form-owner matrix
+# lives here as config; quality metrics (CRAP/drywall/mutation) are a different
+# axis and run as separate workflow steps.
+# NAME COLLISION, deliberate: this is the repo's DEV-LANE pre-commit (style and
+# correctness). The vault's pre-commit (knowledge_harness/templates/git/pre-commit)
+# is a TRUST GATE owned by the harness — a different system; do not conflate.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: "form: python (ruff format)"
+        language: system
+        entry: bash -c 'ruff format knowledge_harness tests scripts'
+        pass_filenames: false
+        always_run: true
+      - id: ruff-check
+        name: "lint: python (ruff)"
+        language: system
+        entry: bash -c 'ruff check knowledge_harness tests scripts'
+        pass_filenames: false
+        always_run: true
+      - id: mypy
+        name: "types: python (mypy rung-1)"
+        language: system
+        entry: bash -c 'mypy knowledge_harness'
+        pass_filenames: false
+        always_run: true
+      # --number is load-bearing, ruled 2026-08-22. mdformat's default collapses
+      # every ordered list to all `1.` -- CommonMark-correct for a renderer, and
+      # referentially destructive for the actual reader here. This repo's markdown
+      # is consumed RAW by agents (the premise under the whole writing-for-agents
+      # layer) and the tree demonstrably carries numeric cross-references: a brief
+      # citing "item 6" against a list rendered `1. 1. 1. 1. 1. 6.` points at
+      # nothing. Canonical form must serve the actual reader, so the flag is part
+      # of the recorded canonical form, not a local fix -- keep it on every
+      # invocation, including --check.
+      - id: mdformat
+        name: "form: markdown CommonMark (mdformat)"
+        language: system
+        entry: bash -c 'mdformat --number --wrap keep README.md docs skills'
+        pass_filenames: false
+        always_run: true
+      # `.github/workflows` is deliberately absent from this path list: the
+      # directory does not exist yet and yamlfix hard-fails (FileNotFoundError)
+      # on a missing path rather than skipping it. The task that creates the
+      # workflows adds the path here in the same change.
+      - id: yamlfix
+        name: "form: yaml (yamlfix)"
+        language: system
+        entry: bash -c 'yamlfix knowledge_harness/templates/ci'
+        pass_filenames: false
+        always_run: true
+      # The three flags are load-bearing, measured 2026-08-22 (the plan's
+      # "verified: zero spurious churn" did not hold against this file):
+      #   --keep-full-version           bare pyproject-fmt rewrote `mdformat==1.0.0`
+      #                                 to `==1`, silently loosening recorded pins;
+      #   --no-generate-python-version- it invented a classifiers block claiming
+      #     classifiers                 support up to Python 3.14, untested here;
+      #   --table-format long           keeps [tool.x.y] headers instead of dotted
+      #                                 keys, which is what keeps ruling comments
+      #                                 next to the settings they rule.
+      # Standing constraint this leaves behind: a comment must sit directly ABOVE
+      # the key it annotates. pyproject-fmt reorders tables and list entries, and a
+      # comment left floating between keys — or trailing a value — gets relocated
+      # onto whatever ends up beside it, which turns a recorded ruling into a false
+      # statement about a different setting. Comments here are written key-attached
+      # for exactly that reason.
+      - id: pyproject-fmt
+        name: "form: toml (pyproject-fmt)"
+        language: system
+        entry: bash -c 'pyproject-fmt --keep-full-version
+          --no-generate-python-version-classifiers --table-format long pyproject.toml'
+        pass_filenames: false
+        always_run: true
+      - id: config-validity
+        name: "lint: json canonical + skill frontmatter (suite)"
+        language: system
+        entry: bash -c 'python -m pytest tests/test_config_validity.py -q'
+        pass_filenames: false
+        always_run: true
+      # Mechanizes AGENTS.md's history rule (eliminate > mechanism > rule): the
+      # record paths are append-only, so any modification, rename, or deletion
+      # under them against origin/main fails here instead of waiting for review.
+      # MANIFEST SCOPE, measured 2026-08-22: research/, analysis/ and docs/adr/ are
+      # in and green (docs/adr came through the mdformat canonicalization byte-
+      # unchanged — it was already canonical). docs/superpowers/plans/ is
+      # deliberately OUT for now: the one-time markdown canonicalization recorded in
+      # .git-blame-ignore-revs reformats all 12 completed plans, so including them
+      # would make this hook fail on its own churn commit forever. Plans join the
+      # manifest once that churn reaches main. Same true-at-adoption discipline as
+      # the yamlfix path list above.
+      - id: record-immutability
+        name: "records: append-only under research/analysis/adr"
+        language: system
+        entry: bash -c 'git rev-parse --verify --quiet origin/main >/dev/null ||
+          { echo "origin/main is not fetched; cannot check record immutability"; exit 1; };
+          touched=$(git diff --name-status --diff-filter=MRD origin/main...HEAD --
+          research analysis docs/adr);
+          [ -z "$touched" ] ||
+          { echo "record paths are append-only; these were modified/renamed/deleted:";
+          echo "$touched"; exit 1; }'
+        pass_filenames: false
+        always_run: true
+      # Manual stage: binary tools R5 declines to require locally (ruff-repo
+      # precedent for stage-tiering). CI runs them; local runs are optional.
+      - id: shellcheck
+        name: "lint: shell (shellcheck)"
+        language: system
+        entry: shellcheck knowledge_harness/templates/git/pre-commit
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+      - id: shfmt
+        name: "form: shell (shfmt, diff mode)"
+        language: system
+        entry: shfmt -d knowledge_harness/templates/git/pre-commit
+        pass_filenames: false
+        always_run: true
+        stages: [manual]

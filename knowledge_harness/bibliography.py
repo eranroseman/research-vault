@@ -64,7 +64,10 @@ class _LiveIndexLock(NamedTuple):
 
 
 def _path(vault_root):
-    return Path(os.path.abspath(os.fspath(vault_root))) / BIB_PATH
+    # abspath, NOT Path.resolve(): resolve() follows symlinks, and this module's
+    # containment design walks the parent chain itself (_open_parent_chain) to
+    # reject symlinked components. Resolving here would silently defeat that.
+    return Path(os.path.abspath(os.fspath(vault_root))) / BIB_PATH  # noqa: PTH100
 
 
 def load(vault_root) -> dict[str, dict]:
@@ -125,7 +128,9 @@ def _validate_items(items) -> None:
 
 
 def _absolute_vault(vault_root) -> Path:
-    return Path(os.path.abspath(os.fspath(vault_root)))
+    # abspath, NOT Path.resolve() — see _path: symlink resolution is the caller's
+    # explicit decision, made by _open_parent_chain, never a side effect here.
+    return Path(os.path.abspath(os.fspath(vault_root)))  # noqa: PTH100
 
 
 def _open_parent_chain(target: Path, expected_ids=None):
@@ -227,7 +232,7 @@ def _index_bibliography_entry(vault: Path, environment):
 def _lock_path_is_owned(lock: _LiveIndexLock) -> bool:
     try:
         descriptor_stat = os.fstat(lock.descriptor)
-        path_stat = os.stat(lock.path, follow_symlinks=False)
+        path_stat = lock.path.lstat()
     except OSError:
         return False
     return (descriptor_stat.st_dev, descriptor_stat.st_ino) == (
@@ -413,7 +418,7 @@ def commit_autoexport(
                 check=True,
             )
             try:
-                os.replace(live_index_lock.path, live_index_lock.live_index)
+                live_index_lock.path.replace(live_index_lock.live_index)
             except OSError as publication_error:
                 try:
                     _rollback_head(vault, expected_parent, commit)
@@ -657,13 +662,14 @@ def observe_autoexport(
     clock = time.monotonic if monotonic is None else monotonic
     sleeper = time.sleep if sleep is None else sleep
 
+    boundary: _ExportBoundary | None = None
     try:
-        boundary = _pin_target_boundary(vault_root)
+        pinned = _pin_target_boundary(vault_root)
     except OSError as error:
-        boundary = None
         captured = _unsafe_target(f"unsafe vault-to-bibliography path: {error}")
     else:
-        captured = _target_state(boundary)
+        boundary = pinned
+        captured = _target_state(pinned)
     try:
         evidence = _fingerprint(client.export_csl(None))
     except ZoteroError as error:
@@ -693,7 +699,8 @@ def observe_autoexport(
         return _target_observation(boundary.vault, compared)
 
     snapshot = compared.snapshot
-    assert snapshot is not None
+    if snapshot is None:  # a contained MATCHED comparison always carries one
+        raise AssertionError("a MATCHED contained comparison must carry a snapshot")
     try:
         commit_autoexport(boundary.vault, snapshot, _boundary=boundary)
     except _ContainmentError as error:

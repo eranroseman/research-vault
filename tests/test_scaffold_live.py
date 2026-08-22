@@ -35,7 +35,12 @@ SETTLE_SECONDS = 2
 
 def test_environment_records_the_live_probed_bbt_autoexport_facts():
     """Losing the falsified-registration record that justifies this drill must fail."""
-    environment = (REPO / "docs" / "environment.md").read_text(encoding="utf-8")
+    # Whitespace-normalised: mdformat owns docs/ and pads table cells to align
+    # columns. The assertion below is unchanged in substance — every word of the
+    # falsified-registration record must still be present, in order.
+    environment = " ".join(
+        (REPO / "docs" / "environment.md").read_text(encoding="utf-8").split()
+    )
 
     assert (
         "BBT 9.0.55 JSON-RPC exposes `autoexport.add` only; "

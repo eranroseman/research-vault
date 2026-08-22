@@ -132,7 +132,9 @@ def test_search_log_appends_a_not_admitted_entry_with_a_reason_code(
     entry = entries[0]
     assert isinstance(entry, searchlog.NotAdmittedEntry)
     assert entry.candidate == "Some Preprint Title (bioRxiv, 2024)"
-    assert entry.reason == "not-admitted — preprint only, no peer-reviewed version found"
+    assert (
+        entry.reason == "not-admitted — preprint only, no peer-reviewed version found"
+    )
     assert entry.source == "bioRxiv"
 
 
@@ -159,9 +161,7 @@ def test_search_log_not_admitted_source_is_optional(fixture_vault):
 def test_search_log_refuses_when_neither_query_nor_not_admitted_given(
     fixture_vault, capsys
 ):
-    code = main(
-        ["search-log", "--vault", str(fixture_vault), "--project", "brief"]
-    )
+    code = main(["search-log", "--vault", str(fixture_vault), "--project", "brief"])
 
     assert code == 2
     assert "exactly one of" in capsys.readouterr().err
@@ -390,8 +390,8 @@ def test_search_log_is_append_only_across_two_runs(fixture_vault):
         "5",
     ]
 
-    assert main(args + ["--date", "2026-08-20"]) == 0
-    assert main(args + ["--date", "2026-08-21"]) == 0
+    assert main([*args, "--date", "2026-08-20"]) == 0
+    assert main([*args, "--date", "2026-08-21"]) == 0
 
     entries = searchlog.load(fixture_vault, "brief")
     assert [entry.date for entry in entries] == ["2026-08-20", "2026-08-21"]

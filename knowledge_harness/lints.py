@@ -5,14 +5,17 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import claims as claims_mod
 from . import frontmatter, gitstate, notes
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ANCHOR = re.compile(r"\^(c-[A-Za-z0-9-]+)\s*$")
 FAILED_VERIFICATION = re.compile(
@@ -75,8 +78,13 @@ def _relative(vault_root: Path, path: Path) -> bytes:
 
 
 def _path(vault_root: Path, raw_path: bytes) -> Path:
+    # A bytes join: raw_path is an exact repository path that need not be valid
+    # UTF-8, and pathlib cannot hold bytes (Path(b"...") raises TypeError), so the
+    # join has to happen on the byte plane before the surrogateescape decode.
     return Path(
-        os.path.join(os.fsencode(vault_root), raw_path).decode(errors="surrogateescape")
+        os.path.join(  # noqa: PTH118
+            os.fsencode(vault_root), raw_path
+        ).decode(errors="surrogateescape")
     )
 
 
@@ -227,7 +235,7 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
         return False
     required = _DEPRECATION_REQUIRED_FIELDS
     optional = _DEPRECATION_OPTIONAL_FIELDS
-    fields = {name: [] for name in required | optional}
+    fields: dict[str, list[str]] = {name: [] for name in required | optional}
     for name, value in TRANSITION_FIELD.findall(new_line):
         fields[name].append(value)
     if any(len(fields[name]) != 1 for name in required):
@@ -354,7 +362,8 @@ def _project_status(
             raw = gitstate.blob_bytes(vault_root, tag, rel)
             text = raw.decode(errors="surrogateescape") if raw is not None else ""
         elif snapshot is not None:
-            image = snapshot.image(rel)
+            # rel came out of snapshot.images just above, so the image is present.
+            image = snapshot.images[rel]
             text = (image.data or b"").decode(errors="surrogateescape")
         else:
             text = _path(vault_root, rel).read_bytes().decode(errors="surrogateescape")
@@ -427,7 +436,7 @@ def lint_published_drift(
     project directory, so a project answers with one drift outcome either way.
     """
     vault = Path(vault_root)
-    outcomes = []
+    outcomes: list[Outcome] = []
     for project, tag in sorted(_newest_published_tags(vault).items()):
         project_dir = f"projects/{project}"
         if not _project_differs(vault, tag, project_dir, candidate_snapshot):
@@ -435,14 +444,17 @@ def lint_published_drift(
         current_statuses, malformed = _project_status(
             vault, project_dir, snapshot=candidate_snapshot
         )
-        for rel in malformed:
-            outcomes.append(_schema_outcome("published-drift", RepoPath(rel)))
+        outcomes.extend(
+            _schema_outcome("published-drift", RepoPath(rel)) for rel in malformed
+        )
         if current_statuses:
             watched = bool(current_statuses & WATCHED_PUBLICATION_STATUSES)
         else:
             prior_statuses, prior_malformed = _project_status(vault, project_dir, tag)
-            for rel in prior_malformed:
-                outcomes.append(_schema_outcome("published-drift", RepoPath(rel)))
+            outcomes.extend(
+                _schema_outcome("published-drift", RepoPath(rel))
+                for rel in prior_malformed
+            )
             watched = bool(prior_statuses & WATCHED_PUBLICATION_STATUSES)
         if watched:
             outcomes.append(
@@ -458,16 +470,17 @@ def lint_published_drift(
 
 def _origin(
     vault_root: Path, note_file: Path, claim, fallback: str
-) -> tuple[object, dict]:
+) -> tuple[str | RepoPath, dict]:
     vault = Path(vault_root)
     note = Path(note_file)
     rel = _relative(vault, note)
     data, parsed = _parse_frontmatter(note.read_text())
     citekey = data.get("citekey") if parsed else None
+    target: str | RepoPath
     if claim.claim_id and isinstance(citekey, str) and citekey:
         target = claims_mod.claim_link(citekey, claim.claim_id)
     else:
-        target = fallback if fallback else RepoPath(rel)
+        target = fallback or RepoPath(rel)
     return target, {
         "note_path": RepoPath(rel),
         "claim_id": claim.claim_id,
@@ -542,7 +555,7 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     disputed, outcomes = disputed_claim_links(vault)
     text = note.read_text()
     for claim in claims_mod.parse_claims(text):
-        target, extra = _origin(vault, note, claim, "")
+        _target, extra = _origin(vault, note, claim, "")
         for claim_link in CLAIM_LINK.findall(claim.fields.get("supports", "")):
             if claim_link in disputed:
                 outcomes.append(
@@ -559,7 +572,7 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
 
 def lint_web_archive(vault_root) -> list[Outcome]:
     vault = Path(vault_root)
-    outcomes = []
+    outcomes: list[Outcome] = []
     literature = vault / "literatures"
     if not literature.is_dir():
         return outcomes
@@ -570,11 +583,8 @@ def lint_web_archive(vault_root) -> list[Outcome]:
             outcomes.append(_schema_outcome("web-archive", RepoPath(rel)))
             continue
         if data.get("url") and not data.get("doi") and not data.get("archive-url"):
-            target = (
-                data.get("citekey")
-                if isinstance(data.get("citekey"), str)
-                else RepoPath(rel)
-            )
+            note_citekey = data.get("citekey")
+            target = note_citekey if isinstance(note_citekey, str) else RepoPath(rel)
             outcomes.append(
                 Outcome(
                     "web-archive",
@@ -630,7 +640,7 @@ def lint_evidence_layer(
     added = set(candidate_files) - set(base_files)
     paired_removed = set()
     paired_added = set()
-    removed_by_managed = {}
+    removed_by_managed: dict[bytes, list[bytes]] = {}
     for raw_path in removed:
         managed = _managed_bytes(base_files[raw_path])
         if managed is not None:
@@ -652,24 +662,24 @@ def lint_evidence_layer(
                     extra={"prior_path": RepoPath(old_path)},
                 )
             )
-    for raw_path in sorted(added - paired_added):
-        outcomes.append(
-            Outcome(
-                "evidence-layer",
-                RepoPath(raw_path),
-                Result.UNMATCHED,
-                "drift — managed literature note added",
-            )
+    outcomes.extend(
+        Outcome(
+            "evidence-layer",
+            RepoPath(raw_path),
+            Result.UNMATCHED,
+            "drift — managed literature note added",
         )
-    for raw_path in sorted(removed - paired_removed):
-        outcomes.append(
-            Outcome(
-                "evidence-layer",
-                RepoPath(raw_path),
-                Result.UNMATCHED,
-                "drift — managed literature note deleted",
-            )
+        for raw_path in sorted(added - paired_added)
+    )
+    outcomes.extend(
+        Outcome(
+            "evidence-layer",
+            RepoPath(raw_path),
+            Result.UNMATCHED,
+            "drift — managed literature note deleted",
         )
+        for raw_path in sorted(removed - paired_removed)
+    )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
         old = _managed_bytes(base_files[raw_path])
         new = _managed_bytes(candidate_files[raw_path])

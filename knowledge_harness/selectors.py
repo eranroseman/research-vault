@@ -42,7 +42,8 @@ def _nfkc_with_spans(text: str) -> list[tuple[str, int, int]]:
     for char in normalized:
         decomposition = unicodedata.normalize("NFD", char)
         consumed = ordered[token_index : token_index + len(decomposition)]
-        assert "".join(token[0] for token in consumed) == decomposition
+        if "".join(token[0] for token in consumed) != decomposition:
+            raise AssertionError("NFKD span run does not reproduce the decomposition")
         spans.append(
             (
                 min(token[1] for token in consumed),
@@ -50,7 +51,8 @@ def _nfkc_with_spans(text: str) -> list[tuple[str, int, int]]:
             )
         )
         token_index += len(decomposition)
-    assert token_index == len(ordered)
+    if token_index != len(ordered):
+        raise AssertionError("NFKC span mapping did not consume every token")
     return [(char, *span) for char, span in zip(normalized, spans, strict=True)]
 
 
@@ -105,7 +107,8 @@ def _norm_with_map(text: str) -> tuple[str, list[tuple[int, int]]]:
         spans.append((start, end))
 
     normalized = "".join(output)
-    assert normalized == normalize_text(text)
+    if normalized != normalize_text(text):
+        raise AssertionError("span-mapped normalization diverged from normalize_text")
     return normalized, spans
 
 
