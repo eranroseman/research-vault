@@ -4,7 +4,7 @@ import stat
 
 import pytest
 
-from knowledge_harness import Result, inbox
+from knowledge_harness import AGENT_ACTOR, Result, inbox
 from knowledge_harness.pathcodec import encode_repo_path
 
 INBOX_HEADER = '---\ntype: "review-queue"\n---\n'
@@ -902,16 +902,109 @@ def test_append_refuses_any_field_carrying_a_line_break(
     assert queue.read_bytes() == before
 
 
-@pytest.mark.parametrize("separator", SPLITLINES_SEPARATORS, ids=repr)
-def test_every_row_the_writer_accepts_stays_loadable(fixture_vault, separator):
-    """The corruption class as its own invariant: whatever gets in, loads back."""
-    with contextlib.suppress(TypeError, ValueError):
-        inbox.append_entry(
-            fixture_vault,
-            "citekey",
-            f"a{separator}b",
-            Result.UNMATCHED,
-            "schema-violation",
+# Every argument that reaches a durable inline field, one hostile builder each.
+# Varying only `target` was the round-1 defect: it let a test titled "whatever
+# gets in, loads back" certify the class closed while `reason` — validated by
+# `validate_reason`, not `_validate_text` — still bricked the queue.
+def _finding_kwargs(field, hostile):
+    kwargs = {
+        "check": "citekey",
+        "target": "goodkey",
+        "result": Result.UNMATCHED,
+        "reason": "mismatch",
+        "actor": AGENT_ACTOR,
+    }
+    if field in {"notice_class", "notice_type", "notice_date"}:
+        kwargs.update(
+            check="update-notice", notice_class="warn", notice_type="correction"
         )
+    kwargs[field] = {
+        "check": f"cite{hostile}key",
+        "target": f"good{hostile}key",
+        "reason": f"mismatch a{hostile}b",
+        "actor": f"human:e{hostile}ran",
+        "date": f"2026-08{hostile}-22",
+        "target_hash": f"aa{hostile}11",
+        "target_kind": f"identi{hostile}fier",
+        "notice_class": f"warn{hostile}",
+        "notice_type": f"correction{hostile}",
+        "notice_date": f"2026{hostile}-08-22",
+    }[field]
+    return kwargs
+
+
+FINDING_FIELDS = [
+    "check",
+    "target",
+    "reason",
+    "actor",
+    "date",
+    "target_hash",
+    "target_kind",
+    "notice_class",
+    "notice_type",
+    "notice_date",
+]
+ACK_FIELDS = ["reason", "actor", "finding_id", "target_hash"]
+
+
+@pytest.mark.parametrize("field", FINDING_FIELDS, ids=str)
+@pytest.mark.parametrize("separator", SPLITLINES_SEPARATORS, ids=repr)
+def test_every_finding_row_the_writer_accepts_stays_loadable(
+    fixture_vault, field, separator
+):
+    """The corruption class as its own invariant: whatever gets in, loads back.
+
+    Every durable field, not just the one the round-1 Critical arrived through.
+    A field is allowed to refuse the value or to accept it — what it may never
+    do is write a row that ``load`` cannot read, because the queue is
+    append-only and one such row is permanent.
+    """
+    with contextlib.suppress(TypeError, ValueError):
+        inbox.append_entry(fixture_vault, **_finding_kwargs(field, separator))
 
     inbox.load(fixture_vault)
+
+
+@pytest.mark.parametrize("field", ACK_FIELDS, ids=str)
+@pytest.mark.parametrize("separator", SPLITLINES_SEPARATORS, ids=repr)
+def test_every_ack_row_the_writer_accepts_stays_loadable(
+    fixture_vault, field, separator
+):
+    """Acknowledgments serialize to the same grammar and need the same bound."""
+    seed = inbox.append_entry(
+        fixture_vault, "citekey", "goodkey", Result.UNMATCHED, "mismatch"
+    )
+    kwargs = {
+        "finding_id": seed.id,
+        "reason": "manual — reviewed",
+        "actor": "human:eran",
+    }
+    kwargs[field] = {
+        "reason": f"manual a{separator}b",
+        "actor": f"human:e{separator}ran",
+        "finding_id": f"citekey/x{separator}/2026-08-16",
+        "target_hash": f"aa{separator}11",
+    }[field]
+
+    with contextlib.suppress(TypeError, ValueError):
+        inbox.append_ack(fixture_vault, **kwargs)
+
+    inbox.load(fixture_vault)
+
+
+@pytest.mark.parametrize("separator", SPLITLINES_SEPARATORS, ids=repr)
+@pytest.mark.parametrize("position", ["embedded", "trailing"], ids=str)
+def test_validate_reason_refuses_every_line_break(separator, position):
+    """`reason` is the one durable field `_validate_text` never sees.
+
+    Its `_REASON` regex ends in `.*`, and `.` matches everything in the
+    splitlines set except \\n — so eight separators rode a code-prefixed
+    reason straight onto a durable line.
+    """
+    hostile = (
+        f"outage a{separator}b" if position == "embedded" else f"outage a{separator}"
+    )
+
+    with pytest.raises(ValueError, match="reason"):
+        inbox.validate_reason(hostile)

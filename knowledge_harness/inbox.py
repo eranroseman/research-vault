@@ -124,12 +124,21 @@ class Finding:
 
 
 def validate_reason(reason: str) -> str:
-    """Return a reason with a contract-approved code prefix or raise ValueError."""
+    """Return a reason with a contract-approved code prefix or raise ValueError.
+
+    ``reason`` is the one durable field ``_validate_text`` never sees, and its
+    free-text tail is the only part of a review record an LLM authors directly
+    (the shipped skills compose `finding` reasons in prose). ``_REASON`` ends in
+    ``.*``, and outside DOTALL ``.`` still matches every splitlines separator
+    except ``\\n`` — so the same line-break class ``_validate_text`` rejects rode
+    a code-prefixed reason straight onto a durable line and bricked the
+    append-only queue. The check below is ``_validate_text``'s, deliberately
+    spelled the same way: whatever the writer accepts, ``load`` must read back.
+    """
     if (
         not isinstance(reason, str)
-        or "\n" in reason
-        or "\r" in reason
         or "\0" in reason
+        or reason.splitlines() != [reason]
         or not _REASON.fullmatch(reason)
     ):
         raise ValueError(
