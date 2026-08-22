@@ -4,7 +4,7 @@
 
 1. **Rename `project` → `project-flow`** (ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by using the glossary's other governed noun, *Project flow*): skill directory, terminology §4.3 skills row, routing-table references in `find-sources` and `import-source`, its content test, judged grep for retired references. Entry family now uniformly two-part.
 2. **C-7 index**: the seven entry names + one clause each into the vault AGENTS.md template (post-rename names); whole-file test pin updates same commit; `test_skill_contracts.py:153` self-validates the citations.
-3. **C-1**: `verify-citations` de-enumerates check ids ("grouped by check id as the CLI reports them"; teach the four states, not the fourteen ids).
+3. **C-1**: `verify-citations` de-enumerates check ids — canonical obsidian-cli form: "run the CLI; its output is always up to date"; teach the four states, not the fourteen ids.
 4. **C-2**: two registry codes out of scope, not one — corrected AND test-pinned; **the enumeration checker** lands here (every check id a SKILL.md enumerates must be one `verify` can emit — the `test_skill_contracts.py:133` instrument generalized).
 5. **C-3**: align `find-sources`' credential counts to `redact_url` (3 query-string-auth APIs; 6 redacted params).
 6. **C-6**: drop `setup-vault`'s 14-path inventory; keep the six test-pinned paths as an honesty rule, not an inventory.
@@ -16,7 +16,7 @@
 11. **Cross-read our-wiring** (docs/2026-08-22-references-cross-read.md): fold the credential-count fix into item 5 ("several", defer to `redact_url`); SKILL.md sources mailto from harness config + states vendored scripts don't read it.
 12. **Cross-read annotations**: one vendoring-note section carrying the six upstream-fact annotations per the report's triage; SKILL.md routing guards (no single-DOI lookups via paginate; openalex row points at openalex_abstract.py; OPENALEX_API_KEY env caution).
 
-13. **Ecosystem steals** (audit §6, adopted set): routing guard line in project-flow; compilation-value line in synthesis-conventions; partial-read honesty rule (import-source + factcheck-draft); "validates declarations, not their truth" + the why-one-pass sentence in factcheck-draft; disposition rationalization table in publish; setup-vault fails closed on ambiguous vault selection.
+13. **Ecosystem steals** (audit §6, adopted set): routing guard line in project-flow; compilation-value line in synthesis-conventions; partial-read honesty rule (import-source + factcheck-draft); "validates declarations, not their truth" + the why-one-pass sentence in factcheck-draft; disposition rationalization table in publish (seed rows ported from finishing-a-development-branch per audit §7); publish announces gate-armed at start; setup-vault fails closed on ambiguous vault selection.
 14. All §6 deferred items carry their triggers in the audit doc — none land here.
 
 NOT in this batch: four-state dedup (migrate 3–4 — RED-gated); anything the in-flight references cross-read confirms (triaged separately when it reports).

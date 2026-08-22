@@ -393,3 +393,27 @@ Small, doctrinally-consistent steals: the routing guard ("route the user's inten
 
 - **Impact-grouping of verify reports** (wiki-lint groups by broken-navigation→metadata rather than check id): reintroduces a hand-maintained prose-owns-what-code-emits mapping — the exact C-1 class we just eliminated. Revisit only if the CLI itself gains impact metadata.
 - **Blocking on high-warning factcheck findings** (ARS ships it): the fork is real, ours is chosen — deterministic-only closure is an ADR-adjacent ruling, and the batch's why-one-pass sentence now says so in the skill instead of implying it.
+
+---
+
+## 7. On-disk corpora comparative addendum (2026-08-22; 82 skills: superpowers, Pocock, obsidian, agent-toolkit)
+
+Survey recorded verbatim in the relay log of this date. Cross-cutting confirmations: **C-7 third-sourced** (10/82 user-invoked outside this repo, all Pocock's — who ships a router anyway); **four-state honesty confirmed unique** (closest peer, verification-before-completion, is binary); **size is not the variable** (survey range 133–4281 words; branch-uniformity predicts quality); **defer-to-tool is the obsidian signature** — obsidian-cli's "Run `obsidian help`. This is always up to date" is the canonical phrasing our C-1/C-6 rulings independently reinvented, and the batch's C-1 edit adopts that phrasing shape. **publish's design independently validated**: finishing-a-development-branch converged on the same verify→state→fixed-menu→typed-discard shape; publish is deeper on the after-state (corrections, tag-preservation), behind on the rationalization table (already batched; the survey's ported rows — "they said go ahead so the ack is covered", "UNREACHABLE is basically fine" — seed it).
+
+### Adjudication
+
+**Batch enrichments (existing items, no new scope):** C-1's replacement sentence uses the obsidian-cli canonical form; the publish rationalization table starts from the ported finishing-a-branch rows; publish announces at start that the gate is armed (one line — the most irreversible skill should say so).
+
+**Skills polish pass — NEW task doc, gated AFTER the RED-phase verdict and the post-Q batch** (most items touch text the dedup outcome may rewrite; enriching first would be double churn):
+
+1. setup-vault: the two human-only steps (.xpi install, BBT auto-export creation) emit a **wizard-form bash script** (adopting the wizard *pattern*, not the personal skill — dependency doctrine holds); consent asks lead with the recommended answer (Pocock form); one sentence stating why consent precedes exploration (idempotent, repair-capable).
+2. project-flow: free-form invocation section with worked examples (triage pattern — "/project-flow what's blocking me" currently has no branch); routing rows distinguish "type this" (entries, human) from "invoked" (guards, model).
+3. find-sources: close on a Complete Example (one full report); negative boundary into the description ("terminates at admission — not an importer").
+4. import-source: explicit Deliverable block (nine sections never say what the person gets).
+5. evidence-conventions: complete the TDD archetype — Red Flags list (catch the thought before it's voiced), the spirit-vs-letter line, and the continuous-guard form (five "when X → do Y" behaviors) beside the gate form.
+6. synthesis-conventions: a worked example (one note that passes, one that fails the threshold); a Rejected-framings section; expand "asserts arrangement, not evidence" beyond one sentence.
+7. verify-citations: restructure as the Gate Function (IDENTIFY/RUN/READ/VERIFY/ONLY-THEN, "skip any step = lying, not verifying") + the Claim | Requires | Not sufficient table ("MATCHED from a run you executed" vs "a verified event in frontmatter, a prior run, an UNREACHABLE").
+8. factcheck-draft: per-claim report template + weighted rubric (two adjudications of one claim must not silently diverge); the receiving-code-review half (rigor-not-agreement when the person pushes back on an adjudication).
+9. Worked-example norm: adopted per-skill above where cited, not as a blanket rule.
+
+**Not adopted:** nothing rejected outright this round — the survey's deltas are form-completions of shapes already chosen, which is itself the strongest external validation the skills layer has received.
