@@ -355,3 +355,11 @@ The eleven `references/` files (2,000+ lines, never read) become their own audit
 ### Next-run rulings
 
 References cross-read: approved, own slice, run with the FULL adversarial method (finders + independent refuters — no standing rule bars subagent skeptics; that was a misread). Enumeration checker: approved, ships with the C-1/C-2 fixes. All fixes ride the first post-Q batch (no mid-flight grafts).
+
+### Second-pass rulings (author, 2026-08-22 — items between the relay and the full report)
+
+- **Migrate step 5 APPROVED**: `import-source` §7–9 disclose into `references/` + pointer table (the find-sources shape); flip recorded (refresh-dominant usage returns them inline). Post-Q batch.
+- **"The CLI writes" leading-word collapse APPROVED** (five spellings → one inline token; no invocation dependency, RED gate does not apply). Post-Q batch.
+- **Both shaping prohibitions CUT** (recipes already present). Post-Q batch.
+- **Migrate steps 3–4 remain RED-gated** (unchanged). **Step 6 = C-7(a)** (unchanged). **Step 7 (`project` rename)**: open author decision — class-4 collision with CONTEXT.md's Project, pre-slice is the cheap rename window.
+- **Open investigations**: (1) the RED-phase baseline experiment — designable now, gates steps 3–4, closes the Iron-Law gap; (2) the references cross-read — in flight as its own full-method run; (3) C-4's empirical half — slice checklist.
