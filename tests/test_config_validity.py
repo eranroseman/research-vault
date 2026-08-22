@@ -271,6 +271,7 @@ PYPROJECT_FMT_FLAGS = [
 RULING_ANCHORS = [
     ("Core's first pinned runtime dependency", '"defusedxml==0.7.1"'),
     ("The mdformat pin is a RENDER-CONTRACT component", '"mdformat==1.0.0"'),
+    ("pytest-xdist: offline suite parallelism", '"pytest-xdist==3.8.0"'),
     ("pyzotero: dev-lane agent instrument", '"pyzotero[cli]==1.14.0"'),
     ("Bandit idiom exclusions", "extend-select = ["),
     ("ARG in tests (measured", '"tests/*" = ['),
@@ -278,7 +279,7 @@ RULING_ANCHORS = [
     ("Same ruling, test side", '"tests/test_gitstate.py" = ['),
     ("print IS the CLI output contract", '"knowledge_harness/__main__.py" = ['),
     ("Gate scripts report via stdout", '"scripts/*" = ['),
-    ("max-complexity is green at adoption", "max-complexity = 33"),
+    ("Resting cap, set 2026-08-22", "max-complexity = 28"),
     ("Ratchet path (as touched code gets annotated)", "[tool.mypy]"),
     ("pypdf: optional [pdf] extra", 'module = "pypdf.*"'),
     ("defusedxml ships no py.typed", 'module = "defusedxml.*"'),

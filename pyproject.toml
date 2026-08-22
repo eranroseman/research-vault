@@ -34,6 +34,12 @@ dev = [
   "pyproject-fmt==2.28.0",
   "pytest>=8",
   "pytest-cov==7.1.0",
+  # pytest-xdist: offline suite parallelism, adopted 2026-08-22 (measured 127s -> 78s
+  # on a 12-thread machine). Pass `-n auto` ON THE COMMAND LINE, never in addopts:
+  # ambient parallelism would race the single Zotero instance the live legs share,
+  # and mutate4py runs pytest once per mutant inside its own worker pool, so an
+  # addopts entry would nest a worker pool per mutant and oversubscribe invisibly.
+  "pytest-xdist==3.8.0",
   # pyzotero: dev-lane agent instrument (adopted 2026-08-22 by contract match:
   # canonical library, local-API-first, read-only by default, local writes gated
   # behind Zotero's own consent dialog — admission stays human by construction;
@@ -149,14 +155,22 @@ ignore = [ "S310", "S603", "S607" ]
 # without deleting the coverage that proves the byte-exactness contract holds.
 "tests/test_gitstate.py" = [ "PTH" ]
 "tests/test_verify_cli.py" = [ "PTH" ]
-# max-complexity is green at adoption (worst: verify._target_hash CC 33, measured
-# 2026-08-22; the plan predicted 31 against an older HEAD). Task 3 tightens it after
-# the split. No pre-committed final target: the resting cap gets set from the
-# post-deepening CC distribution (four-state outcome mappers legitimately run CC
-# 17-22 — the doctrine is branchy; a convention number like 15 could force
-# fragmenting cohesive mappers).
+# Resting cap, set 2026-08-22 from the post-split CC distribution. The cap was 33
+# at adoption because verify._target_hash measured 33; splitting it into
+# claim-anchor / repo-path / identifier legs left the whole package at C901 <= 14
+# (measured: `ruff check knowledge_harness --select C901 --config
+# "lint.mccabe.max-complexity=14"` is clean). 28 is therefore slack, deliberately:
+# no pre-committed target was owed, and four-state outcome mappers legitimately run
+# CC 17-22 — the doctrine is branchy, so a convention number like 15 would force
+# fragmenting cohesive mappers to satisfy a backstop rather than a risk gate.
+#
+# C901 and crap4py's CC are DIFFERENT metrics and neither subsumes the other.
+# crap4py follows radon's expression-aware model (each `and`/`or` operand, each
+# conditional expression, each comprehension clause scores), so it read the same
+# _target_hash at 73 where ruff read 33. The CRAP ceiling of 30 is the risk gate;
+# this cap is an independent backstop against complexity laundered by coverage.
 [tool.ruff.lint.mccabe]
-max-complexity = 33
+max-complexity = 28
 
 # Ratchet path (as touched code gets annotated): disallow_incomplete_defs ->
 # disallow_untyped_defs. Full --strict deferred by decision (measured 2026-08-20:
