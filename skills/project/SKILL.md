@@ -65,13 +65,13 @@ When it is time to draft, invoke `evidence-conventions` before writing a single 
 
 `project` orchestrates; it does not do any of these itself:
 
-| Need | Route to |
-|---|---|
-| Acquire new sources | `find-sources` |
-| Catalog an admitted source | `import-source` |
-| Verify citations deterministically | `verify-citations` |
-| Factcheck a draft against its sources | `factcheck-draft` |
-| Publish, park, correct, or withdraw | `publish` |
+| Need                                  | Route to           |
+| ------------------------------------- | ------------------ |
+| Acquire new sources                   | `find-sources`     |
+| Catalog an admitted source            | `import-source`    |
+| Verify citations deterministically    | `verify-citations` |
+| Factcheck a draft against its sources | `factcheck-draft`  |
+| Publish, park, correct, or withdraw   | `publish`          |
 
 ## Acknowledgments
 

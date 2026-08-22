@@ -26,7 +26,7 @@
 - Modify: `pyproject.toml` (dev extras + ruff rule extension), `.gitignore`, `knowledge_harness/__main__.py` + `tests/*` (lint fixes)
 - Create: `scripts/mutation_gate.py` (gate + baseline updater), `tests/test_mutation_gate.py`, `mutation-baseline.txt` (committed survivor baseline), `knowledge_harness/*.py.manifest.json` (one sidecar per module, committed), `.github/workflows/quality.yml`
 
----
+______________________________________________________________________
 
 ### Task 0: Post-D batch (folded 2026-08-22 — the standalone doc's fixed overhead exceeded its size; this task satisfies Task 4's churn gate by construction)
 
@@ -63,14 +63,16 @@ Spec §7's two-flow accounting is explicit: the information flow (find → human
 
 Acceptance: suite green offline and live; F-4's standalone-import regression test present; judged grep confirms no postmortem prose returned; one merge, pushed in the same motion.
 
----
+______________________________________________________________________
 
 ### Task 1: Pinned dev dependencies and hygiene
 
 **Files:**
+
 - Modify: `pyproject.toml`, `.gitignore`
 
 **Interfaces:**
+
 - Produces: installable `dev` extra containing `pytest-cov==7.1.0`, `mutate4py==0.1.4`, `crap4py==0.1.1`, `drywall==0.1.3`, `mypy==2.3.1` (later tasks and CI install exactly this).
 
 - [ ] **Step 1: Extend the dev extra** in `pyproject.toml`:
@@ -122,14 +124,16 @@ git add pyproject.toml .gitignore
 git commit -m "build: pin dev-quality lane tools (pytest-cov, mutate4py, crap4py, drywall, mypy)"
 ```
 
----
+______________________________________________________________________
 
 ### Task 2: Ruff + mypy regression rules, mdformat, config validity
 
 **Files:**
+
 - Modify: `pyproject.toml` (`[tool.ruff.lint]` + `[tool.mypy]`), `knowledge_harness/` (lint + type fixes), test files (PLW1510, S108 classification)
 
 **Interfaces:**
+
 - Consumes: Task 1's installed dev extra.
 - Produces: `ruff check knowledge_harness tests scripts` and `mypy knowledge_harness` both clean — Task 5's CI runs exactly these (the `scripts/` package exists from Task 4 onward; until then the path is simply absent and ruff skips it).
 
@@ -251,6 +255,7 @@ Expected: the pre-measured violations above (counts may differ at HEAD; every hi
 - [ ] **Step 3: Fix**
 
 Autofix first: `ruff check knowledge_harness tests --fix`. Then by hand:
+
 - DTZ: every `datetime.date.today()` becomes the UTC clock, e.g. `__main__.py:219`:
 
 ```python
@@ -258,12 +263,19 @@ Autofix first: `ruff check knowledge_harness tests --fix`. Then by hand:
 ```
 
 - PTH115: `os.readlink(...)` becomes `Path(...).readlink()`.
+
 - PLW1510: add explicit `check=True` (or `check=False` with a reason) to the two test `subprocess.run` calls.
+
 - RUF012/RUF013-class hits: annotate mutable class attributes / make `Optional` explicit as reported.
+
 - S108: classify per the pre-measured note (noqa-with-reason if a deliberate escape fixture, else `tmp_path`).
+
 - S314: the defusedxml admission per the pre-measured note — dependency added, lazy import at the parse site, no noqa. Verify gate-path startup unaffected: `python -c "import time,subprocess,sys; t=time.perf_counter(); subprocess.run([sys.executable,'-m','knowledge_harness','--help'],capture_output=True); print(time.perf_counter()-t)"` before and after — the delta must be noise.
+
 - S101 in core (3 hits): replace production `assert` with explicit raises, or noqa-with-reason where it guards an internal invariant.
+
 - PERF (3 hits): apply the reported rewrites.
+
 - mypy's 13: annotate the seven `var-annotated` sites, narrow `zotero.py:182` with `isinstance`, split the `checks.py:66` variable, guard `lints.py:457`'s `None`, and fix the remaining index error as reported.
 
 - [ ] **Step 3b: Markdown canonical form (mdformat)** — author-ruled 2026-08-21 after two rounds of push-back; the drift-protection argument governs: multi-agent authorship makes style drift the default, and a pinned formatter is the standing protection.
@@ -277,15 +289,15 @@ Run: `mdformat --wrap keep README.md docs skills` (adjust to HEAD's tree; templa
 
 - [ ] **Step 3b-1: Canonical form for the remaining file types** (author-ruled 2026-08-21 — "that's for md files"; the one-form-owner matrix completes over every type in the repo, all candidates comment-preservation-tested live):
 
-| Type | Owner | Enforcement |
-|---|---|---|
-| Python | ruff format (pinned) | CI check (existing) |
-| Markdown, CommonMark | mdformat (pinned) | CI `--check` |
-| Markdown, vault dialect + `.base` | the sole writer (render/scaffold) | canonicality property tests |
-| YAML (workflows, `templates/ci/`) | yamlfix (pinned; verified: only doc-start normalization, comments preserved) | CI `yamlfix --check` |
-| TOML (`pyproject.toml`) | pyproject-fmt (pinned; verified: tool-section comments preserved, zero spurious churn; taplo rejected — collapses arrays, general tool where a targeted one suffices) | CI `pyproject-fmt --check` |
-| JSON (manifests, `hooks.json`) | stdlib `json.tool` canonical form | asserted inside `test_config_validity.py` — formatter and check in one, zero deps |
-| Shell (`templates/git/pre-commit`) | shfmt (CI action, pinned) | CI diff mode |
+| Type                               | Owner                                                                                                                                                                 | Enforcement                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Python                             | ruff format (pinned)                                                                                                                                                  | CI check (existing)                                                               |
+| Markdown, CommonMark               | mdformat (pinned)                                                                                                                                                     | CI `--check`                                                                      |
+| Markdown, vault dialect + `.base`  | the sole writer (render/scaffold)                                                                                                                                     | canonicality property tests                                                       |
+| YAML (workflows, `templates/ci/`)  | yamlfix (pinned; verified: only doc-start normalization, comments preserved)                                                                                          | CI `yamlfix --check`                                                              |
+| TOML (`pyproject.toml`)            | pyproject-fmt (pinned; verified: tool-section comments preserved, zero spurious churn; taplo rejected — collapses arrays, general tool where a targeted one suffices) | CI `pyproject-fmt --check`                                                        |
+| JSON (manifests, `hooks.json`)     | stdlib `json.tool` canonical form                                                                                                                                     | asserted inside `test_config_validity.py` — formatter and check in one, zero deps |
+| Shell (`templates/git/pre-commit`) | shfmt (CI action, pinned)                                                                                                                                             | CI diff mode                                                                      |
 
 Apply the one-time churn: `yamlfix .github/workflows knowledge_harness/templates/ci && pyproject-fmt pyproject.toml && python -m json.tool --indent 2` over each JSON manifest (rewrite in place), then commit; the churn commit joins `.git-blame-ignore-revs`. `system/bibliography.json` is vault-side and BBT-owned — outside every repo formatter's jurisdiction by construction (staleness lint enforces).
 
@@ -414,14 +426,16 @@ git add pyproject.toml knowledge_harness tests
 git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling, 10 type fixes, recorded skips)"
 ```
 
----
+______________________________________________________________________
 
 ### Task 3: CRAP/CC backlog burn-down
 
 **Files:**
+
 - Modify: `knowledge_harness/__main__.py` (`_target_hash` split), `tests/test_inbox.py` (+ any test file covering `inbox.load` paths), `pyproject.toml` (mccabe tighten)
 
 **Interfaces:**
+
 - Consumes: Task 2's config (C90 at 32, gates green).
 - Produces: `crap4py knowledge_harness --lcov lcov.info --max-crap 30` exits 0; `ruff check knowledge_harness` clean at `max-complexity = 28`. Task 5's workflow gates at these values.
 
@@ -434,26 +448,36 @@ git commit -m "lint: ruff full-S-minus-idiom + mypy default mode (DTZ/UTC ruling
 - [ ] **Step 5: Verify all gates green** — `ruff check knowledge_harness tests --no-cache && python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info && crap4py knowledge_harness --lcov lcov.info --max-crap 30`; expected: all pass.
 - [ ] **Step 6: Commit** — `git add knowledge_harness tests pyproject.toml && git commit -m "refactor: split _target_hash (CC<=28), branch-test inbox.load — CRAP ceiling 30, CC cap 28"`
 
----
+______________________________________________________________________
 
 ### Task 4: Mutation gate script + blanket baseline
 
 **Files:**
+
 - Create: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`, `mutation-baseline.txt`, `knowledge_harness/<module>.py.manifest.json` for every module
 
 **Interfaces:**
+
 - Consumes: Task 1's installed tools; Task 2's clean lint state (the gate script and its tests must satisfy the extended rule set); Task 3's burn-down (baseline manifests must hash the post-refactor tree).
+
 - Produces: `python scripts/mutation_gate.py --lcov lcov.info` (gate mode, exit 0/1) and `python scripts/mutation_gate.py --update-baseline --lcov lcov.info` (rewrites `mutation-baseline.txt`); baseline line format `<relpath>::<func-id>::<mutation>`; committed sidecar manifests. Task 3's workflow calls the gate mode verbatim.
 
 - [ ] **Step 0: Confirm Task 0 (post-D batch) is committed on this branch** — it carries the last planned pre-baseline churn; Plan R and the cuts are long merged. Do not build manifests with any Task 0 work pending.
 
 **Design constraints the script encodes (verified live 2026-08-20):**
+
 - mutate4py exits 0 even when mutants survive → pass/fail must come from parsing the `Survivors:` section.
+
 - Survivor lines look like `  line 79 char == "-" -> char != "-" func/_norm_with_map`. Baseline keys **exclude the line number** (`file::func/_norm_with_map::char == "-" -> char != "-"`) so unrelated edits shifting lines don't churn the baseline.
+
 - Policy: survivors matching a baseline key pass (pre-existing = backlog, never gate); any other survivor fails. Uncovered sites never fail the gate (coverage is crap4py's beat).
+
 - Gate mode scopes to files changed vs a base ref (merge-base diff); no changed core files → exit 0.
+
 - **git pathspecs resolve relative to the cwd.** The diff runs with `cwd=CORE` (the repository root), flag `--relative`, and pathspec `knowledge_harness/*.py`. A stale, `core/`-prefixed pathspec (`core/knowledge_harness/*.py` — the pre-flip nested layout) matches nothing and the gate passes forever — which is why `changed_modules` gets its own unit test against a scratch git repo (a dead gate and a working gate are otherwise indistinguishable on a quiet branch).
+
 - Baseline keys collapse duplicate identical mutations within one function (the real selectors output has `1 -> 0` twice on line 79) — deliberate: an advisory lane prefers a stable baseline over distinguishing repeats of an already-recorded survivor.
+
 - Tests import `from scripts.mutation_gate import …`, which resolves because every standardized invocation is `python -m pytest` from the repository root (cwd lands on `sys.path`). Bare `pytest` breaks the import — keep the invocation as written.
 
 - [ ] **Step 0b: Kill the bare-pytest footgun** — add `pythonpath = ["."]` and `testpaths = ["tests"]` (parked from Plan L: post-flip, pytest's rootdir is the whole repo; pinning collection was deliberately excluded from L's zero-behavior-change branch) to `[tool.pytest.ini_options]` in `pyproject.toml`, so bare `pytest` and `python -m pytest` resolve `scripts.*` imports identically (config beats remembered convention; the entry-point audit 2026-08-21 flagged bare `pytest` as a caller-less entry point that silently breaks).
@@ -720,6 +744,7 @@ Expected: `.contexts.db` written (gitignored). **Fallback amended 2026-08-22: if
 python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
 python scripts/mutation_gate.py --update-baseline --lcov lcov.info --test-contexts .contexts.db
 ```
+
 Expected: `mutation-baseline.txt` written (expect roughly 150–250 keys); one `<module>.py.manifest.json` sidecar beside every module. Spot-check: `test -f knowledge_harness/selectors.py.manifest.json` and `git diff --stat knowledge_harness/*.py` shows **zero** source-file modifications (sidecar mode holds).
 
 - [ ] **Step 7: Verify the differential is quiet, then commit**
@@ -732,14 +757,16 @@ git add scripts tests/test_mutation_gate.py mutation-baseline.txt knowledge_harn
 git commit -m "feat: mutation gate script + blanket baseline (sidecar manifests, no-new-survivors policy)"
 ```
 
----
+______________________________________________________________________
 
 ### Task 5: Advisory quality workflow (ruff + crap4py ceiling + drywall + mutation gate)
 
 **Files:**
+
 - Create: `.github/workflows/quality.yml`
 
 **Interfaces:**
+
 - Consumes: Task 1's dev extra; Task 2's ruff+mypy rule set; Task 3's burn-down (gate 30 is only green after it); Task 4's `scripts/mutation_gate.py`, committed manifests and baseline.
 - Produces: one advisory workflow, `quality`, on pull requests and manual dispatch.
 
@@ -800,6 +827,7 @@ crap4py knowledge_harness --lcov lcov.info --max-crap 30 && echo CRAP-OK
 drywall knowledge_harness && echo DRY-OK
 python scripts/mutation_gate.py --lcov lcov.info --base origin/main && echo MUT-OK
 ```
+
 Expected: `LINT-OK`, `TYPE-OK`, `CRAP-OK`, `DRY-OK`, `MUT-OK`. Also verify locally: `pre-commit run --all-files` clean (the one command — supersedes per-tool invocations); `shellcheck knowledge_harness/templates/git/pre-commit` clean (actionlint runs CI-side; if its action name/version differs at execution, use the current official actionlint action and record it). (The mutation gate re-tests this branch's changed core files — the gate script itself lives outside `knowledge_harness`, so expect a small or empty module list.)
 
 - [ ] **Step 3: Negative check of the CRAP gate** (proves the gate can fail)
@@ -815,7 +843,7 @@ git add .github/workflows/quality.yml
 git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, mutation no-new-survivors)"
 ```
 
----
+______________________________________________________________________
 
 ### Task 6: Merge
 
@@ -823,7 +851,7 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 - [ ] **Step 2: Merge to main** per `superpowers:finishing-a-development-branch` (merge locally, push, remove worktree, prune).
 - [ ] **Step 3: Post-merge note** — append one line to the "Actionable backlog surfaced" section of `research/code-quality-tools-gabadi.md`: baseline landed, survivor count, and the ratchet reminder (lower `--max-crap` as items 2–3 burn down). Commit as `docs: record quality-lane baseline landing`.
 
----
+______________________________________________________________________
 
 ## Self-review notes
 

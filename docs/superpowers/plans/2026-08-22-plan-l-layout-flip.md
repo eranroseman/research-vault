@@ -27,34 +27,44 @@ pyproject.toml         # was core/pyproject.toml
 hooks/  skills/  .claude-plugin/  docs/  research/  analysis/  sources/   # unchanged
 ```
 
----
+______________________________________________________________________
 
 ### Task 1: The move + import/config mechanics
 
 **Files:**
+
 - Move: `core/harness_core` → `harness_core`, `core/tests` → `tests`, `core/pyproject.toml` → `pyproject.toml`; delete the emptied `core/`.
+
 - Modify: `.gitignore`, `hooks/posttooluse_lint.py`, `hooks/stop_publish_gate.py`, `tests/` path fixtures, `.vscode/settings.json`, `harness_core/__init__.py` docstring.
 
 - [ ] **Step 1: git mv the three trees**, then fix `.gitignore`: every `core/`-prefixed line drops the prefix (`.venv/`, `*.egg-info/`, `.mutate4py/`, `lcov.info`, `.coverage*`, `.contexts.db` — per the lines present at HEAD).
+
 - [ ] **Step 2: Hooks lose a segment** — the `parents[1] / "core"` sys.path injection becomes `parents[1]` in both hooks; grep confirms no other `"core"` path literal in `hooks/`.
+
 - [ ] **Step 3: Test path fixtures** — `tests/test_hooks.py` and `tests/test_skill_files.py` compute repo root via `parents[N]`; each drops one level (their files are now one level shallower). Sweep `tests/` for `"core"` path literals (conftest, template paths) — judged, not blind: the word appears in prose senses.
+
 - [ ] **Step 4: Config residue** — `.vscode/settings.json` interpreter path becomes `${workspaceFolder}/.venv/bin/python`; `harness_core/__init__.py` docstring's spec path stays valid (already `docs/superpowers/specs/...`).
+
 - [ ] **Step 5: Recreate the venv at root** (`python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" -q`), run `python -m pytest tests -q`.
-Expected: 865 passed / 6 skipped, unchanged.
+  Expected: 865 passed / 6 skipped, unchanged.
+
 - [ ] **Step 6: Commit** — `git commit -m "refactor: layout flip — package to repo root (post-R/pre-Q window, spec §10)"`
 
----
+______________________________________________________________________
 
 ### Task 2: Plan Q path sweep (authored text, free edit)
 
 **Files:**
+
 - Modify: `docs/superpowers/plans/2026-08-20-plan-q-quality-lane.md`
 
 - [ ] **Step 1:** Sweep every `core/` path in Plan Q to final form: `cd core &&` prefixes drop; `core/pyproject.toml` → `pyproject.toml`; `core/harness_core` → `harness_core`; `core/tests` → `tests`; `core/scripts` → `scripts`; workflow `working-directory: core` lines drop; `.gitignore` snippet block loses prefixes; mdformat/pre-commit path lists lose `core/` segments; the `.pre-commit-config.yaml` block's `cd core &&` entries simplify. Judged sweep — `core` appears in prose senses ("the core's own parser") that stay.
+
 - [ ] **Step 2:** Self-check: `grep -n "core/" docs/superpowers/plans/2026-08-20-plan-q-quality-lane.md` returns only prose senses and record citations; the venv bootstrap line in Global Constraints reads from root.
+
 - [ ] **Step 3:** Commit — `git commit -m "plan: Plan Q swept to post-flip paths"`
 
----
+______________________________________________________________________
 
 ### Task 3: Acceptance + merge
 

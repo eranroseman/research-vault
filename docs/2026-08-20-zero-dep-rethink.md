@@ -26,13 +26,13 @@ Caveat on "tried-and-true" itself: it describes the past (xz-utils was tried-and
 
 ## Case applications
 
-| Case | Verdict | Named contract (mis)match |
-|---|---|---|
-| Frontmatter (pyyaml) | homebrew stands | PyYAML is tried-and-true *at YAML 1.1*: `no`→`False`, auto-datetime — the library's correctness IS the laundering for a byte-faithful layer. Residual: our subset must stay ⊂ what Obsidian parses (split-brain risk, lintable). |
-| Registry XML (defusedxml) | **flip: admit** | Parsing externally-influenced XML is commodity-hard; the first pass's noqa was the old policy defending itself. Admitted as first pinned runtime dep, lazy-imported. |
-| Percent-codec | mostly stdlib | `urllib.parse.quote` already emits canonical uppercase `%HH`; ours should be a thin wrapper adding round-trip validation. If it's more than that, that's a finding. |
-| Fuzzy quote anchoring | homebrew stands, humbled | No tried-and-true library implements W3C-style robust anchoring with NFKC selectors (RapidFuzz sells similarity, not anchoring). Honest fix: reference-vector tests against the W3C algorithm — the 19 survivors are the evidence this is owed. |
-| pydantic | rejection stands, narrowed | Coercing, exception-based validation vs four-state reporting; weight on a per-invocation CLI. Not "libraries launder data". |
+| Case                      | Verdict                    | Named contract (mis)match                                                                                                                                                                                                                       |
+| ------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontmatter (pyyaml)      | homebrew stands            | PyYAML is tried-and-true *at YAML 1.1*: `no`→`False`, auto-datetime — the library's correctness IS the laundering for a byte-faithful layer. Residual: our subset must stay ⊂ what Obsidian parses (split-brain risk, lintable).                |
+| Registry XML (defusedxml) | **flip: admit**            | Parsing externally-influenced XML is commodity-hard; the first pass's noqa was the old policy defending itself. Admitted as first pinned runtime dep, lazy-imported.                                                                            |
+| Percent-codec             | mostly stdlib              | `urllib.parse.quote` already emits canonical uppercase `%HH`; ours should be a thin wrapper adding round-trip validation. If it's more than that, that's a finding.                                                                             |
+| Fuzzy quote anchoring     | homebrew stands, humbled   | No tried-and-true library implements W3C-style robust anchoring with NFKC selectors (RapidFuzz sells similarity, not anchoring). Honest fix: reference-vector tests against the W3C algorithm — the 19 survivors are the evidence this is owed. |
+| pydantic                  | rejection stands, narrowed | Coercing, exception-based validation vs four-state reporting; weight on a per-invocation CLI. Not "libraries launder data".                                                                                                                     |
 
 ## Corrected policy (replaces spec §8's absolute)
 

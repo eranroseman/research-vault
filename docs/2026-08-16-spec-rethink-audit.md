@@ -8,15 +8,15 @@ R1 zero fabricated citations, claims traceable to source + locator, defensible u
 
 ## prior-art: (seven domains)
 
-| Thread | Exemplars read | CHANGES / CONFIRMS |
-|---|---|---|
-| Systematic-review products | Covidence, Rayyan, EPPI-Reviewer, DistillerSR, MECIR, PRISMA-S, GRADE | 5 / 4 |
-| Wikipedia citation machinery | WP:V, Citoid, Citation bot, IABot (300M links), RetractionBot, Perennial Sources | 6 / 7 |
-| Fact-checking standards | ClaimReview, IFCN, ClaimBuster, C2PA ingredient chains | 6 / 5 |
-| Research-object standards | RO-Crate, OAIS/NDSA, Force11, JATS4R, DOI RA routing | 6 / 6 |
-| Agent-memory systems | Zep/Graphiti (bi-temporal), MemGPT/Letta, mem0 | 5 / 6 |
-| Regulated-science evidence | 21 CFR Part 11, ALCOA+, MHRA GXP, ELN lock-on-sign | 5 / 8 |
-| Sensemaking literature | Pirolli–Card, Heuer ACH, Shipman–Marshall, Whittaker, Hypothes.is anchoring | 5 / 7 |
+| Thread                       | Exemplars read                                                                   | CHANGES / CONFIRMS |
+| ---------------------------- | -------------------------------------------------------------------------------- | ------------------ |
+| Systematic-review products   | Covidence, Rayyan, EPPI-Reviewer, DistillerSR, MECIR, PRISMA-S, GRADE            | 5 / 4              |
+| Wikipedia citation machinery | WP:V, Citoid, Citation bot, IABot (300M links), RetractionBot, Perennial Sources | 6 / 7              |
+| Fact-checking standards      | ClaimReview, IFCN, ClaimBuster, C2PA ingredient chains                           | 6 / 5              |
+| Research-object standards    | RO-Crate, OAIS/NDSA, Force11, JATS4R, DOI RA routing                             | 6 / 6              |
+| Agent-memory systems         | Zep/Graphiti (bi-temporal), MemGPT/Letta, mem0                                   | 5 / 6              |
+| Regulated-science evidence   | 21 CFR Part 11, ALCOA+, MHRA GXP, ELN lock-on-sign                               | 5 / 8              |
+| Sensemaking literature       | Pirolli–Card, Heuer ACH, Shipman–Marshall, Whittaker, Hypothes.is anchoring      | 5 / 7              |
 
 **Confirmed core** (unanimous across domains): evidence/interpretation separation; admission control at ingestion; deterministic gates, human closure authority; LLM-as-second-reviewer-never-blocker (Rayyan deploys precisely this); deprecate-never-delete; contradiction preservation; append-only logs; proactive archiving. **The architecture stands — no structural redesign.**
 

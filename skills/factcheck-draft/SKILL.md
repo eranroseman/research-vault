@@ -65,12 +65,12 @@ The target is the project itself — a gate-run reference, not a claim link — 
 
 ## Four-state honesty, at the factcheck level too
 
-| Result | Meaning here | Recorded? |
-|---|---|---|
-| MATCHED | The claim held up under LLM adjudication. | No — see above. |
-| UNMATCHED | The claim's stated content disagrees with what the cited region actually supports. | Yes, `mismatch`. |
-| UNREACHABLE | The adjudication could not run — the cited source text wasn't accessible, or the pass was interrupted. **Never a verdict on the claim.** | Yes, `outage`. |
-| SKIPPED | Never checked — either structurally (this one claim) or by budget (the whole skipped set). **Never present a skipped claim as if it were checked and clean.** | Yes, `no-identifier` or `budget-cap`. |
+| Result      | Meaning here                                                                                                                                                  | Recorded?                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| MATCHED     | The claim held up under LLM adjudication.                                                                                                                     | No — see above.                       |
+| UNMATCHED   | The claim's stated content disagrees with what the cited region actually supports.                                                                            | Yes, `mismatch`.                      |
+| UNREACHABLE | The adjudication could not run — the cited source text wasn't accessible, or the pass was interrupted. **Never a verdict on the claim.**                      | Yes, `outage`.                        |
+| SKIPPED     | Never checked — either structurally (this one claim) or by budget (the whole skipped set). **Never present a skipped claim as if it were checked and clean.** | Yes, `no-identifier` or `budget-cap`. |
 
 An UNREACHABLE result is named as an outage in every summary you give — never as a failure, never as "probably fine." Do not claim you checked a claim you did not: the skipped set exists precisely so silence never reads as clearance.
 

@@ -24,6 +24,7 @@ Machine surfaces (`log/`, `inbox/review-queue.md`, managed regions, `system/bibl
 ```
 
 **What changed and why (recorded so the diff reads as ruled, not drift):**
+
 - CUT "— this line is the coexistence mitigation, spec §8": maintainer-facing meta-commentary, and the pointer dangles — no vault contains the spec. The instruction stands alone.
 - CUT the three-skill enumeration ("`project`, `verify-citations`, `publish`"): duplicate of the routing line and a cache that goes stale when Plan D ships the full set; the skill list is findable from the plugin.
 - ADDED the managed-region rule: the most likely vault-agent mistake; the PostToolUse hook only warns after the edit — this line prevents it.

@@ -22,22 +22,22 @@ The catalog comes first and answers to no judgment of yours: nothing downstream 
 
 Every outcome is an answer, including the two that write nothing:
 
-| Exit | stdout | What happened |
-|---|---|---|
-| `0` | the note path | The projection changed; the managed region was rewritten. |
-| `0` | `NOOP` | The projection is identical. Nothing was written. See §6 below. |
-| `1` | *(nothing)* | Invalid citekey, citekey not in Zotero, the auto-export disagrees with Zotero, or the render was rejected. |
-| `3` | *(nothing)* | The auto-export could not be observed at all — an outage. Retry later. |
+| Exit | stdout        | What happened                                                                                              |
+| ---- | ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `0`  | the note path | The projection changed; the managed region was rewritten.                                                  |
+| `0`  | `NOOP`        | The projection is identical. Nothing was written. See §6 below.                                            |
+| `1`  | *(nothing)*   | Invalid citekey, citekey not in Zotero, the auto-export disagrees with Zotero, or the render was rejected. |
+| `3`  | *(nothing)*   | The auto-export could not be observed at all — an outage. Retry later.                                     |
 
 **Every nonzero exit files its own review record.** The CLI writes it through the same writer the `finding` verb uses, in addition to the message it prints on stderr — you never file one for a failed import yourself, and you never need to:
 
-| Failure | Check id | Result | Reason code |
-|---|---|---|---|
-| Citekey cannot name a literature note | `citekey` | UNMATCHED | `schema-violation` |
-| Citekey is absent from the Zotero library | `citekey` | UNMATCHED | `not-admitted` |
-| Auto-export disagrees with the library | `autoexport` | UNMATCHED | `mismatch` |
-| Auto-export could not be observed | `autoexport` | UNREACHABLE | `outage` |
-| Render rejected (nothing was written) | `render` | UNMATCHED | `schema-violation` |
+| Failure                                   | Check id     | Result      | Reason code        |
+| ----------------------------------------- | ------------ | ----------- | ------------------ |
+| Citekey cannot name a literature note     | `citekey`    | UNMATCHED   | `schema-violation` |
+| Citekey is absent from the Zotero library | `citekey`    | UNMATCHED   | `not-admitted`     |
+| Auto-export disagrees with the library    | `autoexport` | UNMATCHED   | `mismatch`         |
+| Auto-export could not be observed         | `autoexport` | UNREACHABLE | `outage`           |
+| Render rejected (nothing was written)     | `render`     | UNMATCHED   | `schema-violation` |
 
 Read the stderr message back verbatim; do not summarize it as "the import failed". If stderr also carries `warning: review record refused:`, say so out loud — that means the failure has **no** durable record, and the person needs to know the queue is not carrying it.
 
@@ -95,11 +95,11 @@ Report it as the outcome it is — "already current, nothing to write" — never
 
 Refresh is note-level maintenance, and it is the same verb — re-running `import-note` for a citekey that already has a note. Three outcomes, and these are the words to use:
 
-| Word | What it means | How the CLI says it |
-|---|---|---|
-| **fresh** | The projection matches Zotero. | `import-note` prints `NOOP`, exit `0`. |
-| **stale** | Re-rendering differs, so the managed region was rewritten. The free region below it survives. | `import-note` prints the note path, exit `0`. |
-| **orphaned** | The note's item has left the library, so nothing projects onto it any more. | `import-note` reports `citekey not found` on stderr, exit `1`, and files the `citekey` / `not-admitted` record. |
+| Word         | What it means                                                                                 | How the CLI says it                                                                                             |
+| ------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **fresh**    | The projection matches Zotero.                                                                | `import-note` prints `NOOP`, exit `0`.                                                                          |
+| **stale**    | Re-rendering differs, so the managed region was rewritten. The free region below it survives. | `import-note` prints the note path, exit `0`.                                                                   |
+| **orphaned** | The note's item has left the library, so nothing projects onto it any more.                   | `import-note` reports `citekey not found` on stderr, exit `1`, and files the `citekey` / `not-admitted` record. |
 
 Two honest limits. First, **orphan detection is per-citekey**: `verify` reports an orphaned note as a `citekey` UNMATCHED only if the note still cites itself, and a note with no quote or paraphrase claims cites nothing at all — so a sweep with `import-note` is the only way to find every orphan. Second, the CLI's `staleness` verb is a **different** question: it compares `system/bibliography.json` with the current Zotero library, not a note with its projection. Never report a `staleness` result as a note being stale.
 
@@ -139,13 +139,13 @@ python3 -m knowledge_harness archive-source CITEKEY --vault PATH --snapshot SNAP
 
 It answers with a four-state line and the shared exit codes:
 
-| Exit | Result | Meaning |
-|---|---|---|
-| `0` | MATCHED | A snapshot is recorded — freshly captured, supplied, or already present. The snapshot URL prints on the next line. |
-| `0` | SKIPPED | Not a web source (it has a `doi`, or no `url`). Nothing to archive, and nothing wrong. |
-| `1` | UNMATCHED | The archive is serving no snapshot for that URL, or the supplied one 404s. Nothing was written. |
-| `3` | UNREACHABLE | Save Page Now or the confirmation call could not be reached. **An outage, not a verdict** — retry on the next refresh. |
-| `2` | — | The verb could not run: no such note, an unsafe citekey, malformed frontmatter. Read the message back verbatim. |
+| Exit | Result      | Meaning                                                                                                                |
+| ---- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `0`  | MATCHED     | A snapshot is recorded — freshly captured, supplied, or already present. The snapshot URL prints on the next line.     |
+| `0`  | SKIPPED     | Not a web source (it has a `doi`, or no `url`). Nothing to archive, and nothing wrong.                                 |
+| `1`  | UNMATCHED   | The archive is serving no snapshot for that URL, or the supplied one 404s. Nothing was written.                        |
+| `3`  | UNREACHABLE | Save Page Now or the confirmation call could not be reached. **An outage, not a verdict** — retry on the next refresh. |
+| `2`  | —           | The verb could not run: no such note, an unsafe citekey, malformed frontmatter. Read the message back verbatim.        |
 
 Never present an UNREACHABLE archive attempt as archived, and never write a URL the verb declined to record — an outage is not a snapshot. `archive-url` is pass-through metadata, so a recorded snapshot survives every later re-render; `accessed` is captured on day one and never overwritten.
 
@@ -153,21 +153,21 @@ Never present an UNREACHABLE archive attempt as archived, and never write a URL 
 
 ## Four-state honesty
 
-| Result | Meaning at import |
-|---|---|
-| MATCHED | The check ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
-| UNMATCHED | The check ran and disagreed. Already in the review inbox — do not file it again. |
-| UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the source.** Retry later. |
-| SKIPPED | The item lacks the field the check needs. Automatic only, and never final before discovery has been attempted (§2). |
+| Result      | Meaning at import                                                                                                       |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| MATCHED     | The check ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
+| UNMATCHED   | The check ran and disagreed. Already in the review inbox — do not file it again.                                        |
+| UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the source.** Retry later.                  |
+| SKIPPED     | The item lacks the field the check needs. Automatic only, and never final before discovery has been attempted (§2).     |
 
 Never describe an outage as a failure or as "probably fine". Never report a `NOOP` as an import you performed. Never claim a check ran that did not, and never claim a `verified` event exists — reading events is `trust-tier`'s job, running checks is `verify-citations`', and minting events is the CLI's alone.
 
 ## Routing
 
-| Need | Route to |
-|---|---|
-| Find sources to admit | `find-sources` |
-| Claim, quote, and stance-link syntax | `evidence-conventions` |
-| Synthesis page rules and thresholds | `synthesis-conventions` |
-| Run the deterministic checks | `verify-citations` |
+| Need                                    | Route to                                |
+| --------------------------------------- | --------------------------------------- |
+| Find sources to admit                   | `find-sources`                          |
+| Claim, quote, and stance-link syntax    | `evidence-conventions`                  |
+| Synthesis page rules and thresholds     | `synthesis-conventions`                 |
+| Run the deterministic checks            | `verify-citations`                      |
 | Acknowledge a finding this import filed | `project` or `publish` (the `ack` verb) |

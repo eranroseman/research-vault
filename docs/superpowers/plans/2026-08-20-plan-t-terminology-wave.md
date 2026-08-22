@@ -23,23 +23,28 @@
 
 No new modules. Touched: `core/harness_core/*.py` (constants, parsers, render, lints, verbs), `core/harness_core/templates/**` (vault tree, note templates, AGENTS.md, pre-commit, CI), `core/tests/**`, `hooks/*.py`, `skills/*` (directory renames + SKILL.md bodies), `docs/superpowers/specs/2026-08-16-foundation-spec.md`, `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md` (alignment only), `README.md`, `docs/terminology.md` (Task 8 restructure).
 
----
+______________________________________________________________________
 
 ### Task 1: Paths, folders, and type values
 
 **Files:**
+
 - Modify: `core/harness_core/scaffold.py` (`VAULT_DIRS`), `core/harness_core/notes.py` (`note_path` unaffected — literatures stays), `core/harness_core/inbox.py` (`INBOX_PATH`), `core/harness_core/lints.py` (folder globs), `core/harness_core/__main__.py` (folder walks, publish-flag field), `core/harness_core/templates/vault/**` (directory names, AGENTS.md, note templates), `hooks/posttooluse_lint.py` + `hooks/stop_publish_gate.py` (vault walks, flag field), all touched tests + `conftest.py` fixtures.
 
 **Interfaces:**
+
 - Consumes: §10 manifest path/type pairs.
+
 - Produces (later tasks rely on these exact strings): folders `inbox/ literatures/ synthesis/ log/ projects/ system/`; `INBOX_PATH = "inbox/review-queue.md"`; type values `literature | synthesis | project | daily`; daily log files `log/YYYY-MM-DD.md`; publish flag field `"project"`; synthesis index `synthesis/index.md`.
 
 - [ ] **Step 1: Discover every occurrence (judged)**
 
 Run:
+
 ```bash
 grep -rnE '"\+"|atlas|calendar|efforts|"topic"|"effort"' core/harness_core core/tests hooks skills --include='*.py' --include='*.md' --include='*.json' | grep -v '\.venv'
 ```
+
 Classify each hit: rename (manifest pair) / prose-sense keep / protected history. List the classification in the task report.
 
 - [ ] **Step 2: Update tests first to the new vocabulary**
@@ -65,46 +70,60 @@ cd "$(git rev-parse --show-toplevel)"
 git add core hooks skills && git commit -m "rename: vault paths and type values per terminology wave (synthesis/inbox/log/projects)"
 ```
 
----
+______________________________________________________________________
 
 ### Task 2: Frontmatter keys and values
 
 **Files:**
+
 - Modify: `core/harness_core/notes.py` (`MANAGED_FIELDS`, render, day-one preservation), `core/harness_core/events.py` (tier applicability reads `doi` — unaffected; verify), `core/harness_core/lints.py` (source-status strings), `core/harness_core/checks.py` + `__main__.py` (`accessed`, `fixity-sha256`, status values), templates, tests.
 
 **Interfaces:**
+
 - Produces: frontmatter keys `accessed`, `fixity-sha256`; source status values `unscreened | included | excluded | superseded`; project status `draft | parked | published | corrected | withdrawn`.
 
 - [ ] **Step 1: Tests first** — apply pairs `retrieved→accessed`, `attachment-sha256→fixity-sha256`, `unreviewed→unscreened`, `active→included`, `rejected→excluded`, `drafting→draft` across `core/tests/` (fixtures, assertions, template tests).
+
 - [ ] **Step 2: Verify red** — `python -m pytest tests -q` — Expected: FAIL.
+
 - [ ] **Step 3: Apply to production** — same pairs in `notes.py` (incl. the day-one-preservation lookup key and `MANAGED_FIELDS`), ack-scope/`_target_hash` reads of the fixity list, `lint_source_status` status set `{"excluded", "superseded"}`... **judged**: the lint's trigger set was `{rejected, superseded}` → now `{excluded, superseded}`; templates (`status: "unscreened"`, `status: "draft"`).
+
 - [ ] **Step 4: Verify green** — all PASS.
+
 - [ ] **Step 5: Commit** — `git add core && git commit -m "rename: frontmatter keys/values (accessed, fixity-sha256, PRISMA screening states, draft)"`
 
----
+______________________________________________________________________
 
 ### Task 3: Inline fields and the claim-link identifier
 
 **Files:**
+
 - Modify: `core/harness_core/claims.py` (field names in docs; `claim_address`→`claim_link`), `core/harness_core/__main__.py` (stamp/clear `[failed-verification::]`), `core/harness_core/notes.py`/`canonical_content` (marker name in the hash-substantive set), `core/harness_core/lints.py` (deprecation-record check field list unchanged; contested-set reads `[disputes::]`/`[supports::]`), `core/harness_core/quotes.py`/`events.py` (claim_link callers), fixtures/tests.
 
 **Interfaces:**
+
 - Produces: inline fields `[supports::]`, `[disputes::]`, `[failed-verification:: <check>/<date>]`; function `claim_link(citekey, claim_id) -> str` (same behavior as the old `claim_address`).
 
 - [ ] **Step 1: Tests first** — pairs `supported-by→supports`, `contested-by→disputes`, `verify-failed→failed-verification`, `claim_address→claim_link` across tests and fixture note bodies.
+
 - [ ] **Step 2: Verify red.**
+
 - [ ] **Step 3: Apply to production** — parser field reads, stamp format string, clear regex, canonical_content's marker-name reference (rulings 9/11: `failed-verification` markers stay hash-substantive), contested-set builder (`c.fields.get("disputes")` / `supports`), rename `claim_address` → `claim_link` everywhere (grep callers: quotes, events, lints, __main__).
+
 - [ ] **Step 4: Verify green.**
+
 - [ ] **Step 5: Commit** — `git add core && git commit -m "rename: inline fields to CiTO/Wikipedia anchors (supports, disputes, failed-verification); claim_link"`
 
----
+______________________________________________________________________
 
 ### Task 4: Inversion additions (stale_after, generated, description, synthesis lifecycle)
 
 **Files:**
+
 - Modify: `core/harness_core/notes.py` (render: `generated` on machine-written notes), `core/harness_core/templates/vault/system/templates/synthesis.md` (post-graft path) (lifecycle frontmatter), `core/harness_core/frontmatter.py` (verify inline-dict support covers `generated` — it shipped for `verified`), spec `docs/superpowers/specs/2026-08-16-foundation-spec.md` §3/§5, tests.
 
 **Interfaces:**
+
 - Produces: literature/synthesis machine-written notes carry `generated: [{by, at}]`-compatible field `generated` as a single inline dict `{by: "...", at: "..."}` (OKF shape); optional keys `stale_after`, `description` are **pass-through-preserved** (no writer yet — they are user/OKF-tool supplied; the renderer's unowned-field pass-through already keeps them — add regression test); synthesis template frontmatter becomes:
 
 ```markdown
@@ -150,15 +169,17 @@ Plus a template test asserting the synthesis template carries `status: "draft"` 
 - [ ] **Step 4: Verify green.**
 - [ ] **Step 5: Commit** — `git add core docs/specs && git commit -m "feat: inversion additions — generated field, stale_after/description pass-through, OKF lifecycle on synthesis pages"`
 
----
+______________________________________________________________________
 
 ### Task 5: OKF conformance artifacts
 
 **Files:**
+
 - Create: `core/harness_core/templates/vault/index.md`, `core/harness_core/okf.py`
 - Modify: `core/harness_core/scaffold.py` (scaffold copies index.md; doctor gains an `okf` probe), `core/harness_core/templates/vault/AGENTS.md` (frontmatter added), review-queue creation (typed frontmatter), `core/harness_core/__main__.py` (log.md regeneration invoked by import/verify), spec §2 cross-check, tests: `core/tests/test_okf.py`.
 
 **Interfaces:**
+
 - Produces:
   - `templates/vault/index.md`:
 
@@ -177,10 +198,13 @@ okf_version: "0.2"
 - [[system/]] — support artifacts: templates, bases, the bibliography export
 ```
 
-  - Review queue created with frontmatter `---\ntype: "review-queue"\n---\n` (inbox parser skips frontmatter — extend `inbox.load` to tolerate/skip a leading frontmatter block; regression test).
-  - AGENTS.md template gains `---\ntype: "guide"\n---\n` at top.
-  - `okf.regenerate_log(vault_root, tail_entries: int = 20) -> str` — writes root `log.md`: frontmatter `type: "log"`, then the last `tail_entries` lines across `log/*.md` (chronological), then links to each day file. Single writer; called from `import-note` after its log append. **Amended by task-review ruling (2026-08-21): `verify` is not wired.** As-built HEAD has no log-append mechanism for either command — the "after their log appends" premise this line originally assumed doesn't hold — and `verify`'s writes flow through `gitstate`'s transactional manifest/publish pipeline, whose output allowlist doesn't carry `log.md`; wiring it there is transactional-pipeline surgery outside this task's scope and outside this rename wave's "semantics must not change" constraint. `import-note`-only is the correct, current scope. If/when `verify` gains a log-append mechanism, its transaction must carry `log.md` too (`gitstate._allowed_manifest_path` allowlist + `_plan_state` projection) — tracked in `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md`'s Post-merge follow-ups (item 7), conditioned on that trigger, not scheduled work. The doctor `okf` probe already backstops the gap behaviorally in the meantime (warns when `log.md` is missing despite day files being present, regardless of writer).
-  - Doctor probe `okf` (warn-class): every machine-written `.md` parses with non-empty `type`; root `index.md` has `okf_version`; `log.md` exists when any day file does.
+- Review queue created with frontmatter `---\ntype: "review-queue"\n---\n` (inbox parser skips frontmatter — extend `inbox.load` to tolerate/skip a leading frontmatter block; regression test).
+
+- AGENTS.md template gains `---\ntype: "guide"\n---\n` at top.
+
+- `okf.regenerate_log(vault_root, tail_entries: int = 20) -> str` — writes root `log.md`: frontmatter `type: "log"`, then the last `tail_entries` lines across `log/*.md` (chronological), then links to each day file. Single writer; called from `import-note` after its log append. **Amended by task-review ruling (2026-08-21): `verify` is not wired.** As-built HEAD has no log-append mechanism for either command — the "after their log appends" premise this line originally assumed doesn't hold — and `verify`'s writes flow through `gitstate`'s transactional manifest/publish pipeline, whose output allowlist doesn't carry `log.md`; wiring it there is transactional-pipeline surgery outside this task's scope and outside this rename wave's "semantics must not change" constraint. `import-note`-only is the correct, current scope. If/when `verify` gains a log-append mechanism, its transaction must carry `log.md` too (`gitstate._allowed_manifest_path` allowlist + `_plan_state` projection) — tracked in `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md`'s Post-merge follow-ups (item 7), conditioned on that trigger, not scheduled work. The doctor `okf` probe already backstops the gap behaviorally in the meantime (warns when `log.md` is missing despite day files being present, regardless of writer).
+
+- Doctor probe `okf` (warn-class): every machine-written `.md` parses with non-empty `type`; root `index.md` has `okf_version`; `log.md` exists when any day file does.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -233,25 +257,32 @@ def test_doctor_okf_probe(tmp_path):
 - [ ] **Step 4: Verify green.**
 - [ ] **Step 5: Commit** — `git add core && git commit -m "feat: OKF conformance artifacts — root index.md/log.md, typed machine files, okf doctor probe"`
 
----
+______________________________________________________________________
 
 ### Task 6: Skill renames
 
 **Files:**
+
 - Rename: `skills/vault-setup/` → `skills/setup-vault/` (and any `find-papers`/`atlas-conventions` skill dirs existing at HEAD)
+
 - Modify: SKILL.md frontmatter `name:` fields, body references, `PROVISION_COMPANIONS`-adjacent prose, AGENTS.md template skill mentions (`/knowledge-harness:setup-vault`, `…:find-sources`, `…:synthesis-conventions`), `core/tests/test_skill_files.py`.
 
 - [ ] **Step 1: Tests first** — update `test_skill_files.py` paths + `name: setup-vault` assertions; add assertions that no SKILL.md carries an old name.
+
 - [ ] **Step 2: Verify red.** — old paths still present.
+
 - [ ] **Step 3: `git mv` the skill directories; update frontmatter + bodies + AGENTS.md template.** Only rename skill dirs that exist at HEAD (Plan D's unbuilt skills are authored later with the ruled names — no stubs).
+
 - [ ] **Step 4: Verify green.**
+
 - [ ] **Step 5: Commit** — `git add -A skills core && git commit -m "rename: skills to ruled names (setup-vault, find-sources, synthesis-conventions)"`
 
----
+______________________________________________________________________
 
 ### Task 7: Spec + active-plan alignment and full acceptance
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§3 tree, §5 schema table, §6 mentions, §7 skill list, §9 drills — every ruled name), `docs/superpowers/plans/2026-08-17-plan-c-scaffold-enforcement.md` (alignment to its as-built implementation), `README.md`.
 
 - [ ] **Step 1: Judged grep over living docs**
@@ -267,11 +298,12 @@ Run the §10 acceptance grep (item 2) over `core/ hooks/ skills/ docs/superpower
 
 - [ ] **Step 3: Commit** — `git add docs README.md && git commit -m "docs: spec and active plan aligned to the terminology wave"`
 
----
+______________________________________________________________________
 
 ### Task 8: `docs/terminology.md` becomes reference-only + root `CONTEXT.md`
 
 **Files:**
+
 - Modify: `docs/terminology.md` (full restructure)
 - Create: `CONTEXT.md` (repo root — the meaning layer, per the domain-modeling CONTEXT format: is-definitions + _Avoid_ lists, zero implementation detail)
 
@@ -395,16 +427,17 @@ _Avoid_: health check, setup validator
 ```
 
 (Every `_Avoid_` entry derives from the reference's deviations and old names; anything the wave renames must appear here under its NEW name with the old name in _Avoid_.)
+
 - [ ] **Step 2: Verify internal consistency** — every name in CONTEXT.md and the reference matches a grep of the post-wave code (`grep -c` spot-checks for `synthesis`, `accessed`, `fixity-sha256`, `supports`, `unscreened` in `core/`); no section references §7–§10 or "proposal"/"pending".
 - [ ] **Step 3: Commit** — `git add docs/terminology.md CONTEXT.md && git commit -m "docs: terminology reference + root CONTEXT.md glossary (meaning layer)"`
 
----
+______________________________________________________________________
 
 ### Task 9: Merge
 
 - [ ] Full suite green (offline + live), acceptance greps clean, then `superpowers:finishing-a-development-branch` for `build/terminology-wave`.
 
----
+______________________________________________________________________
 
 ## Self-Review (completed at authoring)
 

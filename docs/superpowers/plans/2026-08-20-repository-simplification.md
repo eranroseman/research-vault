@@ -28,7 +28,7 @@
 - Use TDD for changed interfaces and characterization-before/refactor for behavior-preserving deletions. Run Ruff and focused pytest after every task.
 - Preserve unrelated and user-owned work; stage only the files named by each task.
 
----
+______________________________________________________________________
 
 ## File Structure
 
@@ -55,17 +55,20 @@
 - Do not split `__main__.py`, `checks.py`, or `lints.py` beyond the focused `gitstate.py` extraction; broad restructuring would turn a deletion pass into an architecture migration.
 - Do not create a shared line-ending utility for the three tiny local parsers in `__main__.py`, `events.py`, and `lints.py`: one consumer needs only an ending while two need `(content, ending)`, so a cross-module API would add coupling for negligible net deletion.
 
----
+______________________________________________________________________
 
 ### Task 1: Canonical Documentation and No-op Contract
 
 **Files:**
+
 - Delete: `notes.md`
 - Preserve unchanged: `analysis/dev-harness-analysis.md`
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md:55`
 
 **Interfaces:**
+
 - Consumes: Foundation spec §7’s render-first managed-projection rule at line 110.
+
 - Produces: One canonical dev-harness analysis and one internally consistent no-op contract for all later tasks.
 
 - [ ] **Step 1: Prove the root note is redundant before deletion**
@@ -139,11 +142,12 @@ git commit -m "docs: clarify render-first no-op detection"
 
 `notes.md` is already staged by `git add -u`; verify the commit contains exactly the deletion and the one spec-clause replacement.
 
----
+______________________________________________________________________
 
 ### Task 2: Delete Unreachable Verification Remnants
 
 **Files:**
+
 - Modify: `core/harness_core/notes.py:4,143-150,222-263`
 - Modify: `core/harness_core/events.py:152-154,203-205`
 - Modify: `core/harness_core/inbox.py:502-506`
@@ -154,7 +158,9 @@ git commit -m "docs: clarify render-first no-op detection"
 - Test: `core/tests/test_verify_cli.py`
 
 **Interfaces:**
+
 - Consumes: `notes.canonical_content(note_text: str) -> str`, `events._replace_frontmatter_list(note_text: str, field: str, rows: list[dict], body: str) -> str`, `inbox.validate_reason(reason: str) -> str`, and `_target_hash(vault_root, outcome, bibliography_universe=_OMITTED_BIBLIOGRAPHY) -> str | None`.
+
 - Produces: The same public behavior with no marker-stripping lexer, no unused aliases, and no impossible line-hash fallback.
 
 - [ ] **Step 1: Run the characterization suite before deletion**
@@ -236,11 +242,12 @@ git add core/harness_core/notes.py core/harness_core/events.py core/harness_core
 git commit -m "refactor: delete obsolete verification remnants"
 ```
 
----
+______________________________________________________________________
 
 ### Task 3: One Byte-preserving Git Revision Boundary
 
 **Files:**
+
 - Create: `core/harness_core/gitstate.py`
 - Modify: `core/harness_core/__main__.py:16-30,313-322,378,464,492,506`
 - Modify: `core/harness_core/lints.py:1-12,105-141,254-260,298-348`
@@ -249,7 +256,9 @@ git commit -m "refactor: delete obsolete verification remnants"
 - Test: `core/tests/test_verify_cli.py`
 
 **Interfaces:**
+
 - Consumes: Git CLI and `Path`.
+
 - Produces: `gitstate.blob_bytes(vault_root: Path, revision: str, relative: str) -> bytes | None` and `gitstate.revision_paths(vault_root: Path, revision: str, *prefixes: str) -> set[str]`.
 
 - [ ] **Step 1: Write failing contract tests for the new boundary**
@@ -434,11 +443,12 @@ git add core/harness_core/gitstate.py core/harness_core/__main__.py core/harness
 git commit -m "refactor: consolidate git revision reads"
 ```
 
----
+______________________________________________________________________
 
 ### Task 4: Raw Notice Normalization, Archive Outcomes, and Shared CSL Year Parsing
 
 **Files:**
+
 - Modify: `core/harness_core/checks.py:211-227,519-545,760-789,900-929,931-978`
 - Modify: `core/harness_core/identify.py:3-4,27-47`
 - Modify: `core/harness_core/__main__.py:719-762`
@@ -447,7 +457,9 @@ git commit -m "refactor: consolidate git revision reads"
 - Test: `core/tests/test_verify_cli.py`
 
 **Interfaces:**
+
 - Consumes: raw notice dictionaries shaped as `{"type": str, "notice_date": str | None}` and existing `webapi.get_status` behavior.
+
 - Produces: `checks._merge_warn_notices(*notice_groups) -> list[dict]` and `checks.metadata_year(value) -> tuple[bool, int | None]`; public `Outcome` behavior is unchanged.
 
 - [ ] **Step 1: Write a failing test for raw notice groups**
@@ -645,17 +657,20 @@ git add core/harness_core/checks.py core/harness_core/identify.py core/harness_c
 git commit -m "refactor: simplify notice and archive outcomes"
 ```
 
----
+______________________________________________________________________
 
 ### Task 5: One Note I/O Pair and Direct Marker Mutation
 
 **Files:**
+
 - Modify: `core/harness_core/__main__.py:95-102,153-248,282-289,544-625`
 - Test: `core/tests/test_cli_live.py`
 - Modify: `core/tests/test_verify_cli.py:10-18,325,607,622,704,722,751,806,903`
 
 **Interfaces:**
+
 - Consumes: `Path.open`, `_terminal_marker_pattern(check, claim_id) -> re.Pattern`, and `_mutate_marker(vault_root, outcome, date, *, clear=False)`.
+
 - Produces: `_read_note_text(path) -> str` and `_write_note_text(path, text) -> None` as the only note I/O pair; tests call the real `_mutate_marker` path with `clear=True` directly; marker behavior is unchanged.
 
 - [ ] **Step 1: Run byte/newline characterization tests**
@@ -760,15 +775,18 @@ git add core/harness_core/__main__.py core/tests/test_verify_cli.py
 git commit -m "refactor: collapse note IO and marker wrappers"
 ```
 
----
+______________________________________________________________________
 
 ### Task 6: Verification Test Isolation and Native Spies
 
 **Files:**
+
 - Modify: `core/tests/test_verify_cli.py:1-15,123-140,838-857,1098-1120,1133-1137,1242-1246,1329-1370`
 
 **Interfaces:**
+
 - Consumes: pytest’s `monkeypatch` fixture, `unittest.mock.Mock`, and `_isolate_network_verify(monkeypatch, outcomes) -> None`.
+
 - Produces: The same verification assertions with one isolation setup and one standard call-spy pattern.
 
 - [ ] **Step 1: Establish the test-file baseline**
@@ -863,17 +881,20 @@ git add core/tests/test_verify_cli.py
 git commit -m "test: simplify verification fixtures"
 ```
 
----
+______________________________________________________________________
 
 ### Task 7: Shared Web Fixture and Minimal Lint Setup
 
 **Files:**
+
 - Modify: `core/tests/test_webapi.py:11-44`
 - Modify: `core/tests/test_lints.py:1-10,303-309`
 - Consume unchanged: `core/tests/conftest.py:117-122`
 
 **Interfaces:**
+
 - Consumes: shared `net_vault` fixture and `io.BytesIO`’s inherited context-manager protocol.
+
 - Produces: No new interface; only smaller tests with identical assertions.
 
 - [ ] **Step 1: Establish both test-file baselines**
@@ -943,15 +964,18 @@ git add core/tests/test_webapi.py core/tests/test_lints.py
 git commit -m "test: reuse standard test scaffolding"
 ```
 
----
+______________________________________________________________________
 
 ### Task 8: Whole-branch Verification and Simplification Accounting
 
 **Files:**
+
 - Verify only: all files changed by Tasks 1-7
 
 **Interfaces:**
+
 - Consumes: every task and fix commit since the branch merge base, plus every global constraint above.
+
 - Produces: A green, Ruff-clean, behavior-preserving simplification branch ready for code review.
 
 - [ ] **Step 1: Run the complete offline suite**

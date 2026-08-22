@@ -36,6 +36,7 @@ Almost every endpoint accepts `fields` -- a comma-separated list (no spaces) of 
 ## Paper ID Formats
 
 The `{paper_id}` parameter accepts:
+
 - `649def34f8be52c8b66281af98ae884c09aef38b` (S2 hash)
 - `CorpusId:215416146`
 - `DOI:10.1038/s41586-021-03819-2`
@@ -52,23 +53,24 @@ The `{paper_id}` parameter accepts:
 GET /graph/v1/paper/search?query={text}&fields={fields}&offset={n}&limit={n}
 ```
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `query` | required | Plain-text search |
-| `fields` | paperId,title | Comma-separated |
-| `offset` | 0 | Pagination start |
-| `limit` | 100 | Max 100 |
-| `year` | -- | `2019` or `2016-2020` |
-| `publicationDateOrYear` | -- | `YYYY-MM-DD:YYYY-MM-DD` |
-| `fieldsOfStudy` | -- | e.g., `Computer Science,Medicine` |
-| `publicationTypes` | -- | e.g., `JournalArticle,Conference` |
-| `openAccessPdf` | -- | Filter for OA papers |
-| `minCitationCount` | -- | Minimum citations |
-| `venue` | -- | Comma-separated venues |
+| Parameter               | Default       | Description                       |
+| ----------------------- | ------------- | --------------------------------- |
+| `query`                 | required      | Plain-text search                 |
+| `fields`                | paperId,title | Comma-separated                   |
+| `offset`                | 0             | Pagination start                  |
+| `limit`                 | 100           | Max 100                           |
+| `year`                  | --            | `2019` or `2016-2020`             |
+| `publicationDateOrYear` | --            | `YYYY-MM-DD:YYYY-MM-DD`           |
+| `fieldsOfStudy`         | --            | e.g., `Computer Science,Medicine` |
+| `publicationTypes`      | --            | e.g., `JournalArticle,Conference` |
+| `openAccessPdf`         | --            | Filter for OA papers              |
+| `minCitationCount`      | --            | Minimum citations                 |
+| `venue`                 | --            | Comma-separated venues            |
 
 **Max 1,000 results** accessible via offset.
 
 **Example:**
+
 ```
 https://api.semanticscholar.org/graph/v1/paper/search?query=CRISPR+gene+therapy&fields=title,year,abstract,citationCount,authors,openAccessPdf&limit=10&year=2023-2024
 ```
@@ -91,11 +93,13 @@ GET /graph/v1/paper/{paper_id}?fields={fields}
 ```
 
 **Example:**
+
 ```
 https://api.semanticscholar.org/graph/v1/paper/DOI:10.1038/s41586-021-03819-2?fields=title,year,abstract,citationCount,referenceCount,isOpenAccess,openAccessPdf,authors,tldr
 ```
 
 **Response:**
+
 ```json
 {
   "paperId": "dc32a984b651256a8ec282be52310e6bd33d9815",
@@ -186,12 +190,12 @@ Max 500 IDs per request.
 
 ## Pagination
 
-| Endpoint | Max per page | Max total | Method |
-|----------|-------------|-----------|--------|
-| Relevance search | 100 | 1,000 | offset/next |
-| Bulk search | 1,000 | 10,000,000 | token |
-| Citations/References | 1,000 | all | offset/next |
-| Author search | 1,000 | -- | offset/next |
+| Endpoint             | Max per page | Max total  | Method      |
+| -------------------- | ------------ | ---------- | ----------- |
+| Relevance search     | 100          | 1,000      | offset/next |
+| Bulk search          | 1,000        | 10,000,000 | token       |
+| Citations/References | 1,000        | all        | offset/next |
+| Author search        | 1,000        | --         | offset/next |
 
 ## Publication Types
 

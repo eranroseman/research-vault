@@ -83,7 +83,9 @@ def test_top_level_inline_mapping_with_iso_datetime_roundtrips():
     text = frontmatter.serialize(data)
     parsed, _ = frontmatter.parse(text)
 
-    assert 'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
+    assert (
+        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
+    )
     assert parsed == data
 
 

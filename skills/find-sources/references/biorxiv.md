@@ -29,17 +29,18 @@ None required. Fully public API.
 GET /details/biorxiv/{interval}/{cursor}/{format}
 ```
 
-| Parameter | Values | Description |
-|-----------|--------|-------------|
-| `interval` | `YYYY-MM-DD/YYYY-MM-DD` | Date range (inclusive). Keep ranges narrow (1-3 days) to avoid timeouts. |
-| | `N` (integer) | N most recent preprints |
-| | `Nd` (integer + "d") | Last N days |
-| `cursor` | Integer (default `0`) | Absolute record offset. **`/details/` returns 30 per page, so step by 30** -- see Pagination. |
-| `format` | `json` (default), `xml` | Response format |
+| Parameter  | Values                  | Description                                                                                   |
+| ---------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `interval` | `YYYY-MM-DD/YYYY-MM-DD` | Date range (inclusive). Keep ranges narrow (1-3 days) to avoid timeouts.                      |
+|            | `N` (integer)           | N most recent preprints                                                                       |
+|            | `Nd` (integer + "d")    | Last N days                                                                                   |
+| `cursor`   | Integer (default `0`)   | Absolute record offset. **`/details/` returns 30 per page, so step by 30** -- see Pagination. |
+| `format`   | `json` (default), `xml` | Response format                                                                               |
 
 Optional query parameter: `?category=neuroscience` (filter by category, use underscores for spaces)
 
 **Examples:**
+
 ```
 https://api.biorxiv.org/details/biorxiv/2024-01-01/2024-01-31/0
 https://api.biorxiv.org/details/biorxiv/5
@@ -54,6 +55,7 @@ GET /details/biorxiv/{doi}/na/{format}
 ```
 
 **Example:**
+
 ```
 https://api.biorxiv.org/details/biorxiv/10.1101/2024.01.16.575895/na/json
 ```
@@ -126,12 +128,12 @@ here as inconclusive, not as evidence that a publisher issued no bioRxiv preprin
 
 The counting fields exist **only on interval queries**. Verified 2026-07-27:
 
-| Request | `messages[0]` contains |
-|---|---|
+| Request                                    | `messages[0]` contains                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | `/details/biorxiv/2024-01-01/2024-01-03/0` | `status`, `category`, `interval`, `funder`, `cursor`, `count`, `count_new_papers`, `total` |
-| `/details/biorxiv/{doi}/na/json` | `status`, `category` only -- **no counts** |
-| `/details/biorxiv/5` (N most recent) | `status`, `category` only -- **no counts** |
-| `/pubs/biorxiv/{interval}/{cursor}` | `status`, `interval`, `cursor`, `count`, `total` |
+| `/details/biorxiv/{doi}/na/json`           | `status`, `category` only -- **no counts**                                                 |
+| `/details/biorxiv/5` (N most recent)       | `status`, `category` only -- **no counts**                                                 |
+| `/pubs/biorxiv/{interval}/{cursor}`        | `status`, `interval`, `cursor`, `count`, `total`                                           |
 
 So the skill's "count first, then reconcile" step has nothing to reconcile against on DOI and
 N-most-recent lookups. Use `len(collection)` there and say in the provenance that the endpoint
@@ -147,10 +149,10 @@ and report which you used.
 
 **Page size differs by endpoint** -- verified 2026-07-27, and the difference is silent:
 
-| Endpoint | Records per page | Step `cursor` by |
-|---|---|---|
-| `/details/{server}/{interval}/{cursor}` | **30** | 30 |
-| `/pubs/{server}/{interval}/{cursor}` | 100 | 100 |
+| Endpoint                                | Records per page | Step `cursor` by |
+| --------------------------------------- | ---------------- | ---------------- |
+| `/details/{server}/{interval}/{cursor}` | **30**           | 30               |
+| `/pubs/{server}/{interval}/{cursor}`    | 100              | 100              |
 
 `cursor` is an absolute record offset, not a page number, and out-of-step values are accepted
 without complaint: `cursor=100` on a `/details/` query returns records 100-129 and **HTTP 200**.

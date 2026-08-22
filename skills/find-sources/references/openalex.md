@@ -38,6 +38,7 @@ GET /works/{id}
 ```
 
 Accepts multiple ID formats:
+
 ```
 /works/W2741809807                              (OpenAlex ID)
 /works/doi:10.7717/peerj.4375                  (DOI)
@@ -51,22 +52,23 @@ Accepts multiple ID formats:
 GET /works?search={query}&per_page={n}&page={n}
 ```
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `search` | -- | Full-text search (title, abstract, fulltext). Supports boolean: `AND`, `OR`, `NOT` (uppercase) |
-| `search.exact` | -- | No stemming |
-| `search.semantic` | -- | AI embedding search (beta, 1 req/s, max 50 results) |
-| `filter` | -- | Comma-separated `field:value` pairs |
-| `sort` | relevance | `cited_by_count:desc`, `publication_date:desc`, `relevance_score:desc` |
-| `per_page` | 25 | Results per page (max 100) |
-| `page` | 1 | Page number (max `page * per_page` = 10,000) |
-| `cursor` | -- | Use `*` for first page of deep pagination |
-| `select` | -- | Comma-separated fields to return |
-| `group_by` | -- | Aggregate by field |
+| Parameter         | Default   | Description                                                                                    |
+| ----------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| `search`          | --        | Full-text search (title, abstract, fulltext). Supports boolean: `AND`, `OR`, `NOT` (uppercase) |
+| `search.exact`    | --        | No stemming                                                                                    |
+| `search.semantic` | --        | AI embedding search (beta, 1 req/s, max 50 results)                                            |
+| `filter`          | --        | Comma-separated `field:value` pairs                                                            |
+| `sort`            | relevance | `cited_by_count:desc`, `publication_date:desc`, `relevance_score:desc`                         |
+| `per_page`        | 25        | Results per page (max 100)                                                                     |
+| `page`            | 1         | Page number (max `page * per_page` = 10,000)                                                   |
+| `cursor`          | --        | Use `*` for first page of deep pagination                                                      |
+| `select`          | --        | Comma-separated fields to return                                                               |
+| `group_by`        | --        | Aggregate by field                                                                             |
 
 **Advanced search:** Supports wildcards (`machin*`), fuzzy (`machin~1`), proximity (`"climate change"~5`), boolean grouping.
 
 **Example:**
+
 ```
 https://api.openalex.org/works?search=CRISPR+gene+therapy&filter=from_publication_date:2023-01-01&sort=cited_by_count:desc&per_page=10
 ```
@@ -78,24 +80,26 @@ GET /works?filter={filters}
 ```
 
 Key filter fields:
-| Filter | Example | Description |
-|--------|---------|-------------|
-| `from_publication_date` | `2023-01-01` | Published after date |
-| `to_publication_date` | `2024-12-31` | Published before date |
-| `publication_year` | `2024` | Exact year |
-| `type` | `article` | Work type |
-| `cited_by_count` | `>100` | Citation threshold |
-| `is_oa` | `true` | Open access only |
-| `has_abstract` | `true` | Has abstract |
-| `authorships.author.id` | `A5048491430` | By author ID |
-| `primary_location.source.id` | `S137773608` | By journal/source |
-| `institutions.country_code` | `us` | By country |
-| `concepts.id` | `C41008148` | By concept/topic |
-| `doi` | `10.1038/nature12373` | By DOI |
+
+| Filter                       | Example               | Description           |
+| ---------------------------- | --------------------- | --------------------- |
+| `from_publication_date`      | `2023-01-01`          | Published after date  |
+| `to_publication_date`        | `2024-12-31`          | Published before date |
+| `publication_year`           | `2024`                | Exact year            |
+| `type`                       | `article`             | Work type             |
+| `cited_by_count`             | `>100`                | Citation threshold    |
+| `is_oa`                      | `true`                | Open access only      |
+| `has_abstract`               | `true`                | Has abstract          |
+| `authorships.author.id`      | `A5048491430`         | By author ID          |
+| `primary_location.source.id` | `S137773608`          | By journal/source     |
+| `institutions.country_code`  | `us`                  | By country            |
+| `concepts.id`                | `C41008148`           | By concept/topic      |
+| `doi`                        | `10.1038/nature12373` | By DOI                |
 
 **Operators:** `>`, `<`, `!` (negation), `|` (OR within filter)
 
 **Example:**
+
 ```
 https://api.openalex.org/works?filter=from_publication_date:2024-01-01,type:article,is_oa:true,cited_by_count:>50
 ```
@@ -158,6 +162,7 @@ Response includes `meta.next_cursor`. Pass it as `cursor={value}` in the next re
 ### Abstract inverted index
 
 Abstracts are stored as `{word: [positions]}`. To reconstruct:
+
 ```python
 def reconstruct(inverted_index):
     positions = {}

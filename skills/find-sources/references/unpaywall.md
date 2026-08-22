@@ -34,6 +34,7 @@ GET /v2/{doi}?email=you@example.com
 ```
 
 **Example:**
+
 ```
 https://api.unpaywall.org/v2/10.1038/nature12373?email=you@example.com
 ```
@@ -46,15 +47,16 @@ GET /v2/search?query={text}&email=you@example.com
 
 **Warning:** The search endpoint has been returning HTTP 500 errors as of March 2026. It may be deprecated or intermittently broken. Use DOI lookups instead -- find papers via PubMed/OpenAlex/Semantic Scholar first, then check OA status per-DOI.
 
-| Parameter | Description |
-|-----------|-------------|
-| `query` | Search text. Supports quoted phrases, `OR`, `-` negation |
-| `is_oa` | `true` or `false` -- filter by OA status |
-| `page` | Page number (1-indexed), 50 results per page |
+| Parameter | Description                                              |
+| --------- | -------------------------------------------------------- |
+| `query`   | Search text. Supports quoted phrases, `OR`, `-` negation |
+| `is_oa`   | `true` or `false` -- filter by OA status                 |
+| `page`    | Page number (1-indexed), 50 results per page             |
 
 ## Response Format
 
 ### DOI Lookup response
+
 ```json
 {
   "doi": "10.1038/nature12373",
@@ -92,27 +94,30 @@ GET /v2/search?query={text}&email=you@example.com
 ```
 
 ### OA Status values
-| Status | Meaning |
-|--------|---------|
-| `gold` | Published in a fully OA journal |
-| `hybrid` | OA in a subscription journal (publisher-hosted) |
-| `bronze` | Free to read on publisher site but no OA license |
-| `green` | Available via a repository (e.g., institutional, preprint) |
-| `closed` | No free legal copy found |
+
+| Status   | Meaning                                                    |
+| -------- | ---------------------------------------------------------- |
+| `gold`   | Published in a fully OA journal                            |
+| `hybrid` | OA in a subscription journal (publisher-hosted)            |
+| `bronze` | Free to read on publisher site but no OA license           |
+| `green`  | Available via a repository (e.g., institutional, preprint) |
+| `closed` | No free legal copy found                                   |
 
 ### OA Location fields
-| Field | Description |
-|-------|-------------|
-| `url` | Best URL (PDF if available, else landing page) |
-| `url_for_pdf` | Direct PDF URL (null if no PDF) |
-| `url_for_landing_page` | Landing page URL |
-| `host_type` | `publisher` or `repository` |
-| `version` | `submittedVersion`, `acceptedVersion`, `publishedVersion` |
-| `license` | e.g., `cc-by`, `cc-by-nc`, `implied-oa`, or null |
-| `is_best` | Whether this is the `best_oa_location` |
-| `oa_date` | When first available at this location |
+
+| Field                  | Description                                               |
+| ---------------------- | --------------------------------------------------------- |
+| `url`                  | Best URL (PDF if available, else landing page)            |
+| `url_for_pdf`          | Direct PDF URL (null if no PDF)                           |
+| `url_for_landing_page` | Landing page URL                                          |
+| `host_type`            | `publisher` or `repository`                               |
+| `version`              | `submittedVersion`, `acceptedVersion`, `publishedVersion` |
+| `license`              | e.g., `cc-by`, `cc-by-nc`, `implied-oa`, or null          |
+| `is_best`              | Whether this is the `best_oa_location`                    |
+| `oa_date`              | When first available at this location                     |
 
 ### Search response
+
 ```json
 {
   "results": [

@@ -46,18 +46,22 @@ core/tests/
 
 `checks.py` holds the four citation checkers in one file: they share the outcome dataclass, the bibliography walk, and the inbox/event plumbing — splitting them would scatter one responsibility (citation verification) across four files.
 
----
+______________________________________________________________________
 
 ### Task 1: Claim parser + populated fixture vault
 
 **Files:**
+
 - Create: `core/harness_core/claims.py`
 - Modify: `core/tests/conftest.py` (add `fixture_vault`)
 - Test: `core/tests/test_claims.py`
 
 **Interfaces:**
+
 - Consumes: `harness_core.notes` constants (`MANAGED_OPEN`, `MANAGED_CLOSE`).
+
 - Produces:
+
   - `@dataclass Claim`: `tag: str` (`quote|paraphrase|inference|open-question`), `citekey: str | None`, `locator: str | None`, `claim_id: str | None`, `line_no: int`, `quote_text: str | None` (joined blockquote lines), `fields: dict[str, str]` (inline `[k:: v]` fields — `confidence`, `status`, `retraction-ack`, `verify-failed`, `supported-by`, `contested-by`, …), `in_managed: bool`.
   - `parse_claims(text: str) -> list[Claim]` — scans any note body; a claim line is `- (<tag>) …` optionally carrying `[@citekey]` or `[@citekey, <locator>]` and `^<id>`; subsequent `  > …` lines aggregate into `quote_text`; inline fields parse from `[key:: value]` (value may contain spaces; fields never nest).
   - `claim_address(citekey: str, claim_id: str) -> str` — `f"{citekey}#^{claim_id}"`.
@@ -125,11 +129,13 @@ def test_fixture_vault_parses(fixture_vault):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run (first step in a fresh worktree — bootstrap the venv):
+
 ```bash
 cd core && python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]" -q
 python -m pytest tests/test_claims.py -v
 ```
+
 Expected: FAIL — `No module named 'harness_core.claims'`
 
 - [ ] **Step 3: Implement `claims.py` and the fixture**
@@ -298,17 +304,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: claim parser + populated fixture vault"
 ```
 
----
+______________________________________________________________________
 
 ### Task 2: Review inbox
 
 **Files:**
+
 - Create: `core/harness_core/inbox.py`
 - Test: `core/tests/test_inbox.py`
 
 **Interfaces:**
+
 - Consumes: `frontmatter`-style inline-field syntax conventions (§3); nothing from Plan B yet.
+
 - Produces:
+
   - `INBOX_PATH = "+/review-queue.md"`.
   - `@dataclass Entry`: `id, check, target, result, date, actor, reason, ack_of: str | None, target_hash: str | None`.
   - `append_entry(vault, check, target, result: Result, reason: str, actor: str = AGENT_ACTOR, date: str | None = None, target_hash: str | None = None, notice_date: str | None = None, detection_date: str | None = None) -> Entry` — id = `f"{check}/{target}/{date}"`; serializes one line per §3; the two optional dates serialize as `[notice-date:: …]` / `[detection-date:: …]` — the §6 bi-temporal record for update-notice entries. Implement exactly like `target_hash`: two more optional dataclass fields, serializer entries, parser keys.
@@ -498,17 +508,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: review inbox — entries, human acks, standing scope, summary"
 ```
 
----
+______________________________________________________________________
 
 ### Task 3: Verified events + trust tier
 
 **Files:**
+
 - Create: `core/harness_core/events.py`
 - Test: `core/tests/test_events.py`
 
 **Interfaces:**
+
 - Consumes: `frontmatter.parse/serialize`; `claims.parse_claims`; `Result`; `AGENT_ACTOR`.
+
 - Produces:
+
   - `record_pass(note_text: str, check: str, result: Result, by: str = AGENT_ACTOR, at: str | None = None) -> str` — appends `{by, at, check}` to the frontmatter `verified` list and returns new note text; **raises `ValueError` unless `result is Result.MATCHED`** (§5: only MATCHED mints events). `check` strings: `"doi"`, `"metadata"`, `"update-notice"`, `"quote:<claim_address>:<managed-region|source-text>"`.
   - `verified_checks(note_text: str) -> list[dict]`.
   - `trust_tier(note_text: str) -> str` — compute the machine-confirmed predicate first: events cover every **applicable** note-level check (applicable = `doi`/`metadata`/`update-notice` only when frontmatter carries a `doi` — a DOI-less web source has none applicable, per §5 "all applicable") AND every managed quote claim has a `quote:<its address>:` event. `"human-reviewed"` = the predicate AND a `human:` event (tiers are cumulative — a human event without machine coverage is NOT human-reviewed); `"machine-confirmed"` = the predicate alone; else `"unverified"`.
@@ -631,17 +645,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: verified events (MATCHED-only) + trust-tier derivation"
 ```
 
----
+______________________________________________________________________
 
 ### Task 4: Polite four-state HTTP layer
 
 **Files:**
+
 - Create: `core/harness_core/webapi.py`
 - Test: `core/tests/test_webapi.py`
 
 **Interfaces:**
+
 - Consumes: `paths.load_machine_config`; `Result`.
+
 - Produces:
+
   - `class ApiError(Exception)` with `.result = Result.UNREACHABLE`.
   - `mailto(vault_root) -> str` — machine.json `mailto` key, else env `HARNESS_MAILTO`, else raise `ApiError` (polite pools are not optional, §6).
   - `get_json(url: str, vault_root, params: dict | None = None, headers: dict | None = None, timeout: float = 10.0) -> tuple[int, object]` — GET with `mailto` merged into query params and a UA `harness_core/<version> (mailto:<addr>)`; returns `(status, decoded_json)`; network failure or undecodable body raises `ApiError` (UNREACHABLE — malformed JSON is an outage, never a verdict). 404 returns `(404, None)`.
@@ -787,17 +805,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: polite four-state HTTP layer (mailto mandatory, outage never a verdict)"
 ```
 
----
+______________________________________________________________________
 
 ### Task 5: Citekey check
 
 **Files:**
+
 - Create: `core/harness_core/checks.py`
 - Test: `core/tests/test_checks.py`
 
 **Interfaces:**
+
 - Consumes: `bibliography.load`, `claims.parse_claims`, `Result`.
+
 - Produces:
+
   - `@dataclass Outcome`: `check: str`, `target: str`, `result: Result`, `reason: str` (opens with a reason code), `extra: dict` (bi-temporal dates, matched metadata, …).
   - `check_citekeys(vault_root, note_path: Path) -> list[Outcome]` — one Outcome per cited citekey in the note: MATCHED when in the bibliography universe; UNMATCHED (`reason "mismatch — citekey not in bibliography"`) otherwise; SKIPPED for a note with no citations (single Outcome, target = note path).
 
@@ -877,17 +899,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: citekey check with four-state outcomes"
 ```
 
----
+______________________________________________________________________
 
 ### Task 6: DOI existence + registry routing
 
 **Files:**
+
 - Modify: `core/harness_core/checks.py`
 - Test: `core/tests/test_checks.py` (append)
 
 **Interfaces:**
+
 - Consumes: `webapi.get_json`, `webapi.ApiError`.
+
 - Produces:
+
   - `check_doi_exists(vault_root, doi: str) -> Outcome` — `GET https://doi.org/api/handles/{doi}`: `responseCode == 1` ⇒ MATCHED; `responseCode == 100` or HTTP 404 ⇒ UNMATCHED (`"mismatch — DOI does not resolve"`); ApiError ⇒ UNREACHABLE (`"outage — …"`).
   - `registry_agency(vault_root, doi: str) -> str | None` — `GET https://doi.org/doiRA/{doi}` ⇒ `"Crossref" | "DataCite" | …`; None on UNREACHABLE.
   - Both accept notes without a `doi`: callers pass only real DOIs; SKIPPED handling stays in the orchestrator (Task 13).
@@ -998,17 +1024,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: DOI existence check + registry-agency routing"
 ```
 
----
+______________________________________________________________________
 
 ### Task 7: Metadata match
 
 **Files:**
+
 - Modify: `core/harness_core/checks.py`
 - Test: `core/tests/test_checks.py` (append)
 
 **Interfaces:**
+
 - Consumes: `webapi`, `registry_agency` (Task 6), `bibliography.load`.
+
 - Produces:
+
   - `normalize_text(s: str) -> str` — NFKC, casefold, collapse whitespace, strip soft hyphens (`­`) and join hyphen-linebreaks — **the one normalization pipeline**, exported for reuse by quotes (Task 10) per §6 ("same normalization pipeline as quotes").
   - `check_metadata(vault_root, entry: dict) -> Outcome` — `entry` is a CSL item from the bibliography. No DOI ⇒ SKIPPED. Crossref-registered ⇒ `GET api.crossref.org/works/{doi}`; other registries ⇒ DOI content negotiation (`https://doi.org/{doi}`, `Accept: application/vnd.citationstyles.csl+json`). Compare: normalized titles equal; author family names as an ordered list equal after normalization, given names matching on first initial when both present (§6 author rule); year equal when both sides carry one. All agree ⇒ MATCHED; any divergence ⇒ UNMATCHED with `"mismatch — <field>"` (**no closure** — orchestrator routes to inbox only, §6); UNREACHABLE on ApiError.
 
@@ -1173,17 +1203,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: metadata match with registry routing + author rule"
 ```
 
----
+______________________________________________________________________
 
 ### Task 8: Update-notice check (full taxonomy, bi-temporal, RW CSV)
 
 **Files:**
+
 - Modify: `core/harness_core/checks.py`
 - Test: `core/tests/test_checks.py` (append)
 
 **Interfaces:**
+
 - Consumes: `webapi`, `registry_agency`.
+
 - Produces:
+
   - `BLOCKING_TYPES = {"retraction", "partial_retraction", "removal", "withdrawal"}`; `WARN_TYPES = {"expression_of_concern", "correction", "corrigendum", "erratum"}`.
   - `check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome` — Crossref-registered: read `updated-by[]` from `api.crossref.org/works/{doi}`; normalize `type` (lowercase, spaces→underscores). Any blocking-type ⇒ UNMATCHED, reason `"retracted — <type>"`, `extra = {"notice_date": "YYYY-MM-DD", "detection_date": …, "class": "blocking", "type": …}` (bi-temporal, §6); a later `reinstatement` clears earlier blocking notices; warn-types only ⇒ MATCHED with `extra["warn_notices"] = [{type, notice_date}]` (orchestrator files them to the inbox — warn, never closure); none ⇒ MATCHED. Non-Crossref: OpenAlex `GET api.openalex.org/works/https://doi.org/{doi}` with `select=is_retracted` — `is_retracted` ⇒ UNMATCHED (notice date unknown ⇒ `notice_date: null`); else MATCHED. No DOI **and** no PMID ⇒ SKIPPED.
   - `load_rw_csv(path: Path) -> dict` — parses a Retraction Watch CSV (columns incl. `OriginalPaperDOI`, `OriginalPaperPubMedID`, `RetractionDate`, `RetractionNature`) into `{"doi": {...}, "pmid": {...}}` lookup maps.
@@ -1398,16 +1432,19 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: update-notice check — full taxonomy, bi-temporal, RW CSV batch, registry routing"
 ```
 
----
+______________________________________________________________________
 
 ### Task 9: Identifier discovery
 
 **Files:**
+
 - Create: `core/harness_core/identify.py`
 - Test: `core/tests/test_identify.py`
 
 **Interfaces:**
+
 - Consumes: `webapi`, `checks.normalize_text`.
+
 - Produces: `discover(vault_root, entry: dict) -> dict` — for an item lacking a DOI: Crossref bibliographic query (`api.crossref.org/works`, `query.bibliographic=<title> <first-author-family> <year>`, `rows=2`); accept the top hit only when its normalized title equals ours (§6: discovery before SKIPPED sticks, no fuzzy adoption); then PubMed `esearch` (`eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi`, `db=pubmed&term=<title>[Title]&retmode=json`) accepting a single-hit id. Returns any of `{"DOI": …, "PMID": …}` found; `{}` when nothing conclusive; raises nothing (ApiError ⇒ `{}` — discovery is best-effort, the SKIPPED record notes it).
 
 - [ ] **Step 1: Write the failing test**
@@ -1531,17 +1568,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: identifier discovery (Crossref bibliographic + PubMed) before SKIPPED"
 ```
 
----
+______________________________________________________________________
 
 ### Task 10: Quote verification
 
 **Files:**
+
 - Create: `core/harness_core/quotes.py`
 - Test: `core/tests/test_quotes.py`
 
 **Interfaces:**
+
 - Consumes: `checks.normalize_text` (the one pipeline), `claims.parse_claims`, `notes.note_path`, `checks.Outcome`.
+
 - Produces:
+
   - `levenshtein_ratio(a: str, b: str) -> float` — `1 - distance/max(len)`; classic DP, stdlib only.
   - `check_quote(vault_root, claim: Claim, source_citekey: str) -> Outcome` — comparison target: the cited literature note's **managed-region quote with the same claim address**, else *any* managed-region quote in that note. Normalized-exact ⇒ MATCHED, `extra = {"target": "managed-region"}`. Best fuzzy ≥ 0.90 ⇒ UNMATCHED with reason `"fuzzy-quote — best ratio <r>"` (inbox, never a silent pass). Below ⇒ UNMATCHED, `"mismatch — quote absent from source note"`. No managed-region quotes at all ⇒ UNREACHABLE (`"outage — no extractable comparison text"` — §6's Marshall-sparsity path; human attestation goes through the inbox ack).
   - `check_all_quotes(vault_root, note_path: Path) -> list[Outcome]` — every quote claim in the note that cites a citekey.
@@ -1677,17 +1718,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: quote verification — normalize-then-exact, fuzzy to inbox, sparsity path"
 ```
 
----
+______________________________________________________________________
 
 ### Task 11: The six integrity lints
 
 **Files:**
+
 - Create: `core/harness_core/lints.py`
 - Test: `core/tests/test_lints.py`
 
 **Interfaces:**
+
 - Consumes: `claims`, `frontmatter`, `inbox.INBOX_PATH`, `checks.Outcome`, `Result`; `git` via subprocess.
+
 - Produces (each returns `list[Outcome]`, all warn-tier — reasons open with their code; empty list = clean):
+
   - `lint_append_only(vault_root)` — `git diff HEAD --unified=0 -- calendar/ +/review-queue.md`: any deleted (`-`) content line ⇒ Outcome per file (`"drift — append-only file rewrote history"`).
   - `lint_claim_immutability(vault_root)` — for `literatures/ atlas/ efforts/`: every `^c-…` anchor present in `git show HEAD:<file>` must still exist in the worktree file with an identical claim line, unless the worktree line carries `[status:: deprecated]` (§5 transition record) — else `"drift — claim <address> mutated or vanished without deprecation"`.
   - `lint_published_drift(vault_root)` — for each git tag `published/*`: `git diff <tag> HEAD -- <effort dir>` non-empty while the effort's `status` is still `"published"` ⇒ `"drift — published effort diverged from its tag"`.
@@ -1978,19 +2023,23 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: six integrity lints — append-only, claim-immutability, published-drift, source-status, contested, web-archive"
 ```
 
----
+______________________________________________________________________
 
 ### Task 12: Selector production + backfill (Plan A obligation)
 
 **Files:**
+
 - Create: `core/harness_core/selectors.py`
 - Modify: `core/pyproject.toml` (add `[project.optional-dependencies] pdf = ["pypdf>=4"]`)
 - Modify: `core/harness_core/__main__.py` (attach contexts during `import-note` when the extra is present)
 - Test: `core/tests/test_selectors.py`
 
 **Interfaces:**
+
 - Consumes: `checks.normalize_text`; Plan A's selector **escaping** in `notes.py` — locate it first (`grep -n "hk-sel" core/harness_core/notes.py` and read the helper it calls); this task's `unescape_selector` must invert it exactly (Task 6/7 ruling: symmetric).
+
 - Produces:
+
   - `pdf_text(path) -> str | None` — pypdf extraction, `None` when pypdf missing or extraction fails (never raises; the caller records the degradation).
   - `find_context(text: str, quote: str) -> tuple[str, str] | None` — locate the normalized quote inside normalized full text (build a char-map so raw offsets survive normalization), return raw `(prefix[-32:], suffix[:32])`; `None` when the quote isn't present verbatim-after-normalization.
   - `attach_contexts(annotations: list[dict], text: str) -> int` — sets `context_prefix`/`context_suffix` on each normalized annotation whose `annotationText` locates; returns count.
@@ -2192,17 +2241,21 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: selector production + backfill — Plan A deviation closed, symmetric unescape"
 ```
 
----
+______________________________________________________________________
 
 ### Task 13: `verify` + `inbox` CLI verbs, live drills
 
 **Files:**
+
 - Modify: `core/harness_core/__main__.py`
 - Test: `core/tests/test_verify_cli.py`
 
 **Interfaces:**
+
 - Consumes: everything above.
+
 - Produces:
+
   - `run_verify(vault_root, scope: str = "all", network: bool = True, detection_date: str | None = None, rw_csv: str | None = None) -> dict` — orchestrates: bibliography staleness; per-note citekey/quote checks + source-status/contested lints (offline); per-bibliography-entry DOI, metadata, update-notice checks (network; when `network=False` these record **UNREACHABLE** `"outage — network disabled"` — never SKIPPED, which is automatic-only per §6); identifier discovery for DOI-less entries — after discovery, **re-derive** `doi = entry.get("DOI")`: still absent ⇒ SKIPPED doi/metadata outcomes, but `check_update_notice` STILL runs (PMID-bearing entries are never structurally exempt, §6); `rw_csv` given ⇒ `check_rw_batch` runs across the bibliography (Plan C's cron surface); vault-wide integrity lints incl. a network-mode `archive-url` resolution leg (HEAD via webapi: hard 404 ⇒ warn UNMATCHED, outage ⇒ UNREACHABLE). Effects per §5/§6: MATCHED note-level outcomes mint events (**including MATCHED-with-warns** — the inbox entry is the warn signal, the event is not withheld); **MATCHED quote outcomes mint `quote:<claim_address>:<target>` events on the cited literature note** — machine-confirmed must be reachable through this verb; UNMATCHED claim-level outcomes **stamp `[verify-failed:: <check>/<date>]` on the failing claim line** in the checked note (cleared on a later MATCHED or matching human ack — §5 relay principle for failures); every non-MATCHED outcome and every warn notice files one inbox entry with `target_hash` (the cited note's first attachment hash, else the file's sha256) and, for update-notice entries, `notice_date` + `detection_date` (bi-temporal, §6) — **deduplicated** on `(check, target, result-or-warn-type, target_hash)` against open entries, so re-runs don't flood but a post-ack recurrence with changed content re-enters. Returns `{"outcomes": [...], "counts": {...}}`.
   - CLI `verify --vault <path> [--offline] [--rw-csv <path>]` — prints one line per non-MATCHED outcome + JSON per-check counts. Exit contract (Global Constraints): 1 only when a **closing-class** check (`CLOSING_CHECKS`) is UNMATCHED; 3 when UNREACHABLE anywhere and no closing UNMATCHED; else 0 (warn-tier findings print and file but do not change the exit). `inbox --vault <path>` — `summary()` + unacknowledged entries oldest-first.
 
@@ -2592,24 +2645,31 @@ cd "$(git rev-parse --show-toplevel)"
 git add core && git commit -m "feat: verify + inbox CLI verbs — orchestration, events, dedup, exit codes"
 ```
 
----
+______________________________________________________________________
 
 ### Task 14: Merge
 
 - [ ] **Step 1: Full suite green** — `cd core && source .venv/bin/activate && HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real email> python -m pytest tests -q`
 - [ ] **Step 2: Merge** — use `superpowers:finishing-a-development-branch` to integrate `build/plan-b` and clean the worktree.
 
----
+______________________________________________________________________
 
 ## Pre-flight rulings (execution-time, all granted: the contract governs)
 
 1. **Inbox**: notice-date/detection-date implemented as fields; controlled reason prefixes VALIDATED at append (findings, acks, deprecations); example strings corrected to open with vocabulary codes (`manual — …`, `superseded-source — …`).
+
 2. **HTTP boundary**: `get_json` returns the real response status; a status-only helper serves HTML archive-URL resolution; JSON shapes validated; **registry-routing failure = UNREACHABLE, never a non-Crossref match**; discovery distinguishes no-hit from provider outage (outage must not let SKIPPED stick).
+
 3. **Normalization**: shared quote pipeline case-sensitive; metadata/discovery casefold locally; selector offset mapping reproduces whole-string NFKC incl. composed/decomposed sequences.
+
 4. **Coverage**: citations scanned throughout a note, not only claim lines; quote comparison prefers the same-address source quote, falls back only when absent; SKIPPED when a note has no quote claims.
+
 5. **Update notices**: reinstatement computed chronologically, independent of API ordering; live + RW legs combine into ONE effective outcome (blocking precedence); trust-tier requires update-notice coverage when the note has a DOI **or** PMID.
+
 6. **Integrity lints**: HEAD files enumerated so whole-file deletion is detected; deterministic `[verify-failed:: …]` add/remove transitions are permitted mutations in the immutability comparison (the stamp and the lint must not trip each other).
+
 7. **Targets/acks/markers**: note-level targets standardized on citekeys (DOI in `extra`); file targets never reach `note_path`; outcomes carry enough claim identity to mutate only the correct line; hash-aware acks clear the matching marker, hide the finding from inbox/summary, bypass closure, and retain the raw outcome for audit.
+
 8. **Warn dedup**: warn type persisted/reconstructed from entries so re-runs never re-append.
 
 9. **No-attachment ack hashes**: hash canonical note content excluding ONLY verifier-owned surfaces — the frontmatter `verified` list and inline `[verify-failed:: …]` fields, enumerated and frozen in a single `canonical_content(note_text) -> str` both the ack-hash and future changed-content logic use. Deprecation transition records are NOT excluded (substantive — should invalidate acks). Verification cannot invalidate itself; whole-file SHA rejected as a self-invalidation loop. CLI reuses the same pre-effect decision state.
@@ -2637,8 +2697,7 @@ Clerical (no ruling): ruff-driven test rewrites, exact Plan A marker matching, c
 ## Supersessions (2026-08-21)
 
 1. **`run_verify` superseded — the public seam is the verification transaction
-   itself.** The `run_verify(vault_root, scope="all", network=True,
-   detection_date=None, rw_csv=None)` signature above is description, not
+   itself.** The `run_verify(vault_root, scope="all", network=True, detection_date=None, rw_csv=None)` signature above is description, not
    contract: it carried no ruling marker, and by 2026-08-21 the function had no
    caller outside the test suite, which used it as a report-projecting wrapper.
    It is removed; its tests call `_verify_state` and project the report locally.

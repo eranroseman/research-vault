@@ -33,17 +33,19 @@ Same parameters as PubMed eSearch. Returns PMC UIDs (numeric, e.g., `13033346`).
 GET /efetch.fcgi?db=pmc&id={pmcid}&retmode=xml
 ```
 
-| rettype | retmode | Returns |
-|---------|---------|---------|
-| *(omit)* | `xml` | JATS XML -- full text **only for open-access articles**; metadata only otherwise, with no error. See the hazard below before using this. |
-| `medline` | `text` | MEDLINE format |
+| rettype   | retmode | Returns                                                                                                                                  |
+| --------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| *(omit)*  | `xml`   | JATS XML -- full text **only for open-access articles**; metadata only otherwise, with no error. See the hazard below before using this. |
+| `medline` | `text`  | MEDLINE format                                                                                                                           |
 
 **Example:**
+
 ```
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pmc&id=7029759&retmode=xml
 ```
 
 The XML uses JATS (Journal Article Tag Suite) format:
+
 - `<front>` -- journal metadata, article metadata, author info
 - `<body>` -- full article text with `<sec>` sections, `<p>` paragraphs, `<fig>` figures
 - `<back>` -- `<ref-list>` with all references
@@ -107,19 +109,19 @@ Returns XML (no JSON option). Verified 2026-07-27:
 
 Distinguish the two failure codes -- they mean different things and both arrive with **HTTP 200**:
 
-| Response | Meaning |
-|---|---|
-| `<records>` with a `<record>` and `<link>` | In the OA Subset; full text is retrievable |
-| `<error code="idIsNotOpenAccess">` | The article exists but is **not** in the OA Subset -- eFetch will return metadata only. This is the case to route to Europe PMC or Unpaywall. |
-| `<error code="idDoesNotExist">` | No such PMCID. A bad identifier, not a coverage gap -- re-check the format or convert via the ID Converter. |
+| Response                                   | Meaning                                                                                                                                       |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<records>` with a `<record>` and `<link>` | In the OA Subset; full text is retrievable                                                                                                    |
+| `<error code="idIsNotOpenAccess">`         | The article exists but is **not** in the OA Subset -- eFetch will return metadata only. This is the case to route to Europe PMC or Unpaywall. |
+| `<error code="idDoesNotExist">`            | No such PMCID. A bad identifier, not a coverage gap -- re-check the format or convert via the ID Converter.                                   |
 
 Per-record attributes worth reading:
 
-| Attribute | Why it matters |
-|---|---|
-| `license` | The actual reuse terms (`CC BY`, `CC BY-NC`, ...). Report these when you quote or redistribute text. |
+| Attribute   | Why it matters                                                                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `license`   | The actual reuse terms (`CC BY`, `CC BY-NC`, ...). Report these when you quote or redistribute text.                                            |
 | `retracted` | `"no"` or `"yes"`. Summarizing a retracted paper as current evidence is a correctness failure, not a formatting one -- check it before quoting. |
-| `citation` | Human-readable citation string, handy for provenance. |
+| `citation`  | Human-readable citation string, handy for provenance.                                                                                           |
 
 `format` values are `tgz` (article XML plus figures) and sometimes `pdf`. **The `href` is an FTP URL,
 and swapping the scheme to HTTPS does not work** -- `https://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_package/...`
@@ -142,18 +144,20 @@ https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi/
 GET /BioC_{format}/{id}/{encoding}
 ```
 
-| Parameter | Values |
-|-----------|--------|
-| `format` | `json` or `xml` |
-| `id` | PMID (e.g., `17299597`) or PMCID (e.g., `PMC7029759`) |
-| `encoding` | `unicode` or `ascii` |
+| Parameter  | Values                                                |
+| ---------- | ----------------------------------------------------- |
+| `format`   | `json` or `xml`                                       |
+| `id`       | PMID (e.g., `17299597`) or PMCID (e.g., `PMC7029759`) |
+| `encoding` | `unicode` or `ascii`                                  |
 
 **Example:**
+
 ```
 https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi/BioC_json/PMC7029759/unicode
 ```
 
 **Response structure (JSON):**
+
 ```json
 {
   "source": "PMC",
@@ -197,20 +201,22 @@ https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/
 
 ### Parameters
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `ids` | Yes | Up to 200 comma-separated IDs |
-| `idtype` | No | `pmcid`, `pmid`, `mid`, `doi` (default: auto-detect) |
-| `format` | No | `json`, `xml`, `csv` (default: xml) |
-| `tool` | Recommended | Your application name |
-| `email` | Recommended | Your contact email |
+| Parameter | Required    | Description                                          |
+| --------- | ----------- | ---------------------------------------------------- |
+| `ids`     | Yes         | Up to 200 comma-separated IDs                        |
+| `idtype`  | No          | `pmcid`, `pmid`, `mid`, `doi` (default: auto-detect) |
+| `format`  | No          | `json`, `xml`, `csv` (default: xml)                  |
+| `tool`    | Recommended | Your application name                                |
+| `email`   | Recommended | Your contact email                                   |
 
 **Example:**
+
 ```
 https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/?ids=PMC7029759&format=json
 ```
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -226,10 +232,10 @@ Only returns results for articles that are in PMC. If an article is in PubMed bu
 
 ## Rate Limits
 
-| Service | Limit |
-|---------|-------|
-| E-utilities (`db=pmc`) | 3/sec without key, 10/sec with key |
-| BioC API | Follow general NCBI policy (3/sec without key) |
-| ID Converter | Follow general NCBI policy |
+| Service                | Limit                                          |
+| ---------------------- | ---------------------------------------------- |
+| E-utilities (`db=pmc`) | 3/sec without key, 10/sec with key             |
+| BioC API               | Follow general NCBI policy (3/sec without key) |
+| ID Converter           | Follow general NCBI policy                     |
 
 Include `tool` and `email` parameters on E-utility requests. Large batch jobs should run outside peak hours (Mon-Fri 5AM-9PM ET).

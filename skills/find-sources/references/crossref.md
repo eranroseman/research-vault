@@ -21,9 +21,9 @@ None required. Add `mailto=you@example.com` to get into the **polite pool** (2x 
 
 ## Rate Limits
 
-| Pool | Rate | Concurrency |
-|------|------|-------------|
-| Public (no mailto) | 5 req/sec | 1 concurrent |
+| Pool                 | Rate       | Concurrency  |
+| -------------------- | ---------- | ------------ |
+| Public (no mailto)   | 5 req/sec  | 1 concurrent |
 | Polite (with mailto) | 10 req/sec | 3 concurrent |
 
 HTTP 429 = temporarily blocked.
@@ -36,24 +36,25 @@ HTTP 429 = temporarily blocked.
 GET /works?query={text}&rows={n}&mailto=you@example.com
 ```
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `query` | -- | Free-text search across all fields |
-| `query.author` | -- | Search author names |
-| `query.bibliographic` | -- | Search titles, authors, ISSNs, years |
-| `query.affiliation` | -- | Search affiliations |
-| `query.container-title` | -- | Search journal names |
-| `filter` | -- | Comma-separated `name:value` pairs |
-| `sort` | `score` | `score`, `published`, `issued`, `deposited`, `updated`, `is-referenced-by-count`, `references-count` |
-| `order` | `desc` | `asc` or `desc` |
-| `rows` | 20 | Results per page (max 1000) |
-| `offset` | 0 | Skip N results (max 10,000) |
-| `cursor` | -- | Use `*` for cursor-based deep pagination |
-| `select` | -- | Comma-separated field names to return |
-| `facet` | -- | Facet counts, e.g. `type-name:10` |
-| `sample` | -- | Return N random items (max 100) |
+| Parameter               | Default | Description                                                                                          |
+| ----------------------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| `query`                 | --      | Free-text search across all fields                                                                   |
+| `query.author`          | --      | Search author names                                                                                  |
+| `query.bibliographic`   | --      | Search titles, authors, ISSNs, years                                                                 |
+| `query.affiliation`     | --      | Search affiliations                                                                                  |
+| `query.container-title` | --      | Search journal names                                                                                 |
+| `filter`                | --      | Comma-separated `name:value` pairs                                                                   |
+| `sort`                  | `score` | `score`, `published`, `issued`, `deposited`, `updated`, `is-referenced-by-count`, `references-count` |
+| `order`                 | `desc`  | `asc` or `desc`                                                                                      |
+| `rows`                  | 20      | Results per page (max 1000)                                                                          |
+| `offset`                | 0       | Skip N results (max 10,000)                                                                          |
+| `cursor`                | --      | Use `*` for cursor-based deep pagination                                                             |
+| `select`                | --      | Comma-separated field names to return                                                                |
+| `facet`                 | --      | Facet counts, e.g. `type-name:10`                                                                    |
+| `sample`                | --      | Return N random items (max 100)                                                                      |
 
 **Example:**
+
 ```
 https://api.crossref.org/works?query=CRISPR+gene+therapy&filter=from-pub-date:2024-01-01,type:journal-article,has-abstract:true&rows=5&sort=published&order=desc&mailto=you@example.com
 ```
@@ -67,6 +68,7 @@ GET /works/{doi}?mailto=you@example.com
 URL-encode the DOI: `10.1038/nature12373` becomes `10.1038%2Fnature12373`
 
 **Example:**
+
 ```
 https://api.crossref.org/works/10.1038%2Fnature12373?mailto=you@example.com
 ```
@@ -99,46 +101,51 @@ GET /members/{id}/works?rows={n}
 ## Key Filters
 
 ### Date filters (accept `YYYY`, `YYYY-MM`, `YYYY-MM-DD`)
-| Filter | Description |
-|--------|-------------|
-| `from-pub-date` / `until-pub-date` | Publication date |
-| `from-print-pub-date` / `until-print-pub-date` | Print publication date |
+
+| Filter                                           | Description             |
+| ------------------------------------------------ | ----------------------- |
+| `from-pub-date` / `until-pub-date`               | Publication date        |
+| `from-print-pub-date` / `until-print-pub-date`   | Print publication date  |
 | `from-online-pub-date` / `until-online-pub-date` | Online publication date |
-| `from-posted-date` / `until-posted-date` | Posted date (preprints) |
+| `from-posted-date` / `until-posted-date`         | Posted date (preprints) |
 
 ### Boolean filters
-| Filter | Description |
-|--------|-------------|
-| `has-abstract` | Has an abstract |
-| `has-orcid` | Has ORCID IDs |
-| `has-funder` | Has funder info |
-| `has-full-text` | Has full-text links |
-| `has-references` | Has reference list |
-| `has-license` | Has license info |
+
+| Filter           | Description         |
+| ---------------- | ------------------- |
+| `has-abstract`   | Has an abstract     |
+| `has-orcid`      | Has ORCID IDs       |
+| `has-funder`     | Has funder info     |
+| `has-full-text`  | Has full-text links |
+| `has-references` | Has reference list  |
+| `has-license`    | Has license info    |
 
 ### Value filters
-| Filter | Description |
-|--------|-------------|
-| `type` | `journal-article`, `posted-content`, `book-chapter`, `proceedings-article`, etc. |
-| `issn` | Journal ISSN |
-| `doi` | Specific DOI |
-| `orcid` | Contributor ORCID |
-| `funder` | Funder Registry ID |
-| `member` | Crossref member ID |
-| `prefix` | DOI prefix |
-| `license.url` | License URL |
-| `update-type` | `correction`, `retraction` |
+
+| Filter        | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `type`        | `journal-article`, `posted-content`, `book-chapter`, `proceedings-article`, etc. |
+| `issn`        | Journal ISSN                                                                     |
+| `doi`         | Specific DOI                                                                     |
+| `orcid`       | Contributor ORCID                                                                |
+| `funder`      | Funder Registry ID                                                               |
+| `member`      | Crossref member ID                                                               |
+| `prefix`      | DOI prefix                                                                       |
+| `license.url` | License URL                                                                      |
+| `update-type` | `correction`, `retraction`                                                       |
 
 **Syntax:** `filter=name1:value1,name2:value2`
 
 ## Pagination
 
 ### Offset-based (max 10,000)
+
 ```
 /works?query=cancer&rows=100&offset=200
 ```
 
 ### Cursor-based (unlimited)
+
 1. First request: `?cursor=*&rows=100`
 2. Response includes `next-cursor`
 3. Next request: `?cursor={next-cursor-value}&rows=100`
@@ -147,6 +154,7 @@ GET /members/{id}/works?rows={n}
 ## Response Format
 
 ### List response
+
 ```json
 {
   "status": "ok",
@@ -161,6 +169,7 @@ GET /members/{id}/works?rows={n}
 ```
 
 ### Work object (key fields)
+
 ```json
 {
   "DOI": "10.1038/nature12373",

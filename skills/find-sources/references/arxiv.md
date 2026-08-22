@@ -27,29 +27,29 @@ None required. Fully public.
 GET https://export.arxiv.org/api/query?search_query={query}&start={n}&max_results={n}
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `search_query` | Yes* | -- | Search using field prefixes + boolean operators |
-| `id_list` | Yes* | -- | Comma-separated arXiv IDs (e.g., `2103.15348,2005.14165`) |
-| `start` | No | 0 | Pagination offset (0-based) |
-| `max_results` | No | 10 | Results per request (max 2000; absolute max 30000) |
-| `sortBy` | No | `relevance` | `relevance`, `lastUpdatedDate`, `submittedDate` |
-| `sortOrder` | No | `descending` | `ascending` or `descending` |
+| Parameter      | Required | Default      | Description                                               |
+| -------------- | -------- | ------------ | --------------------------------------------------------- |
+| `search_query` | Yes\*    | --           | Search using field prefixes + boolean operators           |
+| `id_list`      | Yes\*    | --           | Comma-separated arXiv IDs (e.g., `2103.15348,2005.14165`) |
+| `start`        | No       | 0            | Pagination offset (0-based)                               |
+| `max_results`  | No       | 10           | Results per request (max 2000; absolute max 30000)        |
+| `sortBy`       | No       | `relevance`  | `relevance`, `lastUpdatedDate`, `submittedDate`           |
+| `sortOrder`    | No       | `descending` | `ascending` or `descending`                               |
 
-*At least one of `search_query` or `id_list` must be provided. They can be combined (intersection).
+\*At least one of `search_query` or `id_list` must be provided. They can be combined (intersection).
 
 ## Search Field Prefixes
 
-| Prefix | Searches |
-|--------|----------|
-| `ti:` | Title |
-| `au:` | Author |
-| `abs:` | Abstract |
-| `co:` | Comment |
-| `jr:` | Journal reference |
-| `cat:` | Subject category |
-| `rn:` | Report number |
-| `all:` | All fields |
+| Prefix | Searches          |
+| ------ | ----------------- |
+| `ti:`  | Title             |
+| `au:`  | Author            |
+| `abs:` | Abstract          |
+| `co:`  | Comment           |
+| `jr:`  | Journal reference |
+| `cat:` | Subject category  |
+| `rn:`  | Report number     |
+| `all:` | All fields        |
 
 ## Boolean Operators
 
@@ -62,31 +62,37 @@ GET https://export.arxiv.org/api/query?search_query={query}&start={n}&max_result
 ## Example Queries
 
 **Search all fields:**
+
 ```
 https://export.arxiv.org/api/query?search_query=all:transformer+attention&max_results=5
 ```
 
 **Author + category:**
+
 ```
 https://export.arxiv.org/api/query?search_query=au:hinton+AND+cat:cs.LG&max_results=10
 ```
 
 **Title search:**
+
 ```
 https://export.arxiv.org/api/query?search_query=ti:%22attention+is+all+you+need%22
 ```
 
 **By ID:**
+
 ```
 https://export.arxiv.org/api/query?id_list=2103.15348
 ```
 
 **Multiple IDs:**
+
 ```
 https://export.arxiv.org/api/query?id_list=2103.15348,2005.14165,1706.03762
 ```
 
 **Date range** -- the brackets **must** be percent-encoded as `%5B` / `%5D`:
+
 ```
 https://export.arxiv.org/api/query?search_query=cat:cs.AI+AND+submittedDate:%5B202401010000+TO+202412312359%5D
 ```
@@ -138,21 +144,21 @@ UTC and the range is inclusive on both ends.
 
 ### Key XML elements per entry
 
-| Element | Description |
-|---------|-------------|
-| `<id>` | arXiv URL: `http://arxiv.org/abs/{id}` |
-| `<title>` | Paper title |
-| `<summary>` | Abstract |
-| `<published>` | Original submission date (ISO 8601) |
-| `<updated>` | Date of latest version |
-| `<author><name>` | One per author |
-| `<category term="...">` | Subject categories |
-| `<arxiv:primary_category>` | Primary classification |
-| `<link rel="alternate">` | Abstract page URL |
-| `<link rel="related" title="pdf">` | PDF URL |
-| `<arxiv:doi>` | The **journal** DOI, and only when the author registered one -- see below |
-| `<arxiv:comment>` | Author comments |
-| `<arxiv:journal_ref>` | Journal reference, same conditional presence |
+| Element                            | Description                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| `<id>`                             | arXiv URL: `http://arxiv.org/abs/{id}`                                    |
+| `<title>`                          | Paper title                                                               |
+| `<summary>`                        | Abstract                                                                  |
+| `<published>`                      | Original submission date (ISO 8601)                                       |
+| `<updated>`                        | Date of latest version                                                    |
+| `<author><name>`                   | One per author                                                            |
+| `<category term="...">`            | Subject categories                                                        |
+| `<arxiv:primary_category>`         | Primary classification                                                    |
+| `<link rel="alternate">`           | Abstract page URL                                                         |
+| `<link rel="related" title="pdf">` | PDF URL                                                                   |
+| `<arxiv:doi>`                      | The **journal** DOI, and only when the author registered one -- see below |
+| `<arxiv:comment>`                  | Author comments                                                           |
+| `<arxiv:journal_ref>`              | Journal reference, same conditional presence                              |
 
 ### `<arxiv:doi>` is not the arXiv DOI
 
@@ -164,11 +170,11 @@ published or whose author never registered it. Verified 2026-07-27: `id_list=170
 arXiv also mints its own DOI, conventionally `10.48550/arXiv.{id}`, but **the API never returns it**,
 and constructing one is only sometimes a usable key. Verified 2026-07-27 for `1706.03762`:
 
-| Where you send `10.48550/arXiv.1706.03762` | Result |
-|---|---|
-| `doi.org` | **200** -- it resolves |
-| Crossref `/works/10.48550%2FarXiv.1706.03762` | **404** `Resource not found` -- it is a DataCite DOI, not registered with Crossref |
-| OpenAlex `/works/doi:10.48550/arXiv.1706.03762` | **404**, and `filter=doi:...` gives `count: 0` |
+| Where you send `10.48550/arXiv.1706.03762`      | Result                                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `doi.org`                                       | **200** -- it resolves                                                             |
+| Crossref `/works/10.48550%2FarXiv.1706.03762`   | **404** `Resource not found` -- it is a DataCite DOI, not registered with Crossref |
+| OpenAlex `/works/doi:10.48550/arXiv.1706.03762` | **404**, and `filter=doi:...` gives `count: 0`                                     |
 
 The OpenAlex miss is not a case problem -- `doi:10.48550/arxiv.2102.05095` and
 `doi:10.48550/arXiv.2102.05095` both return 200, so the lookup is case-insensitive and *does* work for
@@ -196,10 +202,8 @@ traps below already handled.
 If you do parse it yourself: the namespace is `http://www.w3.org/2005/Atom`, with arXiv extensions in
 `http://arxiv.org/schemas/atom`. Four things bite:
 
-- **The feed has its own `<link>`.** Before the first `<entry>` there is a `<link
-  type="application/atom+xml">` pointing back at the query. Selecting "the first `<link>`" yields the
-  query URL, not a paper. Match on `rel`/`type`: the abstract page is `rel="alternate"
-  type="text/html"`, the PDF is `rel="related" type="application/pdf" title="pdf"`.
+- **The feed has its own `<link>`.** Before the first `<entry>` there is a `<link type="application/atom+xml">` pointing back at the query. Selecting "the first `<link>`" yields the
+  query URL, not a paper. Match on `rel`/`type`: the abstract page is `rel="alternate" type="text/html"`, the PDF is `rel="related" type="application/pdf" title="pdf"`.
 - **The URL schemes are inconsistent within a single response.** Verified 2026-07-27 on
   `id_list=1706.03762`: the entry's `<id>` is `http://arxiv.org/abs/1706.03762v7`, while the
   `<link href>` values for the *same* pages are `https://arxiv.org/abs/...` and
@@ -259,18 +263,18 @@ rewritten prefix surfaces instead of passing silently.
 
 ## Common Categories
 
-| Category | Field |
-|----------|-------|
-| `cs.AI` | Artificial Intelligence |
-| `cs.CL` | Computation and Language (NLP) |
-| `cs.CV` | Computer Vision |
-| `cs.LG` | Machine Learning |
-| `stat.ML` | Machine Learning (Statistics) |
-| `q-bio` | Quantitative Biology |
-| `physics` | Physics (all subcategories) |
-| `math` | Mathematics (all subcategories) |
-| `econ` | Economics |
-| `eess` | Electrical Engineering and Systems Science |
+| Category  | Field                                      |
+| --------- | ------------------------------------------ |
+| `cs.AI`   | Artificial Intelligence                    |
+| `cs.CL`   | Computation and Language (NLP)             |
+| `cs.CV`   | Computer Vision                            |
+| `cs.LG`   | Machine Learning                           |
+| `stat.ML` | Machine Learning (Statistics)              |
+| `q-bio`   | Quantitative Biology                       |
+| `physics` | Physics (all subcategories)                |
+| `math`    | Mathematics (all subcategories)            |
+| `econ`    | Economics                                  |
+| `eess`    | Electrical Engineering and Systems Science |
 
 Full list: https://arxiv.org/category_taxonomy
 

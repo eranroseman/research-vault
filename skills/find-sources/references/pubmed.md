@@ -29,26 +29,28 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
 GET /esearch.fcgi?db=pubmed&term={query}&retmode=json
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `db` | Yes | -- | `pubmed` |
-| `term` | Yes | -- | Search query. Supports PubMed syntax: field tags `[AU]`, `[TI]`, `[TA]`, `[MH]` (MeSH), boolean AND/OR/NOT |
-| `retmax` | No | 20 | Max PMIDs returned (max 10,000) |
-| `retstart` | No | 0 | Pagination offset |
-| `retmode` | No | `xml` | `json` or `xml` |
-| `rettype` | No | `uilist` | `uilist` (IDs) or `count` (count only) |
-| `sort` | No | `relevance` | `relevance`, `pub_date`, `Author`, `JournalName` |
-| `datetype` | No | -- | `pdat` (publication), `mdat` (modification), `edat` (entrez) |
-| `mindate` / `maxdate` | No | -- | Date range `YYYY/MM/DD` |
-| `reldate` | No | -- | Items from last N days |
-| `usehistory` | No | -- | `y` to store on History Server for large result sets |
+| Parameter             | Required | Default     | Description                                                                                                |
+| --------------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------- |
+| `db`                  | Yes      | --          | `pubmed`                                                                                                   |
+| `term`                | Yes      | --          | Search query. Supports PubMed syntax: field tags `[AU]`, `[TI]`, `[TA]`, `[MH]` (MeSH), boolean AND/OR/NOT |
+| `retmax`              | No       | 20          | Max PMIDs returned (max 10,000)                                                                            |
+| `retstart`            | No       | 0           | Pagination offset                                                                                          |
+| `retmode`             | No       | `xml`       | `json` or `xml`                                                                                            |
+| `rettype`             | No       | `uilist`    | `uilist` (IDs) or `count` (count only)                                                                     |
+| `sort`                | No       | `relevance` | `relevance`, `pub_date`, `Author`, `JournalName`                                                           |
+| `datetype`            | No       | --          | `pdat` (publication), `mdat` (modification), `edat` (entrez)                                               |
+| `mindate` / `maxdate` | No       | --          | Date range `YYYY/MM/DD`                                                                                    |
+| `reldate`             | No       | --          | Items from last N days                                                                                     |
+| `usehistory`          | No       | --          | `y` to store on History Server for large result sets                                                       |
 
 **Example:**
+
 ```
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=CRISPR+gene+therapy&retmode=json&retmax=5&sort=pub_date
 ```
 
 **Response:**
+
 ```json
 {
   "esearchresult": {
@@ -66,13 +68,14 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=CRISPR
 GET /esummary.fcgi?db=pubmed&id={pmids}&retmode=json
 ```
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `db` | Yes | `pubmed` |
-| `id` | Yes | Comma-separated PMIDs (max 10,000) |
-| `retmode` | No | `json` or `xml` |
+| Parameter | Required | Description                        |
+| --------- | -------- | ---------------------------------- |
+| `db`      | Yes      | `pubmed`                           |
+| `id`      | Yes      | Comma-separated PMIDs (max 10,000) |
+| `retmode` | No       | `json` or `xml`                    |
 
 **Example:**
+
 ```
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=39984857,39984678&retmode=json
 ```
@@ -85,14 +88,15 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=3998485
 GET /efetch.fcgi?db=pubmed&id={pmids}&rettype={type}&retmode={mode}
 ```
 
-| rettype | retmode | Returns |
-|---------|---------|---------|
-| *(omit)* | `xml` | Full PubMed XML (citation + abstract) |
-| `medline` | `text` | MEDLINE format |
-| `abstract` | `text` | Plain text abstract |
-| `uilist` | `text` | PMID list |
+| rettype    | retmode | Returns                               |
+| ---------- | ------- | ------------------------------------- |
+| *(omit)*   | `xml`   | Full PubMed XML (citation + abstract) |
+| `medline`  | `text`  | MEDLINE format                        |
+| `abstract` | `text`  | Plain text abstract                   |
+| `uilist`   | `text`  | PMID list                             |
 
 **Example -- get abstracts as XML:**
+
 ```
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=39984857&retmode=xml
 ```

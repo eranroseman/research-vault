@@ -46,15 +46,15 @@ pagination over deep `page` offsets for large walks. Keep concurrency low and se
 GET /search?query={query}&format=json&pageSize={n}&resultType={type}
 ```
 
-| Parameter | Default | Description |
-|---|---|---|
-| `query` | required | Query language below. URL-encode it. |
-| `format` | `xml` | `json`, `xml`, or `dc` |
-| `resultType` | `lite` | `idlist` (IDs only), `lite` (core bibliographic), `core` (adds abstract, full-text links, MeSH, grants) |
-| `pageSize` | 25 | Max **1,000**. Over that is rejected, not clamped -- see the error shape below. |
-| `cursorMark` | `*` | Deep pagination -- use this, not `page` |
-| `page` | 1 | 1-based. Only for shallow paging. |
-| `sort` | relevance | `CITED desc`, `P_PDATE_D desc` (publication date), `TITLE asc` -- note the **space** before the direction, not a colon |
+| Parameter    | Default   | Description                                                                                                            |
+| ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `query`      | required  | Query language below. URL-encode it.                                                                                   |
+| `format`     | `xml`     | `json`, `xml`, or `dc`                                                                                                 |
+| `resultType` | `lite`    | `idlist` (IDs only), `lite` (core bibliographic), `core` (adds abstract, full-text links, MeSH, grants)                |
+| `pageSize`   | 25        | Max **1,000**. Over that is rejected, not clamped -- see the error shape below.                                        |
+| `cursorMark` | `*`       | Deep pagination -- use this, not `page`                                                                                |
+| `page`       | 1         | 1-based. Only for shallow paging.                                                                                      |
+| `sort`       | relevance | `CITED desc`, `P_PDATE_D desc` (publication date), `TITLE asc` -- note the **space** before the direction, not a colon |
 
 **Example** -- preprints about CRISPR:
 
@@ -147,22 +147,22 @@ consistent with each other. Read `hasSuppl` from a `core` search first and skip 
 Field-prefixed terms combined with `AND` / `OR` / `NOT` (uppercase), quoted phrases, and
 parentheses.
 
-| Field | Matches | Example |
-|---|---|---|
-| `SRC` | Corpus | `SRC:"PPR"` (preprints), `SRC:"MED"`, `SRC:"PMC"` |
-| `PUBLISHER` | Preprint server or publisher | `PUBLISHER:"bioRxiv"`, `PUBLISHER:"medRxiv"` |
-| `AUTH` | Author name | `AUTH:"Doudna J"` |
-| `TITLE` | Title | `TITLE:"gene editing"` |
-| `ABSTRACT` | Abstract | `ABSTRACT:organoid` |
-| `PUB_YEAR` | Publication year | `PUB_YEAR:2023`, `PUB_YEAR:[2020 TO 2024]` |
-| `HAS_FT` | Full text indexed | `HAS_FT:Y` |
-| `OPEN_ACCESS` | Open access | `OPEN_ACCESS:Y` |
-| `IN_EPMC` | Full text hosted in Europe PMC | `IN_EPMC:Y` |
-| `DOI` | DOI | `DOI:"10.1038/nature12373"` |
-| `EXT_ID` | PMID | `EXT_ID:32117569` |
-| `JOURNAL` | Journal title | `JOURNAL:"Nature"` |
-| `MESH` | MeSH term | `MESH:"CRISPR-Cas Systems"` |
-| `LANG` | Language | `LANG:eng` |
+| Field         | Matches                        | Example                                           |
+| ------------- | ------------------------------ | ------------------------------------------------- |
+| `SRC`         | Corpus                         | `SRC:"PPR"` (preprints), `SRC:"MED"`, `SRC:"PMC"` |
+| `PUBLISHER`   | Preprint server or publisher   | `PUBLISHER:"bioRxiv"`, `PUBLISHER:"medRxiv"`      |
+| `AUTH`        | Author name                    | `AUTH:"Doudna J"`                                 |
+| `TITLE`       | Title                          | `TITLE:"gene editing"`                            |
+| `ABSTRACT`    | Abstract                       | `ABSTRACT:organoid`                               |
+| `PUB_YEAR`    | Publication year               | `PUB_YEAR:2023`, `PUB_YEAR:[2020 TO 2024]`        |
+| `HAS_FT`      | Full text indexed              | `HAS_FT:Y`                                        |
+| `OPEN_ACCESS` | Open access                    | `OPEN_ACCESS:Y`                                   |
+| `IN_EPMC`     | Full text hosted in Europe PMC | `IN_EPMC:Y`                                       |
+| `DOI`         | DOI                            | `DOI:"10.1038/nature12373"`                       |
+| `EXT_ID`      | PMID                           | `EXT_ID:32117569`                                 |
+| `JOURNAL`     | Journal title                  | `JOURNAL:"Nature"`                                |
+| `MESH`        | MeSH term                      | `MESH:"CRISPR-Cas Systems"`                       |
+| `LANG`        | Language                       | `LANG:eng`                                        |
 
 A bare term with no prefix searches title, abstract, and full text together.
 

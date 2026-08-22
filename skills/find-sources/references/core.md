@@ -27,11 +27,11 @@ https://api.core.ac.uk/v3
 
 ## Rate Limits (token-based)
 
-| User Type | Daily Tokens | Per-Minute Max |
-|-----------|-------------|----------------|
-| Unauthenticated | 100/day | 10/min |
-| Registered Personal | 1,000/day | 25/min |
-| Registered Academic | 5,000/day | 10/min |
+| User Type           | Daily Tokens | Per-Minute Max |
+| ------------------- | ------------ | -------------- |
+| Unauthenticated     | 100/day      | 10/min         |
+| Registered Personal | 1,000/day    | 25/min         |
+| Registered Academic | 5,000/day    | 10/min         |
 
 Simple queries cost 1 token. Downloads and scroll pagination cost 3-5 tokens.
 
@@ -43,15 +43,16 @@ Simple queries cost 1 token. Downloads and scroll pagination cost 3-5 tokens.
 GET /v3/search/works/?q={query}&limit={n}&offset={n}
 ```
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `q` | required | Search query (supports field lookups, boolean operators) |
-| `limit` | 10 | Results per page (max 100) |
-| `offset` | 0 | Pagination offset |
-| `scroll` | false | Enable scroll pagination for >10,000 results |
-| `sort` | relevance | `relevance` or `recency` |
+| Parameter | Default   | Description                                              |
+| --------- | --------- | -------------------------------------------------------- |
+| `q`       | required  | Search query (supports field lookups, boolean operators) |
+| `limit`   | 10        | Results per page (max 100)                               |
+| `offset`  | 0         | Pagination offset                                        |
+| `scroll`  | false     | Enable scroll pagination for >10,000 results             |
+| `sort`    | relevance | `relevance` or `recency`                                 |
 
 **POST alternative** (for complex queries):
+
 ```
 POST /v3/search/works
 Content-Type: application/json
@@ -60,21 +61,22 @@ Content-Type: application/json
 ```
 
 **Example:**
+
 ```
 https://api.core.ac.uk/v3/search/works/?q=CRISPR+gene+therapy&limit=10
 ```
 
 ### 2. Query language
 
-| Operator | Example | Description |
-|----------|---------|-------------|
-| AND | `title:"AI" AND authors:"Smith"` | Both conditions |
-| OR | `title:"AI" OR fullText:"Deep Learning"` | Either condition |
-| Grouping | `(title:"AI" OR title:"ML") AND yearPublished>"2020"` | Precedence |
-| Field lookup | `title:"Machine Learning"` | Search specific field |
-| Range | `yearPublished>2018` | Numeric comparison |
-| Exists | `_exists_:fullText` | Field must exist |
-| Phrase | `title:"Attention is all you need"` | Exact phrase |
+| Operator     | Example                                               | Description           |
+| ------------ | ----------------------------------------------------- | --------------------- |
+| AND          | `title:"AI" AND authors:"Smith"`                      | Both conditions       |
+| OR           | `title:"AI" OR fullText:"Deep Learning"`              | Either condition      |
+| Grouping     | `(title:"AI" OR title:"ML") AND yearPublished>"2020"` | Precedence            |
+| Field lookup | `title:"Machine Learning"`                            | Search specific field |
+| Range        | `yearPublished>2018`                                  | Numeric comparison    |
+| Exists       | `_exists_:fullText`                                   | Field must exist      |
+| Phrase       | `title:"Attention is all you need"`                   | Exact phrase          |
 
 **Searchable fields:** `abstract`, `arxivId`, `authors`, `contributors`, `createdDate`, `dataProviders`, `depositedDate`, `documentType`, `doi`, `fullText`, `id`, `language`, `license`, `oai`, `title`, `yearPublished`
 
@@ -117,6 +119,7 @@ Search by DOI: `q=doi:10.1038/nature12373`
 ## Response Format
 
 ### Search response
+
 ```json
 {
   "totalHits": 2281337,
@@ -128,6 +131,7 @@ Search by DOI: `q=doi:10.1038/nature12373`
 ```
 
 ### Work object (key fields)
+
 ```json
 {
   "id": 8848131,

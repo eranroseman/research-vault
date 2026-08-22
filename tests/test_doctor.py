@@ -109,9 +109,7 @@ def _doctor_vault(tmp_vault, *, backup="/backup"):
     return tmp_vault
 
 
-def test_doctor_returns_exact_ten_tuple_probes_and_repairs_tree(
-    tmp_vault, monkeypatch
-):
+def test_doctor_returns_exact_ten_tuple_probes_and_repairs_tree(tmp_vault, monkeypatch):
     vault = _doctor_vault(tmp_vault)
     (vault / "projects").rmdir()
     observed = bibliography.AutoexportObservation(
@@ -239,7 +237,9 @@ def test_doctor_reports_an_unreachable_observation_verbatim_with_cached_stalenes
     """Dressing a Zotero outage up as repair guidance must fail."""
     vault = _doctor_vault(tmp_vault)
 
-    by_check = _observed_probes(vault, monkeypatch, Result.UNREACHABLE, "raw BBT detail")
+    by_check = _observed_probes(
+        vault, monkeypatch, Result.UNREACHABLE, "raw BBT detail"
+    )
 
     assert (by_check["autoexport"].result, by_check["autoexport"].reason) == (
         Result.UNREACHABLE,

@@ -30,11 +30,12 @@ knowledge_harness/templates/vault/system/glossary.md
 tests/  (skill frontmatter/content tests — created in Task 1; verb tests per task)
 ```
 
----
+______________________________________________________________________
 
 ### Task 1: Guard skills + the skill-contract test
 
 **`evidence-conventions/SKILL.md` normative content (contract):**
+
 - Frontmatter: guard. Triggers: writing or editing claims, citing sources, drafting with evidence, claim-syntax questions.
 - **The Iron Law, verbatim**: *no claim enters a draft without a verified source first* — a claim line exists only after its literature note exists and its citekey resolves; prose ahead of evidence goes to `inbox/`, never `projects/`.
 - **§5 schema complete** (transcribed, not sampled): evidence-boundary tags `(quote|paraphrase|inference|open-question)`; `[@citekey, locator]`; `^claim-id` anchors; blockquote quotes; stance links `[supports::]`/`[disputes::]` with claim-link targets; **`[confidence::]` per-claim field**; **per-claim deprecation records** (§5: deprecate-with-reason, never delete — the record's syntax and that a deprecated claim keeps its anchor); **`[retraction-ack::]`** (the reader-side acknowledgment that a cited item carries an update notice — when it is required and what it asserts, per §5/§6); `[failed-verification::]` markers are verifier-owned — never write or remove one by hand.
@@ -48,13 +49,14 @@ tests/  (skill frontmatter/content tests — created in Task 1; verb tests per t
 
 - [ ] Steps: both SKILL.md files → `test_skill_contracts.py` (red on missing skills it expects only after later tasks — scope the entry-skill list to grow per task, or assert over existing dirs plus the two shipped here) → suite green → commit.
 
----
+______________________________________________________________________
 
 ### Task 2: The publish surface — verbs first, then the skill
 
 **Gate-flag verbs (the hook's contract at HEAD is normative — `hooks/stop_publish_gate.py::_decode_flag`):** `arm-publish <project>` writes `.harness/publish-pending.json` with **exactly** the keys `{"project": "projects/<name>", "vault": "<absolute vault path>", "blocks": 0}`, optional `"bypass": "<single-line token>"` only on explicit human request (the hook's audited-bypass path; the token is consented, single-line, and recorded by the hook's `_append_bypass`). Any other shape is silently inert at HEAD — test this negatively (wrong keys ⇒ hook treats as unarmed). `disarm-publish` removes the flag.
 
 **Disposition verbs (`knowledge_harness/publish.py` + CLI):** §6's concrete effect, transcribed:
+
 - `mark-published <project>`: sets `status: "published"` in the project's frontmatter, **appends a project-level `verified` event** (§5: publish events attach to the project; deterministic gate surfaces alone write these), **commits and tags `published/<project>-<date>`** (the published-drift lint at `lints.py` keys on these tags), then disarms. Refuses unless the publish-surface decision is green or every blocking entry carries a standing ack.
 - `mark-corrected <project>` / `mark-withdrawn <project>`: **post-publish only** (refuse if no `published/*` tag exists for the project): corrected = new gate run, new verified event, new tag; withdrawn = status write + log; **the original tag is never deleted** (ADR 0003).
 - Commit mechanics follow the ruled transactional pattern (temp-index snapshot; live index untouched).
@@ -65,7 +67,7 @@ tests/  (skill frontmatter/content tests — created in Task 1; verb tests per t
 
 - [ ] Steps: verbs tests-first (incl. the negative flag-schema test and post-publish-only guards) → skill text → suite green → commit.
 
----
+______________________________________________________________________
 
 ### Task 3: `verify-citations` + `factcheck-draft` + the `finding` verb
 
@@ -77,20 +79,25 @@ tests/  (skill frontmatter/content tests — created in Task 1; verb tests per t
 
 - [ ] Steps: `finding` verb tests-first → skill texts → forked scripts vendored + tested → suite green → commit.
 
----
+______________________________________________________________________
 
 ### Task 4: `project` skill
 
 Entry; the real-life entry point. Contract:
+
 - **Start**: question framing by the owned inline elicitation procedure — the framed question states: the question, scope bounds (in/out), expected source types, success criteria → `projects/<name>/question.md` (type `project`, status `draft`).
+
 - **Resume orientation** (every invocation): `synthesis/index.md`, recent `log/`, the project's files; **drain the review inbox** (count + age, oldest first); **surface trust tiers** — the orientation displays each cited note's tier via `events.trust_tier` (the recorded consumer this function was retained for: unverified / machine-confirmed / human-reviewed).
+
 - **Gap analysis**: framed question vs synthesis + bibliography — covered, contested (surface `disputes` links), missing → gap list feeding `find-sources`.
+
 - **Draft frame** in `projects/<name>/` carrying the Iron Law via `evidence-conventions` (invoked, never restated).
+
 - Routing: acquisition → `find-sources`; cataloging → `import-source`; verification → `verify-citations`/`factcheck-draft`; delivery → `publish`. Acks happen via the `ack` verb with human consent.
 
 - [ ] Steps: skill text → content test (elicitation fields verbatim; inbox-drain and trust-tier instructions present) → suite green → commit.
 
----
+______________________________________________________________________
 
 ### Task 5: `import-source` + uniform hold wiring
 
@@ -100,16 +107,17 @@ Entry; the real-life entry point. Contract:
 
 - [ ] Steps: hold wiring tests-first → blockquote-split evaluation → skill text → suite green **including live legs** (`HARNESS_LIVE=1`, Zotero running) → commit.
 
----
+______________________________________________________________________
 
 ### Task 6: `find-sources` (vendored fork) + search provenance
 
 - Vendor K-Dense `paper-lookup` (MIT): renamed into the plugin namespace, provenance header (upstream URL, commit, license), output shaped to §5, terminating at the admission step — the skill presents candidates for the human to admit into Zotero; it never writes the evidence layer. (Its per-API references already include Semantic Scholar alongside OpenAlex/Crossref/PubMed/arXiv — per research/adoptable-skills-audit.md; no additional source legs are owed.)
+
 - **PRISMA-S search log** (ruled): project-scoped `projects/<name>/search-log.md`, appended per run via the CLI `search-log` verb (append-only, entry grammar documented): query as run, source searched, date, hit count; candidates NOT admitted recorded with reason codes (§4.4 rows). Invoked without an active project, the skill asks which project the search serves (acquisition serves the project flow).
 
 - [ ] Steps: vendor + provenance header → `search-log` verb tests-first → skill text → §4.4/§4.3 rows → suite green → commit.
 
----
+______________________________________________________________________
 
 ### Task 7: Glossary seed + probe decision
 
@@ -117,7 +125,7 @@ Entry; the real-life entry point. Contract:
 - **Probe-verb decision comes due** (recorded): setup-vault's detect step picks its instrument at HEAD — if `doctor` gained a vault-less bridge mode, `probe` deletes; else `probe` is the instrument and setup-vault's SKILL.md says so. Decision recorded in the commit message; the loser's text removed.
 - [ ] Steps: glossary template + test → probe decision → suite green → commit.
 
----
+______________________________________________________________________
 
 ### Task 8: Acceptance + merge
 

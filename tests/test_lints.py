@@ -49,7 +49,9 @@ def test_append_only_guards_project_search_logs(fixture_vault):
     ``inbox/review-queue.md`` and ``log/``: it is a PRISMA-S search trail,
     and a trail that can be silently rewritten cannot be trusted."""
     search_log = fixture_vault / "projects" / "brief" / "search-log.md"
-    search_log.write_text('---\ntype: "search-log"\n---\n- [query:: q] [source:: PubMed] [date:: 2026-08-20] [hits:: 5] [actor:: human:eran]\n')
+    search_log.write_text(
+        '---\ntype: "search-log"\n---\n- [query:: q] [source:: PubMed] [date:: 2026-08-20] [hits:: 5] [actor:: human:eran]\n'
+    )
     subprocess.run(["git", "add", search_log], cwd=fixture_vault, check=True)
     subprocess.run(
         ["git", "commit", "-m", "search log history"], cwd=fixture_vault, check=True
