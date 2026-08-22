@@ -26,18 +26,21 @@ Two record kinds share one append-only file, mirroring how
     search run.
 
 This is a **second writer of the same durable-append pattern** as
-``inbox.py``, not a second pattern: the field grammar (``[key:: value]``),
-the single-line/no-control-character text rule, the create-or-validate
-frontmatter guard, and the fsync-on-durable-write discipline are copied
-here deliberately rather than imported, because the two files protect
-genuinely different invariants (this one is project-scoped and has no
-acknowledgment concept — a search-log line is never closed, only ever
-followed by another line) and terminology.md's own naming-governance note
-defers a shared-primitives extraction to a later architecture pass. What
-*is* reused directly: ``inbox.validate_reason``/``inbox.REASON_CODES`` (one
-governed reason-code vocabulary, never a second one) and
-``publish.project_dir`` (one project-path safety check — symlink and
-traversal refusal — never a second one).
+``inbox.py``, not a second pattern — and the primitives that pattern is
+made of are shared code, not shared prose. The field regex, the
+single-line/no-control-character text rule, the bracket-escaping pair,
+the line serializer, and the directory-fsync primitive live in
+``appendlog.py`` and are imported here (Task 6 review, 2026-08-22: an
+earlier draft copied these six instead, and the copy had already drifted
+on a docstring word and dropped a load-bearing safety comment — copying
+"the pattern" turned out to mean copying the bug surface too). What
+stays genuinely separate, because the two files' record shapes and
+sequencing differ, is everything above the primitive layer: the
+frontmatter-type guard, the two record dataclasses, and the
+create-or-validate/append sequencing. Also reused directly, never
+re-derived: ``inbox.validate_reason``/``inbox.REASON_CODES`` (one
+governed reason-code vocabulary) and ``publish.project_dir`` (one
+project-path safety check — symlink and traversal refusal).
 
 Never write this file by hand, and never write it from prose: every line is
 one of the two append functions below, called only through the CLI's
@@ -51,10 +54,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import AGENT_ACTOR, frontmatter, inbox
+from .appendlog import (
+    _FIELD,
+    _serialize,
+    _sync_directory,
+    _unescape_field_value,
+    _validate_text,
+)
 from .publish import PublishError, project_dir
 
 SEARCH_LOG_TYPE = "search-log"
-_FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")
 _SEARCH_REQUIRED = {"query", "source", "date", "hits", "actor"}
 _NOT_ADMITTED_REQUIRED = {"candidate", "date", "reason", "actor"}
 _NOT_ADMITTED_OPTIONAL = {"source"}
@@ -80,17 +89,6 @@ class NotAdmittedEntry:
     date: str
     actor: str = AGENT_ACTOR
     source: str | None = None
-
-
-def _validate_text(name: str, value) -> str:
-    if (
-        not isinstance(value, str)
-        or not value.strip()
-        or "\0" in value
-        or value.splitlines() != [value]
-    ):
-        raise SearchLogError(f"{name} must be a nonempty single-line string")
-    return value
 
 
 def _validate_optional_text(name: str, value) -> str | None:
@@ -148,58 +146,34 @@ def _body(path: Path) -> str:
     return body
 
 
-def _prepare_append(vault, project) -> Path:
+def _prepare_append(vault, project) -> tuple[Path, bool]:
+    """Create-or-validate the file, returning whether a new one was created.
+
+    ``created`` must be read before anything below writes — Task 6 review
+    (2026-08-22): an earlier draft computed it from ``path.exists()`` *after*
+    this function's own write had already created the file, so it was always
+    ``True`` and the directory-entry fsync in ``_append_line`` could never
+    run. ``inbox._prepare_append`` gets this right for the same reason; this
+    mirrors it exactly.
+    """
     path = search_log_path(vault, project)
-    if not path.exists() or not path.read_bytes():
+    created = not path.exists()
+    if created or not path.read_bytes():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(frontmatter.serialize({"type": SEARCH_LOG_TYPE}))
     else:
         _body(path)  # validates the existing frontmatter before appending
-    return path
-
-
-def _sync_directory(path: Path) -> None:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    descriptor = os.open(path, flags)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
-def _escape_field_value(value: str) -> str:
-    """Escape a closing bracket without changing ordinary field values."""
-    if "]" not in value:
-        return value
-    return value.replace("\\", "\\\\").replace("]", r"\]")
-
-
-def _unescape_field_value(value: str) -> str:
-    """Reverse the bracket escape while preserving unescaped backslashes."""
-    if r"\]" not in value:
-        return value
-    return value.replace(r"\]", "]").replace(r"\\", "\\")
-
-
-def _serialize(fields: list[tuple[str, str | None]]) -> str:
-    return (
-        "- "
-        + " ".join(
-            f"[{key}:: {_escape_field_value(value)}]" for key, value in fields if value
-        )
-        + "\n"
-    )
+    return path, created
 
 
 def _append_line(vault, project, fields, *, durable: bool) -> Path:
-    path = _prepare_append(vault, project)
-    existed = path.exists() and path.stat().st_size > 0
+    path, created = _prepare_append(vault, project)
     with path.open("a", encoding="utf-8", newline="") as handle:
         handle.write(_serialize(fields))
         if durable:
             handle.flush()
             os.fsync(handle.fileno())
-    if durable and not existed:
+    if durable and created:
         _sync_directory(path.parent)
     return path
 

@@ -3,14 +3,15 @@
 Project-scoped, append-only ``projects/<name>/search-log.md``. Two record
 kinds through one verb, mutually exclusive per call: a search-run entry
 (query as run, source searched, date, hit count) and a not-admitted-candidate
-entry (candidate, reason code, date). Mirrors ``inbox.py``'s durable-append
-pattern (``knowledge_harness/searchlog.py``) rather than inventing a second
-one; reuses ``inbox.validate_reason``/``inbox.REASON_CODES`` for the reason
-field and ``publish.project_dir`` for project resolution, so the reason-code
-registry and the project-path safety checks each still have exactly one
-owner.
+entry (candidate, reason code, date). Shares its low-level durable-append
+primitives with ``inbox.py`` via ``knowledge_harness/appendlog.py`` (Task 6
+review, 2026-08-22 — an earlier draft duplicated them instead); reuses
+``inbox.validate_reason``/``inbox.REASON_CODES`` for the reason field and
+``publish.project_dir`` for project resolution, so the reason-code registry
+and the project-path safety checks each still have exactly one owner.
 """
 
+import re
 from pathlib import Path
 
 from knowledge_harness import AGENT_ACTOR, searchlog
@@ -388,6 +389,30 @@ def test_search_log_accepts_an_explicit_actor_and_date(fixture_vault):
     assert entry.date == "2026-08-19"
 
 
+def test_search_log_fsyncs_the_directory_only_when_the_file_is_created(
+    fixture_vault, monkeypatch
+):
+    """Review finding (2026-08-22, Important 2): an earlier draft computed
+    ``created`` from ``path.exists()`` *after* ``_prepare_append`` had
+    already written the file, so it was always ``True`` and the
+    directory-entry fsync could never run. Reproduces the reviewer's own
+    empirical check: two ``durable=True`` calls, the first creating the
+    file, must fsync the directory exactly once — on the first call, never
+    the second."""
+    calls = []
+    monkeypatch.setattr(searchlog, "_sync_directory", calls.append)
+
+    searchlog.append_search(
+        fixture_vault, "brief", "first query", "PubMed", 1, durable=True
+    )
+    assert len(calls) == 1
+
+    searchlog.append_search(
+        fixture_vault, "brief", "second query", "PubMed", 2, durable=True
+    )
+    assert len(calls) == 1  # unchanged — the file already existed
+
+
 def test_search_log_is_reachable_through_the_one_binary_cli(fixture_vault):
     """Proves `search-log` is genuinely wired into the shared dispatch table —
     ``python3 -m knowledge_harness search-log``, not a second binary."""
@@ -432,10 +457,36 @@ def test_find_sources_skill_routes_every_mechanical_act_through_the_verb():
         "--not-admitted",
         "--reason",
         "not-admitted",
-        "MATCHED",
-        "UNMATCHED",
-        "UNREACHABLE",
-        "SKIPPED",
+        "outage",
+        "zero hits",
         "import-source",
     ):
         assert token in text, f"find-sources/SKILL.md never mentions {token!r}"
+
+
+def test_find_sources_skill_never_applies_check_result_vocabulary_to_a_search():
+    """Review finding (2026-08-22, Important 3): MATCHED/UNMATCHED/UNREACHABLE/
+    SKIPPED are spec §6's vocabulary for a *check* with a real `Result` — a
+    search has none. The skill may explain that boundary in prose (it does,
+    once, to stop a future editor re-introducing the mistake), but must never
+    hand an agent one of these words as a label for a search outcome, which
+    the table used to do. Assert the plain-language replacement labels are
+    present and that the four words appear at most once each — the single
+    explanatory mention, never a second, table-row usage."""
+    text = FIND_SOURCES_SKILL.read_text(encoding="utf-8")
+    for token in (
+        "Completed, with hits",
+        "Completed, zero hits",
+        "Could not complete",
+        "cannot answer this query shape",
+    ):
+        assert token in text, f"find-sources/SKILL.md never mentions {token!r}"
+    for banned in ("MATCHED", "UNMATCHED", "UNREACHABLE", "SKIPPED"):
+        # Word-boundary count: a plain substring count would also match
+        # "MATCHED" inside "UNMATCHED" and over-count by one.
+        occurrences = len(re.findall(rf"\b{banned}\b", text))
+        assert occurrences <= 1, (
+            f"find-sources/SKILL.md uses check-result vocabulary ({banned!r}) "
+            f"{occurrences} times — it must appear only in the sentence "
+            "explaining that this vocabulary does not apply to a search"
+        )

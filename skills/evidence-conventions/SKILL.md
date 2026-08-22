@@ -62,7 +62,7 @@ This asserts the reader has seen the notice and is knowingly citing the work any
 
 ## Reason-code vocabulary
 
-Findings in `inbox/review-queue.md` carry a `reason` code from the controlled registry (`knowledge_harness.inbox.REASON_CODES`, governed at terminology §4.4). The codes you meet in the review queue today:
+Findings in `inbox/review-queue.md`, and any other durable surface this registry serves (`find-sources`'s `projects/<name>/search-log.md` is the other shipped one), carry a `reason` code from the controlled registry (`knowledge_harness.inbox.REASON_CODES`, governed at terminology §4.4). The codes you meet in the review queue today:
 
 | Code | Meaning |
 |---|---|
@@ -79,7 +79,7 @@ Findings in `inbox/review-queue.md` carry a `reason` code from the controlled re
 | `superseded-note` | The claim cites a literature note whose `status` is `excluded` or `superseded`. |
 | `stale` | The vault's bibliography export no longer matches the current Zotero library. |
 | `budget-cap` | Factored verification's per-run budget cap (default 30 claims) was reached; this finding names everything the cap left unchecked this pass. Never means the excluded claims were checked and clean. |
-| `not-admitted` | The citekey names nothing in the Zotero library — the source was never admitted, or its item has left. Admission is a human act; no import can substitute for it. |
+| `not-admitted` | Nothing was admitted. Two conditions share this code: the citekey names nothing in the Zotero library (`import-note`'s condition — the source was never admitted, or its item has left), or a human looked at a `find-sources` search candidate and declined to admit it (`search-log`'s not-admitted record, spec §7). Admission is a human act; no import can substitute for it, and a search finding nothing worth admitting is a real result, not silence. |
 | `contradiction` | A claim being integrated at import contradicts a claim already in the synthesis layer. Both sides are preserved and linked with `disputes`; a contradiction is never resolved by dropping one. |
 | `low-confidence` | An inference claim held back at integration because its `[confidence:: ...]` is low or missing altogether. |
 

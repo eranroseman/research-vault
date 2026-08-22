@@ -8,6 +8,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from . import AGENT_ACTOR, frontmatter
+from .appendlog import (
+    _FIELD,
+    _serialize,
+    _sync_directory,
+    _unescape_field_value,
+    _validate_text,
+)
 from .outcome import Result
 from .pathcodec import PathCodecError, decode_repo_path
 
@@ -69,7 +76,6 @@ CHECK_IDS = frozenset(
         "integrate",
     }
 )
-_FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")
 _REASON = re.compile(
     rf"(?:{'|'.join(re.escape(code) for code in sorted(REASON_CODES, key=len, reverse=True))})(?:$|\s+\S.*)"
 )
@@ -146,25 +152,6 @@ def validate_reason(reason: str) -> str:
             f"{reason!r}"
         )
     return reason
-
-
-def _validate_text(name: str, value) -> str:
-    # The reject class must equal ``load``'s break set, not a narrower trio.
-    # ``load`` splits the body with ``str.splitlines()``, so \v, \f, \x1c-\x1e,
-    # \x85, U+2028 and U+2029 each end a line for the reader while passing an
-    # ``"\n" in value`` writer check — a row written across two physical lines
-    # that no later read can parse. The queue is append-only, so that is
-    # permanent: one such write bricks `inbox`, `ack`, doctor's inbox probe and
-    # every `verify` read of the file, for good. ``splitlines() != [value]``
-    # also catches a trailing separator, which ``in``-checks miss entirely.
-    if (
-        not isinstance(value, str)
-        or not value.strip()
-        or "\0" in value
-        or value.splitlines() != [value]
-    ):
-        raise ValueError(f"{name} must be a nonempty single-line string")
-    return value
 
 
 def _validate_optional_text(name: str, value) -> str | None:
@@ -263,15 +250,6 @@ def _prepare_append(vault) -> tuple[Path, bool]:
     return queue, created
 
 
-def _sync_directory(path: Path) -> None:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    descriptor = os.open(path, flags)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
 def finding_id(
     check,
     target,
@@ -296,30 +274,6 @@ def finding_id(
         discriminator = hashlib.sha256(reason.encode()).hexdigest()[:16]
         finding_id += f"/act-{discriminator}"
     return finding_id
-
-
-def _serialize(fields: list[tuple[str, str | None]]) -> str:
-    return (
-        "- "
-        + " ".join(
-            f"[{key}:: {_escape_field_value(value)}]" for key, value in fields if value
-        )
-        + "\n"
-    )
-
-
-def _escape_field_value(value: str) -> str:
-    """Escape a closing bracket without changing ordinary legacy field values."""
-    if "]" not in value:
-        return value
-    return value.replace("\\", "\\\\").replace("]", r"\]")
-
-
-def _unescape_field_value(value: str) -> str:
-    """Reverse the bracket escape while preserving unescaped legacy backslashes."""
-    if r"\]" not in value:
-        return value
-    return value.replace(r"\]", "]").replace(r"\\", "\\")
 
 
 def append_entry(

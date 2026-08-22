@@ -70,16 +70,16 @@ python3 -m knowledge_harness search-log --vault PATH --project NAME \
 
 `--query` and `--not-admitted` are mutually exclusive — one call writes one record. Two genuinely separate runs of the same query on different days are two lines, never merged or deduplicated: this is a PRISMA-S trail a methods reviewer reconstructs, not a search index. Never hand-write a line into `search-log.md` yourself, for either record kind — every append is this verb, and the file is append-only (a rewritten line is a lint failure, the same guard `inbox/review-queue.md` and `log/` carry).
 
-### Four-state honesty
+### Report what actually happened
 
-Only a call that actually completed gets logged — an incomplete one is reported in prose, never fabricated into a log line with an invented hit count:
+`MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED` are spec §6's vocabulary for a *check* — something with a `Result`. A search has none, so this skill never applies those words to one; it reports in plain language instead, and only a call that actually completed gets logged — an incomplete one is reported in prose, never fabricated into a log line with an invented hit count:
 
-| What happened | Report it as | Log it? |
+| What happened | How to describe it | Log it? |
 |---|---|---|
-| The call completed and returned records | MATCHED — say how many | Yes — `--query ... --hits N` |
-| The call completed and returned nothing | UNMATCHED — zero hits is a real result, not an absence of evidence | Yes — `--query ... --hits 0` |
-| The call could not complete — network failure, rate-limit exhaustion, an HTTP-200 hazard from §3 above | UNREACHABLE — **never** "no results," never a verdict on the literature | No — report the outage, retry, log the eventual completed run |
-| The database structurally cannot answer this query shape (bioRxiv/medRxiv keyword search) | SKIPPED — say which database can (usually Europe PMC) and route there | No — nothing ran against it; the database that actually runs the search gets logged when it does |
+| **Completed, with hits** | Say how many were found. | Yes — `--query ... --hits N` |
+| **Completed, zero hits** | Zero hits is a real result, not an absence of evidence — say so plainly. | Yes — `--query ... --hits 0` |
+| **Could not complete** — network failure, rate-limit exhaustion, an HTTP-200 hazard from §3 above | An outage. **Never** "no results," and never a verdict on the literature. | No — report the outage, retry, log the eventual completed run |
+| **This database cannot answer this query shape** (bioRxiv/medRxiv keyword search) | Say which database can (usually Europe PMC) and route there. | No — nothing ran against it; the database that actually runs the search gets logged when it does |
 
 Never promise a search you did not run, and never let a silent gap read as "nothing exists" — a database that came back empty, and a database you didn't reach, are different facts and get reported differently.
 
