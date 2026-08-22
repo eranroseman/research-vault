@@ -29,7 +29,7 @@
 
 ## Phase 1 — Seed migration (AMENDED 2026-08-22 — just-in-time admission per the library-as-search-space ruling; see findings log 11)
 
-Seed admission is no longer up-front: the library holds scholarly sources only, and each migrating record's citations batch-admit at migration time from `docs/2026-08-22-seed-classification-ledger.md` via the RIS pipeline. The three `sources/` PDFs admit now (scholarly; the author kept them). Phase 1's zero-unresolved-links criterion is evaluated per migrated note.
+Seed admission is no longer up-front: the library holds scholarly sources only. The classification ledger is a CANDIDATE list, not a manifest (findings 11–12): migration re-authors each record under evidence-conventions, every claim faces vault-grade sourcing judgment, and only surviving citations admit (RIS pipeline, scoped per note). The three `sources/` PDFs admit now (scholarly; the author kept them). Phase 1's zero-unresolved-links criterion is evaluated per migrated note.
 
 ### Original phase text (superseded)
 
