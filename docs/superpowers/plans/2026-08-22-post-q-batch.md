@@ -16,6 +16,9 @@
 11. **Cross-read our-wiring** (docs/2026-08-22-references-cross-read.md): fold the credential-count fix into item 5 ("several", defer to `redact_url`); SKILL.md sources mailto from harness config + states vendored scripts don't read it.
 12. **Cross-read annotations**: one vendoring-note section carrying the six upstream-fact annotations per the report's triage; SKILL.md routing guards (no single-DOI lookups via paginate; openalex row points at openalex_abstract.py; OPENALEX_API_KEY env caution).
 
+13. **Ecosystem steals** (audit §6, adopted set): routing guard line in project-flow; compilation-value line in synthesis-conventions; partial-read honesty rule (import-source + factcheck-draft); "validates declarations, not their truth" + the why-one-pass sentence in factcheck-draft; disposition rationalization table in publish; setup-vault fails closed on ambiguous vault selection.
+14. All §6 deferred items carry their triggers in the audit doc — none land here.
+
 NOT in this batch: four-state dedup (migrate 3–4 — RED-gated); anything the in-flight references cross-read confirms (triaged separately when it reports).
 
 Acceptance: suite green offline; `test_skill_contracts` green over the renamed set; judged greps (retired `project` skill references, no returned prohibitions); merge + push in the same motion.

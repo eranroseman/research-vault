@@ -365,3 +365,31 @@ References cross-read: approved, own slice, run with the FULL adversarial method
 - **Open investigations**: (1) the RED-phase baseline experiment — designable now, gates steps 3–4, closes the Iron-Law gap; (2) the references cross-read — in flight as its own full-method run; (3) C-4's empirical half — slice checklist.
 
 **Step 7 decided (2026-08-22): `project` → `project-flow`** — the glossary's own *Project flow* term; collision dissolved, not mitigated. Rides the post-Q batch, ordered before the C-7 index.
+
+---
+
+## 6. Ecosystem comparative addendum (2026-08-22, GitHub-API qualified pool)
+
+The full survey is recorded verbatim in the relay log of this date; its load-bearing content and every ruling follows. Pool: obra/superpowers, mattpocock/skills, anthropics/skills, kepano/obsidian-skills, Imbad0202/academic-research-skills (ARS), K-Dense-AI/scientific-agent-skills, AgriciDaniel/claude-obsidian. Rejection bar finding: every Zotero/citation-specific repo is tiny or stale — this project's Zotero half has no large, live peer.
+
+**Where this corpus is alone (checked against ~250 skills):** the four-state vocabulary with UNREACHABLE as a first-class non-verdict; the recorded skipped set; admission as a human act behind a machine-enforced projection boundary; non-admission under controlled reason codes. Nobody else has any of the four. **Biggest structural win:** the evidence layer is machine-rendered and cannot be free-written — a guarantee where wiki-ingest (the closest peer) has a behaviour.
+
+**C-7 re-evidenced:** 0/~230 skills user-invoked across six repos; only mattpocock (50%, WITH a router). We ship 78% user-invoked with none — the index ruling (batch item 2) now rests on ecosystem-wide evidence.
+
+### Adopted → post-Q batch (items 13–14)
+
+Small, doctrinally-consistent steals: the routing guard ("route the user's intent without silently broadening it") into project-flow's routing table; a compilation-value line in synthesis-conventions (the 2+-source threshold *permits* a page, it never obligates one — create only when arrangement adds synthesis); the partial-read honesty rule (a partially-read source is labeled partial with the missing range — SKIPPED applied to reading) in import-source/factcheck-draft; peer-review's sentence — "it validates declarations, not their truth" — into factcheck-draft, which is our four-state posture said better than we say it; one sentence on why a single honest pass rather than an LLM panel (role separation is not independent error processes); a disposition rationalization table in publish (doubly evidenced at 276k/231k: irreversible steps attract excuses, name them); setup-vault fails closed on ambiguous vault selection.
+
+### Deferred with named triggers
+
+- **Plan-hash approval handshake** (preview → echo sha256 → apply): the strongest mechanism candidate — we own the primitive (hash-scoped acks) and consent is currently conversational. Trigger: the first consent ambiguity incident, or when scaffold/publish gets driven by anything less attended than the author.
+- **Independence key on claims**: real gap — the 2+-source threshold is satisfiable by two papers from one lab. A §5 schema question, not a prose line; trigger: the slice showing same-lab duplication in a real corpus.
+- **Machine intake gate** (factcheck-draft): heavier; trigger: slice evidence of malformed intakes.
+- **Frontmatter metadata** (`related_skills`, `envVars` with required flags): machine-readable routing/credentials; trigger: host support for consuming them.
+- **Freshness fields**: partially covered by `accessed`/update-notices; revisit with the independence-key design if the slice shows stale-claim incidents.
+- **Repair-as-separate-operation gate** (wiki-lint's 6 steps): doctor currently guides rather than auto-repairs, which sidesteps most of the risk; revisit if doctor gains write-repairs.
+
+### Rejected with reasons
+
+- **Impact-grouping of verify reports** (wiki-lint groups by broken-navigation→metadata rather than check id): reintroduces a hand-maintained prose-owns-what-code-emits mapping — the exact C-1 class we just eliminated. Revisit only if the CLI itself gains impact metadata.
+- **Blocking on high-warning factcheck findings** (ARS ships it): the fork is real, ours is chosen — deterministic-only closure is an ADR-adjacent ruling, and the batch's why-one-pass sentence now says so in the skill instead of implying it.
