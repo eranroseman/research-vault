@@ -346,3 +346,12 @@ The audit's own diagnosis governs the fixes: C-1, C-2, C-3 and C-6 are one class
 ### Next audit slice — approved
 
 The eleven `references/` files (2,000+ lines, never read) become their own audit slice.
+
+### Could-not-verify dispositions (author ruling, 2026-08-22)
+
+- **C-4 empirical half**: unverifiable in any checkout — the test is a live session with the plugin installed. Joins the validation-slice checklist: first vault session confirms the routing table's bare names resolve. Leave-bare stands until then.
+- **Four-state dedup (the §1 structural divergence)**: DEFERRED PENDING EVIDENCE, not accepted. Whether an invoked guard preserves compliance like inlined text has no baseline; `writing-skills`' RED phase is the instrument and runs BEFORE any dedup. Until then the four copies are deliberate redundancy in trust-critical prose.
+
+### Next-run rulings
+
+References cross-read: approved, own slice, run with the FULL adversarial method (finders + independent refuters — no standing rule bars subagent skeptics; that was a misread). Enumeration checker: approved, ships with the C-1/C-2 fixes. All fixes ride the first post-Q batch (no mid-flight grafts).
