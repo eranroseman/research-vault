@@ -27,7 +27,11 @@
 - [ ] `python -m knowledge_harness doctor ~/kh-vault` → every probe reported; autoexport MATCHED (this is the step that unblocks the two `HARNESS_LIVE_AUTOEXPORT_VAULT`-gated tests — set that env var to `~/kh-vault` and confirm they now run, not skip).
 - [ ] Record in findings: did scaffold + the human step match the prose? Every gap is a setup-vault finding.
 
-## Phase 1 — Seed migration (the information flow at volume)
+## Phase 1 — Seed migration (AMENDED 2026-08-22 — just-in-time admission per the library-as-search-space ruling; see findings log 11)
+
+Seed admission is no longer up-front: the library holds scholarly sources only, and each migrating record's citations batch-admit at migration time from `docs/2026-08-22-seed-classification-ledger.md` via the RIS pipeline. The three `sources/` PDFs admit now (scholarly; the author kept them). Phase 1's zero-unresolved-links criterion is evaluated per migrated note.
+
+### Original phase text (superseded)
 
 - [ ] Admit this repo's research corpus into Zotero: the web sources under `research/` (~40 cited URLs), the `sources/` PDFs. **This is the corpus-to-vault migration the release gate names** — PDFs go to Zotero storage (§2 boundary), not the vault.
 - [ ] `import-source` in batch mode over the admitted set → literature notes, index, log; live hold policy exercised on the one known live contradiction.
