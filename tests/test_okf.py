@@ -60,7 +60,7 @@ def test_regenerate_log_skips_a_malformed_day_file(tmp_path):
 
 def test_doctor_okf_probe(tmp_path):
     scaffold.scaffold_vault(tmp_path)
-    probes = {p[0] for p in scaffold.doctor(tmp_path, client=None)}
+    probes = {p[0] for p in scaffold.doctor(tmp_path, client=None, settle_seconds=0)}
     assert "okf" in probes
 
 
