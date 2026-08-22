@@ -16,7 +16,7 @@ In every command, `PATH` is the vault and `CITEKEY` is the Better BibTeX key. Ev
 python3 -m knowledge_harness import-note CITEKEY --vault PATH
 ```
 
-The catalog write is unconditional and comes first: nothing downstream — no dedup question, no synthesis judgment, no hold — can stop the literature note from landing or delay it until you have made up your mind. It renders `literatures/CITEKEY.md` from Zotero (managed region above the free region, which survives untouched) and regenerates root `log.md`.
+The catalog comes first and answers to no judgment of yours: nothing downstream — no dedup question, no synthesis decision, no hold — can stop the literature note from landing or hold it back until you have made up your mind. When the projection changed, this renders `literatures/CITEKEY.md` from Zotero (managed region above the free region, which survives untouched) and regenerates root `log.md`.
 
 Every outcome is an answer, including the two that write nothing:
 
