@@ -29,6 +29,14 @@ repos:
         entry: bash -c 'mypy knowledge_harness'
         pass_filenames: false
         always_run: true
+      # AGENTS.md and CONTEXT.md are in this path list, ruled 2026-08-22: they were
+      # the only unowned CommonMark left in the repo. The other 22 unowned .md files
+      # live under research/, analysis/ and sources/ and are correctly excluded --
+      # they are immutable records, and the record-immutability hook below would
+      # BLOCK formatting them. These two have no such excuse, and they are the
+      # repo's most-edited multi-agent prose (AGENTS.md had three writers in one
+      # week), which is precisely the drift surface one-form-owner exists to
+      # protect. Zero churn: both already matched canonical form at adoption.
       # --number is load-bearing, ruled 2026-08-22. mdformat's default collapses
       # every ordered list to all `1.` -- CommonMark-correct for a renderer, and
       # referentially destructive for the actual reader here. This repo's markdown
