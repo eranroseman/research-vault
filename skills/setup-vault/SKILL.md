@@ -18,7 +18,7 @@ Construct one command, with only the flags the user consented to:
 python3 -m knowledge_harness scaffold --vault PATH [--with-ci] [--with-rw-ci]
 ```
 
-Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, `inbox/review-queue.md`, `index.md`, `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`, `synthesis/index.md`, `system/bases/open-questions.base`, `system/bases/trust-tier.base`, and `system/templates/` daily, literature, project, and synthesis templates; CI paths appear only for their separately consented flags. It may create fewer paths when repairing an existing vault. Say only scaffold-created paths are committed; never claim unrelated changes were committed.
+Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, `inbox/review-queue.md`, `index.md`, `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`, `synthesis/index.md`, `system/bases/open-questions.base`, `system/bases/trust-tier.base`, `system/glossary.md`, and `system/templates/` daily, literature, project, and synthesis templates; CI paths appear only for their separately consented flags. It may create fewer paths when repairing an existing vault. Say only scaffold-created paths are committed; never claim unrelated changes were committed.
 
 ## Diagnose
 
@@ -30,6 +30,8 @@ python3 -m knowledge_harness doctor --base URL --vault PATH
 ```
 
 Report every doctor probe, not only failures, plus the inbox count and oldest age. Do not replace this with a `doctor --url` command or environment variable.
+
+`doctor` always requires `--vault`; it has no vault-less mode. To check Zotero/BBT reachability before a vault exists, or independent of one, run `python3 -m knowledge_harness probe [--base URL]` instead — it is the vault-less reachability instrument and takes no `--vault` flag.
 
 ## Provision companions
 

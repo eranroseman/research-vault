@@ -48,6 +48,16 @@ def test_setup_vault_documents_doctor_routing_and_complete_reporting():
     assert "oldest age" in text
 
 
+def test_setup_vault_names_probe_as_the_vault_less_reachability_instrument():
+    """Losing the probe verb's naming, or claiming doctor has a vault-less mode, must fail."""
+    text = _skill_text()
+
+    assert "`doctor` always requires `--vault`; it has no vault-less mode." in text
+    assert "python3 -m knowledge_harness probe [--base URL]" in text
+    assert "vault-less reachability instrument" in text
+    assert "takes no `--vault` flag" in text
+
+
 def test_setup_vault_provisions_each_companion_only_after_item_consent():
     """Installing companions before consent or automating Zotero must fail."""
     text = _skill_text()
@@ -103,6 +113,7 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
         "inbox/review-queue.md",
         "system/templates/",
         "system/bases/",
+        "system/glossary.md",
         ".git/hooks/pre-commit",
     ):
         assert path in text

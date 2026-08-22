@@ -32,6 +32,7 @@ EXPECTED_CREATED = [
     "synthesis/index.md",
     "system/bases/open-questions.base",
     "system/bases/trust-tier.base",
+    "system/glossary.md",
     "system/templates/daily.md",
     "system/templates/literature.md",
     "system/templates/project.md",
@@ -98,6 +99,7 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     for path in (
         "AGENTS.md",
         "inbox/review-queue.md",
+        "system/glossary.md",
         "system/templates/daily.md",
         "system/templates/literature.md",
         "system/templates/project.md",
