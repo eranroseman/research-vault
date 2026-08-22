@@ -363,3 +363,5 @@ References cross-read: approved, own slice, run with the FULL adversarial method
 - **Both shaping prohibitions CUT** (recipes already present). Post-Q batch.
 - **Migrate steps 3–4 remain RED-gated** (unchanged). **Step 6 = C-7(a)** (unchanged). **Step 7 (`project` rename)**: open author decision — class-4 collision with CONTEXT.md's Project, pre-slice is the cheap rename window.
 - **Open investigations**: (1) the RED-phase baseline experiment — designable now, gates steps 3–4, closes the Iron-Law gap; (2) the references cross-read — in flight as its own full-method run; (3) C-4's empirical half — slice checklist.
+
+**Step 7 decided (2026-08-22): `project` → `project-flow`** — the glossary's own *Project flow* term; collision dissolved, not mitigated. Rides the post-Q batch, ordered before the C-7 index.
