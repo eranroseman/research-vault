@@ -90,9 +90,11 @@ repos:
       # unchanged — it was already canonical). docs/superpowers/plans/ is
       # deliberately OUT for now: the one-time markdown canonicalization recorded in
       # .git-blame-ignore-revs reformats all 12 completed plans, so including them
-      # would make this hook fail on its own churn commit forever. Plans join the
-      # manifest once that churn reaches main. Same true-at-adoption discipline as
-      # the yamlfix path list above.
+      # would make this hook fail on its own churn commit forever. The exclusion's
+      # only reason is that churn commit, and that reason expires at merge —
+      # OWNED BY PLAN Q TASK 6, which re-adds `docs/superpowers/plans` here in the
+      # same commit that records the baseline landing (ruled 2026-08-22). Same
+      # true-at-adoption discipline as the yamlfix path list above.
       - id: record-immutability
         name: "records: append-only under research/analysis/adr"
         language: system

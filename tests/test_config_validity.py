@@ -16,6 +16,8 @@ gains a JSON owner with zero new dependencies (docs/2026-08-21-lint-format-rethi
 import ast
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -226,3 +228,183 @@ def test_skill_disable_model_invocation_is_a_yaml_boolean_literal(skill_md):
 def test_repo_python_is_the_version_the_pins_were_measured_against():
     """A guard, not a gate: the pinned toolchain's behaviour is version-bound."""
     assert sys.version_info >= (3, 10), "pyproject requires-python is >=3.10"
+
+
+# --------------------------------------------------------------------------
+# pyproject-fmt round-trip losslessness.
+#
+# Ruled 2026-08-22 after an as-built re-measure contradicted the plan's adoption
+# claim ("verified: tool-section comments preserved, zero spurious churn" — which
+# had been tested on a synthetic fragment, not on this file). Measured against the
+# REAL pyproject.toml, bare pyproject-fmt truncated pins (`mdformat==1.0.0` to
+# `==1`), invented a classifiers block claiming Python 3.14, and — the dangerous
+# one — alpha-sorted the dependency list while hoisting a ruling comment's
+# continuation lines onto a DIFFERENT package, so a recorded ruling silently
+# described the wrong dependency.
+#
+# The flags below fix that. These tests are what stop the fix from being a
+# remembered rule: a future pyproject-fmt that drops --keep-full-version, or that
+# relocates a comment block, fails here instead of quietly making a recorded
+# ruling false. The association tests assert PLACEMENT, not presence — the
+# original failure preserved every comment character while attaching it to the
+# wrong key, so a "the string is still there" check would have passed it.
+# --------------------------------------------------------------------------
+
+PYPROJECT_FMT_FLAGS = [
+    "--keep-full-version",
+    "--no-generate-python-version-classifiers",
+    "--table-format",
+    "long",
+]
+
+# Ruling comment -> the setting it rules. The anchor must still appear within the
+# two significant (non-comment, non-blank) lines following the comment block,
+# which allows for a `[table.header]` line sitting between a block and its key.
+RULING_ANCHORS = [
+    ("Core's first pinned runtime dependency", '"defusedxml==0.7.1"'),
+    ("The mdformat pin is a RENDER-CONTRACT component", '"mdformat==1.0.0"'),
+    ("pyzotero: dev-lane agent instrument", '"pyzotero[cli]==1.14.0"'),
+    ("Bandit idiom exclusions", "extend-select = ["),
+    ("ARG in tests (measured", '"tests/*" = ['),
+    ("PTH off in gitstate ONLY", '"knowledge_harness/gitstate.py" = ['),
+    ("Same ruling, test side", '"tests/test_gitstate.py" = ['),
+    ("print IS the CLI output contract", '"knowledge_harness/__main__.py" = ['),
+    ("Gate scripts report via stdout", '"scripts/*" = ['),
+    ("max-complexity is green at adoption", "max-complexity = 33"),
+    ("Ratchet path (as touched code gets annotated)", "[tool.mypy]"),
+    ("pypdf: optional [pdf] extra", 'module = "pypdf.*"'),
+    ("defusedxml ships no py.typed", 'module = "defusedxml.*"'),
+]
+
+_FIX = (
+    "Re-run the form owner exactly as the hook does:\n"
+    "    pyproject-fmt " + " ".join(PYPROJECT_FMT_FLAGS) + " pyproject.toml\n"
+    "If that does NOT restore the property, the pinned pyproject-fmt has changed "
+    "behaviour. Do not loosen this test: re-measure against the real file (the "
+    "mistake this guard exists to prevent was measuring a proxy), then either find "
+    "the flag that restores losslessness or retire the hook and record why."
+)
+
+
+def _round_tripped_pyproject(tmp_path) -> str:
+    """Run the pinned pyproject-fmt over a COPY; never touch the real file.
+
+    Working on a copy is what lets this pass with a dirty tree and keeps the suite
+    from mutating repo state as a side effect of asserting about it.
+    """
+    binary = Path(sys.executable).parent / "pyproject-fmt"
+    if not binary.exists():
+        located = shutil.which("pyproject-fmt")
+        assert located, "pyproject-fmt is not installed; install the [dev] extra"
+        binary = Path(located)
+    scratch = tmp_path / "pyproject.toml"
+    shutil.copyfile(ROOT / "pyproject.toml", scratch)
+    result = subprocess.run(
+        [str(binary), *PYPROJECT_FMT_FLAGS, str(scratch)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # 0 = already canonical, 1 = rewritten. Anything else is a tool failure.
+    assert result.returncode in (0, 1), (
+        f"pyproject-fmt exited {result.returncode}\n{result.stderr}"
+    )
+    return scratch.read_text(encoding="utf-8")
+
+
+def _requirements(text: str) -> set[str]:
+    data = tomllib.loads(text)
+    rows = set(data["project"].get("dependencies", []))
+    for group in data["project"].get("optional-dependencies", {}).values():
+        rows.update(group)
+    return rows
+
+
+def _significant_lines_after(text: str, marker: str, count: int) -> list[str]:
+    lines = text.splitlines()
+    index = next(i for i, line in enumerate(lines) if marker in line)
+    found = []
+    for line in lines[index:]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        found.append(stripped)
+        if len(found) == count:
+            break
+    return found
+
+
+def test_pyproject_fmt_flags_match_the_hook_the_seam_actually_runs():
+    """A test guarding a different flag set than the hook guards nothing.
+
+    The coupling is enforced here rather than left to a comment on both sides.
+    """
+    config = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    start = config.index("- id: pyproject-fmt")
+    entry = config[start : config.index("- id: ", start + 1)]
+    assert set(re.findall(r"--[a-z-]+", entry)) == {
+        flag for flag in PYPROJECT_FMT_FLAGS if flag.startswith("--")
+    }, (
+        "the pyproject-fmt flags in .pre-commit-config.yaml and the flags this file "
+        "round-trips with have drifted apart; make them identical again"
+    )
+    assert "--table-format long" in " ".join(entry.split())
+
+
+def test_pyproject_fmt_round_trip_preserves_every_pin_spelling(tmp_path):
+    """`mdformat==1.0.0` must never come back as `==1`.
+
+    PEP 440 treats those as equivalent, which is precisely what makes the rewrite
+    dangerous: the recorded pin is the artifact, and a silently loosened one still
+    resolves today and has stopped being a pin tomorrow.
+    """
+    before = _requirements((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    after = _requirements(_round_tripped_pyproject(tmp_path))
+    assert before == after, (
+        "pyproject-fmt changed dependency spellings.\n"
+        f"  lost:   {sorted(before - after)}\n"
+        f"  gained: {sorted(after - before)}\n" + _FIX
+    )
+
+
+def test_pyproject_fmt_round_trip_invents_no_classifiers(tmp_path):
+    """Bare pyproject-fmt asserts support through Python 3.14. Nothing tests that."""
+    formatted = tomllib.loads(_round_tripped_pyproject(tmp_path))
+    assert "classifiers" not in formatted["project"], (
+        "pyproject-fmt generated a classifiers block this project never declared "
+        "and does not test.\n" + _FIX
+    )
+
+
+@pytest.mark.parametrize(
+    ("marker", "anchor"), RULING_ANCHORS, ids=[anchor for _, anchor in RULING_ANCHORS]
+)
+def test_every_ruling_comment_sits_on_the_setting_it_rules(marker, anchor):
+    """The rulings are attached correctly in the file as committed."""
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert marker in text, f"the ruling comment {marker!r} has gone missing"
+    following = _significant_lines_after(text, marker, 2)
+    assert any(anchor in line for line in following), (
+        f"the ruling comment {marker!r} no longer sits above {anchor!r}; it now "
+        f"precedes {following!r}. A comment describing a different setting than the "
+        "one it sits on is a false record."
+    )
+
+
+@pytest.mark.parametrize(
+    ("marker", "anchor"), RULING_ANCHORS, ids=[anchor for _, anchor in RULING_ANCHORS]
+)
+def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
+    marker, anchor, tmp_path
+):
+    """...and a round-trip must not move them onto a different one.
+
+    This is the exact defect measured on 2026-08-22: every character of the
+    pyzotero ruling survived the format, attached to `mdformat`.
+    """
+    following = _significant_lines_after(_round_tripped_pyproject(tmp_path), marker, 2)
+    assert any(anchor in line for line in following), (
+        f"a pyproject-fmt round-trip moved the ruling comment {marker!r} away from "
+        f"{anchor!r}; it now precedes {following!r}. The comment TEXT survived, so "
+        "only this placement check catches it.\n" + _FIX
+    )
