@@ -17,6 +17,7 @@ from . import (
     notes,
     okf,
     paths,
+    publish,
     scaffold,
     selectors,
 )
@@ -342,6 +343,92 @@ def cmd_verify(args):
     return decision
 
 
+def cmd_arm_publish(args):
+    try:
+        path = publish.arm(args.vault, args.project, bypass=args.bypass)
+    except publish.PublishError as error:
+        print(f"cannot arm the publish gate: {error}", file=sys.stderr)
+        return 2
+    print(str(path))
+    return 0
+
+
+def cmd_disarm_publish(args):
+    try:
+        removed = publish.disarm(args.vault)
+    except publish.PublishError as error:
+        print(f"cannot disarm the publish gate: {error}", file=sys.stderr)
+        return 2
+    print("disarmed" if removed else "not armed")
+    return 0
+
+
+def _run_disposition(action):
+    """Report one disposition: 1/3 are the gate's answer, 2 is our own failure."""
+    try:
+        outcome = action()
+    except (
+        publish.PublishError,
+        gitstate.GitStateError,
+        PathCodecError,
+        bibliography.BibliographyError,
+        inbox.InboxError,
+        frontmatter.FrontmatterError,
+        notes.ManagedRegionError,
+        notes.InvalidCitekeyError,
+        notes.RenderIntegrityError,
+        OSError,
+    ) as error:
+        print(f"cannot complete this disposition: {error}", file=sys.stderr)
+        return 2
+    for blocker in outcome.blockers:
+        print(blocker)
+    if outcome.decision:
+        return outcome.decision
+    print(
+        json.dumps(
+            {
+                "project": f"projects/{outcome.project}",
+                "status": outcome.status,
+                "commit": outcome.commit,
+                "tag": outcome.tag,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def cmd_mark_published(args):
+    return _run_disposition(
+        lambda: publish.mark_published(args.vault, args.project, base=args.base)
+    )
+
+
+def cmd_mark_corrected(args):
+    return _run_disposition(
+        lambda: publish.mark_corrected(args.vault, args.project, base=args.base)
+    )
+
+
+def cmd_mark_withdrawn(args):
+    return _run_disposition(lambda: publish.mark_withdrawn(args.vault, args.project))
+
+
+def cmd_park(args):
+    return _run_disposition(lambda: publish.park(args.vault, args.project))
+
+
+def cmd_ack(args):
+    try:
+        entry = inbox.append_ack(args.vault, args.finding, args.reason, args.actor)
+    except (inbox.InboxError, ValueError, OSError) as error:
+        print(f"acknowledgment refused: {error}", file=sys.stderr)
+        return 2
+    print(entry.id)
+    return 0
+
+
 def cmd_inbox(args):
     print(json.dumps(inbox.summary(args.vault), sort_keys=True))
     for entry in sorted(
@@ -409,6 +496,21 @@ def main(argv=None):
     )
     verify.add_argument("--changed-paths-file")
     verify.add_argument("--commit-projected")
+    arm_publish = sub.add_parser("arm-publish", parents=[common])
+    arm_publish.add_argument("project")
+    arm_publish.add_argument("--vault", required=True)
+    arm_publish.add_argument("--bypass")
+    disarm_publish = sub.add_parser("disarm-publish", parents=[common])
+    disarm_publish.add_argument("--vault", required=True)
+    for disposition in ("mark-published", "mark-corrected", "mark-withdrawn", "park"):
+        verb = sub.add_parser(disposition, parents=[common])
+        verb.add_argument("project")
+        verb.add_argument("--vault", required=True)
+    acknowledge = sub.add_parser("ack", parents=[common])
+    acknowledge.add_argument("finding")
+    acknowledge.add_argument("--vault", required=True)
+    acknowledge.add_argument("--reason", required=True)
+    acknowledge.add_argument("--actor", required=True)
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
     scaffold_vault = sub.add_parser("scaffold", parents=[common])
@@ -431,6 +533,13 @@ def main(argv=None):
         "staleness": cmd_staleness,
         "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,
+        "arm-publish": cmd_arm_publish,
+        "disarm-publish": cmd_disarm_publish,
+        "mark-published": cmd_mark_published,
+        "mark-corrected": cmd_mark_corrected,
+        "mark-withdrawn": cmd_mark_withdrawn,
+        "park": cmd_park,
+        "ack": cmd_ack,
         "inbox": cmd_inbox,
         "scaffold": cmd_scaffold,
         "doctor": cmd_doctor,

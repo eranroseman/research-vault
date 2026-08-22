@@ -91,7 +91,7 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 | `inbox/`; `inbox/review-queue.md` (`type: "review-queue"`) | A/S — GTD inbox; typed append-only review queue |
 | `literatures/`; `type: literature` | A/S — ZotLit/Ahrens projection vocabulary |
 | `synthesis/`; `synthesis/index.md`; `type: synthesis` | A — evidence-synthesis vocabulary; nested index is reserved |
-| `log/`; `log/YYYY-MM-DD.md`; root `log.md` (`type: "log"`, single writer via `okf.regenerate_log`, called from `import-note` (and once at scaffold time)) | A/S — append-only daily directory plus distinct reserved root tail |
+| `log/`; `log/YYYY-MM-DD.md` (`type: "daily"`); root `log.md` (`type: "log"`, single writer via `okf.regenerate_log`, called from `import-note` and `mark-withdrawn` (and once at scaffold time)) | A/S — append-only daily directory plus distinct reserved root tail |
 | `projects/`; `type: project` | A/S — PARA/GTD project vocabulary |
 | `system/`; `system/templates/`; `system/bases/`; `AGENTS.md` (`type: "guide"`); `.harness/`; `hk-` markers | S — ruled harness conventions; `system/` sorts last, out of the knowledge folders' way (renamed from `x/`) |
 | root `index.md` (`type: "index"`, `okf_version: "0.2"`) | A — OKF bundle root, links to every vault folder |
@@ -116,6 +116,7 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 | Current term | Status |
 |---|---|
 | CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` | A/S — CLI subcommand set (mixed verb/noun forms — conventional for CLIs, not uniformly verbs) |
+| CLI publish surface `arm-publish`, `disarm-publish`, `mark-published`, `mark-corrected`, `mark-withdrawn`, `park`, `ack` | S — spec §6's own words: the gate is *armed*, the day-one menu reads *mark-published*/*park*, the post-publish menu *corrected*/*withdrawn*; `ack` is the §3 acknowledgment's serialization spelling (§4.4) |
 | skills `setup-vault`, `project`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names |
 | `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED` | S — trust distinction retained over developer-only pytest vocabulary |
 | evidence layer, synthesis layer, admission, information flow, project flow | A/S — current process vocabulary |
@@ -128,7 +129,7 @@ checks use composite ids `check:{claim-link}:{target-kind}` (e.g. `quote:{claim-
 
 | Group | Members | Status |
 |---|---|---|
-| check ids | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`) | S — spec §6 rows carry these slugs backticked |
+| check ids | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`), `publish` (the project-level publication event `mark-published`/`mark-corrected` mints, §5) | S — spec §6 rows carry these slugs backticked |
 | doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf` | S — doctor rows use the Outcome vocabulary (`check`/`result`/`reason`; `Probe` shape unified 2026-08-21) |
 | reason codes | the `REASON_CODES` set at HEAD, incl. `superseded-note` (renamed from `superseded-source`), `fuzzy-quote`, `not-admitted`, `drift`, `outage` | S — one registry, code is authoritative; additions require a reference row |
 

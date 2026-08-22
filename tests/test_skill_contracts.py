@@ -26,7 +26,7 @@ TEMPLATES_DIR = REPOSITORY / "knowledge_harness" / "templates"
 # entry skill ships (Task 2 publish; Task 3 verify-citations,
 # factcheck-draft; Task 4 project; Task 5 import-source; Task 6
 # find-sources) — it only ever grows, never shrinks.
-ENTRY_SKILLS = {"setup-vault"}
+ENTRY_SKILLS = {"setup-vault", "publish"}
 
 # A bare kebab-case token in backticks, e.g. `` `evidence-conventions` `` —
 # the shape a skill name takes when a template cites one in prose. Requires
@@ -54,6 +54,14 @@ def test_every_skill_directory_ships_a_skill_md():
     assert dirs, "expected at least one skills/<name>/ directory"
     for directory in dirs:
         assert (directory / "SKILL.md").is_file(), f"{directory} has no SKILL.md"
+
+
+def test_every_entry_skill_named_here_is_actually_shipped():
+    """Keeps ENTRY_SKILLS load-bearing: the per-skill invocation check below is
+    parametrized over shipped files, so a name added here without its
+    directory would otherwise assert nothing."""
+    missing = sorted(ENTRY_SKILLS - {directory.name for directory in _skill_dirs()})
+    assert not missing, f"ENTRY_SKILLS names unshipped skill(s): {missing}"
 
 
 @pytest.mark.parametrize("skill_md", _skill_md_files(), ids=lambda p: p.parent.name)
