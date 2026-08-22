@@ -337,6 +337,32 @@ def cmd_backfill_selectors(args):
     return int(bool(failures))
 
 
+def cmd_archive_source(args):
+    """Archive one web source and record the confirmed snapshot (spec §7).
+
+    The sole writer of literature ``archive-url``. Same exit-code contract as
+    every other four-state report in this binary: 0 recorded or not applicable,
+    1 the archive is serving nothing, 3 an outage, 2 the verb could not run.
+    """
+    from . import archive
+
+    try:
+        outcome = archive.archive_source(args.vault, args.citekey, args.snapshot)
+    except archive.ArchiveError as error:
+        print(f"archive refused: {error}", file=sys.stderr)
+        return 2
+    recorded = outcome.extra.get("archive_url")
+    print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+    if recorded:
+        print(recorded)
+    return {
+        Result.MATCHED: 0,
+        Result.SKIPPED: 0,
+        Result.UNMATCHED: 1,
+        Result.UNREACHABLE: 3,
+    }[outcome.result]
+
+
 def cmd_staleness(args):
     result = bibliography.staleness(args.vault, ZoteroClient(base=args.base))
     print(result.value)
@@ -723,6 +749,10 @@ def main(argv=None):
     import_note = sub.add_parser("import-note", parents=[common])
     import_note.add_argument("citekey")
     import_note.add_argument("--vault", required=True)
+    archive_source_cmd = sub.add_parser("archive-source", parents=[common])
+    archive_source_cmd.add_argument("citekey")
+    archive_source_cmd.add_argument("--vault", required=True)
+    archive_source_cmd.add_argument("--snapshot")
     staleness = sub.add_parser("staleness", parents=[common])
     staleness.add_argument("--vault", required=True)
     backfill = sub.add_parser("backfill-selectors", parents=[common])
@@ -791,6 +821,7 @@ def main(argv=None):
     return {
         "probe": cmd_probe,
         "import-note": cmd_import_note,
+        "archive-source": cmd_archive_source,
         "staleness": cmd_staleness,
         "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,

@@ -140,12 +140,19 @@ def validate_reason(reason: str) -> str:
 
 
 def _validate_text(name: str, value) -> str:
+    # The reject class must equal ``load``'s break set, not a narrower trio.
+    # ``load`` splits the body with ``str.splitlines()``, so \v, \f, \x1c-\x1e,
+    # \x85, U+2028 and U+2029 each end a line for the reader while passing an
+    # ``"\n" in value`` writer check — a row written across two physical lines
+    # that no later read can parse. The queue is append-only, so that is
+    # permanent: one such write bricks `inbox`, `ack`, doctor's inbox probe and
+    # every `verify` read of the file, for good. ``splitlines() != [value]``
+    # also catches a trailing separator, which ``in``-checks miss entirely.
     if (
         not isinstance(value, str)
         or not value.strip()
-        or "\n" in value
-        or "\r" in value
         or "\0" in value
+        or value.splitlines() != [value]
     ):
         raise ValueError(f"{name} must be a nonempty single-line string")
     return value

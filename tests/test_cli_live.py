@@ -428,7 +428,12 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
 
 @pytest.mark.parametrize(
     "citekey",
-    ["", "../escape", "/tmp/escape", "..\\escape"],
+    # The control-character cases are the corruption class: `note_path` rejects
+    # them (Unicode \s covers \v and U+2028), and the hold then hands the same
+    # string to the review-queue writer. If that writer accepts it, the row is
+    # written across two physical lines and the append-only queue never parses
+    # again.
+    ["", "../escape", "/tmp/escape", "..\\escape", "a\vb", "a\u2028b"],
 )
 def test_import_note_rejects_unsafe_citekey_before_side_effects(
     citekey, tmp_vault, monkeypatch, capsys
@@ -462,15 +467,28 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
         capture_output=True,
         text=True,
     ).stdout
+    errors = capsys.readouterr().err.splitlines()
     assert result == 1
-    assert capsys.readouterr().err.splitlines()[0] == f"invalid citekey: {citekey!r}"
+    assert errors[0] == f"invalid citekey: {citekey!r}"
     assert constructed == []
     # Task 5: the review record is the one deliberate write a rejected import
     # makes. Nothing else may move — no Zotero traffic, no note, no export.
     assert status_before == ""
-    assert status_after in {"", "?? inbox/\n"}
     assert list((tmp_vault / "literatures").iterdir()) == []
     assert list((tmp_vault / "system").iterdir()) == []
+
+    # Reading the queue must never raise: an unloadable row is permanent on an
+    # append-only surface, so the corrupt-write class has to fail here loudly.
+    holds = _holds(tmp_vault)
+    if citekey and citekey.splitlines() == [citekey]:
+        assert status_after == "?? inbox/\n"
+        assert [(hold.check, hold.target) for hold in holds] == [("citekey", citekey)]
+        assert errors == [f"invalid citekey: {citekey!r}"]
+    else:
+        # Unrepresentable as a finding target — refused, and said out loud.
+        assert status_after == ""
+        assert holds == []
+        assert errors[1].startswith("warning: review record refused: ")
 
 
 @pytest.mark.parametrize(

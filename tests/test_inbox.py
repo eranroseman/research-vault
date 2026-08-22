@@ -1,3 +1,4 @@
+import contextlib
 import os
 import stat
 
@@ -861,3 +862,56 @@ def test_summary_counts_and_age(fixture_vault):
         "unacknowledged": 2,
         "oldest": "2026-08-01",
     }
+
+
+# The review queue is append-only, so one unparseable row is permanent: every
+# later `inbox`, `ack`, doctor probe and `verify` read of the file raises, and
+# on a fresh vault the first bad write both creates and corrupts it. ``load``
+# splits the body with ``str.splitlines()``, so the writer's reject class must
+# be the parser's own break set — not the narrower \n/\r/\0 trio, which let \v,
+# \f, \x1c-\x1e, \x85, U+2028 and U+2029 through into a durable surface.
+SPLITLINES_SEPARATORS = [
+    "\n",
+    "\r\n",
+    "\r",
+    "\v",
+    "\f",
+    "\x1c",
+    "\x1d",
+    "\x1e",
+    "\x85",
+    "\u2028",
+    "\u2029",
+]
+
+
+@pytest.mark.parametrize("separator", SPLITLINES_SEPARATORS, ids=repr)
+@pytest.mark.parametrize("position", ["embedded", "trailing"], ids=str)
+def test_append_refuses_any_field_carrying_a_line_break(
+    fixture_vault, separator, position
+):
+    queue = fixture_vault / "inbox" / "review-queue.md"
+    before = queue.read_bytes()
+    hostile = f"a{separator}b" if position == "embedded" else f"a{separator}"
+
+    with pytest.raises(ValueError, match="single-line"):
+        inbox.append_entry(
+            fixture_vault, "citekey", hostile, Result.UNMATCHED, "schema-violation"
+        )
+
+    assert queue.read_bytes() == before
+
+
+@pytest.mark.parametrize("separator", SPLITLINES_SEPARATORS, ids=repr)
+def test_every_row_the_writer_accepts_stays_loadable(fixture_vault, separator):
+    """The corruption class as its own invariant: whatever gets in, loads back."""
+    with contextlib.suppress(TypeError, ValueError):
+        inbox.append_entry(
+            fixture_vault,
+            "citekey",
+            f"a{separator}b",
+            Result.UNMATCHED,
+            "schema-violation",
+        )
+
+    inbox.load(fixture_vault)

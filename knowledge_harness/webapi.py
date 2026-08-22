@@ -44,7 +44,7 @@ def mailto(vault_root) -> str:
     return address
 
 
-def _request(url, vault_root, params, headers, method):
+def _request(url, vault_root, params, headers, method, query_mailto=True):
     address = mailto(vault_root)
     parts = urllib.parse.urlsplit(url)
     caller_params = params or {}
@@ -56,7 +56,8 @@ def _request(url, vault_root, params, headers, method):
     query.extend(
         (key, value) for key, value in caller_params.items() if key != "mailto"
     )
-    query.append(("mailto", address))
+    if query_mailto:
+        query.append(("mailto", address))
     full_url = urllib.parse.urlunsplit(
         (
             parts.scheme,
@@ -85,8 +86,8 @@ def _check_status(status, url, method):
         raise ApiError(f"HTTP {status} from {url}")
 
 
-def _open(url, vault_root, params, headers, timeout, method, read_body):
-    request = _request(url, vault_root, params, headers, method)
+def _open(url, vault_root, params, headers, timeout, method, read_body, query_mailto):
+    request = _request(url, vault_root, params, headers, method, query_mailto)
     try:
         with _urlopen(request, timeout) as response:
             _check_status(response.status, url, method)
@@ -104,7 +105,7 @@ def _open(url, vault_root, params, headers, timeout, method, read_body):
 
 def get_json(url, vault_root, params=None, headers=None, timeout=10.0):
     """GET JSON, returning its actual status and decoded body."""
-    status, body = _open(url, vault_root, params, headers, timeout, "GET", True)
+    status, body = _open(url, vault_root, params, headers, timeout, "GET", True, True)
     if status == 404:
         return status, None
     try:
@@ -115,7 +116,7 @@ def get_json(url, vault_root, params=None, headers=None, timeout=10.0):
 
 def get_text(url, vault_root, params=None, headers=None, timeout=10.0):
     """GET strict UTF-8 text, returning its actual status and decoded body."""
-    status, body = _open(url, vault_root, params, headers, timeout, "GET", True)
+    status, body = _open(url, vault_root, params, headers, timeout, "GET", True, True)
     if status == 404:
         return status, None
     try:
@@ -124,9 +125,22 @@ def get_text(url, vault_root, params=None, headers=None, timeout=10.0):
         raise ApiError(f"undecodable body from {url}") from error
 
 
-def get_status(url, vault_root, params=None, headers=None, timeout=10.0):
-    """HEAD a resource, falling back to GET if the server rejects HEAD."""
-    status, _ = _open(url, vault_root, params, headers, timeout, "HEAD", False)
+def get_status(
+    url, vault_root, params=None, headers=None, timeout=10.0, *, query_mailto=True
+):
+    """HEAD a resource, falling back to GET if the server rejects HEAD.
+
+    ``query_mailto=False`` keeps the mandatory contact address in the
+    User-Agent only, for endpoints that carry their target URL in the path
+    (Save Page Now): appending ``?mailto=`` there would change which address
+    gets archived. ``mailto()`` still runs, so an unconfigured vault still
+    fails closed.
+    """
+    status, _ = _open(
+        url, vault_root, params, headers, timeout, "HEAD", False, query_mailto
+    )
     if status in _HEAD_FALLBACK_STATUSES:
-        status, _ = _open(url, vault_root, params, headers, timeout, "GET", False)
+        status, _ = _open(
+            url, vault_root, params, headers, timeout, "GET", False, query_mailto
+        )
     return status

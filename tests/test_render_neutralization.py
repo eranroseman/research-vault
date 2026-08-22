@@ -162,8 +162,8 @@ SPLITLINES_ONLY_SEPARATORS = [
     "\x1d",
     "\x1e",
     "\x85",
-    " ",
-    " ",
+    "\u2028",
+    "\u2029",
 ]
 ALL_SEPARATORS = SHARED_SEPARATORS + SPLITLINES_ONLY_SEPARATORS
 
