@@ -13,6 +13,9 @@
 9. **Leading word**: the never-hand-write refrain's five spellings collapse to *the CLI writes* (inline token per site).
 10. **Prohibition cuts**: "not as a raw dump" (find-sources:88), "not in raw run order" (verify-citations:27) — recipes already present.
 
+11. **Cross-read our-wiring** (docs/2026-08-22-references-cross-read.md): fold the credential-count fix into item 5 ("several", defer to `redact_url`); SKILL.md sources mailto from harness config + states vendored scripts don't read it.
+12. **Cross-read annotations**: one vendoring-note section carrying the six upstream-fact annotations per the report's triage; SKILL.md routing guards (no single-DOI lookups via paginate; openalex row points at openalex_abstract.py; OPENALEX_API_KEY env caution).
+
 NOT in this batch: four-state dedup (migrate 3–4 — RED-gated); anything the in-flight references cross-read confirms (triaged separately when it reports).
 
 Acceptance: suite green offline; `test_skill_contracts` green over the renamed set; judged greps (retired `project` skill references, no returned prohibitions); merge + push in the same motion.
