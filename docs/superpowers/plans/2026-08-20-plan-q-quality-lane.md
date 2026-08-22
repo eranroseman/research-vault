@@ -17,7 +17,7 @@
 - Tool versions are **pinned exact** (single-maintainer v0.1.x tools — treat as removable; upgrades are deliberate acts).
 - mutate4py always runs with `--manifest-file` (sidecar JSON). The embedded-in-source mode appends a footer to production files — never acceptable in this repo.
 - The lane is **advisory**: the workflow fails visibly but is not a required check (no branch protection exists; do not add any).
-- Live-measured costs to expect (2026-08-20, 4 workers): ~1,250 mutation sites repo-wide; blanket with test-contexts narrowing ~10–15 min; contexts DB build (one isolated coverage session per collected test, 452 tests) ~10–15 min, one-time; full suite 37 s.
+- Live-measured costs to expect (2026-08-20, 4 workers): ~1,250 mutation sites repo-wide; blanket with test-contexts narrowing ~10–15 min; contexts DB build (one isolated coverage session per collected test, 452 tests) ~10–15 min, one-time; full suite 37 s. **Re-measured 2026-08-22 at Task 4 dispatch (suite grew to 1454 tests, serial 78 s): contexts build ~35–50 min; no-contexts fallback ~7 h — see Step 5's amended stop-and-report fallback.**
 - **Pre-baseline over-engineering pass (author-triaged, outside this plan's tasks):** after Plan T merges and before Task 3's blanket baseline, the author's session runs `/ponytail-audit` (whole-repo over-engineering sweep — delete/stdlib/native/yagni/shrink, ranked report, applies nothing); author-accepted cuts land as one simplification batch **first**, so the mutation manifests hash the simplified tree (same AST-ordering reason ruff fixes precede the baseline). It is LLM judgment — a report for triage, never a CI gate; deterministic-only closure holds.
 - Commit messages conventional; one commit per task.
 
@@ -709,12 +709,12 @@ if __name__ == "__main__":
 Run: `python -m pytest tests/test_mutation_gate.py -q`
 Expected: 6 PASS. Then full suite: `python -m pytest tests -q` — all PASS (452+ at HEAD).
 
-- [ ] **Step 5: Build the contexts DB** (one-time, ~10–15 min; no mutation run)
+- [ ] **Step 5: Build the contexts DB** (one-time; **re-estimated 2026-08-22: ~35–50 min** — the build runs one isolated coverage session per collected test, and the suite is now 1454 tests, not the 452 the original ~10–15 min figure was measured against; no mutation run)
 
 Run: `python -m mutate4py --build-test-contexts .contexts.db --pytest-args 'tests -q -p no:cacheprovider'`
-Expected: `.contexts.db` written (gitignored). If the build degrades or errors, proceed without it — blanket then runs full-suite-per-mutant (~2.5 h at 4 workers); note which path was taken in the task report.
+Expected: `.contexts.db` written (gitignored). **Fallback amended 2026-08-22: if the build degrades or errors, STOP and report — do not proceed to a no-contexts blanket.** Full-suite-per-mutant is no longer the plan's "acceptable one-time ~2.5 h": serial suite is now 78 s, so ~1,250 sites at 4 workers is ~7 h. The contexts DB is load-bearing; a failed build is a finding to hand back, not a degraded mode to absorb silently.
 
-- [ ] **Step 6: Blanket baseline run** (~10–15 min with contexts)
+- [ ] **Step 6: Blanket baseline run** (~10–15 min with contexts — measured against the 452-test suite; expect longer at 1454 tests and record the actual wall-clock in the task report)
 
 ```bash
 python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
@@ -831,4 +831,4 @@ git commit -m "ci: advisory dev-quality workflow (crap ceiling 45, drywall, muta
 - **Exit-code truths encoded**: mutate4py exit 0 with survivors (hence the parser), crap4py exit 1 over ceiling (verified), drywall exit 1 on duplicates / 2 on bad args.
 - **Type consistency**: gate entry points `parse_survivors(relpath, output)`, `new_survivors(found, baseline)`, `baseline_keys(path)`, `changed_modules(base, cwd)` match between Task 4's tests and script; Task 5 calls the CLI exactly as Task 4 produces it; the gate script carries explicit `check=False` so Task 2's PLW1510 adoption stays clean.
 - **AST-churn sequencing**: Tasks 2 (lint/type fixes) and 3 (burn-down refactor) both run before Task 4's blanket baseline on purpose — all pre-baseline churn lands first, so manifests hash the settled tree.
-- **Known risk left open deliberately**: if `--build-test-contexts` proves unreliable (its own help warns shared-session DBs degrade to the full test set), the blanket falls back to full-suite-per-mutant (~2.5 h) — acceptable one-time; the CI gate path never needs the contexts DB because diffs keep mutant counts small.
+- **Known risk left open deliberately**: if `--build-test-contexts` proves unreliable (its own help warns shared-session DBs degrade to the full test set), the blanket falls back to full-suite-per-mutant — **re-ruled 2026-08-22: no longer an acceptable silent fallback (~7 h at the 1454-test suite, not the 2.5 h this line assumed); Step 5 now stops and reports instead**. The CI gate path still never needs the contexts DB because diffs keep mutant counts small.
