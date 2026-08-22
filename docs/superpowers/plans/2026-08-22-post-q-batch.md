@@ -23,6 +23,8 @@
 
 16. **SKIPPED entries excluded from the unacknowledged count** (slice finding 14): review-queue entries with `result:: SKIPPED` keep being recorded (audit trail) but are excluded from doctor's inbox probe count and every drain surface's "unacknowledged" arithmetic — does-not-apply needs no acknowledgment, and counting it manufactures rubber-stamp pressure. Regression test: a queue holding only SKIPPED entries reports zero unacknowledged; mixed queues count only non-SKIPPED.
 
+17. **Two-tier citekey check** (spec §4 as ruled 2026-08-22): the citekey closing check tightens — a cited citekey must have a literature note (`literatures/<citekey>.md`); bibliography presence alone resolves imports but does not confer citability. Reason code for the new failure class gets its §4.4 row (suggested: `not-imported` — distinct from `not-admitted`). Regression tests: cite-with-note passes; cite-with-bibliography-only fails citekey with `not-imported`; cite-absent-everywhere fails with the existing class. The note's OWN citekey row (note-vs-bibliography identity) keeps current semantics.
+
 NOT in this batch: four-state dedup (migrate 3–4 — RED-gated); anything the in-flight references cross-read confirms (triaged separately when it reports).
 
 Acceptance: suite green offline; `test_skill_contracts` green over the renamed set; judged greps (retired `project` skill references, no returned prohibitions); merge + push in the same motion.
