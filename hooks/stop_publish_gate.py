@@ -23,28 +23,28 @@ BOUND_MESSAGE = (
 )
 
 
-class FlagChanged(RuntimeError):
+class FlagChangedError(RuntimeError):
     """The armed flag changed after this invocation read it."""
 
 
-class ClaimRecoveryPending(RuntimeError):
+class ClaimRecoveryPendingError(RuntimeError):
     """A valid private claim could not yet be restored to the public path."""
 
 
-class BypassFailure(RuntimeError):
+class BypassFailureError(RuntimeError):
     """The audited bypass did not durably complete."""
 
 
 class ArmedFlag:
     __slots__ = (
-        "path",
-        "vault",
-        "project",
         "blocks",
         "bypass",
-        "state",
         "expected_bytes",
         "identity",
+        "path",
+        "project",
+        "state",
+        "vault",
     )
 
     def __init__(
@@ -69,7 +69,7 @@ class ArmedFlag:
 
 
 class PublishState:
-    __slots__ = ("raw", "effective", "warning_effective")
+    __slots__ = ("effective", "raw", "warning_effective")
 
     def __init__(self, raw, effective, warning_effective) -> None:
         self.raw = raw
@@ -116,7 +116,7 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
     from knowledge_harness.pathcodec import encode_repo_path
 
     target = encode_repo_path(os.fsencode(project))
-    date = datetime.date.today().isoformat()
+    date = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     recorded_reason = f"manual — publish-gate bypass: {reason}"
     # A publish-gate finding id carries a reason discriminator, so a retry of
     # THIS bypass collapses to one row while a genuinely distinct bypass of the
@@ -145,7 +145,7 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
 
 def _vault_from_cwd(cwd: str) -> Path | None:
     """Find the nearest real vault marker, including cwd itself."""
-    if not os.path.isabs(cwd) or "\0" in cwd:
+    if not Path(cwd).is_absolute() or "\0" in cwd:
         return None
     current = Path(os.path.sep)
     try:
@@ -292,9 +292,9 @@ def _read_flag(vault: Path, path: Path) -> ArmedFlag | None:
 def _unlink_owned(path: Path, identity: tuple[int, int]) -> None:
     metadata = os.lstat(path)
     if not stat.S_ISREG(metadata.st_mode):
-        raise FlagChanged("private flag artifact changed type")
+        raise FlagChangedError("private flag artifact changed type")
     if (metadata.st_dev, metadata.st_ino) != identity:
-        raise FlagChanged("private flag artifact changed identity")
+        raise FlagChangedError("private flag artifact changed identity")
     path.unlink()
 
 
@@ -307,7 +307,7 @@ def _restore_owned_claim(
 ) -> None:
     current_bytes, current_identity = _read_regular(claimed)
     if current_identity != identity or current_bytes != expected_bytes:
-        raise FlagChanged("private flag claim changed before restore")
+        raise FlagChangedError("private flag claim changed before restore")
     try:
         os.link(claimed, path)
     except Exception as error:
@@ -318,7 +318,7 @@ def _restore_owned_claim(
     if installed_identity != identity or installed_bytes != expected_bytes:
         successor = _decode_flag(vault, path, installed_bytes, installed_identity)
         if successor is None:
-            raise FlagChanged("public flag is not a valid successor")
+            raise FlagChangedError("public flag is not a valid successor")
     _unlink_owned(claimed, identity)
 
 
@@ -344,7 +344,7 @@ def _recover_claimed_flag(vault: Path, path: Path) -> ArmedFlag | None:
     if not valid:
         return None
     if len(valid) != 1:
-        raise ClaimRecoveryPending("multiple valid private flag claims")
+        raise ClaimRecoveryPendingError("multiple valid private flag claims")
     claimed, armed = valid[0]
     try:
         _restore_owned_claim(
@@ -358,10 +358,10 @@ def _recover_claimed_flag(vault: Path, path: Path) -> ArmedFlag | None:
         successor = _read_flag(vault, path)
         if successor is not None:
             return successor
-        raise ClaimRecoveryPending("private flag claim restore failed") from error
+        raise ClaimRecoveryPendingError("private flag claim restore failed") from error
     restored = _read_flag(vault, path)
     if restored is None:
-        raise ClaimRecoveryPending("restored flag could not be validated")
+        raise ClaimRecoveryPendingError("restored flag could not be validated")
     return restored
 
 
@@ -387,7 +387,7 @@ def _claim_flag(armed: ArmedFlag) -> Path:
     claimed.unlink()
     moved = False
     try:
-        os.replace(armed.path, claimed)
+        armed.path.replace(claimed)
         moved = True
         current_bytes, current_identity = _read_regular(claimed)
     except Exception:
@@ -401,7 +401,13 @@ def _claim_flag(armed: ArmedFlag) -> Path:
                     current_bytes,
                     current_identity,
                 )
-            except Exception:
+            # Swallowing here is deliberate, and is NOT the fail-open doctrine.
+            # This is best-effort recovery while an exception is already unwinding,
+            # and the bare `raise` below re-raises the ORIGINAL failure. Letting a
+            # restore error escape here would replace the real cause with a less
+            # informative one and lose it forever. Swallowing is the correct and
+            # only safe behaviour; the flag stays for human follow-up either way.
+            except Exception:  # noqa: S110
                 pass
         raise
     if current_identity != armed.identity or current_bytes != armed.expected_bytes:
@@ -412,7 +418,7 @@ def _claim_flag(armed: ArmedFlag) -> Path:
             current_bytes,
             current_identity,
         )
-        raise FlagChanged("publish flag changed before claim")
+        raise FlagChangedError("publish flag changed before claim")
     return claimed
 
 
@@ -447,7 +453,13 @@ def _write_blocks(armed: ArmedFlag, blocks: int) -> None:
                     armed.identity,
                 )
                 claimed = None
-            except Exception:
+            # Swallowing here is deliberate, and is NOT the fail-open doctrine.
+            # This is best-effort recovery while an exception is already unwinding,
+            # and the bare `raise` below re-raises the ORIGINAL failure. Letting a
+            # restore error escape here would replace the real cause with a less
+            # informative one and lose it forever. Swallowing is the correct and
+            # only safe behaviour; the flag stays for human follow-up either way.
+            except Exception:  # noqa: S110
                 pass
             raise
         installed_bytes, installed_identity = _read_regular(armed.path)
@@ -463,15 +475,15 @@ def _write_blocks(armed: ArmedFlag, blocks: int) -> None:
                 installed_identity,
             )
             if successor is None:
-                raise FlagChanged("counter install did not retain a valid flag")
+                raise FlagChangedError("counter install did not retain a valid flag")
             _unlink_owned(claimed, armed.identity)
             claimed = None
-            raise FlagChanged("counter install was replaced by a valid successor")
+            raise FlagChangedError("counter install was replaced by a valid successor")
         _unlink_owned(claimed, armed.identity)
         claimed = None
     finally:
         if temporary_identity is not None:
-            with suppress(FileNotFoundError, FlagChanged):
+            with suppress(FileNotFoundError, FlagChangedError):
                 _unlink_owned(temporary, temporary_identity)
 
 
@@ -510,7 +522,7 @@ def _process(payload: dict[str, object], armed: ArmedFlag) -> None:
             _append_bypass(armed.vault, armed.project, armed.bypass)
             _clear_flag(armed)
         except Exception as error:
-            raise BypassFailure("audited bypass did not complete") from error
+            raise BypassFailureError("audited bypass did not complete") from error
         return
     state = _verify_publish(armed.vault)
     decision, blockers = _publish_decision(state)
@@ -534,7 +546,7 @@ def _handle(payload: object) -> None:
         return
     try:
         armed = _load_flag(vault)
-    except ClaimRecoveryPending:
+    except ClaimRecoveryPendingError:
         _json_output({"decision": "block", "reason": FAIL_CLOSED_REASON})
         return
     if armed is None:
@@ -542,7 +554,7 @@ def _handle(payload: object) -> None:
     active = payload.get("stop_hook_active") is True
     try:
         _process(payload, armed)
-    except BypassFailure:
+    except BypassFailureError:
         _json_output({"decision": "block", "reason": FAIL_CLOSED_REASON})
     except Exception:
         _bounded_block(armed, active, FAIL_CLOSED_REASON)
