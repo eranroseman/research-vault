@@ -21,6 +21,8 @@
 
 15. **Apply the index to the live vault**: the scaffolded vault at ~/kh-vault predates the template's routing index — after item 2 lands, update the live vault's AGENTS.md to the new template content (one file; the vault repo commit is the author's or this batch's final step with the author's consent).
 
+16. **SKIPPED entries excluded from the unacknowledged count** (slice finding 14): review-queue entries with `result:: SKIPPED` keep being recorded (audit trail) but are excluded from doctor's inbox probe count and every drain surface's "unacknowledged" arithmetic — does-not-apply needs no acknowledgment, and counting it manufactures rubber-stamp pressure. Regression test: a queue holding only SKIPPED entries reports zero unacknowledged; mixed queues count only non-SKIPPED.
+
 NOT in this batch: four-state dedup (migrate 3–4 — RED-gated); anything the in-flight references cross-read confirms (triaged separately when it reports).
 
 Acceptance: suite green offline; `test_skill_contracts` green over the renamed set; judged greps (retired `project` skill references, no returned prohibitions); merge + push in the same motion.
