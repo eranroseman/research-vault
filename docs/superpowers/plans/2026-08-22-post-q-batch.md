@@ -1,6 +1,6 @@
 # Post-Q Batch — Task
 
-> The skills-layer audit's accepted fixes + the ruled rename. Rides as Task 0 of the next dispatch after Plan Q merges (standing practice: micro-batches amortize into the next plan unless urgent). One branch, ordered as numbered — the rename precedes the index so the seven names are written once, correctly.
+> **Promoted to the standalone PRE-SLICE plan (2026-08-22)**: the single dispatch between Plan Q's merge and the slice's Phase 2 — instrument freeze for §9. One branch, ordered as numbered — the rename precedes the index so the seven names are written once, correctly. (The polish pass + four-state dedup stay in their own POST-slice plan: they exist to be informed by slice usage.)
 
 1. **Rename `project` → `project-flow`** (ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by using the glossary's other governed noun, *Project flow*): skill directory, terminology §4.3 skills row, routing-table references in `find-sources` and `import-source`, its content test, judged grep for retired references. Entry family now uniformly two-part.
 2. **C-7 index**: the seven entry names + one clause each into the vault AGENTS.md template (post-rename names); whole-file test pin updates same commit; `test_skill_contracts.py:153` self-validates the citations.
@@ -18,6 +18,8 @@
 
 13. **Ecosystem steals** (audit §6, adopted set): routing guard line in project-flow; compilation-value line in synthesis-conventions; partial-read honesty rule (import-source + factcheck-draft); "validates declarations, not their truth" + the why-one-pass sentence in factcheck-draft; disposition rationalization table in publish (seed rows ported from finishing-a-development-branch per audit §7); publish announces gate-armed at start; setup-vault fails closed on ambiguous vault selection.
 14. All §6 deferred items carry their triggers in the audit doc — none land here.
+
+15. **Apply the index to the live vault**: the scaffolded vault at ~/kh-vault predates the template's routing index — after item 2 lands, update the live vault's AGENTS.md to the new template content (one file; the vault repo commit is the author's or this batch's final step with the author's consent).
 
 NOT in this batch: four-state dedup (migrate 3–4 — RED-gated); anything the in-flight references cross-read confirms (triaged separately when it reports).
 

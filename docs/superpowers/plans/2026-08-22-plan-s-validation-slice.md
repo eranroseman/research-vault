@@ -5,7 +5,7 @@
 
 **Goal:** One trip around the project flow (§9) over two corpora plus the synthetic gate drill, ending in an author judgment: is the brief defensible and did the vault carry the work without being routed around?
 
-**Setup dependency:** the vault is a SEPARATE git repository (spec §2), so this plan touches no file the plugin repo's Plan Q owns — it runs in parallel. The one human-only step (BBT auto-export creation) is front-loaded so its latency overlaps Plan Q.
+**Setup dependency:** the vault is a SEPARATE git repository (spec §2). **Sequencing (ruled 2026-08-22): Phases 2+ wait for the pre-slice batch to merge** — instrument freeze (the project-flow rename, defect fixes, and the vault index land first; running on a mid-rename skill set would pollute the resume test and re-find catalogued defects). Phases 0–1 ran parallel to Plan Q and are closed.
 
 **Authority:** spec §9 verbatim (phases, validated-when, falsified-when); the shipped skills are the instrument under test — where a skill's behavior diverges from what the slice needs, that is a FINDING about the skill, recorded, not worked around (routing around the vault is the §9 falsification condition).
 
@@ -39,7 +39,7 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 
 ## Phase 2–3 — Framing, gap analysis, acquisition
 
-- [ ] `project-flow` start: frame the validation question — *how much are retracted papers cited after retraction, and do retraction-notification tools measurably reduce it?* — stating question / scope / source types / success criteria.
+- [ ] **Question selection (Phase 2's first act)**: the author picks ONE workshop research question to re-ask under the harness (§9 as re-ruled 2026-08-22 — candidates: pkm-vault-schemas, trust-gates-prior-art). Then `project-flow` start: frame it — question / scope / source types / success criteria — knowing the original loose-process answer exists as the baseline; the deliverable is the rigorous re-answer plus the delta.
 - [ ] Gap analysis vs the seeded synthesis layer + bibliography → gap list.
 - [ ] `find-sources` (project-scoped, PRISMA-S log) → candidates → **author admits 15–25 papers** into Zotero → `import-source` with integrate-at-import.
 
