@@ -1008,3 +1008,159 @@ def test_validate_reason_refuses_every_line_break(separator, position):
 
     with pytest.raises(ValueError, match="reason"):
         inbox.validate_reason(hostile)
+
+
+def _seed_finding(vault):
+    """Append one real finding and return it with the exact line it wrote."""
+    finding = inbox.append_entry(
+        vault,
+        "doi",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch",
+        date="2026-08-16",
+    )
+    row = (vault / inbox.INBOX_PATH).read_text().splitlines()[-1]
+    return finding, row
+
+
+def test_load_skips_blank_body_lines_but_still_counts_them(fixture_vault):
+    """Blank lines are separators, not records — yet they hold their line number.
+
+    The queue is append-only and hand-inspected, so a stray blank line must not
+    become a parse error. It must also not renumber the rows around it: the line
+    number in a rejection is how a human finds the offending row in the file.
+    """
+    queue = fixture_vault / inbox.INBOX_PATH
+    finding, row = _seed_finding(fixture_vault)
+
+    _write_body(queue, "\n" + row + "\n   \n")
+    assert [entry.id for entry in inbox.load(fixture_vault)] == [finding.id]
+
+    _write_body(
+        queue,
+        "\n"
+        + row
+        + "\n   \n- [check:: doi] [target:: smith2020] [reason:: mismatch]\n",
+    )
+    with pytest.raises(inbox.InboxError, match="unparseable inbox line 4"):
+        inbox.load(fixture_vault)
+
+
+@pytest.mark.parametrize(
+    ("row_template", "kind"),
+    [
+        ("- [ack:: {id}] [actor:: human:eran] [reason:: manual — ok] [id:: x]", "ack"),
+        ("- [ack:: {id}] [actor:: human:eran]", "ack"),
+        (
+            "- [ack:: {id}] [actor:: human:eran] [reason:: manual — ok] [check:: doi]",
+            "ack",
+        ),
+        (
+            "- [id:: {id}] [target:: smith2020] [result:: UNMATCHED] "
+            "[date:: 2026-08-16] [actor:: knowledge_harness/0.1.0] "
+            "[reason:: mismatch]",
+            "finding",
+        ),
+        (
+            "- [id:: {id}] [check:: doi] [target:: smith2020] [result:: UNMATCHED] "
+            "[date:: 2026-08-16] [actor:: knowledge_harness/0.1.0] "
+            "[reason:: mismatch] [bogus:: x]",
+            "finding",
+        ),
+    ],
+    ids=[
+        "ack-also-claims-a-finding-id",
+        "ack-without-a-reason",
+        "ack-carrying-a-finding-only-field",
+        "finding-without-a-check",
+        "finding-with-an-unknown-field",
+    ],
+)
+def test_load_rejects_a_row_whose_field_set_is_neither_a_finding_nor_an_ack(
+    fixture_vault, row_template, kind
+):
+    """The two record grammars are closed sets, checked before any field is read.
+
+    A row is a finding or an acknowledgment, and each admits exactly its own
+    required and optional keys. A row that mixes them, drops a required key or
+    invents one is not a record this reader may interpret — an append-only log
+    that guessed at a half-understood row would launder it into the vault's
+    permanent history.
+    """
+    queue = fixture_vault / inbox.INBOX_PATH
+    finding, row = _seed_finding(fixture_vault)
+    malformed = row_template.format(id=finding.id if kind == "ack" else "doi/x")
+
+    _write_body(queue, row + "\n" + malformed + "\n")
+
+    with pytest.raises(inbox.InboxError, match="unparseable inbox line 2"):
+        inbox.load(fixture_vault)
+
+
+@pytest.mark.parametrize(
+    "actor", ["knowledge_harness/0.1.0", "human:", "human:   "], ids=repr
+)
+def test_load_rejects_an_acknowledgment_no_named_human_signed(fixture_vault, actor):
+    """An acknowledgment is a human act; the agent may not sign one for itself.
+
+    Closing a finding is the one thing the deterministic pipeline is not allowed
+    to do on its own authority, so the actor must be a ``human:`` prefix with an
+    actual name behind it. A bare prefix is the same unsigned act wearing the
+    right word.
+    """
+    queue = fixture_vault / inbox.INBOX_PATH
+    finding, row = _seed_finding(fixture_vault)
+
+    _write_body(
+        queue,
+        row + f"\n- [ack:: {finding.id}] [actor:: {actor}] [reason:: manual — ok]\n",
+    )
+
+    with pytest.raises(
+        inbox.InboxError, match="invalid acknowledgment on inbox line 2"
+    ):
+        inbox.load(fixture_vault)
+
+
+def test_a_legacy_update_notice_is_closed_only_by_an_ack_naming_it(fixture_vault):
+    """Rows written before notice fingerprints existed close by id alone.
+
+    An update-notice finding with no ``notice-class`` predates the
+    class/type/date discriminator, so there is no fingerprint to match an ack
+    against — only the row's own id. That ack must therefore close that one row
+    and nothing else: a later, properly fingerprinted notice on the same target
+    is a different observation and has to stay open until a human sees it.
+    """
+    legacy = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-16",
+        target_hash="aa11",
+    )
+    fingerprinted = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-17",
+        target_hash="aa11",
+        notice_class="warn",
+        notice_type="correction",
+        notice_date="2026-01-01",
+    )
+    assert legacy.notice_class is None
+
+    inbox.append_ack(fixture_vault, legacy.id, "manual — reviewed", "human:eran")
+
+    assert [entry.id for entry in inbox.open_entries(fixture_vault)] == [
+        fingerprinted.id
+    ]
+    assert inbox.summary(fixture_vault) == {
+        "unacknowledged": 1,
+        "oldest": "2026-08-17",
+    }

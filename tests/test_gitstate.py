@@ -677,3 +677,73 @@ def test_apply_outputs_sweeps_scratch_files_stranded_by_a_killed_run(tmp_vault):
     assert not stranded.exists(), "a dead owner's scratch file must be swept"
     assert live.exists(), "this process's own scratch namespace is never swept"
     assert target.read_bytes() == b"projected\n"
+
+
+def test_rollback_restores_a_deletion_a_file_and_a_symlink_preimage(tmp_vault):
+    """Rollback undoes a projection by each preimage's own kind.
+
+    A path the projection created is removed outright, a replaced file returns
+    byte- and mode-exact, and a symlink the projection flattened into a regular
+    file becomes a symlink to its original target again. Restoring only the
+    bytes would leave the first as a stray file and the last as a real file
+    holding the link text.
+    """
+    kept = tmp_vault / "synthesis" / "kept.md"
+    kept.write_bytes(b"before\n")
+    kept.chmod(0o755)
+    link = os.path.join(os.fsencode(tmp_vault), b"synthesis/link.md")
+    os.symlink(b"kept.md", link)
+    created = tmp_vault / "synthesis" / "created.md"
+    preimage = gitstate.snapshot_worktree(tmp_vault)
+
+    kept.write_bytes(b"AFTER\n")
+    kept.chmod(0o644)
+    os.unlink(link)
+    with open(link, "wb") as stream:
+        stream.write(b"link flattened\n")
+    created.write_bytes(b"new\n")
+    outputs = [
+        gitstate.CapturedOutput(b"synthesis/kept.md", stat.S_IFREG | 0o644, b"AFTER\n"),
+        gitstate.CapturedOutput(
+            b"synthesis/link.md", stat.S_IFREG | 0o644, b"link flattened\n"
+        ),
+        gitstate.CapturedOutput(
+            b"synthesis/created.md", stat.S_IFREG | 0o644, b"new\n"
+        ),
+    ]
+
+    gitstate.rollback_outputs(tmp_vault, preimage, outputs)
+
+    assert kept.read_bytes() == b"before\n"
+    assert stat.S_IMODE(kept.stat().st_mode) == 0o755
+    assert os.readlink(link) == b"kept.md"
+    assert not created.exists()
+
+
+def test_rollback_refuses_a_directory_preimage_and_names_the_path(tmp_vault):
+    """There is no byte-exact way back from a flattened directory.
+
+    A projection may only install regular files, so a directory preimage means
+    the worktree diverged outside the projection's vocabulary. Rollback must say
+    so and name the path, not silently accept the postimage as the new truth.
+    """
+    folder = tmp_vault / "synthesis" / "part"
+    folder.mkdir()
+    preimage = gitstate.snapshot_worktree(tmp_vault)
+    folder.rmdir()
+    flattened = tmp_vault / "synthesis" / "part"
+    flattened.write_bytes(b"flattened\n")
+    output = gitstate.CapturedOutput(
+        b"synthesis/part", stat.S_IFREG | 0o644, b"flattened\n"
+    )
+
+    with pytest.raises(
+        gitstate.GitStateError,
+        match=(
+            r"rollback failed at path-bytes:synthesis/part: "
+            r"cannot restore a non-file projection preimage"
+        ),
+    ):
+        gitstate.rollback_outputs(tmp_vault, preimage, [output])
+
+    assert flattened.read_bytes() == b"flattened\n"

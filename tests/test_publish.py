@@ -925,3 +925,46 @@ def test_the_day_one_menu_refuses_an_already_published_project(
     assert events_at == ["2026-08-01"]
     assert _tags(green_vault) == ["published/brief-2026-08-01-090000"]
     assert _head(green_vault) == head
+
+
+_STATUS_NOTE = '---\ntitle: "Evidence brief"\nstatus: "draft"\n---\nbody\n'
+
+
+@pytest.mark.parametrize(
+    ("note_text", "refusal"),
+    [
+        ("no frontmatter at all\n", "has no frontmatter"),
+        ("", "has no frontmatter"),
+        ('---\ntitle: "Evidence brief"\nstatus: "draft"\n', "unterminated"),
+        ('---\ntitle: "Evidence brief"\n---\nbody\n', "found 0"),
+        ('---\nstatus: "draft"\nstatus: "parked"\n---\nbody\n', "found 2"),
+    ],
+    ids=["no-frontmatter", "empty", "unterminated", "no-status", "two-statuses"],
+)
+def test_set_status_refuses_a_note_it_cannot_rewrite_in_place(note_text, refusal):
+    """A disposition rewrites one line, so it must first prove that line exists.
+
+    ``_set_status`` is the only writer of a project's ``status``, and it edits by
+    line index rather than by re-serializing the frontmatter — the way it keeps
+    every other byte of a human-authored note intact. That makes an absent,
+    unterminated, missing or duplicated ``status`` an unwritable note, not a
+    note to guess at: guessing would either move the status out of the
+    frontmatter or leave a second one behind to contradict it.
+    """
+    with pytest.raises(publish.PublishError, match=refusal):
+        publish._set_status(note_text, "published")
+
+
+def test_set_status_refuses_a_status_its_own_quoting_would_corrupt():
+    """The writer does not escape, so it verifies instead.
+
+    ``_set_status`` emits ``status: "<value>"`` verbatim, which is exact for
+    every disposition the module actually files. A backslash-bearing value would
+    be unescaped again on read and come back as a different string, so the
+    guard re-parses what it wrote and refuses rather than persist a status the
+    vault would read as something else.
+    """
+    assert '\nstatus: "published"\n' in publish._set_status(_STATUS_NOTE, "published")
+
+    with pytest.raises(publish.PublishError, match="did not round-trip"):
+        publish._set_status(_STATUS_NOTE, r"back\\slash")
