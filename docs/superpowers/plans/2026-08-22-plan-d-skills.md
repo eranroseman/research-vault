@@ -15,7 +15,7 @@
 
 - Worktree via `superpowers:using-git-worktrees`, branch `build/plan-d`; merge + push in the same motion.
 - Control model (ruled): entry skills `disable-model-invocation: true`; guards model-invoked AND user-invocable; nothing ships `user-invocable: false`.
-- Skill prose uses CONTEXT.md vocabulary; new identifiers (reason codes, check ids, CLI verbs) get their terminology §4.3/§4.4 rows in the same commit.
+- Skill prose uses CONTEXT.md vocabulary; new identifiers (reason codes, check ids, CLI verbs) get their terminology §4.3/§4.4 rows in the same commit. **New CLI verbs are named by the §4.3 decision tree** — the planned eight already sit on its branches; any verb this plan's execution adds beyond them walks the tree first.
 - **LLM judgment never blocks; deterministic gate surfaces alone write events, statuses, tags, holds, and acks** (§5/§6) — every such write in this plan names its CLI verb.
 - Four-state honesty in every skill's prose: an outage is never failure; no skill promises verification it didn't run; verified events are the CLI's to mint.
 - Suite green per task (offline; live where the task says so); one conventional commit per task.
@@ -104,7 +104,7 @@ Entry; the real-life entry point. Contract:
 
 ### Task 6: `find-sources` (vendored fork) + search provenance
 
-- Vendor K-Dense `paper-lookup` (MIT): renamed into the plugin namespace, provenance header (upstream URL, commit, license), output shaped to §5, terminating at the admission step — the skill presents candidates for the human to admit into Zotero; it never writes the evidence layer.
+- Vendor K-Dense `paper-lookup` (MIT): renamed into the plugin namespace, provenance header (upstream URL, commit, license), output shaped to §5, terminating at the admission step — the skill presents candidates for the human to admit into Zotero; it never writes the evidence layer. (Its per-API references already include Semantic Scholar alongside OpenAlex/Crossref/PubMed/arXiv — per research/adoptable-skills-audit.md; no additional source legs are owed.)
 - **PRISMA-S search log** (ruled): project-scoped `projects/<name>/search-log.md`, appended per run via the CLI `search-log` verb (append-only, entry grammar documented): query as run, source searched, date, hit count; candidates NOT admitted recorded with reason codes (§4.4 rows). Invoked without an active project, the skill asks which project the search serves (acquisition serves the project flow).
 
 - [ ] Steps: vendor + provenance header → `search-log` verb tests-first → skill text → §4.4/§4.3 rows → suite green → commit.

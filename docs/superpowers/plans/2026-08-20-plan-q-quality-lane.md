@@ -47,6 +47,13 @@ dev = [
     "crap4py==0.1.1",
     "drywall==0.1.3",
     "mypy==2.3.1",
+    "pyzotero[cli]==1.14.0",  # dev-lane agent instrument (adopted 2026-08-22 by contract match:
+                              # canonical library, local-API-first, read-only by default, local
+                              # writes gated behind Zotero's own consent dialog — admission stays
+                              # human by construction; live-verified local read at adoption).
+                              # Web API permitted for tests: read-only key by default; a
+                              # write-capable key only for a test that needs it, never against
+                              # the real library. No key is stored in this repo.
     "mdformat==1.0.0",
     "mdformat-gfm==1.0.0",
     "mdformat-frontmatter==2.1.2",
