@@ -228,6 +228,218 @@ def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
     return None
 
 
+def _claim_anchor_hash(
+    vault_root,
+    target,
+    raw_origin,
+    origin,
+    origin_image,
+    *,
+    base_snapshot,
+    candidate_snapshot,
+):
+    """The identity of a ``citekey#^claim`` target, or None if its bytes are gone.
+
+    The citekey's own recorded fixity wins where the note declares one; failing
+    that the claim's bytes are read from whichever plane still holds them —
+    candidate image, worktree note, base image or HEAD, then the citekey's note.
+    None is not an error here: it means no plane holds the claim any more, and
+    the caller falls back to the coarser identities below.
+    """
+    citekey, claim_id = target.split("#^", 1)
+    known_citekey_hash = _citekey_hash(
+        vault_root, citekey, candidate_snapshot=candidate_snapshot
+    )
+    if known_citekey_hash is not None:
+        return known_citekey_hash
+    data = (
+        _claim_bytes_from_text(
+            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id
+        )
+        if origin_image is not None and origin_image.kind == "file"
+        else _claim_bytes(origin, claim_id)
+        if origin
+        else None
+    )
+    if data is None and raw_origin is not None:
+        base_image = (
+            base_snapshot.image(raw_origin) if base_snapshot is not None else None
+        )
+        head = (
+            base_image.data
+            if base_image is not None and base_image.kind == "file"
+            else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)
+            if base_snapshot is None
+            else None
+        )
+        if head is not None:
+            data = _claim_bytes_from_text(
+                head.decode(errors="surrogateescape"), claim_id
+            )
+    if data is None and candidate_snapshot is None:
+        note = _note_for_citekey(vault_root, citekey)
+        data = _claim_bytes(note, claim_id) if note else None
+    if data is not None:
+        return hashlib.sha256(data).hexdigest()[:16]
+    return None
+
+
+def _snapshot_path_hash(
+    vault_root, outcome, raw_target, base_snapshot, candidate_snapshot
+):
+    """The identity a captured candidate snapshot gives this repo path.
+
+    Symlinks and special files carry no content a hash could stand for, so they
+    have no identity at all. Everything else resolves to bytes: an append-only
+    target hashes its immutable basis, a file its own (note-normalised) bytes, a
+    directory its listing, and a path absent from the candidate falls back to
+    the base image so a deletion keeps a stable acknowledgment hash.
+    """
+    candidate_image = candidate_snapshot.image(raw_target)
+    if candidate_image is not None and candidate_image.kind in {
+        "symlink",
+        "special",
+    }:
+        return None
+    if outcome.check == "append-only":
+        data = _append_only_basis(vault_root, raw_target, base_snapshot)
+    elif candidate_image is not None and candidate_image.kind == "file":
+        data = candidate_image.data or b""
+        if raw_target.endswith(b".md"):
+            data = _note_bytes(data)
+    elif candidate_image is not None and candidate_image.kind == "directory":
+        data = _snapshot_directory_bytes(candidate_snapshot, raw_target)
+    else:
+        base_image = (
+            base_snapshot.image(raw_target) if base_snapshot is not None else None
+        )
+        data = (
+            base_image.data
+            if base_image is not None and base_image.kind == "file"
+            else b""
+        ) or b""
+        if raw_target.endswith(b".md"):
+            data = _note_bytes(data)
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def _worktree_path_hash(vault_root, outcome, raw_target, base_snapshot):
+    """The identity the live worktree gives this repo path, else git's.
+
+    A path containment refuses, and a path no longer on disk, are both still
+    identifiable from the base snapshot or from HEAD — that is what holds a
+    deletion's acknowledgment hash steady across the transaction that deleted
+    it. Live symlinks and special files have no content identity.
+    """
+    base_image = base_snapshot.image(raw_target) if base_snapshot is not None else None
+    path = _safe_relative(vault_root, outcome.target, outcome.target_kind)
+    if path is None:
+        data = (
+            base_image.data
+            if base_image is not None and base_image.kind == "file"
+            else None
+        )
+        if data is None:
+            return None
+        if raw_target.endswith(b".md"):
+            data = _note_bytes(data)
+        return hashlib.sha256(data).hexdigest()[:16]
+    live_target = gitstate.live_image(Path(vault_root), raw_target)
+    if live_target is not None and live_target.kind in {"symlink", "special"}:
+        return None
+    if outcome.check == "append-only":
+        data = _append_only_basis(vault_root, raw_target, base_snapshot)
+    elif path.is_file():
+        data = path.read_bytes()
+        if path.suffix == ".md":
+            data = _note_bytes(data)
+    elif path.is_dir():
+        data = _directory_bytes(path)
+    else:
+        data = (
+            base_image.data
+            if base_image is not None and base_image.kind == "file"
+            else gitstate.blob_bytes(vault_root, "HEAD", raw_target)
+            if base_snapshot is None
+            else b""
+        ) or b""
+        if raw_target.endswith(b".md"):
+            data = _note_bytes(data)
+    return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
+
+
+def _repo_path_hash(vault_root, outcome, *, base_snapshot, candidate_snapshot):
+    """The identity of a repo-path target, from whichever plane is authoritative.
+
+    A candidate snapshot, when the caller supplied one, IS the vault as far as
+    this hash is concerned: reading the worktree instead would let a concurrent
+    edit leak into an identity the transaction has already fixed.
+    """
+    raw_target = decode_repo_path(outcome.target)
+    if candidate_snapshot is not None:
+        return _snapshot_path_hash(
+            vault_root, outcome, raw_target, base_snapshot, candidate_snapshot
+        )
+    return _worktree_path_hash(vault_root, outcome, raw_target, base_snapshot)
+
+
+def _identifier_hash(
+    vault_root,
+    target,
+    bibliography_universe,
+    raw_origin,
+    origin,
+    origin_image,
+    *,
+    base_snapshot,
+    candidate_snapshot,
+):
+    """The identity of a bare identifier: its note where one exists, else its entry.
+
+    A note is preferred over a bibliography entry wherever the identifier has
+    one — recorded fixity first, then candidate image, worktree, base image or
+    HEAD — so an identifier and the note carrying it never disagree about what
+    was acknowledged. Only an identifier with no note at all falls through to
+    the canonical bibliography record.
+    """
+    known_citekey_hash = _citekey_hash(
+        vault_root, target, candidate_snapshot=candidate_snapshot
+    )
+    if known_citekey_hash is not None:
+        return known_citekey_hash
+    if origin_image is not None and origin_image.kind == "file":
+        data = _note_bytes(origin_image.data or b"")
+        return hashlib.sha256(data).hexdigest()[:16]
+    if origin and origin.is_file():
+        data = _note_bytes(origin.read_bytes())
+        return hashlib.sha256(data).hexdigest()[:16]
+    if raw_origin is not None:
+        base_image = (
+            base_snapshot.image(raw_origin) if base_snapshot is not None else None
+        )
+        # Named apart from the `data: bytes` above, as in _claim_anchor_hash:
+        # this is the pre-transaction note, and it may legitimately be absent.
+        head = (
+            base_image.data
+            if base_image is not None and base_image.kind == "file"
+            else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)
+            if base_snapshot is None
+            else None
+        )
+        if head is not None:
+            return hashlib.sha256(_note_bytes(head)).hexdigest()[:16]
+    if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
+        entry = bibliography.load(vault_root).get(target)
+    elif bibliography_universe is not None:
+        entry = bibliography_universe.get(target)
+    else:
+        entry = None
+    if entry is not None:
+        data = json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
+        return hashlib.sha256(data).hexdigest()[:16]
+    return None
+
+
 def _target_hash(
     vault_root,
     outcome,
@@ -236,7 +448,18 @@ def _target_hash(
     base_snapshot=None,
     candidate_snapshot=None,
 ):
-    """Return the stable, kind-aware acknowledgment hash for an outcome."""
+    """Return the stable, kind-aware acknowledgment hash for an outcome.
+
+    Three identities, tried in the order they nest. A claim anchor is the
+    narrowest and the only one that falls through — when no plane still holds
+    the claim, the outcome is still identifiable by the note or identifier it
+    came from. A repo path is answered entirely by its plane. A bare identifier
+    is answered by its note or its bibliography entry.
+
+    The claim origin is resolved up front, for every kind: ``decode_repo_path``
+    and ``_extra_path`` reject a malformed ``note_path``, and that rejection is
+    part of the contract regardless of which leg would have run.
+    """
     target = outcome.target
     raw_origin = (
         decode_repo_path(outcome.extra["note_path"])
@@ -254,145 +477,37 @@ def _target_hash(
         else _extra_path(vault_root, outcome, "note_path")
     )
     if isinstance(target, str) and "#^" in target:
-        citekey, claim_id = target.split("#^", 1)
-        known_citekey_hash = _citekey_hash(
-            vault_root, citekey, candidate_snapshot=candidate_snapshot
+        anchored = _claim_anchor_hash(
+            vault_root,
+            target,
+            raw_origin,
+            origin,
+            origin_image,
+            base_snapshot=base_snapshot,
+            candidate_snapshot=candidate_snapshot,
         )
-        if known_citekey_hash is not None:
-            return known_citekey_hash
-        data = (
-            _claim_bytes_from_text(
-                (origin_image.data or b"").decode(errors="surrogateescape"), claim_id
-            )
-            if origin_image is not None and origin_image.kind == "file"
-            else _claim_bytes(origin, claim_id)
-            if origin
-            else None
-        )
-        if data is None and raw_origin is not None:
-            base_image = (
-                base_snapshot.image(raw_origin) if base_snapshot is not None else None
-            )
-            head = (
-                base_image.data
-                if base_image is not None and base_image.kind == "file"
-                else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)
-                if base_snapshot is None
-                else None
-            )
-            if head is not None:
-                data = _claim_bytes_from_text(
-                    head.decode(errors="surrogateescape"), claim_id
-                )
-        if data is None and candidate_snapshot is None:
-            note = _note_for_citekey(vault_root, citekey)
-            data = _claim_bytes(note, claim_id) if note else None
-        if data is not None:
-            return hashlib.sha256(data).hexdigest()[:16]
+        if anchored is not None:
+            return anchored
 
     if outcome.target_kind == "repo-path":
-        raw_target = decode_repo_path(target)
-        if candidate_snapshot is not None:
-            candidate_image = candidate_snapshot.image(raw_target)
-            if candidate_image is not None and candidate_image.kind in {
-                "symlink",
-                "special",
-            }:
-                return None
-            if outcome.check == "append-only":
-                data = _append_only_basis(vault_root, raw_target, base_snapshot)
-            elif candidate_image is not None and candidate_image.kind == "file":
-                data = candidate_image.data or b""
-                if raw_target.endswith(b".md"):
-                    data = _note_bytes(data)
-            elif candidate_image is not None and candidate_image.kind == "directory":
-                data = _snapshot_directory_bytes(candidate_snapshot, raw_target)
-            else:
-                base_image = (
-                    base_snapshot.image(raw_target)
-                    if base_snapshot is not None
-                    else None
-                )
-                data = (
-                    base_image.data
-                    if base_image is not None and base_image.kind == "file"
-                    else b""
-                ) or b""
-                if raw_target.endswith(b".md"):
-                    data = _note_bytes(data)
-            return hashlib.sha256(data).hexdigest()[:16]
-        base_image = (
-            base_snapshot.image(raw_target) if base_snapshot is not None else None
+        return _repo_path_hash(
+            vault_root,
+            outcome,
+            base_snapshot=base_snapshot,
+            candidate_snapshot=candidate_snapshot,
         )
-        path = _safe_relative(vault_root, target, outcome.target_kind)
-        if path is None:
-            data = (
-                base_image.data
-                if base_image is not None and base_image.kind == "file"
-                else None
-            )
-            if data is None:
-                return None
-            if raw_target.endswith(b".md"):
-                data = _note_bytes(data)
-            return hashlib.sha256(data).hexdigest()[:16]
-        live_target = gitstate.live_image(Path(vault_root), raw_target)
-        if live_target is not None and live_target.kind in {"symlink", "special"}:
-            return None
-        if outcome.check == "append-only":
-            data = _append_only_basis(vault_root, raw_target, base_snapshot)
-        elif path.is_file():
-            data = path.read_bytes()
-            if path.suffix == ".md":
-                data = _note_bytes(data)
-        elif path.is_dir():
-            data = _directory_bytes(path)
-        else:
-            data = (
-                base_image.data
-                if base_image is not None and base_image.kind == "file"
-                else gitstate.blob_bytes(vault_root, "HEAD", raw_target)
-                if base_snapshot is None
-                else b""
-            ) or b""
-            if raw_target.endswith(b".md"):
-                data = _note_bytes(data)
-        return hashlib.sha256(data).hexdigest()[:16] if data is not None else None
 
     if isinstance(target, str):
-        known_citekey_hash = _citekey_hash(
-            vault_root, target, candidate_snapshot=candidate_snapshot
+        return _identifier_hash(
+            vault_root,
+            target,
+            bibliography_universe,
+            raw_origin,
+            origin,
+            origin_image,
+            base_snapshot=base_snapshot,
+            candidate_snapshot=candidate_snapshot,
         )
-        if known_citekey_hash is not None:
-            return known_citekey_hash
-        if origin_image is not None and origin_image.kind == "file":
-            data = _note_bytes(origin_image.data or b"")
-            return hashlib.sha256(data).hexdigest()[:16]
-        if origin and origin.is_file():
-            data = _note_bytes(origin.read_bytes())
-            return hashlib.sha256(data).hexdigest()[:16]
-        if raw_origin is not None:
-            base_image = (
-                base_snapshot.image(raw_origin) if base_snapshot is not None else None
-            )
-            data = (
-                base_image.data
-                if base_image is not None and base_image.kind == "file"
-                else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)
-                if base_snapshot is None
-                else None
-            )
-            if data is not None:
-                return hashlib.sha256(_note_bytes(data)).hexdigest()[:16]
-        if bibliography_universe is _OMITTED_BIBLIOGRAPHY:
-            entry = bibliography.load(vault_root).get(target)
-        elif bibliography_universe is not None:
-            entry = bibliography_universe.get(target)
-        else:
-            entry = None
-        if entry is not None:
-            data = json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
-            return hashlib.sha256(data).hexdigest()[:16]
     return None
 
 
