@@ -1,0 +1,22 @@
+# Case-study question bank
+
+Recorded 2026-08-22. Research questions that serve double duty: real research the harness runs end-to-end (find → admit → import → synthesize → verify → publish), whose findings feed a named harness design decision. Portfolio-wide, the corpora collectively stress every gate: DOI-rich, web-rot, retraction-rich, contradiction-rich, gray-literature-heavy.
+
+Standing first case: `trust-gates-prior-art` (the §9 validation slice, selected 2026-08-22 — re-asked under the harness against the loose-process baseline). This bank is the queue behind it; the author selects, nothing here is scheduled.
+
+| # | Question | Feeds (design decision) | Corpus shape / gate stressed |
+|---|---|---|---|
+| 1 | What error classes dominate LLM citation fabrication, and what detection methods catch each? | verify-citations check coverage; factcheck rubric weights | DOI-rich ACL/arXiv — clean-pipeline baseline case. (Already queued: post-#13 runner-up.) |
+| 2 | How do retracted papers keep accumulating citations, and what interventions slow it? | update-notice gate calibration; retraction-ack UX | **Corpus doubles as live test data**: importing retracted items exercises blocking-class notices on real cases. Highest instrument value. |
+| 3 | How often do abstracts misstate their own paper's findings (spin, outcome switching)? | Evidences the full-text-only digest ruling (finding 16); names which fields abstracts misstate most → what the digest must check | Meta-payoff: the harness researching its own doctrine. |
+| 4 | What hallucination types dominate abstractive summarization, and which lexical signals catch them? | The deferred digest lexical-faithfulness lint — are numbers/entities the right guards? | Continuation of the 2026-08-22 digest rulings. |
+| 5 | What are measured link-rot and archive-coverage rates for scholarly-cited URLs? | Rot-watch cron design (deferred register); archive policy | Web-heavy corpus: stresses archive-at-import, Wayback confirmation, `missing-archive` findings on genuinely rotting sources. |
+| 6 | What formal claim-level provenance models exist (nanopublications, micropublications, PROV), and what did adoption look like? | Block-anchor / stance-link schema validation against formal prior art | Semantic-web literature + standards docs. (Already queued: post-#13 runner-up.) |
+| 7 | How accurate are quotations in published scholarly writing (misquotation-rate studies)? | The 0.90 fuzzy-quote threshold; locator granularity | Small focused corpus, quote-check-heavy workload. |
+| 8 | When do human confirmation gates decay into rubber stamps (automation bias, warning fatigue, consent click-through)? | Deepens the rubber-stamp rule (spec §3, Shipman/Marshall) | Mixed HCI + gray literature → sourcing-standard judgment; contradiction-rich field → exercises `disputes` links and holds. |
+| 9 | How much do preprints differ from their published versions, and how is version drift tracked? | Version-field handling; staleness semantics | Dual-version items stress metadata-mismatch checks against real pairs. |
+| 10 | What does PRISMA-S adherence look like in practice — where does search reporting fail? | find-sources search-log design | Method-literature corpus. |
+
+Pairing logic: 2 and 5 are the drills-by-corpus (real retractions, real rot); 3 and 4 close the loop on the digest rulings; 1, 6, 7 harden the verification layer; 8–10 harden the human-gate and search layers.
+
+Selection discipline: results feed design through the normal record chain (findings → rulings → plan items), never by editing the instrument mid-project — the instrument-freeze lesson from the slice generalizes.
