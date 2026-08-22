@@ -1,131 +1,136 @@
 # Plan D: The Eight Skills + Glossary Seed — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Revision 2: 19 confirmed findings from the 2026-08-22 adversarial verification pass folded in (4 blocking — publish effects, disposition menu, writer-less mechanical acts, gate-flag schema).
 
-**Goal:** Ship the eight remaining spec-§7 skills (guards first, then the project-flow and information-flow entries), the vault glossary seed, and the deferred items ruled to land with them — completing the plugin's user surface so the validation slice can run.
+**Goal:** Ship the eight remaining spec-§7 skills (guards first, then the entries), the CLI verbs that make every mechanical act deterministic, the vault glossary seed, and the deferred items ruled to land with them — completing the plugin's user surface so the validation slice can run.
 
-**Architecture:** Deterministic-Python-core + thin-prompt-skill split throughout (§7): every mechanical act goes through the CLI (one binary, one exit-code contract); SKILL.md files carry orchestration prose and normative rules only. Guards ship first so every entry skill can cite them. New core surface is small and enumerated: gate arming verbs, uniform hold emission, the search-log writer.
+**Architecture:** Deterministic-Python-core + thin-prompt-skill split (§7): every mechanical act goes through the CLI; SKILL.md files carry orchestration prose and normative rules only. **New core surface, exhaustively**: gate verbs (`arm-publish`, `disarm-publish`), disposition verbs (`mark-published`, `mark-corrected`, `mark-withdrawn`), the review-record writer (`finding`), the acknowledgment writer (`ack` — `inbox.append_ack`'s recorded consumer arrives), the search-log appender. Nothing mechanical is ever written by prose.
 
-**Tech Stack:** Python ≥3.10 stdlib (+ the admitted deps at HEAD), pytest, SKILL.md frontmatter per the ruled control model.
+**Tech Stack:** Python ≥3.10 stdlib (+ admitted deps at HEAD), pytest, SKILL.md frontmatter per the ruled control model.
 
-**Authority:** spec §7 rows verbatim (the per-skill contracts), §5 (provenance), §6 (gates), §8 (control model); deferred-register items named per task. **As-built HEAD governs.** Control model (ruled): entry skills ship `disable-model-invocation: true`; guard skills are model-invoked AND user-invocable; nothing ships `user-invocable: false`.
+**Authority:** spec §7 rows verbatim; §5 (provenance — including per-claim deprecation, `[confidence::]`, `[retraction-ack::]`); §6 (gates — including publish's concrete effect and the day-one disposition menu, transcribed not paraphrased); §8 (control model); deferred-register items named per task. **As-built HEAD governs** — the Stop hook's flag contract at HEAD is normative for Task 2.
 
 ## Global Constraints
 
 - Worktree via `superpowers:using-git-worktrees`, branch `build/plan-d`; merge + push in the same motion.
-- Every skill's frontmatter must pass the config-validity contract (name = dirname, non-empty description, boolean flags); descriptions follow writing-for-agents (front-loaded triggers, no identity restating).
-- Skill prose uses CONTEXT.md vocabulary exactly; new identifiers (reason codes, check ids) require their terminology §4.4 row in the same commit (the parity test will enforce this once Plan Q lands; do it by hand until then).
-- LLM judgment never blocks; every closed surface stays deterministic (§6 doctrine) — factored verification and integrate-at-import emit findings and holds, never gate closures.
+- Control model (ruled): entry skills `disable-model-invocation: true`; guards model-invoked AND user-invocable; nothing ships `user-invocable: false`.
+- Skill prose uses CONTEXT.md vocabulary; new identifiers (reason codes, check ids, CLI verbs) get their terminology §4.3/§4.4 rows in the same commit.
+- **LLM judgment never blocks; deterministic gate surfaces alone write events, statuses, tags, holds, and acks** (§5/§6) — every such write in this plan names its CLI verb.
+- Four-state honesty in every skill's prose: an outage is never failure; no skill promises verification it didn't run; verified events are the CLI's to mint.
 - Suite green per task (offline; live where the task says so); one conventional commit per task.
-- The four-state vocabulary and MATCHED-only minting are load-bearing in every skill's prose — no skill may describe an outage as failure or promise verification it didn't run.
 
 ## File Structure
 
 ```
-skills/evidence-conventions/SKILL.md      skills/synthesis-conventions/SKILL.md
-skills/project/SKILL.md                   skills/find-sources/SKILL.md   (+ vendored lookup script)
-skills/import-source/SKILL.md             skills/verify-citations/SKILL.md
-skills/factcheck-draft/SKILL.md           skills/publish/SKILL.md
-knowledge_harness/__main__.py             (+ arm-publish/disarm-publish, hold-emission wiring, search-log verb)
+skills/{evidence-conventions,synthesis-conventions,project,find-sources,import-source,verify-citations,factcheck-draft,publish}/SKILL.md
+knowledge_harness/__main__.py            (+ verbs: arm-publish, disarm-publish, mark-published, mark-corrected, mark-withdrawn, finding, ack, search-log)
+knowledge_harness/publish.py             (disposition effects: status write, project-level verified event, commit + tag)
 knowledge_harness/templates/vault/system/glossary.md
-tests/  (per-skill frontmatter/content tests; verb tests)
+tests/  (skill frontmatter/content tests — created in Task 1; verb tests per task)
 ```
 
 ---
 
-### Task 1: Guard skills — `evidence-conventions` and `synthesis-conventions`
-
-Prose-only; unblocks the vault template's `evidence-conventions` pointer (Plan D landing check) and gives every later skill its citation target.
+### Task 1: Guard skills + the skill-contract test
 
 **`evidence-conventions/SKILL.md` normative content (contract):**
-- Frontmatter: guard (model-invoked, user-invocable), description triggering on: writing or editing claims, citing sources, drafting with evidence, claim syntax questions.
-- **The Iron Law, verbatim rule**: *no claim enters a draft without a verified source first* — a claim line exists only after its literature note exists and its citekey resolves; drafting prose ahead of evidence goes to `inbox/` as fleeting notes, never into `projects/`.
-- §5 schema, stated as rules with examples: evidence-boundary tags `(quote|paraphrase|inference|open-question)`; `[@citekey, locator]` citation; `^claim-id` anchors; blockquote quotes; stance links `[supports:: …]`/`[disputes:: …]` with claim-link targets; `[failed-verification::]` markers are verifier-owned — never write or remove one by hand.
-- **Rationalization table** (the §7 requirement): a two-column table of the standard evasions ("I'll add the citation later", "it's common knowledge", "the abstract said so", "I remember reading it", "the source is paywalled") each answered by the mechanical rule that forbids it.
-- Annotations-scatter: quotes travel into drafts by claim link (`citekey#^claim-id`), never by re-typing text.
+- Frontmatter: guard. Triggers: writing or editing claims, citing sources, drafting with evidence, claim-syntax questions.
+- **The Iron Law, verbatim**: *no claim enters a draft without a verified source first* — a claim line exists only after its literature note exists and its citekey resolves; prose ahead of evidence goes to `inbox/`, never `projects/`.
+- **§5 schema complete** (transcribed, not sampled): evidence-boundary tags `(quote|paraphrase|inference|open-question)`; `[@citekey, locator]`; `^claim-id` anchors; blockquote quotes; stance links `[supports::]`/`[disputes::]` with claim-link targets; **`[confidence::]` per-claim field**; **per-claim deprecation records** (§5: deprecate-with-reason, never delete — the record's syntax and that a deprecated claim keeps its anchor); **`[retraction-ack::]`** (the reader-side acknowledgment that a cited item carries an update notice — when it is required and what it asserts, per §5/§6); `[failed-verification::]` markers are verifier-owned — never write or remove one by hand.
+- **Reason-code vocabulary placed here** (finding: users meet these codes in the review queue with no glossary): the controlled registry lives in terminology §4.4; the skill lists the codes a vault user will actually see with one-line meanings.
+- **Rationalization table**: standard evasions ("I'll cite it later", "common knowledge", "the abstract said so", "I remember reading it", "paywalled") each answered by the mechanical rule that forbids it.
+- Annotations-scatter: quotes travel by claim link, never re-typed.
 
-**`synthesis-conventions/SKILL.md` normative content (contract):**
-- Frontmatter: guard. Triggers: creating or editing synthesis notes, organizing claims, page-creation decisions.
-- The 2+-source page-creation threshold (the ONLY threshold); minimum-link discipline (≥2 outgoing wikilinks per synthesis note); orientation-first (read `synthesis/index.md` + recent `log/` before operating); synthesis asserts arrangement, not evidence — freely rewritable, but every claim it arranges cites its source claim link; index registration (new note ⇒ one line in `synthesis/index.md`, wikilink + one-line gist).
+**`synthesis-conventions/SKILL.md` (contract):** guard. The 2+-source page-creation threshold (the only threshold); ≥2 outgoing wikilinks per synthesis note; orientation-first (`synthesis/index.md` + recent `log/` before operating); synthesis asserts arrangement, not evidence — freely rewritable, every arranged claim cites its source claim link; index registration (new note ⇒ one line in `synthesis/index.md`).
 
-- [ ] Step 1: write both SKILL.md files per contract. Step 2: extend the skill-frontmatter/content tests (guard invocation flags asserted). Step 3: suite green; verify the vault template's `evidence-conventions` pointer now resolves (landing check). Step 4: commit.
+**The skill-contract test is created HERE** (finding: the instrument referenced by acceptance doesn't exist at HEAD — Plan Q's validity test is a different, unexecuted plan): `tests/test_skill_contracts.py` — for every `skills/*/SKILL.md`: frontmatter parses via the core's own parser, `name` = dirname, non-empty description, invocation flags match the ruled control model per skill class (entries listed in the test, guards the rest), and every skill name any shipped template cites has a `skills/<name>/` directory (subsumes the 2026-08-22 landing check).
 
----
-
-### Task 2: Gate verbs + `publish` skill
-
-**Core:** `arm-publish` / `disarm-publish` CLI verbs — write/remove `.harness/publish-pending.json` (`{"project": <name>, "armed_at": <iso>}` — the flag field is `"project"` per the wave). The Stop hook already reads it; these verbs are the only writers. Tests: arm→hook blocks on UNMATCHED closing checks; disarm→inert; arming a nonexistent project errors.
-
-**`publish/SKILL.md` (contract):** entry (`disable-model-invocation: true`). The closed-gate surface: orientation (drain review inbox — unacknowledged blocking-class entries counted), run `verify --surface publish`, present the four-state report, then the **fixed disposition menu** (verbatim): *publish* (arm gate, human completes their outward act, record `published` status + log entry, disarm), *park* (status `parked`, disarm, log), *withdraw* (status `withdrawn`, log), *fix-first* (list UNMATCHED/UNREACHABLE with reasons; no disposition recorded). Acks are composed by the skill, consented by the human (§3 affordance). No disposition is ever chosen by the model.
-
-- [ ] Steps: verbs tests-first → skill text → suite green → commit.
+- [ ] Steps: both SKILL.md files → `test_skill_contracts.py` (red on missing skills it expects only after later tasks — scope the entry-skill list to grow per task, or assert over existing dirs plus the two shipped here) → suite green → commit.
 
 ---
 
-### Task 3: `verify-citations` + `factcheck-draft`
+### Task 2: The publish surface — verbs first, then the skill
 
-**`verify-citations/SKILL.md`:** entry. Thin wrapper: run the CLI `verify` (open audit surface by default; `--surface commit|publish` when the user names one), render the four-state report grouped by check id, route non-MATCHED to their §6 dispositions (UNMATCHED → review inbox entries the CLI already emits; UNREACHABLE → named as outage, never failure). Verified events are the CLI's to mint — the skill never writes them.
+**Gate-flag verbs (the hook's contract at HEAD is normative — `hooks/stop_publish_gate.py::_decode_flag`):** `arm-publish <project>` writes `.harness/publish-pending.json` with **exactly** the keys `{"project": "projects/<name>", "vault": "<absolute vault path>", "blocks": 0}`, optional `"bypass": "<single-line token>"` only on explicit human request (the hook's audited-bypass path; the token is consented, single-line, and recorded by the hook's `_append_bypass`). Any other shape is silently inert at HEAD — test this negatively (wrong keys ⇒ hook treats as unarmed). `disarm-publish` removes the flag.
 
-**`factcheck-draft/SKILL.md`:** entry. Factored verification at draft→review: extract the draft's claims (each with its claim link), check each against its cited literature note's managed region (quote fidelity, paraphrase support, inference marked as inference), emit **adjudicated findings** to the review inbox with reason codes — never auto-blocking (§6: LLM judgment is warn-tier). Fork scientific-writing's offline audit scripts (SHA-256 claim hashing, verified-evidence-only counting) as the starting mechanical layer where they fit; anything forked is vendored with provenance headers.
-New reason codes minted here get their §4.4 rows in the same commit.
+**Disposition verbs (`knowledge_harness/publish.py` + CLI):** §6's concrete effect, transcribed:
+- `mark-published <project>`: sets `status: "published"` in the project's frontmatter, **appends a project-level `verified` event** (§5: publish events attach to the project; deterministic gate surfaces alone write these), **commits and tags `published/<project>-<date>`** (the published-drift lint at `lints.py` keys on these tags), then disarms. Refuses unless the publish-surface decision is green or every blocking entry carries a standing ack.
+- `mark-corrected <project>` / `mark-withdrawn <project>`: **post-publish only** (refuse if no `published/*` tag exists for the project): corrected = new gate run, new verified event, new tag; withdrawn = status write + log; **the original tag is never deleted** (ADR 0003).
+- Commit mechanics follow the ruled transactional pattern (temp-index snapshot; live index untouched).
 
-- [ ] Steps: skill texts → any forked script vendored + tested → suite green → commit.
+**`ack` verb** — the §3 acknowledgment affordance's mechanical half: takes a finding id + reason, writes the ack entry via `inbox.append_ack` (its recorded consumer — deferred-ledger seam closed). The skill composes and explains; the human consents; the CLI writes. No ack is ever hand-written or prose-written.
+
+**`publish/SKILL.md` (contract):** entry. Orientation (drain review inbox — unacknowledged blocking-class count); run `verify --surface publish`; present the four-state report; then the **day-one disposition menu, per §6 verbatim**: *mark-published* (full gate run + the effects above) / *park* (sets `status: "parked"`, nothing else) / *keep-draft* (no-op); **deletion only on explicit request plus typed "discard"**. The **post-publish correction lifecycle** is its own section: a blocking-class alert or claim deprecation targeting an already-published project opens the correction disposition — re-publish as corrected, or mark withdrawn; original tag never deleted. Every menu choice is human-chosen; every effect is a verb call.
+
+- [ ] Steps: verbs tests-first (incl. the negative flag-schema test and post-publish-only guards) → skill text → suite green → commit.
+
+---
+
+### Task 3: `verify-citations` + `factcheck-draft` + the `finding` verb
+
+**`finding` verb** — the review-record writer: takes check id, target, result, reason (validated against the §4.4 registries), appends the entry via the inbox module. Factcheck findings and Task 5's holds both flow through it — prose never writes the review queue.
+
+**`verify-citations/SKILL.md`:** entry. Thin wrapper over CLI `verify` (open audit by default, `--surface` on request); four-state report grouped by check id; UNREACHABLE named as outage, never failure; events are the CLI's.
+
+**`factcheck-draft/SKILL.md`:** entry. Factored verification at draft→review, per §6's factored-verification contract **including its bounds** (finding: they were dropped): **deterministic claim selection under a budget cap** — the selection rule is stated in the skill (e.g. all claims when under the cap; oldest-unchecked-first when over), and **the skipped set is recorded** (a finding entry naming what was not checked — an unchecked claim must never read as checked; four-state honesty at the factcheck level). Each checked claim: quote fidelity / paraphrase support / inference-marked-as-inference against its cited managed region; results emitted as **adjudicated findings via the `finding` verb** — warn-tier, never blocking. Fork scientific-writing's offline audit scripts (SHA-256 claim hashing, verified-evidence-only counting) where they fit; vendored with provenance headers. New reason codes get §4.4 rows in the same commit.
+
+- [ ] Steps: `finding` verb tests-first → skill texts → forked scripts vendored + tested → suite green → commit.
 
 ---
 
 ### Task 4: `project` skill
 
-Entry; **the real-life entry point** (§7). Contract:
-- **Start**: question framing by the owned inline elicitation procedure — the framed question must state: the question itself, scope bounds (in/out), expected source types, success criteria. Written to `projects/<name>/question.md` (type `project`, status `draft`).
-- **Resume orientation** (every invocation): read `synthesis/index.md`, recent `log/`, the project's own files; **drain the review inbox** — surface unacknowledged entries with count and age, oldest first (the Whittaker guard).
-- **Gap analysis**: framed question vs the synthesis layer and bibliography — what's covered, what's contested (surface `disputes` links — disconfirmation must be seen), what's missing → a gap list that feeds `find-sources`.
-- **Draft frame**: scaffold the draft in `projects/<name>/` carrying the Iron Law via `evidence-conventions` (the skill invokes the guard's rules, never restates them).
-- Routing: acquisition → `find-sources`; cataloging → `import-source`; verification → `verify-citations`/`factcheck-draft`; delivery → `publish`.
+Entry; the real-life entry point. Contract:
+- **Start**: question framing by the owned inline elicitation procedure — the framed question states: the question, scope bounds (in/out), expected source types, success criteria → `projects/<name>/question.md` (type `project`, status `draft`).
+- **Resume orientation** (every invocation): `synthesis/index.md`, recent `log/`, the project's files; **drain the review inbox** (count + age, oldest first); **surface trust tiers** — the orientation displays each cited note's tier via `events.trust_tier` (the recorded consumer this function was retained for: unverified / machine-confirmed / human-reviewed).
+- **Gap analysis**: framed question vs synthesis + bibliography — covered, contested (surface `disputes` links), missing → gap list feeding `find-sources`.
+- **Draft frame** in `projects/<name>/` carrying the Iron Law via `evidence-conventions` (invoked, never restated).
+- Routing: acquisition → `find-sources`; cataloging → `import-source`; verification → `verify-citations`/`factcheck-draft`; delivery → `publish`. Acks happen via the `ack` verb with human consent.
 
-- [ ] Steps: skill text → content test (elicitation fields present verbatim; inbox-drain instruction present) → suite green → commit.
+- [ ] Steps: skill text → content test (elicitation fields verbatim; inbox-drain and trust-tier instructions present) → suite green → commit.
 
 ---
 
-### Task 5: `import-source` + uniform hold wiring (register item lands here)
+### Task 5: `import-source` + uniform hold wiring
 
-**Core first — uniform hold-to-inbox wiring** (deferred register, ruled 2026-08-21): every `import-note` failure exit emits a reason-coded review record (spec §121 contract) in addition to stderr + exit code; the render-rejection class from Plan R Task 1 joins the same uniform path. **Evaluate the blockquote-split repair candidate now** (register): render splits `annotationText` on the full `splitlines()` set so each segment gets its `> ` prefix — if adopted, U+2028 quote text imports cleanly instead of holding; decide by writing the test both ways and keeping the behavior that preserves quote-verification fidelity (escalate as an SDD ruling if the evidence is ambiguous).
+**Core — uniform hold-to-inbox wiring** (register): every `import-note` failure exit emits its reason-coded review record through the same writer the `finding` verb uses, in addition to stderr + exit code; the Plan R render-rejection class joins this path. **Blockquote-split evaluation** (register): render splits `annotationText` on the full `splitlines()` set so each segment gets its `> ` prefix — adopt if quote-verification fidelity is preserved (write the test both ways; escalate as an SDD ruling if ambiguous).
 
-**`import-source/SKILL.md` (contract):** entry. Orchestrates, in order: identifier discovery before any SKIPPED sticks (§6); `import-note` (the CLI projects the literature note — catalog/index/log always land); **registry-first dedup** (check `synthesis/index.md` before creating pages); **integrate-at-import**: synthesis updates + stance links land immediately under `synthesis-conventions`, EXCEPT surgical auto-hold on contradiction, low/absent confidence, or schema violation — each hold emits its reason-coded review record; 2+-source page-creation threshold; re-import no-op via render-first comparison (a legitimate outcome, reported as such); refresh mode for note-level maintenance; batch mode for backfills; **archive-at-import** for web sources (trigger Save Page Now via the polite pool or record an existing snapshot).
+**`import-source/SKILL.md` (contract):** entry. In order: identifier discovery before any SKIPPED sticks; `import-note` (catalog/index/log always land); registry-first dedup against `synthesis/index.md`; **integrate-at-import** under `synthesis-conventions` — synthesis updates + stance links land immediately EXCEPT surgical auto-hold on contradiction, low/absent confidence, or schema violation, **each hold emitted via the `finding` verb** with its reason code; 2+-source page-creation threshold; re-import no-op via render-first comparison (a legitimate outcome, reported as such); **refresh mode speaks the ruled maintenance vocabulary — fresh / stale / orphaned** (finding: it was absent) — fresh = projection matches Zotero, stale = re-render differs, orphaned = note whose item left the bibliography; batch mode for backfills; archive-at-import for web sources (Save Page Now via the polite pool, or record an existing snapshot).
 
-- [ ] Steps: hold wiring tests-first (every failure exit produces an inbox record with a §4.4-rowed reason) → blockquote-split evaluation → skill text → suite green **including live legs** (`HARNESS_LIVE=1`, Zotero required) → commit.
+- [ ] Steps: hold wiring tests-first → blockquote-split evaluation → skill text → suite green **including live legs** (`HARNESS_LIVE=1`, Zotero running) → commit.
 
 ---
 
 ### Task 6: `find-sources` (vendored fork) + search provenance
 
-- Vendor K-Dense `paper-lookup` (MIT): renamed into the plugin namespace, provenance header (upstream URL, commit, license), output shaped to §5 fields, terminating in the admission step — the skill's last act is presenting candidates for the human to admit into Zotero; it never writes the evidence layer.
-- **PRISMA-S search log** (ruled here): search provenance is project-scoped — `projects/<name>/search-log.md`, appended per run: query as run, source searched, date, hit count; candidates NOT admitted recorded with a reason code (§4.4 rows). `find-sources` runs inside a project context (acquisition serves the project flow — "no one compounds information for its own sake"); invoked without an active project it asks which project it serves.
-- Core: a `search-log` append goes through the CLI (append-only file, entry grammar documented) — never free-written by the skill.
+- Vendor K-Dense `paper-lookup` (MIT): renamed into the plugin namespace, provenance header (upstream URL, commit, license), output shaped to §5, terminating at the admission step — the skill presents candidates for the human to admit into Zotero; it never writes the evidence layer.
+- **PRISMA-S search log** (ruled): project-scoped `projects/<name>/search-log.md`, appended per run via the CLI `search-log` verb (append-only, entry grammar documented): query as run, source searched, date, hit count; candidates NOT admitted recorded with reason codes (§4.4 rows). Invoked without an active project, the skill asks which project the search serves (acquisition serves the project flow).
 
-- [ ] Steps: vendor + provenance header → CLI append verb tests-first → skill text → §4.4 rows → suite green → commit.
+- [ ] Steps: vendor + provenance header → `search-log` verb tests-first → skill text → §4.4/§4.3 rows → suite green → commit.
 
 ---
 
-### Task 7: Glossary seed + probe decision + landing checks
+### Task 7: Glossary seed + probe decision
 
-- **Glossary seed**: `templates/vault/system/glossary.md` (type `guide`) projecting CONTEXT.md's vault-facing entries (Vault through Update notice — the meaning layer's user half; harness-internal entries stay behind); scaffold ships it; template test pins it whole-file (the ruled pattern).
-- **Probe-verb decision comes due** (recorded pending Plan D): setup-vault's provisioning detect step picks its instrument. Decide at HEAD: if `doctor` gained a vault-less bridge mode, `probe` deletes; otherwise `probe` is the detect instrument and setup-vault's SKILL.md says so. Either way the decision is recorded in the commit message and the loser's text removed.
-- **Landing checks** (recorded 2026-08-22): every skill name the vault template cites now resolves; `grep` the shipped templates for skill references and assert each has a `skills/<name>/` directory — add this as a permanent test, not a one-time check.
-- [ ] Steps: glossary template + test → probe decision → landing-check test → suite green → commit.
+- **Glossary seed**: `templates/vault/system/glossary.md` (type `guide`) projecting CONTEXT.md's vault-facing entries (the meaning layer's user half; harness-internal entries stay behind); scaffold ships it; whole-file test pin (the ruled pattern).
+- **Probe-verb decision comes due** (recorded): setup-vault's detect step picks its instrument at HEAD — if `doctor` gained a vault-less bridge mode, `probe` deletes; else `probe` is the instrument and setup-vault's SKILL.md says so. Decision recorded in the commit message; the loser's text removed.
+- [ ] Steps: glossary template + test → probe decision → suite green → commit.
 
 ---
 
 ### Task 8: Acceptance + merge
 
 - [ ] Full suite green offline AND live (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`; Zotero running).
-- [ ] Frontmatter policy audit: every entry skill `disable-model-invocation: true`; guards model-invoked; the validity test passes over all ten skill files.
-- [ ] §4.4 parity: every reason code minted by Tasks 3/5/6 has its reference row.
-- [ ] Two-flow walkthrough (manual, recorded in the task report): information flow (find → admit → import → integrate) and project flow (question → gap → acquire → draft-under-Iron-Law → verify → publish) each traced end-to-end against the shipped skills — every §7 row's scope items checked off against shipped text.
+- [ ] `test_skill_contracts.py` green over all **nine** skills (setup-vault + the eight shipped here — finding: the count is nine, not ten).
+- [ ] §4.3/§4.4 parity: every new verb, check id, and reason code has its reference row.
+- [ ] **Publish-effect walkthrough**: on a scratch vault — arm (exact flag schema), gate green, `mark-published` → status + project-level verified event + `published/<project>-<date>` tag present; published-drift lint keys on the tag; `mark-corrected` refuses on an unpublished project; original tag survives correction.
+- [ ] Two-flow walkthrough (recorded in the task report): information flow and project flow traced end-to-end; every §7 scope item checked against shipped text.
 - [ ] Merge per `superpowers:finishing-a-development-branch`; push in the same motion; report the SHA.
 
-## Self-Review (at authoring)
+## Self-Review (at revision 2)
 
-- Guards ship first so no entry skill ever cites a dangling pointer (the exact defect class the template task just fixed).
-- The three deferred-register items that named Plan D as their landing (uniform hold wiring, blockquote-split evaluation, probe decision) each have a task and step; the glossary seed and landing checks close the 2026-08-22 records.
-- Nothing in any skill closes a gate on LLM judgment; publish's menu is fixed and human-chosen; factcheck findings are warn-tier — §6 doctrine survives every task.
-- The slice (turning the dev corpus into a vault) is deliberately NOT in this plan — it's the validation project that runs ON these skills after they merge.
+- All four blocking findings closed structurally: publish effects are a transcription of §6 with their own verbs and module; the disposition menu is §6's day-one menu including the typed-"discard" guard; the post-publish correction lifecycle is present with its trigger and tag-preservation rule; the flag schema is the hook's exact contract with a negative test; every mechanical act (event, status, tag, hold, finding, ack, search-log line) names its CLI writer.
+- The deferred-ledger orphans are consumed: `events.trust_tier` in Task 4's orientation; `inbox.append_ack` behind the `ack` verb.
+- Factcheck carries its §6 bounds (budget cap, deterministic selection, recorded skipped set); refresh mode speaks fresh/stale/orphaned; evidence-conventions now carries the complete §5 schema including deprecation, confidence, and retraction-ack, plus the reason-code vocabulary.
+- The skill-contract test is created in Task 1, not borrowed from an unexecuted plan; the landing-check becomes a permanent assertion inside it.
