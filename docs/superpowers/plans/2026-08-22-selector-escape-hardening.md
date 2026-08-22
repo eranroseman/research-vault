@@ -1,5 +1,7 @@
 # Selector Escape Hardening — Task
 
+> **STATUS 2026-08-22: items 1–2 merged (d730511); items 3–4 STILL OPEN** — the executing worktree forked from the two-item version of this doc. Verified on main: `subdirectory=core` present in both CI templates; `.detail` at 4 sites in `tests/test_scaffold_live.py`. Remainder is a second pass: items 3 and 4 only, acceptance INCLUDING the live legs (which cannot pass until item 4 lands).
+
 > From the 2026-08-22 local deep review of 1f337a3..HEAD (verdict: sound, ready for Plan Q, two Minors). Single micro-task; do not fold into the rename task (that one is zero-behavior-change by contract).
 
 1. **`notes.py` `_escape_selector`**: extend neutralization to the full serializer `_CONTROL` class (`[\x00-\x1f\x7f\x85  ]`) — entity-escape or strip, matching the existing `\r`/`\n` treatment — so evidence-controlled selector context (PDF-extracted prefix/suffix) has boundary neutralization like every other channel instead of relying on the render_note round-trip backstop alone. Regression test: a context prefix carrying ` - (quote) [@evil] ^c-x` renders with the separator neutralized and the round-trip check quiet.
