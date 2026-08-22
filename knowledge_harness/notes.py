@@ -311,7 +311,14 @@ def render_claim(annotation: dict) -> str:
     text = annotation.get("annotationText") or ""
     if text:
         lines = [f"- (quote) {cite} ^{cid}"]
-        lines.extend(f"  > {line}" for line in text.split("\n"))
+        # Segment on the parser's own break set (``claims.parse_claims`` reads
+        # with ``str.splitlines()``), not on "\n" alone. A separator left inside
+        # a blockquote line — \r, \v, \f, \x1c-\x1e, \x85, U+2028, U+2029 — is a
+        # line break to the reader and not to the writer, so everything after it
+        # loses its "  > " prefix and the quote silently truncates there. The
+        # anchor is unaffected either way: ``claim_id`` hashes whitespace-
+        # collapsed content, never render output (§5 anchor durability).
+        lines.extend(f"  > {line}" for line in text.splitlines())
         pre, suf = annotation.get("context_prefix"), annotation.get("context_suffix")
         if pre or suf:
             prefix = _escape_selector((pre or "")[-32:])

@@ -43,7 +43,8 @@ REASON_CODES = frozenset(
 # ``publish-gate``), so validating here would break it. The `finding` CLI
 # verb is the boundary where this registry is actually enforced: it is the
 # only writer that takes a check id from outside the process, so it is the
-# only place a typo or an unregistered id can enter.
+# only place a typo or an unregistered id can enter — including
+# ``import-note``'s own hold wiring, which writes through that same verb.
 CHECK_IDS = frozenset(
     {
         "citekey",
@@ -58,6 +59,14 @@ CHECK_IDS = frozenset(
         "disputed-claim",
         "publish",
         "factcheck",
+        # Task 5. ``autoexport`` is cross-registered from the doctor probe-id
+        # group: an import held on the bibliography auto-export names the same
+        # observation doctor reports. ``render`` covers the render-rejection
+        # class (§4.4 coinage); ``integrate`` covers `import-source`'s surgical
+        # integrate-at-import holds (spec §7's own word).
+        "autoexport",
+        "render",
+        "integrate",
     }
 )
 _FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")

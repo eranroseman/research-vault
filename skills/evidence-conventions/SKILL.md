@@ -79,8 +79,11 @@ Findings in `inbox/review-queue.md` carry a `reason` code from the controlled re
 | `superseded-note` | The claim cites a literature note whose `status` is `excluded` or `superseded`. |
 | `stale` | The vault's bibliography export no longer matches the current Zotero library. |
 | `budget-cap` | Factored verification's per-run budget cap (default 30 claims) was reached; this finding names everything the cap left unchecked this pass. Never means the excluded claims were checked and clean. |
+| `not-admitted` | The citekey names nothing in the Zotero library — the source was never admitted, or its item has left. Admission is a human act; no import can substitute for it. |
+| `contradiction` | A claim being integrated at import contradicts a claim already in the synthesis layer. Both sides are preserved and linked with `disputes`; a contradiction is never resolved by dropping one. |
+| `low-confidence` | An inference claim held back at integration because its `[confidence:: ...]` is low or missing altogether. |
 
-A few registry codes (`contradiction`, `low-confidence`, `not-admitted`, `manual`) belong to surfaces not shipped yet — they get their own glossary rows when those skills land.
+One registry code (`manual`) belongs to a surface not shipped yet — it gets its own glossary row when that surface lands.
 
 ## Rationalizations, answered
 

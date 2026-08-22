@@ -11,7 +11,7 @@ import types
 
 import pytest
 
-from knowledge_harness import Result, claims, frontmatter, notes
+from knowledge_harness import Result, claims, frontmatter, notes, quotes
 
 
 def _annotation(**overrides):
@@ -142,6 +142,125 @@ def test_emit_scalar_still_accepts_ordinary_text():
     )
 
 
+# --- Blockquote segmentation (Task 5) ------------------------------------
+#
+# ``claims.parse_claims`` reads a note with ``str.splitlines()``. Any separator
+# the renderer leaves inside a ``  > `` line is therefore a line break to the
+# reader but not to the writer, and the quote text after it is dropped on the
+# floor — silently, because the claim line itself still parses and the emitter's
+# own self-check only compares claim ids. The renderer's segmentation set must
+# equal the parser's.
+
+# Separators both ``str.split("\n")`` and ``str.splitlines()`` break on.
+SHARED_SEPARATORS = ["\n", "\r\n"]
+# Separators only ``str.splitlines()`` breaks on — the whole question.
+SPLITLINES_ONLY_SEPARATORS = [
+    "\r",
+    "\v",
+    "\f",
+    "\x1c",
+    "\x1d",
+    "\x1e",
+    "\x85",
+    " ",
+    " ",
+]
+ALL_SEPARATORS = SHARED_SEPARATORS + SPLITLINES_ONLY_SEPARATORS
+
+
+def _newline_only_render_claim(annotation):
+    """The rejected alternative: segment ``annotationText`` on ``\\n`` alone."""
+    claim_id = notes.claim_id(annotation)
+    citekey = annotation["citekey"]
+    cite = f"[@{citekey}, p. {annotation['pageLabel']}]"
+    lines = [f"- (quote) {cite} ^{claim_id}"]
+    lines.extend(f"  > {line}" for line in annotation["annotationText"].split("\n"))
+    return "\n".join(lines)
+
+
+def _rendered_note(separator, key=""):
+    annotation = _annotation(annotationText=f"alpha{separator}beta", key=key)
+    return notes.render_note(
+        _item(), ["aa11"], [annotation], None, accessed="2026-08-21"
+    )
+
+
+@pytest.mark.parametrize("separator", ALL_SEPARATORS, ids=repr)
+def test_every_separator_the_parser_breaks_on_survives_the_round_trip(separator):
+    rendered = notes.render_claim(_annotation(annotationText=f"alpha{separator}beta"))
+
+    parsed = [claim for claim in claims.parse_claims(rendered) if claim.tag == "quote"]
+    assert len(parsed) == 1
+    assert parsed[0].quote_text == "alpha beta"
+
+
+@pytest.mark.parametrize("separator", SPLITLINES_ONLY_SEPARATORS, ids=repr)
+def test_newline_only_segmentation_would_truncate_the_quote(separator):
+    """Pins why the wider set was adopted, not merely that it was."""
+    emitted = _newline_only_render_claim(
+        _annotation(annotationText=f"alpha{separator}beta")
+    )
+
+    parsed = [claim for claim in claims.parse_claims(emitted) if claim.tag == "quote"]
+    assert len(parsed) == 1
+    assert parsed[0].quote_text == "alpha"
+
+
+@pytest.mark.parametrize("separator", ALL_SEPARATORS, ids=repr)
+def test_separator_never_moves_the_anchor(separator):
+    """§5 anchor durability: the claim id derives from collapsed content."""
+    assert notes.claim_id(
+        _annotation(annotationText=f"alpha{separator}beta", key="")
+    ) == notes.claim_id(_annotation(annotationText="alpha beta", key=""))
+
+
+@pytest.mark.parametrize("separator", ALL_SEPARATORS, ids=repr)
+def test_quote_verification_matches_a_draft_quoting_across_a_separator(
+    tmp_vault, separator
+):
+    notes.note_path(tmp_vault, "smith2020").write_text(_rendered_note(separator))
+    claim_id = notes.claim_id(_annotation(annotationText="alpha beta", key=""))
+
+    outcome = quotes.check_quote(
+        tmp_vault,
+        claims.Claim(
+            tag="quote",
+            citekey="smith2020",
+            locator="12",
+            claim_id=claim_id,
+            line_no=1,
+            quote_text="alpha beta",
+        ),
+        "smith2020",
+    )
+
+    assert outcome.result is Result.MATCHED
+
+
+@pytest.mark.parametrize("separator", SPLITLINES_ONLY_SEPARATORS, ids=repr)
+def test_newline_only_segmentation_breaks_that_same_verification(
+    tmp_vault, monkeypatch, separator
+):
+    monkeypatch.setattr(notes, "render_claim", _newline_only_render_claim)
+    notes.note_path(tmp_vault, "smith2020").write_text(_rendered_note(separator))
+    claim_id = notes.claim_id(_annotation(annotationText="alpha beta", key=""))
+
+    outcome = quotes.check_quote(
+        tmp_vault,
+        claims.Claim(
+            tag="quote",
+            citekey="smith2020",
+            locator="12",
+            claim_id=claim_id,
+            line_no=1,
+            quote_text="alpha beta",
+        ),
+        "smith2020",
+    )
+
+    assert outcome.result is Result.UNMATCHED
+
+
 # --- Emitter self-check ---------------------------------------------------
 
 
@@ -193,8 +312,8 @@ def test_import_note_render_rejection_is_loud_and_writes_nothing(
 ):
     """A render rejection exits nonzero with a reason and leaves no note behind.
 
-    Ruled 2026-08-21: this class does not file an inbox hold on its own —
-    uniform hold-to-inbox wiring lands with integrate-at-import.
+    Ruled 2026-08-21, wired 2026-08-22: the rejection stays loud and writes no
+    note; the `render` hold it now also files is covered in ``test_cli_live``.
     """
     import knowledge_harness.__main__ as cli
 

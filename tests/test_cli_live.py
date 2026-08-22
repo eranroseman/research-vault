@@ -463,9 +463,12 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
         text=True,
     ).stdout
     assert result == 1
-    assert capsys.readouterr().err.strip() == f"invalid citekey: {citekey!r}"
+    assert capsys.readouterr().err.splitlines()[0] == f"invalid citekey: {citekey!r}"
     assert constructed == []
-    assert status_after == status_before
+    # Task 5: the review record is the one deliberate write a rejected import
+    # makes. Nothing else may move — no Zotero traffic, no note, no export.
+    assert status_before == ""
+    assert status_after in {"", "?? inbox/\n"}
     assert list((tmp_vault / "literatures").iterdir()) == []
     assert list((tmp_vault / "system").iterdir()) == []
 
@@ -1251,3 +1254,259 @@ def test_staleness_cli_reports_corrupt_committed_bibliography_as_unmatched(
 
     assert code == 1
     assert capsys.readouterr().out.strip() == "UNMATCHED"
+
+
+# --- Uniform hold-to-inbox wiring (Task 5) ---------------------------------
+#
+# Every `import-note` failure exit files its reason-coded review record through
+# the same writer the `finding` verb uses, in addition to the stderr line and
+# exit code it already produced.
+
+
+class _HoldClient:
+    """A Zotero client whose search hits, so failures come from later stages."""
+
+    def __init__(self, base):
+        self.base = base
+
+    def search(self, terms):
+        return [{"citekey": terms, "title": "Mortality decline"}]
+
+    def attachments(self, citekey):
+        return []
+
+
+def _import(vault, citekey="smith2020"):
+    import knowledge_harness.__main__ as cli
+
+    return cli.cmd_import_note(
+        argparse.Namespace(citekey=citekey, vault=str(vault), base="http://unused")
+    )
+
+
+def _holds(vault):
+    from knowledge_harness import inbox
+
+    return inbox.open_entries(vault)
+
+
+def test_import_note_invalid_citekey_files_a_schema_violation_hold(
+    tmp_vault, monkeypatch, capsys
+):
+    import knowledge_harness.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
+
+    code = _import(tmp_vault, "../escape")
+
+    assert code == 1
+    assert capsys.readouterr().err.strip() == "invalid citekey: '../escape'"
+    (hold,) = _holds(tmp_vault)
+    assert hold.check == "citekey"
+    assert hold.target == "../escape"
+    assert hold.result == "UNMATCHED"
+    assert hold.reason.startswith("schema-violation — ")
+
+
+def test_import_note_reports_a_citekey_that_cannot_be_a_finding_target(
+    tmp_vault, monkeypatch, capsys
+):
+    """Swallowing a refused review record must fail — the queue is not silent."""
+    import knowledge_harness.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
+
+    code = _import(tmp_vault, "")
+
+    assert code == 1
+    errors = capsys.readouterr().err.strip().splitlines()
+    assert errors[0] == "invalid citekey: ''"
+    assert errors[1].startswith("warning: review record refused: ")
+    assert _holds(tmp_vault) == []
+
+
+def test_import_note_unadmitted_citekey_files_a_not_admitted_hold(
+    tmp_vault, monkeypatch, capsys
+):
+    import knowledge_harness.__main__ as cli
+
+    class EmptyClient(_HoldClient):
+        def search(self, terms):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", EmptyClient)
+
+    code = _import(tmp_vault)
+
+    assert code == 1
+    assert capsys.readouterr().err.strip() == "citekey not found: smith2020"
+    (hold,) = _holds(tmp_vault)
+    assert hold.check == "citekey"
+    assert hold.target == "smith2020"
+    assert hold.result == "UNMATCHED"
+    assert hold.reason.startswith("not-admitted — ")
+
+
+@pytest.mark.parametrize(
+    ("state", "expected_code", "expected_reason_code"),
+    [(Result.UNMATCHED, 1, "mismatch"), (Result.UNREACHABLE, 3, "outage")],
+)
+def test_import_note_autoexport_failure_files_a_hold(
+    tmp_vault, monkeypatch, capsys, state, expected_code, expected_reason_code
+):
+    import knowledge_harness.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
+    monkeypatch.setattr(
+        cli.bibliography,
+        "observe_autoexport",
+        lambda *args, **kwargs: bibliography.AutoexportObservation(
+            state, "autoexport failed\nrepair it in BBT", state, "autoexport failed"
+        ),
+    )
+
+    code = _import(tmp_vault)
+
+    captured = capsys.readouterr()
+    assert code == expected_code
+    assert captured.out == ""
+    assert captured.err.strip() == "autoexport failed\nrepair it in BBT"
+    (hold,) = _holds(tmp_vault)
+    assert hold.check == "autoexport"
+    assert hold.target == "smith2020"
+    assert hold.result == state.value
+    # The observation's own detail rides the reason on one line — the review
+    # record's inline-field grammar has no room for the second one.
+    assert hold.reason == f"{expected_reason_code} — autoexport failed repair it in BBT"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        notes.RenderIntegrityError("managed body parsed to [], expected ['c-1']"),
+        notes.InvalidCitekeyError("unsafe citekey: 'a b'"),
+        frontmatter.FrontmatterError("frontmatter is not a mapping"),
+    ],
+    ids=["render-integrity", "invalid-citekey", "frontmatter"],
+)
+def test_import_note_render_rejection_files_a_hold(
+    tmp_vault, monkeypatch, capsys, error
+):
+    import knowledge_harness.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
+
+    def rejecting(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(cli.notes, "render_note", rejecting)
+
+    code = _import(tmp_vault)
+
+    captured = capsys.readouterr()
+    assert code == 1
+    assert captured.err.strip() == f"render rejected for smith2020: {error}"
+    assert not notes.note_path(tmp_vault, "smith2020").exists()
+    (hold,) = _holds(tmp_vault)
+    assert hold.check == "render"
+    assert hold.target == "smith2020"
+    assert hold.result == "UNMATCHED"
+    assert hold.reason.startswith("schema-violation — ")
+
+
+def test_import_note_holds_collapse_on_a_same_day_retry(tmp_vault, monkeypatch, capsys):
+    """A retried failure is one standing finding, not a growing pile of rows."""
+    import knowledge_harness.__main__ as cli
+
+    class EmptyClient(_HoldClient):
+        def search(self, terms):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", EmptyClient)
+
+    assert _import(tmp_vault) == 1
+    assert _import(tmp_vault) == 1
+
+    capsys.readouterr()
+    assert len(_holds(tmp_vault)) == 1
+
+
+def test_import_note_hold_inherits_the_finding_verbs_collision_guard(
+    tmp_vault, monkeypatch, capsys
+):
+    """A forked writer would silently append a second unacknowledgeable row."""
+    import knowledge_harness.__main__ as cli
+
+    class EmptyClient(_HoldClient):
+        def search(self, terms):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", EmptyClient)
+    assert (
+        cli.main(
+            [
+                "finding",
+                "citekey",
+                "smith2020",
+                "UNMATCHED",
+                "mismatch — citekey not in bibliography",
+                "--vault",
+                str(tmp_vault),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    code = _import(tmp_vault)
+
+    errors = capsys.readouterr().err.strip().splitlines()
+    assert code == 1
+    assert errors[0] == "citekey not found: smith2020"
+    assert errors[1].startswith("warning: review record refused: ")
+    assert "already recorded with different content" in errors[1]
+    assert len(_holds(tmp_vault)) == 1
+
+
+def test_import_note_hold_is_acknowledgeable_through_the_ack_verb(
+    tmp_vault, monkeypatch, capsys
+):
+    """A hold nobody can ack is a dead row — the queue's whole point is drainable."""
+    import knowledge_harness.__main__ as cli
+
+    class EmptyClient(_HoldClient):
+        def search(self, terms):
+            return []
+
+    monkeypatch.setattr(cli, "ZoteroClient", EmptyClient)
+    assert _import(tmp_vault) == 1
+    capsys.readouterr()
+    (hold,) = _holds(tmp_vault)
+
+    code = cli.main(
+        [
+            "ack",
+            hold.id,
+            "--vault",
+            str(tmp_vault),
+            "--reason",
+            "manual — the item was intentionally removed from the library",
+            "--actor",
+            "human:eran",
+        ]
+    )
+
+    assert code == 0
+    assert capsys.readouterr().out.strip() == f"ack/{hold.id}"
+    assert _holds(tmp_vault) == []
+
+
+def test_import_note_success_files_no_hold(tmp_vault, monkeypatch, capsys):
+    import knowledge_harness.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
+
+    assert _import(tmp_vault) == 0
+
+    capsys.readouterr()
+    assert _holds(tmp_vault) == []

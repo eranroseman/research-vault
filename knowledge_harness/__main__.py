@@ -151,11 +151,38 @@ def _selector_warning(reasons: list[str], *, retained: int) -> None:
         print(f"warning: selectors skipped ({reason})", file=sys.stderr)
 
 
+def _hold(vault, check, target, result: Result, reason: str) -> None:
+    """File one import hold through ``record_finding`` — never a forked writer.
+
+    Additive to the failure exit that calls it: stderr and the exit code stay
+    exactly as they were, and a landed hold prints nothing. A *refused* hold is
+    the one thing this says out loud — an unrepresentable citekey or an id
+    already carrying a different finding leaves the queue without the record,
+    and a silently missing review record is the failure this reports.
+    """
+    status, detail = record_finding(vault, check, target, result, reason)
+    if status:
+        print(f"warning: review record refused: {detail}", file=sys.stderr)
+
+
+def _hold_reason(code: str, detail: str) -> str:
+    """Compose a reason-coded line from a code and free-text detail."""
+    detail = notes.display_text(detail)
+    return f"{code} — {detail}" if detail else code
+
+
 def cmd_import_note(args):
     try:
         path = notes.note_path(args.vault, args.citekey)
     except notes.InvalidCitekeyError:
         print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
+        _hold(
+            args.vault,
+            "citekey",
+            args.citekey,
+            Result.UNMATCHED,
+            "schema-violation — citekey cannot name a literature note",
+        )
         return 1
 
     client = ZoteroClient(base=args.base)
@@ -167,6 +194,13 @@ def cmd_import_note(args):
     ]
     if not matches:
         print(f"citekey not found: {args.citekey}", file=sys.stderr)
+        _hold(
+            vault,
+            "citekey",
+            args.citekey,
+            Result.UNMATCHED,
+            "not-admitted — citekey is absent from the Zotero library",
+        )
         return 1
     item = matches[0]
     item["id"] = args.citekey
@@ -174,7 +208,15 @@ def cmd_import_note(args):
     observed = bibliography.observe_autoexport(vault, client)
     if observed.result is not Result.MATCHED:
         print(observed.detail, file=sys.stderr)
-        return 1 if observed.result is Result.UNMATCHED else 3
+        unmatched = observed.result is Result.UNMATCHED
+        _hold(
+            vault,
+            "autoexport",
+            args.citekey,
+            observed.result,
+            _hold_reason("mismatch" if unmatched else "outage", observed.detail),
+        )
+        return 1 if unmatched else 3
 
     existing = _read_note_text(path) if path.is_file() else None
     hashes = []
@@ -237,10 +279,18 @@ def cmd_import_note(args):
         notes.InvalidCitekeyError,
         frontmatter.FrontmatterError,
     ) as error:
-        # Ruled 2026-08-21: this class is loud and fail-closed — nothing is
-        # written, and it does not file an inbox hold on its own. Uniform
-        # hold-to-inbox wiring arrives with integrate-at-import.
+        # Ruled 2026-08-21, wired 2026-08-22 with integrate-at-import: this
+        # class stays loud and fail-closed — nothing is written and stderr and
+        # the exit code are unchanged — and it now also files its reason-coded
+        # hold, like every other failure exit here.
         print(f"render rejected for {args.citekey}: {error}", file=sys.stderr)
+        _hold(
+            vault,
+            "render",
+            args.citekey,
+            Result.UNMATCHED,
+            _hold_reason("schema-violation", str(error) or "render rejected"),
+        )
         return 1
 
     if not notes.content_changed(existing, candidate):
@@ -489,16 +539,27 @@ def cmd_ack(args):
 _FINDING_SKIPPED_CHECKS = frozenset({"factcheck"})
 
 
-def cmd_finding(args):
+def record_finding(
+    vault,
+    check,
+    target,
+    result: Result,
+    reason: str,
+    actor=None,
+    date=None,
+    target_hash=None,
+) -> tuple[int, str]:
     """Append one review-record finding — the writer prose is never allowed to be.
 
-    Factcheck's adjudicated findings and Task 5's import-time holds both go
-    through this, so it validates the check id against the governed §4.4
-    registry itself (``append_entry`` does not — see ``inbox.CHECK_IDS``), and
-    the result vocabulary per check id: MATCHED is never legitimate here (no
-    caller mints a `verified` event through this verb — only a genuine
-    deterministic check does), and SKIPPED is legitimate only for `factcheck`
-    (every other check's SKIPPED is automatic-only, produced by the
+    The single review-record writer above ``inbox.append_entry``: the `finding`
+    verb, factcheck-draft's adjudications, `import-source`'s integrate-at-import
+    holds, and every ``import-note`` failure exit all reach the queue through
+    this one function, so one set of guards covers all of them. It validates the
+    check id against the governed §4.4 registry (``append_entry`` does not — see
+    ``inbox.CHECK_IDS``) and the result vocabulary per check id: MATCHED is never
+    legitimate here (no caller mints a `verified` event through this path — only
+    a genuine deterministic check does), and SKIPPED is legitimate only for
+    `factcheck` (every other check's SKIPPED is automatic-only, produced by the
     deterministic pipeline itself, never by prose).
 
     Because ``inbox.finding_id`` does not fold `result` into the id (only
@@ -509,88 +570,101 @@ def cmd_finding(args):
     unacknowledgeable. This computes the candidate id first and checks every
     prior finding row (acked or not — ``append_ack``'s own matcher does not
     care) that already carries it: an exact duplicate (same check, target,
-    result, reason, actor, and target hash) is a genuine retry and reprints
+    result, reason, actor, and target hash) is a genuine retry and returns
     the existing id; anything else refuses rather than silently colliding.
+
+    Returns ``(0, finding_id)`` when the record stands, or ``(2, detail)``
+    when it is refused. Callers compose their own prefix around ``detail``;
+    none of them may swallow it.
     """
-    if args.check not in inbox.CHECK_IDS:
-        print(
-            f"finding refused: unregistered check id: {args.check!r}", file=sys.stderr
+    if check not in inbox.CHECK_IDS:
+        return 2, f"unregistered check id: {check!r}"
+    if result is Result.MATCHED:
+        return 2, (
+            "MATCHED never files a finding — only a deterministic check may "
+            "record a pass, and it mints a `verified` event instead"
         )
-        return 2
-    result = Result[args.result]
-    if result is Result.SKIPPED and args.check not in _FINDING_SKIPPED_CHECKS:
-        print(
-            f"finding refused: SKIPPED is automatic-only for {args.check!r} — "
-            "never agent- or prose-settable; only the deterministic pipeline "
-            "itself may record it",
-            file=sys.stderr,
+    if result is Result.SKIPPED and check not in _FINDING_SKIPPED_CHECKS:
+        return 2, (
+            f"SKIPPED is automatic-only for {check!r} — never agent- or "
+            "prose-settable; only the deterministic pipeline itself may "
+            "record it"
         )
-        return 2
     try:
-        inbox.validate_reason(args.reason)
+        inbox.validate_reason(reason)
     except ValueError as error:
-        print(f"finding refused: {error}", file=sys.stderr)
-        return 2
-    actor = args.actor if args.actor is not None else AGENT_ACTOR
-    resolved_date = (
-        datetime.date.today().isoformat() if args.date is None else args.date
-    )
+        return 2, str(error)
+    actor = AGENT_ACTOR if actor is None else actor
+    resolved_date = datetime.date.today().isoformat() if date is None else date
     try:
         candidate_id = inbox.finding_id(
-            args.check,
-            args.target,
+            check,
+            target,
             resolved_date,
-            args.target_hash,
+            target_hash,
             None,
             None,
             None,
             "identifier",
-            args.reason,
+            reason,
         )
         colliding = [
             entry
-            for entry in inbox.load(args.vault)
+            for entry in inbox.load(vault)
             if entry.ack_of is None and entry.id == candidate_id
         ]
         if colliding:
             existing = colliding[0]
             duplicate = (
-                existing.check == args.check
-                and existing.target == args.target
+                existing.check == check
+                and existing.target == target
                 and existing.target_kind == "identifier"
                 and existing.result == result.value
-                and existing.reason == args.reason
+                and existing.reason == reason
                 and existing.actor == actor
-                and existing.target_hash == args.target_hash
+                and existing.target_hash == target_hash
             )
             if duplicate:
-                print(existing.id)
-                return 0
-            print(
-                f"finding refused: {candidate_id!r} is already recorded with "
-                f"different content (result={existing.result} "
-                f"reason={existing.reason!r} actor={existing.actor!r} "
-                f"target-hash={existing.target_hash!r}) — this id cannot carry "
-                "two distinct findings; ack the existing one first, or supply "
-                "a distinct --target-hash so each stays separately "
-                "identifiable and acknowledgeable",
-                file=sys.stderr,
+                return 0, existing.id
+            return 2, (
+                f"{candidate_id!r} is already recorded with different content "
+                f"(result={existing.result} reason={existing.reason!r} "
+                f"actor={existing.actor!r} target-hash={existing.target_hash!r}) "
+                "— this id cannot carry two distinct findings; ack the existing "
+                "one first, or supply a distinct --target-hash so each stays "
+                "separately identifiable and acknowledgeable"
             )
-            return 2
         entry = inbox.append_entry(
-            args.vault,
-            args.check,
-            args.target,
+            vault,
+            check,
+            target,
             result,
-            args.reason,
+            reason,
             actor=actor,
-            date=args.date,
-            target_hash=args.target_hash,
+            date=date,
+            target_hash=target_hash,
         )
     except (inbox.InboxError, ValueError, OSError) as error:
-        print(f"finding refused: {error}", file=sys.stderr)
-        return 2
-    print(entry.id)
+        return 2, str(error)
+    return 0, entry.id
+
+
+def cmd_finding(args):
+    """Expose ``record_finding`` as the CLI verb skills call."""
+    status, detail = record_finding(
+        args.vault,
+        args.check,
+        args.target,
+        Result[args.result],
+        args.reason,
+        actor=args.actor,
+        date=args.date,
+        target_hash=args.target_hash,
+    )
+    if status:
+        print(f"finding refused: {detail}", file=sys.stderr)
+        return status
+    print(detail)
     return 0
 
 

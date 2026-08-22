@@ -8,10 +8,12 @@ guard skills shipped alongside it.
 """
 
 import re
+import shlex
 from pathlib import Path
 
 import pytest
 
+from knowledge_harness import inbox
 from knowledge_harness.frontmatter import FrontmatterError, parse
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -32,6 +34,7 @@ ENTRY_SKILLS = {
     "verify-citations",
     "factcheck-draft",
     "project",
+    "import-source",
 }
 
 # A bare kebab-case token in backticks, e.g. `` `evidence-conventions` `` —
@@ -112,6 +115,38 @@ def test_invocation_flags_match_the_ruled_control_model(skill_md):
     assert "user-invocable" not in data, (
         f"{name}: user-invocable is reserved for future machine contracts"
     )
+
+
+_FINDING_INVOCATION = "python3 -m knowledge_harness finding "
+
+
+def _shipped_finding_invocations() -> list[tuple[Path, list[str]]]:
+    invocations = []
+    for skill_md in _skill_md_files():
+        for line in skill_md.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith(_FINDING_INVOCATION):
+                invocations.append((skill_md, shlex.split(line.strip())))
+    return invocations
+
+
+def test_every_shipped_finding_invocation_names_registered_identifiers():
+    """A skill that spells a check id or reason code the registry dropped would
+    ship a command the CLI refuses — and prose is the one surface no test
+    otherwise reads. Catches the drift at build time, not at a person's shell."""
+    invocations = _shipped_finding_invocations()
+    assert invocations, "expected at least one shipped `finding` invocation"
+    for skill_md, tokens in invocations:
+        check, _target, result, reason = tokens[4:8]
+        assert check in inbox.CHECK_IDS, (
+            f"{skill_md}: unregistered check id {check!r} in a shipped command"
+        )
+        assert result in {"UNMATCHED", "UNREACHABLE", "SKIPPED"}, (
+            f"{skill_md}: {result!r} is not a result the `finding` verb accepts"
+        )
+        try:
+            inbox.validate_reason(reason)
+        except ValueError as error:
+            pytest.fail(f"{skill_md}: {error}")
 
 
 def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
