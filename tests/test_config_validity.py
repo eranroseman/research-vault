@@ -151,23 +151,31 @@ def test_every_doctor_probe_id_at_head_is_governed():
     )
 
 
-def test_reason_codes_row_delegates_to_the_code_registry():
-    """§4.4 governs reason codes BY REFERENCE, not by enumeration.
+def test_every_reason_code_at_head_is_governed():
+    """The largest identifier group, enforced the same way as the other two.
 
-    That row's own status reads "one registry, code is authoritative", and it
-    lists only the renamed/notable members after "incl." — so enumerating parity
-    here would assert a contract the document deliberately does not make. What
-    IS checkable, and what this guards, is that the delegation survives: if the
-    row stops naming ``REASON_CODES``, the group has silently lost its owner.
+    This asserted only that the row contained the string ``REASON_CODES`` until
+    2026-08-22, on the reading that §4.4 governed this group by reference. The
+    row's own Status cell says otherwise -- "additions require a reference row" --
+    so the document was already promising the property the test declined to
+    enforce, and a new code could land with no row and leave the suite green.
+    Reason codes go verbatim onto ``inbox/review-queue.md``, the highest-traffic
+    human surface in the system; it is the last group that should be governed
+    more loosely than the rest.
     """
     row = _governance_row("reason codes")
-    assert "REASON_CODES" in row
+    ungoverned = sorted(inbox.REASON_CODES - _backticked(row))
+    assert not ungoverned, (
+        "reason codes in inbox.REASON_CODES with no backticked entry in "
+        f"terminology.md §4.4: {ungoverned}. Its Status cell promises "
+        "'additions require a reference row' -- add the row."
+    )
+
+
+def test_reason_codes_row_still_names_the_authoritative_registry():
+    """Enumeration is the parity check; the delegation is still the ownership claim."""
+    assert "REASON_CODES" in _governance_row("reason codes")
     assert inbox.REASON_CODES, "the reason-code registry must not be empty"
-    for named in ("superseded-note", "not-admitted", "drift", "outage", "budget-cap"):
-        assert named in _backticked(row), f"{named} lost its §4.4 reference row"
-        assert named in inbox.REASON_CODES, (
-            f"§4.4 names {named}, code does not carry it"
-        )
 
 
 # --------------------------------------------------------------------------

@@ -477,6 +477,8 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
     # string to the review-queue writer. If that writer accepts it, the row is
     # written across two physical lines and the append-only queue never parses
     # again.
+    # S108 below: "/tmp/escape" is an absolute-path ESCAPE fixture -- a citekey the
+    # importer must REJECT, never a temporary file this test writes to.
     ["", "../escape", "/tmp/escape", "..\\escape", "a\vb", "a\u2028b"],  # noqa: S108
 )
 def test_import_note_rejects_unsafe_citekey_before_side_effects(
