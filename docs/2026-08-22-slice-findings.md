@@ -24,3 +24,7 @@ Plan: docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md. Vault: ~/kh-
 
 - Human BBT step (target in doctor output above) → flips `autoexport` + `staleness`, unlocks the two `HARNESS_LIVE_AUTOEXPORT_VAULT` tests.
 - `backup` warn: needs the author's one-line statement of the Zotero storage backup story (sync? disk image?) — recorded wherever doctor reads it.
+
+## Phase 1
+
+8. **Doctrine finding — the rubber-stamp rule (ruled into spec §3)**: the seed corpus's 170-URL admission exposed a gate-design gap: per-item human confirmation over a pre-curated list is ceremony that trains click-through (Shipman/Marshall's forced-formality failure, generalized). Ruled: human gates only where judgment differs per instance; bulk admission of a reviewed list = one recorded approval + Zotero's consented local-write dialog + provenance record. The slice caught exactly the class of question §9 exists to surface.
