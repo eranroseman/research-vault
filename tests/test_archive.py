@@ -262,8 +262,30 @@ def test_a_supplied_snapshot_is_confirmed_then_recorded(net_vault, monkeypatch):
     assert outcome.result is Result.MATCHED
     data, _ = frontmatter.parse(path.read_text())
     assert data["archive-url"] == SNAPSHOT
-    assert calls["save"] == [(SNAPSHOT, True)]
+    assert calls["save"] == [(SNAPSHOT, False)]
     assert calls["availability"] == []
+
+
+def test_a_supplied_snapshot_rides_the_useragent_not_the_query_string(
+    net_vault, monkeypatch
+):
+    """A Wayback snapshot carries its target in the path, like Save Page Now.
+
+    Live-confirmed 2026-08-22: ``archive.org/wayback/available`` reported this
+    snapshot ``available: true, status: "200"``, yet fetching it with
+    ``?mailto=`` appended answered 404 — Wayback reads the query string as part
+    of the archived address. Sending the contact address in the query here made
+    the verb report a snapshot the archive is genuinely serving as missing, and
+    the note never got its ``archive-url``.
+    """
+    _write_note(net_vault)
+    calls = _fake_network(monkeypatch, save=200)
+
+    archive.archive_source(net_vault, "rot2024", snapshot=SNAPSHOT)
+
+    (fetched_url, query_mailto) = calls["save"][0]
+    assert query_mailto is False
+    assert fetched_url == SNAPSHOT
 
 
 def test_a_supplied_snapshot_that_404s_is_never_recorded(net_vault, monkeypatch):
