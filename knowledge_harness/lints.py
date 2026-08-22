@@ -19,7 +19,12 @@ FAILED_VERIFICATION = re.compile(
     r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
 )
 CLAIM_LINK = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
-PUBLISHED_TAG = re.compile(r"^published/(.+)-\d{4}-\d{2}-\d{2}$")
+# ``published/<project>-<YYYY-MM-DD>-<HHMMSS>`` (ruled 2026-08-22). The time
+# component is uniform, never conditional: a suffix that appeared only on the
+# second tag of a day would be the shape that breaks this pattern and the
+# newest-tag ordering below, whereas one every tag carries costs this regex
+# once and keeps a plain lexicographic sort chronological to the second.
+PUBLISHED_TAG = re.compile(r"^published/(.+)-\d{4}-\d{2}-\d{2}-\d{6}$")
 TRANSITION_FIELD = re.compile(
     r"\[(status|deprecated-at|deprecated-by|reason|superseded-by):: ([^\]]*)\]"
 )
@@ -94,19 +99,12 @@ def _schema_outcome(check: str, target, extra: dict | None = None) -> Outcome:
 
 
 def _is_append_only_path(rel: bytes) -> bool:
-    """Every durable-append surface this lint protects (terminology §4.1).
-
-    ``inbox/review-queue.md`` and every ``log/`` day file are the original
-    two; ``projects/<name>/search-log.md`` (Task 6, spec §7's `find-sources`
-    row) is a third for the same reason — it is a PRISMA-S search trail, and
-    a trail that can be silently rewritten is not a trail a methods reviewer
-    can trust.
-    """
-    if rel == b"inbox/review-queue.md":
-        return True
-    if rel.startswith(b"log/"):
-        return True
-    return rel.startswith(b"projects/") and rel.endswith(b"/search-log.md")
+    """The three durable-append surfaces this lint protects (terminology §4.1)."""
+    return (
+        rel == b"inbox/review-queue.md"
+        or rel.startswith(b"log/")
+        or (rel.startswith(b"projects/") and rel.endswith(b"/search-log.md"))
+    )
 
 
 def lint_append_only(
@@ -384,7 +382,9 @@ def _project_differs(
         for path in set(prior.images) | set(current.images)
         if path == prefix.encode() or path.startswith(raw_prefix)
     }
-    return any(prior.image(path) != current.image(path) for path in paths)
+    return any(
+        gitstate.images_differ(prior.image(path), current.image(path)) for path in paths
+    )
 
 
 # The statuses whose project this lint watches. `corrected` is watched because
@@ -401,13 +401,12 @@ WATCHED_PUBLICATION_STATUSES = frozenset({"published", "corrected"})
 def _newest_published_tags(vault: Path) -> dict[str, str]:
     """Map each project to its newest ``published/*`` tag.
 
-    ``PUBLISHED_TAG``'s prefix is constant per project and its suffix is an ISO
-    date, so lexicographic max is the newest tag, and ``_publish`` refusing a
-    tag that already exists caps a project at one tag per day. The newest tag
-    is the only sound comparison basis: a correction's tree differs from the
-    original tag by construction, and ADR 0003 forbids deleting that tag, so
-    comparing against anything older would report every legitimate correction
-    as drift.
+    ``PUBLISHED_TAG``'s prefix is constant per project and its suffix is a
+    zero-padded ISO date and time, so lexicographic max is the newest tag —
+    including between two tags minted on the same day. The newest tag is the
+    only sound comparison basis: a correction's tree differs from the original
+    tag by construction, and ADR 0003 forbids deleting that tag, so comparing
+    against anything older would report every legitimate correction as drift.
     """
     newest: dict[str, str] = {}
     for tag in _git(vault, "tag", "--list", "published/*").stdout.split():

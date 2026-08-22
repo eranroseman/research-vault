@@ -45,7 +45,7 @@ An outage is never a failure and never a pass. Do not describe an UNREACHABLE re
 
 This is the **pre-publication** menu. Present exactly these three and let the person choose. Never pick for them.
 
-- **mark-published** — a full gate run plus its effects: sets `status: "published"` in the project's frontmatter, appends a project-level `verified` event, commits and tags `published/<project>-<date>`.
+- **mark-published** — a full gate run plus its effects: sets `status: "published"` in the project's frontmatter, appends a project-level `verified` event, commits and tags `published/<project>-<date>-<time>` (`published/brief-2026-08-01-091500`; the time is UTC, `HHMMSS`, and every publication tag carries one).
 - **park** — sets `status: "parked"`, nothing else. The CLI verb is `mark-parked` (`park → mark-parked`, matching `mark-published`/`mark-corrected`/`mark-withdrawn`).
 - **keep-draft** — a no-op. Say so and stop; write nothing at all.
 
@@ -96,6 +96,16 @@ python3 -m knowledge_harness arm-publish NAME --vault PATH
 python3 -m knowledge_harness mark-corrected NAME --vault PATH
 python3 -m knowledge_harness mark-withdrawn NAME --vault PATH
 ```
+
+**A correction on the day of publication just works.** Publish in the morning, correct in the afternoon when a retraction notice lands, correct again that evening: every tag carries a UTC time, so each disposition mints its own and none collides. Say so plainly rather than telling a person to wait for tomorrow.
+
+The date half of that tag — which is also the `verified` event's stamp and the withdrawal log line's day — defaults to today. Name it explicitly only to date a disposition to a different day, on any of the three dated dispositions:
+
+```sh
+python3 -m knowledge_harness mark-corrected NAME --vault PATH --date YYYY-MM-DD
+```
+
+The date must be a real calendar day in that form; anything else is refused before a byte is written. `--date` never supplies the time. `mark-parked` takes no `--date` — it writes a status and nothing dated.
 
 These two are the *only* dispositions a published project has. Both refuse a project that was never published — the lifecycle opens only after publication — and, in the mirror, `mark-published` and `mark-parked` refuse a project that already is. Re-publishing without going through `mark-corrected` would record a correction as a first publication in tags and events that are never deleted; parking a published project would flip its status out of the set the published-drift lint watches (`published` and `corrected`) and quietly stop it watching the tag — which is exactly why `mark-corrected` does not: a corrected project stays watched. **The original tag is never deleted**, by either disposition or by hand: a correction adds a tag, it does not replace one. Never offer tag deletion, history rewriting, or a quiet edit of the published note as an alternative.
 

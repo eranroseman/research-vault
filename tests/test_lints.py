@@ -442,7 +442,9 @@ def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
 
 def test_published_drift_includes_untracked_files(fixture_vault):
     subprocess.run(
-        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+        ["git", "tag", "published/brief-2026-08-16-120000"],
+        cwd=fixture_vault,
+        check=True,
     )
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
@@ -468,7 +470,9 @@ def test_published_drift_catches_tracked_changes_after_a_published_tag(fixture_v
         ["git", "commit", "-m", "publish brief"], cwd=fixture_vault, check=True
     )
     subprocess.run(
-        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+        ["git", "tag", "published/brief-2026-08-16-120000"],
+        cwd=fixture_vault,
+        check=True,
     )
     draft.write_text(draft.read_text() + "\npost-publish edit\n")
 
@@ -489,7 +493,9 @@ def test_published_drift_reports_wholly_deleted_effort_from_prior_published_stat
         ["git", "commit", "-m", "publish brief"], cwd=fixture_vault, check=True
     )
     subprocess.run(
-        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+        ["git", "tag", "published/brief-2026-08-16-120000"],
+        cwd=fixture_vault,
+        check=True,
     )
     draft.unlink()
 
@@ -516,7 +522,9 @@ def test_published_drift_leaves_the_unwatched_statuses_alone(fixture_vault, stat
         ["git", "commit", "-m", f"{status} brief"], cwd=fixture_vault, check=True
     )
     subprocess.run(
-        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+        ["git", "tag", "published/brief-2026-08-16-120000"],
+        cwd=fixture_vault,
+        check=True,
     )
     draft.write_text(draft.read_text() + "\npost-tag edit\n")
 
@@ -533,7 +541,9 @@ def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vaul
         ["git", "commit", "-m", "publish brief"], cwd=fixture_vault, check=True
     )
     subprocess.run(
-        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+        ["git", "tag", "published/brief-2026-08-16-120000"],
+        cwd=fixture_vault,
+        check=True,
     )
     (draft.parent / "broken.md").write_text('---\nstatus: "published"\n')
 

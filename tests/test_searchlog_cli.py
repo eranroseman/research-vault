@@ -14,6 +14,8 @@ and the project-path safety checks each still have exactly one owner.
 import re
 from pathlib import Path
 
+import pytest
+
 from knowledge_harness import AGENT_ACTOR, searchlog
 from knowledge_harness.__main__ import main
 
@@ -194,6 +196,58 @@ def test_search_log_refuses_when_both_query_and_not_admitted_given(
     assert not _log_path(fixture_vault).exists()
 
 
+def test_search_log_refuses_a_reason_on_a_search_run(fixture_vault, capsys):
+    """`--reason` is the not-admitted kind's flag. Accepting it on a search run
+    dropped it silently and wrote a search line the caller never described."""
+    code = main(
+        [
+            "search-log",
+            "--vault",
+            str(fixture_vault),
+            "--project",
+            "brief",
+            "--query",
+            "q",
+            "--source",
+            "PubMed",
+            "--hits",
+            "1",
+            "--reason",
+            "not-admitted — dup",
+        ]
+    )
+
+    assert code == 2
+    assert "--reason" in capsys.readouterr().err
+    assert not _log_path(fixture_vault).exists()
+
+
+def test_search_log_refuses_a_hit_count_on_a_not_admitted_candidate(
+    fixture_vault, capsys
+):
+    """`--hits` is the search-run kind's flag, and a declined candidate has no
+    hit count — silently discarding it hid the caller's own confusion."""
+    code = main(
+        [
+            "search-log",
+            "--vault",
+            str(fixture_vault),
+            "--project",
+            "brief",
+            "--not-admitted",
+            "candidate",
+            "--reason",
+            "not-admitted — dup",
+            "--hits",
+            "1",
+        ]
+    )
+
+    assert code == 2
+    assert "--hits" in capsys.readouterr().err
+    assert not _log_path(fixture_vault).exists()
+
+
 def test_search_log_refuses_a_query_entry_missing_source_or_hits(fixture_vault, capsys):
     code = main(
         [
@@ -249,7 +303,11 @@ def test_search_log_refuses_an_unregistered_reason_code(fixture_vault, capsys):
     assert not _log_path(fixture_vault).exists()
 
 
-def test_search_log_refuses_a_malformed_date(fixture_vault, capsys):
+@pytest.mark.parametrize("supplied", ["not-a-date", "20260801", "2026-W01-1"])
+def test_search_log_refuses_a_malformed_date(fixture_vault, capsys, supplied):
+    """The last two are the forms ``date.fromisoformat`` itself accepts: the
+    stored date is `YYYY-MM-DD` or nothing, and the round-trip is what says so.
+    """
     code = main(
         [
             "search-log",
@@ -264,7 +322,7 @@ def test_search_log_refuses_a_malformed_date(fixture_vault, capsys):
             "--hits",
             "1",
             "--date",
-            "not-a-date",
+            supplied,
         ]
     )
 

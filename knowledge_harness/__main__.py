@@ -453,15 +453,19 @@ def cmd_trust_tier(args):
     joining the one binary as a bare report noun (§7's
     one-binary/one-exit-code-contract CLI), the same shape as `factcheck`
     and `verify`. It writes nothing — no event, status, tag, hold, or ack.
+
+    Every way this verb can fail is the verb failing to run — an unsafe
+    citekey, no such note, unreadable frontmatter — so all of them exit 2,
+    the exit-code contract's "could not run", never a four-state verdict.
     """
     try:
         path = notes.note_path(args.vault, args.citekey)
     except notes.InvalidCitekeyError:
         print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
-        return 1
+        return 2
     if not path.is_file():
         print(f"literature note not found: {args.citekey}", file=sys.stderr)
-        return 1
+        return 2
     try:
         tier = events.trust_tier(_read_note_text(path))
     except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
@@ -527,24 +531,29 @@ def _run_disposition(action):
     return 0
 
 
-def cmd_mark_published(args):
-    return _run_disposition(
-        lambda: publish.mark_published(args.vault, args.project, base=args.base)
-    )
+# §6's fixed disposition menu: one entry per verb, and the only thing that
+# differs between them. `--date` reaches the three that stamp a dated artifact
+# (a tag, a project-level `verified` event, a log line) — it is what makes a
+# same-day correction expressible at all — and never rides as a tag suffix,
+# which would break `PUBLISHED_TAG` and the newest-tag ordering the
+# published-drift lint depends on.
+_DISPOSITIONS = {
+    "mark-published": lambda args: publish.mark_published(
+        args.vault, args.project, base=args.base, date=args.date
+    ),
+    "mark-corrected": lambda args: publish.mark_corrected(
+        args.vault, args.project, base=args.base, date=args.date
+    ),
+    "mark-withdrawn": lambda args: publish.mark_withdrawn(
+        args.vault, args.project, date=args.date
+    ),
+    "mark-parked": lambda args: publish.mark_parked(args.vault, args.project),
+}
 
 
-def cmd_mark_corrected(args):
-    return _run_disposition(
-        lambda: publish.mark_corrected(args.vault, args.project, base=args.base)
-    )
-
-
-def cmd_mark_withdrawn(args):
-    return _run_disposition(lambda: publish.mark_withdrawn(args.vault, args.project))
-
-
-def cmd_mark_parked(args):
-    return _run_disposition(lambda: publish.mark_parked(args.vault, args.project))
+def cmd_disposition(args):
+    """Carry out one of §6's four dispositions; the subcommand names which."""
+    return _run_disposition(lambda: _DISPOSITIONS[args.cmd](args))
 
 
 def cmd_ack(args):
@@ -557,14 +566,6 @@ def cmd_ack(args):
     return 0
 
 
-# SKIPPED is spec §6's "automatic-only, never user- or agent-settable" result —
-# except factored verification's own budget-cap bookkeeping, which has no other
-# mechanism that could ever record it (§6's factored-verification row requires
-# the skipped set be recorded, and only the skill/agent driving `finding` can
-# know what the budget cap left unchecked).
-_FINDING_SKIPPED_CHECKS = frozenset({"factcheck"})
-
-
 def record_finding(
     vault,
     check,
@@ -575,33 +576,14 @@ def record_finding(
     date=None,
     target_hash=None,
 ) -> tuple[int, str]:
-    """Append one review-record finding — the writer prose is never allowed to be.
+    """The single review-record writer above ``inbox.append_entry``.
 
-    The single review-record writer above ``inbox.append_entry``: the `finding`
-    verb, factcheck-draft's adjudications, `import-source`'s integrate-at-import
-    holds, and every ``import-note`` failure exit all reach the queue through
-    this one function, so one set of guards covers all of them. It validates the
-    check id against the governed §4.4 registry (``append_entry`` does not — see
-    ``inbox.CHECK_IDS``) and the result vocabulary per check id: MATCHED is never
-    legitimate here (no caller mints a `verified` event through this path — only
-    a genuine deterministic check does), and SKIPPED is legitimate only for
-    `factcheck` (every other check's SKIPPED is automatic-only, produced by the
-    deterministic pipeline itself, never by prose).
-
-    Because ``inbox.finding_id`` does not fold `result` into the id (only
-    check/target/date/hash do, plus reason for the rare repeatable-act
-    checks), two calls that differ only in result or reason can compute the
-    *same* id — and ``append_ack``'s matcher requires exactly one open row per
-    id, so a silent second append would leave both rows permanently
-    unacknowledgeable. This computes the candidate id first and checks every
-    prior finding row (acked or not — ``append_ack``'s own matcher does not
-    care) that already carries it: an exact duplicate (same check, target,
-    result, reason, actor, and target hash) is a genuine retry and returns
-    the existing id; anything else refuses rather than silently colliding.
-
-    Returns ``(0, finding_id)`` when the record stands, or ``(2, detail)``
-    when it is refused. Callers compose their own prefix around ``detail``;
-    none of them may swallow it.
+    ``inbox.finding_id`` does not fold `result` into the id, so two calls
+    differing only in result or reason compute the *same* id — and
+    ``append_ack`` needs exactly one open row per id, so a second append would
+    leave both permanently unacknowledgeable. An exact duplicate is a retry and
+    returns the existing id; anything else refuses. Answers ``(0, finding_id)``
+    or ``(2, detail)``, and no caller may swallow ``detail``.
     """
     if check not in inbox.CHECK_IDS:
         return 2, f"unregistered check id: {check!r}"
@@ -610,7 +592,9 @@ def record_finding(
             "MATCHED never files a finding — only a deterministic check may "
             "record a pass, and it mints a `verified` event instead"
         )
-    if result is Result.SKIPPED and check not in _FINDING_SKIPPED_CHECKS:
+    # SKIPPED is spec §6's "automatic-only" result everywhere except factored
+    # verification's budget-cap bookkeeping, which nothing else could record.
+    if result is Result.SKIPPED and check != "factcheck":
         return 2, (
             f"SKIPPED is automatic-only for {check!r} — never agent- or "
             "prose-settable; only the deterministic pipeline itself may "
@@ -709,6 +693,21 @@ def cmd_search_log(args):
         print(
             "search-log refused: pass exactly one of --query (a search run) "
             "or --not-admitted (a candidate)",
+            file=sys.stderr,
+        )
+        return 2
+    # `--source` rides on both kinds; `--hits` and `--reason` each belong to
+    # one. A caller who passes the other kind's flag believes they are writing
+    # a record they are not, so the value is refused rather than dropped.
+    kind, crossed, crossed_value = (
+        ("--query", "--reason", args.reason)
+        if query_given
+        else ("--not-admitted", "--hits", args.hits)
+    )
+    if crossed_value is not None:
+        print(
+            f"search-log refused: {crossed} belongs to the other record kind, "
+            f"never to {kind}",
             file=sys.stderr,
         )
         return 2
@@ -841,10 +840,14 @@ def main(argv=None):
     arm_publish.add_argument("--bypass")
     disarm_publish = sub.add_parser("disarm-publish", parents=[common])
     disarm_publish.add_argument("--vault", required=True)
-    for disposition in ("mark-published", "mark-corrected", "mark-withdrawn", "mark-parked"):
+    for disposition in _DISPOSITIONS:
         verb = sub.add_parser(disposition, parents=[common])
         verb.add_argument("project")
         verb.add_argument("--vault", required=True)
+        # Parking writes a status and nothing dated, so it takes no --date: a
+        # flag the verb would silently discard is its own defect.
+        if disposition != "mark-parked":
+            verb.add_argument("--date")
     acknowledge = sub.add_parser("ack", parents=[common])
     acknowledge.add_argument("finding")
     acknowledge.add_argument("--vault", required=True)
@@ -899,10 +902,7 @@ def main(argv=None):
         "trust-tier": cmd_trust_tier,
         "arm-publish": cmd_arm_publish,
         "disarm-publish": cmd_disarm_publish,
-        "mark-published": cmd_mark_published,
-        "mark-corrected": cmd_mark_corrected,
-        "mark-withdrawn": cmd_mark_withdrawn,
-        "mark-parked": cmd_mark_parked,
+        **dict.fromkeys(_DISPOSITIONS, cmd_disposition),
         "ack": cmd_ack,
         "finding": cmd_finding,
         "search-log": cmd_search_log,

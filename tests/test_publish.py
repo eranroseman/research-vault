@@ -9,11 +9,13 @@ entries to route through Crossref. The disposition verbs therefore need no
 minting trust, and one does not exist to be misused.
 """
 
+import datetime as datetime_lib
 import importlib.util
 import io
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -61,6 +63,24 @@ def _head(vault: Path) -> str:
 
 def _tags(vault: Path) -> list[str]:
     return _git(vault, "tag", "--list").split()
+
+
+def _tag_clock(monkeypatch, *times: str) -> None:
+    """Pin the whole UTC clock to named ``HHMMSS`` times, one read per disposition.
+
+    The *clock* is pinned, not the time half of the tag: a helper that stubbed
+    only the time could not see the date half coming from somewhere else,
+    which is exactly how a local-day/UTC-time mismatch hid once already.
+    Popping from a list makes an unexpected extra read raise rather than
+    silently reuse an instant and mint a colliding tag.
+    """
+    remaining = [
+        datetime_lib.datetime.strptime(stamp, "%H%M%S").replace(
+            year=2026, month=1, day=1, tzinfo=datetime_lib.timezone.utc
+        )
+        for stamp in times
+    ]
+    monkeypatch.setattr(publish, "_utc_now", lambda: remaining.pop(0))
 
 
 def _note(vault: Path, project: str = "brief") -> Path:
@@ -328,6 +348,26 @@ def test_mark_published_refuses_an_uncommitted_project_file(green_vault, capsys)
     assert _head(green_vault) == before
 
 
+def test_an_empty_directory_is_clean_to_both_the_publisher_and_the_drift_lint(
+    green_vault, monkeypatch
+):
+    """One definition of "clean", on both sides of the same moment.
+
+    Git tracks no directory of its own, so a bare empty folder under a project
+    carries no content. `_require_clean_project` already read it that way and
+    published; `_project_differs` counted it as a difference and reported the
+    fresh tag as drifted the instant it was minted — a project the publisher
+    called clean and the lint called dirty, seconds apart.
+    """
+    _tag_clock(monkeypatch, "120000")
+    (green_vault / "projects" / "brief" / "scratch").mkdir()
+
+    outcome = publish.mark_published(green_vault, "brief", date="2026-08-01")
+
+    assert outcome.tag == "published/brief-2026-08-01-120000"
+    assert lints.lint_published_drift(green_vault) == []
+
+
 # --- mark-parked, correction, withdrawal -----------------------------------
 
 
@@ -354,14 +394,17 @@ def test_corrections_refuse_before_any_publication(green_vault, capsys, verb):
     assert _head(green_vault) == before
 
 
-def test_mark_corrected_mints_a_new_event_and_tag_and_keeps_the_original(green_vault):
+def test_mark_corrected_mints_a_new_event_and_tag_and_keeps_the_original(
+    green_vault, monkeypatch
+):
+    _tag_clock(monkeypatch, "090000", "140000")
     first = publish.mark_published(green_vault, "brief", date="2026-08-01")
-    assert first.tag == "published/brief-2026-08-01"
+    assert first.tag == "published/brief-2026-08-01-090000"
 
     second = publish.mark_corrected(green_vault, "brief", date="2026-08-09")
 
     assert second.status == "corrected"
-    assert second.tag == "published/brief-2026-08-09"
+    assert second.tag == "published/brief-2026-08-09-140000"
     text = _note(green_vault).read_text()
     assert frontmatter.parse(text)[0]["status"] == "corrected"
     assert [event["at"] for event in events.verified_checks(text)] == [
@@ -369,16 +412,18 @@ def test_mark_corrected_mints_a_new_event_and_tag_and_keeps_the_original(green_v
         "2026-08-09",
     ]
     assert _tags(green_vault) == [
-        "published/brief-2026-08-01",
-        "published/brief-2026-08-09",
+        "published/brief-2026-08-01-090000",
+        "published/brief-2026-08-09-140000",
     ]
     first_commit = _git(
-        green_vault, "rev-parse", "published/brief-2026-08-01^{commit}"
+        green_vault, "rev-parse", "published/brief-2026-08-01-090000^{commit}"
     ).strip()
     assert _git(green_vault, "rev-parse", "HEAD^").strip() == first_commit
 
 
-def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(green_vault):
+def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(
+    green_vault, monkeypatch
+):
     """A correction must not end drift watching (acceptance finding F-2).
 
     `lint_published_drift` keyed on `status == "published"`, and
@@ -390,13 +435,14 @@ def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(green_vaul
     construction, so comparing against it would report every legitimate
     correction as drift.
     """
+    _tag_clock(monkeypatch, "090000", "140000", "173000")
     publish.mark_published(green_vault, "brief", date="2026-08-01")
     publish.mark_corrected(green_vault, "brief", date="2026-08-09")
 
     assert _status(green_vault) == "corrected"
     assert _tags(green_vault) == [
-        "published/brief-2026-08-01",
-        "published/brief-2026-08-09",
+        "published/brief-2026-08-01-090000",
+        "published/brief-2026-08-09-140000",
     ]
     # Clean against the newest tag, and the surviving original raises nothing.
     assert lints.lint_published_drift(green_vault) == []
@@ -414,20 +460,223 @@ def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(green_vaul
     _git(green_vault, "commit", "-q", "-m", "edit after correction")
     publish.mark_corrected(green_vault, "brief", date="2026-08-20")
 
-    assert _tags(green_vault)[-1] == "published/brief-2026-08-20"
+    assert _tags(green_vault)[-1] == "published/brief-2026-08-20-173000"
     assert lints.lint_published_drift(green_vault) == []
 
 
-def test_mark_corrected_refuses_a_tag_that_already_exists(green_vault):
+def test_mark_corrected_refuses_a_tag_that_already_exists(green_vault, monkeypatch):
+    """The guard stays, and now fires only on a genuine collision.
+
+    Before the tag carried a time, this refusal was every same-day correction.
+    It now takes two dispositions landing on the identical second — or a tag
+    written by hand — and it must still refuse rather than move an existing
+    tag, which ADR 0003 forbids.
+    """
+    _tag_clock(monkeypatch, "090000", "090000")
     publish.mark_published(green_vault, "brief", date="2026-08-01")
 
-    with pytest.raises(publish.PublishError, match="published/brief-2026-08-01"):
+    with pytest.raises(publish.PublishError, match="published/brief-2026-08-01-090000"):
         publish.mark_corrected(green_vault, "brief", date="2026-08-01")
 
     assert _status(green_vault) == "published"
+    assert _tags(green_vault) == ["published/brief-2026-08-01-090000"]
 
 
-def test_mark_withdrawn_writes_status_and_logs_without_deleting_the_tag(green_vault):
+def test_a_project_publishes_and_corrects_n_times_on_one_day(green_vault, monkeypatch):
+    """The scenario the time component exists for: a morning publication, an
+    afternoon correction when a retraction notice lands, and another that
+    evening — all on one calendar day, all standing, none deleted (ADR 0003),
+    and the drift lint comparing against the newest of them.
+    """
+    _tag_clock(monkeypatch, "090000", "141500", "203000")
+
+    first = publish.mark_published(green_vault, "brief", date="2026-08-01")
+    second = publish.mark_corrected(green_vault, "brief", date="2026-08-01")
+    third = publish.mark_corrected(green_vault, "brief", date="2026-08-01")
+
+    assert [first.status, second.status, third.status] == [
+        "published",
+        "corrected",
+        "corrected",
+    ]
+    minted = [first.tag, second.tag, third.tag]
+    assert minted == [
+        "published/brief-2026-08-01-090000",
+        "published/brief-2026-08-01-141500",
+        "published/brief-2026-08-01-203000",
+    ]
+    # Every tag survives, and plain lexicographic order is chronological order
+    # within the day — which is what `_newest_published_tags` relies on.
+    assert _tags(green_vault) == minted
+    assert sorted(minted) == minted
+    assert lints._newest_published_tags(green_vault) == {
+        "brief": "published/brief-2026-08-01-203000"
+    }
+    assert lints.lint_published_drift(green_vault) == []
+    assert [
+        event["at"] for event in events.verified_checks(_note(green_vault).read_text())
+    ] == ["2026-08-01", "2026-08-01", "2026-08-01"]
+
+
+def test_the_tag_pattern_still_yields_the_project_name_as_group_one():
+    """`published_tags` and `_newest_published_tags` both key on `group(1)`.
+    The trailing time gives the greedy `.+` one more thing to swallow, so a
+    project whose own name ends in something date-shaped is the case that
+    would misattribute every tag it owns."""
+    simple = lints.PUBLISHED_TAG.match("published/brief-2026-08-01-090000")
+    nested = lints.PUBLISHED_TAG.match(
+        "published/brief-2026-08-01-090000-2026-08-02-141500"
+    )
+
+    assert simple is not None
+    assert simple.group(1) == "brief"
+    assert nested is not None
+    assert nested.group(1) == "brief-2026-08-01-090000"
+    assert lints.PUBLISHED_TAG.match("published/brief-2026-08-01") is None
+
+
+def test_newest_published_tag_discriminates_within_one_day(green_vault):
+    """F-2's ordering, regraded for the time component: `max` over a plain
+    lexicographic sort has to pick the later of two tags minted on one day, or
+    the drift lint compares a corrected project against a superseded tree and
+    reports every correction as drift."""
+    for stamp in ("2026-08-01-090000", "2026-08-01-203000", "2026-07-31-235959"):
+        _git(green_vault, "tag", f"published/brief-{stamp}")
+
+    assert lints._newest_published_tags(green_vault) == {
+        "brief": "published/brief-2026-08-01-203000"
+    }
+
+
+def test_the_cli_passes_date_through_to_every_dated_disposition(
+    green_vault, monkeypatch
+):
+    """F-3: with no `--date`, the CLI could only ever name today, so a project
+    published and then corrected on one day was unrepairable — the correction's
+    tag collided with the publication's and no flag could name another day. The
+    date rides as the tag's own ISO suffix, never as an extra suffix appended to
+    it, which is what keeps `PUBLISHED_TAG` and the newest-tag ordering intact.
+    """
+    _tag_clock(monkeypatch, "090000", "140000", "203000")
+    published = main(
+        ["mark-published", "brief", "--vault", str(green_vault), "--date", "2026-08-01"]
+    )
+    corrected = main(
+        ["mark-corrected", "brief", "--vault", str(green_vault), "--date", "2026-08-02"]
+    )
+    withdrawn = main(
+        ["mark-withdrawn", "brief", "--vault", str(green_vault), "--date", "2026-08-03"]
+    )
+
+    assert (published, corrected, withdrawn) == (0, 0, 0)
+    assert _tags(green_vault) == [
+        "published/brief-2026-08-01-090000",
+        "published/brief-2026-08-02-140000",
+    ]
+    text = _note(green_vault).read_text()
+    assert [event["at"] for event in events.verified_checks(text)] == [
+        "2026-08-01",
+        "2026-08-02",
+    ]
+    assert (green_vault / "log" / "2026-08-03.md").is_file()
+
+
+@pytest.mark.parametrize("verb", ["mark-published", "mark-corrected", "mark-withdrawn"])
+@pytest.mark.parametrize("supplied", ["20260801", "2026-13-01", "../../escape"])
+def test_a_dated_disposition_refuses_a_bad_date_before_writing_anything(
+    green_vault, capsys, verb, supplied
+):
+    """The date names a tag suffix, a `verified` event stamp, and a `log/` day
+    file, so an unchecked one could mint a tag `PUBLISHED_TAG` cannot order or
+    write a day file outside `log/`.
+
+    Every dated verb, because exit 2's documented meaning is that the CLI
+    carried the disposition out *not at all*. `mark-withdrawn` validated its
+    date only once `_append_log` reached it — after the status write — so a
+    refused withdrawal still flipped the note to `withdrawn`, the one status
+    `lint_published_drift` deliberately stops watching, and nothing said so.
+    """
+    expected_status, expected_tags = "draft", []
+    if verb != "mark-published":
+        expected_tags = [publish.mark_published(green_vault, "brief").tag]
+        expected_status = "published"
+    capsys.readouterr()
+
+    code = main([verb, "brief", "--vault", str(green_vault), "--date", supplied])
+
+    assert code == 2
+    assert "YYYY-MM-DD" in capsys.readouterr().err
+    assert _status(green_vault) == expected_status
+    assert _tags(green_vault) == expected_tags
+    assert sorted((green_vault / "log").glob("*.md")) == []
+
+
+def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
+    green_vault, monkeypatch
+):
+    """The tag's date and time must come from ONE timezone-aware UTC read.
+
+    A local calendar day beside a UTC time inverts same-day ordering on any
+    machine off UTC: at UTC+10 a 09:00 publication tags `...-230000` and a
+    12:00 correction tags `...-020000`, so `max()` returns the superseded tag
+    and `lint_published_drift` reports every legitimate correction as drift —
+    the F-2 failure the uniform time component exists to prevent.
+
+    This test pins the clock rather than the tag string, which is the whole
+    point: helpers that stub the time half cannot see where the date half came
+    from, and that is how the mismatch survived a green suite.
+    """
+    reads = []
+    instant = datetime_lib.datetime(
+        2026, 8, 1, 23, 0, 0, tzinfo=datetime_lib.timezone.utc
+    )
+
+    def one_utc_read(tz=None):
+        reads.append(tz)
+        return instant
+
+    def no_local_day():
+        raise AssertionError("the local calendar day must never reach a tag")
+
+    monkeypatch.setattr(
+        publish,
+        "datetime",
+        types.SimpleNamespace(
+            datetime=types.SimpleNamespace(now=one_utc_read),
+            date=types.SimpleNamespace(
+                today=no_local_day, fromisoformat=datetime_lib.date.fromisoformat
+            ),
+            timezone=datetime_lib.timezone,
+        ),
+    )
+
+    outcome = publish.mark_published(green_vault, "brief")
+
+    # Exactly one read, and it named UTC explicitly — not `now()`, not `utcnow()`.
+    assert reads == [datetime_lib.timezone.utc]
+    assert outcome.tag == "published/brief-2026-08-01-230000"
+
+
+def test_mark_parked_refuses_a_date_flag_rather_than_discarding_it(green_vault):
+    """Parking writes a status and nothing dated, so `--date` is not its flag —
+    and a flag a verb would silently discard is its own defect."""
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "mark-parked",
+                "brief",
+                "--vault",
+                str(green_vault),
+                "--date",
+                "2026-08-01",
+            ]
+        )
+
+
+def test_mark_withdrawn_writes_status_and_logs_without_deleting_the_tag(
+    green_vault, monkeypatch
+):
+    _tag_clock(monkeypatch, "090000", "140000")
     publish.mark_published(green_vault, "brief", date="2026-08-01")
     head = _head(green_vault)
 
@@ -435,7 +684,7 @@ def test_mark_withdrawn_writes_status_and_logs_without_deleting_the_tag(green_va
 
     text = _note(green_vault).read_text()
     assert frontmatter.parse(text)[0]["status"] == "withdrawn"
-    assert _tags(green_vault) == ["published/brief-2026-08-01"]
+    assert _tags(green_vault) == ["published/brief-2026-08-01-090000"]
     assert _head(green_vault) == head
     day_files = sorted((green_vault / "log").glob("*.md"))
     assert len(day_files) == 1
@@ -526,6 +775,18 @@ def test_publish_skill_routes_every_mechanical_act_through_a_verb():
         "discard",
     ):
         assert token in text, f"publish/SKILL.md never mentions {token!r}"
+
+
+def test_publish_skill_states_the_tag_grammar_and_that_same_day_corrections_work():
+    """The tag shape is a contract a person reads back off this skill, and the
+    grammar carries a UTC time precisely so a same-day correction is no longer
+    a refusal — prose still implying it was would send people away for a day.
+    """
+    text = PUBLISH_SKILL.read_text(encoding="utf-8")
+
+    assert "`published/<project>-<date>-<time>`" in text
+    assert "A correction on the day of publication just works" in text
+    assert "`--date` never supplies the time" in text
 
 
 def _minting_check_ids() -> set[str]:
@@ -634,13 +895,14 @@ def test_inbox_prints_the_finding_id_the_ack_verb_needs(blocked_vault, capsys):
 
 @pytest.mark.parametrize("verb", ["mark-published", "mark-parked"])
 def test_the_day_one_menu_refuses_an_already_published_project(
-    green_vault, capsys, verb
+    green_vault, capsys, monkeypatch, verb
 ):
     """§6's day-one menu is the pre-publication menu: after publication the only
     dispositions are corrected and withdrawn. Re-publishing would mint a second
     tag and event that permanently record a correction as a first publication;
     parking would flip `status` off `published` and silence the drift lint for
     the surviving tag."""
+    _tag_clock(monkeypatch, "090000")
     publish.mark_published(green_vault, "brief", date="2026-08-01")
     head = _head(green_vault)
     capsys.readouterr()
@@ -655,5 +917,5 @@ def test_the_day_one_menu_refuses_an_already_published_project(
         event["at"] for event in events.verified_checks(_note(green_vault).read_text())
     ]
     assert events_at == ["2026-08-01"]
-    assert _tags(green_vault) == ["published/brief-2026-08-01"]
+    assert _tags(green_vault) == ["published/brief-2026-08-01-090000"]
     assert _head(green_vault) == head

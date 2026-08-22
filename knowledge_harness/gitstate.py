@@ -54,6 +54,23 @@ class Snapshot:
         return self.images.get(raw_path)
 
 
+def images_differ(before: FileImage | None, after: FileImage | None) -> bool:
+    """Whether two snapshot images differ in content — the one definition.
+
+    Git tracks no directory of its own, so a directory entry present on one
+    side and absent on the other carries nothing and is not a difference.
+    `publish._require_clean_project` and `lints._project_differs` both ask this
+    question about the same ``projects/<name>`` prefix, moments apart: a
+    publication refused for a bare empty directory, or a tag reported as
+    drifted the instant it was minted, is the disagreement between two answers.
+    """
+    if before == after:
+        return False
+    return not all(
+        image is None or image.kind == "directory" for image in (before, after)
+    )
+
+
 @dataclass(frozen=True)
 class VerificationSnapshots:
     base_tree: str

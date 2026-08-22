@@ -1,44 +1,16 @@
 """Deterministic claim selection and hashing for factored verification (spec §6).
 
-Factored verification is LLM judgment ("no" under Deterministic in the spec's
-trust-gate table) and never blocks or mints a `verified` event — but *which*
-claims an LLM pass spends its budget on must still be decided mechanically,
-never sorted "in its head" by the agent running the skill. This module is
-that mechanical seam: it computes a selection and nothing else — no event,
-status, tag, hold, or ack is ever written here. It is exposed as the
-`factcheck` subcommand in `knowledge_harness/__main__.py` (a read-only report,
-spec §7's one-binary/one-exit-code-contract CLI — the same shape as `verify`),
-not a separate script; the `finding` verb, a sibling subcommand in that same
-dispatch table, is what factcheck-draft calls to actually write anything.
+Factored verification is LLM judgment — it never blocks and never mints a
+`verified` event — but *which* claims a pass spends its budget on is decided
+here, mechanically. This module computes a selection and writes nothing.
 
 Forked from K-Dense-AI/scientific-agent-skills, skill `scientific-writing`,
 pinned commit 336c4f8
 (https://github.com/K-Dense-AI/scientific-agent-skills/tree/336c4f8/skills/scientific-writing),
-license MIT, copyright (c) 2025 K-Dense Inc. Two mechanisms are ported,
-adapted from upstream's CSV/JSON registries (`claims.csv`, `source_manifest.json`)
-to this vault's inline claim-line schema (spec §5) — there is no registry
-file here, only the vault's own notes:
-
-- **SHA-256 claim hashing** (upstream: `claims.csv`'s `claim_text_sha256`
-  column and `references/evidence_workflow.md`'s "hash the normalized claim
-  text" instruction; the hash function itself is not in the audited scripts,
-  so the normalization step is this repo's own `outcome.normalize_text` —
-  the same pipeline the deterministic quote checker uses, for one shared
-  notion of "the same text" rather than a third, invented one). The digest
-  is kept at the full 64 lowercase-hex characters — upstream's own
-  `SHA256_RE = r"^[a-f0-9]{64}$"` validation shape in `audit_claims.py` —
-  rather than this repo's usual 16-char truncation (`verify.py`'s
-  `_target_hash`), since a skipped-set digest aggregates a whole run's
-  claim links and the extra collision resistance is cheap.
-- **Verified-evidence-only counting** (upstream: `scripts/audit_claims.py`'s
-  `load_sources()` — a source counts only if
-  `verification.status == "verified" and source_opened is True`, never
-  assumed). Ported as: a claim's citation counts as backed only if its
-  literature note carries a genuine `events.verified_checks()` entry, read
-  through the public `events` module rather than re-parsed here.
-
-Everything else — the four-bucket deterministic ordering below, and the
-budget cap — is spec §6's own contract, not upstream's.
+license MIT, copyright (c) 2025 K-Dense Inc. Ported from it: SHA-256 hashing
+of a claim's ``outcome.normalize_text`` form at the full 64 hex characters,
+and verified-evidence-only counting — a citation counts as backed only where
+``events.verified_checks()`` carries a genuine entry.
 """
 
 from __future__ import annotations
@@ -63,9 +35,6 @@ class ClaimRef:
     tag: str
     line_no: int
     text_hash: str
-
-    def to_dict(self) -> dict:
-        return asdict(self)
 
 
 def claim_text_hash(text: str) -> str:
@@ -148,16 +117,6 @@ def contested_adjacent_links(vault_root, draft_path) -> set[str]:
 
 
 def _bucket(ref: ClaimRef, contested: set[str], has_verified_event: bool) -> int:
-    """Spec §6's binding order, as four deterministic priority buckets.
-
-    0. inference/paraphrase claims lacking any `verified` event — "first".
-    1. contested-adjacent claims not already in bucket 0 — "boosted": pulled
-       ahead of ordinary claims regardless of tag, including quote claims.
-    2. inference/paraphrase claims that already have a `verified` event and
-       are not contested-adjacent — the residual, ranked ahead of quote.
-    3. quote claims, not contested-adjacent — "last (already deterministically
-       covered)" by the quote checker.
-    """
     if ref.tag in {"paraphrase", "inference"} and not has_verified_event:
         return 0
     if ref.claim_link in contested:
@@ -228,7 +187,7 @@ def run(vault_root, draft_path, cap: int = DEFAULT_CAP) -> dict:
     selected, skipped = select_claims(vault_root, refs, contested, cap)
     return {
         "cap": cap,
-        "selected": [ref.to_dict() for ref in selected],
-        "skipped": [ref.to_dict() for ref in skipped],
+        "selected": [asdict(ref) for ref in selected],
+        "skipped": [asdict(ref) for ref in skipped],
         "skipped_digest": skipped_digest(skipped) if skipped else None,
     }

@@ -71,16 +71,19 @@ def test_trust_tier_prints_human_reviewed_after_a_human_event(tmp_vault, capsys)
 
 
 def test_trust_tier_refuses_an_invalid_citekey(tmp_vault, capsys):
+    """Exit 2, not 1: an unsafe citekey is the verb failing to run, and the
+    exit-code contract reserves 1 for a check that ran and disagreed."""
     code = main(["trust-tier", "../escape", "--vault", str(tmp_vault)])
 
-    assert code == 1
+    assert code == 2
     assert "invalid citekey" in capsys.readouterr().err
 
 
 def test_trust_tier_refuses_a_missing_note(tmp_vault, capsys):
+    """Exit 2 for the same reason: no note means no tier to report at all."""
     code = main(["trust-tier", "nosuch2020", "--vault", str(tmp_vault)])
 
-    assert code == 1
+    assert code == 2
     assert "not found" in capsys.readouterr().err
 
 

@@ -13,6 +13,7 @@ from .appendlog import (
     _serialize,
     _sync_directory,
     _unescape_field_value,
+    _validate_optional_text,
     _validate_text,
 )
 from .outcome import Result
@@ -152,12 +153,6 @@ def validate_reason(reason: str) -> str:
             f"{reason!r}"
         )
     return reason
-
-
-def _validate_optional_text(name: str, value) -> str | None:
-    if value is None:
-        return None
-    return _validate_text(name, value)
 
 
 def _validate_target_kind(target: str, target_kind) -> str:

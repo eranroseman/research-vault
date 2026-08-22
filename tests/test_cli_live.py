@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import Result, bibliography, frontmatter, notes, paths
+from knowledge_harness import Result, bibliography, frontmatter, notes, paths, scaffold
 
 REAL_OBSERVE_AUTOEXPORT = bibliography.observe_autoexport
 
@@ -253,6 +253,47 @@ def _install_import_client(monkeypatch, cli, item, annotations):
             return [{"id": "smith2020", "title": item["title"]}]
 
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
+
+
+def test_import_source_runs_standalone_on_a_vault_with_zero_projects(
+    tmp_path, monkeypatch
+):
+    """F-4 (ruled 2026-08-22): the information flow enters at admission, not at
+    search, so `import-source` answers to no project — catalog, index, log, and
+    integrate-at-import all land on a freshly scaffolded vault that has none. A
+    project gate anywhere on that path fails here."""
+    import knowledge_harness.__main__ as cli
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    assert [child.name for child in (vault / "projects").iterdir()] == [".gitkeep"]
+    _install_import_client(
+        monkeypatch, cli, {"title": "Mortality decline", "DOI": "10.1000/xyz"}, []
+    )
+
+    catalog = cli.main(["import-note", "smith2020", "--vault", str(vault)])
+    hold = cli.main(
+        [
+            "finding",
+            "integrate",
+            "smith2020#^c-11111111",
+            "UNMATCHED",
+            "contradiction — collides with a standing synthesis claim",
+            "--vault",
+            str(vault),
+        ]
+    )
+
+    assert (catalog, hold) == (0, 0)
+    note = vault / "literatures" / "smith2020.md"
+    assert 'citekey: "smith2020"' in note.read_text(encoding="utf-8")
+    index_data, _ = frontmatter.parse((vault / "index.md").read_text())
+    assert index_data["type"] == "index"
+    assert (vault / "synthesis" / "index.md").is_file()
+    log_data, log_body = frontmatter.parse((vault / "log.md").read_text())
+    assert log_data == {"type": "log"}
+    assert log_body.startswith("# Log")
+    assert "integrate" in (vault / "inbox" / "review-queue.md").read_text()
 
 
 def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypatch):

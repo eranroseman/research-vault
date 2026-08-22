@@ -56,6 +56,41 @@ class Disposition:
     tag: str | None = None
 
 
+def _utc_now() -> datetime.datetime:
+    """The one clock every durable publication stamp is read from.
+
+    Explicitly timezone-aware, and read once per disposition: a tag's date and
+    time halves must come from the *same* instant on the *same* clock. A local
+    calendar day beside a UTC time rolls over at different moments on any
+    machine off UTC, so a morning publication and an afternoon correction sort
+    backwards — and ``lints._newest_published_tags`` would then hand
+    ``lint_published_drift`` the superseded tag as its comparison basis.
+    """
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _resolved_date(date, *, now: datetime.datetime) -> str:
+    """``now``'s calendar day, or the caller's own ISO date — nothing else.
+
+    The clock is passed in rather than read here, so that a caller deriving
+    both halves of a stamp cannot accidentally read it twice.
+
+    A disposition's date names a tag suffix, a `verified` event stamp, and a
+    log day file, so an unchecked string here could mint a tag
+    ``PUBLISHED_TAG`` cannot order or write a day file outside ``log/``.
+    """
+    if date is None:
+        return now.date().isoformat()
+    refusal = f"date must be a YYYY-MM-DD calendar date: {date!r}"
+    try:
+        parsed = datetime.date.fromisoformat(date)
+    except (TypeError, ValueError) as error:
+        raise PublishError(refusal) from error
+    if parsed.isoformat() != date:
+        raise PublishError(refusal)
+    return date
+
+
 def _name(project) -> str:
     """Validate a bare project name (``brief``), never its vault path."""
     if (
@@ -127,7 +162,7 @@ def arm(vault, project, bypass=None) -> Path:
     project_dir(root, project)
     # An arming that can only end in an untaggable publication is worth
     # refusing here, before the gate run the person is about to wait for.
-    _require_taggable(root, project, datetime.date.today().isoformat())
+    _require_taggable(root, project, *_publication_stamp(None))
     state = {"project": f"{PROJECTS}/{project}", "vault": str(root), "blocks": 0}
     if bypass is not None:
         token = bypass.strip() if isinstance(bypass, str) else ""
@@ -221,8 +256,25 @@ def published_tags(vault, project) -> list[str]:
     )
 
 
-def _require_taggable(vault, project, date) -> str:
+def _publication_stamp(date) -> tuple[str, str]:
+    """A publication's ``<YYYY-MM-DD>`` and ``<HHMMSS>``, from one clock read.
+
+    Both halves come from a single ``_utc_now()``. Two reads would also let a
+    disposition straddle UTC midnight between them and date its tag to the day
+    before its own time.
+    """
+    now = _utc_now()
+    return _resolved_date(date, now=now), f"{now:%H%M%S}"
+
+
+def _require_taggable(vault, project, date, time) -> str:
     """Return the publication tag, or refuse before a single byte is written.
+
+    The tag is ``published/<project>-<YYYY-MM-DD>-<HHMMSS>``, and the time is
+    on every tag rather than only on a second one minted the same day: a
+    conditional suffix is what would break ``PUBLISHED_TAG`` and the
+    newest-tag ordering, while a uniform one lets a morning publication and an
+    afternoon correction both stand, n times over.
 
     ``PUBLISHED_TAG``'s ``.+`` admits spaces and everything else git forbids in
     a ref, so the pattern alone is not enough. A tag that fails only after
@@ -230,7 +282,7 @@ def _require_taggable(vault, project, date) -> str:
     `published` with no tag — and `mark-corrected`/`mark-withdrawn` both refuse
     a project with no tag, so nothing in the system could repair it.
     """
-    tag = f"published/{project}-{date}"
+    tag = f"published/{project}-{date}-{time}"
     if PUBLISHED_TAG.match(tag) is None:
         raise PublishError(f"cannot name a published tag for {project!r}/{date!r}")
     if _git(vault, "check-ref-format", f"refs/tags/{tag}").returncode != 0:
@@ -271,8 +323,10 @@ def _require_clean_project(snapshots, project, raw_note: bytes) -> None:
     The publication commit carries only the project note, and
     ``lints.lint_published_drift`` compares the whole ``projects/<name>``
     prefix against the tag, so any other uncommitted file there would leave
-    the tag drifting the moment it is minted. Directory presence alone
-    carries no content: a project git has never seen is not a refusal.
+    the tag drifting the moment it is minted. Both sides ask
+    ``gitstate.images_differ`` — one definition of "differs", so a project
+    this refuses to publish and a project the lint reports as drifted are the
+    same set.
     """
     prefix = f"{PROJECTS}/{project}".encode()
     for raw_path in sorted(set(snapshots.head.images) | set(snapshots.live.images)):
@@ -280,12 +334,8 @@ def _require_clean_project(snapshots, project, raw_note: bytes) -> None:
             raw_path != prefix and not raw_path.startswith(prefix + b"/")
         ):
             continue
-        committed = snapshots.head.image(raw_path)
-        live = snapshots.live.image(raw_path)
-        if committed == live:
-            continue
-        if (committed is None or committed.kind == "directory") and (
-            live is None or live.kind == "directory"
+        if not gitstate.images_differ(
+            snapshots.head.image(raw_path), snapshots.live.image(raw_path)
         ):
             continue
         raise PublishError(
@@ -298,8 +348,8 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
     """Run the closed gate, then write status, event, commit, and tag as one act."""
     root = Path(vault)
     note = project_note(root, project)
-    date = datetime.date.today().isoformat() if date is None else date
-    tag = _require_taggable(root, project, date)
+    date, time = _publication_stamp(date)
+    tag = _require_taggable(root, project, date, time)
 
     _report, effective, _hashes, warning_effective = verify_state(
         root, network=True, base=base
@@ -346,10 +396,13 @@ def _create_tag(vault, tag: str, commit: str) -> None:
         raise PublishError(f"cannot create tag {tag}")
 
 
-def _append_log(vault, message: str, *, date=None) -> Path:
-    """Append one activity line to the day's log, then regenerate root log.md."""
-    now = datetime.datetime.now()
-    day = Path(vault) / "log" / f"{now.date().isoformat() if date is None else date}.md"
+def _append_log(vault, message: str, *, date: str, now: datetime.datetime) -> Path:
+    """Append one activity line to the day's log, then regenerate root log.md.
+
+    Both the day file and the line's own time come from the caller's single
+    clock read, for the reason ``_utc_now`` gives.
+    """
+    day = Path(vault) / "log" / f"{date}.md"
     day.parent.mkdir(parents=True, exist_ok=True)
     if not day.exists() or not day.read_bytes():
         day.write_text(frontmatter.serialize({"type": "daily"}))
@@ -398,10 +451,16 @@ def mark_withdrawn(vault, project, *, date=None) -> Disposition:
 
     Post-publish only. No new tag, and the original tag is never deleted.
     """
+    # Resolved first: exit 2 means the CLI carried none of this out, and
+    # ``_append_log``'s own validation came after the status write — so a
+    # refused withdrawal used to leave the note flipped to `withdrawn`, the
+    # one status ``lint_published_drift`` stops watching.
+    now = _utc_now()
+    date = _resolved_date(date, now=now)
     _require_published(vault, project)
     note = project_note(vault, project)
     _write_note_text(note, _set_status(_read_note_text(note), "withdrawn"))
-    _append_log(vault, f"withdrew {PROJECTS}/{project}", date=date)
+    _append_log(vault, f"withdrew {PROJECTS}/{project}", date=date, now=now)
     return Disposition(project, 0, (), "withdrawn")
 
 

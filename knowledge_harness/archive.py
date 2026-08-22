@@ -172,12 +172,6 @@ def archive_source(vault_root, citekey: str, snapshot: str | None = None) -> Out
                 "missing-archive — supplied snapshot is not a web.archive.org URL",
             )
         try:
-            # A Wayback snapshot carries its target in the path, exactly like
-            # the Save Page Now endpoint below, so the polite pool travels by
-            # User-Agent alone here too. Appending ``?mailto=`` makes Wayback
-            # read the query string as part of the archived address and answer
-            # 404 (live-confirmed 2026-08-22), which would report a snapshot
-            # the archive is genuinely serving as missing.
             status = webapi.get_status(snapshot, vault_root, query_mailto=False)
         except webapi.ApiError as error:
             return _outage(target, f"supplied snapshot unreachable: {error}")
@@ -191,10 +185,6 @@ def archive_source(vault_root, citekey: str, snapshot: str | None = None) -> Out
         return _record(path, text, snapshot, target)
 
     try:
-        # The target URL rides in the path here, so the polite pool travels by
-        # User-Agent alone: a ``mailto`` query parameter would be captured as
-        # part of the archived address and we would record a snapshot of a URL
-        # nobody cites. ``mailto`` stays mandatory either way.
         webapi.get_status(
             SAVE_ENDPOINT + url, vault_root, query_mailto=False, timeout=60.0
         )

@@ -1,55 +1,16 @@
 """PRISMA-S search provenance: ``projects/<name>/search-log.md`` (spec §7 `find-sources` row).
 
-`find-sources` is literature search upstream of Zotero admission — the
-skill presents candidates, a human admits what belongs into Zotero, and
-`import-source` catalogs what was admitted. This module is the durable
-record of the search itself, the trail a methods reviewer reconstructs
-(PRISMA-S): every run appends the query as run, the source searched, the
-date, and the hit count; every candidate a human declines to admit gets its
-own line with a reason code, so "we looked and found nothing worth adding"
-stays distinguishable from "we never looked."
-
-Two record kinds share one append-only file, mirroring how
-``inbox/review-queue.md`` carries both findings and acknowledgments:
-
-``SearchEntry``
-    One completed search run. ``query``/``source``/``date``/``hits`` are the
-    brief's four required fields; ``actor`` rides along per §5's actor
-    convention (every generating identity is recorded), the same way every
-    other durable writer in this package stamps one.
-
-``NotAdmittedEntry``
-    One candidate a human declined to admit into Zotero, with a
-    contract-approved reason code (``inbox.REASON_CODES`` — the one registry
-    shared by import-source holds, deprecations, acknowledgments, and this).
-    ``source`` is optional: a candidate can arrive by hand, outside any one
-    search run.
-
-This is a **second writer of the same durable-append pattern** as
-``inbox.py``, not a second pattern — and the primitives that pattern is
-made of are shared code, not shared prose. The field regex, the
-single-line/no-control-character text rule, the bracket-escaping pair,
-the line serializer, and the directory-fsync primitive live in
-``appendlog.py`` and are imported here (Task 6 review, 2026-08-22: an
-earlier draft copied these six instead, and the copy had already drifted
-on a docstring word and dropped a load-bearing safety comment — copying
-"the pattern" turned out to mean copying the bug surface too). What
-stays genuinely separate, because the two files' record shapes and
-sequencing differ, is everything above the primitive layer: the
-frontmatter-type guard, the two record dataclasses, and the
-create-or-validate/append sequencing. Also reused directly, never
-re-derived: ``inbox.validate_reason``/``inbox.REASON_CODES`` (one
-governed reason-code vocabulary) and ``publish.project_dir`` (one
-project-path safety check — symlink and traversal refusal).
-
-Never write this file by hand, and never write it from prose: every line is
-one of the two append functions below, called only through the CLI's
-``search-log`` verb.
+The durable record of the literature search itself — the trail a methods
+reviewer reconstructs. Two record kinds share one append-only file:
+``SearchEntry`` is one completed run (query as run, source, date, hits), and
+``NotAdmittedEntry`` is one candidate a human declined to admit into Zotero,
+carrying a reason code so "we looked and found nothing worth adding" stays
+distinguishable from "we never looked". Every line is written by the CLI's
+`search-log` verb, never by hand and never from prose.
 """
 
 import datetime
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,6 +20,7 @@ from .appendlog import (
     _serialize,
     _sync_directory,
     _unescape_field_value,
+    _validate_optional_text,
     _validate_text,
 )
 from .publish import PublishError, project_dir
@@ -91,20 +53,18 @@ class NotAdmittedEntry:
     source: str | None = None
 
 
-def _validate_optional_text(name: str, value) -> str | None:
-    return None if value is None else _validate_text(name, value)
-
-
 def _validate_date(name: str, value) -> str:
+    # The round-trip is the whole check, and no format prefilter is needed
+    # beside it: it rejects the basic (``20260801``) and week-date forms
+    # ``fromisoformat`` itself accepts, which must never reach the file.
     value = _validate_text(name, value)
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
-        raise SearchLogError(f"{name} must be a YYYY-MM-DD calendar date")
+    refusal = f"{name} must be a YYYY-MM-DD calendar date"
     try:
         parsed = datetime.date.fromisoformat(value)
     except ValueError as error:
-        raise SearchLogError(f"{name} must be a YYYY-MM-DD calendar date") from error
+        raise SearchLogError(refusal) from error
     if parsed.isoformat() != value:
-        raise SearchLogError(f"{name} must be a YYYY-MM-DD calendar date")
+        raise SearchLogError(refusal)
     return value
 
 
@@ -147,15 +107,7 @@ def _body(path: Path) -> str:
 
 
 def _prepare_append(vault, project) -> tuple[Path, bool]:
-    """Create-or-validate the file, returning whether a new one was created.
-
-    ``created`` must be read before anything below writes — Task 6 review
-    (2026-08-22): an earlier draft computed it from ``path.exists()`` *after*
-    this function's own write had already created the file, so it was always
-    ``True`` and the directory-entry fsync in ``_append_line`` could never
-    run. ``inbox._prepare_append`` gets this right for the same reason; this
-    mirrors it exactly.
-    """
+    """Create-or-validate the file; ``created`` is read before any write here."""
     path = search_log_path(vault, project)
     created = not path.exists()
     if created or not path.read_bytes():

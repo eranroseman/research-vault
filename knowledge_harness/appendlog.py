@@ -1,21 +1,8 @@
 """Shared primitives for append-only ``[key:: value]`` durable files.
 
-Both ``inbox.py`` (``inbox/review-queue.md``) and ``searchlog.py``
-(``projects/<name>/search-log.md``) write durable, append-only Markdown
-files sharing one inline field grammar. The two writers shipped with six
-of these primitives copied rather than shared (Task 6, 2026-08-22 review)
-and the copy had already drifted on one docstring word and dropped an
-8-line safety comment — this module is the correction: one field regex,
-one text-validation rule, one escaping pair, one line serializer, and one
-directory-fsync primitive, so the two writers cannot silently drift again
-on what "durable" or "well-formed" means. Everything else — record
-shapes, frontmatter-type guards, append sequencing, the reason-code
-registry — stays owned by each file; only these six are shared.
-
-Both call sites import these under their original (leading-underscore)
-names, the same cross-module convention ``verify.py``'s
-``_read_note_text``/``_write_note_text`` already use elsewhere in this
-package: the underscore signals package-internal, not module-private.
+``inbox.py`` and ``searchlog.py`` both write one, so the field grammar, the
+text rules, the escaping pair, the serializer, and the directory fsync live
+here — one definition each, and neither writer can drift from the other.
 """
 
 import os
@@ -28,14 +15,9 @@ _FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")
 
 
 def _validate_text(name: str, value) -> str:
-    # The reject class must equal ``load``'s break set, not a narrower trio.
-    # ``load`` splits the body with ``str.splitlines()``, so \v, \f, \x1c-\x1e,
-    # \x85, U+2028 and U+2029 each end a line for the reader while passing an
-    # ``"\n" in value`` writer check — a row written across two physical lines
-    # that no later read can parse. Every file this module serves is
-    # append-only, so that is permanent: one such write bricks every reader
-    # of that file, for good. ``splitlines() != [value]`` also catches a
-    # trailing separator, which ``in``-checks miss entirely.
+    # Reject every break a reader's ``str.splitlines()`` honours — \v, \f,
+    # \x1c-\x1e, \x85, U+2028, U+2029 — not only "\n": in an append-only file
+    # one row written across two physical lines is unparseable forever.
     if (
         not isinstance(value, str)
         or not value.strip()
@@ -44,6 +26,10 @@ def _validate_text(name: str, value) -> str:
     ):
         raise ValueError(f"{name} must be a nonempty single-line string")
     return value
+
+
+def _validate_optional_text(name: str, value) -> str | None:
+    return None if value is None else _validate_text(name, value)
 
 
 def _escape_field_value(value: str) -> str:
@@ -71,14 +57,7 @@ def _serialize(fields: list[tuple[str, str | None]]) -> str:
 
 
 def _sync_directory(path: Path) -> None:
-    """fsync a directory's own entry list, after a durable write created one.
-
-    Callers must invoke this only when a new directory entry was actually
-    created by the write it follows (see ``inbox.append_entry`` and
-    ``searchlog._append_line`` for the ``created`` bookkeeping this
-    depends on) — fsyncing the directory when no entry changed is a no-op
-    that hides a bug in the caller's own sequencing rather than reporting one.
-    """
+    """fsync a directory's entry list; callers invoke it only when a write created one."""
     flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
     descriptor = os.open(path, flags)
     try:
