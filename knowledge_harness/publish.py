@@ -125,6 +125,9 @@ def arm(vault, project, bypass=None) -> Path:
     except OSError as error:
         raise PublishError(f"no such vault: {vault}") from error
     project_dir(root, project)
+    # An arming that can only end in an untaggable publication is worth
+    # refusing here, before the gate run the person is about to wait for.
+    _require_taggable(root, project, datetime.date.today().isoformat())
     state = {"project": f"{PROJECTS}/{project}", "vault": str(root), "blocks": 0}
     if bypass is not None:
         token = bypass.strip() if isinstance(bypass, str) else ""
@@ -218,6 +221,42 @@ def published_tags(vault, project) -> list[str]:
     )
 
 
+def _require_taggable(vault, project, date) -> str:
+    """Return the publication tag, or refuse before a single byte is written.
+
+    ``PUBLISHED_TAG``'s ``.+`` admits spaces and everything else git forbids in
+    a ref, so the pattern alone is not enough. A tag that fails only after
+    ``publish_outputs`` has advanced HEAD would leave a project committed as
+    `published` with no tag — and `mark-corrected`/`mark-withdrawn` both refuse
+    a project with no tag, so nothing in the system could repair it.
+    """
+    tag = f"published/{project}-{date}"
+    if PUBLISHED_TAG.match(tag) is None:
+        raise PublishError(f"cannot name a published tag for {project!r}/{date!r}")
+    if _git(vault, "check-ref-format", f"refs/tags/{tag}").returncode != 0:
+        raise PublishError(
+            f"git cannot name the tag this project would need ({tag!r}); "
+            "rename the project to something git accepts as a ref"
+        )
+    return tag
+
+
+def _require_unpublished(vault, project) -> None:
+    """§6's day-one menu is the pre-publication menu.
+
+    After publication the spec gives exactly two dispositions. Re-publishing
+    would mint a second tag and event that permanently record a correction as a
+    first publication, and parking would flip `status` off `published`, which
+    silences `lint_published_drift` for the tag that survives.
+    """
+    tags = published_tags(vault, project)
+    if tags:
+        raise PublishError(
+            f"{PROJECTS}/{project} is already published ({', '.join(tags)}) — "
+            "use mark-corrected to re-publish it as corrected, or mark-withdrawn"
+        )
+
+
 def _require_published(vault, project) -> None:
     if not published_tags(vault, project):
         raise PublishError(
@@ -260,9 +299,7 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
     root = Path(vault)
     note = project_note(root, project)
     date = datetime.date.today().isoformat() if date is None else date
-    tag = f"published/{project}-{date}"
-    if PUBLISHED_TAG.match(tag) is None:
-        raise PublishError(f"cannot name a published tag for {project!r}/{date!r}")
+    tag = _require_taggable(root, project, date)
 
     _report, effective, _hashes, warning_effective = verify_state(
         root, network=True, base=base
@@ -323,7 +360,12 @@ def _append_log(vault, message: str, *, date=None) -> Path:
 
 
 def mark_published(vault, project, *, base=DEFAULT_BASE, date=None) -> Disposition:
-    """Publish: gate run, ``status: published``, `verified` event, commit, tag, disarm."""
+    """Publish: gate run, ``status: published``, `verified` event, commit, tag, disarm.
+
+    Pre-publication only; an already-published project goes through
+    `mark_corrected` or `mark_withdrawn` (§6's correction lifecycle).
+    """
+    _require_unpublished(vault, project)
     return _publish(
         vault,
         project,
@@ -364,7 +406,11 @@ def mark_withdrawn(vault, project, *, date=None) -> Disposition:
 
 
 def park(vault, project) -> Disposition:
-    """Park a project: sets ``status: parked``, nothing else (§6's day-one menu)."""
+    """Park a project: sets ``status: parked``, nothing else (§6's day-one menu).
+
+    Pre-publication only, for the same reason the menu it belongs to is.
+    """
+    _require_unpublished(vault, project)
     note = project_note(vault, project)
     _write_note_text(note, _set_status(_read_note_text(note), "parked"))
     return Disposition(project, 0, (), "parked")

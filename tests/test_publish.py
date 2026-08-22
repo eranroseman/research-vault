@@ -61,16 +61,18 @@ def _tags(vault: Path) -> list[str]:
     return _git(vault, "tag", "--list").split()
 
 
-def _note(vault: Path) -> Path:
-    return vault / "projects" / "brief" / "draft.md"
+def _note(vault: Path, project: str = "brief") -> Path:
+    return vault / "projects" / project / "draft.md"
 
 
-def _status(vault: Path) -> str:
-    data, _ = frontmatter.parse(_note(vault).read_text())
+def _status(vault: Path, project: str = "brief") -> str:
+    data, _ = frontmatter.parse(_note(vault, project).read_text())
     return data["status"]
 
 
-def _build_vault(root: Path, claim: str, bibliography=None) -> Path:
+def _build_vault(
+    root: Path, claim: str, bibliography=None, name: str = "brief"
+) -> Path:
     for folder in ("inbox", "literatures", "synthesis", "log", "projects", "system"):
         (root / folder).mkdir()
     (root / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Knowledge bundle\n')
@@ -79,7 +81,7 @@ def _build_vault(root: Path, claim: str, bibliography=None) -> Path:
     (root / "inbox" / "review-queue.md").write_text('---\ntype: "review-queue"\n---\n')
     if bibliography is not None:
         (root / "system" / "bibliography.json").write_text(json.dumps(bibliography))
-    project = root / "projects" / "brief"
+    project = root / "projects" / name
     project.mkdir()
     (project / "draft.md").write_text(PROJECT_FRONTMATTER + claim)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
@@ -482,3 +484,88 @@ def test_publish_skill_routes_every_mechanical_act_through_a_verb():
         "discard",
     ):
         assert token in text, f"publish/SKILL.md never mentions {token!r}"
+
+
+# --- review findings, round 1 ----------------------------------------------
+
+
+def test_a_project_git_cannot_tag_is_refused_before_anything_is_written(
+    tmp_path, capsys
+):
+    """`PUBLISHED_TAG`'s `.+` admits spaces; git's ref rules do not. Refusing
+    late would commit a `published` project that can never be tagged, and so
+    can never be corrected or withdrawn either."""
+    vault = _build_vault(tmp_path, UNCITED_CLAIM, name="my brief")
+    queue = (vault / inbox.INBOX_PATH).read_bytes()
+    before = _head(vault)
+
+    assert main(["arm-publish", "my brief", "--vault", str(vault)]) == 2
+    assert not (vault / FLAG).exists()
+
+    assert main(["mark-published", "my brief", "--vault", str(vault)]) == 2
+
+    assert "tag" in capsys.readouterr().err
+    # An untouched review queue proves the refusal landed before the gate ran.
+    assert (vault / inbox.INBOX_PATH).read_bytes() == queue
+    assert _status(vault, "my brief") == "draft"
+    assert events.verified_checks(_note(vault, "my brief").read_text()) == []
+    assert _tags(vault) == []
+    assert _head(vault) == before
+
+
+def test_inbox_prints_the_finding_id_the_ack_verb_needs(blocked_vault, capsys):
+    """The skill sends the person to `inbox` for the id `ack` requires, so the
+    id has to be on that surface — not only inside the queue file."""
+    assert main(["verify", "--vault", str(blocked_vault), "--surface", "publish"]) == 1
+    capsys.readouterr()
+
+    assert main(["inbox", "--vault", str(blocked_vault)]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    citekey_lines = [line for line in lines[1:] if "ghost2020" in line]
+    assert len(citekey_lines) == 1
+    finding_id = citekey_lines[0].split()[0]
+    assert finding_id.startswith("citekey/")
+
+    code = main(
+        [
+            "ack",
+            finding_id,
+            "--vault",
+            str(blocked_vault),
+            "--reason",
+            "manual — cited only to discuss its own withdrawal",
+            "--actor",
+            "human:eran",
+        ]
+    )
+
+    assert code == 0
+    assert finding_id not in {entry.id for entry in inbox.open_entries(blocked_vault)}
+
+
+@pytest.mark.parametrize("verb", ["mark-published", "park"])
+def test_the_day_one_menu_refuses_an_already_published_project(
+    green_vault, capsys, verb
+):
+    """§6's day-one menu is the pre-publication menu: after publication the only
+    dispositions are corrected and withdrawn. Re-publishing would mint a second
+    tag and event that permanently record a correction as a first publication;
+    parking would flip `status` off `published` and silence the drift lint for
+    the surviving tag."""
+    publish.mark_published(green_vault, "brief", date="2026-08-01")
+    head = _head(green_vault)
+    capsys.readouterr()
+
+    assert main([verb, "brief", "--vault", str(green_vault)]) == 2
+
+    error = capsys.readouterr().err
+    assert "mark-corrected" in error
+    assert "mark-withdrawn" in error
+    assert _status(green_vault) == "published"
+    events_at = [
+        event["at"] for event in events.verified_checks(_note(green_vault).read_text())
+    ]
+    assert events_at == ["2026-08-01"]
+    assert _tags(green_vault) == ["published/brief-2026-08-01"]
+    assert _head(green_vault) == head

@@ -434,8 +434,11 @@ def cmd_inbox(args):
     for entry in sorted(
         inbox.open_entries(args.vault), key=lambda item: (item.date, item.id)
     ):
+        # The id leads: it is the argument `ack` requires, and this listing
+        # is where the publish skill sends a person to find it.
         print(
-            f"{entry.date} {entry.result} {entry.check} {entry.target} — {entry.reason}"
+            f"{entry.id} {entry.date} {entry.result} {entry.check} "
+            f"{entry.target} — {entry.reason}"
         )
     return 0
 
