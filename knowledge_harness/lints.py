@@ -387,18 +387,50 @@ def _project_differs(
     return any(prior.image(path) != current.image(path) for path in paths)
 
 
-def lint_published_drift(
-    vault_root, candidate_snapshot: gitstate.Snapshot | None = None
-) -> list[Outcome]:
-    """Compare every published tag to the working tree, including untracked files."""
-    vault = Path(vault_root)
-    tags = sorted(_git(vault, "tag", "--list", "published/*").stdout.split())
-    outcomes = []
-    for tag in tags:
+# The statuses whose project this lint watches. `corrected` is watched because
+# a corrected publication is exactly the artifact a corrections regime needs
+# watched, and `mark-corrected` writes `corrected` over `published` — keying on
+# `published` alone ended the watch at the moment the stakes rose. `withdrawn`
+# and `parked` are unwatched **by design**, recorded here as a ruling rather
+# than left as a side effect of which statuses `_project_status` happens to
+# read: both say the project no longer stands as a publication, so divergence
+# from its tag is expected rather than reportable.
+WATCHED_PUBLICATION_STATUSES = frozenset({"published", "corrected"})
+
+
+def _newest_published_tags(vault: Path) -> dict[str, str]:
+    """Map each project to its newest ``published/*`` tag.
+
+    ``PUBLISHED_TAG``'s prefix is constant per project and its suffix is an ISO
+    date, so lexicographic max is the newest tag, and ``_publish`` refusing a
+    tag that already exists caps a project at one tag per day. The newest tag
+    is the only sound comparison basis: a correction's tree differs from the
+    original tag by construction, and ADR 0003 forbids deleting that tag, so
+    comparing against anything older would report every legitimate correction
+    as drift.
+    """
+    newest: dict[str, str] = {}
+    for tag in _git(vault, "tag", "--list", "published/*").stdout.split():
         match = PUBLISHED_TAG.match(tag)
         if match is None:
             continue
-        project_dir = f"projects/{match.group(1)}"
+        project = match.group(1)
+        newest[project] = max(newest.get(project, ""), tag)
+    return newest
+
+
+def lint_published_drift(
+    vault_root, candidate_snapshot: gitstate.Snapshot | None = None
+) -> list[Outcome]:
+    """Compare each project's newest published tag to the working tree.
+
+    Untracked files included; ``_deduplicate`` collapses the result on the
+    project directory, so a project answers with one drift outcome either way.
+    """
+    vault = Path(vault_root)
+    outcomes = []
+    for project, tag in sorted(_newest_published_tags(vault).items()):
+        project_dir = f"projects/{project}"
         if not _project_differs(vault, tag, project_dir, candidate_snapshot):
             continue
         current_statuses, malformed = _project_status(
@@ -407,13 +439,13 @@ def lint_published_drift(
         for rel in malformed:
             outcomes.append(_schema_outcome("published-drift", RepoPath(rel)))
         if current_statuses:
-            published = "published" in current_statuses
+            watched = bool(current_statuses & WATCHED_PUBLICATION_STATUSES)
         else:
             prior_statuses, prior_malformed = _project_status(vault, project_dir, tag)
             for rel in prior_malformed:
                 outcomes.append(_schema_outcome("published-drift", RepoPath(rel)))
-            published = "published" in prior_statuses
-        if published:
+            watched = bool(prior_statuses & WATCHED_PUBLICATION_STATUSES)
+        if watched:
             outcomes.append(
                 Outcome(
                     "published-drift",

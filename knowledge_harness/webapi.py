@@ -130,11 +130,17 @@ def get_status(
 ):
     """HEAD a resource, falling back to GET if the server rejects HEAD.
 
-    ``query_mailto=False`` keeps the mandatory contact address in the
-    User-Agent only, for endpoints that carry their target URL in the path
-    (Save Page Now): appending ``?mailto=`` there would change which address
-    gets archived. ``mailto()`` still runs, so an unconfigured vault still
-    fails closed.
+    Caller checklist: **if the target URL rides in the path, the contact
+    address rides in the User-Agent, not the query string** — pass
+    ``query_mailto=False``. Save Page Now (``web.archive.org/save/<url>``) and
+    a Wayback replay URL (``web.archive.org/web/<stamp>/<url>``) both embed
+    their target that way, so an appended ``?mailto=`` becomes part of the
+    address being archived or replayed: the same snapshot answers 200 bare and
+    404 with the parameter (live-confirmed 2026-08-22). A URL that carries its
+    target as a query *value* (``…/available?url=…``) is unaffected — another
+    parameter cannot alter that value — and so is an endpoint whose path
+    segment is percent-encoded. ``mailto()`` still runs either way, so an
+    unconfigured vault still fails closed.
     """
     status, _ = _open(
         url, vault_root, params, headers, timeout, "HEAD", False, query_mailto

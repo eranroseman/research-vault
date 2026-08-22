@@ -604,7 +604,14 @@ def _archive_outcomes(vault_root):
             else RepoPath(os.fsencode(path.relative_to(vault_root)))
         )
         try:
-            status = webapi.get_status(archive_url, vault_root)
+            # ``archive-source`` writes only archive-host URLs, and a Wayback
+            # replay URL carries its target in the path: an appended
+            # ``?mailto=`` becomes part of the archived address, so the same
+            # snapshot answers 200 bare and 404 with the parameter
+            # (live-confirmed 2026-08-22 at the writer's own call site). The
+            # contact address rides in the User-Agent instead; ``mailto()``
+            # still runs, so an unconfigured vault still fails closed.
+            status = webapi.get_status(archive_url, vault_root, query_mailto=False)
         except webapi.ApiError:
             result = Result.UNREACHABLE
             reason = "outage — archive-url unavailable"

@@ -1,10 +1,12 @@
 """Integration regressions for the verify and inbox command surface."""
 
 import hashlib
+import io
 import json
 import os
 import subprocess
 import sys
+import urllib.parse
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -527,7 +529,7 @@ def test_archive_resolution_uses_status_and_distinguishes_404_from_outage(
     )
     if error:
 
-        def unavailable(*_args):
+        def unavailable(*_args, **_kwargs):
             raise webapi.ApiError(error)
 
         monkeypatch.setattr(
@@ -535,9 +537,65 @@ def test_archive_resolution_uses_status_and_distinguishes_404_from_outage(
             unavailable,
         )
     else:
-        monkeypatch.setattr("knowledge_harness.webapi.get_status", lambda *_: status)
+        monkeypatch.setattr(
+            "knowledge_harness.webapi.get_status", lambda *_, **__: status
+        )
     outcomes = _archive_outcomes(net_vault)
     assert outcomes[0].result is want
+
+
+# A real Wayback replay URL: the address it serves rides in its *path*.
+WAYBACK_SNAPSHOT = "https://web.archive.org/web/20260822000000/https://example.org/page"
+
+
+class _HeadResponse(io.BytesIO):
+    """Enough of an HTTP response for ``webapi._open``'s status-only path."""
+
+    status = 200
+
+
+def test_the_archive_reader_keeps_the_contact_address_out_of_the_query_string(
+    net_vault, monkeypatch
+):
+    """A snapshot `archive-source` records must read back as the archive serves it.
+
+    Live-confirmed 2026-08-22 at the writer's own call site: the same Wayback
+    URL answers 200 bare and 404 with `?mailto=` appended, because a replay URL
+    carries its target in the path and Wayback reads the query string as part
+    of the archived address. `archive-source` writes only archive-host URLs, so
+    sending the contact address in the query here would report every snapshot
+    it records as missing and append a false, unrewritable `missing-archive`
+    finding to the queue on every publish gate run.
+
+    Faked at `webapi._urlopen` rather than at `get_status`, so this asserts the
+    request the reader actually puts on the wire instead of a mock's signature.
+    """
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace(
+            'doi: "10.1000/xyz"',
+            f'doi: "10.1000/xyz"\narchive-url: "{WAYBACK_SNAPSHOT}"',
+        )
+    )
+    seen = {}
+
+    def fake_urlopen(request, timeout):
+        seen["url"] = request.full_url
+        seen["ua"] = request.get_header("User-agent")
+        return _HeadResponse()
+
+    monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
+
+    outcomes = _archive_outcomes(net_vault)
+
+    assert [outcome.result for outcome in outcomes] == [Result.MATCHED]
+    query = urllib.parse.parse_qsl(
+        urllib.parse.urlsplit(seen["url"]).query, keep_blank_values=True
+    )
+    assert [key for key, _ in query if key == "mailto"] == []
+    assert seen["url"] == WAYBACK_SNAPSHOT
+    # The polite pool stays mandatory: the address rides in the User-Agent.
+    assert "mailto:eran@example.edu" in seen["ua"]
 
 
 def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
@@ -1008,7 +1066,7 @@ def test_archive_invalid_citekey_falls_back_to_safe_note_target(
             'doi: "10.1000/xyz"\narchive-url: "https://archive.example/item"',
         )
     )
-    monkeypatch.setattr("knowledge_harness.webapi.get_status", lambda *_: 200)
+    monkeypatch.setattr("knowledge_harness.webapi.get_status", lambda *_, **__: 200)
 
     outcome = _archive_outcomes(net_vault)[0]
 

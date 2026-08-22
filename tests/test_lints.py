@@ -498,6 +498,31 @@ def test_published_drift_reports_wholly_deleted_effort_from_prior_published_stat
     ]
 
 
+@pytest.mark.parametrize("status", ["withdrawn", "parked"])
+def test_published_drift_leaves_the_unwatched_statuses_alone(fixture_vault, status):
+    """`withdrawn` and `parked` are unwatched by design, not by accident.
+
+    Both say the project is no longer standing as a publication, so divergence
+    from its tag is expected rather than reportable. Pinned so the ruling
+    survives the `corrected` widening rather than being re-litigated by
+    whoever next reads `WATCHED_PUBLICATION_STATUSES`.
+    """
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text().replace('status: "draft"', f'status: "{status}"')
+    )
+    subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", f"{status} brief"], cwd=fixture_vault, check=True
+    )
+    subprocess.run(
+        ["git", "tag", "published/brief-2026-08-16"], cwd=fixture_vault, check=True
+    )
+    draft.write_text(draft.read_text() + "\npost-tag edit\n")
+
+    assert lints.lint_published_drift(fixture_vault) == []
+
+
 def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(

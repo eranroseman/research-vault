@@ -34,12 +34,12 @@ The publish surface closes on `citekey`, `evidence-layer`, `quote`, `update-noti
 
 | Result | Meaning | At publish |
 |---|---|---|
-| MATCHED | The check ran and agreed. | Passes; the CLI appends a `verified` event. |
+| MATCHED | The check ran and agreed. | Passes. **Only `doi`, `metadata`, `update-notice`, and per-claim `quote` mint a `verified` event on MATCHED** — this surface's other two closing checks, `citekey` and `evidence-layer`, mint nothing, and leave no durable trace beyond the run's counts. The project-level `verified` event is separate and real: `mark-published` and `mark-corrected` mint one on the project note under the check id `publish`. |
 | UNMATCHED | The check ran and disagreed. | Holds the gate until it is fixed or acknowledged. |
 | UNREACHABLE | The check could not run — a network or service outage. | **Holds the gate: publishing waits.** Never a verdict on the work. |
 | SKIPPED | The item lacks the field the check needs. | Exempt, and recorded in the review inbox so it stays auditable. |
 
-An outage is never a failure and never a pass. Do not describe an UNREACHABLE result as "verified", "failed", or "probably fine" — say the check could not run and publishing waits until it can. Never claim a check ran that did not, and never claim a `verified` event exists: only a MATCHED result mints one, and only the CLI writes it.
+An outage is never a failure and never a pass. Do not describe an UNREACHABLE result as "verified", "failed", or "probably fine" — say the check could not run and publishing waits until it can. Never claim a check ran that did not, and never claim a `verified` event exists for a check id that doesn't mint one — only the CLI mints events, only on a genuine MATCHED result, and only for the four check ids named above plus the project-level `publish` event the disposition verbs write.
 
 ## The day-one disposition menu
 
@@ -97,7 +97,7 @@ python3 -m knowledge_harness mark-corrected NAME --vault PATH
 python3 -m knowledge_harness mark-withdrawn NAME --vault PATH
 ```
 
-These two are the *only* dispositions a published project has. Both refuse a project that was never published — the lifecycle opens only after publication — and, in the mirror, `mark-published` and `park` refuse a project that already is. Re-publishing without going through `mark-corrected` would record a correction as a first publication in tags and events that are never deleted; parking a published project would flip its status off `published` and quietly stop the published-drift lint from watching its tag. **The original tag is never deleted**, by either disposition or by hand: a correction adds a tag, it does not replace one. Never offer tag deletion, history rewriting, or a quiet edit of the published note as an alternative.
+These two are the *only* dispositions a published project has. Both refuse a project that was never published — the lifecycle opens only after publication — and, in the mirror, `mark-published` and `park` refuse a project that already is. Re-publishing without going through `mark-corrected` would record a correction as a first publication in tags and events that are never deleted; parking a published project would flip its status out of the set the published-drift lint watches (`published` and `corrected`) and quietly stop it watching the tag — which is exactly why `mark-corrected` does not: a corrected project stays watched. **The original tag is never deleted**, by either disposition or by hand: a correction adds a tag, it does not replace one. Never offer tag deletion, history rewriting, or a quiet edit of the published note as an alternative.
 
 ## Refusals and exit codes
 

@@ -18,8 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import events, frontmatter, inbox, lints, publish
+from knowledge_harness import Result, events, frontmatter, inbox, lints, publish
 from knowledge_harness.__main__ import main
+from knowledge_harness.outcome import Outcome
+from knowledge_harness.verify import _projection_identity
 
 REPO = Path(__file__).resolve().parents[1]
 STOP_HOOK = REPO / "hooks" / "stop_publish_gate.py"
@@ -376,6 +378,46 @@ def test_mark_corrected_mints_a_new_event_and_tag_and_keeps_the_original(green_v
     assert _git(green_vault, "rev-parse", "HEAD^").strip() == first_commit
 
 
+def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(green_vault):
+    """A correction must not end drift watching (acceptance finding F-2).
+
+    `lint_published_drift` keyed on `status == "published"`, and
+    `mark-corrected` writes `corrected` — so the lint stopped watching the
+    project at the moment a corrections regime needs it watched most, while
+    this skill refuses post-publication `park` precisely because that flip
+    blinds the lint. The comparison basis is each project's *newest* tag: the
+    original tag survives (ADR 0003) and the corrected tree differs from it by
+    construction, so comparing against it would report every legitimate
+    correction as drift.
+    """
+    publish.mark_published(green_vault, "brief", date="2026-08-01")
+    publish.mark_corrected(green_vault, "brief", date="2026-08-09")
+
+    assert _status(green_vault) == "corrected"
+    assert _tags(green_vault) == [
+        "published/brief-2026-08-01",
+        "published/brief-2026-08-09",
+    ]
+    # Clean against the newest tag, and the surviving original raises nothing.
+    assert lints.lint_published_drift(green_vault) == []
+
+    note = _note(green_vault)
+    note.write_text(note.read_text() + "\nEdited after the correction.\n")
+
+    assert [out.target for out in lints.lint_published_drift(green_vault)] == [
+        "path-bytes:projects/brief"
+    ]
+
+    # Correcting again re-bases the comparison on the newest tag, so the drift
+    # the lint just reported is closed by a correction rather than by silence.
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-q", "-m", "edit after correction")
+    publish.mark_corrected(green_vault, "brief", date="2026-08-20")
+
+    assert _tags(green_vault)[-1] == "published/brief-2026-08-20"
+    assert lints.lint_published_drift(green_vault) == []
+
+
 def test_mark_corrected_refuses_a_tag_that_already_exists(green_vault):
     publish.mark_published(green_vault, "brief", date="2026-08-01")
 
@@ -484,6 +526,52 @@ def test_publish_skill_routes_every_mechanical_act_through_a_verb():
         "discard",
     ):
         assert token in text, f"publish/SKILL.md never mentions {token!r}"
+
+
+def _minting_check_ids() -> set[str]:
+    """The check ids `verify` actually mints a `verified` event for, from itself.
+
+    Derived rather than transcribed: a prose claim about durable state is only
+    worth testing against the code that writes it, and `_projection_identity`
+    is that code (`verify._apply_state_transitions`).
+    """
+    minting = set()
+    for check in inbox.CHECK_IDS:
+        # A per-claim quote outcome needs an anchored target and a comparison
+        # target; every other check id projects on its bare target or not at all.
+        target = "smith2020#^c-88888888" if check == "quote" else "smith2020"
+        outcome = Outcome(
+            check, target, Result.MATCHED, "matched", {"target": "managed-region"}
+        )
+        if _projection_identity(outcome) is not None:
+            minting.add(check)
+    return minting
+
+
+def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
+    """The MATCHED row promised a `verified` event for every check that passes.
+
+    False for two of this surface's own closing checks: `citekey` and
+    `evidence-layer` mint nothing, so a person told "the CLI appends a
+    `verified` event" would go looking for durable proof that was never
+    written — the "no skill promises verification it didn't run" constraint,
+    and the correction `verify-citations` already carries.
+    """
+    text = PUBLISH_SKILL.read_text(encoding="utf-8")
+    row = next(line for line in text.splitlines() if line.startswith("| MATCHED |"))
+
+    assert _minting_check_ids() == {"doi", "metadata", "update-notice", "quote"}
+    for check in sorted(_minting_check_ids()):
+        assert f"`{check}`" in row, f"the MATCHED row never names minting id {check!r}"
+    # The publish surface's other two closing checks mint nothing, and the row
+    # has to say so rather than leaving a blanket promise standing.
+    for check in ("citekey", "evidence-layer"):
+        assert f"`{check}`" in row, f"the MATCHED row never names {check!r}"
+    assert "mint nothing" in row
+    assert "Passes; the CLI appends a `verified` event." not in text
+    # The project-level event `mark-published`/`mark-corrected` mint is real and
+    # distinct from the per-check ones; the row must not collapse the two.
+    assert "`publish`" in row
 
 
 # --- review findings, round 1 ----------------------------------------------
