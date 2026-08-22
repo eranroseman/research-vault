@@ -1,0 +1,96 @@
+---
+name: evidence-conventions
+description: Use when writing or editing claims, citing sources, or drafting in a knowledge-harness vault — also for claim or quote syntax questions
+---
+
+# Evidence conventions
+
+## The Iron Law
+
+No claim enters a draft without a verified source first.
+
+A claim line exists only after its literature note exists and its citekey resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — write the sentence as fleeting prose, not as a tagged claim, until the source is admitted and projected.
+
+## Claim syntax (§5)
+
+Every claim is one line:
+
+```
+- (quote|paraphrase|inference|open-question) <text> [@citekey, locator] [field:: value ...] ^claim-id
+```
+
+- **Evidence-boundary tag** — `quote`, `paraphrase`, `inference`, or `open-question`. `open-question` marks a claim with no derivation edge; it is itself lintable, not an escape hatch.
+- **`[@citekey, locator]`** — cites the source; `locator` carries the pinpoint (page, section, …) and parses losslessly to CSL `locator`+`label`.
+- **`^claim-id`** — anchors the line for linking, always the last token. Stable across re-render: an anchor derives from stable content (a Zotero annotation key, else a quote hash), never from render order, so re-rendering never breaks an existing claim link.
+- **Quotes are blockquotes.** The tag, citation, and anchor ride the claim line; the verbatim text sits in a blockquote line below it:
+
+  ```
+  - (quote) [@smith2020, p. 12] ^c-a1b2c3d4
+    > Mortality fell 12% (95% CI 8–16).
+  ```
+
+### Synthesis-only fields
+
+Claims in `synthesis/` add:
+
+- **`[confidence:: <level>]`** — inference-only.
+- **Stance links** — `[supports:: [[citekey#^claim-id]]]` / `[disputes:: [[citekey#^claim-id]]]`, targeting another claim link, never a bare note.
+
+### Deprecation — never delete
+
+A claim is retired by a **transition record** on the same line, never by deleting it:
+
+```
+[status:: deprecated] [deprecated-at:: <date>] [deprecated-by:: <actor>] [reason:: <code> …]
+```
+
+Add `[superseded-by:: <claim link>]` when a successor claim exists. The claim keeps its `^claim-id` anchor through the transition — deprecate with a reason, never delete.
+
+### Retraction acknowledgment
+
+When a cited work carries a blocking-class update notice (retraction, partial retraction, removal, withdrawal), the citing claim needs a reader-side acknowledgment before `publish` can proceed past it:
+
+```
+[retraction-ack:: <code> …]
+```
+
+This asserts the reader has seen the notice and is knowingly citing the work anyway — for example, citing a retracted paper's methodology while discussing the retraction itself. It is required only when a blocking-class notice targets the citation; warn-class notices (expression of concern, correction, corrigendum, erratum) never require it.
+
+### Verifier-owned markers
+
+`failed-verification` markers are written and cleared only by the CLI's deterministic checks (`knowledge_harness.events.record_pass` / `record_failure`), never by hand. Never add, edit, or remove one yourself, including when retyping a claim — let the next check run clear it.
+
+## Reason-code vocabulary
+
+Findings in `inbox/review-queue.md` carry a `reason` code from the controlled registry (`knowledge_harness.inbox.REASON_CODES`, governed at terminology §4.4). The codes you meet in the review queue today:
+
+| Code | Meaning |
+|---|---|
+| `schema-violation` | The note or claim is structurally broken — malformed frontmatter, a quote claim missing its anchor/text/citekey, invalid bibliography data. |
+| `mismatch` | Two authoritative values disagree — citekey not in the bibliography, DOI does not resolve, metadata differs from the registry, quote text absent from the literature note. |
+| `outage` | The check needed a network or service resource that was unreachable. Never a verdict on the claim — retry later. |
+| `no-identifier` | The check's required field is absent (no DOI/PMID, no citekey, no quote claims), so the check was SKIPPED rather than run. |
+| `fuzzy-quote` | The quote matched only approximately (similarity ≥ 0.90, not exact) — close enough to flag, not to trust. |
+| `missing-archive` | A web-type source has no `archive-url`, or the recorded one no longer resolves. |
+| `warn-notice` | The cited work carries a warn-class update notice (expression of concern, correction, corrigendum, erratum). Informational, never blocks. |
+| `retracted` | The cited work's update-notice check found a blocking-class notice (retraction, partial retraction, removal, withdrawal). |
+| `drift` | An append-only surface was rewritten, a claim anchor mutated or vanished without a deprecation record, a literature note changed outside import, or a published project diverged from its tag. |
+| `disputed-claim` | A claim you're building on (via a `supports` link) has standing counter-evidence elsewhere. Surfaces disconfirmation instead of letting it get silently relied on. |
+| `superseded-note` | The claim cites a literature note whose `status` is `excluded` or `superseded`. |
+| `stale` | The vault's bibliography export no longer matches the current Zotero library. |
+
+A few registry codes (`contradiction`, `low-confidence`, `not-admitted`, `manual`) belong to surfaces not shipped yet — they get their own glossary rows when those skills land.
+
+## Rationalizations, answered
+
+| What you're tempted to think | The mechanical rule that forbids it |
+|---|---|
+| "I'll cite it later." | The Iron Law: no claim line exists before its citekey resolves. Write it as prose in `inbox/`, not as a tagged claim, until the source is admitted. |
+| "It's common knowledge." | Common knowledge is not an evidence-boundary tag. Every claim line needs `(quote\|paraphrase\|inference\|open-question)` plus a citekey — if it can't carry one, it isn't a claim, it's prose. |
+| "The abstract said so." | The quote checker compares byte-normalized text against the literature note's managed region, not a memory of the abstract. Extract or paraphrase from the admitted item, or mark `(inference)` and accept the lower confidence. |
+| "I remember reading it." | A claim link only resolves to a literature note that already exists in `literatures/` with a resolving citekey. No note, no citekey — find it or admit the source first. |
+| "It's paywalled, I can't verify the exact wording." | Use `(paraphrase)` or `(inference)`, not `(quote)`. A `(quote)` tag commits to text the checker can byte-compare — never fabricate a quote to sound authoritative. |
+
+## Annotations scatter by link, never by retyping
+
+When the same quote is needed on another page, link the existing claim — `[[citekey#^claim-id]]` — never retype the quote text. Retyping creates a second, unverified copy that the checker never compares; the single verified quote lives once, in the literature note's managed region.
