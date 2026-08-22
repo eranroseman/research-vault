@@ -39,7 +39,7 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 
 ## Phase 2–3 — Framing, gap analysis, acquisition
 
-- [ ] **Question selection (Phase 2's first act)**: the author picks ONE workshop research question to re-ask under the harness (§9 as re-ruled 2026-08-22 — candidates: pkm-vault-schemas, trust-gates-prior-art). Then `project-flow` start: frame it — question / scope / source types / success criteria — knowing the original loose-process answer exists as the baseline; the deliverable is the rigorous re-answer plus the delta.
+- [x] **Question selected (2026-08-22): `trust-gates-prior-art`** — the most decision-relevant workshop question, re-asked under the harness; `research/trust-gates-prior-art.md` is the loose-process baseline. Then `project-flow` start: frame it — question / scope / source types / success criteria — knowing the original loose-process answer exists as the baseline; the deliverable is the rigorous re-answer plus the delta.
 - [ ] Gap analysis vs the seeded synthesis layer + bibliography → gap list.
 - [ ] `find-sources` (project-scoped, PRISMA-S log) → candidates → **author admits 15–25 papers** into Zotero → `import-source` with integrate-at-import.
 
