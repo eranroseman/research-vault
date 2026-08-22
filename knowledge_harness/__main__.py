@@ -12,6 +12,7 @@ from . import (
     AGENT_ACTOR,
     Result,
     bibliography,
+    events,
     factcheck,
     frontmatter,
     gitstate,
@@ -366,6 +367,34 @@ def cmd_factcheck(args):
     return 0
 
 
+def cmd_trust_tier(args):
+    """Report one literature note's derived trust tier (spec §5) — read-only.
+
+    ``events.trust_tier`` had no production consumer at HEAD — only tests
+    exercised it. `project`'s resume-orientation step needs to display each
+    cited note's tier, and a prompt skill cannot call a Python function
+    directly, so this is the invocable surface: a read-only mechanical part
+    joining the one binary as a bare report noun (§7's
+    one-binary/one-exit-code-contract CLI), the same shape as `factcheck`
+    and `verify`. It writes nothing — no event, status, tag, hold, or ack.
+    """
+    try:
+        path = notes.note_path(args.vault, args.citekey)
+    except notes.InvalidCitekeyError:
+        print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
+        return 1
+    if not path.is_file():
+        print(f"literature note not found: {args.citekey}", file=sys.stderr)
+        return 1
+    try:
+        tier = events.trust_tier(_read_note_text(path))
+    except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
+        print(f"trust tier unavailable: {error}", file=sys.stderr)
+        return 2
+    print(tier)
+    return 0
+
+
 def cmd_arm_publish(args):
     try:
         path = publish.arm(args.vault, args.project, bypass=args.bypass)
@@ -639,6 +668,9 @@ def main(argv=None):
     factcheck_cmd.add_argument("--vault", required=True)
     factcheck_cmd.add_argument("--draft", required=True)
     factcheck_cmd.add_argument("--cap", type=int, default=factcheck.DEFAULT_CAP)
+    trust_tier_cmd = sub.add_parser("trust-tier", parents=[common])
+    trust_tier_cmd.add_argument("citekey")
+    trust_tier_cmd.add_argument("--vault", required=True)
     arm_publish = sub.add_parser("arm-publish", parents=[common])
     arm_publish.add_argument("project")
     arm_publish.add_argument("--vault", required=True)
@@ -689,6 +721,7 @@ def main(argv=None):
         "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
+        "trust-tier": cmd_trust_tier,
         "arm-publish": cmd_arm_publish,
         "disarm-publish": cmd_disarm_publish,
         "mark-published": cmd_mark_published,

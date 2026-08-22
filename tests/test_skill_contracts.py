@@ -26,7 +26,13 @@ TEMPLATES_DIR = REPOSITORY / "knowledge_harness" / "templates"
 # entry skill ships (Task 2 publish; Task 3 verify-citations,
 # factcheck-draft; Task 4 project; Task 5 import-source; Task 6
 # find-sources) — it only ever grows, never shrinks.
-ENTRY_SKILLS = {"setup-vault", "publish", "verify-citations", "factcheck-draft"}
+ENTRY_SKILLS = {
+    "setup-vault",
+    "publish",
+    "verify-citations",
+    "factcheck-draft",
+    "project",
+}
 
 # A bare kebab-case token in backticks, e.g. `` `evidence-conventions` `` —
 # the shape a skill name takes when a template cites one in prose. Requires
