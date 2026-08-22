@@ -210,6 +210,80 @@ def test_record_reconstruction_rejects_missing_malformed_or_duplicate_metadata(
         checks.outcome_from_record(record)
 
 
+@pytest.mark.parametrize(
+    ("mutator", "error", "refusal"),
+    [
+        (lambda r: r.__setitem__("check", 7), TypeError, "text fields must be strings"),
+        (
+            lambda r: r.__setitem__("target", 7),
+            TypeError,
+            "text fields must be strings",
+        ),
+        (
+            lambda r: r.__setitem__("reason", 7),
+            TypeError,
+            "text fields must be strings",
+        ),
+        (lambda r: r.__setitem__("result", 7), TypeError, "result must be text"),
+        (lambda r: r.__setitem__("extra", []), TypeError, "extra must be an object"),
+        (
+            lambda r: r.__setitem__("path_extra_fields", "note_path"),
+            TypeError,
+            "JSON array of strings",
+        ),
+        (
+            lambda r: r.__setitem__("path_extra_fields", [7]),
+            TypeError,
+            "JSON array of strings",
+        ),
+        (
+            lambda r: r.__setitem__("path_extra_fields", ["note_path"]),
+            ValueError,
+            "does not name a string",
+        ),
+        (
+            lambda r: (
+                r.__setitem__("extra", {"note_path": 7}),
+                r.__setitem__("path_extra_fields", ["note_path"]),
+            ),
+            ValueError,
+            "does not name a string",
+        ),
+    ],
+    ids=[
+        "check-not-text",
+        "target-not-text",
+        "reason-not-text",
+        "result-not-text",
+        "extra-not-an-object",
+        "path-fields-not-a-list",
+        "path-fields-item-not-text",
+        "path-field-absent-from-extra",
+        "path-field-value-not-text",
+    ],
+)
+def test_record_reconstruction_names_the_field_whose_type_is_wrong(
+    mutator, error, refusal
+):
+    """A record arrives as parsed JSON, so every field's type is an open question.
+
+    `outcome_from_record` is the trust boundary between a JSON file and a typed
+    Outcome: nothing upstream of it has checked that `check` is text or that
+    `path_extra_fields` is a sorted array naming real string entries in `extra`.
+    Each guard is asserted separately, and by message, because a record that
+    fails the wrong guard is a record whose defect has been misdiagnosed —
+    TypeError says the shape is wrong, ValueError that the shape is right and
+    the content disagrees with itself.
+    """
+    record = checks.outcome_to_record(
+        checks.Outcome("doi", "id", Result.MATCHED, "matched")
+    )
+    mutator(record)
+
+    with pytest.raises(error, match=refusal):
+        checks.outcome_from_record(record)
+
+
 def _fake_get(monkeypatch, table):
     """Install deterministic external responses keyed by a URL fragment."""
 

@@ -344,6 +344,67 @@ def test_two_archive_url_fields_are_refused_rather_than_guessed(net_vault):
         archive.set_archive_url(text, SNAPSHOT)
 
 
+@pytest.mark.parametrize(
+    ("note_text", "refusal"),
+    [
+        ("no frontmatter at all\n", "has no frontmatter"),
+        ("", "has no frontmatter"),
+        ('---\ncitekey: "rot2024"\ntype: "literature"\n', "unterminated"),
+    ],
+    ids=["no-frontmatter", "empty", "unterminated"],
+)
+def test_set_archive_url_refuses_a_note_it_cannot_rewrite_in_place(note_text, refusal):
+    """Byte-surgery needs a frontmatter block to be surgical inside.
+
+    The writer edits by line index precisely so the managed region, its witness
+    and every human-added key survive untouched. A note with no frontmatter, or
+    one whose block never closes, gives it no bounded region to work in — and
+    guessing one would put `archive-url` somewhere it is not a field.
+    """
+    with pytest.raises(archive.ArchiveError, match=refusal):
+        archive.set_archive_url(note_text, SNAPSHOT)
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_set_archive_url_replaces_an_existing_snapshot_line_in_place(ending):
+    """Re-archiving replaces the URL and touches nothing else, ending included.
+
+    A note can be archived twice — a first snapshot that later rots, then a
+    fresh one. The second write must land on the existing line rather than
+    appending a second `archive-url`, which `set_archive_url` itself would then
+    refuse forever after as an ambiguous note.
+    """
+    stale = "https://web.archive.org/web/20200101000000/https://example.org/page"
+    before = ending.join(
+        [
+            "---",
+            'citekey: "rot2024"',
+            f'archive-url: "{stale}"',
+            'type: "literature"',
+            "---",
+            "body",
+            "",
+        ]
+    )
+
+    after = archive.set_archive_url(before, SNAPSHOT)
+
+    assert after == ending.join(
+        [
+            "---",
+            'citekey: "rot2024"',
+            f'archive-url: "{SNAPSHOT}"',
+            'type: "literature"',
+            "---",
+            "body",
+            "",
+        ]
+    )
+    assert after.count("archive-url:") == 1
+    data, _ = frontmatter.parse(after)
+    assert data["archive-url"] == SNAPSHOT
+
+
 # --- The CLI verb ----------------------------------------------------------
 
 
