@@ -3,6 +3,9 @@ sources/*.zip
 .worktrees/
 .claude/worktrees/
 *.pdf
+.mutate4py/
+lcov.info
+.contexts.db
 
 # --- GitHub Python template (github/gitignore) ---
 # Byte-compiled / optimized / DLL files
