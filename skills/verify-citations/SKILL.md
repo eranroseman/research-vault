@@ -22,18 +22,18 @@ Only add `--surface commit` or `--surface publish` if the person explicitly asks
 
 ## Report the four states honestly
 
-`verify` prints one line per non-MATCHED outcome — `RESULT check target — reason` — followed by a final JSON summary of counts by result. MATCHED outcomes never print individually (they silently mint a `verified` event instead); do not imply that "no output" for a check means it was never run — the JSON counts confirm what actually happened.
+`verify` prints one line per non-MATCHED outcome — `RESULT check target — reason` — followed by a final JSON summary of counts by result. MATCHED outcomes never print individually, for every check id, whether or not they mint an event — silence about one check id in the line output is not itself news; read the JSON counts to confirm what actually ran.
 
 Present the printed lines to the person **grouped by check id** (the second token on each line — `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`), not in raw run order — a person triaging results wants "here is everything wrong with quotes," not an interleaved dump.
 
 | Result | Meaning |
 |---|---|
-| MATCHED | The check ran and agreed. The CLI appended a `verified` event; you did not, and never do. |
+| MATCHED | The check ran and agreed. **Only `doi`, `metadata`, `update-notice`, and per-claim `quote` mint a `verified` event on MATCHED** — every other check id (`citekey`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`) leaves no separate durable trace beyond the run's counts. You never write an event either way. |
 | UNMATCHED | The check ran and disagreed. Already recorded in the review inbox by `verify` itself — do not also file it yourself. |
 | UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the work.** |
 | SKIPPED | The item lacks the field the check needs (no identifier, no quote claims, …). Automatic only — never something you or the person can set. |
 
-An outage is never a failure and never a pass. Describe an UNREACHABLE result as "could not run — outage," never as "failed," "probably fine," or any wording that reads as a verdict. Never claim a check ran that did not, and never claim a `verified` event exists unless you saw a MATCHED line's absence confirm it — only the CLI mints events, and only on a genuine MATCHED result.
+An outage is never a failure and never a pass. Describe an UNREACHABLE result as "could not run — outage," never as "failed," "probably fine," or any wording that reads as a verdict. Never claim a check ran that did not, and never claim a `verified` event exists for a check id that doesn't mint one — only the CLI mints events, only on a genuine MATCHED result, and only for the four check ids named above.
 
 ## Exit codes
 

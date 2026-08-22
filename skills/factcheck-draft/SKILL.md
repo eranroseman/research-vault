@@ -10,15 +10,15 @@ This is **factored verification** (§6): an LLM decompose-and-check pass at draf
 
 ## Select claims mechanically, never by reading the draft yourself
 
-Selection under the budget is **deterministic** — run the vendored script; do not sort or prioritize claims by eye:
+Selection under the budget is **deterministic** — run the CLI's `factcheck` subcommand; do not sort or prioritize claims by eye:
 
 ```sh
-python3 -m knowledge_harness.factcheck --vault PATH --draft projects/NAME/DRAFT.md --cap 30
+python3 -m knowledge_harness factcheck --vault PATH --draft projects/NAME/DRAFT.md --cap 30
 ```
 
 `--cap` defaults to 30 and is user-overridable — ask before changing it, and say what you changed it to. The budget is one LLM pass per selected claim; do not re-check a claim twice in the same run.
 
-The script prints one JSON report, nothing else:
+`factcheck` is a read-only report, like `verify` — it prints one JSON report and writes nothing durable itself:
 
 ```json
 {

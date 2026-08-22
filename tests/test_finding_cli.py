@@ -143,6 +143,134 @@ def test_finding_rejects_an_out_of_vocabulary_result(tmp_vault):
         )
 
 
+def test_finding_rejects_matched_for_any_check_id(tmp_vault):
+    """No caller ever legitimately writes MATCHED through this verb — only a
+    genuine deterministic check mints a `verified` event, and factcheck's own
+    doctrine (factcheck-draft/SKILL.md) is that a clean adjudication writes
+    nothing. Excluded from argparse's own `choices`, so this is a SystemExit,
+    the same shape as any other out-of-vocabulary result."""
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "finding",
+                "factcheck",
+                "smith2020#^c-11111111",
+                "MATCHED",
+                "matched",
+                "--vault",
+                str(tmp_vault),
+            ]
+        )
+    assert _queue_bytes(tmp_vault) == b""
+
+
+def test_finding_refuses_skipped_for_a_deterministic_check_id(tmp_vault, capsys):
+    """SKIPPED is spec §6's automatic-only result for the deterministic
+    checks — never agent- or prose-settable. Only `factcheck`'s own
+    budget-cap bookkeeping may write it through this verb."""
+    code = main(
+        [
+            "finding",
+            "quote",
+            "smith2020#^c-11111111",
+            "SKIPPED",
+            "no-identifier — no extractable source text",
+            "--vault",
+            str(tmp_vault),
+        ]
+    )
+
+    assert code == 2
+    assert "SKIPPED" in capsys.readouterr().err
+    assert _queue_bytes(tmp_vault) == b""
+
+
+def test_finding_still_allows_skipped_for_factcheck(tmp_vault):
+    """The per-check-id guard must not be blanket — factcheck's skipped-set
+    record is spec-required and has no other mechanism that could write it."""
+    code = main(
+        [
+            "finding",
+            "factcheck",
+            "projects/brief",
+            "SKIPPED",
+            "budget-cap — 1 claim deferred: smith2020#^c-1",
+            "--vault",
+            str(tmp_vault),
+        ]
+    )
+
+    assert code == 0
+    assert inbox.open_entries(tmp_vault)[0].result == "SKIPPED"
+
+
+def test_finding_refuses_a_same_day_retry_with_a_different_result(tmp_vault, capsys):
+    """Reproduces the reviewed defect exactly, through the CLI, using the
+    sequence factcheck-draft/SKILL.md itself would produce: a claim that was
+    UNREACHABLE on one pass and UNMATCHED on a same-day retry. Because
+    ``inbox.finding_id`` does not fold `result` into the id, the two calls
+    would otherwise compute an identical id, leaving both rows permanently
+    unacknowledgeable (``append_ack`` refuses whenever more than one open
+    finding row shares an id). The second call must refuse instead of
+    silently colliding, and the first entry must stay genuinely ackable."""
+    claim = "smith2020#^c-11111111"
+    first = main(
+        [
+            "finding",
+            "factcheck",
+            claim,
+            "UNREACHABLE",
+            "outage — network unavailable",
+            "--vault",
+            str(tmp_vault),
+            "--date",
+            "2026-08-21",
+        ]
+    )
+    assert first == 0
+    before = inbox.open_entries(tmp_vault)
+    assert len(before) == 1
+    first_id = before[0].id
+
+    second = main(
+        [
+            "finding",
+            "factcheck",
+            claim,
+            "UNMATCHED",
+            "mismatch — overstates the cited effect",
+            "--vault",
+            str(tmp_vault),
+            "--date",
+            "2026-08-21",
+        ]
+    )
+
+    assert second == 2
+    assert "already recorded" in capsys.readouterr().err
+    entries = inbox.open_entries(tmp_vault)
+    assert len(entries) == 1
+    assert entries[0].id == first_id
+    assert entries[0].result == "UNREACHABLE"
+
+    # The surviving entry must remain genuinely ackable -- the defect this
+    # reproduces is that a silent second row would make it refuse forever.
+    ack_code = main(
+        [
+            "ack",
+            first_id,
+            "--vault",
+            str(tmp_vault),
+            "--reason",
+            "manual — outage resolved, rechecked by hand",
+            "--actor",
+            "human:eran",
+        ]
+    )
+    assert ack_code == 0
+    assert inbox.open_entries(tmp_vault) == []
+
+
 def test_finding_retry_with_the_same_target_hash_is_idempotent(tmp_vault):
     args = [
         "finding",
@@ -281,7 +409,7 @@ def test_verify_citations_skill_routes_every_mechanical_act_through_a_verb():
 def test_factcheck_draft_skill_names_its_bounds_and_never_blocks():
     text = FACTCHECK_DRAFT_SKILL.read_text(encoding="utf-8")
     for token in (
-        "knowledge_harness.factcheck",
+        "knowledge_harness factcheck",
         "30",
         "--cap",
         "finding",

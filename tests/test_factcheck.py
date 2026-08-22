@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from knowledge_harness import Result, events, factcheck
+from knowledge_harness.__main__ import main
 from knowledge_harness.factcheck import ClaimRef
 
 MANAGED = "%%hk-managed%%\n{body}\n%%/hk-managed%%\n"
@@ -272,15 +273,26 @@ def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):
     ]
 
 
-def test_cli_prints_json_and_exits_zero(tmp_vault, capsys):
+def test_factcheck_subcommand_prints_json_and_exits_zero(tmp_vault, capsys):
+    """The CLI entry lives at ``knowledge_harness.__main__.main(["factcheck",
+    …])`` — spec §7's one-binary/one-exit-code-contract CLI — not a separate
+    ``factcheck.main``; the module itself ships no standalone entry point."""
     draft_path = _write_vault(
         tmp_vault,
         {"smith2020": _note("smith2020", "# Note\n")},
         "- (inference) Only claim [@smith2020, p. 1] ^c-11111111\n",
     )
 
-    code = factcheck.main(
-        ["--vault", str(tmp_vault), "--draft", str(draft_path), "--cap", "1"]
+    code = main(
+        [
+            "factcheck",
+            "--vault",
+            str(tmp_vault),
+            "--draft",
+            str(draft_path),
+            "--cap",
+            "1",
+        ]
     )
 
     assert code == 0
@@ -289,9 +301,12 @@ def test_cli_prints_json_and_exits_zero(tmp_vault, capsys):
     assert len(payload["selected"]) == 1
 
 
-def test_cli_reports_a_missing_draft_without_a_traceback(tmp_vault, capsys):
-    code = factcheck.main(
+def test_factcheck_subcommand_reports_a_missing_draft_without_a_traceback(
+    tmp_vault, capsys
+):
+    code = main(
         [
+            "factcheck",
             "--vault",
             str(tmp_vault),
             "--draft",
@@ -303,7 +318,9 @@ def test_cli_reports_a_missing_draft_without_a_traceback(tmp_vault, capsys):
     assert "selection unavailable" in capsys.readouterr().err
 
 
-def test_module_is_runnable_as_a_script(tmp_vault):
+def test_factcheck_is_reachable_through_the_one_binary_cli(tmp_vault):
+    """Proves `factcheck` is genuinely wired into the shared dispatch table —
+    ``python3 -m knowledge_harness factcheck``, not a second binary."""
     draft_path = _write_vault(
         tmp_vault,
         {"smith2020": _note("smith2020", "# Note\n")},
@@ -315,7 +332,8 @@ def test_module_is_runnable_as_a_script(tmp_vault):
         [
             sys.executable,
             "-m",
-            "knowledge_harness.factcheck",
+            "knowledge_harness",
+            "factcheck",
             "--vault",
             str(tmp_vault),
             "--draft",

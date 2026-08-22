@@ -4,11 +4,12 @@ Factored verification is LLM judgment ("no" under Deterministic in the spec's
 trust-gate table) and never blocks or mints a `verified` event — but *which*
 claims an LLM pass spends its budget on must still be decided mechanically,
 never sorted "in its head" by the agent running the skill. This module is
-that mechanical seam: it is run as a script
-(``python3 -m knowledge_harness.factcheck``), not folded into the
-``knowledge_harness`` dispatch table, because it only *computes* a selection
-— nothing here writes an event, a status, a tag, a hold, or an ack (the
-`finding` verb, a real CLI verb, is what factcheck-draft calls for that).
+that mechanical seam: it computes a selection and nothing else — no event,
+status, tag, hold, or ack is ever written here. It is exposed as the
+`factcheck` subcommand in `knowledge_harness/__main__.py` (a read-only report,
+spec §7's one-binary/one-exit-code-contract CLI — the same shape as `verify`),
+not a separate script; the `finding` verb, a sibling subcommand in that same
+dispatch table, is what factcheck-draft calls to actually write anything.
 
 Forked from K-Dense-AI/scientific-agent-skills, skill `scientific-writing`,
 pinned commit 336c4f8
@@ -42,10 +43,7 @@ budget cap — is spec §6's own contract, not upstream's.
 
 from __future__ import annotations
 
-import argparse
 import hashlib
-import json
-import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -218,7 +216,13 @@ def skipped_digest(skipped: list[ClaimRef]) -> str:
 
 
 def run(vault_root, draft_path, cap: int = DEFAULT_CAP) -> dict:
-    """Run one end-to-end selection pass and return a JSON-able report."""
+    """Run one end-to-end selection pass and return a JSON-able report.
+
+    The path-resolution and JSON-printing wrapper lives in
+    ``knowledge_harness.__main__.cmd_factcheck`` — the `factcheck` subcommand
+    — not here, so this module has exactly one entry point for library
+    callers and tests alike.
+    """
     refs = eligible_claims(vault_root, draft_path)
     contested = contested_adjacent_links(vault_root, draft_path)
     selected, skipped = select_claims(vault_root, refs, contested, cap)
@@ -228,44 +232,3 @@ def run(vault_root, draft_path, cap: int = DEFAULT_CAP) -> dict:
         "skipped": [ref.to_dict() for ref in skipped],
         "skipped_digest": skipped_digest(skipped) if skipped else None,
     }
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="knowledge_harness.factcheck",
-        description=(
-            "Deterministically select claims for one factored-verification "
-            "pass (spec §6). Prints a JSON report; writes nothing."
-        ),
-    )
-    parser.add_argument("--vault", required=True, help="vault root")
-    parser.add_argument(
-        "--draft",
-        required=True,
-        help="path to the draft note, vault-relative or absolute",
-    )
-    parser.add_argument(
-        "--cap",
-        type=int,
-        default=DEFAULT_CAP,
-        help=f"budget cap on claims checked this pass (default {DEFAULT_CAP})",
-    )
-    return parser
-
-
-def main(argv=None) -> int:
-    args = build_parser().parse_args(argv)
-    draft = Path(args.draft)
-    if not draft.is_absolute():
-        draft = Path(args.vault) / draft
-    try:
-        report = run(args.vault, draft, args.cap)
-    except (OSError, UnicodeError, ValueError) as error:
-        print(f"selection unavailable: {error}", file=sys.stderr)
-        return 2
-    print(json.dumps(report, indent=2, sort_keys=True))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

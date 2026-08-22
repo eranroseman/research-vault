@@ -12,6 +12,7 @@ from . import (
     AGENT_ACTOR,
     Result,
     bibliography,
+    factcheck,
     frontmatter,
     gitstate,
     inbox,
@@ -344,6 +345,27 @@ def cmd_verify(args):
     return decision
 
 
+def cmd_factcheck(args):
+    """Deterministically select claims for one factored-verification pass.
+
+    Read-only report over ``factcheck.run`` — the CLI's single exit-code
+    contract, one binary (§7), same shape as every other report verb: it
+    prints a JSON selection and writes nothing durable. The actual writes
+    (adjudicated findings, the skipped-set record) go through `finding`,
+    called by the `factcheck-draft` skill after reading this report.
+    """
+    draft = Path(args.draft)
+    if not draft.is_absolute():
+        draft = Path(args.vault) / draft
+    try:
+        report = factcheck.run(args.vault, draft, args.cap)
+    except (OSError, UnicodeError, ValueError) as error:
+        print(f"selection unavailable: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0
+
+
 def cmd_arm_publish(args):
     try:
         path = publish.arm(args.vault, args.project, bypass=args.bypass)
@@ -430,45 +452,102 @@ def cmd_ack(args):
     return 0
 
 
+# SKIPPED is spec §6's "automatic-only, never user- or agent-settable" result —
+# except factored verification's own budget-cap bookkeeping, which has no other
+# mechanism that could ever record it (§6's factored-verification row requires
+# the skipped set be recorded, and only the skill/agent driving `finding` can
+# know what the budget cap left unchecked).
+_FINDING_SKIPPED_CHECKS = frozenset({"factcheck"})
+
+
 def cmd_finding(args):
     """Append one review-record finding — the writer prose is never allowed to be.
 
     Factcheck's adjudicated findings and Task 5's import-time holds both go
     through this, so it validates the check id against the governed §4.4
-    registry itself (``append_entry`` does not — see ``inbox.CHECK_IDS``).
-    A retry that matches an already-open entry exactly (check, target,
-    result, and target hash) is a no-op that reprints the existing id,
-    mirroring the deterministic pipeline's own open-entry dedup
-    (``verify._file_effects``) so a rerun never doubles a standing finding
-    into an unacknowledgeable pair.
+    registry itself (``append_entry`` does not — see ``inbox.CHECK_IDS``), and
+    the result vocabulary per check id: MATCHED is never legitimate here (no
+    caller mints a `verified` event through this verb — only a genuine
+    deterministic check does), and SKIPPED is legitimate only for `factcheck`
+    (every other check's SKIPPED is automatic-only, produced by the
+    deterministic pipeline itself, never by prose).
+
+    Because ``inbox.finding_id`` does not fold `result` into the id (only
+    check/target/date/hash do, plus reason for the rare repeatable-act
+    checks), two calls that differ only in result or reason can compute the
+    *same* id — and ``append_ack``'s matcher requires exactly one open row per
+    id, so a silent second append would leave both rows permanently
+    unacknowledgeable. This computes the candidate id first and checks every
+    prior finding row (acked or not — ``append_ack``'s own matcher does not
+    care) that already carries it: an exact duplicate (same check, target,
+    result, reason, actor, and target hash) is a genuine retry and reprints
+    the existing id; anything else refuses rather than silently colliding.
     """
     if args.check not in inbox.CHECK_IDS:
         print(
             f"finding refused: unregistered check id: {args.check!r}", file=sys.stderr
         )
         return 2
+    result = Result[args.result]
+    if result is Result.SKIPPED and args.check not in _FINDING_SKIPPED_CHECKS:
+        print(
+            f"finding refused: SKIPPED is automatic-only for {args.check!r} — "
+            "never agent- or prose-settable; only the deterministic pipeline "
+            "itself may record it",
+            file=sys.stderr,
+        )
+        return 2
     try:
-        result = Result[args.result]
-    except KeyError:
-        print(f"finding refused: invalid result: {args.result!r}", file=sys.stderr)
+        inbox.validate_reason(args.reason)
+    except ValueError as error:
+        print(f"finding refused: {error}", file=sys.stderr)
         return 2
     actor = args.actor if args.actor is not None else AGENT_ACTOR
+    resolved_date = (
+        datetime.date.today().isoformat() if args.date is None else args.date
+    )
     try:
-        existing = next(
-            (
-                entry
-                for entry in inbox.open_entries(args.vault)
-                if entry.check == args.check
-                and entry.target == args.target
-                and entry.target_kind == "identifier"
-                and entry.result == result.value
-                and entry.target_hash == args.target_hash
-            ),
+        candidate_id = inbox.finding_id(
+            args.check,
+            args.target,
+            resolved_date,
+            args.target_hash,
             None,
+            None,
+            None,
+            "identifier",
+            args.reason,
         )
-        if existing is not None:
-            print(existing.id)
-            return 0
+        colliding = [
+            entry
+            for entry in inbox.load(args.vault)
+            if entry.ack_of is None and entry.id == candidate_id
+        ]
+        if colliding:
+            existing = colliding[0]
+            duplicate = (
+                existing.check == args.check
+                and existing.target == args.target
+                and existing.target_kind == "identifier"
+                and existing.result == result.value
+                and existing.reason == args.reason
+                and existing.actor == actor
+                and existing.target_hash == args.target_hash
+            )
+            if duplicate:
+                print(existing.id)
+                return 0
+            print(
+                f"finding refused: {candidate_id!r} is already recorded with "
+                f"different content (result={existing.result} "
+                f"reason={existing.reason!r} actor={existing.actor!r} "
+                f"target-hash={existing.target_hash!r}) — this id cannot carry "
+                "two distinct findings; ack the existing one first, or supply "
+                "a distinct --target-hash so each stays separately "
+                "identifiable and acknowledgeable",
+                file=sys.stderr,
+            )
+            return 2
         entry = inbox.append_entry(
             args.vault,
             args.check,
@@ -556,6 +635,10 @@ def main(argv=None):
     )
     verify.add_argument("--changed-paths-file")
     verify.add_argument("--commit-projected")
+    factcheck_cmd = sub.add_parser("factcheck", parents=[common])
+    factcheck_cmd.add_argument("--vault", required=True)
+    factcheck_cmd.add_argument("--draft", required=True)
+    factcheck_cmd.add_argument("--cap", type=int, default=factcheck.DEFAULT_CAP)
     arm_publish = sub.add_parser("arm-publish", parents=[common])
     arm_publish.add_argument("project")
     arm_publish.add_argument("--vault", required=True)
@@ -574,7 +657,10 @@ def main(argv=None):
     finding = sub.add_parser("finding", parents=[common])
     finding.add_argument("check")
     finding.add_argument("target")
-    finding.add_argument("result", choices=tuple(Result.__members__))
+    finding.add_argument(
+        "result",
+        choices=tuple(name for name in Result.__members__ if name != "MATCHED"),
+    )
     finding.add_argument("reason")
     finding.add_argument("--vault", required=True)
     finding.add_argument("--actor")
@@ -602,6 +688,7 @@ def main(argv=None):
         "staleness": cmd_staleness,
         "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,
+        "factcheck": cmd_factcheck,
         "arm-publish": cmd_arm_publish,
         "disarm-publish": cmd_disarm_publish,
         "mark-published": cmd_mark_published,
