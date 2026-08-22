@@ -20,7 +20,7 @@ Drain the review inbox before anything else:
 python3 -m knowledge_harness inbox --vault PATH
 ```
 
-Report the unacknowledged count and the oldest entry's date, then count the **blocking-class** entries separately: those carry the reason code `retracted` — a retraction, partial retraction, removal, or withdrawal targeting a cited work. They are the only findings that hold the publish gate. Everything else in the inbox informs and never closes a surface. State that count out loud before anyone chooses a disposition.
+Report the unacknowledged count and the oldest entry's date, then count the **blocking-class** entries separately: those carry the reason code `retracted` — a retraction, partial retraction, removal, or withdrawal targeting a cited work. They are the only *standing alerts* that hold the publish gate; every other finding already in the queue informs and never closes a surface. (The gate still closes on its own checks' current results — see below — so a clean inbox is not the same as a green gate.) State that count out loud before anyone chooses a disposition.
 
 ## Run the gate
 
@@ -99,7 +99,7 @@ Both verbs refuse a project that was never published — the lifecycle opens onl
 
 ## Refusals and exit codes
 
-`mark-published`, `mark-corrected`, `mark-withdrawn`, and `park` all report the same way: `0` succeeded, `1` a closing check is UNMATCHED, `3` a check was UNREACHABLE so publishing waits, `2` the CLI could not carry the disposition out at all (no such project, the project has uncommitted files, a tag of that name already exists). Read the printed blockers back verbatim; do not summarize them into "it failed".
+`mark-published` and `mark-corrected` run the gate, so they answer with it: `0` done, `1` a closing check is UNMATCHED, `3` a check was UNREACHABLE so publishing waits. `mark-withdrawn` and `park` run no gate, so they only ever answer `0` or `2`. Across all four, `2` means the CLI could not carry the disposition out at all — no such project, the project has uncommitted files, a tag of that name already exists, the project was never published. Read the printed blockers back verbatim; do not summarize them into "it failed".
 
 Publishing commits only the project note. If the CLI reports uncommitted files under `projects/NAME`, have the person commit them first — the published tag has to match the project the moment it is minted, or the published-drift lint reports the project as diverged.
 
