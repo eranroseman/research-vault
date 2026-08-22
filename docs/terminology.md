@@ -115,7 +115,9 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 
 | Current term | Status |
 |---|---|
-| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` | A/S — CLI subcommand set (mixed verb/noun forms — conventional for CLIs, not uniformly verbs) |
+| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` (+ Plan D's `arm-publish`, `disarm-publish`, `mark-published`, `mark-corrected`, `mark-withdrawn`, `finding`, `ack`, `search-log`) | A/S — named by the verb decision tree below |
+
+**CLI verb naming rule (adopted 2026-08-22, rethink-derived; a new verb walks this tree):** (1) only reads → bare noun of the report (`doctor`, `inbox`; git-status/brew-doctor anchors); (2) appends one record to a ledger → noun of the record (`finding`, `ack`; git-tag/git-stash anchor), ledger-name fallback when the record has no standalone noun (`search-log`); (3) flips a persistent switch → `arm-`/`disarm-<gate>`; (4) transitions a lifecycle status → `mark-<status>`, status verbatim from the ruled lifecycle; (5) otherwise (projects/derives state) → imperative verb-noun kebab (`import-note`). All branches: kebab-case, CONTEXT.md nouns exactly, no invented abbreviations, no aliases, one verb per act. Recorded flips: object-as-argument (`arm publish`) when a second gate exists; kubectl-style grouping at ~double the verb count. Verb names are living-surface only (they never persist into vault records) — renameable, unlike reason codes.
 | skills `setup-vault`, `project`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names |
 | `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED` | S — trust distinction retained over developer-only pytest vocabulary |
 | evidence layer, synthesis layer, admission, information flow, project flow | A/S — current process vocabulary |
