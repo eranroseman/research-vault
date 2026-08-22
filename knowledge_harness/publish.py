@@ -405,7 +405,7 @@ def mark_withdrawn(vault, project, *, date=None) -> Disposition:
     return Disposition(project, 0, (), "withdrawn")
 
 
-def park(vault, project) -> Disposition:
+def mark_parked(vault, project) -> Disposition:
     """Park a project: sets ``status: parked``, nothing else (§6's day-one menu).
 
     Pre-publication only, for the same reason the menu it belongs to is.

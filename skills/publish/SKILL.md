@@ -46,7 +46,7 @@ An outage is never a failure and never a pass. Do not describe an UNREACHABLE re
 This is the **pre-publication** menu. Present exactly these three and let the person choose. Never pick for them.
 
 - **mark-published** — a full gate run plus its effects: sets `status: "published"` in the project's frontmatter, appends a project-level `verified` event, commits and tags `published/<project>-<date>`.
-- **park** — sets `status: "parked"`, nothing else.
+- **park** — sets `status: "parked"`, nothing else. The CLI verb is `mark-parked` (`park → mark-parked`, matching `mark-published`/`mark-corrected`/`mark-withdrawn`).
 - **keep-draft** — a no-op. Say so and stop; write nothing at all.
 
 To publish, arm the gate first, then run the disposition:
@@ -62,13 +62,13 @@ Arming writes the state flag the Stop hook checks; while it is absent the hook i
 python3 -m knowledge_harness disarm-publish --vault PATH
 ```
 
-`mark-published` disarms the gate itself once it has committed and tagged. Park needs no arming:
+`mark-published` disarms the gate itself once it has committed and tagged. `mark-parked` needs no arming:
 
 ```sh
-python3 -m knowledge_harness park NAME --vault PATH
+python3 -m knowledge_harness mark-parked NAME --vault PATH
 ```
 
-`mark-published` and `park` both refuse a project that is already published, naming the two dispositions that do apply — see the correction lifecycle below.
+`mark-published` and `mark-parked` both refuse a project that is already published, naming the two dispositions that do apply — see the correction lifecycle below.
 
 Deletion is not on the menu. Delete a project only when the person explicitly asks for deletion **and** types `discard` on its own. Anything less — "drop it", "get rid of it", a nodded-through summary — is not consent; offer park or keep-draft instead. Never infer the typed word from context and never type it on their behalf.
 
@@ -97,11 +97,11 @@ python3 -m knowledge_harness mark-corrected NAME --vault PATH
 python3 -m knowledge_harness mark-withdrawn NAME --vault PATH
 ```
 
-These two are the *only* dispositions a published project has. Both refuse a project that was never published — the lifecycle opens only after publication — and, in the mirror, `mark-published` and `park` refuse a project that already is. Re-publishing without going through `mark-corrected` would record a correction as a first publication in tags and events that are never deleted; parking a published project would flip its status out of the set the published-drift lint watches (`published` and `corrected`) and quietly stop it watching the tag — which is exactly why `mark-corrected` does not: a corrected project stays watched. **The original tag is never deleted**, by either disposition or by hand: a correction adds a tag, it does not replace one. Never offer tag deletion, history rewriting, or a quiet edit of the published note as an alternative.
+These two are the *only* dispositions a published project has. Both refuse a project that was never published — the lifecycle opens only after publication — and, in the mirror, `mark-published` and `mark-parked` refuse a project that already is. Re-publishing without going through `mark-corrected` would record a correction as a first publication in tags and events that are never deleted; parking a published project would flip its status out of the set the published-drift lint watches (`published` and `corrected`) and quietly stop it watching the tag — which is exactly why `mark-corrected` does not: a corrected project stays watched. **The original tag is never deleted**, by either disposition or by hand: a correction adds a tag, it does not replace one. Never offer tag deletion, history rewriting, or a quiet edit of the published note as an alternative.
 
 ## Refusals and exit codes
 
-`mark-published` and `mark-corrected` run the gate, so they answer with it: `0` done, `1` a closing check is UNMATCHED, `3` a check was UNREACHABLE so publishing waits. `mark-withdrawn` and `park` run no gate, so they only ever answer `0` or `2`. Across all four, `2` means the CLI could not carry the disposition out at all — no such project, the project has uncommitted files, a tag of that name already exists, the project was never published, the project is already published, or its name is one git cannot turn into a tag (`arm-publish` refuses that last one up front, before anyone waits on a gate run). Read the printed blockers back verbatim; do not summarize them into "it failed".
+`mark-published` and `mark-corrected` run the gate, so they answer with it: `0` done, `1` a closing check is UNMATCHED, `3` a check was UNREACHABLE so publishing waits. `mark-withdrawn` and `mark-parked` run no gate, so they only ever answer `0` or `2`. Across all four, `2` means the CLI could not carry the disposition out at all — no such project, the project has uncommitted files, a tag of that name already exists, the project was never published, the project is already published, or its name is one git cannot turn into a tag (`arm-publish` refuses that last one up front, before anyone waits on a gate run). Read the printed blockers back verbatim; do not summarize them into "it failed".
 
 Publishing commits only the project note. If the CLI reports uncommitted files under `projects/NAME`, have the person commit them first — the published tag has to match the project the moment it is minted, or the published-drift lint reports the project as diverged.
 

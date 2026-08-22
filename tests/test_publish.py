@@ -328,13 +328,13 @@ def test_mark_published_refuses_an_uncommitted_project_file(green_vault, capsys)
     assert _head(green_vault) == before
 
 
-# --- park, correction, withdrawal ------------------------------------------
+# --- mark-parked, correction, withdrawal -----------------------------------
 
 
-def test_park_sets_status_parked_and_nothing_else(green_vault):
+def test_mark_parked_sets_status_parked_and_nothing_else(green_vault):
     before = _head(green_vault)
 
-    assert main(["park", "brief", "--vault", str(green_vault)]) == 0
+    assert main(["mark-parked", "brief", "--vault", str(green_vault)]) == 0
 
     text = _note(green_vault).read_text()
     assert frontmatter.parse(text)[0]["status"] == "parked"
@@ -384,7 +384,7 @@ def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(green_vaul
     `lint_published_drift` keyed on `status == "published"`, and
     `mark-corrected` writes `corrected` — so the lint stopped watching the
     project at the moment a corrections regime needs it watched most, while
-    this skill refuses post-publication `park` precisely because that flip
+    this skill refuses post-publication `mark-parked` precisely because that flip
     blinds the lint. The comparison basis is each project's *newest* tag: the
     original tag survives (ADR 0003) and the corrected tree differs from it by
     construction, so comparing against it would report every legitimate
@@ -516,7 +516,7 @@ def test_publish_skill_routes_every_mechanical_act_through_a_verb():
         "mark-published",
         "mark-corrected",
         "mark-withdrawn",
-        "park",
+        "mark-parked",
         "ack",
         "MATCHED",
         "UNMATCHED",
@@ -632,7 +632,7 @@ def test_inbox_prints_the_finding_id_the_ack_verb_needs(blocked_vault, capsys):
     assert finding_id not in {entry.id for entry in inbox.open_entries(blocked_vault)}
 
 
-@pytest.mark.parametrize("verb", ["mark-published", "park"])
+@pytest.mark.parametrize("verb", ["mark-published", "mark-parked"])
 def test_the_day_one_menu_refuses_an_already_published_project(
     green_vault, capsys, verb
 ):

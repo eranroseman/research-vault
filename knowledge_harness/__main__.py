@@ -543,8 +543,8 @@ def cmd_mark_withdrawn(args):
     return _run_disposition(lambda: publish.mark_withdrawn(args.vault, args.project))
 
 
-def cmd_park(args):
-    return _run_disposition(lambda: publish.park(args.vault, args.project))
+def cmd_mark_parked(args):
+    return _run_disposition(lambda: publish.mark_parked(args.vault, args.project))
 
 
 def cmd_ack(args):
@@ -841,7 +841,7 @@ def main(argv=None):
     arm_publish.add_argument("--bypass")
     disarm_publish = sub.add_parser("disarm-publish", parents=[common])
     disarm_publish.add_argument("--vault", required=True)
-    for disposition in ("mark-published", "mark-corrected", "mark-withdrawn", "park"):
+    for disposition in ("mark-published", "mark-corrected", "mark-withdrawn", "mark-parked"):
         verb = sub.add_parser(disposition, parents=[common])
         verb.add_argument("project")
         verb.add_argument("--vault", required=True)
@@ -902,7 +902,7 @@ def main(argv=None):
         "mark-published": cmd_mark_published,
         "mark-corrected": cmd_mark_corrected,
         "mark-withdrawn": cmd_mark_withdrawn,
-        "park": cmd_park,
+        "mark-parked": cmd_mark_parked,
         "ack": cmd_ack,
         "finding": cmd_finding,
         "search-log": cmd_search_log,
