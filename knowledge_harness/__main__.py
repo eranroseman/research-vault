@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from . import (
+    AGENT_ACTOR,
     Result,
     bibliography,
     frontmatter,
@@ -429,6 +430,62 @@ def cmd_ack(args):
     return 0
 
 
+def cmd_finding(args):
+    """Append one review-record finding — the writer prose is never allowed to be.
+
+    Factcheck's adjudicated findings and Task 5's import-time holds both go
+    through this, so it validates the check id against the governed §4.4
+    registry itself (``append_entry`` does not — see ``inbox.CHECK_IDS``).
+    A retry that matches an already-open entry exactly (check, target,
+    result, and target hash) is a no-op that reprints the existing id,
+    mirroring the deterministic pipeline's own open-entry dedup
+    (``verify._file_effects``) so a rerun never doubles a standing finding
+    into an unacknowledgeable pair.
+    """
+    if args.check not in inbox.CHECK_IDS:
+        print(
+            f"finding refused: unregistered check id: {args.check!r}", file=sys.stderr
+        )
+        return 2
+    try:
+        result = Result[args.result]
+    except KeyError:
+        print(f"finding refused: invalid result: {args.result!r}", file=sys.stderr)
+        return 2
+    actor = args.actor if args.actor is not None else AGENT_ACTOR
+    try:
+        existing = next(
+            (
+                entry
+                for entry in inbox.open_entries(args.vault)
+                if entry.check == args.check
+                and entry.target == args.target
+                and entry.target_kind == "identifier"
+                and entry.result == result.value
+                and entry.target_hash == args.target_hash
+            ),
+            None,
+        )
+        if existing is not None:
+            print(existing.id)
+            return 0
+        entry = inbox.append_entry(
+            args.vault,
+            args.check,
+            args.target,
+            result,
+            args.reason,
+            actor=actor,
+            date=args.date,
+            target_hash=args.target_hash,
+        )
+    except (inbox.InboxError, ValueError, OSError) as error:
+        print(f"finding refused: {error}", file=sys.stderr)
+        return 2
+    print(entry.id)
+    return 0
+
+
 def cmd_inbox(args):
     print(json.dumps(inbox.summary(args.vault), sort_keys=True))
     for entry in sorted(
@@ -514,6 +571,15 @@ def main(argv=None):
     acknowledge.add_argument("--vault", required=True)
     acknowledge.add_argument("--reason", required=True)
     acknowledge.add_argument("--actor", required=True)
+    finding = sub.add_parser("finding", parents=[common])
+    finding.add_argument("check")
+    finding.add_argument("target")
+    finding.add_argument("result", choices=tuple(Result.__members__))
+    finding.add_argument("reason")
+    finding.add_argument("--vault", required=True)
+    finding.add_argument("--actor")
+    finding.add_argument("--date")
+    finding.add_argument("--target-hash")
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
     scaffold_vault = sub.add_parser("scaffold", parents=[common])
@@ -543,6 +609,7 @@ def main(argv=None):
         "mark-withdrawn": cmd_mark_withdrawn,
         "park": cmd_park,
         "ack": cmd_ack,
+        "finding": cmd_finding,
         "inbox": cmd_inbox,
         "scaffold": cmd_scaffold,
         "doctor": cmd_doctor,

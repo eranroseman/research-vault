@@ -33,6 +33,31 @@ REASON_CODES = frozenset(
         "warn-notice",
         "matched",
         "manual",
+        "budget-cap",
+    }
+)
+# The governed check-id registry (terminology §4.4). ``append_entry`` itself
+# stays silent on check ids — the deterministic pipeline (verify.py, lints.py)
+# legitimately files ids this registry does not carry (``staleness``,
+# ``append-only``, ``claim-immutability``, ``published-drift``,
+# ``publish-gate``), so validating here would break it. The `finding` CLI
+# verb is the boundary where this registry is actually enforced: it is the
+# only writer that takes a check id from outside the process, so it is the
+# only place a typo or an unregistered id can enter.
+CHECK_IDS = frozenset(
+    {
+        "citekey",
+        "doi",
+        "metadata",
+        "quote",
+        "update-notice",
+        "evidence-layer",
+        "identifier-discovery",
+        "web-archive",
+        "screening-state",
+        "disputed-claim",
+        "publish",
+        "factcheck",
     }
 )
 _FIELD = re.compile(r"\[(?P<key>[a-z-]+):: (?P<value>(?:\\\]|[^\]])*)\]")

@@ -466,7 +466,7 @@ def lint_screening_state(vault_root, note_file) -> list[Outcome]:
     return _deduplicate(outcomes)
 
 
-def _disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
+def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
     disputed, outcomes = set(), []
     for path in (
         sorted((vault_root / "synthesis").rglob("*.md"))
@@ -492,7 +492,7 @@ def _disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
 
 def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     vault, note = Path(vault_root), Path(note_file)
-    disputed, outcomes = _disputed_claim_links(vault)
+    disputed, outcomes = disputed_claim_links(vault)
     text = note.read_text()
     for claim in claims_mod.parse_claims(text):
         target, extra = _origin(vault, note, claim, "")

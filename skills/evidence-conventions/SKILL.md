@@ -78,6 +78,7 @@ Findings in `inbox/review-queue.md` carry a `reason` code from the controlled re
 | `disputed-claim` | A claim you're building on (via a `supports` link) has standing counter-evidence elsewhere. Surfaces disconfirmation instead of letting it get silently relied on. |
 | `superseded-note` | The claim cites a literature note whose `status` is `excluded` or `superseded`. |
 | `stale` | The vault's bibliography export no longer matches the current Zotero library. |
+| `budget-cap` | Factored verification's per-run budget cap (default 30 claims) was reached; this finding names everything the cap left unchecked this pass. Never means the excluded claims were checked and clean. |
 
 A few registry codes (`contradiction`, `low-confidence`, `not-admitted`, `manual`) belong to surfaces not shipped yet — they get their own glossary rows when those skills land.
 

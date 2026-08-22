@@ -115,7 +115,7 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented 
 
 | Current term | Status |
 |---|---|
-| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` | A/S — CLI subcommand set (mixed verb/noun forms — conventional for CLIs, not uniformly verbs) |
+| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `finding`, `scaffold`, `doctor` | A/S — CLI subcommand set (mixed verb/noun forms — conventional for CLIs, not uniformly verbs); `finding` is the §3 review-record writer, general to every non-deterministic-pipeline finding (factcheck-draft's adjudications, Task 5's holds) |
 | CLI publish surface `arm-publish`, `disarm-publish`, `mark-published`, `mark-corrected`, `mark-withdrawn`, `park`, `ack` | S — spec §6's own words: the gate is *armed*, the day-one menu reads *mark-published*/*park*, the post-publish menu *corrected*/*withdrawn*; `ack` is the §3 acknowledgment's serialization spelling (§4.4) |
 | skills `setup-vault`, `project`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names |
 | `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED` | S — trust distinction retained over developer-only pytest vocabulary |
@@ -129,9 +129,9 @@ checks use composite ids `check:{claim-link}:{target-kind}` (e.g. `quote:{claim-
 
 | Group | Members | Status |
 |---|---|---|
-| check ids | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`), `publish` (the project-level publication event `mark-published`/`mark-corrected` mints, §5) | S — spec §6 rows carry these slugs backticked |
+| check ids | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`), `publish` (the project-level publication event `mark-published`/`mark-corrected` mints, §5), `factcheck` (Task 3 — §6's factored-verification row; LLM-adjudicated, never mints a `verified` event, only findings via the `finding` verb) | S — spec §6 rows carry these slugs backticked; `factcheck` is this document's own coinage for a row the spec names in prose but does not slug |
 | doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf` | S — doctor rows use the Outcome vocabulary (`check`/`result`/`reason`; `Probe` shape unified 2026-08-21) |
-| reason codes | the `REASON_CODES` set at HEAD, incl. `superseded-note` (renamed from `superseded-source`), `fuzzy-quote`, `not-admitted`, `drift`, `outage` | S — one registry, code is authoritative; additions require a reference row |
+| reason codes | the `REASON_CODES` set at HEAD, incl. `superseded-note` (renamed from `superseded-source`), `fuzzy-quote`, `not-admitted`, `drift`, `outage`, `budget-cap` (Task 3 — factored-verification's budget-cap exclusions; the finding naming the skipped set) | S — one registry, code is authoritative; additions require a reference row |
 
 Register split, ruled: **`surface`** (enforcement point — `--surface`, `CLOSING_BY_SURFACE`) is spec §6's
 anchored vocabulary; this document's "tool surface" (T2 prose) is a different register and never
