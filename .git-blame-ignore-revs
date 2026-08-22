@@ -1,3 +1,7 @@
 # Commits ignored by git blame (canonical-form churn only — never content).
 # Append the hash of each one-time format churn commit here.
 # Activate locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: one-time canonical-form churn (mdformat over docs+skills, ruff format)
+# 2026-08-22 — Plan Q Task 2. Form only; no content, no meaning.
+8e3c25078b4844ee81c5b00c79293ac6521b7f7e
