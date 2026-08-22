@@ -108,6 +108,11 @@ def test_markdown_templates_match_canonical_content():
         "Machine surfaces (`log/`, `inbox/review-queue.md`, managed regions, "
         "`system/bibliography.json`) are owner-written: hand or tool edits are "
         "regenerated away or raise a finding.\n\n"
+        "Formatters are writers too. Each machine surface has one owner and a "
+        "byte contract, and the trust machinery rejects foreign writers "
+        "mechanically — so running a Markdown or JSON formatter across the vault "
+        "is what sets the alarms off. This paragraph explains the alarms; it is "
+        "not what enforces them.\n\n"
         "`.harness/` is machine-local: nothing in it travels with the vault.\n"
     )
     assert asset("vault/inbox/review-queue.md").read_text() == (
