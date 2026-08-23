@@ -80,8 +80,8 @@ Per-claim `status`: `live | deprecated` — deprecation is a **transition record
 
 - Evidence-boundary tag: `quote | paraphrase | inference | open-question` (open-question = a claim with no derivation edge — itself lintable).
 - `[@citekey, locator]` carries pinpoints (parses losslessly to CSL `locator`+`label`).
-- `^block-id` anchors claims; **`citekey#^claim-id` is the global claim link** (no prior-art donor exists — first implementation).
-- Synthesis claims add: `stance` (supports/contrasts/mentions), `confidence` (inference-only), per-claim `status`+reason, generating agent + date, and `supports`/`disputes` links to claim links.
+- `^block-id` anchors claims; **`citekey#^claim-id` is the global claim link** (no adoptable donor among surveyed products as of 2026-08-16; the *model* has precedent — micropublications' Support/Challenge graphs, Wikidata's per-statement references — first implementation on this substrate, not first idea; qualified 2026-08-22).
+- Synthesis claims add: `confidence` (inference-only), per-claim `status`+reason, generating agent + date, and typed `supports`/`disputes` stance links to claim links. *(Corrected 2026-08-22: an earlier draft's scite three-value `stance` field — supports/contrasts/mentions — survived here after the revision that settled on the two CiTO-sense links everywhere else; contrasts/mentions were never implemented and the field does not exist.)*
 
 **Event integrity**: actor convention (`human:eran` / `claude-fable-5/<version>` / `process:<id>`) applies to every generating/verifying identity. Note-level checks (DOI, metadata, update-notice) append verified events to literature frontmatter; claim-level quote events include the claim link and comparison target (`managed-region` or `source-text`) in `check`; publish events attach to the project. Machine-confirmed trust requires all applicable note-level checks and quote claims to match; human-reviewed additionally requires a `human:` event. Deterministic gate surfaces alone write these events, and CI recomputes their passes.
 
@@ -107,7 +107,7 @@ Per-claim `status`: `live | deprecated` — deprecation is a **transition record
 - **Offline audit isolation**: synthetic `--offline` network outcomes may appear in explicit output but never mutate trust, markers, events, or inbox state. A genuine attempted outage remains a persisted UNREACHABLE. Surface sets decide blocking only; detection, pass events, current failure projection, markers, and inbox auditing are otherwise surface-independent.
 - **Metadata author comparison**: ordered normalized family names; given names match on first initial; any divergence → review inbox.
 - Passing results append `verified` events per §5; non-passing results go to the review inbox (§3). Adjacent deterministic lints (wikilinks resolve, frontmatter parses, tags present, managed-region edit warnings) ride the citekey row's placement.
-- No adoptable prior art exists for this linter (audited: [research/adoptable-skills-audit.md](../../../research/adoptable-skills-audit.md)) — it is greenfield, built to this table.
+- No adoptable prior art existed for this linter **at audit time (2026-08-16**, four repositories: [research/adoptable-skills-audit.md](../../../research/adoptable-skills-audit.md)**)** — it was built greenfield to this table. *(Scoped 2026-08-22: a later sweep found MIT citation-verification tools — medsci verify-refs, bibverify, harcx, bibtex-updater, CheckIfExist, hallucinator, HALLMARK's baseline registry — none audited against this substrate; the historical claim stands only as dated.)*
 
 ## 7. Skill inventory ([#11](https://github.com/eranroseman/knowledge-harness/issues/11))
 
