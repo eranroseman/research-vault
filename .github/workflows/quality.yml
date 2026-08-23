@@ -1,0 +1,65 @@
+---
+name: quality
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    name: dev-quality lane (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # mutation gate diffs against the merge base
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -e ".[dev]"
+      # GitHub-hosted runners carry no git identity (actions/checkout writes only
+      # safe.directory and the auth header), and the test fixtures commit into
+      # `git init` temp repos outside the workspace, so --global is load-bearing.
+      # Same identity the harness's own vault CI template uses.
+      - name: Git identity (tests commit into temp repos)
+        run: |
+          git config --global user.name "harness-ci"
+          git config --global user.email "actions@users.noreply.github.com"
+      - name: Form + lint (the one command — same as local)
+        run: pre-commit run --all-files --show-diff-on-failure
+      # shellcheck ships in the runner image (0.9.0, the local version); shfmt does
+      # not, and the manual-stage hook below is a `language: system` hook that needs
+      # the binary on PATH. Pinned exact, like every other tool in this lane.
+      - name: Install shfmt (pinned; absent from the runner image)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/shfmt" https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64
+          sudo install -m 0755 "$RUNNER_TEMP/shfmt" /usr/local/bin/shfmt
+      - name: Residual binary hooks (manual stage)
+        run: pre-commit run --all-files --hook-stage manual
+      - name: Workflow lint (actionlint)
+        uses: raven-actions/actionlint@v2
+      - name: Tests + branch coverage
+        run: python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
+      - name: CRAP ceiling (crap4py)
+        run: crap4py knowledge_harness --lcov lcov.info --max-crap 30
+      - name: Duplicate gate (drywall)
+        run: drywall knowledge_harness
+      # No-op on push by construction (origin/main...HEAD is empty after a landing);
+      # this gate earns its keep on pull_request and workflow_dispatch. Until the
+      # baseline lands, an absent mutation-baseline.txt reads as zero baselined
+      # survivors, so on a PR touching core every survivor counts as new and fails
+      # here — loudly, in an advisory lane, which is the intended reading.
+      # --max-workers 1 is load-bearing, not a tuning knob: mutate4py takes its
+      # parallel path whenever max_workers >= 2 and >= 2 sites are selected, and
+      # that path provisions each worker tree with `uv venv` + `uv sync`. uv is
+      # absent from the runner image and from the dev extra, and there is no serial
+      # fallback — a missing uv is an uncaught FileNotFoundError, so the gate would
+      # die during provisioning and measure nothing. 1 keeps mutate4py serial, in
+      # the job's own environment. (0 is not an option: mutate4py rejects < 1 and
+      # mutation_gate.py always forwards the flag.)
+      - name: Mutation gate (no new survivors)
+        run: python scripts/mutation_gate.py --lcov lcov.info --max-workers 1 --base
+          "origin/${{ github.base_ref || 'main' }}"

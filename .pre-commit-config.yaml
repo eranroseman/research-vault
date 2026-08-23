@@ -8,6 +8,11 @@
 # NAME COLLISION, deliberate: this is the repo's DEV-LANE pre-commit (style and
 # correctness). The vault's pre-commit (knowledge_harness/templates/git/pre-commit)
 # is a TRUST GATE owned by the harness — a different system; do not conflate.
+# Hooks with no `stages` key would otherwise inherit pre-commit's all-stages
+# default and be re-selected by `--hook-stage manual`, making the manual run a
+# superset of this one. Pinning the default to pre-commit keeps the manual
+# invocation meaning exactly what it says: the binary-tool residuals below.
+default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:
@@ -52,14 +57,10 @@ repos:
         entry: bash -c 'mdformat --number --wrap keep README.md AGENTS.md CONTEXT.md docs skills'
         pass_filenames: false
         always_run: true
-      # `.github/workflows` is deliberately absent from this path list: the
-      # directory does not exist yet and yamlfix hard-fails (FileNotFoundError)
-      # on a missing path rather than skipping it. The task that creates the
-      # workflows adds the path here in the same change.
       - id: yamlfix
         name: "form: yaml (yamlfix)"
         language: system
-        entry: bash -c 'yamlfix knowledge_harness/templates/ci'
+        entry: bash -c 'yamlfix .github/workflows knowledge_harness/templates/ci'
         pass_filenames: false
         always_run: true
       # The three flags are load-bearing, measured 2026-08-22 (the plan's
@@ -127,7 +128,7 @@ repos:
       - id: shfmt
         name: "form: shell (shfmt, diff mode)"
         language: system
-        entry: shfmt -d knowledge_harness/templates/git/pre-commit
+        entry: shfmt -d -i 2 -ci knowledge_harness/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]
