@@ -181,13 +181,23 @@ evidence that the DOI is bad." The reasoning is defensible; the outcome is not. 
 nowhere to put *could not run*, so the outage collapses into a pass.
 
 The precise defect is worth naming, because a two-state result is not automatically wrong.
-research-hub's `verify.py` returns `ok: bool` too (§6.15) — and is rescued a layer up, where
+research-hub's `verify.py` returns `ok: bool` too and is rescued a layer up, where
 `authenticity.py` classifies the reason string through `is_transient_reason()` and refuses to read
 a transient failure as fabrication. K-Dense has no such layer: the boolean is the answer the caller
-gets. So the defect is not the type, it is that **nothing anywhere in that skill distinguishes an
-outage from a pass**. Adopting the file would have imported a silent false-pass into the one check
-the product exists to perform, and reading the code would not have flagged it, because the flaw
-lives in the shape of the answer rather than in the logic.
+gets.
+
+**And K-Dense is not representative — auditing the others on 2026-08-22 showed that.** bibverify
+returns `QueryStatus.NETWORK_ERROR` from a ten-state enum, with a contract test asserting it;
+`harcx` and `bibtex-updater` return a bool plus a reason and fail toward *not verified*;
+CiteVerifier carries `timeout`, `error` and `unknown` verdicts. Four of five handle an outage
+honestly. K-Dense is the only one that fails toward **clean**, which is the one direction that
+cannot be recovered by a careful caller.
+
+That sharpens the rule rather than weakening it. The test is not "will this tool express an
+outage" — most will. It is **which way it fails when it does not know**, and that is a property you
+only learn by reading the error path, not the README. It also means our own four-state is not
+automatically the best available: bibverify distinguishes rate-limit from auth from network from
+parse from provider failure, where our `UNREACHABLE` collapses all five.
 
 So the test for "must build" is not *is this good code* but *does this decide a verdict*. It is
 the same line the dependency question resolved to (test 2 below): a dependency is cheap where it

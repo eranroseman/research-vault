@@ -21,15 +21,32 @@ them first is what makes the rest of this spec worth reading.
 **A. The join.** Any assembly of N tools needs the code that calls them, passes data between them,
 and decides what their output means together. That is not a component; it is the product.
 
-**B. The result contract.** Assembled verifiers do not agree on what an answer is.
-`2026-08-22-product-comparison-verified.md` §18.1 records the decisive case: K-Dense's
-`validate_citations.py` returns `Tuple[bool, Optional[Dict]]` and, on a network failure, returns
-`True` — an outage becomes a pass, because a boolean has nowhere to put *could not run*. Its
-sibling `literature-review` makes the opposite error, returning invalid on an exception. Adopting
-both without a normalising layer imports two contradictory falsehoods. research-hub solves this by
-classifying reason strings one layer up (`is_transient_reason`); Imbad0202 by a versioned schema
-separating attestation from observation; we by putting four states in the type. **An assembled
-system must build one of those three, because no component ships it.**
+**B. The result contract.** An earlier draft claimed no component ships one. **That was wrong**, and
+auditing the error path of every MIT verifier in §2.5 on 2026-08-22 gives a more useful answer.
+
+| Verifier | On a network failure | Shape |
+|---|---|---|
+| Hylouis233/bibverify | `QueryStatus.NETWORK_ERROR`, with a contract test asserting it | a **ten-state enum**: `MATCHED`, `NO_MATCH`, `AMBIGUOUS`, `RATE_LIMITED`, `AUTH_ERROR`, `NETWORK_ERROR`, `PARSE_ERROR`, `PROVIDER_ERROR`, `IDENTIFIER_CONFLICT`, `INVALID_INPUT` |
+| `harcx` | `reachable=False, status_code=None, message="Request timed out"` | bool plus reason; fails toward *not verified* |
+| `bibtex-updater` | `URLCheckResult(accessible=False, error="Request timed out")` | bool plus reason; fails toward *not verified* |
+| CiteVerifier | `timeout` / `error` / `unknown` among its verdict strings | string states |
+| K-Dense `validate_citations.py` | `return True` | bool; fails toward **clean** |
+
+So every one of them can express *could not run*. The real risk is narrower and worse: they
+**disagree about which direction to fail**, and one of the five fails toward clean — in shipped,
+MIT, otherwise-adoptable code, with a comment explaining the reasoning. An assembly that normalises
+vocabulary but not direction still imports that.
+
+Two further findings from the same audit. bibverify's enum is **richer than ours**: our single
+`UNREACHABLE` collapses rate-limit, auth, network, parse and provider failures, and rate-limited
+versus network-error is an actionable difference — retry with backoff, or retry later. It also has
+`AMBIGUOUS` and `IDENTIFIER_CONFLICT`, which we cannot express at all.
+
+The three designs for carrying this remain as described — states in the type (ours, and
+bibverify's), a versioned schema separating attestation from observation (Imbad0202), or a
+two-state result under a reason classifier (research-hub, and by extension `harcx` and
+`bibtex-updater`). **An assembly must pick one and normalise every adapter into it**, not because
+the components lack states, but because they do not share them.
 
 **C. The addressing.** `citekey#^claim-id` with typed `supports`/`disputes` between claim addresses
 has no donor among 35 surveyed products (§12). The nearest precedents are standards, not code:
