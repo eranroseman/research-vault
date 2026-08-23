@@ -1,6 +1,7 @@
 """Unit tests for the no-new-survivors mutation gate (parsing + comparison only;
 no subprocess — the mutate4py invocation itself is exercised by the baseline run)."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -305,3 +306,28 @@ def test_memory_cap_wraps_invocation_in_systemd_run_scope(monkeypatch):
 
     mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4)
     assert captured[-1][0] == sys.executable
+
+
+def test_run_mutate_disables_bytecode_writing(monkeypatch):
+    """Removes a false-SURVIVOR window, which is worse than any abort.
+
+    A timestamp-based .pyc is validated on (mtime, size) alone, and the common
+    mutations are same-length token swaps (`==` -> `!=`). A .pyc written and a
+    mutant applied inside one filesystem-timestamp tick collide on both fields,
+    so the child imports stale bytecode, never exercises the mutant, and records
+    it as survived. This is pinned by a test because an env var that stops being
+    passed fails silently -- and its failure mode is a quietly wrong baseline,
+    not a crash.
+    """
+    seen: dict[str, str] = {}
+
+    def fake_run(cmd, **kwargs):
+        seen.update(kwargs.get("env") or {})
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4)
+    assert seen.get("PYTHONDONTWRITEBYTECODE") == "1"
+    # Inherited, not replaced: mutate4py resolves its own interpreter and tools
+    # through the ambient environment.
+    assert "PATH" in seen

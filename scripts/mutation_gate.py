@@ -17,7 +17,7 @@ overwrites both files. Gate mode ignores this flag.
 --memory-cap SIZE (either mode): wraps every mutate4py invocation in
 `systemd-run --user --scope -p MemoryMax=SIZE -p MemorySwapMax=0`, so the kernel
 kills a runaway invocation instead of the whole VM. Measured cause: mutate4py
-0.1.4's parallel path (--max-workers >= 2) leaks ~155 MB/s monotonically and has
+0.1.4's parallel path (--max-workers >= 2) leaks ~199 MB/s monotonically and has
 taken down this machine's VM before Linux's OOM-killer could react; the serial
 path (--max-workers 1) is memory-stable but ~9x slower. SIZE is passed through
 verbatim to MemoryMax= -- systemd owns that size grammar, not this script.
@@ -44,6 +44,7 @@ mode writes into production source files and is never acceptable here.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -158,7 +159,19 @@ def _run_mutate(
     # indistinguishable from a clean module with zero survivors. Returning the
     # code (not raising) keeps that distinction visible to both call sites, which
     # decide separately what a failed module means for their mode.
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, check=False)
+    # PYTHONDONTWRITEBYTECODE removes a false-SURVIVOR window, which is worse than
+    # any abort: a timestamp-based .pyc is validated on (mtime, size) alone, and the
+    # common mutations are same-length token swaps (== -> !=, + -> -, < -> >). A .pyc
+    # written and a mutant applied inside the same filesystem-timestamp tick therefore
+    # collide on both fields, so the child imports the STALE bytecode, never exercises
+    # the mutant, and records it as survived. mutate4py's forking executor guards this
+    # itself (_invalidate_bytecode_cache + sys.dont_write_bytecode); its subprocess
+    # fallback does not, and that fallback is silent. Writing no bytecode at all costs
+    # a recompile per run and removes the window on every path.
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, cwd=ROOT, check=False, env=env
+    )
     sys.stderr.write(proc.stderr)
     return proc.stdout, proc.returncode
 
