@@ -312,13 +312,99 @@ what is ported, and what is replaced now.** The sorting rule is §18.1 of the pr
 *adopt by default; build only where the artifact decides a verdict* — and it is what makes these
 three lists non-arbitrary.
 
-### 9.1 Preserve — seven things, all verdict-deciding
+### 9.1 Why skills come first
+
+This is a Claude Code plugin. The nine `SKILL.md` files are what a person invokes; the Python core
+is what they call into. Memoria's equivalent surface is **60 operation contracts** under
+`product/capabilities/operations/`. On that axis the gap is wider than anywhere in the core, and
+the shape of their contract is the single most portable thing in either project.
+
+**Their frontmatter, ours.** A Memoria operation declares:
+
+```yaml
+operation_id: analyze-claims
+prompt_version: analyze-claims.v1
+allowed_tools: [trusted_writer]
+allowed_paths: [catalog/, digests/, fulltexts/, notes/, hubs/, projects/]
+allowed_network: []
+untrusted_fields: [input]
+io_schema: {input: selection_or_note, output: claim_analysis}
+risk_class: medium
+required_checks: [memoria-runtime]
+posture: peer-reviewer
+```
+
+Ours declares `name`, `description`, and sometimes `disable-model-invocation`. Everything else —
+which paths a skill may touch, whether it may reach the network, which of its inputs are untrusted,
+what it returns, how risky it is — lives in prose that nothing enforces.
+
+### 9.2 Skills — preserve
+
+| Skill | Why it survives |
+|---|---|
+| `evidence-conventions` | The Iron Law, the four evidence-boundary tags as a required per-line vocabulary, and the rationalizations table. No comparable tags epistemic status per line (§1.C). This is the skill that carries the doctrine; everything else enforces it |
+| `import-source` | Projects only an already-admitted item, and the note is a render rather than an LLM write. Every other ingest surface in the survey takes arbitrary documents. Its three surgical per-claim holds — contradiction, low confidence, schema violation — hold one claim, never the catalog |
+| `publish` | The fixed disposition menu, typed-`discard` consent, the correction lifecycle where a tag is added and never deleted, and a bypass that is "recorded, not forgiven" |
+| `factcheck-draft` | The only skill anywhere that records what it did **not** check: the `budget-cap` finding names every claim the cap excluded, so silence cannot read as clearance |
+| `verify-citations` | Its refusal is the design. It reports grouped by check id and explicitly will not act as the gate even when asked whether one would pass. Thin-wrapper discipline is worth keeping when the thing wrapped decides verdicts |
+
+`project` and `setup-vault` are not on this list. Both are thinner than their counterparts and
+neither carries a property nothing else has.
+
+### 9.3 Skills — port from Memoria
+
+1. **The capability contract itself.** `allowed_paths`, `allowed_network`, `untrusted_fields`,
+   `io_schema`, `risk_class`, `prompt_version` in skill frontmatter. This is the largest single
+   design gap between the two projects, and it is declarative — a frontmatter schema plus a
+   validator, not an engine. It also makes several of our prose rules mechanical: "never write
+   `literatures/`" becomes an `allowed_paths` line a lint can check.
+2. **The `integrity-*` operation family.** Eight of them: `integrity-claim-quote-check`,
+   `integrity-quote-anchor-check`, `integrity-evidence-check`, `integrity-contradiction-check`,
+   `integrity-link-target-check`, `integrity-provenance-checkpoint`,
+   `integrity-prompt-injection-check`, `trace-integrity-scan`. Ours are CLI checks reported by one
+   skill; theirs are addressable operations with their own contracts. The prompt-injection one is
+   the §11.2 gap as a shipped capability.
+3. **The argument-quality operations.** `red-team-argument` ("make the strongest grounded
+   counter-case against an argument"), `check-falsifiability` ("check whether input claims are
+   empirically falsifiable"), `surface-tensions`, `analyze-project-argument`. We have
+   `disputed-claim` surfacing and nothing that attacks a draft on purpose.
+4. **`prompt_version` as a checked field.** Imbad0202 pins its judge prompt version as an invariant
+   (§2.5 lineage); Memoria versions every operation prompt. Our `factcheck` finding identity is the
+   claim text hash alone, so changing how we prompt an adjudicator does not reopen prior findings.
+5. **Operation granularity as an option, not a default.** Sixty small contracts versus nine
+   workflows is a real trade: theirs is addressable and composable, ours is fewer things to learn.
+   Worth taking deliberately rather than drifting into.
+
+### 9.4 Skills — mirror from third parties
+
+The comparison's §18.9 establishes mirroring a whole skill — copy the directory verbatim, carry its
+licence beside it, add the provenance header, rename only into our namespace. All verified MIT.
+
+| Mirror | Fills |
+|---|---|
+| cookjohn `cnki-skills`, `gs-skills` | CNKI and Google Scholar coverage `find-sources` cannot reach at all |
+| WenyuChiou `gap-to-topic` | The three-gate go/no-go dossier — the step upstream of `project`, which frames a question and never asks whether it should be asked |
+| medsci `check-reporting` | 49 reporting guidelines, verified-permissive rows only |
+| medsci `manage-refs` | Rendering, marker conversion and Zotero CWYW field codes — the writing half of reference handling we have none of |
+| hermes `llm-wiki` rules | Page-splitting and archival thresholds, backlink checks, index-scaling and log rotation — `synthesis-conventions` has the 2+-source threshold and none of the scale rules |
+| claude-obsidian `wiki-retrieve`, `wiki-query` | A retrieval surface, if obra/knowledge-graph is not taken as the dependency instead (§9.7) |
+
+**Not mirrored:** PHY041 `claude-skill-citation-checker` and htlin222 `research-guardian`. Both are
+MIT and both decide verdicts — the §9.8 line.
+
+**Skill-set governance**, from mattpocock/skills and obra/superpowers rather than from any research
+tool: a `skills` array in `plugin.json` (ours has none), bucket promotion for skills being trialled
+or retired, a Codex-side invocation policy to match our `disable-model-invocation`, a docs page per
+promoted skill, and per-agent conformance tests. superpowers runs those across eight agents; we run
+none, while authoring in a portable format precisely so other agents can use them.
+
+### 9.5 Core — preserve
 
 | What | Where | Why it survives |
 |---|---|---|
 | Zotero + Better BibTeX citekey spine | `zotero.py`, `bibliography.py` | Nothing among 35 products, and nothing in Memoria, joins a reference manager, a vault and every check on one key. Memoria's plan is `zotero-bulk-import` — "admit to catalog, none to knowledge" |
 | `citekey#^claim-id` and typed stance links | `claims.py`, the claim-immutability lint | No donor found. The precedents are standards, not code (§2.12) |
-| Quote correspondence against source text | `quotes.py`, `selectors.py` | Memoria hash-pins bound text; we ask whether the quote is in the source. Only the second catches a fabricated quote |
+| ~~Quote correspondence against source text~~ | `quotes.py`, `selectors.py` | **Claim withdrawn.** Memoria ships `integrity-claim-quote-check` — "check whether a claim's quoted evidence appears in its source" — and `integrity-quote-anchor-check`. An earlier draft read only its `evidence-text-drift` hash-pin and concluded it did not compare against source. It does. What remains ours is the W3C prefix/suffix selector storage and the `fuzzy-quote` reason code, and neither has been compared against their implementation |
 | Four-state `Result` and the frozen registries | `outcome.py`, `inbox.py` | This *is* §3.1's result contract, already owned: 18 reason codes and 15 check ids enforced by the writer |
 | Hook surfaces | `hooks/` | The one differentiator that survived three narrowings. Memoria is a CLI; every competitor needs an operator flag |
 | Publication lifecycle | `publish.py`, the published-drift lint | Tags are never deleted and a correction adds one. Every other product stops when the artifact ships |
@@ -327,7 +413,7 @@ three lists non-arbitrary.
 **This bucket is contingent.** Rows four to six are only assets while the false-positive rate is
 low enough that a person leaves the gate armed (§6.2). Unmeasured, they are a bet.
 
-### 9.2 Port from Memoria — designs, not dependencies
+### 9.6 Core — port from Memoria
 
 In-house, so this is porting rather than importing. Ranked by value.
 
@@ -349,7 +435,7 @@ In-house, so this is porting rather than importing. Ranked by value.
 7. **Code grounds.** `code-grounds:<run>:<artifact>:sha256`. Nothing anywhere has it. Park until
    analysis work lands, then it is the other half of citation.
 
-### 9.3 Replace with third-party now — six
+### 9.7 Core — replace with third-party now
 
 | Replace | With | Why now |
 |---|---|---|
@@ -360,16 +446,29 @@ In-house, so this is porting rather than importing. Ranked by value.
 | Any future renderer | pandoc + CSL | Both medsci and pedrohcgs shell out rather than reimplement |
 | Building reporting-guideline support | medsci `check-reporting` | 49 checklists, verified-permissive rows only, plus its `LICENSES.md` discipline |
 
-### 9.4 What is deliberately not replaced
+### 9.8 What is deliberately not replaced
 
 `verify.py` and `checks.py` stay ours. bibverify, `harcx`, `bibtex-updater` and CiteVerifier are
 all MIT and all tempting, and every one of them decides a verdict — which is exactly where §18.1
 says adoption stops. K-Dense's `validate_citations.py` returning `True` on a network failure is the
 concrete cost of getting that boundary wrong.
 
-### 9.5 Net effect
+### 9.9 Net effect
 
-The core shrinks toward four things: the spine, the addressing, the result contract, and the gate.
-Everything around them comes from somewhere else, and two of the four already exist here. That is
-§8's verdict applied to a codebase rather than to a hypothetical — and it is the same conclusion
-the product comparison reaches in §17.2, now with named files on both sides of the line.
+**The core** shrinks toward four things: the spine, the addressing, the result contract, and the
+gate. Everything around them comes from somewhere else, and two of the four already exist here.
+
+**The skills** shrink further, and change shape rather than only shrinking. Five survive as written
+because each carries a property nothing else has. Two — `project` and `setup-vault` — are thinner
+than their counterparts and survive by scope rather than by merit. Six more arrive by mirroring.
+And the frontmatter contract every one of them declares stops being three fields of prose and
+becomes a declaration a lint can check.
+
+That second half is the larger change, and it is the one this section originally missed. The
+comparison document spends four hundred lines on skill-by-skill analysis; the first draft of §9
+spent none, and sorted `.py` modules as though the plugin were a library. It is not: the skills are
+the product surface, the core is what they call into, and the gap against Memoria is wider at the
+skill layer than anywhere in the Python.
+
+Both halves are the same conclusion the product comparison reaches in §17.2 — build the trust core,
+adopt the breadth — now with named files and named skills on both sides of the line.

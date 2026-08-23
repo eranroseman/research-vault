@@ -176,8 +176,15 @@ Three things, and the list is short.
   `zotero-bulk-import` — *"generic BibTeX/CSL; admit to catalog, none to knowledge"* — an import
   adapter. Our citekey joins filenames, prose citations, the bibliography export and every check.
   This is the one architectural axis where the two projects genuinely diverge.
-- **Quote correspondence against source text**, with stored W3C-shaped prefix/suffix selectors and
-  a fuzzy-match reason code. Memoria hash-pins bound text instead.
+- ~~Quote correspondence against source text.~~ **Withdrawn 2026-08-22.** Memoria's capability
+  layer ships `integrity-claim-quote-check` ("check whether a claim's quoted evidence appears in
+  its source") and `integrity-quote-anchor-check` ("check anchored note quotes against their source
+  content"). The earlier reading rested on `evidence-text-drift`, which hash-pins bound text, and
+  missed the operations layer entirely. What may remain ours is the stored W3C prefix/suffix
+  selectors and the `fuzzy-quote` reason code — unverified against their implementation, so not
+  claimed. **This is the fourth absence asserted about Memoria in this note's drafts that reading
+  falsified**, and the pattern is the one §1 of the product comparison names: a negative from a
+  probe aimed at the wrong layer.
 - **Claim-to-claim stance links.** `supports` appears in Memoria's propagation walk as an edge
   type, so the concept exists; `citekey#^claim-id` addressing between claims does not appear in
   what was read.
