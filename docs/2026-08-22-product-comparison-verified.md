@@ -1705,9 +1705,18 @@ and the tier is the recommendation.
 1. **Licence.** Permissive, and verified in the artifact rather than assumed from the repository.
    K-Dense is MIT at repository level with four proprietary Anthropic skills inside it (§6.12);
    medsci's checklists carry per-file licences that differ from the repository's (§18.4).
-2. **Self-containment against a zero-dependency core.** Our core imports nothing outside the
-   standard library. A file importing `requests`, `httpx`, `pydantic` or `python-docx` cannot be
-   vendored into it, however good it is.
+2. **Dependency cost, weighed — not a veto.** Our core imports nothing outside the standard
+   library today, and that is worth keeping. But it is a guideline, not a rule, and we already
+   own the mechanism for breaking it cleanly: `pyproject.toml` carries `pdf = ["pypdf>=4"]` as an
+   optional extra, and `selectors.pdf_text` returns `None` on any failure, so the feature degrades
+   and the core does not. A dependency behind an extra costs the *feature* a dependency, not the
+   core its property.
+
+   So weigh rather than filter. Against a candidate: how many transitive packages, how well
+   maintained, does it sit in the trust path, does it degrade cleanly when absent, and would we be
+   reimplementing it worse. For it: what capability arrives, and how much of our own code stops
+   existing. `python-docx` for field-code injection is one well-kept package buying a capability
+   we have none of; `httpx` plus `anyio` plus `pydantic` plus `rich` to read one CSV is not.
 3. **Substrate fit.** A file coupled to another project's layout — its registries, its vault
    resolver, its manifest format — is a rewrite, not an adoption.
 4. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
@@ -1758,7 +1767,7 @@ seam, credit in a header comment.
 | medsci `verify-refs/scripts/check_claim_fidelity.py` | the graded-by-checkability probe design: quoted text is decidable, attribution is not, so only the extreme case fires (§10.7) | 644 lines whose CLI takes `--manuscript --fulltext-dir --bib --refmap` — bound to their layout |
 | claude-obsidian `scripts/bm25-index.py` | a pure-stdlib BM25 index in 851 lines, with an honest documented no-op when the optional reranker is absent | imports `claude_obsidian.paths` and `claude_obsidian.transaction`; the retrieval decision is not made anyway (§11) |
 | swarmvault `packages/engine/src/watch.ts` | the shrink-ratio circuit breaker: refuse a refresh that drops nodes or edges by more than 25% (§6.7) | TypeScript; the mechanism is a comparison and a threshold, perhaps twenty lines in Python |
-| research-hub `authenticity.py` | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | imports `requests` and five project modules |
+| research-hub `authenticity.py` | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | the `requests` import is not the obstacle — our `webapi.py` already does the same work over `urllib` — but it also imports five project modules (`dedup`, `locks`, `search.crossref`, `security`, `utils.doi`), and those are the rewrite |
 
 ### 18.4 Tier C — adopt as data
 
@@ -1804,11 +1813,20 @@ Worth reading, not worth carrying. Each fails a specific test.
 - **Imbad0202, everything** — CC-BY-NC-4.0. The integrity-signal contract, the injection probes,
   the judge-prompt-version pin and the uncited-assertion detector are all re-derivable and none is
   copyable (§6.2, §15).
-- **paper-qa `journal_quality.py`** — imports `anyio`, `httpx`, `httpx_aiohttp`, `pydantic`,
-  `rich` and paperqa internals. The venue-quality gap is real; this file is not the route to it.
-- **medsci `manage-refs` rendering scripts** — import `python-docx`; they also vendor their own
-  `_vendor_citation_writer`, so the pattern is confirmed but the code is not portable to a
-  zero-dependency core.
+- **paper-qa `journal_quality.py`** — 216 lines importing `anyio`, `httpx`, `httpx_aiohttp`,
+  `pydantic`, `rich`, plus `paperqa.types` and `.client_models`. Weighed rather than vetoed: five
+  runtime packages is a poor trade for one signal, and the internal coupling means we would be
+  rewriting it anyway. The venue-quality gap is real, but the route to it is the underlying
+  journal-quality data, not this wrapper around it.
+- **medsci `manage-refs` rendering scripts** — import `python-docx`, and vendor their own
+  `_vendor_citation_writer` beside it. This is the candidate where the trade-off most plausibly
+  favours taking the dependency: one well-maintained package, behind a `docx` extra alongside our
+  existing `pdf` one, buying native Zotero CWYW field-code injection and journal-CSL rendering that
+  we have no version of. It sits outside the trust path — it writes a submission artifact, it does
+  not decide anything — which is what makes the dependency cheap. The counter-argument is that
+  pandoc already renders DOCX and medsci shells out to it for exactly that; `python-docx` earns its
+  place only for the field codes pandoc cannot write. Decide it with the rendering decision, not
+  before.
 - **hermes `grounded-citations`** — MIT, and the closest peer to our quote gate, but its ledger
   exists because web sources have no stable identifier. Our citekey universe already is that
   ledger (§6.6).
