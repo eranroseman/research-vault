@@ -10,10 +10,14 @@ it could replace the harness, replace one component, or only inform its design. 
 the comparison proper — skill by skill, then what we lack, then what only we have, then the
 differences as one table. **Part IV** is the record: corrections this pass forced on this
 repository's earlier notes, and what was deliberately left out. **Part V** is a positioning
-judgment built on all of it, ending in a candidate-by-candidate vendoring list and, in section 20,
-in the one dimension the comparison never entered — what the research literature says about tools
-of this kind. Parts I–IV are evidence; Part V is inference, except sections 18 and 20, whose
-licence, dependency and benchmark figures were checked in the artifacts and papers themselves.
+judgment built on all of it, ending in a candidate-by-candidate vendoring list. Parts I–IV are
+evidence; Part V is inference, except section 18, whose licence and dependency facts were checked
+in the artifacts.
+
+Two navigation notes. **§8.5 is the research literature** — four papers read from `sources/`, and
+the only part of the evidence that is about tools of this kind rather than about a competitor; the
+positioning judgment in §17 leans on it heavily. And **§11 is ordered by cost**: its first group is
+verification, where a gap costs us what we claim to be, and the rest is breadth.
 
 ---
 
@@ -95,7 +99,7 @@ Elicit, scite and llmwikis.org have no inspectable repository and are listed wit
 No product was read exhaustively; reading was targeted at the axes in Part III. Capability lists
 drawn from a product's own skill file or README describe what it claims to do, not measured
 behaviour. Star counts are a distribution signal, not a quality signal. No verifier's error rates were
-measured here, including ours: the detection and false-positive figures in §20 are HALLMARK's,
+measured here, including ours: the detection and false-positive figures in §8.5 are HALLMARK's,
 reported for its own baselines, and our suite has never been scored against it. Three claims found in this
 repository's notes were **not** re-verifiable in this pass and are therefore absent: pandoc's
 undocumented missing-citekey rendering, Quarto's warning propagation, and JATS4R's severity
@@ -907,12 +911,173 @@ rate is low enough that a person leaves it armed. If it is not, we have built th
 identifies as undeployable, and every competitor's opt-in `--strict` starts to look less like
 timidity and more like a considered response to the same evidence.
 
-### 8.5 Closed products
+### 8.5 The research literature — the dimension the product survey never entered
+
+Everything in Parts II and III compares this harness against *products*. It never compares it
+against *what the field knows*. That is a blind spot rather than a scope decision, and it surfaced
+only at the end, from a comment inside someone else's lint.
+
+There is an active literature on exactly our problem. Four papers, all verified to exist by
+identifier on 2026-08-22:
+
+| Paper | Identifier | Why it bears on us |
+|---|---|---|
+| *HALLMARK: Diagnosing Three Failure Modes in LLM Citation Verifiers* | arXiv 2607.18360 | benchmarks the class of tool we are, and finds the false-positive rate — not recall — decides deployability (§8.4) |
+| *LLM hallucinations in the wild: Large-scale evidence from non-existent citations* | arXiv 2605.07723 | the base-rate evidence our gate's tolerances should be tuned against; cited inside Imbad0202's three-layer citation lint as its design motivation (§6.2) |
+| *HalluCiteChecker: A Lightweight Toolkit for Hallucinated Citation Detection* | arXiv 2604.26835 | title-centric fuzzy matching, ported as a HALLMARK baseline (§7) |
+| *CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content* | arXiv 2602.15871 | cascading CrossRef-then-Semantic-Scholar verification, ported as a HALLMARK baseline (§7) |
+
+The gap this exposes is not bibliographic. Our thresholds are unevidenced. The `fuzzy-quote`
+boundary sits at 0.90, the factcheck cap at 30, the publish gate holds on UNREACHABLE — each is a
+defensible choice and none is a measured one. A literature that reports base rates and
+false-positive spreads is the thing that would turn those from conventions into calibrated
+settings, and this document, which is otherwise strict about evidence, quietly exempted our own
+parameters from that standard.
+
+#### 8.5.1 What the four papers say
+
+All four are in `sources/` and were read as full texts, not abstracts. HALLMARK's figures are
+cross-checked against its repository (`tables/`, README results).
+
+**The base rate (Zhao et al., arXiv:2605.07723).** An audit of 111 million references across 2.5
+million papers. Its method matters for reading its numbers: an Elasticsearch index over Semantic
+Scholar and OpenAlex, string-similarity candidate matching, **95.1% of references matched**, with
+manual validation of unmatched cases and re-routing of the rest. The hallucinated-citation rate as
+of August 2025, by corpus:
+
+| Corpus | Rate | Notes |
+|---|---|---|
+| SSRN | **1.91%** | the outlier |
+| arXiv | **0.39%** | 1.47M preprints, 44.1M citations |
+| PMC | **0.27%** | |
+| bioRxiv | **0.21%** | |
+
+The steepest rise begins mid-2024, roughly 18 months after ChatGPT's release, and correlates with
+inferred LLM usage at field level (r = 0.441, P < 0.001) and at paper level.
+
+**The three failure modes (Reizinger & Brendel, arXiv:2607.18360), from Table 5.**
+
+1. **Agentic FPR inflation.** "The prompted model tends to flag an entry as soon as *any one*
+   database returns no match, so partial database coverage becomes a false positive." A 5-call
+   budget lifts recall past the conservative rule-based reference (DR .97–.99 vs .87) at **~5× its
+   false-positive rate (.43–.48 vs .09)**, and "the rise comes from the harness (any-no-match
+   flagging), not the base model."
+2. **Base-rate precision drop.** "At a venue-realistic ~2% base rate, precision is governed by FPR
+   (Bayes' rule), not recall. FPR spans .05–.70 across verifiers, a ~7× precision gap: low-FPR
+   tools reach 1-in-6 to 1-in-9 flags, high-FPR open-weight models 1-in-35 to 1-in-39."
+3. **Post-cutoff calibration breakdown.** "Most LLMs over-flag papers past their training cutoff:
+   *flag everything unfamiliar*. On 2024–2025 papers, 8 of 12 LLMs degrade sharply (FPR .59–.89)
+   […] only the two latest-cutoff models hold (Sonnet 4.6 .12, Opus 4.7 .07)." Their conclusion:
+   **"verifier trust expires with the training cutoff."**
+
+Also: a **DOI-only baseline catches 27% of hallucinations**. And the .09 figure above is the
+*conservative* configuration; the .179 in the repository README is the aggressive one — the same
+tool, one flag apart, doubling its false-positive rate for five points of recall.
+
+**A number neither paper states.** HALLMARK models a ~2% base rate; Zhao et al. measure 0.21–0.39%
+for every corpus except SSRN. Applying Bayes to both — their detection and false-positive rates
+against their measured prevalences — gives the precision a user would actually see. The arithmetic
+reproduces HALLMARK's own 1-in-6 at 2%, which is the check that it is being applied correctly:
+
+| Verifier | arXiv 0.39% | bioRxiv 0.21% | PMC 0.27% | SSRN 1.91% | HALLMARK's 2% |
+|---|---|---|---|---|---|
+| conservative rule-based (DR .87, FPR .09) | 1-in-27 | 1-in-50 | 1-in-39 | 1-in-6 | 1-in-6 |
+| `bibtex-updater` aggressive (.946/.179) | 1-in-49 | 1-in-91 | 1-in-71 | 1-in-11 | 1-in-10 |
+| agentic GPT-5.1 (.956/.465) | 1-in-125 | 1-in-232 | 1-in-181 | 1-in-26 | 1-in-25 |
+| Gemini 2.5 Pro (.46/.05) | 1-in-29 | 1-in-53 | 1-in-41 | 1-in-7 | 1-in-6 |
+
+Outside SSRN, the deployment picture is five to ten times worse than the paper's headline. On
+arXiv, the best rule-based configuration measured yields **one true hallucination per 27 flags**.
+
+**The two tools.** HalluCiteChecker (Sakai et al., arXiv:2604.26835) takes a PDF —
+`hallucitechecker -i manuscript.pdf` — verifies "within seconds on a standard laptop", "runs
+entirely offline, and requires only a CPU without external communication", Apache-2.0 on PyPI. How
+offline verification is achieved is not stated in the sections read. CheckIfExist (Abbonato,
+arXiv:2602.15871) cascades **CrossRef → Semantic Scholar → OpenAlex** across four modules — LaTeX
+command filtering, BibTeX parsing, multi-source search, presentation — with multi-dimensional
+string-similarity confidence scores.
+
+#### 8.5.2 What this says about our architecture
+
+Finding 1 describes our harness, not merely a comparable one. `verify` runs several registry legs
+and any UNMATCHED becomes a finding; the publish surface closes on the union of `citekey`,
+`evidence-layer`, `quote`, `update-notice` and `doi`. An OR over independent lookups is precisely
+the shape the paper identifies as the false-positive amplifier, and it names the harness rather
+than the model as the cause.
+
+Finding 2 is worse for us than for the tools measured, because of the thing §12 calls a
+differentiator. A report with nine false alarms in ten is noisy; **a gate armed by the harness with
+nine false alarms in ten stops being armed.** The competitor pattern we characterised as timidity —
+Imbad0202's opt-in strict policy, medsci's `--strict` flag, research-hub's advisory staleness — is
+what a low base rate does to anyone who ships a verifier and watches people use it.
+
+**Failure mode (iii) argues the other way, and it is the one thing here that favours us.** "Verifier
+trust expires with the training cutoff" applies to a *model* judging a citation. A DOI handle
+lookup has no training cutoff; a Crossref record for a 2026 paper resolves exactly as one from
+2006. Every deterministic check in §4 is immune to the failure mode that breaks 8 of 12 LLM
+verifiers. Our `factcheck-draft` is not — it is an LLM pass over claims, and on post-cutoff sources
+it inherits the .59–.89 FPR range directly. That is an argument for keeping it warn-tier, which is
+already the design, and against ever promoting it to a closing check.
+
+**And the base rates make our case harder, not easier.** Zhao et al. measure 0.21–0.39% outside
+SSRN. At arXiv's 0.39%, the best rule-based configuration in the benchmark yields one true
+hallucination per 27 flags. A researcher in biology or medicine — bioRxiv 0.21%, PMC 0.27% — sits
+at 1-in-39 to 1-in-50. Our vault's population is exactly those corpora.
+
+One distinction is genuinely in our favour and worth keeping separate. Our closing set is **mixed**.
+`citekey` and `evidence-layer` test a claim against a *closed universe* — the Better BibTeX export
+and the vault's own managed regions — where a miss is a fact, not a lookup failure, and the
+false-positive rate is near zero by construction. `doi`, `metadata` and `update-notice` are open
+registry lookups with exactly the profile the paper measures. We have been treating those two
+classes as one.
+
+That suggests a design response the literature supports and this document had not considered:
+**close on the closed-universe checks, warn on the open-registry ones.** It preserves the property
+§12 claims — a gate armed by the harness rather than an operator's flag — on the legs where the
+evidence says the false-positive cost is affordable, and demotes to warn-tier exactly the legs the
+paper shows are not. It is also a smaller change than it sounds: `CLOSING_BY_SURFACE` is a
+dictionary.
+
+#### 8.5.3 Two operational cautions
+
+`HaRC` and `verify-citations` were **omitted from HALLMARK's results** because "Semantic Scholar
+throttling collapses their effective coverage to <7% on `dev_public`". Our `find-sources` reference
+files route to Semantic Scholar; anything we build that depends on it inherits that ceiling.
+
+`bibtex-updater`'s .946/.179 is explicitly labelled a construct-overfitting upper bound, since its
+development overlapped the benchmark's taxonomy design. It is the ceiling for rule-based
+verification on this benchmark, not a target — and our own suite scored on HALLMARK should be read
+against the independent tools, not against it.
+
+Reading these was the highest-value research left, and it was also the cheapest: four abstracts,
+one results table, and a repository already cloned.
+
+#### 8.5.4 What remains open after reading them
+
+The questions §8.5.4 previously listed are answered: the per-corpus base rates, the third failure
+mode, and the cascade architecture. Three things are not.
+
+- **How HalluCiteChecker verifies offline.** The paper asserts CPU-only, no external communication,
+  seconds per manuscript. The mechanism is not in the sections read. If it ships or builds a local
+  index, that is the answer to the Semantic Scholar throttling ceiling in §8.5.3.
+- **Our own numbers.** Everything above is other people's verifiers. We have no DR, no FPR, no MCC
+  and no calibration figure, and §17's positioning claim now depends on one of them.
+- **Whether the closed-universe legs behave as argued.** §8.5.2 claims `citekey` and
+  `evidence-layer` have near-zero false-positive rates by construction. That is an argument from
+  design, not a measurement, and it is exactly the kind of claim this document elsewhere refuses to
+  accept without a probe.
+
+**Two limits that no amount of further reading closes.** No product's test suite was run, so every
+capability claim here is what an artifact says it does (§19.4). And there is no user evidence
+anywhere in this document — §17's positioning judgment rests on a capability landscape and nothing
+else, which is the weakest joint in the whole argument and the one a reader should press first.
+
+### 8.6 Closed products
 
 **Elicit, scite, llmwikis.org** and **hesreallyhim/awesome-claude-code** have no inspectable
 repository of comparable shape — listed for completeness, excluded from evidence-based comparison.
 
-### 8.6 Karpathy's gist — the doctrine everything cites
+### 8.7 Karpathy's gist — the doctrine everything cites
 
 75 lines, one revision. Three layers (raw, wiki, schema); per-source human-in-the-loop ingest
 touching 10–15 pages; `index.md` as the routing device that makes embedding-based RAG unnecessary
@@ -1375,33 +1540,16 @@ closeout, no replication package, no rendered output in any journal format.
 
 ## 11. What the field has that we lack
 
-Grouped by capability class; each entry names where the capability was read.
+Forty-three gaps in six groups. The order is deliberate: **11.1 is on our own axis** — verification
+and evidence, where a gap costs us the thing we claim to be — and everything after it is breadth,
+where a gap costs us only reach. A reader deciding what to build should stop after 11.1; a reader
+deciding what to adopt should read 11.3 to 11.5 and then §18.
 
-**Retrieval and query.** We ship no query verb and no retrieval index; a person reads the vault
-through Obsidian, and a skill orients by reading `synthesis/index.md` and `log/`. Everything else
-here has one — BM25 (claude-obsidian, swarmvault), hybrid semantic (llmwiki), pgvector (gbrain),
-index-mediated with explicit depths (hermes, nvk), plus obra/knowledge-graph standalone and
-zotero-mcp's `zotero_semantic_search`. See §6 for each.
+Each entry names where the capability was read.
 
-**Agent-facing service surfaces.** We expose a CLI only. Comparables: llmwiki `serve` (MCP
-exposing ingest, compile, query, lint, read, status, eval, context-pack, OKF) plus a TypeScript
-SDK; swarmvault `mcp`; research-hub exposes CLI, MCP, REST and a dashboard over the same core;
-zotero-mcp with 51 tools; bibverify's MCP server.
 
-**Skill-routing evaluation.** Our `tests/test_skill_contracts.py` and `test_skill_files.py` check
-that each skill's frontmatter parses, its name matches its directory, its description is non-empty,
-its invocation flags match the ruled control model, and every identifier and skill name it cites
-exists. All of that tests the *file*. None of it tests the *firing*: given a phrasing a researcher
-would actually use, does the right skill activate, and does a user-invoked one correctly stay
-silent. gbrain ships a `routing-eval.jsonl` beside 41 of its 71 skills for exactly this. With seven
-of our nine skills locked to explicit invocation, a routing failure is silent by construction —
-nothing fires, and the person gets generic drafting instead of the harness.
+### 11.1 Verification and evidence — gaps on our own axis
 
-**Evaluation, calibration and benchmarks.** We have 1,330 unit tests and no evaluation harness.
-llmwiki scores citation coverage, precision and a claim-level citation rate against thresholds
-(§6.5); Imbad0202 ships gold, held-out, calibration and bakeoff sets with a threshold gate (§6.2);
-gbrain ships routing evals for 41 of 71 skills; DeepPaperNote ships `evals/`; and **HALLMARK**
-(§8.4) is a labelled hallucination benchmark we could run against our suite tomorrow.
 
 **Deterministic claim-fidelity checking, and token-ordered quote matching.** medsci answers "does
 the source say what the sentence claims" in code rather than by LLM adjudication (§6.1, §10.7);
@@ -1410,88 +1558,8 @@ ours is LLM judgment. On quote matching the gap is narrower than it first appear
 whitespace against extracted PDF text, but matches contiguously, so a line number or a superscript
 landing mid-sentence still breaks it. medsci's token-ordered subsequence match does not.
 
-**Staged transactions and approval binding.** Our writes land immediately; the review inbox records
-after the fact. claude-obsidian binds an approval hash to a reviewed plan (§6.4), swarmvault stages
-approval bundles and a candidate queue (§6.7), llmwiki holds pages in `candidates/` under a
-fail-closed policy (§6.5).
-
-**Independence counting.** claude-obsidian collapses sources sharing an origin, content hash or
-declared independence key so they cannot corroborate each other (§6.4). Our `disputes` links record
-disagreement; nothing counts independence.
-
-**Fresh-context verification.** claude-obsidian and pedrohcgs both isolate the verifier from the
-drafting context (§6.4, §6.8). Ours runs in-session and mitigates only by selecting claims
-mechanically.
-
-**Untrusted-source hardening in the ingest path.** claude-obsidian states the rules (§6.4);
-Imbad0202 ships probes and boundary checks that test them (§6.2). Our `find-sources` carries the
-rule for search responses; `import-source` carries none, because its input is a Zotero projection
-rather than fetched text — a defensible boundary that stops holding the moment extracted PDF text
-reaches an adjudicator.
-
-**Destructive-change guards.** swarmvault's 25% shrink guard is the only circuit breaker of its
-kind found (§6.7). We have prepublication rollback and append-only lints, but nothing that refuses
-an aggregate loss.
-
-**Structural lints we do not run.** Orphan pages, broken wikilinks, index completeness, page size,
-tag-taxonomy conformance, stale content and log rotation: specified by hermes (an 11-check lint),
-implemented by claude-obsidian's lint CLI, SamurAIGPT's `health.py`, llmwiki's `lint` and
-swarmvault's `lint`. Our lints cover append-only surfaces, claim immutability, published drift,
-screening state, disputed claims, web archives and the evidence layer — nothing about the link
-graph between synthesis pages.
-
-**Graph analysis.** swarmvault (§6.7), gbrain's zero-LLM typed-edge extraction on every page
-write, llmwiki's wikilink-graph expansion, and obra/knowledge-graph. We build no graph and compute
-no backlinks.
-
-**Ingest breadth and capture.** We ingest exactly one thing: a Zotero item. swarmvault covers
-roughly 30 document formats plus media and transcripts; SamurAIGPT ~20 via markitdown;
-claude-obsidian capture adapters plus `defuddle`; nvk collections and private adapters; medsci a
-folder of PDFs.
-
-**Maintenance and scheduling.** gbrain's `dream` cycle (§6.3), swarmvault `watch` plus git hooks,
-llmwiki `refresh --stale`, nvk `Refresh --due`, Pratiyush's GitHub Action. We ship a scheduled CI
-template and `backfill-selectors`; no maintenance cycle, no staleness-driven repair loop.
-
-**Source freshness against live URLs.** nvk `Refresh` re-fetches source URLs and classifies change
-as cosmetic, additive or contradictory under a human gate; hermes re-hashes raw bodies; llmwiki
-computes fresh/stale/orphaned/unverified from recorded hashes. Our `staleness` verb compares the
-bibliography export with the Zotero library, and `web-archive` detects a missing or dead snapshot
-— neither re-reads a live source for content change.
-
-**Deletion of ingested material.** nvk `Retract` is user-authoritative, overrides raw immutability
-and append-only rules, dry-runs by default, deletes the raw source and unsupported derived claims,
-and verifies. We never delete: notes deprecate. That is deliberate, but we have no answer for a
-source that must be expunged.
-
-**Contradiction machinery beyond flagging.** gbrain measures and grades contradictions and emits
-paste-ready resolutions it never applies (§6.3); swarmvault dashboards them; llmwiki holds
-contradicted pages. We record `disputes` links and a `disputed-claim` check — no probe, no
-severity, no temporal reasoning.
-
-**Date precision and provenance.** Imbad0202's temporal sidecar requires every date to carry a
-precision and the method by which it was obtained, and validates supersession chains for cycles
-(§6.2). Our `accessed`, `retrieved` and notice dates are bare ISO strings: nothing distinguishes a
-date read from a DOI record from one inferred from a filename, and `superseded-by` is an unvalidated
-link rather than a chain.
-
-**Filesystem-portability guards.** claude-obsidian refuses a write whose path would collide with an
-existing one under case-insensitive or Unicode-normalising filesystem rules (§6.4). Our vault is a
-git repository that can be cloned onto macOS or Windows, and we check no such thing.
-
-**Source descriptors and source summary statements.** ICD 206 requires both (§8.3): a per-citation
-qualitative note on source quality carried in the body text, and a holistic per-product assessment
-of the source base naming its strengths, weaknesses and load-bearing sources. We carry a screening
-state and a trust tier per note, both derived from checks, and nothing that says *why this source
-is or is not good for this claim*. The gap is sharpest exactly where ICD 206 says it matters most —
-products with many sources, which is what a synthesis page is.
-
-**A likelihood axis, and a closed vocabulary for it.** ICD 203 separates likelihood from
-confidence, anchors likelihood to seven probability bands, and forbids mixing them in a sentence
-(§8.3). Our `[confidence:: …]` collapses both into one free field on inference claims.
-
 **A measured false-positive rate, and calibration.** HALLMARK ranks verifiers by FPR and
-expected calibration error and argues both decide deployability (§20.1). Every other verifier in
+expected calibration error and argues both decide deployability (§8.5.1). Every other verifier in
 this document has published numbers on that benchmark; ours has none. We know our checks behave as
 specified — 1,330 tests say so — and we do not know how often they fire on something correct, nor
 whether our confidence in a finding tracks its truth. For a product whose differentiator is that
@@ -1505,10 +1573,150 @@ publish while `screening-state` cannot, but two `quote` findings are equally wei
 `_FINDING_FIELDS` are `id`, `check`, `target`, `result`, `date`, `actor`, `reason` — no severity
 among them. A trivial and a serious instance of the same check are indistinguishable to the gate.
 
+**Independence counting.** claude-obsidian collapses sources sharing an origin, content hash or
+declared independence key so they cannot corroborate each other (§6.4). Our `disputes` links record
+disagreement; nothing counts independence.
+
+**Fresh-context verification.** claude-obsidian and pedrohcgs both isolate the verifier from the
+drafting context (§6.4, §6.8). Ours runs in-session and mitigates only by selecting claims
+mechanically.
+
+**Contradiction machinery beyond flagging.** gbrain measures and grades contradictions and emits
+paste-ready resolutions it never applies (§6.3); swarmvault dashboards them; llmwiki holds
+contradicted pages. We record `disputes` links and a `disputed-claim` check — no probe, no
+severity, no temporal reasoning.
+
+**Date precision and provenance.** Imbad0202's temporal sidecar requires every date to carry a
+precision and the method by which it was obtained, and validates supersession chains for cycles
+(§6.2). Our `accessed`, `retrieved` and notice dates are bare ISO strings: nothing distinguishes a
+date read from a DOI record from one inferred from a filename, and `superseded-by` is an unvalidated
+link rather than a chain.
+
+**Source descriptors and source summary statements.** ICD 206 requires both (§8.3): a per-citation
+qualitative note on source quality carried in the body text, and a holistic per-product assessment
+of the source base naming its strengths, weaknesses and load-bearing sources. We carry a screening
+state and a trust tier per note, both derived from checks, and nothing that says *why this source
+is or is not good for this claim*. The gap is sharpest exactly where ICD 206 says it matters most —
+products with many sources, which is what a synthesis page is.
+
+**A likelihood axis, and a closed vocabulary for it.** ICD 203 separates likelihood from
+confidence, anchors likelihood to seven probability bands, and forbids mixing them in a sentence
+(§8.3). Our `[confidence:: …]` collapses both into one free field on inference claims.
+
+**Machine-side admission screening.** research-hub screens candidates before they enter the
+corpus: identifier resolution, Crossref corroboration, a **predatory-venue denylist** and a
+metadata-integrity layer, all fail-closed (§6.15). Our admission boundary is deliberately human,
+but that means nothing mechanical stands between a person and admitting a paper from a predatory
+venue — we run no venue check at any point.
+
+**Quarantine, and tracking an outage forward.** research-hub quarantines rather than rejecting,
+with `list`/`show`/`restore` verbs, a transient-versus-permanent reason split, and a **recheck
+marker** on papers admitted while a check was only transiently unavailable, so a later run
+re-verifies them.
+
+This one is worth reading as a defect rather than a missing feature. Our doctrine says UNREACHABLE
+is never a verdict, and the whole document treats that as a strength (§12). But saying an outage is
+not a failure only discharges half the obligation: something has to bring the check back. Today an
+UNREACHABLE files a warn-tier finding that ages in the review inbox alongside everything else, and
+nothing marks the note as *re-verify this when the registry is up*. The publish gate does hold on
+UNREACHABLE, so the boundary is safe — but between imports, an outage is indistinguishable from a
+check that ran and passed unless a person reads the queue. research-hub's recheck marker is the
+missing half, and it is roughly a frontmatter field and a `verify` predicate.
+
 **Maturity and confidence vocabularies.** Pratiyush declares page lifecycle and a computed
 confidence (§6.11); hermes makes a missing confidence field a lint signal (§6.6); llmwiki holds
 low-confidence pages by default (§6.5). Our trust tier is derived from check results; our
 `confidence` is a per-claim field on inference claims only.
+
+
+### 11.2 The write path — safety machinery
+
+
+**Staged transactions and approval binding.** Our writes land immediately; the review inbox records
+after the fact. claude-obsidian binds an approval hash to a reviewed plan (§6.4), swarmvault stages
+approval bundles and a candidate queue (§6.7), llmwiki holds pages in `candidates/` under a
+fail-closed policy (§6.5).
+
+**Destructive-change guards.** swarmvault's 25% shrink guard is the only circuit breaker of its
+kind found (§6.7). We have prepublication rollback and append-only lints, but nothing that refuses
+an aggregate loss.
+
+**Untrusted-source hardening in the ingest path.** claude-obsidian states the rules (§6.4);
+Imbad0202 ships probes and boundary checks that test them (§6.2). Our `find-sources` carries the
+rule for search responses; `import-source` carries none, because its input is a Zotero projection
+rather than fetched text — a defensible boundary that stops holding the moment extracted PDF text
+reaches an adjudicator.
+
+**Filesystem-portability guards.** claude-obsidian refuses a write whose path would collide with an
+existing one under case-insensitive or Unicode-normalising filesystem rules (§6.4). Our vault is a
+git repository that can be cloned onto macOS or Windows, and we check no such thing.
+
+**Deletion of ingested material.** nvk `Retract` is user-authoritative, overrides raw immutability
+and append-only rules, dry-runs by default, deletes the raw source and unsupported derived claims,
+and verifies. We never delete: notes deprecate. That is deliberate, but we have no answer for a
+source that must be expunged.
+
+**Structural lints we do not run.** Orphan pages, broken wikilinks, index completeness, page size,
+tag-taxonomy conformance, stale content and log rotation: specified by hermes (an 11-check lint),
+implemented by claude-obsidian's lint CLI, SamurAIGPT's `health.py`, llmwiki's `lint` and
+swarmvault's `lint`. Our lints cover append-only surfaces, claim immutability, published drift,
+screening state, disputed claims, web archives and the evidence layer — nothing about the link
+graph between synthesis pages.
+
+
+### 11.3 Reach — what the harness can see and touch
+
+
+**Retrieval and query.** We ship no query verb and no retrieval index; a person reads the vault
+through Obsidian, and a skill orients by reading `synthesis/index.md` and `log/`. Everything else
+here has one — BM25 (claude-obsidian, swarmvault), hybrid semantic (llmwiki), pgvector (gbrain),
+index-mediated with explicit depths (hermes, nvk), plus obra/knowledge-graph standalone and
+zotero-mcp's `zotero_semantic_search`. See §6 for each.
+
+**Graph analysis.** swarmvault (§6.7), gbrain's zero-LLM typed-edge extraction on every page
+write, llmwiki's wikilink-graph expansion, and obra/knowledge-graph. We build no graph and compute
+no backlinks.
+
+**Ingest breadth and capture.** We ingest exactly one thing: a Zotero item. swarmvault covers
+roughly 30 document formats plus media and transcripts; SamurAIGPT ~20 via markitdown;
+claude-obsidian capture adapters plus `defuddle`; nvk collections and private adapters; medsci a
+folder of PDFs.
+
+**Agent-facing service surfaces.** We expose a CLI only. Comparables: llmwiki `serve` (MCP
+exposing ingest, compile, query, lint, read, status, eval, context-pack, OKF) plus a TypeScript
+SDK; swarmvault `mcp`; research-hub exposes CLI, MCP, REST and a dashboard over the same core;
+zotero-mcp with 51 tools; bibverify's MCP server.
+
+**PDF and annotation reach.** zotero-mcp reads PDF pages, outlines and page layout, extracts and
+synthesizes annotations and returns item full text; K-Dense `liteparse` parses locally with
+per-token bounding boxes. We resolve attachment paths and normalize Better BibTeX annotations into
+claims, with `pypdf` only as an optional extra.
+
+**Zotero write-back.** Our client is read-only by design. zotero-mcp writes — `zotero_add_item`,
+`zotero_update_item`, `zotero_batch_update`, `zotero_attach_file`, `zotero_create_collection`,
+`zotero_set_item_collections`, `zotero_manage_note`, `zotero_create_annotation`,
+`zotero_update_annotation`, `zotero_delete_annotation`, `zotero_delete_item`,
+`zotero_merge_duplicates` — as do WenyuChiou's `zotero-skills` and K-Dense's `pyzotero`, and
+medsci's `lit-sync` writes literature into the library. A deliberate boundary for us, but a real
+capability the field has.
+
+**Duplicate detection over the reference library.** zotero-mcp `zotero_find_duplicates` and
+`zotero_merge_duplicates`; WenyuChiou `zotero-library-curator`; gbrain's registry-first dedup gate.
+Our dedup question is about synthesis topics, not Zotero items.
+
+**Source freshness against live URLs.** nvk `Refresh` re-fetches source URLs and classifies change
+as cosmetic, additive or contradictory under a human gate; hermes re-hashes raw bodies; llmwiki
+computes fresh/stale/orphaned/unverified from recorded hashes. Our `staleness` verb compares the
+bibliography export with the Zotero library, and `web-archive` detects a missing or dead snapshot
+— neither re-reads a live source for content change.
+
+
+### 11.4 Process and lifecycle
+
+
+**Maintenance and scheduling.** gbrain's `dream` cycle (§6.3), swarmvault `watch` plus git hooks,
+llmwiki `refresh --stale`, nvk `Refresh --due`, Pratiyush's GitHub Action. We ship a scheduled CI
+template and `backfill-selectors`; no maintenance cycle, no staleness-driven repair loop.
 
 **Question-worth gating.** WenyuChiou's `gap-to-topic` (§6.13). Our `project` frames a question
 and never asks whether it should be asked.
@@ -1520,6 +1728,16 @@ and suggests destinations. Our vault layout is fixed.
 and cross-model verification against Codex; pedrohcgs runs multi-agent review with a forked-context
 verifier; nvk launches 5, 8 or 10 parallel research agents; claude-obsidian runs read-only parallel
 workers under an orchestrator; gbrain has `minion-orchestrator`. Our skills are single-threaded.
+
+**Session continuity and context economy.** swarmvault chat transcripts, context packs and task
+ledgers; pedrohcgs `checkpoint`/`compress-session`/`promote-memory`; gbrain's zero-LLM
+`context_pack` verb; Pratiyush's hot cache, capped memory files and log auto-archive (§6.11). We
+have the log and the review inbox — no session artifact, no log rotation, and no token budget on
+any orientation read.
+
+
+### 11.5 Output — the submit end
+
 
 **Writing, reviewing and submission.** Imbad0202: 11 writing modes, 6 paper types, 5 citation
 formats, bilingual abstracts, LaTeX/DOCX/PDF output, rebuttal audit, AI-disclosure mode.
@@ -1557,26 +1775,6 @@ diagram; LatteReview automates screening with multi-agent reviewers. We have PRI
 screening states and a PRISMA-S search log — no flow diagram, no risk-of-bias instrument, no
 meta-analysis.
 
-**Machine-side admission screening.** research-hub screens candidates before they enter the
-corpus: identifier resolution, Crossref corroboration, a **predatory-venue denylist** and a
-metadata-integrity layer, all fail-closed (§6.15). Our admission boundary is deliberately human,
-but that means nothing mechanical stands between a person and admitting a paper from a predatory
-venue — we run no venue check at any point.
-
-**Quarantine, and tracking an outage forward.** research-hub quarantines rather than rejecting,
-with `list`/`show`/`restore` verbs, a transient-versus-permanent reason split, and a **recheck
-marker** on papers admitted while a check was only transiently unavailable, so a later run
-re-verifies them.
-
-This one is worth reading as a defect rather than a missing feature. Our doctrine says UNREACHABLE
-is never a verdict, and the whole document treats that as a strength (§12). But saying an outage is
-not a failure only discharges half the obligation: something has to bring the check back. Today an
-UNREACHABLE files a warn-tier finding that ages in the review inbox alongside everything else, and
-nothing marks the note as *re-verify this when the registry is up*. The publish gate does hold on
-UNREACHABLE, so the boundary is safe — but between imports, an outage is indistinguishable from a
-check that ran and passed unless a person reads the queue. research-hub's recheck marker is the
-missing half, and it is roughly a frontmatter field and a `verify` predicate.
-
 **Reporting-guideline compliance.** medsci `check-reporting` covers 49 guidelines with 6 scripts
 and 7 tests, and `fill-protocol`, `fill-icmje-coi` and `write-protocol` sit beside it. We have no
 notion of a reporting guideline at all.
@@ -1590,23 +1788,6 @@ our vault.
 supporting/contrasting/mentioning tallies; OpenAlex `cited_by_count` is available to several. We
 record no venue-quality or citation-count signal.
 
-**Zotero write-back.** Our client is read-only by design. zotero-mcp writes — `zotero_add_item`,
-`zotero_update_item`, `zotero_batch_update`, `zotero_attach_file`, `zotero_create_collection`,
-`zotero_set_item_collections`, `zotero_manage_note`, `zotero_create_annotation`,
-`zotero_update_annotation`, `zotero_delete_annotation`, `zotero_delete_item`,
-`zotero_merge_duplicates` — as do WenyuChiou's `zotero-skills` and K-Dense's `pyzotero`, and
-medsci's `lit-sync` writes literature into the library. A deliberate boundary for us, but a real
-capability the field has.
-
-**PDF and annotation reach.** zotero-mcp reads PDF pages, outlines and page layout, extracts and
-synthesizes annotations and returns item full text; K-Dense `liteparse` parses locally with
-per-token bounding boxes. We resolve attachment paths and normalize Better BibTeX annotations into
-claims, with `pypdf` only as an optional extra.
-
-**Duplicate detection over the reference library.** zotero-mcp `zotero_find_duplicates` and
-`zotero_merge_duplicates`; WenyuChiou `zotero-library-curator`; gbrain's registry-first dedup gate.
-Our dedup question is about synthesis topics, not Zotero items.
-
 **Interchange and export.** llmwiki exports and imports OKF bundles and exports JSON, JSON-LD,
 GraphML, Marp and `llms.txt`; swarmvault exports `llms.txt`, `llms-full.txt`, JSON-LD, manifests,
 per-page siblings, Canvas and Neo4j. We conform to OKF structurally but export no bundle.
@@ -1615,11 +1796,18 @@ per-page siblings, Canvas and Neo4j. We conform to OKF structurally but export n
 recent sources, reading log, timeline, research map, contradictions and open questions; Pratiyush's
 serve scripts. We ship two Obsidian Bases and rely on Obsidian.
 
-**Session continuity and context economy.** swarmvault chat transcripts, context packs and task
-ledgers; pedrohcgs `checkpoint`/`compress-session`/`promote-memory`; gbrain's zero-LLM
-`context_pack` verb; Pratiyush's hot cache, capped memory files and log auto-archive (§6.11). We
-have the log and the review inbox — no session artifact, no log rotation, and no token budget on
-any orientation read.
+
+### 11.6 The skill set as an artifact
+
+
+**Skill-routing evaluation.** Our `tests/test_skill_contracts.py` and `test_skill_files.py` check
+that each skill's frontmatter parses, its name matches its directory, its description is non-empty,
+its invocation flags match the ruled control model, and every identifier and skill name it cites
+exists. All of that tests the *file*. None of it tests the *firing*: given a phrasing a researcher
+would actually use, does the right skill activate, and does a user-invoked one correctly stay
+silent. gbrain ships a `routing-eval.jsonl` beside 41 of its 71 skills for exactly this. With seven
+of our nine skills locked to explicit invocation, a routing failure is silent by construction —
+nothing fires, and the person gets generic drafting instead of the harness.
 
 **Skill-set governance and portability.** mattpocock's bucket promotion, `plugin.json` `skills`
 array, two-sided invocation contract, per-skill docs pages and manifest validation; superpowers'
@@ -1627,6 +1815,11 @@ per-agent conformance test suites and second-target build scripts; nvk's `.skill
 per-topic allowlists; llmwiki's Ed25519-signed template distribution; swarmvault's installers for
 40+ agent tools. We ship a plugin manifest and a marketplace entry.
 
+**Evaluation, calibration and benchmarks.** We have 1,330 unit tests and no evaluation harness.
+llmwiki scores citation coverage, precision and a claim-level citation rate against thresholds
+(§6.5); Imbad0202 ships gold, held-out, calibration and bakeoff sets with a threshold gate (§6.2);
+gbrain ships routing evals for 41 of 71 skills; DeepPaperNote ships `evals/`; and **HALLMARK**
+(§8.4) is a labelled hallucination benchmark we could run against our suite tomorrow.
 
 ## 12. What we have that the field does not
 
@@ -1638,7 +1831,7 @@ Two entries carry qualifications, stated inline rather than deferred.
   it (§6.1); Imbad0202 blocks only under an opt-in strict policy; research-hub gates corpus
   admission rather than the draft (§6.15). The distinction that survives all three is narrow and
   worth stating exactly: **ours is armed by the harness, theirs by the operator.**
-  *Qualification (§20.2):* that is a differentiator only while our false-positive rate is low
+  *Qualification (§8.5.2):* that is a differentiator only while our false-positive rate is low
   enough that a person leaves it armed. We have never measured it, and the same literature suggests
   the competitors' opt-in flags may be a response to that evidence rather than an absence of
   conviction.
@@ -1849,7 +2042,7 @@ academic research first", the field is crowded and better resourced: Imbad0202 a
 As **the gate layer** — the thing that decides whether work may proceed — the position is real,
 and on the evidence in Part III nobody occupies it.
 
-**Whether it is habitable is a separate question, and §20 opens it.** Part III establishes that no
+**Whether it is habitable is a separate question, and §8.5 opens it.** Part III establishes that no
 competitor gates a draft on per-claim evidence by default. The literature establishes that a
 default-armed gate survives contact with users only if its false-positive rate is low enough that
 they leave it armed, and that at the base rates measured for our corpora the best rule-based
@@ -1922,7 +2115,7 @@ still holds.
    `check_claim_fidelity.py` and `_quote_match.py` (§6.1). §10.7 already concedes `factcheck-draft`
    is where we are most clearly behind; these close that gap and *strengthen* the narrow position
    rather than widening scope.
-3. **Run HALLMARK against the deterministic suite** (§8.4, §20). This has moved from a nice-to-have
+3. **Run HALLMARK against the deterministic suite** (§8.4, §8.5). This has moved from a nice-to-have
    to the step the rest depends on. 2,526 entries, 14 hallucination types, six diagnostic sub-tests
    per entry — four of which map onto checks we already run — and a baseline registry with a
    documented dispatch interface, so registering ours is a supported operation rather than a fork.
@@ -1930,9 +2123,9 @@ still holds.
    deployability, MCC is prevalence-invariant, and a recall figure quoted alone is the number its
    three failure modes exist to warn about. Then extrapolate against Zhao et al.'s measured
    prevalences — 0.39% arXiv, 0.27% PMC, 0.21% bioRxiv — rather than the benchmark's 2%, because
-   those are the corpora a knowledge-harness vault is actually built from (§20.1).
+   those are the corpora a knowledge-harness vault is actually built from (§8.5.1).
    Split the report by leg: the closed-universe checks and the open-registry ones are different
-   instruments and §20.2 predicts they will score differently.
+   instruments and §8.5.2 predicts they will score differently.
 4. **Vendor rather than rebuild** anything breadth-shaped, following the `find-sources` pattern —
    pinned SHA, header-only provenance additions, re-vendor to update. Section 18 works that
    instruction into a candidate-by-candidate list.
@@ -2306,7 +2499,7 @@ what a re-run should actually re-check, so the next pass is an update rather tha
    measures citation quality. Its OKF bundle support and ours are the same standard from opposite
    ends (§8.3); an import path either way is the interoperability event to watch for.
 4. **The citation-verification literature.** Four papers sit in `sources/` and this document read
-   them once (§20). The field is moving — HALLMARK is versioned and CI-tested against new models,
+   them once (§8.5). The field is moving — HALLMARK is versioned and CI-tested against new models,
    and its baseline registry grew to 19+ variants. A re-run should check whether the FPR-decides-
    deployability result survives replication, and whether anyone has published a rule-based
    verifier below the .09 conservative reference.
@@ -2344,166 +2537,3 @@ Named here so a re-run starts from the gaps rather than from the beginning:
 - No product's test suite was run. Every capability claim in this document is what the artifact
   says it does, not what it was observed doing — the single largest epistemic limit here, and the
   one that a benchmark like HALLMARK (§18.5) would start to close for our side at least.
-
----
-
-## 20. The dimension this comparison never entered
-
-Everything in Parts II and III compares this harness against *products*. It never compares it
-against *what the field knows*. That is a blind spot rather than a scope decision, and it surfaced
-only at the end, from a comment inside someone else's lint.
-
-There is an active literature on exactly our problem. Four papers, all verified to exist by
-identifier on 2026-08-22:
-
-| Paper | Identifier | Why it bears on us |
-|---|---|---|
-| *HALLMARK: Diagnosing Three Failure Modes in LLM Citation Verifiers* | arXiv 2607.18360 | benchmarks the class of tool we are, and finds the false-positive rate — not recall — decides deployability (§8.4) |
-| *LLM hallucinations in the wild: Large-scale evidence from non-existent citations* | arXiv 2605.07723 | the base-rate evidence our gate's tolerances should be tuned against; cited inside Imbad0202's three-layer citation lint as its design motivation (§6.2) |
-| *HalluCiteChecker: A Lightweight Toolkit for Hallucinated Citation Detection* | arXiv 2604.26835 | title-centric fuzzy matching, ported as a HALLMARK baseline (§7) |
-| *CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content* | arXiv 2602.15871 | cascading CrossRef-then-Semantic-Scholar verification, ported as a HALLMARK baseline (§7) |
-
-The gap this exposes is not bibliographic. Our thresholds are unevidenced. The `fuzzy-quote`
-boundary sits at 0.90, the factcheck cap at 30, the publish gate holds on UNREACHABLE — each is a
-defensible choice and none is a measured one. A literature that reports base rates and
-false-positive spreads is the thing that would turn those from conventions into calibrated
-settings, and this document, which is otherwise strict about evidence, quietly exempted our own
-parameters from that standard.
-
-### 20.1 What the four papers say
-
-All four are in `sources/` and were read as full texts, not abstracts. HALLMARK's figures are
-cross-checked against its repository (`tables/`, README results).
-
-**The base rate (Zhao et al., arXiv:2605.07723).** An audit of 111 million references across 2.5
-million papers. Its method matters for reading its numbers: an Elasticsearch index over Semantic
-Scholar and OpenAlex, string-similarity candidate matching, **95.1% of references matched**, with
-manual validation of unmatched cases and re-routing of the rest. The hallucinated-citation rate as
-of August 2025, by corpus:
-
-| Corpus | Rate | Notes |
-|---|---|---|
-| SSRN | **1.91%** | the outlier |
-| arXiv | **0.39%** | 1.47M preprints, 44.1M citations |
-| PMC | **0.27%** | |
-| bioRxiv | **0.21%** | |
-
-The steepest rise begins mid-2024, roughly 18 months after ChatGPT's release, and correlates with
-inferred LLM usage at field level (r = 0.441, P < 0.001) and at paper level.
-
-**The three failure modes (Reizinger & Brendel, arXiv:2607.18360), from Table 5.**
-
-1. **Agentic FPR inflation.** "The prompted model tends to flag an entry as soon as *any one*
-   database returns no match, so partial database coverage becomes a false positive." A 5-call
-   budget lifts recall past the conservative rule-based reference (DR .97–.99 vs .87) at **~5× its
-   false-positive rate (.43–.48 vs .09)**, and "the rise comes from the harness (any-no-match
-   flagging), not the base model."
-2. **Base-rate precision drop.** "At a venue-realistic ~2% base rate, precision is governed by FPR
-   (Bayes' rule), not recall. FPR spans .05–.70 across verifiers, a ~7× precision gap: low-FPR
-   tools reach 1-in-6 to 1-in-9 flags, high-FPR open-weight models 1-in-35 to 1-in-39."
-3. **Post-cutoff calibration breakdown.** "Most LLMs over-flag papers past their training cutoff:
-   *flag everything unfamiliar*. On 2024–2025 papers, 8 of 12 LLMs degrade sharply (FPR .59–.89)
-   […] only the two latest-cutoff models hold (Sonnet 4.6 .12, Opus 4.7 .07)." Their conclusion:
-   **"verifier trust expires with the training cutoff."**
-
-Also: a **DOI-only baseline catches 27% of hallucinations**. And the .09 figure above is the
-*conservative* configuration; the .179 in the repository README is the aggressive one — the same
-tool, one flag apart, doubling its false-positive rate for five points of recall.
-
-**A number neither paper states.** HALLMARK models a ~2% base rate; Zhao et al. measure 0.21–0.39%
-for every corpus except SSRN. Applying Bayes to both — their detection and false-positive rates
-against their measured prevalences — gives the precision a user would actually see. The arithmetic
-reproduces HALLMARK's own 1-in-6 at 2%, which is the check that it is being applied correctly:
-
-| Verifier | arXiv 0.39% | bioRxiv 0.21% | PMC 0.27% | SSRN 1.91% | HALLMARK's 2% |
-|---|---|---|---|---|---|
-| conservative rule-based (DR .87, FPR .09) | 1-in-27 | 1-in-50 | 1-in-39 | 1-in-6 | 1-in-6 |
-| `bibtex-updater` aggressive (.946/.179) | 1-in-49 | 1-in-91 | 1-in-71 | 1-in-11 | 1-in-10 |
-| agentic GPT-5.1 (.956/.465) | 1-in-125 | 1-in-232 | 1-in-181 | 1-in-26 | 1-in-25 |
-| Gemini 2.5 Pro (.46/.05) | 1-in-29 | 1-in-53 | 1-in-41 | 1-in-7 | 1-in-6 |
-
-Outside SSRN, the deployment picture is five to ten times worse than the paper's headline. On
-arXiv, the best rule-based configuration measured yields **one true hallucination per 27 flags**.
-
-**The two tools.** HalluCiteChecker (Sakai et al., arXiv:2604.26835) takes a PDF —
-`hallucitechecker -i manuscript.pdf` — verifies "within seconds on a standard laptop", "runs
-entirely offline, and requires only a CPU without external communication", Apache-2.0 on PyPI. How
-offline verification is achieved is not stated in the sections read. CheckIfExist (Abbonato,
-arXiv:2602.15871) cascades **CrossRef → Semantic Scholar → OpenAlex** across four modules — LaTeX
-command filtering, BibTeX parsing, multi-source search, presentation — with multi-dimensional
-string-similarity confidence scores.
-
-### 20.2 What this says about our architecture
-
-Finding 1 describes our harness, not merely a comparable one. `verify` runs several registry legs
-and any UNMATCHED becomes a finding; the publish surface closes on the union of `citekey`,
-`evidence-layer`, `quote`, `update-notice` and `doi`. An OR over independent lookups is precisely
-the shape the paper identifies as the false-positive amplifier, and it names the harness rather
-than the model as the cause.
-
-Finding 2 is worse for us than for the tools measured, because of the thing §12 calls a
-differentiator. A report with nine false alarms in ten is noisy; **a gate armed by the harness with
-nine false alarms in ten stops being armed.** The competitor pattern we characterised as timidity —
-Imbad0202's opt-in strict policy, medsci's `--strict` flag, research-hub's advisory staleness — is
-what a low base rate does to anyone who ships a verifier and watches people use it.
-
-**Failure mode (iii) argues the other way, and it is the one thing here that favours us.** "Verifier
-trust expires with the training cutoff" applies to a *model* judging a citation. A DOI handle
-lookup has no training cutoff; a Crossref record for a 2026 paper resolves exactly as one from
-2006. Every deterministic check in §4 is immune to the failure mode that breaks 8 of 12 LLM
-verifiers. Our `factcheck-draft` is not — it is an LLM pass over claims, and on post-cutoff sources
-it inherits the .59–.89 FPR range directly. That is an argument for keeping it warn-tier, which is
-already the design, and against ever promoting it to a closing check.
-
-**And the base rates make our case harder, not easier.** Zhao et al. measure 0.21–0.39% outside
-SSRN. At arXiv's 0.39%, the best rule-based configuration in the benchmark yields one true
-hallucination per 27 flags. A researcher in biology or medicine — bioRxiv 0.21%, PMC 0.27% — sits
-at 1-in-39 to 1-in-50. Our vault's population is exactly those corpora.
-
-One distinction is genuinely in our favour and worth keeping separate. Our closing set is **mixed**.
-`citekey` and `evidence-layer` test a claim against a *closed universe* — the Better BibTeX export
-and the vault's own managed regions — where a miss is a fact, not a lookup failure, and the
-false-positive rate is near zero by construction. `doi`, `metadata` and `update-notice` are open
-registry lookups with exactly the profile the paper measures. We have been treating those two
-classes as one.
-
-That suggests a design response the literature supports and this document had not considered:
-**close on the closed-universe checks, warn on the open-registry ones.** It preserves the property
-§12 claims — a gate armed by the harness rather than an operator's flag — on the legs where the
-evidence says the false-positive cost is affordable, and demotes to warn-tier exactly the legs the
-paper shows are not. It is also a smaller change than it sounds: `CLOSING_BY_SURFACE` is a
-dictionary.
-
-### 20.3 Two operational cautions
-
-`HaRC` and `verify-citations` were **omitted from HALLMARK's results** because "Semantic Scholar
-throttling collapses their effective coverage to <7% on `dev_public`". Our `find-sources` reference
-files route to Semantic Scholar; anything we build that depends on it inherits that ceiling.
-
-`bibtex-updater`'s .946/.179 is explicitly labelled a construct-overfitting upper bound, since its
-development overlapped the benchmark's taxonomy design. It is the ceiling for rule-based
-verification on this benchmark, not a target — and our own suite scored on HALLMARK should be read
-against the independent tools, not against it.
-
-Reading these was the highest-value research left, and it was also the cheapest: four abstracts,
-one results table, and a repository already cloned.
-
-### 20.4 What remains open after reading them
-
-The questions §20.4 previously listed are answered: the per-corpus base rates, the third failure
-mode, and the cascade architecture. Three things are not.
-
-- **How HalluCiteChecker verifies offline.** The paper asserts CPU-only, no external communication,
-  seconds per manuscript. The mechanism is not in the sections read. If it ships or builds a local
-  index, that is the answer to the Semantic Scholar throttling ceiling in §20.3.
-- **Our own numbers.** Everything above is other people's verifiers. We have no DR, no FPR, no MCC
-  and no calibration figure, and §17's positioning claim now depends on one of them.
-- **Whether the closed-universe legs behave as argued.** §20.2 claims `citekey` and
-  `evidence-layer` have near-zero false-positive rates by construction. That is an argument from
-  design, not a measurement, and it is exactly the kind of claim this document elsewhere refuses to
-  accept without a probe.
-
-**Two limits that no amount of further reading closes.** No product's test suite was run, so every
-capability claim here is what an artifact says it does (§19.4). And there is no user evidence
-anywhere in this document — §17's positioning judgment rests on a capability landscape and nothing
-else, which is the weakest joint in the whole argument and the one a reader should press first.
