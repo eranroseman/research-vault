@@ -7,6 +7,7 @@ as later Plan D tasks add entry skills — nothing here is scoped to the two
 guard skills shipped alongside it.
 """
 
+import ast
 import re
 import shlex
 from pathlib import Path
@@ -19,6 +20,7 @@ from knowledge_harness.frontmatter import FrontmatterError, parse
 REPOSITORY = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPOSITORY / "skills"
 TEMPLATES_DIR = REPOSITORY / "knowledge_harness" / "templates"
+PACKAGE_DIR = REPOSITORY / "knowledge_harness"
 
 # Control model (spec §7/§8, ruled 2026-08-22): entry skills ship
 # `disable-model-invocation: true` so they never enter the model catalog;
@@ -165,4 +167,226 @@ def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
     assert not missing, (
         f"shipped templates cite skill name(s) with no skills/<name>/ "
         f"directory: {missing}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Prose enumerating what code owns (2026-08-22 skills-layer audit, C-1/C-2).
+# The audit's own diagnosis: a skill that hand-lists an identifier set the
+# code owns drifts the moment the code moves. The remedy is defer to the
+# code, or pin the enumeration by test — never hand-maintain one. The two
+# checks below are the pins.
+# --------------------------------------------------------------------------
+
+_BACKTICKED = re.compile(r"`([^`]+)`")
+# "check id" / "check ids", the phrase that marks the backticked run after it
+# as a claim *about check ids* rather than about verbs, tags, or fields.
+_CHECK_ID_PHRASE = re.compile(r"check ids?\b")
+# Two backticked tokens belong to one enumeration only when nothing but list
+# punctuation separates them. Prose between them ends the run, so
+# ``check id `factcheck`, carrying that claim's `text_hash` `` reads as one
+# id followed by unrelated prose, not as a two-id list.
+_RUN_JOINER = re.compile(r"^[\s,/|]*(?:and|or)?[\s,/|]*$")
+# A sentence break between the phrase and the first backticked token means the
+# token belongs to a later clause, not to the enumeration the phrase opened.
+_SENTENCE_BREAK = re.compile(r"[.;]\s")
+
+
+def _emitted_check_ids() -> set[str]:
+    """Every check id ``knowledge_harness`` can put on an ``Outcome``, off its AST.
+
+    Check ids are literals at their construction sites rather than a registry
+    constant. ``inbox.CHECK_IDS`` is the *registry* — the boundary the
+    `finding` verb enforces — and ``inbox.py``'s own comment records that the
+    deterministic pipeline legitimately files ids that registry does not
+    carry (``staleness``, ``append-only``, ``claim-immutability``,
+    ``published-drift``). So the registry alone would flag correct prose, and
+    the AST is the only honest source for what a `verify` run can emit. Same
+    technique and same reason as ``_probe_ids`` in ``test_config_validity``.
+
+    Sites whose first argument is a variable are wrappers (``checks.py``'s
+    record rehydrator, ``lints.py``'s ``_schema_outcome``, ``verify.py``'s
+    offline-network fan-out); every id they are ever handed is a literal at a
+    call site this scan already reads, so skipping them loses nothing.
+    """
+    emitted: set[str] = set()
+    for module in sorted(PACKAGE_DIR.glob("*.py")):
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        constants = {
+            target.id: node.value.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            if (
+                getattr(node.func, "id", None) != "Outcome"
+                and getattr(node.func, "attr", None) != "Outcome"
+            ):
+                continue
+            check = node.args[0]
+            if isinstance(check, ast.Constant) and isinstance(check.value, str):
+                emitted.add(check.value)
+            elif isinstance(check, ast.Name) and check.id in constants:
+                emitted.add(constants[check.id])
+    return emitted
+
+
+def _known_check_ids() -> set[str]:
+    """Every check id the code knows, from all three of its code-side sources.
+
+    The emitted set and the registry overlap but neither contains the other:
+    the pipeline emits four ids the registry does not carry, and the registry
+    carries five (``publish``, ``factcheck``, ``autoexport``, ``render``,
+    ``integrate``) that only the `finding` verb ever files — skills name
+    those in prose too, so an emitted-only universe would fail correct prose.
+    ``REPEATABLE_ACT_CHECKS`` adds ``publish-gate``, filed by the Stop hook.
+    """
+    return (
+        _emitted_check_ids() | set(inbox.CHECK_IDS) | set(inbox.REPEATABLE_ACT_CHECKS)
+    )
+
+
+def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
+    """Every check id a document names as a check id, with its line number.
+
+    Anchored on the phrase "check id"/"check ids": the first backticked run
+    after that phrase, on that line, is the enumeration the phrase
+    introduces. Anchoring is what keeps the sweep honest — an unanchored scan
+    of backticked tokens cannot tell the check id ``quote`` from the
+    evidence-boundary tag of the same name, and would fail correct prose.
+    """
+    found = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        phrase = _CHECK_ID_PHRASE.search(line)
+        if phrase is None:
+            continue
+        end = phrase.end()
+        for index, token in enumerate(_BACKTICKED.finditer(line, end)):
+            gap = line[end : token.start()]
+            # The run's first token may sit behind a parenthetical aside
+            # ("grouped by check id (the second token on each line — …)"), but
+            # not behind a sentence break; every later token may sit behind
+            # list punctuation only.
+            if index == 0:
+                broken = _SENTENCE_BREAK.search(gap) is not None
+            else:
+                broken = _RUN_JOINER.match(gap) is None
+            if broken:
+                break
+            found.append((number, token.group(1)))
+            end = token.end()
+    return found
+
+
+@pytest.mark.parametrize("skill_md", _skill_md_files(), ids=lambda p: p.parent.name)
+def test_every_check_id_a_skill_enumerates_is_one_the_code_files(skill_md):
+    """C-1's class: a skill naming a check id the code renamed or dropped ships
+    prose that describes output the CLI cannot produce. Prose is the one
+    surface no other test reads; this catches the drift at build time."""
+    known = _known_check_ids()
+    unknown = sorted(
+        f"line {number}: {check!r}"
+        for number, check in _enumerated_check_ids(skill_md.read_text(encoding="utf-8"))
+        if check not in known
+    )
+    assert not unknown, (
+        f"{skill_md} names check id(s) no `verify` run emits and no registry "
+        f"carries: {unknown}"
+    )
+
+
+def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
+    """Guards the instrument, not the prose: a scan that silently found
+    nothing would make the sweep above pass on anything."""
+    emitted = _emitted_check_ids()
+    assert emitted, "AST scan found no Outcome check ids — the scan itself is broken"
+    # The four the registry does not carry are the whole reason this is an AST
+    # scan rather than `inbox.CHECK_IDS`; losing them is losing the point.
+    assert {
+        "staleness",
+        "append-only",
+        "claim-immutability",
+        "published-drift",
+    } <= emitted
+
+
+def test_the_check_id_extractor_reads_a_run_and_stops_at_prose():
+    """Guards the extractor on a literal sample, so a regex change that
+    quietly stopped matching cannot pass as clean prose."""
+    sample = (
+        "Present the printed lines **grouped by check id** (the second token "
+        "on each line — `citekey`, `doi`, and `source-status`), not in raw "
+        "run order.\n"
+        "Every other outcome is a finding, filed by check id `factcheck`, "
+        "carrying that claim's `text_hash` as `--target-hash`.\n"
+        "`mark-published` and `mark-corrected` mint a project-level event.\n"
+    )
+    assert _enumerated_check_ids(sample) == [
+        (1, "citekey"),
+        (1, "doi"),
+        (1, "source-status"),
+        (2, "factcheck"),
+    ]
+
+
+_REASON_SECTION_HEADING = "## Reason-code vocabulary"
+EVIDENCE_CONVENTIONS = SKILLS_DIR / "evidence-conventions" / "SKILL.md"
+_COUNT_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+
+
+def _reason_code_section() -> tuple[set[str], str]:
+    """The reason-code table's own codes, and the prose that closes it."""
+    text = EVIDENCE_CONVENTIONS.read_text(encoding="utf-8")
+    start = text.index(_REASON_SECTION_HEADING)
+    end = text.index("\n## ", start + 1)
+    lines = text[start:end].splitlines()
+    # A code row leads with its own code in backticks; the header and rule
+    # rows do not, so neither needs naming here.
+    tabled = {
+        _BACKTICKED.search(line).group(1) for line in lines if line.startswith("| `")
+    }
+    last_row = max(index for index, line in enumerate(lines) if line.startswith("|"))
+    return tabled, "\n".join(lines[last_row + 1 :]).strip()
+
+
+def test_evidence_conventions_accounts_for_every_reason_code():
+    """C-2's fix, pinned: the table plus its closing sentence must together
+    name the whole registry, each code exactly once. Registering a new code
+    with no row and no exemption fails here — which is the point, since the
+    closing sentence's count claim is what drifted.
+
+    ``matched`` is the only exemption the section may claim, and it is a real
+    one: only non-MATCHED results file findings, so no MATCHED reason ever
+    reaches the queue. ``manual`` carries a row because a person *can* meet it
+    there — ``hooks/stop_publish_gate.py:135`` writes it through
+    ``inbox.append_entry`` when someone bypasses the publish gate (ruled
+    2026-08-23). Moving it back off the table fails the equality below.
+    """
+    tabled, closing = _reason_code_section()
+    assert tabled, "found no reason-code rows — the section scan is broken"
+    assert closing, "the reason-code table ships no closing sentence to pin"
+    exempt = set(_BACKTICKED.findall(closing))
+    assert tabled <= inbox.REASON_CODES, (
+        f"table rows name unregistered reason code(s): {sorted(tabled - inbox.REASON_CODES)}"
+    )
+    assert exempt <= inbox.REASON_CODES, (
+        "the closing sentence backticks non-reason-code token(s): "
+        f"{sorted(exempt - inbox.REASON_CODES)}"
+    )
+    assert tabled.isdisjoint(exempt), (
+        f"code(s) both tabled and called off the table: {sorted(tabled & exempt)}"
+    )
+    assert tabled | exempt == inbox.REASON_CODES, (
+        "reason codes with neither a table row nor a named exemption: "
+        f"{sorted(inbox.REASON_CODES - tabled - exempt)}"
+    )
+    word = _COUNT_WORDS[len(exempt)]
+    assert re.search(rf"\b{word}\b", closing, re.IGNORECASE), (
+        f"the closing sentence exempts {len(exempt)} code(s) but does not say {word!r}"
     )
