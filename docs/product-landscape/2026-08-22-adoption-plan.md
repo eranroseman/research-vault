@@ -241,7 +241,7 @@ automatically the best available: bibverify distinguishes rate-limit from auth f
 parse from provider failure, where our `UNREACHABLE` collapses all five.
 
 So the test for "must build" is not *is this good code* but *does this decide a verdict*. It is
-the same line the dependency question resolved to (test 2 below): a dependency is cheap where it
+the same line the dependency question resolved to (test 3 below): a dependency is cheap where it
 cannot corrupt a verdict and degrades cleanly, expensive in the trust path however well maintained
 it is. One line, two questions.
 
@@ -258,7 +258,13 @@ and the tier is the recommendation.
 1. **Licence.** Permissive, and verified in the artifact rather than assumed from the repository.
    K-Dense is MIT at repository level with four proprietary Anthropic skills inside it (§6.12);
    medsci's checklists carry per-file licences that differ from the repository's (§2.5).
-2. **Dependency cost, weighed — not a veto.** Our core imports nothing outside the standard
+2. **Language, before anything else.** Vendoring assumes Python. Of the surveyed repositories, six
+   are TypeScript or Node primary — gbrain, llm-wiki-compiler, swarmvault, obra/knowledge-graph,
+   ZotSeek, doi-mcp — and one is Rust primary (gianlucasb/hallucinator). Those can only ever be
+   Tier D dependencies, however good they are and whatever their licence says. The test is cheap
+   and it comes first because it disqualifies outright rather than by degree.
+
+3. **Dependency cost, weighed — not a veto.** Our core imports nothing outside the standard
    library today, and that is worth keeping. But it is a guideline, not a rule, and we already
    own the mechanism for breaking it cleanly: `pyproject.toml` carries `pdf = ["pypdf>=4"]` as an
    optional extra, and `selectors.pdf_text` returns `None` on any failure, so the feature degrades
@@ -270,9 +276,9 @@ and the tier is the recommendation.
    reimplementing it worse. For it: what capability arrives, and how much of our own code stops
    existing. `python-docx` for field-code injection is one well-kept package buying a capability
    we have none of; `httpx` plus `anyio` plus `pydantic` plus `rich` to read one CSV is not.
-3. **Substrate fit.** A file coupled to another project's layout — its registries, its vault
+4. **Substrate fit.** A file coupled to another project's layout — its registries, its vault
    resolver, its manifest format — is a rewrite, not an adoption.
-4. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
+5. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
 
 ### 2.3 Tier A — adopt as-is
 
@@ -403,7 +409,7 @@ Worth reading, not worth carrying. Each fails a specific test.
 Everything else once listed here was a detection failure, not a licence failure (§15).
 - **sdyckjq-lab/llm-wiki-skill's `workbench/.claude/skills/{docx,pdf,pptx,xlsx}/`** — the
   repository is MIT, that subtree is not (§15). The trap is the same one K-Dense sets, and it is
-  why test 1 in §2.2 says *verified in the artifact*.
+  why test 2 in §2.2 says *verified in the artifact*.
 
 ### 2.9 Mirroring a whole skill
 
@@ -421,7 +427,7 @@ The mechanism is right and worth copying:
   and "do not hand-edit; re-vendor to update".
 - Rename only into our namespace, exactly as `paper-lookup` became `find-sources` (§10.2).
 
-This mode sidesteps §2.2's third test, because a skill is self-contained by design — it brings its
+This mode sidesteps §2.2's fourth test, because a skill is self-contained by design — it brings its
 own prompt, scripts and reference files rather than reaching into a host layout. That widens the
 candidate set considerably now that the licences are established:
 
@@ -758,7 +764,7 @@ In-house, so this is porting rather than importing. Ranked by value.
 | Replace | With | Why now |
 |---|---|---|
 | The contiguous find in `selectors.find_context` | medsci `_quote_match.py` | Measured: our find misses line-number and column-bleed cases it grades PARTIAL and INTERLEAVED. Wire at `__main__.py:257-263`, not at `check_quote` — both sides of that comparison are vault text |
-| Nothing — we have no retrieval | obra/knowledge-graph | Our largest single gap, MIT, SQLite + FTS5 + MCP. Do not build one |
+| Nothing — we have no retrieval | obra/knowledge-graph | Our largest single gap, MIT, SQLite + FTS5 + MCP. **A dependency, not a vendor target** — TypeScript and Node, so it is installed and called, never carried into `knowledge_harness/` (§2.6). Do not build one either |
 | Duplicate detection we lack | medsci `check_reference_duplication.py`, `check_citation_keys.py` | stdlib, small, complement rather than replace our `citekey` check |
 | Building an evaluation harness | HALLMARK as a fixture | Its six sub-tests already map onto four of our checks; registering a baseline is a supported operation |
 | Any future renderer | pandoc + CSL | Both medsci and pedrohcgs shell out rather than reimplement |
