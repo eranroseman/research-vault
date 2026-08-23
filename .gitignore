@@ -2,6 +2,7 @@
 sources/*.zip
 .worktrees/
 .claude/worktrees/
+*.pdf
 
 # --- GitHub Python template (github/gitignore) ---
 # Byte-compiled / optimized / DLL files
