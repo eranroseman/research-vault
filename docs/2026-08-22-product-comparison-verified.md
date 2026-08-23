@@ -65,7 +65,8 @@ introfini/ZotSeek, skyllwt/AutoSci, delibae/claude-prism,
 PiaoyangGuohai1/cli-anything-zotero, huytieu/COG-second-brain, obra/knowledge-graph,
 rpatrik96/hallmark, Agents365-ai/asta-skill, PouriaRouzrokh/LatteReview,
 WenyuChiou/research-hub. medsci-skills and research-hub were additionally surveyed
-skill-by-skill (§6.1, §6.15).
+skill-by-skill (§6.1, §6.15), and medsci's `self-review` and `sync-submission` scripts were read
+for their exit and severity semantics after an earlier draft mischaracterised them.
 
 **Cloned and listed, no file opened** — shape, licence and scale confirmed, mechanisms not:
 917Dhj/DeepPaperNote, delibae/claude-prism, huytieu/COG-second-brain,
@@ -205,8 +206,28 @@ KNHANES/NHANES/CHNS studies, sample-size calculation, deidentification, ICMJE CO
 marketplace description calls it "physician-built … submission-grade, not a generic skill
 catalog". Second, **it ships no hooks**: `.claude-plugin/` contains only `marketplace.json`, with
 no `plugin.json` and no `hooks/` anywhere in the tree, so nothing it does is enforced at a session
-boundary. Its enforcement is CLI gates a person runs — `sync-submission/scripts/preflight_gate.py`
-returns 1 on halt (:587) and `manage-refs/scripts/pre_submission_gate.sh` exits 1 (:154).
+boundary.
+
+**But it gates far more widely than a first pass suggested.** An earlier draft of this document
+described medsci as audit-only with two CLI preflight scripts. Reading `self-review` (52 scripts)
+and `sync-submission` (21) rather than listing them:
+
+- **33 scripts** end in the same line shape — `return 1 if (args.strict and result["summary"]["n_major"]) else 0`
+  — so each is a gate that halts on major findings **when the operator passes `--strict`**, and
+  reports otherwise.
+- **43 scripts** describe themselves as a gate in their own `--help` text: "Cohort arithmetic gate
+  (Phase 2.5 / 2.5b)", "Float citation-order gate (technical-check pass)".
+- **22 scripts** reserve `sys.exit(2)` for could-not-run, distinct from both clean and
+  findings — the same separation our exit codes make between a failed check and a check that could
+  not run.
+- Findings carry a **major/minor severity**, and only `n_major` can halt. `severity` appears 168
+  times across `self-review/scripts` alone.
+
+So the accurate reading is a 43-gate suite with opt-in strict enforcement, a three-state exit
+model and a per-finding severity tier — the same "detect always, block under an explicit strict
+policy" posture as Imbad0202 (§6.2), reached independently. What it does not have is a harness that
+arms any of it: every one of those gates halts only a command a person chose to run, with a flag a
+person chose to pass.
 
 It is distributed as several plugins; `medsci-literature` bundles exactly the six skills that
 overlap us — `fulltext-retrieval`, `lit-sync`, `manage-refs`, `obsidian-paper-vault`, `search-lit`,
@@ -1050,7 +1071,7 @@ mint a `verified` event on MATCHED, and the skill is forbidden from claiming oth
 
 **The seam.** Three registry-backed deterministic gates exist — ours, Imbad0202's, medsci's — and
 the split between them is what happens on a bad result. medsci's `verify-refs` is audit-only by
-design, and the halting gates live downstream at submission rather than on this check. Imbad0202
+design, though 33 of its sibling scripts halt on major findings under `--strict` (§6.1). Imbad0202
 detects universally and blocks only under opt-in strict policy. Ours closes a commit and a
 session-Stop surface by default, and treats UNREACHABLE as holding the publish gate rather than
 passing it.
@@ -1289,6 +1310,14 @@ paste-ready resolutions it never applies (§6.3); swarmvault dashboards them; ll
 contradicted pages. We record `disputes` links and a `disputed-claim` check — no probe, no
 severity, no temporal reasoning.
 
+**Per-finding severity.** medsci grades every finding major or minor and halts only on majors —
+`severity` appears 168 times in `self-review/scripts` alone, and the gate line reads
+`args.strict and n_major` (§6.1). gbrain grades contradictions on a severity rubric (§6.3). Our
+severity is per *check id*, not per finding: `CLOSING_BY_SURFACE` decides that `quote` can hold
+publish while `screening-state` cannot, but two `quote` findings are equally weighty. Our
+`_FINDING_FIELDS` are `id`, `check`, `target`, `result`, `date`, `actor`, `reason` — no severity
+among them. A trivial and a serious instance of the same check are indistinguishable to the gate.
+
 **Maturity and confidence vocabularies.** Pratiyush declares page lifecycle and a computed
 confidence (§6.11); hermes makes a missing confidence field a lint signal (§6.6); llmwiki holds
 low-confidence pages by default (§6.5). Our trust tier is derived from check results; our
@@ -1418,9 +1447,10 @@ Two entries carry qualifications, stated inline rather than deferred.
 
 - **Registry-verified existence as a closing gate, not a report.** Imbad0202 and medsci also verify
   against live registries; only we make the result close a commit and a session-Stop surface.
-  medsci's reference check is audit-only and its halting gates are CLI preflights at submission
-  with no hook enforcement (§6.1); research-hub gates corpus admission, not the draft (§6.15);
-  Imbad0202 blocks only under an opt-in strict policy.
+  medsci halts widely but only under an operator's `--strict` flag, with no hook anywhere to arm
+  it (§6.1); Imbad0202 blocks only under an opt-in strict policy; research-hub gates corpus
+  admission rather than the draft (§6.15). The distinction that survives all three is narrow and
+  worth stating exactly: **ours is armed by the harness, theirs by the operator.**
 - **Per-claim evidence-boundary tags.** `quote` / `paraphrase` / `inference` / `open-question` as a
   required, lintable per-line vocabulary. No comparable tags *epistemic status* per line; K-Dense
   `scientific-writing`'s `[claim:C001] [evidence:E001,E002]` markers are per-line but tag
@@ -1475,9 +1505,9 @@ differentiator.
 | What is citable | only a human-admitted Zotero item | anything dropped into `raw/` or `sources/` — except research-hub, which screens candidates through a fail-closed resolver gate |
 | Who writes the evidence layer | the CLI renders it; the LLM may not touch it | the LLM writes source pages directly (all wiki-family products) |
 | Provenance granularity | claim block address + locator + stance | page, paragraph, line-range or `#L45` at best |
-| Verification | deterministic registry checks that close surfaces | registry checks as audit (Imbad0202, medsci), LLM adjudication, structural lint, or nothing |
+| Verification | deterministic registry checks that close surfaces | deterministic gates under an opt-in strict flag (Imbad0202, medsci: 33 such scripts), fail-closed at corpus admission (research-hub), LLM adjudication, structural lint, or nothing |
 | Failure vocabulary | four states, frozen reason codes, never a verdict on an outage | the same four states as a schema (Imbad0202); elsewhere pass/fail, free-text findings or console output |
-| Enforcement point | git pre-commit, PostToolUse warn, Stop gate | prompt convention (hermes `llm-wiki`, SamurAIGPT, nvk, Pratiyush), script gate (hermes `grounded-citations`), write-path runtime (llmwiki), transaction approval (claude-obsidian), PreToolUse guard (Imbad0202), CI build (Manubot) |
+| Enforcement point | git pre-commit, PostToolUse warn, Stop gate — armed by the harness, not by an operator flag | prompt convention (hermes `llm-wiki`, SamurAIGPT, nvk, Pratiyush), script gate (hermes `grounded-citations`), write-path runtime (llmwiki), transaction approval (claude-obsidian), PreToolUse guard (Imbad0202), CI build (Manubot) |
 | Retrieval | none — index and log orientation | BM25, embeddings, hybrid, or graph expansion |
 | Breadth of ingest | one item type | tens of formats plus media and code |
 | Breadth of output | none | LaTeX, DOCX, PDF, slides, dashboards, `llms.txt`, JSON-LD, Neo4j |
@@ -1662,11 +1692,12 @@ research-hub (§6.1, §6.15) show that was too strong, and the accurate statemen
 - **Imbad0202/academic-research-skills** has the strongest verification machinery in the
   comparison (§6.2) and is **CC-BY-NC-4.0** (§15). It can be studied and re-derived; its files
   cannot be copied. It also has no vault and no citekey spine.
-- **Aperivue/medsci-skills** matches our substrate exactly and is MIT (§6.1). Its `verify-refs` is
-  audit-only by design, but the product does gate: `preflight_gate.py` returns 1 on halt and
-  `pre_submission_gate.sh` exits 1. Two things still separate it. Those are **CLI gates a person
-  runs**, not session enforcement — the repository ships no `plugin.json` and no hooks at all. And
-  it is **domain-locked**: 21 of 59 skills are medical-specific, and it describes itself as
+- **Aperivue/medsci-skills** matches our substrate exactly and is MIT (§6.1). It gates
+  extensively — 33 scripts halt on major findings under `--strict`, 43 call themselves gates — with
+  a severity tier and a could-not-run exit we do not have. Two things still separate it. Every one
+  of those gates is a **command a person chose to run with a flag a person chose to pass**: the
+  repository ships no `plugin.json` and no hooks, so nothing is armed by the harness. And it is
+  **domain-locked**: 21 of 59 skills are medical-specific, and it describes itself as
   "physician-built … not a generic skill catalog".
 - **WenyuChiou/research-hub** is MIT and gates fail-closed on registry evidence, with a layered
   authenticity check and recoverable quarantine (§6.15). But it gates a *different boundary*:
