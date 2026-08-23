@@ -53,10 +53,13 @@ time stays a gap; a gap in a file becomes furniture.
 mutate4py exits 0 even when mutants survive, so pass/fail is parsed from the
 "Survivors:" report section. Baseline keys exclude line numbers on purpose:
 `<relpath>::<func-id>::<mutation>` stays stable across unrelated edits. A
-written baseline may start with a `#`-prefixed line recording which modules
-were excluded when it was built, so the file is self-describing on its own;
-baseline_keys() skips comment and blank lines so that header is never
-mistaken for a key.
+module-level site (mutate4py's `function_id` is "" for these -- no enclosing
+function) has no func-id to put there, so it keys as `<relpath>::module::
+<mutation>` instead: still stable, and the literal "module" can never collide
+with a real func-id, which is always `func/<name>`. A written baseline may
+start with a `#`-prefixed line recording which modules were excluded when it
+was built, so the file is self-describing on its own; baseline_keys() skips
+comment and blank lines so that header is never mistaken for a key.
 Always invokes mutate4py with --manifest-file (sidecar); the embedded manifest
 mode writes into production source files and is never acceptable here.
 """
@@ -71,23 +74,68 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent  # repo root
-SURVIVOR_RE = re.compile(r"^\s+line \d+ (?P<mutation>.+) (?P<func>func/\S+)$")
+# func is OPTIONAL: mutate4py 0.1.4 omits the trailing " func/<name>" entirely
+# for a module-level (import-time) site (_discovery.Site.function_id is ""
+# there), so a survivor there prints as "  line 38 True -> False" with
+# nothing after the mutation text. mutation is non-greedy so it yields the
+# shortest text for which the rest of the line matches "func/<name>" exactly
+# to end-of-string -- that is what makes the split land on the real boundary
+# instead of swallowing part of a func id, or a func id swallowing part of
+# the mutation text.
+SURVIVOR_RE = re.compile(r"^\s+line \d+ (?P<mutation>.+?)(?: (?P<func>func/\S+))?$")
+_ENTRY_START_RE = re.compile(r"^\s+line \d+ ")
 
 
 def parse_survivors(relpath: str, output: str) -> set[str]:
     keys: set[str] = set()
     in_section = False
+    pending: list[str] = []  # physical lines of the survivor entry in progress
+
+    def flush() -> None:
+        # A long s.desc wraps across further-indented continuation lines (see
+        # the module docstring and the multi-line fixture in
+        # tests/test_mutation_gate.py) -- folded here into one logical entry
+        # by stripping each continuation and rejoining with a space, so the
+        # anchored SURVIVOR_RE (which only ever sees single-line text) still
+        # applies unchanged.
+        if not pending:
+            return
+        text = pending[0]
+        if len(pending) > 1:
+            text += " " + " ".join(part.strip() for part in pending[1:])
+        match = SURVIVOR_RE.match(text)
+        if match is None:
+            # Genuinely unparseable -- not module-level (func is optional
+            # above) and not a wrapped continuation (folded above). Same
+            # doctrine this script already applies to a non-zero mutate4py
+            # exit: an unreadable measurement must never read as zero
+            # survivors, so this raises instead of silently dropping the
+            # entry and everything after it.
+            raise ValueError(f"{relpath}: unparseable survivor entry: {text!r}")
+        func = match["func"] or "module"
+        keys.add(f"{relpath}::{func}::{match['mutation']}")
+
     for line in output.splitlines():
         if line.startswith("Survivors:"):
             in_section = True
             continue
-        if in_section:
-            match = SURVIVOR_RE.match(line)
-            if match is None:
-                if line.strip():
-                    in_section = False
-                continue
-            keys.add(f"{relpath}::{match['func']}::{match['mutation']}")
+        if not in_section:
+            continue
+        if not line[:1].isspace():
+            # The section ends ONLY on a non-indented line (a blank line
+            # qualifies too: line[:1] on "" is "" and .isspace() on that is
+            # False) -- never on an indented line SURVIVOR_RE fails to match
+            # standalone, since that shape is exactly a wrapped continuation,
+            # not the end of the section.
+            flush()
+            pending.clear()
+            in_section = False
+            continue
+        if pending and _ENTRY_START_RE.match(line):
+            flush()
+            pending.clear()
+        pending.append(line)
+    flush()  # a Survivors: section may run to EOF with no trailing blank line
     return keys
 
 

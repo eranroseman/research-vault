@@ -14,9 +14,15 @@ knowledge_harness/archive.py::func/archive_source::_string_field(data, "citekey"
 knowledge_harness/archive.py::func/is_archive_url::not isinstance(url, str) or not url or url.splitlines() != [url] -> not isinstance(url, str) and not url or url.splitlines() != [url]
 knowledge_harness/bibliography.py::func/_open_parent_chain::0 -> 1
 knowledge_harness/bibliography.py::func/_open_parent_chain::1 -> 0
+knowledge_harness/bibliography.py::func/_poll_window::clock() >= deadline -> clock() > deadline
+knowledge_harness/bibliography.py::func/_poll_window::deadline - clock() -> deadline + clock()
+knowledge_harness/bibliography.py::func/_poll_window::remaining <= 0 -> remaining < 0
 knowledge_harness/bibliography.py::func/_refresh_live_index_lock::0 -> 1
+knowledge_harness/bibliography.py::func/_repair_guidance::state.result is not Result.UNMATCHED or not state.contained -> state.result is not Result.UNMATCHED and not state.contained
 knowledge_harness/bibliography.py::func/_rollback_head::True -> False
 knowledge_harness/bibliography.py::func/_target_state::0 -> 1
+knowledge_harness/bibliography.py::func/_target_state::not stat.S_ISREG(opened_stat.st_mode) or ( path_stat.st_dev, path_stat.st_ino, ) != (opened_stat.st_dev, opened_stat.st_ino) -> not stat.S_ISREG(opened_stat.st_mode) and ( path_stat.st_dev, path_stat.st_ino, ) != (opened_stat.st_dev, opened_stat.st_ino)
+knowledge_harness/bibliography.py::func/observe_autoexport::boundary is None or not captured.contained -> boundary is None and not captured.contained
 knowledge_harness/checks.py::func/_arxiv_identifier::not identifier or re.fullmatch(r"[a-z0-9./-]+", identifier) is None -> not identifier and re.fullmatch(r"[a-z0-9./-]+", identifier) is None
 knowledge_harness/checks.py::func/_arxiv_identity::parts.scheme not in {"http", "https"} or parts.netloc.casefold() != "arxiv.org" -> parts.scheme not in {"http", "https"} and parts.netloc.casefold() != "arxiv.org"
 knowledge_harness/checks.py::func/_arxiv_version_outcome::local_version is None or re.fullmatch(r"v[1-9]\d*", local_version) is None -> local_version is None and re.fullmatch(r"v[1-9]\d*", local_version) is None
@@ -35,11 +41,28 @@ knowledge_harness/checks.py::func/load_rw_csv::doi is not None -> doi is None
 knowledge_harness/checks.py::func/metadata_year::False -> True
 knowledge_harness/checks.py::func/metadata_year::not isinstance(parts, list) or not isinstance(parts[0], list) -> not isinstance(parts, list) and not isinstance(parts[0], list)
 knowledge_harness/checks.py::func/metadata_year::parts is None or parts == [] -> parts is None and parts == []
+knowledge_harness/claims.py::module::False -> True
+knowledge_harness/factcheck.py::func/_bucket::0 -> 1
+knowledge_harness/factcheck.py::func/_bucket::1 -> 0
+knowledge_harness/factcheck.py::func/contested_adjacent_links::not claim.citekey or not claim.claim_id -> not claim.citekey and not claim.claim_id
+knowledge_harness/factcheck.py::func/eligible_claims::claim.tag not in _ELIGIBLE_TAGS or not claim.citekey or not claim.claim_id -> claim.tag not in _ELIGIBLE_TAGS and not claim.citekey or not claim.claim_id
+knowledge_harness/factcheck.py::func/select_claims::0 -> 1
+knowledge_harness/factcheck.py::func/select_claims::cap < 0 -> cap <= 0
+knowledge_harness/factcheck.py::module::True -> False
 knowledge_harness/identify.py::func/_pubmed_pmid::not pmid or not pmid.isdecimal() or pmid == "0" -> not pmid and not pmid.isdecimal() or pmid == "0"
 knowledge_harness/identify.py::func/_query_terms::isinstance(authors, list) and authors and isinstance(authors[0], dict) -> isinstance(authors, list) or authors and isinstance(authors[0], dict)
 knowledge_harness/identify.py::func/_query_terms::isinstance(candidate, str) and candidate.strip() -> isinstance(candidate, str) or candidate.strip()
 knowledge_harness/identify.py::func/_target::isinstance(value, str) and value -> isinstance(value, str) or value
 knowledge_harness/identify.py::func/_title::not isinstance(value, str) or not value.strip() -> not isinstance(value, str) and not value.strip()
+knowledge_harness/inbox.py::func/_line_fields::not fields or " ".join(field.group(0) for field in fields) != line[2:] -> not fields and " ".join(field.group(0) for field in fields) != line[2:]
+knowledge_harness/inbox.py::func/_prepare_append::True -> False
+knowledge_harness/inbox.py::func/_scope_acknowledged::finding.check == "update-notice" -> finding.check != "update-notice"
+knowledge_harness/inbox.py::func/_scope_acknowledged::len(colliding) == 1 and any( ack.ack_of == finding.id and ack.actor.startswith("human:") and ack.target_hash == finding.target_hash and ack.notice_class is None for ack in entries ) -> len(colliding) == 1 or any( ack.ack_of == finding.id and ack.actor.startswith("human:") and ack.target_hash == finding.target_hash and ack.notice_class is None for ack in entries )
+knowledge_harness/inbox.py::func/_validate_notice_fingerprint::notice_class is None or notice_type is None -> notice_class is None and notice_type is None
+knowledge_harness/inbox.py::func/_validate_notice_fingerprint::notice_date is not None or detection_date is not None -> notice_date is not None and detection_date is not None
+knowledge_harness/inbox.py::func/append_ack::notice_class is None and notice_type is None and notice_date is None -> notice_class is None or notice_type is None and notice_date is None
+knowledge_harness/inbox.py::func/finding_id::notice_date or 'unknown' -> notice_date and 'unknown'
+knowledge_harness/inbox.py::module::True -> False
 knowledge_harness/lints.py::func/_claim_target::isinstance(citekey, str) and citekey -> isinstance(citekey, str) or citekey
 knowledge_harness/lints.py::func/_is_complete_deprecation_transition::"[status:: deprecated]" in old_line -> "[status:: deprecated]" not in old_line
 knowledge_harness/lints.py::func/_is_complete_deprecation_transition::TRANSITION_FIELD.search(old_line) and "[status:: deprecated]" in old_line -> TRANSITION_FIELD.search(old_line) or "[status:: deprecated]" in old_line
@@ -69,6 +92,17 @@ knowledge_harness/notes.py::func/render_claim::not isinstance(citekey, str) or _
 knowledge_harness/notes.py::func/render_claim::pre or suf -> pre and suf
 knowledge_harness/okf.py::func/regenerate_log::tail_entries > 0 -> tail_entries >= 0
 knowledge_harness/paths.py::func/to_local::proc.returncode == 0 and proc.stdout.strip() -> proc.returncode == 0 or proc.stdout.strip()
+knowledge_harness/publish.py::func/_append_log::True -> False
+knowledge_harness/publish.py::func/_publish::live is not None -> live is None
+knowledge_harness/publish.py::func/_publish::live is not None and live.kind == "file" -> live is not None or live.kind == "file"
+knowledge_harness/publish.py::func/_publish::live.kind == "file" -> live.kind != "file"
+knowledge_harness/publish.py::func/_set_status::1 -> 0
+knowledge_harness/publish.py::func/arm::True -> False
+knowledge_harness/publish.py::func/arm::not token or any(character in token for character in "\r\n\0") -> not token and any(character in token for character in "\r\n\0")
+knowledge_harness/publish.py::func/disarm::False -> True
+knowledge_harness/publish.py::func/disarm::True -> False
+knowledge_harness/publish.py::func/project_dir::stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode) -> stat.S_ISLNK(metadata.st_mode) and not stat.S_ISDIR(metadata.st_mode)
+knowledge_harness/publish.py::module::True -> False
 knowledge_harness/quotes.py::func/check_quote::best >= FUZZY_THRESHOLD -> best > FUZZY_THRESHOLD
 knowledge_harness/quotes.py::func/levenshtein_ratio::1 -> 0
 knowledge_harness/quotes.py::func/levenshtein_ratio::not a and not b -> not a or not b
@@ -82,6 +116,16 @@ knowledge_harness/scaffold.py::func/_prepare_repository::0 -> 1
 knowledge_harness/scaffold.py::func/_prepare_repository::True -> False
 knowledge_harness/scaffold.py::func/_prepare_repository::not metadata.exists() and not metadata.is_symlink() -> not metadata.exists() or not metadata.is_symlink()
 knowledge_harness/scaffold.py::func/_remote_probe::False -> True
+knowledge_harness/searchlog.py::func/_line_fields::not fields or " ".join(field.group(0) for field in fields) != line[2:] -> not fields and " ".join(field.group(0) for field in fields) != line[2:]
+knowledge_harness/searchlog.py::func/_prepare_append::True -> False
+knowledge_harness/searchlog.py::func/_validate_hits::isinstance(value, bool) or not isinstance(value, int) or value < 0 -> isinstance(value, bool) and not isinstance(value, int) or value < 0
+knowledge_harness/searchlog.py::func/load::1 -> 0
+knowledge_harness/searchlog.py::module::True -> False
+knowledge_harness/verify.py::func/_apply_state_transitions::True -> False
+knowledge_harness/verify.py::func/_apply_state_transitions::note and note.is_file() -> note or note.is_file()
+knowledge_harness/verify.py::func/_apply_state_transitions::outcome.result is Result.MATCHED -> outcome.result is not Result.MATCHED
+knowledge_harness/verify.py::func/_archive_outcomes::not isinstance(archive_url, str) or not archive_url -> not isinstance(archive_url, str) and not archive_url
+knowledge_harness/verify.py::func/_candidate_destinations_match_live::snapshots.candidate_name == "worktree" -> snapshots.candidate_name != "worktree"
 knowledge_harness/verify.py::func/_citekey_hash::isinstance(attachment_hashes, list) and attachment_hashes -> isinstance(attachment_hashes, list) or attachment_hashes
 knowledge_harness/verify.py::func/_citekey_hash::isinstance(first, str) and first -> isinstance(first, str) or first
 knowledge_harness/verify.py::func/_claim_anchor_hash::candidate_snapshot is None -> candidate_snapshot is not None
@@ -93,14 +137,25 @@ knowledge_harness/verify.py::func/_claim_anchor_hash::head is not None -> head i
 knowledge_harness/verify.py::func/_claim_anchor_hash::raw_origin is not None -> raw_origin is None
 knowledge_harness/verify.py::func/_claim_bytes_from_text::1 -> 0
 knowledge_harness/verify.py::func/_claim_bytes_from_text::index + 1 -> index - 1
+knowledge_harness/verify.py::func/_identifier_hash::True -> False
+knowledge_harness/verify.py::func/_identifier_hash::raw_origin is not None -> raw_origin is None
+knowledge_harness/verify.py::func/_mutate_marker::path is None or not path.is_file() -> path is None and not path.is_file()
+knowledge_harness/verify.py::func/_network_outcomes::entry.get("DOI") or entry.get("doi") -> entry.get("DOI") and entry.get("doi")
+knowledge_harness/verify.py::func/_origins::isinstance(note_path, str) and ( isinstance(claim_id, str) or isinstance(line_no, int) ) -> isinstance(note_path, str) or ( isinstance(claim_id, str) or isinstance(line_no, int) )
+knowledge_harness/verify.py::func/_plan_state::0 -> 1
+knowledge_harness/verify.py::func/_plan_state::repository_root is not None -> repository_root is None
+knowledge_harness/verify.py::func/_projection_identity::outcome.check == "quote" and isinstance(outcome.target, str) -> outcome.check == "quote" or isinstance(outcome.target, str)
 knowledge_harness/verify.py::func/_safe_relative::target_kind != "repo-path" or not isinstance(target, str) -> target_kind != "repo-path" and not isinstance(target, str)
 knowledge_harness/verify.py::func/_snapshot_directory_bytes::image.data or b"" -> image.data and b""
 knowledge_harness/verify.py::func/_snapshot_directory_bytes::image.kind == "file" -> image.kind != "file"
 knowledge_harness/verify.py::func/_snapshot_directory_bytes::image.kind == "symlink" -> image.kind != "symlink"
+knowledge_harness/verify.py::func/_snapshot_path_hash::( base_image.data if base_image is not None and base_image.kind == "file" else b"" ) or b"" -> ( base_image.data if base_image is not None and base_image.kind == "file" else b"" ) and b""
 knowledge_harness/verify.py::func/_snapshot_path_hash::candidate_image.data or b"" -> candidate_image.data and b""
 knowledge_harness/verify.py::func/_snapshot_path_hash::candidate_image.kind == "directory" -> candidate_image.kind != "directory"
 knowledge_harness/verify.py::func/_snapshot_path_hash::candidate_image.kind == "file" -> candidate_image.kind != "file"
 knowledge_harness/verify.py::func/_snapshot_path_hash::outcome.check == "append-only" -> outcome.check != "append-only"
+knowledge_harness/verify.py::func/_worktree_path_hash::live_target is not None -> live_target is None
+knowledge_harness/verify.py::func/_worktree_path_hash::path.suffix == ".md" -> path.suffix != ".md"
 knowledge_harness/webapi.py::func/_check_status::method == "HEAD" and status in _HEAD_FALLBACK_STATUSES -> method == "HEAD" or status in _HEAD_FALLBACK_STATUSES
 knowledge_harness/webapi.py::func/_check_status::status >= 400 -> status > 400
 knowledge_harness/webapi.py::func/_request::True -> False

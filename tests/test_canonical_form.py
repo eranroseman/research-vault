@@ -91,7 +91,10 @@ def test_managed_witness_matches_the_rendered_managed_region():
     text = notes.render_note(
         ITEM, ["aa11"], ANNOTATIONS, None, ACCESSED, generated_at=GENERATED_AT
     )
-    notes.validate_managed_witness(text.encode("utf-8"))
+    assert notes.validate_managed_witness(text.encode("utf-8")) == (
+        Result.MATCHED,
+        "matched",
+    )
 
 
 # --------------------------------------------------------------------------

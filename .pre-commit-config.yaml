@@ -97,13 +97,19 @@ repos:
       # MANIFEST SCOPE, measured 2026-08-22: research/, analysis/ and docs/adr/ are
       # in and green (docs/adr came through the mdformat canonicalization byte-
       # unchanged — it was already canonical). docs/superpowers/plans/ is
-      # deliberately OUT for now: the one-time markdown canonicalization recorded in
-      # .git-blame-ignore-revs reformats all 12 completed plans, so including them
-      # would make this hook fail on its own churn commit forever. The exclusion's
-      # only reason is that churn commit, and that reason expires at merge —
-      # OWNED BY PLAN Q TASK 6, which re-adds `docs/superpowers/plans` here in the
-      # same commit that records the baseline landing (ruled 2026-08-22). Same
-      # true-at-adoption discipline as the yamlfix path list above.
+      # deliberately OUT, OPEN, NO OWNER (corrected 2026-08-23: an earlier version
+      # of this comment claimed Plan Q Task 6 re-adds the path at merge; Task 6's
+      # three steps are acceptance, merge, and a post-merge note, none of which
+      # touches this file, so that claim was false — this records the gap
+      # honestly instead of inventing a resolution). Two reasons, neither expiring
+      # at this merge: (1) the one-time markdown canonicalization recorded in
+      # .git-blame-ignore-revs reformats all 12 completed plans, so including the
+      # path would fail this hook on its own churn commit forever; (2) in-flight
+      # plans are amended routinely here (Plan D, Plan L are live at this
+      # writing) and --diff-filter=MRD fails on any modification, so adding the
+      # path would break the next checkbox tick with no escape short of
+      # --no-verify. Same true-at-adoption discipline as the yamlfix path list
+      # above.
       - id: record-immutability
         name: "records: append-only under research/analysis/adr"
         language: system

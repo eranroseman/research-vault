@@ -52,6 +52,75 @@ def test_parse_survivors_empty_when_no_survivors_section():
     )
 
 
+# Byte-for-byte excerpt of real mutate4py 0.1.4 stdout for knowledge_harness/inbox.py
+# (see .mutate4py/baseline-run/knowledge_harness__inbox.py.stdout), trimmed from 9
+# survivors to 3. Unlike SAMPLE_OUTPUT above (hand-written, a func/ id on every
+# line, which is exactly why the drop-everything-after-a-module-level-survivor bug
+# went uncaught), this reproduces the real shape: a module-level survivor with no
+# func id (line 115) followed by function-level survivors, plus a genuine
+# multi-line-wrapped mutation description (line 611).
+REALISTIC_OUTPUT = """\
+Mutation run: knowledge_harness/inbox.py
+Total mutation sites: 129
+Covered mutation sites: 58
+Uncovered mutation sites: 71
+Mutation workers: 4
+
+Mutation Report
+===============
+Killed: 49
+Survived: 3
+Uncovered: 71
+Per-Mutant overhead: 0.60s
+
+Survivors:
+  line 115 True -> False
+  line 195 notice_date is not None or detection_date is not None -> notice_date is not None and detection_date is not None func/_validate_notice_fingerprint
+  line 611 len(colliding) == 1 and any(
+            ack.ack_of == finding.id
+            and ack.actor.startswith("human:")
+            and ack.target_hash == finding.target_hash
+            and ack.notice_class is None
+            for ack in entries
+        ) -> len(colliding) == 1 or any(
+            ack.ack_of == finding.id
+            and ack.actor.startswith("human:")
+            and ack.target_hash == finding.target_hash
+            and ack.notice_class is None
+            for ack in entries
+        ) func/_scope_acknowledged
+"""
+
+
+def test_parse_survivors_handles_module_level_and_wrapped_entries():
+    """Regression for the drop bug: a module-level survivor (no func/ id) must
+    key as `::module::`, not be discarded -- and must not truncate the
+    function-level survivors and the wrapped multi-line entry that follow it."""
+    keys = parse_survivors("knowledge_harness/inbox.py", REALISTIC_OUTPUT)
+    assert keys == {
+        "knowledge_harness/inbox.py::module::True -> False",
+        "knowledge_harness/inbox.py::func/_validate_notice_fingerprint::"
+        "notice_date is not None or detection_date is not None -> "
+        "notice_date is not None and detection_date is not None",
+        "knowledge_harness/inbox.py::func/_scope_acknowledged::"
+        "len(colliding) == 1 and any( ack.ack_of == finding.id and "
+        'ack.actor.startswith("human:") and ack.target_hash == '
+        "finding.target_hash and ack.notice_class is None for ack in entries "
+        ") -> len(colliding) == 1 or any( ack.ack_of == finding.id and "
+        'ack.actor.startswith("human:") and ack.target_hash == '
+        "finding.target_hash and ack.notice_class is None for ack in entries )",
+    }
+
+
+def test_parse_survivors_raises_on_genuinely_unparseable_entry():
+    """The other half of the inversion: an indented line that is neither a
+    module-level survivor nor a wrapped continuation must raise, not silently
+    read as zero survivors (same doctrine as a non-zero mutate4py exit)."""
+    bad_output = "Survivors:\n  this is not a survivor line at all\n"
+    with pytest.raises(ValueError, match="unparseable"):
+        parse_survivors("knowledge_harness/paths.py", bad_output)
+
+
 def test_new_survivors_ignores_baselined_keys():
     baseline = {
         'knowledge_harness/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',

@@ -6,7 +6,7 @@
 
 **Architecture:** Three tool adoptions (live-reviewed 2026-08-20, see `research/code-quality-tools-gabadi.md`) land as pinned dev dependencies; a small gate script turns mutate4py's exit-0-even-with-survivors output into a baseline-compared pass/fail; the blanket run commits per-module sidecar manifests so differential reruns persist across clones with zero CI state. Everything measures **harness code quality only** — nothing here touches the vault's publish-gate closing sets.
 
-**Tech Stack:** Python ≥3.11 for the lane (repo core stays ≥3.10; the lane's CI job runs 3.12), pytest + pytest-cov (LCOV branch coverage), mutate4py 0.1.4, crap4py 0.1.1, drywall 0.1.3, GitHub Actions.
+**Tech Stack:** Python ≥3.11 for the lane (repo core is ≥3.11 too as of HEAD — bumped from ≥3.10 2026-08-22, see `pyproject.toml`'s `requires-python`; the lane's CI job runs 3.12), pytest + pytest-cov (LCOV branch coverage), mutate4py 0.1.4, crap4py 0.1.1, drywall 0.1.3, GitHub Actions.
 
 ## Global Constraints
 
@@ -849,7 +849,7 @@ ______________________________________________________________________
 
 - [ ] **Step 1: Full acceptance in the worktree** — `python -m pytest tests -q` green; the gate commands from Task 5 Step 2 all pass; `git status` clean; `git diff main --stat` shows only this plan's files plus manifests.
 - [ ] **Step 2: Merge to main** per `superpowers:finishing-a-development-branch` (merge locally, push, remove worktree, prune).
-- [ ] **Step 3: Post-merge note** — append one line to the "Actionable backlog surfaced" section of `research/code-quality-tools-gabadi.md`: baseline landed, survivor count, and the ratchet reminder (lower `--max-crap` as items 2–3 burn down). Commit as `docs: record quality-lane baseline landing`.
+- [ ] **Step 3: Post-merge note** — record the landing in a NEW dated file under `research/` (following this branch's own `research/2026-08-23-mutate4py-defects.md` precedent, e.g. `research/2026-08-23-quality-lane-baseline-landed.md`): baseline landed, survivor count, and the ratchet reminder (lower `--max-crap` as items 2–3 burn down). Do NOT append to `research/code-quality-tools-gabadi.md` or edit any other existing file under `research/`: AGENTS.md's "`research/` stands as written" rule and this branch's own `record-immutability` pre-commit hook (`--diff-filter=MRD`) both fail on that modification — an added file does not, since `MRD` excludes adds. Commit as `docs: record quality-lane baseline landing`.
 
 ______________________________________________________________________
 
