@@ -238,7 +238,7 @@ vault/ (Obsidian conventions, OKF-conformant, git)
                      ▲              ▲              ▲
         bibverify ───┘   medsci checks ─┘   retraction sweep ─┘
         harcx            _quote_match       RW CSV + Crossref
-        citation-checker check_claim_fidelity  + Open Retractions
+        citation-checker check_claim_fidelity  + OpenAlex is_retracted
 
 surfaces: PostToolUse warn · pre-commit · CI · Stop gate at publish
 retrieval: obra/knowledge-graph (SQLite + sqlite-vec + FTS5, MCP)
@@ -301,3 +301,75 @@ addressing have no donor, and they are precisely the parts that decide whether t
 truth. An assembled harness is therefore not a third alternative to knowledge-harness and Memoria.
 It is what either becomes if it stops writing capabilities and starts writing adapters — which, on
 the evidence in §2, would leave most of both codebases unwritten.
+
+---
+
+## 9. Applied to knowledge-harness
+
+Sections 1 to 8 answer the question as asked — could this be assembled from scratch. This section
+answers the question that follows from it: **given the harness that already exists, what stays,
+what is ported, and what is replaced now.** The sorting rule is §18.1 of the product comparison —
+*adopt by default; build only where the artifact decides a verdict* — and it is what makes these
+three lists non-arbitrary.
+
+### 9.1 Preserve — seven things, all verdict-deciding
+
+| What | Where | Why it survives |
+|---|---|---|
+| Zotero + Better BibTeX citekey spine | `zotero.py`, `bibliography.py` | Nothing among 35 products, and nothing in Memoria, joins a reference manager, a vault and every check on one key. Memoria's plan is `zotero-bulk-import` — "admit to catalog, none to knowledge" |
+| `citekey#^claim-id` and typed stance links | `claims.py`, the claim-immutability lint | No donor found. The precedents are standards, not code (§2.12) |
+| Quote correspondence against source text | `quotes.py`, `selectors.py` | Memoria hash-pins bound text; we ask whether the quote is in the source. Only the second catches a fabricated quote |
+| Four-state `Result` and the frozen registries | `outcome.py`, `inbox.py` | This *is* §3.1's result contract, already owned: 18 reason codes and 15 check ids enforced by the writer |
+| Hook surfaces | `hooks/` | The one differentiator that survived three narrowings. Memoria is a CLI; every competitor needs an operator flag |
+| Publication lifecycle | `publish.py`, the published-drift lint | Tags are never deleted and a correction adds one. Every other product stops when the artifact ships |
+| Zero-dependency core | `knowledge_harness/` | Cheap to keep, expensive to regain — and §5 shows what an assembly costs here |
+
+**This bucket is contingent.** Rows four to six are only assets while the false-positive rate is
+low enough that a person leaves the gate armed (§6.2). Unmeasured, they are a bet.
+
+### 9.2 Port from Memoria — designs, not dependencies
+
+In-house, so this is porting rather than importing. Ranked by value.
+
+1. **`decision_rules.py`.** Pre-registered rules — `metric / window / threshold / recommendation` —
+   with assessment pure and application human-gated. Answers our unevidenced `0.90` fuzzy threshold
+   and `--cap 30` directly, and its `evidence-review-sizing` rule instruments gate abandonment,
+   which §6.2 names as the deciding risk. The highest-value item in this document.
+2. **Per-finding severity.** `_FINDING_FIELDS` carries none, so a trivial and a serious instance of
+   the same check are identical to the gate.
+3. **A `no-refutation` finding kind.** Flags a claim for which no counter-evidence was considered.
+   Our `disputed-claim` fires only when disputes already exist — we detect contested claims and
+   never uncontested ones that ought not to be.
+4. **The consequence walk in `propagation.py`.** When a source falls, what loses its grounds. We
+   have `disputes` edges and no closure over them.
+5. **`message.relation.is-retracted-by`.** One Crossref field we do not read (§2.6). Smallest item
+   here and nearly free.
+6. **`read_barrier` / `check_status == "checked"`.** The machine half of admission. It does not
+   replace the human act; it enforces it at consumption.
+7. **Code grounds.** `code-grounds:<run>:<artifact>:sha256`. Nothing anywhere has it. Park until
+   analysis work lands, then it is the other half of citation.
+
+### 9.3 Replace with third-party now — six
+
+| Replace | With | Why now |
+|---|---|---|
+| The contiguous find in `selectors.find_context` | medsci `_quote_match.py` | Measured: our find misses line-number and column-bleed cases it grades PARTIAL and INTERLEAVED. Wire at `__main__.py:257-263`, not at `check_quote` — both sides of that comparison are vault text |
+| Nothing — we have no retrieval | obra/knowledge-graph | Our largest single gap, MIT, SQLite + FTS5 + MCP. Do not build one |
+| Duplicate detection we lack | medsci `check_reference_duplication.py`, `check_citation_keys.py` | stdlib, small, complement rather than replace our `citekey` check |
+| Building an evaluation harness | HALLMARK as a fixture | Its six sub-tests already map onto four of our checks; registering a baseline is a supported operation |
+| Any future renderer | pandoc + CSL | Both medsci and pedrohcgs shell out rather than reimplement |
+| Building reporting-guideline support | medsci `check-reporting` | 49 checklists, verified-permissive rows only, plus its `LICENSES.md` discipline |
+
+### 9.4 What is deliberately not replaced
+
+`verify.py` and `checks.py` stay ours. bibverify, `harcx`, `bibtex-updater` and CiteVerifier are
+all MIT and all tempting, and every one of them decides a verdict — which is exactly where §18.1
+says adoption stops. K-Dense's `validate_citations.py` returning `True` on a network failure is the
+concrete cost of getting that boundary wrong.
+
+### 9.5 Net effect
+
+The core shrinks toward four things: the spine, the addressing, the result contract, and the gate.
+Everything around them comes from somewhere else, and two of the four already exist here. That is
+§8's verdict applied to a codebase rather than to a hypothetical — and it is the same conclusion
+the product comparison reaches in §17.2, now with named files on both sides of the line.
