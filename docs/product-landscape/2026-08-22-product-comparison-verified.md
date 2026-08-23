@@ -4,19 +4,20 @@ Comparison note, 2026-08-22.
 
 ## How to read this
 
-Five parts. **Part I** states how the evidence was gathered and measures our own side, so every
+Four parts, all evidence. **Part I** states how it was gathered and measures our own side, so every
 later claim has a baseline. **Part II** is the field: every comparable product, tiered by whether
 it could replace the harness, replace one component, or only inform its design. **Part III** is
 the comparison proper — skill by skill, then what we lack, then what only we have, then the
 differences as one table. **Part IV** is the record: corrections this pass forced on this
-repository's earlier notes, and what was deliberately left out. **Part V** is a positioning
-judgment built on all of it, ending in a candidate-by-candidate vendoring list. Parts I–IV are
-evidence; Part V is inference, except section 18, whose licence and dependency facts were checked
-in the artifacts.
+repository's earlier notes, and what was deliberately left out.
+
+The positioning judgment and the adoption list that once sat here as Part V now live in
+[the adoption plan](2026-08-22-adoption-plan.md). This document is what was found; that one is what
+to do about it.
 
 Two navigation notes. **§8.5 is the research literature** — four papers read from `sources/`, and
 the only part of the evidence that is about tools of this kind rather than about a competitor; the
-positioning judgment in §17 leans on it heavily. And **§11 is ordered by cost**: its first group is
+positioning judgment in the adoption plan §1 leans on it heavily. And **§11 is ordered by cost**: its first group is
 verification, where a gap costs us what we claim to be, and the rest is breadth.
 
 ---
@@ -621,7 +622,7 @@ are not evidence gates.
 and a `difflib` fallback when the wheel is absent. Two details are worth carrying. It treats HTTP
 401 and 403 as resolving, which is correct for existence checking against paywalls. And its
 `VerificationResult` is **`ok: bool` plus a free-text `reason`** — a two-state result of exactly
-the shape §18.1 criticises in K-Dense.
+the shape the adoption plan §2.1 criticises in K-Dense.
 
 What rescues it is a layer up: `authenticity.py` classifies those reason strings through
 `is_transient_reason()` and refuses to read a transient failure as fabrication evidence. That is a
@@ -631,7 +632,7 @@ a reason classifier at the policy layer. All three arrive at *an outage is not a
 
 Read in full, the boundary holds: everything here gates a **paper entering a corpus**, not a claim
 entering a draft. There is no claim addressing, no stance links, no quote verification and no
-publication lifecycle. The complementary reading in §17.4 survives this reading — the only one of
+publication lifecycle. The complementary reading in the adoption plan §1.4 survives this reading — the only one of
 the three verdict-checks in this document that did not narrow a claim.
 
 ### 6.16 Found by search, not yet read at file level
@@ -905,7 +906,7 @@ so a fabrication is not missed. We have never measured, and nowhere reason about
 false-positive rate, and two of our tolerances are unevidenced knobs on exactly that dial: the
 `fuzzy-quote` threshold at 0.90 and the metadata-match comparison.
 
-This matters for §17 and not only for §11. Our differentiator is that the gate is armed by the
+This matters for the adoption plan §1 and not only for §11. Our differentiator is that the gate is armed by the
 harness rather than by an operator's flag (§12). That is an advantage only while the false-positive
 rate is low enough that a person leaves it armed. If it is not, we have built the thing this paper
 identifies as undeployable, and every competitor's opt-in `--strict` starts to look less like
@@ -1061,7 +1062,7 @@ mode, and the cascade architecture. Three things are not.
   seconds per manuscript. The mechanism is not in the sections read. If it ships or builds a local
   index, that is the answer to the Semantic Scholar throttling ceiling in §8.5.3.
 - **Our own numbers.** Everything above is other people's verifiers. We have no DR, no FPR, no MCC
-  and no calibration figure, and §17's positioning claim now depends on one of them.
+  and no calibration figure, and the adoption plan §1's positioning claim now depends on one of them.
 - **Whether the closed-universe legs behave as argued.** §8.5.2 claims `citekey` and
   `evidence-layer` have near-zero false-positive rates by construction. That is an argument from
   design, not a measurement, and it is exactly the kind of claim this document elsewhere refuses to
@@ -1069,7 +1070,7 @@ mode, and the cascade architecture. Three things are not.
 
 **Two limits that no amount of further reading closes.** No product's test suite was run, so every
 capability claim here is what an artifact says it does (§19.4). And there is no user evidence
-anywhere in this document — §17's positioning judgment rests on a capability landscape and nothing
+anywhere in this document — the adoption plan §1's positioning judgment rests on a capability landscape and nothing
 else, which is the weakest joint in the whole argument and the one a reader should press first.
 
 ### 8.6 Closed products
@@ -1543,7 +1544,7 @@ closeout, no replication package, no rendered output in any journal format.
 Forty-three gaps in six groups. The order is deliberate: **11.1 is on our own axis** — verification
 and evidence, where a gap costs us the thing we claim to be — and everything after it is breadth,
 where a gap costs us only reach. A reader deciding what to build should stop after 11.1; a reader
-deciding what to adopt should read 11.3 to 11.5 and then §18.
+deciding what to adopt should read 11.3 to 11.5 and then the adoption plan §2.
 
 Each entry names where the capability was read.
 
@@ -2022,454 +2023,6 @@ remaining unread surface is the long tail of Tier-1 search finds marked without 
 
 ---
 
-# Part V — Positioning judgment
-
-## 17. Does this product have a place, or should we adopt an alternative?
-
-**Epistemic status.** Parts I–IV are evidence: every claim traces to a file, a spec or an API
-response read on 2026-08-22. This section is *judgment* built on that evidence, and it is not the
-same kind of statement. It rests on a capability read of roughly 35 repositories — not on market
-research. There is no demand data here, no user evidence, and star counts are a distribution proxy
-and a poor one in an ecosystem where an agent framework carries 234,000 stars. Every factual claim
-below cites the section that verified it; the inferences are mine.
-
-### 17.1 Verdict
-
-Yes, but not in the category the README names. As "a Claude Code harness for knowledge work —
-academic research first", the field is crowded and better resourced: Imbad0202 at 43,339 stars with
-394 scripts, K-Dense at 34,130 with 163 skills, pedrohcgs with 52, medsci with 59. We ship nine.
-
-As **the gate layer** — the thing that decides whether work may proceed — the position is real,
-and on the evidence in Part III nobody occupies it.
-
-**Whether it is habitable is a separate question, and §8.5 opens it.** Part III establishes that no
-competitor gates a draft on per-claim evidence by default. The literature establishes that a
-default-armed gate survives contact with users only if its false-positive rate is low enough that
-they leave it armed, and that at the base rates measured for our corpora the best rule-based
-verifier benchmarked yields one true finding per 27 flags on arXiv and one per 50 on bioRxiv. An
-unoccupied position and a viable one are not the same claim. This verdict asserts the first; the
-second is unmeasured, and §17.5 step 3 is what would settle it.
-
-### 17.2 The build-versus-adopt binary is false, and this repository already resolved it once
-
-`find-sources` is an adoption: K-Dense's `paper-lookup`, vendored at a pinned SHA with a
-header-only diff and zero removals (§10.2). Generalise that and the answer follows —
-**build the trust core, adopt the breadth.** The two lists in Part III split cleanly along that
-line:
-
-- §12, what only we have, is entirely enforcement-layer: gates that close a surface, admission as
-  the sole path to citability, block-addressed claims with typed stance links, a frozen
-  reason-code registry, a correction lifecycle whose tags are never deleted.
-- §11, what we lack, is almost entirely breadth-layer: retrieval, drafting, rendering, submission
-  packaging, MCP surfaces, evaluation harnesses, maintenance lanes — and nearly all of it exists
-  under MIT (§15).
-
-Building breadth means competing on the field's own ground with one author. Building the gate means
-being the only one there.
-
-### 17.3 The differentiator, stated precisely enough to defend
-
-Not "we verify citations". Three other products run registry-backed deterministic verification —
-Imbad0202's `verification_gate`, medsci's `verify-refs`, pedrohcgs' `validate-bib --semantic`
-(§10.6) — above a Tier-2 shelf of bibverify, doi-mcp and citation-checker (§7).
-
-The verified position is narrower and holds: **the only product whose verification result closes a
-commit and a session-Stop surface**, combined with admission as the only path to citability and
-`citekey#^claim-id` addressing with typed stance links. Two adjacent claims must stay qualified as
-they are in §12: the citekey join is a difference of degree from medsci's `lit-sync`, not of kind;
-and four-state honesty is convergence with Imbad0202, not a differentiator.
-
-### 17.4 Why "adopt an alternative" is unavailable for the distinctive part
-
-Three credible candidates, failing on different axes. The first draft of this section said
-adoption was simply unavailable for the gating thesis; the full surveys of medsci-skills and
-research-hub (§6.1, §6.15) show that was too strong, and the accurate statement is narrower.
-
-- **Imbad0202/academic-research-skills** has the strongest verification machinery in the
-  comparison (§6.2) and is **CC-BY-NC-4.0** (§15). It can be studied and re-derived; its files
-  cannot be copied. It also has no vault and no citekey spine.
-- **Aperivue/medsci-skills** matches our substrate exactly and is MIT (§6.1). It gates
-  extensively — 33 scripts halt on major findings under `--strict`, 43 call themselves gates — with
-  a severity tier and a could-not-run exit we do not have. Two things still separate it. Every one
-  of those gates is a **command a person chose to run with a flag a person chose to pass**: the
-  repository ships no `plugin.json` and no hooks, so nothing is armed by the harness. And it is
-  **domain-locked**: 21 of 59 skills are medical-specific, and it describes itself as
-  "physician-built … not a generic skill catalog".
-- **WenyuChiou/research-hub** is MIT and gates fail-closed on registry evidence, with a layered
-  authenticity check and recoverable quarantine (§6.15). But it gates a *different boundary*:
-  admission of a candidate paper into the corpus, on per-paper authenticity. It has no claim
-  addressing, no quote verification and no publication lifecycle.
-
-So the honest position is not "nobody gates". It is that **nobody gates a draft, a commit and a
-session on per-claim evidence**. research-hub gates the corpus upstream of us and is complementary;
-medsci gates the submission package downstream of us and is medical-only; Imbad0202 gates
-comparably but cannot be adopted. That is a narrower crux than the first draft claimed, and it
-still holds.
-
-### 17.5 What follows
-
-1. **Narrow to the gate.** Keep the core, `verify-citations`, `publish`, `evidence-conventions` and
-   `import-source`. Stop treating drafting, rendering and submission packaging as roadmap — those
-   belong to medsci and pedrohcgs, who are years ahead on them (§11).
-2. **Port two MIT scripts that are gate-layer, not breadth-layer.** medsci's
-   `check_claim_fidelity.py` and `_quote_match.py` (§6.1). §10.7 already concedes `factcheck-draft`
-   is where we are most clearly behind; these close that gap and *strengthen* the narrow position
-   rather than widening scope.
-3. **Run HALLMARK against the deterministic suite** (§8.4, §8.5). This has moved from a nice-to-have
-   to the step the rest depends on. 2,526 entries, 14 hallucination types, six diagnostic sub-tests
-   per entry — four of which map onto checks we already run — and a baseline registry with a
-   documented dispatch interface, so registering ours is a supported operation rather than a fork.
-   Report **FPR and MCC first**, not detection rate: HALLMARK's central finding is that FPR decides
-   deployability, MCC is prevalence-invariant, and a recall figure quoted alone is the number its
-   three failure modes exist to warn about. Then extrapolate against Zhao et al.'s measured
-   prevalences — 0.39% arXiv, 0.27% PMC, 0.21% bioRxiv — rather than the benchmark's 2%, because
-   those are the corpora a knowledge-harness vault is actually built from (§8.5.1).
-   Split the report by leg: the closed-universe checks and the open-registry ones are different
-   instruments and §8.5.2 predicts they will score differently.
-4. **Vendor rather than rebuild** anything breadth-shaped, following the `find-sources` pattern —
-   pinned SHA, header-only provenance additions, re-vendor to update. Section 18 works that
-   instruction into a candidate-by-candidate list.
-
-### 17.6 Two facts that bear on timing
-
-**Being wrong is cheap.** ADR 0001 makes the vault tool-independent: plain markdown and YAML in
-git, structurally conformant to OKF (§4, §8.3). A later pivot to medsci does not strand the
-researcher's data. That asymmetry favours continuing.
-
-**The window is not open indefinitely.** medsci-skills was pushed three days before this
-comparison and already carries Zotero, an Obsidian vault, citekey provenance and registry
-verification (§6.1). It is converging on our substrate from the audit side. If it adds a closing
-gate, the distinctive position narrows to nothing. That argues for speed on the gate, not for
-abandoning it.
-
-### 17.7 What would change this verdict
-
-- ~~Reading medsci-skills in full and finding it already gates.~~ **Surveyed** (§6.1) — all 59
-  skill descriptions with script and test counts, the gate scripts, the hook surface and the
-  plugin split; roughly ten skill bodies read in full. It gates at the submission-package boundary
-  via CLI scripts, ships no hooks, and is medical-domain-locked. The verdict survives, narrowed.
-  A line-by-line read of `self-review` (36 scripts) and `sync-submission` (21) remains undone.
-- ~~`WenyuChiou/research-hub` turning out to verify.~~ **Done** (§6.15). It does — fail-closed, MIT,
-  on registry evidence — but at corpus admission rather than at the draft. Complementary, not
-  competing. The verdict survives, narrowed again.
-- **A third product adding per-claim gating at the draft boundary.** That is now the specific thing
-  to watch, and medsci is the likeliest source of it.
-- **Deciding the goal is one researcher's working setup rather than a product.** Then the economics
-  invert: adopt medsci, keep the gate as a thin plugin over it, and stop building nine skills to
-  reach parity with fifty-nine.
-
----
-
-## 18. Vendoring candidates, gap by gap
-
-Section 17.5 recommends vendoring rather than rebuilding. This section names what to vendor.
-Every candidate below was checked on 2026-08-22 for licence, import surface and coupling; line
-counts and import lists come from the files themselves.
-
-### 18.1 The rule the tiers express
-
-**Adopt by default; build only where the artifact decides a verdict.**
-
-The default is adoption because the evidence says so. `find-sources` is already an adoption and it
-works. Tier A is roughly 1,600 lines of standard-library Python filling five gaps we would
-otherwise write. Tier C's 49 reporting checklists arrive with a licence audit someone else did
-properly. Section 17.2's whole argument is that our differentiators are enforcement-layer and our
-gaps are breadth-layer, and breadth is what other people have already built.
-
-The exception is narrow and it is not about quality. K-Dense's `citation-management` skill is MIT,
-stdlib-adjacent, well organised, and does exactly the DOI-existence work we do. Its
-`validate_citations.py` returns `Tuple[bool, Optional[Dict]]`, and on a network failure:
-
-```python
-        except requests.exceptions.RequestException:
-            return True, None
-```
-
-with the comment above it reading "Any other status is a transport problem on our side, not
-evidence that the DOI is bad." The reasoning is defensible; the outcome is not. A boolean has
-nowhere to put *could not run*, so the outage collapses into a pass.
-
-The precise defect is worth naming, because a two-state result is not automatically wrong.
-research-hub's `verify.py` returns `ok: bool` too (§6.15) — and is rescued a layer up, where
-`authenticity.py` classifies the reason string through `is_transient_reason()` and refuses to read
-a transient failure as fabrication. K-Dense has no such layer: the boolean is the answer the caller
-gets. So the defect is not the type, it is that **nothing anywhere in that skill distinguishes an
-outage from a pass**. Adopting the file would have imported a silent false-pass into the one check
-the product exists to perform, and reading the code would not have flagged it, because the flaw
-lives in the shape of the answer rather than in the logic.
-
-So the test for "must build" is not *is this good code* but *does this decide a verdict*. It is
-the same line the dependency question resolved to (test 2 below): a dependency is cheap where it
-cannot corrupt a verdict and degrades cleanly, expensive in the trust path however well maintained
-it is. One line, two questions.
-
-In practice that puts the boundary here: `verify`, the checks, the four-state result, the closing
-sets, the reason-code registry and the publish gate are ours to write. Search, capture, rendering,
-retrieval, submission packaging, reporting checklists and format breadth are other people's to
-write and ours to carry.
-
-### 18.2 The four tests
-
-A candidate is **adopt-as-is** only if it passes all four. Failing any one moves it down a tier,
-and the tier is the recommendation.
-
-1. **Licence.** Permissive, and verified in the artifact rather than assumed from the repository.
-   K-Dense is MIT at repository level with four proprietary Anthropic skills inside it (§6.12);
-   medsci's checklists carry per-file licences that differ from the repository's (§18.5).
-2. **Dependency cost, weighed — not a veto.** Our core imports nothing outside the standard
-   library today, and that is worth keeping. But it is a guideline, not a rule, and we already
-   own the mechanism for breaking it cleanly: `pyproject.toml` carries `pdf = ["pypdf>=4"]` as an
-   optional extra, and `selectors.pdf_text` returns `None` on any failure, so the feature degrades
-   and the core does not. A dependency behind an extra costs the *feature* a dependency, not the
-   core its property.
-
-   So weigh rather than filter. Against a candidate: how many transitive packages, how well
-   maintained, does it sit in the trust path, does it degrade cleanly when absent, and would we be
-   reimplementing it worse. For it: what capability arrives, and how much of our own code stops
-   existing. `python-docx` for field-code injection is one well-kept package buying a capability
-   we have none of; `httpx` plus `anyio` plus `pydantic` plus `rich` to read one CSV is not.
-3. **Substrate fit.** A file coupled to another project's layout — its registries, its vault
-   resolver, its manifest format — is a rewrite, not an adoption.
-4. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
-
-### 18.3 Tier A — adopt as-is
-
-Permissive, standard-library only, no coupling beyond a same-directory sibling. Vendor exactly as
-`find-sources` was: pinned SHA, comment header, no hand-edits, re-vendor to update.
-
-| Candidate | Lines | Imports | Fills | Note |
-|---|---|---|---|---|
-| medsci `verify-refs/scripts/_quote_match.py` | 172 | `re`, `unicodedata` | token-ordered quote matching where ours ends in a contiguous find (§6.1) | measured and pinned in §18.10; vendored and dropped pending a wiring decision |
-| medsci `manage-refs/scripts/check_citation_keys.py` | 147 | `argparse`, `re`, `sys` | pandoc `[@key]` undefined/unused detection; complements our bibliography-joined `citekey` check | |
-| medsci `manage-refs/scripts/check_reference_duplication.py` | 245 | `+ json`, `zipfile` | duplicate-entry detection, listed as absent from our `citekey` check (§10.6) | |
-| medsci `sync-submission/scripts/cross_document_n_check.py` | 486 | `argparse`, `json`, `re`, `sys` | the same participant count asserted across every document — a cross-artifact consistency class we have none of (§11) | |
-| medsci `version-dataset/scripts/*` | small | `hashlib`, `json`, `argparse`, `pathlib` | deterministic content-hash manifest for a dataset (§11, research-data reproducibility) | closest fit to our existing `fixity-sha256` thinking |
-| medsci `search-lit/scripts/check_doi_record_match.py` | 276 | `urllib`, `csv`, `difflib.SequenceMatcher` | DOI-to-record matching with fuzzy title comparison; overlaps our `metadata` check and may sharpen its tolerance | stdlib networking, same posture as our `webapi.py` |
-| medsci `sync-submission/scripts/check_wordcount_cap.py` | 238 | `+ _yaml_frontmatter` (same dir) | word-count ceilings at submission | vendor the sibling too, as medsci itself does |
-
-`check_xref.py` (740 lines, stdlib) is the largest of these and does manuscript-to-DOCX
-cross-reference QC. It passes all four tests but only becomes useful once we render a DOCX, so it
-belongs behind the rendering decision rather than in front of it.
-
-**Whole skills, mirrored into `skills/` rather than vendored into the core** (§18.8 gives the
-mechanism). All verified MIT and standard-library-only:
-
-| Skill | Repo | Python | Fills | Caution |
-|---|---|---|---|---|
-| `cnki-skills` | cookjohn | 1 file, stdlib (`urllib`, `hashlib`, `io`, `json`, `re`) | 10 skills over CNKI — search, journal browse, PDF download, export to Zotero. A Chinese-language corpus our vendored `find-sources` cannot reach at all | none; this is pure additional coverage |
-| `gs-skills` | cookjohn | 1 file, same deps | 6 skills over Google Scholar | Scholar has no official API; expect fragility |
-| `gap-to-topic` | WenyuChiou/research-hub | — | the three-gate go/no-go dossier, upstream of `project` (§6.13) | brings its own `design_brief.md` handoff vocabulary |
-| `asta-skill` | Agents365-ai | — | instruction pack over Ai2's Asta MCP for Semantic Scholar | adds an MCP dependency |
-| `claude-skill-citation-checker` | PHY041 | 1,180 lines incl. tests, stdlib + `urllib` | `.bib` against CrossRef, Semantic Scholar and OpenAlex | **overlaps our `doi` and `metadata` legs** — a second implementation of work we already do, from the `.bib` side rather than the citekey side |
-| `research-guardian` | htlin222 | `runner.py` 717 lines, stdlib | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies, with a JSON schema and seven reference files | **overlaps `factcheck-draft`** — LLM-judgment gates, not deterministic checks |
-
-The last two are the ones the licence correction unlocked, and both duplicate capability we have
-rather than adding capability we lack. That is the honest shape of this change: correcting seven
-licences widened what we *may* adopt considerably more than it widened what we *should*.
-
-### 18.4 Tier B — fork a function, not a file
-
-Permissive and stdlib, but coupled to the donor's data shapes. Take the algorithm, write our own
-seam, credit in a header comment.
-
-| Candidate | What to take | Why not as-is |
-|---|---|---|
-| claude-obsidian `claude_obsidian/ledgers.py::_independent_group_count` | union-find collapsing sources that share an origin, content hash or declared independence key, so they cannot corroborate each other (§6.4) | operates on the donor's ledger record shape; the algorithm is about thirty lines and the value is entirely in the idea |
-| medsci `verify-refs/scripts/check_claim_fidelity.py` | the graded-by-checkability probe design: quoted text is decidable, attribution is not, so only the extreme case fires (§10.7) | 644 lines whose CLI takes `--manuscript --fulltext-dir --bib --refmap` — bound to their layout |
-| claude-obsidian `scripts/bm25-index.py` | a pure-stdlib BM25 index in 851 lines, with an honest documented no-op when the optional reranker is absent | imports `claude_obsidian.paths` and `claude_obsidian.transaction`; the retrieval decision is not made anyway (§11) |
-| swarmvault `packages/engine/src/watch.ts` | the shrink-ratio circuit breaker: refuse a refresh that drops nodes or edges by more than 25% (§6.7) | TypeScript; the mechanism is a comparison and a threshold, perhaps twenty lines in Python |
-| research-hub `authenticity.py` | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | the `requests` import is not the obstacle — our `webapi.py` already does the same work over `urllib` — but it also imports five project modules (`dedup`, `locks`, `search.crossref`, `security`, `utils.doi`), and those are the rewrite |
-
-### 18.5 Tier C — adopt as data
-
-Data outlives code and travels further. Each of these is a table or a corpus rather than a
-program, and each carries its own licence question.
-
-- **medsci `check-reporting/references/checklists/`** — 49 reporting-guideline checklists, with
-  scripts that are pure stdlib (`argparse`, `csv`, `hashlib`, `json`, `re`, `sys`). The important
-  artifact is `references/LICENSES.md`, which resolves each checklist's licence through the
-  article's Crossref `license` field and the PMC `<license>` element, splits the table into
-  *verified permissive* and the rest, and states the rule plainly: "an absent licence statement is
-  **not** evidence of permissive licensing", noting that several publishers do not release these
-  instruments under an open licence at all. **Vendor only the rows marked verified permissive, and
-  vendor that discipline with them.** This is the best licence hygiene found in the survey.
-- **research-hub `_PREDATORY_DOI_PREFIXES`** — a registrant-prefix denylist sourced from Cabell's
-  and Beall's, cross-checked against Crossref member data, admitting only prefixes whose entire
-  portfolio is predatory. Verified: it currently holds **two entries**, so the value is the
-  mechanism and the inclusion rule, not the table. Ours would need its own curation, and the
-  config-extension point research-hub provides is the right shape.
-- **rpatrik96/hallmark** — MIT, 2,526 labelled entries (826 valid, 1,246 hallucinated, plus a
-  454-entry held-out split), 14 hallucination types, 3 difficulty tiers, a baseline registry of
-  19+ variants. Use as an evaluation fixture; vendor no code. This is step 3 of
-  §17.5 and the cheapest credibility move available.
-
-### 18.6 Tier D — depend, do not vendor
-
-Real tools doing real work, too large or too external to carry.
-
-| Tool | Licence | Role |
-|---|---|---|
-| microsoft/markitdown | MIT, 175,520 stars | the format-breadth answer if `import-source` ever ingests beyond Zotero; SamurAIGPT already routes through it (§6.10) |
-| pandoc + CSL | GPL, external binary | rendering and citation formatting; medsci `manage-refs` and pedrohcgs `compile-latex` both shell out to it rather than reimplementing |
-| Hylouis233/bibverify | MIT | a second opinion on a `.bib`, with `rank_lookup_sources` explaining resolver choice — but it duplicates our DOI and metadata legs, so only worth it if that explanation is wanted (§7) |
-| htlin222/prisma-automation | MIT, 8 stars | PRISMA flow-diagram generation, the one piece of systematic-review apparatus that is a discrete artifact rather than a workflow |
-| kepano `defuddle` | MIT | already provisioned by `setup-vault`; the web-capture answer if one is needed |
-| obra/knowledge-graph | MIT (README) | vault-as-knowledge-graph over SQLite with sqlite-vec and FTS5, local embeddings, Louvain communities, betweenness and PageRank, exposed as a CLI and an MCP server with a `prove-claim` skill. Node and TypeScript, so a dependency rather than a vendor target — but the single closest answer to our largest gap (§11, retrieval and graph) |
-| introfini/ZotSeek | MIT (README + `package.json`) | a Zotero plugin in JavaScript giving local semantic search over the library with a built-in MCP server. Runs inside Zotero, so it is a companion to provision like kepano rather than anything to carry |
-| TonybotNi/ZotLink | MIT (`setup.py`) | saves preprints into Zotero with metadata and PDFs. Imports `bs4`, `playwright`, `requests`, `mcp`, `pydantic`, `dotenv` and `fake_useragent` — the last of those is a posture we would not want anywhere near the evidence path, so: dependency at arm's length, or not at all |
-
-### 18.7 Tier E — pattern only, and why
-
-Worth reading, not worth carrying. Each fails a specific test.
-
-- **Imbad0202, everything** — CC-BY-NC-4.0. The integrity-signal contract, the injection probes,
-  the judge-prompt-version pin and the uncited-assertion detector are all re-derivable and none is
-  copyable (§6.2, §15).
-- **paper-qa `journal_quality.py`** — 216 lines importing `anyio`, `httpx`, `httpx_aiohttp`,
-  `pydantic`, `rich`, plus `paperqa.types` and `.client_models`. Weighed rather than vetoed: five
-  runtime packages is a poor trade for one signal, and the internal coupling means we would be
-  rewriting it anyway. The venue-quality gap is real, but the route to it is the underlying
-  journal-quality data, not this wrapper around it.
-- **medsci `manage-refs` rendering scripts** — import `python-docx`, and vendor their own
-  `_vendor_citation_writer` beside it. This is the candidate where the trade-off most plausibly
-  favours taking the dependency: one well-maintained package, behind a `docx` extra alongside our
-  existing `pdf` one, buying native Zotero CWYW field-code injection and journal-CSL rendering that
-  we have no version of. It sits outside the trust path — it writes a submission artifact, it does
-  not decide anything — which is what makes the dependency cheap. The counter-argument is that
-  pandoc already renders DOCX and medsci shells out to it for exactly that; `python-docx` earns its
-  place only for the field codes pandoc cannot write. Decide it with the rendering decision, not
-  before.
-- **hermes `grounded-citations`** — MIT, and the closest peer to our quote gate, but its ledger
-  exists because web sources have no stable identifier. Our citekey universe already is that
-  ledger (§6.6).
-- **gbrain, swarmvault, llmwiki** — Postgres, a Node toolchain and a compiled-artifact ownership
-  model respectively. Patterns transfer; code does not.
-- **WenyuChiou `gap-to-topic`** — MIT and only 219 lines of SKILL.md plus references, evals and
-  scripts, so it is nearly adoptable. It is listed here rather than in Tier A because a skill is
-  prompt text bound to its own vocabulary and downstream handoff (`design_brief.md` frontmatter
-  carrying `source` and `gap_verdict`); adopting it means adopting that flow (§6.13).
-
-### 18.8 Tier F — do not touch
-
-- **anthropics/skills `docx`, `pdf`, `pptx`, `xlsx`** — verified proprietary in the K-Dense mirror:
-  `skills/docx/LICENSE.txt` opens "© 2025 Anthropic, PBC. All rights reserved." Check
-  `THIRD_PARTY_NOTICES.md` before assuming anything about the originals (§6.12, §15).
-- **jason-effi-lab/karpathy-llm-wiki-vault** — the only repository in the roster with no licence
-  in any form, which is all rights reserved rather than public domain (§15). Read it on GitHub;
-  carry nothing.
-
-Everything else once listed here was a detection failure, not a licence failure (§15).
-- **sdyckjq-lab/llm-wiki-skill's `workbench/.claude/skills/{docx,pdf,pptx,xlsx}/`** — the
-  repository is MIT, that subtree is not (§15). The trap is the same one K-Dense sets, and it is
-  why test 1 in §18.2 says *verified in the artifact*.
-
-### 18.9 Mirroring a whole skill
-
-A third adoption mode sits between vendoring a file and taking a dependency: **mirror the skill
-directory verbatim, with its own licence file beside it.** K-Dense demonstrates the mechanism —
-it carries Anthropic's `docx`, `pdf`, `pptx` and `xlsx` skills inside an MIT repository, each
-keeping its own `LICENSE.txt` rather than being relicensed under the host's terms.
-
-The mechanism is right and worth copying:
-
-- Copy the upstream skill directory unchanged — `SKILL.md`, `scripts/`, `references/`, `evals/`.
-- Carry the upstream `LICENSE` beside it, or add one naming the source and terms where upstream
-  declared them in a README.
-- Add the provenance header we already use: source repository, pinned SHA, upstream path, licence,
-  and "do not hand-edit; re-vendor to update".
-- Rename only into our namespace, exactly as `paper-lookup` became `find-sources` (§10.2).
-
-This mode sidesteps §18.2's third test, because a skill is self-contained by design — it brings its
-own prompt, scripts and reference files rather than reaching into a host layout. That widens the
-candidate set considerably now that the licences are established:
-
-| Skill | Repo | Licence | Fills |
-|---|---|---|---|
-| `claude-skill-citation-checker` | PHY041 | MIT (README) | `.bib` against CrossRef, Semantic Scholar and OpenAlex — a second opinion beside our own DOI and metadata legs |
-| `research-guardian` | htlin222 | MIT (README) | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies |
-| `gap-to-topic` | WenyuChiou/research-hub | MIT | the three-gate go/no-go dossier, the one thing upstream of `project` (§6.13) |
-| `cnki-skills`, `gs-skills` | cookjohn | MIT | CNKI and Google Scholar coverage our vendored `find-sources` lacks entirely |
-| `asta-skill` | Agents365-ai | MIT | Ai2's Asta MCP over Semantic Scholar, as an instruction pack |
-| medsci `verify-refs`, `manage-refs`, `check-reporting` | Aperivue | MIT (per-file for checklists, §18.4) | reference audit, rendering and 49 reporting guidelines as whole units rather than script by script |
-
-**Where the pattern stops.** K-Dense and sdyckjq-lab both mirror Anthropic's `docx`, `pdf`, `pptx`
-and `xlsx` skills. Their bundled `LICENSE.txt` addresses that directly, under the heading
-ADDITIONAL RESTRICTIONS — users may not:
-
-> - Extract these materials from the Services or retain copies of these materials outside the
->   Services
-> - Reproduce or copy these materials, except for temporary copies created automatically during
->   authorized use of the Services
-> - Create derivative works based on these materials
-> - Distribute, sublicense, or transfer these materials to any third party
-
-and closing: "The receipt, viewing, or possession of these materials does not convey or imply any
-license or right beyond those expressly granted above."
-
-So the mirroring *mechanism* is sound and worth copying, and the two repositories that demonstrate
-it are, on those four directories, doing what their own bundled licence forbids. That is not a
-close call and it is not our judgment call to make differently — it is the text. Mirror freely
-under MIT and comparable terms; for these four, take the dependency through the Services instead
-(anthropics/skills installs as a marketplace plugin), which is the route the licence contemplates.
-
-### 18.10 `_quote_match`, measured — and where it would actually go
-
-This candidate was vendored and removed during the same session, so the measurement survives only
-here. Both parts are worth keeping: the behaviour, and the integration target, which is not the one
-an obvious reading suggests.
-
-**Measured.** Run standalone against a quote and three damaged haystacks, with our own contiguous
-find for comparison:
-
-| Artifact class | `match_quality` grade | matched / total | inserted | coverage | our contiguous find |
-|---|---|---|---|---|---|
-| line number mid-sentence | `PARTIAL` | 7 / 8 | 3 | 0.875 | **miss** |
-| two-column bleed | `INTERLEAVED` | 8 / 8 | 1 | 1.0 | **miss** |
-| hyphenation across a line break | `EXACT` | 8 / 8 | 0 | 1.0 | match |
-| unrelated text | `ABSENT` | — | — | — | miss |
-
-The third row is the one our `selectors._norm_with_map` already repairs. The first two are what a
-contiguous find cannot see. The fourth is the row that matters most, and it is why the grade
-vocabulary is worth more than the matcher.
-
-**Where it goes, and where it does not.** The obvious target is `quotes.check_quote`, and that is
-wrong: both sides of that comparison are vault strings — the claim's quote text against the
-literature note's managed region — so PDF extraction artifacts cannot arise there.
-
-Extraction noise enters at `__main__.py:257-263`, where `selectors.pdf_text` extracts an
-attachment and `attach_contexts` locates each annotation to capture its prefix and suffix. When
-`find_context`'s contiguous find misses, the annotation silently loses its W3C selectors and the
-import reports one undifferentiated reason: `"some annotation quotes were not found in extracted
-text"`.
-
-Graded, that single reason splits into two facts we currently cannot tell apart:
-
-- `INTERLEAVED` or `PARTIAL` — extraction noise. The annotation is sound; `pypdf` interleaved a
-  line number or bled a column. Degradation, retry later.
-- `ABSENT` — the annotation text is **not in the PDF we hashed**. That is an integrity condition,
-  not a formatting one: either the attachment on disk is not the one that was annotated, or the
-  "quote" was typed as a comment rather than selected from the page. We carry `fixity-sha256` on
-  the file and nothing that checks its annotations correspond to it.
-
-The second is fabrication-shaped and today invisible. That is the argument for the port, and it
-sits on the evidence layer rather than in the quote check — which also means it changes what an
-import reports, so it deserves the same care as any change to a verification surface.
-
-### 18.11 What this changes about sequencing
-
-Tier A now has two halves. The **files** are roughly 1,600 lines of standard-library Python under
-one MIT licence from one donor, filling five listed gaps — the cheapest breadth we will ever
-acquire, at one re-vendor obligation each. The **skills** are broader but thinner: of the six,
-`cnki-skills` and `gs-skills` add corpora we genuinely cannot reach, `gap-to-topic` adds a step
-upstream of `project`, and the remaining two duplicate `verify-citations` and `factcheck-draft`.
-
-Tier C's reporting checklists remain the largest single capability gain, and the one whose licence
-question someone else has already answered carefully.
-
-The sequencing implication for §17.5 is that vendoring is not step 4. It is the step that makes
-steps 1 and 2 affordable, because every file in Tier A is breadth we then do not have to build
-while narrowing to the gate.
-
 ---
 
 ## 19. Re-running this comparison
@@ -2489,12 +2042,12 @@ what a re-run should actually re-check, so the next pass is an update rather tha
 
 ### 19.2 The five things worth watching
 
-1. **Aperivue/medsci-skills.** Named in §17.7 as the likeliest to close our window. The specific
+1. **Aperivue/medsci-skills.** Named in the adoption plan §1.7 as the likeliest to close our window. The specific
    trigger is a hook: it has none today (`.claude-plugin/` holds only `marketplace.json`), so its
    gates are CLI preflights a person runs. A `plugin.json` with a `Stop` or `PreToolUse` entry
    would put it on our boundary rather than downstream of it.
 2. **WenyuChiou/research-hub.** Its `authenticity.py` gates corpus admission (§6.15). If it gains
-   per-claim addressing or a draft-time check, the complementary reading in §17.4 stops holding.
+   per-claim addressing or a draft-time check, the complementary reading in the adoption plan §1.4 stops holding.
 3. **atomicstrata/llm-wiki-compiler.** The only comparable that enforces at the write path and
    measures citation quality. Its OKF bundle support and ours are the same standard from opposite
    ends (§8.3); an import path either way is the interoperability event to watch for.
@@ -2504,7 +2057,7 @@ what a re-run should actually re-check, so the next pass is an update rather tha
    deployability result survives replication, and whether anyone has published a rule-based
    verifier below the .09 conservative reference.
 5. **anthropics/skills.** The document renderers sit behind terms that forbid redistribution
-   (§18.9). A licence change there would move rendering from Tier F to a marketplace dependency
+   (the adoption plan §2.9). A licence change there would move rendering from Tier F to a marketplace dependency
    and settle the submission-output question in one step.
 
 ### 19.3 What a re-run should not repeat
@@ -2536,4 +2089,4 @@ Named here so a re-run starts from the gaps rather than from the beginning:
 - paper-qa, storm and gpt-researcher were read at module-layout level only (§2).
 - No product's test suite was run. Every capability claim in this document is what the artifact
   says it does, not what it was observed doing — the single largest epistemic limit here, and the
-  one that a benchmark like HALLMARK (§18.5) would start to close for our side at least.
+  one that a benchmark like HALLMARK (the adoption plan §2.5) would start to close for our side at least.
