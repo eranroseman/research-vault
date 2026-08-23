@@ -10,67 +10,49 @@ adoption targets, and the same fact had already needed correcting twice in both 
 them removes the drift by construction rather than by discipline.
 
 The evidence behind every claim here lives in the comparison; this note cites it and does not
-repeat it. **Section 0 states what is executable when** — the pre-baseline window has closed, one class of
-change can proceed regardless, and one waits for the validation slice. Three parts after that: **why the product has a place** and on what condition, **what is
+repeat it. **Section 0 states what is executable when**, on the planning assumption that Plan Q completes.
+Three parts after that: **why the product has a place** and on what condition, **what is
 adoptable** and at what tier, and **what changes in this tree** and in what order.
 
 ---
 
-## 0. Sequencing — the pre-baseline window has closed
+## 0. Sequencing
 
-This section has been wrong twice, in opposite directions, and both errors came from reading the
-wrong tree. The corrected state, read from the worktree on 2026-08-22:
+**Planning assumption: Plan Q completes.** Nothing here is a reason to interrupt it, and the
+pre-baseline churn slot (Task 0) is closed regardless. Plan them as post-Q.
 
-**Plan Q is deep in flight**, not unstarted. It runs on `build/quality-lane` at
-`.claude/worktrees/build+quality-lane`, **18 commits above its merge base**, with Tasks 0–3
-complete and Task 4 — the mutation gate — in progress at `f61c14b`. The plan document on `main`
-shows 0 of 38 boxes ticked because execution lives on the branch; a checkbox count on `main` says
-nothing.
-
-**Task 0 was the window, and it is closed.** Plan Q's Task 0 is defined as "the last planned
-pre-baseline churn", and Task 4's Step 0 refuses to build manifests with Task 0 work pending. Task
-0 shipped at `2f5de3c`. So the slot that existed for disruptive pre-baseline changes has been used
-and closed by design, and the ledger shows the plan being held to that line repeatedly — nine
-deferred minors in Task 2 alone, each named rather than absorbed.
-
-Adding vendored modules to `knowledge_harness/` now would therefore (a) reopen a batch declared
-closed, (b) perturb the in-flight CRAP and coverage measurements that Task 3's controller
-explicitly guarded, and (c) put unmeasured code into the baseline that exists to measure the
-codebase.
-
-### 0.1 What that leaves, by class
+That leaves one real gate and one class that is not gated at all.
 
 | Class | When | Why |
 |---|---|---|
-| **Gaps where we have nothing** — retrieval, full-text acquisition, a drafting skill, reporting checklists, submission integrity, session continuity | **now, independent of Plan Q** | none of these lands in `knowledge_harness/`; they are skills, mirrors and external tools. They perturb no measurement, and there is no "is ours better" to test because there is no ours |
-| **Replacements of code we own** — `_quote_match` at the selector site, duplicate detection | **after Plan Q merges** | the Task 0 slot is closed and Task 4 is imminent. This is the conclusion an earlier draft reached for the wrong reason and a later draft overturned on a false reading |
-| **The tested path** — the result contract, the closing sets, the claim addressing | **after the validation slice** | the only place "is ours better" is a real question, and the only place Plan S answers it |
+| **Gaps where we have nothing** — retrieval, full-text acquisition, a drafting skill, reporting checklists, submission integrity, session continuity | **now** | none of it lands in `knowledge_harness/`; these are skills, mirrors and external tools. They perturb no measurement, and there is no "is ours better" to test because there is no ours |
+| **Replacements of code we own** — `_quote_match` at the selector site, duplicate detection, the richer status enum (§3.6) | **post-Q** | measured code should not change while it is being measured |
+| **The tested path** — the result contract, the closing sets, the claim addressing | **post-slice** | the only place "is ours better" is a real question, and the only place Plan S answers it |
 
-The rule that survives all three revisions: **do not change the gate before the thing that tests
-the gate runs, and do not change measured code while it is being measured.** The first is about
-Plan S, the second about Plan Q, and neither is an argument for delaying the first row.
+The rule underneath all three: **do not change the gate before the thing that tests the gate runs.**
+Everything else is scheduling.
 
-### 0.2 What Plan Q is already producing for this plan
+### 0.1 What Plan Q hands this plan on completion
 
-Two of its outputs land directly on questions raised here.
+Two of its outputs answer questions raised here, so the post-Q re-read is not merely a delay.
 
-**The mutation baseline is §3.2's missing measurement.** §3.2 argues a code fork is cheap to hold
-because tests keep it still. Task 4's "no new survivors" gate is exactly the instrument that makes
-that true or false per module, and its CRAP table names complexity surviving at full coverage. If
-survivors cluster where a fork would land, the code half of the asymmetry weakens. The skills half
-is unaffected — nothing measures prose either way, which is the argument.
+**The mutation baseline settles §3.2's open assumption.** §3.2 argues a code fork is cheap to hold
+because tests keep it still. Task 4's no-new-survivors gate measures exactly that, per module, and
+the CRAP table names complexity that survives at full coverage. Read them before acting on §3.5's
+preserve list: if survivors cluster where a fork would land, the code half of the asymmetry is
+weaker than claimed. The skills half is unaffected — nothing measures prose either way, which is
+the argument.
 
-**Skill-frontmatter validation already shipped.** Task 2's config-validity suite parses every
-`skills/*/SKILL.md` with the core's own `frontmatter.parse` and asserts `name` equals the directory
-name, `description` is non-empty, and any `disable-model-invocation` is boolean. That is the
-structure half of the §11.6 routing gap, closed. The firing half — does the right skill activate
-for a real phrasing — remains open, and that suite is its natural home.
+**Vendored code becomes measurable on arrival.** Once the gate exists, anything adopted into
+`knowledge_harness/` inherits it: a vendored module either has test grip or announces that it does
+not. That converts §2.2's self-containment test from a judgment into a check, and it is the
+strongest argument for adopting *after* Q rather than before.
 
-### 0.3 One carve-out
-
-`message.relation.is-retracted-by` (§3.6, item 5) is a single additive Crossref field. No rename,
-no new module, no behaviour change to anything Plan Q measures or Plan S tests. It is the only item
-here that could ride any window, and even it is better folded into a plan than landed loose.
+**Already landed:** Task 2's config-validity suite parses every `skills/*/SKILL.md` with the core's
+own `frontmatter.parse` and asserts `name` matches its directory, `description` is non-empty, and
+`disable-model-invocation` is boolean. That closes the structure half of the skill-routing gap; the
+firing half — does the right skill activate for a real phrasing — stays open, and that suite is its
+home.
 
 ---
 
