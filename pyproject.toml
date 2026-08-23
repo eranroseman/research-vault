@@ -6,7 +6,14 @@ requires = [ "setuptools>=68" ]
 name = "knowledge-harness"
 version = "0.1.0"
 description = "Deterministic core for the knowledge-harness plugin"
-requires-python = ">=3.10"
+# Bumped from >=3.10 2026-08-22 (Plan Q Task 4 execution finding, ruled same day):
+# `--max-workers > 0` in scripts/mutation_gate.py provisions worker copies via
+# `uv venv` + `uv sync`, which fails resolving across the declared Python range
+# because mutate4py==0.1.4 itself requires >=3.11. The 3.10 floor was untested --
+# dev venv is 3.12.3, no CI matrix exists -- so this closes an unexercised support
+# claim rather than breaking a held contract. See docs/superpowers/plans/
+# 2026-08-20-plan-q-quality-lane.md for the ruling.
+requires-python = ">=3.11"
 dependencies = [
   # Core's first pinned runtime dependency (admitted 2026-08-20, spec §8 dependency
   # discipline; docs/2026-08-20-zero-dep-rethink.md): parsing externally-influenced
@@ -58,7 +65,19 @@ knowledge_harness = [ "templates/**/*" ]
 
 [tool.ruff]
 required-version = "==0.15.21"
-target-version = "py310"
+# Bumped from py310 alongside requires-python (2026-08-22, author-ruled after a
+# premise correction: an executing task found two tests -- test_cli_live.py's
+# test_import_note_uses_python_310_compatible_utc_surface and a structurally
+# identical fake in test_publish.py -- actively enforcing a Python-3.10-safe
+# `datetime` surface, which the requires-python ruling had assumed untested.
+# Ruling stood anyway: with requires-python >=3.11 landed, no supported
+# interpreter lacks `datetime.UTC`, so that guarantee now protects an interpreter
+# the package no longer supports. Both tests were rewritten (not deleted) to
+# assert the property they actually served -- machine timestamps read a
+# timezone-aware UTC clock, never naive local time -- instead of the withdrawn
+# 3.10-surface guarantee. ruff only infers its target from requires-python when
+# this key is absent, and it is explicit here, so the two move together.
+target-version = "py311"
 line-length = 88
 [tool.ruff.lint]
 # Bandit idiom exclusions (recorded 2026-08-20) — see `ignore` below: these fire on
@@ -205,3 +224,8 @@ markers = [
   "live: requires a running local Zotero (set HARNESS_LIVE=1)",
   "live_net: hits real external APIs (set HARNESS_LIVE_NET=1 and HARNESS_MAILTO)",
 ]
+# Post-flip, pytest's rootdir is the whole repo; pinning collection here means bare
+# `pytest` and `python -m pytest` resolve scripts.* imports identically (parked from
+# Plan L's zero-behavior-change branch; flagged by the 2026-08-21 entry-point audit).
+pythonpath = [ "." ]
+testpaths = [ "tests" ]

@@ -299,28 +299,51 @@ def test_import_source_runs_standalone_on_a_vault_with_zero_projects(
     assert "integrate" in (vault / "inbox" / "review-queue.md").read_text()
 
 
-def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypatch):
+def test_import_note_reads_an_explicit_utc_clock_never_naive_local_time(
+    tmp_vault, monkeypatch
+):
+    """The generated timestamp must come from a timezone-aware UTC read.
+
+    Was named for a Python-3.10-compatible `datetime` surface (avoiding the
+    3.11-only `datetime.UTC` alias) back when the package claimed to support
+    3.10; retired 2026-08-22 once `requires-python` moved to >=3.11, since that
+    surface no longer exists on any interpreter the package supports. The
+    property this test actually exists to guard survives the rename: a naive
+    or local-time clock read would corrupt the bi-temporal record, so `.now()`
+    must always receive an explicit, UTC-equivalent tzinfo -- whichever spelling
+    production code uses to name it.
+
+    The fake replaces `cli`'s own `datetime` name binding (not the shared
+    `datetime` module — patching that leaks into every other module's `.now()`
+    calls active during the same test and inflates the read count, confirmed
+    live 2026-08-22 on the structurally identical test_publish.py double), so
+    only `cmd_import_note`'s own clock read is intercepted.
+    """
     import knowledge_harness.__main__ as cli
 
     seen_timezones = []
 
     class FixedDateTime:
         @classmethod
-        def now(cls, timezone):
-            seen_timezones.append(timezone)
-            return datetime_lib.datetime(2026, 8, 20, 12, 34, 56, tzinfo=timezone)
+        def now(cls, tz=None):
+            seen_timezones.append(tz)
+            return datetime_lib.datetime(2026, 8, 20, 12, 34, 56, tzinfo=tz)
 
-    python_310_datetime = types.SimpleNamespace(
-        datetime=FixedDateTime,
-        timezone=datetime_lib.timezone,
-    )
     _install_import_client(
         monkeypatch,
         cli,
         {"title": "Mortality decline", "DOI": "10.1000/xyz"},
         [],
     )
-    monkeypatch.setattr(cli, "datetime", python_310_datetime)
+    monkeypatch.setattr(
+        cli,
+        "datetime",
+        types.SimpleNamespace(
+            datetime=FixedDateTime,
+            timezone=datetime_lib.timezone,
+            UTC=datetime_lib.UTC,
+        ),
+    )
     result = cli.cmd_import_note(
         argparse.Namespace(
             citekey="smith2020", vault=str(tmp_vault), base="http://unused"
@@ -331,7 +354,11 @@ def test_import_note_uses_python_310_compatible_utc_surface(tmp_vault, monkeypat
         (tmp_vault / "literatures" / "smith2020.md").read_text()
     )
     assert result == 0
-    assert seen_timezones == [datetime_lib.timezone.utc]
+    # Exactly one read, and it named an explicit, UTC-equivalent tzinfo -- not
+    # None (naive local time), not a local-offset tzinfo.
+    assert len(seen_timezones) == 1
+    assert seen_timezones[0] is not None
+    assert seen_timezones[0].utcoffset(None) == datetime_lib.timedelta(0)
     assert data["accessed"] == "2026-08-20"
     assert data["generated"]["at"] == "2026-08-20T12:34:56Z"
 

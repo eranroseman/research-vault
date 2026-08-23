@@ -202,7 +202,7 @@ def _valid_generated(value) -> bool:
     if not isinstance(actor, str) or not actor or not isinstance(at, str):
         return False
     try:
-        parsed = datetime.datetime.fromisoformat(at.replace("Z", "+00:00"))
+        parsed = datetime.datetime.fromisoformat(at)
     except ValueError:
         return False
     return at.endswith("Z") and parsed.tzinfo is not None

@@ -301,7 +301,7 @@ def append_entry(
     target_hash = _validate_optional_text("target_hash", target_hash)
     date = _validate_date(
         "date",
-        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        datetime.datetime.now(datetime.UTC).date().isoformat()
         if date is None
         else date,
     )

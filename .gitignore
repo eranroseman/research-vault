@@ -5,7 +5,10 @@ sources/*.zip
 *.pdf
 .mutate4py/
 lcov.info
-.contexts.db
+# Widened from an exact .contexts.db match, 2026-08-22: mutate4py also writes a
+# sidecar cache, <db>.test-context-cache.json, that an exact match missed --
+# found untracked and unignored after an interrupted blanket run.
+.contexts.db*
 
 # --- GitHub Python template (github/gitignore) ---
 # Byte-compiled / optimized / DLL files

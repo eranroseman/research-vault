@@ -19,10 +19,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 
 from knowledge_harness import frontmatter, inbox
 
@@ -235,7 +235,7 @@ def test_skill_disable_model_invocation_is_a_yaml_boolean_literal(skill_md):
 
 def test_repo_python_is_the_version_the_pins_were_measured_against():
     """A guard, not a gate: the pinned toolchain's behaviour is version-bound."""
-    assert sys.version_info >= (3, 10), "pyproject requires-python is >=3.10"
+    assert sys.version_info >= (3, 11), "pyproject requires-python is >=3.11"
 
 
 # --------------------------------------------------------------------------

@@ -116,7 +116,7 @@ def _append_bypass(vault: Path, project: str, reason: str) -> None:
     from knowledge_harness.pathcodec import encode_repo_path
 
     target = encode_repo_path(os.fsencode(project))
-    date = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    date = datetime.datetime.now(datetime.UTC).date().isoformat()
     recorded_reason = f"manual — publish-gate bypass: {reason}"
     # A publish-gate finding id carries a reason discriminator, so a retry of
     # THIS bypass collapses to one row while a genuinely distinct bypass of the

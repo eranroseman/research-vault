@@ -582,7 +582,7 @@ def rollback_outputs(vault_root: Path, preimage: Snapshot, outputs) -> None:
             if live_image(vault_root, output.raw_path) != output.image:
                 raise GitStateError("diverged")
             _restore_image(vault_root, output.raw_path, preimage.image(output.raw_path))
-        except (OSError, GitStateError) as error:  # noqa: PERF203
+        except (OSError, GitStateError) as error:
             if first_error is None:
                 first_error = error
                 first_path = output.raw_path

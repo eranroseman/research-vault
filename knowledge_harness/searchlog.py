@@ -77,7 +77,7 @@ def _validate_hits(value) -> int:
 def _resolved_date(date) -> str:
     return _validate_date(
         "date",
-        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        datetime.datetime.now(datetime.UTC).date().isoformat()
         if date is None
         else date,
     )

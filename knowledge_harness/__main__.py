@@ -265,7 +265,7 @@ def cmd_import_note(args):
     retained = _retain_prior_contexts(annotations, existing)
     _selector_warning(degradation_reasons, retained=retained)
 
-    now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
     generated_at = now.isoformat().replace("+00:00", "Z")
     try:
         candidate = notes.render_note(
@@ -606,9 +606,7 @@ def record_finding(
         return 2, str(error)
     actor = AGENT_ACTOR if actor is None else actor
     resolved_date = (
-        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-        if date is None
-        else date
+        datetime.datetime.now(datetime.UTC).date().isoformat() if date is None else date
     )
     try:
         candidate_id = inbox.finding_id(

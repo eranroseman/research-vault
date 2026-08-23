@@ -943,8 +943,7 @@ def _plan_state(
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
     detection_date = (
-        detection_date
-        or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        detection_date or datetime.datetime.now(datetime.UTC).date().isoformat()
     )
     raw = []
     try:

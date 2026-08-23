@@ -99,11 +99,7 @@ def record_pass(
         raise ValueError("verified event by must be a nonempty single-line string")
     if not _single_line(check):
         raise ValueError("verified event check must be a nonempty single-line string")
-    at = (
-        datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-        if at is None
-        else at
-    )
+    at = datetime.datetime.now(datetime.UTC).date().isoformat() if at is None else at
     if not _calendar_date(at):
         raise ValueError("verified event at must be a YYYY-MM-DD calendar date")
 

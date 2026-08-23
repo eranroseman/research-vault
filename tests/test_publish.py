@@ -77,7 +77,7 @@ def _tag_clock(monkeypatch, *times: str) -> None:
     """
     remaining = [
         datetime_lib.datetime.strptime(stamp, "%H%M%S").replace(
-            year=2026, month=1, day=1, tzinfo=datetime_lib.timezone.utc
+            year=2026, month=1, day=1, tzinfo=datetime_lib.UTC
         )
         for stamp in times
     ]
@@ -626,11 +626,19 @@ def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
     This test pins the clock rather than the tag string, which is the whole
     point: helpers that stub the time half cannot see where the date half came
     from, and that is how the mismatch survived a green suite.
+
+    The fake replaces `publish`'s own `datetime` name binding (not the shared
+    `datetime` module — patching that leaks into every other module's `.now()`
+    calls active during the same test and inflates the read count past 1,
+    confirmed live 2026-08-22), so only `_publish`'s own clock read is
+    intercepted. It carries both `.timezone` and `.UTC`: this test's original
+    fake had only `.timezone`, which broke the moment production code was
+    rewritten from `datetime.timezone.utc` to the 3.11 `datetime.UTC` alias
+    (target-version bump, requires-python >=3.11) — the property under test is
+    the UTC read itself, not which spelling names it.
     """
     reads = []
-    instant = datetime_lib.datetime(
-        2026, 8, 1, 23, 0, 0, tzinfo=datetime_lib.timezone.utc
-    )
+    instant = datetime_lib.datetime(2026, 8, 1, 23, 0, 0, tzinfo=datetime_lib.UTC)
 
     def one_utc_read(tz=None):
         reads.append(tz)
@@ -648,13 +656,18 @@ def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
                 today=no_local_day, fromisoformat=datetime_lib.date.fromisoformat
             ),
             timezone=datetime_lib.timezone,
+            UTC=datetime_lib.UTC,
         ),
     )
 
     outcome = publish.mark_published(green_vault, "brief")
 
-    # Exactly one read, and it named UTC explicitly — not `now()`, not `utcnow()`.
-    assert reads == [datetime_lib.timezone.utc]
+    # Exactly one read, and it named an explicit, UTC-equivalent tzinfo -- not
+    # None (naive local time), not a local-offset tzinfo, whichever spelling
+    # production code uses to name it.
+    assert len(reads) == 1
+    assert reads[0] is not None
+    assert reads[0].utcoffset(None) == datetime_lib.timedelta(0)
     assert outcome.tag == "published/brief-2026-08-01-230000"
 
 

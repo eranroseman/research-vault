@@ -66,7 +66,7 @@ def _utc_now() -> datetime.datetime:
     backwards — and ``lints._newest_published_tags`` would then hand
     ``lint_published_drift`` the superseded tag as its comparison basis.
     """
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.UTC)
 
 
 def _resolved_date(date, *, now: datetime.datetime) -> str:
