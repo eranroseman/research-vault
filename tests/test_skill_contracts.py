@@ -26,14 +26,14 @@ TEMPLATES_DIR = REPOSITORY / "knowledge_harness" / "templates"
 # user-invocable, so it carries neither `disable-model-invocation` nor
 # `user-invocable`. This list grows by one name per Plan D task as each
 # entry skill ships (Task 2 publish; Task 3 verify-citations,
-# factcheck-draft; Task 4 project; Task 5 import-source; Task 6
+# factcheck-draft; Task 4 project-flow; Task 5 import-source; Task 6
 # find-sources) — it only ever grows, never shrinks.
 ENTRY_SKILLS = {
     "setup-vault",
     "publish",
     "verify-citations",
     "factcheck-draft",
-    "project",
+    "project-flow",
     "import-source",
     "find-sources",
 }

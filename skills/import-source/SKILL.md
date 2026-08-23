@@ -164,10 +164,10 @@ Never describe an outage as a failure or as "probably fine". Never report a `NOO
 
 ## Routing
 
-| Need                                    | Route to                                |
-| --------------------------------------- | --------------------------------------- |
-| Find sources to admit                   | `find-sources`                          |
-| Claim, quote, and stance-link syntax    | `evidence-conventions`                  |
-| Synthesis page rules and thresholds     | `synthesis-conventions`                 |
-| Run the deterministic checks            | `verify-citations`                      |
-| Acknowledge a finding this import filed | `project` or `publish` (the `ack` verb) |
+| Need                                    | Route to                                     |
+| --------------------------------------- | -------------------------------------------- |
+| Find sources to admit                   | `find-sources`                               |
+| Claim, quote, and stance-link syntax    | `evidence-conventions`                       |
+| Synthesis page rules and thresholds     | `synthesis-conventions`                      |
+| Run the deterministic checks            | `verify-citations`                           |
+| Acknowledge a finding this import filed | `project-flow` or `publish` (the `ack` verb) |

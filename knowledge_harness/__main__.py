@@ -447,7 +447,7 @@ def cmd_trust_tier(args):
     """Report one literature note's derived trust tier (spec §5) — read-only.
 
     ``events.trust_tier`` had no production consumer at HEAD — only tests
-    exercised it. `project`'s resume-orientation step needs to display each
+    exercised it. `project-flow`'s resume-orientation step needs to display each
     cited note's tier, and a prompt skill cannot call a Python function
     directly, so this is the invocable surface: a read-only mechanical part
     joining the one binary as a bare report noun (§7's

@@ -2,7 +2,7 @@
 
 `events.trust_tier` derives a literature note's cumulative verification tier
 (unverified / machine-confirmed / human-reviewed) but had no production
-consumer at HEAD — only tests exercised it directly. `project`'s
+consumer at HEAD — only tests exercised it directly. `project-flow`'s
 resume-orientation step needs to display each cited note's tier, and a
 prompt skill cannot call a Python function, so this is the invocable
 surface: Task 3's `factcheck` precedent (a read-only mechanical part joins

@@ -14,7 +14,7 @@ In every command below, `PATH` is the vault, `NAME` is the project under `projec
 
 ## No active project
 
-Every search-log entry is project-scoped, so this skill always operates inside one. If a project is not already established (no `projects/NAME/` in play from the current session), ask which project the search serves before running the first query — do not guess a name and do not skip the question "for speed." If the person names a project that has not been framed yet, route to `project` to frame it; do not create `projects/NAME/` yourself.
+Every search-log entry is project-scoped, so this skill always operates inside one. If a project is not already established (no `projects/NAME/` in play from the current session), ask which project the search serves before running the first query — do not guess a name and do not skip the question "for speed." If the person names a project that has not been framed yet, route to `project-flow` to frame it; do not create `projects/NAME/` yourself.
 
 ## Core workflow
 
@@ -101,7 +101,7 @@ That report is the entire deliverable. This skill **terminates at the admission 
 
 | Need                                               | Route to               |
 | -------------------------------------------------- | ---------------------- |
-| Frame or resume the project this search serves     | `project`              |
+| Frame or resume the project this search serves     | `project-flow`         |
 | Catalog an admitted source into the evidence layer | `import-source`        |
 | Claim, quote, and stance-link syntax               | `evidence-conventions` |
 | Verify citations deterministically                 | `verify-citations`     |

@@ -1,5 +1,5 @@
 ---
-name: project
+name: project-flow
 description: Use when a person starts a new knowledge-harness research project, resumes an existing one, or asks to frame a research question
 disable-model-invocation: true
 ---
@@ -63,7 +63,7 @@ When it is time to draft, invoke `evidence-conventions` before writing a single 
 
 ## Routing
 
-`project` orchestrates; it does not do any of these itself:
+`project-flow` orchestrates; it does not do any of these itself:
 
 | Need                                  | Route to           |
 | ------------------------------------- | ------------------ |

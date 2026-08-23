@@ -1,7 +1,7 @@
-"""Content acceptance checks for the `project` entry skill (spec §7).
+"""Content acceptance checks for the `project-flow` entry skill (spec §7).
 
 Unlike ``test_skill_contracts.py`` (the generic frontmatter/control-model
-contract every skill satisfies), this module asserts what makes `project`
+contract every skill satisfies), this module asserts what makes `project-flow`
 specifically *this* skill: the four verbatim elicitation elements, the
 resume-orientation triple, the inbox-drain and trust-tier surfaces, gap
 analysis's three buckets with `disputes` links surfaced, the draft frame
@@ -12,7 +12,7 @@ every routing target the brief names.
 from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[1]
-SKILL = REPOSITORY / "skills" / "project" / "SKILL.md"
+SKILL = REPOSITORY / "skills" / "project-flow" / "SKILL.md"
 EVIDENCE_CONVENTIONS = REPOSITORY / "skills" / "evidence-conventions" / "SKILL.md"
 
 
@@ -24,7 +24,7 @@ def test_project_frontmatter_is_entry_only_and_undiscoverable():
     """Removing the entry-only frontmatter, or making it user-invocable, must fail."""
     text = _skill_text()
 
-    assert text.startswith("---\nname: project\ndescription: Use when ")
+    assert text.startswith("---\nname: project-flow\ndescription: Use when ")
     assert "disable-model-invocation: true\n---\n" in text
     assert "user-invocable" not in text
 
