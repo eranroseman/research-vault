@@ -392,6 +392,45 @@ licence beside it, add the provenance header, rename only into our namespace. Al
 **Not mirrored:** PHY041 `claude-skill-citation-checker` and htlin222 `research-guardian`. Both are
 MIT and both decide verdicts — the §9.8 line.
 
+#### The urgency test
+
+Mirroring everything available would take the skill surface from nine to roughly twenty-eight, and
+every mirror carries a re-vendor obligation. That pulls directly against §17's recommendation to
+narrow to the gate. The test that reconciles them: **adopt where the gap blocks the arc; defer
+where it only widens it.**
+
+The stated arc is question → literature → synthesis → draft → submit. Three gaps block it.
+
+**Urgent — the arc does not close without these.**
+
+| Mirror | Licence | Why it blocks |
+|---|---|---|
+| medsci `fulltext-retrieval` | MIT **[F]** | "Batch download open-access PDFs by DOI using legitimate OA APIs (Unpaywall, PMC, OpenAlex, Crossref). Optional PDF→Markdown conversion." We find sources and project metadata and **never fetch the text**. The Iron Law asks a quote to be verifiable against a source; the deferred direct-PDF-text leg in spec §10 needs text to exist locally first. This is that leg's missing input |
+| K-Dense `scientific-writing` | MIT **[F]** | We have **no drafting skill**. `project` frames, `evidence-conventions` governs, `publish` gates, and nothing helps write. This one carries evidence provenance, reporting-guideline coverage and authorship accountability, and its audit scripts are stdlib with `claim_text_sha256` — the discipline already matches ours |
+| pedrohcgs `checkpoint`, `compress-session`, `context-status`, `promote-memory` | MIT **[F]** | Four small skills, one cluster: a structured state snapshot before stopping, conversation distilled into decisions and open questions with file pointers. Spec §9's validation slice requires "minimum two sessions (forces one real cold resume)" — the criterion assumes continuity machinery we do not have |
+
+**Deferred — real gaps, but breadth.**
+
+| Mirror | Fills (§11 group) |
+|---|---|
+| gbrain `maintain` + `cron-scheduler` | 11.4 maintenance lane; our spec calls this "doctor mode + refresh mode", which is two verbs and no lane |
+| claude-obsidian `wiki-fold` | 11.2 log and index scale — bounded extractive rollup, dry-run default. We have no rotation at any size |
+| medsci `version-dataset`, `generate-codebook` | 11.1 dataset identity — a dataset a claim depends on currently has none |
+| medsci `ma-scout`, `meta-analysis`, htlin222 `prisma-automation` | 11.5 systematic-review apparatus beyond screening states and a PRISMA-S log |
+| medsci `find-journal` | 11.5 venue selection — two-pass matching against a curated profile library |
+| pedrohcgs `replication-package`, `audit-reproducibility`, `submission-disclosures` | 11.5 the submission-integrity surface |
+| claude-obsidian `wiki-mode` | 11.4 filing methodology — only if vault-shape choice is wanted; ours is deliberately fixed |
+
+**Refused, and this list matters more than the two above.**
+
+- **Anything that decides a verdict** (§9.8): pedrohcgs `validate-bib` and `verify-claims`, PHY041's
+  checker, htlin222 `research-guardian`, gbrain `fact-check` and `citation-fixer`. All MIT, all
+  tempting.
+- **Anything duplicating what we have**: medsci `search-lit` (we vendor `paper-lookup`), gbrain
+  `brain-ingest-gate` (our admission boundary is stricter), K-Dense `citation-management` — whose
+  outage handling is §1.B's counterexample.
+- **Anything domain-locked**: medsci's 21 medical-specific skills, unless the vault is medical.
+
 **Skill-set governance**, from mattpocock/skills and obra/superpowers rather than from any research
 tool: a `skills` array in `plugin.json` (ours has none), bucket promotion for skills being trialled
 or retired, a Codex-side invocation policy to match our `disable-model-invocation`, a docs page per
