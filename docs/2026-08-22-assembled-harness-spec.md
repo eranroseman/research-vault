@@ -370,11 +370,48 @@ else's file.** That is a sharper result than "these are distinctive", and it poi
 §9.9: the surface shrinks toward the gate and the doctrine, and most of the rest is orchestration
 that only exists because we wrote the capabilities ourselves.
 
-One caveat against over-reading it. "Would not write it from scratch" is not "delete it". A
-mirrored skill and a written one are equivalent at the point of writing and not afterwards: the
-mirror carries a re-vendor obligation and an upstream that can change under us. Three of the five
-demotions above trade authorship for a dependency, and that trade is only obviously good while the
-upstream stays MIT and maintained.
+#### The asymmetry that decides this, and it runs the other way from code
+
+An earlier draft closed here with a caution: a mirror carries a re-vendor obligation and an
+upstream that can move, so trading authorship for a dependency is only conditionally good. **For
+skills that is backwards**, and the reason is worth stating because it reorders everything above.
+
+A skill is prose that steers a model. It has no type checker, no unit test that catches a
+regression, and no compiler to tell you the edit you just made changed behaviour three paragraphs
+away. Testing one means running a model and judging the result; updating one means editing prose
+whose failure mode is silent and probabilistic. Code has none of those problems: a fork you
+maintain has tests, types and deterministic behaviour, and a regression announces itself.
+
+So the ownership calculus inverts by artifact:
+
+| | Prefer to own | Prefer to adopt |
+|---|---|---|
+| **Code** | where it decides a verdict (§9.8) — a fork is cheap to maintain because tests hold it still | everywhere else |
+| **Skills** | only where nothing exists, or where the vocabulary cannot be reconciled | **everywhere it exists** — authoring and maintaining prose is the expensive half of this product |
+
+Two things follow.
+
+**The mirror is the preferred mode for skills, not a fallback.** §18.9 of the product comparison
+treats mirroring as a third adoption mode between vendoring a file and taking a dependency. For
+skills specifically it should be the default, and writing one should need a reason.
+
+**A mirror often brings its testing with it**, which is the part hardest to author. medsci ships
+`_challenge` fixture directories beside its checks; gbrain ships a `routing-eval.jsonl` next to 41
+of its 71 skills; superpowers runs per-agent conformance suites across eight agents. Our own
+`test_skill_contracts.py` tests that frontmatter parses and names match directories — structure,
+not firing (§11.6). Mirroring a well-tested skill acquires an answer to a problem we have not
+solved.
+
+**The bound on all of this is vocabulary, not licence.** A mirrored skill arrives speaking its own
+terms: `gap-to-topic` hands off through a `design_brief.md` with `source` and `gap_verdict`
+frontmatter; hermes' rules assume a `SCHEMA.md`. Prose that contradicts the surrounding doctrine is
+worse than no prose, because the model follows whichever it read last. So the real cost of a
+mirrored skill is not the re-vendor obligation — it is reconciling its vocabulary with ours, and
+that cost is paid once at adoption rather than continuously.
+
+Re-read §9.2's table with that ordering and the five demotions stop being losses. Five skills we
+would not write from scratch is five prose-maintenance burdens someone else is carrying, and the
+two we would still write are the two where no upstream can carry the doctrine for us.
 
 ### 9.3 Skills — port from Memoria
 
@@ -419,10 +456,15 @@ MIT and both decide verdicts — the §9.8 line.
 
 #### The urgency test
 
-Mirroring everything available would take the skill surface from nine to roughly twenty-eight, and
-every mirror carries a re-vendor obligation. That pulls directly against §17's recommendation to
-narrow to the gate. The test that reconciles them: **adopt where the gap blocks the arc; defer
-where it only widens it.**
+Mirroring everything available would take the skill surface from nine to roughly twenty-eight. The
+constraint is not maintenance cost — §9.2 establishes that a mirrored skill is *cheaper* to hold
+than an authored one, because prose has no tests to hold it still. The constraint is **coherence**:
+each mirror arrives speaking its own vocabulary, and reconciling it is a one-time cost paid per
+skill, so adopting twenty at once buys twenty reconciliations before anything works together.
+
+That makes this a sequencing question rather than a whether question. The test: **adopt first where
+the gap blocks the arc; adopt later where it only widens it.** Nothing on either list below is
+rejected on maintenance grounds.
 
 The stated arc is question → literature → synthesis → draft → submit. Three gaps block it.
 
