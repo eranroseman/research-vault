@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T03:24:22Z",
+  "module_hash": "2b9bc1e217ccc3cb3bbe8b565b2de9cd99b8117d1f6d9f1ffdcaa3b78e1257aa",
+  "source_sha256": "0978afe349e27721f326ba7d6eda5ea6b127f4c48259abcd96074f1709d11bb5",
+  "functions": [
+    {
+      "id": "func/_day_lines",
+      "name": "_day_lines",
+      "line": 8,
+      "end_line": 16,
+      "hash": "11f4e02c7ce454496f83b20ea2f63227570781fe02d13cc4e6fa696fa13fb92c"
+    },
+    {
+      "id": "func/regenerate_log",
+      "name": "regenerate_log",
+      "line": 19,
+      "end_line": 39,
+      "hash": "72e17b928c7fc2b2f933a5425c8821bbf59a0d45c95d348d36bfaf3cf8a9be7a"
+    }
+  ]
+}

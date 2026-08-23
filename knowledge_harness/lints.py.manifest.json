@@ -1,0 +1,225 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T02:53:03Z",
+  "module_hash": "9b9fe9c15e87f2af0904347b3f8a110d51d5847a30d0fb557437b5ddf35ad9c9",
+  "source_sha256": "0809ea1cd52158d03e1127af5c976011ef7666cb1fa9851e03ff7b6d9aaf508d",
+  "functions": [
+    {
+      "id": "func/_git",
+      "name": "_git",
+      "line": 40,
+      "end_line": 43,
+      "hash": "b5939a34438614d3463edb0a8d0bcc4df1d162b336c2d3b479425653a3543607"
+    },
+    {
+      "id": "func/_deduplicate",
+      "name": "_deduplicate",
+      "line": 46,
+      "end_line": 73,
+      "hash": "6e6f913f1e83837a6bbdddb2216262a6781a457e43065447b544183f28e73a35"
+    },
+    {
+      "id": "func/_relative",
+      "name": "_relative",
+      "line": 76,
+      "end_line": 77,
+      "hash": "b025f4107814ffdb525daf06fa4d96630e9180bc50250c1367c42404ccb7a059"
+    },
+    {
+      "id": "func/_path",
+      "name": "_path",
+      "line": 80,
+      "end_line": 88,
+      "hash": "a62efecff60a2a3db0c072f2d9264b99d62b1b14b240680d9dae7fcb3b9801e9"
+    },
+    {
+      "id": "func/_parse_frontmatter",
+      "name": "_parse_frontmatter",
+      "line": 91,
+      "end_line": 96,
+      "hash": "00c60bde70969018027eb63f0e71ceee74d0eccab836eb4c210008513023fcce"
+    },
+    {
+      "id": "func/_schema_outcome",
+      "name": "_schema_outcome",
+      "line": 99,
+      "end_line": 106,
+      "hash": "acfbb0691765abdd8260535c1d46debe5e265046b6845e1366deff42def85bfc"
+    },
+    {
+      "id": "func/_is_append_only_path",
+      "name": "_is_append_only_path",
+      "line": 109,
+      "end_line": 115,
+      "hash": "85bcbf4d2f63a8b0a54382024d965af5c21079b106596a267827bb3be9231664"
+    },
+    {
+      "id": "func/lint_append_only",
+      "name": "lint_append_only",
+      "line": 118,
+      "end_line": 152,
+      "hash": "9d5dd50c9fce43ba4403f4657e3462b9902c6fff987b65b5346f4ea6b83cd681"
+    },
+    {
+      "id": "func/_claim_blocks",
+      "name": "_claim_blocks",
+      "line": 155,
+      "end_line": 170,
+      "hash": "be4c092b9295df716ce8c319b8c990ca6628e7dcadc703f5fec9f45042bcc316"
+    },
+    {
+      "id": "func/_block_lines",
+      "name": "_block_lines",
+      "line": 173,
+      "end_line": 174,
+      "hash": "ebb19feb518076c1254d94025aa91ecda177be250139f7a40d968655c5297632"
+    },
+    {
+      "id": "func/_line_content_and_ending",
+      "name": "_line_content_and_ending",
+      "line": 177,
+      "end_line": 181,
+      "hash": "e9963e93a825fcdf9b5520695887bbf0ca058041ea958666b9eac03edb436a39"
+    },
+    {
+      "id": "func/_remove_single_marker",
+      "name": "_remove_single_marker",
+      "line": 184,
+      "end_line": 194,
+      "hash": "b532f4dd605572b1e818d9defda4e63517ea9a128a490397453c681edeaf2ef2"
+    },
+    {
+      "id": "func/_normalize_marker_transition",
+      "name": "_normalize_marker_transition",
+      "line": 197,
+      "end_line": 215,
+      "hash": "3f43321ea55ad738f5044e8bc065e7075e4688baae8695bb076367750abfdc29"
+    },
+    {
+      "id": "func/_without_fields",
+      "name": "_without_fields",
+      "line": 218,
+      "end_line": 223,
+      "hash": "50d578364dca4be75b3b626844f5b8e7d4549d440320c67aefb60bf37e133fba"
+    },
+    {
+      "id": "func/_is_complete_deprecation_transition",
+      "name": "_is_complete_deprecation_transition",
+      "line": 226,
+      "end_line": 259,
+      "hash": "7ebacdff1e1a845a0c7c3b0dcdf213f75190c7cf49bad00ff75d5ec5cd1b0cb4"
+    },
+    {
+      "id": "func/_claim_target",
+      "name": "_claim_target",
+      "line": 262,
+      "end_line": 267,
+      "hash": "333b586e4ba3b694286964ff45c99e227956cf9b8ee65283e5dff91d52625b22"
+    },
+    {
+      "id": "func/lint_claim_immutability",
+      "name": "lint_claim_immutability",
+      "line": 270,
+      "end_line": 330,
+      "hash": "1944e6e21ef67e39e269698c0cb8d1b255554fd5cebc7f4b12b770dc954d3d7d"
+    },
+    {
+      "id": "func/_current_paths",
+      "name": "_current_paths",
+      "line": 333,
+      "end_line": 337,
+      "hash": "fc5756c9a6eac6ed26cc2d688ad00bd07e1130c53d1ad1e832fb9748c98c37b5"
+    },
+    {
+      "id": "func/_project_status",
+      "name": "_project_status",
+      "line": 340,
+      "end_line": 375,
+      "hash": "bbe432b7ee9b0a73538092671d974d91db391b8ab1e88987c31aabba8e96bf9c"
+    },
+    {
+      "id": "func/_project_differs",
+      "name": "_project_differs",
+      "line": 378,
+      "end_line": 396,
+      "hash": "ac2cebbc637b15a18c5a8bd4cec111f344a07e0372b51366dbaa5c6f2ea4a8a4"
+    },
+    {
+      "id": "func/_newest_published_tags",
+      "name": "_newest_published_tags",
+      "line": 410,
+      "end_line": 427,
+      "hash": "b12917044f38ccc9d7c880d65cacc69569f3ba8c7742267c5fae76fa6fe4fb08"
+    },
+    {
+      "id": "func/lint_published_drift",
+      "name": "lint_published_drift",
+      "line": 430,
+      "end_line": 468,
+      "hash": "a7966df6b81e4d4a45afb015d12eb7b7ac079b1bd50fc1f58eff76cdd14fe77c"
+    },
+    {
+      "id": "func/_origin",
+      "name": "_origin",
+      "line": 471,
+      "end_line": 487,
+      "hash": "2b5c92f9a8bbe52d8b7decfe03d40ba9eec99aef57a9a5332809cee06ae07a3d"
+    },
+    {
+      "id": "func/_note_status",
+      "name": "_note_status",
+      "line": 490,
+      "end_line": 497,
+      "hash": "a6a9e93b6d5f564d526e7637d5c3c276470e9ee412bf998f1e98588381c1a841"
+    },
+    {
+      "id": "func/lint_screening_state",
+      "name": "lint_screening_state",
+      "line": 500,
+      "end_line": 526,
+      "hash": "34b6aa9e74956847b0e908d4816491998aadeea10f6a49f170ce8e5d7aeeb452"
+    },
+    {
+      "id": "func/disputed_claim_links",
+      "name": "disputed_claim_links",
+      "line": 529,
+      "end_line": 550,
+      "hash": "15172621af00d508abc2b17d04ee13859ce88646f943e63b016e80ca225e30bd"
+    },
+    {
+      "id": "func/lint_disputed_claim",
+      "name": "lint_disputed_claim",
+      "line": 553,
+      "end_line": 570,
+      "hash": "8fde8c2a874b6683a6925133324693053e27a0ca79fe1f9a3d2a36fdc944df2d"
+    },
+    {
+      "id": "func/lint_web_archive",
+      "name": "lint_web_archive",
+      "line": 573,
+      "end_line": 596,
+      "hash": "05e11be5741a44dcfc25504fab47baeddaac92b98b5f6cc60494c82423ddeea0"
+    },
+    {
+      "id": "func/_literature_files",
+      "name": "_literature_files",
+      "line": 599,
+      "end_line": 606,
+      "hash": "cc6591fa3456c411c6b18a0fba0775ec06c84de94f7471b4cafd19b154c0cda0"
+    },
+    {
+      "id": "func/_managed_bytes",
+      "name": "_managed_bytes",
+      "line": 609,
+      "end_line": 615,
+      "hash": "8cb9543c2830b38eb6af2fc555945885ed845e318ed9d5b11b3e9103e25eb9cc"
+    },
+    {
+      "id": "func/lint_evidence_layer",
+      "name": "lint_evidence_layer",
+      "line": 618,
+      "end_line": 695,
+      "hash": "d4d804d401ec1ffee9c2f0a8006eacf483d8905752bd0a4a70423084191325d5"
+    }
+  ]
+}

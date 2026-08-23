@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T03:39:07Z",
+  "module_hash": "c241ea45bbdbab4c8e813c0b4072c06d3bab49a1ce56f486bbb8f8f1e0b43e09",
+  "source_sha256": "d524bd57f4caf3024bd889e8389656ac2f07e2d840b88e449364b0abcf4ed353",
+  "functions": [
+    {
+      "id": "func/_git",
+      "name": "_git",
+      "line": 36,
+      "end_line": 43,
+      "hash": "1346a656ea5b7312d35c8620f66bebd2370c5919e9250b2e2619ded108b69b79"
+    },
+    {
+      "id": "func/_template_files",
+      "name": "_template_files",
+      "line": 46,
+      "end_line": 52,
+      "hash": "0f5a674ba1553a7376beb11e6c7a3167b58a5a1a2007d2c21467ced70cb931c5"
+    },
+    {
+      "id": "func/_copy_if_absent",
+      "name": "_copy_if_absent",
+      "line": 55,
+      "end_line": 61,
+      "hash": "90427e2220e33dc8781d4cb1a2c2ab0fd5bdf12c86f16118e36f087efb981c40"
+    },
+    {
+      "id": "func/_vault_template_paths",
+      "name": "_vault_template_paths",
+      "line": 64,
+      "end_line": 67,
+      "hash": "1ea34f5c9eb5dd5e2b15b488b8383623b08da4d88566b038d577c9387d554c38"
+    },
+    {
+      "id": "func/_copy_vault_templates",
+      "name": "_copy_vault_templates",
+      "line": 70,
+      "end_line": 72,
+      "hash": "28841ed94f85efe6bf966cd41422b1ec71f8e5af463ac1f95d9364b81459e315"
+    },
+    {
+      "id": "func/_add_empty_root_sentinels",
+      "name": "_add_empty_root_sentinels",
+      "line": 75,
+      "end_line": 81,
+      "hash": "f05ef84fd338aa2a375c93d796f2729ee9f15c1853aa403291c4fe015867016b"
+    },
+    {
+      "id": "func/_owned_paths",
+      "name": "_owned_paths",
+      "line": 84,
+      "end_line": 93,
+      "hash": "a0c53491bda302375187858036bfbbbd7bbe7f6707a0c6695cf8a5c50eb10b6e"
+    },
+    {
+      "id": "func/_reject_owned_symlinks",
+      "name": "_reject_owned_symlinks",
+      "line": 96,
+      "end_line": 105,
+      "hash": "3e92e1680d04b7a20f05002153ada298971ac414e534ba0897deee34f634eaea"
+    },
+    {
+      "id": "func/_prepare_repository",
+      "name": "_prepare_repository",
+      "line": 108,
+      "end_line": 120,
+      "hash": "1960f7cb6878bb9cfa778e50a4d193650970d86be83e1684976777f635771f99"
+    },
+    {
+      "id": "func/_is_tracked",
+      "name": "_is_tracked",
+      "line": 123,
+      "end_line": 131,
+      "hash": "3f5c00b95f074135f3fd9a44d2d518357be349474cb9396fd3294f86be04ce0c"
+    },
+    {
+      "id": "func/_preflight_conflicts",
+      "name": "_preflight_conflicts",
+      "line": 134,
+      "end_line": 155,
+      "hash": "094a3671805b319d71df4e16359d6845fb41d169329d7308d1cd7548bd800ded"
+    },
+    {
+      "id": "func/_git_path",
+      "name": "_git_path",
+      "line": 158,
+      "end_line": 161,
+      "hash": "fb3dd3b54daa7d50bfc829aa0658dcb6c3166de0f77634ace11331988f5485bb"
+    },
+    {
+      "id": "func/_trackable_paths",
+      "name": "_trackable_paths",
+      "line": 164,
+      "end_line": 172,
+      "hash": "f37c38ea18c036e32749b050dccd4cd1e93b486d496f96c9ccff4416384abe28"
+    },
+    {
+      "id": "func/_commit_created_paths",
+      "name": "_commit_created_paths",
+      "line": 175,
+      "end_line": 189,
+      "hash": "73ce6384c0fafc041b3a9a673de460b79ac7f5ab4c061e93da045b02df68a29a"
+    },
+    {
+      "id": "func/scaffold_vault",
+      "name": "scaffold_vault",
+      "line": 192,
+      "end_line": 241,
+      "hash": "146d503c7a6e9e44c03b2a2b7cd3bafaf7fa5e9d9ffa04a0f8ca7bfd42c8788f"
+    },
+    {
+      "id": "func/_machine_config",
+      "name": "_machine_config",
+      "line": 244,
+      "end_line": 265,
+      "hash": "68a533771c970fd6315a462a23027de3142bce473795dc7ccdee08322986dce7"
+    },
+    {
+      "id": "func/_remote_probe",
+      "name": "_remote_probe",
+      "line": 268,
+      "end_line": 279,
+      "hash": "ece08d13a82ab6c7bbf0fd6113a4056925a66b286794658d250d97320de3e0dc"
+    },
+    {
+      "id": "func/_backup_probe",
+      "name": "_backup_probe",
+      "line": 282,
+      "end_line": 290,
+      "hash": "955308f26f81e0b3f77ff1bf4b66423e922ceb2fe50c84c192f9820367bd94fe"
+    },
+    {
+      "id": "func/_inbox_probe",
+      "name": "_inbox_probe",
+      "line": 293,
+      "end_line": 306,
+      "hash": "bd9cda7dc5fb8eb265935480226cf82fd2887d4870c7288a1a38b063ee253e98"
+    },
+    {
+      "id": "func/_okf_typed_markdown",
+      "name": "_okf_typed_markdown",
+      "line": 309,
+      "end_line": 328,
+      "hash": "9a1c0ccb9d7adb5fdb5e5c631c78162eb445ed156eb70a10b76aa26dc2188bc0"
+    },
+    {
+      "id": "func/_okf_probe",
+      "name": "_okf_probe",
+      "line": 331,
+      "end_line": 363,
+      "hash": "090aa5d249c7e5fd524842c61079ac50811b462187a3a9082a4054ed29b153e6"
+    },
+    {
+      "id": "func/doctor",
+      "name": "doctor",
+      "line": 366,
+      "end_line": 452,
+      "hash": "339d4231761894570bf7b5e3f53cd92d06b99100fcf98984f19ed960a68f9996"
+    }
+  ]
+}

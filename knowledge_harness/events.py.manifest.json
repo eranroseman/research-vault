@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T02:13:36Z",
+  "module_hash": "00271256e48b37f7ad46cc80e2dd0b1a82a6d463aade95f6b7b43fd88b8c7938",
+  "source_sha256": "fe49278299d31de9bb01ff7032c1155906251ca5cbc66059731ec659095a3a7a",
+  "functions": [
+    {
+      "id": "func/_single_line",
+      "name": "_single_line",
+      "line": 16,
+      "end_line": 23,
+      "hash": "ea89a8ff433a847dcee51cfe7888bad2ff9912caddb76637c7b5f416fd66ebff"
+    },
+    {
+      "id": "func/_calendar_date",
+      "name": "_calendar_date",
+      "line": 26,
+      "end_line": 32,
+      "hash": "40ec9d91718b05e8204daec6688f592d6c1bda9bc6b3144b1c48e034330593b4"
+    },
+    {
+      "id": "func/_valid_event",
+      "name": "_valid_event",
+      "line": 35,
+      "end_line": 42,
+      "hash": "1f930ccef514e9c880e237d7fb2049644277c004ba2dd2d620361d368f5cc7fc"
+    },
+    {
+      "id": "func/_duplicate_header",
+      "name": "_duplicate_header",
+      "line": 45,
+      "end_line": 54,
+      "hash": "4ae3183d4db23afee3ea990145b2b9b3c1fb84d781f43af6f471882efb2ae546"
+    },
+    {
+      "id": "func/_verified_events",
+      "name": "_verified_events",
+      "line": 57,
+      "end_line": 66,
+      "hash": "36f4fc64cd11fde7363c8d73e5e6b577c576ba470a7f7a3d713381389caff4fe"
+    },
+    {
+      "id": "func/_failure_rows",
+      "name": "_failure_rows",
+      "line": 69,
+      "end_line": 85,
+      "hash": "67746e7b8d99f5e05dcfb1a50870de8177ce91f31d4d6e59888a70a73a345215"
+    },
+    {
+      "id": "func/record_pass",
+      "name": "record_pass",
+      "line": 88,
+      "end_line": 127,
+      "hash": "2295fb36a32cc0fc10ebc57015dab3637ae56678a1d429ef2df6cd1762b847bf"
+    },
+    {
+      "id": "func/record_failure",
+      "name": "record_failure",
+      "line": 130,
+      "end_line": 150,
+      "hash": "c2eb353a3a3961d1c15e5ccf8ccbf26fee0bb06678ac1159fdd8b40497c3439c"
+    },
+    {
+      "id": "func/_replace_frontmatter_list",
+      "name": "_replace_frontmatter_list",
+      "line": 153,
+      "end_line": 196,
+      "hash": "a1beedd65ffc88294e92941235329d5b134aa6e204332f2d0113e3ee0bce023d"
+    },
+    {
+      "id": "func/_render_frontmatter_list",
+      "name": "_render_frontmatter_list",
+      "line": 199,
+      "end_line": 201,
+      "hash": "3ba11dea68cd064aeff17e6c702aa60ef806380e2d44f51e4b92609f59e699dc"
+    },
+    {
+      "id": "func/_line_ending",
+      "name": "_line_ending",
+      "line": 204,
+      "end_line": 209,
+      "hash": "7631e4c9b9d0d5b3e0545081789f86914a0f147ff452edb98fbec5ce8ee73af2"
+    },
+    {
+      "id": "func/_first_line_ending",
+      "name": "_first_line_ending",
+      "line": 212,
+      "end_line": 217,
+      "hash": "a67926431a3769be935b6b3816993512eacd3aa5258018b1cfb0cd5c50d77e99"
+    },
+    {
+      "id": "func/verified_checks",
+      "name": "verified_checks",
+      "line": 220,
+      "end_line": 224,
+      "hash": "ec3000c57d223b66b4ddd72b5ee477e14bb723e0f84a3b9c96b7df9f9e97646d"
+    },
+    {
+      "id": "func/current_failures",
+      "name": "current_failures",
+      "line": 227,
+      "end_line": 231,
+      "hash": "7bac7742401aaf649f6c482248c60de77ba18486dffa014a9f1438b2473de9fd"
+    },
+    {
+      "id": "func/_applicable_note_checks",
+      "name": "_applicable_note_checks",
+      "line": 234,
+      "end_line": 239,
+      "hash": "df5d9660cd1decaebe91415996cfd10f0600a756fda43fa271dd1161ac2e465d"
+    },
+    {
+      "id": "func/trust_tier",
+      "name": "trust_tier",
+      "line": 242,
+      "end_line": 282,
+      "hash": "1cca45ac7bffd4c00607a0d404de42fb475eb655ceb45bcd2b746b80cda4b985"
+    }
+  ]
+}

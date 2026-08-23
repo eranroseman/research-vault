@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T01:47:44Z",
+  "module_hash": "e1deb652cfea5d8bd578f669b975f4d50a82db21466f4160a48daea21a73c8de",
+  "source_sha256": "977802ad48f357337da16e4e69fe64bcfdcd99d815b1a9329d51c6772844bee6",
+  "functions": [
+    {
+      "id": "func/_validate_text",
+      "name": "_validate_text",
+      "line": 17,
+      "end_line": 28,
+      "hash": "b369f55179fd1892f441142a38b95431df4a9e3543ee41c303a60dc71b177504"
+    },
+    {
+      "id": "func/_validate_optional_text",
+      "name": "_validate_optional_text",
+      "line": 31,
+      "end_line": 32,
+      "hash": "dbadcbac941720f0443aec71c0f082bb44751514f4ee33879b83fafc11ab8574"
+    },
+    {
+      "id": "func/_escape_field_value",
+      "name": "_escape_field_value",
+      "line": 35,
+      "end_line": 39,
+      "hash": "75d774a130c81b3ab9d9574ac8e5e2fec8a6bd3fbe270254130bced39ed37b04"
+    },
+    {
+      "id": "func/_unescape_field_value",
+      "name": "_unescape_field_value",
+      "line": 42,
+      "end_line": 46,
+      "hash": "d0424c9adcd8188bddd9b4043afeec7eaeb0fe2728370dd73ecf14a731d66ced"
+    },
+    {
+      "id": "func/_serialize",
+      "name": "_serialize",
+      "line": 49,
+      "end_line": 56,
+      "hash": "576f52dd366ac6fcac7c597b594170ebb5247c25d9d4cf6a7cf8b912d0efa45d"
+    },
+    {
+      "id": "func/_sync_directory",
+      "name": "_sync_directory",
+      "line": 59,
+      "end_line": 66,
+      "hash": "8fc8d9e98fcde60c2a5a9c616bf5ae999f6d88eba88de504ae796ccef2d616b7"
+    }
+  ]
+}

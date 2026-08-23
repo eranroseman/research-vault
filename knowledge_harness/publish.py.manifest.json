@@ -1,0 +1,169 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T03:34:42Z",
+  "module_hash": "b3466d2954aa4990d3f651d57929cb335ea42efe976c2eb5014048954eaabb1a",
+  "source_sha256": "7e7d08f0f6b535ba02d948d171fd7053e3bdc66ac6d5792572229002f9fe17a1",
+  "functions": [
+    {
+      "id": "func/_utc_now",
+      "name": "_utc_now",
+      "line": 59,
+      "end_line": 69,
+      "hash": "2d9153272a57c91496538a28b0b0379ed88bcad0fce5aed8eeef8c387155a161"
+    },
+    {
+      "id": "func/_resolved_date",
+      "name": "_resolved_date",
+      "line": 72,
+      "end_line": 91,
+      "hash": "eaa5e922974be76d9b37d7cc2c954842d62b355b1dc03dac1857252ca8bea069"
+    },
+    {
+      "id": "func/_name",
+      "name": "_name",
+      "line": 94,
+      "end_line": 110,
+      "hash": "bcfc6893e7ff613f200d1c4bdec064eafc306f34d202d48ed9d8ab5d57eb675c"
+    },
+    {
+      "id": "func/project_dir",
+      "name": "project_dir",
+      "line": 113,
+      "end_line": 125,
+      "hash": "bbf4ddca10ab778995e8654b827cf68e62082296f91fc4c4ca120871411ca9f1"
+    },
+    {
+      "id": "func/project_note",
+      "name": "project_note",
+      "line": 128,
+      "end_line": 144,
+      "hash": "17738c5bd6f0bc3ed03080de5482dc81adb1a4d2967e820aa77155a475ca4061"
+    },
+    {
+      "id": "func/flag_path",
+      "name": "flag_path",
+      "line": 147,
+      "end_line": 149,
+      "hash": "bed9e1142bbe5f923c65c0fb36f90ade47990cc92fabbcdfeee0b600a15ce36a"
+    },
+    {
+      "id": "func/arm",
+      "name": "arm",
+      "line": 152,
+      "end_line": 192,
+      "hash": "f14478fc63e5b38f9f0b991f2b5232731cac639fe0f973737899d8d87c14acec"
+    },
+    {
+      "id": "func/disarm",
+      "name": "disarm",
+      "line": 195,
+      "end_line": 203,
+      "hash": "bdf69b00bb0d258decd6e43cb6e312b0e66244b272e74cec39a3866b41256f4f"
+    },
+    {
+      "id": "func/_set_status",
+      "name": "_set_status",
+      "line": 206,
+      "end_line": 233,
+      "hash": "d83beec4e12ab1ea4f0b6533e12d557c0d5bb72953fceb7a41df616bd251989e"
+    },
+    {
+      "id": "func/_git",
+      "name": "_git",
+      "line": 236,
+      "end_line": 239,
+      "hash": "626a5e5d9eaa71a7186a2b3ce291441554b327673d67f41aa9b7b2b4b8b5fbd3"
+    },
+    {
+      "id": "func/published_tags",
+      "name": "published_tags",
+      "line": 242,
+      "end_line": 256,
+      "hash": "f0ea6e82fc4e7d9b8d2c55512d7d14a288c43d5e15412a1d299dc9f3a70bd7ee"
+    },
+    {
+      "id": "func/_publication_stamp",
+      "name": "_publication_stamp",
+      "line": 259,
+      "end_line": 267,
+      "hash": "6a617e2e65c015d3e581b8d099a3d31a630ef2366d8e1d7e7fd1fd8494c45302"
+    },
+    {
+      "id": "func/_require_taggable",
+      "name": "_require_taggable",
+      "line": 270,
+      "end_line": 293,
+      "hash": "b992660ff28be35cb5ebb5df02cd07f2ac86a2035a3daec84ba6b00e5b899fef"
+    },
+    {
+      "id": "func/_require_unpublished",
+      "name": "_require_unpublished",
+      "line": 296,
+      "end_line": 309,
+      "hash": "265723c06f9f7a98c1cd28e8780ff002818231499808fe3841aaaffac832a916"
+    },
+    {
+      "id": "func/_require_published",
+      "name": "_require_published",
+      "line": 312,
+      "end_line": 317,
+      "hash": "8cb86db13a73b09a55c03d6d21b502ef1d786a776680a015043a2df4ee291abd"
+    },
+    {
+      "id": "func/_require_clean_project",
+      "name": "_require_clean_project",
+      "line": 320,
+      "end_line": 344,
+      "hash": "3854352f16eb34dc5fd2d24338b547cb50ec1ccbc8c59a225562a59d41e76513"
+    },
+    {
+      "id": "func/_publish",
+      "name": "_publish",
+      "line": 347,
+      "end_line": 391,
+      "hash": "1b138bb444eb6959a8503682dd8375852256a13a4eb7482448633e9f17446815"
+    },
+    {
+      "id": "func/_create_tag",
+      "name": "_create_tag",
+      "line": 394,
+      "end_line": 396,
+      "hash": "3b20ee610b71443c3e9ee3e9cbd595676cec632cec2dfd6a6d3b6d21dd8f879d"
+    },
+    {
+      "id": "func/_append_log",
+      "name": "_append_log",
+      "line": 399,
+      "end_line": 412,
+      "hash": "806b6ea3aac516911409ee84078da0a756a7dcc4353a5581c70d3273558e6ece"
+    },
+    {
+      "id": "func/mark_published",
+      "name": "mark_published",
+      "line": 415,
+      "end_line": 429,
+      "hash": "69503be10a08577b081955660e0c59a953ea810dfd68acd8d1bdea628429397b"
+    },
+    {
+      "id": "func/mark_corrected",
+      "name": "mark_corrected",
+      "line": 432,
+      "end_line": 446,
+      "hash": "e2c92346310fb05b40adebc3df7d5e4f9ba6ad6d3385fb8b5424d6ed2cbd8e70"
+    },
+    {
+      "id": "func/mark_withdrawn",
+      "name": "mark_withdrawn",
+      "line": 449,
+      "end_line": 464,
+      "hash": "edb8e3c42c1507fc6cd4810e268ee7119400c21657184fe8b7ffde487966ea25"
+    },
+    {
+      "id": "func/mark_parked",
+      "name": "mark_parked",
+      "line": 467,
+      "end_line": 475,
+      "hash": "6f7765488a35e1f9f4deef00d3a87fdecd66b4d0cbd936f83f0ae9ad197a8a63"
+    }
+  ]
+}

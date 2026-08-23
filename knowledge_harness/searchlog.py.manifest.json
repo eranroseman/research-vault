@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T03:43:23Z",
+  "module_hash": "b6977c3c7c88125fc925d0ee43025fdc3e2c9f56140318902f9f5b75dcad77fb",
+  "source_sha256": "7b24ff76cfceda8e40accd3d7f80a0330ecc3f1a9c422947646208c58f10e28c",
+  "functions": [
+    {
+      "id": "func/_validate_date",
+      "name": "_validate_date",
+      "line": 56,
+      "end_line": 68,
+      "hash": "99168277762756572186d9127e2114770325a66f4d94539d3600ce1e61012fbd"
+    },
+    {
+      "id": "func/_validate_hits",
+      "name": "_validate_hits",
+      "line": 71,
+      "end_line": 74,
+      "hash": "26cdbd877acec8daf9e10ad6c65ac4b0e854b0e945465e7c1ef66c47f32a054b"
+    },
+    {
+      "id": "func/_resolved_date",
+      "name": "_resolved_date",
+      "line": 77,
+      "end_line": 83,
+      "hash": "e2dfdc2cba702b68342deda327bb5af124975f45130a0fe322e88f565b1a5654"
+    },
+    {
+      "id": "func/search_log_path",
+      "name": "search_log_path",
+      "line": 86,
+      "end_line": 92,
+      "hash": "eb59946f17498fdc848221a881afa2425ea1dc4d60b445abcaa64e1b9bf2434c"
+    },
+    {
+      "id": "func/_body",
+      "name": "_body",
+      "line": 95,
+      "end_line": 109,
+      "hash": "d08cfb42d9e2dce14bed409b0b4f9eda7f20648c5d1143fb0929dbb965026bd1"
+    },
+    {
+      "id": "func/_prepare_append",
+      "name": "_prepare_append",
+      "line": 112,
+      "end_line": 121,
+      "hash": "a17ed71e195c0a4b465fb66289c214068b69c682ca343d85a96e8277eb4c24e1"
+    },
+    {
+      "id": "func/_append_line",
+      "name": "_append_line",
+      "line": 124,
+      "end_line": 133,
+      "hash": "61ed545225bbfe071f54c01ac4857d0d2a6384a0a49caa0c9bfe8d5d99f337e5"
+    },
+    {
+      "id": "func/append_search",
+      "name": "append_search",
+      "line": 136,
+      "end_line": 166,
+      "hash": "8d73759b326f311d925ae45fdcf7ba2a0071f8f2e958fe535a1b327ca893a402"
+    },
+    {
+      "id": "func/append_not_admitted",
+      "name": "append_not_admitted",
+      "line": 169,
+      "end_line": 200,
+      "hash": "d75124a0b0a5afa7fe3af1fc9a93c80fb4046af4a0a1f6e1b7160536d78ac1af"
+    },
+    {
+      "id": "func/_line_fields",
+      "name": "_line_fields",
+      "line": 203,
+      "end_line": 215,
+      "hash": "2890766c8514331e2e90c88297b002fd3fb203ad9cc6722fa88b0e1eaaf5ce01"
+    },
+    {
+      "id": "func/load",
+      "name": "load",
+      "line": 218,
+      "end_line": 264,
+      "hash": "a13cc1c61bbbd1e8e18188c77223bfc9e6c195f0f9db5ead2914e95cc947336b"
+    }
+  ]
+}

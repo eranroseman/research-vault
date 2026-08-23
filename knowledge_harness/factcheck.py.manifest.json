@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-23T02:16:20Z",
+  "module_hash": "1ba61d2affb4f18829903ae825c0d86eb7819458daa8af532e41732480c26165",
+  "source_sha256": "d932597f1831f2e6f6112840e2bc529cb26764200ca813c210267ced615fddde",
+  "functions": [
+    {
+      "id": "func/claim_text_hash",
+      "name": "claim_text_hash",
+      "line": 40,
+      "end_line": 42,
+      "hash": "a781a749906dcedfe7e682010a73e289ae8bf0d76403ce1f9bfd29046cf07dab"
+    },
+    {
+      "id": "func/_claim_source_text",
+      "name": "_claim_source_text",
+      "line": 45,
+      "end_line": 54,
+      "hash": "a80913daf3172cfd11e58b21c11dcdd4492d9c453e650033666ddf876b73cbdc"
+    },
+    {
+      "id": "func/eligible_claims",
+      "name": "eligible_claims",
+      "line": 57,
+      "end_line": 85,
+      "hash": "bf00f839f6049f854fdbf0c0cec305f3c64f4eb7472fba8be7c6e9dacb1a03b8"
+    },
+    {
+      "id": "func/_has_verified_event",
+      "name": "_has_verified_event",
+      "line": 88,
+      "end_line": 93,
+      "hash": "03b49df886b9df3abe19a6085aed51ccd08a3af9089196e183025b30a282a5c8"
+    },
+    {
+      "id": "func/contested_adjacent_links",
+      "name": "contested_adjacent_links",
+      "line": 96,
+      "end_line": 116,
+      "hash": "8f8c0f15dc051f4341df2e97b952f8479614b93760a1af3318eb7b7dba51b4a5"
+    },
+    {
+      "id": "func/_bucket",
+      "name": "_bucket",
+      "line": 119,
+      "end_line": 126,
+      "hash": "a4b25d55caa3a4bf0f4630a4fb1a91ed6a2feeff4af6cbddb407995367a03c03"
+    },
+    {
+      "id": "func/select_claims",
+      "name": "select_claims",
+      "line": 129,
+      "end_line": 162,
+      "hash": "847b30367a2e1e70dcbec80c0257021aae450cf1032c8a990121e779804f1c04"
+    },
+    {
+      "id": "func/skipped_digest",
+      "name": "skipped_digest",
+      "line": 165,
+      "end_line": 174,
+      "hash": "bed0c608875f95e00156bcfa8faf19c28f9dddd6b55b0ad299cc1c7ea00c64f8"
+    },
+    {
+      "id": "func/run",
+      "name": "run",
+      "line": 177,
+      "end_line": 193,
+      "hash": "28c18f9df08321da2fae55c0bd5edb5eadcd0eeb0fe68783ee0e20b8668960c8"
+    }
+  ]
+}
