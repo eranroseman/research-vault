@@ -2,6 +2,4 @@
 
 Merge back to main locally and push main to origin in the same motion. Fetch before claiming something is absent from origin.
 
-`research/`, `analysis/`, completed plans, and accepted ADRs stand as written — content, internal paths, and file location.
-
 Testing — including the live legs that offline runs silently skip: `docs/testing.md`.
