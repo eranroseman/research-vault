@@ -1186,7 +1186,8 @@ zotero-mcp's `zotero_semantic_search`. See §6 for each.
 
 **Agent-facing service surfaces.** We expose a CLI only. Comparables: llmwiki `serve` (MCP
 exposing ingest, compile, query, lint, read, status, eval, context-pack, OKF) plus a TypeScript
-SDK; swarmvault `mcp`; zotero-mcp with 51 tools; bibverify's MCP server.
+SDK; swarmvault `mcp`; research-hub exposes CLI, MCP, REST and a dashboard over the same core;
+zotero-mcp with 51 tools; bibverify's MCP server.
 
 **Evaluation, calibration and benchmarks.** We have 1,330 unit tests and no evaluation harness.
 llmwiki scores citation coverage, precision and a claim-level citation rate against thresholds
@@ -1312,6 +1313,28 @@ diagram; LatteReview automates screening with multi-agent reviewers. We have PRI
 screening states and a PRISMA-S search log — no flow diagram, no risk-of-bias instrument, no
 meta-analysis.
 
+**Machine-side admission screening.** research-hub screens candidates before they enter the
+corpus: identifier resolution, Crossref corroboration, a **predatory-venue denylist** and a
+metadata-integrity layer, all fail-closed (§6.15). Our admission boundary is deliberately human,
+but that means nothing mechanical stands between a person and admitting a paper from a predatory
+venue — we run no venue check at any point.
+
+**Quarantine as a recoverable state.** research-hub quarantines rather than rejecting, with
+`list`/`show`/`restore` verbs, a transient-versus-permanent reason split, and a **recheck marker**
+on papers admitted while a check was only transiently unavailable, so a later run re-verifies
+them. Our nearest equivalent is a finding plus an acknowledgment; we have no "admitted pending
+re-verification" state, and an UNREACHABLE result leaves no durable marker that says *come back to
+this one*.
+
+**Reporting-guideline compliance.** medsci `check-reporting` covers 49 guidelines with 6 scripts
+and 7 tests, and `fill-protocol`, `fill-icmje-coi` and `write-protocol` sit beside it. We have no
+notion of a reporting guideline at all.
+
+**Research-data reproducibility.** medsci `version-dataset` builds a deterministic content-hash
+manifest for a dataset and `generate-codebook` emits a citable data dictionary. We hash
+attachments (`fixity-sha256`) and nothing else; a dataset a claim depends on has no identity in
+our vault.
+
 **Bibliometric and venue signals.** paper-qa ships `journal_quality.py`; zotero-mcp surfaces Scite
 supporting/contrasting/mentioning tallies; OpenAlex `cited_by_count` is available to several. We
 record no venue-quality or citation-count signal.
@@ -1391,9 +1414,13 @@ Two entries carry qualifications, stated inline rather than deferred.
   Retraction Watch CSV path, with a dated reinstatement clearing an earlier dated block. paper-qa
   ships a retraction CSV and Imbad0202's `retraction_status.py` also models reinstatement as a
   clearing verdict; neither pairs it with a session-closing gate.
-- **A human admission boundary as an architectural rule.** Nothing becomes citable except by a
+- **Admission as a *human* act, as an architectural rule.** Nothing becomes citable except by a
   person accepting it into Zotero; `find-sources` terminates at that boundary and logs declines
-  with a reason code. Comparables gate *writes*; none gates *citability*.
+  with a reason code, and no machine path can substitute. *Qualification:* research-hub also gates
+  citability — `verify_authenticity()` decides whether a candidate enters the corpus at all
+  (§6.15) — so the differentiator is not that we gate citability and others do not. It is that
+  ours is gated by a person and theirs by a resolver. Everyone else gates *writes*, not
+  citability.
 - **A citekey join key backed by a live reference manager.** Filenames, prose citations, the
   bibliography export and every check join on the Better BibTeX citekey. *Qualification:*
   medsci's `lit-sync` also joins a `.bib`, the Zotero library and an Obsidian vault, so this holds
@@ -1410,7 +1437,7 @@ differentiator.
 
 | Axis | Us | The field |
 |---|---|---|
-| What is citable | only a human-admitted Zotero item | anything dropped into `raw/` or `sources/` |
+| What is citable | only a human-admitted Zotero item | anything dropped into `raw/` or `sources/` — except research-hub, which screens candidates through a fail-closed resolver gate |
 | Who writes the evidence layer | the CLI renders it; the LLM may not touch it | the LLM writes source pages directly (all wiki-family products) |
 | Provenance granularity | claim block address + locator + stance | page, paragraph, line-range or `#L45` at best |
 | Verification | deterministic registry checks that close surfaces | registry checks as audit (Imbad0202, medsci), LLM adjudication, structural lint, or nothing |
