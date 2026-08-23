@@ -52,7 +52,7 @@ not find Y", and the probes should be named when the claim matters.
 
 ## 2. Read depth
 
-**Read at file level** (cloned, files opened): Imbad0202/academic-research-skills,
+**Read at file level** (cloned, one or more files opened and quoted): Imbad0202/academic-research-skills,
 Aperivue/medsci-skills, garrytan/gbrain, AgriciDaniel/claude-obsidian,
 atomicstrata/llm-wiki-compiler, swarmclawai/swarmvault, SamurAIGPT/llm-wiki-agent,
 pedrohcgs/claude-code-my-workflow, NousResearch/hermes-agent (both `llm-wiki` and
@@ -64,9 +64,17 @@ tfscharff/doi-mcp, htlin222/research-guardian-skill, htlin222/prisma-automation,
 introfini/ZotSeek, skyllwt/AutoSci, delibae/claude-prism,
 PiaoyangGuohai1/cli-anything-zotero, huytieu/COG-second-brain, obra/knowledge-graph,
 rpatrik96/hallmark, Agents365-ai/asta-skill, PouriaRouzrokh/LatteReview,
-kytmanov/obsidian-llm-wiki-local, WenyuChiou/research-hub,
-Orchestra-Research/AI-Research-SKILLs (top-level listing only). medsci-skills and research-hub
-were additionally surveyed skill-by-skill on 2026-08-22 (§6.1, §6.15).
+WenyuChiou/research-hub. medsci-skills and research-hub were additionally surveyed
+skill-by-skill (§6.1, §6.15).
+
+**Cloned and listed, no file opened** — shape, licence and scale confirmed, mechanisms not:
+917Dhj/DeepPaperNote, delibae/claude-prism, huytieu/COG-second-brain,
+kytmanov/obsidian-llm-wiki-local, skyllwt/AutoSci, PiaoyangGuohai1/cli-anything-zotero,
+tfscharff/doi-mcp, introfini/ZotSeek, PouriaRouzrokh/LatteReview, htlin222/prisma-automation,
+Agents365-ai/asta-skill, cookjohn/cnki-skills, cookjohn/gs-skills, rpatrik96/hallmark,
+Orchestra-Research/AI-Research-SKILLs (top-level listing only). An earlier draft of this document
+marked several of these as file-level reads; that was wrong, and the correction is the same class
+of error §1 warns about — a claim stated more strongly than the probe that produced it.
 
 **Read at module-layout level** (structure inspected, bodies not read): Future-House/paper-qa,
 stanford-oval/storm, assafelovic/gpt-researcher.
@@ -535,7 +543,8 @@ It has no claim addressing, no stance links, no quote verification and no public
 ### 6.16 Found by search, not yet read at file level
 
 Sixteen further Tier-1-shaped products surfaced in the search pass. Rows describe the project's
-own claim except where a file was opened, marked ✓.
+own claim except where a file was opened, marked ✓. **◐ means cloned and its tree listed, but no
+file opened** — enough to confirm shape, licence and scale, not enough to describe a mechanism.
 
 | Product | Stars | License | Last push | Why it belongs |
 |---|---|---|---|---|
@@ -544,16 +553,16 @@ own claim except where a file was opened, marked ✓.
 | zLanqing/codex-claude-academic-skills | 3,097 | MIT | 2026-05-14 | Three academic skills covering reading → writing → scientific computing |
 | sdyckjq-lab/llm-wiki-skill | 2,363 | MIT (README) | 2026-07-27 | Multi-platform Karpathy-wiki skill; bundles the four Anthropic document skills under their own proprietary LICENSE.txt |
 | Astro-Han/karpathy-llm-wiki | 1,982 | MIT | 2026-07-23 | Agent-Skills LLM wiki built around raw sources, citations and linting; ships `scripts/check_evidence.py` ✓ |
-| delibae/claude-prism | 1,751 | MIT | 2026-07-28 | Offline-first scientific writing workspace, LaTeX + Python + 100+ local skills ✓ |
-| skyllwt/AutoSci | 1,642 | MIT | 2026-08-19 | Autonomous-science skill suite (paper-plan, experiment eval, rebuttal, refine), i18n ✓ |
+| delibae/claude-prism | 1,751 | MIT | 2026-07-28 | Offline-first scientific writing workspace, LaTeX + Python + 100+ local skills ◐ |
+| skyllwt/AutoSci | 1,642 | MIT | 2026-08-19 | Autonomous-science skill suite (paper-plan, experiment eval, rebuttal, refine), i18n ◐ |
 | lucasastorian/llmwiki | 1,520 | Apache-2.0 | 2026-08-09 | Karpathy wiki driven through MCP against a Claude account |
 | OpenRaiser/NanoResearch | 1,355 | MIT | 2026-05-26 | Autonomous research assistant |
 | lishix520/academic-paper-skills | 1,200 | MIT | 2026-01-04 | Strategist/composer paper-writing framework with quality checkpoints |
-| huytieu/COG-second-brain | 931 | MIT | 2026-08-18 | 33 skills, 10 agents, "V-model verification lifecycle where the worker never grades its own homework" ✓ |
-| kytmanov/obsidian-llm-wiki-local | 810 | MIT | 2026-05-26 | Fully local Karpathy wiki (Ollama) writing an auto-linking Obsidian vault ✓ |
+| huytieu/COG-second-brain | 931 | MIT | 2026-08-18 | 33 skills, 10 agents, "V-model verification lifecycle where the worker never grades its own homework" ◐ |
+| kytmanov/obsidian-llm-wiki-local | 810 | MIT | 2026-05-26 | Fully local Karpathy wiki (Ollama) writing an auto-linking Obsidian vault ◐ |
 | jason-effi-lab/karpathy-llm-wiki-vault | 692 | none — all rights reserved | 2026-04-13 | Karpathy wiki as a vault; the only repository in this roster declaring no licence in any form |
 | Ar9av/PaperOrchestra | 644 | NOASSERTION | 2026-08-09 | Skills implementation of Google's PaperOrchestra with benchmark and autoraters |
-| 917Dhj/DeepPaperNote | 630 | MIT | 2026-08-22 | Deep-read one paper → Obsidian-style research notes; ships an `evals/` directory ✓ |
+| 917Dhj/DeepPaperNote | 630 | MIT | 2026-08-22 | Deep-read one paper → Obsidian-style research notes; ships an `evals/` directory ◐ |
 | trapoom555/claude-paperloom | 94 | Apache-2.0 | 2026-04-28 | Claude Code plugin: self-maintaining research knowledge graph over Obsidian; agents for metadata, finding extraction and finding linking; `init`/`ingest`/`lint`/`query` ✓ |
 
 ## 7. Tier 2 — component comparables
@@ -566,10 +575,10 @@ level; the rest are metadata-level rows describing what each project is for.
 | Component | Stars | License | Last push | Shape |
 |---|---|---|---|---|
 | 54yyyu/zotero-mcp | 4,751 | MIT | 2026-08-13 | **51 tools** against our 8-method client ✓ |
-| introfini/ZotSeek | 189 | MIT (README) | 2026-08-21 | Zotero plugin: local semantic search with a built-in MCP server ✓ |
+| introfini/ZotSeek | 189 | MIT (README) | 2026-08-21 | Zotero plugin: local semantic search with a built-in MCP server ◐ |
 | kujenga/zotero-mcp | 161 | MIT | 2026-08-07 | Lightweight Python MCP server over the Zotero API |
 | TonybotNi/ZotLink | 137 | MIT (README) | 2025-10-12 | MCP server that *saves* preprints into Zotero with metadata and PDFs |
-| PiaoyangGuohai1/cli-anything-zotero | 128 | Apache-2.0 | 2026-07-28 | CLI server for Zotero 7/8/9, 70+ commands ✓ |
+| PiaoyangGuohai1/cli-anything-zotero | 128 | Apache-2.0 | 2026-07-28 | CLI server for Zotero 7/8/9, 70+ commands ◐ |
 | xunhe730/ZotPilot | 70 | MIT | 2026-06-28 | MCP server plus agent skill |
 | dougwyu/claude-zotero-skills | 34 | NOASSERTION | 2026-08-07 | Skills for Zotero access |
 
@@ -590,7 +599,7 @@ mentioning citation counts and retraction alerts from Scite's public endpoints w
 |---|---|---|---|---|
 | Hylouis233/bibverify | 73 | MIT | 2026-08-22 | DOI-first BibTeX verification as CLI, Python API **and MCP server**: `doi_to_bibtex`, `rank_lookup_sources`, `explain_update_diff`, `verify_bib_file`. It reports *why* a lookup source was chosen; we do not ✓ |
 | PHY041/claude-skill-citation-checker | 29 | MIT (README) | 2026-03-22 | Claude Code skill verifying `.bib` against CrossRef, Semantic Scholar and OpenAlex ✓ |
-| tfscharff/doi-mcp | 15 | MIT | 2026-07-30 | MCP server verifying citations against 9 databases ✓ |
+| tfscharff/doi-mcp | 15 | MIT | 2026-07-30 | MCP server verifying citations against 9 databases ◐ |
 | DeepCitation/deepcitation | 13 | MIT | 2026-08-18 | Citation verification against hallucination |
 | groundlens-dev/groundlens | 7 | Apache-2.0 | 2026-08-22 | Grounding and faithfulness checking of RAG answers against retrieved sources |
 | htlin222/research-guardian-skill | 5 | MIT (README) | 2026-04-17 | Multi-gate audit of hypotheses, citations, experiments, results and logic fallacies ✓ |
@@ -1789,7 +1798,7 @@ Permissive, standard-library only, no coupling beyond a same-directory sibling. 
 
 | Candidate | Lines | Imports | Fills | Note |
 |---|---|---|---|---|
-| medsci `verify-refs/scripts/_quote_match.py` | 172 | `re`, `unicodedata` | token-ordered quote matching where ours ends in a contiguous find (§6.1) | vendored and dropped this session pending a decision on wiring; the pin is recorded in the git history |
+| medsci `verify-refs/scripts/_quote_match.py` | 172 | `re`, `unicodedata` | token-ordered quote matching where ours ends in a contiguous find (§6.1) | measured and pinned in §18.10; vendored and dropped pending a wiring decision |
 | medsci `manage-refs/scripts/check_citation_keys.py` | 147 | `argparse`, `re`, `sys` | pandoc `[@key]` undefined/unused detection; complements our bibliography-joined `citekey` check | |
 | medsci `manage-refs/scripts/check_reference_duplication.py` | 245 | `+ json`, `zipfile` | duplicate-entry detection, listed as absent from our `citekey` check (§10.6) | |
 | medsci `sync-submission/scripts/cross_document_n_check.py` | 486 | `argparse`, `json`, `re`, `sys` | the same participant count asserted across every document — a cross-artifact consistency class we have none of (§11) | |
@@ -1961,7 +1970,50 @@ close call and it is not our judgment call to make differently — it is the tex
 under MIT and comparable terms; for these four, take the dependency through the Services instead
 (anthropics/skills installs as a marketplace plugin), which is the route the licence contemplates.
 
-### 18.10 What this changes about sequencing
+### 18.10 `_quote_match`, measured — and where it would actually go
+
+This candidate was vendored and removed during the same session, so the measurement survives only
+here. Both parts are worth keeping: the behaviour, and the integration target, which is not the one
+an obvious reading suggests.
+
+**Measured.** Run standalone against a quote and three damaged haystacks, with our own contiguous
+find for comparison:
+
+| Artifact class | `match_quality` grade | matched / total | inserted | coverage | our contiguous find |
+|---|---|---|---|---|---|
+| line number mid-sentence | `PARTIAL` | 7 / 8 | 3 | 0.875 | **miss** |
+| two-column bleed | `INTERLEAVED` | 8 / 8 | 1 | 1.0 | **miss** |
+| hyphenation across a line break | `EXACT` | 8 / 8 | 0 | 1.0 | match |
+| unrelated text | `ABSENT` | — | — | — | miss |
+
+The third row is the one our `selectors._norm_with_map` already repairs. The first two are what a
+contiguous find cannot see. The fourth is the row that matters most, and it is why the grade
+vocabulary is worth more than the matcher.
+
+**Where it goes, and where it does not.** The obvious target is `quotes.check_quote`, and that is
+wrong: both sides of that comparison are vault strings — the claim's quote text against the
+literature note's managed region — so PDF extraction artifacts cannot arise there.
+
+Extraction noise enters at `__main__.py:257-263`, where `selectors.pdf_text` extracts an
+attachment and `attach_contexts` locates each annotation to capture its prefix and suffix. When
+`find_context`'s contiguous find misses, the annotation silently loses its W3C selectors and the
+import reports one undifferentiated reason: `"some annotation quotes were not found in extracted
+text"`.
+
+Graded, that single reason splits into two facts we currently cannot tell apart:
+
+- `INTERLEAVED` or `PARTIAL` — extraction noise. The annotation is sound; `pypdf` interleaved a
+  line number or bled a column. Degradation, retry later.
+- `ABSENT` — the annotation text is **not in the PDF we hashed**. That is an integrity condition,
+  not a formatting one: either the attachment on disk is not the one that was annotated, or the
+  "quote" was typed as a comment rather than selected from the page. We carry `fixity-sha256` on
+  the file and nothing that checks its annotations correspond to it.
+
+The second is fabrication-shaped and today invisible. That is the argument for the port, and it
+sits on the evidence layer rather than in the quote check — which also means it changes what an
+import reports, so it deserves the same care as any change to a verification surface.
+
+### 18.11 What this changes about sequencing
 
 Tier A now has two halves. The **files** are roughly 1,600 lines of standard-library Python under
 one MIT licence from one donor, filling five listed gaps — the cheapest breadth we will ever
