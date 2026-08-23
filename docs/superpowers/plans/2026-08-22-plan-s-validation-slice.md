@@ -60,6 +60,8 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 
 ## Judgment
 
+**Pre-registered decision rules (2026-08-22): docs/superpowers/plans/2026-08-22-slice-decision-rules.md** — the two self-assessment clauses below are evaluated through them (`routed-around-tagging` makes the falsification clause countable at occurrence; `inbox-review-sizing` measures the rubber-stamp precursor; `defensibility-floor` anchors the author's judgment to the mechanical criteria). The registry closed to amendment when Phase 2 started.
+
 - [ ] **Validated-when (§9)**: 100% of brief claims resolve mechanically per their tag; `verified` events recorded + trust tier derivable in a Base; all five/seven drills caught; seed migration zero-unresolved; cold-resume worked; **the author judges the brief defensible.** **Criteria are evaluated against remediated gates (ruled 2026-08-22)** — the no-fabrication audit (docs/2026-08-22-no-fabrication-audit.md) is the reference; a criterion passing through a gate the audit lists as defective is not a pass.
 - [ ] **Falsified-when**: any planted error reaches publish, OR the author routed around the vault. Either falsifies the foundation — record it as such, do not soften it.
 - [ ] Findings log committed to the plugin repo; the vault repo stands on its own.
@@ -79,7 +81,7 @@ After the slice, adoption is friction-selected through the existing channel (fin
 | Search coverage gaps in Phase 3 | cookjohn cnki-skills, gs-skills |
 | Submission friction in Phase 6 | medsci sync-submission |
 
-No friction observed = no adoption; the map never becomes a shopping list. **gap-to-topic is excluded from the map and decided on merits (ruled 2026-08-22): not adopted** — it gates whether a question is worth asking, the slice's question is already chosen, so no slice evidence can bear on it; and question-selection sits upstream of the harness boundary (the harness begins at framing a chosen question, spec §7). An upstream workflow choice, not a harness gap — this also resolves its two-tier contradiction in the adoption plan (review cluster 6).
+No friction observed = no adoption; the map never becomes a shopping list. The same discipline covers the Memoria-item pool (2026-08-22): per-finding severity ← whether the run produces findings of visibly different weight; the no-refutation finding kind ← Phase 4's brief (where a claim with no counter-evidence considered would first appear); propagation's consequence walk ← whether ~10 synthesis pages generate cross-claim consequences; the capability contract and integrity/argument-quality ops ← post-slice by necessity (they change skill frontmatter, the system under test); code grounds ← parked until analysis work exists. The ledger discipline itself converged independently (the findings log's "friction is the product" IS Memoria's shape) — nothing to take there. **gap-to-topic is excluded from the map and decided on merits (ruled 2026-08-22): not adopted** — it gates whether a question is worth asking, the slice's question is already chosen, so no slice evidence can bear on it; and question-selection sits upstream of the harness boundary (the harness begins at framing a chosen question, spec §7). An upstream workflow choice, not a harness gap — this also resolves its two-tier contradiction in the adoption plan (review cluster 6).
 
 ## Self-Review (at authoring)
 
