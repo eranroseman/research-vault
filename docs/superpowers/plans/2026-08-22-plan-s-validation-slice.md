@@ -7,6 +7,8 @@
 
 **Setup dependency:** the vault is a SEPARATE git repository (spec §2). **Sequencing (ruled 2026-08-22): Phases 2+ wait for the pre-slice batch to merge** — instrument freeze (the project-flow rename, defect fixes, and the vault index land first; running on a mid-rename skill set would pollute the resume test and re-find catalogued defects). Phases 0–1 ran parallel to Plan Q and are closed.
 
+**Second sequencing gate (ruled 2026-08-22, after the no-fabrication audit — docs/2026-08-22-no-fabrication-audit.md): Phases 4–6 and the synthetic gate drill wait for trust-core remediation** (audit defects 1–5 — inert RW leg, UNMATCHED→MATCHED reduction, vacuous machine-confirmed tier, unenforced tier-2 citability, free-region destruction — plus the "unresolved"-placeholder and archive-url fixes). Same logic as the instrument freeze: the verify/publish gates ARE the instrument for those phases. Running them un-remediated fails both ways — the retraction drills would fail with a catalogued cause (a false "falsified"), and validated-when could pass on fabricated trust tiers and un-caught cross-project citekeys (a false validation, which is worse). Phases 2–3 do NOT wait on remediation — framing, gap analysis, find-sources, and import don't run the defective gates — except the notes.py:151 free-region destruction fix, pulled into the pre-slice batch because authored digests live in exactly the region a marker-mangled refresh silently destroys.
+
 **Authority:** spec §9 verbatim (phases, validated-when, falsified-when); the shipped skills are the instrument under test — where a skill's behavior diverges from what the slice needs, that is a FINDING about the skill, recorded, not worked around (routing around the vault is the §9 falsification condition).
 
 ## Global Constraints
@@ -56,7 +58,7 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 
 ## Judgment
 
-- [ ] **Validated-when (§9)**: 100% of brief claims resolve mechanically per their tag; `verified` events recorded + trust tier derivable in a Base; all five/seven drills caught; seed migration zero-unresolved; cold-resume worked; **the author judges the brief defensible.**
+- [ ] **Validated-when (§9)**: 100% of brief claims resolve mechanically per their tag; `verified` events recorded + trust tier derivable in a Base; all five/seven drills caught; seed migration zero-unresolved; cold-resume worked; **the author judges the brief defensible.** **Criteria are evaluated against remediated gates (ruled 2026-08-22)** — the no-fabrication audit (docs/2026-08-22-no-fabrication-audit.md) is the reference; a criterion passing through a gate the audit lists as defective is not a pass.
 - [ ] **Falsified-when**: any planted error reaches publish, OR the author routed around the vault. Either falsifies the foundation — record it as such, do not soften it.
 - [ ] Findings log committed to the plugin repo; the vault repo stands on its own.
 
