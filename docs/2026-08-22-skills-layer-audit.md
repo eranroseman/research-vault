@@ -14,7 +14,7 @@ conformance), `ponytail-audit` (over-engineering), `consistency-audit`
 - **Adaptations disclosed**: `consistency-audit` prescribes two independent `consistency-audit-inspector` readers per slice plus a skeptic that did not raise each candidate. This run used a single reader (the session) with self-refutation against code and tests, on the standing instruction not to dispatch subagents. Every finding below was refuted against primary evidence before it was recorded, and four candidates died there — but the *second-reader* leg did not run, so this run under-samples rather than surveys.
 - **Comparison not made**: the eleven `references/` files were not cross-read against each other for internal contradiction.
 
----
+______________________________________________________________________
 
 ## 1. `rethink-audit` — clean-slate design pass
 
@@ -22,20 +22,20 @@ conformance), `ponytail-audit` (over-engineering), `consistency-audit`
 
 What the skills layer must do, tagged by evidence.
 
-| # | Requirement | Evidence |
-|---|---|---|
-| R1 | Every mechanical act (event, status, tag, hold, finding, ack, search-log line) goes through a CLI verb; prose never writes durable state | `adr` — spec §7 "deterministic-Python-core + thin-prompt-skill split"; Plan D global constraints |
-| R2 | Four-state honesty on every surface: an outage is never a failure and never a pass | `adr` — ADR 0002, CONTEXT.md "Four-state result" |
-| R3 | Entry skills ship `disable-model-invocation: true`; guards are model-invoked and user-invocable; nothing ships `user-invocable: false` | `adr` + `tests` — spec §7 control model, `tests/test_skill_contracts.py:103-118` |
-| R4 | Admission is a human act in Zotero, and the only route to citability | `adr` — CONTEXT.md **Admission**; parked ADR candidate "evidence-layer-is-projection" |
-| R5 | The Iron Law: no claim enters a draft before its citekey resolves | `docs` — spec §5/§7 |
-| R6 | PRISMA-S search provenance, append-only, project-scoped | `docs` — spec §7 `find-sources` row |
-| R7 | Deprecate, never delete | `adr` — ADR 0003 |
-| R8 | The vault outlives the harness; skills write vault-portable content only | `adr` — ADR 0001 |
-| R9 | Skill prose uses CONTEXT.md vocabulary; every new identifier gets its terminology §4.3/§4.4 row in the same commit | `docs` — Plan D global constraints |
-| R10 | Nine skills, names ruled | `docs` — terminology §4.3 line 127; Plan D Task 8 "the count is nine, not ten" |
-| R11 | The vendored fork stays frozen: re-vendor to update, never hand-edit | `docs` + `tests` — spec §7 dependency discipline, `tests/test_find_sources_vendor.py` |
-| R12 | A human can reach the right skill without holding all nine in their head | `assumed` — no recorded requirement; the user-driven control model implies it and nothing states it |
+| #   | Requirement                                                                                                                              | Evidence                                                                                            |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| R1  | Every mechanical act (event, status, tag, hold, finding, ack, search-log line) goes through a CLI verb; prose never writes durable state | `adr` — spec §7 "deterministic-Python-core + thin-prompt-skill split"; Plan D global constraints    |
+| R2  | Four-state honesty on every surface: an outage is never a failure and never a pass                                                       | `adr` — ADR 0002, CONTEXT.md "Four-state result"                                                    |
+| R3  | Entry skills ship `disable-model-invocation: true`; guards are model-invoked and user-invocable; nothing ships `user-invocable: false`   | `adr` + `tests` — spec §7 control model, `tests/test_skill_contracts.py:103-118`                    |
+| R4  | Admission is a human act in Zotero, and the only route to citability                                                                     | `adr` — CONTEXT.md **Admission**; parked ADR candidate "evidence-layer-is-projection"               |
+| R5  | The Iron Law: no claim enters a draft before its citekey resolves                                                                        | `docs` — spec §5/§7                                                                                 |
+| R6  | PRISMA-S search provenance, append-only, project-scoped                                                                                  | `docs` — spec §7 `find-sources` row                                                                 |
+| R7  | Deprecate, never delete                                                                                                                  | `adr` — ADR 0003                                                                                    |
+| R8  | The vault outlives the harness; skills write vault-portable content only                                                                 | `adr` — ADR 0001                                                                                    |
+| R9  | Skill prose uses CONTEXT.md vocabulary; every new identifier gets its terminology §4.3/§4.4 row in the same commit                       | `docs` — Plan D global constraints                                                                  |
+| R10 | Nine skills, names ruled                                                                                                                 | `docs` — terminology §4.3 line 127; Plan D Task 8 "the count is nine, not ten"                      |
+| R11 | The vendored fork stays frozen: re-vendor to update, never hand-edit                                                                     | `docs` + `tests` — spec §7 dependency discipline, `tests/test_find_sources_vendor.py`               |
+| R12 | A human can reach the right skill without holding all nine in their head                                                                 | `assumed` — no recorded requirement; the user-driven control model implies it and nothing states it |
 
 **Callers accounted for.** The skills have three classes of caller and all three were swept: the **human** typing a skill name (seven user-invoked entry points); **other skills** invoking the two guards (`project` → `evidence-conventions`, `import-source` → `synthesis-conventions`); the **shipped vault `AGENTS.md`** template, which names exactly one skill (`evidence-conventions`) and otherwise says "prefer the knowledge-harness skills" without naming them. Not reachable from this repo: how a real installed session resolves bare cross-reference names against the plugin namespace (see finding C-4), and any downstream consumer outside this checkout.
 
@@ -64,15 +64,15 @@ Every requirement is answered: R1/R2 by seam 1 (one statement of the doctrine, i
 
 Where the current implementation diverges from that target.
 
-| Divergence | Accident, dead constraint, or real? |
-|---|---|
-| Four-state semantics stated in four entry skills | **Accident of authoring order** — Plan D wrote the skills task by task, each transcribing §6, with no shared home nominated. Real residue: the per-surface columns genuinely differ (gate/import/LLM), so only the invariant is duplicated, not the whole table |
-| Never-hand-write doctrine restated in five skills | **Accident**, same cause |
-| No reachable index over the seven entry points | **Real gap against an assumed requirement** — R12 is `assumed`; the user-driven control model deliberately keeps entries out of the model catalog, and no one ever wrote down what replaces discovery |
-| `verify-citations` names ten check ids where `verify` emits fourteen | **Defect**, see finding C-1 |
-| `setup-vault` enumerates scaffold's created paths in prose | **Real constraint, partly** — `tests/test_skill_files.py:111-119` pins six of them, so the enumeration is load-bearing for a test that exists to stop a specific dishonesty ("claiming unrelated work was committed"). The path *list* is still a cache of what the command prints |
-| `import-source` at 2,206 words, nine numbered sections | **Accident** — §7 refresh, §8 batch, §9 archive are branches only some runs reach |
-| `project` is a bare domain noun | **Dead constraint** — ruled in terminology §4.3 as a "plain descriptive name", before the collision with CONTEXT.md's **Project** (the artifact) mattered |
+| Divergence                                                           | Accident, dead constraint, or real?                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Four-state semantics stated in four entry skills                     | **Accident of authoring order** — Plan D wrote the skills task by task, each transcribing §6, with no shared home nominated. Real residue: the per-surface columns genuinely differ (gate/import/LLM), so only the invariant is duplicated, not the whole table                    |
+| Never-hand-write doctrine restated in five skills                    | **Accident**, same cause                                                                                                                                                                                                                                                           |
+| No reachable index over the seven entry points                       | **Real gap against an assumed requirement** — R12 is `assumed`; the user-driven control model deliberately keeps entries out of the model catalog, and no one ever wrote down what replaces discovery                                                                              |
+| `verify-citations` names ten check ids where `verify` emits fourteen | **Defect**, see finding C-1                                                                                                                                                                                                                                                        |
+| `setup-vault` enumerates scaffold's created paths in prose           | **Real constraint, partly** — `tests/test_skill_files.py:111-119` pins six of them, so the enumeration is load-bearing for a test that exists to stop a specific dishonesty ("claiming unrelated work was committed"). The path *list* is still a cache of what the command prints |
+| `import-source` at 2,206 words, nine numbered sections               | **Accident** — §7 refresh, §8 batch, §9 archive are branches only some runs reach                                                                                                                                                                                                  |
+| `project` is a bare domain noun                                      | **Dead constraint** — ruled in terminology §4.3 as a "plain descriptive name", before the collision with CONTEXT.md's **Project** (the artifact) mattered                                                                                                                          |
 
 ### `migrate:`
 
@@ -97,25 +97,25 @@ Steps 1–2 close the confirmed defects. Steps 3–6 close the structural diverg
 
 **Not "already sound. Keep."** — the four-copy duplication and the missing index are real structural divergences, not invented ones. But the layer is closer to its first-principles shape than most: the hard part (mechanics in the CLI, prose in the skill) is right, and every step above is additive.
 
----
+______________________________________________________________________
 
 ## 2. `writing-for-agents` + `superpowers:writing-skills` — conformance pass
 
-**Where the two frameworks disagree, and which governs.** `writing-skills` sets word-count targets (<500 words for a general skill). `writing-for-agents` rejects the count and frames the same failure as **sprawl**, cured by the information hierarchy. **`writing-for-agents` governs here**, because seven of nine skills are user-invoked: they cost *zero* context load until typed, so a word budget measures the wrong thing. The right question is whether the material is branch-uniform — inline what every run needs, disclose what only some runs reach.
+**Where the two frameworks disagree, and which governs.** `writing-skills` sets word-count targets (\<500 words for a general skill). `writing-for-agents` rejects the count and frames the same failure as **sprawl**, cured by the information hierarchy. **`writing-for-agents` governs here**, because seven of nine skills are user-invoked: they cost *zero* context load until typed, so a word budget measures the wrong thing. The right question is whether the material is branch-uniform — inline what every run needs, disclose what only some runs reach.
 
 ### Per-skill
 
-| Skill | Words | Invocation | Verdict |
-|---|---|---|---|
-| `synthesis-conventions` | 233 | guard (model) | **Exemplary.** Four rules, flat peer-set, every one branch-uniform. The `2+-source threshold` and `minimum-link discipline` are leading words doing real work |
-| `setup-vault` | 474 | entry (user) | Sound. The scaffold path enumeration is a cache (P-2) |
-| `verify-citations` | 672 | entry (user) | ~45% of the body is four-state restatement. Defect C-1 lives here |
-| `project` | 917 | entry (user) | Sound. The draft-frame section models the target behaviour: *"Read and follow that skill directly; do not paraphrase or re-derive its rules here"* — this is the single-source-of-truth rule stated in the document that most needs it |
-| `factcheck-draft` | 972 | entry (user) | Sound. Selection order is stated as binding, with the reason (quote claims already deterministically covered) — demand and clarity both present |
-| `evidence-conventions` | 1,198 | guard (model) | Sound. Carries the reason-code registry for the whole plugin — correct home. Rationalization table is textbook `writing-skills` bulletproofing |
-| `publish` | 1,446 | entry (user) | Sound. Longest section (correction lifecycle) is genuinely branch-uniform for a published project |
-| `find-sources` | 1,670 | entry (user) | **Best disclosure in the corpus.** Eleven database references behind a one-row-per-branch pointer table; five scripts behind `--help`. The SKILL.md keeps only what every search needs |
-| `import-source` | 2,206 | entry (user) | **Sprawl.** Nine numbered sections; §7 refresh, §8 batch, §9 archive are reached by a minority of runs and sit inline at full weight |
+| Skill                   | Words | Invocation    | Verdict                                                                                                                                                                                                                                |
+| ----------------------- | ----- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `synthesis-conventions` | 233   | guard (model) | **Exemplary.** Four rules, flat peer-set, every one branch-uniform. The `2+-source threshold` and `minimum-link discipline` are leading words doing real work                                                                          |
+| `setup-vault`           | 474   | entry (user)  | Sound. The scaffold path enumeration is a cache (P-2)                                                                                                                                                                                  |
+| `verify-citations`      | 672   | entry (user)  | ~45% of the body is four-state restatement. Defect C-1 lives here                                                                                                                                                                      |
+| `project`               | 917   | entry (user)  | Sound. The draft-frame section models the target behaviour: *"Read and follow that skill directly; do not paraphrase or re-derive its rules here"* — this is the single-source-of-truth rule stated in the document that most needs it |
+| `factcheck-draft`       | 972   | entry (user)  | Sound. Selection order is stated as binding, with the reason (quote claims already deterministically covered) — demand and clarity both present                                                                                        |
+| `evidence-conventions`  | 1,198 | guard (model) | Sound. Carries the reason-code registry for the whole plugin — correct home. Rationalization table is textbook `writing-skills` bulletproofing                                                                                         |
+| `publish`               | 1,446 | entry (user)  | Sound. Longest section (correction lifecycle) is genuinely branch-uniform for a published project                                                                                                                                      |
+| `find-sources`          | 1,670 | entry (user)  | **Best disclosure in the corpus.** Eleven database references behind a one-row-per-branch pointer table; five scripts behind `--help`. The SKILL.md keeps only what every search needs                                                 |
+| `import-source`         | 2,206 | entry (user)  | **Sprawl.** Nine numbered sections; §7 refresh, §8 batch, §9 archive are reached by a minority of runs and sit inline at full weight                                                                                                   |
 
 ### Levers
 
@@ -136,7 +136,7 @@ Steps 1–2 close the confirmed defects. Steps 3–6 close the structural diverg
 
 **Testing (`writing-skills`' Iron Law).** No RED-GREEN-REFACTOR anywhere: no baseline run, no pressure scenario, no recorded rationalization harvested from a failing agent. Plan D never required one, so this is a gap against the framework, not a plan violation. What exists instead is four static test modules — and one of them, `tests/test_skill_contracts.py:133`, is better than what the framework asks for: it parses every shipped `finding` invocation out of every SKILL.md with `shlex` and validates the check id and reason code against the live registry. **A shipped command that the CLI would refuse fails the build.** That is the mechanical-constraint-automated rule applied exactly right. The prose pins in `test_skill_files.py` are the inverse — regex over judgment prose — and are the trade-off recorded above, not a defect.
 
----
+______________________________________________________________________
 
 ## 3. `ponytail-audit` — over-engineering, ranked
 
@@ -164,13 +164,13 @@ net: -110 to -140 lines of SKILL.md prose, -0 deps.
 
 **Not over-engineered, checked and cleared:** the eleven `references/` files and five `scripts/` (vendored, frozen, correctly disclosed — deleting any is deleting capability); the nine-skill split (one per §7 row, no skill with a single caller); the two-guard/seven-entry control model (each guard has two callers); the CLI-verb-per-mechanical-act doctrine (that is the architecture, not ceremony); `tests/test_skill_contracts.py` (generic, parametrized, no per-skill duplication).
 
----
+______________________________________________________________________
 
 ## 4. `consistency-audit` — findings
 
 Ranked by severity. Every card was refuted against code, tests, or the reference files before it was recorded. The **State** field on each card is this run's triage; the author's ruling on every one of them is recorded in §5 below and supersedes it.
 
----
+______________________________________________________________________
 
 ### C-1 · `verify-citations` names ten check ids; `verify` emits fourteen — MEDIUM
 
@@ -184,7 +184,7 @@ Ranked by severity. Every card was refuted against code, tests, or the reference
 
 **State** `ready-for-agent` — *repair*: extend the enumeration to what the verb emits, or mark the ten as §6's closing-capable subset and add a rule for grouping everything else.
 
----
+______________________________________________________________________
 
 ### C-2 · `evidence-conventions` claims one registry code is out of scope; two are — LOW
 
@@ -198,7 +198,7 @@ Ranked by severity. Every card was refuted against code, tests, or the reference
 
 **State** `ready-for-agent` — *repair*: *"Two registry codes stay off this table: `matched` never reaches the queue (only non-MATCHED results file findings), and `manual` belongs to a surface not shipped yet."*
 
----
+______________________________________________________________________
 
 ### C-3 · `find-sources` under-counts the APIs that carry a credential in the query string — LOW
 
@@ -214,7 +214,7 @@ The same line carries a second, independent under-count of the same class: its h
 
 **State** `ready-for-agent` — *repair*, two edits on one line: drop the count (*"Several of these APIs take a credential in the query string, so the fetched URL* is *a credential"* — the rule then binds every case without an inventory to keep current), and either complete the hand-redaction list to all six or replace it with a pointer to `redact_url`'s own set.
 
----
+______________________________________________________________________
 
 ### C-4 · Cross-reference names are bare where the plugin namespaces them — LOW, `unsettled`
 
@@ -228,7 +228,7 @@ The same line carries a second, independent under-count of the same class: its h
 
 **State** `ready-for-human` — one session with the plugin installed settles it. Options: **(a)** leave bare, on the reading that routing lines address the human and the picker disambiguates — *recommended*, it is what ships and nothing has failed; **(b)** namespace every cross-reference, which is unambiguous and costs a rename across five skills plus the vault template if the plugin is ever renamed; **(c)** namespace only the five user-invoked targets, which is correct-by-audience and inconsistent-by-eye. *This audit cannot pick for you.*
 
----
+______________________________________________________________________
 
 ### C-5 · The vendored `paginate.py` docstring describes a corpus the fork does not have — LOW
 
@@ -242,7 +242,7 @@ The same line carries a second, independent under-count of the same class: its h
 
 **State** `ready-for-human` — the real question is policy, not this line. Options: **(a)** accept it, and add one line to the vendoring note that upstream prose may describe upstream's corpus rather than this fork's — *recommended*, cheapest and honest; **(b)** extend the frozen-behaviour rule to permit factual-comment corrections, which reopens "frozen" and invites judgment calls at every re-vendor; **(c)** carry a fork-local patch file, which is maintenance for a comment. *Leave it as it is* is a legitimate answer.
 
----
+______________________________________________________________________
 
 ### C-6 · `setup-vault` keeps a second copy of a list the command prints — LOW
 
@@ -256,7 +256,7 @@ The same line carries a second, independent under-count of the same class: its h
 
 **State** `ready-for-agent` — *record*, not a plain repair. Probe first per the method: add a template, run `scaffold`, and see whether anything catches the divergence before this prose does. The deliverable is the honesty rule kept and the inventory dropped — *"scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed"* — with `test_skill_files.py` narrowed to the six pinned names it actually defends.
 
----
+______________________________________________________________________
 
 ### C-7 · No reachable index over seven user-invoked entry points — LOW
 
@@ -270,20 +270,20 @@ The same line carries a second, independent under-count of the same class: its h
 
 **State** `ready-for-human`. Options: **(a)** add the seven names with one clause each to the vault `AGENTS.md` template — *recommended*: it self-installs per vault, it is the surface that already routes, `tests/test_skill_contracts.py:153` already validates every name it cites, and it costs vault-side context only inside a vault; **(b)** a tenth router skill, which reopens the ruled nine-count for a job the template already does; **(c)** leave it — legitimate if you never reach for a name you cannot remember, which only you can say.
 
----
+______________________________________________________________________
 
 ### Refuted candidates
 
 Recorded so a reader of this report can see what was examined and rejected. A refutation holds only while its reason holds; no second judge checked these.
 
-| Candidate | Why it died |
-|---|---|
-| *"Plan D Task 1's `test_skill_contracts.py` never landed — the acceptance instrument is missing"* | The file exists at `tests/test_skill_contracts.py`, 166 lines, with the generic contract, the control-model assertion, **and** the landing check Task 8 named (line 153). Missed on a first grep that filtered on the wrong pattern. The framework's own rule earned its keep here |
-| *"Eight of nine skills ship untested"* | `tests/test_skill_contracts.py` is parametrized over **every** shipped `SKILL.md` — frontmatter, name/dirname, description, invocation flags, and `finding`-invocation validity all run for all nine. Content acceptance is per-skill for three (`setup-vault`, `project`, the `find-sources` vendor), which is exactly what Plan D's task steps required |
-| *"`skills/find-sources/scripts/__pycache__/` ships a `.pyc` in the plugin"* | `git ls-files skills/ \| grep pycache` returns nothing; `.gitignore:8` carries `__pycache__/`. Untracked local build artifact, not shipped |
-| *"The shipped vault glossary contradicts the skills on event minting — it says only MATCHED mints, the skills say only four check ids mint"* | Not a contradiction. `templates/vault/system/glossary.md:86` states a necessary condition, the skills state the sufficient one. Both true |
-| *"`§5`/`§6`/`§7` references in five skills point at a document that does not ship"* | A plugin install clones the whole repository — `docs/` travels (verified against two installed plugin caches). The *weak-pointer* concern survives as a style note (the references carry no path), but the target is not missing, and the corpus-shipping question is already a recorded release-gate item in spec §10 that this audit does not re-litigate |
-| *"154 prohibitions is negation-driven steering at scale"* | Sorted per `writing-skills`' *Match the Form to the Failure*: the overwhelming majority are discipline guards on honesty claims — the sanctioned case for prohibition + rationalization table. Only two are shaping prohibitions, and they are recorded above as a ponytail line, not as a finding |
+| Candidate                                                                                                                                    | Why it died                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| *"Plan D Task 1's `test_skill_contracts.py` never landed — the acceptance instrument is missing"*                                            | The file exists at `tests/test_skill_contracts.py`, 166 lines, with the generic contract, the control-model assertion, **and** the landing check Task 8 named (line 153). Missed on a first grep that filtered on the wrong pattern. The framework's own rule earned its keep here                                                                          |
+| *"Eight of nine skills ship untested"*                                                                                                       | `tests/test_skill_contracts.py` is parametrized over **every** shipped `SKILL.md` — frontmatter, name/dirname, description, invocation flags, and `finding`-invocation validity all run for all nine. Content acceptance is per-skill for three (`setup-vault`, `project`, the `find-sources` vendor), which is exactly what Plan D's task steps required   |
+| *"`skills/find-sources/scripts/__pycache__/` ships a `.pyc` in the plugin"*                                                                  | `git ls-files skills/ \| grep pycache` returns nothing; `.gitignore:8` carries `__pycache__/`. Untracked local build artifact, not shipped                                                                                                                                                                                                                  |
+| *"The shipped vault glossary contradicts the skills on event minting — it says only MATCHED mints, the skills say only four check ids mint"* | Not a contradiction. `templates/vault/system/glossary.md:86` states a necessary condition, the skills state the sufficient one. Both true                                                                                                                                                                                                                   |
+| *"`§5`/`§6`/`§7` references in five skills point at a document that does not ship"*                                                          | A plugin install clones the whole repository — `docs/` travels (verified against two installed plugin caches). The *weak-pointer* concern survives as a style note (the references carry no path), but the target is not missing, and the corpus-shipping question is already a recorded release-gate item in spec §10 that this audit does not re-litigate |
+| *"154 prohibitions is negation-driven steering at scale"*                                                                                    | Sorted per `writing-skills`' *Match the Form to the Failure*: the overwhelming majority are discipline guards on honesty claims — the sanctioned case for prohibition + rationalization table. Only two are shaping prohibitions, and they are recorded above as a ponytail line, not as a finding                                                          |
 
 ### Could not verify
 
@@ -298,7 +298,7 @@ Proposals about scope, not findings — they go to the author with everything el
 - Prose-vs-CLI drift is the recurring class here (C-1, C-2, C-3, C-6 are all one shape: a skill enumerating something the code owns). `tests/test_skill_contracts.py:133` already generalizes one instance of it — parsing shipped `finding` invocations and validating them against the live registry. **C-1 is the same class and admits the same instrument**: assert that every check id a SKILL.md enumerates is one `verify` can emit. That is a checker spec worth writing.
 - This run had no second reader and no independent skeptic. A repeat with the full method should assume it under-sampled.
 
----
+______________________________________________________________________
 
 ## What is strong here
 
@@ -310,7 +310,7 @@ Recorded deliberately — a redesign invented to justify an audit is the failure
 - **The vocabulary is doing real work.** *Admission*, *projection*, *managed region*, *outage*, *closing check*, *fresh / stale / orphaned*, *arming*, *the Iron Law* — repeated as tokens, defined once in CONTEXT.md, governed in terminology §4.3/§4.4. This is the leading-word lever applied systematically across nine documents, and it is why the corpus reads as one system rather than nine.
 - **Four-state honesty is genuinely enforced, not gestured at.** Every skill that can report a result distinguishes "could not run" from "ran and disagreed", refuses to round an outage up or down, and names the CLI as the only writer of events. The duplication finding above is a *consequence* of taking this seriously in four places at once — the right problem to have.
 
----
+______________________________________________________________________
 
 ## 5. Adjudication (author ruling, 2026-08-22)
 
@@ -322,12 +322,12 @@ The audit's own diagnosis governs the fixes: C-1, C-2, C-3 and C-6 are one class
 
 ### Ready-for-agent — all four accepted
 
-| # | Ruling | Deliverable |
-|---|---|---|
-| C-1 | **Defer to code.** `verify-citations` stops hand-listing check ids altogether. The prose says *grouped by check id as the CLI reports them* and teaches the four states, not the fourteen ids — the id inventory is `--help` and output territory. This dissolves the unnameable-bucket problem rather than patching it | *repair* |
-| C-2 | **Complete and pin.** This is teaching prose, so it stays and gets correct: two codes off the table, not one. The enumeration is then test-pinned | *repair* + checker |
-| C-3 | **Align to `redact_url`.** The code is the authority on both counts — three query-string-auth databases, six redacted parameters | *repair* |
-| C-6 | **Drop the inventory.** The 14-path list duplicates what the command prints; *"report its exact printed created paths"* was already the right instruction standing alone | *repair* |
+| #   | Ruling                                                                                                                                                                                                                                                                                                                  | Deliverable        |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| C-1 | **Defer to code.** `verify-citations` stops hand-listing check ids altogether. The prose says *grouped by check id as the CLI reports them* and teaches the four states, not the fourteen ids — the id inventory is `--help` and output territory. This dissolves the unnameable-bucket problem rather than patching it | *repair*           |
+| C-2 | **Complete and pin.** This is teaching prose, so it stays and gets correct: two codes off the table, not one. The enumeration is then test-pinned                                                                                                                                                                       | *repair* + checker |
+| C-3 | **Align to `redact_url`.** The code is the authority on both counts — three query-string-auth databases, six redacted parameters                                                                                                                                                                                        | *repair*           |
+| C-6 | **Drop the inventory.** The 14-path list duplicates what the command prints; *"report its exact printed created paths"* was already the right instruction standing alone                                                                                                                                                | *repair*           |
 
 **Checker spec — approved.** Extend the `tests/test_skill_contracts.py` instrument to pin every enumeration that survives the fixes (C-2's reason codes). Same mechanism as the existing `finding`-invocation validator, same commit as the fixes.
 
@@ -366,7 +366,7 @@ References cross-read: approved, own slice, run with the FULL adversarial method
 
 **Step 7 decided (2026-08-22): `project` → `project-flow`** — the glossary's own *Project flow* term; collision dissolved, not mitigated. Rides the post-Q batch, ordered before the C-7 index.
 
----
+______________________________________________________________________
 
 ## 6. Ecosystem comparative addendum (2026-08-22, GitHub-API qualified pool)
 
@@ -394,7 +394,7 @@ Small, doctrinally-consistent steals: the routing guard ("route the user's inten
 - **Impact-grouping of verify reports** (wiki-lint groups by broken-navigation→metadata rather than check id): reintroduces a hand-maintained prose-owns-what-code-emits mapping — the exact C-1 class we just eliminated. Revisit only if the CLI itself gains impact metadata.
 - **Blocking on high-warning factcheck findings** (ARS ships it): the fork is real, ours is chosen — deterministic-only closure is an ADR-adjacent ruling, and the batch's why-one-pass sentence now says so in the skill instead of implying it.
 
----
+______________________________________________________________________
 
 ## 7. On-disk corpora comparative addendum (2026-08-22; 82 skills: superpowers, Pocock, obsidian, agent-toolkit)
 
@@ -406,15 +406,15 @@ Survey recorded verbatim in the relay log of this date. Cross-cutting confirmati
 
 **Skills polish pass — NEW task doc, gated AFTER the RED-phase verdict and the post-Q batch** (most items touch text the dedup outcome may rewrite; enriching first would be double churn):
 
-1. setup-vault: the two human-only steps (.xpi install, BBT auto-export creation) emit a **wizard-form bash script** (adopting the wizard *pattern*, not the personal skill — dependency doctrine holds); consent asks lead with the recommended answer (Pocock form); one sentence stating why consent precedes exploration (idempotent, repair-capable).
-2. project-flow: free-form invocation section with worked examples (triage pattern — "/project-flow what's blocking me" currently has no branch); routing rows distinguish "type this" (entries, human) from "invoked" (guards, model).
-3. find-sources: close on a Complete Example (one full report); negative boundary into the description ("terminates at admission — not an importer").
-4. import-source: explicit Deliverable block (nine sections never say what the person gets).
-5. evidence-conventions: complete the TDD archetype — Red Flags list (catch the thought before it's voiced), the spirit-vs-letter line, and the continuous-guard form (five "when X → do Y" behaviors) beside the gate form.
-6. synthesis-conventions: a worked example (one note that passes, one that fails the threshold); a Rejected-framings section; expand "asserts arrangement, not evidence" beyond one sentence.
-7. verify-citations: restructure as the Gate Function (IDENTIFY/RUN/READ/VERIFY/ONLY-THEN, "skip any step = lying, not verifying") + the Claim | Requires | Not sufficient table ("MATCHED from a run you executed" vs "a verified event in frontmatter, a prior run, an UNREACHABLE").
-8. factcheck-draft: per-claim report template + weighted rubric (two adjudications of one claim must not silently diverge); the receiving-code-review half (rigor-not-agreement when the person pushes back on an adjudication).
-9. Worked-example norm: adopted per-skill above where cited, not as a blanket rule.
+01. setup-vault: the two human-only steps (.xpi install, BBT auto-export creation) emit a **wizard-form bash script** (adopting the wizard *pattern*, not the personal skill — dependency doctrine holds); consent asks lead with the recommended answer (Pocock form); one sentence stating why consent precedes exploration (idempotent, repair-capable).
+02. project-flow: free-form invocation section with worked examples (triage pattern — "/project-flow what's blocking me" currently has no branch); routing rows distinguish "type this" (entries, human) from "invoked" (guards, model).
+03. find-sources: close on a Complete Example (one full report); negative boundary into the description ("terminates at admission — not an importer").
+04. import-source: explicit Deliverable block (nine sections never say what the person gets).
+05. evidence-conventions: complete the TDD archetype — Red Flags list (catch the thought before it's voiced), the spirit-vs-letter line, and the continuous-guard form (five "when X → do Y" behaviors) beside the gate form.
+06. synthesis-conventions: a worked example (one note that passes, one that fails the threshold); a Rejected-framings section; expand "asserts arrangement, not evidence" beyond one sentence.
+07. verify-citations: restructure as the Gate Function (IDENTIFY/RUN/READ/VERIFY/ONLY-THEN, "skip any step = lying, not verifying") + the Claim | Requires | Not sufficient table ("MATCHED from a run you executed" vs "a verified event in frontmatter, a prior run, an UNREACHABLE").
+08. factcheck-draft: per-claim report template + weighted rubric (two adjudications of one claim must not silently diverge); the receiving-code-review half (rigor-not-agreement when the person pushes back on an adjudication).
+09. Worked-example norm: adopted per-skill above where cited, not as a blanket rule.
 10. *(scope addition, ruled 2026-08-22 — slice finding 15)* import-source: explicit **ingest step** between §2 and §3 — the session agent authors a free-region digest as tagged claims per evidence-conventions (`(paraphrase)`/`(inference)` + citekey + locator; summary inside the verification perimeter). LLM only — no NLP library (lane boundary, §8 contract mismatch, extraction quality; see the finding). Compilation-value gate: a concise searchable source may need no digest; no-op legitimate. No auto-extracted quote candidates — quotes stay annotation-projected. The step ends by surfacing the digest to the author for emphasis guidance before the session moves on (Karpathy's "discuss key takeaways", as one sentence, not a gate). **Full-text precondition (author-ruled 2026-08-22): a digest is authored from the source's full text, always and only** — never from the abstract alone. Route: read the attachment directly (Zotero storage path via BBT `item.attachments`) until the `/fulltext` leg lands. No reachable full text = the digest slot states "no full text available" — that is the only honest summary in that case. An abstract-derived digest is fabricated facts (invented specifics attributed to the source), same zero-tolerance class as a fabricated citation; the abstract is the author's persuasion surface, and building on it inherits spin as fact.
 11. *(scope addition, ruled 2026-08-22 — the skill-eval lane)* **Behavioral eval brackets the pass**: step 0 runs a baseline eval over the shipped nine BEFORE any edit; the final step re-runs it and diffs compliance per skill. Harness: the RED-phase design (pressure scenario → fresh agent → comparative judge, COMPLIED/FAILED + decisive quote); scenarios generated from each skill's rationalization-table rows + core discipline (2–3 per skill — the tables are pre-authored adversarial eval cases). Investigate `claude plugin eval` as the native carrier first; the RED-phase workflow script is the proven fallback. Honesty clause: n=1 per cell is directional — paraphrased repeats on any close result, and the eval gates edits without certifying skills. Rationale: `test_skill_contracts` pins form only; behavioral drift is the drift that matters, and prose edits are when it happens.
 

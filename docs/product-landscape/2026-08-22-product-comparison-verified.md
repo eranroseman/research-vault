@@ -20,7 +20,7 @@ the only part of the evidence that is about tools of this kind rather than about
 positioning judgment in the adoption plan §1 leans on it heavily. And **§11 is ordered by cost**: its first group is
 verification, where a gap costs us what we claim to be, and the rest is breadth.
 
----
+______________________________________________________________________
 
 # Part I — Frame
 
@@ -112,64 +112,64 @@ taxonomy. Our own side was measured from source, so its numbers are exact.
 
 ## 4. Our side, measured
 
-| Dimension | Value |
-|---|---|
-| Deterministic core | 26 Python modules, 9,716 lines, **zero runtime dependencies on `main`** (`pypdf` behind a `pdf` extra). An unmerged branch (`build/quality-lane`, Plan Q) admits `defusedxml` as the first pinned runtime dependency under the spec §8 contract-match rule; this table describes `main`, which is the product |
-| Tests | 1,330 collected on `main` (1,470 on the unmerged Plan Q branch); markers for `live` (running Zotero) and `live_net` (real APIs) |
-| Skills | 9 — 7 user-invoked (`disable-model-invocation: true`), 2 model-invocable |
-| Hooks | 2 — PostToolUse lint (warn-only, fail-open, never interrupts); Stop publish gate (armed, fail-closed, bounded at 8 blocks) |
-| CLI verbs | 20 — `probe`, `import-note`, `archive-source`, `staleness`, `backfill-selectors`, `verify`, `factcheck`, `trust-tier`, `arm-publish`, `disarm-publish`, `mark-published`, `mark-parked`, `mark-corrected`, `mark-withdrawn`, `ack`, `finding`, `search-log`, `inbox`, `scaffold`, `doctor` |
-| Deterministic checks | 10 — citekey, doi, metadata, quote, update-notice, evidence-layer, identifier-discovery, web-archive, screening-state, disputed-claim |
-| Lints | 7 — append-only, claim-immutability, published-drift, screening-state, disputed-claim, web-archive, evidence-layer |
-| Doctor probes | 10 — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup, inbox, okf |
-| Result vocabulary | MATCHED / UNMATCHED / UNREACHABLE / SKIPPED |
-| Closing sets | audit = none; commit = {citekey, evidence-layer}; publish = {citekey, evidence-layer, quote, update-notice, doi} |
-| Reason-code registry | 18 codes, frozen in `inbox.REASON_CODES` |
-| Check-id registry | 15 ids, frozen in `inbox.CHECK_IDS` |
-| Trust tiers | unverified → machine-confirmed → human-reviewed, derived from `verified` events |
-| Update-notice classes | blocking = retraction, partial_retraction, removal, withdrawal; warn = expression_of_concern, correction, corrigendum, erratum; a dated **reinstatement** clears an earlier dated block |
-| Claim deprecation | required fields `status`, `deprecated-at`, `deprecated-by`, `reason` on the claim line (`lints._DEPRECATION_REQUIRED_FIELDS`); `superseded-by` optional; never deletion |
-| Registries called | doi.org handle API, Crossref `/works`, OpenAlex `/works`, DataCite `/dois`, arXiv, NCBI eutils, Wayback save + availability; optional offline Retraction Watch CSV via `--rw-csv` |
-| Zotero bridge | Better BibTeX JSON-RPC (`localhost:23119/better-bibtex/json-rpc`) plus the Zotero local web API (`/api/users/0/items/top?format=csljson`); 8-method client, read-only by design |
-| Vault layout | `inbox/`, `literatures/`, `synthesis/`, `log/`, `projects/`, `system/templates/`, `system/bases/`, plus `index.md`, `log.md`, `AGENTS.md`, `.harness/` |
-| Portability target | OKF (Open Knowledge Format), spec at `GoogleCloudPlatform/knowledge-catalog` `okf/SPEC.md`, tracked at v0.2; `index.md` declares `okf_version: "0.2"` and `scaffold._okf_probe` enforces conformance |
-| Provenance unit | claim line = evidence-boundary tag + `[@citekey, locator]` + `^c-XXXXXXXX`; global address `citekey#^claim-id`; stance links `supports`/`disputes`; quote selectors (prefix/suffix); `fixity-sha256`, `managed-sha256` |
-| Distribution | MIT, plugin v0.1.0, unpublished |
+| Dimension             | Value                                                                                                                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deterministic core    | 26 Python modules, 9,716 lines, **zero runtime dependencies on `main`** (`pypdf` behind a `pdf` extra). An unmerged branch (`build/quality-lane`, Plan Q) admits `defusedxml` as the first pinned runtime dependency under the spec §8 contract-match rule; this table describes `main`, which is the product |
+| Tests                 | 1,330 collected on `main` (1,470 on the unmerged Plan Q branch); markers for `live` (running Zotero) and `live_net` (real APIs)                                                                                                                                                                               |
+| Skills                | 9 — 7 user-invoked (`disable-model-invocation: true`), 2 model-invocable                                                                                                                                                                                                                                      |
+| Hooks                 | 2 — PostToolUse lint (warn-only, fail-open, never interrupts); Stop publish gate (armed, fail-closed, bounded at 8 blocks)                                                                                                                                                                                    |
+| CLI verbs             | 20 — `probe`, `import-note`, `archive-source`, `staleness`, `backfill-selectors`, `verify`, `factcheck`, `trust-tier`, `arm-publish`, `disarm-publish`, `mark-published`, `mark-parked`, `mark-corrected`, `mark-withdrawn`, `ack`, `finding`, `search-log`, `inbox`, `scaffold`, `doctor`                    |
+| Deterministic checks  | 10 — citekey, doi, metadata, quote, update-notice, evidence-layer, identifier-discovery, web-archive, screening-state, disputed-claim                                                                                                                                                                         |
+| Lints                 | 7 — append-only, claim-immutability, published-drift, screening-state, disputed-claim, web-archive, evidence-layer                                                                                                                                                                                            |
+| Doctor probes         | 10 — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup, inbox, okf                                                                                                                                                                                                                     |
+| Result vocabulary     | MATCHED / UNMATCHED / UNREACHABLE / SKIPPED                                                                                                                                                                                                                                                                   |
+| Closing sets          | audit = none; commit = {citekey, evidence-layer}; publish = {citekey, evidence-layer, quote, update-notice, doi}                                                                                                                                                                                              |
+| Reason-code registry  | 18 codes, frozen in `inbox.REASON_CODES`                                                                                                                                                                                                                                                                      |
+| Check-id registry     | 15 ids, frozen in `inbox.CHECK_IDS`                                                                                                                                                                                                                                                                           |
+| Trust tiers           | unverified → machine-confirmed → human-reviewed, derived from `verified` events                                                                                                                                                                                                                               |
+| Update-notice classes | blocking = retraction, partial_retraction, removal, withdrawal; warn = expression_of_concern, correction, corrigendum, erratum; a dated **reinstatement** clears an earlier dated block                                                                                                                       |
+| Claim deprecation     | required fields `status`, `deprecated-at`, `deprecated-by`, `reason` on the claim line (`lints._DEPRECATION_REQUIRED_FIELDS`); `superseded-by` optional; never deletion                                                                                                                                       |
+| Registries called     | doi.org handle API, Crossref `/works`, OpenAlex `/works`, DataCite `/dois`, arXiv, NCBI eutils, Wayback save + availability; optional offline Retraction Watch CSV via `--rw-csv`                                                                                                                             |
+| Zotero bridge         | Better BibTeX JSON-RPC (`localhost:23119/better-bibtex/json-rpc`) plus the Zotero local web API (`/api/users/0/items/top?format=csljson`); 8-method client, read-only by design                                                                                                                               |
+| Vault layout          | `inbox/`, `literatures/`, `synthesis/`, `log/`, `projects/`, `system/templates/`, `system/bases/`, plus `index.md`, `log.md`, `AGENTS.md`, `.harness/`                                                                                                                                                        |
+| Portability target    | OKF (Open Knowledge Format), spec at `GoogleCloudPlatform/knowledge-catalog` `okf/SPEC.md`, tracked at v0.2; `index.md` declares `okf_version: "0.2"` and `scaffold._okf_probe` enforces conformance                                                                                                          |
+| Provenance unit       | claim line = evidence-boundary tag + `[@citekey, locator]` + `^c-XXXXXXXX`; global address `citekey#^claim-id`; stance links `supports`/`disputes`; quote selectors (prefix/suffix); `fixity-sha256`, `managed-sha256`                                                                                        |
+| Distribution          | MIT, plugin v0.1.0, unpublished                                                                                                                                                                                                                                                                               |
 
----
+______________________________________________________________________
 
 # Part II — The field
 
 ## 5. Roster at a glance
 
-| Tier | What it means | Count |
-|---|---|---|
-| **1 — harness comparables** | owns an ingest→synthesis or research→manuscript lifecycle and could be run instead of this harness | 16 in the main table, all read at file level, plus 16 found by search of which 6 were read at file level (marked ✓) |
-| **2 — component comparables** | replaces or overlaps exactly one layer of ours | 31 |
-| **3 — informing prior art** | pipelines, gate tooling, standards and benchmarks that shape the design without competing | 21 |
-| **4 — skill-framework baseline** | how a skill set is packaged, invoked, governed and tested | 2 |
+| Tier                             | What it means                                                                                      | Count                                                                                                               |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **1 — harness comparables**      | owns an ingest→synthesis or research→manuscript lifecycle and could be run instead of this harness | 16 in the main table, all read at file level, plus 16 found by search of which 6 were read at file level (marked ✓) |
+| **2 — component comparables**    | replaces or overlaps exactly one layer of ours                                                     | 31                                                                                                                  |
+| **3 — informing prior art**      | pipelines, gate tooling, standards and benchmarks that shape the design without competing          | 21                                                                                                                  |
+| **4 — skill-framework baseline** | how a skill set is packaged, invoked, governed and tested                                          | 2                                                                                                                   |
 
 ## 6. Tier 1 — harness comparables
 
 Stars, license and last push are as of 2026-08-22.
 
-| Product | Stars | License | Last push | Substrate | Zotero | Registry checks | Enforcement | Provenance unit |
-|---|---|---|---|---|---|---|---|---|
-| Imbad0202/academic-research-skills | 43,339 | CC-BY-NC-4.0 | 2026-08-20 | files + YAML "passport" | reference adapter over a Better BibTeX JSON export | yes — Crossref/OpenAlex/Semantic Scholar/arXiv resolvers, `retraction_status.py`, `verification_cache` | PreToolUse write-scope guard (pass-through on failure), 14 CI workflows, 394 scripts | `<!--block:BNNNN-->` block IDs plus a hash manifest |
-| garrytan/gbrain | 28,933 | MIT | 2026-08-22 | markdown pages over Postgres/pgvector | none | no — LLM and web verification | 24 pre-commit references, 7 CI workflows, 1,814 test files | `[Source: ...]` inline citation |
-| AgriciDaniel/claude-obsidian | 11,137 | MIT | 2026-08-01 | Obsidian vault | none | no | `hooks.json`, deterministic read-only lint CLI, staged transactions | source and claim ledgers, `^`-block references |
-| atomicstrata/llm-wiki-compiler | 1,952 | MIT | 2026-08-22 | compiled wiki owned by `.llmwiki/state.json` | none | Crossref connector (`src/connectors/impl/crossref.ts`) in the `autosci` profile | runtime write-path gates, fail-closed profile, review queue with reason codes | source file plus line-range citations |
-| SamurAIGPT/llm-wiki-agent | 3,434 | MIT | 2026-08-17 | plain markdown wiki | none | no | post-ingest wikilink/index validation; `health.py` zero-LLM structural checks | source page with a `## Contradictions` section |
-| pedrohcgs/claude-code-my-workflow | 1,520 | MIT | 2026-08-22 | LaTeX/Quarto + R repository | `.bib` only | `validate-bib --semantic` (structural plus Crossref DOI) | 7 hook scripts across PreToolUse/PostToolUse/Stop; Stop runs `log-reminder.py` | claim ledger, Chain-of-Verification in a forked context |
-| NousResearch/hermes-agent | 234,366 | MIT | 2026-08-22 | plain markdown directory | none | no | prompt conventions in `llm-wiki`; **runtime ledger and `verify --evidence` in `grounded-citations`** | `^[raw/…]` paragraph markers; ledger-owned `[n]` for web sources |
-| nvk/llm-wiki | 1,056 | MIT | 2026-08-22 | hub registry plus per-topic wikis | none | no | none | per-directory `_index.md`; raw immutable (AGENTS.md:115) |
-| swarmclawai/swarmvault | 665 | MIT | 2026-06-30 | markdown + graph + SQLite FTS, Node CLI | none | no | approval bundles, review/candidate queues, 25% graph-shrink guard (`packages/engine/src/watch.ts:33`), git hooks | claim-pair records with `evidence_state` |
-| Pratiyush/llm-wiki | 374 | MIT | 2026-06-18 | markdown wiki | none | no | 19 CI workflows, GitHub Action, Docker | frontmatter `confidence` (4-factor) and `lifecycle` (AGENTS.md:202-205) |
-| **Aperivue/medsci-skills** | 264 | MIT | 2026-08-19 | **Obsidian vault + Zotero + `.bib`** | **`lit-sync` writes the library and the vault** | **`verify-refs` against PubMed/CrossRef; `verify_refs.py` also references OpenAlex and doi.org** | `verify-refs` audit-only; CLI preflight gates exit 1; no hooks | citekeys plus claim-fidelity probes |
-| K-Dense-AI/scientific-agent-skills | 34,130 | MIT (per-skill `license:` varies) | 2026-08-19 | none — 163-skill library | `pyzotero` skill | no | none | `[claim:C001] [evidence:E001]` markers in `scientific-writing` |
-| kepano/obsidian-skills | 47,059 | MIT | 2026-06-08 | Obsidian vault | none | no | none | none — vault format and operations only |
-| anthropics/skills | 171,018 | none declared (plus `THIRD_PARTY_NOTICES.md`) | 2026-08-21 | none — 19 skill directories | none | no | none | none |
-| WenyuChiou/ai-research-skills | 217 | MIT | 2026-08-02 | catalog for 16 skills in sibling repos | via `research-hub` / `zotero-skills` | no | none | `.paper` memory artifacts |
+| Product                            | Stars   | License                                       | Last push  | Substrate                                    | Zotero                                             | Registry checks                                                                                        | Enforcement                                                                                                      | Provenance unit                                                         |
+| ---------------------------------- | ------- | --------------------------------------------- | ---------- | -------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Imbad0202/academic-research-skills | 43,339  | CC-BY-NC-4.0                                  | 2026-08-20 | files + YAML "passport"                      | reference adapter over a Better BibTeX JSON export | yes — Crossref/OpenAlex/Semantic Scholar/arXiv resolvers, `retraction_status.py`, `verification_cache` | PreToolUse write-scope guard (pass-through on failure), 14 CI workflows, 394 scripts                             | `<!--block:BNNNN-->` block IDs plus a hash manifest                     |
+| garrytan/gbrain                    | 28,933  | MIT                                           | 2026-08-22 | markdown pages over Postgres/pgvector        | none                                               | no — LLM and web verification                                                                          | 24 pre-commit references, 7 CI workflows, 1,814 test files                                                       | `[Source: ...]` inline citation                                         |
+| AgriciDaniel/claude-obsidian       | 11,137  | MIT                                           | 2026-08-01 | Obsidian vault                               | none                                               | no                                                                                                     | `hooks.json`, deterministic read-only lint CLI, staged transactions                                              | source and claim ledgers, `^`-block references                          |
+| atomicstrata/llm-wiki-compiler     | 1,952   | MIT                                           | 2026-08-22 | compiled wiki owned by `.llmwiki/state.json` | none                                               | Crossref connector (`src/connectors/impl/crossref.ts`) in the `autosci` profile                        | runtime write-path gates, fail-closed profile, review queue with reason codes                                    | source file plus line-range citations                                   |
+| SamurAIGPT/llm-wiki-agent          | 3,434   | MIT                                           | 2026-08-17 | plain markdown wiki                          | none                                               | no                                                                                                     | post-ingest wikilink/index validation; `health.py` zero-LLM structural checks                                    | source page with a `## Contradictions` section                          |
+| pedrohcgs/claude-code-my-workflow  | 1,520   | MIT                                           | 2026-08-22 | LaTeX/Quarto + R repository                  | `.bib` only                                        | `validate-bib --semantic` (structural plus Crossref DOI)                                               | 7 hook scripts across PreToolUse/PostToolUse/Stop; Stop runs `log-reminder.py`                                   | claim ledger, Chain-of-Verification in a forked context                 |
+| NousResearch/hermes-agent          | 234,366 | MIT                                           | 2026-08-22 | plain markdown directory                     | none                                               | no                                                                                                     | prompt conventions in `llm-wiki`; **runtime ledger and `verify --evidence` in `grounded-citations`**             | `^[raw/…]` paragraph markers; ledger-owned `[n]` for web sources        |
+| nvk/llm-wiki                       | 1,056   | MIT                                           | 2026-08-22 | hub registry plus per-topic wikis            | none                                               | no                                                                                                     | none                                                                                                             | per-directory `_index.md`; raw immutable (AGENTS.md:115)                |
+| swarmclawai/swarmvault             | 665     | MIT                                           | 2026-06-30 | markdown + graph + SQLite FTS, Node CLI      | none                                               | no                                                                                                     | approval bundles, review/candidate queues, 25% graph-shrink guard (`packages/engine/src/watch.ts:33`), git hooks | claim-pair records with `evidence_state`                                |
+| Pratiyush/llm-wiki                 | 374     | MIT                                           | 2026-06-18 | markdown wiki                                | none                                               | no                                                                                                     | 19 CI workflows, GitHub Action, Docker                                                                           | frontmatter `confidence` (4-factor) and `lifecycle` (AGENTS.md:202-205) |
+| **Aperivue/medsci-skills**         | 264     | MIT                                           | 2026-08-19 | **Obsidian vault + Zotero + `.bib`**         | **`lit-sync` writes the library and the vault**    | **`verify-refs` against PubMed/CrossRef; `verify_refs.py` also references OpenAlex and doi.org**       | `verify-refs` audit-only; CLI preflight gates exit 1; no hooks                                                   | citekeys plus claim-fidelity probes                                     |
+| K-Dense-AI/scientific-agent-skills | 34,130  | MIT (per-skill `license:` varies)             | 2026-08-19 | none — 163-skill library                     | `pyzotero` skill                                   | no                                                                                                     | none                                                                                                             | `[claim:C001] [evidence:E001]` markers in `scientific-writing`          |
+| kepano/obsidian-skills             | 47,059  | MIT                                           | 2026-06-08 | Obsidian vault                               | none                                               | no                                                                                                     | none                                                                                                             | none — vault format and operations only                                 |
+| anthropics/skills                  | 171,018 | none declared (plus `THIRD_PARTY_NOTICES.md`) | 2026-08-21 | none — 19 skill directories                  | none                                               | no                                                                                                     | none                                                                                                             | none                                                                    |
+| WenyuChiou/ai-research-skills      | 217     | MIT                                           | 2026-08-02 | catalog for 16 skills in sibling repos       | via `research-hub` / `zotero-skills`               | no                                                                                                     | none                                                                                                             | `.paper` memory artifacts                                               |
 
 ### 6.1 Aperivue/medsci-skills — the closest competitor found
 
@@ -200,8 +200,7 @@ attack problems our design currently avoids rather than solves.
   part.** Our `selectors._norm_with_map` already handles NFKC drift, soft hyphens, line-break
   dehyphenation and whitespace collapse — against extracted PDF text, at selector-production time
   (`__main__.py:257`). What it does not handle is *interleaved foreign tokens*, because
-  `find_context` ends in a contiguous `normalized_text.find(...)`. medsci's `_ordered_run(needle,
-  hay, allow_missing)` is a token-ordered subsequence match instead, which is precisely the class
+  `find_context` ends in a contiguous `normalized_text.find(...)`. medsci's `_ordered_run(needle, hay, allow_missing)` is a token-ordered subsequence match instead, which is precisely the class
   our contiguous find misses.
 - **`manage-refs/check_citation_keys.py`** — pandoc `[@bibkey]` undefined/unused key check, the
   same job as our `citekey` check.
@@ -263,11 +262,11 @@ against Codex.
 Schema authority `shared/contracts/passport/bibliographic_integrity_signal.schema.json`, versions
 1.0 → 1.2. It defines an epistemic boundary between three classes that "must not be collapsed":
 
-| `epistemic_class` | Required label | What it establishes |
-|---|---|---|
-| `deterministic_fact` | `RESOLVER-OR-LIST-OBSERVATION` | what a named resolver or list returned at a recorded time — not whether the work is genuine, retracted or sound |
-| `heuristic_advisory` | `HEURISTIC-INDICATOR` | a rule or model matched; never a factual finding by itself |
-| `process_attestation` | `CHECK-EXECUTION-ATTESTATION` | a check was reportedly run; not the result of that check |
+| `epistemic_class`     | Required label                 | What it establishes                                                                                             |
+| --------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `deterministic_fact`  | `RESOLVER-OR-LIST-OBSERVATION` | what a named resolver or list returned at a recorded time — not whether the work is genuine, retracted or sound |
+| `heuristic_advisory`  | `HEURISTIC-INDICATOR`          | a rule or model matched; never a factual finding by itself                                                      |
+| `process_attestation` | `CHECK-EXECUTION-ATTESTATION`  | a check was reportedly run; not the result of that check                                                        |
 
 `check_status` and `finding` are **independent**: `not_checked`, `unknown` and `degraded` all
 require `finding: unresolved`, and the formatter must render any of them as
@@ -645,24 +644,24 @@ Sixteen further Tier-1-shaped products surfaced in the search pass. Rows describ
 own claim except where a file was opened, marked ✓. **◐ means cloned and its tree listed, but no
 file opened** — enough to confirm shape, licence and scale, not enough to describe a mechanism.
 
-| Product | Stars | License | Last push | Why it belongs |
-|---|---|---|---|---|
-| Orchestra-Research/AI-Research-SKILLs | 11,950 | MIT | 2026-06-16 | *Excluded on inspection* — top-level dirs are `01-model-architecture`, `03-fine-tuning`, `13-mlops`: ML engineering, not literature work ✓ |
-| eugeniughelbur/obsidian-second-brain | 4,152 | MIT | 2026-08-21 | Persistent markdown memory in an Obsidian vault across 7 CLI agents |
-| zLanqing/codex-claude-academic-skills | 3,097 | MIT | 2026-05-14 | Three academic skills covering reading → writing → scientific computing |
-| sdyckjq-lab/llm-wiki-skill | 2,363 | MIT (README) | 2026-07-27 | Multi-platform Karpathy-wiki skill; bundles the four Anthropic document skills under their own proprietary LICENSE.txt |
-| Astro-Han/karpathy-llm-wiki | 1,982 | MIT | 2026-07-23 | Agent-Skills LLM wiki built around raw sources, citations and linting; ships `scripts/check_evidence.py` ✓ |
-| delibae/claude-prism | 1,751 | MIT | 2026-07-28 | Offline-first scientific writing workspace, LaTeX + Python + 100+ local skills ◐ |
-| skyllwt/AutoSci | 1,642 | MIT | 2026-08-19 | Autonomous-science skill suite (paper-plan, experiment eval, rebuttal, refine), i18n ◐ |
-| lucasastorian/llmwiki | 1,520 | Apache-2.0 | 2026-08-09 | Karpathy wiki driven through MCP against a Claude account |
-| OpenRaiser/NanoResearch | 1,355 | MIT | 2026-05-26 | Autonomous research assistant |
-| lishix520/academic-paper-skills | 1,200 | MIT | 2026-01-04 | Strategist/composer paper-writing framework with quality checkpoints |
-| huytieu/COG-second-brain | 931 | MIT | 2026-08-18 | 33 skills, 10 agents, "V-model verification lifecycle where the worker never grades its own homework" ◐ |
-| kytmanov/obsidian-llm-wiki-local | 810 | MIT | 2026-05-26 | Fully local Karpathy wiki (Ollama) writing an auto-linking Obsidian vault ◐ |
-| jason-effi-lab/karpathy-llm-wiki-vault | 692 | none — all rights reserved | 2026-04-13 | Karpathy wiki as a vault; the only repository in this roster declaring no licence in any form |
-| Ar9av/PaperOrchestra | 644 | NOASSERTION | 2026-08-09 | Skills implementation of Google's PaperOrchestra with benchmark and autoraters |
-| 917Dhj/DeepPaperNote | 630 | MIT | 2026-08-22 | Deep-read one paper → Obsidian-style research notes; ships an `evals/` directory ◐ |
-| trapoom555/claude-paperloom | 94 | Apache-2.0 | 2026-04-28 | Claude Code plugin: self-maintaining research knowledge graph over Obsidian; agents for metadata, finding extraction and finding linking; `init`/`ingest`/`lint`/`query` ✓ |
+| Product                                | Stars  | License                    | Last push  | Why it belongs                                                                                                                                                             |
+| -------------------------------------- | ------ | -------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Orchestra-Research/AI-Research-SKILLs  | 11,950 | MIT                        | 2026-06-16 | *Excluded on inspection* — top-level dirs are `01-model-architecture`, `03-fine-tuning`, `13-mlops`: ML engineering, not literature work ✓                                 |
+| eugeniughelbur/obsidian-second-brain   | 4,152  | MIT                        | 2026-08-21 | Persistent markdown memory in an Obsidian vault across 7 CLI agents                                                                                                        |
+| zLanqing/codex-claude-academic-skills  | 3,097  | MIT                        | 2026-05-14 | Three academic skills covering reading → writing → scientific computing                                                                                                    |
+| sdyckjq-lab/llm-wiki-skill             | 2,363  | MIT (README)               | 2026-07-27 | Multi-platform Karpathy-wiki skill; bundles the four Anthropic document skills under their own proprietary LICENSE.txt                                                     |
+| Astro-Han/karpathy-llm-wiki            | 1,982  | MIT                        | 2026-07-23 | Agent-Skills LLM wiki built around raw sources, citations and linting; ships `scripts/check_evidence.py` ✓                                                                 |
+| delibae/claude-prism                   | 1,751  | MIT                        | 2026-07-28 | Offline-first scientific writing workspace, LaTeX + Python + 100+ local skills ◐                                                                                           |
+| skyllwt/AutoSci                        | 1,642  | MIT                        | 2026-08-19 | Autonomous-science skill suite (paper-plan, experiment eval, rebuttal, refine), i18n ◐                                                                                     |
+| lucasastorian/llmwiki                  | 1,520  | Apache-2.0                 | 2026-08-09 | Karpathy wiki driven through MCP against a Claude account                                                                                                                  |
+| OpenRaiser/NanoResearch                | 1,355  | MIT                        | 2026-05-26 | Autonomous research assistant                                                                                                                                              |
+| lishix520/academic-paper-skills        | 1,200  | MIT                        | 2026-01-04 | Strategist/composer paper-writing framework with quality checkpoints                                                                                                       |
+| huytieu/COG-second-brain               | 931    | MIT                        | 2026-08-18 | 33 skills, 10 agents, "V-model verification lifecycle where the worker never grades its own homework" ◐                                                                    |
+| kytmanov/obsidian-llm-wiki-local       | 810    | MIT                        | 2026-05-26 | Fully local Karpathy wiki (Ollama) writing an auto-linking Obsidian vault ◐                                                                                                |
+| jason-effi-lab/karpathy-llm-wiki-vault | 692    | none — all rights reserved | 2026-04-13 | Karpathy wiki as a vault; the only repository in this roster declaring no licence in any form                                                                              |
+| Ar9av/PaperOrchestra                   | 644    | NOASSERTION                | 2026-08-09 | Skills implementation of Google's PaperOrchestra with benchmark and autoraters                                                                                             |
+| 917Dhj/DeepPaperNote                   | 630    | MIT                        | 2026-08-22 | Deep-read one paper → Obsidian-style research notes; ships an `evals/` directory ◐                                                                                         |
+| trapoom555/claude-paperloom            | 94     | Apache-2.0                 | 2026-04-28 | Claude Code plugin: self-maintaining research knowledge graph over Obsidian; agents for metadata, finding extraction and finding linking; `init`/`ingest`/`lint`/`query` ✓ |
 
 ## 7. Tier 2 — component comparables
 
@@ -671,15 +670,15 @@ level; the rest are metadata-level rows describing what each project is for.
 
 **Zotero access** — the field is seven deep, not one:
 
-| Component | Stars | License | Last push | Shape |
-|---|---|---|---|---|
-| 54yyyu/zotero-mcp | 4,751 | MIT | 2026-08-13 | **51 tools** against our 8-method client ✓ |
-| introfini/ZotSeek | 189 | MIT (README) | 2026-08-21 | Zotero plugin: local semantic search with a built-in MCP server ◐ |
-| kujenga/zotero-mcp | 161 | MIT | 2026-08-07 | Lightweight Python MCP server over the Zotero API |
-| TonybotNi/ZotLink | 137 | MIT (README) | 2025-10-12 | MCP server that *saves* preprints into Zotero with metadata and PDFs |
-| PiaoyangGuohai1/cli-anything-zotero | 128 | Apache-2.0 | 2026-07-28 | CLI server for Zotero 7/8/9, 70+ commands ◐ |
-| xunhe730/ZotPilot | 70 | MIT | 2026-06-28 | MCP server plus agent skill |
-| dougwyu/claude-zotero-skills | 34 | NOASSERTION | 2026-08-07 | Skills for Zotero access |
+| Component                           | Stars | License      | Last push  | Shape                                                                |
+| ----------------------------------- | ----- | ------------ | ---------- | -------------------------------------------------------------------- |
+| 54yyyu/zotero-mcp                   | 4,751 | MIT          | 2026-08-13 | **51 tools** against our 8-method client ✓                           |
+| introfini/ZotSeek                   | 189   | MIT (README) | 2026-08-21 | Zotero plugin: local semantic search with a built-in MCP server ◐    |
+| kujenga/zotero-mcp                  | 161   | MIT          | 2026-08-07 | Lightweight Python MCP server over the Zotero API                    |
+| TonybotNi/ZotLink                   | 137   | MIT (README) | 2025-10-12 | MCP server that *saves* preprints into Zotero with metadata and PDFs |
+| PiaoyangGuohai1/cli-anything-zotero | 128   | Apache-2.0   | 2026-07-28 | CLI server for Zotero 7/8/9, 70+ commands ◐                          |
+| xunhe730/ZotPilot                   | 70    | MIT          | 2026-06-28 | MCP server plus agent skill                                          |
+| dougwyu/claude-zotero-skills        | 34    | NOASSERTION  | 2026-08-07 | Skills for Zotero access                                             |
 
 zotero-mcp's surface is the sharpest component-level contrast. Its 51 tools include
 `zotero_search_by_citation_key`, `zotero_get_attachment_path`, `zotero_get_annotations`,
@@ -694,29 +693,29 @@ mentioning citation counts and retraction alerts from Scite's public endpoints w
 
 **Citation verification** — the class most directly overlapping our `verify` verb:
 
-| Component | Stars | License | Last push | What it does |
-|---|---|---|---|---|
-| Hylouis233/bibverify | 73 | MIT | 2026-08-22 | DOI-first BibTeX verification as CLI, Python API **and MCP server**: `doi_to_bibtex`, `rank_lookup_sources`, `explain_update_diff`, `verify_bib_file`. It reports *why* a lookup source was chosen; we do not ✓ |
-| PHY041/claude-skill-citation-checker | 29 | MIT (README) | 2026-03-22 | Claude Code skill verifying `.bib` against CrossRef, Semantic Scholar and OpenAlex ✓ |
-| tfscharff/doi-mcp | 15 | MIT | 2026-07-30 | MCP server verifying citations against 9 databases ◐ |
-| DeepCitation/deepcitation | 13 | MIT | 2026-08-18 | Citation verification against hallucination |
-| groundlens-dev/groundlens | 7 | Apache-2.0 | 2026-08-22 | Grounding and faithfulness checking of RAG answers against retrieved sources |
-| htlin222/research-guardian-skill | 5 | MIT (README) | 2026-04-17 | Multi-gate audit of hypotheses, citations, experiments, results and logic fallacies ✓ |
+| Component                            | Stars | License      | Last push  | What it does                                                                                                                                                                                                    |
+| ------------------------------------ | ----- | ------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hylouis233/bibverify                 | 73    | MIT          | 2026-08-22 | DOI-first BibTeX verification as CLI, Python API **and MCP server**: `doi_to_bibtex`, `rank_lookup_sources`, `explain_update_diff`, `verify_bib_file`. It reports *why* a lookup source was chosen; we do not ✓ |
+| PHY041/claude-skill-citation-checker | 29    | MIT (README) | 2026-03-22 | Claude Code skill verifying `.bib` against CrossRef, Semantic Scholar and OpenAlex ✓                                                                                                                            |
+| tfscharff/doi-mcp                    | 15    | MIT          | 2026-07-30 | MCP server verifying citations against 9 databases ◐                                                                                                                                                            |
+| DeepCitation/deepcitation            | 13    | MIT          | 2026-08-18 | Citation verification against hallucination                                                                                                                                                                     |
+| groundlens-dev/groundlens            | 7     | Apache-2.0   | 2026-08-22 | Grounding and faithfulness checking of RAG answers against retrieved sources                                                                                                                                    |
+| htlin222/research-guardian-skill     | 5     | MIT (README) | 2026-04-17 | Multi-gate audit of hypotheses, citations, experiments, results and logic fallacies ✓                                                                                                                           |
 
 **Citation verifiers found through HALLMARK's baseline registry** — none of these surfaced in 30
 GitHub searches, because they are PyPI packages and paper artifacts rather than repository-index
 hits. A benchmark's baseline list turned out to be a better-curated competitor set for this niche
 than keyword search over repositories.
 
-| Tool | Where | Licence | What it checks |
-|---|---|---|---|
-| `verify-citations` | pip, per HALLMARK's wrapper | — | BibTeX against arXiv, ACL Anthology and Semantic Scholar. **Name collision with our skill**, worth knowing before any publication decision; the exact package was not resolvable on PyPI under that name at the time of writing |
-| `bibtex-updater` (`bibtex-check`) | PyPI 1.7.0 | MIT | replaces preprint entries with published versions and validates the bibliography; CrossRef, DBLP and Semantic Scholar, JSONL output |
-| `harcx` — Hallucinated Reference Checker | PyPI 0.2.0 | MIT | `.bib` against Semantic Scholar, DBLP and others |
-| NKU-AOSP-Lab/CiteVerifier | GitHub, 7 stars | MIT | DBLP-first verification for CLI and web, with local matching and batch processing; from the GhostCite paper |
-| gianlucasb/hallucinator | GitHub, 322 stars | NOASSERTION | fabricated references detected **from the PDF** rather than from a `.bib` — a different input surface from everything else here |
-| CheckIfExist (Abbonato 2026, arXiv 2602.15871) | paper, ported in HALLMARK | — | cascading three-source verification: CrossRef, then Semantic Scholar |
-| HalluCiteChecker (Sakai et al. 2026, arXiv 2604.26835) | paper, ported in HALLMARK | — | title-centric fuzzy matching across CrossRef, arXiv and Semantic Scholar |
+| Tool                                                   | Where                       | Licence     | What it checks                                                                                                                                                                                                                  |
+| ------------------------------------------------------ | --------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `verify-citations`                                     | pip, per HALLMARK's wrapper | —           | BibTeX against arXiv, ACL Anthology and Semantic Scholar. **Name collision with our skill**, worth knowing before any publication decision; the exact package was not resolvable on PyPI under that name at the time of writing |
+| `bibtex-updater` (`bibtex-check`)                      | PyPI 1.7.0                  | MIT         | replaces preprint entries with published versions and validates the bibliography; CrossRef, DBLP and Semantic Scholar, JSONL output                                                                                             |
+| `harcx` — Hallucinated Reference Checker               | PyPI 0.2.0                  | MIT         | `.bib` against Semantic Scholar, DBLP and others                                                                                                                                                                                |
+| NKU-AOSP-Lab/CiteVerifier                              | GitHub, 7 stars             | MIT         | DBLP-first verification for CLI and web, with local matching and batch processing; from the GhostCite paper                                                                                                                     |
+| gianlucasb/hallucinator                                | GitHub, 322 stars           | NOASSERTION | fabricated references detected **from the PDF** rather than from a `.bib` — a different input surface from everything else here                                                                                                 |
+| CheckIfExist (Abbonato 2026, arXiv 2602.15871)         | paper, ported in HALLMARK   | —           | cascading three-source verification: CrossRef, then Semantic Scholar                                                                                                                                                            |
+| HalluCiteChecker (Sakai et al. 2026, arXiv 2604.26835) | paper, ported in HALLMARK   | —           | title-centric fuzzy matching across CrossRef, arXiv and Semantic Scholar                                                                                                                                                        |
 
 Two of these are worth reading before any further work on our own checks: `hallucinator` for the
 PDF-side input we do not handle, and `cascade.py` in HALLMARK itself, which combines a
@@ -724,36 +723,36 @@ database-first lookup with an explicit hallucination-mode diagnosis rather than 
 
 **Vault and bibliography conventions**:
 
-| Component | Stars | License | Maps to |
-|---|---|---|---|
-| retorquere/zotero-better-bibtex | 7,046 | MIT | upstream of our citekey universe (`system/bibliography.json`) |
-| urschrei/pyzotero | 1,401 | NOASSERTION | alternative to our hand-rolled stdlib client |
-| urschrei/zotero_search_skill | 12 | BlueOak-1.0.0 | precedent for a skill-not-MCP Zotero surface |
-| aidenlx/zotlit | 1,000 | AGPL-3.0 | literature-note conventions (managed regions, citekey filenames) |
-| community-archive/obsidian-zotero-integration | 1,756 | GPL-3.0 | persist-region convention origin |
-| hans/obsidian-citation-plugin | 1,336 | MIT | `@citekey` note-title convention origin; last push 2024-06-13 |
-| coddingtonbear/obsidian-local-rest-api | 2,832 | MIT | alternative to our direct-file vault access |
-| yilewang/llm-for-zotero | 2,719 | AGPL-3.0 | inverse topology — the agent lives inside Zotero |
+| Component                                     | Stars | License       | Maps to                                                          |
+| --------------------------------------------- | ----- | ------------- | ---------------------------------------------------------------- |
+| retorquere/zotero-better-bibtex               | 7,046 | MIT           | upstream of our citekey universe (`system/bibliography.json`)    |
+| urschrei/pyzotero                             | 1,401 | NOASSERTION   | alternative to our hand-rolled stdlib client                     |
+| urschrei/zotero_search_skill                  | 12    | BlueOak-1.0.0 | precedent for a skill-not-MCP Zotero surface                     |
+| aidenlx/zotlit                                | 1,000 | AGPL-3.0      | literature-note conventions (managed regions, citekey filenames) |
+| community-archive/obsidian-zotero-integration | 1,756 | GPL-3.0       | persist-region convention origin                                 |
+| hans/obsidian-citation-plugin                 | 1,336 | MIT           | `@citekey` note-title convention origin; last push 2024-06-13    |
+| coddingtonbear/obsidian-local-rest-api        | 2,832 | MIT           | alternative to our direct-file vault access                      |
+| yilewang/llm-for-zotero                       | 2,719 | AGPL-3.0      | inverse topology — the agent lives inside Zotero                 |
 
 **Literature search** — comparables to `find-sources` beyond K-Dense `paper-lookup`:
 
-| Component | Stars | License | Coverage |
-|---|---|---|---|
-| cookjohn/cnki-skills | 865 | MIT (README) | CNKI search, journal browse, PDF download, **export to Zotero** — a Chinese-language corpus our vendored skill does not cover |
-| cookjohn/gs-skills | 489 | MIT | Google Scholar skills |
-| Agents365-ai/paper-fetch | 184 | MIT | Paper retrieval skill |
-| Agents365-ai/asta-skill | 182 | MIT | Instruction pack wrapping Ai2's Asta MCP server over Semantic Scholar ✓ |
-| wp-a/nature-academic-search | 101 | MIT | Nature-family search |
-| htlin222/openevidence-mcp | 70 | Apache-2.0 | OpenEvidence MCP |
+| Component                   | Stars | License      | Coverage                                                                                                                      |
+| --------------------------- | ----- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| cookjohn/cnki-skills        | 865   | MIT (README) | CNKI search, journal browse, PDF download, **export to Zotero** — a Chinese-language corpus our vendored skill does not cover |
+| cookjohn/gs-skills          | 489   | MIT          | Google Scholar skills                                                                                                         |
+| Agents365-ai/paper-fetch    | 184   | MIT          | Paper retrieval skill                                                                                                         |
+| Agents365-ai/asta-skill     | 182   | MIT          | Instruction pack wrapping Ai2's Asta MCP server over Semantic Scholar ✓                                                       |
+| wp-a/nature-academic-search | 101   | MIT          | Nature-family search                                                                                                          |
+| htlin222/openevidence-mcp   | 70    | Apache-2.0   | OpenEvidence MCP                                                                                                              |
 
 **Systematic review, retrieval and graph**:
 
-| Component | Stars | License | What it does |
-|---|---|---|---|
-| PouriaRouzrokh/LatteReview | 119 | NOASSERTION | Python package automating systematic literature review with multi-agent reviewers ✓ |
-| htlin222/prisma-automation | 8 | MIT | Multi-database search, deduplication, screening and **PRISMA flow-diagram generation** ✓ |
-| obra/knowledge-graph | 106 | MIT (README) | Query and traverse an Obsidian vault as a knowledge graph — semantic search, path finding, community detection, all local ✓ |
-| YishenTu/claudian | 14,920 | MIT | Obsidian plugin embedding Claude Code/Codex inside the vault — the inverse integration topology |
+| Component                  | Stars  | License      | What it does                                                                                                                |
+| -------------------------- | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| PouriaRouzrokh/LatteReview | 119    | NOASSERTION  | Python package automating systematic literature review with multi-agent reviewers ✓                                         |
+| htlin222/prisma-automation | 8      | MIT          | Multi-database search, deduplication, screening and **PRISMA flow-diagram generation** ✓                                    |
+| obra/knowledge-graph       | 106    | MIT (README) | Query and traverse an Obsidian vault as a knowledge graph — semantic search, path finding, community detection, all local ✓ |
+| YishenTu/claudian          | 14,920 | MIT          | Obsidian plugin embedding Claude Code/Codex inside the vault — the inverse integration topology                             |
 
 ## 8. Tier 3 — informing prior art
 
@@ -777,12 +776,12 @@ including `openalex`, `pubmed_central`, `semantic_scholar` and `arxiv`, and skil
 This class had no representation before this pass, and it is where our publish gate's design has
 external precedent.
 
-| Tool | Stars | License | Last push | Gate mechanism, verified |
-|---|---|---|---|---|
-| manubot/manubot + manubot/rootstock | 474 / 481 | NOASSERTION | 2026-08-02 / 2026-01-18 | Citation *by identifier* — `[@doi:…]`, `[@pubmed:…]`, `[@arxiv:…]` resolved to metadata at build time in CI, so the fabrication class becomes "identifier does not resolve" |
-| errata-ai/vale | 5,992 | MIT | 2026-08-21 | Severity tiers with `--minAlertLevel` (`internal/core/config.go:17`); only the top tier fails a build |
-| lycheeverse/lychee + lychee-action | 3,851 / 508 | Apache-2.0 | 2026-08-18 / 2026-07-09 | Link checking with retries, accept-lists, ignore files and caching; `action.yml` on master sets **`fail: default: true`** |
-| pre-commit/pre-commit | 15,520 | MIT | 2026-08-17 | Commit-time gate bypassable by design (`--no-verify`, `SKIP=`), with CI replay as the honest layer |
+| Tool                                | Stars       | License     | Last push               | Gate mechanism, verified                                                                                                                                                    |
+| ----------------------------------- | ----------- | ----------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| manubot/manubot + manubot/rootstock | 474 / 481   | NOASSERTION | 2026-08-02 / 2026-01-18 | Citation *by identifier* — `[@doi:…]`, `[@pubmed:…]`, `[@arxiv:…]` resolved to metadata at build time in CI, so the fabrication class becomes "identifier does not resolve" |
+| errata-ai/vale                      | 5,992       | MIT         | 2026-08-21              | Severity tiers with `--minAlertLevel` (`internal/core/config.go:17`); only the top tier fails a build                                                                       |
+| lycheeverse/lychee + lychee-action  | 3,851 / 508 | Apache-2.0  | 2026-08-18 / 2026-07-09 | Link checking with retries, accept-lists, ignore files and caching; `action.yml` on master sets **`fail: default: true`**                                                   |
+| pre-commit/pre-commit               | 15,520      | MIT         | 2026-08-17              | Commit-time gate bypassable by design (`--no-verify`, `SKIP=`), with CI replay as the honest layer                                                                          |
 
 **Manubot is the closest external precedent for our publish gate's shape**, and it differs in a
 way worth stating: it dissolves the citekey-fabrication class rather than checking for it. Its
@@ -925,12 +924,12 @@ only at the end, from a comment inside someone else's lint.
 There is an active literature on exactly our problem. Four papers, all verified to exist by
 identifier on 2026-08-22:
 
-| Paper | Identifier | Why it bears on us |
-|---|---|---|
-| *HALLMARK: Diagnosing Three Failure Modes in LLM Citation Verifiers* | arXiv 2607.18360 | benchmarks the class of tool we are, and finds the false-positive rate — not recall — decides deployability (§8.4) |
-| *LLM hallucinations in the wild: Large-scale evidence from non-existent citations* | arXiv 2605.07723 | the base-rate evidence our gate's tolerances should be tuned against; cited inside Imbad0202's three-layer citation lint as its design motivation (§6.2) |
-| *HalluCiteChecker: A Lightweight Toolkit for Hallucinated Citation Detection* | arXiv 2604.26835 | title-centric fuzzy matching, ported as a HALLMARK baseline (§7) |
-| *CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content* | arXiv 2602.15871 | cascading CrossRef-then-Semantic-Scholar verification, ported as a HALLMARK baseline (§7) |
+| Paper                                                                                | Identifier       | Why it bears on us                                                                                                                                       |
+| ------------------------------------------------------------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| *HALLMARK: Diagnosing Three Failure Modes in LLM Citation Verifiers*                 | arXiv 2607.18360 | benchmarks the class of tool we are, and finds the false-positive rate — not recall — decides deployability (§8.4)                                       |
+| *LLM hallucinations in the wild: Large-scale evidence from non-existent citations*   | arXiv 2605.07723 | the base-rate evidence our gate's tolerances should be tuned against; cited inside Imbad0202's three-layer citation lint as its design motivation (§6.2) |
+| *HalluCiteChecker: A Lightweight Toolkit for Hallucinated Citation Detection*        | arXiv 2604.26835 | title-centric fuzzy matching, ported as a HALLMARK baseline (§7)                                                                                         |
+| *CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content* | arXiv 2602.15871 | cascading CrossRef-then-Semantic-Scholar verification, ported as a HALLMARK baseline (§7)                                                                |
 
 The gap this exposes is not bibliographic. Our thresholds are unevidenced. The `fuzzy-quote`
 boundary sits at 0.90, the factcheck cap at 30, the publish gate holds on UNREACHABLE — each is a
@@ -950,12 +949,12 @@ Scholar and OpenAlex, string-similarity candidate matching, **95.1% of reference
 manual validation of unmatched cases and re-routing of the rest. The hallucinated-citation rate as
 of August 2025, by corpus:
 
-| Corpus | Rate | Notes |
-|---|---|---|
-| SSRN | **1.91%** | the outlier |
-| arXiv | **0.39%** | 1.47M preprints, 44.1M citations |
-| PMC | **0.27%** | |
-| bioRxiv | **0.21%** | |
+| Corpus  | Rate      | Notes                            |
+| ------- | --------- | -------------------------------- |
+| SSRN    | **1.91%** | the outlier                      |
+| arXiv   | **0.39%** | 1.47M preprints, 44.1M citations |
+| PMC     | **0.27%** |                                  |
+| bioRxiv | **0.21%** |                                  |
 
 The steepest rise begins mid-2024, roughly 18 months after ChatGPT's release, and correlates with
 inferred LLM usage at field level (r = 0.441, P < 0.001) and at paper level.
@@ -984,12 +983,12 @@ for every corpus except SSRN. Applying Bayes to both — their detection and fal
 against their measured prevalences — gives the precision a user would actually see. The arithmetic
 reproduces HALLMARK's own 1-in-6 at 2%, which is the check that it is being applied correctly:
 
-| Verifier | arXiv 0.39% | bioRxiv 0.21% | PMC 0.27% | SSRN 1.91% | HALLMARK's 2% |
-|---|---|---|---|---|---|
-| conservative rule-based (DR .87, FPR .09) | 1-in-27 | 1-in-50 | 1-in-39 | 1-in-6 | 1-in-6 |
-| `bibtex-updater` aggressive (.946/.179) | 1-in-49 | 1-in-91 | 1-in-71 | 1-in-11 | 1-in-10 |
-| agentic GPT-5.1 (.956/.465) | 1-in-125 | 1-in-232 | 1-in-181 | 1-in-26 | 1-in-25 |
-| Gemini 2.5 Pro (.46/.05) | 1-in-29 | 1-in-53 | 1-in-41 | 1-in-7 | 1-in-6 |
+| Verifier                                  | arXiv 0.39% | bioRxiv 0.21% | PMC 0.27% | SSRN 1.91% | HALLMARK's 2% |
+| ----------------------------------------- | ----------- | ------------- | --------- | ---------- | ------------- |
+| conservative rule-based (DR .87, FPR .09) | 1-in-27     | 1-in-50       | 1-in-39   | 1-in-6     | 1-in-6        |
+| `bibtex-updater` aggressive (.946/.179)   | 1-in-49     | 1-in-91       | 1-in-71   | 1-in-11    | 1-in-10       |
+| agentic GPT-5.1 (.956/.465)               | 1-in-125    | 1-in-232      | 1-in-181  | 1-in-26    | 1-in-25       |
+| Gemini 2.5 Pro (.46/.05)                  | 1-in-29     | 1-in-53       | 1-in-41   | 1-in-7     | 1-in-6        |
 
 Outside SSRN, the deployment picture is five to ten times worse than the paper's headline. On
 arXiv, the best rule-based configuration measured yields **one true hallucination per 27 flags**.
@@ -1019,7 +1018,7 @@ what a low base rate does to anyone who ships a verifier and watches people use 
 **Failure mode (iii) argues the other way, and it is the one thing here that favours us.** "Verifier
 trust expires with the training cutoff" applies to a *model* judging a citation. A DOI handle
 lookup has no training cutoff; a Crossref record for a 2026 paper resolves exactly as one from
-2006. Every deterministic check in §4 is immune to the failure mode that breaks 8 of 12 LLM
+2006\. Every deterministic check in §4 is immune to the failure mode that breaks 8 of 12 LLM
 verifiers. Our `factcheck-draft` is not — it is an LLM pass over claims, and on post-cutoff sources
 it inherits the .59–.89 FPR range directly. That is an argument for keeping it warn-tier, which is
 already the design, and against ever promoting it to a closing check.
@@ -1046,7 +1045,7 @@ dictionary.
 #### 8.5.3 Two operational cautions
 
 `HaRC` and `verify-citations` were **omitted from HALLMARK's results** because "Semantic Scholar
-throttling collapses their effective coverage to <7% on `dev_public`". Our `find-sources` reference
+throttling collapses their effective coverage to \<7% on `dev_public`". Our `find-sources` reference
 files route to Semantic Scholar; anything we build that depends on it inherits that ceiling.
 
 `bibtex-updater`'s .946/.179 is explicitly labelled a construct-overfitting upper bound, since its
@@ -1100,16 +1099,16 @@ process substrate rather than its rivals. `mattpocock/skills` ships the `researc
 procedure produced this repo's `research/` notes, and the `wayfinder` method its README names as
 where planning happens.
 
-| | obra/superpowers | mattpocock/skills | knowledge-harness |
-|---|---|---|---|
-| Stars | 276,191 | 232,042 | unpublished |
-| License | MIT | MIT | MIT |
-| Last push | 2026-08-19 | 2026-08-21 | — |
-| Version | plugin v6.3.0 | plugin, version synced by script | v0.1.0 |
-| Skills | 14 | 36 across 5 buckets | 9 |
-| User-invoked (`disable-model-invocation: true`) | **0 of 14** | **24 of 36** | **7 of 9** |
-| Hooks | SessionStart (`startup\|clear\|compact`) | none in-repo | PostToolUse lint, Stop publish gate |
-| Tests | 16 directories incl. per-agent suites | none in-repo | 1,330 Python tests |
+|                                                 | obra/superpowers                         | mattpocock/skills                | knowledge-harness                   |
+| ----------------------------------------------- | ---------------------------------------- | -------------------------------- | ----------------------------------- |
+| Stars                                           | 276,191                                  | 232,042                          | unpublished                         |
+| License                                         | MIT                                      | MIT                              | MIT                                 |
+| Last push                                       | 2026-08-19                               | 2026-08-21                       | —                                   |
+| Version                                         | plugin v6.3.0                            | plugin, version synced by script | v0.1.0                              |
+| Skills                                          | 14                                       | 36 across 5 buckets              | 9                                   |
+| User-invoked (`disable-model-invocation: true`) | **0 of 14**                              | **24 of 36**                     | **7 of 9**                          |
+| Hooks                                           | SessionStart (`startup\|clear\|compact`) | none in-repo                     | PostToolUse lint, Stop publish gate |
+| Tests                                           | 16 directories incl. per-agent suites    | none in-repo                     | 1,330 Python tests                  |
 
 **superpowers — invocation discipline by rule, and cross-agent conformance testing.** Not one of
 its 14 skills sets `disable-model-invocation`; the discipline comes instead from
@@ -1138,7 +1137,7 @@ Neither framework has a deterministic core: superpowers' discipline is prompt te
 session hook, mattpocock's is repository convention enforced by review. Our hooks act on computed
 check results rather than injecting instructions.
 
----
+______________________________________________________________________
 
 # Part III — The comparison
 
@@ -1148,17 +1147,17 @@ Nine subsections, one per skill. Each states what ours does, names the counterpa
 read, and compares them on the seam that matters — usually *who is allowed to write*, and *what
 happens when a check cannot run*. The summary table is for scanning; the detail is below it.
 
-| Our skill | Closest counterpart | Verdict in one line |
-|---|---|---|
-| `setup-vault` | medsci `setup-medsci`, claude-obsidian `wiki` | only ours provisions a reference manager; theirs are richer at diagnosing and at vault-shape choice |
-| `find-sources` | K-Dense `paper-lookup` (our upstream), medsci `search-lit` | we add a PRISMA-S log and an admission boundary; we lack parallel search and triage |
-| `import-source` | **medsci `lit-sync`** | the only other skill joining `.bib`, Zotero and a vault — but it writes the library, and we do not |
-| `evidence-conventions` | K-Dense `scientific-writing`, hermes `grounded-citations` | convergent on hash-not-text claim identity and machine-written citations; ours is the only per-line epistemic vocabulary |
-| `synthesis-conventions` | hermes `llm-wiki` page thresholds | identical 2+-source rule, reached independently; theirs has scale rules we lack |
-| `verify-citations` | Imbad0202 `verification_gate`, medsci `verify-refs` | three registry-backed gates exist; only ours closes a surface |
-| `factcheck-draft` | **medsci `check_claim_fidelity.py`**, pedrohcgs `verify-claims` | ours is LLM where theirs is code; ours never blocks where two of theirs do; ours is the only one that records what it did *not* check |
-| `project` | WenyuChiou `gap-to-topic`, medsci `manage-project` | ours frames a question; theirs gate whether it is worth asking, and track the project as an artifact |
-| `publish` | medsci `sync-submission`, pedrohcgs `replication-package` | ours is the only verification boundary; theirs are whole submission-integrity surfaces |
+| Our skill               | Closest counterpart                                             | Verdict in one line                                                                                                                   |
+| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `setup-vault`           | medsci `setup-medsci`, claude-obsidian `wiki`                   | only ours provisions a reference manager; theirs are richer at diagnosing and at vault-shape choice                                   |
+| `find-sources`          | K-Dense `paper-lookup` (our upstream), medsci `search-lit`      | we add a PRISMA-S log and an admission boundary; we lack parallel search and triage                                                   |
+| `import-source`         | **medsci `lit-sync`**                                           | the only other skill joining `.bib`, Zotero and a vault — but it writes the library, and we do not                                    |
+| `evidence-conventions`  | K-Dense `scientific-writing`, hermes `grounded-citations`       | convergent on hash-not-text claim identity and machine-written citations; ours is the only per-line epistemic vocabulary              |
+| `synthesis-conventions` | hermes `llm-wiki` page thresholds                               | identical 2+-source rule, reached independently; theirs has scale rules we lack                                                       |
+| `verify-citations`      | Imbad0202 `verification_gate`, medsci `verify-refs`             | three registry-backed gates exist; only ours closes a surface                                                                         |
+| `factcheck-draft`       | **medsci `check_claim_fidelity.py`**, pedrohcgs `verify-claims` | ours is LLM where theirs is code; ours never blocks where two of theirs do; ours is the only one that records what it did *not* check |
+| `project`               | WenyuChiou `gap-to-topic`, medsci `manage-project`              | ours frames a question; theirs gate whether it is worth asking, and track the project as an artifact                                  |
+| `publish`               | medsci `sync-submission`, pedrohcgs `replication-package`       | ours is the only verification boundary; theirs are whole submission-integrity surfaces                                                |
 
 ### 10.1 `setup-vault`
 
@@ -1552,9 +1551,7 @@ deciding what to adopt should read 11.3 to 11.5 and then the adoption plan §2.
 
 Each entry names where the capability was read.
 
-
 ### 11.1 Verification and evidence — gaps on our own axis
-
 
 **Deterministic claim-fidelity checking, and token-ordered quote matching.** medsci answers "does
 the source say what the sentence claims" in code rather than by LLM adjudication (§6.1, §10.7);
@@ -1633,9 +1630,7 @@ confidence (§6.11); hermes makes a missing confidence field a lint signal (§6.
 low-confidence pages by default (§6.5). Our trust tier is derived from check results; our
 `confidence` is a per-claim field on inference claims only.
 
-
 ### 11.2 The write path — safety machinery
-
 
 **Staged transactions and approval binding.** Our writes land immediately; the review inbox records
 after the fact. claude-obsidian binds an approval hash to a reviewed plan (§6.4), swarmvault stages
@@ -1668,9 +1663,7 @@ swarmvault's `lint`. Our lints cover append-only surfaces, claim immutability, p
 screening state, disputed claims, web archives and the evidence layer — nothing about the link
 graph between synthesis pages.
 
-
 ### 11.3 Reach — what the harness can see and touch
-
 
 **Retrieval and query.** We ship no query verb and no retrieval index; a person reads the vault
 through Obsidian, and a skill orients by reading `synthesis/index.md` and `log/`. Everything else
@@ -1715,9 +1708,7 @@ computes fresh/stale/orphaned/unverified from recorded hashes. Our `staleness` v
 bibliography export with the Zotero library, and `web-archive` detects a missing or dead snapshot
 — neither re-reads a live source for content change.
 
-
 ### 11.4 Process and lifecycle
-
 
 **Maintenance and scheduling.** gbrain's `dream` cycle (§6.3), swarmvault `watch` plus git hooks,
 llmwiki `refresh --stale`, nvk `Refresh --due`, Pratiyush's GitHub Action. We ship a scheduled CI
@@ -1740,9 +1731,7 @@ ledgers; pedrohcgs `checkpoint`/`compress-session`/`promote-memory`; gbrain's ze
 have the log and the review inbox — no session artifact, no log rotation, and no token budget on
 any orientation read.
 
-
 ### 11.5 Output — the submit end
-
 
 **Writing, reviewing and submission.** Imbad0202: 11 writing modes, 6 paper types, 5 citation
 formats, bilingual abstracts, LaTeX/DOCX/PDF output, rebuttal audit, AI-disclosure mode.
@@ -1801,9 +1790,7 @@ per-page siblings, Canvas and Neo4j. We conform to OKF structurally but export n
 recent sources, reading log, timeline, research map, contradictions and open questions; Pratiyush's
 serve scripts. We ship two Obsidian Bases and rely on Obsidian.
 
-
 ### 11.6 The skill set as an artifact
-
 
 **Skill-routing evaluation.** Our `tests/test_skill_contracts.py` and `test_skill_files.py` check
 that each skill's frontmatter parses, its name matches its directory, its description is non-empty,
@@ -1896,26 +1883,26 @@ differentiator.
 
 ## 13. Differences, axis by axis
 
-| Axis | Us | The field |
-|---|---|---|
-| What is citable | only a human-admitted Zotero item | anything dropped into `raw/` or `sources/` — except research-hub, which screens candidates through a fail-closed resolver gate |
-| Who writes the evidence layer | the CLI renders it; the LLM may not touch it | the LLM writes source pages directly (all wiki-family products) |
-| Provenance granularity | claim block address + locator + stance | page, paragraph, line-range or `#L45` at best |
-| Verification | deterministic registry checks that close surfaces | deterministic gates under an opt-in strict flag (Imbad0202, medsci: 33 such scripts), fail-closed at corpus admission (research-hub), LLM adjudication, structural lint, or nothing |
-| Failure vocabulary | four states, frozen reason codes, never a verdict on an outage | the same four states as a schema (Imbad0202); elsewhere pass/fail, free-text findings or console output |
-| Enforcement point | git pre-commit, PostToolUse warn, Stop gate — armed by the harness, not by an operator flag | prompt convention (hermes `llm-wiki`, SamurAIGPT, nvk, Pratiyush), script gate (hermes `grounded-citations`), write-path runtime (llmwiki), transaction approval (claude-obsidian), PreToolUse guard (Imbad0202), CI build (Manubot) |
-| Retrieval | none — index and log orientation | BM25, embeddings, hybrid, or graph expansion |
-| Breadth of ingest | one item type | tens of formats plus media and code |
-| Breadth of output | none | LaTeX, DOCX, PDF, slides, dashboards, `llms.txt`, JSON-LD, Neo4j |
-| Evaluation | unit tests | citation coverage/precision harnesses, gold sets, calibration, routing evals, a labelled hallucination benchmark |
-| Deletion | never — records deprecate | nvk retracts; llmwiki `rm` removes a source and derived pages |
-| Concurrency | single-threaded skills | agent panels, parallel workers, orchestrators |
-| Dependencies | stdlib only | Node/Python trees, Postgres, embeddings, model providers |
-| Cross-agent testing | none | superpowers runs per-agent conformance suites for 8 agents |
-| Scale evidence | none published | gbrain frames a 150K-page brain as its target (README.md:14); several ship scale docs |
-| Maturity | v0.1.0, unpublished | 217 – 234k stars across Tier 1, versioned releases, marketplaces (the 276k Tier-4 framework is not a competitor) |
+| Axis                          | Us                                                                                          | The field                                                                                                                                                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| What is citable               | only a human-admitted Zotero item                                                           | anything dropped into `raw/` or `sources/` — except research-hub, which screens candidates through a fail-closed resolver gate                                                                                                       |
+| Who writes the evidence layer | the CLI renders it; the LLM may not touch it                                                | the LLM writes source pages directly (all wiki-family products)                                                                                                                                                                      |
+| Provenance granularity        | claim block address + locator + stance                                                      | page, paragraph, line-range or `#L45` at best                                                                                                                                                                                        |
+| Verification                  | deterministic registry checks that close surfaces                                           | deterministic gates under an opt-in strict flag (Imbad0202, medsci: 33 such scripts), fail-closed at corpus admission (research-hub), LLM adjudication, structural lint, or nothing                                                  |
+| Failure vocabulary            | four states, frozen reason codes, never a verdict on an outage                              | the same four states as a schema (Imbad0202); elsewhere pass/fail, free-text findings or console output                                                                                                                              |
+| Enforcement point             | git pre-commit, PostToolUse warn, Stop gate — armed by the harness, not by an operator flag | prompt convention (hermes `llm-wiki`, SamurAIGPT, nvk, Pratiyush), script gate (hermes `grounded-citations`), write-path runtime (llmwiki), transaction approval (claude-obsidian), PreToolUse guard (Imbad0202), CI build (Manubot) |
+| Retrieval                     | none — index and log orientation                                                            | BM25, embeddings, hybrid, or graph expansion                                                                                                                                                                                         |
+| Breadth of ingest             | one item type                                                                               | tens of formats plus media and code                                                                                                                                                                                                  |
+| Breadth of output             | none                                                                                        | LaTeX, DOCX, PDF, slides, dashboards, `llms.txt`, JSON-LD, Neo4j                                                                                                                                                                     |
+| Evaluation                    | unit tests                                                                                  | citation coverage/precision harnesses, gold sets, calibration, routing evals, a labelled hallucination benchmark                                                                                                                     |
+| Deletion                      | never — records deprecate                                                                   | nvk retracts; llmwiki `rm` removes a source and derived pages                                                                                                                                                                        |
+| Concurrency                   | single-threaded skills                                                                      | agent panels, parallel workers, orchestrators                                                                                                                                                                                        |
+| Dependencies                  | stdlib only                                                                                 | Node/Python trees, Postgres, embeddings, model providers                                                                                                                                                                             |
+| Cross-agent testing           | none                                                                                        | superpowers runs per-agent conformance suites for 8 agents                                                                                                                                                                           |
+| Scale evidence                | none published                                                                              | gbrain frames a 150K-page brain as its target (README.md:14); several ship scale docs                                                                                                                                                |
+| Maturity                      | v0.1.0, unpublished                                                                         | 217 – 234k stars across Tier 1, versioned releases, marketplaces (the 276k Tier-4 framework is not a competitor)                                                                                                                     |
 
----
+______________________________________________________________________
 
 # Part IV — Record
 
@@ -1955,8 +1942,8 @@ All verified against the repositories on 2026-08-22.
 
 **Claims the notes make that re-verification confirmed**
 
-9. SamurAIGPT's ingest hash is computed and only printed (`tools/ingest.py:199,202`), and its
-   `append_log` prepends while its own `CLAUDE.md` documents append (`tools/_utils.py:114`).
+09. SamurAIGPT's ingest hash is computed and only printed (`tools/ingest.py:199,202`), and its
+    `append_log` prepends while its own `CLAUDE.md` documents append (`tools/_utils.py:114`).
 10. K-Dense's per-skill licensing is real and heterogeneous: `skills/docx/LICENSE.txt` opens
     "© 2025 Anthropic, PBC. All rights reserved." Four skills in that MIT repository are
     proprietary.
@@ -2028,9 +2015,9 @@ CSL/JATS locator conventions — none is a harness comparable and none was re-ve
 written up at §6.15; medsci-skills was surveyed skill-by-skill and its entry at §6.1 revised. The
 remaining unread surface is the long tail of Tier-1 search finds marked without a ✓ in §6.16.
 
----
+______________________________________________________________________
 
----
+______________________________________________________________________
 
 ## 19. Re-running this comparison
 
@@ -2039,13 +2026,13 @@ what a re-run should actually re-check, so the next pass is an update rather tha
 
 ### 19.1 What rots, and how fast
 
-| Fact class | Rate | Re-check by |
-|---|---|---|
-| Star counts, last-push dates | days | one GitHub API sweep over the roster; cheap, and mostly cosmetic — they are a distribution proxy, not a quality signal (§3) |
-| Skill and script counts | weeks | `find … -name SKILL.md \| wc -l` per repo; medsci went from a six-skill reading to a 59-skill survey inside this pass |
-| Licences | slow, but wrong here seven times | the README-heading probe from §1, not the API field |
-| Mechanisms — gates, schemas, provenance units | slow | only worth re-reading when a repo's changelog says the relevant subsystem moved |
-| Our own side | every commit | measured from source; re-run the counts rather than copying them forward |
+| Fact class                                    | Rate                             | Re-check by                                                                                                                 |
+| --------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Star counts, last-push dates                  | days                             | one GitHub API sweep over the roster; cheap, and mostly cosmetic — they are a distribution proxy, not a quality signal (§3) |
+| Skill and script counts                       | weeks                            | `find … -name SKILL.md \| wc -l` per repo; medsci went from a six-skill reading to a 59-skill survey inside this pass       |
+| Licences                                      | slow, but wrong here seven times | the README-heading probe from §1, not the API field                                                                         |
+| Mechanisms — gates, schemas, provenance units | slow                             | only worth re-reading when a repo's changelog says the relevant subsystem moved                                             |
+| Our own side                                  | every commit                     | measured from source; re-run the counts rather than copying them forward                                                    |
 
 ### 19.2 The five things worth watching
 

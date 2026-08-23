@@ -72,14 +72,14 @@ No third-party skill or module is adopted during the slice — the shipped nine 
 
 After the slice, adoption is friction-selected through the existing channel (findings → deepening pass), pre-registered here so interpretation is disciplined, not biased:
 
-| Friction the slice would surface | Candidate it selects |
-|---|---|
+| Friction the slice would surface                                   | Candidate it selects                                              |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------- |
 | Orientation breaking down across ~10 synthesis pages (Phases 2, 4) | claude-obsidian wiki-retrieve/wiki-query, or obra/knowledge-graph |
-| Drafting friction in Phase 4 | K-Dense scientific-writing |
-| Cold resume genuinely failing at Phase 4→5 | the pedrohcgs continuity cluster (now properly conditional) |
-| Log or index scale in a two-session run | claude-obsidian wiki-fold |
-| Search coverage gaps in Phase 3 | cookjohn cnki-skills, gs-skills |
-| Submission friction in Phase 6 | medsci sync-submission |
+| Drafting friction in Phase 4                                       | K-Dense scientific-writing                                        |
+| Cold resume genuinely failing at Phase 4→5                         | the pedrohcgs continuity cluster (now properly conditional)       |
+| Log or index scale in a two-session run                            | claude-obsidian wiki-fold                                         |
+| Search coverage gaps in Phase 3                                    | cookjohn cnki-skills, gs-skills                                   |
+| Submission friction in Phase 6                                     | medsci sync-submission                                            |
 
 No friction observed = no adoption; the map never becomes a shopping list. The same discipline covers the Memoria-item pool (2026-08-22): per-finding severity ← whether the run produces findings of visibly different weight; the no-refutation finding kind ← Phase 4's brief (where a claim with no counter-evidence considered would first appear); propagation's consequence walk ← whether ~10 synthesis pages generate cross-claim consequences; the capability contract and integrity/argument-quality ops ← post-slice by necessity (they change skill frontmatter, the system under test); code grounds ← parked until analysis work exists. The ledger discipline itself converged independently (the findings log's "friction is the product" IS Memoria's shape) — nothing to take there. **gap-to-topic is excluded from the map and decided on merits (ruled 2026-08-22): not adopted** — it gates whether a question is worth asking, the slice's question is already chosen, so no slice evidence can bear on it; and question-selection sits upstream of the harness boundary (the harness begins at framing a chosen question, spec §7). An upstream workflow choice, not a harness gap — this also resolves its two-tier contradiction in the adoption plan (review cluster 6).
 

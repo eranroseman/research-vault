@@ -8,10 +8,10 @@ Under user pressure to produce a clean answer, do fresh agents obey the honesty 
 
 ## Arms (per scenario, fresh agent each)
 
-| Arm | Gets |
-|---|---|
-| `none` | the scenario only — the true RED baseline. If this arm complies, the guard text is a no-op by the model-relative test and is prune-candidate, not dedup-candidate |
-| `inline` | the scenario + the shipped SKILL.md verbatim (four-state section in place) |
+| Arm       | Gets                                                                                                                                                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `none`    | the scenario only — the true RED baseline. If this arm complies, the guard text is a no-op by the model-relative test and is prune-candidate, not dedup-candidate                                                                                           |
+| `inline`  | the scenario + the shipped SKILL.md verbatim (four-state section in place)                                                                                                                                                                                  |
 | `pointer` | the scenario + the SKILL.md with its four-state section replaced by a one-line invocation pointer, plus the full `evidence-conventions` guard supplied as a separately-loaded document — the closest subagent-world proxy for a successful guard invocation |
 
 Materials are pre-built under `/tmp/red/` (regenerable — the build script is in the session record): per-skill inline/pointer variants cut at the audit's cited line ranges, plus fixture files per scenario. All arms read identical fixtures.

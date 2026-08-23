@@ -15,8 +15,7 @@ market sense; it is the alternative the positioning question was actually about.
 ## Method and read depth
 
 Memoria was read on 2026-08-22 at `~/memoria-vault`, at commit `5395a87d`. **Read:** `README.md`,
-`docs/overview.md`, the guarantees table in `docs/README.md`, `docs/superpowers/specs/
-2026-07-12-beta.1-consolidation.md`, and these implementation files —
+`docs/overview.md`, the guarantees table in `docs/README.md`, `docs/superpowers/specs/ 2026-07-12-beta.1-consolidation.md`, and these implementation files —
 `runtime/evidence.py`, `runtime/span_refs.py`, `runtime/decision_rules.py`,
 `runtime/sweeps/retraction/retraction.py`, `runtime/sweeps/linter/detectors.py` (declaration list),
 and the `verify_project_draft` path in `runtime/knowledge.py`. **Not read:** the other ~90 modules,
@@ -33,17 +32,17 @@ and they are narrower than either the wrong claim or its opposite.
 
 ## What each is, measured
 
-| | knowledge-harness | Memoria |
-|---|---|---|
-| First commit | 2026-08-16 | 2026-05-27 |
-| Commits | 371 | 1,441 |
-| Core | 26 modules, 9,716 lines | 99 modules, 46,331 lines |
-| Tests | 1,467 collected | 180 files, 90,100 lines |
-| Status | v0.1.0, unpublished | v0.1-alpha, public repo, published docs site, installers |
-| Distribution | Claude Code plugin | CLI + installer (bash / PowerShell), Obsidian adapter in TypeScript |
-| Platforms | WSL / Linux | Windows 10/11, Ubuntu/Debian, WSL2; macOS explicitly unsupported |
+|              | knowledge-harness                                                                         | Memoria                                                               |
+| ------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| First commit | 2026-08-16                                                                                | 2026-05-27                                                            |
+| Commits      | 371                                                                                       | 1,441                                                                 |
+| Core         | 26 modules, 9,716 lines                                                                   | 99 modules, 46,331 lines                                              |
+| Tests        | 1,467 collected                                                                           | 180 files, 90,100 lines                                               |
+| Status       | v0.1.0, unpublished                                                                       | v0.1-alpha, public repo, published docs site, installers              |
+| Distribution | Claude Code plugin                                                                        | CLI + installer (bash / PowerShell), Obsidian adapter in TypeScript   |
+| Platforms    | WSL / Linux                                                                               | Windows 10/11, Ubuntu/Debian, WSL2; macOS explicitly unsupported      |
 | Dependencies | one pinned runtime dependency (`defusedxml`, admitted by ruling), `pypdf` behind an extra | Python 3.12+, `yaml`, provider keys per flow, Node 22 for the adapter |
-| State | the vault is the state; git only | Markdown plus SQLite plus an append-only journal under `.memoria/` |
+| State        | the vault is the state; git only                                                          | Markdown plus SQLite plus an append-only journal under `.memoria/`    |
 
 Memoria is roughly five times the code, three months older, and shipped in a way this project is
 not.
@@ -60,14 +59,14 @@ spec's *"admission is a human act."*
 
 The agreement runs past the pitch and into doctrine:
 
-| Doctrine | knowledge-harness | Memoria |
-|---|---|---|
-| The machine writes, the human decides | CLI verbs write; skills compose and explain | "Operations propose; the PI disposes" |
-| One write path | every durable write is a CLI verb | "every machine write lands through a single journaled write path" |
-| Append-only record | `log/`, `inbox/review-queue.md`, drift-linted | append-only journal under `.memoria/` |
-| Never claim unbuilt behaviour | four-state results; a skill may not say a check ran | "the docs never claim un-built behavior — anything not shipped is marked *planned*" |
-| Plain files that outlive the tool | ADR 0001, OKF-conformant markdown | "plain Markdown you can read with `cat`… the whole vault travels as a folder copy" |
-| Surfacing what waits on you | review-inbox drain with count and oldest age | attention cards |
+| Doctrine                              | knowledge-harness                                   | Memoria                                                                             |
+| ------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| The machine writes, the human decides | CLI verbs write; skills compose and explain         | "Operations propose; the PI disposes"                                               |
+| One write path                        | every durable write is a CLI verb                   | "every machine write lands through a single journaled write path"                   |
+| Append-only record                    | `log/`, `inbox/review-queue.md`, drift-linted       | append-only journal under `.memoria/`                                               |
+| Never claim unbuilt behaviour         | four-state results; a skill may not say a check ran | "the docs never claim un-built behavior — anything not shipped is marked *planned*" |
+| Plain files that outlive the tool     | ADR 0001, OKF-conformant markdown                   | "plain Markdown you can read with `cat`… the whole vault travels as a folder copy"  |
+| Surfacing what waits on you           | review-inbox drain with count and oldest age        | attention cards                                                                     |
 
 ## Convergences reached independently
 
@@ -101,8 +100,7 @@ This is where the two designs genuinely differ, and neither is simply ahead.
 `read_barrier.py` is a "checked-file consumption guard" over hashes. Admission is enforced at
 resolution, by machine.
 
-**Ours** binds a claim to a source through a claim line — evidence-boundary tag, `[@citekey,
-locator]`, `^c-XXXXXXXX` anchor — with `citekey#^claim-id` as the global address, `supports` and
+**Ours** binds a claim to a source through a claim line — evidence-boundary tag, `[@citekey, locator]`, `^c-XXXXXXXX` anchor — with `citekey#^claim-id` as the global address, `supports` and
 `disputes` stance links between claim addresses, and quote text compared against the literature
 note's managed region under NFKC-plus-whitespace normalisation with prefix/suffix selectors.
 
@@ -123,14 +121,14 @@ The differences that follow:
 Six of these are gaps the comparison document lists as ours against the external field. Memoria
 ships them.
 
-| Gap in the comparison | Memoria |
-|---|---|
-| §11.1 per-finding severity | `SEVERITY_RANK` in the linter; verification findings carry `severity: high\|medium` |
+| Gap in the comparison                         | Memoria                                                                                                                                                                                        |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §11.1 per-finding severity                    | `SEVERITY_RANK` in the linter; verification findings carry `severity: high\|medium`                                                                                                            |
 | §11.1 contradiction machinery beyond flagging | `propagation.py`, 651 lines — typed-consequence propagation over the grounding closure and derivation DAG; a claim can lose its grounds through a `supports` edge or a cited source's standing |
-| §11.1 machine-side admission screening | the `check_status == "checked"` gate plus `read_barrier.py` |
-| §11.2 untrusted-source hardening | `content_security.py`, 514 lines, "content-layer defenses for untrusted Markdown" |
-| §11.2 structural lints | `broken_wikilinks`, `orphan_working_files`, `stale_fleeting`, `frontmatter_schema_check`, `frontmatter_link_check` |
-| §11.6 evaluation surface | `runtime/eval/eval_score.py` — "deterministic vault-eval scorer: diagnostic, never gating… zero-LLM, report-only" |
+| §11.1 machine-side admission screening        | the `check_status == "checked"` gate plus `read_barrier.py`                                                                                                                                    |
+| §11.2 untrusted-source hardening              | `content_security.py`, 514 lines, "content-layer defenses for untrusted Markdown"                                                                                                              |
+| §11.2 structural lints                        | `broken_wikilinks`, `orphan_working_files`, `stale_fleeting`, `frontmatter_schema_check`, `frontmatter_link_check`                                                                             |
+| §11.6 evaluation surface                      | `runtime/eval/eval_score.py` — "deterministic vault-eval scorer: diagnostic, never gating… zero-LLM, report-only"                                                                              |
 
 Its **retraction sweep is better than ours**: three sources, most-authoritative first — the
 Retraction Watch CSV loaded locally and indexed by `OriginalPaperDOI` ("complete, offline,
@@ -151,8 +149,7 @@ exist; flagging their absence is analysis-of-competing-hypotheses discipline we 
 and what the decision then is. A rule the PI can read today cannot be quietly re-derived once the
 numbers are in."*
 
-Seventeen rules, each carrying `id / blocker / metric / window / threshold / recommendation /
-check / status`. Four are `auto`, backed by named constants; thirteen are `manual` reminders that
+Seventeen rules, each carrying `id / blocker / metric / window / threshold / recommendation / check / status`. Four are `auto`, backed by named constants; thirteen are `manual` reminders that
 no predicate can fire. Assessment is pure and separate from application — `assess_decision_rules`
 reports what *would* fire; only a PI-protected operation mints a notice. *"A rule recommends; it
 never acts."*

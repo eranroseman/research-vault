@@ -14,7 +14,7 @@ repeat it. **Section 0 states what is executable when**, on the planning assumpt
 Three parts after that: **why the product has a place** and on what condition, **what is
 adoptable** and at what tier, and **what changes in this tree** and in what order.
 
----
+______________________________________________________________________
 
 ## 0. Sequencing
 
@@ -23,11 +23,11 @@ pre-baseline churn slot (Task 0) is closed regardless. Plan them as post-Q.
 
 That leaves one real gate and one class that is not gated at all.
 
-| Class | When | Why |
-|---|---|---|
-| **Gaps where we have nothing** — retrieval, full-text acquisition, a drafting skill, reporting checklists, submission integrity, session continuity | **now** | none of it lands in `knowledge_harness/`; these are skills, mirrors and external tools. They perturb no measurement, and there is no "is ours better" to test because there is no ours |
-| **Replacements of code we own** — `_quote_match` at the selector site, duplicate detection, the richer status enum (§3.6) | **post-Q** | measured code should not change while it is being measured |
-| **The tested path** — the result contract, the closing sets, the claim addressing | **post-slice** | the only place "is ours better" is a real question, and the only place Plan S answers it |
+| Class                                                                                                                                               | When           | Why                                                                                                                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gaps where we have nothing** — retrieval, full-text acquisition, a drafting skill, reporting checklists, submission integrity, session continuity | **now**        | none of it lands in `knowledge_harness/`; these are skills, mirrors and external tools. They perturb no measurement, and there is no "is ours better" to test because there is no ours |
+| **Replacements of code we own** — `_quote_match` at the selector site, duplicate detection, the richer status enum (§3.6)                           | **post-Q**     | measured code should not change while it is being measured                                                                                                                             |
+| **The tested path** — the result contract, the closing sets, the claim addressing                                                                   | **post-slice** | the only place "is ours better" is a real question, and the only place Plan S answers it                                                                                               |
 
 The rule underneath all three: **do not change the gate before the thing that tests the gate runs.**
 Everything else is scheduling.
@@ -54,7 +54,7 @@ own `frontmatter.parse` and asserts `name` matches its directory, `description` 
 firing half — does the right skill activate for a real phrasing — stays open, and that suite is its
 home.
 
----
+______________________________________________________________________
 
 ## 1. The verdict
 
@@ -190,7 +190,7 @@ abandoning it.
   invert: adopt medsci, keep the gate as a thin plugin over it, and stop building nine skills to
   reach parity with fifty-nine.
 
----
+______________________________________________________________________
 
 ## 2. What is adoptable, classified
 
@@ -258,6 +258,7 @@ and the tier is the recommendation.
 1. **Licence.** Permissive, and verified in the artifact rather than assumed from the repository.
    K-Dense is MIT at repository level with four proprietary Anthropic skills inside it (§6.12);
    medsci's checklists carry per-file licences that differ from the repository's (§2.5).
+
 2. **Language, before anything else.** Vendoring assumes Python. Of the surveyed repositories, six
    are TypeScript or Node primary — gbrain, llm-wiki-compiler, swarmvault, obra/knowledge-graph,
    ZotSeek, doi-mcp — and one is Rust primary (gianlucasb/hallucinator). Those can only ever be
@@ -276,8 +277,10 @@ and the tier is the recommendation.
    reimplementing it worse. For it: what capability arrives, and how much of our own code stops
    existing. `python-docx` for field-code injection is one well-kept package buying a capability
    we have none of; `httpx` plus `anyio` plus `pydantic` plus `rich` to read one CSV is not.
+
 4. **Substrate fit.** A file coupled to another project's layout — its registries, its vault
    resolver, its manifest format — is a rewrite, not an adoption.
+
 5. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
 
 ### 2.3 Tier A — adopt as-is
@@ -285,15 +288,15 @@ and the tier is the recommendation.
 Permissive, standard-library only, no coupling beyond a same-directory sibling. Vendor exactly as
 `find-sources` was: pinned SHA, comment header, no hand-edits, re-vendor to update.
 
-| Candidate | Lines | Imports | Fills | Note |
-|---|---|---|---|---|
-| medsci `verify-refs/scripts/_quote_match.py` | 172 | `re`, `unicodedata` | token-ordered quote matching where ours ends in a contiguous find (§6.1) | measured and pinned in §2.10; vendored and dropped pending a wiring decision |
-| medsci `manage-refs/scripts/check_citation_keys.py` | 147 | `argparse`, `re`, `sys` | pandoc `[@key]` undefined/unused detection; complements our bibliography-joined `citekey` check | |
-| medsci `manage-refs/scripts/check_reference_duplication.py` | 245 | `+ json`, `zipfile` | duplicate-entry detection, listed as absent from our `citekey` check (§10.6) | |
-| medsci `sync-submission/scripts/cross_document_n_check.py` | 486 | `argparse`, `json`, `re`, `sys` | the same participant count asserted across every document — a cross-artifact consistency class we have none of (§11) | |
-| medsci `version-dataset/scripts/*` | small | `hashlib`, `json`, `argparse`, `pathlib` | deterministic content-hash manifest for a dataset (§11, research-data reproducibility) | closest fit to our existing `fixity-sha256` thinking |
-| medsci `search-lit/scripts/check_doi_record_match.py` | 276 | `urllib`, `csv`, `difflib.SequenceMatcher` | DOI-to-record matching with fuzzy title comparison; overlaps our `metadata` check and may sharpen its tolerance | stdlib networking, same posture as our `webapi.py` |
-| medsci `sync-submission/scripts/check_wordcount_cap.py` | 238 | `+ _yaml_frontmatter` (same dir) | word-count ceilings at submission | vendor the sibling too, as medsci itself does |
+| Candidate                                                   | Lines | Imports                                    | Fills                                                                                                                | Note                                                                         |
+| ----------------------------------------------------------- | ----- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| medsci `verify-refs/scripts/_quote_match.py`                | 172   | `re`, `unicodedata`                        | token-ordered quote matching where ours ends in a contiguous find (§6.1)                                             | measured and pinned in §2.10; vendored and dropped pending a wiring decision |
+| medsci `manage-refs/scripts/check_citation_keys.py`         | 147   | `argparse`, `re`, `sys`                    | pandoc `[@key]` undefined/unused detection; complements our bibliography-joined `citekey` check                      |                                                                              |
+| medsci `manage-refs/scripts/check_reference_duplication.py` | 245   | `+ json`, `zipfile`                        | duplicate-entry detection, listed as absent from our `citekey` check (§10.6)                                         |                                                                              |
+| medsci `sync-submission/scripts/cross_document_n_check.py`  | 486   | `argparse`, `json`, `re`, `sys`            | the same participant count asserted across every document — a cross-artifact consistency class we have none of (§11) |                                                                              |
+| medsci `version-dataset/scripts/*`                          | small | `hashlib`, `json`, `argparse`, `pathlib`   | deterministic content-hash manifest for a dataset (§11, research-data reproducibility)                               | closest fit to our existing `fixity-sha256` thinking                         |
+| medsci `search-lit/scripts/check_doi_record_match.py`       | 276   | `urllib`, `csv`, `difflib.SequenceMatcher` | DOI-to-record matching with fuzzy title comparison; overlaps our `metadata` check and may sharpen its tolerance      | stdlib networking, same posture as our `webapi.py`                           |
+| medsci `sync-submission/scripts/check_wordcount_cap.py`     | 238   | `+ _yaml_frontmatter` (same dir)           | word-count ceilings at submission                                                                                    | vendor the sibling too, as medsci itself does                                |
 
 `check_xref.py` (740 lines, stdlib) is the largest of these and does manuscript-to-DOCX
 cross-reference QC. It passes all four tests but only becomes useful once we render a DOCX, so it
@@ -302,14 +305,14 @@ belongs behind the rendering decision rather than in front of it.
 **Whole skills, mirrored into `skills/` rather than vendored into the core** (§2.8 gives the
 mechanism). All verified MIT and standard-library-only:
 
-| Skill | Repo | Python | Fills | Caution |
-|---|---|---|---|---|
-| `cnki-skills` | cookjohn | 1 file, stdlib (`urllib`, `hashlib`, `io`, `json`, `re`) | 10 skills over CNKI — search, journal browse, PDF download, export to Zotero. A Chinese-language corpus our vendored `find-sources` cannot reach at all | none; this is pure additional coverage |
-| `gs-skills` | cookjohn | 1 file, same deps | 6 skills over Google Scholar | Scholar has no official API; expect fragility |
-| `gap-to-topic` | WenyuChiou/research-hub | — | the three-gate go/no-go dossier, upstream of `project` (§6.13) | brings its own `design_brief.md` handoff vocabulary |
-| `asta-skill` | Agents365-ai | — | instruction pack over Ai2's Asta MCP for Semantic Scholar | adds an MCP dependency |
-| `claude-skill-citation-checker` | PHY041 | 1,180 lines incl. tests, stdlib + `urllib` | `.bib` against CrossRef, Semantic Scholar and OpenAlex | **overlaps our `doi` and `metadata` legs** — a second implementation of work we already do, from the `.bib` side rather than the citekey side |
-| `research-guardian` | htlin222 | `runner.py` 717 lines, stdlib | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies, with a JSON schema and seven reference files | **overlaps `factcheck-draft`** — LLM-judgment gates, not deterministic checks |
+| Skill                           | Repo                    | Python                                                   | Fills                                                                                                                                                   | Caution                                                                                                                                       |
+| ------------------------------- | ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cnki-skills`                   | cookjohn                | 1 file, stdlib (`urllib`, `hashlib`, `io`, `json`, `re`) | 10 skills over CNKI — search, journal browse, PDF download, export to Zotero. A Chinese-language corpus our vendored `find-sources` cannot reach at all | none; this is pure additional coverage                                                                                                        |
+| `gs-skills`                     | cookjohn                | 1 file, same deps                                        | 6 skills over Google Scholar                                                                                                                            | Scholar has no official API; expect fragility                                                                                                 |
+| `gap-to-topic`                  | WenyuChiou/research-hub | —                                                        | the three-gate go/no-go dossier, upstream of `project` (§6.13)                                                                                          | brings its own `design_brief.md` handoff vocabulary                                                                                           |
+| `asta-skill`                    | Agents365-ai            | —                                                        | instruction pack over Ai2's Asta MCP for Semantic Scholar                                                                                               | adds an MCP dependency                                                                                                                        |
+| `claude-skill-citation-checker` | PHY041                  | 1,180 lines incl. tests, stdlib + `urllib`               | `.bib` against CrossRef, Semantic Scholar and OpenAlex                                                                                                  | **overlaps our `doi` and `metadata` legs** — a second implementation of work we already do, from the `.bib` side rather than the citekey side |
+| `research-guardian`             | htlin222                | `runner.py` 717 lines, stdlib                            | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies, with a JSON schema and seven reference files                       | **overlaps `factcheck-draft`** — LLM-judgment gates, not deterministic checks                                                                 |
 
 The last two are the ones the licence correction unlocked, and both duplicate capability we have
 rather than adding capability we lack. That is the honest shape of this change: correcting seven
@@ -320,13 +323,13 @@ licences widened what we *may* adopt considerably more than it widened what we *
 Permissive and stdlib, but coupled to the donor's data shapes. Take the algorithm, write our own
 seam, credit in a header comment.
 
-| Candidate | What to take | Why not as-is |
-|---|---|---|
-| claude-obsidian `claude_obsidian/ledgers.py::_independent_group_count` | union-find collapsing sources that share an origin, content hash or declared independence key, so they cannot corroborate each other (§6.4) | operates on the donor's ledger record shape; the algorithm is about thirty lines and the value is entirely in the idea |
-| medsci `verify-refs/scripts/check_claim_fidelity.py` | the graded-by-checkability probe design: quoted text is decidable, attribution is not, so only the extreme case fires (§10.7) | 644 lines whose CLI takes `--manuscript --fulltext-dir --bib --refmap` — bound to their layout |
-| claude-obsidian `scripts/bm25-index.py` | a pure-stdlib BM25 index in 851 lines, with an honest documented no-op when the optional reranker is absent | imports `claude_obsidian.paths` and `claude_obsidian.transaction`; the retrieval decision is not made anyway (§11) |
-| swarmvault `packages/engine/src/watch.ts` | the shrink-ratio circuit breaker: refuse a refresh that drops nodes or edges by more than 25% (§6.7) | TypeScript; the mechanism is a comparison and a threshold, perhaps twenty lines in Python |
-| research-hub `authenticity.py` | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | the `requests` import is not the obstacle — our `webapi.py` already does the same work over `urllib` — but it also imports five project modules (`dedup`, `locks`, `search.crossref`, `security`, `utils.doi`), and those are the rewrite |
+| Candidate                                                              | What to take                                                                                                                                  | Why not as-is                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| claude-obsidian `claude_obsidian/ledgers.py::_independent_group_count` | union-find collapsing sources that share an origin, content hash or declared independence key, so they cannot corroborate each other (§6.4)   | operates on the donor's ledger record shape; the algorithm is about thirty lines and the value is entirely in the idea                                                                                                                    |
+| medsci `verify-refs/scripts/check_claim_fidelity.py`                   | the graded-by-checkability probe design: quoted text is decidable, attribution is not, so only the extreme case fires (§10.7)                 | 644 lines whose CLI takes `--manuscript --fulltext-dir --bib --refmap` — bound to their layout                                                                                                                                            |
+| claude-obsidian `scripts/bm25-index.py`                                | a pure-stdlib BM25 index in 851 lines, with an honest documented no-op when the optional reranker is absent                                   | imports `claude_obsidian.paths` and `claude_obsidian.transaction`; the retrieval decision is not made anyway (§11)                                                                                                                        |
+| swarmvault `packages/engine/src/watch.ts`                              | the shrink-ratio circuit breaker: refuse a refresh that drops nodes or edges by more than 25% (§6.7)                                          | TypeScript; the mechanism is a comparison and a threshold, perhaps twenty lines in Python                                                                                                                                                 |
+| research-hub `authenticity.py`                                         | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | the `requests` import is not the obstacle — our `webapi.py` already does the same work over `urllib` — but it also imports five project modules (`dedup`, `locks`, `search.crossref`, `security`, `utils.doi`), and those are the rewrite |
 
 ### 2.5 Tier C — adopt as data
 
@@ -355,16 +358,16 @@ program, and each carries its own licence question.
 
 Real tools doing real work, too large or too external to carry.
 
-| Tool | Licence | Role |
-|---|---|---|
-| microsoft/markitdown | MIT, 175,520 stars | the format-breadth answer if `import-source` ever ingests beyond Zotero; SamurAIGPT already routes through it (§6.10) |
-| pandoc + CSL | GPL, external binary | rendering and citation formatting; medsci `manage-refs` and pedrohcgs `compile-latex` both shell out to it rather than reimplementing |
-| Hylouis233/bibverify | MIT | a second opinion on a `.bib`, with `rank_lookup_sources` explaining resolver choice — but it duplicates our DOI and metadata legs, so only worth it if that explanation is wanted (§7) |
-| htlin222/prisma-automation | MIT, 8 stars | PRISMA flow-diagram generation, the one piece of systematic-review apparatus that is a discrete artifact rather than a workflow |
-| kepano `defuddle` | MIT | already provisioned by `setup-vault`; the web-capture answer if one is needed |
-| obra/knowledge-graph | MIT (README) | vault-as-knowledge-graph over SQLite with sqlite-vec and FTS5, local embeddings, Louvain communities, betweenness and PageRank, exposed as a CLI and an MCP server with a `prove-claim` skill. Node and TypeScript, so a dependency rather than a vendor target — but the single closest answer to our largest gap (§11, retrieval and graph) |
-| introfini/ZotSeek | MIT (README + `package.json`) | a Zotero plugin in JavaScript giving local semantic search over the library with a built-in MCP server. Runs inside Zotero, so it is a companion to provision like kepano rather than anything to carry |
-| TonybotNi/ZotLink | MIT (`setup.py`) | saves preprints into Zotero with metadata and PDFs. Imports `bs4`, `playwright`, `requests`, `mcp`, `pydantic`, `dotenv` and `fake_useragent` — the last of those is a posture we would not want anywhere near the evidence path, so: dependency at arm's length, or not at all |
+| Tool                       | Licence                       | Role                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| microsoft/markitdown       | MIT, 175,520 stars            | the format-breadth answer if `import-source` ever ingests beyond Zotero; SamurAIGPT already routes through it (§6.10)                                                                                                                                                                                                                         |
+| pandoc + CSL               | GPL, external binary          | rendering and citation formatting; medsci `manage-refs` and pedrohcgs `compile-latex` both shell out to it rather than reimplementing                                                                                                                                                                                                         |
+| Hylouis233/bibverify       | MIT                           | a second opinion on a `.bib`, with `rank_lookup_sources` explaining resolver choice — but it duplicates our DOI and metadata legs, so only worth it if that explanation is wanted (§7)                                                                                                                                                        |
+| htlin222/prisma-automation | MIT, 8 stars                  | PRISMA flow-diagram generation, the one piece of systematic-review apparatus that is a discrete artifact rather than a workflow                                                                                                                                                                                                               |
+| kepano `defuddle`          | MIT                           | already provisioned by `setup-vault`; the web-capture answer if one is needed                                                                                                                                                                                                                                                                 |
+| obra/knowledge-graph       | MIT (README)                  | vault-as-knowledge-graph over SQLite with sqlite-vec and FTS5, local embeddings, Louvain communities, betweenness and PageRank, exposed as a CLI and an MCP server with a `prove-claim` skill. Node and TypeScript, so a dependency rather than a vendor target — but the single closest answer to our largest gap (§11, retrieval and graph) |
+| introfini/ZotSeek          | MIT (README + `package.json`) | a Zotero plugin in JavaScript giving local semantic search over the library with a built-in MCP server. Runs inside Zotero, so it is a companion to provision like kepano rather than anything to carry                                                                                                                                       |
+| TonybotNi/ZotLink          | MIT (`setup.py`)              | saves preprints into Zotero with metadata and PDFs. Imports `bs4`, `playwright`, `requests`, `mcp`, `pydantic`, `dotenv` and `fake_useragent` — the last of those is a posture we would not want anywhere near the evidence path, so: dependency at arm's length, or not at all                                                               |
 
 ### 2.7 Tier E — pattern only, and why
 
@@ -407,6 +410,7 @@ Worth reading, not worth carrying. Each fails a specific test.
   carry nothing.
 
 Everything else once listed here was a detection failure, not a licence failure (§15).
+
 - **sdyckjq-lab/llm-wiki-skill's `workbench/.claude/skills/{docx,pdf,pptx,xlsx}/`** — the
   repository is MIT, that subtree is not (§15). The trap is the same one K-Dense sets, and it is
   why test 2 in §2.2 says *verified in the artifact*.
@@ -431,14 +435,14 @@ This mode sidesteps §2.2's fourth test, because a skill is self-contained by de
 own prompt, scripts and reference files rather than reaching into a host layout. That widens the
 candidate set considerably now that the licences are established:
 
-| Skill | Repo | Licence | Fills |
-|---|---|---|---|
-| `claude-skill-citation-checker` | PHY041 | MIT (README) | `.bib` against CrossRef, Semantic Scholar and OpenAlex — a second opinion beside our own DOI and metadata legs |
-| `research-guardian` | htlin222 | MIT (README) | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies |
-| `gap-to-topic` | WenyuChiou/research-hub | MIT | the three-gate go/no-go dossier, the one thing upstream of `project` (§6.13) |
-| `cnki-skills`, `gs-skills` | cookjohn | MIT | CNKI and Google Scholar coverage our vendored `find-sources` lacks entirely |
-| `asta-skill` | Agents365-ai | MIT | Ai2's Asta MCP over Semantic Scholar, as an instruction pack |
-| medsci `verify-refs`, `manage-refs`, `check-reporting` | Aperivue | MIT (per-file for checklists, §2.4) | reference audit, rendering and 49 reporting guidelines as whole units rather than script by script |
+| Skill                                                  | Repo                    | Licence                             | Fills                                                                                                          |
+| ------------------------------------------------------ | ----------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `claude-skill-citation-checker`                        | PHY041                  | MIT (README)                        | `.bib` against CrossRef, Semantic Scholar and OpenAlex — a second opinion beside our own DOI and metadata legs |
+| `research-guardian`                                    | htlin222                | MIT (README)                        | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies                            |
+| `gap-to-topic`                                         | WenyuChiou/research-hub | MIT                                 | the three-gate go/no-go dossier, the one thing upstream of `project` (§6.13)                                   |
+| `cnki-skills`, `gs-skills`                             | cookjohn                | MIT                                 | CNKI and Google Scholar coverage our vendored `find-sources` lacks entirely                                    |
+| `asta-skill`                                           | Agents365-ai            | MIT                                 | Ai2's Asta MCP over Semantic Scholar, as an instruction pack                                                   |
+| medsci `verify-refs`, `manage-refs`, `check-reporting` | Aperivue                | MIT (per-file for checklists, §2.4) | reference audit, rendering and 49 reporting guidelines as whole units rather than script by script             |
 
 **Where the pattern stops.** K-Dense and sdyckjq-lab both mirror Anthropic's `docx`, `pdf`, `pptx`
 and `xlsx` skills. Their bundled `LICENSE.txt` addresses that directly, under the heading
@@ -469,12 +473,12 @@ an obvious reading suggests.
 **Measured.** Run standalone against a quote and three damaged haystacks, with our own contiguous
 find for comparison:
 
-| Artifact class | `match_quality` grade | matched / total | inserted | coverage | our contiguous find |
-|---|---|---|---|---|---|
-| line number mid-sentence | `PARTIAL` | 7 / 8 | 3 | 0.875 | **miss** |
-| two-column bleed | `INTERLEAVED` | 8 / 8 | 1 | 1.0 | **miss** |
-| hyphenation across a line break | `EXACT` | 8 / 8 | 0 | 1.0 | match |
-| unrelated text | `ABSENT` | — | — | — | miss |
+| Artifact class                  | `match_quality` grade | matched / total | inserted | coverage | our contiguous find |
+| ------------------------------- | --------------------- | --------------- | -------- | -------- | ------------------- |
+| line number mid-sentence        | `PARTIAL`             | 7 / 8           | 3        | 0.875    | **miss**            |
+| two-column bleed                | `INTERLEAVED`         | 8 / 8           | 1        | 1.0      | **miss**            |
+| hyphenation across a line break | `EXACT`               | 8 / 8           | 0        | 1.0      | match               |
+| unrelated text                  | `ABSENT`              | —               | —        | —        | miss                |
 
 The third row is the one our `selectors._norm_with_map` already repairs. The first two are what a
 contiguous find cannot see. The fourth is the row that matters most, and it is why the grade
@@ -487,8 +491,7 @@ literature note's managed region — so PDF extraction artifacts cannot arise th
 Extraction noise enters at `__main__.py:257-263`, where `selectors.pdf_text` extracts an
 attachment and `attach_contexts` locates each annotation to capture its prefix and suffix. When
 `find_context`'s contiguous find misses, the annotation silently loses its W3C selectors and the
-import reports one undifferentiated reason: `"some annotation quotes were not found in extracted
-text"`.
+import reports one undifferentiated reason: `"some annotation quotes were not found in extracted text"`.
 
 Graded, that single reason splits into two facts we currently cannot tell apart:
 
@@ -518,9 +521,9 @@ The sequencing implication for §1.5 is that vendoring is not step 4. It is the 
 steps 1 and 2 affordable, because every file in Tier A is breadth we then do not have to build
 while narrowing to the gate.
 
----
+______________________________________________________________________
 
----
+______________________________________________________________________
 
 ## 3. What changes in this tree
 
@@ -570,17 +573,17 @@ pass:
 
 Applied honestly, only one of the nine passes all three unchanged.
 
-| Skill | Verdict | Reasoning |
-|---|---|---|
-| `evidence-conventions` | **Write it, unchanged** | The job is needed and nothing in §2 does it — no component tags epistemic status per line. Test 3 is the interesting one: most of what it says is enforced mechanically by lints and checks, so why is it prose? Because it steers authoring *before* any lint runs. A claim that never gets written wrong costs nothing to fix. That is a skill's job and not a linter's |
-| `publish` | **Write it, unchanged** | Nothing in §2 gates a session; §2.10 confirms every other enforcement surface needs an operator flag. The disposition menu, typed-`discard` consent and the correction lifecycle are judgment scaffolding, which is skill-shaped by definition |
-| `import-source` | **Write it thinner** | The projection half is medsci `lit-sync` (§2.4). What remains ours is the admission boundary, the render-first no-op and the three surgical per-claim holds. Those are perhaps a third of the current skill; the rest is orchestration we would not write from scratch if `lit-sync` were mirrored |
-| `factcheck-draft` | **Write it much thinner** | §3.7 adopts medsci `check_claim_fidelity.py`, which answers the same question deterministically. What survives is the part code cannot do — adjudicating a paraphrase's direction, magnitude and certainty — plus the budget-cap honesty, which is a contract of about twenty lines rather than a skill |
-| `verify-citations` | **Probably not a skill** | It "ships no mechanics of its own" by its own text: it runs a verb and reports grouped by check id. That is a CLI output format and a reporting rule. Its one genuinely skill-shaped property is the refusal to act as the gate when asked — worth keeping as a rule, not obviously worth a skill file |
-| `find-sources` | **Already not ours** | A vendored fork of `paper-lookup` plus a search log and an admission boundary. From scratch we would mirror the upstream and write the log as a CLI verb |
-| `synthesis-conventions` | **Write it, but import the rules** | The 2+-source threshold is right and matches hermes independently. Everything else it lacks — page splitting, archival, backlink checks, index scaling — hermes already specifies (§3.4). From scratch this is mostly a mirror with our thresholds substituted |
-| `project` | **Would not write it as it stands** | Orientation, inbox drain, trust tiers, four-element framing and gap analysis in one skill. WenyuChiou `gap-to-topic` does the framing gate better, the pedrohcgs cluster does continuity better, and the inbox drain is a CLI report. It survives on scope, not merit |
-| `setup-vault` | **Would not write most of it** | Scaffolding is a CLI verb; companion provisioning is an installer concern; the Zotero wizard steps are the only genuinely skill-shaped part, because they are the bit a machine must refuse to do |
+| Skill                   | Verdict                             | Reasoning                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `evidence-conventions`  | **Write it, unchanged**             | The job is needed and nothing in §2 does it — no component tags epistemic status per line. Test 3 is the interesting one: most of what it says is enforced mechanically by lints and checks, so why is it prose? Because it steers authoring *before* any lint runs. A claim that never gets written wrong costs nothing to fix. That is a skill's job and not a linter's |
+| `publish`               | **Write it, unchanged**             | Nothing in §2 gates a session; §2.10 confirms every other enforcement surface needs an operator flag. The disposition menu, typed-`discard` consent and the correction lifecycle are judgment scaffolding, which is skill-shaped by definition                                                                                                                            |
+| `import-source`         | **Write it thinner**                | The projection half is medsci `lit-sync` (§2.4). What remains ours is the admission boundary, the render-first no-op and the three surgical per-claim holds. Those are perhaps a third of the current skill; the rest is orchestration we would not write from scratch if `lit-sync` were mirrored                                                                        |
+| `factcheck-draft`       | **Write it much thinner**           | §3.7 adopts medsci `check_claim_fidelity.py`, which answers the same question deterministically. What survives is the part code cannot do — adjudicating a paraphrase's direction, magnitude and certainty — plus the budget-cap honesty, which is a contract of about twenty lines rather than a skill                                                                   |
+| `verify-citations`      | **Probably not a skill**            | It "ships no mechanics of its own" by its own text: it runs a verb and reports grouped by check id. That is a CLI output format and a reporting rule. Its one genuinely skill-shaped property is the refusal to act as the gate when asked — worth keeping as a rule, not obviously worth a skill file                                                                    |
+| `find-sources`          | **Already not ours**                | A vendored fork of `paper-lookup` plus a search log and an admission boundary. From scratch we would mirror the upstream and write the log as a CLI verb                                                                                                                                                                                                                  |
+| `synthesis-conventions` | **Write it, but import the rules**  | The 2+-source threshold is right and matches hermes independently. Everything else it lacks — page splitting, archival, backlink checks, index scaling — hermes already specifies (§3.4). From scratch this is mostly a mirror with our thresholds substituted                                                                                                            |
+| `project`               | **Would not write it as it stands** | Orientation, inbox drain, trust tiers, four-element framing and gap analysis in one skill. WenyuChiou `gap-to-topic` does the framing gate better, the pedrohcgs cluster does continuity better, and the inbox drain is a CLI report. It survives on scope, not merit                                                                                                     |
+| `setup-vault`           | **Would not write most of it**      | Scaffolding is a CLI verb; companion provisioning is an installer concern; the Zotero wizard steps are the only genuinely skill-shaped part, because they are the bit a machine must refuse to do                                                                                                                                                                         |
 
 **What this changes.** The preserve list is not five skills — it is **two written as they are, two
 written smaller, and five that from scratch would be a CLI verb, a mirror, or a rule in someone
@@ -602,10 +605,10 @@ maintain has tests, types and deterministic behaviour, and a regression announce
 
 So the ownership calculus inverts by artifact:
 
-| | Prefer to own | Prefer to adopt |
-|---|---|---|
-| **Code** | where it decides a verdict (§3.8) — a fork is cheap to maintain because tests hold it still | everywhere else |
-| **Skills** | only where nothing exists, or where the vocabulary cannot be reconciled | **everywhere it exists** — authoring and maintaining prose is the expensive half of this product |
+|            | Prefer to own                                                                               | Prefer to adopt                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Code**   | where it decides a verdict (§3.8) — a fork is cheap to maintain because tests hold it still | everywhere else                                                                                  |
+| **Skills** | only where nothing exists, or where the vocabulary cannot be reconciled                     | **everywhere it exists** — authoring and maintaining prose is the expensive half of this product |
 
 Two things follow.
 
@@ -660,14 +663,14 @@ two we would still write are the two where no upstream can carry the doctrine fo
 The comparison's §2.9 establishes mirroring a whole skill — copy the directory verbatim, carry its
 licence beside it, add the provenance header, rename only into our namespace. All verified MIT.
 
-| Mirror | Fills |
-|---|---|
-| cookjohn `cnki-skills`, `gs-skills` | CNKI and Google Scholar coverage `find-sources` cannot reach at all |
-| WenyuChiou `gap-to-topic` | The three-gate go/no-go dossier — the step upstream of `project`, which frames a question and never asks whether it should be asked |
-| medsci `check-reporting` | 49 reporting guidelines, verified-permissive rows only |
-| medsci `manage-refs` | Rendering, marker conversion and Zotero CWYW field codes — the writing half of reference handling we have none of |
-| hermes `llm-wiki` rules | Page-splitting and archival thresholds, backlink checks, index-scaling and log rotation — `synthesis-conventions` has the 2+-source threshold and none of the scale rules |
-| claude-obsidian `wiki-retrieve`, `wiki-query` | A retrieval surface, if obra/knowledge-graph is not taken as the dependency instead (§3.7) |
+| Mirror                                        | Fills                                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| cookjohn `cnki-skills`, `gs-skills`           | CNKI and Google Scholar coverage `find-sources` cannot reach at all                                                                                                       |
+| WenyuChiou `gap-to-topic`                     | The three-gate go/no-go dossier — the step upstream of `project`, which frames a question and never asks whether it should be asked                                       |
+| medsci `check-reporting`                      | 49 reporting guidelines, verified-permissive rows only                                                                                                                    |
+| medsci `manage-refs`                          | Rendering, marker conversion and Zotero CWYW field codes — the writing half of reference handling we have none of                                                         |
+| hermes `llm-wiki` rules                       | Page-splitting and archival thresholds, backlink checks, index-scaling and log rotation — `synthesis-conventions` has the 2+-source threshold and none of the scale rules |
+| claude-obsidian `wiki-retrieve`, `wiki-query` | A retrieval surface, if obra/knowledge-graph is not taken as the dependency instead (§3.7)                                                                                |
 
 **Not mirrored:** PHY041 `claude-skill-citation-checker` and htlin222 `research-guardian`. Both are
 MIT and both decide verdicts — the §3.8 line.
@@ -688,23 +691,23 @@ The stated arc is question → literature → synthesis → draft → submit. Th
 
 **Urgent — the arc does not close without these.**
 
-| Mirror | Licence | Why it blocks |
-|---|---|---|
-| medsci `fulltext-retrieval` | MIT **[F]** | "Batch download open-access PDFs by DOI using legitimate OA APIs (Unpaywall, PMC, OpenAlex, Crossref). Optional PDF→Markdown conversion." We find sources and project metadata and **never fetch the text**. The Iron Law asks a quote to be verifiable against a source; the deferred direct-PDF-text leg in spec §10 needs text to exist locally first. This is that leg's missing input |
-| K-Dense `scientific-writing` | MIT **[F]** | We have **no drafting skill**. `project` frames, `evidence-conventions` governs, `publish` gates, and nothing helps write. This one carries evidence provenance, reporting-guideline coverage and authorship accountability, and its audit scripts are stdlib with `claim_text_sha256` — the discipline already matches ours |
-| pedrohcgs `checkpoint`, `compress-session`, `context-status`, `promote-memory` | MIT **[F]** | Four small skills, one cluster: a structured state snapshot before stopping, conversation distilled into decisions and open questions with file pointers. Spec §9's validation slice requires "minimum two sessions (forces one real cold resume)" — the criterion assumes continuity machinery we do not have |
+| Mirror                                                                         | Licence     | Why it blocks                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| medsci `fulltext-retrieval`                                                    | MIT **[F]** | "Batch download open-access PDFs by DOI using legitimate OA APIs (Unpaywall, PMC, OpenAlex, Crossref). Optional PDF→Markdown conversion." We find sources and project metadata and **never fetch the text**. The Iron Law asks a quote to be verifiable against a source; the deferred direct-PDF-text leg in spec §10 needs text to exist locally first. This is that leg's missing input |
+| K-Dense `scientific-writing`                                                   | MIT **[F]** | We have **no drafting skill**. `project` frames, `evidence-conventions` governs, `publish` gates, and nothing helps write. This one carries evidence provenance, reporting-guideline coverage and authorship accountability, and its audit scripts are stdlib with `claim_text_sha256` — the discipline already matches ours                                                               |
+| pedrohcgs `checkpoint`, `compress-session`, `context-status`, `promote-memory` | MIT **[F]** | Four small skills, one cluster: a structured state snapshot before stopping, conversation distilled into decisions and open questions with file pointers. Spec §9's validation slice requires "minimum two sessions (forces one real cold resume)" — the criterion assumes continuity machinery we do not have                                                                             |
 
 **Deferred — real gaps, but breadth.**
 
-| Mirror | Fills (§11 group) |
-|---|---|
-| gbrain `maintain` + `cron-scheduler` | 11.4 maintenance lane; our spec calls this "doctor mode + refresh mode", which is two verbs and no lane |
-| claude-obsidian `wiki-fold` | 11.2 log and index scale — bounded extractive rollup, dry-run default. We have no rotation at any size |
-| medsci `version-dataset`, `generate-codebook` | 11.1 dataset identity — a dataset a claim depends on currently has none |
-| medsci `ma-scout`, `meta-analysis`, htlin222 `prisma-automation` | 11.5 systematic-review apparatus beyond screening states and a PRISMA-S log |
-| medsci `find-journal` | 11.5 venue selection — two-pass matching against a curated profile library |
-| pedrohcgs `replication-package`, `audit-reproducibility`, `submission-disclosures` | 11.5 the submission-integrity surface |
-| claude-obsidian `wiki-mode` | 11.4 filing methodology — only if vault-shape choice is wanted; ours is deliberately fixed |
+| Mirror                                                                             | Fills (§11 group)                                                                                       |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| gbrain `maintain` + `cron-scheduler`                                               | 11.4 maintenance lane; our spec calls this "doctor mode + refresh mode", which is two verbs and no lane |
+| claude-obsidian `wiki-fold`                                                        | 11.2 log and index scale — bounded extractive rollup, dry-run default. We have no rotation at any size  |
+| medsci `version-dataset`, `generate-codebook`                                      | 11.1 dataset identity — a dataset a claim depends on currently has none                                 |
+| medsci `ma-scout`, `meta-analysis`, htlin222 `prisma-automation`                   | 11.5 systematic-review apparatus beyond screening states and a PRISMA-S log                             |
+| medsci `find-journal`                                                              | 11.5 venue selection — two-pass matching against a curated profile library                              |
+| pedrohcgs `replication-package`, `audit-reproducibility`, `submission-disclosures` | 11.5 the submission-integrity surface                                                                   |
+| claude-obsidian `wiki-mode`                                                        | 11.4 filing methodology — only if vault-shape choice is wanted; ours is deliberately fixed              |
 
 **Refused, and this list matters more than the two above.**
 
@@ -724,15 +727,15 @@ none, while authoring in a portable format precisely so other agents can use the
 
 ### 3.5 Core — preserve
 
-| What | Where | Why it survives |
-|---|---|---|
-| Zotero + Better BibTeX citekey spine | `zotero.py`, `bibliography.py` | Nothing among 35 products, and nothing in Memoria, joins a reference manager, a vault and every check on one key. Memoria's plan is `zotero-bulk-import` — "admit to catalog, none to knowledge" |
-| `citekey#^claim-id` and typed stance links | `claims.py`, the claim-immutability lint | No donor found. The precedents are standards, not code (§2.12) |
-| ~~Quote correspondence against source text~~ | `quotes.py`, `selectors.py` | **Claim withdrawn.** Memoria ships `integrity-claim-quote-check` — "check whether a claim's quoted evidence appears in its source" — and `integrity-quote-anchor-check`. An earlier draft read only its `evidence-text-drift` hash-pin and concluded it did not compare against source. It does. What remains ours is the W3C prefix/suffix selector storage and the `fuzzy-quote` reason code, and neither has been compared against their implementation |
-| Four-state `Result` and the frozen registries | `outcome.py`, `inbox.py` | This *is* §3.1's result contract, already owned: 18 reason codes and 15 check ids enforced by the writer |
-| Hook surfaces | `hooks/` | The one differentiator that survived three narrowings. Memoria is a CLI; every competitor needs an operator flag |
-| Publication lifecycle | `publish.py`, the published-drift lint | Tags are never deleted and a correction adds one. Every other product stops when the artifact ships |
-| Zero-dependency core | `knowledge_harness/` | Cheap to keep, expensive to regain — and §5 shows what an assembly costs here |
+| What                                          | Where                                    | Why it survives                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zotero + Better BibTeX citekey spine          | `zotero.py`, `bibliography.py`           | Nothing among 35 products, and nothing in Memoria, joins a reference manager, a vault and every check on one key. Memoria's plan is `zotero-bulk-import` — "admit to catalog, none to knowledge"                                                                                                                                                                                                                                                           |
+| `citekey#^claim-id` and typed stance links    | `claims.py`, the claim-immutability lint | No donor found. The precedents are standards, not code (§2.12)                                                                                                                                                                                                                                                                                                                                                                                             |
+| ~~Quote correspondence against source text~~  | `quotes.py`, `selectors.py`              | **Claim withdrawn.** Memoria ships `integrity-claim-quote-check` — "check whether a claim's quoted evidence appears in its source" — and `integrity-quote-anchor-check`. An earlier draft read only its `evidence-text-drift` hash-pin and concluded it did not compare against source. It does. What remains ours is the W3C prefix/suffix selector storage and the `fuzzy-quote` reason code, and neither has been compared against their implementation |
+| Four-state `Result` and the frozen registries | `outcome.py`, `inbox.py`                 | This *is* §3.1's result contract, already owned: 18 reason codes and 15 check ids enforced by the writer                                                                                                                                                                                                                                                                                                                                                   |
+| Hook surfaces                                 | `hooks/`                                 | The one differentiator that survived three narrowings. Memoria is a CLI; every competitor needs an operator flag                                                                                                                                                                                                                                                                                                                                           |
+| Publication lifecycle                         | `publish.py`, the published-drift lint   | Tags are never deleted and a correction adds one. Every other product stops when the artifact ships                                                                                                                                                                                                                                                                                                                                                        |
+| Zero-dependency core                          | `knowledge_harness/`                     | Cheap to keep, expensive to regain — and §5 shows what an assembly costs here                                                                                                                                                                                                                                                                                                                                                                              |
 
 **This bucket is contingent.** Rows four to six are only assets while the false-positive rate is
 low enough that a person leaves the gate armed (§2.6). Unmeasured, they are a bet.
@@ -761,14 +764,14 @@ In-house, so this is porting rather than importing. Ranked by value.
 
 ### 3.7 Core — replace with third-party now
 
-| Replace | With | Why now |
-|---|---|---|
-| The contiguous find in `selectors.find_context` | medsci `_quote_match.py` | Measured: our find misses line-number and column-bleed cases it grades PARTIAL and INTERLEAVED. Wire at `__main__.py:257-263`, not at `check_quote` — both sides of that comparison are vault text |
-| Nothing — we have no retrieval | obra/knowledge-graph | Our largest single gap, MIT, SQLite + FTS5 + MCP. **A dependency, not a vendor target** — TypeScript and Node, so it is installed and called, never carried into `knowledge_harness/` (§2.6). Do not build one either |
-| Duplicate detection we lack | medsci `check_reference_duplication.py`, `check_citation_keys.py` | stdlib, small, complement rather than replace our `citekey` check |
-| Building an evaluation harness | HALLMARK as a fixture | Its six sub-tests already map onto four of our checks; registering a baseline is a supported operation |
-| Any future renderer | pandoc + CSL | Both medsci and pedrohcgs shell out rather than reimplement |
-| Building reporting-guideline support | medsci `check-reporting` | 49 checklists, verified-permissive rows only, plus its `LICENSES.md` discipline |
+| Replace                                         | With                                                              | Why now                                                                                                                                                                                                               |
+| ----------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The contiguous find in `selectors.find_context` | medsci `_quote_match.py`                                          | Measured: our find misses line-number and column-bleed cases it grades PARTIAL and INTERLEAVED. Wire at `__main__.py:257-263`, not at `check_quote` — both sides of that comparison are vault text                    |
+| Nothing — we have no retrieval                  | obra/knowledge-graph                                              | Our largest single gap, MIT, SQLite + FTS5 + MCP. **A dependency, not a vendor target** — TypeScript and Node, so it is installed and called, never carried into `knowledge_harness/` (§2.6). Do not build one either |
+| Duplicate detection we lack                     | medsci `check_reference_duplication.py`, `check_citation_keys.py` | stdlib, small, complement rather than replace our `citekey` check                                                                                                                                                     |
+| Building an evaluation harness                  | HALLMARK as a fixture                                             | Its six sub-tests already map onto four of our checks; registering a baseline is a supported operation                                                                                                                |
+| Any future renderer                             | pandoc + CSL                                                      | Both medsci and pedrohcgs shell out rather than reimplement                                                                                                                                                           |
+| Building reporting-guideline support            | medsci `check-reporting`                                          | 49 checklists, verified-permissive rows only, plus its `LICENSES.md` discipline                                                                                                                                       |
 
 ### 3.8 What is deliberately not replaced
 

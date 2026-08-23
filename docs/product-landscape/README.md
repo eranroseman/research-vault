@@ -3,12 +3,12 @@
 Four notes from one pass, 2026-08-22, divided by **lifecycle** rather than by the order they were
 written. Each has a different update cadence, and that is why they are separate files.
 
-| Note | Question | Updates | Size |
-|---|---|---|---|
-| [product-comparison-verified](2026-08-22-product-comparison-verified.md) | What exists, and where do we stand against it? | when the field moves — §19 is the re-run protocol | 2,092 |
-| [memoria-and-knowledge-harness](2026-08-22-memoria-and-knowledge-harness.md) | How do we stand against our own other implementation of the same thesis? | when Memoria moves, which is daily | 223 |
-| [adoption-plan](2026-08-22-adoption-plan.md) | Does the product have a place, what is adoptable, and what changes in this tree? | as we act on it | 741 |
-| [assembled-harness-spec](2026-08-22-assembled-harness-spec.md) | Could this have been assembled from existing parts instead? | never — a dated thought experiment | 312 |
+| Note                                                                         | Question                                                                         | Updates                                           | Size  |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------- | ----- |
+| [product-comparison-verified](2026-08-22-product-comparison-verified.md)     | What exists, and where do we stand against it?                                   | when the field moves — §19 is the re-run protocol | 2,092 |
+| [memoria-and-knowledge-harness](2026-08-22-memoria-and-knowledge-harness.md) | How do we stand against our own other implementation of the same thesis?         | when Memoria moves, which is daily                | 223   |
+| [adoption-plan](2026-08-22-adoption-plan.md)                                 | Does the product have a place, what is adoptable, and what changes in this tree? | as we act on it                                   | 741   |
+| [assembled-harness-spec](2026-08-22-assembled-harness-spec.md)               | Could this have been assembled from existing parts instead?                      | never — a dated thought experiment                | 312   |
 
 **The comparison is what was found. The adoption plan is what to do about it.** That split is
 deliberate: the first is evidence with a re-run protocol, the second is a decision that changes as
