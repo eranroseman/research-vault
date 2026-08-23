@@ -1697,14 +1697,50 @@ Section 17.5 recommends vendoring rather than rebuilding. This section names wha
 Every candidate below was checked on 2026-08-22 for licence, import surface and coupling; line
 counts and import lists come from the files themselves.
 
-### 18.1 The four tests
+### 18.1 The rule the tiers express
+
+**Adopt by default; build only where the artifact decides a verdict.**
+
+The default is adoption because the evidence says so. `find-sources` is already an adoption and it
+works. Tier A is roughly 1,600 lines of standard-library Python filling five gaps we would
+otherwise write. Tier C's 49 reporting checklists arrive with a licence audit someone else did
+properly. Section 17.2's whole argument is that our differentiators are enforcement-layer and our
+gaps are breadth-layer, and breadth is what other people have already built.
+
+The exception is narrow and it is not about quality. K-Dense's `citation-management` skill is MIT,
+stdlib-adjacent, well organised, and does exactly the DOI-existence work we do. Its
+`validate_citations.py` returns `Tuple[bool, Optional[Dict]]`, and on a network failure:
+
+```python
+        except requests.exceptions.RequestException:
+            return True, None
+```
+
+with the comment above it reading "Any other status is a transport problem on our side, not
+evidence that the DOI is bad." The reasoning is defensible; the return type is not. A boolean has
+nowhere to put *could not run*, so an outage collapses into a pass. Adopting that file would have
+imported a silent false-pass into the one check the product exists to perform — and nothing about
+reading the code would have flagged it, because the defect is in the shape of the answer rather
+than in the logic.
+
+So the test for "must build" is not *is this good code* but *does this decide a verdict*. It is
+the same line the dependency question resolved to (test 2 below): a dependency is cheap where it
+cannot corrupt a verdict and degrades cleanly, expensive in the trust path however well maintained
+it is. One line, two questions.
+
+In practice that puts the boundary here: `verify`, the checks, the four-state result, the closing
+sets, the reason-code registry and the publish gate are ours to write. Search, capture, rendering,
+retrieval, submission packaging, reporting checklists and format breadth are other people's to
+write and ours to carry.
+
+### 18.2 The four tests
 
 A candidate is **adopt-as-is** only if it passes all four. Failing any one moves it down a tier,
 and the tier is the recommendation.
 
 1. **Licence.** Permissive, and verified in the artifact rather than assumed from the repository.
    K-Dense is MIT at repository level with four proprietary Anthropic skills inside it (§6.12);
-   medsci's checklists carry per-file licences that differ from the repository's (§18.4).
+   medsci's checklists carry per-file licences that differ from the repository's (§18.5).
 2. **Dependency cost, weighed — not a veto.** Our core imports nothing outside the standard
    library today, and that is worth keeping. But it is a guideline, not a rule, and we already
    own the mechanism for breaking it cleanly: `pyproject.toml` carries `pdf = ["pypdf>=4"]` as an
@@ -1721,7 +1757,7 @@ and the tier is the recommendation.
    resolver, its manifest format — is a rewrite, not an adoption.
 4. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
 
-### 18.2 Tier A — adopt as-is
+### 18.3 Tier A — adopt as-is
 
 Permissive, standard-library only, no coupling beyond a same-directory sibling. Vendor exactly as
 `find-sources` was: pinned SHA, comment header, no hand-edits, re-vendor to update.
@@ -1756,7 +1792,7 @@ The last two are the ones the licence correction unlocked, and both duplicate ca
 rather than adding capability we lack. That is the honest shape of this change: correcting seven
 licences widened what we *may* adopt considerably more than it widened what we *should*.
 
-### 18.3 Tier B — fork a function, not a file
+### 18.4 Tier B — fork a function, not a file
 
 Permissive and stdlib, but coupled to the donor's data shapes. Take the algorithm, write our own
 seam, credit in a header comment.
@@ -1769,7 +1805,7 @@ seam, credit in a header comment.
 | swarmvault `packages/engine/src/watch.ts` | the shrink-ratio circuit breaker: refuse a refresh that drops nodes or edges by more than 25% (§6.7) | TypeScript; the mechanism is a comparison and a threshold, perhaps twenty lines in Python |
 | research-hub `authenticity.py` | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | the `requests` import is not the obstacle — our `webapi.py` already does the same work over `urllib` — but it also imports five project modules (`dedup`, `locks`, `search.crossref`, `security`, `utils.doi`), and those are the rewrite |
 
-### 18.4 Tier C — adopt as data
+### 18.5 Tier C — adopt as data
 
 Data outlives code and travels further. Each of these is a table or a corpus rather than a
 program, and each carries its own licence question.
@@ -1791,7 +1827,7 @@ program, and each carries its own licence question.
   tiers, 10 published baselines. Use as an evaluation fixture; vendor no code. This is step 3 of
   §17.5 and the cheapest credibility move available.
 
-### 18.5 Tier D — depend, do not vendor
+### 18.6 Tier D — depend, do not vendor
 
 Real tools doing real work, too large or too external to carry.
 
@@ -1806,7 +1842,7 @@ Real tools doing real work, too large or too external to carry.
 | introfini/ZotSeek | MIT (README + `package.json`) | a Zotero plugin in JavaScript giving local semantic search over the library with a built-in MCP server. Runs inside Zotero, so it is a companion to provision like kepano rather than anything to carry |
 | TonybotNi/ZotLink | MIT (`setup.py`) | saves preprints into Zotero with metadata and PDFs. Imports `bs4`, `playwright`, `requests`, `mcp`, `pydantic`, `dotenv` and `fake_useragent` — the last of those is a posture we would not want anywhere near the evidence path, so: dependency at arm's length, or not at all |
 
-### 18.6 Tier E — pattern only, and why
+### 18.7 Tier E — pattern only, and why
 
 Worth reading, not worth carrying. Each fails a specific test.
 
@@ -1837,7 +1873,7 @@ Worth reading, not worth carrying. Each fails a specific test.
   prompt text bound to its own vocabulary and downstream handoff (`design_brief.md` frontmatter
   carrying `source` and `gap_verdict`); adopting it means adopting that flow (§6.13).
 
-### 18.7 Tier F — do not touch
+### 18.8 Tier F — do not touch
 
 - **anthropics/skills `docx`, `pdf`, `pptx`, `xlsx`** — verified proprietary in the K-Dense mirror:
   `skills/docx/LICENSE.txt` opens "© 2025 Anthropic, PBC. All rights reserved." Check
@@ -1849,9 +1885,9 @@ Worth reading, not worth carrying. Each fails a specific test.
 Everything else once listed here was a detection failure, not a licence failure (§15).
 - **sdyckjq-lab/llm-wiki-skill's `workbench/.claude/skills/{docx,pdf,pptx,xlsx}/`** — the
   repository is MIT, that subtree is not (§15). The trap is the same one K-Dense sets, and it is
-  why test 1 in §18.1 says *verified in the artifact*.
+  why test 1 in §18.2 says *verified in the artifact*.
 
-### 18.8 Mirroring a whole skill
+### 18.9 Mirroring a whole skill
 
 A third adoption mode sits between vendoring a file and taking a dependency: **mirror the skill
 directory verbatim, with its own licence file beside it.** K-Dense demonstrates the mechanism —
@@ -1867,7 +1903,7 @@ The mechanism is right and worth copying:
   and "do not hand-edit; re-vendor to update".
 - Rename only into our namespace, exactly as `paper-lookup` became `find-sources` (§10.2).
 
-This mode sidesteps §18.1's third test, because a skill is self-contained by design — it brings its
+This mode sidesteps §18.2's third test, because a skill is self-contained by design — it brings its
 own prompt, scripts and reference files rather than reaching into a host layout. That widens the
 candidate set considerably now that the licences are established:
 
@@ -1900,7 +1936,7 @@ close call and it is not our judgment call to make differently — it is the tex
 under MIT and comparable terms; for these four, take the dependency through the Services instead
 (anthropics/skills installs as a marketplace plugin), which is the route the licence contemplates.
 
-### 18.9 What this changes about sequencing
+### 18.10 What this changes about sequencing
 
 Tier A now has two halves. The **files** are roughly 1,600 lines of standard-library Python under
 one MIT licence from one donor, filling five listed gaps — the cheapest breadth we will ever
