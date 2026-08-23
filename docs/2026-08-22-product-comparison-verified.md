@@ -533,7 +533,7 @@ own claim except where a file was opened, marked ✓.
 | Orchestra-Research/AI-Research-SKILLs | 11,950 | MIT | 2026-06-16 | *Excluded on inspection* — top-level dirs are `01-model-architecture`, `03-fine-tuning`, `13-mlops`: ML engineering, not literature work ✓ |
 | eugeniughelbur/obsidian-second-brain | 4,152 | MIT | 2026-08-21 | Persistent markdown memory in an Obsidian vault across 7 CLI agents |
 | zLanqing/codex-claude-academic-skills | 3,097 | MIT | 2026-05-14 | Three academic skills covering reading → writing → scientific computing |
-| sdyckjq-lab/llm-wiki-skill | 2,363 | none | 2026-07-27 | Multi-platform Karpathy-wiki skill; no license declared |
+| sdyckjq-lab/llm-wiki-skill | 2,363 | MIT (README) | 2026-07-27 | Multi-platform Karpathy-wiki skill; bundles the four Anthropic document skills under their own proprietary LICENSE.txt |
 | Astro-Han/karpathy-llm-wiki | 1,982 | MIT | 2026-07-23 | Agent-Skills LLM wiki built around raw sources, citations and linting; ships `scripts/check_evidence.py` ✓ |
 | delibae/claude-prism | 1,751 | MIT | 2026-07-28 | Offline-first scientific writing workspace, LaTeX + Python + 100+ local skills ✓ |
 | skyllwt/AutoSci | 1,642 | MIT | 2026-08-19 | Autonomous-science skill suite (paper-plan, experiment eval, rebuttal, refine), i18n ✓ |
@@ -542,7 +542,7 @@ own claim except where a file was opened, marked ✓.
 | lishix520/academic-paper-skills | 1,200 | MIT | 2026-01-04 | Strategist/composer paper-writing framework with quality checkpoints |
 | huytieu/COG-second-brain | 931 | MIT | 2026-08-18 | 33 skills, 10 agents, "V-model verification lifecycle where the worker never grades its own homework" ✓ |
 | kytmanov/obsidian-llm-wiki-local | 810 | MIT | 2026-05-26 | Fully local Karpathy wiki (Ollama) writing an auto-linking Obsidian vault ✓ |
-| jason-effi-lab/karpathy-llm-wiki-vault | 692 | none | 2026-04-13 | Karpathy wiki as a vault; no license declared |
+| jason-effi-lab/karpathy-llm-wiki-vault | 692 | none — all rights reserved | 2026-04-13 | Karpathy wiki as a vault; the only repository in this roster declaring no licence in any form |
 | Ar9av/PaperOrchestra | 644 | NOASSERTION | 2026-08-09 | Skills implementation of Google's PaperOrchestra with benchmark and autoraters |
 | 917Dhj/DeepPaperNote | 630 | MIT | 2026-08-22 | Deep-read one paper → Obsidian-style research notes; ships an `evals/` directory ✓ |
 | trapoom555/claude-paperloom | 94 | Apache-2.0 | 2026-04-28 | Claude Code plugin: self-maintaining research knowledge graph over Obsidian; agents for metadata, finding extraction and finding linking; `init`/`ingest`/`lint`/`query` ✓ |
@@ -557,9 +557,9 @@ level; the rest are metadata-level rows describing what each project is for.
 | Component | Stars | License | Last push | Shape |
 |---|---|---|---|---|
 | 54yyyu/zotero-mcp | 4,751 | MIT | 2026-08-13 | **51 tools** against our 8-method client ✓ |
-| introfini/ZotSeek | 189 | none | 2026-08-21 | Zotero plugin: local semantic search with a built-in MCP server ✓ |
+| introfini/ZotSeek | 189 | MIT (README) | 2026-08-21 | Zotero plugin: local semantic search with a built-in MCP server ✓ |
 | kujenga/zotero-mcp | 161 | MIT | 2026-08-07 | Lightweight Python MCP server over the Zotero API |
-| TonybotNi/ZotLink | 137 | none | 2025-10-12 | MCP server that *saves* preprints into Zotero with metadata and PDFs |
+| TonybotNi/ZotLink | 137 | MIT (README) | 2025-10-12 | MCP server that *saves* preprints into Zotero with metadata and PDFs |
 | PiaoyangGuohai1/cli-anything-zotero | 128 | Apache-2.0 | 2026-07-28 | CLI server for Zotero 7/8/9, 70+ commands ✓ |
 | xunhe730/ZotPilot | 70 | MIT | 2026-06-28 | MCP server plus agent skill |
 | dougwyu/claude-zotero-skills | 34 | NOASSERTION | 2026-08-07 | Skills for Zotero access |
@@ -580,11 +580,11 @@ mentioning citation counts and retraction alerts from Scite's public endpoints w
 | Component | Stars | License | Last push | What it does |
 |---|---|---|---|---|
 | Hylouis233/bibverify | 73 | MIT | 2026-08-22 | DOI-first BibTeX verification as CLI, Python API **and MCP server**: `doi_to_bibtex`, `rank_lookup_sources`, `explain_update_diff`, `verify_bib_file`. It reports *why* a lookup source was chosen; we do not ✓ |
-| PHY041/claude-skill-citation-checker | 29 | none | 2026-03-22 | Claude Code skill verifying `.bib` against CrossRef, Semantic Scholar and OpenAlex ✓ |
+| PHY041/claude-skill-citation-checker | 29 | MIT (README) | 2026-03-22 | Claude Code skill verifying `.bib` against CrossRef, Semantic Scholar and OpenAlex ✓ |
 | tfscharff/doi-mcp | 15 | MIT | 2026-07-30 | MCP server verifying citations against 9 databases ✓ |
 | DeepCitation/deepcitation | 13 | MIT | 2026-08-18 | Citation verification against hallucination |
 | groundlens-dev/groundlens | 7 | Apache-2.0 | 2026-08-22 | Grounding and faithfulness checking of RAG answers against retrieved sources |
-| htlin222/research-guardian-skill | 5 | none | 2026-04-17 | Multi-gate audit of hypotheses, citations, experiments, results and logic fallacies ✓ |
+| htlin222/research-guardian-skill | 5 | MIT (README) | 2026-04-17 | Multi-gate audit of hypotheses, citations, experiments, results and logic fallacies ✓ |
 
 **Vault and bibliography conventions**:
 
@@ -603,7 +603,7 @@ mentioning citation counts and retraction alerts from Scite's public endpoints w
 
 | Component | Stars | License | Coverage |
 |---|---|---|---|
-| cookjohn/cnki-skills | 865 | none | CNKI search, journal browse, PDF download, **export to Zotero** — a Chinese-language corpus our vendored skill does not cover |
+| cookjohn/cnki-skills | 865 | MIT (README) | CNKI search, journal browse, PDF download, **export to Zotero** — a Chinese-language corpus our vendored skill does not cover |
 | cookjohn/gs-skills | 489 | MIT | Google Scholar skills |
 | Agents365-ai/paper-fetch | 184 | MIT | Paper retrieval skill |
 | Agents365-ai/asta-skill | 182 | MIT | Instruction pack wrapping Ai2's Asta MCP server over Semantic Scholar ✓ |
@@ -616,7 +616,7 @@ mentioning citation counts and retraction alerts from Scite's public endpoints w
 |---|---|---|---|
 | PouriaRouzrokh/LatteReview | 119 | NOASSERTION | Python package automating systematic literature review with multi-agent reviewers ✓ |
 | htlin222/prisma-automation | 8 | MIT | Multi-database search, deduplication, screening and **PRISMA flow-diagram generation** ✓ |
-| obra/knowledge-graph | 106 | none | Query and traverse an Obsidian vault as a knowledge graph — semantic search, path finding, community detection, all local ✓ |
+| obra/knowledge-graph | 106 | MIT (README) | Query and traverse an Obsidian vault as a knowledge graph — semantic search, path finding, community detection, all local ✓ |
 | YishenTu/claudian | 14,920 | MIT | Obsidian plugin embedding Claude Code/Codex inside the vault — the inverse integration topology |
 
 ## 8. Tier 3 — informing prior art
@@ -1525,9 +1525,23 @@ proprietary Anthropic LICENSE.txt files.
 **Check the notices: anthropics/skills** ships a separate `THIRD_PARTY_NOTICES.md`; do not assume
 the repository licence covers the document skills.
 
-**No licence declared**: sdyckjq-lab/llm-wiki-skill, jason-effi-lab/karpathy-llm-wiki-vault,
-introfini/ZotSeek, TonybotNi/ZotLink, PHY041/claude-skill-citation-checker,
-htlin222/research-guardian-skill, obra/knowledge-graph.
+**MIT, declared in the README rather than a LICENSE file**: obra/knowledge-graph,
+sdyckjq-lab/llm-wiki-skill, introfini/ZotSeek (also `package.json`), TonybotNi/ZotLink (also
+`setup.py`), PHY041/claude-skill-citation-checker, htlin222/research-guardian-skill,
+cookjohn/cnki-skills. GitHub's licence detector reports `none` for all of these, and an earlier
+draft of this document repeated that. A README heading is a licence grant; the detector's silence
+is not evidence of its absence.
+
+**No licence, anywhere**: jason-effi-lab/karpathy-llm-wiki-vault. No LICENSE file, no manifest
+field, no README statement. That is **all rights reserved**, not public domain — copyright attaches
+automatically and absent an explicit grant there is no permission to copy, modify or redistribute.
+GitHub's Terms of Service permit viewing and forking on GitHub; they do not permit redistribution
+inside an MIT-licensed plugin.
+
+**MIT with a proprietary subtree**: sdyckjq-lab/llm-wiki-skill declares MIT (`package.json`,
+`workbench/LICENSE`, © 2026 Kiro) and bundles the four Anthropic document skills at
+`workbench/.claude/skills/{docx,pdf,pptx,xlsx}/LICENSE.txt`, each opening "© 2025 Anthropic, PBC.
+All rights reserved." The repository licence does not reach them.
 
 ## 16. Searched and not added
 
@@ -1763,6 +1777,7 @@ Real tools doing real work, too large or too external to carry.
 | Hylouis233/bibverify | MIT | a second opinion on a `.bib`, with `rank_lookup_sources` explaining resolver choice — but it duplicates our DOI and metadata legs, so only worth it if that explanation is wanted (§7) |
 | htlin222/prisma-automation | MIT, 8 stars | PRISMA flow-diagram generation, the one piece of systematic-review apparatus that is a discrete artifact rather than a workflow |
 | kepano `defuddle` | MIT | already provisioned by `setup-vault`; the web-capture answer if one is needed |
+| obra/knowledge-graph | MIT (README) | vault-as-knowledge-graph over SQLite with sqlite-vec and FTS5, local embeddings, Louvain communities, betweenness and PageRank, exposed as a CLI and an MCP server with a `prove-claim` skill. Node and TypeScript, so a dependency rather than a vendor target — but the single closest answer to our largest gap (§11, retrieval and graph) |
 
 ### 18.6 Tier E — pattern only, and why
 
@@ -1791,13 +1806,62 @@ Worth reading, not worth carrying. Each fails a specific test.
 - **anthropics/skills `docx`, `pdf`, `pptx`, `xlsx`** — verified proprietary in the K-Dense mirror:
   `skills/docx/LICENSE.txt` opens "© 2025 Anthropic, PBC. All rights reserved." Check
   `THIRD_PARTY_NOTICES.md` before assuming anything about the originals (§6.12, §15).
-- **obra/knowledge-graph** — no licence declared (§15). The vault-as-knowledge-graph idea is good
-  and the code is unusable until that changes.
-- **sdyckjq-lab/llm-wiki-skill, jason-effi-lab/karpathy-llm-wiki-vault, introfini/ZotSeek,
-  TonybotNi/ZotLink, PHY041/claude-skill-citation-checker, htlin222/research-guardian-skill** —
-  no licence declared (§15). Read them; carry nothing.
+- **jason-effi-lab/karpathy-llm-wiki-vault** — no licence in any form, which is all rights
+  reserved rather than public domain (§15). Read it on GitHub; carry nothing.
+- **sdyckjq-lab/llm-wiki-skill's `workbench/.claude/skills/{docx,pdf,pptx,xlsx}/`** — the
+  repository is MIT, that subtree is not (§15). The trap is the same one K-Dense sets, and it is
+  why test 1 in §18.1 says *verified in the artifact*.
 
-### 18.8 What this changes about sequencing
+### 18.8 Mirroring a whole skill
+
+A third adoption mode sits between vendoring a file and taking a dependency: **mirror the skill
+directory verbatim, with its own licence file beside it.** K-Dense demonstrates the mechanism —
+it carries Anthropic's `docx`, `pdf`, `pptx` and `xlsx` skills inside an MIT repository, each
+keeping its own `LICENSE.txt` rather than being relicensed under the host's terms.
+
+The mechanism is right and worth copying:
+
+- Copy the upstream skill directory unchanged — `SKILL.md`, `scripts/`, `references/`, `evals/`.
+- Carry the upstream `LICENSE` beside it, or add one naming the source and terms where upstream
+  declared them in a README.
+- Add the provenance header we already use: source repository, pinned SHA, upstream path, licence,
+  and "do not hand-edit; re-vendor to update".
+- Rename only into our namespace, exactly as `paper-lookup` became `find-sources` (§10.2).
+
+This mode sidesteps §18.1's third test, because a skill is self-contained by design — it brings its
+own prompt, scripts and reference files rather than reaching into a host layout. That widens the
+candidate set considerably now that the licences are established:
+
+| Skill | Repo | Licence | Fills |
+|---|---|---|---|
+| `claude-skill-citation-checker` | PHY041 | MIT (README) | `.bib` against CrossRef, Semantic Scholar and OpenAlex — a second opinion beside our own DOI and metadata legs |
+| `research-guardian` | htlin222 | MIT (README) | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies |
+| `gap-to-topic` | WenyuChiou/research-hub | MIT | the three-gate go/no-go dossier, the one thing upstream of `project` (§6.13) |
+| `cnki-skills`, `gs-skills` | cookjohn | MIT | CNKI and Google Scholar coverage our vendored `find-sources` lacks entirely |
+| `asta-skill` | Agents365-ai | MIT | Ai2's Asta MCP over Semantic Scholar, as an instruction pack |
+| medsci `verify-refs`, `manage-refs`, `check-reporting` | Aperivue | MIT (per-file for checklists, §18.4) | reference audit, rendering and 49 reporting guidelines as whole units rather than script by script |
+
+**Where the pattern stops.** K-Dense and sdyckjq-lab both mirror Anthropic's `docx`, `pdf`, `pptx`
+and `xlsx` skills. Their bundled `LICENSE.txt` addresses that directly, under the heading
+ADDITIONAL RESTRICTIONS — users may not:
+
+> - Extract these materials from the Services or retain copies of these materials outside the
+>   Services
+> - Reproduce or copy these materials, except for temporary copies created automatically during
+>   authorized use of the Services
+> - Create derivative works based on these materials
+> - Distribute, sublicense, or transfer these materials to any third party
+
+and closing: "The receipt, viewing, or possession of these materials does not convey or imply any
+license or right beyond those expressly granted above."
+
+So the mirroring *mechanism* is sound and worth copying, and the two repositories that demonstrate
+it are, on those four directories, doing what their own bundled licence forbids. That is not a
+close call and it is not our judgment call to make differently — it is the text. Mirror freely
+under MIT and comparable terms; for these four, take the dependency through the Services instead
+(anthropics/skills installs as a marketplace plugin), which is the route the licence contemplates.
+
+### 18.9 What this changes about sequencing
 
 Tier A is roughly 1,600 lines of standard-library Python under one MIT licence from one donor,
 filling five gaps this document lists. That is the cheapest breadth we will ever acquire, and it
