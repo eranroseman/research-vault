@@ -13,3 +13,8 @@
 # skip past those lines; a reader chasing the deleted rows follows through to
 # 2330b70, not this entry.
 8e3c25078b4844ee81c5b00c79293ac6521b7f7e
+
+# style: canonicalize the markdown main added after the first churn (2026-08-23).
+# Alignment padding only; verified content-preserving by the table-truncation
+# guard, which the first churn predated.
+4be802c506cb76377f4a7c28a831a27ef2380b80
