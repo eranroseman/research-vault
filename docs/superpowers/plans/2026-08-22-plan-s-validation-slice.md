@@ -62,6 +62,23 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 - [ ] **Falsified-when**: any planted error reaches publish, OR the author routed around the vault. Either falsifies the foundation — record it as such, do not soften it.
 - [ ] Findings log committed to the plugin repo; the vault repo stands on its own.
 
+## Pre-registered friction → adoption map (ruled 2026-08-22)
+
+No third-party skill or module is adopted during the slice — the shipped nine are the instrument, and for two candidates earlier called urgent the gap IS the measurement: the two-session minimum exists to test the continuity machinery (inbox drain, project start/resume, orientation-first), and Phase 4's no-drafting-skill brief tests whether evidence-conventions + project-flow carry drafting. Adopting either mid-slice validates something else.
+
+After the slice, adoption is friction-selected through the existing channel (findings → deepening pass), pre-registered here so interpretation is disciplined, not biased:
+
+| Friction the slice would surface | Candidate it selects |
+|---|---|
+| Orientation breaking down across ~10 synthesis pages (Phases 2, 4) | claude-obsidian wiki-retrieve/wiki-query, or obra/knowledge-graph |
+| Drafting friction in Phase 4 | K-Dense scientific-writing |
+| Cold resume genuinely failing at Phase 4→5 | the pedrohcgs continuity cluster (now properly conditional) |
+| Log or index scale in a two-session run | claude-obsidian wiki-fold |
+| Search coverage gaps in Phase 3 | cookjohn cnki-skills, gs-skills |
+| Submission friction in Phase 6 | medsci sync-submission |
+
+No friction observed = no adoption; the map never becomes a shopping list. **gap-to-topic is excluded from the map and decided on merits (ruled 2026-08-22): not adopted** — it gates whether a question is worth asking, the slice's question is already chosen, so no slice evidence can bear on it; and question-selection sits upstream of the harness boundary (the harness begins at framing a chosen question, spec §7). An upstream workflow choice, not a harness gap — this also resolves its two-tier contradiction in the adoption plan (review cluster 6).
+
 ## Self-Review (at authoring)
 
 - This is the plan that can fail the whole foundation — its value is honest findings, not a clean run. The falsified-when clause is load-bearing; an executor who smooths over friction to reach a brief has inverted the plan.
