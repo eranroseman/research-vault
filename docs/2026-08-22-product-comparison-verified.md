@@ -851,6 +851,27 @@ Our 1,330 tests prove the checks behave as specified; nothing measures how many 
 they catch. This measures exactly that, and its sub-test decomposition is close enough to our check
 decomposition that a per-class catch rate is a realistic output rather than an aspiration.
 
+**Its headline result is aimed at the class of thing we are.** The paper behind it —
+*HALLMARK: Diagnosing Three Failure Modes in LLM Citation Verifiers*, arXiv 2607.18360, abstract
+retrieved 2026-08-22 — reports:
+
+> Across the benchmark one result is consistent: the false-positive rate, not recall, decides
+> whether a verifier is deployable. […] at a venue-realistic base rate, the order-of-magnitude
+> spread in false-positive rates (FPRs) — not recall — governs whether a verifier is [deployable].
+> […] agentic lookups buy recall but inflate false positives.
+
+Every design decision recorded in §4 optimises against the *other* error. Fail-closed at publish,
+UNREACHABLE holds the gate, four states so an outage can never read as a pass — all of it is built
+so a fabrication is not missed. We have never measured, and nowhere reason about, our
+false-positive rate, and two of our tolerances are unevidenced knobs on exactly that dial: the
+`fuzzy-quote` threshold at 0.90 and the metadata-match comparison.
+
+This matters for §17 and not only for §11. Our differentiator is that the gate is armed by the
+harness rather than by an operator's flag (§12). That is an advantage only while the false-positive
+rate is low enough that a person leaves it armed. If it is not, we have built the thing this paper
+identifies as undeployable, and every competitor's opt-in `--strict` starts to look less like
+timidity and more like a considered response to the same evidence.
+
 ### 8.5 Closed products
 
 **Elicit, scite, llmwikis.org** and **hesreallyhim/awesome-claude-code** have no inspectable
@@ -2217,6 +2238,11 @@ what a re-run should actually re-check, so the next pass is an update rather tha
 - **Do not trust a licence detector.** §1 records how that failed and what probe replaced it.
 - **Do not re-read a product exhaustively to confirm a mechanism this document already cites by
   file and line.** Re-read when the claim is load-bearing and the repo has moved.
+- **Validate a probe against a known positive before trusting its negative.** This happened twice.
+  The licence detector missed seven README grants (§1). Later, an arXiv existence check returned
+  NOT FOUND for four cited papers — and for *Attention Is All You Need* — because the query used
+  `http://`, which 301-redirects, without following it. Both papers and licences existed. A probe
+  that cannot find something you know is there cannot tell you anything is absent.
 - **Do not search only repository indexes.** Six citation verifiers in our exact niche —
   `bibtex-updater`, `harcx`, CiteVerifier, `hallucinator`, and two paper algorithms — were found in
   HALLMARK's baseline registry, not by 30 GitHub searches, because they ship on PyPI or as paper
@@ -2235,3 +2261,36 @@ Named here so a re-run starts from the gaps rather than from the beginning:
 - No product's test suite was run. Every capability claim in this document is what the artifact
   says it does, not what it was observed doing — the single largest epistemic limit here, and the
   one that a benchmark like HALLMARK (§18.5) would start to close for our side at least.
+
+---
+
+## 20. The dimension this comparison never entered
+
+Everything in Parts II and III compares this harness against *products*. It never compares it
+against *what the field knows*. That is a blind spot rather than a scope decision, and it surfaced
+only at the end, from a comment inside someone else's lint.
+
+There is an active literature on exactly our problem. Four papers, all verified to exist by
+identifier on 2026-08-22:
+
+| Paper | Identifier | Why it bears on us |
+|---|---|---|
+| *HALLMARK: Diagnosing Three Failure Modes in LLM Citation Verifiers* | arXiv 2607.18360 | benchmarks the class of tool we are, and finds the false-positive rate — not recall — decides deployability (§8.4) |
+| *LLM hallucinations in the wild: Large-scale evidence from non-existent citations* | arXiv 2605.07723 | the base-rate evidence our gate's tolerances should be tuned against; cited inside Imbad0202's three-layer citation lint as its design motivation (§6.2) |
+| *HalluCiteChecker: A Lightweight Toolkit for Hallucinated Citation Detection* | arXiv 2604.26835 | title-centric fuzzy matching, ported as a HALLMARK baseline (§7) |
+| *CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content* | arXiv 2602.15871 | cascading CrossRef-then-Semantic-Scholar verification, ported as a HALLMARK baseline (§7) |
+
+The gap this exposes is not bibliographic. Our thresholds are unevidenced. The `fuzzy-quote`
+boundary sits at 0.90, the factcheck cap at 30, the publish gate holds on UNREACHABLE — each is a
+defensible choice and none is a measured one. A literature that reports base rates and
+false-positive spreads is the thing that would turn those from conventions into calibrated
+settings, and this document, which is otherwise strict about evidence, quietly exempted our own
+parameters from that standard.
+
+Reading it is the highest-value research left. It is also the cheapest: four papers, all with
+public abstracts and two with runnable ports already sitting in HALLMARK's baseline directory.
+
+**Two limits that no amount of further reading closes.** No product's test suite was run, so every
+capability claim here is what an artifact says it does (§19.4). And there is no user evidence
+anywhere in this document — §17's positioning judgment rests on a capability landscape and nothing
+else, which is the weakest joint in the whole argument and the one a reader should press first.
