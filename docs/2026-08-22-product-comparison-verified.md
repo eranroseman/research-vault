@@ -814,11 +814,43 @@ property + value + qualifiers + references and one of three ranks — preferred,
 "retrieved", **P1683** "quotation", **P1065** "archive URL". That maps onto our machinery almost
 field for field, and our ADR 0003 is the rule Wikidata runs at roughly a billion statements.
 
-**Micropublications** — Clark, Ciccarese & Goble, *Journal of Biomedical Semantics*, 2014 (title,
-journal and year confirmed live via Crossref for DOI `10.1186/2041-1480-5-28`) — model a Claim
-with a support graph and **challenge** relations, with direct quotations from source text as
-first-class evidence nodes. Our `supports`/`disputes` stance links between claim addresses are
-that model in Obsidian markdown. **Nanopublications** (nanopub.net, reachable) separate assertion,
+**Micropublications** — Clark, Ciccarese & Goble, *Journal of Biomedical Semantics* 2014,
+DOI `10.1186/2041-1480-5-28`, read in full from `sources/`. The model has an explicit **Support
+Graph and Challenge Graph**: representations related to a Claim by the `supports` property, and
+which are elements of that Micropublication, constitute its Support Graph. Its spectrum is the
+part worth borrowing: "the minimal form of a micropublication is a statement with its attribution.
+The maximal form is a statement with its complete supporting argument, consisting of all relevant
+evidence, interpretations, discussion and challenges." Our claim line — statement plus
+`[@citekey, locator]` — is close to the minimal form; our `supports`/`disputes` stance links are
+the first step toward the maximal.
+
+**Intelligence-community analytic and sourcing standards** — ODNI **ICD 203** (analytic standards)
+and **ICD 206** (sourcing requirements), read from `sources/`. This is a professional community's
+answer to our exact problem, written before the LLM era, and it bears on three of our design
+choices.
+
+*It validates the evidence-boundary tag.* ICD 203 requires that a product "properly distinguishes
+between underlying intelligence information and analysts' assumptions and judgments" — products
+"should clearly distinguish statements that convey underlying intelligence information from
+statements that convey assumptions or judgments". Our `quote` / `paraphrase` versus `inference`
+tags are that distinction, made per line and made lintable.
+
+*It indicts our confidence field.* ICD 203 keeps two axes strictly apart: an **expression of
+likelihood** drawn from a closed seven-band vocabulary with stated probability ranges — almost no
+chance 01–05%, very unlikely 05–20%, unlikely 20–45%, roughly even chance 45–55%, likely 55–80%,
+very likely 80–95%, almost certain 95–99% — and a **confidence level** in the judgment itself.
+Mixing rows requires a disclaimer, and a product "must not combine a confidence level and a degree
+of likelihood … in the same sentence". Our `[confidence:: …]` is a single free-ish field with no
+closed vocabulary, no probability anchoring, and no separate likelihood axis at all.
+
+*It names two artifacts we do not produce.* ICD 206 requires sourcing to appear as source reference
+citations, appended reference citations, **source descriptors** and **source summary statements**.
+A source descriptor "describes source qualitative factors germane to specific product judgments,
+or when the time of pertinent information in a source is significantly different from the time of
+publication", and belongs in the body text where the source is cited. A source summary statement
+gives "a holistic assessment of sourcing … strengths and weaknesses of the source base, which
+sources are most important", and its importance "increases with the complexity of a product,
+complexity of the sources, or the number of sources cited". **Nanopublications** (nanopub.net, reachable) separate assertion,
 provenance and publication-info graphs — a distinction we implement without naming: provenance
 *of the claim* is `[@citekey, locator]` plus the evidence-boundary tag, provenance *of the record*
 is `generated: {by, at}` frontmatter plus `verified` events.
@@ -1447,6 +1479,17 @@ link rather than a chain.
 existing one under case-insensitive or Unicode-normalising filesystem rules (§6.4). Our vault is a
 git repository that can be cloned onto macOS or Windows, and we check no such thing.
 
+**Source descriptors and source summary statements.** ICD 206 requires both (§8.3): a per-citation
+qualitative note on source quality carried in the body text, and a holistic per-product assessment
+of the source base naming its strengths, weaknesses and load-bearing sources. We carry a screening
+state and a trust tier per note, both derived from checks, and nothing that says *why this source
+is or is not good for this claim*. The gap is sharpest exactly where ICD 206 says it matters most —
+products with many sources, which is what a synthesis page is.
+
+**A likelihood axis, and a closed vocabulary for it.** ICD 203 separates likelihood from
+confidence, anchors likelihood to seven probability bands, and forbids mixing them in a sentence
+(§8.3). Our `[confidence:: …]` collapses both into one free field on inference claims.
+
 **A measured false-positive rate, and calibration.** HALLMARK ranks verifiers by FPR and
 expected calibration error and argues both decide deployability (§20.1). Every other verifier in
 this document has published numbers on that benchmark; ours has none. We know our checks behave as
@@ -1602,7 +1645,11 @@ Two entries carry qualifications, stated inline rather than deferred.
 - **Per-claim evidence-boundary tags.** `quote` / `paraphrase` / `inference` / `open-question` as a
   required, lintable per-line vocabulary. No comparable tags *epistemic status* per line; K-Dense
   `scientific-writing`'s `[claim:C001] [evidence:E001,E002]` markers are per-line but tag
-  claim-to-evidence linkage, which is a different thing.
+  claim-to-evidence linkage, which is a different thing. *Qualification (§8.3):* the distinction is
+  not novel — ICD 203 has required analysts to separate underlying information from assumptions and
+  judgments since well before this field existed. What is unmatched is enforcing it per line and
+  making it lintable; the idea is borrowed from a community that got there first, and the document
+  should say so.
 - **Block-addressed claim links with typed stance links.** `citekey#^claim-id` with
   `supports`/`disputes` targeting another claim address. The finest provenance found elsewhere is
   hermes's per-paragraph `^[raw/…]` marker, llmwiki's line-range citation and paperclip's `#L45`.
