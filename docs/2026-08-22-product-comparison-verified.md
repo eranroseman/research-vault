@@ -10,9 +10,10 @@ it could replace the harness, replace one component, or only inform its design. 
 the comparison proper — skill by skill, then what we lack, then what only we have, then the
 differences as one table. **Part IV** is the record: corrections this pass forced on this
 repository's earlier notes, and what was deliberately left out. **Part V** is a positioning
-judgment built on all of it, ending in a candidate-by-candidate vendoring list. Parts I–IV are
-evidence; Part V is inference, except section 18, whose licence and dependency facts were checked
-in the artifacts.
+judgment built on all of it, ending in a candidate-by-candidate vendoring list and, in section 20,
+in the one dimension the comparison never entered — what the research literature says about tools
+of this kind. Parts I–IV are evidence; Part V is inference, except sections 18 and 20, whose
+licence, dependency and benchmark figures were checked in the artifacts and papers themselves.
 
 ---
 
@@ -93,7 +94,9 @@ Crossref, the OKF specification repository, and `lychee-action`'s `action.yml` o
 Elicit, scite and llmwikis.org have no inspectable repository and are listed without comparison.
 No product was read exhaustively; reading was targeted at the axes in Part III. Capability lists
 drawn from a product's own skill file or README describe what it claims to do, not measured
-behaviour. Star counts are a distribution signal, not a quality signal. Three claims found in this
+behaviour. Star counts are a distribution signal, not a quality signal. No verifier's error rates were
+measured here, including ours: the detection and false-positive figures in §20 are HALLMARK's,
+reported for its own baselines, and our suite has never been scored against it. Three claims found in this
 repository's notes were **not** re-verifiable in this pass and are therefore absent: pandoc's
 undocumented missing-citekey rendering, Quarto's warning propagation, and JATS4R's severity
 taxonomy. Our own side was measured from source, so its numbers are exact.
@@ -1444,6 +1447,13 @@ link rather than a chain.
 existing one under case-insensitive or Unicode-normalising filesystem rules (§6.4). Our vault is a
 git repository that can be cloned onto macOS or Windows, and we check no such thing.
 
+**A measured false-positive rate, and calibration.** HALLMARK ranks verifiers by FPR and
+expected calibration error and argues both decide deployability (§20.1). Every other verifier in
+this document has published numbers on that benchmark; ours has none. We know our checks behave as
+specified — 1,330 tests say so — and we do not know how often they fire on something correct, nor
+whether our confidence in a finding tracks its truth. For a product whose differentiator is that
+its gate is armed by default, that is the missing number rather than a missing feature.
+
 **Per-finding severity.** medsci grades every finding major or minor and halts only on majors —
 `severity` appears 168 times in `self-review/scripts` alone, and the gate line reads
 `args.strict and n_major` (§6.1). gbrain grades contradictions on a severity rubric (§6.3). Our
@@ -1585,6 +1595,10 @@ Two entries carry qualifications, stated inline rather than deferred.
   it (§6.1); Imbad0202 blocks only under an opt-in strict policy; research-hub gates corpus
   admission rather than the draft (§6.15). The distinction that survives all three is narrow and
   worth stating exactly: **ours is armed by the harness, theirs by the operator.**
+  *Qualification (§20.2):* that is a differentiator only while our false-positive rate is low
+  enough that a person leaves it armed. We have never measured it, and the same literature suggests
+  the competitors' opt-in flags may be a response to that evidence rather than an absence of
+  conviction.
 - **Per-claim evidence-boundary tags.** `quote` / `paraphrase` / `inference` / `open-question` as a
   required, lintable per-line vocabulary. No comparable tags *epistemic status* per line; K-Dense
   `scientific-writing`'s `[claim:C001] [evidence:E001,E002]` markers are per-line but tag
@@ -1788,6 +1802,14 @@ academic research first", the field is crowded and better resourced: Imbad0202 a
 As **the gate layer** — the thing that decides whether work may proceed — the position is real,
 and on the evidence in Part III nobody occupies it.
 
+**Whether it is habitable is a separate question, and §20 opens it.** Part III establishes that no
+competitor gates a draft on per-claim evidence by default. The literature establishes that a
+default-armed gate survives contact with users only if its false-positive rate is low enough that
+they leave it armed, and that at the base rates measured for our corpora the best rule-based
+verifier benchmarked yields one true finding per 27 flags on arXiv and one per 50 on bioRxiv. An
+unoccupied position and a viable one are not the same claim. This verdict asserts the first; the
+second is unmeasured, and §17.5 step 3 is what would settle it.
+
 ### 17.2 The build-versus-adopt binary is false, and this repository already resolved it once
 
 `find-sources` is an adoption: K-Dense's `paper-lookup`, vendored at a pinned SHA with a
@@ -1853,9 +1875,17 @@ still holds.
    `check_claim_fidelity.py` and `_quote_match.py` (§6.1). §10.7 already concedes `factcheck-draft`
    is where we are most clearly behind; these close that gap and *strengthen* the narrow position
    rather than widening scope.
-3. **Run HALLMARK against the deterministic suite** (§8.4): 2,525 labelled entries, 14 hallucination
-   classes, 10 published baselines. A per-class catch rate is the one number no competitor
-   publishes, and §11 records that we have no evaluation instrument at all.
+3. **Run HALLMARK against the deterministic suite** (§8.4, §20). This has moved from a nice-to-have
+   to the step the rest depends on. 2,526 entries, 14 hallucination types, six diagnostic sub-tests
+   per entry — four of which map onto checks we already run — and a baseline registry with a
+   documented dispatch interface, so registering ours is a supported operation rather than a fork.
+   Report **FPR and MCC first**, not detection rate: HALLMARK's central finding is that FPR decides
+   deployability, MCC is prevalence-invariant, and a recall figure quoted alone is the number its
+   three failure modes exist to warn about. Then extrapolate against Zhao et al.'s measured
+   prevalences — 0.39% arXiv, 0.27% PMC, 0.21% bioRxiv — rather than the benchmark's 2%, because
+   those are the corpora a knowledge-harness vault is actually built from (§20.1).
+   Split the report by leg: the closed-universe checks and the open-registry ones are different
+   instruments and §20.2 predicts they will score differently.
 4. **Vendor rather than rebuild** anything breadth-shaped, following the `find-sources` pattern —
    pinned SHA, header-only provenance additions, re-vendor to update. Section 18 works that
    instruction into a candidate-by-candidate list.
@@ -2028,8 +2058,9 @@ program, and each carries its own licence question.
   portfolio is predatory. Verified: it currently holds **two entries**, so the value is the
   mechanism and the inclusion rule, not the table. Ours would need its own curation, and the
   config-extension point research-hub provides is the right shape.
-- **rpatrik96/hallmark** — MIT, 2,525 labelled entries, 14 hallucination classes, 3 difficulty
-  tiers, 10 published baselines. Use as an evaluation fixture; vendor no code. This is step 3 of
+- **rpatrik96/hallmark** — MIT, 2,526 labelled entries (826 valid, 1,246 hallucinated, plus a
+  454-entry held-out split), 14 hallucination types, 3 difficulty tiers, a baseline registry of
+  19+ variants. Use as an evaluation fixture; vendor no code. This is step 3 of
   §17.5 and the cheapest credibility move available.
 
 ### 18.6 Tier D — depend, do not vendor
@@ -2216,7 +2247,7 @@ what a re-run should actually re-check, so the next pass is an update rather tha
 | Mechanisms — gates, schemas, provenance units | slow | only worth re-reading when a repo's changelog says the relevant subsystem moved |
 | Our own side | every commit | measured from source; re-run the counts rather than copying them forward |
 
-### 19.2 The four things worth watching
+### 19.2 The five things worth watching
 
 1. **Aperivue/medsci-skills.** Named in §17.7 as the likeliest to close our window. The specific
    trigger is a hook: it has none today (`.claude-plugin/` holds only `marketplace.json`), so its
@@ -2227,7 +2258,12 @@ what a re-run should actually re-check, so the next pass is an update rather tha
 3. **atomicstrata/llm-wiki-compiler.** The only comparable that enforces at the write path and
    measures citation quality. Its OKF bundle support and ours are the same standard from opposite
    ends (§8.3); an import path either way is the interoperability event to watch for.
-4. **anthropics/skills.** The document renderers sit behind terms that forbid redistribution
+4. **The citation-verification literature.** Four papers sit in `sources/` and this document read
+   them once (§20). The field is moving — HALLMARK is versioned and CI-tested against new models,
+   and its baseline registry grew to 19+ variants. A re-run should check whether the FPR-decides-
+   deployability result survives replication, and whether anyone has published a rule-based
+   verifier below the .09 conservative reference.
+5. **anthropics/skills.** The document renderers sit behind terms that forbid redistribution
    (§18.9). A licence change there would move rendering from Tier F to a marketplace dependency
    and settle the submission-output question in one step.
 
