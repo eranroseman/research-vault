@@ -8,6 +8,11 @@ Every component named below was inspected during the 2026-08-22 product survey. 
 verified then, and marked **[F]** where a file was opened and **[M]** where the row rests on
 repository metadata and the project's own description.
 
+**knowledge-harness and Memoria are excluded from the assembly.** Both are in-house, and using
+either as a component would answer a different question than the one asked. Where a design of
+theirs is the best available answer to a problem, it is named as **in-house prior art** and marked
+as such — never counted as something the assembly gets for free.
+
 ## 1. The honest reading of the constraint
 
 "Third-party modules only" cannot mean *no code written*. Three things resist sourcing, and naming
@@ -96,8 +101,10 @@ results because "Semantic Scholar throttling collapses their effective coverage 
 
 | Capability | Component | Licence | Notes |
 |---|---|---|---|
-| Retraction, three sources | Memoria's sweep design | MIT **[F]** | Retraction Watch CSV (Crossref-owned, freely distributed, loaded locally and indexed by `OriginalPaperDOI`) → Crossref `update-to[]` **and** `relation.is-retracted-by` → Open Retractions as an independent cross-check. The best design of the three surveyed |
-| Retraction dataset | gitlab.com/crossref/retraction-watch-data | CC **[M]** | the offline, deterministic leg |
+| Retraction dataset, offline leg | gitlab.com/crossref/retraction-watch-data | CC **[M]** | Crossref-owned, freely distributed; loaded locally and indexed by `OriginalPaperDOI` — complete, deterministic, no network at check time. Reachable 2026-08-22 (HTTP 200) |
+| Retraction, live delta | Crossref REST `works/{doi}` | free API **[F]** | `message.update-to[]` filtered to `type == "retraction"`, **plus `message.relation.is-retracted-by`** — the second field is one this project does not currently read. Reachable 2026-08-22 (HTTP 200) |
+| Retraction, non-Crossref coverage | OpenAlex `is_retracted` | free API **[F]** | the cross-check for DataCite and arXiv-registered DOIs |
+| Retraction, independent third source | openretractions.com | — | **not usable.** Unreachable from this machine on 2026-08-22 (HTTP 000) while Crossref and GitLab both returned 200 from the same host, so the probe was validated. Its data is described upstream as ~2020. Listed so a later pass does not rediscover it as an option |
 | Retraction status resolution | Imbad0202 `retraction_status.py` | **CC-BY-NC-4.0** | models reinstatement as a clearing verdict; **study only, cannot be copied** |
 | Citation stance tallies | Scite via zotero-mcp `tools/scite.py` | MIT wrapper **[F]** | supporting / contrasting / mentioning counts, no API key |
 | Venue quality | — | — | **no adoptable component.** paper-qa's `journal_quality.py` needs `anyio`, `httpx`, `pydantic`, `rich` and paperqa internals; the route is the underlying data |
@@ -193,11 +200,19 @@ Which check closes which surface, and at what severity. Three findings constrain
 - Therefore close on **closed-universe checks** — does this citekey exist in the export, does this
   note exist — where a miss is a fact and the false-positive rate is near zero by construction; and
   **warn on open-registry lookups**, where it is not.
-- Pre-register the thresholds. Memoria's `decision_rules.py` is the model: `id / blocker / metric /
-  window / threshold / recommendation / check / status`, written before the evidence arrives, with
-  assessment pure and application human-gated. Two of its seventeen rules instrument gate
-  abandonment directly — *"if skipped, simplify the gate"*, *"any routine push means the policy is
-  wrong"*.
+- Pre-register the thresholds as data. Two third-party components do part of this:
+  llm-wiki-compiler's `.llmwiki/eval/thresholds.yaml` and its fail-closed
+  `.llmwiki/config.json` review policy, where an unknown mode or a corrupt config aborts the
+  compile rather than silently disabling the policy (MIT **[F]**); and the PRISMA protocol
+  templates shipped by Imbad0202 and medsci `fill-protocol`, which carry the domain's own practice
+  of registering a method before collecting the evidence.
+
+  Neither pre-registers the *decision*, only the number. **In-house prior art:** Memoria's
+  `decision_rules.py` does — `id / blocker / metric / window / threshold / recommendation / check /
+  status`, seventeen rules written before their evidence arrives, assessment pure and application
+  human-gated, with two rules instrumenting gate abandonment directly (*"if skipped, simplify the
+  gate"*; *"any routine push means the policy is wrong"*). That shape has no third-party
+  equivalent found, so an assembly either reimplements it or goes without.
 
 ### 3.3 The claim addressing
 
