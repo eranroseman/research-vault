@@ -10,8 +10,62 @@ adoption targets, and the same fact had already needed correcting twice in both 
 them removes the drift by construction rather than by discipline.
 
 The evidence behind every claim here lives in the comparison; this note cites it and does not
-repeat it. Three parts: **why the product has a place** and on what condition, **what is
+repeat it. **Section 0 states why none of it is executable yet** — the harness is mid-build, and
+this plan waits on two plans ahead of it. Three parts after that: **why the product has a place** and on what condition, **what is
 adoptable** and at what tier, and **what changes in this tree** and in what order.
+
+---
+
+## 0. Sequencing — nothing here is executable yet
+
+This plan was written as though it could be acted on. It cannot, and saying why is more useful than
+the plan itself.
+
+**The harness is mid-build.** At the time of writing it is executing **Plan Q**, the dev-quality
+lane: a mutate4py blanket baseline with committed sidecar manifests, an extended ruff rule set, a
+CRAP ceiling, a duplicate gate, canonical-form emitters and a pre-commit orchestration seam. By its
+own scope statement it measures "harness code quality only — nothing here touches the vault's
+publish-gate closing sets." **Plan S**, the validation slice, is sequenced behind it. The slice has
+not run.
+
+Three consequences, in the order they bite.
+
+**Plan Q first, because vendoring during it damages the baseline.** Plan Q commits per-module
+mutation manifests keyed to `ast.unparse()` hashes, and the spec's own timing rule already records
+that renames invalidate them wholesale. Dropping vendored modules into `knowledge_harness/` during
+the blanket run is the same class of event: the new code either sits outside the baseline or forces
+a re-run. Every item in §3.7 waits for Plan Q to land.
+
+**Plan S second, because the slice is the instrument this plan would blind.** The validation slice
+exists to falsify the current design — its stated falsification condition is that the author routes
+around the vault. Replacing `_quote_match`, adding retrieval and mirroring six skills before it runs
+changes the system under test, and a slice run against a half-adopted harness answers a question
+nobody asked. During the slice the comparison document is an **input to interpretation**, not a
+to-do list: when a finding says the harness fell short, the comparison's §11 says whether the field
+already solved it.
+
+**This plan third, re-read rather than executed.** Some entries will be answered by what the slice
+finds, others reprioritised, and a few made irrelevant. §1.7 already lists what would change the
+verdict; the slice is the largest single source of that evidence.
+
+### 0.1 One carve-out
+
+`message.relation.is-retracted-by` (§3.6, item 5) is a single additive Crossref field. No rename, no
+new module, no behaviour change to anything Plan Q measures or Plan S tests. It is the only item
+here that is safe to land at any point.
+
+### 0.2 A dependency §3.2 does not name
+
+§3.2 argues that the ownership calculus inverts between code and skills, because **a code fork is
+cheap to hold — tests keep it still — while a skill is prose no test grips**. Plan Q is the thing
+that makes the first half true or false for this codebase: its mutation baseline measures exactly
+which interfaces the tests cannot grip, and its CRAP table names complexity that survives at full
+coverage.
+
+So the asymmetry is currently an assumption with a pending measurement. If Plan Q's survivors
+cluster in the modules a fork would touch, "cheap to hold" is weaker than §3.2 claims and the
+code half of the calculus needs restating. The skills half is unaffected — nothing measures prose
+either way, which is the whole argument.
 
 ---
 
