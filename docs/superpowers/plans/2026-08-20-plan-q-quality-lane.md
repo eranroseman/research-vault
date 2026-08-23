@@ -709,7 +709,7 @@ if __name__ == "__main__":
 Run: `python -m pytest tests/test_mutation_gate.py -q`
 Expected: 6 PASS. Then full suite: `python -m pytest tests -q` — all PASS (452+ at HEAD).
 
-- [ ] **Step 5: Build the contexts DB** (one-time; **re-estimated 2026-08-22: ~35–50 min** — the build runs one isolated coverage session per collected test, and the suite is now 1454 tests, not the 452 the original ~10–15 min figure was measured against; no mutation run)
+- [ ] **Step 5: Build the contexts DB** (one-time; **measured 2026-08-22: ~9–10 min at 1454 tests** — 9m00s and 9m36s over two builds, ~0.37 s per isolated session, mostly thanks to the settle_seconds=0 fix. Supersedes both prior figures: the original ~10–15 min was measured at 452 tests, and the same-day ~35–50 min re-estimate assumed 1.5–2 s per session — wrong in the other direction; no mutation run)
 
 Run: `python -m mutate4py --build-test-contexts .contexts.db --pytest-args 'tests -q -p no:cacheprovider'`
 Expected: `.contexts.db` written (gitignored). **Fallback amended 2026-08-22: if the build degrades or errors, STOP and report — do not proceed to a no-contexts blanket.** Full-suite-per-mutant is no longer the plan's "acceptable one-time ~2.5 h": serial suite is now 78 s, so ~1,250 sites at 4 workers is ~7 h. The contexts DB is load-bearing; a failed build is a finding to hand back, not a degraded mode to absorb silently.
