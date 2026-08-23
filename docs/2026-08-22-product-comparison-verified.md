@@ -10,7 +10,9 @@ it could replace the harness, replace one component, or only inform its design. 
 the comparison proper — skill by skill, then what we lack, then what only we have, then the
 differences as one table. **Part IV** is the record: corrections this pass forced on this
 repository's earlier notes, and what was deliberately left out. **Part V** is a positioning
-judgment built on all of it. Parts I–IV are evidence; Part V is inference.
+judgment built on all of it, ending in a candidate-by-candidate vendoring list. Parts I–IV are
+evidence; Part V is inference, except section 18, whose licence and dependency facts were checked
+in the artifacts.
 
 ---
 
@@ -1642,7 +1644,8 @@ still holds.
    classes, 10 published baselines. A per-class catch rate is the one number no competitor
    publishes, and §11 records that we have no evaluation instrument at all.
 4. **Vendor rather than rebuild** anything breadth-shaped, following the `find-sources` pattern —
-   pinned SHA, header-only provenance additions, re-vendor to update.
+   pinned SHA, header-only provenance additions, re-vendor to update. Section 18 works that
+   instruction into a candidate-by-candidate list.
 
 ### 17.6 Two facts that bear on timing
 
@@ -1671,3 +1674,136 @@ abandoning it.
 - **Deciding the goal is one researcher's working setup rather than a product.** Then the economics
   invert: adopt medsci, keep the gate as a thin plugin over it, and stop building nine skills to
   reach parity with fifty-nine.
+
+---
+
+## 18. Vendoring candidates, gap by gap
+
+Section 17.5 recommends vendoring rather than rebuilding. This section names what to vendor.
+Every candidate below was checked on 2026-08-22 for licence, import surface and coupling; line
+counts and import lists come from the files themselves.
+
+### 18.1 The four tests
+
+A candidate is **adopt-as-is** only if it passes all four. Failing any one moves it down a tier,
+and the tier is the recommendation.
+
+1. **Licence.** Permissive, and verified in the artifact rather than assumed from the repository.
+   K-Dense is MIT at repository level with four proprietary Anthropic skills inside it (§6.12);
+   medsci's checklists carry per-file licences that differ from the repository's (§18.4).
+2. **Self-containment against a zero-dependency core.** Our core imports nothing outside the
+   standard library. A file importing `requests`, `httpx`, `pydantic` or `python-docx` cannot be
+   vendored into it, however good it is.
+3. **Substrate fit.** A file coupled to another project's layout — its registries, its vault
+   resolver, its manifest format — is a rewrite, not an adoption.
+4. **It fills a gap this document lists.** Otherwise it is scope creep with a provenance header.
+
+### 18.2 Tier A — adopt as-is
+
+Permissive, standard-library only, no coupling beyond a same-directory sibling. Vendor exactly as
+`find-sources` was: pinned SHA, comment header, no hand-edits, re-vendor to update.
+
+| Candidate | Lines | Imports | Fills | Note |
+|---|---|---|---|---|
+| medsci `verify-refs/scripts/_quote_match.py` | 172 | `re`, `unicodedata` | token-ordered quote matching where ours ends in a contiguous find (§6.1) | vendored and dropped this session pending a decision on wiring; the pin is recorded in the git history |
+| medsci `manage-refs/scripts/check_citation_keys.py` | 147 | `argparse`, `re`, `sys` | pandoc `[@key]` undefined/unused detection; complements our bibliography-joined `citekey` check | |
+| medsci `manage-refs/scripts/check_reference_duplication.py` | 245 | `+ json`, `zipfile` | duplicate-entry detection, listed as absent from our `citekey` check (§10.6) | |
+| medsci `sync-submission/scripts/cross_document_n_check.py` | 486 | `argparse`, `json`, `re`, `sys` | the same participant count asserted across every document — a cross-artifact consistency class we have none of (§11) | |
+| medsci `version-dataset/scripts/*` | small | `hashlib`, `json`, `argparse`, `pathlib` | deterministic content-hash manifest for a dataset (§11, research-data reproducibility) | closest fit to our existing `fixity-sha256` thinking |
+| medsci `search-lit/scripts/check_doi_record_match.py` | 276 | `urllib`, `csv`, `difflib.SequenceMatcher` | DOI-to-record matching with fuzzy title comparison; overlaps our `metadata` check and may sharpen its tolerance | stdlib networking, same posture as our `webapi.py` |
+| medsci `sync-submission/scripts/check_wordcount_cap.py` | 238 | `+ _yaml_frontmatter` (same dir) | word-count ceilings at submission | vendor the sibling too, as medsci itself does |
+
+`check_xref.py` (740 lines, stdlib) is the largest of these and does manuscript-to-DOCX
+cross-reference QC. It passes all four tests but only becomes useful once we render a DOCX, so it
+belongs behind the rendering decision rather than in front of it.
+
+### 18.3 Tier B — fork a function, not a file
+
+Permissive and stdlib, but coupled to the donor's data shapes. Take the algorithm, write our own
+seam, credit in a header comment.
+
+| Candidate | What to take | Why not as-is |
+|---|---|---|
+| claude-obsidian `claude_obsidian/ledgers.py::_independent_group_count` | union-find collapsing sources that share an origin, content hash or declared independence key, so they cannot corroborate each other (§6.4) | operates on the donor's ledger record shape; the algorithm is about thirty lines and the value is entirely in the idea |
+| medsci `verify-refs/scripts/check_claim_fidelity.py` | the graded-by-checkability probe design: quoted text is decidable, attribution is not, so only the extreme case fires (§10.7) | 644 lines whose CLI takes `--manuscript --fulltext-dir --bib --refmap` — bound to their layout |
+| claude-obsidian `scripts/bm25-index.py` | a pure-stdlib BM25 index in 851 lines, with an honest documented no-op when the optional reranker is absent | imports `claude_obsidian.paths` and `claude_obsidian.transaction`; the retrieval decision is not made anyway (§11) |
+| swarmvault `packages/engine/src/watch.ts` | the shrink-ratio circuit breaker: refuse a refresh that drops nodes or edges by more than 25% (§6.7) | TypeScript; the mechanism is a comparison and a threshold, perhaps twenty lines in Python |
+| research-hub `authenticity.py` | the layered gate shape, and specifically the transient-versus-permanent split that admits under a recheck marker rather than blocking (§6.15) | imports `requests` and five project modules |
+
+### 18.4 Tier C — adopt as data
+
+Data outlives code and travels further. Each of these is a table or a corpus rather than a
+program, and each carries its own licence question.
+
+- **medsci `check-reporting/references/checklists/`** — 49 reporting-guideline checklists, with
+  scripts that are pure stdlib (`argparse`, `csv`, `hashlib`, `json`, `re`, `sys`). The important
+  artifact is `references/LICENSES.md`, which resolves each checklist's licence through the
+  article's Crossref `license` field and the PMC `<license>` element, splits the table into
+  *verified permissive* and the rest, and states the rule plainly: "an absent licence statement is
+  **not** evidence of permissive licensing", noting that several publishers do not release these
+  instruments under an open licence at all. **Vendor only the rows marked verified permissive, and
+  vendor that discipline with them.** This is the best licence hygiene found in the survey.
+- **research-hub `_PREDATORY_DOI_PREFIXES`** — a registrant-prefix denylist sourced from Cabell's
+  and Beall's, cross-checked against Crossref member data, admitting only prefixes whose entire
+  portfolio is predatory. Verified: it currently holds **two entries**, so the value is the
+  mechanism and the inclusion rule, not the table. Ours would need its own curation, and the
+  config-extension point research-hub provides is the right shape.
+- **rpatrik96/hallmark** — MIT, 2,525 labelled entries, 14 hallucination classes, 3 difficulty
+  tiers, 10 published baselines. Use as an evaluation fixture; vendor no code. This is step 3 of
+  §17.5 and the cheapest credibility move available.
+
+### 18.5 Tier D — depend, do not vendor
+
+Real tools doing real work, too large or too external to carry.
+
+| Tool | Licence | Role |
+|---|---|---|
+| microsoft/markitdown | MIT, 175,520 stars | the format-breadth answer if `import-source` ever ingests beyond Zotero; SamurAIGPT already routes through it (§6.10) |
+| pandoc + CSL | GPL, external binary | rendering and citation formatting; medsci `manage-refs` and pedrohcgs `compile-latex` both shell out to it rather than reimplementing |
+| Hylouis233/bibverify | MIT | a second opinion on a `.bib`, with `rank_lookup_sources` explaining resolver choice — but it duplicates our DOI and metadata legs, so only worth it if that explanation is wanted (§7) |
+| htlin222/prisma-automation | MIT, 8 stars | PRISMA flow-diagram generation, the one piece of systematic-review apparatus that is a discrete artifact rather than a workflow |
+| kepano `defuddle` | MIT | already provisioned by `setup-vault`; the web-capture answer if one is needed |
+
+### 18.6 Tier E — pattern only, and why
+
+Worth reading, not worth carrying. Each fails a specific test.
+
+- **Imbad0202, everything** — CC-BY-NC-4.0. The integrity-signal contract, the injection probes,
+  the judge-prompt-version pin and the uncited-assertion detector are all re-derivable and none is
+  copyable (§6.2, §15).
+- **paper-qa `journal_quality.py`** — imports `anyio`, `httpx`, `httpx_aiohttp`, `pydantic`,
+  `rich` and paperqa internals. The venue-quality gap is real; this file is not the route to it.
+- **medsci `manage-refs` rendering scripts** — import `python-docx`; they also vendor their own
+  `_vendor_citation_writer`, so the pattern is confirmed but the code is not portable to a
+  zero-dependency core.
+- **hermes `grounded-citations`** — MIT, and the closest peer to our quote gate, but its ledger
+  exists because web sources have no stable identifier. Our citekey universe already is that
+  ledger (§6.6).
+- **gbrain, swarmvault, llmwiki** — Postgres, a Node toolchain and a compiled-artifact ownership
+  model respectively. Patterns transfer; code does not.
+- **WenyuChiou `gap-to-topic`** — MIT and only 219 lines of SKILL.md plus references, evals and
+  scripts, so it is nearly adoptable. It is listed here rather than in Tier A because a skill is
+  prompt text bound to its own vocabulary and downstream handoff (`design_brief.md` frontmatter
+  carrying `source` and `gap_verdict`); adopting it means adopting that flow (§6.13).
+
+### 18.7 Tier F — do not touch
+
+- **anthropics/skills `docx`, `pdf`, `pptx`, `xlsx`** — verified proprietary in the K-Dense mirror:
+  `skills/docx/LICENSE.txt` opens "© 2025 Anthropic, PBC. All rights reserved." Check
+  `THIRD_PARTY_NOTICES.md` before assuming anything about the originals (§6.12, §15).
+- **obra/knowledge-graph** — no licence declared (§15). The vault-as-knowledge-graph idea is good
+  and the code is unusable until that changes.
+- **sdyckjq-lab/llm-wiki-skill, jason-effi-lab/karpathy-llm-wiki-vault, introfini/ZotSeek,
+  TonybotNi/ZotLink, PHY041/claude-skill-citation-checker, htlin222/research-guardian-skill** —
+  no licence declared (§15). Read them; carry nothing.
+
+### 18.8 What this changes about sequencing
+
+Tier A is roughly 1,600 lines of standard-library Python under one MIT licence from one donor,
+filling five gaps this document lists. That is the cheapest breadth we will ever acquire, and it
+costs one re-vendor obligation per file. Tier C's reporting checklists are the largest single
+capability gain and the one with the most careful licence question already answered for us.
+
+The sequencing implication for §17.5 is that vendoring is not step 4. It is the step that makes
+steps 1 and 2 affordable, because every file in Tier A is breadth we then do not have to build
+while narrowing to the gate.
