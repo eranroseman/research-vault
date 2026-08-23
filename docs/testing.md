@@ -25,6 +25,12 @@ Preference order:
    `curl -s -X POST http://localhost:23119/better-bibtex/json-rpc -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"api.ready","id":1}'`
    Record any newly discovered API fact in `docs/environment.md` with a date.
 
+## The stale-pyc trap (learned 2026-08-22, the hard way)
+
+Verifying a source restore by bytes and by `git status` is NOT sufficient. A same-length edit (`==` → `!=`) reverted within the same second is invisible to file size, to git, and to CPython's timestamp-based `.pyc` validation (mtime + size) — the interpreter keeps running the *mutated* bytecode while `inspect.getsource` shows the correct source. Symptom observed: a valid input returning False, test collection raising, pytest exit 2 cascading across later runs; `find . -name __pycache__ -exec rm -rf {} +` restored 1467 passing.
+
+Rules: (1) never run a code-swap experiment (mutation replay, hot-patch trial) in a tree another run is using; (2) for any such experiment set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` first — that eliminates the class rather than detecting it; (3) if bytecode caching is wanted anyway, PEP 552 hash-based pycs (`compileall --invalidation-mode checked-hash`) validate by source hash and are immune to the mtime/size coincidence.
+
 ## Exemplars
 
 Live test files (`tests/test_*_live.py`) are the copy-from source for new live tests: fixture shapes, settle windows, cleanup discipline. Environment facts (versions, API surfaces, path translation) live in `docs/environment.md` — check it before rediscovering; extend it when a live probe teaches something new.
