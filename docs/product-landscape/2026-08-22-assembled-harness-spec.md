@@ -22,7 +22,7 @@ them first is what makes the rest of this spec worth reading.
 and decides what their output means together. That is not a component; it is the product.
 
 **B. The result contract.** Assembled verifiers do not agree on what an answer is.
-`docs/2026-08-22-product-comparison-verified.md` §18.1 records the decisive case: K-Dense's
+`2026-08-22-product-comparison-verified.md` §18.1 records the decisive case: K-Dense's
 `validate_citations.py` returns `Tuple[bool, Optional[Dict]]` and, on a network failure, returns
 `True` — an outage becomes a pass, because a boolean has nowhere to put *could not run*. Its
 sibling `literature-review` makes the opposite error, returning invalid on an exception. Adopting

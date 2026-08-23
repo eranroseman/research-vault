@@ -4,7 +4,7 @@ Analysis note, 2026-08-22.
 
 ## Why this exists
 
-`docs/2026-08-22-product-comparison-verified.md` compares this harness against 35 external
+`2026-08-22-product-comparison-verified.md` compares this harness against 35 external
 products and asks, in §17, whether it has a place or whether we should adopt an existing
 alternative. It never mentions **Memoria** — `eranroseman/memoria-vault`, the same author's other
 implementation of the same thesis, sitting at `~/memoria-vault`.
