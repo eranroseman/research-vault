@@ -268,6 +268,23 @@ silently promotes it to `HIGH-BLOCK`".
 That is our four-state doctrine written as a versioned schema, and stricter in one respect: we
 fold "the check ran" and "what it found" into a single `Result`, where they separate them.
 
+Three of its lints repay reading directly. `check_v3_7_3_three_layer_citation.py` cites its own
+external motivation — Zhao et al., arXiv:2605.07723 (2026-05), "a corpus-scale audit of LLM
+hallucinations [that] finds the L3 claim-faithfulness gap unaddressed by existing safeguards" — and
+extends citation emission with a structured anchor marker in response. Designing against a named
+paper, in a comment, is a practice worth imitating.
+
+`build_claim_standing_candidate_ledger.py` states its own constraints as an absence list: it "has
+no discovery adapter, transport, model, stance classifier, renderer, ambient clock, retry, or
+overwrite path". A builder that is a pure function over frozen inputs, with **no ambient clock**,
+is replayable and testable by construction; our own code calls `datetime.now` in nine places.
+
+`check_v3_9_4_temporal_verification.py` enforces eight invariants over a temporal sidecar,
+including that a supersession chain has no cycles and that **every date carries a precision and a
+`provenance.method`**. We record update notices bi-temporally, but no date in our vault says how
+precisely it is known or how it was obtained, and we model no supersession chain at all —
+`superseded-by` on a claim is a link, not a validated chain.
+
 Four further mechanisms, all present as scripts: `run_indirect_prompt_injection_probe.py`,
 `run_indirect_prompt_injection_no_call.py`, `check_indirect_prompt_injection_no_call.py` and
 `check_instruction_data_boundary.py` (the untrusted-source boundary is probed and tested, not
@@ -338,6 +355,23 @@ content hash or independence key so they cannot count as independent corroborati
 deterministic answer to corroboration-by-repetition. **`agents/verifier.md`** is a fresh-context,
 read-only verifier subagent (`model: sonnet`, `maxTurns: 35`, tools `Read, Grep, Glob, Bash`) that
 "reports evidence-ranked findings without modifying Git or repository state".
+
+`claude_obsidian/transaction.py` is 4,680 lines and its safety machinery is the part worth
+reading, because we solve the same problems in `hooks/stop_publish_gate.py` and
+`knowledge_harness/gitstate.py` and it has gone further:
+
+- `TransactionConflict.exit_code = 75` — a dedicated exit code meaning *the vault changed
+  underneath you*, distinct from both failure and refusal.
+- `_reject_duplicate_json_keys` and `_strict_json_loads` — a duplicate key in a bundle is rejected
+  rather than last-write-wins, closing a corruption and ambiguity surface most JSON parsing leaves
+  open.
+- `_supports_confined_dirfd`, `_open_parent_directory` and `dir_fd`-scoped `os.mkdir` — writes
+  confined to a directory file descriptor, which is the TOCTOU-safe form of what our
+  `O_NOFOLLOW` plus `fstat`-identity checks achieve for single files.
+- `_portable_name_key`, `_assert_portable_write_path`, `_assert_no_existing_portable_alias` — a
+  guard against two vault paths colliding on a case-insensitive or Unicode-normalising filesystem.
+  We have no equivalent, and our substrate is a git repository that can be cloned onto macOS or
+  Windows.
 
 It has no reference manager and no external-registry verification: its ledgers record what the LLM
 asserted, not what a registry confirmed.
@@ -1378,6 +1412,16 @@ source that must be expunged.
 paste-ready resolutions it never applies (§6.3); swarmvault dashboards them; llmwiki holds
 contradicted pages. We record `disputes` links and a `disputed-claim` check — no probe, no
 severity, no temporal reasoning.
+
+**Date precision and provenance.** Imbad0202's temporal sidecar requires every date to carry a
+precision and the method by which it was obtained, and validates supersession chains for cycles
+(§6.2). Our `accessed`, `retrieved` and notice dates are bare ISO strings: nothing distinguishes a
+date read from a DOI record from one inferred from a filename, and `superseded-by` is an unvalidated
+link rather than a chain.
+
+**Filesystem-portability guards.** claude-obsidian refuses a write whose path would collide with an
+existing one under case-insensitive or Unicode-normalising filesystem rules (§6.4). Our vault is a
+git repository that can be cloned onto macOS or Windows, and we check no such thing.
 
 **Per-finding severity.** medsci grades every finding major or minor and halts only on majors —
 `severity` appears 168 times in `self-review/scripts` alone, and the gate line reads
