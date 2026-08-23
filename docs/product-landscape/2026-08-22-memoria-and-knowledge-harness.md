@@ -38,11 +38,11 @@ and they are narrower than either the wrong claim or its opposite.
 | First commit | 2026-08-16 | 2026-05-27 |
 | Commits | 371 | 1,441 |
 | Core | 26 modules, 9,716 lines | 99 modules, 46,331 lines |
-| Tests | 1,330 collected | 180 files, 90,100 lines |
+| Tests | 1,467 collected | 180 files, 90,100 lines |
 | Status | v0.1.0, unpublished | v0.1-alpha, public repo, published docs site, installers |
 | Distribution | Claude Code plugin | CLI + installer (bash / PowerShell), Obsidian adapter in TypeScript |
 | Platforms | WSL / Linux | Windows 10/11, Ubuntu/Debian, WSL2; macOS explicitly unsupported |
-| Dependencies | standard library only, `pypdf` behind an extra | Python 3.12+, `yaml`, provider keys per flow, Node 22 for the adapter |
+| Dependencies | one pinned runtime dependency (`defusedxml`, admitted by ruling), `pypdf` behind an extra | Python 3.12+, `yaml`, provider keys per flow, Node 22 for the adapter |
 | State | the vault is the state; git only | Markdown plus SQLite plus an append-only journal under `.memoria/` |
 
 Memoria is roughly five times the code, three months older, and shipped in a way this project is

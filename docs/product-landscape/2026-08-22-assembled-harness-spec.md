@@ -271,7 +271,8 @@ three-source retraction sweep design, and a benchmark — none of it written her
 *other people's failure modes already found*: `_quote_match.py` exists because thirteen false
 positives were traced to contiguous-string matching, and that knowledge arrives with the file.
 
-**Costs.** A dependency surface neither existing project has. knowledge-harness is stdlib-only;
+**Costs.** A dependency surface neither existing project has. knowledge-harness carries one pinned
+runtime dependency under a recorded admission ruling;
 Memoria adds `yaml` and provider keys. This assembly adds Node (obra/knowledge-graph),
 `sqlite-vec`, `python-docx`, pandoc as a binary, and several PyPI packages — each with its own
 release cadence, and each a place where a result contract can silently drift.

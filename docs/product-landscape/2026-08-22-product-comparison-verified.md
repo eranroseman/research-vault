@@ -110,8 +110,8 @@ taxonomy. Our own side was measured from source, so its numbers are exact.
 
 | Dimension | Value |
 |---|---|
-| Deterministic core | 26 Python modules, 9,716 lines, zero runtime dependencies (`pypdf` is an optional `pdf` extra) |
-| Tests | 1,330 collected; markers for `live` (running Zotero) and `live_net` (real APIs) |
+| Deterministic core | 26 Python modules, 9,716 lines; **one** pinned runtime dependency — `defusedxml`, admitted 2026-08-20 under the spec §8 discipline because parsing externally-influenced XML is commodity-hard; `pypdf` behind a `pdf` extra |
+| Tests | 1,467 collected; markers for `live` (running Zotero) and `live_net` (real APIs) |
 | Skills | 9 — 7 user-invoked (`disable-model-invocation: true`), 2 model-invocable |
 | Hooks | 2 — PostToolUse lint (warn-only, fail-open, never interrupts); Stop publish gate (armed, fail-closed, bounded at 8 blocks) |
 | CLI verbs | 20 — `probe`, `import-note`, `archive-source`, `staleness`, `backfill-selectors`, `verify`, `factcheck`, `trust-tier`, `arm-publish`, `disarm-publish`, `mark-published`, `mark-parked`, `mark-corrected`, `mark-withdrawn`, `ack`, `finding`, `search-log`, `inbox`, `scaffold`, `doctor` |
@@ -887,7 +887,7 @@ to measure how well tools detect citation hallucinations."
 - Ships `croissant.json`, the ML dataset-metadata standard, and an opt-in `--cache-path` that
   freezes HTTP responses in a SQLite `requests-cache` for reproducible re-runs.
 
-Our 1,330 tests prove the checks behave as specified; nothing measures how many real fabrications
+Our 1,467 tests prove the checks behave as specified; nothing measures how many real fabrications
 they catch. This measures exactly that, and its sub-test decomposition is close enough to our check
 decomposition that a per-class catch rate is a realistic output rather than an aspiration.
 
@@ -1105,7 +1105,7 @@ where planning happens.
 | Skills | 14 | 36 across 5 buckets | 9 |
 | User-invoked (`disable-model-invocation: true`) | **0 of 14** | **24 of 36** | **7 of 9** |
 | Hooks | SessionStart (`startup\|clear\|compact`) | none in-repo | PostToolUse lint, Stop publish gate |
-| Tests | 16 directories incl. per-agent suites | none in-repo | 1,330 Python tests |
+| Tests | 16 directories incl. per-agent suites | none in-repo | 1,467 Python tests |
 
 **superpowers — invocation discipline by rule, and cross-agent conformance testing.** Not one of
 its 14 skills sets `disable-model-invocation`; the discipline comes instead from
@@ -1562,7 +1562,7 @@ landing mid-sentence still breaks it. medsci's token-ordered subsequence match d
 **A measured false-positive rate, and calibration.** HALLMARK ranks verifiers by FPR and
 expected calibration error and argues both decide deployability (§8.5.1). Every other verifier in
 this document has published numbers on that benchmark; ours has none. We know our checks behave as
-specified — 1,330 tests say so — and we do not know how often they fire on something correct, nor
+specified — 1,467 tests say so — and we do not know how often they fire on something correct, nor
 whether our confidence in a finding tracks its truth. For a product whose differentiator is that
 its gate is armed by default, that is the missing number rather than a missing feature.
 
@@ -1816,7 +1816,7 @@ per-agent conformance test suites and second-target build scripts; nvk's `.skill
 per-topic allowlists; llmwiki's Ed25519-signed template distribution; swarmvault's installers for
 40+ agent tools. We ship a plugin manifest and a marketplace entry.
 
-**Evaluation, calibration and benchmarks.** We have 1,330 unit tests and no evaluation harness.
+**Evaluation, calibration and benchmarks.** We have 1,467 unit tests and no evaluation harness.
 llmwiki scores citation coverage, precision and a claim-level citation rate against thresholds
 (§6.5); Imbad0202 ships gold, held-out, calibration and bakeoff sets with a threshold gate (§6.2);
 gbrain ships routing evals for 41 of 71 skills; DeepPaperNote ships `evals/`; and **HALLMARK**
@@ -1879,8 +1879,11 @@ Two entries carry qualifications, stated inline rather than deferred.
   bibliography export and every check join on the Better BibTeX citekey. *Qualification:*
   medsci's `lit-sync` also joins a `.bib`, the Zotero library and an Obsidian vault, so this holds
   as a difference of degree — our checks all key off the citekey — not of kind.
-- **Zero runtime dependencies.** The core is stdlib-only. Every comparable of similar scope pulls a
-  Node or Python dependency tree, and several require Postgres, embeddings or a model provider.
+- **A near-zero dependency surface, held by rule rather than by luck.** The core carries exactly one
+  pinned runtime dependency — `defusedxml`, admitted 2026-08-20 by an explicit contract-match test —
+  and `pypdf` behind an extra. Every comparable of similar scope pulls a Node or Python dependency
+  tree, and several require Postgres, embeddings or a model provider. The differentiator is the
+  admission discipline, not the count: the one dependency that exists has a recorded ruling.
 
 **Not on this list, and formerly claimed:** four-state honesty. Imbad0202's
 `bibliographic_integrity_signals.md` mandates the same doctrine as a versioned schema and goes
