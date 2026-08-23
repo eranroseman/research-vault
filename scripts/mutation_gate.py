@@ -34,9 +34,29 @@ here retries or falls back automatically -- --out-dir's existing resume rule
 already re-runs a recorded failure, so rerunning the same command with
 --max-workers 1 serially re-runs exactly the cap-killed modules.
 
+--exclusions PATH (either mode, default mutation-exclusions.txt at the repo
+root): modules mutate4py 0.1.4 cannot measure AT ALL -- it aborts them
+identically at every worker count, so their "no Survivors: section" is a true
+absence of data, not a report of zero survivors. --update-baseline skips a
+listed module outright (never invoked, no wasted minutes) and still writes the
+baseline from everything else; a non-listed module that fails still blocks the
+write exactly as before -- the list narrows what gets measured, it does not
+loosen the refusal. Gate mode skips a listed CHANGED module the same way,
+rather than let it land in the error bucket above and fail every PR that
+merely touches one of these six for a cause outside the change -- but the skip
+is reported by name and the final "pass" line is qualified when it happens, so
+it can never read as a clean pass. The full exclusion set -- file, class,
+reason -- prints once near the start of every invocation of either mode,
+regardless of whether this run's modules intersect it: a gap you see every
+time stays a gap; a gap in a file becomes furniture.
+
 mutate4py exits 0 even when mutants survive, so pass/fail is parsed from the
 "Survivors:" report section. Baseline keys exclude line numbers on purpose:
-`<relpath>::<func-id>::<mutation>` stays stable across unrelated edits.
+`<relpath>::<func-id>::<mutation>` stays stable across unrelated edits. A
+written baseline may start with a `#`-prefixed line recording which modules
+were excluded when it was built, so the file is self-describing on its own;
+baseline_keys() skips comment and blank lines so that header is never
+mistaken for a key.
 Always invokes mutate4py with --manifest-file (sidecar); the embedded manifest
 mode writes into production source files and is never acceptable here.
 """
@@ -78,7 +98,42 @@ def new_survivors(found: set[str], baseline: set[str]) -> set[str]:
 def baseline_keys(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    return {line for line in path.read_text(encoding="utf-8").splitlines() if line}
+    # "#" is the exclusion-header prefix _baseline_header writes -- skipped here
+    # so a written baseline's own self-description never parses back as a key.
+    return {
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    }
+
+
+def parse_exclusions(path: Path) -> dict[str, tuple[str, str]]:
+    """module -> (trigger class, one-line reason), read from mutation-exclusions.txt.
+    Comment ('#') and blank lines are tolerated by design -- the file is meant to be
+    read by a human without a guide. A missing file returns {} (nothing known to be
+    unmeasurable) rather than erroring: a bad --exclusions path or a checkout that
+    predates this file should degrade to "measure everything", not abort the gate --
+    but that is never silent, since it prints a warning here rather than just
+    returning quietly. A malformed line, by contrast, DOES raise: silently dropping
+    an entry would put back exactly the undetectable hole this whole list exists to
+    close, and a corrupt committed file is a bug worth failing loudly on."""
+    if not path.exists():
+        print(f"[exclusions] WARNING: {path} not found; treating as zero exclusions")
+        return {}
+    exclusions: dict[str, tuple[str, str]] = {}
+    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("::", 2)
+        if len(parts) != 3:
+            raise ValueError(
+                f"{path}:{lineno}: malformed exclusion line (want "
+                f"<module>::<class>::<reason>): {raw!r}"
+            )
+        module, cls, reason = parts
+        exclusions[module] = (cls, reason)
+    return exclusions
 
 
 def changed_modules(base: str, cwd: Path = ROOT) -> list[str]:
@@ -172,8 +227,40 @@ def _run_mutate(
     proc = subprocess.run(
         cmd, capture_output=True, text=True, cwd=ROOT, check=False, env=env
     )
+    _restore_if_left_mutated(relpath)
     sys.stderr.write(proc.stderr)
     return proc.stdout, proc.returncode
+
+
+def _restore_if_left_mutated(relpath: str) -> bool:
+    """Undo a mutation mutate4py did not live long enough to undo. Returns True
+    if it had to act.
+
+    mutate4py writes `<module>.py.bak` before applying a mutant and removes it
+    once the module finishes, so a surviving .bak means the run died mid-mutant
+    and the PRODUCTION SOURCE IS STILL MUTATED. That has already cost this repo a
+    machine: a timeout-killed run left `index += 1` -> `index += 0` in
+    selectors._norm_with_map -- an infinite loop appending to a list -- and the
+    next ordinary `pytest` invocation allocated until the VM died.
+
+    Restores from the .bak rather than from git ON PURPOSE: the .bak is the exact
+    pre-run content whatever it was, so this cannot destroy legitimate uncommitted
+    edits the way `git checkout --` would. Nothing here is silent: an interrupted
+    run that mutated production source is reported every time, because the same
+    condition also means whatever ran in between saw mutated code.
+    """
+    bak = ROOT / f"{relpath}.bak"
+    if not bak.exists():
+        return False
+    target = ROOT / relpath
+    print(
+        f"[restore] {relpath} was left MUTATED by an interrupted run; "
+        f"restoring from {bak.name}",
+        flush=True,
+    )
+    target.write_bytes(bak.read_bytes())
+    bak.unlink()
+    return True
 
 
 def _classify(code: int, memory_cap: str | None) -> str:
@@ -186,6 +273,36 @@ def _classify(code: int, memory_cap: str | None) -> str:
     if memory_cap is not None and code in (137, 143):
         return "memcap"
     return "error"
+
+
+def _print_exclusions(
+    prefix: str, exclusions: dict[str, tuple[str, str]], path: Path
+) -> None:
+    # Unconditional -- called once per invocation regardless of mode, regardless
+    # of whether this run's modules intersect the list, and even at zero
+    # exclusions: "a gap you see every time stays a gap; a gap in a file becomes
+    # furniture." A reader scanning CI output for this run sees the measurement
+    # gap without having to go open mutation-exclusions.txt separately.
+    print(
+        f"{prefix} {len(exclusions)} module(s) excluded (unmeasurable by "
+        f"mutate4py 0.1.4; see {path}):"
+    )
+    for module in sorted(exclusions):
+        cls, reason = exclusions[module]
+        print(f"{prefix}   {module} [{cls}]: {reason}")
+
+
+def _baseline_header(exclusions: dict[str, tuple[str, str]]) -> str:
+    # Written into mutation-baseline.txt itself, not only stdout -- a reader with
+    # only the baseline file open (no run log, no mutation-exclusions.txt beside
+    # it) still cannot mistake a partial baseline for whole-tree coverage. Always
+    # present, even at zero exclusions, so a clean baseline states its own
+    # completeness rather than leaving it to be inferred from an absent header.
+    names = ", ".join(sorted(exclusions)) if exclusions else "none"
+    return (
+        f"# mutation-baseline.txt -- {len(exclusions)} module(s) excluded (see "
+        f"mutation-exclusions.txt), not represented below: {names}\n"
+    )
 
 
 def _record_paths(out_dir: Path, module: str) -> tuple[Path, Path]:
@@ -235,6 +352,12 @@ def main() -> int:
         "--base", default="origin/main", help="gate mode: diff base ref"
     )
     parser.add_argument("--baseline", default=str(ROOT / "mutation-baseline.txt"))
+    parser.add_argument(
+        "--exclusions",
+        default=str(ROOT / "mutation-exclusions.txt"),
+        help="modules mutate4py 0.1.4 cannot measure at all; skipped in both "
+        "modes rather than treated as zero survivors",
+    )
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--max-workers", type=int, default=4)
     parser.add_argument(
@@ -258,6 +381,10 @@ def main() -> int:
 
     extra = ["--test-contexts", args.test_contexts] if args.test_contexts else []
     baseline_path = Path(args.baseline)
+    exclusions_path = Path(args.exclusions)
+    exclusions = parse_exclusions(exclusions_path)
+    prefix = "[baseline]" if args.update_baseline else "[gate]"
+    _print_exclusions(prefix, exclusions, exclusions_path)
 
     if args.update_baseline:
         out_dir = Path(args.out_dir) if args.out_dir else None
@@ -266,6 +393,15 @@ def main() -> int:
         keys: set[str] = set()
         failed: list[tuple[str, str]] = []
         for module in _all_modules():
+            if module in exclusions:
+                # Known-unmeasurable (mutation-exclusions.txt) -- skipped before
+                # ever invoking mutate4py, not merely excluded from the result:
+                # the refusal below exists to catch modules the tool silently
+                # couldn't check, not ones already known and explained not to be
+                # checkable. Contributes nothing to `keys` and nothing to `failed`.
+                cls, reason = exclusions[module]
+                print(f"[baseline] {module}: excluded [{cls}] -- {reason}")
+                continue
             cached = _cached_stdout(out_dir, module) if out_dir is not None else None
             if cached is not None:
                 out, code, cls = cached, 0, "ok"
@@ -320,8 +456,14 @@ def main() -> int:
                     f"{', '.join(error_failed)}"
                 )
             return 1
-        baseline_path.write_text("\n".join(sorted(keys)) + "\n", encoding="utf-8")
-        print(f"[baseline] {len(keys)} survivors written to {baseline_path}")
+        baseline_path.write_text(
+            _baseline_header(exclusions) + "\n".join(sorted(keys)) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            f"[baseline] {len(keys)} survivors written to {baseline_path} "
+            f"({len(exclusions)} module(s) excluded, not measured)"
+        )
         return 0
 
     modules = changed_modules(args.base)
@@ -331,7 +473,20 @@ def main() -> int:
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()
     failed_modules: list[tuple[str, str]] = []
+    excluded_changed: list[str] = []
     for module in modules:
+        if module in exclusions:
+            # Known-unmeasurable module touched by this change. Running mutate4py
+            # on it would only reproduce the same deterministic abort recorded in
+            # mutation-exclusions.txt -- and land it in failed_modules below,
+            # which would fail every PR that so much as touches one of these six
+            # for a cause outside the change (an explicitly rejected policy; see
+            # the --exclusions docstring paragraph). Skipped, but named here and
+            # again below so the run can never be misread as having verified it.
+            cls, reason = exclusions[module]
+            print(f"[gate] {module}: excluded [{cls}] -- {reason}")
+            excluded_changed.append(module)
+            continue
         print(f"[gate] {module}", flush=True)
         out, code = _run_mutate(
             module, args.lcov, extra, args.max_workers, args.memory_cap
@@ -366,6 +521,19 @@ def main() -> int:
         for key in sorted(fresh):
             print(f"  {key}")
         return 1
+    if excluded_changed:
+        # Exit-code decision for an advisory lane: neither "fail every PR that
+        # touches these six" (the tooling defect isn't the change's fault) nor
+        # "pass silently" (that would hide a real coverage gap) is acceptable, so
+        # this exits 0 -- but the pass line itself is never the bare, unqualified
+        # "[gate] pass — no new survivors"; it must name what wasn't measured, so
+        # grepping CI output for a plain pass can't mistake this run for a full one.
+        print(
+            f"[gate] pass — no new survivors, but {len(excluded_changed)} "
+            f"changed module(s) NOT MEASURED (see mutation-exclusions.txt): "
+            f"{', '.join(excluded_changed)}"
+        )
+        return 0
     print("[gate] pass — no new survivors")
     return 0
 

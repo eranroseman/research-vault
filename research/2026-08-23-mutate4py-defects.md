@@ -1,15 +1,17 @@
-# mutate4py 0.1.4 — three defects, two on the parallel worker path, plus a one-line off-by-one
+# mutate4py 0.1.4 — five defects, three on the worker path, plus an off-by-one
 
 ## Summary
 
-Adopting mutate4py 0.1.4 as a pinned mutation-testing dependency surfaced four
-distinct defects over two working sessions. They are reported together
-because they interact: an observability gap (defect 2) is what made an
-intermittent failure (eventually traced to defect 1) take a full working day
-to diagnose, and defects 1 and 3 share the same code path
-(`--max-workers >= 2` worker provisioning). This document covers all four so
-a maintainer reads one account of the tool's session rather than four
-unrelated issues.
+Adopting mutate4py 0.1.4 as a pinned mutation-testing dependency surfaced
+five distinct defects over two working sessions. They are reported
+together because they interact: an observability gap (defect 2) is what made
+an intermittent failure (eventually traced to defects 1 and 5, not one
+mechanism) take a full working day to diagnose, defects 1 and 3 share the
+same code path (`--max-workers >= 2` worker provisioning), and defect 5 —
+found afterward, across three full passes over a 26-module project — touches
+every `--max-workers` value, including 1, rather than being provisioning-
+specific. This document covers all five so a maintainer reads one account of
+the tool's session rather than five unrelated issues.
 
 1. **Memory leak on the parallel path.** `--max-workers >= 2` leaks memory
    inside the worker processes themselves (not by spawning more of them) at
@@ -33,14 +35,25 @@ unrelated issues.
    test selection reads one line off from what coverage.py's own numbits
    encoding stores, at every covered line, causing false "line not covered"
    results and narrowing test selection incorrectly.
+5. **A pytest exit 4 permanently retires the worker instead of classifying
+   the mutant, at every `--max-workers` value including 1.** One mutant
+   whose pytest invocation exits 4 (usage error, before collecting any test)
+   removes its worker from the module's remaining work permanently; enough
+   retirements and the module is reported aborted rather than measured. This
+   is not parallel-specific: at `--max-workers 1` the fleet is a single
+   worker, so one exit 4 aborts the module immediately.
 
-Two of the four (2 and 4) have a venv-local source patch already applied and
+Two of the five (2 and 4) have a venv-local source patch already applied and
 verified in this project's environment, documented in full below — that is
 the part a maintainer can verify fastest, since the fix is a one- or
 two-line diff against the same file this report quotes. Defects 1 and 3 have
 no source-level mitigation recorded here; they were worked around
 operationally (a memory cap plus a serial fallback pass, and pinning
-`--max-workers 1` in CI, respectively).
+`--max-workers 1` in CI, respectively). Defect 5 has neither a source-level
+nor an operational mitigation recorded here: the serial fallback that works
+around defect 1 does not work around defect 5 (see Defect 5's Mitigation
+status), and a local patch was considered and ruled out for a different
+reason (retire-vs-classify is a semantics choice, not a mechanical fix).
 
 ## Environment
 
@@ -152,14 +165,20 @@ same coverage, same host.
 ### What this leak retroactively explains
 
 Before it was identified, the same host had already lost several long
-mutation-testing runs to what looked like a background-process lifetime
-cap (~35 minutes), an intermittent `mutate4py` exit 4 (pytest "usage error —
-before collecting any test", rising in frequency with cumulative work
-across a run), and three outright WSL VM crashes. All of it is consistent
-with one mechanism: memory accumulates until the VM dies, with the visible
-symptom depending on exactly when in that climb the host gave out. Short,
-isolated reproductions of the exit-4 case never triggered it because a
-single module run from a cold tree never reaches the ceiling.
+mutation-testing runs to what looked like a background-process lifetime cap
+(~35 minutes) and three outright WSL VM crashes — both consistent with this
+one mechanism, memory accumulating until the VM dies. A third recurring
+symptom from the same period, an intermittent `mutate4py` exit 4 (pytest
+"usage error — before collecting any test"), was suspected at the time to
+share this cause. It does not, or at least not entirely: Defect 5 below
+identifies an unrelated worker-retirement defect triggered by that same exit
+4, confirmed independently of memory pressure — reproduced on the same
+modules across three full passes, 52 of them under the 8 GB cap described
+above without a single cap kill (see Defect 1's Mitigation status and Defect
+5). Short, isolated reproductions of the exit-4 case never reliably
+triggered either mechanism in isolation: a single module run from a cold
+tree never reaches the memory ceiling, and it may equally not have carried
+the specific mutant that drives a module into Defect 5's retirement path.
 
 ### Mitigation status
 
@@ -169,6 +188,19 @@ path" (worker copy provisioning plus the forking executor together), so
 there was nothing to patch with confidence. It was contained operationally
 in the consuming project's own script: run the parallel path under the
 cgroup cap above, and re-run (serially) whatever module the cap kills.
+
+The cap bounds the leak; it does not fix it, and the two claims must not be
+conflated. Across two full blanket passes over this project's 26-module
+`knowledge_harness/` package — 52 module-runs at `--max-workers 4` under the
+same 8 GB `MemoryMax` cap, on the machine described in the Environment
+section above, running this project's 1467-test suite — the cap produced
+zero cap kills. That is measured evidence the cap is sufficient *under those
+stated conditions*, not evidence the leak is gone: a larger test suite, more
+workers, or a smaller memory ceiling would be expected to re-open it, since
+nothing about the leak's own mechanism (in-process growth inside worker
+processes, ~195 MB/s once running, described above) changed between the
+uncapped run that killed the VM and the 52 capped runs that didn't — only
+the cap did.
 
 ## Defect 2 — pytest output destroyed at the instant of failure
 
@@ -546,9 +578,171 @@ correct formula and its source.
 under `--test-contexts`; the tool's default (no test-context db) coverage
 path does not use this function.
 
+## Defect 5 — a pytest exit 4 permanently retires the worker instead of classifying the mutant, at every `--max-workers` value including 1
+
+### The defect
+
+A mutant whose pytest invocation exits 4 (usage error, before collecting any
+test) permanently retires the worker that ran it: that worker never runs
+another mutant for the rest of the module, and its entire remaining assigned
+share goes unreported. Enough workers retired and the module is reported
+aborted rather than measured. mutate4py retires the WORKER where it should
+classify the MUTANT — the module's fate ends up decided by *when* a worker
+happens to die, not by which mutants it held, and every failing module found
+below has otherwise-unremarkable mutants.
+
+This is exercised at every `--max-workers` value, not only `>= 2`. At
+`--max-workers 1` the fleet is a single worker; one exit 4 retires it and the
+module has none left, so it is reported aborted immediately. `--max-workers
+1` is the natural workaround to suggest for what looks like a parallel-path
+defect (as this one initially appeared to be, alongside defect 1) — the
+evidence below is that it does not work here, because the defect does not
+live on the parallel path specifically.
+
+### Two confirmed trigger classes
+
+- **Class A — a mutant makes test-file module-scope code raise, breaking
+  collection of that file.** Reproduced in isolation for
+  `knowledge_harness/events.py`: mutating line 30 in `_calendar_date`
+  (`...isoformat() == value` → `!= value`) inverts a date-format validator, a
+  valid date is then rejected, and the resulting `ValueError` is raised
+  during test *collection*, not during a test body:
+
+  ```
+  tests/test_events.py:252: in <module>
+      frontmatter.parse(_machine_confirmed_text())[0]["verified"] + ["corrupt"]
+  tests/test_events.py:243: in _machine_confirmed_text
+      text = events.record_pass(text, check, Result.MATCHED, at="2026-08-16")
+  knowledge_harness/events.py:104: in record_pass
+      raise ValueError("verified event at must be a YYYY-MM-DD calendar date")
+  ```
+
+  A sibling mutant on the same function's adjacent line (line 27) does not
+  trigger this path and exits 0 normally — the difference is which line is
+  reached by module-scope code in the test file, not anything about the
+  function generally. `frontmatter.py` fits the same class: 5 collection-time
+  reachers identified in `test_cli_live.py` and `test_events.py`.
+- **Class B — a module-level mutant breaks the module's import outright.**
+  Confirmed for `knowledge_harness/gitstate.py` line 20, `"0" * 40` →
+  `"0" / 40`, a `TypeError` at import time. `gitstate.py` has zero
+  collection-time reachers and 5 module-level mutation sites, so it is class
+  B and not class A.
+
+In both classes the correct behaviour is to classify the *mutant* as killed
+(it did, after all, change the program's observable behaviour and break
+something) and continue the module's remaining sites — not to remove a
+worker's remaining capacity from the module permanently.
+
+### How the mechanism was isolated
+
+Per-worker diagnostic captures (defect 2's patch) keyed each pytest
+invocation to the worker directory that ran it, which let each worker's
+timeline be read out directly rather than inferred:
+
+- `gitstate` (132 selected): worker-1 died on its first assigned mutant, two
+  seconds after priming; workers 2/3/4 then ran normally for another 25
+  minutes. Result: 100 of 132 verdicts reported, with the missing 32 falling
+  at stride 4 (22 gaps of exactly 4) — one worker's proportional share of a
+  4-worker fleet, not a scatter of individually-bad mutants.
+- `events` (69 selected): workers died one at a time, roughly 35 s apart,
+  until all four were gone. Result: 8 of 69 verdicts.
+- `frontmatter` (33 selected): workers 1/2/3 died 2 s after priming; worker-4
+  died one task later. Result: 1 of 33 verdicts.
+
+Every worker's own first call returns exit 5 ("no tests collected") as a
+normal priming step, not a failure — a detail that matters when reading any
+similar per-worker log, since it is easy to mistake for an early death.
+
+Two method notes recorded for anyone repeating this kind of investigation
+against mutate4py's own output:
+
+- **Aborted mutants never print, and module-level sites print with an empty
+  id** (never a distinguishing `module/` prefix). An apparent 100% `func/`
+  prefix across observed output ids is therefore not evidence a module has
+  no module-level sites — the sample is censored twice over. Only
+  mutate4py's own `discover_sites()` enumeration answers that question.
+- **The `--test-contexts` database keys files by absolute path.** A
+  relative-path lookup returns `'file-absent'` for every line, which reads
+  as a corrupt or empty database rather than as a simple wrong-key error.
+
+### Evidence: three full blanket passes over a 26-module project
+
+All three passes ran mutate4py against every module in this project's
+26-module `knowledge_harness/` package, under the 8 GB cgroup cap described
+in Defect 1, using `--out-dir`'s cache/re-run rule (a recorded success is
+skipped on re-run; a recorded failure re-runs).
+
+- **Pass 1** (`--max-workers 4`, cold tree; `.mutate4py/blanket_pass1.log`,
+  6887 s): 26 modules attempted, 15 recorded as failed. 12 of those 15 were
+  not this defect — a controller-side stale-bytecode contamination from an
+  unrelated concurrent experiment in the same working tree poisoned a
+  `.pyc`, and mutate4py's own per-module exit code distinguishes the two
+  causes directly in the log: the 12 contaminated modules recorded
+  `mutate4py exited 1`, while the genuine worker-retirement failures
+  recorded `mutate4py exited 2`. The 3 genuine failures in pass 1 — `events`,
+  `frontmatter`, `gitstate` — are exactly the 3 that pass 2 below confirmed
+  independently, from a clean tree.
+- **Pass 2** (`--max-workers 4`, resumed; `.mutate4py/blanket_pass2.log`,
+  3604 s): 20 ok, 6 error, 0 cap kills. The failing six: `events`,
+  `frontmatter`, `gitstate`, `outcome`, `pathcodec`, `selectors`.
+- **Pass 3** (`--max-workers 1`, serial, resumed;
+  `.mutate4py/blanket_pass3.log`, 1233 s): **the same six failed again,
+  identically**: `events`, `frontmatter`, `gitstate`, `outcome`, `pathcodec`,
+  `selectors`. Retirement happens on the serial path too — retirement scales
+  down to a fleet of one, and one exit 4 leaves that module with zero
+  remaining workers. This is also why the serial failures were fast rather
+  than slow: five of the six aborted after 0–5 mutants rather than running to
+  completion and failing at the end — `events` 2 of 69, `outcome` 5 of 14,
+  and `frontmatter`, `gitstate`, `pathcodec` at 0. `selectors` failed by a
+  different route entirely (its own section below). On this 26-module
+  project, six modules are unmeasurable at this pin, in both parallel and
+  serial.
+
+`outcome` and `pathcodec` were not isolated as thoroughly as `events`,
+`frontmatter`, and `gitstate` above, but fit class B on the same static
+evidence: zero collection-time reachers, and 3 and 1 module-level mutation
+sites respectively — recorded here as class B candidates, not confirmed by
+isolation replay the way `events` and `gitstate` were.
+
+### `selectors.py` — a third, distinct failure mode
+
+`selectors.py` failed differently from the other five, in both pass 2 and
+pass 3: `mutate4py exited -15` (a direct SIGTERM, not the exit 2 of the
+worker-retirement class above). Pass 3's per-module record
+(`.mutate4py/baseline-run/knowledge_harness__selectors.py.exit` = `-15`;
+`...stdout`, 31 verdicts recorded) shows why: `[22/54] timeout line 79 1 ->
+0: func/_norm_with_map` — mutate4py's own mutant timeout fired (default: 10x
+baseline duration) on a runaway mutant, and the process then ended on
+SIGTERM. That is a third failure mode, distinct from both the worker-
+retirement class above and defect 1's memory cap: the memory sampler over
+that run's window (13:25–13:40) reads flat, 16.2–16.5 GB available and
+~103 MB `py_rss`, peaking briefly at 1,988 MB against the 8,192 MB cap — the
+cap demonstrably did not fire, so this is not a mislabeled cap kill.
+
+`selectors.py` is also the one module that neither confirmed trigger class
+above explains: it has zero collection-time reachers **and** zero
+module-level mutation sites, both instruments already run and both negative.
+Reported here as its own named gap rather than folded into "six modules
+failed," because a sixth row inside a count of six disappears — this module's
+failure mechanism specifically remains unexplained.
+
+### Mitigation status
+
+No source-level or venv-side fix is recorded here. A retire-then-classify
+patch was considered and ruled out for a different reason than defects 1 and
+3: correctly classifying a mutant that produced a pytest exit 4 (killed vs.
+incompetent) requires a semantics choice that upstream may resolve
+differently, and a local patch built on this project's own choice would need
+reconciliation at every mutate4py upgrade — unlike the two patches that did
+land (defects 2 and 4), which are both semantics-free. There is also no
+operational workaround recorded here: `--max-workers 1` is a valid
+workaround for defect 1's memory leak specifically, but the pass 3 evidence
+above shows it is not a workaround for this defect — the two are independent
+defects that happen to share the same `--max-workers` flag.
+
 ## Reproduction recipe
 
-All four defects can be reproduced from a project that already has a
+All five defects can be reproduced from a project that already has a
 coverage-instrumented lcov file (`pytest --cov --cov-branch
 --cov-report=lcov:lcov.info`) and a module with a non-trivial number of
 covered mutation sites. This project used `knowledge_harness/selectors.py`:
@@ -597,9 +791,10 @@ Steps:
 
 ### Defect 2 (observability) — reproduce the destruction, not the trigger
 
-Any pytest-side failure during a mutant run (not just this project's
-still-unexplained-in-isolation exit-4) demonstrates the defect: run a
-module under `--max-workers >= 1` and confirm that (a) no pytest
+Any pytest-side failure during a mutant run (not just this project's own
+exit-4, later identified as defect 5's worker-retirement trigger)
+demonstrates the defect: run a module under `--max-workers >= 1` and confirm
+that (a) no pytest
 stdout/stderr for any individual mutant reaches any log the caller can
 read, and (b) if the run is `--max-workers >= 2`, the worker directory for
 a given mutant is already gone by the time any external poll can observe
@@ -632,6 +827,30 @@ the same source file's numbits blob. The tool's answer will read one line
 lower than what the blob actually contains, and will report the real line
 as uncovered (`'line-absent'`) when it is not.
 
+### Defect 5 (worker retirement) — reproduce serially, not only in parallel
+
+Any module whose covered mutants include one that makes pytest exit 4 —
+either class A (a mutant that raises during test-file collection, directly
+or via a module-scope helper) or class B (a module-level mutant that breaks
+the module's own import) — reproduces this. Confirm at two `--max-workers`
+values against the same module:
+
+```
+mutate4py path/to/module.py --max-workers 4 --lcov lcov.info
+mutate4py path/to/module.py --max-workers 1 --lcov lcov.info
+```
+
+Expect both invocations to report the module aborted, not merely slow: the
+parallel run loses one worker's proportional share per exit-4-carrying
+worker (checkable by index — the reported verdict count against the
+selected-site count, and gaps at a stride matching the worker count), and
+the serial run aborts outright, often within the first handful of mutants,
+because the single worker retires on its first exit 4. A module-level class
+B site can be confirmed independently with mutate4py's own
+`discover_sites()` enumeration; a class A site can be confirmed by tracing
+the pytest collection traceback to a helper the test file's own module scope
+calls into.
+
 ## Which defects have a venv-side mitigation recorded here
 
 |  # | Defect | Venv-patched? | Where |
@@ -640,6 +859,7 @@ as uncovered (`'line-absent'`) when it is not.
 | 2 | Pytest output destroyed at failure | **Yes**, 2026-08-23, diagnostic-only | `_forking_executor.py::_run_pytest_output_suppressed` / `_open_diagnostic_capture_fd`; `_cmd.py::run_argv` / `_write_diagnostic_capture` |
 | 3 | `uv` required, no fallback | No — worked around operationally (`--max-workers 1` in CI) | — |
 | 4 | Off-by-one in `_numbits_to_lines` | **Yes**, 2026-08-22, one-line fix | `_test_selection.py::_numbits_to_lines` |
+| 5 | Worker retirement on pytest exit 4, all `--max-workers` values | No — no source-level fix (semantics choice, see Mitigation status) and no operational workaround (defeats the serial fallback used for defect 1) | — |
 
 Defects 2 and 4 are the fastest for a maintainer to verify independently:
 each patch is a small, self-contained diff against a single function, with
@@ -658,12 +878,16 @@ patched file.
   `memlog.tsv` is not known — `01:57:26` is the sampler's last written line,
   not a confirmed death timestamp, and no OS-level crash record survives a
   VM restart (`dmesg` is cleared).
-- Whether every historical intermittent exit-4 this project saw is fully
-  explained by the memory leak, or whether a residual, distinct cause
-  remains, was not re-verified after the leak was identified. The six
-  negative reproductions recorded above were all performed and interpreted
-  before the leak was found, and the leak was accepted as a sufficient
-  explanation for the observed pattern (rising failure frequency with
-  cumulative work, moving stop-site, all six isolated reproductions passing
-  clean) without re-running each prior negative case to confirm the leak
-  specifically, rather than something else, was responsible for each one.
+- Whether every historical intermittent exit-4 this project saw before the
+  memory leak was identified is attributable to the leak, to defect 5's
+  worker-retirement mechanism, or to some mix of the two per incident was not
+  re-verified case by case — the six negative reproductions recorded under
+  defect 2 were all performed and interpreted before either mechanism was
+  understood, and neither was re-run against each specific prior incident to
+  confirm which one (or whether both) applied to it.
+- `selectors.py`'s own failure mechanism was not isolated beyond the two
+  negative results recorded in Defect 5 (zero collection-time reachers, zero
+  module-level mutation sites) plus the mutant-timeout/SIGTERM trace in its
+  per-module log. Whether a slow test, an environment-specific hang, or
+  something else in the mutated function drives the timeout was not chased
+  further.

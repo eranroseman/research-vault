@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import scripts.mutation_gate as mutation_gate
 from scripts.mutation_gate import (
     baseline_keys,
@@ -73,6 +75,20 @@ def test_baseline_missing_file_is_empty(tmp_path: Path):
     assert baseline_keys(tmp_path / "absent.txt") == set()
 
 
+def test_baseline_keys_skips_comment_header(tmp_path: Path):
+    """A written baseline may start with a '#' exclusion header (see
+    _baseline_header) -- it must round-trip as metadata, never as a key."""
+    path = tmp_path / "mutation-baseline.txt"
+    keys = {"b::func/x::1 -> 0", "a::func/y::True -> False"}
+    header = (
+        "# mutation-baseline.txt -- 1 module(s) excluded (see "
+        "mutation-exclusions.txt), not represented below: "
+        "knowledge_harness/gitstate.py\n"
+    )
+    path.write_text(header + "\n" + "\n".join(sorted(keys)) + "\n", encoding="utf-8")
+    assert baseline_keys(path) == keys
+
+
 def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     """The one function deciding whether the gate ever runs must be proven live:
     a wrong pathspec makes the diff silently empty and the gate passes forever."""
@@ -100,11 +116,25 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
 
 
 def _run_baseline(
-    monkeypatch, tmp_path: Path, out_dir: Path, memory_cap: str | None = None
+    monkeypatch,
+    tmp_path: Path,
+    out_dir: Path,
+    memory_cap: str | None = None,
+    exclusions_path: Path | None = None,
 ) -> Path:
     """Shared argv wiring for the --out-dir tests below: --lcov's value is never
-    read (the fake _run_mutate ignores it), so any placeholder string does."""
+    read (the fake _run_mutate ignores it), so any placeholder string does.
+
+    --exclusions defaults to a tmp_path file that is never created, so these
+    tests stay isolated from the real, committed mutation-exclusions.txt at the
+    repo root -- without this override, a fake module name that happens to
+    collide with a genuinely excluded one (e.g. "knowledge_harness/selectors.py",
+    used as the sample module throughout this file) would be silently skipped
+    instead of exercising the code path each test means to hit.
+    """
     baseline_path = tmp_path / "mutation-baseline.txt"
+    if exclusions_path is None:
+        exclusions_path = tmp_path / "absent-exclusions.txt"
     argv = [
         "mutation_gate.py",
         "--update-baseline",
@@ -114,9 +144,31 @@ def _run_baseline(
         str(baseline_path),
         "--out-dir",
         str(out_dir),
+        "--exclusions",
+        str(exclusions_path),
     ]
     if memory_cap is not None:
         argv += ["--memory-cap", memory_cap]
+    monkeypatch.setattr(sys, "argv", argv)
+    return baseline_path
+
+
+def _run_gate(monkeypatch, tmp_path: Path, exclusions_path: Path | None = None) -> Path:
+    """Gate-mode counterpart to _run_baseline, same --exclusions isolation
+    rationale. baseline_path is returned unwritten (a missing baseline means
+    "empty", per baseline_keys()) unless a test writes to it first."""
+    baseline_path = tmp_path / "mutation-baseline.txt"
+    if exclusions_path is None:
+        exclusions_path = tmp_path / "absent-exclusions.txt"
+    argv = [
+        "mutation_gate.py",
+        "--lcov",
+        "unused.info",
+        "--baseline",
+        str(baseline_path),
+        "--exclusions",
+        str(exclusions_path),
+    ]
     monkeypatch.setattr(sys, "argv", argv)
     return baseline_path
 
@@ -331,3 +383,235 @@ def test_run_mutate_disables_bytecode_writing(monkeypatch):
     # Inherited, not replaced: mutate4py resolves its own interpreter and tools
     # through the ambient environment.
     assert "PATH" in seen
+
+
+# --- mutation-exclusions.txt: parsing --------------------------------------
+
+
+def test_parse_exclusions_missing_file_is_empty_with_warning(tmp_path, capsys):
+    """Absent file (bad --exclusions path, or a checkout predating this
+    feature) degrades to zero exclusions rather than aborting either mode --
+    but never silently: a warning is printed, not just an empty dict returned."""
+    result = mutation_gate.parse_exclusions(tmp_path / "absent.txt")
+    assert result == {}
+    assert "WARNING" in capsys.readouterr().out
+
+
+def test_parse_exclusions_tolerates_comments_and_blank_lines(tmp_path: Path):
+    path = tmp_path / "mutation-exclusions.txt"
+    path.write_text(
+        "# header comment\n"
+        "\n"
+        "knowledge_harness/gitstate.py::B::module import breaks\n"
+        "\n"
+        "# trailing comment\n",
+        encoding="utf-8",
+    )
+    assert mutation_gate.parse_exclusions(path) == {
+        "knowledge_harness/gitstate.py": ("B", "module import breaks"),
+    }
+
+
+def test_parse_exclusions_malformed_line_raises(tmp_path: Path):
+    """A corrupt committed file could silently drop a module's excluded status
+    -- exactly the undetectable hole the list exists to close -- so a line that
+    doesn't split into three '::'-separated fields fails loudly instead."""
+    path = tmp_path / "mutation-exclusions.txt"
+    path.write_text("knowledge_harness/gitstate.py::B\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="malformed"):
+        mutation_gate.parse_exclusions(path)
+
+
+def test_committed_exclusions_file_parses_and_names_the_known_six():
+    """Sanity check on the real, repo-root mutation-exclusions.txt (not a
+    fixture): it must parse cleanly under the same parser the gate uses, and
+    must still list the six modules established by investigation -- catches
+    a hand-edit that breaks the format or silently drops an entry."""
+    exclusions = mutation_gate.parse_exclusions(
+        mutation_gate.ROOT / "mutation-exclusions.txt"
+    )
+    assert set(exclusions) == {
+        "knowledge_harness/events.py",
+        "knowledge_harness/frontmatter.py",
+        "knowledge_harness/gitstate.py",
+        "knowledge_harness/outcome.py",
+        "knowledge_harness/pathcodec.py",
+        "knowledge_harness/selectors.py",
+    }
+
+
+# --- mutation-exclusions.txt: --update-baseline -----------------------------
+
+
+def test_excluded_module_is_skipped_and_does_not_block_write(
+    tmp_path: Path, monkeypatch
+):
+    """The whole point of the exclusion list: a module known to be
+    unmeasurable must not be run, and must not count as a failure that blocks
+    the write."""
+    out_dir = tmp_path / "records"
+    out_dir.mkdir()
+    exclusions_path = tmp_path / "mutation-exclusions.txt"
+    exclusions_path.write_text(
+        "knowledge_harness/a.py::A::collection-time reacher, reproduced in isolation\n",
+        encoding="utf-8",
+    )
+    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        assert relpath != "knowledge_harness/a.py", "excluded module must not run"
+        return SAMPLE_OUTPUT, 0
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
+    baseline_path = _run_baseline(
+        monkeypatch, tmp_path, out_dir, exclusions_path=exclusions_path
+    )
+
+    assert mutation_gate.main() == 0
+    written = baseline_path.read_text(encoding="utf-8")
+    # Excluded module never contributed keys -- only b's SAMPLE_OUTPUT did.
+    assert baseline_keys(baseline_path) == parse_survivors(
+        "knowledge_harness/b.py", SAMPLE_OUTPUT
+    )
+    # The exclusion travels into the baseline file itself, not just stdout.
+    assert "knowledge_harness/a.py" in written.splitlines()[0]
+
+
+def test_excluded_module_skip_does_not_mask_a_real_failure(tmp_path: Path, monkeypatch):
+    """Exclusions must not become a general-purpose escape hatch: a module NOT
+    on the list that still fails must block the write exactly as before."""
+    out_dir = tmp_path / "records"
+    out_dir.mkdir()
+    exclusions_path = tmp_path / "mutation-exclusions.txt"
+    exclusions_path.write_text("knowledge_harness/a.py::A::reason\n", encoding="utf-8")
+    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        assert relpath == "knowledge_harness/b.py"
+        return "", 4
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
+    baseline_path = _run_baseline(
+        monkeypatch, tmp_path, out_dir, exclusions_path=exclusions_path
+    )
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+
+
+def test_exclusion_inventory_prints_even_when_empty(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """The announcement is unconditional: it must appear even at zero
+    exclusions, so it can never be read only when there happens to be news."""
+    out_dir = tmp_path / "records"
+    out_dir.mkdir()
+    exclusions_path = tmp_path / "mutation-exclusions.txt"
+    exclusions_path.write_text("# nothing excluded yet\n", encoding="utf-8")
+    module = "knowledge_harness/selectors.py"
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        return SAMPLE_OUTPUT, 0
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
+    _run_baseline(monkeypatch, tmp_path, out_dir, exclusions_path=exclusions_path)
+
+    assert mutation_gate.main() == 0
+    assert "[baseline] 0 module(s) excluded" in capsys.readouterr().out
+
+
+# --- mutation-exclusions.txt: gate mode -------------------------------------
+
+
+def test_gate_reports_excluded_changed_module_without_failing(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Exit-code decision for the advisory lane: an excluded changed module
+    must not fail the gate by itself (the tooling defect isn't the change's
+    fault), but the pass line must name it -- never the bare, unqualified
+    "pass — no new survivors" that would read as a clean verification."""
+    exclusions_path = tmp_path / "mutation-exclusions.txt"
+    exclusions_path.write_text(
+        "knowledge_harness/selectors.py::unexplained::reason\n", encoding="utf-8"
+    )
+    module = "knowledge_harness/selectors.py"
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("excluded module must not be run in gate mode either")
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fail_if_called)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [module])
+    _run_gate(monkeypatch, tmp_path, exclusions_path=exclusions_path)
+
+    assert mutation_gate.main() == 0
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    assert f"[gate] {module}: excluded [unexplained] -- reason" in lines
+    assert "[gate] pass — no new survivors" not in lines
+    assert any(
+        line.startswith("[gate] pass") and "NOT MEASURED" in line for line in lines
+    )
+
+
+def test_gate_still_fails_on_a_fresh_survivor_alongside_an_excluded_module(
+    tmp_path: Path, monkeypatch
+):
+    """Exclusion of one changed module must not blanket-pass the run: a fresh
+    survivor in a different changed, non-excluded module still fails the gate."""
+    exclusions_path = tmp_path / "mutation-exclusions.txt"
+    exclusions_path.write_text(
+        "knowledge_harness/selectors.py::unexplained::reason\n", encoding="utf-8"
+    )
+    excluded = "knowledge_harness/selectors.py"
+    changed = "knowledge_harness/other.py"
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        assert relpath == changed, "excluded module must not run"
+        return SAMPLE_OUTPUT.replace("knowledge_harness/selectors.py", changed), 0
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(
+        mutation_gate, "changed_modules", lambda base: [changed, excluded]
+    )
+    _run_gate(monkeypatch, tmp_path, exclusions_path=exclusions_path)
+
+    assert mutation_gate.main() == 1
+
+
+def test_restore_if_left_mutated_undoes_an_interrupted_runs_mutation(
+    tmp_path, monkeypatch
+):
+    """A signal-killed mutate4py leaves production source MUTATED.
+
+    This is not defensive coding: a timeout-killed run left `index += 1` ->
+    `index += 0` in selectors._norm_with_map, and the next ordinary pytest run
+    allocated until the VM died. The .bak is mutate4py's own pre-mutation copy,
+    so restoring from it -- rather than from git -- cannot destroy legitimate
+    uncommitted edits.
+    """
+    monkeypatch.setattr(mutation_gate, "ROOT", tmp_path)
+    (tmp_path / "knowledge_harness").mkdir()
+    source = tmp_path / "knowledge_harness" / "x.py"
+    source.write_text("index += 0\n", encoding="utf-8")  # the mutant left behind
+    (tmp_path / "knowledge_harness" / "x.py.bak").write_text(
+        "index += 1\n", encoding="utf-8"
+    )
+
+    assert mutation_gate._restore_if_left_mutated("knowledge_harness/x.py") is True
+    assert source.read_text(encoding="utf-8") == "index += 1\n"
+    assert not (tmp_path / "knowledge_harness" / "x.py.bak").exists()
+
+
+def test_restore_if_left_mutated_is_a_noop_after_a_clean_run(tmp_path, monkeypatch):
+    """mutate4py removes the .bak when a module finishes, so no .bak means the
+    source was never left mutated -- and an untouched file must stay untouched."""
+    monkeypatch.setattr(mutation_gate, "ROOT", tmp_path)
+    (tmp_path / "knowledge_harness").mkdir()
+    source = tmp_path / "knowledge_harness" / "x.py"
+    source.write_text("index += 1\n", encoding="utf-8")
+
+    assert mutation_gate._restore_if_left_mutated("knowledge_harness/x.py") is False
+    assert source.read_text(encoding="utf-8") == "index += 1\n"

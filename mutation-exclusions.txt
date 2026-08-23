@@ -1,0 +1,42 @@
+# mutation-exclusions.txt -- modules mutate4py 0.1.4 cannot measure AT ALL.
+#
+# Three full blanket passes (26 modules) established that these six abort
+# identically at --max-workers 4 and at --max-workers 1, and reproduce across
+# a VM restart, a cold tree, a memory cap, and a rebuilt bytecode cache. A
+# mutate4py abort produces no "Survivors:" section, which is indistinguishable
+# from a genuinely clean module -- recording it in mutation-baseline.txt would
+# be an undetectable hole, so scripts/mutation_gate.py skips these modules
+# outright instead (never run, never counted as a failure) in both modes.
+#
+# This list is expected to SHRINK as the upstream defect (reported separately)
+# gets fixed or better understood. It is a record of a measurement gap, not a
+# suppression mechanism -- a module on this list is not "passing", it is "not
+# measured". Removing a line means the module was re-verified to measure
+# cleanly, not that someone got tired of seeing it here.
+#
+# scripts/mutation_gate.py prints this whole list on every run, gate and
+# --update-baseline alike, whether or not that run's modules intersect it --
+# a gap you see every time stays a gap; a gap in a file becomes furniture.
+#
+# Format: <module>::<trigger class>::<one-line reason>
+#   One module per line. Comment ('#') and blank lines are ignored by the
+#   parser (scripts/mutation_gate.py:parse_exclusions). Field separator is
+#   "::", matching the baseline key format ("<relpath>::<func-id>::<mutation>")
+#   already used in mutation-baseline.txt.
+#
+# Trigger classes (established by investigation):
+#   A           a mutant makes test-file module-scope code raise, breaking
+#               collection of that test file entirely
+#   B           a mutant at a module-level (import-time) site breaks the
+#               module's own import
+#   B?          same shape as B (module-level mutation sites, zero
+#               collection-time reachers) but not yet confirmed by an
+#               isolated repro the way gitstate.py was
+#   unexplained matches neither class; still open
+
+knowledge_harness/events.py::A::mutant makes test-file module-scope code raise, breaking collection of that file (reproduced in isolation with a traceback)
+knowledge_harness/frontmatter.py::A::5 collection-time reachers, in test_cli_live.py and test_events.py
+knowledge_harness/gitstate.py::B::module-level mutant breaks the module's import ("0" * 40 -> "0" / 40 raises TypeError at import)
+knowledge_harness/outcome.py::B?::0 collection-time reachers, 3 module-level sites
+knowledge_harness/pathcodec.py::B?::0 collection-time reachers, 1 module-level site
+knowledge_harness/selectors.py::unexplained::0 collection-time reachers and 0 module-level sites; serial run also hit a mutant timeout at [22/54] line 79 func/_norm_with_map
