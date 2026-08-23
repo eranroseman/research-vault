@@ -98,24 +98,25 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     assert changed_modules("main", cwd=repo) == ["knowledge_harness/x.py"]
 
 
-def _run_baseline(monkeypatch, tmp_path: Path, out_dir: Path) -> Path:
+def _run_baseline(
+    monkeypatch, tmp_path: Path, out_dir: Path, memory_cap: str | None = None
+) -> Path:
     """Shared argv wiring for the --out-dir tests below: --lcov's value is never
     read (the fake _run_mutate ignores it), so any placeholder string does."""
     baseline_path = tmp_path / "mutation-baseline.txt"
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "mutation_gate.py",
-            "--update-baseline",
-            "--lcov",
-            "unused.info",
-            "--baseline",
-            str(baseline_path),
-            "--out-dir",
-            str(out_dir),
-        ],
-    )
+    argv = [
+        "mutation_gate.py",
+        "--update-baseline",
+        "--lcov",
+        "unused.info",
+        "--baseline",
+        str(baseline_path),
+        "--out-dir",
+        str(out_dir),
+    ]
+    if memory_cap is not None:
+        argv += ["--memory-cap", memory_cap]
+    monkeypatch.setattr(sys, "argv", argv)
     return baseline_path
 
 
@@ -154,7 +155,7 @@ def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch
 
     calls: list[str] = []
 
-    def fake_run_mutate(relpath, lcov, extra, max_workers):
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
         calls.append(relpath)
         return SAMPLE_OUTPUT, 0
 
@@ -164,9 +165,11 @@ def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch
 
     assert mutation_gate.main() == 0
     assert calls == [module]
+    # Rewritten record now carries the class alongside the code -- proves a
+    # rerun's record isn't just overwritten, but overwritten in the new format.
     assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
         encoding="utf-8"
-    ) == "0"
+    ) == "0 ok"
     assert baseline_keys(baseline_path) == parse_survivors(module, SAMPLE_OUTPUT)
 
 
@@ -179,7 +182,7 @@ def test_out_dir_writes_no_baseline_when_a_module_still_fails(
     out_dir.mkdir()
     modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
 
-    def fake_run_mutate(relpath, lcov, extra, max_workers):
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
         if relpath == "knowledge_harness/a.py":
             return "", 4
         return SAMPLE_OUTPUT, 0
@@ -190,3 +193,115 @@ def test_out_dir_writes_no_baseline_when_a_module_still_fails(
 
     assert mutation_gate.main() == 1
     assert not baseline_path.exists()
+
+
+def test_cap_kill_exit_code_classified_memcap_when_cap_in_effect(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """The load-bearing distinction: a signal-death exit code under an active
+    --memory-cap is a memcap kill, not a generic error."""
+    out_dir = tmp_path / "records"
+    out_dir.mkdir()
+    module = "knowledge_harness/selectors.py"
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        assert memory_cap == "8G"
+        return "", 137
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
+    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir, memory_cap="8G")
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    # The record on disk carries the class, not just the raw exit code.
+    assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
+        encoding="utf-8"
+    ) == "137 memcap"
+    out = capsys.readouterr().out
+    assert "memcap" in out
+    assert "[baseline]   memcap (1)" in out
+
+
+def test_same_exit_code_classified_error_when_no_cap_in_effect(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Without --memory-cap, 137/143 carry no special meaning -- they must land
+    in the same unexplained-error bucket as exit 4, not be mislabelled memcap."""
+    out_dir = tmp_path / "records"
+    out_dir.mkdir()
+    module = "knowledge_harness/selectors.py"
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        assert memory_cap is None
+        return "", 137
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
+    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
+        encoding="utf-8"
+    ) == "137 error"
+    out = capsys.readouterr().out
+    assert "[baseline]   error (1)" in out
+    assert "memcap" not in out
+
+
+def test_summary_reports_memcap_and_error_separately(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Two failure classes in one run must be counted and listed on separate
+    summary lines, never blended into a single failure count."""
+    out_dir = tmp_path / "records"
+    out_dir.mkdir()
+    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+
+    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
+        if relpath == "knowledge_harness/a.py":
+            return "", 137  # memcap, under an active cap
+        return "", 4  # unrelated error
+
+    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
+    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir, memory_cap="512M")
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    out = capsys.readouterr().out
+    assert "[baseline]   memcap (1): knowledge_harness/a.py" in out
+    assert "[baseline]   error (1): knowledge_harness/b.py" in out
+
+
+def test_memory_cap_wraps_invocation_in_systemd_run_scope(monkeypatch):
+    """--memory-cap must actually change the invoked command -- without this,
+    the classification logic above would be trusting a flag that does nothing."""
+    captured: list[list[str]] = []
+
+    class FakeCompletedProcess:
+        stdout = ""
+        stderr = ""
+        returncode = 0
+
+    def fake_subprocess_run(cmd, **kwargs):
+        captured.append(cmd)
+        return FakeCompletedProcess()
+
+    monkeypatch.setattr(mutation_gate.subprocess, "run", fake_subprocess_run)
+
+    mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4, "8G")
+    assert captured[-1][:6] == [
+        "systemd-run",
+        "--user",
+        "--scope",
+        "-p",
+        "MemoryMax=8G",
+        "-p",
+    ]
+    assert "MemorySwapMax=0" in captured[-1]
+    assert sys.executable in captured[-1]
+
+    mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4)
+    assert captured[-1][0] == sys.executable

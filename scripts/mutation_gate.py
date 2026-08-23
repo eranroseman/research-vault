@@ -14,6 +14,26 @@ of restarting from zero. A recorded exit 0 is reused without re-running; anythin
 else -- no record, an unparseable exit file, or a recorded failure -- re-runs and
 overwrites both files. Gate mode ignores this flag.
 
+--memory-cap SIZE (either mode): wraps every mutate4py invocation in
+`systemd-run --user --scope -p MemoryMax=SIZE -p MemorySwapMax=0`, so the kernel
+kills a runaway invocation instead of the whole VM. Measured cause: mutate4py
+0.1.4's parallel path (--max-workers >= 2) leaks ~155 MB/s monotonically and has
+taken down this machine's VM before Linux's OOM-killer could react; the serial
+path (--max-workers 1) is memory-stable but ~9x slower. SIZE is passed through
+verbatim to MemoryMax= -- systemd owns that size grammar, not this script.
+
+Every module gets a failure class, not just a pass/fail bit: "ok" (exit 0),
+"memcap" (killed by the cap -- exit 137/143, and ONLY when --memory-cap was
+actually in effect for that invocation, since those same codes mean something
+else without one), or "error" (any other non-zero exit -- where the
+still-unexplained mutate4py exit-4 cases live). Keeping memcap out of that
+error bucket is deliberate: blending the two would contaminate a clean
+inventory with kills that already have a known cause. The class is recorded
+per module (out-dir record, progress line, end-of-run summary) but nothing
+here retries or falls back automatically -- --out-dir's existing resume rule
+already re-runs a recorded failure, so rerunning the same command with
+--max-workers 1 serially re-runs exactly the cap-killed modules.
+
 mutate4py exits 0 even when mutants survive, so pass/fail is parsed from the
 "Survivors:" report section. Baseline keys exclude line numbers on purpose:
 `<relpath>::<func-id>::<mutation>` stays stable across unrelated edits.
@@ -94,7 +114,11 @@ def _all_modules() -> list[str]:
 
 
 def _run_mutate(
-    relpath: str, lcov: str, extra: list[str], max_workers: int
+    relpath: str,
+    lcov: str,
+    extra: list[str],
+    max_workers: int,
+    memory_cap: str | None = None,
 ) -> tuple[str, int]:
     cmd = [
         sys.executable,
@@ -108,6 +132,25 @@ def _run_mutate(
         str(max_workers),
         *extra,
     ]
+    if memory_cap is not None:
+        # A systemd-run --user --scope cgroup makes the KERNEL enforce the
+        # ceiling, so a leaking invocation gets SIGKILLed on its own instead
+        # of exhausting host RAM+swap and taking the whole VM down with it
+        # (measured: ~155 MB/s leak, VM dead in ~3.5 minutes, unmitigated).
+        # MemorySwapMax=0 forbids paging near the limit -- letting it swap
+        # would just trade a fast kill for a slow one without fixing anything.
+        cmd = [
+            "systemd-run",
+            "--user",
+            "--scope",
+            "-p",
+            f"MemoryMax={memory_cap}",
+            "-p",
+            "MemorySwapMax=0",
+            "--quiet",
+            "--",
+            *cmd,
+        ]
     # check=False deliberate: mutate4py exits 0 even with survivors, so the caller
     # must inspect returncode itself rather than rely on an exception -- a mutate4py
     # invocation that aborts (case-3 test-context disagreement, case-4 no test ran)
@@ -118,6 +161,18 @@ def _run_mutate(
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, check=False)
     sys.stderr.write(proc.stderr)
     return proc.stdout, proc.returncode
+
+
+def _classify(code: int, memory_cap: str | None) -> str:
+    # 137 (SIGKILL) / 143 (SIGTERM) mean "the memory cap killed this" only
+    # when a cap was actually wrapping the invocation -- without one those
+    # are ordinary signal deaths and belong with the rest of the unexplained
+    # non-zero exits (exit 4 among them), not mislabelled as a cap kill.
+    if code == 0:
+        return "ok"
+    if memory_cap is not None and code in (137, 143):
+        return "memcap"
+    return "error"
 
 
 def _record_paths(out_dir: Path, module: str) -> tuple[Path, Path]:
@@ -135,8 +190,11 @@ def _cached_stdout(out_dir: Path, module: str) -> str | None:
     # so the caller re-runs it and _write_record overwrites both files.
     stdout_path, exit_path = _record_paths(out_dir, module)
     try:
-        code = int(exit_path.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
+        # Split rather than a bare int(): a pre-classification record ("0")
+        # and a classed one ("0 ok") both parse this way -- only the leading
+        # code decides cache-hit, so an old record needs no migration.
+        code = int(exit_path.read_text(encoding="utf-8").strip().split()[0])
+    except (OSError, ValueError, IndexError):
         return None
     if code != 0:
         return None
@@ -146,13 +204,13 @@ def _cached_stdout(out_dir: Path, module: str) -> str | None:
         return None
 
 
-def _write_record(out_dir: Path, module: str, out: str, code: int) -> None:
-    # stdout first, exit second: a run killed between the two writes leaves the
-    # .exit file missing, which _cached_stdout treats as no record at all --
+def _write_record(out_dir: Path, module: str, out: str, code: int, cls: str) -> None:
+    # stdout first, exit+class second: a run killed between the two writes leaves
+    # the .exit file missing, which _cached_stdout treats as no record at all --
     # never as a false success or a false failure.
     stdout_path, exit_path = _record_paths(out_dir, module)
     stdout_path.write_text(out, encoding="utf-8")
-    exit_path.write_text(str(code), encoding="utf-8")
+    exit_path.write_text(f"{code} {cls}", encoding="utf-8")
 
 
 def main() -> int:
@@ -175,6 +233,14 @@ def main() -> int:
         help="--update-baseline only: per-module stdout+exit records, for resuming "
         "a killed blanket run instead of restarting it",
     )
+    parser.add_argument(
+        "--memory-cap",
+        default=None,
+        help="wrap every mutate4py invocation in a systemd-run --user --scope "
+        "cgroup with MemoryMax=<this value>, verbatim (systemd's size grammar, "
+        "not parsed here); mutate4py's parallel path leaks memory unboundedly "
+        "without it",
+    )
     args = parser.parse_args()
 
     extra = ["--test-contexts", args.test_contexts] if args.test_contexts else []
@@ -185,36 +251,61 @@ def main() -> int:
         if out_dir is not None:
             out_dir.mkdir(parents=True, exist_ok=True)
         keys: set[str] = set()
-        failed: list[str] = []
+        failed: list[tuple[str, str]] = []
         for module in _all_modules():
             cached = _cached_stdout(out_dir, module) if out_dir is not None else None
             if cached is not None:
-                print(f"[baseline] {module} (cached)", flush=True)
-                out, code = cached, 0
+                out, code, cls = cached, 0, "ok"
             else:
                 print(f"[baseline] {module}", flush=True)
                 out, code = _run_mutate(
-                    module, args.lcov, [*extra, "--mutate-all"], args.max_workers
+                    module,
+                    args.lcov,
+                    [*extra, "--mutate-all"],
+                    args.max_workers,
+                    args.memory_cap,
                 )
+                cls = _classify(code, args.memory_cap)
                 if out_dir is not None:
-                    _write_record(out_dir, module, out, code)
-            if code != 0:
-                # A non-zero exit here means mutate4py aborted before ever printing
-                # a "Survivors:" section (e.g. a test-context/coverage disagreement)
-                # -- parse_survivors would silently return an empty set, identical
-                # to a module that genuinely has zero survivors. Recording that
-                # would write a baseline with an undetectable hole in it, so this
-                # module's (empty, meaningless) contribution is refused outright
-                # rather than merged in.
-                print(f"[baseline] FAIL {module}: mutate4py exited {code}")
-                failed.append(module)
+                    _write_record(out_dir, module, out, code, cls)
+            # Printed once the module's outcome is known -- cached or freshly
+            # run, ok/memcap/error alike -- so the class is visible per module,
+            # not only in the end-of-run summary below.
+            suffix = " (cached)" if cached is not None else ""
+            print(f"[baseline] {module}: {cls}{suffix}")
+            if cls != "ok":
+                # A non-ok exit here means mutate4py aborted before ever printing
+                # a "Survivors:" section (e.g. a test-context/coverage disagreement,
+                # or a memory-cap kill) -- parse_survivors would silently return an
+                # empty set, identical to a module that genuinely has zero
+                # survivors. Recording that would write a baseline with an
+                # undetectable hole in it, so this module's (empty, meaningless)
+                # contribution is refused outright rather than merged in.
+                print(f"[baseline] FAIL {module}: mutate4py exited {code} [{cls}]")
+                failed.append((module, cls))
                 continue
             keys |= parse_survivors(module, out)
         if failed:
+            memcap_failed = [m for m, c in failed if c == "memcap"]
+            error_failed = [m for m, c in failed if c == "error"]
             print(
                 f"[baseline] refusing to write {baseline_path}: "
-                f"{len(failed)} module(s) failed and were excluded: {', '.join(failed)}"
+                f"{len(failed)} module(s) failed and were excluded"
             )
+            # Reported as two separate classes, not one blended count: a
+            # memory-cap kill has a known cause (rerun serially), an error
+            # does not (it's the still-open exit-4 mystery) -- merging them
+            # would make the summary useless for deciding what to do next.
+            if memcap_failed:
+                print(
+                    f"[baseline]   memcap ({len(memcap_failed)}): "
+                    f"{', '.join(memcap_failed)}"
+                )
+            if error_failed:
+                print(
+                    f"[baseline]   error ({len(error_failed)}): "
+                    f"{', '.join(error_failed)}"
+                )
             return 1
         baseline_path.write_text("\n".join(sorted(keys)) + "\n", encoding="utf-8")
         print(f"[baseline] {len(keys)} survivors written to {baseline_path}")
@@ -226,24 +317,36 @@ def main() -> int:
         return 0
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()
-    failed_modules: list[str] = []
+    failed_modules: list[tuple[str, str]] = []
     for module in modules:
         print(f"[gate] {module}", flush=True)
-        out, code = _run_mutate(module, args.lcov, extra, args.max_workers)
+        out, code = _run_mutate(
+            module, args.lcov, extra, args.max_workers, args.memory_cap
+        )
         print(out)
-        if code != 0:
+        cls = _classify(code, args.memory_cap)
+        # Printed once the module's outcome is known, ok/memcap/error alike --
+        # the class is visible per module, not only in the end-of-run summary.
+        print(f"[gate] {module}: {cls}")
+        if cls != "ok":
             # Same reasoning as --update-baseline: an aborted run produces no
             # "Survivors:" section, which parse_survivors cannot tell apart from
             # a clean pass. Treat it as a gate failure rather than silently
             # passing a module the tool never actually finished checking.
-            print(f"[gate] FAIL {module}: mutate4py exited {code}")
-            failed_modules.append(module)
+            print(f"[gate] FAIL {module}: mutate4py exited {code} [{cls}]")
+            failed_modules.append((module, cls))
             continue
         fresh |= new_survivors(parse_survivors(module, out), baseline)
     if failed_modules:
-        print(
-            f"[gate] FAIL — {len(failed_modules)} module(s) errored: {', '.join(failed_modules)}"
-        )
+        memcap_failed = [m for m, c in failed_modules if c == "memcap"]
+        error_failed = [m for m, c in failed_modules if c == "error"]
+        print(f"[gate] FAIL — {len(failed_modules)} module(s) errored:")
+        # Reported as two separate classes -- see --update-baseline for why
+        # blending them would contaminate the still-open exit-4 inventory.
+        if memcap_failed:
+            print(f"[gate]   memcap ({len(memcap_failed)}): {', '.join(memcap_failed)}")
+        if error_failed:
+            print(f"[gate]   error ({len(error_failed)}): {', '.join(error_failed)}")
         return 1
     if fresh:
         print(f"[gate] FAIL — {len(fresh)} new survivor(s):")
