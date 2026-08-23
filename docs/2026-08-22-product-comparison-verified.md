@@ -2289,48 +2289,66 @@ parameters from that standard.
 
 ### 20.1 What the four papers say
 
-**Source depth, stated before the claims.** HALLMARK's numbers below come from its **repository** —
-the README results table, `tables/cross_split_per_tier.csv`, and the metric definitions — which is
-primary artifact data. The other three papers are read **from their abstracts only**, and every
-figure attributed to them here inherits that limit. Abstracts report headline results and omit
-method, so none of the three should be cited in our own work on this basis. Full texts are the
-obvious next step; §20.4 lists what each is needed for.
+All four are in `sources/` and were read as full texts, not abstracts. HALLMARK's figures are
+cross-checked against its repository (`tables/`, README results).
 
-**The base rate (arXiv 2605.07723).** An audit of **111 million references across 2.5 million
-papers** in arXiv, bioRxiv, SSRN and PubMed Central finds a sharp rise in non-existent references
-after LLM adoption, with a conservative estimate of **146,932 hallucinated citations in 2025
-alone**. They cluster in fields with rapid AI uptake, in manuscripts with linguistic signatures of
-AI-assisted writing, and among small and early-career author teams — and they disproportionately
-credit already-prominent and male scholars, so the errors reinforce existing inequities in
-recognition. The line that bears directly on this project: "preprint moderation and journal
-publication processes capture only a fraction of these errors."
+**The base rate (Zhao et al., arXiv:2605.07723).** An audit of 111 million references across 2.5
+million papers. Its method matters for reading its numbers: an Elasticsearch index over Semantic
+Scholar and OpenAlex, string-similarity candidate matching, **95.1% of references matched**, with
+manual validation of unmatched cases and re-routing of the rest. The hallucinated-citation rate as
+of August 2025, by corpus:
 
-**The benchmark (arXiv 2607.18360), with numbers.** HALLMARK's own results table, read from the
-repository:
+| Corpus | Rate | Notes |
+|---|---|---|
+| SSRN | **1.91%** | the outlier |
+| arXiv | **0.39%** | 1.47M preprints, 44.1M citations |
+| PMC | **0.27%** | |
+| bioRxiv | **0.21%** | |
 
-| Verifier | DR | **FPR** | MCC | ECE |
-|---|---|---|---|---|
-| Gemini 2.5 Pro (conservative end) | .46 | **.05** | — | — |
-| Sonnet 4.6, independent | — | — | — | .066 |
-| DeepSeek-V3.2 (aggressive end) | .88 | **.73** | .191 | .331 |
-| GPT-5.1 + CrossRef/OpenAlex/arXiv, agentic | .956 | **.465** | .556 | .165 |
-| `bibtex-updater` — rule-based, co-designed *upper bound* | .946 | **.179** | .781 | .297 |
+The steepest rise begins mid-2024, roughly 18 months after ChatGPT's release, and correlates with
+inferred LLM usage at field level (r = 0.441, P < 0.001) and at paper level.
 
-Three findings, quoted:
+**The three failure modes (Reizinger & Brendel, arXiv:2607.18360), from Table 5.**
 
-1. "Agentic lookups inflate FPR. […] agentic FPR remains ~2.6× higher (0.46 vs. 0.18) **because
-   the harness flags an entry whenever any one of CrossRef/OpenAlex/arXiv returns no match** […]
-   the FPR rise is **harness-driven, not LLM-driven**."
-2. "Base-rate precision collapse. Extrapolated to real-world hallucination rates, every evaluated
-   setting yields roughly **one true hallucination per ten flagged citations**, so
-   recall-optimized verifiers misallocate reviewer effort."
-3. MCC is named the primary metric for cross-split comparison because it is prevalence-invariant —
-   at this base rate, accuracy and F1 mislead.
+1. **Agentic FPR inflation.** "The prompted model tends to flag an entry as soon as *any one*
+   database returns no match, so partial database coverage becomes a false positive." A 5-call
+   budget lifts recall past the conservative rule-based reference (DR .97–.99 vs .87) at **~5× its
+   false-positive rate (.43–.48 vs .09)**, and "the rise comes from the harness (any-no-match
+   flagging), not the base model."
+2. **Base-rate precision drop.** "At a venue-realistic ~2% base rate, precision is governed by FPR
+   (Bayes' rule), not recall. FPR spans .05–.70 across verifiers, a ~7× precision gap: low-FPR
+   tools reach 1-in-6 to 1-in-9 flags, high-FPR open-weight models 1-in-35 to 1-in-39."
+3. **Post-cutoff calibration breakdown.** "Most LLMs over-flag papers past their training cutoff:
+   *flag everything unfamiliar*. On 2024–2025 papers, 8 of 12 LLMs degrade sharply (FPR .59–.89)
+   […] only the two latest-cutoff models hold (Sonnet 4.6 .12, Opus 4.7 .07)." Their conclusion:
+   **"verifier trust expires with the training cutoff."**
 
-**The two tools (arXiv 2604.26835, 2602.15871).** HalluCiteChecker verifies in seconds on a
-laptop, **entirely offline on CPU**, Apache-2.0 on PyPI. CheckIfExist cascades CrossRef →
-Semantic Scholar → OpenAlex with multi-dimensional string-similarity confidence scores. Both were
-built for pre-review and publication checks, which is the boundary our publish gate occupies.
+Also: a **DOI-only baseline catches 27% of hallucinations**. And the .09 figure above is the
+*conservative* configuration; the .179 in the repository README is the aggressive one — the same
+tool, one flag apart, doubling its false-positive rate for five points of recall.
+
+**A number neither paper states.** HALLMARK models a ~2% base rate; Zhao et al. measure 0.21–0.39%
+for every corpus except SSRN. Applying Bayes to both — their detection and false-positive rates
+against their measured prevalences — gives the precision a user would actually see. The arithmetic
+reproduces HALLMARK's own 1-in-6 at 2%, which is the check that it is being applied correctly:
+
+| Verifier | arXiv 0.39% | bioRxiv 0.21% | PMC 0.27% | SSRN 1.91% | HALLMARK's 2% |
+|---|---|---|---|---|---|
+| conservative rule-based (DR .87, FPR .09) | 1-in-27 | 1-in-50 | 1-in-39 | 1-in-6 | 1-in-6 |
+| `bibtex-updater` aggressive (.946/.179) | 1-in-49 | 1-in-91 | 1-in-71 | 1-in-11 | 1-in-10 |
+| agentic GPT-5.1 (.956/.465) | 1-in-125 | 1-in-232 | 1-in-181 | 1-in-26 | 1-in-25 |
+| Gemini 2.5 Pro (.46/.05) | 1-in-29 | 1-in-53 | 1-in-41 | 1-in-7 | 1-in-6 |
+
+Outside SSRN, the deployment picture is five to ten times worse than the paper's headline. On
+arXiv, the best rule-based configuration measured yields **one true hallucination per 27 flags**.
+
+**The two tools.** HalluCiteChecker (Sakai et al., arXiv:2604.26835) takes a PDF —
+`hallucitechecker -i manuscript.pdf` — verifies "within seconds on a standard laptop", "runs
+entirely offline, and requires only a CPU without external communication", Apache-2.0 on PyPI. How
+offline verification is achieved is not stated in the sections read. CheckIfExist (Abbonato,
+arXiv:2602.15871) cascades **CrossRef → Semantic Scholar → OpenAlex** across four modules — LaTeX
+command filtering, BibTeX parsing, multi-source search, presentation — with multi-dimensional
+string-similarity confidence scores.
 
 ### 20.2 What this says about our architecture
 
@@ -2345,6 +2363,19 @@ differentiator. A report with nine false alarms in ten is noisy; **a gate armed 
 nine false alarms in ten stops being armed.** The competitor pattern we characterised as timidity —
 Imbad0202's opt-in strict policy, medsci's `--strict` flag, research-hub's advisory staleness — is
 what a low base rate does to anyone who ships a verifier and watches people use it.
+
+**Failure mode (iii) argues the other way, and it is the one thing here that favours us.** "Verifier
+trust expires with the training cutoff" applies to a *model* judging a citation. A DOI handle
+lookup has no training cutoff; a Crossref record for a 2026 paper resolves exactly as one from
+2006. Every deterministic check in §4 is immune to the failure mode that breaks 8 of 12 LLM
+verifiers. Our `factcheck-draft` is not — it is an LLM pass over claims, and on post-cutoff sources
+it inherits the .59–.89 FPR range directly. That is an argument for keeping it warn-tier, which is
+already the design, and against ever promoting it to a closing check.
+
+**And the base rates make our case harder, not easier.** Zhao et al. measure 0.21–0.39% outside
+SSRN. At arXiv's 0.39%, the best rule-based configuration in the benchmark yields one true
+hallucination per 27 flags. A researcher in biology or medicine — bioRxiv 0.21%, PMC 0.27% — sits
+at 1-in-39 to 1-in-50. Our vault's population is exactly those corpora.
 
 One distinction is genuinely in our favour and worth keeping separate. Our closing set is **mixed**.
 `citekey` and `evidence-layer` test a claim against a *closed universe* — the Better BibTeX export
@@ -2374,20 +2405,20 @@ against the independent tools, not against it.
 Reading these was the highest-value research left, and it was also the cheapest: four abstracts,
 one results table, and a repository already cloned.
 
-### 20.4 What the full texts are needed for
+### 20.4 What remains open after reading them
 
-Abstracts were enough to establish that the finding exists and points at us. They are not enough
-to act on, and each is blocked on something specific:
+The questions §20.4 previously listed are answered: the per-corpus base rates, the third failure
+mode, and the cascade architecture. Three things are not.
 
-| Paper | Identifier | What the abstract does not give |
-|---|---|---|
-| *LLM hallucinations in the wild* | **arXiv:2605.07723** | the **per-year base rate**. It reports 146,932 hallucinated citations in 2025 and 111M references audited across all years, so the denominator for 2025 is missing — and that denominator is what turns §20.2's argument from directional into quantitative. Also wanted: the detection method, since their false-positive rate bounds their own estimate |
-| *HALLMARK* | **arXiv:2607.18360** | the third failure mode. The title promises three; the abstract and README yield two clearly (agentic FPR inflation, base-rate precision collapse). Also wanted: how the venue-realistic base rate was chosen, since the one-in-ten figure depends on it |
-| *HalluCiteChecker* | **arXiv:2604.26835** | how offline CPU-only verification is possible at all. If it ships or builds a local index, that is a design we could adopt for the leg where Semantic Scholar throttling is fatal (§20.3) |
-| *CheckIfExist* | **arXiv:2602.15871** | the cascade's stopping rule and its confidence-score formula — the part that would tell us whether cascading reduces false positives relative to our OR over legs |
-
-A DOI for any of these would resolve the same way; the arXiv identifiers are the ones the citing
-artifacts use.
+- **How HalluCiteChecker verifies offline.** The paper asserts CPU-only, no external communication,
+  seconds per manuscript. The mechanism is not in the sections read. If it ships or builds a local
+  index, that is the answer to the Semantic Scholar throttling ceiling in §20.3.
+- **Our own numbers.** Everything above is other people's verifiers. We have no DR, no FPR, no MCC
+  and no calibration figure, and §17's positioning claim now depends on one of them.
+- **Whether the closed-universe legs behave as argued.** §20.2 claims `citekey` and
+  `evidence-layer` have near-zero false-positive rates by construction. That is an argument from
+  design, not a measurement, and it is exactly the kind of claim this document elsewhere refuses to
+  accept without a probe.
 
 **Two limits that no amount of further reading closes.** No product's test suite was run, so every
 capability claim here is what an artifact says it does (§19.4). And there is no user evidence
