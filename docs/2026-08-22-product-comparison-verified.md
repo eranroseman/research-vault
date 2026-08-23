@@ -41,6 +41,15 @@ Our own side was read from this repository's source only: `knowledge_harness/`, 
 
 Where a claim could not be traced to something actually read, it was cut rather than softened.
 
+**Verifying a negative needs a different method from verifying a positive**, and this pass learned
+it the hard way. Seven repositories were recorded here as carrying no licence because the GitHub
+API reported `none`, no `LICENSE` file existed, and a full-text search for `MIT License` or
+`Permission is hereby granted` found nothing. All seven declare MIT under a README `## License`
+heading containing the bare word — matching none of those probes (§15). A tool's silence is not
+evidence, an absent file is not evidence, and a grep is only as good as the phrasings it
+anticipates. Any "X does not have Y" in this document should be read as "three named probes did
+not find Y", and the probes should be named when the claim matters.
+
 ## 2. Read depth
 
 **Read at file level** (cloned, files opened): Imbad0202/academic-research-skills,
@@ -1190,6 +1199,15 @@ exposing ingest, compile, query, lint, read, status, eval, context-pack, OKF) pl
 SDK; swarmvault `mcp`; research-hub exposes CLI, MCP, REST and a dashboard over the same core;
 zotero-mcp with 51 tools; bibverify's MCP server.
 
+**Skill-routing evaluation.** Our `tests/test_skill_contracts.py` and `test_skill_files.py` check
+that each skill's frontmatter parses, its name matches its directory, its description is non-empty,
+its invocation flags match the ruled control model, and every identifier and skill name it cites
+exists. All of that tests the *file*. None of it tests the *firing*: given a phrasing a researcher
+would actually use, does the right skill activate, and does a user-invoked one correctly stay
+silent. gbrain ships a `routing-eval.jsonl` beside 41 of its 71 skills for exactly this. With seven
+of our nine skills locked to explicit invocation, a routing failure is silent by construction —
+nothing fires, and the person gets generic drafting instead of the harness.
+
 **Evaluation, calibration and benchmarks.** We have 1,330 unit tests and no evaluation harness.
 llmwiki scores citation coverage, precision and a claim-level citation rate against thresholds
 (§6.5); Imbad0202 ships gold, held-out, calibration and bakeoff sets with a threshold gate (§6.2);
@@ -1320,12 +1338,19 @@ metadata-integrity layer, all fail-closed (§6.15). Our admission boundary is de
 but that means nothing mechanical stands between a person and admitting a paper from a predatory
 venue — we run no venue check at any point.
 
-**Quarantine as a recoverable state.** research-hub quarantines rather than rejecting, with
-`list`/`show`/`restore` verbs, a transient-versus-permanent reason split, and a **recheck marker**
-on papers admitted while a check was only transiently unavailable, so a later run re-verifies
-them. Our nearest equivalent is a finding plus an acknowledgment; we have no "admitted pending
-re-verification" state, and an UNREACHABLE result leaves no durable marker that says *come back to
-this one*.
+**Quarantine, and tracking an outage forward.** research-hub quarantines rather than rejecting,
+with `list`/`show`/`restore` verbs, a transient-versus-permanent reason split, and a **recheck
+marker** on papers admitted while a check was only transiently unavailable, so a later run
+re-verifies them.
+
+This one is worth reading as a defect rather than a missing feature. Our doctrine says UNREACHABLE
+is never a verdict, and the whole document treats that as a strength (§12). But saying an outage is
+not a failure only discharges half the obligation: something has to bring the check back. Today an
+UNREACHABLE files a warn-tier finding that ages in the review inbox alongside everything else, and
+nothing marks the note as *re-verify this when the registry is up*. The publish gate does hold on
+UNREACHABLE, so the boundary is safe — but between imports, an outage is indistinguishable from a
+check that ran and passed unless a person reads the queue. research-hub's recheck marker is the
+missing half, and it is roughly a frontmatter field and a `verify` predicate.
 
 **Reporting-guideline compliance.** medsci `check-reporting` covers 49 guidelines with 6 scripts
 and 7 tests, and `fill-protocol`, `fill-icmje-coi` and `write-protocol` sit beside it. We have no
@@ -1950,3 +1975,56 @@ question someone else has already answered carefully.
 The sequencing implication for §17.5 is that vendoring is not step 4. It is the step that makes
 steps 1 and 2 affordable, because every file in Tier A is breadth we then do not have to build
 while narrowing to the gate.
+
+---
+
+## 19. Re-running this comparison
+
+Every fact here carries a date because most of them rot. This section says which rot fastest and
+what a re-run should actually re-check, so the next pass is an update rather than a repeat.
+
+### 19.1 What rots, and how fast
+
+| Fact class | Rate | Re-check by |
+|---|---|---|
+| Star counts, last-push dates | days | one GitHub API sweep over the roster; cheap, and mostly cosmetic — they are a distribution proxy, not a quality signal (§3) |
+| Skill and script counts | weeks | `find … -name SKILL.md \| wc -l` per repo; medsci went from a six-skill reading to a 59-skill survey inside this pass |
+| Licences | slow, but wrong here seven times | the README-heading probe from §1, not the API field |
+| Mechanisms — gates, schemas, provenance units | slow | only worth re-reading when a repo's changelog says the relevant subsystem moved |
+| Our own side | every commit | measured from source; re-run the counts rather than copying them forward |
+
+### 19.2 The four things worth watching
+
+1. **Aperivue/medsci-skills.** Named in §17.7 as the likeliest to close our window. The specific
+   trigger is a hook: it has none today (`.claude-plugin/` holds only `marketplace.json`), so its
+   gates are CLI preflights a person runs. A `plugin.json` with a `Stop` or `PreToolUse` entry
+   would put it on our boundary rather than downstream of it.
+2. **WenyuChiou/research-hub.** Its `authenticity.py` gates corpus admission (§6.15). If it gains
+   per-claim addressing or a draft-time check, the complementary reading in §17.4 stops holding.
+3. **atomicstrata/llm-wiki-compiler.** The only comparable that enforces at the write path and
+   measures citation quality. Its OKF bundle support and ours are the same standard from opposite
+   ends (§8.3); an import path either way is the interoperability event to watch for.
+4. **anthropics/skills.** The document renderers sit behind terms that forbid redistribution
+   (§18.9). A licence change there would move rendering from Tier F to a marketplace dependency
+   and settle the submission-output question in one step.
+
+### 19.3 What a re-run should not repeat
+
+- **Do not re-derive the roster from the research notes.** Those are corrected in §14 and should
+  be treated as a starting point for names only, as §1 says.
+- **Do not trust a licence detector.** §1 records how that failed and what probe replaced it.
+- **Do not re-read a product exhaustively to confirm a mechanism this document already cites by
+  file and line.** Re-read when the claim is load-bearing and the repo has moved.
+
+### 19.4 The open reading
+
+Named here so a re-run starts from the gaps rather than from the beginning:
+
+- medsci `self-review` (36 scripts) and `sync-submission` (21) were surveyed by name and script
+  count, not read line by line (§6.1).
+- Ten of the sixteen Tier-1 products found by search carry no ✓ in §6.16 and were assessed from
+  repository metadata alone.
+- paper-qa, storm and gpt-researcher were read at module-layout level only (§2).
+- No product's test suite was run. Every capability claim in this document is what the artifact
+  says it does, not what it was observed doing — the single largest epistemic limit here, and the
+  one that a benchmark like HALLMARK (§18.5) would start to close for our side at least.
