@@ -559,7 +559,30 @@ We gate *a draft, a commit and a session* on *per-claim* evidence. Those are com
 than competing, and its transient-versus-permanent rule is the same doctrine as our
 UNREACHABLE-is-never-a-verdict, implemented independently.
 
-It has no claim addressing, no stance links, no quote verification and no publication lifecycle.
+**`fit_check.py` (724 lines) is a second gate system**, declaring four gates in its docstring:
+pre-ingest AI scoring, an ingest-time term-overlap check that uses no AI, a post-ingest NotebookLM
+briefing audit, and a periodic drift check. It carries BM25 scoring, auto-threshold computation
+from the score distribution, and `_detect_llm_narrowing()` — a check for whether an LLM quietly
+narrowed the topic definition. These gate *topic fit*: does this paper belong in this cluster. They
+are not evidence gates.
+
+**`verify.py` (337 lines) is the identifier layer `authenticity.py` calls** — `verify_doi`,
+`verify_arxiv`, `verify_paper`, over a 7-day cache, with fuzzy title matching through `rapidfuzz`
+and a `difflib` fallback when the wheel is absent. Two details are worth carrying. It treats HTTP
+401 and 403 as resolving, which is correct for existence checking against paywalls. And its
+`VerificationResult` is **`ok: bool` plus a free-text `reason`** — a two-state result of exactly
+the shape §18.1 criticises in K-Dense.
+
+What rescues it is a layer up: `authenticity.py` classifies those reason strings through
+`is_transient_reason()` and refuses to read a transient failure as fabrication evidence. That is a
+third design for the problem all three of us face — ours puts the states in the type, Imbad0202
+puts them in a versioned schema with an epistemic class, research-hub puts a two-state result under
+a reason classifier at the policy layer. All three arrive at *an outage is not a verdict*.
+
+Read in full, the boundary holds: everything here gates a **paper entering a corpus**, not a claim
+entering a draft. There is no claim addressing, no stance links, no quote verification and no
+publication lifecycle. The complementary reading in §17.4 survives this reading — the only one of
+the three verdict-checks in this document that did not narrow a claim.
 
 ### 6.16 Found by search, not yet read at file level
 
@@ -1782,11 +1805,17 @@ stdlib-adjacent, well organised, and does exactly the DOI-existence work we do. 
 ```
 
 with the comment above it reading "Any other status is a transport problem on our side, not
-evidence that the DOI is bad." The reasoning is defensible; the return type is not. A boolean has
-nowhere to put *could not run*, so an outage collapses into a pass. Adopting that file would have
-imported a silent false-pass into the one check the product exists to perform — and nothing about
-reading the code would have flagged it, because the defect is in the shape of the answer rather
-than in the logic.
+evidence that the DOI is bad." The reasoning is defensible; the outcome is not. A boolean has
+nowhere to put *could not run*, so the outage collapses into a pass.
+
+The precise defect is worth naming, because a two-state result is not automatically wrong.
+research-hub's `verify.py` returns `ok: bool` too (§6.15) — and is rescued a layer up, where
+`authenticity.py` classifies the reason string through `is_transient_reason()` and refuses to read
+a transient failure as fabrication. K-Dense has no such layer: the boolean is the answer the caller
+gets. So the defect is not the type, it is that **nothing anywhere in that skill distinguishes an
+outage from a pass**. Adopting the file would have imported a silent false-pass into the one check
+the product exists to perform, and reading the code would not have flagged it, because the flaw
+lives in the shape of the answer rather than in the logic.
 
 So the test for "must build" is not *is this good code* but *does this decide a verdict*. It is
 the same line the dependency question resolved to (test 2 below): a dependency is cheap where it
