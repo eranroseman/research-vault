@@ -128,9 +128,7 @@ def test_out_dir_skips_module_with_recorded_success(tmp_path: Path, monkeypatch)
     (out_dir / "knowledge_harness__selectors.py.stdout").write_text(
         SAMPLE_OUTPUT, encoding="utf-8"
     )
-    (out_dir / "knowledge_harness__selectors.py.exit").write_text(
-        "0", encoding="utf-8"
-    )
+    (out_dir / "knowledge_harness__selectors.py.exit").write_text("0", encoding="utf-8")
 
     def fail_if_called(*_args, **_kwargs):
         raise AssertionError("a recorded success must not be re-run")
@@ -152,9 +150,7 @@ def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch
     (out_dir / "knowledge_harness__selectors.py.stdout").write_text(
         "", encoding="utf-8"
     )
-    (out_dir / "knowledge_harness__selectors.py.exit").write_text(
-        "4", encoding="utf-8"
-    )
+    (out_dir / "knowledge_harness__selectors.py.exit").write_text("4", encoding="utf-8")
 
     calls: list[str] = []
 
@@ -168,9 +164,9 @@ def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch
 
     assert mutation_gate.main() == 0
     assert calls == [module]
-    assert (
-        out_dir / "knowledge_harness__selectors.py.exit"
-    ).read_text(encoding="utf-8") == "0"
+    assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
+        encoding="utf-8"
+    ) == "0"
     assert baseline_keys(baseline_path) == parse_survivors(module, SAMPLE_OUTPUT)
 
 
