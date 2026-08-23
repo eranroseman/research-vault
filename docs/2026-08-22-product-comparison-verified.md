@@ -1731,6 +1731,22 @@ Permissive, standard-library only, no coupling beyond a same-directory sibling. 
 cross-reference QC. It passes all four tests but only becomes useful once we render a DOCX, so it
 belongs behind the rendering decision rather than in front of it.
 
+**Whole skills, mirrored into `skills/` rather than vendored into the core** (§18.8 gives the
+mechanism). All verified MIT and standard-library-only:
+
+| Skill | Repo | Python | Fills | Caution |
+|---|---|---|---|---|
+| `cnki-skills` | cookjohn | 1 file, stdlib (`urllib`, `hashlib`, `io`, `json`, `re`) | 10 skills over CNKI — search, journal browse, PDF download, export to Zotero. A Chinese-language corpus our vendored `find-sources` cannot reach at all | none; this is pure additional coverage |
+| `gs-skills` | cookjohn | 1 file, same deps | 6 skills over Google Scholar | Scholar has no official API; expect fragility |
+| `gap-to-topic` | WenyuChiou/research-hub | — | the three-gate go/no-go dossier, upstream of `project` (§6.13) | brings its own `design_brief.md` handoff vocabulary |
+| `asta-skill` | Agents365-ai | — | instruction pack over Ai2's Asta MCP for Semantic Scholar | adds an MCP dependency |
+| `claude-skill-citation-checker` | PHY041 | 1,180 lines incl. tests, stdlib + `urllib` | `.bib` against CrossRef, Semantic Scholar and OpenAlex | **overlaps our `doi` and `metadata` legs** — a second implementation of work we already do, from the `.bib` side rather than the citekey side |
+| `research-guardian` | htlin222 | `runner.py` 717 lines, stdlib | multi-gate audit of hypotheses, citations, experiments, results and logic fallacies, with a JSON schema and seven reference files | **overlaps `factcheck-draft`** — LLM-judgment gates, not deterministic checks |
+
+The last two are the ones the licence correction unlocked, and both duplicate capability we have
+rather than adding capability we lack. That is the honest shape of this change: correcting seven
+licences widened what we *may* adopt considerably more than it widened what we *should*.
+
 ### 18.3 Tier B — fork a function, not a file
 
 Permissive and stdlib, but coupled to the donor's data shapes. Take the algorithm, write our own
@@ -1778,6 +1794,8 @@ Real tools doing real work, too large or too external to carry.
 | htlin222/prisma-automation | MIT, 8 stars | PRISMA flow-diagram generation, the one piece of systematic-review apparatus that is a discrete artifact rather than a workflow |
 | kepano `defuddle` | MIT | already provisioned by `setup-vault`; the web-capture answer if one is needed |
 | obra/knowledge-graph | MIT (README) | vault-as-knowledge-graph over SQLite with sqlite-vec and FTS5, local embeddings, Louvain communities, betweenness and PageRank, exposed as a CLI and an MCP server with a `prove-claim` skill. Node and TypeScript, so a dependency rather than a vendor target — but the single closest answer to our largest gap (§11, retrieval and graph) |
+| introfini/ZotSeek | MIT (README + `package.json`) | a Zotero plugin in JavaScript giving local semantic search over the library with a built-in MCP server. Runs inside Zotero, so it is a companion to provision like kepano rather than anything to carry |
+| TonybotNi/ZotLink | MIT (`setup.py`) | saves preprints into Zotero with metadata and PDFs. Imports `bs4`, `playwright`, `requests`, `mcp`, `pydantic`, `dotenv` and `fake_useragent` — the last of those is a posture we would not want anywhere near the evidence path, so: dependency at arm's length, or not at all |
 
 ### 18.6 Tier E — pattern only, and why
 
@@ -1806,8 +1824,11 @@ Worth reading, not worth carrying. Each fails a specific test.
 - **anthropics/skills `docx`, `pdf`, `pptx`, `xlsx`** — verified proprietary in the K-Dense mirror:
   `skills/docx/LICENSE.txt` opens "© 2025 Anthropic, PBC. All rights reserved." Check
   `THIRD_PARTY_NOTICES.md` before assuming anything about the originals (§6.12, §15).
-- **jason-effi-lab/karpathy-llm-wiki-vault** — no licence in any form, which is all rights
-  reserved rather than public domain (§15). Read it on GitHub; carry nothing.
+- **jason-effi-lab/karpathy-llm-wiki-vault** — the only repository in the roster with no licence
+  in any form, which is all rights reserved rather than public domain (§15). Read it on GitHub;
+  carry nothing.
+
+Everything else once listed here was a detection failure, not a licence failure (§15).
 - **sdyckjq-lab/llm-wiki-skill's `workbench/.claude/skills/{docx,pdf,pptx,xlsx}/`** — the
   repository is MIT, that subtree is not (§15). The trap is the same one K-Dense sets, and it is
   why test 1 in §18.1 says *verified in the artifact*.
@@ -1863,10 +1884,14 @@ under MIT and comparable terms; for these four, take the dependency through the 
 
 ### 18.9 What this changes about sequencing
 
-Tier A is roughly 1,600 lines of standard-library Python under one MIT licence from one donor,
-filling five gaps this document lists. That is the cheapest breadth we will ever acquire, and it
-costs one re-vendor obligation per file. Tier C's reporting checklists are the largest single
-capability gain and the one with the most careful licence question already answered for us.
+Tier A now has two halves. The **files** are roughly 1,600 lines of standard-library Python under
+one MIT licence from one donor, filling five listed gaps — the cheapest breadth we will ever
+acquire, at one re-vendor obligation each. The **skills** are broader but thinner: of the six,
+`cnki-skills` and `gs-skills` add corpora we genuinely cannot reach, `gap-to-topic` adds a step
+upstream of `project`, and the remaining two duplicate `verify-citations` and `factcheck-draft`.
+
+Tier C's reporting checklists remain the largest single capability gain, and the one whose licence
+question someone else has already answered carefully.
 
 The sequencing implication for §17.5 is that vendoring is not step 4. It is the step that makes
 steps 1 and 2 affordable, because every file in Tier A is breadth we then do not have to build
