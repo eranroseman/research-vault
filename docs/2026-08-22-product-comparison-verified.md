@@ -10,8 +10,7 @@ it could replace the harness, replace one component, or only inform its design. 
 the comparison proper — skill by skill, then what we lack, then what only we have, then the
 differences as one table. **Part IV** is the record: corrections this pass forced on this
 repository's earlier notes, and what was deliberately left out. **Part V** is a positioning
-judgment built on all of it — and, unlike Parts I–IV, it is inference rather than verified fact,
-labelled as such at its head.
+judgment built on all of it. Parts I–IV are evidence; Part V is inference.
 
 ---
 
@@ -20,11 +19,11 @@ labelled as such at its head.
 ## 1. Method and evidence rule
 
 The roster began with the products named in `research/prior-art-knowledge-work-harness.md` and
-`research/llm-wiki-integration-prior-art.md` — **names and URLs only**. It was then extended by a
-fresh search of the GitHub repository index (30 queries across academic skills, LLM-wiki
-implementations, citation verification, Zotero bridges, systematic-review automation and
-second-brain harnesses), by two skill frameworks the user named, and by the external tooling and
-standards cited in this repository's own `research/` and `analysis/` notes.
+`research/llm-wiki-integration-prior-art.md` — **names and URLs only**. Four things extended it:
+30 GitHub searches across academic skills, LLM-wiki implementations, citation verification, Zotero
+bridges, systematic-review automation and second-brain harnesses; two skill frameworks the user
+named; the external tooling and standards this repository's own `research/` and `analysis/` notes
+cite; and the two repositories those notes left unread.
 
 No mechanism claim, capability claim, star count, license or verdict was carried over from any
 note in this repository on that note's authority. Every fact below was re-derived on 2026-08-22
@@ -675,9 +674,9 @@ prefix/suffix anchors at all.
 **Hypothes.is client** (721 stars) is the reference implementation of the opposite tolerance
 policy, and the number matters because it is the one a gate must not inherit:
 `src/annotator/anchoring/match-quote.ts:99` sets `const maxErrors = Math.min(256, quote.length / 2)`
-— **up to half the quote may mismatch and still anchor**. That optimises recall for a highlighting
-UX where a misplaced anchor is cheap; a trust gate inverts the cost structure. Our `fuzzy-quote`
-reason code exists to make an approximate match a finding rather than a pass.
+— **up to half the quote may mismatch and still anchor**. That suits a highlighting UX, where a
+misplaced anchor costs little. A trust gate inverts the cost: the expensive error is a false pass.
+Our `fuzzy-quote` reason code exists so an approximate match becomes a finding, never a pass.
 
 **Wikidata** is the mass-deployed instance of deprecate-never-delete. A statement carries
 property + value + qualifiers + references and one of three ranks — preferred, normal,
@@ -834,7 +833,7 @@ checks R, Node and MCP servers; our `doctor` checks the vault, Zotero and git.
 
 **Ours.** A vendored fork of K-Dense `paper-lookup` (verified: 16 files, header-only additions,
 zero removals at pinned SHA `336c4f8`), covering 11 databases with per-API reference files and
-stdlib scripts. On top of that it adds two things upstream does not have: every completed query
+stdlib scripts. On top of that it adds two things upstream lacks: every completed query
 gets an append-only `search-log` line with the query **as run** and the literal hit count, and every
 candidate a person declines gets a `--not-admitted` line with a reason code. It terminates at
 admission — it never writes `literatures/`, never invents a citekey, and never decides admission.
@@ -1572,8 +1571,8 @@ Yes, but not in the category the README names. As "a Claude Code harness for kno
 academic research first", the field is crowded and better resourced: Imbad0202 at 43,339 stars with
 394 scripts, K-Dense at 34,130 with 163 skills, pedrohcgs with 52, medsci with 59. We ship nine.
 
-As **the gate layer** — the thing that decides whether work may proceed — the position is real and,
-on the evidence in Part III, unoccupied.
+As **the gate layer** — the thing that decides whether work may proceed — the position is real,
+and on the evidence in Part III nobody occupies it.
 
 ### 17.2 The build-versus-adopt binary is false, and this repository already resolved it once
 
