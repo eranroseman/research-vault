@@ -363,6 +363,15 @@ range rather than a whole file, with a minimum settable in `.llmwiki/eval/thresh
 health score, per-page health distribution, wikilink-graph health, regression deltas and optional
 judge-model citation support with a cache at `.llmwiki/eval/citation-cache.jsonl`.
 
+Its `src/eval/` is fifteen modules, and the split is instructive: `citation-coverage`,
+`citation-depth`, `citation-support`, `source-utilization`, `graph-health`,
+`page-health-distribution`, `health`, `delta`, `thresholds`, `stats`, `cache`, `report`. Two design
+choices are worth copying regardless of what we build. `deductionFor(result: LintResult)` scores a
+health number by *deducting* per lint finding, so the metric and the linter cannot drift apart.
+`selectDeterministicSample()` with a default of 20 makes the judge-model pass reproducible — the
+same pages are sampled every run, so a delta means a change in the wiki rather than a change in the
+sample.
+
 It is the only comparable that enforces structure at the write path and the only one that
 *measures* citation quality. Its wiki is a compiled artifact owned by `state.json`, so pages
 co-authored outside a compile fall out of ownership tracking.
@@ -648,6 +657,25 @@ mentioning citation counts and retraction alerts from Scite's public endpoints w
 | groundlens-dev/groundlens | 7 | Apache-2.0 | 2026-08-22 | Grounding and faithfulness checking of RAG answers against retrieved sources |
 | htlin222/research-guardian-skill | 5 | MIT (README) | 2026-04-17 | Multi-gate audit of hypotheses, citations, experiments, results and logic fallacies ✓ |
 
+**Citation verifiers found through HALLMARK's baseline registry** — none of these surfaced in 30
+GitHub searches, because they are PyPI packages and paper artifacts rather than repository-index
+hits. A benchmark's baseline list turned out to be a better-curated competitor set for this niche
+than keyword search over repositories.
+
+| Tool | Where | Licence | What it checks |
+|---|---|---|---|
+| `verify-citations` | pip, per HALLMARK's wrapper | — | BibTeX against arXiv, ACL Anthology and Semantic Scholar. **Name collision with our skill**, worth knowing before any publication decision; the exact package was not resolvable on PyPI under that name at the time of writing |
+| `bibtex-updater` (`bibtex-check`) | PyPI 1.7.0 | MIT | replaces preprint entries with published versions and validates the bibliography; CrossRef, DBLP and Semantic Scholar, JSONL output |
+| `harcx` — Hallucinated Reference Checker | PyPI 0.2.0 | MIT | `.bib` against Semantic Scholar, DBLP and others |
+| NKU-AOSP-Lab/CiteVerifier | GitHub, 7 stars | MIT | DBLP-first verification for CLI and web, with local matching and batch processing; from the GhostCite paper |
+| gianlucasb/hallucinator | GitHub, 322 stars | NOASSERTION | fabricated references detected **from the PDF** rather than from a `.bib` — a different input surface from everything else here |
+| CheckIfExist (Abbonato 2026, arXiv 2602.15871) | paper, ported in HALLMARK | — | cascading three-source verification: CrossRef, then Semantic Scholar |
+| HalluCiteChecker (Sakai et al. 2026, arXiv 2604.26835) | paper, ported in HALLMARK | — | title-centric fuzzy matching across CrossRef, arXiv and Semantic Scholar |
+
+Two of these are worth reading before any further work on our own checks: `hallucinator` for the
+PDF-side input we do not handle, and `cascade.py` in HALLMARK itself, which combines a
+database-first lookup with an explicit hallucination-mode diagnosis rather than a single verdict.
+
 **Vault and bibliography conventions**:
 
 | Component | Stars | License | Maps to |
@@ -765,11 +793,29 @@ format while ours is a conformance target, and neither can currently read the ot
 
 ### 8.4 Benchmarks
 
-**rpatrik96/hallmark** (11 stars, MIT, pushed 2026-08-21) — "HALLMARK: Citation hallucination
-detection benchmark for ML papers — 2,525 entries, 14 hallucination types, 3 difficulty tiers,
-10 baselines including LLMs and verification tools". A labelled corpus with a taxonomy of
-hallucination classes and published baselines is the instrument we lack: our 1,330 tests prove
-the checks behave as specified, but nothing measures how many real fabrications they catch.
+**rpatrik96/hallmark** (11 stars, MIT, arXiv 2607.18360) is the instrument we lack, and reading it
+rather than its description shows how directly it fits.
+
+Its stated motivation is "the NeurIPS 2025 incident — where 53 papers were found to contain
+fabricated citations that passed peer review — exposed a critical gap: we have no standardized way
+to measure how well tools detect citation hallucinations."
+
+- **2,526 annotated entries**: 826 valid and 1,246 hallucinated across the public splits, plus a
+  **454-entry hidden split** as the contamination guard.
+- 14 hallucination types across three difficulty tiers.
+- **Six sub-tests per entry** — DOI resolution, title matching, author consistency, venue
+  verification, field completeness, cross-database agreement. Four of those six are checks we
+  already run (`doi`, `metadata`, and the identifier legs), so our suite can be scored against it
+  largely as it stands.
+- Metrics: detection rate, F1, tier-weighted F1, detect@k, and **expected calibration error**.
+- A **baseline registry** with 19+ variants and a documented dispatch interface, so adding a
+  baseline is a supported operation rather than a fork.
+- Ships `croissant.json`, the ML dataset-metadata standard, and an opt-in `--cache-path` that
+  freezes HTTP responses in a SQLite `requests-cache` for reproducible re-runs.
+
+Our 1,330 tests prove the checks behave as specified; nothing measures how many real fabrications
+they catch. This measures exactly that, and its sub-test decomposition is close enough to our check
+decomposition that a per-class catch rate is a realistic output rather than an aspiration.
 
 ### 8.5 Closed products
 
@@ -2127,6 +2173,11 @@ what a re-run should actually re-check, so the next pass is an update rather tha
 - **Do not trust a licence detector.** §1 records how that failed and what probe replaced it.
 - **Do not re-read a product exhaustively to confirm a mechanism this document already cites by
   file and line.** Re-read when the claim is load-bearing and the repo has moved.
+- **Do not search only repository indexes.** Six citation verifiers in our exact niche —
+  `bibtex-updater`, `harcx`, CiteVerifier, `hallucinator`, and two paper algorithms — were found in
+  HALLMARK's baseline registry, not by 30 GitHub searches, because they ship on PyPI or as paper
+  artifacts (§7). Next time, read the baseline list of the relevant benchmark first: it is a
+  curated competitor set maintained by someone with an incentive to be exhaustive.
 
 ### 19.4 The open reading
 
