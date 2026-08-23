@@ -74,17 +74,11 @@ WenyuChiou/research-hub. medsci-skills and research-hub were additionally survey
 skill-by-skill (§6.1, §6.15), and medsci's `self-review` and `sync-submission` scripts were read
 for their exit and severity semantics after an earlier draft mischaracterised them.
 
-**Cloned and listed, no file opened** — shape, licence and scale confirmed, mechanisms not:
-917Dhj/DeepPaperNote, delibae/claude-prism, huytieu/COG-second-brain,
-kytmanov/obsidian-llm-wiki-local, skyllwt/AutoSci, PiaoyangGuohai1/cli-anything-zotero,
-tfscharff/doi-mcp, introfini/ZotSeek, PouriaRouzrokh/LatteReview, htlin222/prisma-automation,
-Agents365-ai/asta-skill, cookjohn/cnki-skills, cookjohn/gs-skills, rpatrik96/hallmark,
-Orchestra-Research/AI-Research-SKILLs (top-level listing only). An earlier draft of this document
-marked several of these as file-level reads; that was wrong, and the correction is the same class
-of error §1 warns about — a claim stated more strongly than the probe that produced it.
-
-**Read at module-layout level** (structure inspected, bodies not read): Future-House/paper-qa,
-stanford-oval/storm, assafelovic/gpt-researcher.
+**Cloned and listed, no file opened** — shape, licence and scale confirmed, mechanisms not.
+Fifteen repositories previously appeared in *both* this list and the file-level list above, because
+the ◐ correction added names here without removing them there. The file-level list is now the
+authority: a repository named there had a file opened and quoted; every other repository in this
+document is metadata-level unless a row says otherwise.
 
 **Metadata level only** (stars, license, push date and the project's own description): every
 other row. Where such a row states a capability, that is the project's claim, not a verified
@@ -101,7 +95,17 @@ No product was read exhaustively; reading was targeted at the axes in Part III. 
 drawn from a product's own skill file or README describe what it claims to do, not measured
 behaviour. Star counts are a distribution signal, not a quality signal. No verifier's error rates were
 measured here, including ours: the detection and false-positive figures in §8.5 are HALLMARK's,
-reported for its own baselines, and our suite has never been scored against it. Three claims found in this
+reported for its own baselines, and our suite has never been scored against it.
+
+**And the largest limit, which an earlier draft of this section denied.** It claimed "our own side
+was measured from source, so its numbers are exact." Counts were. **Behaviour was not.** Every
+claim here about what our harness *does* is read from code and specification — that is, from
+intended behaviour — and a same-day audit found several places where shipped behaviour differs:
+the Retraction Watch batch leg is reachable only when a caller passes `--rw-csv`, which nothing in
+the shipped surface does; the machine-confirmed trust tier can mint on a note with no applicable
+checks; the pre-commit hook fails open when the package is unimportable. Those are listed in this
+document as working legs and, in one case, as a differentiator. **Read every self-claim here as
+scoring the design, not the runtime**, until the validation slice measures the difference. Three claims found in this
 repository's notes were **not** re-verifiable in this pass and are therefore absent: pandoc's
 undocumented missing-citekey rendering, Quarto's warning propagation, and JATS4R's severity
 taxonomy. Our own side was measured from source, so its numbers are exact.
@@ -110,8 +114,8 @@ taxonomy. Our own side was measured from source, so its numbers are exact.
 
 | Dimension | Value |
 |---|---|
-| Deterministic core | 26 Python modules, 9,716 lines; **one** pinned runtime dependency — `defusedxml`, admitted 2026-08-20 under the spec §8 discipline because parsing externally-influenced XML is commodity-hard; `pypdf` behind a `pdf` extra |
-| Tests | 1,467 collected; markers for `live` (running Zotero) and `live_net` (real APIs) |
+| Deterministic core | 26 Python modules, 9,716 lines, **zero runtime dependencies on `main`** (`pypdf` behind a `pdf` extra). An unmerged branch (`build/quality-lane`, Plan Q) admits `defusedxml` as the first pinned runtime dependency under the spec §8 contract-match rule; this table describes `main`, which is the product |
+| Tests | 1,330 collected on `main` (1,470 on the unmerged Plan Q branch); markers for `live` (running Zotero) and `live_net` (real APIs) |
 | Skills | 9 — 7 user-invoked (`disable-model-invocation: true`), 2 model-invocable |
 | Hooks | 2 — PostToolUse lint (warn-only, fail-open, never interrupts); Stop publish gate (armed, fail-closed, bounded at 8 blocks) |
 | CLI verbs | 20 — `probe`, `import-note`, `archive-source`, `staleness`, `backfill-selectors`, `verify`, `factcheck`, `trust-tier`, `arm-publish`, `disarm-publish`, `mark-published`, `mark-parked`, `mark-corrected`, `mark-withdrawn`, `ack`, `finding`, `search-log`, `inbox`, `scaffold`, `doctor` |
@@ -887,7 +891,7 @@ to measure how well tools detect citation hallucinations."
 - Ships `croissant.json`, the ML dataset-metadata standard, and an opt-in `--cache-path` that
   freezes HTTP responses in a SQLite `requests-cache` for reproducible re-runs.
 
-Our 1,467 tests prove the checks behave as specified; nothing measures how many real fabrications
+Our 1,330 tests prove the checks behave as specified; nothing measures how many real fabrications
 they catch. This measures exactly that, and its sub-test decomposition is close enough to our check
 decomposition that a per-class catch rate is a realistic output rather than an aspiration.
 
@@ -1105,7 +1109,7 @@ where planning happens.
 | Skills | 14 | 36 across 5 buckets | 9 |
 | User-invoked (`disable-model-invocation: true`) | **0 of 14** | **24 of 36** | **7 of 9** |
 | Hooks | SessionStart (`startup\|clear\|compact`) | none in-repo | PostToolUse lint, Stop publish gate |
-| Tests | 16 directories incl. per-agent suites | none in-repo | 1,467 Python tests |
+| Tests | 16 directories incl. per-agent suites | none in-repo | 1,330 Python tests |
 
 **superpowers — invocation discipline by rule, and cross-agent conformance testing.** Not one of
 its 14 skills sets `disable-model-invocation`; the discipline comes instead from
@@ -1562,7 +1566,7 @@ landing mid-sentence still breaks it. medsci's token-ordered subsequence match d
 **A measured false-positive rate, and calibration.** HALLMARK ranks verifiers by FPR and
 expected calibration error and argues both decide deployability (§8.5.1). Every other verifier in
 this document has published numbers on that benchmark; ours has none. We know our checks behave as
-specified — 1,467 tests say so — and we do not know how often they fire on something correct, nor
+specified — 1,330 tests say so — and we do not know how often they fire on something correct, nor
 whether our confidence in a finding tracks its truth. For a product whose differentiator is that
 its gate is armed by default, that is the missing number rather than a missing feature.
 
@@ -1816,7 +1820,7 @@ per-agent conformance test suites and second-target build scripts; nvk's `.skill
 per-topic allowlists; llmwiki's Ed25519-signed template distribution; swarmvault's installers for
 40+ agent tools. We ship a plugin manifest and a marketplace entry.
 
-**Evaluation, calibration and benchmarks.** We have 1,467 unit tests and no evaluation harness.
+**Evaluation, calibration and benchmarks.** We have 1,330 unit tests and no evaluation harness.
 llmwiki scores citation coverage, precision and a claim-level citation rate against thresholds
 (§6.5); Imbad0202 ships gold, held-out, calibration and bakeoff sets with a threshold gate (§6.2);
 gbrain ships routing evals for 41 of 71 skills; DeepPaperNote ships `evals/`; and **HALLMARK**
