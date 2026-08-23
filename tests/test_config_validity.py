@@ -417,3 +417,63 @@ def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
         f"{anchor!r}; it now precedes {following!r}. The comment TEXT survived, so "
         "only this placement check catches it.\n" + _FIX
     )
+
+
+# --------------------------------------------------------------------------
+# mdformat table-cell truncation
+# --------------------------------------------------------------------------
+
+# The mdformat-owned CommonMark set, matching .pre-commit-config.yaml's hook.
+_MDFORMAT_ROOTS = ("README.md", "AGENTS.md", "CONTEXT.md", "docs", "skills")
+
+
+def _mdformat_owned_markdown() -> list[Path]:
+    root = Path(__file__).resolve().parent.parent
+    files: list[Path] = []
+    for entry in _MDFORMAT_ROOTS:
+        target = root / entry
+        if target.is_file():
+            files.append(target)
+        elif target.is_dir():
+            files.extend(sorted(target.rglob("*.md")))
+    return files
+
+
+def _escaped_backticks_in_row(line: str) -> bool:
+    """True when a table row carries an escaped backtick.
+
+    That is the damage signature, and it is NOT an odd backtick count: when a
+    `|` inside a code span truncates the cell, the span's opening backtick is
+    left orphaned and mdformat writes it back ESCAPED, which keeps the count
+    even. Counting backticks therefore misses the very defect this guards --
+    verified against the real damaged line before this check was written.
+    """
+    return line.lstrip().startswith("|") and "\\`" in line
+
+
+@pytest.mark.parametrize("path", _mdformat_owned_markdown(), ids=lambda p: str(p.name))
+def test_markdown_table_rows_have_no_truncated_code_spans(path):
+    """A `|` inside an inline code span truncates its table cell, silently.
+
+    Measured, not theoretical: the 2026-08-22 canonical-form churn ran mdformat
+    over this set, and three rows of the foundation spec's frontmatter table
+    carried `status: unscreened | included | excluded | superseded`. GFM ends the
+    cell at the first unescaped `|` REGARDLESS of the code span, so mdformat
+    reformatted the truncated parse back out and the enum values plus an entire
+    `superseded-by` clause were deleted -- by a commit whose message read "No
+    sentence, no code, and no meaning is changed anywhere in this commit".
+
+    The fix is to escape the pipes as \\| inside the span; mdformat then
+    round-trips the row unchanged, which is asserted by re-running it.
+    """
+    offenders = [
+        (n, line)
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if _escaped_backticks_in_row(line)
+    ]
+    assert not offenders, (
+        f"{path}: table row(s) carry an escaped backtick, the signature of a code "
+        f"span truncated by an unescaped `|` in the cell. Escape the pipes as \\| "
+        f"INSIDE the span and re-run mdformat.\n"
+        + "\n".join(f"  line {n}: {line[:120]}" for n, line in offenders)
+    )
