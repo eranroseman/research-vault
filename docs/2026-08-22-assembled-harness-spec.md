@@ -338,18 +338,43 @@ Ours declares `name`, `description`, and sometimes `disable-model-invocation`. E
 which paths a skill may touch, whether it may reach the network, which of its inputs are untrusted,
 what it returns, how risky it is — lives in prose that nothing enforces.
 
-### 9.2 Skills — preserve
+### 9.2 Skills — what would we write today?
 
-| Skill | Why it survives |
-|---|---|
-| `evidence-conventions` | The Iron Law, the four evidence-boundary tags as a required per-line vocabulary, and the rationalizations table. No comparable tags epistemic status per line (§1.C). This is the skill that carries the doctrine; everything else enforces it |
-| `import-source` | Projects only an already-admitted item, and the note is a render rather than an LLM write. Every other ingest surface in the survey takes arbitrary documents. Its three surgical per-claim holds — contradiction, low confidence, schema violation — hold one claim, never the catalog |
-| `publish` | The fixed disposition menu, typed-`discard` consent, the correction lifecycle where a tag is added and never deleted, and a bypass that is "recorded, not forgiven" |
-| `factcheck-draft` | The only skill anywhere that records what it did **not** check: the `budget-cap` finding names every claim the cap excluded, so silence cannot read as clearance |
-| `verify-citations` | Its refusal is the design. It reports grouped by check id and explicitly will not act as the gate even when asked whether one would pass. Thin-wrapper discipline is worth keeping when the thing wrapped decides verdicts |
+The wrong question is *which of our skills are distinctive*. Distinctiveness is a fact about the
+market, not an argument for existing, and answering it would just relabel the current nine as
+justified. The question this document is actually about is **which of them would we write if we
+were assembling the harness now**, knowing what §2 makes available. Three tests, all of which must
+pass:
 
-`project` and `setup-vault` are not on this list. Both are thinner than their counterparts and
-neither carries a property nothing else has.
+1. Does the job need doing at all?
+2. Does nothing in §2 already do it?
+3. Is a *skill* the right shape — as against a lint, a CLI verb, or a schema?
+
+Applied honestly, only one of the nine passes all three unchanged.
+
+| Skill | Verdict | Reasoning |
+|---|---|---|
+| `evidence-conventions` | **Write it, unchanged** | The job is needed and nothing in §2 does it — no component tags epistemic status per line. Test 3 is the interesting one: most of what it says is enforced mechanically by lints and checks, so why is it prose? Because it steers authoring *before* any lint runs. A claim that never gets written wrong costs nothing to fix. That is a skill's job and not a linter's |
+| `publish` | **Write it, unchanged** | Nothing in §2 gates a session; §2.10 confirms every other enforcement surface needs an operator flag. The disposition menu, typed-`discard` consent and the correction lifecycle are judgment scaffolding, which is skill-shaped by definition |
+| `import-source` | **Write it thinner** | The projection half is medsci `lit-sync` (§2.4). What remains ours is the admission boundary, the render-first no-op and the three surgical per-claim holds. Those are perhaps a third of the current skill; the rest is orchestration we would not write from scratch if `lit-sync` were mirrored |
+| `factcheck-draft` | **Write it much thinner** | §9.7 adopts medsci `check_claim_fidelity.py`, which answers the same question deterministically. What survives is the part code cannot do — adjudicating a paraphrase's direction, magnitude and certainty — plus the budget-cap honesty, which is a contract of about twenty lines rather than a skill |
+| `verify-citations` | **Probably not a skill** | It "ships no mechanics of its own" by its own text: it runs a verb and reports grouped by check id. That is a CLI output format and a reporting rule. Its one genuinely skill-shaped property is the refusal to act as the gate when asked — worth keeping as a rule, not obviously worth a skill file |
+| `find-sources` | **Already not ours** | A vendored fork of `paper-lookup` plus a search log and an admission boundary. From scratch we would mirror the upstream and write the log as a CLI verb |
+| `synthesis-conventions` | **Write it, but import the rules** | The 2+-source threshold is right and matches hermes independently. Everything else it lacks — page splitting, archival, backlink checks, index scaling — hermes already specifies (§9.4). From scratch this is mostly a mirror with our thresholds substituted |
+| `project` | **Would not write it as it stands** | Orientation, inbox drain, trust tiers, four-element framing and gap analysis in one skill. WenyuChiou `gap-to-topic` does the framing gate better, the pedrohcgs cluster does continuity better, and the inbox drain is a CLI report. It survives on scope, not merit |
+| `setup-vault` | **Would not write most of it** | Scaffolding is a CLI verb; companion provisioning is an installer concern; the Zotero wizard steps are the only genuinely skill-shaped part, because they are the bit a machine must refuse to do |
+
+**What this changes.** The preserve list is not five skills — it is **two written as they are, two
+written smaller, and five that from scratch would be a CLI verb, a mirror, or a rule in someone
+else's file.** That is a sharper result than "these are distinctive", and it points the same way as
+§9.9: the surface shrinks toward the gate and the doctrine, and most of the rest is orchestration
+that only exists because we wrote the capabilities ourselves.
+
+One caveat against over-reading it. "Would not write it from scratch" is not "delete it". A
+mirrored skill and a written one are equivalent at the point of writing and not afterwards: the
+mirror carries a re-vendor obligation and an upstream that can change under us. Three of the five
+demotions above trade authorship for a dependency, and that trade is only obviously good while the
+upstream stays MIT and maintained.
 
 ### 9.3 Skills — port from Memoria
 
