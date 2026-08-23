@@ -2287,8 +2287,107 @@ false-positive spreads is the thing that would turn those from conventions into 
 settings, and this document, which is otherwise strict about evidence, quietly exempted our own
 parameters from that standard.
 
-Reading it is the highest-value research left. It is also the cheapest: four papers, all with
-public abstracts and two with runnable ports already sitting in HALLMARK's baseline directory.
+### 20.1 What the four papers say
+
+**Source depth, stated before the claims.** HALLMARK's numbers below come from its **repository** —
+the README results table, `tables/cross_split_per_tier.csv`, and the metric definitions — which is
+primary artifact data. The other three papers are read **from their abstracts only**, and every
+figure attributed to them here inherits that limit. Abstracts report headline results and omit
+method, so none of the three should be cited in our own work on this basis. Full texts are the
+obvious next step; §20.4 lists what each is needed for.
+
+**The base rate (arXiv 2605.07723).** An audit of **111 million references across 2.5 million
+papers** in arXiv, bioRxiv, SSRN and PubMed Central finds a sharp rise in non-existent references
+after LLM adoption, with a conservative estimate of **146,932 hallucinated citations in 2025
+alone**. They cluster in fields with rapid AI uptake, in manuscripts with linguistic signatures of
+AI-assisted writing, and among small and early-career author teams — and they disproportionately
+credit already-prominent and male scholars, so the errors reinforce existing inequities in
+recognition. The line that bears directly on this project: "preprint moderation and journal
+publication processes capture only a fraction of these errors."
+
+**The benchmark (arXiv 2607.18360), with numbers.** HALLMARK's own results table, read from the
+repository:
+
+| Verifier | DR | **FPR** | MCC | ECE |
+|---|---|---|---|---|
+| Gemini 2.5 Pro (conservative end) | .46 | **.05** | — | — |
+| Sonnet 4.6, independent | — | — | — | .066 |
+| DeepSeek-V3.2 (aggressive end) | .88 | **.73** | .191 | .331 |
+| GPT-5.1 + CrossRef/OpenAlex/arXiv, agentic | .956 | **.465** | .556 | .165 |
+| `bibtex-updater` — rule-based, co-designed *upper bound* | .946 | **.179** | .781 | .297 |
+
+Three findings, quoted:
+
+1. "Agentic lookups inflate FPR. […] agentic FPR remains ~2.6× higher (0.46 vs. 0.18) **because
+   the harness flags an entry whenever any one of CrossRef/OpenAlex/arXiv returns no match** […]
+   the FPR rise is **harness-driven, not LLM-driven**."
+2. "Base-rate precision collapse. Extrapolated to real-world hallucination rates, every evaluated
+   setting yields roughly **one true hallucination per ten flagged citations**, so
+   recall-optimized verifiers misallocate reviewer effort."
+3. MCC is named the primary metric for cross-split comparison because it is prevalence-invariant —
+   at this base rate, accuracy and F1 mislead.
+
+**The two tools (arXiv 2604.26835, 2602.15871).** HalluCiteChecker verifies in seconds on a
+laptop, **entirely offline on CPU**, Apache-2.0 on PyPI. CheckIfExist cascades CrossRef →
+Semantic Scholar → OpenAlex with multi-dimensional string-similarity confidence scores. Both were
+built for pre-review and publication checks, which is the boundary our publish gate occupies.
+
+### 20.2 What this says about our architecture
+
+Finding 1 describes our harness, not merely a comparable one. `verify` runs several registry legs
+and any UNMATCHED becomes a finding; the publish surface closes on the union of `citekey`,
+`evidence-layer`, `quote`, `update-notice` and `doi`. An OR over independent lookups is precisely
+the shape the paper identifies as the false-positive amplifier, and it names the harness rather
+than the model as the cause.
+
+Finding 2 is worse for us than for the tools measured, because of the thing §12 calls a
+differentiator. A report with nine false alarms in ten is noisy; **a gate armed by the harness with
+nine false alarms in ten stops being armed.** The competitor pattern we characterised as timidity —
+Imbad0202's opt-in strict policy, medsci's `--strict` flag, research-hub's advisory staleness — is
+what a low base rate does to anyone who ships a verifier and watches people use it.
+
+One distinction is genuinely in our favour and worth keeping separate. Our closing set is **mixed**.
+`citekey` and `evidence-layer` test a claim against a *closed universe* — the Better BibTeX export
+and the vault's own managed regions — where a miss is a fact, not a lookup failure, and the
+false-positive rate is near zero by construction. `doi`, `metadata` and `update-notice` are open
+registry lookups with exactly the profile the paper measures. We have been treating those two
+classes as one.
+
+That suggests a design response the literature supports and this document had not considered:
+**close on the closed-universe checks, warn on the open-registry ones.** It preserves the property
+§12 claims — a gate armed by the harness rather than an operator's flag — on the legs where the
+evidence says the false-positive cost is affordable, and demotes to warn-tier exactly the legs the
+paper shows are not. It is also a smaller change than it sounds: `CLOSING_BY_SURFACE` is a
+dictionary.
+
+### 20.3 Two operational cautions
+
+`HaRC` and `verify-citations` were **omitted from HALLMARK's results** because "Semantic Scholar
+throttling collapses their effective coverage to <7% on `dev_public`". Our `find-sources` reference
+files route to Semantic Scholar; anything we build that depends on it inherits that ceiling.
+
+`bibtex-updater`'s .946/.179 is explicitly labelled a construct-overfitting upper bound, since its
+development overlapped the benchmark's taxonomy design. It is the ceiling for rule-based
+verification on this benchmark, not a target — and our own suite scored on HALLMARK should be read
+against the independent tools, not against it.
+
+Reading these was the highest-value research left, and it was also the cheapest: four abstracts,
+one results table, and a repository already cloned.
+
+### 20.4 What the full texts are needed for
+
+Abstracts were enough to establish that the finding exists and points at us. They are not enough
+to act on, and each is blocked on something specific:
+
+| Paper | Identifier | What the abstract does not give |
+|---|---|---|
+| *LLM hallucinations in the wild* | **arXiv:2605.07723** | the **per-year base rate**. It reports 146,932 hallucinated citations in 2025 and 111M references audited across all years, so the denominator for 2025 is missing — and that denominator is what turns §20.2's argument from directional into quantitative. Also wanted: the detection method, since their false-positive rate bounds their own estimate |
+| *HALLMARK* | **arXiv:2607.18360** | the third failure mode. The title promises three; the abstract and README yield two clearly (agentic FPR inflation, base-rate precision collapse). Also wanted: how the venue-realistic base rate was chosen, since the one-in-ten figure depends on it |
+| *HalluCiteChecker* | **arXiv:2604.26835** | how offline CPU-only verification is possible at all. If it ships or builds a local index, that is a design we could adopt for the leg where Semantic Scholar throttling is fatal (§20.3) |
+| *CheckIfExist* | **arXiv:2602.15871** | the cascade's stopping rule and its confidence-score formula — the part that would tell us whether cascading reduces false positives relative to our OR over legs |
+
+A DOI for any of these would resolve the same way; the arXiv identifiers are the ones the citing
+artifacts use.
 
 **Two limits that no amount of further reading closes.** No product's test suite was run, so every
 capability claim here is what an artifact says it does (§19.4). And there is no user evidence
