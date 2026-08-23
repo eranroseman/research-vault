@@ -8,6 +8,12 @@ fail (exit 1) on any survivor whose key is absent from the committed baseline.
 --update-baseline: blanket-run every knowledge_harness module (--mutate-all) and
 rewrite the baseline file with every current survivor.
 
+--out-dir (update-baseline only): per-module stdout+exit-code records written as
+each module finishes, so a blanket run killed partway through can resume instead
+of restarting from zero. A recorded exit 0 is reused without re-running; anything
+else -- no record, an unparseable exit file, or a recorded failure -- re-runs and
+overwrites both files. Gate mode ignores this flag.
+
 mutate4py exits 0 even when mutants survive, so pass/fail is parsed from the
 "Survivors:" report section. Baseline keys exclude line numbers on purpose:
 `<relpath>::<func-id>::<mutation>` stays stable across unrelated edits.
@@ -114,6 +120,41 @@ def _run_mutate(
     return proc.stdout, proc.returncode
 
 
+def _record_paths(out_dir: Path, module: str) -> tuple[Path, Path]:
+    # "/" -> "__" (not "_") so a nested module can't collide with a differently
+    # -nested module that happens to share a basename.
+    stem = module.replace("/", "__")
+    return out_dir / f"{stem}.stdout", out_dir / f"{stem}.exit"
+
+
+def _cached_stdout(out_dir: Path, module: str) -> str | None:
+    # The .exit file is the completion marker (written last by _write_record), so
+    # its absence or an unparseable body means no usable record -- a run killed
+    # mid-write left this pair incomplete. A parseable but non-zero exit is a
+    # recorded *failure*, not a cache hit: it is deliberately not returned here,
+    # so the caller re-runs it and _write_record overwrites both files.
+    stdout_path, exit_path = _record_paths(out_dir, module)
+    try:
+        code = int(exit_path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    if code != 0:
+        return None
+    try:
+        return stdout_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _write_record(out_dir: Path, module: str, out: str, code: int) -> None:
+    # stdout first, exit second: a run killed between the two writes leaves the
+    # .exit file missing, which _cached_stdout treats as no record at all --
+    # never as a false success or a false failure.
+    stdout_path, exit_path = _record_paths(out_dir, module)
+    stdout_path.write_text(out, encoding="utf-8")
+    exit_path.write_text(str(code), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -128,19 +169,35 @@ def main() -> int:
     parser.add_argument(
         "--test-contexts", default=None, help="optional contexts db for narrowing"
     )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="--update-baseline only: per-module stdout+exit records, for resuming "
+        "a killed blanket run instead of restarting it",
+    )
     args = parser.parse_args()
 
     extra = ["--test-contexts", args.test_contexts] if args.test_contexts else []
     baseline_path = Path(args.baseline)
 
     if args.update_baseline:
+        out_dir = Path(args.out_dir) if args.out_dir else None
+        if out_dir is not None:
+            out_dir.mkdir(parents=True, exist_ok=True)
         keys: set[str] = set()
         failed: list[str] = []
         for module in _all_modules():
-            print(f"[baseline] {module}", flush=True)
-            out, code = _run_mutate(
-                module, args.lcov, [*extra, "--mutate-all"], args.max_workers
-            )
+            cached = _cached_stdout(out_dir, module) if out_dir is not None else None
+            if cached is not None:
+                print(f"[baseline] {module} (cached)", flush=True)
+                out, code = cached, 0
+            else:
+                print(f"[baseline] {module}", flush=True)
+                out, code = _run_mutate(
+                    module, args.lcov, [*extra, "--mutate-all"], args.max_workers
+                )
+                if out_dir is not None:
+                    _write_record(out_dir, module, out, code)
             if code != 0:
                 # A non-zero exit here means mutate4py aborted before ever printing
                 # a "Survivors:" section (e.g. a test-context/coverage disagreement)
