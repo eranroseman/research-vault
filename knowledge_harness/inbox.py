@@ -29,6 +29,7 @@ REASON_CODES = frozenset(
         "schema-violation",
         "mismatch",
         "not-admitted",
+        "not-imported",
         "outage",
         "stale",
         "drift",

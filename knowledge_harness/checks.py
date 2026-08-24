@@ -153,14 +153,18 @@ def check_citekeys(
     typed_note_path = RepoPath(relative_raw)
     outcomes = []
     for citekey in cited:
-        result = (
-            Result.MATCHED if citekey in bibliography_universe else Result.UNMATCHED
-        )
-        reason = (
-            "matched"
-            if result is Result.MATCHED
-            else "mismatch — citekey not in bibliography"
-        )
+        if citekey not in bibliography_universe:
+            result = Result.UNMATCHED
+            reason = "mismatch — citekey not in bibliography"
+        elif not (vault / "literatures" / f"{citekey}.md").is_file():
+            # Tier 2: bibliography membership alone is not citability — the
+            # cited source needs an imported literature note to verify a
+            # quote or paraphrase against.
+            result = Result.UNMATCHED
+            reason = "not-imported — cited citekey has no literature note"
+        else:
+            result = Result.MATCHED
+            reason = "matched"
         outcomes.append(
             Outcome(
                 "citekey",

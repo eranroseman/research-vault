@@ -78,6 +78,45 @@ def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
     }
 
 
+def test_cited_citekey_requires_literature_note(tmp_vault):
+    """Bibliography membership alone must not satisfy citability."""
+    note = tmp_vault / "projects" / "draft.md"
+    note.write_text("See the evidence [@smith2020].\n")
+
+    outs = checks.check_citekeys(tmp_vault, note, {"smith2020": {}})
+
+    assert len(outs) == 1
+    assert outs[0].result is Result.UNMATCHED
+    assert outs[0].reason == "not-imported — cited citekey has no literature note"
+
+
+def test_cited_citekey_with_note_passes(tmp_vault):
+    """A bibliography entry backed by a literature note still MATCHES."""
+    (tmp_vault / "literatures" / "smith2020.md").write_text(
+        '---\ncitekey: "smith2020"\n---\n%%hk-managed%%\n%%/hk-managed%%\n'
+    )
+    note = tmp_vault / "projects" / "draft.md"
+    note.write_text("See the evidence [@smith2020].\n")
+
+    outs = checks.check_citekeys(tmp_vault, note, {"smith2020": {}})
+
+    assert len(outs) == 1
+    assert outs[0].result is Result.MATCHED
+    assert outs[0].reason == "matched"
+
+
+def test_cited_citekey_absent_everywhere(tmp_vault):
+    """A citekey outside the bibliography keeps the existing mismatch reason."""
+    note = tmp_vault / "projects" / "draft.md"
+    note.write_text("See the evidence [@fabricated2020].\n")
+
+    outs = checks.check_citekeys(tmp_vault, note, {})
+
+    assert len(outs) == 1
+    assert outs[0].result is Result.UNMATCHED
+    assert outs[0].reason == "mismatch — citekey not in bibliography"
+
+
 def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
     """Outcome detaches every caller graph and exposes no mutation path."""
     first_input = {"nested": {"items": ["one"]}}
