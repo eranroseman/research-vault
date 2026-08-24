@@ -181,6 +181,8 @@ Deferred items with named triggers, grouped by area. Entries carry their nature 
 - **Rot-watch cron** — provenance recorded now supports it retrofit-free; archive-at-import means it only detects, never rescues.
 - **Uniform import hold-to-inbox wiring** — every import-flow failure exit emits a reason-coded review record; wired uniformly when integrate-at-import lands, not piecemeal (decided 2026-08-21: render rejections stay loud fail-closed until then). Evaluate then: **blockquote-split repair** for U+2028/U+2029 in quote text vs the current honest hold.
 - **Maintenance cron lane design** · **full-arc pipeline machinery** · **other workload pipelines** (reports, PKM loop, long-form).
+- **MCP wrapper for external vault clients** (later-map option, §7) — Claude Desktop or other hosts querying the vault without the plugin; consumed MCP servers stay rejected regardless.
+- **ZotLit as interactive UI** (§4) — the harness emits ZotLit-convention notes so ZotLit remains adoptable later as a reading surface, never a dependency.
 
 ### 10.5 Dev lane
 
