@@ -65,7 +65,7 @@ _Avoid_: admission (that is the human act before), sync
 **Bibliography export**: The universe of items a citekey can name — the whole admitted library, before any citability judgment.
 _Avoid_: bibliography file, reference list, citation universe (that is the evidence layer)
 
-**Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded.
+**Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded — note-level only (a superseded *claim* is a deprecation carrying a `superseded-by` pointer, not a status).
 _Avoid_: unreviewed/active/rejected (old values), review status
 
 ### Verification
