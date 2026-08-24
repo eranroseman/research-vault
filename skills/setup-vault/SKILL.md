@@ -31,7 +31,7 @@ python3 -m knowledge_harness --base URL doctor --vault PATH
 python3 -m knowledge_harness doctor --base URL --vault PATH
 ```
 
-Report every doctor probe, not only failures, plus the inbox count and oldest age. Do not replace this with a `doctor --url` command or environment variable.
+Report every doctor probe, not only failures, plus the inbox count and oldest age. `inbox`'s summary reports `oldest_age_days` directly — whole days since that date, 0 for one filed today, `None` only when the queue is empty — so state that figure rather than estimating the age yourself. Do not replace this with a `doctor --url` command or environment variable.
 
 `doctor` always requires `--vault`; it has no vault-less mode. To check Zotero/BBT reachability before a vault exists, or independent of one, run `python3 -m knowledge_harness probe [--base URL]` instead — it is the vault-less reachability instrument and takes no `--vault` flag.
 
