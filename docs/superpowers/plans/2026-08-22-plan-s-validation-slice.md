@@ -43,6 +43,7 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 
 - [x] **Question selected (2026-08-22): `trust-gates-prior-art`** — the most decision-relevant workshop question, re-asked under the harness; `research/prior-art/trust-gates-prior-art.md` is the loose-process baseline. Then `project-flow` start: frame it — question / scope / source types / success criteria — knowing the original loose-process answer exists as the baseline; the deliverable is the rigorous re-answer plus the delta.
 - [ ] Gap analysis vs the seeded synthesis layer + bibliography → gap list.
+- [ ] **Pre-registered pilot (2026-08-24, window not yet open): sampling-consistency on digests.** A handful of Phase 3 digests generate at N=3 in isolated contexts; the claim-disagreement rate is recorded as data. Decides whether SelfCheckGPT-style consistency checking becomes standing (its 2–3× generation cost is unpriced until this base rate exists — adopting by default would invent the cost-benefit number).
 - [ ] `find-sources` (project-scoped, PRISMA-S log) → candidates → **author admits 15–25 papers** into Zotero → `import-source` with integrate-at-import.
 
 ## Phase 4–6 — Draft, verify, publish
