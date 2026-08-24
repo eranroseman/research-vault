@@ -1,5 +1,5 @@
-// One form-owner per type (docs/2026-08-21-lint-format-rethink.md): the IDE never
-// fights the owners. Python alone formats on save, via the same pinned ruff.
+// One form-owner per type (research/rethink-audits/2026-08-21-lint-format-rethink.md):
+// the IDE never fights the owners. Python alone formats on save, via the same pinned ruff.
 {
   "editor.formatOnSave": false,
   "[python]": {
@@ -9,7 +9,14 @@
   "prettier.enable": false,
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "files.insertFinalNewline": true,
-  "cSpell.words": [
-    "Disclamer"
-  ]
+  // Watcher doesn't honor .gitignore; caches and venvs are dead weight. The
+  // worktree checkouts stay WATCHED (parallel sessions edit there; auto-refresh
+  // matters) — only their venvs are excluded, which is where the bulk lives.
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.worktrees/**": true
+  }
 }

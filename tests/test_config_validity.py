@@ -10,7 +10,7 @@ plugin loader or a human reader trusts, which nothing mechanically checks:
 
 The JSON half doubles as the *formatter*: ``json.tool``'s canonical form is
 asserted here rather than run as a separate hook, so the one-form-owner matrix
-gains a JSON owner with zero new dependencies (docs/2026-08-21-lint-format-rethink.md).
+gains a JSON owner with zero new dependencies (research/rethink-audits/2026-08-21-lint-format-rethink.md).
 """
 
 import ast
