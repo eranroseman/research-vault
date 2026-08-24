@@ -4,7 +4,7 @@ Merge back to main locally and push main to origin in the same motion. Fetch bef
 
 Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
 
-Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout. Exception: index-only operations (`git rm --cached`) — a pathspec commit takes working-tree state and silently drops the staged change; for those, confirm `git status --porcelain` is empty, then commit through the index.
+Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout. (Index-only changes like `git rm --cached` can't ride it — verify a clean `git status --porcelain`, then commit through the index.)
 
 Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/testing.md`.
 
