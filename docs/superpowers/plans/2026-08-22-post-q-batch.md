@@ -167,7 +167,10 @@ def test_duplicate_anchors_refuse_render():
         notes.render_note(ITEM_WITH(annotations), ...)
 ```
 
+- [ ] **Step 1b: Second failing case** (added 2026-08-23, reproduced at HEAD — [issue #16](https://github.com/eranroseman/knowledge-harness/issues/16)): two keyless annotations with **empty** `annotationText` and different comments both render `^c-e3b0c442`, the truncated hash of the empty string. This is the broader case — every keyless comment-only annotation collides with every other, not just ones whose text matches — and the same uniqueness line closes it.
+
 - [ ] **Step 2: Run — Expected: FAIL** (`parsed != expected` passes when both lists carry the same duplicates).
+
 - [ ] **Step 3: Implement** — one uniqueness line in `_assert_managed_body_parses`:
 
 ```python
