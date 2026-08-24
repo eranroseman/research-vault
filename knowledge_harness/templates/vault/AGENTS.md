@@ -3,6 +3,8 @@ type: "guide"
 ---
 # Vault agents guide
 
+This is a knowledge-harness vault. `literatures/`, `log/`, `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; don't edit them by hand.
+
 Evidence is admitted through Zotero and projected into `literatures/` — evidence notes exist only by projection, never by hand. Read `synthesis/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
 
 Prefer the knowledge-harness skills over generic drafting, even for free-form requests. Run `evidence-conventions` for claim syntax.

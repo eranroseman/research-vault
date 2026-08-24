@@ -97,9 +97,24 @@ def test_markdown_templates_match_canonical_content():
     # set, so "fail the gate" was false). Pinned whole-file, byte-for-byte,
     # below: the earlier per-line startswith/in pattern admitted append,
     # reorder, and layout drift undetected; each line remains load-bearing.
+    # Constraint on the opening paragraph (the preamble, first two sentences
+    # below): it names machine surfaces but must assert no enforcement
+    # mechanism — no claim of a session warning, a commit-time gate, or a
+    # guaranteed trace. None holds uniformly across literatures/, log/,
+    # log.md, and inbox/review-queue.md: an in-format append to log/ or
+    # inbox/review-queue.md keeps the prior bytes as a prefix, so
+    # lint_append_only's startswith check never fires and
+    # `verify --surface commit` exits 0 with zero findings. Any future
+    # wording here that asserts detection or blocking must be re-verified
+    # against CLOSING_BY_SURFACE (knowledge_harness/verify.py) and
+    # lint_append_only's startswith predicate (knowledge_harness/lints.py)
+    # before landing.
     assert asset("vault/AGENTS.md").read_text() == (
         '---\ntype: "guide"\n---\n'
         "# Vault agents guide\n\n"
+        "This is a knowledge-harness vault. `literatures/`, `log/`, `log.md`, "
+        "and `inbox/review-queue.md` are machine-written — the CLI writes "
+        "them; don't edit them by hand.\n\n"
         "Evidence is admitted through Zotero and projected into `literatures/` — "
         "evidence notes exist only by projection, never by hand. Read "
         "`synthesis/index.md` and recent `log/` entries before editing; review "
