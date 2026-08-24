@@ -14,7 +14,7 @@
 - Worktree via `superpowers:using-git-worktrees`, branch `fix/pre-slice-batch`.
 - Every test Run begins `source .venv/bin/activate` (`pip install -e ".[dev]" -q` if imports fail).
 - Whole-file test pins (`tests/test_skill_files.py`-style) update in the SAME commit as the prose they pin.
-- Content sources referenced by task: `docs/2026-08-22-skills-layer-audit.md` (the C-findings and ecosystem steals), `docs/2026-08-22-references-cross-read.md` (items 11–12's itemized annotations). Copy their itemized content verbatim — the triage there is the decided set.
+- Content sources referenced by task: `research/validation-slice/2026-08-22-skills-layer-audit.md` (the C-findings and ecosystem steals), `research/validation-slice/2026-08-22-references-cross-read.md` (items 11–12's itemized annotations). Copy their itemized content verbatim — the triage there is the decided set.
 - Suite green offline at each task's end. Commit messages conventional; one commit per task.
 
 ______________________________________________________________________
@@ -53,7 +53,7 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 
 - [ ] **Step 1 (C-3 + item 11 fold):** Credential counts align to `redact_url` — the SKILL.md says "several" and defers to `redact_url` as the authority (3 query-string-auth APIs; 6 redacted params live in code, not prose). Mailto: SKILL.md states it is sourced from harness config and that vendored scripts don't read it.
 - [ ] **Step 2 (C-5):** One vendoring-note line: upstream prose describes upstream's corpus.
-- [ ] **Step 3 (item 12):** One vendoring-note section carrying the six upstream-fact annotations — copy verbatim from the cross-read report's triage (docs/2026-08-22-references-cross-read.md). Add the routing guards: no single-DOI lookups via paginate; the openalex row points at `openalex_abstract.py`; `OPENALEX_API_KEY` env caution.
+- [ ] **Step 3 (item 12):** One vendoring-note section carrying the six upstream-fact annotations — copy verbatim from the cross-read report's triage (research/validation-slice/2026-08-22-references-cross-read.md). Add the routing guards: no single-DOI lookups via paginate; the openalex row points at `openalex_abstract.py`; `OPENALEX_API_KEY` env caution.
 - [ ] **Step 4:** Pins updated same commit; full suite; commit `fix: find-sources credential/vendoring corrections + cross-read wiring`.
 
 ### Task 5: setup-vault C-6 (item 6)
@@ -191,7 +191,7 @@ ______________________________________________________________________
 
 ## Part 2: Trust-core remediation (Plan V, absorbed 2026-08-22)
 
-Closes the no-fabrication audit's remaining trust-core defects (docs/2026-08-22-no-fabrication-audit.md defects 1-3 and 6-8, the RW arming ruling, the additive `relation` read) so slice Phases 4-6 and the gate drill run against remediated gates. Doctrine: missing input is SKIPPED or legible absence, never silence, never a synthesized value; UNMATCHED is never reduced away; trust tiers require evidence, not vacuity. No new dependencies (python-dateutil rejected under §8: the RW CSV's formats are enumerable, so a `strptime` list is the contract match). Part 1's Tasks 10-11 already carry audit defects 4-5.
+Closes the no-fabrication audit's remaining trust-core defects (research/validation-slice/2026-08-22-no-fabrication-audit.md defects 1-3 and 6-8, the RW arming ruling, the additive `relation` read) so slice Phases 4-6 and the gate drill run against remediated gates. Doctrine: missing input is SKIPPED or legible absence, never silence, never a synthesized value; UNMATCHED is never reduced away; trust tiers require evidence, not vacuity. No new dependencies (python-dateutil rejected under §8: the RW CSV's formats are enumerable, so a `strptime` list is the contract match). Part 1's Tasks 10-11 already carry audit defects 4-5.
 
 ### Task 14: RW date parsing + arming honesty (audit defect 1 + the arming ruling)
 
@@ -469,7 +469,7 @@ ______________________________________________________________________
 
 **NAMING RULING (author, 2026-08-23) — the authored per-source account is a `summary`.** Binding on every implementer who touches this artifact; it creates no work in this plan.
 
-**What is named:** the authored prose account of what one source says, written into that source's literature note free region — authored (salience judgment), never machine-projected. Ruled into existence by slice findings 15–16 (`docs/2026-08-22-slice-findings.md`), still unbuilt: no skill step writes it today (Plan D polish-pass item 10, gated on the deferred `/fulltext` leg).
+**What is named:** the authored prose account of what one source says, written into that source's literature note free region — authored (salience judgment), never machine-projected. Ruled into existence by slice findings 15–16 (`research/validation-slice/2026-08-22-slice-findings.md`), still unbuilt: no skill step writes it today (Plan D polish-pass item 10, gated on the deferred `/fulltext` leg).
 
 **The name is `summary`.** Walk, per `docs/terminology.md` §2, under the author's ruling that **churn is not a cost and the user-facing term takes precedence** (§1; tie-breaker 4, surface fit is absolute): T1 OKF silent (its `description` is a frontmatter field, not body prose); T2 toolchain surfaces name the container, not this artifact (ZotLit's `note` template body, Zotero child notes, CSL `note`/`annote`); T4 offers *summary*, *synopsis*, *précis*; **T6 is near-unanimous on `## Summary` / "source summary page"** — paperclip (79k★), claude-obsidian (11.3k★), SamurAIGPT/llm-wiki-agent (3.4k★), sdyckjq-lab/llm-wiki-skill (2.4k★), obsidian-llm-wiki-local (809★ — schema field `summary`), swarmvault (666★), pi-llm-wiki (524★), tonbistudio/llm-wiki (247★ — page-type enum value `summary`), wiki-skills (179★); the llm-wiki gist itself writes "a summary page in the wiki". T4 and T6 agree. *Page* is dropped from the borrowed phrase — it names the file, and that slot is `literature note`.
 
@@ -537,7 +537,7 @@ The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured
 
 Four-state dedup (migrate 3–4 — RED-gated) · anything the in-flight references cross-read confirms beyond items 11–12's decided set (triaged separately when it reports) · the skills polish pass + skill-eval lane (POST-slice, informed by usage).
 
-Plan V (docs/superpowers/plans/2026-08-22-plan-v-trust-core-remediation.md) was absorbed here as Part 2 on 2026-08-22 — the two plans were forced serial by shared `checks.py` test surfaces, and Phase 3's imports run the very checks Part 2 remediates, so one combined merge unblocks slice Phases 2–6 and the drill together. That file remains as a tombstone pointer.
+Plan V was absorbed here as Part 2 on 2026-08-22 — the two plans were forced serial by shared `checks.py` test surfaces, and Phase 3's imports run the very checks Part 2 remediates, so one combined merge unblocks slice Phases 2–6 and the drill together. (Its standalone file was removed with the implemented-plans sweep, 2026-08-23; git history holds it.)
 
 ## Self-Review (at authoring)
 
