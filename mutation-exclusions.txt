@@ -14,6 +14,11 @@
 # measured". Removing a line means the module was re-verified to measure
 # cleanly, not that someone got tired of seeing it here.
 #
+# While a module is on this list, its new guard logic needs HAND-PINNED tests:
+# the mutation gate cannot catch an unpinned branch here, and nothing reminds
+# the author at the moment they write one (learned 2026-08-24: an unpinned
+# floor clause in events.py survived the whole suite as a mutant).
+#
 # scripts/mutation_gate.py prints this whole list on every run, gate and
 # --update-baseline alike, whether or not that run's modules intersect it --
 # a gap you see every time stays a gap; a gap in a file becomes furniture.
