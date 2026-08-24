@@ -6,19 +6,10 @@ requires = [ "setuptools>=68" ]
 name = "knowledge-harness"
 version = "0.1.0"
 description = "Deterministic core for the knowledge-harness plugin"
-# Bumped from >=3.10 2026-08-22 (Plan Q Task 4 execution finding, ruled same day):
-# `--max-workers > 0` in scripts/mutation_gate.py provisions worker copies via
-# `uv venv` + `uv sync`, which fails resolving across the declared Python range
-# because mutate4py==0.1.4 itself requires >=3.11. The 3.10 floor was untested --
-# dev venv is 3.12.3, no CI matrix exists -- so this closes an unexercised support
-# claim rather than breaking a held contract. See docs/superpowers/plans/
-# 2026-08-20-plan-q-quality-lane.md for the ruling.
+# Floor matches mutate4py's own >=3.11; nothing tests or claims 3.10.
 requires-python = ">=3.11"
 dependencies = [
-  # Core's first pinned runtime dependency (admitted 2026-08-20, spec §8 dependency
-  # discipline; docs/2026-08-20-zero-dep-rethink.md): parsing externally-influenced
-  # XML is commodity-hard, so S314 is resolved by admission rather than by noqa.
-  # Lazy-imported at the single parse site so gate-path startup is unchanged.
+  # Lazy-imported at the single parse site — gate-path startup stays import-light.
   "defusedxml==0.7.1",
 ]
 [project.optional-dependencies]
@@ -26,12 +17,8 @@ pdf = [ "pypdf>=4" ]
 dev = [
   "crap4py==0.1.1",
   "drywall==0.1.3",
-  # The mdformat pin is a RENDER-CONTRACT component, not just a dev convenience:
-  # canonical template form leaks into rendered vault notes, so an mdformat upgrade is
-  # judged like a render change, with re-import expectations. oxfmt was rejected
-  # 2026-08-21 with the mismatch named — it reformats INSIDE fenced code blocks, i.e.
-  # quoted material (the prettier-incident class; measured live: it respaced YAML in a
-  # quoted workflow snippet) — plus it drags a Node toolchain into a Python dev lane.
+  # RENDER-CONTRACT pin: canonical template form leaks into rendered vault notes,
+  # so an mdformat upgrade is judged like a render change.
   "mdformat==1.0.0",
   "mdformat-frontmatter==2.1.2",
   "mdformat-gfm==1.0.0",
@@ -41,18 +28,11 @@ dev = [
   "pyproject-fmt==2.28.0",
   "pytest>=8",
   "pytest-cov==7.1.0",
-  # pytest-xdist: offline suite parallelism, adopted 2026-08-22 (measured 127s -> 78s
-  # on a 12-thread machine). Pass `-n auto` ON THE COMMAND LINE, never in addopts:
-  # ambient parallelism would race the single Zotero instance the live legs share,
-  # and mutate4py runs pytest once per mutant inside its own worker pool, so an
-  # addopts entry would nest a worker pool per mutant and oversubscribe invisibly.
+  # Pass `-n auto` ON THE COMMAND LINE, never in addopts: ambient parallelism races
+  # the single Zotero instance, and mutation runs would nest a pool per mutant.
   "pytest-xdist==3.8.0",
-  # pyzotero: dev-lane agent instrument (adopted 2026-08-22 by contract match:
-  # canonical library, local-API-first, read-only by default, local writes gated
-  # behind Zotero's own consent dialog — admission stays human by construction;
-  # live-verified local read at adoption). Web API permitted for tests: read-only
-  # key by default; a write-capable key only for a test that needs it, never
-  # against the real library. No key is stored in this repo.
+  # Dev-lane instrument, read-only posture: local writes sit behind Zotero's own
+  # consent dialog; web-API write keys never against the real library; no key in repo.
   "pyzotero[cli]==1.14.0",
   "ruff==0.15.21",
   "yamlfix==1.19.1",
@@ -65,28 +45,17 @@ knowledge_harness = [ "templates/**/*" ]
 
 [tool.ruff]
 required-version = "==0.15.21"
-# Bumped from py310 alongside requires-python (2026-08-22, author-ruled after a
-# premise correction: an executing task found two tests -- test_cli_live.py's
-# test_import_note_uses_python_310_compatible_utc_surface and a structurally
-# identical fake in test_publish.py -- actively enforcing a Python-3.10-safe
-# `datetime` surface, which the requires-python ruling had assumed untested.
-# Ruling stood anyway: with requires-python >=3.11 landed, no supported
-# interpreter lacks `datetime.UTC`, so that guarantee now protects an interpreter
-# the package no longer supports. Both tests were rewritten (not deleted) to
-# assert the property they actually served -- machine timestamps read a
-# timezone-aware UTC clock, never naive local time -- instead of the withdrawn
-# 3.10-surface guarantee. ruff only infers its target from requires-python when
-# this key is absent, and it is explicit here, so the two move together.
+# Explicit (ruff would infer from requires-python only when absent) — the two
+# move together on any floor bump.
 target-version = "py311"
 line-length = 88
 [tool.ruff.lint]
-# Bandit idiom exclusions (recorded 2026-08-20) — see `ignore` below: these fire on
-# this repo's own architecture, not on findings. Subprocess hygiene is still enforced
-# by S602/S604 (shell=True), which remain active inside "S".
+# Bandit idiom exclusions — see `ignore` below: these fire on this repo's own
+# architecture, not on findings. S602/S604 (shell=True) stay active inside "S".
 #   S310 - urlopen IS the four-state network layer, https-only
 #   S603 - fires on every list-form subprocess call (git plumbing is the design)
 #   S607 - "git" by name, resolved via PATH, is the intended invocation
-# Deliberately NOT selected (recorded 2026-08-20 — do not "fix"):
+# Deliberately NOT selected — do not "fix":
 #   PLR   — pylint-refactor thresholds: PLR0911's "too many returns" flags four-state
 #           outcome mappers (multi-return IS the doctrine's shape); PLR2004 flags HTTP
 #           codes; complexity rows are covered by C90 + the CRAP ceiling
@@ -95,10 +64,8 @@ line-length = 88
 #   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
 #   D     — docstrings unenforced by decision: presence/format checks can't verify truth,
 #           and the meaning layer lives in CONTEXT.md/spec; docstrings stay by convention
-# C90 IS selected (2026-08-20 reversal of the earlier skip): CRAP >= CC always, so the
-# CRAP ceiling subsumes any CC cap at or above it — but BELOW the ceiling a CC cap
-# catches complexity laundered by high coverage (coverage measures execution, not
-# verification; mutation survivors live in covered lines). Backstop, not the risk gate.
+# C90 IS selected: below the CRAP ceiling a CC cap catches complexity laundered by
+# high coverage. Backstop, not the risk gate.
 # Upgrade protocol (ruff pinned; upgrades are deliberate acts): newer ruff versions
 # default-enable curated singles from BLE/D/TRY/PL — the skip list above — and
 # extend-select cannot unselect defaults. On any ruff upgrade: diff the new version's
@@ -144,69 +111,39 @@ extend-select = [
 ignore = [ "S310", "S603", "S607" ]
 [tool.ruff.lint.per-file-ignores]
 # unicode fixtures deliberate; assert IS pytest.
-# ARG in tests (measured 2026-08-22: 199 hits in tests, ZERO in knowledge_harness — the
-# plan's "zero-hit adoption" was true only of core). Two structural idioms produce them
-# and neither is a defect: a monkeypatch double must accept the signature it replaces,
-# so the unused parameters ARE the contract it is honouring (same class as "assert IS
-# pytest"), and a pytest fixture requested for its side effect is named in the signature
-# and never read. "Fixing" either would damage the tests. The guard stays armed in core.
+# ARG in tests only: a monkeypatch double's unused parameters ARE the signature it
+# honours, and a side-effect fixture is named but never read. Guard stays armed in core.
 "tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
 "tests/test_cli_live.py" = [ "UP012" ]
 # print IS the CLI output contract (all 18 measured uses).
 "knowledge_harness/__main__.py" = [ "T20" ]
 # Gate scripts report via stdout by design.
 "scripts/*" = [ "T20" ]
-# PTH off in gitstate ONLY (classified 2026-08-22, 24 hits): this module IS the
-# byte-exact path plane. Vault paths are raw `bytes` that need not be valid UTF-8 —
-# the reason RepoPath and pathcodec exist — and pathlib cannot hold them at all
-# (verified: `Path(b"a/b")` raises TypeError). os.path.join/dirname/listdir/unlink/
-# chmod/replace/symlink/open here all take bytes, so "use pathlib" is not a fix, it is
-# a rewrite that would destroy the guarantee. Two further traps make the rule wrong
-# even on the str sites: os.path.abspath is NOT Path.resolve() (resolve follows
-# symlinks; the containment contract requires it not to), and Path.readlink()
-# normalises the stored target ("./a//b" -> "a/b") where snapshot/restore must be
-# byte-exact. The handful of tempfile.mkstemp str paths stay on the same os idiom
-# rather than mixing two path vocabularies inside one module.
+# PTH off in gitstate ONLY: this module IS the byte-exact path plane — vault paths
+# are raw bytes pathlib cannot hold, os.path.abspath is NOT Path.resolve() (resolve
+# follows symlinks; containment requires not), and Path.readlink() normalises where
+# snapshot/restore must be byte-exact.
 "knowledge_harness/gitstate.py" = [ "PTH" ]
-# Same ruling, test side: these two exercise the byte plane with fixtures whose names
-# are deliberately not valid UTF-8 (b"synthesis/old\xff\nname.md", b"literatures/\x80.md").
-# pathlib cannot construct those paths at all, so the rule cannot be satisfied here
-# without deleting the coverage that proves the byte-exactness contract holds.
+# Test side of the same ruling: fixtures are deliberately non-UTF-8 byte paths
+# pathlib cannot construct.
 "tests/test_gitstate.py" = [ "PTH" ]
 "tests/test_verify_cli.py" = [ "PTH" ]
-# Resting cap, set 2026-08-22 from the post-split CC distribution. The cap was 33
-# at adoption because verify._target_hash measured 33; splitting it into
-# claim-anchor / repo-path / identifier legs left the whole package at C901 <= 14
-# (measured: `ruff check knowledge_harness --select C901 --config
-# "lint.mccabe.max-complexity=14"` is clean). The package maximum under C901 is
-# now 14, at bibliography.observe_autoexport and inbox.load. 28 is therefore
-# deliberate slack — about 2x the real maximum — and no pre-committed target was
-# owed. The slack is the point: this cap must never compete with the CRAP ceiling
-# for authorship of the same decision. Complexity that matters surfaces as CRAP
-# first; C901 exists to catch only what a high coverage number hid from it.
-#
-# C901 and crap4py's CC are DIFFERENT metrics and neither subsumes the other.
-# crap4py follows radon's expression-aware model (each `and`/`or` operand, each
-# conditional expression, each comprehension clause scores), so it read the same
-# _target_hash at 73 where ruff read 33. The CRAP ceiling of 30 is the risk gate;
-# this cap is an independent backstop against complexity laundered by coverage.
+# ~2x the package's measured C901 maximum — deliberate slack so this cap never
+# competes with the CRAP ceiling for the same decision; it catches only what a high
+# coverage number hid. C901 and crap4py's CC are DIFFERENT metrics (crap4py is
+# expression-aware and reads far higher); neither subsumes the other.
 [tool.ruff.lint.mccabe]
 max-complexity = 28
 
-# Ratchet path (as touched code gets annotated): disallow_incomplete_defs ->
-# disallow_untyped_defs. Full --strict deferred by decision (measured 2026-08-20:
-# 316 of its 329 errors are annotation-presence, yielding ~0 additional verified
-# defects; at JSON boundaries strict invites cast()-laundered "asserted, not
-# verified" types). Revisit after the evidence shapes (CSL-JSON item, Zotero
-# responses, frontmatter) are modeled as TypedDicts — then the remaining rungs
-# are cheap and strict arrives as a fact, not a campaign.
+# Ratchet: disallow_incomplete_defs -> disallow_untyped_defs as code gets annotated.
+# Full --strict waits for the evidence shapes to be modeled as TypedDicts — before
+# that it invites cast()-laundered "asserted, not verified" types at JSON boundaries.
 [tool.mypy]
 files = [ "knowledge_harness" ]
-# rung 1: untyped function bodies are checked (+3 real errors at adoption).
+# rung 1: untyped function bodies are checked.
 check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-# strict_equality: truth flags — measured zero-cost at adoption.
 strict_equality = true
 # pypdf: optional [pdf] extra; the dev lane installs [dev] only.
 [[tool.mypy.overrides]]
@@ -224,8 +161,7 @@ markers = [
   "live: requires a running local Zotero (set HARNESS_LIVE=1)",
   "live_net: hits real external APIs (set HARNESS_LIVE_NET=1 and HARNESS_MAILTO)",
 ]
-# Post-flip, pytest's rootdir is the whole repo; pinning collection here means bare
-# `pytest` and `python -m pytest` resolve scripts.* imports identically (parked from
-# Plan L's zero-behavior-change branch; flagged by the 2026-08-21 entry-point audit).
+# Pinning collection here makes bare `pytest` and `python -m pytest` resolve
+# scripts.* imports identically.
 pythonpath = [ "." ]
 testpaths = [ "tests" ]

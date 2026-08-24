@@ -1,20 +1,11 @@
 # Commits ignored by git blame (canonical-form churn only — never content).
-# Append the hash of each one-time format churn commit here.
 # Activate locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
 
-# style: one-time canonical-form churn (mdformat over docs+skills, ruff format)
-# 2026-08-22 — Plan Q Task 2. NOT wholly form-only, corrected 2026-08-23: a `|`
-# inside an inline code span broke mdformat's table parse and this commit
-# silently dropped three rows of normative content from the foundation spec's
-# frontmatter table -- restored by 2330b70, which also disproves this commit's
-# own message ("No sentence, no code, and no meaning is changed anywhere in
-# this commit"). Left in this file anyway
-# because the rest of the diff genuinely is form-only and blame should still
-# skip past those lines; a reader chasing the deleted rows follows through to
-# 2330b70, not this entry.
+# mdformat+ruff canonical-form churn. NOT wholly form-only: a `|` inside a code
+# span broke a table parse and silently dropped three spec rows — restored by
+# 2330b70. Blame skips the form churn; anyone chasing the rows follows 2330b70.
 8e3c25078b4844ee81c5b00c79293ac6521b7f7e
 
-# style: canonicalize the markdown main added after the first churn (2026-08-23).
-# Alignment padding only; verified content-preserving by the table-truncation
-# guard, which the first churn predated.
+# canonicalize markdown added after the first churn; content-preserving
+# (verified by the table-truncation guard).
 4be802c506cb76377f4a7c28a831a27ef2380b80
