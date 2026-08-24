@@ -8,11 +8,13 @@ Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share
 
 Testing — including the live legs that offline runs silently skip: `docs/testing.md`.
 
+Environment facts — Zotero, Better BibTeX, WSL path translation: `docs/environment.md`.
+
 ## Agent skills
 
 ### Issue tracker
 
-GitHub Issues (`gh` CLI) on eranroseman/knowledge-harness. See `docs/agents/issue-tracker.md`.
+GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
