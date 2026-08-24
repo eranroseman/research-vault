@@ -26,9 +26,9 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 **Files:** Move: `skills/project/` → `skills/project-flow/`. Modify: `docs/terminology.md` §4.3 skills row; routing tables in `skills/find-sources/SKILL.md` and `skills/import-source/SKILL.md`; the skill's content test in `tests/`.
 
 - [ ] **Step 1:** `git mv skills/project skills/project-flow`; update `name:` in its SKILL.md frontmatter to `project-flow`.
-- [ ] **Step 2:** Update terminology §4.3's skills row and both routing tables (grep `skills/ -rn "\`project\`"` and judge each hit — routing rows change; prose about "a project" (the noun) does not).
+- [ ] **Step 2:** Update terminology §4.3's skills row and both routing tables (grep `skills/ -rn "\`project\`"\` and judge each hit — routing rows change; prose about "a project" (the noun) does not).
 - [ ] **Step 3:** Update the content test that names the skill (locate via `grep -rn "project" tests/test_skill_contracts.py tests/test_skill_files.py`); run it: PASS.
-- [ ] **Step 4:** Judged grep for retired references: `grep -rn "skills/project/\|Skill(project)\|\`project\` skill" --include="*.md" .` — every hit either updated or judged non-referential (record the judgment list in the commit body).
+- [ ] **Step 4:** Judged grep for retired references: `grep -rn "skills/project/\|Skill(project)\|\`project\` skill" --include="\*.md" .\` — every hit either updated or judged non-referential (record the judgment list in the commit body).
 - [ ] **Step 5:** Full offline suite. Commit `refactor: rename project skill to project-flow`.
 
 ### Task 2: C-7 routing index into the vault AGENTS.md template (item 2)
@@ -193,6 +193,7 @@ Closes the no-fabrication audit's remaining trust-core defects (docs/2026-08-22-
 ### Task 14: RW date parsing + arming honesty (audit defect 1 + the arming ruling)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`_rw_date`, ~line 910)
 - Modify: `knowledge_harness/verify.py` (RW-leg absence line, near `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`, ~line 986)
 - Test: `tests/test_checks.py`, `tests/test_verify.py`
@@ -243,11 +244,12 @@ def _rw_date(value) -> str | None | object:
 
 **Arming ruling implemented by this task (record in the commit body):** the RW leg's home is the scheduled CI lane (`templates/ci/rw-batch.yml`, already passes `--rw-csv`) and the drill runs it explicitly armed (Plan S amendment already recorded); local `verify` without the flag now states the absence. No default-on: fetching the RW CSV is a network+license act that stays deliberate.
 
-
 ### Task 15: Reduction must not round UNMATCHED to MATCHED (audit defect 2)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)
+
 - Test: `tests/test_checks.py`
 
 - [ ] **Step 1: Failing test**
@@ -277,12 +279,14 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 - [ ] **Step 5: Commit** `fix: update-notice reduction preserves non-blocking UNMATCHED`
 
-
 ### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap)
 
 **Files:**
+
 - Modify: `knowledge_harness/events.py` (`trust_tier`, ~line 240)
+
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§5 Event-integrity paragraph)
+
 - Test: `tests/test_events.py`
 
 - [ ] **Step 1: Failing test**
@@ -316,12 +320,14 @@ if not has_applicable and not has_managed_quotes:
 
 - [ ] **Step 5: Full suite; fix any test that pinned the vacuous tier (say so per-test in the commit body). Commit** `fix: trust tier requires evidence — no vacuous machine-confirmed`
 
-
 ### Task 17: The "unresolved" placeholder never anchors acknowledgments (audit defects, fixity pair)
 
 **Files:**
+
 - Modify: `knowledge_harness/__main__.py` (attachment loop, ~line 234)
+
 - Modify: `knowledge_harness/verify.py` (`_citekey_hash` fixity adoption, ~line 209)
+
 - Test: `tests/test_import_note.py` (or the file holding import-note frontmatter tests), `tests/test_verify.py`
 
 - [ ] **Step 1: Failing tests, both sides**
@@ -356,11 +362,12 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 - [ ] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
 
-
 ### Task 18: Supplied snapshots must be snapshots of THIS url (audit defect, archive)
 
 **Files:**
+
 - Modify: `knowledge_harness/archive.py` (supplied-snapshot branch, ~lines 166–185; `is_archive_url` or a new `_snapshot_original`)
+
 - Test: `tests/test_archive.py`
 
 - [ ] **Step 1: Failing tests**
@@ -390,11 +397,12 @@ Shape fails → the first UNMATCHED. Shape passes → compare `original` against
 
 - [ ] **Step 4: Full suite (the live archive legs are env-gated — run them at Task 21). Commit** `fix: supplied archive snapshots verified by shape and target URL`
 
-
 ### Task 19: Partial notice dates keep their precision (audit defect 6)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`_notice_date_from_updated`, ~line 506; the reinstatement-clears comparison — locate by `notice_date` ordering use)
+
 - Test: `tests/test_checks.py`
 
 - [ ] **Step 1: Failing tests**
@@ -418,11 +426,12 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [ ] **Step 5: Full suite; fix tests that pinned padded dates (note each). Commit** `fix: partial Crossref dates keep precision; ambiguous reinstatement never clears`
 
-
 ### Task 20: Additive `relation.is-retracted-by` read (queued 2026-08-22)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`_crossref_notices`, ~line 533)
+
 - Test: `tests/test_checks.py`
 
 - [ ] **Step 1: Failing test** — a Crossref message fixture with NO `updated-by` but `"relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]}` yields one blocking notice (type `retraction`, `notice_date` None, the relation id recorded).
@@ -433,11 +442,12 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [ ] **Step 4: Full suite. Commit** `feat: read Crossref relation.is-retracted-by as an additive retraction signal`
 
-
 ### Task 21: Spec gap closures + acceptance
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§6 gate rows: metadata, update-notice)
+
 - Modify: `docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md` (second sequencing gate: mark satisfied)
 
 - [ ] **Step 1: Metadata row (§6, ~line 98)** — append: *"A compared field absent on either side is SKIPPED for that field, recorded in the outcome's detail — never folded into MATCHED (closed 2026-08-22, audit gap)."* Then verify the implementation agrees (read `check_metadata`'s absent-field handling; if it silently folds, fix it with a failing-test-first micro-cycle inside this task and note it).
@@ -449,7 +459,6 @@ def test_ambiguous_reinstatement_does_not_clear():
 - [ ] **Step 4: Mark BOTH Plan S sequencing gates satisfied** (one line each, dated, pointing at this plan) — Phases 2–6 and the drill unblock together.
 
 - [ ] **Step 5: Commit** `fix: close spec §6 missing-data gaps; trust-core remediation acceptance` — then merge to main and push in the same motion.
-
 
 ______________________________________________________________________
 
