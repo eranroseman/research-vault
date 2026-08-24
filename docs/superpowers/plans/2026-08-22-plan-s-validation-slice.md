@@ -49,7 +49,7 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 ## Phase 4–6 — Draft, verify, publish
 
 - [ ] Draft a 1,000–2,000-word evidence brief in `projects/` under the Iron Law (via evidence-conventions); ~10 synthesis pages touched.
-- [ ] `verify-citations` + `factcheck-draft` → adjudicated findings; the recorded skipped set is real here.
+- [ ] `verify-citations` + `factcheck-draft` → adjudicated findings; the recorded skipped set is real here. **Pre-registered companion measurement (2026-08-24): the verify-the-verifier base rate** — on factcheck's MATCHED inference claims, run one fresh-context second pass (CoVe shape: the verifier never sees the first verdict) and record the disagreement rate as data. Decides whether the second pass becomes standing: near-zero disagreement makes the 2× cost pure tax; the number rules, not the paper.
 - [ ] `publish` → the gate; author chooses the disposition.
 
 ## Synthetic gate drill (decoupled — a scratch project, not the research)
