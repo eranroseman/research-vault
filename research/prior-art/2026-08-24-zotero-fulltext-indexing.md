@@ -37,9 +37,11 @@ they come up, rather than collected separately.
   [`document-worker/README.md`](https://github.com/zotero/document-worker/blob/bd2ac56bad043d0536b72fc912a1929e41159c74/README.md)
 - The worker's `pdf.getFulltext` handler calls `getFulltext()`, defined in
   `src/pdf/index.js:463-510`. It builds a PDF.js `LocalPdfManager` (imported directly from
-  `../../pdf.js/src/core/pdf_manager.js`) and pulls characters page-by-page via
-  `getPageChars()` → `pdfDocument.module.getPageChars(pageIndex)`.
-  [`document-worker/src/pdf/index.js:7,10,430-461,463-510`](https://github.com/zotero/document-worker/blob/bd2ac56bad043d0536b72fc912a1929e41159c74/src/pdf/index.js#L463-L510)
+  `../../pdf.js/src/core/pdf_manager.js`, line 10 — line 7 of the same import block is an unrelated
+  `Util` import) via the local `getPdfManager()` helper (`:430-461`), then pulls characters
+  page-by-page via the local `getPageChars()` wrapper (`:56-59`) →
+  `pdfDocument.module.getPageChars(pageIndex)`.
+  [`document-worker/src/pdf/index.js:10,56-59,430-461,463-510`](https://github.com/zotero/document-worker/blob/bd2ac56bad043d0536b72fc912a1929e41159c74/src/pdf/index.js#L463-L510)
 - `pdfDocument.module` is `Module` from Zotero's PDF.js fork,
   `src/core/module/module.js` — a Zotero-specific addition not present in upstream Mozilla PDF.js
   (confirmed: it sits under `src/core/module/`, alongside `paragraph-break-compat.js` and
@@ -57,10 +59,14 @@ Two older repos, `zotero/cross-xpdf` (xpdf's `pdftotext`/`pdfinfo`, last pushed 
 `zotero/cross-poppler` (poppler's `pdftotext`/`pdfinfo`, last pushed 2020-02-03), exist in the
 `zotero` org and confirm Zotero *did* shell out to native `pdftotext` binaries at some point, but
 both are stale relative to `document-worker` (pushed 2026-08-19, five days before this research) and
-neither is referenced from current `fulltext.js`. Whether/when the cutover from
-xpdf-or-poppler-`pdftotext` to the in-process PDF.js worker happened is **unconfirmed** — no commit
-history was read to date it, only that current source has fully moved off the native binaries for
-fulltext extraction.
+neither is referenced from current `fulltext.js`. Separately, `github.com/zotero/pdf-worker` — a name
+closer to the task's original guess — 301-redirects to `github.com/zotero/document-worker`
+(confirmed: `curl -so /dev/null -w '%{http_code} %{redirect_url}' https://github.com/zotero/pdf-worker`
+→ `301 https://github.com/zotero/document-worker`), i.e. `document-worker` is a rename of the
+project, not a new one — its own commit history should let someone date the cutover more precisely.
+Whether/when the cutover from xpdf-or-poppler-`pdftotext` to the in-process PDF.js worker happened is
+still **unconfirmed** here — that history wasn't read — only that current source has fully moved off
+the native binaries for fulltext extraction.
 
 ## Q2: OCR fallback
 
@@ -116,20 +122,35 @@ fulltext extraction.
 - Confirmed via the storage layer too: `getIndexedState()` treats `stats.indexed < stats.total` as
   `INDEX_STATE_PARTIAL`.
   [`chrome/content/zotero/xpcom/fulltext.js:2896-2939`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L2896-L2939)
-  A background "reindex limit" queue (`_reindexLimitTimeoutIDs`) exists specifically to reprocess
-  items sitting below the current char/page limit if the limit preference changes.
+  A background "reindex limit" queue (`_reindexLimitTimeoutIDs`, declared `:110`) exists
+  specifically to reprocess items sitting below the current char/page limit if the limit preference
+  changes.
   [`chrome/content/zotero/xpcom/fulltext.js:3085-3106`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L3085-L3106)
   (comment: "are tracked separately, via indexedChars/totalChars and indexedPages/totalPages")
 
-**`indexedChars`/`totalChars` — confirmed, non-paginated content type.** Used for anything that
-isn't a PDF: HTML/snapshot documents (via `indexDocument()`) and EPUB (via `indexEPUB()`).
-`totalChars` is the full extracted length before truncation; `indexedChars` is
-`text.length` after being capped to `extensions.zotero.fulltext.textMaxLength` (default 500,000,
-"~100,000 words or 180-200 pages of content" per docs).
-[`chrome/content/zotero/xpcom/fulltext.js:591-611`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L591-L611)
-(HTML/`indexDocument`),
-[`chrome/content/zotero/xpcom/fulltext.js:675-713`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L675-L713)
-(EPUB/`indexEPUB`),
+**`indexedChars`/`totalChars` — confirmed, non-paginated content type, but the two only diverge on
+some paths, not all.** Used for anything that isn't a PDF: HTML/snapshot documents (via
+`indexDocument()`), EPUB (via `indexEPUB()`), and other text items (via the generic `indexItem()`).
+Whether `indexedChars` is actually capped below `totalChars` depends on which of those three
+functions ran:
+
+- **`indexDocument()`** (HTML/snapshots) does **not** truncate the stored text: `totalChars =
+  text.length` and `indexedChars: text.length` are set from the *same* untruncated `text` variable —
+  an over-`textMaxLength` document only gets a `Zotero.debug()` log line, not a cut. So on this path
+  `indexedChars` always equals `totalChars`, regardless of the preference.
+  [`chrome/content/zotero/xpcom/fulltext.js:591-611`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L591-L611)
+- **`indexEPUB()`** does truncate, per chapter, as it accumulates: `totalChars` sums each chapter's
+  full length, while `bodyText.substring(0, maxLength - text.length)` caps what's appended to the
+  stored `text`.
+  [`chrome/content/zotero/xpcom/fulltext.js:697`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L697)
+- **`indexItem()`** (the generic text-item path — see the plugin `.md` attachments below) also
+  truncates: `totalChars = text.length` first, then `text = text.substr(0, maxLength)` if not
+  `complete`, before the `{indexedChars: text.length, totalChars}` stats object is built.
+  [`chrome/content/zotero/xpcom/fulltext.js:859-863`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L859-L863)
+
+`extensions.zotero.fulltext.textMaxLength` (default 500,000, "~100,000 words or 180-200 pages of
+content" per docs) is the shared preference all three read, even though only two of the three
+enforce it as a hard cap.
 [`defaults/preferences/zotero.js:113`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/defaults/preferences/zotero.js#L113)
 (default value).
 
@@ -163,6 +184,10 @@ handling, and Unicode NFC normalization.**
    ]);
    ```
 
+   (source uses `\uXXXX` escapes, not literal glyphs — same ten code points either way: hyphen-minus,
+   Armenian hyphen, Canadian syllabics hyphen, Mongolian todo soft hyphen, hyphen, double oblique
+   hyphen, hyphen with diaeresis, katakana-hiragana double hyphen, small hyphen-minus, fullwidth
+   hyphen-minus.)
    [`pdf.js/src/core/module/structure.js:600-606,863-866`](https://github.com/zotero/pdf.js/blob/2a28e531095d40b3333d939fc80059124f184fdf/src/core/module/structure.js#L600-L606)
    `ignorable` characters are then skipped entirely when the text is assembled:
    `if (!char.ignorable) { text.push(char.c); ... }`.
@@ -224,7 +249,8 @@ handling, and Unicode NFC normalization.**
    ```
 
    [`chrome/content/zotero/xpcom/fulltext.js:2166-2182`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L2166-L2182)
-   The same normalization is applied for FTS5 word-index matching in `getWordMatchClause()`.
+   `getWordMatchClause()`, used for FTS5 word-index matching, applies only the `normalizeForSearch()`
+   half of this (case/diacritic folding) — it does not also collapse whitespace/hyphen runs.
    [`chrome/content/zotero/xpcom/fulltext.js:2441-2442`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L2441-L2442)
    This is query-side, applied when matching against the index, and is a different code path from
    the extraction-time NFC normalization above (point 3) — it doesn't change what's stored in
@@ -237,8 +263,10 @@ re-extraction.**
 
 - **`zotero.sqlite`** (main DB) has a `fulltextItems` table, one row per attachment item, keyed by
   `itemID`, holding `indexedChars, totalChars, indexedPages, totalPages, version, synced` — this is
-  stats/sync bookkeeping, **not** the extracted text itself.
-  [`chrome/content/zotero/xpcom/fulltext.js:504-545`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L504-L545)
+  stats/sync bookkeeping, **not** the extracted text itself. The written columns aren't a fixed list
+  in the query itself — `setFulltextItem` builds them dynamically from whatever keys are present on
+  the caller's `stats` object (`indexedChars`/`totalChars` or `indexedPages`/`totalPages`, per Q3).
+  [`chrome/content/zotero/xpcom/fulltext.js:510-528`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L510-L528)
   (`setFulltextItem`), columns enumerated at
   [`fulltext.js:2799-2877`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L2799-L2877)
   (`getPages`/`getChars`/`setPages`/`setChars`).
@@ -260,10 +288,10 @@ re-extraction.**
   `fulltextNotesCJK` (note text, `trigram`/`ascii`), plus bookkeeping tables
   `fulltextIndexState`/`fulltextNoteIndexState`/`fulltextIndexMeta`/`noteText`. The comment block
   is explicit about the split:
-  > "a local, rebuildable index kept out of zotero.sqlite (so it doesn't bloat the main DB or its
-  > backups), versioned independently via PRAGMA user_version. The original extracted text still
-  > lives in the .zotero-ft-cache files, so the content tables store only the index built from the
-  > normalized text."
+  > "It's a local, rebuildable index kept out of zotero.sqlite (so it doesn't bloat the main DB or
+  > its backups), versioned independently via PRAGMA user_version. The original extracted text
+  > still lives in the .zotero-ft-cache files, so the content tables store only the index built
+  > from the normalized text."
 
   [`chrome/content/zotero/xpcom/fulltext.js:116-230`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L116-L230)
   This confirms the `fulltextItems`/`fulltextWords` guess from the task brief is close but not
@@ -293,8 +321,8 @@ re-extraction.**
   ```
 
   [`chrome/content/zotero/xpcom/server/server_localAPI.js:1423-1452`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/server/server_localAPI.js#L1423-L1452)
-  (Other internal code paths, e.g. the background content-sync queue, *do* lazily re-extract via
-  `indexItems()` if the cache file is missing but the source file is present — see
+  (Other internal code paths, e.g. the idle-gated `processAttachmentIndexQueue()` backfill (Q6), *do*
+  lazily re-extract via `indexItems()` if the cache file is missing but the source file is present — see
   [`fulltext.js:1572-1596`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L1572-L1596)
   — but that's a different call path from the `/fulltext` GET endpoint itself, which just 404s.)
 
@@ -318,7 +346,7 @@ limits are `pdfMaxPages` (100) and `textMaxLength` (500,000 chars), both prefere
 - **A separate background "backfill" queue** exists for items that have a stored file but no
   `fulltextItems` row yet (e.g. after an upgrade, or content synced from another machine without its
   extracted text) — driven by an OS idle observer
-  (`nsIUserIdleService`, `_idleObserverDelay = 30` seconds) rather than on-demand:
+  (`nsIUserIdleService`, `_idleObserverDelay = 30` seconds, declared `:68`) rather than on-demand:
   [`chrome/content/zotero/xpcom/fulltext.js:1139-1154`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L1139-L1154)
   and the queue-selection query itself:
   [`chrome/content/zotero/xpcom/fulltext.js:1429-1446`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/fulltext.js#L1429-L1446)
@@ -342,13 +370,16 @@ limits are `pdfMaxPages` (100) and `textMaxLength` (500,000 chars), both prefere
     [zotero.org/support/preferences/search](https://www.zotero.org/support/preferences/search)
     (page text, retrieved 2026-08-24)
   - No file-size limit for PDFs was found in `fulltext.js`'s `indexPDF()` or in
-    `document-worker`'s `getFulltext()` itself. (A 4 GB file-size cap does exist in the client-side
-    `PDFWorker` manager's annotation-import path — `IOUtils.stat` check against
-    `Math.pow(2, 31) - 1` bytes — but that's for `import()`/Citavi/Mendeley annotation processing,
-    not for `getFullText()`.
-    [`chrome/content/zotero/xpcom/pdfWorker/manager.js:331-334`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/pdfWorker/manager.js#L331-L334)
-    **Whether a similar cap applies to full-text extraction specifically is unconfirmed** from the
-    files read.)
+    `document-worker`'s `getFulltext()` itself. `PDFWorker.getFullText()` (client-side manager) reads
+    the whole file straight into memory with `IOUtils.read(path)` and no preceding `IOUtils.stat`
+    size check at all.
+    [`chrome/content/zotero/xpcom/pdfWorker/manager.js:612-640`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/pdfWorker/manager.js#L612-L640)
+    A ~2 GiB file-size cap (`Math.pow(2, 31) - 1` bytes = 2,147,483,647, i.e. ~2 GiB, not 4 GB) does
+    exist elsewhere in the same manager, guarded by an explicit `IOUtils.stat` check — but only on
+    the `import()`/Citavi/Mendeley annotation-import paths (three call sites), not on `getFullText()`.
+    [`chrome/content/zotero/xpcom/pdfWorker/manager.js:331-334,394-395,423-424`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/pdfWorker/manager.js#L331-L334)
+    So: no cap applies to full-text extraction specifically — the practical limit is whatever fits in
+    memory, not a coded threshold.)
   - "Rebuild Index" / "Reindex Item" are documented user-triggered re-index actions, separate from
     the automatic on-import/backfill triggers above.
     [zotero.org/support/preferences/search](https://www.zotero.org/support/preferences/search)
@@ -379,8 +410,9 @@ depends on what content type the new item has, checked per-plugin below.
   self-hosted/offline option is documented in this plugin (MinerU itself supports offline deployment
   — see zotero-mineru section below — but zotero-pdf2md's `API_BASE` is not configurable).
 - **OCR**: explicit toggle, sent to MinerU's API as `is_ocr`, alongside `enable_formula` and
-  `enable_table`.
-  [`addon/zotero-pdf2md.js:39,454-465`](https://github.com/qingpy/zotero-pdf2md/blob/e78c50580e2118a59de0986d93078871d499d701/addon/zotero-pdf2md.js#L454-L465)
+  `enable_table`, on both request paths this plugin has: the token-authenticated flow (`:454-465`)
+  and the unauthenticated "light API" flow (`:541-543`).
+  [`addon/zotero-pdf2md.js:454-465,541-543`](https://github.com/qingpy/zotero-pdf2md/blob/e78c50580e2118a59de0986d93078871d499d701/addon/zotero-pdf2md.js#L454-L465)
   Whether MinerU's cloud API actually runs OCR when `is_ocr` is unset, versus auto-detecting scanned
   pages as MinerU's own engine README claims (see zotero-mineru section), is **unconfirmed** from
   this plugin's repo — the plugin just forwards the flag.
@@ -394,7 +426,7 @@ depends on what content type the new item has, checked per-plugin below.
   [`addon/zotero-pdf2md.js:660-675`](https://github.com/qingpy/zotero-pdf2md/blob/e78c50580e2118a59de0986d93078871d499d701/addon/zotero-pdf2md.js#L660-L675)
 - **Feeds Zotero's own index?** Indirectly, yes, but as a *separate* index entry, not merged into the
   PDF's own `.zotero-ft-cache`/FTS5 entry. `text/markdown` matches Zotero's generic
-  `Zotero.MIME.isTextType()` check (`mimeType.substr(0,5) == 'text/'`)
+  `Zotero.MIME.isTextType()` check (`mimeType.substr(0, 5) == 'text/' || mimeType in _textTypes`)
   [`chrome/content/zotero/xpcom/mime.js:136-137`](https://github.com/zotero/zotero/blob/753dbf557ad4fbd958594253c9ff28e585d7837c/chrome/content/zotero/xpcom/mime.js#L136-L137)
   so a stored `.md` child attachment goes through the same import-triggered `queueItem()` →
   `indexItem()` path as any other text attachment
@@ -477,17 +509,19 @@ depends on what content type the new item has, checked per-plugin below.
   Zotero-side cloud dependency) — via `uv`/`pipx` Python install or a Docker/Podman container
   (CPU or CUDA image), default `http://localhost:5001`. No data leaves the machine unless the user
   points the server URL at a remote host themselves; optional Bearer/Basic/custom-header auth exists
-  for that case. First conversion downloads model weights from Hugging Face (2-10 min for the
-  standard pipeline, longer for VLM presets; Granite-Docling VLM weights ≈500 MB).
-  [`README.md`, "Quick start" / "Install the server" / "First conversion downloads model weights"]
+  for that case. First conversion downloads model weights from Hugging Face: 2-10 min for the
+  standard pipeline, "significantly longer (multi-GB)" for VLM presets generally, per the README's
+  "First conversion" note — a separate Requirements-section estimate puts the baseline Granite-Docling
+  VLM weights specifically at ≈500 MB ("larger models more").
+  [`README.md`, "Requirements" / "First conversion downloads model weights"]
 - **OCR**: full OCR + language selection exposed from Docling's own options ("Full Docling options
   surfaced: pipeline (standard / VLM), OCR + language, table mode, formula / code / chart / picture
   enrichments"). [`README.md`, "Features"]
   Docling's actual OCR engine is **not fixed to Tesseract** (contrast with zotero-ocr below) — its
-  default is an auto-selecting engine that picks a platform-appropriate backend: `ocrmac` (Apple
-  Vision) on macOS, then (on Linux) Nemotron-OCR if installed, else RapidOCR (onnxruntime), else
-  EasyOCR as the final fallback; Tesseract is available as an explicit, separately-selectable engine
-  option rather than the default.
+  default is an auto-selecting engine that tries backends in order: `ocrmac` (Apple Vision, macOS
+  only), then Nemotron-OCR if installed, then RapidOCR (onnxruntime), then EasyOCR, with a final
+  RapidOCR-with-`torch`-backend attempt if all of those are unavailable; Tesseract is available as an
+  explicit, separately-selectable engine option rather than the default.
   [`docling/models/stages/ocr/auto_ocr_model.py`](https://github.com/docling-project/docling/blob/83d5de095cb30846a0df5336117b6213f2c5b335/docling/models/stages/ocr/auto_ocr_model.py)
   (engine-selection `if`/`try` chain),
   [`docling/datamodel/pipeline_options.py:1996-2004`](https://github.com/docling-project/docling/blob/83d5de095cb30846a0df5336117b6213f2c5b335/docling/datamodel/pipeline_options.py#L1996-L2004)
@@ -508,8 +542,9 @@ depends on what content type the new item has, checked per-plugin below.
 - **Feeds Zotero's own index?** Same mechanism as zotero-pdf2md/zotero-mineru — `text/markdown`
   content type triggers Zotero's generic text-indexing path as a separate index entry from the PDF's
   own extraction (see zotero-pdf2md section for the citation chain).
-- **Maturity**: created 2026-05-19, actively maintained (most recent push 2026-08-20, 8 releases
-  `v0.1.0`→`v0.3.3`, CI workflow, dependabot/renovate configured, issue templates, test suite present
+- **Maturity**: created 2026-05-19, actively maintained (most recent push 2026-08-20, 8 release tags
+  — 7 semver (`v0.1.0`→`v0.3.3`) plus one plain `release` tag — CI workflow, dependabot/renovate
+  configured, issue templates, test suite present
   under `test/`), 11 stars, 6 open issues, 3 forks. The most process-mature of the Markdown plugins by
   repo-hygiene signals (tests, CI, structured issue templates) even though it has fewer stars than
   zotero-mineru. [repo metadata, retrieved 2026-08-24]
@@ -531,7 +566,7 @@ depends on what content type the new item has, checked per-plugin below.
   "Tesseract OCR is used for the text recognition itself," listed under "Prerequisites" alongside
   `pdftoppm`. [`README.md`](https://github.com/UB-Mannheim/zotero-ocr/blob/cdd286a469e13830f704e2dc037a33367a1551b2/README.md)
   Both are local binaries the user installs and points the plugin at (paths configurable in
-  preferences; empty by default, meaning "use the binaries on `PATH`").
+  preferences; empty by default, meaning — per the README — "the usual locations are looked at").
 - **Local vs cloud**: fully local/offline. No API, no server, no account — the plugin only shells out
   to the two local binaries. Explicitly incompatible with Flatpak/Snap/AppImage Zotero installs
   because those sandboxes block access to external binaries.
@@ -551,9 +586,10 @@ depends on what content type the new item has, checked per-plugin below.
   `overwritePDF: false` by default, i.e. it doesn't replace the original by default; (2) a **child
   note** containing the recognized plain text (`outputNote: true`); (3) **hOCR HTML attachments**,
   one per page, capped at the first 5 pages by default (`outputHocr: true`,
-  `maximumPagesAsHtml: "5"`), useful for visually verifying OCR quality.
+  `maximumPagesAsHtml: "5"`, hOCR-to-HTML attachment import at `:437`), useful for visually verifying
+  OCR quality; the sibling-PDF import is a separate block further down (`:461-466`, see below).
   [`src/defaults/preferences/defaults.js`](https://github.com/UB-Mannheim/zotero-ocr/blob/cdd286a469e13830f704e2dc037a33367a1551b2/src/defaults/preferences/defaults.js),
-  [`src/chrome/content/zoteroocr.js:403-471`](https://github.com/UB-Mannheim/zotero-ocr/blob/cdd286a469e13830f704e2dc037a33367a1551b2/src/chrome/content/zoteroocr.js#L403-L471)
+  [`src/chrome/content/zoteroocr.js:403-466`](https://github.com/UB-Mannheim/zotero-ocr/blob/cdd286a469e13830f704e2dc037a33367a1551b2/src/chrome/content/zoteroocr.js#L403-L466)
 - **Feeds Zotero's own index?** Yes, and uniquely among the four plugins, **directly into the same
   built-in PDF pipeline** described in Q1-Q6 above, not a separate text-type side channel: the new
   `.ocr.pdf` is a normal stored `application/pdf` attachment, created via the same
@@ -566,7 +602,7 @@ depends on what content type the new item has, checked per-plugin below.
   non-copied files was not checked against the `queueItem()` trigger conditions.) The child note is
   separately indexed via Zotero's `fulltextNotes`/`fulltextNotesCJK` FTS5 tables (built-in doc, Q5),
   since Zotero indexes all notes by default.
-  [`src/chrome/content/zoteroocr.js:437-471`](https://github.com/UB-Mannheim/zotero-ocr/blob/cdd286a469e13830f704e2dc037a33367a1551b2/src/chrome/content/zoteroocr.js#L437-L471)
+  [`src/chrome/content/zoteroocr.js:461-466`](https://github.com/UB-Mannheim/zotero-ocr/blob/cdd286a469e13830f704e2dc037a33367a1551b2/src/chrome/content/zoteroocr.js#L461-L466)
 - **Maturity**: by far the most established of the four — created 2018-10-25, 814 stars, 52 forks,
   20 tagged releases from `0.0.1` (2019-08-28) to `0.9.5.1` (2026-05-04), most recent push
   2026-08-20, 11 open issues. Actively maintained across seven-plus years, with a third-party AUR
@@ -579,7 +615,7 @@ depends on what content type the new item has, checked per-plugin below.
 
 | capability | built-in | pdf2md | mineru | docling | zotero-ocr |
 |---|---|---|---|---|---|
-| engine | Zotero's PDF.js fork (`document-worker`), text-layer read only | MinerU (cloud API) | MinerU (cloud API, configurable base URL) | Docling, via local `docling-serve` (OCR engine auto-selected: ocrmac/Nemotron/RapidOCR/EasyOCR, or explicit Tesseract) | Tesseract OCR + Poppler `pdftoppm` (both local binaries) |
+| engine | Zotero's PDF.js fork (`document-worker`), text-layer read only | MinerU (cloud API) | MinerU (cloud API, configurable base URL) | Docling, via local `docling-serve` (OCR engine auto-selected: ocrmac/Nemotron/RapidOCR/EasyOCR/RapidOCR-torch, or explicit Tesseract) | Tesseract OCR + Poppler `pdftoppm` (both local binaries) |
 | local vs cloud/server dependency | fully local (in-process) | cloud (mineru.net); no self-host documented | cloud by default (mineru.net); base URL configurable, self-host undocumented | local server required (`docling-serve`, self-run) | fully local, no server/API |
 | OCR support | none (Q2) | yes — explicit `is_ocr` flag to MinerU API | model_version only; no explicit OCR flag found in plugin source; MinerU engine claims auto-detection of scanned pages (unconfirmed whether the hosted API applies it here) | yes — full OCR + language options surfaced from Docling | yes — this is the plugin's entire purpose |
 | structure: tables | no | yes, via MinerU `enable_table` (→ HTML tables) | yes, plus its own Markdown/HTML table renderer for notes | yes, Docling "table mode" option | no |
