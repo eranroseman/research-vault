@@ -84,7 +84,11 @@ def test_markdown_templates_match_canonical_content():
         "- [[projects/]] — manuscripts and deliverables\n"
         "- [[log/]] — daily activity log (summary: [[log]])\n"
         "- [[inbox/]] — fleeting notes and the review queue\n"
-        "- [[system/]] — support artifacts: templates, bases, the bibliography export\n"
+        "- [[system/]] — support artifacts: templates, bases, the bibliography export\n\n"
+        "Literature notes, for trust-tier review:\n"
+        "![[system/bases/trust-tier.base]]\n\n"
+        "Synthesis notes, flagged where they contain an open-question:\n"
+        "![[system/bases/open-questions.base]]\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
     # Ruled content, 2026-08-22: dangling spec §8 ref cut, managed-region rule

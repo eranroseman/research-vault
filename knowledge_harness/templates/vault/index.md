@@ -10,3 +10,9 @@ okf_version: "0.2"
 - [[log/]] — daily activity log (summary: [[log]])
 - [[inbox/]] — fleeting notes and the review queue
 - [[system/]] — support artifacts: templates, bases, the bibliography export
+
+Literature notes, for trust-tier review:
+![[system/bases/trust-tier.base]]
+
+Synthesis notes, flagged where they contain an open-question:
+![[system/bases/open-questions.base]]
