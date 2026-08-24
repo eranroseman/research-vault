@@ -4,6 +4,8 @@ Merge back to main locally and push main to origin in the same motion. Fetch bef
 
 Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
 
+Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout.
+
 Testing — including the live legs that offline runs silently skip: `docs/testing.md`.
 
 ## Agent skills
