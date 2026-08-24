@@ -51,6 +51,9 @@ _Avoid_: OpenAlex's "source" sense in our prose
 **Citekey**: The stable, human-readable key (Better BibTeX) joining prose citations, filenames, and the bibliography.
 _Avoid_: reference ID, bibkey
 
+**Citable**: What a claim is allowed to cite: an item admitted in Zotero whose literature note exists here and is neither excluded nor superseded — being in the library is not yet being citable here.
+_Avoid_: in the library, in the bibliography
+
 **Claim**: One assertion carried by a note line, tagged with its evidence boundary and anchored for linking.
 _Avoid_: statement, fact
 

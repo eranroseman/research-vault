@@ -477,7 +477,7 @@ ______________________________________________________________________
 
 **Declined, so they are not re-proposed:** `digest` (adopted earlier the same day and superseded — the sole ecosystem instance is a 9-star repo, and `hexdigest()` is stdlib so the collision residual never fully clears); `synopsis` (zero collisions but no user-facing currency, which the ruling makes decisive); `précis` (same, and it implies a proportional in-order restatement, which an `(inference)`-tagged region is not); `annotation` (exact in annotated-bibliography practice, fatal against Zotero's highlight sense); bare `summary` **as a vault-facing word for anything else** is now spent.
 
-**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `knowledge_harness/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. Draft entry held at `docs/2026-08-23-proposed-adrs.md` §7(e).
+**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `knowledge_harness/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. The entry's wording is settled by this ruling; write it when the step ships.
 
 **What the implementer of that step pays, all priced at zero (`docs/terminology.md` §1) but listed so none is discovered late:**
 
@@ -491,7 +491,7 @@ ______________________________________________________________________
 
 **RULING (author, 2026-08-23; motivation revised same day) — name the value what it is.** The report field holds a SHA-256 hex string, so it takes the algorithm's own name, in the form `fixity-sha256` and `managed-sha256` already use where the value is durable.
 
-**This is a precision fix, not a collision fix.** It was first ruled to free the word *digest* for the authored per-source account; that account is now named **summary** (T4/T6 walk, `docs/2026-08-23-proposed-adrs.md` §8), so nothing collides and nothing downstream waits on this task. It stays in the batch because `skipped_digest` names the shape of the value less honestly than the codebase does everywhere else, and churn is priced at zero (`docs/terminology.md` §1). **If the implementer hits any friction in Step 4, drop the task rather than spend the instrument-freeze window on it** — that is the honest trade now that no collision forces it.
+**This is a precision fix, not a collision fix.** It was first ruled to free the word *digest* for the authored per-source account; that account is now named **summary** (the walk above), so nothing collides and nothing downstream waits on this task. It stays in the batch because `skipped_digest` names the shape of the value less honestly than the codebase does everywhere else, and churn is priced at zero (`docs/terminology.md` §1). **If the implementer hits any friction in Step 4, drop the task rather than spend the instrument-freeze window on it** — that is the honest trade now that no collision forces it.
 
 **Non-negotiables:** no alias, no deprecation shim, no back-compat key in the JSON report. `skipped_digest` is a report surface a skill reads, not a persisted vault record — `docs/terminology.md` §4.3 rules that living-surface names rename outright, unlike reason codes and check ids. One verb, one name, one commit.
 
