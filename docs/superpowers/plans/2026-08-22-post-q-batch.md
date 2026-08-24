@@ -476,6 +476,14 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [ ] **Step 5: Full suite; fix tests that pinned padded dates (note each). Commit** `fix: partial Crossref dates keep precision; ambiguous reinstatement never clears`
 
+### Task 19b: PreToolUse deny on machine surfaces (trigger fired 2026-08-24 — the §10 entry said revisit blocking "only on evidence that warnings fail"; the 2c reproduction showed warnings don't exist for two of them: an in-format append to `log/` day files or `inbox/review-queue.md` passes the append-only lint (prefix-preserving), draws no PostToolUse warning (hook covers `literatures/` only), and `okf.py` launders appended log lines into root `log.md`. The sharpest consequence: a hand-Written ack line silently bypasses closures — the publish gate rests on ack integrity)
+
+**Files:** Create/modify: the plugin hooks config + a PreToolUse hook script (audit finding 4's design, verbatim): `permissionDecision: deny` on Edit/Write/NotebookEdit into `literatures/`, `log/`, `inbox/review-queue.md`, `system/bibliography.json` — fixed path list, no vault import (so no fail-open inheritance). The CLI writes through Python, not tool calls — owner unaffected. Test: hook-script unit test over the path list (deny on each machine path incl. a `log/2026-01-01.md` append target; allow on `synthesis/`, `inbox/note.md`, free-region-bearing paths outside the list — the deny is path-scoped, not content-scoped).
+
+- [ ] **Step 1:** Failing test first over the path decisions; implement the hook; wire it in the plugin hooks config.
+- [ ] **Step 2:** The deny message names the legal path — one line: "machine surface; the CLI writes this — use the matching verb (`finding`, `ack`, `import-note`, …)". An agent denied without a route is an agent that retries creatively.
+- [ ] **Step 3:** Update the §10 deferred entry: trigger fired, evidence cited, blocking shipped for the machine-surface list; the citekey-lint PreToolUse question (warn-vs-block for `[@citekey]` prose) remains deferred — this task ships only the machine-surface deny. Suite; commit `feat: PreToolUse deny guards machine surfaces (trigger evidence: 2c reproduction)`.
+
 ### Task 20: Additive `relation.is-retracted-by` read (queued 2026-08-22)
 
 **Files:**
