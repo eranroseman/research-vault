@@ -3589,3 +3589,38 @@ Task 17b: fix round 1 re-review dispatched over f3f5a7f..5ac70df, on the most
   frontmatter.serialize byte-for-byte across both commits over a wide input
   range, because "the suite is green" cannot show a serializer refactor is
   behaviour-preserving on inputs the suite never exercises.
+
+### SDD WORKSPACE NOW TRACKED — 95a81b3 (author ruling, relayed by the orchestrator)
+  Task reports must survive the worktree: their "Concerns (not fixed)" sections
+  were the only record of deferred work, and they lived ONLY in git-ignored
+  scratch that dies with the worktree. 17b's round-0 concerns were headed exactly
+  there. 92 files, +20926, committed as-is with explicit pathspec, no content
+  edits. From Task 18 on, each task's report ships in that task's own commit.
+  PREMISE VERIFIED, AND NOT WHERE I FIRST LOOKED: `cat .git/info/exclude` returns
+  nothing here because `.git` IS A POINTER FILE, not a directory — the same fact
+  behind the scratch-copy trap. Resolved through the common dir the rule is real:
+  git check-ignore -v gives `/home/eranr/New folder/.git/info/exclude:49`. So the
+  `-f` was genuinely required rather than defensive.
+  CHECKED BEFORE COMMITTING, because tracking ~90 new markdown files is exactly
+  how a form gate breaks: mdformat's hook entry is an EXPLICIT PATH LIST
+  (`README.md AGENTS.md CONTEXT.md docs skills`) and _MDFORMAT_ROOTS at
+  tests/test_config_validity.py:427 MIRRORS IT EXACTLY. Neither covers
+  `.superpowers/`, so nothing pulls these files into the gate.
+  TWO CONSEQUENCES RAISED WITH THE ORCHESTRATOR RATHER THAN LEFT TO SURFACE:
+   - TASK 2e IS "FORM-GATE COHERENCE" AND HAS NOT RUN YET. If its implementer
+     writes the obvious check — every tracked .md is formatter-owned or
+     explicitly excluded — it now finds ~90 tracked-but-unowned files THAT DID
+     NOT EXIST WHEN 2e WAS SPECIFIED. A collision this ruling created; cheap in
+     2e's brief, expensive discovered mid-task. Carried into 2e's dispatch.
+   - THE SDD SKILL'S OWN END-STATE NOW CONTRADICTS THE RULING: its final step is
+     "delete this plan's workspace", which would delete the very files this
+     commit exists to preserve. Author ruling governs; THE WORKSPACE IS NOT
+     DELETED AT THE END OF THIS PLAN. Flagged for wherever the standing rule
+     lives, since the next SDD run meets the same contradiction with nobody in
+     the loop.
+  ONE ITEM LEFT WITH THE ORCHESTRATOR TO DECIDE: the commit includes ~450KB of
+  review-<base>..<head>.diff packages that are BYTE-RECONSTRUCTIBLE from git.
+  Committed because the instruction named the directory and narrowing a stated
+  scope on my own judgment is the wrong default — offered a correct-forward
+  removal commit if they would rather main carry only reports, reviews, briefs
+  and ledger.
