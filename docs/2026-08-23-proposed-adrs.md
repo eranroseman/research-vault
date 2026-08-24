@@ -24,21 +24,15 @@ ______________________________________________________________________
 
 # Rubber stamps are defects, not controls
 
-Status: proposed (2026-08-23)
+Status: proposed
 
-Admitting the seed corpus meant accepting 170 sources already reviewed as a list. Confirming them one at a time would have produced 170 identical yes answers, and a habit.
+**Place a human gate only where the answer can differ from the last time.** A confirmation that is always yes certifies nothing and teaches the person to click without reading, and that habit travels to the gates that matter — which is why a warn queue whose findings are mostly not actionable is a defect to tune or demote, not a cost of doing business. Admitting a corpus of 170 already-reviewed sources one at a time would have produced 170 identical answers and a habit; the same import, reviewed as a batch, turned up 17 real misclassifications.
 
-**Place a human gate only where the answer can differ from the last time.** A confirmation that is always yes certifies nothing and teaches the person to click without reading, and that habit travels to the gates that matter.
-
-Where the judgment covers a whole list, the human act is the decision: one approval, the list's hash stored beside it, the machine performing the entries. Where judgment is per item, the per-item gate stays — that same import, reviewed as a batch, turned up 17 real misclassifications.
+Where the judgment covers a whole list, the human act is the decision: one approval, the list's hash stored beside it, the machine performing the entries. Where judgment is per item, the per-item gate stays.
 
 ## Considered Options
 
 Confirm every item (rejected: an approval nobody can withhold certifies nothing, and it spends the attention the live gates need). Admit in bulk with no record (rejected: a trust boundary crossed without a record is not one).
-
-## Consequences
-
-A noisy queue manufactures rubber stamps by a second route, so warn-tier precision becomes an obligation: a check whose findings are mostly not actionable is a defect to tune or demote. The review inbox reports its depth and the age of its oldest finding, because a queue nobody drains fails silently.
 
 ## 2. ADR 0005 — Absence is not a pass
 
@@ -46,11 +40,11 @@ A noisy queue manufactures rubber stamps by a second route, so warn-tier precisi
 
 # Absence is not a pass
 
-Status: proposed (2026-08-23)
-
-A note with no identifiers, no quotes, and no verified events reached the top machine trust tier: nothing had been checked, so nothing had failed, so "every applicable check passed" was true over an empty set. Three writers filled gaps the same way — a year-only date became January 1st, the string `"unresolved"` went into a hash field and then anchored an acknowledgment, and a missing title became the citekey.
+Status: proposed
 
 **A machine trust tier requires at least one check that ran and passed**, and a value the harness does not have stays out of the record. Where the answer is unknown, the record says so: an honest four-state result, or an absent field with a reason in the review inbox.
+
+Both halves come from live failures. A note with no identifiers, no quotes, and no verified events reached the top machine tier, because nothing had been checked, so nothing had failed, so "every applicable check passed" was true over an empty set. And three writers filled gaps by invention: a year-only date became January 1st, the string `"unresolved"` went into a hash field and then anchored an acknowledgment, and a missing title became the citekey.
 
 ## Considered Options
 
@@ -58,7 +52,7 @@ Let set logic supply the floor (rejected: the empty applicable-check set is exac
 
 ## Consequences
 
-Some items will never reach a machine tier; that is the honest outcome rather than a gap to close. Every writer of durable frontmatter needs a branch for "we do not have this", and a specification that leaves the absent-field case undefined will get the silent answer. This extends ADR 0002 and does not amend it.
+Some items will never reach a machine tier; that is the honest outcome rather than a gap to close. Every writer of durable frontmatter needs a branch for "we do not have this". This extends ADR 0002 and does not amend it.
 
 **Option B: fold into ADR 0002** as two sentences — a floor on tier derivation, and a rule against invented values on durable writes. No new file; the cost is that the failures above lose the place explaining why each rule exists.
 
@@ -66,11 +60,9 @@ Some items will never reach a machine tier; that is the honest outcome rather th
 
 # A source becomes citable here when its literature note exists
 
-Status: proposed (2026-08-23)
+Status: proposed
 
-The reference library holds every project the researcher has ever worked on, so a citekey borrowed from an unrelated project resolves against the whole-library export. A citation to a paper this vault never imported passed its check and could publish.
-
-**Two questions, two answers.** The bibliography export says what a citekey names; membership in `literatures/` says what this vault may cite. The citekey check asks the second question.
+**Two questions, two answers.** The bibliography export says what a citekey names; membership in `literatures/` says what this vault may cite. The citekey check asks the second question, because the reference library holds every project the researcher has ever worked on — a citekey borrowed from an unrelated project resolves against the whole-library export, so a citation to a paper this vault never imported passed its check and could publish.
 
 A failing citation has one remedy: import the source, which writes the note, which makes the check pass — and the new note files its own evidence-layer finding at commit, like any import. Membership has one source of truth, the folder itself, so no separate list of citable keys exists to drift.
 
@@ -86,9 +78,7 @@ An import is what confers citability, so this check rests on the rule that only 
 
 # A summary is written from full text or not at all
 
-Status: proposed (2026-08-23)
-
-A source whose full text is out of reach still has an abstract, and writing the summary from it is the obvious shortcut.
+Status: proposed
 
 **Write the summary from the full text. When the full text is unreachable, write "no full text available" and stop.** An abstract cannot supply the methods, conditions, and magnitudes a summary states, so a summary drawn from one attributes invented specifics to the source under its citekey — a fabricated fact, and an `(inference)` tag does not repair it. A second reason survives even where nothing is invented: the abstract is where authors sell the work, so a summary built on it inherits the pitch as fact.
 
@@ -100,17 +90,15 @@ Write from the abstract and disclose it (rejected: disclosure does not repair in
 
 ## Consequences
 
-Until the harness fetches full text itself, the route is opening the attachment in Zotero's storage and reading it. Writing no summary is a legitimate outcome for a source that is short and searchable.
+Writing no summary is a legitimate outcome for a source that is short and searchable.
 
 ## 5. ADR 0008 — Claim anchors derive from content, never from render order
 
 # Claim anchors derive from content, never from render order
 
-Status: proposed (2026-08-23)
+Status: proposed
 
-Managed regions re-render whole. If a claim's anchor were its position — the third claim in the note — one new annotation upstream would renumber everything below it, and every link into that region would land on the wrong claim.
-
-**An anchor derives from the claim's own content**: the Zotero annotation key where one exists, otherwise a hash of the quote. Re-rendering then yields the same anchors for the same claims, and a link written a year ago still points at what it named.
+**An anchor derives from the claim's own content**: the Zotero annotation key where one exists, otherwise a hash of the quote. Managed regions re-render whole, so an anchor derived from position — the third claim in the note — would renumber everything below a newly added annotation, and every link into that region would land on the wrong claim. Deriving from content, re-rendering yields the same anchors for the same claims, and a link written a year ago still points at what it named.
 
 ## Considered Options
 
@@ -120,15 +108,13 @@ Sequential anchors, the obvious implementation (rejected: re-render is the norma
 
 Quote claims record the exact text plus a short prefix and suffix at extraction time, because that context is nearly free then and impossible to reconstruct afterwards.
 
-Half the address is deliberately unstable, and its rules are unsettled. Citekeys get renamed, and a rename leaves verified events carrying the old address inside their check strings while standing acknowledgments key on check-plus-target — so the rename lapses them quietly, and rewriting those events would violate ADR 0002. Both options break a record contract, so this settles before the first real rename.
+## 6. ADR 0001 — scope-bound sentence (APPLIED)
 
-## 6. ADR 0001 — scope-bound sentence
+Approved and landed 2026-08-23; the text below is what the file carries, with no date marker, per the ruling that ADRs carry no history.
 
-Appended to `docs/adr/0001-vault-outlives-harness.md`, in the manner ADR 0003 already models:
+> **Scope bound:** the vault preserves the *record*, not the evidence artifacts. PDFs and snapshots live in Zotero storage, outside the git boundary — git is not the blob store — so artifact recoverability is delegated to the user's Zotero sync/backup, with doctor's persistent warning as the only compensating control. At solo scope this is a stated boundary, not a compliance control.
 
-> **Scope bound (2026-08-23):** the vault preserves the *record*, not the evidence artifacts. PDFs and snapshots live in Zotero storage, outside the git boundary — git is not the blob store — so artifact recoverability is delegated to the user's Zotero sync/backup, with doctor's persistent warning as the only compensating control. At solo scope this is a stated boundary, not a compliance control.
-
-Why a sentence and not a seventh ADR: it narrows an existing decision rather than making a new one, and a reader who trusts "the vault outlives the harness" needs the exception where that promise is made, not one file away.
+Why a sentence and not a seventh ADR: it narrows an existing decision rather than making a new one, and a reader who trusts "the vault outlives the harness" needs the exception where the promise is made.
 
 ## 7. CONTEXT.md changes
 
@@ -185,9 +171,15 @@ Declined: **digest** — the only ecosystem instance is a 9-star repo (`WeAgentA
 
 **Identifier inventory:** `skipped_digest` → `skipped_sha256` — no longer a collision fix (see §9), retained as a precision improvement in the house `-sha256` form.
 
-## 9. Post-Q batch item
+## 9. Post-Q batch item (LANDED — superseded here)
 
-> **Rename `skipped_digest` → `skipped_sha256`** (terminology ruling 2026-08-23): frees *digest* for the authored account of a source, and names the algorithm the way `fixity-sha256`/`managed-sha256` already do. Sites: `knowledge_harness/factcheck.py:165,192`; `skills/factcheck-draft/SKILL.md:28,64` (user-visible JSON field); `tests/test_factcheck.py:199-227`. Invalidates `knowledge_harness/factcheck.py.manifest.json` (`module_hash` + `source_sha256`) — one module's mutation re-baseline, not a wholesale one.
+Task 22 of `docs/superpowers/plans/2026-08-22-post-q-batch.md` is committed and carries the corrected motivation. The rationale drafted here — that the rename frees *digest* for the authored account — died with §8's walk, which adopted *summary*. The landed ruling reads:
+
+> **RULING — name the value what it is.** The report field holds a SHA-256 hex string, so it takes the algorithm's own name, in the form `fixity-sha256` and `managed-sha256` already use where the value is durable.
+>
+> **This is a precision fix, not a collision fix.** … nothing collides and nothing downstream waits on this task. … **If the implementer hits any friction in Step 4, drop the task** rather than spend the instrument-freeze window on it.
+
+Nothing further is proposed in this section; read the plan.
 
 ## 10. Already applied this session
 
@@ -206,10 +198,28 @@ Recorded so they are not re-litigated from scratch.
 - **Library-as-curated-search-space** — dropped: situational, and ruled then amended inside 24 hours with the migration still in flight.
 - **The ingest generator ruling** (LLM-authored claim-grammar digest, no extractive summarizer) — dropped as temporary; its full-text half is ADR 0007, which stands on its own.
 - **Evidence-layer-is-projection** and **deterministic-only closure** — not yet decisions. Both are entangled with how much the system decides for the user versus asking, and that is still moving: the gate doctrine changed once already while this document was being written. An ADR written on top of a moving premise records the premise, not a decision.
-- **Provenance-travels-with-the-claim** — not an ADR: it describes the shape of a record, not a choice between alternatives anyone would wonder about later.
+- **Provenance-travels-with-the-claim** — **reinstated 2026-08-23** after the earlier rejection failed re-examination; drafted as ADR 0009 in §13.
 
 ## 12. AGENTS.md — already resolved by the author
 
 The contradiction this section proposed to fix is gone: the author removed the whole sentence ("`research/`, `analysis/`, completed plans, and accepted ADRs stand as written — content, internal paths, and file location") from AGENTS.md while this document was being written. ADR governance is process, and process lives in the `domain-modeling` skill or the user's own CLAUDE.md/AGENTS.md, not in this repo's project-detail file; the skill's template already carries the revision vocabulary (`Status: proposed | accepted | deprecated | superseded by ADR-NNNN`). `research/`, `analysis/`, and completed plans stand as the author's stated temporary-file classes rather than as a repo-frozen set.
 
 **Nothing is proposed here.** §6's scope-bound sentence on ADR 0001 is not an exception to any written rule.
+
+## 13. ADR 0009 — Provenance travels with the claim (reinstated)
+
+Rejected earlier in this document as "record shape, not a decision". That was wrong on two prongs. Frontmatter-only attribution was a real alternative — it is what most note systems do — and a reader meeting inline fields in their own prose will ask why the notes are full of syntax. Drafted here rather than argued in the rejected list:
+
+# Provenance travels with the claim
+
+Status: proposed
+
+**Every claim carries its own evidence-boundary tag, citation, and anchor on its own line**, never in the note's frontmatter. A claim gets copied — from a literature note into a synthesis page, from synthesis into a draft — and whatever is not on the line does not travel with it. Attribution held at the note level survives exactly one hop, and the hop is the moment the claim most needs it.
+
+## Considered Options
+
+Frontmatter-only attribution (rejected: cleaner prose, and the tag is severed by the first relay — a quote lands in a draft with nothing saying it is a quote). A side-file mapping claims to provenance (rejected: the mapping is what breaks, and it breaks silently).
+
+## Consequences
+
+Notes carry visible field syntax in their prose, which is the cost paid for relay-safe attribution. Anything that rewrites a claim line must preserve its fields, which is why machine-written verification markers are stamped onto the claim rather than recorded beside it.
