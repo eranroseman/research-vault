@@ -26,9 +26,9 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 **Files:** Move: `skills/project/` → `skills/project-flow/`. Modify: `docs/terminology.md` §4.3 skills row; routing tables in `skills/find-sources/SKILL.md` and `skills/import-source/SKILL.md`; the skill's content test in `tests/`.
 
 - [ ] **Step 1:** `git mv skills/project skills/project-flow`; update `name:` in its SKILL.md frontmatter to `project-flow`.
-- [ ] **Step 2:** Update terminology §4.3's skills row and both routing tables (grep `skills/ -rn "\`project\`"` and judge each hit — routing rows change; prose about "a project" (the noun) does not).
+- [ ] **Step 2:** Update terminology §4.3's skills row and both routing tables (grep `skills/ -rn "\`project\`"\` and judge each hit — routing rows change; prose about "a project" (the noun) does not).
 - [ ] **Step 3:** Update the content test that names the skill (locate via `grep -rn "project" tests/test_skill_contracts.py tests/test_skill_files.py`); run it: PASS.
-- [ ] **Step 4:** Judged grep for retired references: `grep -rn "skills/project/\|Skill(project)\|\`project\` skill" --include="*.md" .` — every hit either updated or judged non-referential (record the judgment list in the commit body).
+- [ ] **Step 4:** Judged grep for retired references: `grep -rn "skills/project/\|Skill(project)\|\`project\` skill" --include="\*.md" .\` — every hit either updated or judged non-referential (record the judgment list in the commit body).
 - [ ] **Step 5:** Full offline suite. Commit `refactor: rename project skill to project-flow`.
 
 ### Task 2: C-7 routing index into the vault AGENTS.md template (item 2)
@@ -193,6 +193,7 @@ Closes the no-fabrication audit's remaining trust-core defects (docs/2026-08-22-
 ### Task 14: RW date parsing + arming honesty (audit defect 1 + the arming ruling)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`_rw_date`, ~line 910)
 - Modify: `knowledge_harness/verify.py` (RW-leg absence line, near `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`, ~line 986)
 - Test: `tests/test_checks.py`, `tests/test_verify.py`
@@ -243,11 +244,12 @@ def _rw_date(value) -> str | None | object:
 
 **Arming ruling implemented by this task (record in the commit body):** the RW leg's home is the scheduled CI lane (`templates/ci/rw-batch.yml`, already passes `--rw-csv`) and the drill runs it explicitly armed (Plan S amendment already recorded); local `verify` without the flag now states the absence. No default-on: fetching the RW CSV is a network+license act that stays deliberate.
 
-
 ### Task 15: Reduction must not round UNMATCHED to MATCHED (audit defect 2)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)
+
 - Test: `tests/test_checks.py`
 
 - [ ] **Step 1: Failing test**
@@ -277,12 +279,14 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 - [ ] **Step 5: Commit** `fix: update-notice reduction preserves non-blocking UNMATCHED`
 
-
 ### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap)
 
 **Files:**
+
 - Modify: `knowledge_harness/events.py` (`trust_tier`, ~line 240)
+
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§5 Event-integrity paragraph)
+
 - Test: `tests/test_events.py`
 
 - [ ] **Step 1: Failing test**
@@ -316,12 +320,14 @@ if not has_applicable and not has_managed_quotes:
 
 - [ ] **Step 5: Full suite; fix any test that pinned the vacuous tier (say so per-test in the commit body). Commit** `fix: trust tier requires evidence — no vacuous machine-confirmed`
 
-
 ### Task 17: The "unresolved" placeholder never anchors acknowledgments (audit defects, fixity pair)
 
 **Files:**
+
 - Modify: `knowledge_harness/__main__.py` (attachment loop, ~line 234)
+
 - Modify: `knowledge_harness/verify.py` (`_citekey_hash` fixity adoption, ~line 209)
+
 - Test: `tests/test_import_note.py` (or the file holding import-note frontmatter tests), `tests/test_verify.py`
 
 - [ ] **Step 1: Failing tests, both sides**
@@ -356,11 +362,12 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 - [ ] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
 
-
 ### Task 18: Supplied snapshots must be snapshots of THIS url (audit defect, archive)
 
 **Files:**
+
 - Modify: `knowledge_harness/archive.py` (supplied-snapshot branch, ~lines 166–185; `is_archive_url` or a new `_snapshot_original`)
+
 - Test: `tests/test_archive.py`
 
 - [ ] **Step 1: Failing tests**
@@ -390,11 +397,12 @@ Shape fails → the first UNMATCHED. Shape passes → compare `original` against
 
 - [ ] **Step 4: Full suite (the live archive legs are env-gated — run them at Task 21). Commit** `fix: supplied archive snapshots verified by shape and target URL`
 
-
 ### Task 19: Partial notice dates keep their precision (audit defect 6)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`_notice_date_from_updated`, ~line 506; the reinstatement-clears comparison — locate by `notice_date` ordering use)
+
 - Test: `tests/test_checks.py`
 
 - [ ] **Step 1: Failing tests**
@@ -418,11 +426,12 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [ ] **Step 5: Full suite; fix tests that pinned padded dates (note each). Commit** `fix: partial Crossref dates keep precision; ambiguous reinstatement never clears`
 
-
 ### Task 20: Additive `relation.is-retracted-by` read (queued 2026-08-22)
 
 **Files:**
+
 - Modify: `knowledge_harness/checks.py` (`_crossref_notices`, ~line 533)
+
 - Test: `tests/test_checks.py`
 
 - [ ] **Step 1: Failing test** — a Crossref message fixture with NO `updated-by` but `"relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]}` yields one blocking notice (type `retraction`, `notice_date` None, the relation id recorded).
@@ -433,11 +442,12 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [ ] **Step 4: Full suite. Commit** `feat: read Crossref relation.is-retracted-by as an additive retraction signal`
 
-
 ### Task 21: Spec gap closures + acceptance
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§6 gate rows: metadata, update-notice)
+
 - Modify: `docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md` (second sequencing gate: mark satisfied)
 
 - [ ] **Step 1: Metadata row (§6, ~line 98)** — append: *"A compared field absent on either side is SKIPPED for that field, recorded in the outcome's detail — never folded into MATCHED (closed 2026-08-22, audit gap)."* Then verify the implementation agrees (read `check_metadata`'s absent-field handling; if it silently folds, fix it with a failing-test-first micro-cycle inside this task and note it).
@@ -450,10 +460,27 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [ ] **Step 5: Commit** `fix: close spec §6 missing-data gaps; trust-core remediation acceptance` — then merge to main and push in the same motion.
 
-
 ______________________________________________________________________
 
 ## Part 3: Terminology (added 2026-08-23)
+
+**NAMING RULING (author, 2026-08-23) — the authored per-source account is a `summary`.** Binding on every implementer who touches this artifact; it creates no work in this plan.
+
+**What is named:** the authored prose account of what one source says, written into that source's literature note free region — authored (salience judgment), never machine-projected. Ruled into existence by slice findings 15–16 (`docs/2026-08-22-slice-findings.md`), still unbuilt: no skill step writes it today (Plan D polish-pass item 10, gated on the deferred `/fulltext` leg).
+
+**The name is `summary`.** Walk, per `docs/terminology.md` §2, under the author's ruling that **churn is not a cost and the user-facing term takes precedence** (§1; tie-breaker 4, surface fit is absolute): T1 OKF silent (its `description` is a frontmatter field, not body prose); T2 toolchain surfaces name the container, not this artifact (ZotLit's `note` template body, Zotero child notes, CSL `note`/`annote`); T4 offers *summary*, *synopsis*, *précis*; **T6 is near-unanimous on `## Summary` / "source summary page"** — paperclip (79k★), claude-obsidian (11.3k★), SamurAIGPT/llm-wiki-agent (3.4k★), sdyckjq-lab/llm-wiki-skill (2.4k★), obsidian-llm-wiki-local (809★ — schema field `summary`), swarmvault (666★), pi-llm-wiki (524★), tonbistudio/llm-wiki (247★ — page-type enum value `summary`), wiki-skills (179★); the llm-wiki gist itself writes "a summary page in the wiki". T4 and T6 agree. *Page* is dropped from the borrowed phrase — it names the file, and that slot is `literature note`.
+
+**Declined, so they are not re-proposed:** `digest` (adopted earlier the same day and superseded — the sole ecosystem instance is a 9-star repo, and `hexdigest()` is stdlib so the collision residual never fully clears); `synopsis` (zero collisions but no user-facing currency, which the ruling makes decisive); `précis` (same, and it implies a proportional in-order restatement, which an `(inference)`-tagged region is not); `annotation` (exact in annotated-bibliography practice, fatal against Zotero's highlight sense); bare `summary` **as a vault-facing word for anything else** is now spent.
+
+**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `knowledge_harness/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. Draft entry held at `docs/2026-08-23-proposed-adrs.md` §7(e).
+
+**What the implementer of that step pays, all priced at zero (`docs/terminology.md` §1) but listed so none is discovered late:**
+
+- `knowledge_harness/templates/vault/index.md:10` — "daily activity log (summary: \[[log]\])" is the only *vault-facing* competing use of the word; reword ("rolled up") in the same change, and update its whole-file test pin in the same commit.
+- `CONTEXT.md`'s *Log* entry — "summarized in root `log.md`" → same reword, with the vault-glossary projection.
+- `knowledge_harness/okf.py:1` ("the log summary artifact") and `inbox.summary()` are dev-facing (T7) and never reach vault prose — rename or leave, implementer's discretion, not a blocker.
+- **Third-party surfaces never rename:** arXiv's `<summary>` element and PubMed's `eSummary` endpoint keep their own names. `skills/find-sources/scripts/arxiv_atom.py:93` already translates arXiv's `<summary>` to `abstract` at the boundary — keep that translation exactly, because it is what stops the wire word for *abstract* from reaching the vault as the word for the one thing an abstract may never produce (ADR-level rule, slice finding 16).
+- The section heading in the literature-note free region reads `## Summary`, matching the ecosystem the researcher already knows.
 
 ### Task 22: Rename `skipped_digest` → `skipped_sha256` (terminology ruling 2026-08-23)
 
