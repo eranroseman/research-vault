@@ -2,6 +2,8 @@
 
 Status: **PROPOSAL — nothing here has landed.** ADR files are written only after approval of the final version (author ruling, this session). Format follows the `domain-modeling` skill's ADR template; the three-part test (hard to reverse / surprising without context / real trade-off) gates every candidate below.
 
+**How the sources were used.** The foundation spec, the slice findings, and the audit reports are read here as a log of what happened and what broke — a source of candidate decisions and of concrete failures worth citing. They are not treated as authority: nothing below is justified by a document saying so. Each ADR stands on the failure it prevents and the alternative it rejects, and should be readable by someone who has never opened those files.
+
 Method: seven grilling rounds with the author, plus a 26-agent sweep over the spec, the 2026-08-22 rulings, the no-fabrication audit, and the implementation — every candidate adversarially refuted by a fresh agent instructed to kill it. 13 of 24 survived; three edits the author had already approved were **reversed** by refutation and appear in §11 rather than as proposals.
 
 ## What is proposed
@@ -18,25 +20,25 @@ Method: seven grilling rounds with the author, plus a 26-agent sweep over the sp
 
 ______________________________________________________________________
 
-## 1. ADR 0004 — Human gates only where judgment can differ
+## 1. ADR 0004 — Rubber stamps are defects, not controls
 
-# Human gates only where judgment can differ
+# Rubber stamps are defects, not controls
 
 Status: proposed (2026-08-23)
 
-A human gate exists only where judgment can differ from one instance to the next. Repeated identical confirmations are a rubber-stamp factory: they train click-through, and a human who has learned to click through one gate carries that habit into every other gate in the system, including the ones that matter. The decision therefore bounds where gates may be placed, not just how they behave.
+Admitting the seed corpus meant accepting 170 sources already reviewed as a list. Confirming them one at a time would have produced 170 identical yes answers, and a habit.
 
-**Corollary for admission.** Where a decision has already been made over a curated list, the human act is the *decision*, not the typing: the list is reviewed once, the approval and the list hash are recorded as provenance, and the machine performs the entries through the reference manager's own consented write path. Per-item ceremony over an already-decided list is the failure mode, not the shortcut. Per-item gates stay exactly where per-item judgment is real — an ongoing research find, a classification a human must actually look at.
+**Place a human gate only where the answer can differ from the last time.** A confirmation that is always yes certifies nothing and teaches the person to click without reading, and that habit travels to the gates that matter.
+
+Where the judgment covers a whole list, the human act is the decision: one approval, the list's hash stored beside it, the machine performing the entries. Where judgment is per item, the per-item gate stays — that same import, reviewed as a batch, turned up 17 real misclassifications.
 
 ## Considered Options
 
-Per-item confirmation everywhere (rejected: it looks like more control and delivers less — the slice's 170-URL admission is what exposed this, and the author's own review of that batch caught 17 genuine misclassifications precisely because it was a real judgment pass rather than 170 identical prompts). Silent bulk admission with no recorded approval (rejected: the decision then has no provenance, and admission is the vault's trust boundary).
+Confirm every item (rejected: an approval nobody can withhold certifies nothing, and it spends the attention the live gates need). Admit in bulk with no record (rejected: a trust boundary crossed without a record is not one).
 
 ## Consequences
 
-Warn-tier precision becomes an obligation rather than a nicety: a warn-tier check class whose observed review-inbox precision collapses is itself a defect — to tune or to demote — because a noisy queue manufactures rubber stamps by a second route. The deterministic closing checks are exempt by construction. The review inbox needs a drain surface that reports count and age, since a warn queue nobody drains is the same failure wearing different clothes.
-
-______________________________________________________________________
+A noisy queue manufactures rubber stamps by a second route, so warn-tier precision becomes an obligation: a check whose findings are mostly not actionable is a defect to tune or demote. The review inbox reports its depth and the age of its oldest finding, because a queue nobody drains fails silently.
 
 ## 2. ADR 0005 — Absence is not a pass
 
@@ -46,65 +48,59 @@ ______________________________________________________________________
 
 Status: proposed (2026-08-23)
 
-When a check has nothing to check, the result is not trust; when a value is unknown, no value is written. ADR 0002 fixed what a *result* may claim; this fixes what *emptiness* may produce, which is the gap four separate defects walked through.
+A note with no identifiers, no quotes, and no verified events reached the top machine trust tier: nothing had been checked, so nothing had failed, so "every applicable check passed" was true over an empty set. Three writers filled gaps the same way — a year-only date became January 1st, the string `"unresolved"` went into a hash field and then anchored an acknowledgment, and a missing title became the citekey.
 
-**Vacuous satisfaction mints nothing.** An item with zero applicable checks derives `unverified`, never a machine tier: a subset test over an empty applicable set is vacuously true, and vacuous truth is not evidence. Trust-tier derivation carries an explicit floor — at least one MATCHED result — rather than inheriting one from set logic.
-
-**No invented values on durable surfaces.** No padding of missing date precision, no placeholder strings written into fields other records key on, no substituting one field for another when the real one is absent, no arbitrary pick among ambiguous matches. Where a value is unknown the record says so — an honest four-state result, or an absent field plus a reason code in the review inbox — and never a value that reads as fact downstream.
+**A machine trust tier requires at least one check that ran and passed**, and a value the harness does not have stays out of the record. Where the answer is unknown, the record says so: an honest four-state result, or an absent field with a reason in the review inbox.
 
 ## Considered Options
 
-Vacuous truth as the natural implementation (rejected: a frontmatter-less file with no identifiers and zero verified events derives the top machine tier — the audit reproduced this by running it). Placeholders to keep pipelines flowing (rejected: the literal string `"unresolved"` reached a fixity field and then became the acknowledgment's scope anchor, so acknowledgments scoped to a constant instead of to content). Padding partial dates to a full one (rejected: invented precision then drove notice-ordering and persisted into inbox records and ack fingerprints).
+Let set logic supply the floor (rejected: the empty applicable-check set is exactly the case that deserves "unverified", and vacuous truth answers the opposite). Write placeholders to keep pipelines moving (rejected: the placeholder escapes — `"unresolved"` became what acknowledgments scoped to, so they scoped to a constant).
 
 ## Consequences
 
-Some items never reach a machine tier, and that is the honest outcome rather than a coverage bug to fix. Every writer of durable frontmatter needs an explicit absent-value branch. Spec rows that never define their absent-field outcome are under-specification defects, not implementer latitude. This extends ADR 0002 and does not amend it.
+Some items will never reach a machine tier; that is the honest outcome rather than a gap to close. Every writer of durable frontmatter needs a branch for "we do not have this", and a specification that leaves the absent-field case undefined will get the silent answer. This extends ADR 0002 and does not amend it.
 
-**Option B: collapse into ADR 0002** as two sentences — a floor sentence on tier derivation and a no-invented-values sentence on durable writes. Cheaper, no new file; the cost is that four audit defects lose the argued home that explains why each rule exists, and 0002's own subject (what a *result* certifies) stretches to cover what a *writer* may emit.
+**Option B: fold into ADR 0002** as two sentences — a floor on tier derivation, and a rule against invented values on durable writes. No new file; the cost is that the failures above lose the place explaining why each rule exists.
 
-______________________________________________________________________
+## 3. ADR 0006 — A source becomes citable here when its literature note exists
 
-## 3. ADR 0006 — Two universes: what a citekey names, what this vault may cite
-
-# Two universes: what a citekey names, what this vault may cite
+# A source becomes citable here when its literature note exists
 
 Status: proposed (2026-08-23)
 
-The bibliography export is the **source universe** — the whole-library Better BibTeX export that resolves a citekey to an item and supplies metadata for imports. `literatures/` membership is the **citation universe** — a claim's citekey is citable only if its literature note exists in this vault. The reference library is multi-project by nature, so library-present is not citable-in-this-vault, and a check that joins only against the export cannot tell an accidental cross-project citation from a legitimate one.
+The reference library holds every project the researcher has ever worked on, so a citekey borrowed from an unrelated project resolves against the whole-library export. A citation to a paper this vault never imported passed its check and could publish.
 
-The remedy stays one skill invocation away: cite → registry-first import → the note exists → the check passes. No second membership file is introduced, because a separate allowlist would drift from the folder it claims to describe.
+**Two questions, two answers.** The bibliography export says what a citekey names; membership in `literatures/` says what this vault may cite. The citekey check asks the second question.
+
+A failing citation has one remedy: import the source, which writes the note, which makes the check pass — and the new note files its own evidence-layer finding at commit, like any import. Membership has one source of truth, the folder itself, so no separate list of citable keys exists to drift.
 
 ## Considered Options
 
-Single universe (rejected: a never-imported citekey from another project reports MATCHED and publishes). A curated citable-items file (rejected: two records of the same membership, and the file loses). Scoping the export to a per-project collection (rejected as a trust boundary: it is a performance option, and it would put curation between admission and the citekey universe).
+Treat the export as both universes (rejected: it cannot tell a legitimate citation from one that leaked in from another project). Keep a curated allowlist file (rejected: two records of one fact, and the file loses). Export a per-project collection instead (rejected: that inserts curation between admission and the key universe, and it is a performance idea rather than a trust boundary).
 
 ## Consequences
 
-The citekey check's contract is tier-2, and it is currently unenforced in the implementation — tracked as a defect, not restated here. `literatures/` becomes the thing to keep honest: an import is what confers citability, so the evidence layer's never-free-written rule is what the whole gate rests on.
+An import is what confers citability, so this check rests on the rule that only the bridge writes into `literatures/`. Screening stays a separate axis: an excluded or superseded note keeps its place in the folder under ADR 0003, and the screening-state check is what keeps it out of a draft.
 
-______________________________________________________________________
+## 4. ADR 0007 — A summary is written from full text or not at all
 
-## 4. ADR 0007 — A digest is written from full text or not at all
-
-# A digest is written from full text or not at all
+# A summary is written from full text or not at all
 
 Status: proposed (2026-08-23)
 
-The digest — the authored account of what a source says, living in its literature note's free prose — is written from the source's full text, always and only. A digest expanded from an abstract is **fabricated facts**, not merely fabrication-shaped: expanding an abstract necessarily invents specifics it does not carry (methods, conditions, magnitudes) and attributes them to the source under its citekey, which is the same zero-tolerance class as a fabricated citation. Second reason, independent of invention: the abstract is the author's persuasion surface — what they want a reader to believe rather than what a reader needs to know — so a digest built on it inherits spin as fact even where nothing is invented.
+A source whose full text is out of reach still has an abstract, and writing the summary from it is the obvious shortcut.
 
-Generalized: no vault content stands an abstract in for the source, and an evidence-boundary tag is not a laundering device — marking abstract-derived content `(inference)` does not make it honest.
+**Write the summary from the full text. When the full text is unreachable, write "no full text available" and stop.** An abstract cannot supply the methods, conditions, and magnitudes a summary states, so a summary drawn from one attributes invented specifics to the source under its citekey — a fabricated fact, and an `(inference)` tag does not repair it. A second reason survives even where nothing is invented: the abstract is where authors sell the work, so a summary built on it inherits the pitch as fact.
 
-When no full text is reachable, the digest slot carries the literal statement **"no full text available"**. Absence made legible is the honest summary; a metadata-only stub that silently reads as "nothing to say" is not.
+The literal sentence matters, because a stub that says nothing reads as "this source had nothing to say".
 
 ## Considered Options
 
-Abstract-derived digest disclosed as inference (rejected: the tag launders nothing, and this is the branch the shipped evidence-conventions text still permits — the reason this ADR exists rather than a prose fix). No digest at all (rejected: an unannotated item stays a metadata stub that orientation and gap analysis read nothing from). Extractive or NLP summarization from full text (rejected separately: salience is judgment and belongs to the authored lane; extractive output is statistical judgment dressed as machine trust).
+Write from the abstract and disclose it (rejected: disclosure does not repair invention, and the tag becomes a laundering device). Write nothing at all (rejected: the source stays a metadata stub that orientation and gap analysis read nothing from). Extract sentences mechanically from the full text (rejected: choosing what matters is judgment, and extractive output would wear machine-trust clothing while making it).
 
 ## Consequences
 
-Digest coverage is bounded by reachable full text. Until the full-text leg lands, the sanctioned route is reading the attachment directly via its Zotero storage path. A no-op is a legitimate outcome — a concise, searchable source may need no digest at all.
-
-______________________________________________________________________
+Until the harness fetches full text itself, the route is opening the attachment in Zotero's storage and reading it. Writing no summary is a legitimate outcome for a source that is short and searchable.
 
 ## 5. ADR 0008 — Claim anchors derive from content, never from render order
 
@@ -112,19 +108,19 @@ ______________________________________________________________________
 
 Status: proposed (2026-08-23)
 
-A claim's `^claim-id` derives from stable content — the Zotero annotation key where one exists, otherwise a hash of the quote — and never from its position in the rendered output. Managed regions are re-rendered whole, so an order-derived anchor would renumber on every regeneration and silently break every claim link pointing into it. Claim links are the vault's only global address for an assertion; an address that moves is not an address.
+Managed regions re-render whole. If a claim's anchor were its position — the third claim in the note — one new annotation upstream would renumber everything below it, and every link into that region would land on the wrong claim.
+
+**An anchor derives from the claim's own content**: the Zotero annotation key where one exists, otherwise a hash of the quote. Re-rendering then yields the same anchors for the same claims, and a link written a year ago still points at what it named.
 
 ## Considered Options
 
-Ordinal or sequential anchors, the obvious implementation (rejected: full re-render is the projection's normal mode, so every regeneration would invalidate links). A machine-owned claim ledger holding the mapping (deferred rather than rejected: it is the upgrade path if prose parsing becomes the bottleneck, and content-derived anchors are what make that upgrade retrofit-free).
+Sequential anchors, the obvious implementation (rejected: re-render is the normal mode, so the anchors would move constantly). A machine-owned ledger mapping claims to stable ids (deferred rather than rejected: it is the upgrade path if parsing prose becomes the bottleneck, and content-derived anchors are what let it arrive later without rewriting history).
 
 ## Consequences
 
-Quote claims capture Web-Annotation-shaped context — the exact text plus short prefix and suffix — at extraction time, because it is nearly free then and unreconstructable later; the re-anchoring cascade that consumes it is deferred.
+Quote claims record the exact text plus a short prefix and suffix at extraction time, because that context is nearly free then and impossible to reconstruct afterwards.
 
-The **citekey half of the address is mutable by design, and its rename semantics are unsettled.** `citekey#^claim-id` is stable in its anchor half only: on a citekey rename, verified-event check strings hard-code the old address, and standing acknowledgments key on check-plus-target, so a rename silently lapses them — while rewriting the events would violate ADR 0002's never-rewritten history. Both horns break a record contract. This is named here rather than resolved, and settles before the first real citekey rename.
-
-______________________________________________________________________
+Half the address is deliberately unstable, and its rules are unsettled. Citekeys get renamed, and a rename leaves verified events carrying the old address inside their check strings while standing acknowledgments key on check-plus-target — so the rename lapses them quietly, and rewriting those events would violate ADR 0002. Both options break a record contract, so this settles before the first real rename.
 
 ## 6. ADR 0001 — scope-bound sentence
 
@@ -142,7 +138,7 @@ Projection rule applied throughout (ruled this session): **a term projects into 
 
 **(a) Bibliography export — rewrite.** Current text states the superseded single-universe contract ("the citekey universe … that citations, filenames, and checks all join against").
 
-> **Bibliography export**: The universe of items a citekey can name: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT — being in it is not yet being citable here.
+> **Bibliography export**: The universe of items a citekey can name: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT.
 > _Avoid_: bibliography file, reference list, citation universe (that is the evidence layer)
 
 Projects: yes.
@@ -163,7 +159,7 @@ Projects: yes.
 
 **(d) Citable — new term**, in *Evidence and claims*. The word is load-bearing in two existing entries and defined in neither.
 
-> **Citable**: What a claim is allowed to cite: an item admitted in Zotero whose literature note exists in this vault — being in the library is not yet being citable here.
+> **Citable**: What a claim is allowed to cite: an item admitted in Zotero whose literature note exists here and is neither excluded nor superseded — being in the library is not yet being citable here.
 > _Avoid_: in the library, in the bibliography
 
 Projects: yes — vault-operational, and the distinction is what ADR 0006 turns on.
@@ -195,7 +191,7 @@ Declined: **digest** — the only ecosystem instance is a 9-star repo (`WeAgentA
 
 ## 10. Already applied this session
 
-Foundation spec §4 and §10, on the author's ruling that "rejected permanently" was stale: two-way Zotero↔vault sync is **deferred behind the same Zotero 10 local-writes gate** as content write-back, with the absence of prior art recorded as why it is not attempted now rather than as a permanent ban. The deferred register gained the matching entry. No ADR — a deferred item is not a decision to record.
+An edit to the foundation spec, on the author's ruling that its "rejected permanently" wording was stale: two-way Zotero↔vault sync is **deferred behind the same Zotero 10 local-writes gate** as content write-back, with the absence of prior art recorded as why it is not attempted now rather than as a permanent ban. The deferred register gained the matching entry. No ADR — a deferred item is not a decision to record.
 
 ## 11. Rejected and deferred, with reasons
 
@@ -209,8 +205,8 @@ Recorded so they are not re-litigated from scratch.
 - **Dependency discipline as an ADR** — deferred with a named trigger: write it when the contract-match rule survives a third contested admission, or at the architecture deepening pass, whichever comes first.
 - **Library-as-curated-search-space** — dropped: situational, and ruled then amended inside 24 hours with the migration still in flight.
 - **The ingest generator ruling** (LLM-authored claim-grammar digest, no extractive summarizer) — dropped as temporary; its full-text half is ADR 0007, which stands on its own.
-- **Evidence-layer-is-projection** and **deterministic-only closure** — stay parked per spec §10: the control model they entangle with is still moving, as the 2026-08-22 gate-doctrine amendment itself demonstrates.
-- **Provenance-travels-with-the-claim** — refuted as an ADR: it is schema shape, already fully stated in spec §5.
+- **Evidence-layer-is-projection** and **deterministic-only closure** — not yet decisions. Both are entangled with how much the system decides for the user versus asking, and that is still moving: the gate doctrine changed once already while this document was being written. An ADR written on top of a moving premise records the premise, not a decision.
+- **Provenance-travels-with-the-claim** — not an ADR: it describes the shape of a record, not a choice between alternatives anyone would wonder about later.
 
 ## 12. AGENTS.md — already resolved by the author
 
