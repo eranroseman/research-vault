@@ -6,7 +6,7 @@ Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
 
 Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout.
 
-Testing — including the live legs that offline runs silently skip: `docs/testing.md`.
+Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/testing.md`.
 
 Environment facts — Zotero, Better BibTeX, WSL path translation: `docs/environment.md`.
 
