@@ -61,10 +61,21 @@ def _copy_if_absent(source, target: Path, relative: str, created: list[str]) -> 
     created.append(relative)
 
 
+# Dotfiles ship dotless (packaging pitfall: a dotfile committed directly as
+# a template asset risks silently failing to package) and are renamed here
+# on write.
+_DOTLESS_TEMPLATE_RENAMES = {
+    "gitignore": ".gitignore",
+    "prettierignore": ".prettierignore",
+    "markdownlintignore": ".markdownlintignore",
+    "editorconfig": ".editorconfig",
+}
+
+
 def _vault_template_paths(templates):
     source_root = templates.joinpath("vault")
     for relative, source in _template_files(source_root):
-        yield ".gitignore" if relative == "gitignore" else relative, source
+        yield _DOTLESS_TEMPLATE_RENAMES.get(relative, relative), source
 
 
 def _copy_vault_templates(vault: Path, templates, created: list[str]) -> None:

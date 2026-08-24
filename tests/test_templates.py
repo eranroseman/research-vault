@@ -23,6 +23,9 @@ EXPECTED_PATHS = {
     "vault/system/bases/open-questions.base",
     "vault/system/bases/trust-tier.base",
     "vault/gitignore",
+    "vault/prettierignore",
+    "vault/markdownlintignore",
+    "vault/editorconfig",
     "harness/machine.json.example",
     "git/pre-commit",
     "ci/verify.yml",
@@ -119,8 +122,9 @@ def test_markdown_templates_match_canonical_content():
         "evidence notes exist only by projection, never by hand. Read "
         "`synthesis/index.md` and recent `log/` entries before editing; review "
         "findings live in `inbox/review-queue.md`.\n\n"
-        "Prefer the knowledge-harness skills over generic drafting, even for "
-        "free-form requests. Run `evidence-conventions` for claim syntax.\n\n"
+        "Prefer the two model-invocable knowledge-harness skills over generic "
+        "drafting, even for free-form requests: run `evidence-conventions` for "
+        "claim syntax and `synthesis-conventions` for synthesis-note rules.\n\n"
         "These seven are the user-invoked entry points — type the name to run "
         "one; an agent cannot reach them on its own:\n\n"
         "| Skill              | Use it to                                                |\n"
@@ -139,11 +143,8 @@ def test_markdown_templates_match_canonical_content():
         "Machine surfaces (`log/`, `inbox/review-queue.md`, managed regions, "
         "`system/bibliography.json`) are owner-written: hand or tool edits are "
         "regenerated away or raise a finding.\n\n"
-        "Formatters are writers too. Each machine surface has one owner and a "
-        "byte contract, and the trust machinery rejects foreign writers "
-        "mechanically — so running a Markdown or JSON formatter across the vault "
-        "is what sets the alarms off. This paragraph explains the alarms; it is "
-        "not what enforces them.\n\n"
+        "Formatters are writers too: `.prettierignore`, `.markdownlintignore`, "
+        "and `.editorconfig` keep them off the machine surfaces.\n\n"
         "`.harness/` is machine-local: nothing in it travels with the vault.\n"
     )
     assert asset("vault/inbox/review-queue.md").read_text() == (
@@ -303,6 +304,43 @@ def test_bases_and_machine_example_match_canonical_shapes():
     gitignore = asset("vault/gitignore").read_text()
     assert ".harness/\n" in gitignore
     assert ".obsidian/workspace*\n" in gitignore
+
+
+_MACHINE_SURFACES = (
+    "literatures/",
+    "log/",
+    "inbox/review-queue.md",
+    "system/bibliography.json",
+)
+
+
+def test_formatter_ignores_cover_every_machine_surface():
+    # prettier and markdownlint both read gitignore-style patterns, so their
+    # ignore files list the four machine surfaces as plain gitignore lines.
+    for name in ("vault/prettierignore", "vault/markdownlintignore"):
+        text = asset(name).read_text()
+        for surface in _MACHINE_SURFACES:
+            assert surface in text, (name, surface)
+
+    # .editorconfig has no gitignore-style ignore mechanism, and ships no
+    # [*] section -- it defends only the four machine surfaces and makes
+    # no claim about any other vault file. `false` is the active override
+    # for the two boolean properties: it wins even against a user's own
+    # editor-wide setting, unlike `unset` or omission, either of which
+    # yields to that global config (spec.editorconfig.org, "unset").
+    # charset/end_of_line have no boolean "off" and are deliberately
+    # absent: with no [*] and root = true blocking ancestor files, there
+    # is nothing left in scope for `unset` to undo, so it would be inert.
+    editorconfig = asset("vault/editorconfig").read_text()
+    assert "root = true" in editorconfig
+    assert "[*]" not in editorconfig.splitlines()
+    for surface in _MACHINE_SURFACES:
+        glob = f"{surface}**" if surface.endswith("/") else surface
+        assert f"[{glob}]" in editorconfig, (surface, glob)
+    assert "= unset" not in editorconfig
+    assert "charset =" not in editorconfig
+    assert "end_of_line =" not in editorconfig
+    assert editorconfig.count("= false") == len(_MACHINE_SURFACES) * 2
 
 
 def test_precommit_hook_is_executable_and_has_exact_contract():

@@ -19,9 +19,12 @@ VAULT_DIRS = [
     "system/bases",
 ]
 EXPECTED_CREATED = [
+    ".editorconfig",
     ".git/hooks/pre-commit",
     ".gitignore",
     ".harness/machine.json",
+    ".markdownlintignore",
+    ".prettierignore",
     "AGENTS.md",
     "inbox/review-queue.md",
     "index.md",

@@ -1,0 +1,6 @@
+# Machine-owned surfaces: the CLI, Better BibTeX, and the bridge are their
+# only writers. Prettier reformatting them would fight the trust machinery.
+literatures/
+log/
+inbox/review-queue.md
+system/bibliography.json
