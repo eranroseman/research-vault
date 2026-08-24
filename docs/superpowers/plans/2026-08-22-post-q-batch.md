@@ -218,7 +218,7 @@ if len(set(expected)) != len(expected):
 
 ### Task 13: Live-vault index application + acceptance (item 15)
 
-- [ ] **Step 1 (consent-gated):** After Task 2's template landed, update the live vault's AGENTS.md at `~/kh-vault` to the new template content — one file, separate repo; **the vault commit happens only with the author's explicit consent** (ask; do not push to the vault remote without it).
+- [ ] **Step 1 (consent-gated; scope re-ruled 2026-08-24 as a CLASS, not a count):** update the live vault at `~/kh-vault` to the CURRENT template set — every file the landed template tasks produced (at this writing: AGENTS.md with routing index + integrity preamble, index.md with the Base embeds, and 2d's ignore files — the live vault is the in-use vault, exactly where an editor's trim-on-save corrupting the append-only byte contract stops being hypothetical). Enumerate the actual file list at dispatch from the landed tasks; one vault commit; **only with the author's explicit consent** (ask; never push to the vault remote without it). The open_q Bases check rides AFTER the commit as author-side verification (needs a Bases-capable Obsidian); if it needs a `.base` edit, that is a recorded finding, never this task's scope.
 - [ ] **Step 2 (Part 1 checkpoint):** Full suite green offline; `test_skill_contracts` green over the renamed set; judged greps re-run (retired `project` skill references; no returned prohibitions). Do NOT merge yet — Part 2 continues on the same branch; final acceptance and the merge live at Task 21.
 
 ______________________________________________________________________
