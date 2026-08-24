@@ -87,9 +87,9 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         "- [[log/]] — daily activity log (summary: [[log]])\n"
         "- [[inbox/]] — fleeting notes and the review queue\n"
         "- [[system/]] — support artifacts: templates, bases, the bibliography export\n\n"
-        "Literature notes, for trust-tier review:\n"
+        "Literature notes, for trust-tier review:\n\n"
         "![[system/bases/trust-tier.base]]\n\n"
-        "Synthesis notes, flagged where they contain an open-question:\n"
+        "Synthesis notes, flagged where they contain an open-question:\n\n"
         "![[system/bases/open-questions.base]]\n"
     )
     assert (vault / "log.md").read_text() == (

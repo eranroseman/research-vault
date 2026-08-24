@@ -12,7 +12,9 @@ okf_version: "0.2"
 - [[system/]] — support artifacts: templates, bases, the bibliography export
 
 Literature notes, for trust-tier review:
+
 ![[system/bases/trust-tier.base]]
 
 Synthesis notes, flagged where they contain an open-question:
+
 ![[system/bases/open-questions.base]]
