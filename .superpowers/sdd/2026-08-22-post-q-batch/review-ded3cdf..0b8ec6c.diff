@@ -1,0 +1,128 @@
+# Review package: ded3cdf..0b8ec6c
+
+## Commits
+0b8ec6c fix: trust tier requires evidence — no vacuous machine-confirmed
+
+## Files changed
+ docs/superpowers/specs/2026-08-16-foundation-spec.md |  2 +-
+ knowledge_harness/events.py                          | 13 ++++++++++---
+ tests/test_events.py                                 | 11 +++++++++++
+ 3 files changed, 22 insertions(+), 4 deletions(-)
+
+## Diff
+diff --git a/docs/superpowers/specs/2026-08-16-foundation-spec.md b/docs/superpowers/specs/2026-08-16-foundation-spec.md
+index 0c73bf4..349d3fe 100644
+--- a/docs/superpowers/specs/2026-08-16-foundation-spec.md
++++ b/docs/superpowers/specs/2026-08-16-foundation-spec.md
+@@ -78,21 +78,21 @@ Per-claim `status`: `live | deprecated` — deprecation is a **transition record
+ 
+ **Reason codes**: one small controlled vocabulary (defined in evidence-conventions; free-text elaboration allowed after the code) shared by import-source holds, deprecations, acknowledgments, and not-admitted records — so reasons are countable and Bases-queryable, never free text alone.
+ 
+ **Anchor durability (invariant)**: `^claim-id` values in managed regions derive from stable content (Zotero annotation key, else quote hash) — **never from render order** — so full re-render preserves every claim link. Quote claims capture Web-Annotation-shaped context at extraction time (`exact` + 32-char `prefix`/`suffix`) — nearly free at capture, unreconstructable later; the re-anchoring *cascade* stays deferred (§10).
+ 
+ - Evidence-boundary tag: `quote | paraphrase | inference | open-question` (open-question = a claim with no derivation edge — itself lintable).
+ - `[@citekey, locator]` carries pinpoints (parses losslessly to CSL `locator`+`label`).
+ - `^block-id` anchors claims; **`citekey#^claim-id` is the global claim link** (no adoptable donor among surveyed products as of 2026-08-16; the *model* has precedent — micropublications' Support/Challenge graphs, Wikidata's per-statement references — first implementation on this substrate, not first idea; qualified 2026-08-22).
+ - Synthesis claims add: `confidence` (inference-only), per-claim `status`+reason, generating agent + date, and typed `supports`/`disputes` stance links to claim links (the two CiTO senses are the whole stance vocabulary; corrected 2026-08-22).
+ 
+-**Event integrity**: actor convention (`human:<name>` / `knowledge_harness/<version>`, per the code's `AGENT_ACTOR`) applies to every generating/verifying identity. Note-level checks (DOI, metadata, update-notice) append verified events to literature frontmatter; claim-level quote events include the claim link and comparison target (`managed-region` or `source-text`) in `check`; publish events attach to the project. Machine-confirmed trust requires all applicable note-level checks and quote claims to match; human-reviewed additionally requires a `human:` event. Deterministic gate surfaces alone write these events, and CI recomputes their passes.
++**Event integrity**: actor convention (`human:<name>` / `knowledge_harness/<version>`, per the code's `AGENT_ACTOR`) applies to every generating/verifying identity. Note-level checks (DOI, metadata, update-notice) append verified events to literature frontmatter; claim-level quote events include the claim link and comparison target (`managed-region` or `source-text`) in `check`; publish events attach to the project. Machine-confirmed trust requires all applicable note-level checks and quote claims to match; human-reviewed additionally requires a `human:` event. An item with no applicable note-level checks and no managed quote claims derives `unverified` — the machine tiers require at least one deterministic check to have run and matched, never vacuous satisfaction (closed 2026-08-22, audit defect 3). Deterministic gate surfaces alone write these events, and CI recomputes their passes.
+ 
+ **Invariants**: deprecate-with-reason, never delete; contradictions preserved, never silently resolved. **Upgrade path (deferred)**: per-quote prefix/suffix re-anchoring + a machine-owned claim ledger (Option C), gated on a consistency check, only if the slice shows prose-parsing bottlenecks. Exact inline-field syntax is validated against Dataview/Bases parsers at build time.
+ 
+ ## 6. Trust gates ([#10](https://github.com/eranroseman/knowledge-harness/issues/10))
+ 
+ **Doctrine**: detect always-on and free; enforce opt-in per surface. **Mandatory, judgment-independent closure exists only at the publish boundary**; deterministic offline checks may additionally close at pre-commit/CI exactly where the table says so. Every closed surface ships a named bypass artifact + a liveness bound before enabling — missing either is a defect. **Precision is a warn-tier obligation (added 2026-08-22): a warn-tier check class whose observed inbox precision collapses is itself a defect — to tune or demote — because a noisy queue trains click-through and degrades every gate (the rubber-stamp rule, §3); the closing checks are exempt by construction (deterministic, near-zero false-positive).**
+ 
+ | Check                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Deterministic            | Surfaces                                       | Fail policy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+ | Citekey exists in bibliography                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | yes, offline             | PostToolUse warn; pre-commit; CI               | open interactively; closed at pre-commit (bypass: `--no-verify`, honest layer is CI replay) and CI (bypass: entry in the review inbox acknowledged by `human:` actor)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+diff --git a/knowledge_harness/events.py b/knowledge_harness/events.py
+index d6b0341..68fe905 100644
+--- a/knowledge_harness/events.py
++++ b/knowledge_harness/events.py
+@@ -245,38 +245,45 @@ def trust_tier(note_text: str) -> str:
+     events, malformed = _verified_events(data)
+     failures, malformed_failures = _failure_rows(data)
+     if (
+         malformed
+         or malformed_failures
+         or _duplicate_header(note_text, "verified")
+         or _duplicate_header(note_text, FAILURES_FIELD)
+     ):
+         return "unverified"
+     checks = {str(event.get("check", "")) for event in events}
+-    machine_confirmed = _applicable_note_checks(data) <= checks
++    applicable = _applicable_note_checks(data)
++    machine_confirmed = applicable <= checks
+     citekey = data.get("citekey", "")
+ 
+-    applicable_failures = _applicable_note_checks(data)
+     for row in failures:
+         check = row["check"]
+         quote = _QUOTE_CHECK.fullmatch(check)
+-        if check in applicable_failures or (
++        if check in applicable or (
+             quote is not None and quote.group("claim_link").split("#^", 1)[0] == citekey
+         ):
+             machine_confirmed = False
+ 
++    has_managed_quotes = False
+     for claim in claims_mod.parse_claims(note_text):
+         if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:
+             continue
++        has_managed_quotes = True
+         claim_link = claims_mod.claim_link(citekey, claim.claim_id)
+         quote_checks = {
+             f"quote:{claim_link}:managed-region",
+             f"quote:{claim_link}:source-text",
+         }
+         if checks.isdisjoint(quote_checks):
+             machine_confirmed = False
+ 
++    if not applicable and not has_managed_quotes:
++        # A subset test over an empty applicable set is vacuously true; require
++        # at least one deterministic check to have run and matched instead.
++        machine_confirmed = False
++
+     if not machine_confirmed:
+         return "unverified"
+     if any(str(event.get("by", "")).startswith("human:") for event in events):
+         return "human-reviewed"
+     return "machine-confirmed"
+diff --git a/tests/test_events.py b/tests/test_events.py
+index de47fa0..7fe4c4f 100644
+--- a/tests/test_events.py
++++ b/tests/test_events.py
+@@ -154,20 +154,31 @@ def test_trust_tier_progression():
+         at="2026-08-16",
+     )
+     assert events.trust_tier(text) == "machine-confirmed"
+ 
+     text = events.record_pass(
+         text, "doi", Result.MATCHED, by="human:eran", at="2026-08-17"
+     )
+     assert events.trust_tier(text) == "human-reviewed"
+ 
+ 
++def test_no_identifier_no_claims_note_is_unverified():
++    """An empty applicable-check set must not vacuously satisfy machine-confirmed."""
++    text = "---\ntype: literature\ncitekey: url2024only\nurl: https://example.org\n---\nbody\n"
++    assert events.trust_tier(text) == "unverified"
++
++
++def test_frontmatterless_text_is_unverified():
++    """No frontmatter means no applicable checks and no quote claims — still not machine-confirmed."""
++    assert events.trust_tier("just some text\n") == "unverified"
++
++
+ def test_human_event_alone_is_not_human_reviewed():
+     text = events.record_pass(
+         BASE, "doi", Result.MATCHED, by="human:eran", at="2026-08-16"
+     )
+ 
+     assert events.trust_tier(text) == "unverified"
+ 
+ 
+ def test_pmid_only_requires_update_notice_coverage():
+     assert events.trust_tier(PMID_ONLY) == "unverified"

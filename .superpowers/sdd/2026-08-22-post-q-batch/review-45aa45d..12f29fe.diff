@@ -1,0 +1,359 @@
+# Review package: 45aa45d..12f29fe
+
+## Commits
+12f29fe fix: verify-citations defers to CLI output; enumeration checker guards all skills
+
+## Files changed
+ skills/evidence-conventions/SKILL.md |   2 +-
+ skills/verify-citations/SKILL.md     |  16 +--
+ tests/test_skill_contracts.py        | 216 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 225 insertions(+), 9 deletions(-)
+
+## Diff
+diff --git a/skills/evidence-conventions/SKILL.md b/skills/evidence-conventions/SKILL.md
+index 2bd6ebc..8311f84 100644
+--- a/skills/evidence-conventions/SKILL.md
++++ b/skills/evidence-conventions/SKILL.md
+@@ -79,21 +79,21 @@ Findings in `inbox/review-queue.md`, and any other durable surface this registry
+ | `retracted`        | The cited work's update-notice check found a blocking-class notice (retraction, partial retraction, removal, withdrawal).                                                                                                                                                                                                                                                                                                                                      |
+ | `drift`            | An append-only surface was rewritten, a claim anchor mutated or vanished without a deprecation record, a literature note changed outside import, or a published project diverged from its tag.                                                                                                                                                                                                                                                                 |
+ | `disputed-claim`   | A claim you're building on (via a `supports` link) has standing counter-evidence elsewhere. Surfaces disconfirmation instead of letting it get silently relied on.                                                                                                                                                                                                                                                                                             |
+ | `superseded-note`  | The claim cites a literature note whose `status` is `excluded` or `superseded`.                                                                                                                                                                                                                                                                                                                                                                                |
+ | `stale`            | The vault's bibliography export no longer matches the current Zotero library.                                                                                                                                                                                                                                                                                                                                                                                  |
+ | `budget-cap`       | Factored verification's per-run budget cap (default 30 claims) was reached; this finding names everything the cap left unchecked this pass. Never means the excluded claims were checked and clean.                                                                                                                                                                                                                                                            |
+ | `not-admitted`     | Nothing was admitted. Two conditions share this code: the citekey names nothing in the Zotero library (`import-note`'s condition — the source was never admitted, or its item has left), or a human looked at a `find-sources` search candidate and declined to admit it (`search-log`'s not-admitted record, spec §7). Admission is a human act; no import can substitute for it, and a search finding nothing worth admitting is a real result, not silence. |
+ | `contradiction`    | A claim being integrated at import contradicts a claim already in the synthesis layer. Both sides are preserved and linked with `disputes`; a contradiction is never resolved by dropping one.                                                                                                                                                                                                                                                                 |
+ | `low-confidence`   | An inference claim held back at integration because its `[confidence:: ...]` is low or missing altogether.                                                                                                                                                                                                                                                                                                                                                     |
+ 
+-One registry code (`manual`) belongs to a surface not shipped yet — it gets its own glossary row when that surface lands.
++Two registry codes stay off this table: `matched` never reaches the queue (only non-MATCHED results file findings), and `manual` marks a human act rather than a machine observation — no check files it; a person does, when they bypass the publish gate.
+ 
+ ## Rationalizations, answered
+ 
+ | What you're tempted to think                        | The mechanical rule that forbids it                                                                                                                                                                                              |
+ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+ | "I'll cite it later."                               | The Iron Law: no claim line exists before its citekey resolves. Write it as prose in `inbox/`, not as a tagged claim, until the source is admitted.                                                                              |
+ | "It's common knowledge."                            | Common knowledge is not an evidence-boundary tag. Every claim line needs `(quote\|paraphrase\|inference\|open-question)` plus a citekey — if it can't carry one, it isn't a claim, it's prose.                                   |
+ | "The abstract said so."                             | The quote checker compares byte-normalized text against the literature note's managed region, not a memory of the abstract. Extract or paraphrase from the admitted item, or mark `(inference)` and accept the lower confidence. |
+ | "I remember reading it."                            | A claim link only resolves to a literature note that already exists in `literatures/` with a resolving citekey. No note, no citekey — find it or admit the source first.                                                         |
+ | "It's paywalled, I can't verify the exact wording." | Use `(paraphrase)` or `(inference)`, not `(quote)`. A `(quote)` tag commits to text the checker can byte-compare — never fabricate a quote to sound authoritative.                                                               |
+diff --git a/skills/verify-citations/SKILL.md b/skills/verify-citations/SKILL.md
+index 60d20f0..face504 100644
+--- a/skills/verify-citations/SKILL.md
++++ b/skills/verify-citations/SKILL.md
+@@ -1,44 +1,44 @@
+ ---
+ name: verify-citations
+ description: Use when a person asks to verify citations, run the citation checks, or check whether a vault's evidence is trustworthy
+ disable-model-invocation: true
+ ---
+ 
+ # Verify citations
+ 
+-This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of §6 (citekey, DOI, metadata, quote, update-notice, evidence-layer, identifier-discovery, web-archive, screening-state, disputed-claim). It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id. Never hand-write a result, a `verified` event, or a review-inbox entry — the CLI does all of that already, inside `verify` itself.
++This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of §6. Never carry an inventory of check ids in your head or in a report. Run the CLI; its output is always up to date. It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id. Never hand-write a result, a `verified` event, or a review-inbox entry — the CLI does all of that already, inside `verify` itself.
+ 
+ ## Run the audit
+ 
+ Default to an open audit — it reports everything and blocks nothing:
+ 
+ ```sh
+ python3 -m knowledge_harness verify --vault PATH
+ ```
+ 
+ This is `--surface audit`, the default. It is always safe to run: no surface closes on its result, so running it never holds a commit, a session, or a publish attempt.
+ 
+ Only add `--surface commit` or `--surface publish` if the person explicitly asks whether a specific gate would pass right now. Even then, this skill only **reports** that decision — it does not act as the gate. Commit-time closing runs via the pre-commit hook on its own; publish-time closing and its disposition menu belong to the `publish` skill. Do not arm, bypass, or otherwise act on a gate from here.
+ 
+ ## Report the four states honestly
+ 
+ `verify` prints one line per non-MATCHED outcome — `RESULT check target — reason` — followed by a final JSON summary of counts by result. MATCHED outcomes never print individually, for every check id, whether or not they mint an event — silence about one check id in the line output is not itself news; read the JSON counts to confirm what actually ran.
+ 
+-Present the printed lines to the person **grouped by check id** (the second token on each line — `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`), not in raw run order — a person triaging results wants "here is everything wrong with quotes," not an interleaved dump.
++Present the printed lines to the person **grouped by check id as the CLI reports them** (the second token on each line), not in raw run order — a person triaging results wants "here is everything wrong with quotes," not an interleaved dump.
+ 
+-| Result      | Meaning                                                                                                                                                                                                                                                                                                                                                         |
+-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+-| MATCHED     | The check ran and agreed. **Only `doi`, `metadata`, `update-notice`, and per-claim `quote` mint a `verified` event on MATCHED** — every other check id (`citekey`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`) leaves no separate durable trace beyond the run's counts. You never write an event either way. |
+-| UNMATCHED   | The check ran and disagreed. Already recorded in the review inbox by `verify` itself — do not also file it yourself.                                                                                                                                                                                                                                            |
+-| UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the work.**                                                                                                                                                                                                                                                                         |
+-| SKIPPED     | The item lacks the field the check needs (no identifier, no quote claims, …). Automatic only — never something you or the person can set.                                                                                                                                                                                                                       |
++| Result      | Meaning                                                                                                                                                                                                                                                               |
++| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
++| MATCHED     | The check ran and agreed. **Only `doi`, `metadata`, `update-notice`, and per-claim `quote` mint a `verified` event on MATCHED** — every other check id the run reports leaves no separate durable trace beyond the run's counts. You never write an event either way. |
++| UNMATCHED   | The check ran and disagreed. Already recorded in the review inbox by `verify` itself — do not also file it yourself.                                                                                                                                                  |
++| UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the work.**                                                                                                                                                                               |
++| SKIPPED     | The item lacks the field the check needs (no identifier, no quote claims, …). Automatic only — never something you or the person can set.                                                                                                                             |
+ 
+ An outage is never a failure and never a pass. Describe an UNREACHABLE result as "could not run — outage," never as "failed," "probably fine," or any wording that reads as a verdict. Never claim a check ran that did not, and never claim a `verified` event exists for a check id that doesn't mint one — only the CLI mints events, only on a genuine MATCHED result, and only for the four check ids named above.
+ 
+ ## Exit codes
+ 
+ `0` clean (or, on the default audit surface, always — audit never fails the process). `1` a closing check is UNMATCHED (only possible with `--surface commit`/`--surface publish`). `3` a closing check was UNREACHABLE, so that surface would wait. `2` verification could not run at all — read the printed message on stderr back verbatim; do not summarize it as "it failed."
+ 
+ ## What this skill does not do
+ 
+ It never files a review-inbox finding itself (`verify`'s own pipeline already does, for every non-MATCHED result) and it never runs `finding` or `ack`. Factored (LLM) verification is a different skill — `factcheck-draft` — with a different, non-blocking contract; do not conflate the two when a person asks to "check the citations."
+diff --git a/tests/test_skill_contracts.py b/tests/test_skill_contracts.py
+index f145221..e1a1848 100644
+--- a/tests/test_skill_contracts.py
++++ b/tests/test_skill_contracts.py
+@@ -1,31 +1,33 @@
+ """Generic contract every shipped ``skills/*/SKILL.md`` must satisfy (spec §7, §8).
+ 
+ Unlike ``test_skill_files.py`` (setup-vault-specific content acceptance),
+ this module asserts only what the control model and plugin architecture
+ require of *every* skill, present and future. It is written to stay green
+ as later Plan D tasks add entry skills — nothing here is scoped to the two
+ guard skills shipped alongside it.
+ """
+ 
++import ast
+ import re
+ import shlex
+ from pathlib import Path
+ 
+ import pytest
+ 
+ from knowledge_harness import inbox
+ from knowledge_harness.frontmatter import FrontmatterError, parse
+ 
+ REPOSITORY = Path(__file__).resolve().parents[1]
+ SKILLS_DIR = REPOSITORY / "skills"
+ TEMPLATES_DIR = REPOSITORY / "knowledge_harness" / "templates"
++PACKAGE_DIR = REPOSITORY / "knowledge_harness"
+ 
+ # Control model (spec §7/§8, ruled 2026-08-22): entry skills ship
+ # `disable-model-invocation: true` so they never enter the model catalog;
+ # every other shipped skill is a guard/reference skill, model-invoked AND
+ # user-invocable, so it carries neither `disable-model-invocation` nor
+ # `user-invocable`. This list grows by one name per Plan D task as each
+ # entry skill ships (Task 2 publish; Task 3 verify-citations,
+ # factcheck-draft; Task 4 project-flow; Task 5 import-source; Task 6
+ # find-sources) — it only ever grows, never shrinks.
+ ENTRY_SKILLS = {
+@@ -159,10 +161,224 @@ def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
+     for template in _shipped_template_files():
+         text = template.read_text(encoding="utf-8")
+         cited.update(_BACKTICKED_KEBAB_TOKEN.findall(text))
+     assert cited, "expected at least one skill name cited in a shipped template"
+     existing = {directory.name for directory in _skill_dirs()}
+     missing = sorted(cited - existing)
+     assert not missing, (
+         f"shipped templates cite skill name(s) with no skills/<name>/ "
+         f"directory: {missing}"
+     )
++
++
++# --------------------------------------------------------------------------
++# Prose enumerating what code owns (2026-08-22 skills-layer audit, C-1/C-2).
++# The audit's own diagnosis: a skill that hand-lists an identifier set the
++# code owns drifts the moment the code moves. The remedy is defer to the
++# code, or pin the enumeration by test — never hand-maintain one. The two
++# checks below are the pins.
++# --------------------------------------------------------------------------
++
++_BACKTICKED = re.compile(r"`([^`]+)`")
++# "check id" / "check ids", the phrase that marks the backticked run after it
++# as a claim *about check ids* rather than about verbs, tags, or fields.
++_CHECK_ID_PHRASE = re.compile(r"check ids?\b")
++# Two backticked tokens belong to one enumeration only when nothing but list
++# punctuation separates them. Prose between them ends the run, so
++# ``check id `factcheck`, carrying that claim's `text_hash` `` reads as one
++# id followed by unrelated prose, not as a two-id list.
++_RUN_JOINER = re.compile(r"^[\s,/|]*(?:and|or)?[\s,/|]*$")
++# A sentence break between the phrase and the first backticked token means the
++# token belongs to a later clause, not to the enumeration the phrase opened.
++_SENTENCE_BREAK = re.compile(r"[.;]\s")
++
++
++def _emitted_check_ids() -> set[str]:
++    """Every check id ``knowledge_harness`` can put on an ``Outcome``, off its AST.
++
++    Check ids are literals at their construction sites rather than a registry
++    constant. ``inbox.CHECK_IDS`` is the *registry* — the boundary the
++    `finding` verb enforces — and ``inbox.py``'s own comment records that the
++    deterministic pipeline legitimately files ids that registry does not
++    carry (``staleness``, ``append-only``, ``claim-immutability``,
++    ``published-drift``). So the registry alone would flag correct prose, and
++    the AST is the only honest source for what a `verify` run can emit. Same
++    technique and same reason as ``_probe_ids`` in ``test_config_validity``.
++
++    Sites whose first argument is a variable are wrappers (``checks.py``'s
++    record rehydrator, ``lints.py``'s ``_schema_outcome``, ``verify.py``'s
++    offline-network fan-out); every id they are ever handed is a literal at a
++    call site this scan already reads, so skipping them loses nothing.
++    """
++    emitted: set[str] = set()
++    for module in sorted(PACKAGE_DIR.glob("*.py")):
++        tree = ast.parse(module.read_text(encoding="utf-8"))
++        constants = {
++            target.id: node.value.value
++            for node in tree.body
++            if isinstance(node, ast.Assign)
++            and isinstance(node.value, ast.Constant)
++            and isinstance(node.value.value, str)
++            for target in node.targets
++            if isinstance(target, ast.Name)
++        }
++        for node in ast.walk(tree):
++            if not isinstance(node, ast.Call) or not node.args:
++                continue
++            if (
++                getattr(node.func, "id", None) != "Outcome"
++                and getattr(node.func, "attr", None) != "Outcome"
++            ):
++                continue
++            check = node.args[0]
++            if isinstance(check, ast.Constant) and isinstance(check.value, str):
++                emitted.add(check.value)
++            elif isinstance(check, ast.Name) and check.id in constants:
++                emitted.add(constants[check.id])
++    return emitted
++
++
++def _known_check_ids() -> set[str]:
++    """Every check id the code knows, from all three of its code-side sources.
++
++    The emitted set and the registry overlap but neither contains the other:
++    the pipeline emits four ids the registry does not carry, and the registry
++    carries five (``publish``, ``factcheck``, ``autoexport``, ``render``,
++    ``integrate``) that only the `finding` verb ever files — skills name
++    those in prose too, so an emitted-only universe would fail correct prose.
++    ``REPEATABLE_ACT_CHECKS`` adds ``publish-gate``, filed by the Stop hook.
++    """
++    return (
++        _emitted_check_ids() | set(inbox.CHECK_IDS) | set(inbox.REPEATABLE_ACT_CHECKS)
++    )
++
++
++def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
++    """Every check id a document names as a check id, with its line number.
++
++    Anchored on the phrase "check id"/"check ids": the first backticked run
++    after that phrase, on that line, is the enumeration the phrase
++    introduces. Anchoring is what keeps the sweep honest — an unanchored scan
++    of backticked tokens cannot tell the check id ``quote`` from the
++    evidence-boundary tag of the same name, and would fail correct prose.
++    """
++    found = []
++    for number, line in enumerate(text.splitlines(), start=1):
++        phrase = _CHECK_ID_PHRASE.search(line)
++        if phrase is None:
++            continue
++        end = phrase.end()
++        for index, token in enumerate(_BACKTICKED.finditer(line, end)):
++            gap = line[end : token.start()]
++            # The run's first token may sit behind a parenthetical aside
++            # ("grouped by check id (the second token on each line — …)"), but
++            # not behind a sentence break; every later token may sit behind
++            # list punctuation only.
++            if index == 0:
++                broken = _SENTENCE_BREAK.search(gap) is not None
++            else:
++                broken = _RUN_JOINER.match(gap) is None
++            if broken:
++                break
++            found.append((number, token.group(1)))
++            end = token.end()
++    return found
++
++
++@pytest.mark.parametrize("skill_md", _skill_md_files(), ids=lambda p: p.parent.name)
++def test_every_check_id_a_skill_enumerates_is_one_the_code_files(skill_md):
++    """C-1's class: a skill naming a check id the code renamed or dropped ships
++    prose that describes output the CLI cannot produce. Prose is the one
++    surface no other test reads; this catches the drift at build time."""
++    known = _known_check_ids()
++    unknown = sorted(
++        f"line {number}: {check!r}"
++        for number, check in _enumerated_check_ids(skill_md.read_text(encoding="utf-8"))
++        if check not in known
++    )
++    assert not unknown, (
++        f"{skill_md} names check id(s) no `verify` run emits and no registry "
++        f"carries: {unknown}"
++    )
++
++
++def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
++    """Guards the instrument, not the prose: a scan that silently found
++    nothing would make the sweep above pass on anything."""
++    emitted = _emitted_check_ids()
++    assert emitted, "AST scan found no Outcome check ids — the scan itself is broken"
++    # The four the registry does not carry are the whole reason this is an AST
++    # scan rather than `inbox.CHECK_IDS`; losing them is losing the point.
++    assert {
++        "staleness",
++        "append-only",
++        "claim-immutability",
++        "published-drift",
++    } <= emitted
++
++
++def test_the_check_id_extractor_reads_a_run_and_stops_at_prose():
++    """Guards the extractor on a literal sample, so a regex change that
++    quietly stopped matching cannot pass as clean prose."""
++    sample = (
++        "Present the printed lines **grouped by check id** (the second token "
++        "on each line — `citekey`, `doi`, and `source-status`), not in raw "
++        "run order.\n"
++        "Every other outcome is a finding, filed by check id `factcheck`, "
++        "carrying that claim's `text_hash` as `--target-hash`.\n"
++        "`mark-published` and `mark-corrected` mint a project-level event.\n"
++    )
++    assert _enumerated_check_ids(sample) == [
++        (1, "citekey"),
++        (1, "doi"),
++        (1, "source-status"),
++        (2, "factcheck"),
++    ]
++
++
++_REASON_SECTION_HEADING = "## Reason-code vocabulary"
++EVIDENCE_CONVENTIONS = SKILLS_DIR / "evidence-conventions" / "SKILL.md"
++_COUNT_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
++
++
++def _reason_code_section() -> tuple[set[str], str]:
++    """The reason-code table's own codes, and the prose that closes it."""
++    text = EVIDENCE_CONVENTIONS.read_text(encoding="utf-8")
++    start = text.index(_REASON_SECTION_HEADING)
++    end = text.index("\n## ", start + 1)
++    lines = text[start:end].splitlines()
++    # A code row leads with its own code in backticks; the header and rule
++    # rows do not, so neither needs naming here.
++    tabled = {
++        _BACKTICKED.search(line).group(1) for line in lines if line.startswith("| `")
++    }
++    last_row = max(index for index, line in enumerate(lines) if line.startswith("|"))
++    return tabled, "\n".join(lines[last_row + 1 :]).strip()
++
++
++def test_evidence_conventions_accounts_for_every_reason_code():
++    """C-2's fix, pinned: the table plus its closing sentence must together
++    name the whole registry, each code exactly once. Registering a new code
++    with no row and no exemption fails here — which is the point, since the
++    closing sentence's count claim is what drifted."""
++    tabled, closing = _reason_code_section()
++    assert tabled, "found no reason-code rows — the section scan is broken"
++    assert closing, "the reason-code table ships no closing sentence to pin"
++    exempt = set(_BACKTICKED.findall(closing))
++    assert tabled <= inbox.REASON_CODES, (
++        f"table rows name unregistered reason code(s): {sorted(tabled - inbox.REASON_CODES)}"
++    )
++    assert exempt <= inbox.REASON_CODES, (
++        "the closing sentence backticks non-reason-code token(s): "
++        f"{sorted(exempt - inbox.REASON_CODES)}"
++    )
++    assert tabled.isdisjoint(exempt), (
++        f"code(s) both tabled and called off the table: {sorted(tabled & exempt)}"
++    )
++    assert tabled | exempt == inbox.REASON_CODES, (
++        "reason codes with neither a table row nor a named exemption: "
++        f"{sorted(inbox.REASON_CODES - tabled - exempt)}"
++    )
++    word = _COUNT_WORDS[len(exempt)]
++    assert re.search(rf"\b{word}\b", closing, re.IGNORECASE), (
++        f"the closing sentence exempts {len(exempt)} codes but does not say {word!r}"
++    )

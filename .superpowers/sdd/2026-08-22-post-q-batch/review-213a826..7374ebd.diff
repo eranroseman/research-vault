@@ -1,0 +1,215 @@
+# Review package: 213a826..7374ebd
+
+## Commits
+7374ebd fix: Task 17 review round 1 — migrate a stale ack-hash literal, pin the digest-length bound, cover the empty-fixity fallthrough
+
+## Files changed
+ knowledge_harness/verify.py | 23 +++++++++++-------
+ tests/test_verify_cli.py    | 57 +++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 61 insertions(+), 19 deletions(-)
+
+## Diff
+diff --git a/knowledge_harness/verify.py b/knowledge_harness/verify.py
+index b5f4137..27b98cb 100644
+--- a/knowledge_harness/verify.py
++++ b/knowledge_harness/verify.py
+@@ -233,25 +233,28 @@ def _claim_anchor_hash(
+     target,
+     raw_origin,
+     origin,
+     origin_image,
+     *,
+     base_snapshot,
+     candidate_snapshot,
+ ):
+     """The identity of a ``citekey#^claim`` target, or None if its bytes are gone.
+ 
+-    The citekey's own recorded fixity wins where the note declares one; failing
+-    that the claim's bytes are read from whichever plane still holds them —
+-    candidate image, worktree note, base image or HEAD, then the citekey's note.
+-    None is not an error here: it means no plane holds the claim any more, and
+-    the caller falls back to the coarser identities below.
++    The citekey's own recorded fixity wins where the note declares a
++    validly-shaped digest; a note with no fixity, an empty list, or a value
++    that doesn't look like a digest is treated as not declaring one at all.
++    Failing that, the claim's bytes are read from whichever plane still
++    holds them — candidate image, worktree note, base image or HEAD, then
++    the citekey's note. None is not an error here: it means no plane holds
++    the claim any more, and the caller falls back to the coarser identities
++    below.
+     """
+     citekey, claim_id = target.split("#^", 1)
+     known_citekey_hash = _citekey_hash(
+         vault_root, citekey, candidate_snapshot=candidate_snapshot
+     )
+     if known_citekey_hash is not None:
+         return known_citekey_hash
+     data = (
+         _claim_bytes_from_text(
+             (origin_image.data or b"").decode(errors="surrogateescape"), claim_id
+@@ -390,24 +393,26 @@ def _identifier_hash(
+     raw_origin,
+     origin,
+     origin_image,
+     *,
+     base_snapshot,
+     candidate_snapshot,
+ ):
+     """The identity of a bare identifier: its note where one exists, else its entry.
+ 
+     A note is preferred over a bibliography entry wherever the identifier has
+-    one — recorded fixity first, then candidate image, worktree, base image or
+-    HEAD — so an identifier and the note carrying it never disagree about what
+-    was acknowledged. Only an identifier with no note at all falls through to
+-    the canonical bibliography record.
++    one — a validly-shaped recorded fixity digest first, then candidate
++    image, worktree, base image or HEAD — so an identifier and the note
++    carrying it never disagree about what was acknowledged. A note whose
++    fixity is absent, empty, or not digest-shaped falls through the same as
++    one with none recorded. Only an identifier with no note at all falls
++    through to the canonical bibliography record.
+     """
+     known_citekey_hash = _citekey_hash(
+         vault_root, target, candidate_snapshot=candidate_snapshot
+     )
+     if known_citekey_hash is not None:
+         return known_citekey_hash
+     if origin_image is not None and origin_image.kind == "file":
+         data = _note_bytes(origin_image.data or b"")
+         return hashlib.sha256(data).hexdigest()[:16]
+     if origin and origin.is_file():
+diff --git a/tests/test_verify_cli.py b/tests/test_verify_cli.py
+index 889488e..13bff77 100644
+--- a/tests/test_verify_cli.py
++++ b/tests/test_verify_cli.py
+@@ -252,59 +252,96 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
+     assert (
+         _target_hash(net_vault, stale)
+         == hashlib.sha256(
+             (net_vault / "system/bibliography.json").read_bytes()
+         ).hexdigest()[:16]
+     )
+     with pytest.raises(PathCodecError):
+         RepoPath(b"../outside")
+ 
+ 
+-def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault):
+-    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``)."""
++@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
++def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault, placeholder):
++    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``).
++
++    Two shapes, not one: "unresolved" is non-hex (fails the character
++    class), "aa11" is valid hex but short (fails the length bound) — so
++    this also pins the ``{64}`` bound, not just hex-ness.
++    """
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
+-            '  - "unresolved"',
++            f'  - "{placeholder}"',
+         )
+     )
+     claim_outcome = _outcome(
+         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
+     )
+     expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+     result = _target_hash(net_vault, claim_outcome)
+-    assert result != "unresolved"
++    assert result != placeholder
+     assert result == expected
+ 
+ 
+-def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault):
+-    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``)."""
++@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
++def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault, placeholder):
++    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``).
++
++    Two shapes, not one: "unresolved" is non-hex (fails the character
++    class), "aa11" is valid hex but short (fails the length bound) — so
++    this also pins the ``{64}`` bound, not just hex-ness.
++    """
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
+-            '  - "unresolved"',
++            f'  - "{placeholder}"',
+         )
+     )
+     candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+     claim_outcome = _outcome(
+         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
+     )
+     expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+     result = _target_hash(
+         net_vault, claim_outcome, candidate_snapshot=candidate_snapshot
+     )
+-    assert result != "unresolved"
++    assert result != placeholder
+     assert result == expected
+ 
+ 
++def test_ack_hash_falls_through_when_fixity_is_empty_list(net_vault):
++    """A present-but-empty ``fixity-sha256`` list — the shape Task 17's side
++    (a) now writes when every attachment fails to resolve — falls through to
++    the managed-bytes hash on both ``_citekey_hash`` branches, same as an
++    absent key.
++    """
++    source = net_vault / "literatures" / "smith2020.md"
++    source.write_text(
++        source.read_text().replace(
++            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
++            "fixity-sha256:\n",
++        )
++    )
++    claim_outcome = _outcome(
++        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
++    )
++    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
++    assert _target_hash(net_vault, claim_outcome) == expected
++    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
++    assert (
++        _target_hash(net_vault, claim_outcome, candidate_snapshot=candidate_snapshot)
++        == expected
++    )
++
++
+ @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+ @pytest.mark.parametrize(
+     "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
+ )
+ def test_preclose_blank_event_keeps_no_attachment_ack_hash(
+     net_vault, newline, frontmatter_line
+ ):
+     existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
+     body = f"- (quote) body ^c-11111111{newline}"
+     text = f"---{newline}{existing_fields}{newline}---{newline}{body}"
+@@ -389,23 +426,23 @@ def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
+     assert "failed-verification" not in draft.read_text().splitlines()[line_no - 1]
+ 
+ 
+ def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monkeypatch):
+     entry = inbox.append_entry(
+         net_vault,
+         "doi",
+         "smith2020",
+         Result.UNMATCHED,
+         "mismatch — old result",
+-        target_hash="aa11",
++        target_hash="aa11" * 16,
+     )
+-    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11")
++    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11" * 16)
+     monkeypatch.setattr(
+         "knowledge_harness.verify._bibliography_entries",
+         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
+     )
+     monkeypatch.setattr(
+         "knowledge_harness.verify._network_outcomes",
+         lambda *_: [_outcome("doi", "smith2020", Result.MATCHED, "matched")],
+     )
+     run_verify(net_vault, network=True, detection_date="2026-08-16")
+     assert any(

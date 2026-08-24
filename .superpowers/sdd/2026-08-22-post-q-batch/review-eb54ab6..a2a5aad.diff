@@ -1,0 +1,49 @@
+# Review package: eb54ab6..a2a5aad
+
+## Commits
+a2a5aad fix: complete the leading-word collapse at project-flow:84
+
+## Files changed
+ skills/project-flow/SKILL.md     | 2 +-
+ tests/test_project_flow_skill.py | 6 +++++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/skills/project-flow/SKILL.md b/skills/project-flow/SKILL.md
+index a22e64d..3ef903c 100644
+--- a/skills/project-flow/SKILL.md
++++ b/skills/project-flow/SKILL.md
+@@ -74,11 +74,11 @@ When it is time to draft, invoke `evidence-conventions` before writing a single
+ | Publish, park, correct, or withdraw   | `publish`          |
+ 
+ ## Acknowledgments
+ 
+ Any finding drained from the review inbox is acknowledged only through the `ack` verb, with the person's own consent and reason text:
+ 
+ ```sh
+ python3 -m knowledge_harness ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"
+ ```
+ 
+-Compose and explain the finding; the person consents; the CLI writes — every mechanical act in this skill (events, statuses, tags, holds, acknowledgments) is a CLI verb call, never prose written by hand.
++Compose and explain the finding; the person consents; the CLI writes — every mechanical act in this skill (events, statuses, tags, holds, acknowledgments) is a CLI verb call.
+diff --git a/tests/test_project_flow_skill.py b/tests/test_project_flow_skill.py
+index df084d5..1e5d5d2 100644
+--- a/tests/test_project_flow_skill.py
++++ b/tests/test_project_flow_skill.py
+@@ -139,11 +139,15 @@ def test_project_documents_acks_via_the_ack_verb_with_human_consent():
+     ) in ack_section
+     assert "the person consents; the CLI writes" in ack_section
+ 
+ 
+ def test_project_never_hand_writes_a_mechanical_act():
+     """A skill claiming to write an event, status, tag, or ack itself
+     (outside a CLI verb call) must fail — every mechanical act routes
+     through the CLI, per the global constraint."""
+     text = _skill_text()
+ 
+-    assert "never prose written by hand" in text
++    assert "the CLI writes" in text
++    assert (
++        "every mechanical act in this skill (events, statuses, tags, holds, "
++        "acknowledgments) is a CLI verb call"
++    ) in text

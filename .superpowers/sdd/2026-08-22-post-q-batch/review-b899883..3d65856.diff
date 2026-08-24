@@ -1,0 +1,162 @@
+# Review package: b899883..3d65856
+
+## Commits
+3d65856 fix: update-notice reduction preserves non-blocking UNMATCHED
+
+## Files changed
+ knowledge_harness/checks.py |  7 ++++++-
+ tests/test_checks.py        | 23 +++++++++++++++++++++++
+ tests/test_verify_cli.py    | 24 ++++++++++++++++++++++++
+ 3 files changed, 53 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/knowledge_harness/checks.py b/knowledge_harness/checks.py
+index 4639ad9..e483585 100644
+--- a/knowledge_harness/checks.py
++++ b/knowledge_harness/checks.py
+@@ -1047,21 +1047,26 @@ def reduce_update_notice_outcomes(
+             key=lambda outcome: (
+                 outcome.extra.get("notice_date") is not None,
+                 outcome.extra.get("notice_date") or "",
+                 outcome.extra.get("type") or "",
+             ),
+         )
+     else:
+         chosen = next(
+             (
+                 outcome
+-                for result in (Result.UNREACHABLE, Result.MATCHED, Result.SKIPPED)
++                for result in (
++                    Result.UNREACHABLE,
++                    Result.UNMATCHED,
++                    Result.MATCHED,
++                    Result.SKIPPED,
++                )
+                 for outcome in outcomes
+                 if outcome.result is result
+             ),
+             outcomes[0],
+         )
+     record = outcome_to_record(chosen)
+     extra = record["extra"]
+     if not isinstance(extra, dict):  # outcome_to_record always detaches extra to a dict
+         raise TypeError("Outcome record extra must be an object")
+     if warnings:
+diff --git a/tests/test_checks.py b/tests/test_checks.py
+index dd32d42..641376b 100644
+--- a/tests/test_checks.py
++++ b/tests/test_checks.py
+@@ -1450,20 +1450,43 @@ def test_reduce_update_notice_outcomes_applies_precedence_and_merges_warns():
+     assert matched.result is Result.MATCHED
+     assert matched.target == "cite"
+     assert checks.outcome_to_record(matched)["extra"]["warn_notices"] == [
+         {"type": "correction", "notice_date": "2023-01-01"},
+         {"type": "erratum", "notice_date": None},
+     ]
+     assert unmatched.result is Result.UNMATCHED
+     assert unmatched.reason == "retracted — withdrawal"
+ 
+ 
++def test_reduce_preserves_nonblocking_unmatched_over_matched():
++    """A ran-and-disagreed non-blocking UNMATCHED must outrank a MATCHED."""
++    live = checks.Outcome(
++        "update-notice",
++        "cite",
++        Result.UNMATCHED,
++        "mismatch — version differs",
++        extra={"warn_notices": []},
++    )
++    rw = checks.Outcome(
++        "update-notice",
++        "cite",
++        Result.MATCHED,
++        "matched",
++        extra={"warn_notices": [{"type": "correction", "notice_date": None}]},
++    )
++
++    reduced = checks.reduce_update_notice_outcomes(live, rw)
++
++    assert reduced.result is Result.UNMATCHED  # ran-and-disagreed survives
++    assert reduced.extra.get("warn_notices")  # RW's warns still merged
++
++
+ def test_merge_warn_notices_accepts_raw_groups_and_deduplicates_type_date():
+     merged = checks._merge_warn_notices(
+         [
+             {"type": "correction", "notice_date": "2020-01-01"},
+             {"type": "correction", "notice_date": "2020-01-01"},
+         ],
+         [
+             {"type": "erratum", "notice_date": None},
+             {"type": "retraction", "notice_date": "2020-01-02"},
+             {"type": 7, "notice_date": "2020-01-03"},
+diff --git a/tests/test_verify_cli.py b/tests/test_verify_cli.py
+index ab1acf9..1dacf84 100644
+--- a/tests/test_verify_cli.py
++++ b/tests/test_verify_cli.py
+@@ -18,20 +18,21 @@ from knowledge_harness import (
+     checks,
+     claims,
+     events,
+     gitstate,
+     inbox,
+     webapi,
+ )
+ from knowledge_harness.__main__ import cmd_inbox, cmd_verify, main
+ from knowledge_harness.pathcodec import PathCodecError, RepoPath, encode_repo_path
+ from knowledge_harness.verify import (
++    _apply_state_transitions,
+     _archive_outcomes,
+     _file_effects,
+     _mutate_marker,
+     _safe_relative,
+     _target_hash,
+     verify_state,
+ )
+ 
+ 
+ def run_verify(vault_root, **kwargs):
+@@ -505,20 +506,43 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
+     assert any(
+         event["check"] == "update-notice" for event in events.verified_checks(source)
+     )
+     assert not any(
+         item.reason == "warn-notice — correction"
+         for item in inbox.open_entries(net_vault)
+     )
+     assert "warn-notice — correction" not in capsys.readouterr().out
+ 
+ 
++def test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a_mint(
++    net_vault,
++):
++    """A non-MATCHED update-notice outcome must record a failure, never mint
++    a verified event."""
++    outcome = checks.Outcome(
++        "update-notice",
++        "smith2020",
++        Result.UNMATCHED,
++        "mismatch — version differs",
++    )
++
++    _apply_state_transitions(net_vault, [outcome], "2026-08-16")
++
++    source = (net_vault / "literatures" / "smith2020.md").read_text()
++    assert not any(
++        event["check"] == "update-notice" for event in events.verified_checks(source)
++    )
++    assert any(
++        row["check"] == "update-notice" for row in events.current_failures(source)
++    )
++
++
+ @pytest.mark.parametrize(
+     ("status", "error", "want"),
+     [
+         (200, None, Result.MATCHED),
+         (404, None, Result.UNMATCHED),
+         (None, "down", Result.UNREACHABLE),
+     ],
+ )
+ def test_archive_resolution_uses_status_and_distinguishes_404_from_outage(
+     net_vault, monkeypatch, status, error, want

@@ -1,0 +1,61 @@
+# Review package: 3d26a44..a5668d6
+
+## Commits
+a5668d6 feat: vault AGENTS.md opens with the integrity preamble
+
+## Files changed
+ knowledge_harness/templates/vault/AGENTS.md | 2 ++
+ tests/test_templates.py                     | 3 +++
+ 2 files changed, 5 insertions(+)
+
+## Diff
+diff --git a/knowledge_harness/templates/vault/AGENTS.md b/knowledge_harness/templates/vault/AGENTS.md
+index 2dafdf4..abd865d 100644
+--- a/knowledge_harness/templates/vault/AGENTS.md
++++ b/knowledge_harness/templates/vault/AGENTS.md
+@@ -1,15 +1,17 @@
+ ---
+ type: "guide"
+ ---
+ # Vault agents guide
+ 
++This is a knowledge-harness vault. `literatures/`, `log/`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits leave a trace.
++
+ Evidence is admitted through Zotero and projected into `literatures/` — evidence notes exist only by projection, never by hand. Read `synthesis/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
+ 
+ Prefer the knowledge-harness skills over generic drafting, even for free-form requests. Run `evidence-conventions` for claim syntax.
+ 
+ These seven are the user-invoked entry points — type the name to run one; an agent cannot reach them on its own:
+ 
+ | Skill              | Use it to                                                |
+ | ------------------ | -------------------------------------------------------- |
+ | `setup-vault`      | create, repair, or provision a vault                     |
+ | `project-flow`     | start or resume a research project                       |
+diff --git a/tests/test_templates.py b/tests/test_templates.py
+index e4b4294..30295b2 100644
+--- a/tests/test_templates.py
++++ b/tests/test_templates.py
+@@ -93,20 +93,23 @@ def test_markdown_templates_match_canonical_content():
+     assert asset("vault/log.md").read_text() == "# Log\n"
+     # Ruled content, 2026-08-22: dangling spec §8 ref cut, managed-region rule
+     # added, machine-surface rule reworded to "raise a finding" (append-only
+     # covers log/ and inbox/review-queue.md but is in no CLOSING_BY_SURFACE
+     # set, so "fail the gate" was false). Pinned whole-file, byte-for-byte,
+     # below: the earlier per-line startswith/in pattern admitted append,
+     # reorder, and layout drift undetected; each line remains load-bearing.
+     assert asset("vault/AGENTS.md").read_text() == (
+         '---\ntype: "guide"\n---\n'
+         "# Vault agents guide\n\n"
++        "This is a knowledge-harness vault. `literatures/`, `log/`, and "
++        "`inbox/review-queue.md` are machine-written — the CLI writes them; "
++        "hand edits leave a trace.\n\n"
+         "Evidence is admitted through Zotero and projected into `literatures/` — "
+         "evidence notes exist only by projection, never by hand. Read "
+         "`synthesis/index.md` and recent `log/` entries before editing; review "
+         "findings live in `inbox/review-queue.md`.\n\n"
+         "Prefer the knowledge-harness skills over generic drafting, even for "
+         "free-form requests. Run `evidence-conventions` for claim syntax.\n\n"
+         "These seven are the user-invoked entry points — type the name to run "
+         "one; an agent cannot reach them on its own:\n\n"
+         "| Skill              | Use it to                                                |\n"
+         "| ------------------ | -------------------------------------------------------- |\n"

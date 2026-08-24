@@ -1,0 +1,67 @@
+# Review package: 8e7b136..97afad5
+
+## Commits
+97afad5 fix: setup-vault paths are a contract, not an inventory (C-6)
+
+## Files changed
+ skills/setup-vault/SKILL.md | 2 +-
+ tests/test_skill_files.py   | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/skills/setup-vault/SKILL.md b/skills/setup-vault/SKILL.md
+index fdc6421..a80eb43 100644
+--- a/skills/setup-vault/SKILL.md
++++ b/skills/setup-vault/SKILL.md
+@@ -11,21 +11,21 @@ Use this only when the person explicitly invokes it. Keep the person in control
+ ## Scaffold
+ 
+ Ask together: the destination `PATH` and whether they want read-only CI. Ask separately: whether they want the scheduled write-capable RW workflow. Do not infer either consent from the other.
+ 
+ Construct one command, with only the flags the user consented to:
+ 
+ ```sh
+ python3 -m knowledge_harness scaffold --vault PATH [--with-ci] [--with-rw-ci]
+ ```
+ 
+-Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, `inbox/review-queue.md`, `index.md`, `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`, `synthesis/index.md`, `system/bases/open-questions.base`, `system/bases/trust-tier.base`, `system/glossary.md`, and `system/templates/` daily, literature, project, and synthesis templates; CI paths appear only for their separately consented flags. It may create fewer paths when repairing an existing vault. Say only scaffold-created paths are committed; never claim unrelated changes were committed.
++Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
+ 
+ ## Diagnose
+ 
+ Run doctor after scaffold. Either accepted base override position is valid:
+ 
+ ```sh
+ python3 -m knowledge_harness --base URL doctor --vault PATH
+ python3 -m knowledge_harness doctor --base URL --vault PATH
+ ```
+ 
+diff --git a/tests/test_skill_files.py b/tests/test_skill_files.py
+index 23cce40..3315c2b 100644
+--- a/tests/test_skill_files.py
++++ b/tests/test_skill_files.py
+@@ -110,22 +110,22 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
+ 
+     for path in (
+         "AGENTS.md",
+         "inbox/review-queue.md",
+         "system/templates/",
+         "system/bases/",
+         "system/glossary.md",
+         ".git/hooks/pre-commit",
+     ):
+         assert path in text
+-    assert "only scaffold-created paths are committed" in text
+-    assert "never claim unrelated changes were committed" in text
++    assert "report that list verbatim" in text
++    assert "never present a path it did not print as committed" in text
+ 
+ 
+ def test_scaffold_provisioning_companions_are_exact_and_current():
+     """Changing the ruled companion package spelling must fail."""
+     assert scaffold.PROVISION_COMPANIONS == ["kepano/obsidian-skills"]
+ 
+ 
+ def test_no_old_skill_names_survive():
+     """Guarding against skill name regressions — old names must not survive."""
+     old_names = ["vault-setup", "find-papers", "atlas-conventions"]

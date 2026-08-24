@@ -1,0 +1,319 @@
+# Task 17b report: Machine-owned frontmatter joins the closing guard
+
+## Status
+
+Complete. All three steps (failing test, legality rule, `archive-source`
+attestation) implemented, full suite green, form gate silent/exit 0.
+
+## Commit
+
+`f3f5a7f` — `fix: closing guard covers machine-owned frontmatter keys via writer attestation`
+
+Files: `knowledge_harness/lints.py`, `knowledge_harness/archive.py`,
+`tests/test_lints.py`, `tests/test_archive.py`, `tests/test_verify_cli.py`
+(5 files, +313/-3).
+
+## Test summary
+
+`python -m pytest -q`: **1577 passed, 7 skipped** (baseline 1569 passed / 7
+skipped + 8 new tests). `ruff check` and `ruff format --check` clean on all
+touched files; `mypy` clean on `lints.py`/`archive.py`. Form gate
+(`echo '{}' | python hooks/stop_publish_gate.py`) silent, exit 0.
+
+## What was implemented
+
+- `lints.py`: `lint_evidence_layer`'s surviving-file loop (the one already
+  comparing `_managed_bytes(old) != _managed_bytes(new)`) now also compares
+  four machine-owned frontmatter keys — `archive-url`, `managed-sha256`,
+  `fixity-sha256`, `citekey` — plus `generated` under its own predicate. A
+  change to any of the four is legal iff `generated` also changed in the same
+  diff with `by` a machine-actor-class string (`startswith("knowledge_harness/")`,
+  per docs/terminology.md's actor convention — a class test, not an
+  exact-version match, so a `__version__` bump doesn't flag every prior note).
+  `generated` itself is drift if it changes without its own new `by` being
+  machine-class. Reason string: `drift — {key} changed without writer attestation`.
+- `archive.py`: `_record` (the sole writer path for `archive-url`) now also
+  bumps `generated` via a new `_bump_generated` — byte-surgical, insert-or-replace
+  (mirrors `set_archive_url`'s structure but was kept as a separate function
+  rather than refactored into a shared helper, to avoid destabilizing
+  `set_archive_url`'s existing, well-tested behavior). This closes the gap
+  fact #4 named: without it, every legitimate `archive-source` run would
+  write `archive-url` with no attestation and get flagged as drift by the
+  new lint.
+
+## Per-key discrimination (Step 1, TDD)
+
+Ran `tests/test_lints.py::test_hand_edited_machine_owned_frontmatter_key_is_drift`
+(parametrized over the 5 keys) before implementing the lints.py change, then
+after:
+
+| key | pre-fix (RED) | post-fix (GREEN) |
+|---|---|---|
+| `archive-url` | assertion failed, no drift outcome at all | `drift — archive-url changed without writer attestation` present |
+| `managed-sha256` | assertion failed; outcomes contained only `schema-violation — stale managed-sha256` (the pre-existing witness check) — the specific new drift reason was absent, proving this isn't the hazard-#5 false pass | `drift — managed-sha256 changed without writer attestation` present, alongside the still-present schema-violation outcome |
+| `fixity-sha256` | assertion failed, no drift outcome | `drift — fixity-sha256 changed without writer attestation` present |
+| `generated` | assertion failed, no drift outcome (edit was to `by`, forcing a non-machine value) | `drift — generated changed without writer attestation` present |
+| `citekey` | assertion failed, no drift outcome | `drift — citekey changed without writer attestation` present |
+
+Captured failure for `managed-sha256` (the hazard-#5 case, verbatim):
+```
+AssertionError: [Outcome(check='evidence-layer', target='path-bytes:literatures/smith2020.md',
+result=UNMATCHED, reason='schema-violation — stale managed-sha256', ...)]
+```
+i.e. the pre-existing witness check's UNMATCHED was present both before and
+after my change; only the *specific new reason string* discriminates, and the
+test asserts that string, not overall UNMATCHED-ness.
+
+`test_screening_status_hand_edit_is_not_evidence_layer_drift` (status is
+human-writable by design) and the pre-existing
+`test_free_region_only_edit_is_not_evidence_layer_change` both stay green
+throughout — non-machine edits are unaffected.
+
+## Step 2b, both directions
+
+- `tests/test_archive.py::test_a_legitimate_archive_run_passes_the_closing_guard`:
+  **RED before** the `archive.py` change (`archive_source` wrote `archive-url`
+  with no `generated` bump → the new lints.py check flagged it as
+  `drift — archive-url changed without writer attestation`, proving Step 2b is
+  load-bearing, not tidying). **GREEN after** `_bump_generated` was wired into
+  `_record`.
+- `tests/test_archive.py::test_a_bare_archive_url_hand_edit_fails_the_closing_guard`:
+  green throughout (already covered by the Step 1 lints.py change alone) —
+  included to demonstrate the two archive-url paths, real write vs. hand-edit,
+  land on opposite sides of the guard.
+
+## Deviations from the brief's file list
+
+- `tests/test_archive.py` was modified even though the brief's "Files:" line
+  only named `tests/test_lints.py`. Step 2b's tests need `archive.py`'s
+  existing network-mock seam (`_fake_network`, `net_vault`, `WEB_NOTE`), which
+  lives in `test_archive.py`; duplicating that infrastructure in
+  `test_lints.py` seemed worse than the file-list deviation. Also updated
+  `test_recording_preserves_every_other_byte_of_the_note` in the same file:
+  the byte-preservation assertion had to additionally strip the new
+  `generated` line (located by prefix, not predicted, since the timestamp is
+  `datetime.now()`).
+- `tests/test_verify_cli.py::test_no_attachment_acknowledged_warning_stays_suppressed_across_effects`
+  broke as collateral: its setup hand-edits `smith2020.md` on disk to remove
+  `fixity-sha256` (simulating "note with no attachment hash") without
+  committing, so `verify_state`'s base (HEAD) vs. candidate (worktree) now
+  correctly disagree on that key and the new lint reports drift — an accurate
+  finding, since the test's own setup is literally the kind of unattested
+  hand-edit this task guards against, just used as unrelated scaffolding. Fixed
+  by committing the fixture mutation (`git add -A` + commit, the same idiom
+  already used elsewhere in that file, e.g.
+  `test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash`) so base and
+  candidate agree and the unrelated warning-suppression assertion is
+  unaffected. No other `verify_state`/`lint_evidence_layer`-driving test in
+  the suite touched a machine-owned key without a commit; the other four
+  `fixity-sha256`-editing call sites in `test_verify_cli.py` all call
+  `_target_hash` directly and never exercise `lint_evidence_layer`.
+
+## Checked and closed (not a concern)
+
+`render_note`'s only production caller is `__main__.py:270`, which always
+passes an explicit `generated_at` (second-resolution timestamp). So the
+"omitted `generated_at` defaults to date resolution, making a same-day
+re-render's `generated` byte-identical to the prior one and masking a real
+content change as unattested" tail case does not occur in production;
+`grep -rn "render_note(" knowledge_harness/` confirms this is the only
+non-test call site.
+
+## Concerns (not fixed — out of scope per the brief)
+
+1. **Other `MANAGED_FIELDS` stay outside the guard.** `type`, `aliases`,
+   `doi`, `url`, `pmid`, `version`, `accessed` are all in
+   `notes.MANAGED_FIELDS` and all sit outside `%%hk-managed%%`, but the brief's
+   Step 1 parametrization named exactly five keys (`archive-url`,
+   `managed-sha256`, `fixity-sha256`, `generated`, `citekey`), so I scoped
+   `_MACHINE_OWNED_FRONTMATTER_KEYS` to match. A hand-edit to, say, `doi`
+   alone (no other machine-key change) would still pass silently.
+2. **Duplicate-key evasion.** `frontmatter.parse` is last-key-wins on a
+   duplicated line (`_DuplicateKeyMapping` preserves order for serialization
+   but `.get()` returns the last value). A duplicated machine-owned key whose
+   *final* copy matches the base value would evade the value comparison in
+   `_frontmatter_attestation_outcomes`. Only `managed-sha256` has an
+   independent duplicate guard, via `notes.validate_managed_witness`'s
+   "schema-violation — duplicate managed-sha256" check in the first loop; the
+   other three keys have no such guard.
+3. **Renamed files skip the new check.** The rename-pairing logic (lines
+   ~639–664) removes paired old/new paths from the surviving-files
+   intersection before my new check runs, so a rename that also hand-edits a
+   machine-owned key gets the wholesale
+   `drift — managed literature note renamed` outcome but not a per-key
+   reason. Coverage isn't silently lost (the rename itself is always
+   flagged), but the specific-key diagnostic is.
+4. **Forged attestation is out of scope by design.** A hand-edit that also
+   sets `generated.by` to a machine-class-shaped string (e.g. keeps
+   `"knowledge_harness/0.1.0"` unchanged, or forges it) passes the guard —
+   this is the brief's own stated boundary (recorded-bypass class, spec §2's
+   stated-boundary language): the lint catches accidents and oblivious
+   agents, not deliberate circumvention.
+
+## Round 1 (fix round, review feedback on f3f5a7f)
+
+### Status
+
+Complete. All IMPORTANT and MINOR items addressed except the four items the
+reviewer explicitly deferred. Full suite green, form gate silent/exit 0,
+ruff and mypy clean.
+
+### Commit
+
+`5ac70df` — `fix: round-1 review fixes for the machine-owned-frontmatter guard (task 17b)`
+(new commit, `f3f5a7f` left untouched, no rebase — 8 files, +233/-54).
+
+### Test summary
+
+`python -m pytest -q`: **1581 passed, 7 skipped** (was 1577/7; +4 new
+regression tests — two parametrized cases for Important 1, one each for
+Minor B and Minor C). `ruff check`/`ruff format --check` clean, `mypy
+knowledge_harness/` clean, form gate silent/exit 0.
+
+### IMPORTANT 1 — malformed `generated` no longer attests
+
+`_machine_attested` now calls `notes._valid_generated(generated)` (shape:
+exactly `{by, at}`, `at` a valid `Z`-suffixed ISO 8601 timestamp) before
+checking `by`'s class prefix, instead of testing `by` alone. Added
+`test_malformed_generated_does_not_attest_a_machine_owned_key_change`,
+parametrized over `{by: "knowledge_harness/0.1.0", at: "banana"}` and
+`{by: "knowledge_harness/0.1.0"}` (no `at`) — both RED against the prior
+`by`-only predicate, both GREEN after.
+
+**Interlock proof (not assumed):** re-ran
+`test_a_legitimate_archive_run_passes_the_closing_guard` after tightening
+the shape check — still PASSED, because `archive._bump_generated`'s emitted
+`at` (via the new `notes.generated_at_now()`) already satisfies
+`_valid_generated`'s shape (second-resolution, `Z`-suffixed, 2-item dict).
+
+### IMPORTANT 2 — the absence claim, redone properly
+
+Applied the same "commit the fixture mutation" treatment already used at
+the round-0 site to the two sites the review named
+(`test_no_fixity_target_hashes_are_candidate_bound_before_projection`,
+`test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection`).
+
+Then established the absence claim by instrumentation, not grep: temporarily
+added `if outcomes and os.environ.get("HK_AUDIT_ATTESTATION"): raise
+RuntimeError(...)` at the end of `_frontmatter_attestation_outcomes`, ran
+`HK_AUDIT_ATTESTATION=1 python -m pytest -q` (full suite), and read off every
+failure — the raise makes any test that reaches this check with a non-empty
+outcome list fail loudly, whether or not it asserts on outcomes.
+
+Result: **17 failures**. Classified each:
+- 7 are tests that *intentionally* assert for drift and so are audit
+  artifacts, not bugs: this task's own 5 parametrized
+  `test_hand_edited_machine_owned_frontmatter_key_is_drift` cases,
+  `test_a_bare_archive_url_hand_edit_fails_the_closing_guard`, and a
+  pre-existing `test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness[edit]`
+  (its managed-region edit also changes `managed-sha256`, which the new check
+  correctly flags too — the test's own assertion only checks the reason
+  starts with "drift", so it was never failing for real).
+- 10 parametrized cases across 3 distinct test functions were real: the two
+  the review named, plus one more the review did not name —
+  `test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash`,
+  which hand-edits `fixity-sha256`'s *value* (not a removal) at the very end
+  of the test, uncommitted, then calls `run_verify`. Fixed the same way:
+  commit the mutation before the `verify_state`/`run_verify` call.
+
+Reverted the instrumentation, re-ran the same audit command: only the 7
+intentional-positive tests failed. No further unasserted sites in the suite.
+
+### IMPORTANT 3 — boundary statement moved to the docstring
+
+`_frontmatter_attestation_outcomes`'s docstring now states the stated-boundary
+form verbatim (catches accidents and oblivious agents; forging the
+attestation is deliberate circumvention, recorded-bypass class; stated
+boundary, not a compliance control) and folds in piggy-backing (one
+legitimate `generated` bump legalizes any other machine-owned key riding
+along unattested in the same diff — this was disclosed-nowhere before; my
+own concern 4 only covered forging). No reason strings changed. No ADR
+added. The commit body repeats the boundary statement.
+
+### MINOR A — one spelling of the wire format
+
+- Added `frontmatter.render_field(key, value)`; `serialize()` now calls it
+  for the scalar/dict branches, and `archive.set_archive_url`/`_bump_generated`
+  both use it instead of hand-rolling the inline-dict emitter.
+- Added `notes.generated_at_now(now=None)`; `archive._generated_at` (deleted)
+  and `__main__.cmd_import_note`'s inline two-line duplicate both now call
+  it. `archive.py` no longer imports `datetime` at all.
+
+### MINOR B — raw-value comparison for `generated`
+
+`_generated()` (which coerced any non-dict to `None`) is gone; comparisons
+now go through `_field(data, key)`, which returns the raw value regardless of
+shape. Added `test_two_unequal_junk_generated_values_are_not_seen_as_unchanged`
+(two different non-dict `generated` values, e.g. `"junk-one"` vs `"junk-two"`)
+— RED against the old coercion (both collapsed to `None`, comparing equal),
+GREEN after.
+
+### MINOR C — unparseable base no longer skips the whole check
+
+Removed the `if base_data is None or candidate_data is None: return []`
+short-circuit; `_field()` returns `None` for an unparseable side per key, so
+a real value on the other side now compares unequal instead of being
+silently skipped. Added
+`test_unparseable_base_frontmatter_does_not_skip_the_per_key_check` (base
+frontmatter has an injected `nested maps unsupported` line, candidate is
+valid) — RED against the old short-circuit, GREEN after.
+
+All four new correctness tests were verified in both directions: I
+temporarily reverted `_field`/`_machine_attested`/`_frontmatter_attestation_outcomes`
+to the pre-round-1 implementation in place, ran the 4 new tests (3 failed,
+confirming discrimination; the fourth needed one iteration — see below),
+then restored the fix and reran (all 4 passed).
+
+**One test needed a redesign to actually discriminate:** my first version of
+the Minor B test also changed `citekey` in the same edit, so it passed even
+against the buggy code — citekey's own diff is detected independently of the
+`generated` coercion, so that assertion didn't isolate the bug. Rewrote it to
+touch *only* `generated` (junk-one → junk-two) and assert the standalone
+"generated changed" finding, which does isolate the coercion bug. Documented
+here per the instruction to report what I did, not just what I concluded.
+
+### MINOR D — comment hygiene, commit body
+
+Moved every provenance/history/ruling-date comment in the touched files
+(`"task 17b"`, `"(ruled 2026-08-24)"`, `"(author ruling 2026-08-24)"`,
+`"round-1 fix"` references) out of source comments and docstrings; the
+`5ac70df` commit body carries that history instead. Comments now state only
+the constraint the code can't show. Left the pre-existing, unrelated
+`# ``published/<project>-...`` (ruled 2026-08-22)` comment at `lints.py:25`
+alone (predates this task, not in scope) and kept the `docs/terminology.md`
+citation the reviewer said earns its place.
+
+### Gates
+
+`python -m pytest -q`: 1581 passed, 7 skipped. `ruff check
+knowledge_harness/ tests/`: clean. `ruff format --check`: clean (one
+auto-reformat applied to `tests/test_lints.py`, re-verified after). `mypy
+knowledge_harness/`: clean (one fixup needed — `_machine_attested`'s
+parameter was briefly annotated `object`, which mypy rejected at
+`generated["by"]`; left unannotated, matching `notes._valid_generated`'s own
+convention, since this project's mypy config only requires checking
+untyped-def *bodies*, not annotating every signature). `echo '{}' | python
+hooks/stop_publish_gate.py`: silent, exit 0.
+
+### Deferred (per reviewer's explicit instruction — not touched)
+
+Missing type annotations on `_frontmatter_attestation_outcomes`; the double
+frontmatter parse at `lints.py` (candidate parsed once for the witness check,
+once for the attestation check); the duplicated `archive-url` parametrization
+in `tests/test_archive.py`; duplicate-key evasion (concern 2 from the
+original report, confirmed real by the reviewer, routed to the issue tracker
+by the reviewer directly).
+
+### Concerns carried forward (unchanged from round 0, still not fixed)
+
+1. Other `notes.MANAGED_FIELDS` keys (`type`, `aliases`, `doi`, `url`,
+   `pmid`, `version`, `accessed`) remain outside the guard — the task's own
+   parametrization scoped it to five keys.
+2. Renamed files skip the per-key check (only the surviving-path loop runs
+   it); the rename itself is always flagged wholesale, so coverage isn't
+   silently lost, but the specific-key diagnostic is absent for a renamed
+   file that also hand-edits a machine-owned key.
+
+(Concerns 1, 2, and 3 from the round-0 report — other MANAGED_FIELDS,
+duplicate-key evasion, and forged-attestation scope — are being routed to
+the issue tracker by the reviewer per their message; not re-litigated here.)

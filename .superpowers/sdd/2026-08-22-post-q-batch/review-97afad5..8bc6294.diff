@@ -1,0 +1,179 @@
+# Review package: 97afad5..8bc6294
+
+## Commits
+8bc6294 refactor: import-source §7-9 to references with pointer table
+
+## Files changed
+ skills/import-source/SKILL.md                      | 64 +++-------------------
+ .../import-source/references/archive-at-import.md  | 29 ++++++++++
+ skills/import-source/references/batch-mode.md      | 15 +++++
+ skills/import-source/references/refresh-mode.md    | 13 +++++
+ 4 files changed, 64 insertions(+), 57 deletions(-)
+
+## Diff
+diff --git a/skills/import-source/SKILL.md b/skills/import-source/SKILL.md
+index 7547628..af8d46d 100644
+--- a/skills/import-source/SKILL.md
++++ b/skills/import-source/SKILL.md
+@@ -84,79 +84,29 @@ A hold is a hold on *integration only*. The literature note is already written,
+ ## 5. The 2+-source threshold
+ 
+ A synthesis page earns its existence at two or more sources on the same topic — `synthesis-conventions` owns that threshold and it is the only one. Importing the first source on a topic creates no page: its claims stay in the literature note until a second source gives them something to arrange against. Say that plainly rather than presenting it as a shortfall.
+ 
+ ## 6. Re-import is a no-op, and that is a result
+ 
+ `import-note` decides re-imports by **render-first comparison**: it re-renders the managed projection from Zotero and compares it with what is on disk. Identical means `NOOP` and exit `0`, and it means the vault is already correct.
+ 
+ Report it as the outcome it is — "already current, nothing to write" — never as an error, and never as an import you performed. Attachment hashes (`fixity-sha256`) play no part in this: annotations and metadata live in Zotero's database, so an unchanged PDF says nothing about whether the projection changed. Those hashes are fixity and acknowledgment-scope anchors, nothing more.
+ 
+-## 7. Refresh mode: fresh, stale, orphaned
++## 7. Extended modes
+ 
+-Refresh is note-level maintenance, and it is the same verb — re-running `import-note` for a citekey that already has a note. Three outcomes, and these are the words to use:
++Three more modes extend the core flow above; each is documented in full on its own so this file stays focused on the catalog → integrate path:
+ 
+-| Word         | What it means                                                                                 | How the CLI says it                                                                                             |
+-| ------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+-| **fresh**    | The projection matches Zotero.                                                                | `import-note` prints `NOOP`, exit `0`.                                                                          |
+-| **stale**    | Re-rendering differs, so the managed region was rewritten. The free region below it survives. | `import-note` prints the note path, exit `0`.                                                                   |
+-| **orphaned** | The note's item has left the library, so nothing projects onto it any more.                   | `import-note` reports `citekey not found` on stderr, exit `1`, and files the `citekey` / `not-admitted` record. |
+-
+-Two honest limits. First, **orphan detection is per-citekey**: `verify` reports an orphaned note as a `citekey` UNMATCHED only if the note still cites itself, and a note with no quote or paraphrase claims cites nothing at all — so a sweep with `import-note` is the only way to find every orphan. Second, the CLI's `staleness` verb is a **different** question: it compares `system/bibliography.json` with the current Zotero library, not a note with its projection. Never report a `staleness` result as a note being stale.
+-
+-An orphaned note is never deleted. Records deprecate, never delete — the note stays, and the person decides what its screening state should become.
+-
+-## 8. Batch mode
+-
+-For a backfill — refreshing every literature note in the vault:
+-
+-```sh
+-python3 -m knowledge_harness backfill-selectors --vault PATH
+-```
+-
+-This re-imports every note in `literatures/`, in citekey order, with the same per-note contract as above: each note comes back fresh, stale, or orphaned, and every failure files its own record. Exit `0` means every note succeeded; exit `1` means at least one did not — read the printed warnings, then run `inbox` to see the records they filed:
+-
+-```sh
+-python3 -m knowledge_harness inbox --vault PATH
+-```
+-
+-Report the per-note breakdown, not just the exit code. A batch that ends `1` because one item left the library is not a broken backfill.
+-
+-## 9. Archive at import (web sources)
+-
+-A source with a `url` and no `doi` is a web source, and web content rots. Rescue is impossible after the fact, so the snapshot has to exist **now**, at import — later detection cannot bring a dead page back. Run this for every web source you catalog, in the same session:
+-
+-```sh
+-python3 -m knowledge_harness archive-source CITEKEY --vault PATH
+-```
+-
+-The verb triggers Internet Archive Save Page Now, confirms the capture against the Wayback availability API, and writes the confirmed snapshot into the note's frontmatter as `archive-url`. **It is the sole writer of that field** — never hand-write, edit, or remove an `archive-url` yourself, in any note, for any reason. That single owner is what keeps the evidence layer machine-written.
+-
+-If the person already has a snapshot, record that one instead of capturing a fresh one — the verb confirms it resolves before writing it:
+-
+-```sh
+-python3 -m knowledge_harness archive-source CITEKEY --vault PATH --snapshot SNAPSHOT-URL
+-```
+-
+-It answers with a four-state line and the shared exit codes:
+-
+-| Exit | Result      | Meaning                                                                                                                |
+-| ---- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+-| `0`  | MATCHED     | A snapshot is recorded — freshly captured, supplied, or already present. The snapshot URL prints on the next line.     |
+-| `0`  | SKIPPED     | Not a web source (it has a `doi`, or no `url`). Nothing to archive, and nothing wrong.                                 |
+-| `1`  | UNMATCHED   | The archive is serving no snapshot for that URL, or the supplied one 404s. Nothing was written.                        |
+-| `3`  | UNREACHABLE | Save Page Now or the confirmation call could not be reached. **An outage, not a verdict** — retry on the next refresh. |
+-| `2`  | —           | The verb could not run: no such note, an unsafe citekey, malformed frontmatter. Read the message back verbatim.        |
+-
+-Never present an UNREACHABLE archive attempt as archived, and never write a URL the verb declined to record — an outage is not a snapshot. `archive-url` is pass-through metadata, so a recorded snapshot survives every later re-render; `accessed` is captured on day one and never overwritten.
+-
+-`verify`'s `web-archive` check is the reader on the other side: it files a `missing-archive` finding when a web source has no `archive-url`, or when the recorded one no longer resolves. That check only ever detects — this verb is the only thing that captures.
++| Need                                                 | Verb                 | Reference file                    |
++| ---------------------------------------------------- | -------------------- | --------------------------------- |
++| Refresh an existing note — fresh, stale, or orphaned | `import-note`        | `references/refresh-mode.md`      |
++| Backfill: refresh every literature note in the vault | `backfill-selectors` | `references/batch-mode.md`        |
++| Archive a web source (`url`, no `doi`) at import     | `archive-source`     | `references/archive-at-import.md` |
+ 
+ ## Four-state honesty
+ 
+ | Result      | Meaning at import                                                                                                       |
+ | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+ | MATCHED     | The check ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
+ | UNMATCHED   | The check ran and disagreed. Already in the review inbox — do not file it again.                                        |
+ | UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the source.** Retry later.                  |
+ | SKIPPED     | The item lacks the field the check needs. Automatic only, and never final before discovery has been attempted (§2).     |
+ 
+diff --git a/skills/import-source/references/archive-at-import.md b/skills/import-source/references/archive-at-import.md
+new file mode 100644
+index 0000000..8f92d9a
+--- /dev/null
++++ b/skills/import-source/references/archive-at-import.md
+@@ -0,0 +1,29 @@
++# Archive at import (web sources)
++
++A source with a `url` and no `doi` is a web source, and web content rots. Rescue is impossible after the fact, so the snapshot has to exist **now**, at import — later detection cannot bring a dead page back. Run this for every web source you catalog, in the same session:
++
++```sh
++python3 -m knowledge_harness archive-source CITEKEY --vault PATH
++```
++
++The verb triggers Internet Archive Save Page Now, confirms the capture against the Wayback availability API, and writes the confirmed snapshot into the note's frontmatter as `archive-url`. **It is the sole writer of that field** — never hand-write, edit, or remove an `archive-url` yourself, in any note, for any reason. That single owner is what keeps the evidence layer machine-written.
++
++If the person already has a snapshot, record that one instead of capturing a fresh one — the verb confirms it resolves before writing it:
++
++```sh
++python3 -m knowledge_harness archive-source CITEKEY --vault PATH --snapshot SNAPSHOT-URL
++```
++
++It answers with a four-state line and the shared exit codes:
++
++| Exit | Result      | Meaning                                                                                                                |
++| ---- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
++| `0`  | MATCHED     | A snapshot is recorded — freshly captured, supplied, or already present. The snapshot URL prints on the next line.     |
++| `0`  | SKIPPED     | Not a web source (it has a `doi`, or no `url`). Nothing to archive, and nothing wrong.                                 |
++| `1`  | UNMATCHED   | The archive is serving no snapshot for that URL, or the supplied one 404s. Nothing was written.                        |
++| `3`  | UNREACHABLE | Save Page Now or the confirmation call could not be reached. **An outage, not a verdict** — retry on the next refresh. |
++| `2`  | —           | The verb could not run: no such note, an unsafe citekey, malformed frontmatter. Read the message back verbatim.        |
++
++Never present an UNREACHABLE archive attempt as archived, and never write a URL the verb declined to record — an outage is not a snapshot. `archive-url` is pass-through metadata, so a recorded snapshot survives every later re-render; `accessed` is captured on day one and never overwritten.
++
++`verify`'s `web-archive` check is the reader on the other side: it files a `missing-archive` finding when a web source has no `archive-url`, or when the recorded one no longer resolves. That check only ever detects — this verb is the only thing that captures.
+diff --git a/skills/import-source/references/batch-mode.md b/skills/import-source/references/batch-mode.md
+new file mode 100644
+index 0000000..b57cb26
+--- /dev/null
++++ b/skills/import-source/references/batch-mode.md
+@@ -0,0 +1,15 @@
++# Batch mode
++
++For a backfill — refreshing every literature note in the vault:
++
++```sh
++python3 -m knowledge_harness backfill-selectors --vault PATH
++```
++
++This re-imports every note in `literatures/`, in citekey order, with the same per-note contract as above: each note comes back fresh, stale, or orphaned, and every failure files its own record. Exit `0` means every note succeeded; exit `1` means at least one did not — read the printed warnings, then run `inbox` to see the records they filed:
++
++```sh
++python3 -m knowledge_harness inbox --vault PATH
++```
++
++Report the per-note breakdown, not just the exit code. A batch that ends `1` because one item left the library is not a broken backfill.
+diff --git a/skills/import-source/references/refresh-mode.md b/skills/import-source/references/refresh-mode.md
+new file mode 100644
+index 0000000..11386c9
+--- /dev/null
++++ b/skills/import-source/references/refresh-mode.md
+@@ -0,0 +1,13 @@
++# Refresh mode: fresh, stale, orphaned
++
++Refresh is note-level maintenance, and it is the same verb — re-running `import-note` for a citekey that already has a note. Three outcomes, and these are the words to use:
++
++| Word         | What it means                                                                                 | How the CLI says it                                                                                             |
++| ------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
++| **fresh**    | The projection matches Zotero.                                                                | `import-note` prints `NOOP`, exit `0`.                                                                          |
++| **stale**    | Re-rendering differs, so the managed region was rewritten. The free region below it survives. | `import-note` prints the note path, exit `0`.                                                                   |
++| **orphaned** | The note's item has left the library, so nothing projects onto it any more.                   | `import-note` reports `citekey not found` on stderr, exit `1`, and files the `citekey` / `not-admitted` record. |
++
++Two honest limits. First, **orphan detection is per-citekey**: `verify` reports an orphaned note as a `citekey` UNMATCHED only if the note still cites itself, and a note with no quote or paraphrase claims cites nothing at all — so a sweep with `import-note` is the only way to find every orphan. Second, the CLI's `staleness` verb is a **different** question: it compares `system/bibliography.json` with the current Zotero library, not a note with its projection. Never report a `staleness` result as a note being stale.
++
++An orphaned note is never deleted. Records deprecate, never delete — the note stays, and the person decides what its screening state should become.

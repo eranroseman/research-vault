@@ -1,0 +1,211 @@
+# Review package: b1d5f17..a53a48b
+
+## Commits
+a53a48b fix: RW date parsing accepts production formats; unarmed RW leg says so
+
+## Files changed
+ knowledge_harness/__main__.py |  5 +++++
+ knowledge_harness/checks.py   | 20 ++++++++++++++++++--
+ tests/test_checks.py          |  9 +++++++++
+ tests/test_verify_cli.py      | 38 ++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 70 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/knowledge_harness/__main__.py b/knowledge_harness/__main__.py
+index 9595b8e..a6dad42 100644
+--- a/knowledge_harness/__main__.py
++++ b/knowledge_harness/__main__.py
+@@ -395,20 +395,25 @@ def cmd_verify(args):
+         bibliography.BibliographyError,
+         inbox.InboxError,
+         frontmatter.FrontmatterError,
+         notes.ManagedRegionError,
+         notes.InvalidCitekeyError,
+         notes.RenderIntegrityError,
+         OSError,
+     ) as error:
+         print(f"verification unavailable: {error}", file=sys.stderr)
+         return 2
++    if not args.rw_csv:
++        # Stdout line only — never a review-queue record. A queue entry
++        # nobody has to acknowledge would manufacture rubber-stamp pressure
++        # (the SKIPPED-counting lesson); this states the absence and stops.
++        print("update-notice: RW leg not run (no --rw-csv)")
+     for outcome in effective:
+         if outcome.result is not Result.MATCHED:
+             print(
+                 f"{outcome.result.value} {outcome.check} {outcome.target} — {outcome.reason}"
+             )
+         for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
+             if warning_effective.get(
+                 (id(outcome), index), warning_effective.get(id(outcome), False)
+             ):
+                 warning_type = warning.get("type")
+diff --git a/knowledge_harness/checks.py b/knowledge_harness/checks.py
+index 9b269b9..58646ec 100644
+--- a/knowledge_harness/checks.py
++++ b/knowledge_harness/checks.py
+@@ -1,18 +1,19 @@
+ """Citation checkers (spec §6). Shared Outcome dataclass; four-state everywhere."""
+ 
+ import csv
+ import os
+ import re
+ from collections import defaultdict
+ from collections.abc import Mapping
+ from datetime import date as _date
++from datetime import datetime as _datetime
+ from pathlib import Path
+ from urllib.parse import quote, urlsplit
+ 
+ from . import bibliography, claims, webapi
+ from .outcome import (  # re-exported vocabulary
+     Outcome,
+     Result,
+     _detached_extra,
+     normalize_text,
+ )
+@@ -904,29 +905,44 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
+         return _datacite_version_outcome(vault_root, entry, doi, target)
+     except webapi.ApiError:
+         return Outcome(
+             "update-notice",
+             target,
+             Result.UNREACHABLE,
+             "outage — update-notice service unavailable",
+         )
+ 
+ 
++# Retraction Watch's production export ships these US-style shapes
++# alongside ISO; each is tried only after ISO fails, and any string
++# matching none of them (or matching one syntactically but naming no real
++# calendar date, e.g. month 13) falls through to _INVALID.
++_RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")
++
++
+ def _rw_date(value) -> str | None | object:
+     if value is None or (isinstance(value, str) and not value.strip()):
+         return None
+     if not isinstance(value, str):
+         return _INVALID
++    text = value.strip()
+     try:
+-        return _date.fromisoformat(value.strip()).isoformat()
++        return _date.fromisoformat(text).isoformat()
+     except ValueError:
+-        return _INVALID
++        pass
++    for fmt in _RW_DATE_FORMATS:
++        try:
++            # Calendar date only; no tzinfo applies to a bare RW export date.
++            return _datetime.strptime(text, fmt).date().isoformat()  # noqa: DTZ007
++        except ValueError:
++            continue
++    return _INVALID
+ 
+ 
+ def load_rw_csv(path: Path) -> dict:
+     """Load well-formed Retraction Watch rows into DOI and PMID indexes."""
+     by_doi: dict[str, list[dict]] = defaultdict(list)
+     by_pmid: dict[str, list[dict]] = defaultdict(list)
+     with Path(path).open(newline="", encoding="utf-8", errors="replace") as handle:
+         reader = csv.DictReader(handle)
+         for row in reader:
+             if not isinstance(row, dict):
+diff --git a/tests/test_checks.py b/tests/test_checks.py
+index fdc9282..7511cf4 100644
+--- a/tests/test_checks.py
++++ b/tests/test_checks.py
+@@ -1360,20 +1360,29 @@ def test_update_notice_skips_only_when_both_identifiers_are_absent(net_vault):
+     no_identifiers = checks.check_update_notice(net_vault, {"id": "none"}, "2026-08-16")
+     pmid_only = checks.check_update_notice(
+         net_vault, {"id": "pmid", "PMID": "12345"}, "2026-08-16"
+     )
+ 
+     assert no_identifiers.result is Result.SKIPPED
+     assert pmid_only.result is Result.SKIPPED
+     assert "RW batch" in pmid_only.reason
+ 
+ 
++def test_rw_date_accepts_production_formats():
++    """Retraction Watch's production CSV ships M/D/Y and M/D/Y H:M, not just ISO."""
++    assert checks._rw_date("1/2/2023 0:00") == "2023-01-02"
++    assert checks._rw_date("12/31/2019") == "2019-12-31"
++    assert checks._rw_date("2023-01-02") == "2023-01-02"  # ISO still accepted
++    assert checks._rw_date("not a date") is checks._INVALID
++    assert checks._rw_date("13/45/2023 0:00") is checks._INVALID
++
++
+ def test_rw_csv_matches_both_identifiers_and_blocking_beats_warning(tmp_path):
+     """DOI and PMID hits are both considered instead of short-circuiting on DOI."""
+     csv_file = tmp_path / "rw.csv"
+     csv_file.write_text(
+         "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n"
+         "https://doi.org/10.1000/doi-warn,111,2023-01-01,Expression of concern\n"
+         ",111,2024-02-02,Retraction\n"
+         "10.1000/bad-date,222,not-a-date,Retraction\n"
+     )
+ 
+diff --git a/tests/test_verify_cli.py b/tests/test_verify_cli.py
+index b53a4ff..68d8f31 100644
+--- a/tests/test_verify_cli.py
++++ b/tests/test_verify_cli.py
+@@ -1540,20 +1540,58 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
+ ):
+     (net_vault / "system" / "bibliography.json").write_bytes(b"\xff")
+ 
+     code = main(["verify", "--vault", str(net_vault), "--offline"])
+     output = capsys.readouterr().out
+ 
+     assert code == 0
+     assert "UNREACHABLE staleness path-bytes:system/bibliography.json" in output
+ 
+ 
++def test_real_verify_cli_states_rw_leg_absence_without_rw_csv(net_vault, capsys):
++    """An unarmed RW leg must say so, exactly once, on a run with no --rw-csv.
++
++    Absence of the flag is a network+license act deliberately not taken —
++    the honest CLI output is a stdout line, not a review-queue entry (the
++    SKIPPED-counting lesson: a queue item nobody has to acknowledge invites
++    rubber-stamping).
++    """
++    code = main(["verify", "--vault", str(net_vault), "--offline"])
++    output = capsys.readouterr().out
++
++    assert code == 0
++    assert output.count("update-notice: RW leg not run (no --rw-csv)") == 1
++    assert not [
++        entry
++        for entry in inbox.open_entries(net_vault)
++        if entry.check == "update-notice"
++    ]
++
++
++def test_real_verify_cli_omits_rw_leg_absence_line_when_rw_csv_supplied(
++    net_vault, capsys, tmp_path
++):
++    """Supplying --rw-csv arms the leg; the absence line must not print."""
++    rw_csv = tmp_path / "rw.csv"
++    rw_csv.write_text(
++        "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n"
++    )
++
++    code = main(
++        ["verify", "--vault", str(net_vault), "--offline", "--rw-csv", str(rw_csv)]
++    )
++    output = capsys.readouterr().out
++
++    assert code == 0
++    assert "RW leg not run" not in output
++
++
+ @pytest.mark.parametrize(
+     ("surface", "expected"), [("audit", 0), ("commit", 3), ("publish", 3)]
+ )
+ def test_genuine_unreachable_closes_only_on_explicit_surfaces(
+     net_vault, monkeypatch, surface, expected
+ ):
+     outage = _outcome("doi", "smith2020", Result.UNREACHABLE, "outage — registry")
+     monkeypatch.setattr(
+         "knowledge_harness.__main__.verify_state",
+         lambda *_args, **_kwargs: (

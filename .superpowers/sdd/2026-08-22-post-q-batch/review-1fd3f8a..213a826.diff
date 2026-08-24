@@ -1,0 +1,477 @@
+# Review package: 1fd3f8a..213a826
+
+## Commits
+213a826 fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder
+
+## Files changed
+ knowledge_harness/__main__.py |  1 -
+ knowledge_harness/verify.py   |  4 +-
+ tests/conftest.py             |  2 +-
+ tests/test_cli_live.py        |  6 +--
+ tests/test_verify_cli.py      | 85 +++++++++++++++++++++++++++++++++++++------
+ 5 files changed, 80 insertions(+), 18 deletions(-)
+
+## Diff
+diff --git a/knowledge_harness/__main__.py b/knowledge_harness/__main__.py
+index be2f031..2a7d090 100644
+--- a/knowledge_harness/__main__.py
++++ b/knowledge_harness/__main__.py
+@@ -224,21 +224,20 @@ def cmd_import_note(args):
+     hashes = []
+     annotations = []
+     attachment_pairs = []
+     for attachment in client.attachments(args.citekey):
+         local_path = None
+         try:
+             attachment_hash, local_path = _attachment_hash(attachment, vault)
+             hashes.append(attachment_hash)
+         except (paths.PathError, OSError) as error:
+             print(f"warning: attachment unresolved: {error}", file=sys.stderr)
+-            hashes.append("unresolved")
+         attachment_annotations = [
+             normalize_annotation(annotation, args.citekey)
+             for annotation in _attachment_annotations(attachment)
+         ]
+         annotations.extend(attachment_annotations)
+         attachment_pairs.append((local_path, attachment_annotations))
+ 
+     degradation_reasons = []
+     for local_path, attachment_annotations in attachment_pairs:
+         needed = [
+diff --git a/knowledge_harness/verify.py b/knowledge_harness/verify.py
+index 1885846..b5f4137 100644
+--- a/knowledge_harness/verify.py
++++ b/knowledge_harness/verify.py
+@@ -203,33 +203,33 @@ def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
+         if image is None or image.kind != "file":
+             return None
+         raw = image.data or b""
+         try:
+             data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))
+         except (UnicodeError, frontmatter.FrontmatterError):
+             data = {}
+         attachment_hashes = data.get("fixity-sha256")
+         if isinstance(attachment_hashes, list) and attachment_hashes:
+             first = attachment_hashes[0]
+-            if isinstance(first, str) and first:
++            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
+                 return first
+         return hashlib.sha256(_note_bytes(raw)).hexdigest()[:16]
+     note = _note_for_citekey(vault_root, citekey)
+     if note and note.is_file():
+         try:
+             data, _ = frontmatter.parse(_read_note_text(note))
+         except (OSError, UnicodeError, frontmatter.FrontmatterError):
+             data = {}
+         attachment_hashes = data.get("fixity-sha256")
+         if isinstance(attachment_hashes, list) and attachment_hashes:
+             first = attachment_hashes[0]
+-            if isinstance(first, str) and first:
++            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
+                 return first
+         return hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
+     return None
+ 
+ 
+ def _claim_anchor_hash(
+     vault_root,
+     target,
+     raw_origin,
+     origin,
+diff --git a/tests/conftest.py b/tests/conftest.py
+index bc79597..fec794d 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -36,21 +36,21 @@ def fixture_vault(tmp_vault):
+     )
+     (tmp_vault / "log.md").write_text("# Log\n")
+     literature = tmp_vault / "literatures"
+     (literature / "smith2020.md").write_text(
+         _with_managed_witness("""---
+ citekey: "smith2020"
+ type: "literature"
+ doi: "10.1000/xyz"
+ accessed: "2026-08-16"
+ fixity-sha256:
+-  - "aa11"
++  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
+ status: "included"
+ aliases:
+   - "Mortality decline"
+ generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
+ ---
+ %%hk-managed%%
+ # Mortality decline
+ 
+ - (quote) [@smith2020, p. 12] ^c-11111111
+   > Mortality fell 12% across all strata.
+diff --git a/tests/test_cli_live.py b/tests/test_cli_live.py
+index 3aa3658..a1196bb 100644
+--- a/tests/test_cli_live.py
++++ b/tests/test_cli_live.py
+@@ -364,21 +364,21 @@ def test_import_note_reads_an_explicit_utc_clock_never_naive_local_time(
+ 
+ 
+ def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys):
+     import knowledge_harness.__main__ as cli
+ 
+     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
+     raw = _raw_quote("Mortality fell.")
+     note_path = notes.note_path(tmp_vault, "smith2020")
+     original = notes.render_note(
+         {**item, "id": "smith2020"},
+-        ["unresolved"],
++        [],
+         [cli.normalize_annotation(raw, "smith2020")],
+         existing=None,
+         accessed="2026-08-16",
+         generated_at="2026-08-16T00:00:00Z",
+     )
+     note_path.write_text(original, encoding="utf-8")
+     _install_import_client(monkeypatch, cli, item, [raw])
+ 
+     result = cli.cmd_import_note(
+         argparse.Namespace(
+@@ -608,21 +608,21 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
+     result = cli.cmd_import_note(
+         argparse.Namespace(
+             citekey="smith2020", vault=str(tmp_vault), base="http://unused"
+         )
+     )
+ 
+     assert result == 0
+     assert "warning: attachment unresolved" in capsys.readouterr().err
+     note = (tmp_vault / "literatures" / "smith2020.md").read_text()
+     data, body = frontmatter.parse(note)
+-    assert data["fixity-sha256"] == ["unresolved"]
++    assert data["fixity-sha256"] == []
+     assert "- (quote) [@smith2020, p. 12]" in body
+     assert "annotationPageLabel" not in body
+ 
+ 
+ def test_import_note_observes_autoexport_before_noop_without_old_writer(
+     tmp_vault, monkeypatch, capsys
+ ):
+     import knowledge_harness.__main__ as cli
+ 
+     class FakeClient:
+@@ -1129,21 +1129,21 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
+ ):
+     import knowledge_harness.__main__ as cli
+ 
+     raw = _raw_quote("Quote remains")
+     existing_ann = cli.normalize_annotation(raw, "smith2020")
+     existing_ann["context_prefix"] = "kept prefix"
+     existing_ann["context_suffix"] = "kept suffix"
+     note_path = notes.note_path(tmp_vault, "smith2020")
+     original = notes.render_note(
+         {"id": "smith2020", "title": "Retention"},
+-        ["unresolved"],
++        [],
+         [existing_ann],
+         existing=None,
+         accessed="2026-08-16",
+         generated_at="2026-08-16T00:00:00Z",
+     )
+     free_tail = b"\r\ncustom tail\r\n"
+     note_path.write_bytes(original.encode() + free_tail)
+     _install_import_client(monkeypatch, cli, {"title": "Retention"}, [raw])
+ 
+     assert (
+diff --git a/tests/test_verify_cli.py b/tests/test_verify_cli.py
+index 1dacf84..889488e 100644
+--- a/tests/test_verify_cli.py
++++ b/tests/test_verify_cli.py
+@@ -22,20 +22,21 @@ from knowledge_harness import (
+     inbox,
+     webapi,
+ )
+ from knowledge_harness.__main__ import cmd_inbox, cmd_verify, main
+ from knowledge_harness.pathcodec import PathCodecError, RepoPath, encode_repo_path
+ from knowledge_harness.verify import (
+     _apply_state_transitions,
+     _archive_outcomes,
+     _file_effects,
+     _mutate_marker,
++    _note_bytes,
+     _safe_relative,
+     _target_hash,
+     verify_state,
+ )
+ 
+ 
+ def run_verify(vault_root, **kwargs):
+     """Report projection of the verification transaction, for assertions only."""
+     return verify_state(vault_root, **kwargs)[0]
+ 
+@@ -200,21 +201,26 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
+         e.check == "quote" and e.target == raw.target
+         for e in inbox.open_entries(net_vault)
+     )
+     draft.write_text(draft.read_text().replace("wrong quote", "different wrong quote"))
+     run_verify(net_vault, network=False, detection_date="2026-08-16")
+     assert not any(
+         e.check == "quote" and e.target == raw.target
+         for e in inbox.open_entries(net_vault)
+     )
+     source = net_vault / "literatures" / "smith2020.md"
+-    source.write_text(source.read_text().replace('  - "aa11"', '  - "bb22"'))
++    source.write_text(
++        source.read_text().replace(
++            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
++            '  - "bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22"',
++        )
++    )
+     fourth = run_verify(net_vault, network=False, detection_date="2026-08-16")
+     assert any(
+         e.check == "quote" and e.target == raw.target
+         for e in inbox.open_entries(net_vault)
+     )
+     assert fourth["counts"]["UNMATCHED"] >= 1
+ 
+ 
+ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
+     file_outcome = _outcome(
+@@ -227,39 +233,78 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
+     stale = _outcome(
+         "staleness", "system/bibliography.json", Result.UNMATCHED, "stale — old"
+     )
+     assert (
+         _target_hash(net_vault, file_outcome)
+         == hashlib.sha256((net_vault / "log/2026-08-16.md").read_bytes()).hexdigest()[
+             :16
+         ]
+     )
+     claim_hash = _target_hash(net_vault, claim_outcome)
+-    assert claim_hash == "aa11"
++    assert claim_hash == "aa11" * 16
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+         )
+     )
+-    assert _target_hash(net_vault, claim_outcome) == "aa11"
+-    assert _target_hash(net_vault, citekey_outcome) == "aa11"
++    assert _target_hash(net_vault, claim_outcome) == "aa11" * 16
++    assert _target_hash(net_vault, citekey_outcome) == "aa11" * 16
+     assert (
+         _target_hash(net_vault, stale)
+         == hashlib.sha256(
+             (net_vault / "system/bibliography.json").read_bytes()
+         ).hexdigest()[:16]
+     )
+     with pytest.raises(PathCodecError):
+         RepoPath(b"../outside")
+ 
+ 
++def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault):
++    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``)."""
++    source = net_vault / "literatures" / "smith2020.md"
++    source.write_text(
++        source.read_text().replace(
++            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
++            '  - "unresolved"',
++        )
++    )
++    claim_outcome = _outcome(
++        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
++    )
++    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
++    result = _target_hash(net_vault, claim_outcome)
++    assert result != "unresolved"
++    assert result == expected
++
++
++def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault):
++    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``)."""
++    source = net_vault / "literatures" / "smith2020.md"
++    source.write_text(
++        source.read_text().replace(
++            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
++            '  - "unresolved"',
++        )
++    )
++    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
++    claim_outcome = _outcome(
++        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
++    )
++    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
++    result = _target_hash(
++        net_vault, claim_outcome, candidate_snapshot=candidate_snapshot
++    )
++    assert result != "unresolved"
++    assert result == expected
++
++
+ @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+ @pytest.mark.parametrize(
+     "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
+ )
+ def test_preclose_blank_event_keeps_no_attachment_ack_hash(
+     net_vault, newline, frontmatter_line
+ ):
+     existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
+     body = f"- (quote) body ^c-11111111{newline}"
+     text = f"---{newline}{existing_fields}{newline}---{newline}{body}"
+@@ -467,25 +512,25 @@ def test_cli_prints_warning_alongside_blocking_update_notice(
+ 
+ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
+     net_vault, monkeypatch, capsys
+ ):
+     entry = inbox.append_entry(
+         net_vault,
+         "update-notice",
+         "smith2020",
+         Result.UNMATCHED,
+         "warn-notice — correction",
+-        target_hash="aa11",
++        target_hash="aa11" * 16,
+         notice_class="warn",
+         notice_type="correction",
+     )
+-    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11")
++    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11" * 16)
+     warning = _outcome(
+         "update-notice",
+         "smith2020",
+         Result.MATCHED,
+         "matched",
+         warn_notices=[{"type": "correction"}],
+     )
+     monkeypatch.setattr(
+         "knowledge_harness.verify._bibliography_entries",
+         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
+@@ -763,21 +808,24 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
+     assert (
+         "failed-verification:: citekey/2026-08-16"
+         not in (net_vault / "projects/brief/draft.md").read_text()
+     )
+ 
+ 
+ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substantive(
+     net_vault,
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+-    text = source.read_text().replace('fixity-sha256:\n  - "aa11"\n', "")
++    text = source.read_text().replace(
++        'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
++        "",
++    )
+     source.write_bytes(text.replace("\n", "\r\n").encode())
+     outcome = _outcome(
+         "quote",
+         "smith2020#^c-11111111",
+         Result.UNMATCHED,
+         "mismatch — quote",
+         note_path="literatures/smith2020.md",
+         claim_id="c-11111111",
+     )
+     original = _target_hash(net_vault, outcome)
+@@ -944,21 +992,26 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
+         " ^c-1", " [failed-verification:: quote/2026-08-17] ^c-1"
+     )
+     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
+     assert note.read_text() == original
+ 
+ 
+ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
+     net_vault, monkeypatch, capsys
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+-    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
++    source.write_text(
++        source.read_text().replace(
++            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
++            "",
++        )
++    )
+     warning = _outcome(
+         "update-notice",
+         "smith2020",
+         Result.MATCHED,
+         "matched",
+         warn_notices=[{"type": "correction"}],
+     )
+     target_hash = _target_hash(net_vault, warning)
+     finding = inbox.append_entry(
+         net_vault,
+@@ -1338,21 +1391,21 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
+         == 1
+     )
+     output = capsys.readouterr().out
+     blocker = next(
+         entry
+         for entry in inbox.open_entries(net_vault)
+         if entry.notice_type == "retraction"
+     )
+ 
+     assert "retracted — retraction" in output
+-    assert blocker.target_hash == warning.target_hash == "aa11"
++    assert blocker.target_hash == warning.target_hash == "aa11" * 16
+     assert (
+         events.trust_tier((net_vault / "literatures" / "smith2020.md").read_text())
+         == "unverified"
+     )
+ 
+     inbox.append_ack(
+         net_vault,
+         blocker.id,
+         "manual — reviewed retraction",
+         "human:test",
+@@ -1402,21 +1455,26 @@ def _projecting_failure(check):
+ 
+ 
+ @pytest.mark.parametrize(
+     "reverse", [False, True], ids=["primary-first", "primary-last"]
+ )
+ @pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+     net_vault, monkeypatch, check, reverse
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+-    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
++    source.write_text(
++        source.read_text().replace(
++            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
++            "",
++        )
++    )
+     primary = _projecting_failure(check)
+     companion = _outcome(
+         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+     )
+     current = [primary, companion]
+     if reverse:
+         current.reverse()
+     _isolate_network_verify(monkeypatch, current)
+ 
+     candidate_hash = _target_hash(net_vault, primary)
+@@ -1433,21 +1491,26 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+     assert projected_hash != candidate_hash
+     assert hashes[id(primary)] == candidate_hash
+     assert finding.target_hash == candidate_hash
+ 
+ 
+ @pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
+     net_vault, monkeypatch, check
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+-    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
++    source.write_text(
++        source.read_text().replace(
++            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
++            "",
++        )
++    )
+     primary = _projecting_failure(check)
+     companion = _outcome(
+         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+     )
+     _isolate_network_verify(monkeypatch, [companion, primary])
+     candidate_hash = _target_hash(net_vault, primary)
+     notice_class, notice_type, notice_date = (
+         (
+             primary.extra.get("class"),
+             primary.extra.get("type"),

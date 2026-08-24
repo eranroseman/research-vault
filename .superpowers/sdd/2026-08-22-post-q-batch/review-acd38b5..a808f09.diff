@@ -1,0 +1,210 @@
+# Review package: acd38b5..a808f09
+
+## Commits
+a808f09 feat: tier-2 citability — cited citekeys require a literature note (not-imported)
+
+## Files changed
+ docs/terminology.md                  | 10 ++++-----
+ knowledge_harness/checks.py          | 20 ++++++++++--------
+ knowledge_harness/inbox.py           |  1 +
+ skills/evidence-conventions/SKILL.md |  1 +
+ tests/test_checks.py                 | 39 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 58 insertions(+), 13 deletions(-)
+
+## Diff
+diff --git a/docs/terminology.md b/docs/terminology.md
+index 1f0071f..7b87436 100644
+--- a/docs/terminology.md
++++ b/docs/terminology.md
+@@ -127,25 +127,25 @@ Legend: **A** externally anchored · **S** ruled convention · **D** documented
+ | skills `setup-vault`, `project-flow`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+ | `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED`                                                                                                                            | S — trust distinction retained over developer-only pytest vocabulary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+ | evidence layer, synthesis layer, admission, information flow, project flow                                                                                               | A/S — current process vocabulary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+ 
+ ### 4.4 Identifier inventory (adopted 2026-08-21, core naming audit)
+ 
+ Check ids, doctor probe ids, and reason codes are governed coined identifiers (S) written verbatim
+ to durable surfaces (`inbox/review-queue.md`, doctor output). Grammar: kebab-case slugs; per-claim
+ checks use composite ids `check:{claim-link}:{target-kind}` (e.g. `quote:{claim-link}:managed-region`).
+ 
+-| Group            | Members                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Status                                                                                                                                                                         |
+-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+-| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`), `publish` (the project-level publication event `mark-published`/`mark-corrected` mints, §5), `factcheck` (Task 3 — §6's factored-verification row; LLM-adjudicated, never mints a `verified` event, only findings via the `finding` verb), `autoexport` (Task 5 — cross-registered from the probe-id group below: an `import-note` run held on the bibliography auto-export names the same observation doctor reports, so it files under the same slug rather than coining a second one), `render` (Task 5 — the `import-note` render-rejection class: `RenderIntegrityError`, `InvalidCitekeyError`, `FrontmatterError`; the projection could not be produced, so nothing was written), `integrate` (Task 5 — `import-source`'s surgical integrate-at-import holds on contradiction, low/absent confidence, or schema violation; spec §7's own word for the step)                                                                           | S — spec §6 rows carry these slugs backticked; `factcheck`, `render`, and `integrate` are this document's own coinages for rows the spec names in prose but does not slug      |
+-| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | S — doctor rows use the Outcome vocabulary (`check`/`result`/`reason`; `Probe` shape unified 2026-08-21); `autoexport` is the one member also registered as a check id (above) |
+-| reason codes     | the full `REASON_CODES` registry at HEAD, enumerated (parity is asserted by `tests/test_config_validity.py`): `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note` (renamed from `superseded-source`), `warn-notice`. Provenance: `superseded-note` (renamed from `superseded-source`), `fuzzy-quote`, `not-admitted`, `drift`, `outage`, `budget-cap` (Task 3 — factored-verification's budget-cap exclusions; the finding naming the skipped set). Task 5 adds no codes and puts three registered ones into service: `not-admitted` (a citekey `import-note` cannot find in the Zotero library), `contradiction` and `low-confidence` (`import-source`'s integrate-at-import holds). Task 6 adds no codes either and puts `not-admitted` into a second service: a search-log candidate a human declined to admit into Zotero — same code, same concept (a thing that did not enter the library), reused rather than forking a `find-sources`-only synonym | S — one registry, code is authoritative; additions require a reference row                                                                                                     |
++| Group            | Members                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Status                                                                                                                                                                         |
++| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
++| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state` (renamed from `source-status`), `disputed-claim` (renamed from `contested`), `publish` (the project-level publication event `mark-published`/`mark-corrected` mints, §5), `factcheck` (Task 3 — §6's factored-verification row; LLM-adjudicated, never mints a `verified` event, only findings via the `finding` verb), `autoexport` (Task 5 — cross-registered from the probe-id group below: an `import-note` run held on the bibliography auto-export names the same observation doctor reports, so it files under the same slug rather than coining a second one), `render` (Task 5 — the `import-note` render-rejection class: `RenderIntegrityError`, `InvalidCitekeyError`, `FrontmatterError`; the projection could not be produced, so nothing was written), `integrate` (Task 5 — `import-source`'s surgical integrate-at-import holds on contradiction, low/absent confidence, or schema violation; spec §7's own word for the step)                                                                                                                                                                                                                                                                                                                                                                             | S — spec §6 rows carry these slugs backticked; `factcheck`, `render`, and `integrate` are this document's own coinages for rows the spec names in prose but does not slug      |
++| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | S — doctor rows use the Outcome vocabulary (`check`/`result`/`reason`; `Probe` shape unified 2026-08-21); `autoexport` is the one member also registered as a check id (above) |
++| reason codes     | the full `REASON_CODES` registry at HEAD, enumerated (parity is asserted by `tests/test_config_validity.py`): `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note` (renamed from `superseded-source`), `warn-notice`. Provenance: `superseded-note` (renamed from `superseded-source`), `fuzzy-quote`, `not-admitted`, `drift`, `outage`, `budget-cap` (Task 3 — factored-verification's budget-cap exclusions; the finding naming the skipped set). Task 5 adds no codes and puts three registered ones into service: `not-admitted` (a citekey `import-note` cannot find in the Zotero library), `contradiction` and `low-confidence` (`import-source`'s integrate-at-import holds). Task 6 adds no codes either and puts `not-admitted` into a second service: a search-log candidate a human declined to admit into Zotero — same code, same concept (a thing that did not enter the library), reused rather than forking a `find-sources`-only synonym. Task 10 adds `not-imported`: `check_citekeys`' tier-2 citability gate for a citation whose citekey IS in the bibliography but has no `literatures/<citekey>.md` note yet — distinct from `not-admitted`, whose condition is the citekey never entering the Zotero library at all | S — one registry, code is authoritative; additions require a reference row                                                                                                     |
+ 
+ Register split, ruled: **`surface`** (enforcement point — `--surface`, `CLOSING_BY_SURFACE`) is spec §6's
+ anchored vocabulary; this document's "tool surface" (T2 prose) is a different register and never
+ co-occurs with it on a vault/CLI surface. Both stand.
+ 
+ Register split, ruled (Task 6): **`--source`/`source` on the `search-log` verb** names the database or
+ API queried (`PubMed`, `Europe PMC`, `arXiv`, …) — CONTEXT.md's **Venue** sense, not its **Source**
+ sense (the cited document itself). The brief's own PRISMA-S grammar ("source searched") is the field's
+ anchor, so the CLI flag name stands; it never co-occurs with CONTEXT.md's Source on the same surface,
+ the same non-collision shape as the `surface`/"tool surface" split above.
+diff --git a/knowledge_harness/checks.py b/knowledge_harness/checks.py
+index fb612cf..9b269b9 100644
+--- a/knowledge_harness/checks.py
++++ b/knowledge_harness/checks.py
+@@ -146,28 +146,32 @@ def check_citekeys(
+                 "no-identifier — note cites nothing",
+             )
+         ]
+ 
+     if bibliography_universe is None:
+         bibliography_universe = bibliography.load(vault)
+     origins = _claim_origins(note_text)
+     typed_note_path = RepoPath(relative_raw)
+     outcomes = []
+     for citekey in cited:
+-        result = (
+-            Result.MATCHED if citekey in bibliography_universe else Result.UNMATCHED
+-        )
+-        reason = (
+-            "matched"
+-            if result is Result.MATCHED
+-            else "mismatch — citekey not in bibliography"
+-        )
++        if citekey not in bibliography_universe:
++            result = Result.UNMATCHED
++            reason = "mismatch — citekey not in bibliography"
++        elif not (vault / "literatures" / f"{citekey}.md").is_file():
++            # Tier 2: bibliography membership alone is not citability — the
++            # cited source needs an imported literature note to verify a
++            # quote or paraphrase against.
++            result = Result.UNMATCHED
++            reason = "not-imported — cited citekey has no literature note"
++        else:
++            result = Result.MATCHED
++            reason = "matched"
+         outcomes.append(
+             Outcome(
+                 "citekey",
+                 citekey,
+                 result,
+                 reason,
+                 extra={"note_path": typed_note_path, "claims": origins[citekey]},
+             )
+         )
+     return outcomes
+diff --git a/knowledge_harness/inbox.py b/knowledge_harness/inbox.py
+index ae77298..8b600c1 100644
+--- a/knowledge_harness/inbox.py
++++ b/knowledge_harness/inbox.py
+@@ -22,20 +22,21 @@ from .pathcodec import PathCodecError, decode_repo_path
+ INBOX_PATH = "inbox/review-queue.md"
+ INBOX_TYPE = "review-queue"
+ _OMITTED_HASH = object()
+ REASON_CODES = frozenset(
+     {
+         "contradiction",
+         "low-confidence",
+         "schema-violation",
+         "mismatch",
+         "not-admitted",
++        "not-imported",
+         "outage",
+         "stale",
+         "drift",
+         "disputed-claim",
+         "superseded-note",
+         "missing-archive",
+         "fuzzy-quote",
+         "no-identifier",
+         "retracted",
+         "warn-notice",
+diff --git a/skills/evidence-conventions/SKILL.md b/skills/evidence-conventions/SKILL.md
+index 6873761..6e72667 100644
+--- a/skills/evidence-conventions/SKILL.md
++++ b/skills/evidence-conventions/SKILL.md
+@@ -76,20 +76,21 @@ Findings in `inbox/review-queue.md`, and any other durable surface this registry
+ | `fuzzy-quote`      | The quote matched only approximately (similarity ≥ 0.90, not exact) — close enough to flag, not to trust.                                                                                                                                                                                                                                                                                                                                                      |
+ | `missing-archive`  | A web-type source has no `archive-url`, or the recorded one no longer resolves.                                                                                                                                                                                                                                                                                                                                                                                |
+ | `warn-notice`      | The cited work carries a warn-class update notice (expression of concern, correction, corrigendum, erratum). Informational, never blocks.                                                                                                                                                                                                                                                                                                                      |
+ | `retracted`        | The cited work's update-notice check found a blocking-class notice (retraction, partial retraction, removal, withdrawal).                                                                                                                                                                                                                                                                                                                                      |
+ | `drift`            | An append-only surface was rewritten, a claim anchor mutated or vanished without a deprecation record, a literature note changed outside import, or a published project diverged from its tag.                                                                                                                                                                                                                                                                 |
+ | `disputed-claim`   | A claim you're building on (via a `supports` link) has standing counter-evidence elsewhere. Surfaces disconfirmation instead of letting it get silently relied on.                                                                                                                                                                                                                                                                                             |
+ | `superseded-note`  | The claim cites a literature note whose `status` is `excluded` or `superseded`.                                                                                                                                                                                                                                                                                                                                                                                |
+ | `stale`            | The vault's bibliography export no longer matches the current Zotero library.                                                                                                                                                                                                                                                                                                                                                                                  |
+ | `budget-cap`       | Factored verification's per-run budget cap (default 30 claims) was reached; this finding names everything the cap left unchecked this pass. Never means the excluded claims were checked and clean.                                                                                                                                                                                                                                                            |
+ | `not-admitted`     | Nothing was admitted. Two conditions share this code: the citekey names nothing in the Zotero library (`import-note`'s condition — the source was never admitted, or its item has left), or a human looked at a `find-sources` search candidate and declined to admit it (`search-log`'s not-admitted record, spec §7). Admission is a human act; no import can substitute for it, and a search finding nothing worth admitting is a real result, not silence. |
++| `not-imported`     | A citation's citekey is in the bibliography, but no `literatures/<citekey>.md` note exists — bibliography membership alone is not citability, since there is nothing to verify a quote or paraphrase against. Distinct from `not-admitted`: the source did enter the Zotero library, it just was not run through `import-note` yet.                                                                                                                            |
+ | `contradiction`    | A claim being integrated at import contradicts a claim already in the synthesis layer. Both sides are preserved and linked with `disputes`; a contradiction is never resolved by dropping one.                                                                                                                                                                                                                                                                 |
+ | `low-confidence`   | An inference claim held back at integration because its `[confidence:: ...]` is low or missing altogether.                                                                                                                                                                                                                                                                                                                                                     |
+ | `manual`           | A human act rather than a machine observation — no check files it; a person does, when they bypass the publish gate. It is the reason on the finding the Stop hook records for a publish-gate bypass, and the only code in this table a person writes.                                                                                                                                                                                                         |
+ 
+ One registry code stays off this table: `matched` never reaches the queue (only non-MATCHED results file findings).
+ 
+ ## Rationalizations, answered
+ 
+ | What you're tempted to think                        | The mechanical rule that forbids it                                                                                                                                                                                              |
+ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+diff --git a/tests/test_checks.py b/tests/test_checks.py
+index d0cf0d6..fdc9282 100644
+--- a/tests/test_checks.py
++++ b/tests/test_checks.py
+@@ -71,20 +71,59 @@ def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
+ 
+     outs = checks.check_citekeys(fixture_vault, note)
+ 
+     smith = next(out for out in outs if out.target == "smith2020")
+     assert checks.outcome_to_record(smith)["extra"] == {
+         "note_path": "path-bytes:projects/brief/draft.md",
+         "claims": [{"claim_id": "c-66666666", "line_no": 7, "locator": "p. 12"}],
+     }
+ 
+ 
++def test_cited_citekey_requires_literature_note(tmp_vault):
++    """Bibliography membership alone must not satisfy citability."""
++    note = tmp_vault / "projects" / "draft.md"
++    note.write_text("See the evidence [@smith2020].\n")
++
++    outs = checks.check_citekeys(tmp_vault, note, {"smith2020": {}})
++
++    assert len(outs) == 1
++    assert outs[0].result is Result.UNMATCHED
++    assert outs[0].reason == "not-imported — cited citekey has no literature note"
++
++
++def test_cited_citekey_with_note_passes(tmp_vault):
++    """A bibliography entry backed by a literature note still MATCHES."""
++    (tmp_vault / "literatures" / "smith2020.md").write_text(
++        '---\ncitekey: "smith2020"\n---\n%%hk-managed%%\n%%/hk-managed%%\n'
++    )
++    note = tmp_vault / "projects" / "draft.md"
++    note.write_text("See the evidence [@smith2020].\n")
++
++    outs = checks.check_citekeys(tmp_vault, note, {"smith2020": {}})
++
++    assert len(outs) == 1
++    assert outs[0].result is Result.MATCHED
++    assert outs[0].reason == "matched"
++
++
++def test_cited_citekey_absent_everywhere(tmp_vault):
++    """A citekey outside the bibliography keeps the existing mismatch reason."""
++    note = tmp_vault / "projects" / "draft.md"
++    note.write_text("See the evidence [@fabricated2020].\n")
++
++    outs = checks.check_citekeys(tmp_vault, note, {})
++
++    assert len(outs) == 1
++    assert outs[0].result is Result.UNMATCHED
++    assert outs[0].reason == "mismatch — citekey not in bibliography"
++
++
+ def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
+     """Outcome detaches every caller graph and exposes no mutation path."""
+     first_input = {"nested": {"items": ["one"]}}
+     second_input = {"nested": {"items": ["two"]}}
+     first = checks.Outcome(
+         "citekey", "smith2020", Result.MATCHED, "matched", first_input
+     )
+     second = checks.Outcome(
+         "citekey", "gone2019", Result.MATCHED, "matched", second_input
+     )

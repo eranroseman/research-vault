@@ -1,0 +1,93 @@
+# Review package: 660f752..3d26a44
+
+## Commits
+3d26a44 fix: blank line before each Base embed so it renders as a block
+
+## Files changed
+ knowledge_harness/templates/vault/index.md | 2 ++
+ tests/test_scaffold.py                     | 4 ++--
+ tests/test_templates.py                    | 4 ++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+## Diff
+diff --git a/knowledge_harness/templates/vault/index.md b/knowledge_harness/templates/vault/index.md
+index 5527a25..4a63fb9 100644
+--- a/knowledge_harness/templates/vault/index.md
++++ b/knowledge_harness/templates/vault/index.md
+@@ -5,14 +5,16 @@ okf_version: "0.2"
+ # Vault index
+ 
+ - [[literatures/]] — evidence layer: citekey-keyed literature notes
+ - [[synthesis/]] — synthesis notes (see [[synthesis/index]])
+ - [[projects/]] — manuscripts and deliverables
+ - [[log/]] — daily activity log (summary: [[log]])
+ - [[inbox/]] — fleeting notes and the review queue
+ - [[system/]] — support artifacts: templates, bases, the bibliography export
+ 
+ Literature notes, for trust-tier review:
++
+ ![[system/bases/trust-tier.base]]
+ 
+ Synthesis notes, flagged where they contain an open-question:
++
+ ![[system/bases/open-questions.base]]
+diff --git a/tests/test_scaffold.py b/tests/test_scaffold.py
+index b5f2d0c..e85aa2b 100644
+--- a/tests/test_scaffold.py
++++ b/tests/test_scaffold.py
+@@ -80,23 +80,23 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
+     assert (vault / ".git").is_dir()
+     assert (vault / "index.md").read_text() == (
+         '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+         "# Vault index\n\n"
+         "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
+         "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"
+         "- [[projects/]] — manuscripts and deliverables\n"
+         "- [[log/]] — daily activity log (summary: [[log]])\n"
+         "- [[inbox/]] — fleeting notes and the review queue\n"
+         "- [[system/]] — support artifacts: templates, bases, the bibliography export\n\n"
+-        "Literature notes, for trust-tier review:\n"
++        "Literature notes, for trust-tier review:\n\n"
+         "![[system/bases/trust-tier.base]]\n\n"
+-        "Synthesis notes, flagged where they contain an open-question:\n"
++        "Synthesis notes, flagged where they contain an open-question:\n\n"
+         "![[system/bases/open-questions.base]]\n"
+     )
+     assert (vault / "log.md").read_text() == (
+         '---\ntype: "log"\n---\n# Log\n\n## Days\n'
+     )
+     assert (vault / ".gitignore").read_text() == ".harness/\n.obsidian/workspace*\n"
+     # Byte-pinned against the CANONICAL json.tool form the JSON owner produces
+     # (tests/test_config_validity.py asserts the template itself equals it). Same
+     # object, expanded nesting; the one-time canonicalization is its own commit.
+     assert (vault / ".harness" / "machine.json").read_text() == (
+diff --git a/tests/test_templates.py b/tests/test_templates.py
+index b4b08f3..e4b4294 100644
+--- a/tests/test_templates.py
++++ b/tests/test_templates.py
+@@ -78,23 +78,23 @@ def test_markdown_templates_have_expected_okf_frontmatter():
+ def test_markdown_templates_match_canonical_content():
+     assert asset("vault/index.md").read_text() == (
+         '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+         "# Vault index\n\n"
+         "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
+         "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"
+         "- [[projects/]] — manuscripts and deliverables\n"
+         "- [[log/]] — daily activity log (summary: [[log]])\n"
+         "- [[inbox/]] — fleeting notes and the review queue\n"
+         "- [[system/]] — support artifacts: templates, bases, the bibliography export\n\n"
+-        "Literature notes, for trust-tier review:\n"
++        "Literature notes, for trust-tier review:\n\n"
+         "![[system/bases/trust-tier.base]]\n\n"
+-        "Synthesis notes, flagged where they contain an open-question:\n"
++        "Synthesis notes, flagged where they contain an open-question:\n\n"
+         "![[system/bases/open-questions.base]]\n"
+     )
+     assert asset("vault/log.md").read_text() == "# Log\n"
+     # Ruled content, 2026-08-22: dangling spec §8 ref cut, managed-region rule
+     # added, machine-surface rule reworded to "raise a finding" (append-only
+     # covers log/ and inbox/review-queue.md but is in no CLOSING_BY_SURFACE
+     # set, so "fail the gate" was false). Pinned whole-file, byte-for-byte,
+     # below: the earlier per-line startswith/in pattern admitted append,
+     # reorder, and layout drift undetected; each line remains load-bearing.
+     assert asset("vault/AGENTS.md").read_text() == (

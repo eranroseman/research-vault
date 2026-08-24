@@ -1,0 +1,787 @@
+# Review package: f3f5a7f..5ac70df
+
+## Commits
+5ac70df fix: round-1 review fixes for the machine-owned-frontmatter guard (task 17b)
+47fc2d2 docs: correct Task 17b Step 2's boundary clause to the docstring (author ruling 2026-08-24)
+
+## Files changed
+ docs/superpowers/plans/2026-08-22-post-q-batch.md |   2 +-
+ knowledge_harness/__main__.py                     |   2 +-
+ knowledge_harness/archive.py                      |  22 +---
+ knowledge_harness/frontmatter.py                  |  27 +++--
+ knowledge_harness/lints.py                        |  52 +++++---
+ knowledge_harness/notes.py                        |  10 ++
+ tests/test_archive.py                             |  12 +-
+ tests/test_lints.py                               | 139 +++++++++++++++++++++-
+ tests/test_verify_cli.py                          |  23 +++-
+ 9 files changed, 234 insertions(+), 55 deletions(-)
+
+## Diff
+diff --git a/docs/superpowers/plans/2026-08-22-post-q-batch.md b/docs/superpowers/plans/2026-08-22-post-q-batch.md
+index 59fe8eb..0ba67dc 100644
+--- a/docs/superpowers/plans/2026-08-22-post-q-batch.md
++++ b/docs/superpowers/plans/2026-08-22-post-q-batch.md
+@@ -411,21 +411,21 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
+ 
+ (The existing managed-bytes fallback below already handles the reject path.)
+ 
+ - [x] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
+ 
+ ### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%hk-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
+ 
+ **Files:** Modify: `knowledge_harness/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
+ 
+ - [ ] **Step 1: Failing test** — a hand-edit to a literature note's `archive-url` (and parametrized: `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) with the managed slice untouched currently passes `lint_evidence_layer`; after the fix it is UNMATCHED (`drift`), while edits to non-machine keys (`status`, free-region prose) still pass — screening is human-writable by design.
+-- [ ] **Step 2 (legality rule decided 2026-08-24, superseding the managed-slice coupling — which leaks on archive-url's frontmatter-only write AND on attachment-only fixity changes):** a machine-owned key change (`archive-url`, `managed-sha256`, `fixity-sha256`, `citekey`) is legal iff `generated` changed in the same diff with `by` = the machine actor — writer attestation, not slice coupling. `generated` itself stays guarded under its OWN predicate: a `generated` change whose `by` is not the machine actor is drift — no circularity (it can't legalize itself), and Step 1's five-key parametrization stands, with `generated` asserting the second predicate. Scope stated in the lint's finding text: this catches accidents and oblivious agents; forging the attestation is deliberate circumvention (recorded-bypass class, spec §2's stated-boundary language). Extend `lint_evidence_layer` accordingly.
++- [ ] **Step 2 (legality rule decided 2026-08-24, superseding the managed-slice coupling — which leaks on archive-url's frontmatter-only write AND on attachment-only fixity changes):** a machine-owned key change (`archive-url`, `managed-sha256`, `fixity-sha256`, `citekey`) is legal iff `generated` changed in the same diff with `by` = the machine actor — writer attestation, not slice coupling. `generated` itself stays guarded under its OWN predicate: a `generated` change whose `by` is not the machine actor is drift — no circularity (it can't legalize itself), and Step 1's five-key parametrization stands, with `generated` asserting the second predicate. Scope stated in the lint's docstring (author ruling 2026-08-24, correcting this clause's original "finding text" — over-specification, not a requirement: the reason string is a governed one-liner repeated on every inbox row, and it carries findings, not scope philosophy): this catches accidents and oblivious agents; forging the attestation is deliberate circumvention (recorded-bypass class). Stated boundary, not a compliance control. No ADR — a scope limitation is a fact, not a decision, and minting one dilutes "only ADRs are binding". Extend `lint_evidence_layer` accordingly.
+ - [ ] **Step 2b:** `archive-source` bumps `generated.{by,at}` on its write (gaining a snapshot IS a meaningful content change; orthogonal to byte-identical-rerender preservation). Test: a legitimate archive run passes the new lint; a bare hand-edit to `archive-url` fails it.
+ - [ ] **Step 3:** Full suite; commit `fix: closing guard covers machine-owned frontmatter keys via writer attestation`.
+ 
+ ### Task 18: Supplied snapshots must be snapshots of THIS url (audit defect, archive)
+ 
+ **Files:**
+ 
+ - Modify: `knowledge_harness/archive.py` (supplied-snapshot branch, ~lines 166–185; `is_archive_url` or a new `_snapshot_original`)
+ 
+ - Test: `tests/test_archive.py`
+diff --git a/knowledge_harness/__main__.py b/knowledge_harness/__main__.py
+index 2a7d090..9fc401b 100644
+--- a/knowledge_harness/__main__.py
++++ b/knowledge_harness/__main__.py
+@@ -258,21 +258,21 @@ def cmd_import_note(args):
+             degradation_reasons.append("no extractable PDF text")
+             continue
+         if selectors.attach_contexts(needed, text) != len(needed):
+             degradation_reasons.append(
+                 "some annotation quotes were not found in extracted text"
+             )
+     retained = _retain_prior_contexts(annotations, existing)
+     _selector_warning(degradation_reasons, retained=retained)
+ 
+     now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+-    generated_at = now.isoformat().replace("+00:00", "Z")
++    generated_at = notes.generated_at_now(now)
+     try:
+         candidate = notes.render_note(
+             item,
+             hashes,
+             annotations,
+             existing,
+             accessed=now.date().isoformat(),
+             generated_at=generated_at,
+         )
+     except (
+diff --git a/knowledge_harness/archive.py b/knowledge_harness/archive.py
+index 8ae3baa..bab6fa2 100644
+--- a/knowledge_harness/archive.py
++++ b/knowledge_harness/archive.py
+@@ -6,21 +6,20 @@ This owns that act. Writing ``archive-url`` was previously prose's job, which
+ put an LLM's hand inside ``literatures/``; giving the field a machine owner is
+ what keeps the evidence layer's never-free-written rule intact.
+ 
+ Four-state honesty on an outward call: ``archive-url`` is written only on a
+ snapshot the Wayback Machine confirms it is serving. A Save Page Now failure or
+ timeout is UNREACHABLE — reported, retried on the next refresh, never a
+ fabricated URL. Nothing here ever composes an archive URL itself; it records
+ only what the availability API returns, and only from the archive's own host.
+ """
+ 
+-import datetime
+ import urllib.parse
+ 
+ from . import AGENT_ACTOR, Result, frontmatter, notes, webapi
+ from .outcome import Outcome
+ from .verify import _read_note_text, _write_note_text
+ 
+ SAVE_ENDPOINT = "https://web.archive.org/save/"
+ AVAILABILITY_ENDPOINT = "https://archive.org/wayback/available"
+ # The only hosts a recorded snapshot may live on. A snapshot URL is durable
+ # vault content, so an odd or hostile response must never be able to write an
+@@ -85,23 +84,21 @@ def set_archive_url(note_text: str, url: str) -> str:
+         (index for index, line in enumerate(lines[1:], start=1) if line in fence),
+         None,
+     )
+     if close is None:
+         raise ArchiveError("literature note frontmatter is unterminated")
+     existing = [
+         index for index in range(1, close) if lines[index].startswith("archive-url:")
+     ]
+     if len(existing) > 1:
+         raise ArchiveError(f"note carries {len(existing)} archive-url fields, need one")
+-    # _emit_scalar quotes and escapes exactly as the serializer does, and fails
+-    # loudly on any character that could forge a second frontmatter line.
+-    field = f"archive-url: {frontmatter._emit_scalar(url)}"
++    field = frontmatter.render_field("archive-url", url)
+     if existing:
+         line = lines[existing[0]]
+         ending = (
+             "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+         )
+         lines[existing[0]] = field + ending
+     else:
+         ending = "\r\n" if lines[close].endswith("\r\n") else "\n"
+         lines.insert(close, field + ending)
+     updated = "".join(lines)
+@@ -129,76 +126,65 @@ def _closest_snapshot(payload) -> str | None:
+     if str(closest.get("status", "")) != "200":
+         return None
+     url = closest.get("url")
+     return url if is_archive_url(url) else None
+ 
+ 
+ def _outage(target: str, detail: str) -> Outcome:
+     return Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {detail}")
+ 
+ 
+-def _generated_at() -> str:
+-    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+-    return now.isoformat().replace("+00:00", "Z")
+-
+-
+ def _bump_generated(note_text: str, at: str) -> str:
+     """Attest this write in the note's ``generated`` field, inserted or replaced.
+ 
+     Byte-surgical for the same reason ``set_archive_url`` is: every other
+     line — the managed region, its witness, human-added keys — must survive
+     untouched, and the parse-back below refuses to hand back a note this
+-    write broke. Gaining a snapshot is a meaningful content change (task 17b
+-    step 2b), so this write carries the same writer attestation a re-render
+-    would, keeping the evidence-layer guard from reading it as a hand-edit.
++    write broke.
+     """
+     lines = note_text.splitlines(keepends=True)
+     fence = {"---\n", "---\r\n"}
+     if not lines or lines[0] not in fence:
+         raise ArchiveError("literature note has no frontmatter")
+     close = next(
+         (index for index, line in enumerate(lines[1:], start=1) if line in fence),
+         None,
+     )
+     if close is None:
+         raise ArchiveError("literature note frontmatter is unterminated")
+     existing = [
+         index for index in range(1, close) if lines[index].startswith("generated:")
+     ]
+     if len(existing) > 1:
+         raise ArchiveError(f"note carries {len(existing)} generated fields, need one")
+-    inner = ", ".join(
+-        f"{key}: {frontmatter._emit_scalar(value)}"
+-        for key, value in (("by", AGENT_ACTOR), ("at", at))
+-    )
+-    field = f"generated: {{{inner}}}"
++    field = frontmatter.render_field("generated", {"by": AGENT_ACTOR, "at": at})
+     if existing:
+         line = lines[existing[0]]
+         ending = (
+             "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+         )
+         lines[existing[0]] = field + ending
+     else:
+         ending = "\r\n" if lines[close].endswith("\r\n") else "\n"
+         lines.insert(close, field + ending)
+     updated = "".join(lines)
+     try:
+         data, _ = frontmatter.parse(updated)
+     except frontmatter.FrontmatterError as error:
+         raise ArchiveError(f"generated write broke the frontmatter: {error}") from error
+     if data.get("generated") != {"by": AGENT_ACTOR, "at": at}:
+         raise ArchiveError(f"generated write did not round-trip: {at!r}")
+     return updated
+ 
+ 
+ def _record(path, text, url, target) -> Outcome:
+-    updated = _bump_generated(set_archive_url(text, url), _generated_at())
++    updated = _bump_generated(set_archive_url(text, url), notes.generated_at_now())
+     _write_note_text(path, updated)
+     return Outcome(CHECK, target, Result.MATCHED, "matched", extra={"archive_url": url})
+ 
+ 
+ def archive_source(vault_root, citekey: str, snapshot: str | None = None) -> Outcome:
+     """Archive one web source and record the snapshot, or report why it could not."""
+     path, text, data = _note_frontmatter(vault_root, citekey)
+     target = _string_field(data, "citekey") or citekey
+ 
+     recorded = _string_field(data, "archive-url")
+diff --git a/knowledge_harness/frontmatter.py b/knowledge_harness/frontmatter.py
+index 8169ed7..b080b55 100644
+--- a/knowledge_harness/frontmatter.py
++++ b/knowledge_harness/frontmatter.py
+@@ -52,42 +52,55 @@ def _emit_scalar(v):
+         # reaches the serializer, so a surviving control character is a bug:
+         # fail loudly rather than emit frontmatter that cannot be re-parsed.
+         raise FrontmatterError(
+             f"frontmatter scalars cannot carry control or line-break "
+             f"characters: {text!r}"
+         )
+     escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+     return f'"{escaped}"'
+ 
+ 
++def render_field(key: str, value) -> str:
++    """Render one top-level ``key: value`` frontmatter line.
++
++    ``value`` may be a scalar or a one-level mapping (rendered ``{a: b, ...}``,
++    matching a parsed ``generated``-shaped field). This is the one spelling of
++    that grammar: ``serialize`` and any byte-surgical single-field writer
++    (``archive.set_archive_url``, ``archive._bump_generated``) share it, so
++    what they emit and what ``frontmatter.parse``/``notes._valid_generated``
++    expect back cannot drift apart.
++    """
++    if isinstance(value, dict):
++        inner = ", ".join(
++            f"{inner_key}: {_emit_scalar(inner_value)}"
++            for inner_key, inner_value in _mapping_items(value)
++        )
++        return f"{key}: {{{inner}}}"
++    return f"{key}: {_emit_scalar(value)}"
++
++
+ def serialize(data: dict) -> str:
+     lines = ["---"]
+     for key, value in _mapping_items(data):
+         if isinstance(value, list):
+             lines.append(f"{key}:")
+             for item in value:
+                 if isinstance(item, dict):
+                     inner = ", ".join(
+                         f"{key}: {_emit_scalar(item_value)}"
+                         for key, item_value in _mapping_items(item)
+                     )
+                     lines.append(f"  - {{{inner}}}")
+                 else:
+                     lines.append(f"  - {_emit_scalar(item)}")
+-        elif isinstance(value, dict):
+-            inner = ", ".join(
+-                f"{inner_key}: {_emit_scalar(inner_value)}"
+-                for inner_key, inner_value in _mapping_items(value)
+-            )
+-            lines.append(f"{key}: {{{inner}}}")
+         else:
+-            lines.append(f"{key}: {_emit_scalar(value)}")
++            lines.append(render_field(key, value))
+     lines.append("---")
+     return "\n".join(lines) + "\n"
+ 
+ 
+ def _parse_scalar(raw: str):
+     raw = raw.strip()
+     if raw.startswith('"') and raw.endswith('"'):
+         return raw[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+     if re.fullmatch(r"-?\d+", raw):
+         return int(raw)
+diff --git a/knowledge_harness/lints.py b/knowledge_harness/lints.py
+index b093043..2029eb5 100644
+--- a/knowledge_harness/lints.py
++++ b/knowledge_harness/lints.py
+@@ -612,22 +612,22 @@ def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
+     try:
+         return notes.managed_slice_bytes(image.data or b"")
+     except notes.ManagedRegionError:
+         return None
+ 
+ 
+ # Machine-owned fields that live outside %%hk-managed%%: `notes.render_note`
+ # owns citekey/managed-sha256/fixity-sha256, `archive.set_archive_url` owns
+ # archive-url (notes.py's comment on MANAGED_FIELDS names it explicitly as
+ # passed-through). Neither writer is otherwise distinguishable from a
+-# hand-edit, so legality here rides on the `generated` writer attestation
+-# (task 17b), not on slice membership.
++# hand-edit, so legality here rides on the `generated` writer attestation,
++# not on slice membership.
+ _MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
+     {"archive-url", "managed-sha256", "fixity-sha256", "citekey"}
+ )
+ # docs/terminology.md's actor convention: process-written records carry
+ # `knowledge_harness/<version>`, so this class test — not an exact-version
+ # match — survives a `__version__` bump without flagging every prior note.
+ _MACHINE_ACTOR_PREFIX = "knowledge_harness/"
+ 
+ 
+ def _frontmatter(image: gitstate.FileImage | None) -> dict | None:
+@@ -637,53 +637,71 @@ def _frontmatter(image: gitstate.FileImage | None) -> dict | None:
+         text = (image.data or b"").decode("utf-8")
+     except UnicodeDecodeError:
+         return None
+     try:
+         data, _ = frontmatter.parse(text)
+     except frontmatter.FrontmatterError:
+         return None
+     return data
+ 
+ 
+-def _generated(data: dict) -> dict | None:
+-    value = data.get("generated")
+-    return value if isinstance(value, dict) else None
++def _field(data: dict | None, key: str):
++    """One frontmatter value, or None for an absent key or unparseable side.
+ 
++    An unparseable side (`data is None`) must not be able to hide a change —
++    it has to compare unequal to whatever the other, parseable side holds, the
++    same fail-closed shape `_managed_bytes` already uses for the managed slice.
++    """
++    return data.get(key) if data is not None else None
++
++
++def _machine_attested(generated) -> bool:
++    """Whether `generated` is validly shaped AND its `by` is machine-class.
+ 
+-def _machine_attested(generated: dict | None) -> bool:
+-    actor = generated.get("by") if generated is not None else None
+-    return isinstance(actor, str) and actor.startswith(_MACHINE_ACTOR_PREFIX)
++    Shape first: `notes._valid_generated` is the one place this field's shape
++    is defined, so a malformed `generated` (missing `at`, extra keys, a bad
++    timestamp) can never attest a change here even if `by` looks right.
++    """
++    return notes._valid_generated(generated) and generated["by"].startswith(
++        _MACHINE_ACTOR_PREFIX
++    )
+ 
+ 
+ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
+     """Flag a machine-owned frontmatter change with no matching writer attestation.
+ 
+-    Legality rule (ruled 2026-08-24): a change to any of the four machine-owned
+-    keys is legal iff `generated` also changed in the same diff with `by` the
+-    machine actor class. `generated` guards itself the same way, so it cannot
+-    legalize its own unattested change.
++    Legality rule: a change to any of the four machine-owned keys is legal iff
++    `generated` also changed in the same diff with `by` the machine actor
++    class. `generated` guards itself the same way, so it cannot legalize its
++    own unattested change. Attestation is per-file-per-diff: one legitimate
++    `generated` bump also legalizes any other machine-owned key riding along
++    unattested in the same diff.
++
++    Stated boundary, not a compliance control: this catches accidents and
++    oblivious agents. Forging the attestation — hand-writing a machine-class
++    `by` — is deliberate circumvention (recorded-bypass class), and so is
++    piggy-backing an unrelated edit onto someone else's legitimate bump;
++    neither is this check's job to catch.
+     """
+-    if base_data is None or candidate_data is None:
+-        return []
+-    base_generated = _generated(base_data)
+-    candidate_generated = _generated(candidate_data)
++    base_generated = _field(base_data, "generated")
++    candidate_generated = _field(candidate_data, "generated")
+     generated_changed = base_generated != candidate_generated
+     attested = generated_changed and _machine_attested(candidate_generated)
+     outcomes = [
+         Outcome(
+             "evidence-layer",
+             RepoPath(raw_path),
+             Result.UNMATCHED,
+             f"drift — {key} changed without writer attestation",
+         )
+         for key in sorted(_MACHINE_OWNED_FRONTMATTER_KEYS)
+-        if base_data.get(key) != candidate_data.get(key) and not attested
++        if _field(base_data, key) != _field(candidate_data, key) and not attested
+     ]
+     if generated_changed and not _machine_attested(candidate_generated):
+         outcomes.append(
+             Outcome(
+                 "evidence-layer",
+                 RepoPath(raw_path),
+                 Result.UNMATCHED,
+                 "drift — generated changed without writer attestation",
+             )
+         )
+diff --git a/knowledge_harness/notes.py b/knowledge_harness/notes.py
+index 299b224..e25c614 100644
+--- a/knowledge_harness/notes.py
++++ b/knowledge_harness/notes.py
+@@ -201,20 +201,30 @@ def _valid_generated(value) -> bool:
+     actor, at = value.get("by"), value.get("at")
+     if not isinstance(actor, str) or not actor or not isinstance(at, str):
+         return False
+     try:
+         parsed = datetime.datetime.fromisoformat(at)
+     except ValueError:
+         return False
+     return at.endswith("Z") and parsed.tzinfo is not None
+ 
+ 
++def generated_at_now(now: datetime.datetime | None = None) -> str:
++    """Second-resolution, ``Z``-suffixed ISO 8601 — the one spelling every
++    ``generated.at`` stamp of "now" uses (``__main__``'s import, ``archive``'s
++    writer attestation), so they cannot drift into formats `_valid_generated`
++    disagrees on.
++    """
++    moment = now if now is not None else datetime.datetime.now(datetime.UTC)
++    return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
++
++
+ def render_note(
+     item, attachment_hashes, annotations, existing, accessed, generated_at=None
+ ) -> str:
+     if generated_at is None:
+         generated_at = f"{accessed}T00:00:00Z"
+     prior = frontmatter.parse(existing)[0] if existing else {}
+     fm = {"citekey": item["id"], "type": "literature"}
+     if item.get("DOI"):
+         fm["doi"] = item["DOI"]
+     if item.get("URL"):
+diff --git a/tests/test_archive.py b/tests/test_archive.py
+index fea63cb..dc9fec8 100644
+--- a/tests/test_archive.py
++++ b/tests/test_archive.py
+@@ -105,22 +105,22 @@ def test_save_page_now_rides_the_useragent_not_the_query_string(net_vault, monke
+ 
+ 
+ def test_recording_preserves_every_other_byte_of_the_note(net_vault, monkeypatch):
+     path = _write_note(net_vault)
+     before = path.read_text()
+     _fake_network(monkeypatch, availability=_available())
+ 
+     archive.archive_source(net_vault, "rot2024")
+ 
+     after = path.read_text()
+-    # Step 2b (task 17b): the write also attests itself in `generated`, so two
+-    # lines are new — the timestamp is not predicted, only located.
++    # The write also attests itself in `generated`, so two lines are new —
++    # the timestamp is not predicted, only located.
+     generated_line = next(
+         line
+         for line in after.splitlines(keepends=True)
+         if line.startswith("generated:")
+     )
+     stripped = after.replace(f'archive-url: "{SNAPSHOT}"\n', "").replace(
+         generated_line, ""
+     )
+     assert stripped == before
+     # The managed region and its witness are untouched, so the evidence-layer
+@@ -508,22 +508,22 @@ def _tree_hash(vault) -> str:
+     return subprocess.run(
+         ["git", "rev-parse", "HEAD^{tree}"],
+         cwd=vault,
+         check=True,
+         text=True,
+         capture_output=True,
+     ).stdout.strip()
+ 
+ 
+ def test_a_legitimate_archive_run_passes_the_closing_guard(net_vault, monkeypatch):
+-    """Task 17b: gaining a snapshot is a meaningful content change, so this
+-    write must carry the same writer attestation a re-render would — else the
++    """Gaining a snapshot is a meaningful content change, so this write must
++    carry the same writer attestation a re-render would — else the
+     evidence-layer guard cannot tell it apart from a bare hand-edit.
+     """
+     from knowledge_harness import gitstate, lints
+ 
+     _write_note(net_vault)
+     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+     subprocess.run(
+         ["git", "commit", "-q", "-m", "add web note"], cwd=net_vault, check=True
+     )
+     base = _tree_hash(net_vault)
+@@ -533,22 +533,22 @@ def test_a_legitimate_archive_run_passes_the_closing_guard(net_vault, monkeypatc
+ 
+     assert outcome.result is Result.MATCHED
+     outcomes = lints.lint_evidence_layer(
+         gitstate.snapshot_tree(net_vault, base),
+         gitstate.snapshot_worktree(net_vault),
+     )
+     assert not any(item.reason.startswith("drift") for item in outcomes)
+ 
+ 
+ def test_a_bare_archive_url_hand_edit_fails_the_closing_guard(net_vault):
+-    """The gap this task closes: without Step 2b's attestation, this write —
+-    indistinguishable from `archive-source`'s own — must still read as drift.
++    """Without `_bump_generated`'s attestation, this write — indistinguishable
++    from `archive-source`'s own — must still read as drift.
+     """
+     from knowledge_harness import gitstate, lints
+ 
+     path = _write_note(net_vault)
+     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+     subprocess.run(
+         ["git", "commit", "-q", "-m", "add web note"], cwd=net_vault, check=True
+     )
+     base = _tree_hash(net_vault)
+ 
+diff --git a/tests/test_lints.py b/tests/test_lints.py
+index d5af54d..699281e 100644
+--- a/tests/test_lints.py
++++ b/tests/test_lints.py
+@@ -819,24 +819,24 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
+     if key == "citekey":
+         return text.replace('citekey: "smith2020"', 'citekey: "smith2020x"', 1)
+     raise ValueError(key)
+ 
+ 
+ @pytest.mark.parametrize(
+     "key",
+     ["archive-url", "managed-sha256", "fixity-sha256", "generated", "citekey"],
+ )
+ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
+-    """Task 17b: machine-owned frontmatter sits outside %%hk-managed%%, so a
+-    hand-edit to it — with the managed slice untouched and no writer
+-    attestation (a `generated` bump by the machine actor in the same diff) —
+-    must surface as drift, the same as a managed-region change would.
++    """Machine-owned frontmatter sits outside %%hk-managed%%, so a hand-edit
++    to it — with the managed slice untouched and no writer attestation (a
++    `generated` bump by the machine actor in the same diff) — must surface as
++    drift, the same as a managed-region change would.
+     """
+     base = subprocess.run(
+         ["git", "rev-parse", "HEAD^{tree}"],
+         cwd=fixture_vault,
+         check=True,
+         text=True,
+         capture_output=True,
+     ).stdout.strip()
+     source = fixture_vault / "literatures" / "smith2020.md"
+     original = source.read_text()
+@@ -875,10 +875,141 @@ def test_screening_status_hand_edit_is_not_evidence_layer_drift(fixture_vault):
+ 
+     outcomes = lints.lint_evidence_layer(
+         gitstate.snapshot_tree(fixture_vault, base),
+         gitstate.snapshot_worktree(fixture_vault),
+     )
+ 
+     assert not any(
+         item.result is Result.UNMATCHED and item.reason.startswith("drift")
+         for item in outcomes
+     )
++
++
++@pytest.mark.parametrize(
++    "malformed_generated",
++    [
++        'generated: {by: "knowledge_harness/0.1.0", at: "banana"}',
++        'generated: {by: "knowledge_harness/0.1.0"}',
++    ],
++    ids=["invalid-at", "missing-at"],
++)
++def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
++    fixture_vault, malformed_generated
++):
++    """A `generated` whose `by` looks machine-class but whose shape is invalid
++    (bad `at`, or no `at` at all) must not legalize anything —
++    `notes._valid_generated` is the one place this field's shape is defined.
++    """
++    base = subprocess.run(
++        ["git", "rev-parse", "HEAD^{tree}"],
++        cwd=fixture_vault,
++        check=True,
++        text=True,
++        capture_output=True,
++    ).stdout.strip()
++    source = fixture_vault / "literatures" / "smith2020.md"
++    edited = source.read_text().replace(
++        'citekey: "smith2020"', 'citekey: "smith2020x"', 1
++    )
++    edited = edited.replace(
++        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}',
++        malformed_generated,
++        1,
++    )
++    source.write_text(edited)
++
++    outcomes = lints.lint_evidence_layer(
++        gitstate.snapshot_tree(fixture_vault, base),
++        gitstate.snapshot_worktree(fixture_vault),
++    )
++
++    assert any(
++        item.reason == "drift — citekey changed without writer attestation"
++        for item in outcomes
++    ), outcomes
++
++
++def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vault):
++    """Two different non-dict `generated` values must not compare equal just
++    because both get coerced to "no shape" — the comparison has to see the
++    raw value, or a hand-edit could hide behind a same-looking coercion.
++    """
++    source = fixture_vault / "literatures" / "smith2020.md"
++    source.write_text(
++        source.read_text().replace(
++            'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}',
++            'generated: "junk-one"',
++            1,
++        )
++    )
++    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
++    subprocess.run(
++        ["git", "commit", "-q", "-m", "junk generated base"],
++        cwd=fixture_vault,
++        check=True,
++    )
++    base = subprocess.run(
++        ["git", "rev-parse", "HEAD^{tree}"],
++        cwd=fixture_vault,
++        check=True,
++        text=True,
++        capture_output=True,
++    ).stdout.strip()
++
++    edited = source.read_text().replace(
++        'generated: "junk-one"', 'generated: "junk-two"', 1
++    )
++    source.write_text(edited)
++
++    outcomes = lints.lint_evidence_layer(
++        gitstate.snapshot_tree(fixture_vault, base),
++        gitstate.snapshot_worktree(fixture_vault),
++    )
++
++    assert any(
++        item.reason == "drift — generated changed without writer attestation"
++        for item in outcomes
++    ), outcomes
++
++
++def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_vault):
++    """An unparseable *base* frontmatter must not silently skip the whole
++    per-key comparison. The candidate side already has an independent parse
++    check (`validate_managed_witness`, first loop); this loop must not
++    short-circuit on the base side going unparseable instead.
++    """
++    source = fixture_vault / "literatures" / "smith2020.md"
++    original = source.read_text()
++    malformed = original.replace(
++        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
++        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
++        "  bad: nested\n---\n",
++        1,
++    )
++    with pytest.raises(frontmatter.FrontmatterError):
++        frontmatter.parse(malformed)
++    source.write_text(malformed)
++    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
++    subprocess.run(
++        ["git", "commit", "-q", "-m", "malformed base frontmatter"],
++        cwd=fixture_vault,
++        check=True,
++    )
++    base = subprocess.run(
++        ["git", "rev-parse", "HEAD^{tree}"],
++        cwd=fixture_vault,
++        check=True,
++        text=True,
++        capture_output=True,
++    ).stdout.strip()
++
++    source.write_text(_hand_edit_machine_owned_key(original, "generated"))
++
++    outcomes = lints.lint_evidence_layer(
++        gitstate.snapshot_tree(fixture_vault, base),
++        gitstate.snapshot_worktree(fixture_vault),
++    )
++
++    assert any(
++        item.reason == "drift — generated changed without writer attestation"
++        for item in outcomes
++    ), outcomes
+diff --git a/tests/test_verify_cli.py b/tests/test_verify_cli.py
+index d95850a..2e3eb57 100644
+--- a/tests/test_verify_cli.py
++++ b/tests/test_verify_cli.py
+@@ -207,20 +207,27 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
+         e.check == "quote" and e.target == raw.target
+         for e in inbox.open_entries(net_vault)
+     )
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
+             '  - "bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22"',
+         )
+     )
++    # Committed so `lint_evidence_layer`'s base and candidate agree on the
++    # changed fixity-sha256 — this test exercises hash-based reopening, not
++    # the machine-owned-frontmatter guard.
++    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
++    subprocess.run(
++        ["git", "commit", "-q", "-m", "change fixity-sha256"], cwd=net_vault, check=True
++    )
+     fourth = run_verify(net_vault, network=False, detection_date="2026-08-16")
+     assert any(
+         e.check == "quote" and e.target == raw.target
+         for e in inbox.open_entries(net_vault)
+     )
+     assert fourth["counts"]["UNMATCHED"] >= 1
+ 
+ 
+ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
+     file_outcome = _outcome(
+@@ -1037,21 +1044,21 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+             "",
+         )
+     )
+     # Committed so `lint_evidence_layer`'s base and candidate agree on the
+     # missing fixity-sha256 — this test exercises warning suppression, not
+-    # the machine-owned-frontmatter guard task 17b adds.
++    # the machine-owned-frontmatter guard.
+     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+     subprocess.run(
+         ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
+     )
+     warning = _outcome(
+         "update-notice",
+         "smith2020",
+         Result.MATCHED,
+         "matched",
+         warn_notices=[{"type": "correction"}],
+@@ -1505,20 +1512,27 @@ def _projecting_failure(check):
+ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+     net_vault, monkeypatch, check, reverse
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+             "",
+         )
+     )
++    # Committed so `lint_evidence_layer`'s base and candidate agree on the
++    # missing fixity-sha256 — this test exercises candidate-bound hashing, not
++    # the machine-owned-frontmatter guard.
++    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
++    subprocess.run(
++        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
++    )
+     primary = _projecting_failure(check)
+     companion = _outcome(
+         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+     )
+     current = [primary, companion]
+     if reverse:
+         current.reverse()
+     _isolate_network_verify(monkeypatch, current)
+ 
+     candidate_hash = _target_hash(net_vault, primary)
+@@ -1541,20 +1555,27 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
+     net_vault, monkeypatch, check
+ ):
+     source = net_vault / "literatures" / "smith2020.md"
+     source.write_text(
+         source.read_text().replace(
+             'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+             "",
+         )
+     )
++    # Committed so `lint_evidence_layer`'s base and candidate agree on the
++    # missing fixity-sha256 — this test exercises candidate-bound hashing, not
++    # the machine-owned-frontmatter guard.
++    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
++    subprocess.run(
++        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
++    )
+     primary = _projecting_failure(check)
+     companion = _outcome(
+         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
+     )
+     _isolate_network_verify(monkeypatch, [companion, primary])
+     candidate_hash = _target_hash(net_vault, primary)
+     notice_class, notice_type, notice_date = (
+         (
+             primary.extra.get("class"),
+             primary.extra.get("type"),
