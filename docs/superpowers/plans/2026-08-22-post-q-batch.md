@@ -45,6 +45,13 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 - [ ] **Step 1:** Add to the index template, under its folder links: `![[system/bases/trust-tier.base]]` and `![[system/bases/open-questions.base]]` with a one-line lead-in each (compress from the Base's own purpose; don't invent). Rationale in place: the Bases are the researcher's dashboards (§9 derives trust tiers in one), but `.base` is Obsidian-only, so the files stay in `system/` per vault-outlives-harness — embedding gives one-click access without moving a tool artifact into the knowledge tree.
 - [ ] **Step 2:** Pin updated same commit; suite; commit `feat: vault index embeds the trust-tier and open-questions Bases`.
 
+### Task 2c: Vault AGENTS.md integrity preamble (decided 2026-08-24 — the oblivious-agent defense)
+
+**Files:** Modify: `knowledge_harness/templates/vault/AGENTS.md`; its whole-file pin. **Ordering:** independent — its own commit if Task 2's template work already passed.
+
+- [ ] **Step 1:** The template OPENS with a two-sentence integrity preamble, before the routing index — for the agent that reads nothing else: *"This is a knowledge-harness vault. `literatures/`, `log/`, root `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits are warned in session and caught at commit."* (Adjust the surface list to what the template already names; don't restate the routing index.)
+- [ ] **Step 2:** Pin same commit; suite; commit `feat: vault AGENTS.md opens with the integrity preamble`. Item 15's live-vault application now carries this too.
+
 ### Task 3: verify-citations de-enumeration + the enumeration checker (items 3–4)
 
 **Files:** Modify: `skills/verify-citations/SKILL.md`; `tests/test_skill_contracts.py`.
