@@ -13,7 +13,7 @@ _Avoid_: knowledge base, second brain
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
 _Avoid_: sources folder, references layer
 
-**Synthesis layer**: The LLM-maintained topic pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
+**Synthesis layer**: The LLM-maintained pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
 _Avoid_: atlas, wiki, topic pages
 
 **Literature note**: The vault projection of one Zotero item, filename = citekey; a managed region above free prose.
@@ -69,8 +69,8 @@ _Avoid_: import (that is the projection step that follows), ingestion
 **Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered from Zotero, never authored.
 _Avoid_: admission (that is the human act before), sync
 
-**Bibliography export**: The citekey universe: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT, that citations, filenames, and checks all join against.
-_Avoid_: bibliography file, reference list
+**Bibliography export**: The universe of items a citekey can name: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT.
+_Avoid_: bibliography file, reference list, citation universe (that is the evidence layer)
 
 **Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded.
 _Avoid_: unreviewed/active/rejected (old values), review status
@@ -92,7 +92,7 @@ _Avoid_: confidence level (that is a per-claim field), quality score
 **Review inbox**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to; drained at project orientation.
 _Avoid_: issue list, warning log
 
-**Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the only way to bypass a check that would otherwise block.
+**Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the recorded decision that lets a check stand down without the finding being erased.
 _Avoid_: dismissal, override (an ack keeps the record; it never deletes)
 
 **Publish gate**: The armed, fail-closed verification boundary a project crosses at publish; inert unless armed.

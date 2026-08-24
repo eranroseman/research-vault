@@ -284,6 +284,8 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 ### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap)
 
+**The reason, for the test name and the docstring:** an empty applicable-check set satisfies "every applicable check passed" vacuously, and vacuous truth is not evidence. A machine tier needs at least one check that ran and passed — otherwise a note with no identifiers, no quotes, and no verified events derives the top tier, which is what it does at HEAD.
+
 **Files:**
 
 - Modify: `knowledge_harness/events.py` (`trust_tier`, ~line 240)
