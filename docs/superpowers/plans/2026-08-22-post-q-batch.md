@@ -340,7 +340,7 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 - Test: `tests/test_events.py`
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```python
 def test_no_identifier_no_claims_note_is_unverified():
@@ -351,9 +351,9 @@ def test_frontmatterless_text_is_unverified():
     assert events.trust_tier("just some text\n") == "unverified"
 ```
 
-- [ ] **Step 2: Run** — Expected: FAIL, both return `"machine-confirmed"` today (empty applicable set, subset test vacuously true, no quote claims to block it).
+- [x] **Step 2: Run** — Expected: FAIL, both return `"machine-confirmed"` today (empty applicable set, subset test vacuously true, no quote claims to block it).
 
-- [ ] **Step 3: Implement** — machine-confirmed requires evidence, not absence of counter-evidence. After the existing `machine_confirmed` computation, add the checkability floor:
+- [x] **Step 3: Implement** — machine-confirmed requires evidence, not absence of counter-evidence. After the existing `machine_confirmed` computation, add the checkability floor:
 
 ```python
 has_applicable = bool(_applicable_note_checks(data))
@@ -367,9 +367,9 @@ if not has_applicable and not has_managed_quotes:
 
 (Reuse the existing `parse_claims` iteration rather than iterating twice if straightforward — a flag set inside the current loop plus the `has_applicable` check is equivalent.)
 
-- [ ] **Step 4: Spec amendment, same commit** — §5's event-integrity paragraph gains one sentence: *"An item with no applicable note-level checks and no managed quote claims derives `unverified` — the machine tiers require at least one deterministic check to have run and matched, never vacuous satisfaction (closed 2026-08-22, audit defect 3)."*
+- [x] **Step 4: Spec amendment, same commit** — §5's event-integrity paragraph gains one sentence: *"An item with no applicable note-level checks and no managed quote claims derives `unverified` — the machine tiers require at least one deterministic check to have run and matched, never vacuous satisfaction (closed 2026-08-22, audit defect 3)."*
 
-- [ ] **Step 5: Full suite; fix any test that pinned the vacuous tier (say so per-test in the commit body). Commit** `fix: trust tier requires evidence — no vacuous machine-confirmed`
+- [x] **Step 5: Full suite; fix any test that pinned the vacuous tier (say so per-test in the commit body). Commit** `fix: trust tier requires evidence — no vacuous machine-confirmed`
 
 ### Task 17: The "unresolved" placeholder never anchors acknowledgments (audit defects, fixity pair)
 
