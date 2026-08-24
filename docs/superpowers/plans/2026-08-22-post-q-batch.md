@@ -180,7 +180,9 @@ def test_import_refusal_files_review_record_and_exits_1(tmp_vault, ...):
     # byte-for-byte, a render/UNMATCHED/schema-violation review record filed
     # (the uniform-wiring contract — same writer the finding verb uses).
 
-def test_fresh_note_still_seeds():  # existing=None → SEED_FREE as today
+def test_fresh_note_still_seeds():  # parametrize existing=None AND existing="" → SEED_FREE
+    # ("" reaches the fallthrough by accident today; once it raises, the empty case
+    #  must be an explicit first-branch catch or fresh renders start crashing)
 ```
 
 - [ ] **Step 2: Run — Expected: FAIL** (marker-less body silently replaced by `SEED_FREE` today, printed as success).
