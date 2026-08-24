@@ -86,6 +86,16 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 - [ ] **Step 2:** Item 14 is a no-op by design: all §6 deferred items carry their triggers in the audit doc — verify none landed here.
 - [ ] **Step 3:** Pins; suite; commit `feat: ecosystem-steal prose adoptions (audit §6 adopted set)`.
 
+### Task 8b: Guard sentences from the ADR triage (added 2026-08-24 — the dropped ADR drafts land as prose where agents read it)
+
+**Files:** Modify: `skills/evidence-conventions/SKILL.md`; pins.
+
+- [ ] **Step 1 (from dropped 0007):** Add a rationalization-table row beside "The abstract said so.": *"I'll summarize from the abstract."* → *"A summary is written from the full text, or it says \"no full text available\" and stops. An abstract-derived summary states methods, conditions, and magnitudes the abstract cannot carry — fabricated facts under the source's citekey — and inherits the authors' pitch as fact. No tag repairs it."*
+- [ ] **Step 2 (from dropped 0009 — verify-then-add):** Check whether the claim-syntax section already forces provenance inline per claim (tag + citekey + anchor on the claim line, never frontmatter-only). If it does, add NOTHING — the rule shipped. If the never-frontmatter-only clause is absent, add its one sentence.
+- [ ] **Step 3:** Pins same commit; suite; commit `feat: evidence-conventions carries the full-text-summary and inline-provenance guards`.
+
+**Test-name note for Part 2:** Task 16's regression tests name the invariant they pin (e.g. `test_absence_is_not_a_pass_*`) — the dropped 0005's home is a named test, not a doc. Task 12's duplicate-anchor guard already satisfies the dropped 0008 the same way.
+
 ### Task 9: SKIPPED entries excluded from unacknowledged counts (item 16, slice finding 14)
 
 **Files:** Modify: `knowledge_harness/inbox.py` (`summary`, ~line 710, and every drain surface that counts). Test: `tests/test_inbox.py`.
