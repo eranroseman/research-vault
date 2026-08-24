@@ -1457,6 +1457,29 @@ def test_reduce_update_notice_outcomes_applies_precedence_and_merges_warns():
     assert unmatched.reason == "retracted — withdrawal"
 
 
+def test_reduce_preserves_nonblocking_unmatched_over_matched():
+    """A ran-and-disagreed non-blocking UNMATCHED must outrank a MATCHED."""
+    live = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.UNMATCHED,
+        "mismatch — version differs",
+        extra={"warn_notices": []},
+    )
+    rw = checks.Outcome(
+        "update-notice",
+        "cite",
+        Result.MATCHED,
+        "matched",
+        extra={"warn_notices": [{"type": "correction", "notice_date": None}]},
+    )
+
+    reduced = checks.reduce_update_notice_outcomes(live, rw)
+
+    assert reduced.result is Result.UNMATCHED  # ran-and-disagreed survives
+    assert reduced.extra.get("warn_notices")  # RW's warns still merged
+
+
 def test_merge_warn_notices_accepts_raw_groups_and_deduplicates_type_date():
     merged = checks._merge_warn_notices(
         [

@@ -25,6 +25,7 @@ from knowledge_harness import (
 from knowledge_harness.__main__ import cmd_inbox, cmd_verify, main
 from knowledge_harness.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from knowledge_harness.verify import (
+    _apply_state_transitions,
     _archive_outcomes,
     _file_effects,
     _mutate_marker,
@@ -510,6 +511,29 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         for item in inbox.open_entries(net_vault)
     )
     assert "warn-notice — correction" not in capsys.readouterr().out
+
+
+def test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a_mint(
+    net_vault,
+):
+    """A non-MATCHED update-notice outcome must record a failure, never mint
+    a verified event."""
+    outcome = checks.Outcome(
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch — version differs",
+    )
+
+    _apply_state_transitions(net_vault, [outcome], "2026-08-16")
+
+    source = (net_vault / "literatures" / "smith2020.md").read_text()
+    assert not any(
+        event["check"] == "update-notice" for event in events.verified_checks(source)
+    )
+    assert any(
+        row["check"] == "update-notice" for row in events.current_failures(source)
+    )
 
 
 @pytest.mark.parametrize(

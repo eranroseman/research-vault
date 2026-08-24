@@ -1054,7 +1054,12 @@ def reduce_update_notice_outcomes(
         chosen = next(
             (
                 outcome
-                for result in (Result.UNREACHABLE, Result.MATCHED, Result.SKIPPED)
+                for result in (
+                    Result.UNREACHABLE,
+                    Result.UNMATCHED,
+                    Result.MATCHED,
+                    Result.SKIPPED,
+                )
                 for outcome in outcomes
                 if outcome.result is result
             ),
