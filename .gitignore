@@ -2,6 +2,9 @@
 sources/*.zip
 .worktrees/
 .claude/worktrees/
+# SDD scratch — Concerns route to durable homes at write time; the skill
+# deletes this at Finish (post-q's committed workspace predates the rule)
+.superpowers/
 # PDFs belong in Zotero (spec §2 preservation boundary); recovering a primary
 # into sources/ is a deliberate act: git add -f + a README table row.
 *.pdf
