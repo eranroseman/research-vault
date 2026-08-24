@@ -36,4 +36,4 @@ One comparative judge per scenario receives the three anonymous replies and the 
 
 ## Run mechanics
 
-Workflow script exists (`red-phase-baseline` in the session's workflow directory); a stopped launch means `resumeFromRunId` replays any completed cells free. Output lands as `docs/2026-08-22-red-phase-baseline.md` with per-cell grades, quotes, and the gate verdict.
+Workflow script exists (`red-phase-baseline` in the session's workflow directory); a stopped launch means `resumeFromRunId` replays any completed cells free. Output lands as `research/validation-slice/2026-08-22-red-phase-baseline.md` with per-cell grades, quotes, and the gate verdict.

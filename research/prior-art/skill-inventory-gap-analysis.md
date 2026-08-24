@@ -3,10 +3,10 @@
 Research note, 2026-08-16. Feeds ticket #11 (Foundation skill inventory), Q2: which skills ship.
 Method: (A) six day-one user journeys simulated step-by-step against the candidate set, each step
 tagged `SERVED BY <x>` / `GAP` / `OVERLAP`; (B) every skill/capability in the three design-draft
-lenses (`analysis/design-drafts/`) diffed against the candidate set and the installed harness.
+lenses (`research/harness-audits/design-drafts/`) diffed against the candidate set and the installed harness.
 Inputs: #7–#10 resolutions, #11 partial resolution (control model = user-driven Pocock, plain
-descriptive names), research/adoptable-skills-audit.md, research/plugin-packaging-mechanics.md,
-analysis/dev-harness-analysis.md. **No decisions here — ticket is HITL; contested points are
+descriptive names), research/prior-art/adoptable-skills-audit.md, research/prior-art/plugin-packaging-mechanics.md,
+research/harness-audits/dev-harness-analysis.md. **No decisions here — ticket is HITL; contested points are
 presented as options with recommended defaults.**
 
 ---
@@ -138,7 +138,7 @@ plus one seam to name explicitly (`vault-setup` vs `import-source` on batch back
 
 ## Part B — Capability diff vs the design drafts
 
-Sources: `analysis/design-drafts/scriptorium-pipeline-lens.md` (S), `loom-vault-lens.md` (L),
+Sources: `research/harness-audits/design-drafts/scriptorium-pipeline-lens.md` (S), `loom-vault-lens.md` (L),
 `governance-quality-lens.md` (G). "Personal" = installed at `~/.claude/skills/` (verified:
 grilling, domain-modeling, handoff, wayfinder, research, teach, triage, wizard, to-questionnaire,
 wait-what, consistency-audit, finding-duplicate-functions, prototype, writing-for-agents, …).
