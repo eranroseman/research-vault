@@ -1,6 +1,6 @@
 # Vale as a prose linter for the harness repo and the vault — declined
 
-**Verdict (author-ruled 2026-08-24): declined.** The terminology guard is adopted instead as a pytest that parses `CONTEXT.md` at test time — no generated artifact, so registry drift is structurally impossible (the eliminate rung, per AGENTS.md). Vale would be mechanism-plus-guard. **Revisit triggers, and only these: a demand for editor integration (LSP squiggles for a human author), or a vault-side user request.** The user-side answer that never touches trust machinery is the [Obsidian Vale plugin](https://github.com/ChrisChinchilla/obsidian-vale) — a reader installs it in their own vault, and the harness knows nothing about it.
+**Verdict (author-ruled 2026-08-24): declined.** The terminology guard is adopted instead as a pytest that parses `CONTEXT.md` at test time — no generated artifact, so registry drift is structurally impossible (the eliminate rung, per AGENTS.md). Vale would be mechanism-plus-guard. **Revisit triggers, and only these: a demand for editor integration (LSP squiggles for a human author), or a vault-side user request.** The user-side answer that never touches trust machinery is the [Obsidian Vale plugin](https://github.com/ChrisChinchilla/obsidian-vale) — a reader installs it in their own vault, and the harness knows nothing about it. **A third surface, user-facing documentation, was measured the same day and adds a third trigger; see §8.**
 
 This note exists so nobody re-runs the evaluation from scratch. The measured yields are the decision; the configuration knowledge in §4 is the part a future evaluator would otherwise have to rediscover by experiment.
 
@@ -108,3 +108,39 @@ The `_Avoid_` format-tightening cost is real but hits every option equally — c
 Vale was already in this project's design lineage before this evaluation. `research/prior-art/trust-gates-prior-art.md` §3 records its three-tier severity model and its exit-code split as precedent for our own four-state result model, and `docs/terminology.md` T7 names "Vale severities" as an anchor source for dev-facing surfaces.
 
 The project took the idea and, on evidence, declines the tool.
+
+## 8. Addendum (2026-08-24) — user-facing documentation, the third surface
+
+Asked after the ruling: does the verdict change for prose written for a *reader* rather than for an agent? It does not, and the measurement is worth keeping because the failure mode is different from §2's and §5's.
+
+**There is barely a corpus.** Strict user-facing — what a reader of this project actually reads — is `README.md` (165 words) plus the vault templates shipped into every reader's vault (1,062 words): **roughly 1,200 words.** The CLI contributes nothing; `knowledge_harness/__main__.py` has one `help=` string and no help prose. The number reaches 11.4k words only by folding in `skills/*/SKILL.md`, which `docs/terminology.md` T7 already classifies as dev-facing rather than vault prose — a different surface with a different ruled vocabulary.
+
+**Method.** Unlike §2–§5, this run used real style packages: `Packages = Microsoft, Google`, synced over the network into a scratch `StylesPath` (`vale sync` worked first try; the package route is not the friction point). Run over `README.md`, the vault templates, and the nine `SKILL.md` files — 14 files, ~11.4k words. **Caveat on every count below: both styles were loaded at once and they duplicate heavily** — the acronym rules fired 50 times each on identical spots. A real deployment picks one style, so the raw counts roughly halve. The percentage does not move.
+
+**1414 alerts (575 error, 109 warning, 730 suggestion). 87% of them — 1239 — are house-voice conflicts:**
+
+| Rule | Hits | What it demands |
+| --- | --- | --- |
+| `Microsoft.Dashes` + `Google.EmDash` | 427 | stop spacing em dashes |
+| `Contractions` (both styles) | 238 | "don't" over "do not" |
+| `Semicolon` / `Semicolons` | 164 | "try to simplify this sentence" |
+| `Passive` (both styles) | 124 | flags `'is admitted'` |
+| `Google.Parens` | 123 | "use parentheses judiciously" |
+| `Microsoft.SentenceLength` | 54 | keep sentences under 30 words |
+
+Spaced em dashes, semicolons, parentheticals, formal non-contracted phrasing, and long sentences are this project's deliberate register, in prose whose whole purpose is normative precision. The remaining 175 alerts are 57% duplicate pairs across the two styles, leaving roughly 125 distinct.
+
+**The durable finding is an authority conflict, and it holds at any corpus size.** `docs/terminology.md` §2 sets a ruled eight-tier precedence order for naming. A third-party style package arrives as an unranked ninth authority that outranks nothing and objects loudest:
+
+- `Google.WordList` demands "command-line tool" instead of **CLI** — T7 names CLI vocabulary as an anchor source.
+- `Microsoft.Terms` prefers "specification" over **spec** — the repo ships `docs/superpowers/specs/`.
+- `Microsoft.Passive` flags `is admitted` — **admission** is a defined glossary term and that is its precise conjugation.
+- `Microsoft.Vocab` and `Google.WordListCase` fire *on glossary definition lines*, telling the naming authority to rename itself.
+
+This is not noise to be tuned away. It is a second naming authority installed beside the one the project spent its terminology pass ruling.
+
+**True positives, in full:** `PKM` unexpanded in `README.md` line 3, defined nowhere a reader reaches — real, and fixed in commit `3244371` by spelling it out rather than glossing it (used once, it earns no abbreviation). `Google.Timeless` on "currently" in the vault glossary (2 hits) — arguably real for prose meant to outlive a version. `TOML` flagged as an undefined acronym — false, it is standard in a developer section. **Yield: one to three findings across ~11.4k words**, obtainable by reading a 165-word README once.
+
+**Neither existing trigger fires.** "User-facing" changes the *reader*, not the *writer*. Vale sits in the authoring pipeline, and the writers here are still agents — the same fact that sank the LSP argument in §6. A human reading the output does not put a human at the keyboard.
+
+**New revisit trigger, added by this addendum:** *a genuine user-docs corpus gets authored* — a documentation site, a getting-started guide, anything on the order of thousands of words written for readers. At that point the reasons change shape: acronym first-use expansion and readability become the case for the tool, terminology is already covered by the pytest, and the §4 configuration knowledge and the authority conflict recorded here are what that evaluation should start from rather than rediscover.
