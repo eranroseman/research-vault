@@ -240,11 +240,14 @@ def _claim_anchor_hash(
 ):
     """The identity of a ``citekey#^claim`` target, or None if its bytes are gone.
 
-    The citekey's own recorded fixity wins where the note declares one; failing
-    that the claim's bytes are read from whichever plane still holds them —
-    candidate image, worktree note, base image or HEAD, then the citekey's note.
-    None is not an error here: it means no plane holds the claim any more, and
-    the caller falls back to the coarser identities below.
+    The citekey's own recorded fixity wins where the note declares a
+    validly-shaped digest; a note with no fixity, an empty list, or a value
+    that doesn't look like a digest is treated as not declaring one at all.
+    Failing that, the claim's bytes are read from whichever plane still
+    holds them — candidate image, worktree note, base image or HEAD, then
+    the citekey's note. None is not an error here: it means no plane holds
+    the claim any more, and the caller falls back to the coarser identities
+    below.
     """
     citekey, claim_id = target.split("#^", 1)
     known_citekey_hash = _citekey_hash(
@@ -397,10 +400,12 @@ def _identifier_hash(
     """The identity of a bare identifier: its note where one exists, else its entry.
 
     A note is preferred over a bibliography entry wherever the identifier has
-    one — recorded fixity first, then candidate image, worktree, base image or
-    HEAD — so an identifier and the note carrying it never disagree about what
-    was acknowledged. Only an identifier with no note at all falls through to
-    the canonical bibliography record.
+    one — a validly-shaped recorded fixity digest first, then candidate
+    image, worktree, base image or HEAD — so an identifier and the note
+    carrying it never disagree about what was acknowledged. A note whose
+    fixity is absent, empty, or not digest-shaped falls through the same as
+    one with none recorded. Only an identifier with no note at all falls
+    through to the canonical bibliography record.
     """
     known_citekey_hash = _citekey_hash(
         vault_root, target, candidate_snapshot=candidate_snapshot

@@ -259,13 +259,19 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
         RepoPath(b"../outside")
 
 
-def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault):
-    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``)."""
+@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
+def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault, placeholder):
+    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``).
+
+    Two shapes, not one: "unresolved" is non-hex (fails the character
+    class), "aa11" is valid hex but short (fails the length bound) — so
+    this also pins the ``{64}`` bound, not just hex-ness.
+    """
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
             '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
-            '  - "unresolved"',
+            f'  - "{placeholder}"',
         )
     )
     claim_outcome = _outcome(
@@ -273,17 +279,23 @@ def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault):
     )
     expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
     result = _target_hash(net_vault, claim_outcome)
-    assert result != "unresolved"
+    assert result != placeholder
     assert result == expected
 
 
-def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault):
-    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``)."""
+@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
+def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault, placeholder):
+    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``).
+
+    Two shapes, not one: "unresolved" is non-hex (fails the character
+    class), "aa11" is valid hex but short (fails the length bound) — so
+    this also pins the ``{64}`` bound, not just hex-ness.
+    """
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
             '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
-            '  - "unresolved"',
+            f'  - "{placeholder}"',
         )
     )
     candidate_snapshot = gitstate.snapshot_worktree(net_vault)
@@ -294,8 +306,33 @@ def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault):
     result = _target_hash(
         net_vault, claim_outcome, candidate_snapshot=candidate_snapshot
     )
-    assert result != "unresolved"
+    assert result != placeholder
     assert result == expected
+
+
+def test_ack_hash_falls_through_when_fixity_is_empty_list(net_vault):
+    """A present-but-empty ``fixity-sha256`` list — the shape Task 17's side
+    (a) now writes when every attachment fails to resolve — falls through to
+    the managed-bytes hash on both ``_citekey_hash`` branches, same as an
+    absent key.
+    """
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace(
+            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+            "fixity-sha256:\n",
+        )
+    )
+    claim_outcome = _outcome(
+        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
+    )
+    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    assert _target_hash(net_vault, claim_outcome) == expected
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+    assert (
+        _target_hash(net_vault, claim_outcome, candidate_snapshot=candidate_snapshot)
+        == expected
+    )
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -396,9 +433,9 @@ def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monke
         "smith2020",
         Result.UNMATCHED,
         "mismatch — old result",
-        target_hash="aa11",
+        target_hash="aa11" * 16,
     )
-    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11")
+    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11" * 16)
     monkeypatch.setattr(
         "knowledge_harness.verify._bibliography_entries",
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
