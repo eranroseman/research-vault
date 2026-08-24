@@ -68,16 +68,16 @@ _Avoid_: unreviewed/active/rejected (old values), review status
 
 ## Verification
 
-**Check**: One mechanical verification (citekey exists, DOI resolves, quote matches, update-notice scan, …).
+**Check**: One named verification a note or claim is put through; most are mechanical, some are LLM judgment.
 _Avoid_: test, validation
 
-**Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply — automatic only).
+**Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply).
 _Avoid_: pass/fail, pytest vocabulary in vault prose
 
 **Verified event**: The dated, attributed record of which check passed, appended to a note; only MATCHED mints one.
 _Avoid_: verification log entry, audit record
 
-**Closing check**: A check that can hold a surface (commit, publish) when it fails; warn-tier findings only inform, through the review inbox.
+**Closing check**: A check whose standing can hold a surface; closing is a property of the surface, not of the check.
 _Avoid_: blocking check, hard check
 
 **Trust tier**: A note's derived standing: unverified → machine-confirmed → human-reviewed (cumulative).
@@ -89,7 +89,7 @@ _Avoid_: issue list, warning log
 **Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the recorded decision that lets a check stand down without the finding being erased.
 _Avoid_: dismissal, override (an ack keeps the record; it never deletes)
 
-**Publish gate**: The armed, fail-closed verification boundary a project crosses at publish; inert unless armed.
+**Publish gate**: The fail-closed verification boundary every publication crosses.
 _Avoid_: release check, CI gate (CI is the async auditor, not the gate)
 
 **Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …), recorded bi-temporally.
