@@ -301,7 +301,7 @@ def _rw_date(value) -> str | None | object:
 
 - Test: `tests/test_checks.py`
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```python
 def test_reduce_preserves_nonblocking_unmatched_over_matched():
@@ -316,17 +316,17 @@ def test_reduce_preserves_nonblocking_unmatched_over_matched():
 
 (Adjust constructor call shape to the real `Outcome` signature in the file — the assertion pair is the contract.)
 
-- [ ] **Step 2: Run it** — Expected: FAIL (today the fallback priority is UNREACHABLE > MATCHED > SKIPPED, so the non-blocking UNMATCHED loses to MATCHED).
+- [x] **Step 2: Run it** — Expected: FAIL (today the fallback priority is UNREACHABLE > MATCHED > SKIPPED, so the non-blocking UNMATCHED loses to MATCHED).
 
-- [ ] **Step 3: Implement** — in the non-blocking `chosen` fallback, insert `Result.UNMATCHED` ahead of `Result.MATCHED`:
+- [x] **Step 3: Implement** — in the non-blocking `chosen` fallback, insert `Result.UNMATCHED` ahead of `Result.MATCHED`:
 
 ```python
 for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIPPED)
 ```
 
-- [ ] **Step 4: Sweep the consequences.** Run the full offline suite; any test that pinned the old rounding is a test asserting the defect — fix the test, and say so in the commit body per-test. Then check the event-minting path: an UNMATCHED reduction must not mint a `verified` update-notice event (read `verify.py`'s minting condition and add a regression test if none pins it).
+- [x] **Step 4: Sweep the consequences.** Run the full offline suite; any test that pinned the old rounding is a test asserting the defect — fix the test, and say so in the commit body per-test. Then check the event-minting path: an UNMATCHED reduction must not mint a `verified` update-notice event (read `verify.py`'s minting condition and add a regression test if none pins it).
 
-- [ ] **Step 5: Commit** `fix: update-notice reduction preserves non-blocking UNMATCHED`
+- [x] **Step 5: Commit** `fix: update-notice reduction preserves non-blocking UNMATCHED`
 
 ### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap; also closes [issue #17](https://github.com/eranroseman/knowledge-harness/issues/17) — human-reviewed tier unreachable — read the issue and cover it in this task's tests; reference #17 in the commit)
 
