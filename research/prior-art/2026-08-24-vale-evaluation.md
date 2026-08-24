@@ -8,7 +8,7 @@ Method: Vale v3.18.0 (Linux 64-bit release binary) unpacked to `/tmp`, driven wi
 
 ## 1. What Vale is
 
-A Go binary, MIT-licensed, read-only: it reports and never rewrites. Rules are YAML files extending one of eleven checks (`existence`, `substitution`, `occurrence`, `repetition`, `consistency`, `conditional`, `capitalization`, `metric`, `spelling`, `sequence`, `script`), grouped into styles under a `StylesPath`. A `Vocab` folder holds `accept.txt` and `reject.txt`, one regex per line; `reject.txt` entries feed a built-in `Vale.Avoid` existence rule, `accept.txt` entries feed `Vale.Terms` (which enforces exact casing) and are added to every style's exception list.
+A Go binary, MIT-licensed, read-only: it reports and never rewrites. Rules are YAML files extending one of twelve checks (`existence`, `substitution`, `occurrence`, `repetition`, `consistency`, `conditional`, `capitalization`, `metric`, `readability`, `spelling`, `sequence`, `script`), grouped into styles under a `StylesPath`. A `Vocab` folder holds `accept.txt` and `reject.txt`, one regex per line; `reject.txt` entries feed a built-in `Vale.Avoid` existence rule, `accept.txt` entries feed `Vale.Terms` (which enforces exact casing) and are added to every style's exception list.
 
 The read-only property matters for the vault: Vale does not violate the "formatters are writers too" contract in `knowledge_harness/templates/vault/AGENTS.md`. That contract is not what rules it out — §5 is.
 
