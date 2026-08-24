@@ -1,17 +1,9 @@
-# Dev-lane orchestration seam (docs/2026-08-21-lint-format-rethink.md): the ONE
-# command for every form/lint check, locally and in CI:
+# The ONE command for every form/lint check, locally and in CI:
 #     source .venv/bin/activate && pre-commit run --all-files
-# All hooks are repo-local system hooks over the pinned venv — no remote hook
-# repos, no env building, no network at check time. The one-form-owner matrix
-# lives here as config; quality metrics (CRAP/drywall/mutation) are a different
-# axis and run as separate workflow steps.
-# NAME COLLISION, deliberate: this is the repo's DEV-LANE pre-commit (style and
-# correctness). The vault's pre-commit (knowledge_harness/templates/git/pre-commit)
-# is a TRUST GATE owned by the harness — a different system; do not conflate.
-# Hooks with no `stages` key would otherwise inherit pre-commit's all-stages
-# default and be re-selected by `--hook-stage manual`, making the manual run a
-# superset of this one. Pinning the default to pre-commit keeps the manual
-# invocation meaning exactly what it says: the binary-tool residuals below.
+# Repo-local system hooks over the pinned venv — no remote hook repos, no network
+# at check time. This is the DEV-LANE pre-commit; the vault's pre-commit
+# (knowledge_harness/templates/git/pre-commit) is a trust gate — do not conflate.
+# default pinned so `--hook-stage manual` selects ONLY the manual hooks below.
 default_stages: [pre-commit]
 repos:
   - repo: local
@@ -34,23 +26,10 @@ repos:
         entry: bash -c 'mypy knowledge_harness'
         pass_filenames: false
         always_run: true
-      # AGENTS.md and CONTEXT.md are in this path list, ruled 2026-08-22: they were
-      # the only unowned CommonMark left in the repo. The other 22 unowned .md files
-      # live under research/, analysis/ and sources/ and are correctly excluded --
-      # they are immutable records, and the record-immutability hook below would
-      # BLOCK formatting them. These two have no such excuse, and they are the
-      # repo's most-edited multi-agent prose (AGENTS.md had three writers in one
-      # week), which is precisely the drift surface one-form-owner exists to
-      # protect. Zero churn: both already matched canonical form at adoption.
-      # --number is load-bearing, ruled 2026-08-22. mdformat's default collapses
-      # every ordered list to all `1.` -- CommonMark-correct for a renderer, and
-      # referentially destructive for the actual reader here. This repo's markdown
-      # is consumed RAW by agents (the premise under the whole writing-for-agents
-      # layer) and the tree demonstrably carries numeric cross-references: a brief
-      # citing "item 6" against a list rendered `1. 1. 1. 1. 1. 6.` points at
-      # nothing. Canonical form must serve the actual reader, so the flag is part
-      # of the recorded canonical form, not a local fix -- keep it on every
-      # invocation, including --check.
+      # --number is part of the canonical form, every invocation including --check:
+      # this markdown is read RAW by agents and carries numeric cross-references;
+      # mdformat's default collapses ordered lists to all `1.`, so "item 6" would
+      # point at nothing. research/ and sources/ are excluded: immutable records.
       - id: mdformat
         name: "form: markdown CommonMark (mdformat)"
         language: system
@@ -63,21 +42,12 @@ repos:
         entry: bash -c 'yamlfix .github/workflows knowledge_harness/templates/ci'
         pass_filenames: false
         always_run: true
-      # The three flags are load-bearing, measured 2026-08-22 (the plan's
-      # "verified: zero spurious churn" did not hold against this file):
-      #   --keep-full-version           bare pyproject-fmt rewrote `mdformat==1.0.0`
-      #                                 to `==1`, silently loosening recorded pins;
-      #   --no-generate-python-version- it invented a classifiers block claiming
-      #     classifiers                 support up to Python 3.14, untested here;
-      #   --table-format long           keeps [tool.x.y] headers instead of dotted
-      #                                 keys, which is what keeps ruling comments
-      #                                 next to the settings they rule.
-      # Standing constraint this leaves behind: a comment must sit directly ABOVE
-      # the key it annotates. pyproject-fmt reorders tables and list entries, and a
-      # comment left floating between keys — or trailing a value — gets relocated
-      # onto whatever ends up beside it, which turns a recorded ruling into a false
-      # statement about a different setting. Comments here are written key-attached
-      # for exactly that reason.
+      # All three flags are load-bearing: --keep-full-version (bare tool loosens
+      # `==1.0.0` to `==1`), --no-generate-python-version-classifiers (invents
+      # untested support claims), --table-format long (keeps comments beside the
+      # keys they rule). Constraint: pyproject comments must sit directly ABOVE
+      # their key — the tool reorders, and a floating comment lands on the wrong
+      # setting.
       - id: pyproject-fmt
         name: "form: toml (pyproject-fmt)"
         language: system
@@ -91,25 +61,10 @@ repos:
         entry: bash -c 'python -m pytest tests/test_config_validity.py -q'
         pass_filenames: false
         always_run: true
-      # Mechanizes AGENTS.md's history rule (eliminate > mechanism > rule): the
-      # record paths are append-only, so any modification, rename, or deletion
-      # under them against origin/main fails here instead of waiting for review.
-      # MANIFEST SCOPE, measured 2026-08-22: research/, analysis/ and docs/adr/ are
-      # in and green (docs/adr came through the mdformat canonicalization byte-
-      # unchanged — it was already canonical). docs/superpowers/plans/ is
-      # deliberately OUT, OPEN, NO OWNER (corrected 2026-08-23: an earlier version
-      # of this comment claimed Plan Q Task 6 re-adds the path at merge; Task 6's
-      # three steps are acceptance, merge, and a post-merge note, none of which
-      # touches this file, so that claim was false — this records the gap
-      # honestly instead of inventing a resolution). Two reasons, neither expiring
-      # at this merge: (1) the one-time markdown canonicalization recorded in
-      # .git-blame-ignore-revs reformats all 12 completed plans, so including the
-      # path would fail this hook on its own churn commit forever; (2) in-flight
-      # plans are amended routinely here (Plan D, Plan L are live at this
-      # writing) and --diff-filter=MRD fails on any modification, so adding the
-      # path would break the next checkbox tick with no escape short of
-      # --no-verify. Same true-at-adoption discipline as the yamlfix path list
-      # above.
+      # Record paths are append-only: modification/rename/deletion against
+      # origin/main fails here. docs/superpowers/plans/ is deliberately OUT —
+      # in-flight plans are amended routinely and --diff-filter=MRD would fail
+      # every checkbox tick.
       - id: record-immutability
         name: "records: append-only under research/analysis/adr"
         language: system
@@ -122,8 +77,7 @@ repos:
           echo "$touched"; exit 1; }'
         pass_filenames: false
         always_run: true
-      # Manual stage: binary tools R5 declines to require locally (ruff-repo
-      # precedent for stage-tiering). CI runs them; local runs are optional.
+      # Manual stage: binary tools not required locally; CI runs them.
       - id: shellcheck
         name: "lint: shell (shellcheck)"
         language: system

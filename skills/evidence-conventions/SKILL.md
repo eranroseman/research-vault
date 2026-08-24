@@ -13,7 +13,7 @@ A claim line exists only after its literature note exists and its citekey resolv
 
 ## Claim syntax (§5)
 
-Every claim is one line:
+Every claim is one line, and it carries its own tag, citation, and anchor. Claims get copied — from a literature note into a synthesis page, from synthesis into a draft — and whatever is not on the line does not travel with it, so attribution held in frontmatter survives exactly one hop:
 
 ```
 - (quote|paraphrase|inference|open-question) <text> [@citekey, locator] [field:: value ...] ^claim-id
@@ -92,13 +92,13 @@ One registry code stays off this table: `matched` never reaches the queue (only 
 
 ## Rationalizations, answered
 
-| What you're tempted to think                        | The mechanical rule that forbids it                                                                                                                                                                                              |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "I'll cite it later."                               | The Iron Law: no claim line exists before its citekey resolves. Write it as prose in `inbox/`, not as a tagged claim, until the source is admitted.                                                                              |
-| "It's common knowledge."                            | Common knowledge is not an evidence-boundary tag. Every claim line needs `(quote\|paraphrase\|inference\|open-question)` plus a citekey — if it can't carry one, it isn't a claim, it's prose.                                   |
-| "The abstract said so."                             | The quote checker compares byte-normalized text against the literature note's managed region, not a memory of the abstract. Extract or paraphrase from the admitted item, or mark `(inference)` and accept the lower confidence. |
-| "I remember reading it."                            | A claim link only resolves to a literature note that already exists in `literatures/` with a resolving citekey. No note, no citekey — find it or admit the source first.                                                         |
-| "It's paywalled, I can't verify the exact wording." | Use `(paraphrase)` or `(inference)`, not `(quote)`. A `(quote)` tag commits to text the checker can byte-compare — never fabricate a quote to sound authoritative.                                                               |
+| What you're tempted to think                        | The mechanical rule that forbids it                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "I'll cite it later."                               | The Iron Law: no claim line exists before its citekey resolves. Write it as prose in `inbox/`, not as a tagged claim, until the source is admitted.                                                                                                                                                                                                                            |
+| "It's common knowledge."                            | Common knowledge is not an evidence-boundary tag. Every claim line needs `(quote\|paraphrase\|inference\|open-question)` plus a citekey — if it can't carry one, it isn't a claim, it's prose.                                                                                                                                                                                 |
+| "The abstract said so."                             | Write from the source, never from its abstract. An abstract cannot supply the methods, conditions, and magnitudes a claim states, so expanding one invents specifics and attributes them to the source — a tag does not launder that. Read the admitted item (its attachment lives in Zotero storage); where no full text is reachable, say "no full text available" and stop. |
+| "I remember reading it."                            | A claim link only resolves to a literature note that already exists in `literatures/` with a resolving citekey. No note, no citekey — find it or admit the source first.                                                                                                                                                                                                       |
+| "It's paywalled, I can't verify the exact wording." | Use `(paraphrase)` or `(inference)`, not `(quote)`. A `(quote)` tag commits to text the checker can byte-compare — never fabricate a quote to sound authoritative.                                                                                                                                                                                                             |
 
 ## Annotations scatter by link, never by retyping
 

@@ -1,6 +1,6 @@
 """Canonicality of the surfaces no off-the-shelf formatter may touch.
 
-The one-form-owner matrix (docs/2026-08-21-lint-format-rethink.md) gives every
+The one-form-owner matrix (research/rethink-audits/2026-08-21-lint-format-rethink.md) gives every
 file type a single owner. For vault-dialect markdown the owner is *the sole
 writer*: mdformat measurably mangles the dialect — ``[[wikilink]]`` becomes
 ``\\[[wikilink]\\]``, ``[field:: value]`` gets escaped, ``%%hk-managed%%``

@@ -2,6 +2,24 @@
 
 Merge back to main locally and push main to origin in the same motion. Fetch before claiming something is absent from origin.
 
-`research/`, `analysis/`, completed plans, and accepted ADRs stand as written — content, internal paths, and file location.
+Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
 
-Testing — including the live legs that offline runs silently skip: `docs/testing.md`.
+Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout.
+
+Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/testing.md`.
+
+Environment facts — Zotero, Better BibTeX, WSL path translation: `docs/environment.md`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five canonical labels (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.

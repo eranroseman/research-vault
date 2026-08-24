@@ -26,8 +26,8 @@ ______________________________________________________________________
 
 ## 1. Method and evidence rule
 
-The roster began with the products named in `research/prior-art-knowledge-work-harness.md` and
-`research/llm-wiki-integration-prior-art.md` — **names and URLs only**. Four things extended it:
+The roster began with the products named in `research/prior-art/prior-art-knowledge-work-harness.md` and
+`research/prior-art/llm-wiki-integration-prior-art.md` — **names and URLs only**. Four things extended it:
 30 GitHub searches across academic skills, LLM-wiki implementations, citation verification, Zotero
 bridges, systematic-review automation and second-brain harnesses; two skill frameworks the user
 named; the external tooling and standards this repository's own `research/` and `analysis/` notes

@@ -10,7 +10,7 @@ plugin loader or a human reader trusts, which nothing mechanically checks:
 
 The JSON half doubles as the *formatter*: ``json.tool``'s canonical form is
 asserted here rather than run as a separate hook, so the one-form-owner matrix
-gains a JSON owner with zero new dependencies (docs/2026-08-21-lint-format-rethink.md).
+gains a JSON owner with zero new dependencies (research/rethink-audits/2026-08-21-lint-format-rethink.md).
 """
 
 import ast
@@ -269,18 +269,18 @@ PYPROJECT_FMT_FLAGS = [
 # two significant (non-comment, non-blank) lines following the comment block,
 # which allows for a `[table.header]` line sitting between a block and its key.
 RULING_ANCHORS = [
-    ("Core's first pinned runtime dependency", '"defusedxml==0.7.1"'),
-    ("The mdformat pin is a RENDER-CONTRACT component", '"mdformat==1.0.0"'),
-    ("pytest-xdist: offline suite parallelism", '"pytest-xdist==3.8.0"'),
-    ("pyzotero: dev-lane agent instrument", '"pyzotero[cli]==1.14.0"'),
+    ("Lazy-imported at knowledge_harness's single parse site", '"defusedxml==0.7.1"'),
+    ("RENDER-CONTRACT pin", '"mdformat==1.0.0"'),
+    ("never in addopts", '"pytest-xdist==3.8.0"'),
+    ("Dev-lane instrument, read-only posture", '"pyzotero[cli]==1.14.0"'),
     ("Bandit idiom exclusions", "extend-select = ["),
-    ("ARG in tests (measured", '"tests/*" = ['),
+    ("ARG in tests only", '"tests/*" = ['),
     ("PTH off in gitstate ONLY", '"knowledge_harness/gitstate.py" = ['),
-    ("Same ruling, test side", '"tests/test_gitstate.py" = ['),
+    ("Test side of the same ruling", '"tests/test_gitstate.py" = ['),
     ("print IS the CLI output contract", '"knowledge_harness/__main__.py" = ['),
     ("Gate scripts report via stdout", '"scripts/*" = ['),
-    ("Resting cap, set 2026-08-22", "max-complexity = 28"),
-    ("Ratchet path (as touched code gets annotated)", "[tool.mypy]"),
+    ("competes with the CRAP ceiling", "max-complexity = 28"),
+    ("Ratchet: disallow_incomplete_defs", "[tool.mypy]"),
     ("pypdf: optional [pdf] extra", 'module = "pypdf.*"'),
     ("defusedxml ships no py.typed", 'module = "defusedxml.*"'),
 ]

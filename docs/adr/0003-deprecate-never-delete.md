@@ -1,10 +1,10 @@
-# Knowledge-state records deprecate, never delete
+# Vault knowledge-state records deprecate, never delete
 
 Status: accepted (2026-08-20)
 
-Records of what was known, decided, or found — admitted sources and their screening states, verification events, review-inbox findings and their acknowledgments, update notices — change state only by recorded transition (new state, actor, date); they are never silently removed or overwritten. An excluded source is marked `excluded`, not deleted; a superseded claim is marked superseded and points to its successor; a contradiction between sources is preserved as two linked claims with stance links, never resolved by erasing one. The decision exists because the vault's value as a research record depends on negative and outdated knowledge staying inspectable: why a source was excluded, what a claim said before correction, that a finding was seen and acknowledged rather than never raised.
+Records of what was known, decided, or found — admitted sources and their screening states, verification events, review-inbox findings and their acknowledgments, update notices — change state only by recorded transition (new state, actor, date); they are never silently removed or overwritten. An excluded source is marked `excluded`, not deleted; a superseded claim is deprecated with a `superseded-by` pointer to its successor; a contradiction between sources is preserved as two linked claims with stance links, never resolved by erasing one. The decision exists because the vault's value as a research record depends on negative and outdated knowledge staying inspectable: why a source was excluded, what a claim said before correction, that a finding was seen and acknowledged rather than never raised.
 
-**Scope bound:** this governs knowledge-state records, not prose arrangement. The synthesis layer is freely rewritable by design — reorganizing, rewording, and restructuring synthesis notes is normal work, because they assert arrangement, not evidence. Git history is the recovery net for prose; recorded transitions are the contract for state.
+**Scope bound.** Records only, in the vault only. Synthesis prose is freely rewritable (it asserts arrangement, not evidence). Repo artifacts — plans, docs, code — are outside this ADR: deleting them is normal hygiene, and this ADR never justifies keeping a dead file.
 
 ## Considered Options
 

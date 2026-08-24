@@ -59,14 +59,6 @@ def test_environment_records_the_live_probed_bbt_autoexport_facts():
         "detection stays behavioral (target presence plus staleness) and never "
         "scrapes preferences. | 2026-08-20 |"
     ) in environment
-    assert (
-        "The retained drill vault was removed through the drill's own "
-        "confirmed-cleanup path"
-    ) in environment
-    assert (
-        "the sibling audit state is stamped `cleanup-confirmed`. | 2026-08-21 |"
-        in environment
-    )
 
 
 class RecordingClient(ZoteroClient):

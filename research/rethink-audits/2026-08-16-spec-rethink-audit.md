@@ -1,6 +1,6 @@
 # Rethink audit — foundation spec
 
-Clean-slate redesign audit of [docs/specs/2026-08-16-foundation-spec.md](specs/2026-08-16-foundation-spec.md), run before approval at the author's request, with the widest prior-art net: products, mass-deployed systems, standards, and peer-reviewed literature. Method: rethink-audit (requires → prior-art → design → gap → migrate → trade-offs). Raw findings: [research/raw/wide-prior-art/](../research/raw/wide-prior-art/) — 85 findings, each verdict-tagged CHANGES-SPEC / CONFIRMS-SPEC / IRRELEVANT.
+Clean-slate redesign audit of [docs/superpowers/specs/2026-08-16-foundation-spec.md](../../docs/superpowers/specs/2026-08-16-foundation-spec.md), run before approval at the author's request, with the widest prior-art net: products, mass-deployed systems, standards, and peer-reviewed literature. Method: rethink-audit (requires → prior-art → design → gap → migrate → trade-offs). Raw findings: [research/raw/wide-prior-art/](../raw/wide-prior-art/) — 85 findings, each verdict-tagged CHANGES-SPEC / CONFIRMS-SPEC / IRRELEVANT.
 
 ## requires:
 

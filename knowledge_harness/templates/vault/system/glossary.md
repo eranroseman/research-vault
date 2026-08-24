@@ -13,7 +13,7 @@ _Avoid_: knowledge base, second brain
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
 _Avoid_: sources folder, references layer
 
-**Synthesis layer**: The LLM-maintained topic pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
+**Synthesis layer**: The LLM-maintained pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
 _Avoid_: atlas, wiki, topic pages
 
 **Literature note**: The vault projection of one Zotero item, filename = citekey; a managed region above free prose.
@@ -51,6 +51,9 @@ _Avoid_: OpenAlex's "source" sense in our prose
 **Citekey**: The stable, human-readable key (Better BibTeX) joining prose citations, filenames, and the bibliography.
 _Avoid_: reference ID, bibkey
 
+**Citable**: What a claim is allowed to cite: an item admitted in Zotero whose literature note exists here and is neither excluded nor superseded — being in the library is not yet being citable here.
+_Avoid_: in the library, in the bibliography
+
 **Claim**: One assertion carried by a note line, tagged with its evidence boundary and anchored for linking.
 _Avoid_: statement, fact
 
@@ -69,18 +72,18 @@ _Avoid_: import (that is the projection step that follows), ingestion
 **Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered from Zotero, never authored.
 _Avoid_: admission (that is the human act before), sync
 
-**Bibliography export**: The citekey universe: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT, that citations, filenames, and checks all join against.
-_Avoid_: bibliography file, reference list
+**Bibliography export**: The universe of items a citekey can name: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT.
+_Avoid_: bibliography file, reference list, citation universe (that is the evidence layer)
 
 **Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded.
 _Avoid_: unreviewed/active/rejected (old values), review status
 
 ## Verification
 
-**Check**: One mechanical verification (citekey exists, DOI resolves, quote matches, update-notice scan, …).
+**Check**: One named verification a note or claim is put through; most are mechanical, some are LLM judgment.
 _Avoid_: test, validation
 
-**Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply — automatic only).
+**Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply).
 _Avoid_: pass/fail, pytest vocabulary in vault prose
 
 **Verified event**: The dated, attributed record of which check passed, appended to a note; only MATCHED mints one.
@@ -92,10 +95,10 @@ _Avoid_: confidence level (that is a per-claim field), quality score
 **Review inbox**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to; drained at project orientation.
 _Avoid_: issue list, warning log
 
-**Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the only way to bypass a check that would otherwise block.
+**Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the recorded decision that lets a check stand down without the finding being erased.
 _Avoid_: dismissal, override (an ack keeps the record; it never deletes)
 
-**Publish gate**: The armed, fail-closed verification boundary a project crosses at publish; inert unless armed.
+**Publish gate**: The fail-closed verification boundary every publication crosses.
 _Avoid_: release check, CI gate (CI is the async auditor, not the gate)
 
 **Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …), recorded bi-temporally.

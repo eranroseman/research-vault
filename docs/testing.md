@@ -2,7 +2,7 @@
 
 ## The suite
 
-Offline (default): `python -m pytest tests -q` from the repo root, inside `.venv`. Env-gated live legs are skipped unless flagged.
+Offline (default): `python -m pytest tests -q -n auto` from the repo root, inside `.venv` (xdist pinned; pass `-n` on the command line, never in addopts). Env-gated live legs are skipped unless flagged; live runs stay serial (polite pools, settle windows).
 
 **Live invocation** (Zotero must be running on the Windows host; the local API answers on `localhost:23119`):
 
@@ -10,7 +10,7 @@ Offline (default): `python -m pytest tests -q` from the repo root, inside `.venv
 HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real address> python -m pytest tests -q
 ```
 
-`HARNESS_LIVE` unlocks the local-Zotero legs; `HARNESS_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`HARNESS_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete (this bit once: the `.detail` fallout).
+`HARNESS_LIVE` unlocks the local-Zotero legs; `HARNESS_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`HARNESS_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 
 ## Poking Zotero
 
@@ -25,11 +25,9 @@ Preference order:
    `curl -s -X POST http://localhost:23119/better-bibtex/json-rpc -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"api.ready","id":1}'`
    Record any newly discovered API fact in `docs/environment.md` with a date.
 
-## The stale-pyc trap (learned 2026-08-22, the hard way)
+## The stale-pyc trap
 
-Verifying a source restore by bytes and by `git status` is NOT sufficient. A same-length edit (`==` → `!=`) reverted within the same second is invisible to file size, to git, and to CPython's timestamp-based `.pyc` validation (mtime + size) — the interpreter keeps running the *mutated* bytecode while `inspect.getsource` shows the correct source. Symptom observed: a valid input returning False, test collection raising, pytest exit 2 cascading across later runs; `find . -name __pycache__ -exec rm -rf {} +` restored 1467 passing.
-
-Rules: (1) never run a code-swap experiment (mutation replay, hot-patch trial) in a tree another run is using; (2) for any such experiment set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` first — that eliminates the class rather than detecting it; (3) if bytecode caching is wanted anyway, PEP 552 hash-based pycs (`compileall --invalidation-mode checked-hash`) validate by source hash and are immune to the mtime/size coincidence.
+A same-length edit reverted within the same second is invisible to bytes, to `git status`, and to CPython's timestamp-based `.pyc` validation (mtime + size) — the interpreter keeps running the old bytecode while the source reads correctly. Rules: (1) never run a code-swap experiment (mutation replay, hot-patch trial) in a tree another run is using; (2) set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` first; (3) if caching is wanted, use hash-based pycs (`compileall --invalidation-mode checked-hash`).
 
 ## Exemplars
 
