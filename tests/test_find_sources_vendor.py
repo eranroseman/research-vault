@@ -12,12 +12,14 @@ fixture on stdin, never a live API call (the suite's ``live_net`` marker
 convention is for the CLI's own network-touching tests, not for this).
 """
 
+import ast
 import json
 import subprocess
 import sys
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "find-sources" / "scripts"
+SKILL_MD = SCRIPTS.parent / "SKILL.md"
 
 JATS_WITH_BODY = """<article>
 <front>
@@ -216,6 +218,45 @@ def test_every_vendored_file_carries_a_provenance_header():
         assert header_marker in text, f"{path} is missing its provenance header"
         assert "MIT" in text
         assert "K-Dense" in text
+
+
+def _env_vars_read_by_the_vendored_scripts() -> set[str]:
+    """Every literal name the scripts pull out of the environment, off their AST."""
+    names: set[str] = set()
+    for path in sorted(SCRIPTS.glob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            target = node.func
+            if getattr(target, "attr", None) not in {"get", "getenv"}:
+                continue
+            source = (
+                ast.unparse(target.value) if isinstance(target, ast.Attribute) else ""
+            )
+            if source not in {"os.environ", "environ", "os"}:
+                continue
+            first = node.args[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                names.add(first.value)
+    return names
+
+
+def test_the_skill_names_exactly_the_environment_variables_the_scripts_read():
+    """Pins two SKILL.md corrections from the references cross-read
+    (``research/validation-slice/2026-08-22-references-cross-read.md``),
+    both of them hand-maintainable prose about what the code reads: the
+    scripts are not credential-free — ``paginate.py`` consumes three env vars —
+    and ``paginate.py``'s docstring names two more (``NCBI_API_KEY``,
+    ``S2_API_KEY``) that nothing reads, which the vendoring note records as
+    dead. Both claims are true only while this set is what it is."""
+    read = _env_vars_read_by_the_vendored_scripts()
+
+    assert read == {"OPENALEX_EMAIL", "OPENALEX_API_KEY", "CROSSREF_MAILTO"}
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    for name in sorted(read):
+        assert name in skill, (
+            f"SKILL.md does not name {name}, which a vendored script reads"
+        )
 
 
 def test_no_vendored_script_imports_the_harness():
