@@ -74,6 +74,16 @@ G-Eval is a methodology, not a package: "large language models with chain-of-tho
 
 Raw prompting (asking any chat-capable LLM to score a summary 1–5 against stated criteria, optionally with CoT) is the zero-dependency version of the same idea; `deepeval`/`ragas` mainly add structured scoring, caching, and dataset-level aggregation on top.
 
+### Self-check reliability: naive self-critique vs. SelfCheckGPT
+
+"Ask the LLM to check its own output" covers two methodologically different things in the literature, with opposite evidence.
+
+**Naive intrinsic self-correction** — one extra pass, same model, no external signal, asked something like "did you make any mistakes?" — is not well supported. Huang, Chen, Mishra, Zheng, Yu, Song, Zhou, "Large Language Models Cannot Self-Correct Reasoning Yet," ICLR 2024 ([arXiv:2310.01798](https://arxiv.org/abs/2310.01798)), find that intrinsic self-correction without external feedback fails to improve reasoning accuracy and can *degrade* it. Kamoi, Zhang, Zhang, Han, Zhang, "When Can LLMs Actually Correct Their Own Mistakes? A Critical Survey of Self-Correction of LLMs," TACL 2024 ([ACL Anthology](https://aclanthology.org/2024.tacl-1.78/), [arXiv:2406.01297](https://arxiv.org/pdf/2406.01297)), surveying the broader literature, report no consensus and mostly negative results for self-correction that lacks external or oracle feedback.
+
+**SelfCheckGPT** (Manakul, Liusie, Gales, "SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models," EMNLP 2023, [arXiv:2303.08896](https://arxiv.org/pdf/2303.08896); pip: `selfcheckgpt`, [GitHub](https://github.com/potsawee/selfcheckgpt)) is a different mechanism entirely, and it is evaluated: rather than one self-critique pass, it draws **N stochastic samples** from the same model on the same prompt and measures cross-sample consistency — the premise being that hallucinated content varies across samples while facts the model actually "knows" stay consistent. It ships five variants (`SelfCheckBERTScore`, `SelfCheckMQAG`, `SelfCheckNgram`, plus NLI- and prompt-based scorers); on the WikiBio benchmark the best variant (SelfCheck-NLI/Prompt) reaches AUC-PR 92.50 for detecting non-factual sentences, beating grey-box baselines that require access to token probabilities. Real cost: N generations per output (the paper uses N=20), not one extra call — meaningfully pricier than the naive version, but with actual detection evidence behind it. Latest PyPI release 0.1.7 (March 10, 2024); no releases since — dormant but not abandoned mid-project.
+
+**Bottom line:** a single "did I hallucinate?" self-critique prompt is cheap but has literature actively arguing it doesn't work reliably without external grounding. The self-check approach that *is* validated for hallucination detection costs ~N× generation calls, not 1×.
+
 ## Comparison table
 
 | Approach | Package | Actively maintained? | Extractive / abstractive fit | Key limitation |
@@ -92,6 +102,8 @@ Raw prompting (asking any chat-capable LLM to score a summary 1–5 against stat
 | Unified metric wrapper | `evaluate` | Yes (Sep 2025) | Both | Inherits the limitations of whatever metric is loaded |
 | Extractive summarizer (not an evaluator) | `sumy` | Yes (Aug 2026) | N/A — produces summaries | Its eval framework is secondary/minimal |
 | LLM-as-judge / G-Eval | `deepeval`, `ragas`, raw prompting | deepeval: yes (Aug 2026); ragas: yes (Jan 2026) | Best for abstractive, factuality/coverage | LLM cost/latency, self-preference bias, nondeterminism |
+| Naive intrinsic self-critique (single pass) | raw prompting, no package | N/A | Both | Literature (Huang et al. 2024, Kamoi et al. 2024) finds it unreliable without external feedback — can degrade output |
+| SelfCheckGPT (sampling-consistency) | `selfcheckgpt` | No release since Mar 2024 — dormant | Best evaluated for hallucination/factuality detection | Needs N stochastic samples per output (paper uses N=20) — cost multiplies, not one extra call |
 
 ## Practical recommendation
 
@@ -99,3 +111,4 @@ Raw prompting (asking any chat-capable LLM to score a summary 1–5 against stat
 - **Real quality scoring, general case:** `rouge-score` (Google's) for lexical fidelity, ideally loaded through `evaluate` for convenience, plus `bert-score` if paraphrase/abstractive credit matters — this pairing is what most current summarization papers report as a baseline.
 - **Research-grade / cross-system comparison:** SummEval as the benchmark harness and reference human-judgment data, reporting ROUGE + BERTScore + MoverScore together the way the SummEval paper does, rather than trusting any single metric's correlation with human quality judgments.
 - **Nuanced abstractive quality (factuality, coverage, custom criteria), when LLM budget is available:** `deepeval`'s `SummarizationMetric` (purpose-built alignment/coverage scoring) or a G-Eval-style custom-criteria prompt via `deepeval`/`ragas` — the G-Eval paper's 0.514 Spearman correlation is the strongest human-alignment number in this whole set, at the cost of LLM API calls, latency, and self-preference bias that a fixed formula doesn't have.
+- **Hallucination check specifically, don't reach for a single "did you hallucinate?" self-critique prompt** — the literature (Huang et al. 2024, Kamoi et al. 2024) finds intrinsic self-correction without external feedback unreliable. If a self-check approach is wanted (no separate reference/source-grounded metric), use SelfCheckGPT's sampling-consistency method instead — it's the one actually validated for this, at the honest cost of N generations per output, not one extra call. `deepeval`'s `SummarizationMetric`/G-Eval-style prompting (source-grounded, not self-critique) remains the better-evidenced choice when LLM budget is available at all.
