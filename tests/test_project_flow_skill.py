@@ -146,4 +146,8 @@ def test_project_never_hand_writes_a_mechanical_act():
     through the CLI, per the global constraint."""
     text = _skill_text()
 
-    assert "never prose written by hand" in text
+    assert "the CLI writes" in text
+    assert (
+        "every mechanical act in this skill (events, statuses, tags, holds, "
+        "acknowledgments) is a CLI verb call"
+    ) in text
