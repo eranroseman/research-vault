@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from collections.abc import Mapping
 from datetime import date as _date
+from datetime import datetime as _datetime
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -911,15 +912,28 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
         )
 
 
+# Retraction Watch's production export ships these US-style date shapes
+# alongside ISO.
+_RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")
+
+
 def _rw_date(value) -> str | None | object:
     if value is None or (isinstance(value, str) and not value.strip()):
         return None
     if not isinstance(value, str):
         return _INVALID
+    text = value.strip()
     try:
-        return _date.fromisoformat(value.strip()).isoformat()
+        return _date.fromisoformat(text).isoformat()
     except ValueError:
-        return _INVALID
+        pass
+    for fmt in _RW_DATE_FORMATS:
+        try:
+            # Calendar date only; no tzinfo applies to a bare RW export date.
+            return _datetime.strptime(text, fmt).date().isoformat()  # noqa: DTZ007
+        except ValueError:
+            continue
+    return _INVALID
 
 
 def load_rw_csv(path: Path) -> dict:

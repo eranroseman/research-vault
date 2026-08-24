@@ -983,6 +983,8 @@ def _plan_state(
     ]
     for path in note_files:
         raw.extend(file_outcomes(vault, path, bibliography_universe))
+    # `cmd_verify` mirrors this same falsy-rw_csv predicate to print the
+    # unarmed-RW-leg stdout line.
     notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None
     entries = (
         _bibliography_entries(bibliography_universe)

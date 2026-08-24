@@ -402,6 +402,9 @@ def cmd_verify(args):
     ) as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2
+    if not args.rw_csv:
+        # Stdout line only — never a review-queue record.
+        print("update-notice: RW leg not run (no --rw-csv)")
     for outcome in effective:
         if outcome.result is not Result.MATCHED:
             print(

@@ -1367,13 +1367,22 @@ def test_update_notice_skips_only_when_both_identifiers_are_absent(net_vault):
     assert "RW batch" in pmid_only.reason
 
 
+def test_rw_date_accepts_production_formats():
+    """Retraction Watch's production CSV ships M/D/Y and M/D/Y H:M, not just ISO."""
+    assert checks._rw_date("1/2/2023 0:00") == "2023-01-02"
+    assert checks._rw_date("12/31/2019") == "2019-12-31"
+    assert checks._rw_date("2023-01-02") == "2023-01-02"  # ISO still accepted
+    assert checks._rw_date("not a date") is checks._INVALID
+    assert checks._rw_date("13/45/2023 0:00") is checks._INVALID
+
+
 def test_rw_csv_matches_both_identifiers_and_blocking_beats_warning(tmp_path):
     """DOI and PMID hits are both considered instead of short-circuiting on DOI."""
     csv_file = tmp_path / "rw.csv"
     csv_file.write_text(
         "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n"
         "https://doi.org/10.1000/doi-warn,111,2023-01-01,Expression of concern\n"
-        ",111,2024-02-02,Retraction\n"
+        ",111,2/2/2024 0:00,Retraction\n"
         "10.1000/bad-date,222,not-a-date,Retraction\n"
     )
 

@@ -1547,6 +1547,39 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     assert "UNREACHABLE staleness path-bytes:system/bibliography.json" in output
 
 
+def test_real_verify_cli_states_rw_leg_absence_without_rw_csv(net_vault, capsys):
+    """An unarmed RW leg states its absence exactly once, as a stdout line
+    that never files a review-queue entry."""
+    code = main(["verify", "--vault", str(net_vault), "--offline"])
+    output = capsys.readouterr().out
+
+    assert code == 0
+    assert output.count("update-notice: RW leg not run (no --rw-csv)") == 1
+    assert not [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == "update-notice"
+    ]
+
+
+def test_real_verify_cli_omits_rw_leg_absence_line_when_rw_csv_supplied(
+    net_vault, capsys, tmp_path
+):
+    """Supplying --rw-csv arms the leg; the absence line must not print."""
+    rw_csv = tmp_path / "rw.csv"
+    rw_csv.write_text(
+        "OriginalPaperDOI,OriginalPaperPubMedID,RetractionDate,RetractionNature\n"
+    )
+
+    code = main(
+        ["verify", "--vault", str(net_vault), "--offline", "--rw-csv", str(rw_csv)]
+    )
+    output = capsys.readouterr().out
+
+    assert code == 0
+    assert "RW leg not run" not in output
+
+
 @pytest.mark.parametrize(
     ("surface", "expected"), [("audit", 0), ("commit", 3), ("publish", 3)]
 )

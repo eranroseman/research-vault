@@ -24,6 +24,8 @@ Only add `--surface commit` or `--surface publish` if the person explicitly asks
 
 `verify` prints one line per non-MATCHED outcome — `RESULT check target — reason` — followed by a final JSON summary of counts by result. MATCHED outcomes never print individually, for every check id, whether or not they mint an event — silence about one check id in the line output is not itself news; read the JSON counts to confirm what actually ran.
 
+`verify` may also print a status line that is not a check result at all — for example `update-notice: RW leg not run (no --rw-csv)` when the flag was omitted. Such a line does not fit `RESULT check target — reason`; do not parse it as one, and do not fold it into the grouped-by-check-id presentation below.
+
 Present the printed lines to the person **grouped by check id as the CLI reports them** (the second token on each line) — a person triaging results wants "here is everything wrong with quotes," not an interleaved dump.
 
 | Result      | Meaning                                                                                                                                                                                                                                                               |
