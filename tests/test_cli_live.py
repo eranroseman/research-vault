@@ -371,7 +371,7 @@ def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys
     note_path = notes.note_path(tmp_vault, "smith2020")
     original = notes.render_note(
         {**item, "id": "smith2020"},
-        ["unresolved"],
+        [],
         [cli.normalize_annotation(raw, "smith2020")],
         existing=None,
         accessed="2026-08-16",
@@ -615,7 +615,7 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
     assert "warning: attachment unresolved" in capsys.readouterr().err
     note = (tmp_vault / "literatures" / "smith2020.md").read_text()
     data, body = frontmatter.parse(note)
-    assert data["fixity-sha256"] == ["unresolved"]
+    assert data["fixity-sha256"] == []
     assert "- (quote) [@smith2020, p. 12]" in body
     assert "annotationPageLabel" not in body
 
@@ -1136,7 +1136,7 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
     note_path = notes.note_path(tmp_vault, "smith2020")
     original = notes.render_note(
         {"id": "smith2020", "title": "Retention"},
-        ["unresolved"],
+        [],
         [existing_ann],
         existing=None,
         accessed="2026-08-16",

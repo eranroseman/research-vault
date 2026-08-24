@@ -43,7 +43,7 @@ type: "literature"
 doi: "10.1000/xyz"
 accessed: "2026-08-16"
 fixity-sha256:
-  - "aa11"
+  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
 status: "included"
 aliases:
   - "Mortality decline"

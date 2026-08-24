@@ -210,7 +210,7 @@ def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
         attachment_hashes = data.get("fixity-sha256")
         if isinstance(attachment_hashes, list) and attachment_hashes:
             first = attachment_hashes[0]
-            if isinstance(first, str) and first:
+            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
                 return first
         return hashlib.sha256(_note_bytes(raw)).hexdigest()[:16]
     note = _note_for_citekey(vault_root, citekey)
@@ -222,7 +222,7 @@ def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
         attachment_hashes = data.get("fixity-sha256")
         if isinstance(attachment_hashes, list) and attachment_hashes:
             first = attachment_hashes[0]
-            if isinstance(first, str) and first:
+            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
                 return first
         return hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
     return None

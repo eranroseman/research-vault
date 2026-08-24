@@ -29,6 +29,7 @@ from knowledge_harness.verify import (
     _archive_outcomes,
     _file_effects,
     _mutate_marker,
+    _note_bytes,
     _safe_relative,
     _target_hash,
     verify_state,
@@ -207,7 +208,12 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         for e in inbox.open_entries(net_vault)
     )
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(source.read_text().replace('  - "aa11"', '  - "bb22"'))
+    source.write_text(
+        source.read_text().replace(
+            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
+            '  - "bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22"',
+        )
+    )
     fourth = run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert any(
         e.check == "quote" and e.target == raw.target
@@ -234,15 +240,15 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
         ]
     )
     claim_hash = _target_hash(net_vault, claim_outcome)
-    assert claim_hash == "aa11"
+    assert claim_hash == "aa11" * 16
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
             "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
         )
     )
-    assert _target_hash(net_vault, claim_outcome) == "aa11"
-    assert _target_hash(net_vault, citekey_outcome) == "aa11"
+    assert _target_hash(net_vault, claim_outcome) == "aa11" * 16
+    assert _target_hash(net_vault, citekey_outcome) == "aa11" * 16
     assert (
         _target_hash(net_vault, stale)
         == hashlib.sha256(
@@ -251,6 +257,45 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     )
     with pytest.raises(PathCodecError):
         RepoPath(b"../outside")
+
+
+def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault):
+    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``)."""
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace(
+            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
+            '  - "unresolved"',
+        )
+    )
+    claim_outcome = _outcome(
+        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
+    )
+    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    result = _target_hash(net_vault, claim_outcome)
+    assert result != "unresolved"
+    assert result == expected
+
+
+def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault):
+    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``)."""
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace(
+            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
+            '  - "unresolved"',
+        )
+    )
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+    claim_outcome = _outcome(
+        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
+    )
+    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    result = _target_hash(
+        net_vault, claim_outcome, candidate_snapshot=candidate_snapshot
+    )
+    assert result != "unresolved"
+    assert result == expected
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -474,11 +519,11 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         "smith2020",
         Result.UNMATCHED,
         "warn-notice — correction",
-        target_hash="aa11",
+        target_hash="aa11" * 16,
         notice_class="warn",
         notice_type="correction",
     )
-    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11")
+    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11" * 16)
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -770,7 +815,10 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
     net_vault,
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    text = source.read_text().replace('fixity-sha256:\n  - "aa11"\n', "")
+    text = source.read_text().replace(
+        'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+        "",
+    )
     source.write_bytes(text.replace("\n", "\r\n").encode())
     outcome = _outcome(
         "quote",
@@ -951,7 +999,12 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
     net_vault, monkeypatch, capsys
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    source.write_text(
+        source.read_text().replace(
+            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+            "",
+        )
+    )
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -1345,7 +1398,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     )
 
     assert "retracted — retraction" in output
-    assert blocker.target_hash == warning.target_hash == "aa11"
+    assert blocker.target_hash == warning.target_hash == "aa11" * 16
     assert (
         events.trust_tier((net_vault / "literatures" / "smith2020.md").read_text())
         == "unverified"
@@ -1409,7 +1462,12 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
     net_vault, monkeypatch, check, reverse
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    source.write_text(
+        source.read_text().replace(
+            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+            "",
+        )
+    )
     primary = _projecting_failure(check)
     companion = _outcome(
         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
@@ -1440,7 +1498,12 @@ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
     net_vault, monkeypatch, check
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(source.read_text().replace('fixity-sha256:\n  - "aa11"\n', ""))
+    source.write_text(
+        source.read_text().replace(
+            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
+            "",
+        )
+    )
     primary = _projecting_failure(check)
     companion = _outcome(
         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"

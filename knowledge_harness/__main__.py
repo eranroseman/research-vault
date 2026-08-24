@@ -231,7 +231,6 @@ def cmd_import_note(args):
             hashes.append(attachment_hash)
         except (paths.PathError, OSError) as error:
             print(f"warning: attachment unresolved: {error}", file=sys.stderr)
-            hashes.append("unresolved")
         attachment_annotations = [
             normalize_annotation(annotation, args.citekey)
             for annotation in _attachment_annotations(attachment)
