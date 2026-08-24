@@ -60,6 +60,16 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 - [ ] **Step 2 (finding 12):** Scope AGENTS.md's "prefer the knowledge-harness skills" line to the two model-invocable guards — seven of nine skills are user-gated by deliberate design; the line must not read as steering all nine. Do NOT flip any `disable-model-invocation` flag.
 - [ ] **Step 3:** Pins; suite; commit `feat: formatter ignores ship with the vault; AGENTS.md scope line corrected`.
 
+### Task 2e: Form-gate coherence (measured audit 2026-08-24 — root cause is the recorded imperative-path-list debt, now with measured cost)
+
+**Files:** Modify: `pyproject.toml` (comments), `.pre-commit-config.yaml`, `knowledge_harness/templates/vault/**/*.md` + pins.
+
+- [ ] **Step 1 (vendored exclusion made explicit — REVERSES the audit's gate-them recommendation):** `skills/find-sources/scripts/*.py` stay ungated BY the vendor rule (frozen fork; re-vendor to update; our formatters/fixers would create vendor drift). Make it explicit: one comment at ruff's path list naming the exclusion and its reason. The real finding there — `jats_to_text.py:291` passing `Element | None` into `collect_sections` — goes to the vendor channel: a ready-to-file upstream note in the K-Dense report queue, fix lands at next re-vendor, never by hand.
+- [ ] **Step 2 (render-contract event, NOT a path-list edit):** add `knowledge_harness/templates/vault` to mdformat's paths and canonicalize the 11 template files — five change. This IS a render change by the repo's own doctrine (canonical template form leaks into rendered notes): its own commit, template pins updated, and the note that existing vaults see managed-region diffs on next refresh (legitimate `stale` outcomes, not defects). The RENDER-CONTRACT pin's justification becomes enforced on the files it names.
+- [ ] **Step 3 (hook stays uninstalled — ruled):** pre-commit's stash/restore plus whole-tree `always_run` hooks is exactly the interference the pathspec rule guards against in a shared checkout. Fix the header sentence to the truth: "when typed, and in CI"; add one line naming the practice that replaces it (run the form owner directly on touched files before committing — `pre-commit run` also stashes and is NOT the safe form here).
+- [ ] **Step 4 (small trues):** document yamlfix's self-exclusion in one comment (readability of the hand-wrapped entries — a choice, now stated); drop the dead `analysis` pathspec from the record-immutability hook; make that hook fail loud on git errors (it currently swallows any `git diff` failure into an empty `touched` and passes — add explicit failure handling inside the `bash -c`); add an mdformat upgrade-protocol comment on its pin, matching ruff's: a canonical-form-changing upgrade rewrites append-only paths, so it lands as a recorded churn commit through the bypass channel with a `.git-blame-ignore-revs` entry.
+- [ ] **Step 5:** Suite + `pre-commit run --all-files` green; commit `fix: form gates match their own claims — explicit vendor exclusion, templates canonicalized, hook truths`.
+
 ### Task 3: verify-citations de-enumeration + the enumeration checker (items 3–4)
 
 **Files:** Modify: `skills/verify-citations/SKILL.md`; `tests/test_skill_contracts.py`.
