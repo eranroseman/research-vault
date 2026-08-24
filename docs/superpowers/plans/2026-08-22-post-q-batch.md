@@ -25,32 +25,32 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 
 **Files:** Move: `skills/project/` → `skills/project-flow/`. Modify: `docs/terminology.md` §4.3 skills row; routing tables in `skills/find-sources/SKILL.md` and `skills/import-source/SKILL.md`; the skill's content test in `tests/`.
 
-- [ ] **Step 1:** `git mv skills/project skills/project-flow`; update `name:` in its SKILL.md frontmatter to `project-flow`.
-- [ ] **Step 2:** Update terminology §4.3's skills row and both routing tables (grep `skills/ -rn "\`project\`"\` and judge each hit — routing rows change; prose about "a project" (the noun) does not).
-- [ ] **Step 3:** Update the content test that names the skill (locate via `grep -rn "project" tests/test_skill_contracts.py tests/test_skill_files.py`); run it: PASS.
-- [ ] **Step 4:** Judged grep for retired references: `grep -rn "skills/project/\|Skill(project)\|\`project\` skill" --include="\*.md" .\` — every hit either updated or judged non-referential (record the judgment list in the commit body).
-- [ ] **Step 5:** Full offline suite. Commit `refactor: rename project skill to project-flow`.
+- [x] **Step 1:** `git mv skills/project skills/project-flow`; update `name:` in its SKILL.md frontmatter to `project-flow`.
+- [x] **Step 2:** Update terminology §4.3's skills row and both routing tables (grep `skills/ -rn "\`project\`"\` and judge each hit — routing rows change; prose about "a project" (the noun) does not).
+- [x] **Step 3:** Update the content test that names the skill (locate via `grep -rn "project" tests/test_skill_contracts.py tests/test_skill_files.py`); run it: PASS.
+- [x] **Step 4:** Judged grep for retired references: `grep -rn "skills/project/\|Skill(project)\|\`project\` skill" --include="\*.md" .\` — every hit either updated or judged non-referential (record the judgment list in the commit body).
+- [x] **Step 5:** Full offline suite. Commit `refactor: rename project skill to project-flow`.
 
 ### Task 2: C-7 routing index into the vault AGENTS.md template (item 2)
 
 **Files:** Modify: `knowledge_harness/templates/vault/AGENTS.md`; its whole-file test pin.
 
-- [ ] **Step 1:** Add the index: the seven entry names (post-rename) + one clause each — source each clause from the skill's own description line (compress, don't invent). `tests/test_skill_contracts.py:153`'s self-validation must pass (every cited name exists as a shipped skill).
-- [ ] **Step 2:** Update the template's whole-file pin in the same commit; full suite; commit `feat: vault AGENTS.md routing index (C-7)`.
+- [x] **Step 1:** Add the index: the seven entry names (post-rename) + one clause each — source each clause from the skill's own description line (compress, don't invent). `tests/test_skill_contracts.py:153`'s self-validation must pass (every cited name exists as a shipped skill).
+- [x] **Step 2:** Update the template's whole-file pin in the same commit; full suite; commit `feat: vault AGENTS.md routing index (C-7)`.
 
 ### Task 2b: Root index embeds the Bases (decided 2026-08-24 — dashboards surface at vault-open; the `.base` files stay filed as tool artifacts)
 
 **Files:** Modify: `knowledge_harness/templates/vault/index.md`; its whole-file pin. **Ordering:** independent — run anywhere in Part 1; if Task 2's template work already passed, this is its own commit.
 
-- [ ] **Step 1:** Add to the index template, under its folder links: `![[system/bases/trust-tier.base]]` and `![[system/bases/open-questions.base]]` with a one-line lead-in each (compress from the Base's own purpose; don't invent). Rationale in place: the Bases are the researcher's dashboards (§9 derives trust tiers in one), but `.base` is Obsidian-only, so the files stay in `system/` per vault-outlives-harness — embedding gives one-click access without moving a tool artifact into the knowledge tree.
-- [ ] **Step 2:** Pin updated same commit; suite; commit `feat: vault index embeds the trust-tier and open-questions Bases`.
+- [x] **Step 1:** Add to the index template, under its folder links: `![[system/bases/trust-tier.base]]` and `![[system/bases/open-questions.base]]` with a one-line lead-in each (compress from the Base's own purpose; don't invent). Rationale in place: the Bases are the researcher's dashboards (§9 derives trust tiers in one), but `.base` is Obsidian-only, so the files stay in `system/` per vault-outlives-harness — embedding gives one-click access without moving a tool artifact into the knowledge tree.
+- [x] **Step 2:** Pin updated same commit; suite; commit `feat: vault index embeds the trust-tier and open-questions Bases`.
 
 ### Task 2c: Vault AGENTS.md integrity preamble (decided 2026-08-24 — the oblivious-agent defense)
 
 **Files:** Modify: `knowledge_harness/templates/vault/AGENTS.md`; its whole-file pin. **Ordering:** independent — its own commit if Task 2's template work already passed.
 
-- [ ] **Step 1:** The template OPENS with a two-sentence integrity preamble, before the routing index — for the agent that reads nothing else: *"This is a knowledge-harness vault. `literatures/`, `log/`, root `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits are warned in session and caught at commit."* (Adjust the surface list to what the template already names; don't restate the routing index.)
-- [ ] **Step 2:** Pin same commit; suite; commit `feat: vault AGENTS.md opens with the integrity preamble`. Item 15's live-vault application now carries this too.
+- [x] **Step 1:** The template OPENS with a two-sentence integrity preamble, before the routing index — for the agent that reads nothing else: *"This is a knowledge-harness vault. `literatures/`, `log/`, root `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits are warned in session and caught at commit."* (Adjust the surface list to what the template already names; don't restate the routing index.)
+- [x] **Step 2:** Pin same commit; suite; commit `feat: vault AGENTS.md opens with the integrity preamble`. Item 15's live-vault application now carries this too.
 
 ### Task 2d: Formatter ignore files + invocation-scope line (audit findings 1 and 12)
 
@@ -74,49 +74,49 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 
 **Files:** Modify: `skills/verify-citations/SKILL.md`; `tests/test_skill_contracts.py`.
 
-- [ ] **Step 1 (C-1):** Replace the check-id enumeration with the canonical obsidian-cli form — the replacement sentence: *"Run the CLI; its output is always up to date."* Teach the four states, not the fourteen ids (the four-state table stays; the id list goes).
-- [ ] **Step 2 (C-2):** Correct the registry-scope sentence: TWO registry codes are out of scope, not one (the audit's C-2 card names them — copy from it), and pin with a test.
-- [ ] **Step 3 (the enumeration checker):** Generalize the `test_skill_contracts.py:133` instrument: every check id any SKILL.md enumerates must be one `verify` can emit. Write it as a parametrized sweep over `skills/*/SKILL.md` extracting backtick-quoted check ids against the CLI's emitted set (source the canonical set from `knowledge_harness` code, not a hand list).
-- [ ] **Step 4:** Full suite; commit `fix: verify-citations defers to CLI output; enumeration checker guards all skills`.
+- [x] **Step 1 (C-1):** Replace the check-id enumeration with the canonical obsidian-cli form — the replacement sentence: *"Run the CLI; its output is always up to date."* Teach the four states, not the fourteen ids (the four-state table stays; the id list goes).
+- [x] **Step 2 (C-2):** Correct the registry-scope sentence: TWO registry codes are out of scope, not one (the audit's C-2 card names them — copy from it), and pin with a test.
+- [x] **Step 3 (the enumeration checker):** Generalize the `test_skill_contracts.py:133` instrument: every check id any SKILL.md enumerates must be one `verify` can emit. Write it as a parametrized sweep over `skills/*/SKILL.md` extracting backtick-quoted check ids against the CLI's emitted set (source the canonical set from `knowledge_harness` code, not a hand list).
+- [x] **Step 4:** Full suite; commit `fix: verify-citations defers to CLI output; enumeration checker guards all skills`.
 
 ### Task 4: find-sources corrections + cross-read wiring (items 5, 7, 11, 12)
 
 **Files:** Modify: `skills/find-sources/SKILL.md` (+ its `references/` where the cross-read says so); test pins.
 
-- [ ] **Step 1 (C-3 + item 11 fold):** Credential counts align to `redact_url` — the SKILL.md says "several" and defers to `redact_url` as the authority (3 query-string-auth APIs; 6 redacted params live in code, not prose). Mailto: SKILL.md states it is sourced from harness config and that vendored scripts don't read it.
-- [ ] **Step 2 (C-5):** One vendoring-note line: upstream prose describes upstream's corpus.
-- [ ] **Step 3 (item 12):** One vendoring-note section carrying the six upstream-fact annotations — copy verbatim from the cross-read report's triage (research/validation-slice/2026-08-22-references-cross-read.md). Add the routing guards: no single-DOI lookups via paginate; the openalex row points at `openalex_abstract.py`; `OPENALEX_API_KEY` env caution. Add the XML annotation (ruled 2026-08-24): `arxiv_atom.py`/`jats_to_text.py` parse network XML via stdlib ElementTree by upstream's choice — not XXE (no EXTERNAL entity expansion — internal entities DO expand, probe-verified 2026-08-24, which is exactly the class the next clause hedges); residual expansion-DoS rides the runtime's libexpat; kept frozen per the vendor rule, noted in the K-Dense upstream queue beside the jats arg-type finding.
-- [ ] **Step 4:** Pins updated same commit; full suite; commit `fix: find-sources credential/vendoring corrections + cross-read wiring`.
+- [x] **Step 1 (C-3 + item 11 fold):** Credential counts align to `redact_url` — the SKILL.md says "several" and defers to `redact_url` as the authority (3 query-string-auth APIs; 6 redacted params live in code, not prose). Mailto: SKILL.md states it is sourced from harness config and that vendored scripts don't read it.
+- [x] **Step 2 (C-5):** One vendoring-note line: upstream prose describes upstream's corpus.
+- [x] **Step 3 (item 12):** One vendoring-note section carrying the six upstream-fact annotations — copy verbatim from the cross-read report's triage (research/validation-slice/2026-08-22-references-cross-read.md). Add the routing guards: no single-DOI lookups via paginate; the openalex row points at `openalex_abstract.py`; `OPENALEX_API_KEY` env caution. Add the XML annotation (ruled 2026-08-24): `arxiv_atom.py`/`jats_to_text.py` parse network XML via stdlib ElementTree by upstream's choice — not XXE (no EXTERNAL entity expansion — internal entities DO expand, probe-verified 2026-08-24, which is exactly the class the next clause hedges); residual expansion-DoS rides the runtime's libexpat; kept frozen per the vendor rule, noted in the K-Dense upstream queue beside the jats arg-type finding.
+- [x] **Step 4:** Pins updated same commit; full suite; commit `fix: find-sources credential/vendoring corrections + cross-read wiring`.
 
 ### Task 5: setup-vault C-6 (item 6)
 
 **Files:** Modify: `skills/setup-vault/SKILL.md`; test pins.
 
-- [ ] **Step 1:** Drop the 14-path inventory; keep the six test-pinned paths as an honesty rule, not an inventory (one sentence: the pinned six are the contract; the CLI's scaffold output is the full list).
-- [ ] **Step 2:** Pins updated; suite; commit `fix: setup-vault paths are a contract, not an inventory (C-6)`.
+- [x] **Step 1:** Drop the 14-path inventory; keep the six test-pinned paths as an honesty rule, not an inventory (one sentence: the pinned six are the contract; the CLI's scaffold output is the full list).
+- [x] **Step 2:** Pins updated; suite; commit `fix: setup-vault paths are a contract, not an inventory (C-6)`.
 
 ### Task 6: import-source references split (item 8)
 
 **Files:** Create: `skills/import-source/references/` (content moved from SKILL.md §7–9). Modify: `skills/import-source/SKILL.md` (pointer table, find-sources shape).
 
-- [ ] **Step 1:** Move §7 (refresh), §8 (batch), §9 (archive) content unchanged into `references/` files; SKILL.md gets the pointer table in find-sources' shape. Content byte-preserved; tests unmoved and green.
-- [ ] **Step 2:** Suite; commit `refactor: import-source §7-9 to references with pointer table`.
+- [x] **Step 1:** Move §7 (refresh), §8 (batch), §9 (archive) content unchanged into `references/` files; SKILL.md gets the pointer table in find-sources' shape. Content byte-preserved; tests unmoved and green.
+- [x] **Step 2:** Suite; commit `refactor: import-source §7-9 to references with pointer table`.
 
 ### Task 7: Prose sweeps — leading word + prohibition cuts (items 9–10)
 
 **Files:** Modify: the SKILL.md files the greps hit; pins.
 
-- [ ] **Step 1 (item 9):** The never-hand-write refrain's five spellings collapse to the single inline token *the CLI writes* (grep for the variants — "never hand-write", "never write by hand", etc. — one token per site, meaning preserved).
-- [ ] **Step 2 (item 10):** Delete two prohibitions whose recipes are already present: "not as a raw dump" (find-sources:88), "not in raw run order" (verify-citations:27).
-- [ ] **Step 3:** Judged grep confirms no returned prohibitions; pins; suite; commit `style: leading-word collapse + prohibition cuts`.
+- [x] **Step 1 (item 9):** The never-hand-write refrain's five spellings collapse to the single inline token *the CLI writes* (grep for the variants — "never hand-write", "never write by hand", etc. — one token per site, meaning preserved).
+- [x] **Step 2 (item 10):** Delete two prohibitions whose recipes are already present: "not as a raw dump" (find-sources:88), "not in raw run order" (verify-citations:27).
+- [x] **Step 3:** Judged grep confirms no returned prohibitions; pins; suite; commit `style: leading-word collapse + prohibition cuts`.
 
 ### Task 8: Ecosystem steals (items 13–14)
 
 **Files:** Modify: `skills/project-flow/SKILL.md`, `skills/synthesis-conventions/SKILL.md`, `skills/import-source/SKILL.md`, `skills/factcheck-draft/SKILL.md`, `skills/publish/SKILL.md`, `skills/setup-vault/SKILL.md`; pins.
 
-- [ ] **Step 1:** Land the adopted set, each sourced from the audit §6/§7 adjudication (copy the decided phrasings): routing guard line in project-flow; compilation-value line in synthesis-conventions; partial-read honesty rule (import-source + factcheck-draft); "validates declarations, not their truth" + the why-one-pass sentence in factcheck-draft; disposition rationalization table in publish (seed rows ported from finishing-a-development-branch per audit §7); publish announces gate-armed at start; setup-vault fails closed on ambiguous vault selection.
-- [ ] **Step 2:** Item 14 is a no-op by design: all §6 deferred items carry their triggers in the audit doc — verify none landed here.
-- [ ] **Step 3:** Pins; suite; commit `feat: ecosystem-steal prose adoptions (audit §6 adopted set)`.
+- [x] **Step 1:** Land the adopted set, each sourced from the audit §6/§7 adjudication (copy the decided phrasings): routing guard line in project-flow; compilation-value line in synthesis-conventions; partial-read honesty rule (import-source + factcheck-draft); "validates declarations, not their truth" + the why-one-pass sentence in factcheck-draft; disposition rationalization table in publish (seed rows ported from finishing-a-development-branch per audit §7); publish announces gate-armed at start; setup-vault fails closed on ambiguous vault selection.
+- [x] **Step 2:** Item 14 is a no-op by design: all §6 deferred items carry their triggers in the audit doc — verify none landed here.
+- [x] **Step 3:** Pins; suite; commit `feat: ecosystem-steal prose adoptions (audit §6 adopted set)`.
 
 ### Task 8b: Guard sentences from the ADR triage — LANDED 2026-08-24 (d7fa91b, author session); VERIFY ONLY
 
@@ -132,7 +132,7 @@ Step 1's content lives in the rewritten "The abstract said so." row (replaced, n
 
 **Files:** Modify: `knowledge_harness/inbox.py` (`summary`, ~line 710, and every drain surface that counts). Test: `tests/test_inbox.py`.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```python
 def test_skipped_entries_not_counted_unacknowledged(tmp_vault):
@@ -143,9 +143,9 @@ def test_skipped_entries_not_counted_unacknowledged(tmp_vault):
 
 (Locate the `Finding` field carrying `result` in `inbox.py` and the writer tests' scaffolding — copy their fixture shape.)
 
-- [ ] **Step 2: Run — Expected: FAIL** (SKIPPED counts today).
-- [ ] **Step 3: Implement:** filter `result == SKIPPED` out of the *counting* path — in `summary()` and every drain surface's unacknowledged arithmetic (grep for `summary(` and `open_entries(` consumers; doctor's inbox probe included). Entries stay RECORDED (audit trail) and stay visible in full listings; only the unacknowledged count and oldest-age basis exclude them — does-not-apply needs no acknowledgment, and counting it manufactures rubber-stamp pressure.
-- [ ] **Step 4:** Full suite; commit `fix: SKIPPED findings recorded but never counted unacknowledged`.
+- [x] **Step 2: Run — Expected: FAIL** (SKIPPED counts today).
+- [x] **Step 3: Implement:** filter `result == SKIPPED` out of the *counting* path — in `summary()` and every drain surface's unacknowledged arithmetic (grep for `summary(` and `open_entries(` consumers; doctor's inbox probe included). Entries stay RECORDED (audit trail) and stay visible in full listings; only the unacknowledged count and oldest-age basis exclude them — does-not-apply needs no acknowledgment, and counting it manufactures rubber-stamp pressure.
+- [x] **Step 4:** Full suite; commit `fix: SKIPPED findings recorded but never counted unacknowledged`.
 
 **Task 9 addendum (2026-08-24, audit finding 10):** `summary()` also emits `oldest_age_days` (and `aging: true` past the Whittaker threshold) — the skill currently asks the agent to do date math against a clock it doesn't reliably have; the sort instruction is already mechanical. One extra assertion in Task 9's tests.
 
@@ -155,7 +155,7 @@ def test_skipped_entries_not_counted_unacknowledged(tmp_vault):
 
 **Interfaces:** `check_citekeys` signature unchanged; new reason code `not-imported`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_cited_citekey_requires_literature_note(tmp_vault):
@@ -168,10 +168,10 @@ def test_cited_citekey_with_note_passes(tmp_vault): ...      # MATCHED as today
 def test_cited_citekey_absent_everywhere(tmp_vault): ...     # existing "mismatch — citekey not in bibliography"
 ```
 
-- [ ] **Step 2: Run — Expected: FAIL** (bibliography membership alone MATCHES today).
-- [ ] **Step 3: Implement:** in the per-citekey loop, bibliography-present + note-absent → `Result.UNMATCHED`, reason `"not-imported — cited citekey has no literature note"`. The note's OWN citekey row (note-vs-bibliography identity) keeps current semantics — scope the new rule to citations only.
-- [ ] **Step 4:** Register `not-imported` (distinct from `not-admitted`) in the reason-code registry, terminology §4.4, and evidence-conventions' table — same commit (dialect-surface rule).
-- [ ] **Step 5:** Full suite; commit `feat: tier-2 citability — cited citekeys require a literature note (not-imported)`.
+- [x] **Step 2: Run — Expected: FAIL** (bibliography membership alone MATCHES today).
+- [x] **Step 3: Implement:** in the per-citekey loop, bibliography-present + note-absent → `Result.UNMATCHED`, reason `"not-imported — cited citekey has no literature note"`. The note's OWN citekey row (note-vs-bibliography identity) keeps current semantics — scope the new rule to citations only.
+- [x] **Step 4:** Register `not-imported` (distinct from `not-admitted`) in the reason-code registry, terminology §4.4, and evidence-conventions' table — same commit (dialect-surface rule).
+- [x] **Step 5:** Full suite; commit `feat: tier-2 citability — cited citekeys require a literature note (not-imported)`.
 
 ### Task 11: Free-region destruction fix (item 18, audit defect 5)
 
