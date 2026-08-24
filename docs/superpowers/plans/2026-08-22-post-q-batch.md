@@ -527,6 +527,14 @@ The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured
 - [ ] **Step 1: Failing tests first** — port the existing gate contract to mutmut's result format: survivor extraction from `mutmut results`/its cache, baseline compare (no-new-survivors), `--update-baseline` writes the full-module baseline, refuse-to-write on any module failure (the Q1 guard survives the port), two-class failure attribution retained, `PYTHONDONTWRITEBYTECODE=1` exported on every invocation (pin the env var in a test — its failure mode is a quietly wrong baseline).
 - [ ] **Step 2:** Implement; per-module invocation through `scripts/mutmut_shims/run_mutmut.py`; keep `--out-dir` durability + resume. Full suite. Commit `feat: mutation gate runs mutmut`.
 
+### Task 24b: Comment-hygiene sweep (ruled 2026-08-23 — runs BEFORE Task 25 so the baseline hashes the cleaned tree once; docstrings live in the AST)
+
+**Files:** Modify: `knowledge_harness/*.py`, `scripts/*.py`, `tests/*.py` (comments and docstrings only — zero behavior changes).
+
+- [ ] **Step 1:** Detect mechanically: grep the Python tree for date stamps, ruling language, and plan/task references in comments and docstrings (`2026-`, `ruled`, `Plan [A-Z]\b`, `Task [0-9]`, `previously`, `postmortem`, `superseded`, `renamed from`).
+- [ ] **Step 2:** Judge each hit against the house doctrine: a comment states a constraint the code cannot show; provenance, history, and correctness arguments belong to git log. Delete what fails; keep load-bearing constraints (e.g. copyright/license/pinned-commit headers in vendored code stay). Record the judged keep-list in the commit body.
+- [ ] **Step 3:** Full offline suite green (comments only — any test failure means the sweep touched behavior; revert that hunk). Commit `style: comment-hygiene sweep — history and rulings out, constraints stay`.
+
 ### Task 25: Full 26-module baseline — the hole closes
 
 - [ ] **Step 1:** Blanket baseline over ALL 26 modules (including the six mutate4py could not measure) under the 8 GB cap; record per-module wall-clock and the one-time stats-build cost in the task report.
