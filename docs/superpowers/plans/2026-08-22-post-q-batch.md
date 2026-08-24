@@ -52,6 +52,14 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 - [ ] **Step 1:** The template OPENS with a two-sentence integrity preamble, before the routing index — for the agent that reads nothing else: *"This is a knowledge-harness vault. `literatures/`, `log/`, root `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits are warned in session and caught at commit."* (Adjust the surface list to what the template already names; don't restate the routing index.)
 - [ ] **Step 2:** Pin same commit; suite; commit `feat: vault AGENTS.md opens with the integrity preamble`. Item 15's live-vault application now carries this too.
 
+### Task 2d: Formatter ignore files + invocation-scope line (audit findings 1 and 12)
+
+**Files:** Modify: `knowledge_harness/scaffold.py` + vault templates (new `.prettierignore`, `.markdownlintignore`, `.editorconfig` covering `literatures/`, `log/`, `inbox/review-queue.md`, `system/bibliography.json`); `knowledge_harness/templates/vault/AGENTS.md`; pins.
+
+- [ ] **Step 1:** Scaffold ships the three ignore files — formatters obey config, not paragraphs. The AGENTS.md formatter paragraph (which says of itself "it is not what enforces them") shrinks to one line naming the ignore files.
+- [ ] **Step 2 (finding 12):** Scope AGENTS.md's "prefer the knowledge-harness skills" line to the two model-invocable guards — seven of nine skills are user-gated by deliberate design; the line must not read as steering all nine. Do NOT flip any `disable-model-invocation` flag.
+- [ ] **Step 3:** Pins; suite; commit `feat: formatter ignores ship with the vault; AGENTS.md scope line corrected`.
+
 ### Task 3: verify-citations de-enumeration + the enumeration checker (items 3–4)
 
 **Files:** Modify: `skills/verify-citations/SKILL.md`; `tests/test_skill_contracts.py`.
@@ -128,6 +136,8 @@ def test_skipped_entries_not_counted_unacknowledged(tmp_vault):
 - [ ] **Step 2: Run — Expected: FAIL** (SKIPPED counts today).
 - [ ] **Step 3: Implement:** filter `result == SKIPPED` out of the *counting* path — in `summary()` and every drain surface's unacknowledged arithmetic (grep for `summary(` and `open_entries(` consumers; doctor's inbox probe included). Entries stay RECORDED (audit trail) and stay visible in full listings; only the unacknowledged count and oldest-age basis exclude them — does-not-apply needs no acknowledgment, and counting it manufactures rubber-stamp pressure.
 - [ ] **Step 4:** Full suite; commit `fix: SKIPPED findings recorded but never counted unacknowledged`.
+
+**Task 9 addendum (2026-08-24, audit finding 10):** `summary()` also emits `oldest_age_days` (and `aging: true` past the Whittaker threshold) — the skill currently asks the agent to do date math against a clock it doesn't reliably have; the sort instruction is already mechanical. One extra assertion in Task 9's tests.
 
 ### Task 10: Two-tier citekey check (item 17, spec §4 as ruled 2026-08-22)
 
@@ -390,6 +400,13 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 (The existing managed-bytes fallback below already handles the reject path.)
 
 - [ ] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
+
+### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%hk-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
+
+**Files:** Modify: `knowledge_harness/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
+
+- [ ] **Step 1: Failing test** — a hand-edit to a literature note's `archive-url` (and parametrized: `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) with the managed slice untouched currently passes `lint_evidence_layer`; after the fix it is UNMATCHED (`drift`), while edits to non-machine keys (`status`, free-region prose) still pass — screening is human-writable by design.
+- [ ] **Step 2:** Extend `lint_evidence_layer` to diff the machine-owned frontmatter key set (`archive-url`, `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) against the base ref alongside the managed slice. Import-note's own writes are the legal path (they go through the CLI, not a hand edit against base). Full suite; commit `fix: closing guard covers machine-owned frontmatter keys`.
 
 ### Task 18: Supplied snapshots must be snapshots of THIS url (audit defect, archive)
 
