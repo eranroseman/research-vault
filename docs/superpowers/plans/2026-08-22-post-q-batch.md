@@ -561,6 +561,18 @@ The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured
 - [ ] **Step 2:** Judge each hit against the house doctrine: a comment states a constraint the code cannot show; provenance, history, and correctness arguments belong to git log. Delete what fails; keep load-bearing constraints (e.g. copyright/license/pinned-commit headers in vendored code stay). Record the judged keep-list in the commit body.
 - [ ] **Step 3:** Full offline suite green (comments only — any test failure means the sweep touched behavior; revert that hunk). Commit `style: comment-hygiene sweep — history and rulings out, constraints stay`.
 
+### Task 24c: Suite hermeticity + fixture speed (decided 2026-08-24 — runs BEFORE Task 25: the mutation gate re-executes covering test slices per mutant, so every second cut here multiplies by mutant count)
+
+Headline defect, fixed first: the offline suite is NOT hermetic — 97 connects to localhost:23119 in one offline run (unmarked tests in test_verify_cli.py, test_okf.py, test_publish.py do real BBT CSL exports). Offline green was machine-dependent: Zotero up = live calls; Zotero down = each connect eats the 5 s timeout. Measured baseline: serial 67.4 s / 1532 tests; proof of fixability: with sockets patched out, those files pass 233/233 with zero assertions needing a socket.
+
+**Files:** Modify: `tests/conftest.py`, `pyproject.toml` ([tool.pytest.ini_options]), the fixture sites the steps name; `docs/testing.md` (one doctrine line, same commit as Step 2).
+
+- [ ] **Step 1: `dead_base` fixture** — bind an ephemeral port, close it, hand out `http://127.0.0.1:<port>` (measured: 1 ms refusal vs 5029 ms on port 1 under WSL2). Replace the dead-port test bases; this is the only fix that reaches `test_probe_unreachable`'s subprocess CLI. (−15 s)
+- [ ] **Step 2: Socket-block offline runs** — autouse conftest patch (or pytest-socket) raising on any connect, disabled when HARNESS_LIVE/HARNESS_LIVE_NET is set. Sweep the unmarked live-touching tests onto dead_base/fixtures until offline passes fully blocked. Add one line to docs/testing.md: offline runs are socket-blocked; a test needing network carries a live marker. (−9 s, and offline green stops depending on Zotero)
+- [ ] **Step 3: Session-scoped template vault** — build one vault per worker, `copytree` per test (measured 0.319 s vs 0.554 s per 30 builds; `.git` copies fine, function-scope copy keeps isolation). (−8 s)
+- [ ] **Step 4:** `tmp_path_retention_policy = "failed"` in pyproject (−3 s; kills the 249 MB retained pile). Then `--dist worksteal` in the workflow's pytest invocations (tail latency only, safe once the 5 s tests are gone).
+- [ ] **Step 5: Acceptance** — offline suite green with sockets blocked and ZERO connects to 23119; serial ≤ ~40 s; live suite (both flags) still green. Commit `perf: hermetic offline suite + fixture speed`.
+
 ### Task 25: Full 26-module baseline — the hole closes
 
 - [ ] **Step 1:** Blanket baseline over ALL 26 modules (including the six mutate4py could not measure) under the 8 GB cap; record per-module wall-clock and the one-time stats-build cost in the task report.
