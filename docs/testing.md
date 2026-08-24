@@ -10,7 +10,7 @@ Offline (default): `python -m pytest tests -q -n auto` from the repo root, insid
 HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real address> python -m pytest tests -q
 ```
 
-`HARNESS_LIVE` unlocks the local-Zotero legs; `HARNESS_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`HARNESS_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete (this bit once: the `.detail` fallout).
+`HARNESS_LIVE` unlocks the local-Zotero legs; `HARNESS_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`HARNESS_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 
 ## Poking Zotero
 
