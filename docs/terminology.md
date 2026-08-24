@@ -145,7 +145,7 @@ anchored vocabulary; this document's "tool surface" (T2 prose) is a different re
 co-occurs with it on a vault/CLI surface. Both stand.
 
 Register split, ruled (Task 6): **`--source`/`source` on the `search-log` verb** names the database or
-API queried (`PubMed`, `Europe PMC`, `arXiv`, …) — CONTEXT.md's **Venue** sense, not its **Source**
+API queried (`PubMed`, `Europe PMC`, `arXiv`, …) — CONTEXT.md's **venue** sense (defined inside the Source entry's `_Avoid_` line), not its **Source**
 sense (the cited document itself). The brief's own PRISMA-S grammar ("source searched") is the field's
 anchor, so the CLI flag name stands; it never co-occurs with CONTEXT.md's Source on the same surface,
 the same non-collision shape as the `surface`/"tool surface" split above.

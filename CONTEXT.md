@@ -16,9 +16,6 @@ _Avoid_: atlas, wiki, topic pages
 **Literature note**: The vault projection of one Zotero item, filename = citekey; a managed region above free prose.
 _Avoid_: source note, paper note, reference note
 
-**Synthesis note**: One page of the synthesis layer, carrying block-anchored claims with stance links.
-_Avoid_: topic page (collides with OpenAlex topics), evergreen note, concept page
-
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 _Avoid_: effort, draft folder
 
@@ -27,9 +24,6 @@ _Avoid_: `+`, capture folder
 
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
 _Avoid_: calendar, journal, daily notes folder
-
-**System folder**: The vault's support artifacts (`system/`): templates, bases, the bibliography export. Sorts last, out of the knowledge folders' way.
-_Avoid_: x (old name), assets, meta
 
 **Managed region**: The bridge-regenerated span of a literature note between `%%hk-managed%%` markers; never hand-edited.
 _Avoid_: generated section, machine block
@@ -40,10 +34,7 @@ _Avoid_: generated section, machine block
 _Avoid_: work (OpenAlex sense), paper (narrower than the corpus)
 
 **Source**: The cited document itself, in the scholarly sense (primary/secondary source).
-_Avoid_: using "source" for a journal or repository — that is a **venue**
-
-**Venue**: The journal, repository, or outlet an item appeared in.
-_Avoid_: OpenAlex's "source" sense in our prose
+_Avoid_: using "source" for a journal, repository, or outlet — that is a **venue**, which is also what OpenAlex's "source" means and ours never does
 
 **Citekey**: The stable, human-readable key (Better BibTeX) joining prose citations, filenames, and the bibliography.
 _Avoid_: reference ID, bibkey
@@ -100,12 +91,3 @@ _Avoid_: release check, CI gate (CI is the async auditor, not the gate)
 
 **Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …), recorded bi-temporally.
 _Avoid_: retraction flag (one class of notice, not the concept)
-
-## Process
-
-**Information flow**: How a source is added, cataloged, and linked — continuous, project-independent.
-
-**Project flow**: How a question becomes a defensible draft — framing, gap analysis, acquisition, drafting, verification, publish.
-
-**Doctor**: The repair-capable diagnostic pass over the vault's substrate (Zotero, exports, tree, conformance).
-_Avoid_: health check, setup validator
