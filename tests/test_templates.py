@@ -143,8 +143,9 @@ def test_markdown_templates_match_canonical_content():
         "Machine surfaces (`log/`, `inbox/review-queue.md`, managed regions, "
         "`system/bibliography.json`) are owner-written: hand or tool edits are "
         "regenerated away or raise a finding.\n\n"
-        "Formatters are writers too: `.prettierignore`, `.markdownlintignore`, "
-        "and `.editorconfig` keep them off the machine surfaces.\n\n"
+        "Formatters are writers too: `.prettierignore` and `.markdownlintignore` "
+        "keep them off the machine surfaces; `.editorconfig` disables an "
+        "editor's own trim/final-newline defaults there instead.\n\n"
         "`.harness/` is machine-local: nothing in it travels with the vault.\n"
     )
     assert asset("vault/inbox/review-queue.md").read_text() == (
@@ -306,36 +307,47 @@ def test_bases_and_machine_example_match_canonical_shapes():
     assert ".obsidian/workspace*\n" in gitignore
 
 
+# Anchored (leading "/") gitignore-style form, as knowledge_harness/lints.py's
+# _is_append_only_path names the append-only three (log/, inbox/review-queue.md,
+# projects/*/search-log.md) plus system/bibliography.json (Better BibTeX's
+# export) and literatures/ (the evidence layer). Anchoring matters: an
+# unanchored "log/" also matches a nested projects/<name>/log/, silently
+# widening what a formatter skips.
 _MACHINE_SURFACES = (
-    "literatures/",
-    "log/",
-    "inbox/review-queue.md",
-    "system/bibliography.json",
+    "/literatures/",
+    "/log/",
+    "/inbox/review-queue.md",
+    "/system/bibliography.json",
+    "/projects/*/search-log.md",
 )
 
 
 def test_formatter_ignores_cover_every_machine_surface():
     # prettier and markdownlint both read gitignore-style patterns, so their
-    # ignore files list the four machine surfaces as plain gitignore lines.
+    # ignore files list the five machine surfaces as plain, anchored
+    # gitignore lines.
     for name in ("vault/prettierignore", "vault/markdownlintignore"):
         text = asset(name).read_text()
         for surface in _MACHINE_SURFACES:
             assert surface in text, (name, surface)
 
     # .editorconfig has no gitignore-style ignore mechanism, and ships no
-    # [*] section -- it defends only the four machine surfaces and makes
+    # [*] section -- it defends only the five machine surfaces and makes
     # no claim about any other vault file. `false` is the active override
     # for the two boolean properties: it wins even against a user's own
     # editor-wide setting, unlike `unset` or omission, either of which
     # yields to that global config (spec.editorconfig.org, "unset").
     # charset/end_of_line have no boolean "off" and are deliberately
-    # absent: with no [*] and root = true blocking ancestor files, there
-    # is nothing left in scope for `unset` to undo, so it would be inert.
+    # absent: with no [*] section, there is nothing left in scope for
+    # `unset` to undo, so it would be inert. EditorConfig glob sections
+    # have no gitignore-style leading-slash syntax; an interior "/" is
+    # what anchors them to this file's own directory.
     editorconfig = asset("vault/editorconfig").read_text()
     assert "root = true" in editorconfig
     assert "[*]" not in editorconfig.splitlines()
     for surface in _MACHINE_SURFACES:
-        glob = f"{surface}**" if surface.endswith("/") else surface
+        relative = surface.removeprefix("/")
+        glob = f"{relative}**" if relative.endswith("/") else relative
         assert f"[{glob}]" in editorconfig, (surface, glob)
     assert "= unset" not in editorconfig
     assert "charset =" not in editorconfig
