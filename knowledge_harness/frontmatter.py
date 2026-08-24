@@ -59,6 +59,25 @@ def _emit_scalar(v):
     return f'"{escaped}"'
 
 
+def render_field(key: str, value) -> str:
+    """Render one top-level ``key: value`` frontmatter line.
+
+    ``value`` may be a scalar or a one-level mapping (rendered ``{a: b, ...}``,
+    matching a parsed ``generated``-shaped field). This is the one spelling of
+    that grammar: ``serialize`` and any byte-surgical single-field writer
+    (``archive.set_archive_url``, ``archive._bump_generated``) share it, so
+    what they emit and what ``frontmatter.parse``/``notes._valid_generated``
+    expect back cannot drift apart.
+    """
+    if isinstance(value, dict):
+        inner = ", ".join(
+            f"{inner_key}: {_emit_scalar(inner_value)}"
+            for inner_key, inner_value in _mapping_items(value)
+        )
+        return f"{key}: {{{inner}}}"
+    return f"{key}: {_emit_scalar(value)}"
+
+
 def serialize(data: dict) -> str:
     lines = ["---"]
     for key, value in _mapping_items(data):
@@ -73,14 +92,8 @@ def serialize(data: dict) -> str:
                     lines.append(f"  - {{{inner}}}")
                 else:
                     lines.append(f"  - {_emit_scalar(item)}")
-        elif isinstance(value, dict):
-            inner = ", ".join(
-                f"{inner_key}: {_emit_scalar(inner_value)}"
-                for inner_key, inner_value in _mapping_items(value)
-            )
-            lines.append(f"{key}: {{{inner}}}")
         else:
-            lines.append(f"{key}: {_emit_scalar(value)}")
+            lines.append(render_field(key, value))
     lines.append("---")
     return "\n".join(lines) + "\n"
 

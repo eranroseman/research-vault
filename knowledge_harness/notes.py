@@ -208,6 +208,16 @@ def _valid_generated(value) -> bool:
     return at.endswith("Z") and parsed.tzinfo is not None
 
 
+def generated_at_now(now: datetime.datetime | None = None) -> str:
+    """Second-resolution, ``Z``-suffixed ISO 8601 — the one spelling every
+    ``generated.at`` stamp of "now" uses (``__main__``'s import, ``archive``'s
+    writer attestation), so they cannot drift into formats `_valid_generated`
+    disagrees on.
+    """
+    moment = now if now is not None else datetime.datetime.now(datetime.UTC)
+    return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def render_note(
     item, attachment_hashes, annotations, existing, accessed, generated_at=None
 ) -> str:

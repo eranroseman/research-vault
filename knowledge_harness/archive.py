@@ -13,7 +13,6 @@ fabricated URL. Nothing here ever composes an archive URL itself; it records
 only what the availability API returns, and only from the archive's own host.
 """
 
-import datetime
 import urllib.parse
 
 from . import AGENT_ACTOR, Result, frontmatter, notes, webapi
@@ -92,9 +91,7 @@ def set_archive_url(note_text: str, url: str) -> str:
     ]
     if len(existing) > 1:
         raise ArchiveError(f"note carries {len(existing)} archive-url fields, need one")
-    # _emit_scalar quotes and escapes exactly as the serializer does, and fails
-    # loudly on any character that could forge a second frontmatter line.
-    field = f"archive-url: {frontmatter._emit_scalar(url)}"
+    field = frontmatter.render_field("archive-url", url)
     if existing:
         line = lines[existing[0]]
         ending = (
@@ -136,20 +133,13 @@ def _outage(target: str, detail: str) -> Outcome:
     return Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {detail}")
 
 
-def _generated_at() -> str:
-    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
-    return now.isoformat().replace("+00:00", "Z")
-
-
 def _bump_generated(note_text: str, at: str) -> str:
     """Attest this write in the note's ``generated`` field, inserted or replaced.
 
     Byte-surgical for the same reason ``set_archive_url`` is: every other
     line — the managed region, its witness, human-added keys — must survive
     untouched, and the parse-back below refuses to hand back a note this
-    write broke. Gaining a snapshot is a meaningful content change (task 17b
-    step 2b), so this write carries the same writer attestation a re-render
-    would, keeping the evidence-layer guard from reading it as a hand-edit.
+    write broke.
     """
     lines = note_text.splitlines(keepends=True)
     fence = {"---\n", "---\r\n"}
@@ -166,11 +156,7 @@ def _bump_generated(note_text: str, at: str) -> str:
     ]
     if len(existing) > 1:
         raise ArchiveError(f"note carries {len(existing)} generated fields, need one")
-    inner = ", ".join(
-        f"{key}: {frontmatter._emit_scalar(value)}"
-        for key, value in (("by", AGENT_ACTOR), ("at", at))
-    )
-    field = f"generated: {{{inner}}}"
+    field = frontmatter.render_field("generated", {"by": AGENT_ACTOR, "at": at})
     if existing:
         line = lines[existing[0]]
         ending = (
@@ -191,7 +177,7 @@ def _bump_generated(note_text: str, at: str) -> str:
 
 
 def _record(path, text, url, target) -> Outcome:
-    updated = _bump_generated(set_archive_url(text, url), _generated_at())
+    updated = _bump_generated(set_archive_url(text, url), notes.generated_at_now())
     _write_note_text(path, updated)
     return Outcome(CHECK, target, Result.MATCHED, "matched", extra={"archive_url": url})
 

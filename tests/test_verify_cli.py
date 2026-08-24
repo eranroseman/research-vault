@@ -214,6 +214,13 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
             '  - "bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22"',
         )
     )
+    # Committed so `lint_evidence_layer`'s base and candidate agree on the
+    # changed fixity-sha256 — this test exercises hash-based reopening, not
+    # the machine-owned-frontmatter guard.
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "change fixity-sha256"], cwd=net_vault, check=True
+    )
     fourth = run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert any(
         e.check == "quote" and e.target == raw.target
@@ -1044,7 +1051,7 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
     )
     # Committed so `lint_evidence_layer`'s base and candidate agree on the
     # missing fixity-sha256 — this test exercises warning suppression, not
-    # the machine-owned-frontmatter guard task 17b adds.
+    # the machine-owned-frontmatter guard.
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
         ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
@@ -1512,6 +1519,13 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
             "",
         )
     )
+    # Committed so `lint_evidence_layer`'s base and candidate agree on the
+    # missing fixity-sha256 — this test exercises candidate-bound hashing, not
+    # the machine-owned-frontmatter guard.
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
+    )
     primary = _projecting_failure(check)
     companion = _outcome(
         "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
@@ -1547,6 +1561,13 @@ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
             'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
             "",
         )
+    )
+    # Committed so `lint_evidence_layer`'s base and candidate agree on the
+    # missing fixity-sha256 — this test exercises candidate-bound hashing, not
+    # the machine-owned-frontmatter guard.
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
     companion = _outcome(

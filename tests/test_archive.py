@@ -112,8 +112,8 @@ def test_recording_preserves_every_other_byte_of_the_note(net_vault, monkeypatch
     archive.archive_source(net_vault, "rot2024")
 
     after = path.read_text()
-    # Step 2b (task 17b): the write also attests itself in `generated`, so two
-    # lines are new — the timestamp is not predicted, only located.
+    # The write also attests itself in `generated`, so two lines are new —
+    # the timestamp is not predicted, only located.
     generated_line = next(
         line
         for line in after.splitlines(keepends=True)
@@ -515,8 +515,8 @@ def _tree_hash(vault) -> str:
 
 
 def test_a_legitimate_archive_run_passes_the_closing_guard(net_vault, monkeypatch):
-    """Task 17b: gaining a snapshot is a meaningful content change, so this
-    write must carry the same writer attestation a re-render would — else the
+    """Gaining a snapshot is a meaningful content change, so this write must
+    carry the same writer attestation a re-render would — else the
     evidence-layer guard cannot tell it apart from a bare hand-edit.
     """
     from knowledge_harness import gitstate, lints
@@ -540,8 +540,8 @@ def test_a_legitimate_archive_run_passes_the_closing_guard(net_vault, monkeypatc
 
 
 def test_a_bare_archive_url_hand_edit_fails_the_closing_guard(net_vault):
-    """The gap this task closes: without Step 2b's attestation, this write —
-    indistinguishable from `archive-source`'s own — must still read as drift.
+    """Without `_bump_generated`'s attestation, this write — indistinguishable
+    from `archive-source`'s own — must still read as drift.
     """
     from knowledge_harness import gitstate, lints
 

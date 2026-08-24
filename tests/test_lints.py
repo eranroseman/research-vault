@@ -826,10 +826,10 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
     ["archive-url", "managed-sha256", "fixity-sha256", "generated", "citekey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
-    """Task 17b: machine-owned frontmatter sits outside %%hk-managed%%, so a
-    hand-edit to it — with the managed slice untouched and no writer
-    attestation (a `generated` bump by the machine actor in the same diff) —
-    must surface as drift, the same as a managed-region change would.
+    """Machine-owned frontmatter sits outside %%hk-managed%%, so a hand-edit
+    to it — with the managed slice untouched and no writer attestation (a
+    `generated` bump by the machine actor in the same diff) — must surface as
+    drift, the same as a managed-region change would.
     """
     base = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],
@@ -882,3 +882,134 @@ def test_screening_status_hand_edit_is_not_evidence_layer_drift(fixture_vault):
         item.result is Result.UNMATCHED and item.reason.startswith("drift")
         for item in outcomes
     )
+
+
+@pytest.mark.parametrize(
+    "malformed_generated",
+    [
+        'generated: {by: "knowledge_harness/0.1.0", at: "banana"}',
+        'generated: {by: "knowledge_harness/0.1.0"}',
+    ],
+    ids=["invalid-at", "missing-at"],
+)
+def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
+    fixture_vault, malformed_generated
+):
+    """A `generated` whose `by` looks machine-class but whose shape is invalid
+    (bad `at`, or no `at` at all) must not legalize anything —
+    `notes._valid_generated` is the one place this field's shape is defined.
+    """
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    source = fixture_vault / "literatures" / "smith2020.md"
+    edited = source.read_text().replace(
+        'citekey: "smith2020"', 'citekey: "smith2020x"', 1
+    )
+    edited = edited.replace(
+        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}',
+        malformed_generated,
+        1,
+    )
+    source.write_text(edited)
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    assert any(
+        item.reason == "drift — citekey changed without writer attestation"
+        for item in outcomes
+    ), outcomes
+
+
+def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vault):
+    """Two different non-dict `generated` values must not compare equal just
+    because both get coerced to "no shape" — the comparison has to see the
+    raw value, or a hand-edit could hide behind a same-looking coercion.
+    """
+    source = fixture_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace(
+            'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}',
+            'generated: "junk-one"',
+            1,
+        )
+    )
+    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "junk generated base"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+    edited = source.read_text().replace(
+        'generated: "junk-one"', 'generated: "junk-two"', 1
+    )
+    source.write_text(edited)
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    assert any(
+        item.reason == "drift — generated changed without writer attestation"
+        for item in outcomes
+    ), outcomes
+
+
+def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_vault):
+    """An unparseable *base* frontmatter must not silently skip the whole
+    per-key comparison. The candidate side already has an independent parse
+    check (`validate_managed_witness`, first loop); this loop must not
+    short-circuit on the base side going unparseable instead.
+    """
+    source = fixture_vault / "literatures" / "smith2020.md"
+    original = source.read_text()
+    malformed = original.replace(
+        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
+        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
+        "  bad: nested\n---\n",
+        1,
+    )
+    with pytest.raises(frontmatter.FrontmatterError):
+        frontmatter.parse(malformed)
+    source.write_text(malformed)
+    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "malformed base frontmatter"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+    source.write_text(_hand_edit_machine_owned_key(original, "generated"))
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    assert any(
+        item.reason == "drift — generated changed without writer attestation"
+        for item in outcomes
+    ), outcomes

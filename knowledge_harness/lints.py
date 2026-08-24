@@ -619,8 +619,8 @@ def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
 # owns citekey/managed-sha256/fixity-sha256, `archive.set_archive_url` owns
 # archive-url (notes.py's comment on MANAGED_FIELDS names it explicitly as
 # passed-through). Neither writer is otherwise distinguishable from a
-# hand-edit, so legality here rides on the `generated` writer attestation
-# (task 17b), not on slice membership.
+# hand-edit, so legality here rides on the `generated` writer attestation,
+# not on slice membership.
 _MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
     {"archive-url", "managed-sha256", "fixity-sha256", "citekey"}
 )
@@ -644,28 +644,46 @@ def _frontmatter(image: gitstate.FileImage | None) -> dict | None:
     return data
 
 
-def _generated(data: dict) -> dict | None:
-    value = data.get("generated")
-    return value if isinstance(value, dict) else None
+def _field(data: dict | None, key: str):
+    """One frontmatter value, or None for an absent key or unparseable side.
+
+    An unparseable side (`data is None`) must not be able to hide a change —
+    it has to compare unequal to whatever the other, parseable side holds, the
+    same fail-closed shape `_managed_bytes` already uses for the managed slice.
+    """
+    return data.get(key) if data is not None else None
 
 
-def _machine_attested(generated: dict | None) -> bool:
-    actor = generated.get("by") if generated is not None else None
-    return isinstance(actor, str) and actor.startswith(_MACHINE_ACTOR_PREFIX)
+def _machine_attested(generated) -> bool:
+    """Whether `generated` is validly shaped AND its `by` is machine-class.
+
+    Shape first: `notes._valid_generated` is the one place this field's shape
+    is defined, so a malformed `generated` (missing `at`, extra keys, a bad
+    timestamp) can never attest a change here even if `by` looks right.
+    """
+    return notes._valid_generated(generated) and generated["by"].startswith(
+        _MACHINE_ACTOR_PREFIX
+    )
 
 
 def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     """Flag a machine-owned frontmatter change with no matching writer attestation.
 
-    Legality rule (ruled 2026-08-24): a change to any of the four machine-owned
-    keys is legal iff `generated` also changed in the same diff with `by` the
-    machine actor class. `generated` guards itself the same way, so it cannot
-    legalize its own unattested change.
+    Legality rule: a change to any of the four machine-owned keys is legal iff
+    `generated` also changed in the same diff with `by` the machine actor
+    class. `generated` guards itself the same way, so it cannot legalize its
+    own unattested change. Attestation is per-file-per-diff: one legitimate
+    `generated` bump also legalizes any other machine-owned key riding along
+    unattested in the same diff.
+
+    Stated boundary, not a compliance control: this catches accidents and
+    oblivious agents. Forging the attestation — hand-writing a machine-class
+    `by` — is deliberate circumvention (recorded-bypass class), and so is
+    piggy-backing an unrelated edit onto someone else's legitimate bump;
+    neither is this check's job to catch.
     """
-    if base_data is None or candidate_data is None:
-        return []
-    base_generated = _generated(base_data)
-    candidate_generated = _generated(candidate_data)
+    base_generated = _field(base_data, "generated")
+    candidate_generated = _field(candidate_data, "generated")
     generated_changed = base_generated != candidate_generated
     attested = generated_changed and _machine_attested(candidate_generated)
     outcomes = [
@@ -676,7 +694,7 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
             f"drift — {key} changed without writer attestation",
         )
         for key in sorted(_MACHINE_OWNED_FRONTMATTER_KEYS)
-        if base_data.get(key) != candidate_data.get(key) and not attested
+        if _field(base_data, key) != _field(candidate_data, key) and not attested
     ]
     if generated_changed and not _machine_attested(candidate_generated):
         outcomes.append(

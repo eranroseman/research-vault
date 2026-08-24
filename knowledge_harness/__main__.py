@@ -265,7 +265,7 @@ def cmd_import_note(args):
     _selector_warning(degradation_reasons, retained=retained)
 
     now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
-    generated_at = now.isoformat().replace("+00:00", "Z")
+    generated_at = notes.generated_at_now(now)
     try:
         candidate = notes.render_note(
             item,
