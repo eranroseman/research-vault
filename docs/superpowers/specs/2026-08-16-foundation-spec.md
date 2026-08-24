@@ -1,5 +1,7 @@
 # Knowledge-Harness Foundation — Specification
 
+DISCLAIMER: This specification is a living document subject to change. The author reserves the right to modify, update, or invalidate any claim, boundary, or technical detail without prior notice. The foundation's trust boundaries, provenance requirements, and verification gates are designed to be rigorously enforceable but remain open to revision as new research, threats, or implementation constraints emerge. All claims are traceable to their source evidence, and the system operates under the principle that trust must be continuously earned through demonstrable mechanical verifiability, not mere assertion. THIS IS A TEMPORARY FILE THAT WILL BE REPLACED BY CODE AND DOCUMENTATION. EVERYTHING IN IT WAS PERCEIVED AS RELEVANT AT THE MOMENT IT WAS WRITTEN AND SHOULD NOT BE SEEN AS AN ABIDING RULING OR ANYTHING ELSE THAN A MOMENTARY LOG.
+
 Status: **APPROVED** by the author, 2026-08-16 (wayfinder ticket #15) — after two adversarial verification passes (44 findings resolved) and a seven-domain rethink audit (85 findings; three trust-boundary defects fixed).
 Consolidates the resolutions of tickets #7–#14 of the [foundation map](https://github.com/eranroseman/knowledge-harness/issues/1). Written for a reader with no shared history; every design decision links its ticket, where the full rationale and research inputs live.
 
