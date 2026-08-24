@@ -406,7 +406,9 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 **Files:** Modify: `knowledge_harness/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
 
 - [ ] **Step 1: Failing test** — a hand-edit to a literature note's `archive-url` (and parametrized: `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) with the managed slice untouched currently passes `lint_evidence_layer`; after the fix it is UNMATCHED (`drift`), while edits to non-machine keys (`status`, free-region prose) still pass — screening is human-writable by design.
-- [ ] **Step 2:** Extend `lint_evidence_layer` to diff the machine-owned frontmatter key set (`archive-url`, `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) against the base ref alongside the managed slice. Import-note's own writes are the legal path (they go through the CLI, not a hand edit against base). Full suite; commit `fix: closing guard covers machine-owned frontmatter keys`.
+- [ ] **Step 2 (legality rule decided 2026-08-24, superseding the managed-slice coupling — which leaks on archive-url's frontmatter-only write AND on attachment-only fixity changes):** a machine-owned key change (`archive-url`, `managed-sha256`, `fixity-sha256`, `citekey`) is legal iff `generated` changed in the same diff with `by` = the machine actor — writer attestation, not slice coupling. Scope stated in the lint's finding text: this catches accidents and oblivious agents; forging the attestation is deliberate circumvention (recorded-bypass class, spec §2's stated-boundary language). Extend `lint_evidence_layer` accordingly.
+- [ ] **Step 2b:** `archive-source` bumps `generated.{by,at}` on its write (gaining a snapshot IS a meaningful content change; orthogonal to byte-identical-rerender preservation). Test: a legitimate archive run passes the new lint; a bare hand-edit to `archive-url` fails it.
+- [ ] **Step 3:** Full suite; commit `fix: closing guard covers machine-owned frontmatter keys via writer attestation`.
 
 ### Task 18: Supplied snapshots must be snapshots of THIS url (audit defect, archive)
 
