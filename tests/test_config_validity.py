@@ -269,7 +269,7 @@ PYPROJECT_FMT_FLAGS = [
 # two significant (non-comment, non-blank) lines following the comment block,
 # which allows for a `[table.header]` line sitting between a block and its key.
 RULING_ANCHORS = [
-    ("Lazy-imported at the single parse site", '"defusedxml==0.7.1"'),
+    ("Lazy-imported at knowledge_harness's single parse site", '"defusedxml==0.7.1"'),
     ("RENDER-CONTRACT pin", '"mdformat==1.0.0"'),
     ("never in addopts", '"pytest-xdist==3.8.0"'),
     ("Dev-lane instrument, read-only posture", '"pyzotero[cli]==1.14.0"'),
