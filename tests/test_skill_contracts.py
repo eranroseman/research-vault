@@ -301,10 +301,19 @@ def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
        multi-id enumerations the corpus ships are introduced by prose like
        "this surface closes on" or sit inside a table cell.
 
-    Known bound, and it is real: a run that neither says "check id" nor keeps
-    two still-valid ids is invisible here. A wholesale rename of every member
-    of one enumeration would slip past. Partial drift — the case that
-    actually happens, and the one C-1's class is made of — does not.
+    Bound, read off the return condition below rather than guessed at: a run
+    is returned only if the prose introduces it, or **at least two of its
+    members are still ids the code files**. ``named`` counts survivors, not
+    renames — so a phrase-less run's visibility tracks how many valid ids
+    remain beside a drifted one, not how many drifted. The two-member run
+    shipped at ``skills/publish/SKILL.md:37`` ("this surface's other two
+    closing checks, `citekey` and `evidence-layer`", which sits before that
+    line's "check id" phrase and so has only this anchor) goes unread the
+    moment *either* single member drifts, carrying the drifted token out of
+    view with it. A longer run stays readable while two valid members
+    survive and goes dark below that — not only when every member is
+    renamed. Pinned by
+    ``test_the_documented_bound_on_the_co_occurrence_anchor_holds``.
     """
     known = _known_check_ids()
     found = []
@@ -334,10 +343,13 @@ def test_recognizable_check_id_enumerations_name_only_ids_the_code_files(skill_m
 
     "Recognizable" is load-bearing and not a hedge — it names exactly what
     ``_enumerated_check_ids`` reads, and that is less than every check id in
-    the file. A run introduced by no "check id" phrase and retaining fewer
-    than two still-valid ids is not read here. What is read at HEAD: all five
-    multi-id enumerations the shipped corpus carries, plus every phrase-led
-    single-id claim.
+    the file. A run the prose does not introduce is read only while at least
+    two of its members are still valid ids, so drift in a short phrase-less
+    run can take the entire run out of view, drifted token included — see
+    that function's bound, pinned by
+    ``test_the_documented_bound_on_the_co_occurrence_anchor_holds``. What is
+    read at HEAD: all five multi-id enumerations the shipped corpus carries,
+    plus every phrase-led single-id claim.
     """
     known = _known_check_ids()
     unknown = sorted(
@@ -364,6 +376,37 @@ def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
         "claim-immutability",
         "published-drift",
     } <= emitted
+
+
+def test_the_documented_bound_on_the_co_occurrence_anchor_holds():
+    """The bound the two docstrings state, made executable.
+
+    It was stated wrongly once — ``de1867d``'s body and docstrings claimed
+    only a *wholesale* rename escapes — so it is pinned here rather than left
+    as prose a later reader has to re-derive. The shape is the two-member run
+    the corpus actually ships at ``skills/publish/SKILL.md:37``, which no
+    "check id" phrase introduces.
+    """
+    pair = "— this surface's other two closing checks, `{a}` and `{b}`, mint nothing."
+    assert _enumerated_check_ids(pair.format(a="citekey", b="evidence-layer")) == [
+        (1, "citekey"),
+        (1, "evidence-layer"),
+    ]
+    # ONE rename leaves one survivor, below the anchor, and the whole run goes
+    # unread — the drifted token with it. Single-id drift, not wholesale.
+    assert _enumerated_check_ids(pair.format(a="citekeys", b="evidence-layer")) == []
+    assert _enumerated_check_ids(pair.format(a="citekey", b="evidence-tier")) == []
+
+    # Longer runs track survivors too: two survivors keep the run readable and
+    # the drifted member is reported; one survivor takes it out of view.
+    triple = "This surface closes on `{a}`, `{b}`, and `{c}`."
+    assert _enumerated_check_ids(
+        triple.format(a="citekey", b="evidence-layer", c="bogus-one")
+    ) == [(1, "citekey"), (1, "evidence-layer"), (1, "bogus-one")]
+    assert (
+        _enumerated_check_ids(triple.format(a="bogus-one", b="bogus-two", c="doi"))
+        == []
+    )
 
 
 def test_the_check_id_extractor_anchors_on_the_phrase_and_on_co_occurrence():
