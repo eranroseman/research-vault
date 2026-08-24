@@ -2,6 +2,8 @@
 sources/*.zip
 .worktrees/
 .claude/worktrees/
+# PDFs belong in Zotero (spec §2 preservation boundary); recovering a primary
+# into sources/ is a deliberate act: git add -f + a README table row.
 *.pdf
 .mutate4py/
 lcov.info
@@ -12,8 +14,13 @@ lcov.info
 __pycache__/
 *.py[codz]
 *.egg-info/
-build/
+/build/
 dist/
+
+# Merge artifacts (parallel sessions share this checkout)
+*.orig
+*.rej
+.DS_Store
 
 # Test / coverage
 .coverage
@@ -26,6 +33,7 @@ coverage.xml
 
 # Environments
 .env
+.env*
 .envrc
 .venv
 env/
