@@ -26,6 +26,7 @@ from knowledge_harness.__main__ import cmd_inbox, cmd_verify, main
 from knowledge_harness.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from knowledge_harness.verify import (
     _archive_outcomes,
+    _file_effects,
     _mutate_marker,
     _safe_relative,
     _target_hash,
@@ -1157,6 +1158,27 @@ def test_python_module_verify_and_inbox_acceptance(net_vault):
     assert review.returncode == 0
     assert '"unacknowledged"' in review.stdout
     assert "fabricated2020" in review.stdout
+
+
+def test_file_effects_does_not_refile_an_already_open_skipped_finding(tmp_vault):
+    """Excluding SKIPPED from the unacknowledged count must not exclude it
+    from ``open_entries()``: ``_file_effects`` builds its dedup key set from
+    that same call, and a SKIPPED row missing from it gets re-filed as a
+    duplicate on every subsequent run.
+    """
+    existing = inbox.append_entry(
+        tmp_vault,
+        "metadata",
+        "a",
+        Result.SKIPPED,
+        "no-identifier",
+        date="2026-08-01",
+    )
+    outcome = checks.Outcome("metadata", "a", Result.SKIPPED, "no-identifier")
+
+    _file_effects(tmp_vault, [outcome], {id(outcome): None}, {}, "2026-08-02")
+
+    assert [entry.id for entry in inbox.open_entries(tmp_vault)] == [existing.id]
 
 
 def test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first(net_vault, capsys):

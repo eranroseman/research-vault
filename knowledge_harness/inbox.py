@@ -709,8 +709,15 @@ def open_entries(vault) -> list[Finding]:
 
 
 def summary(vault) -> dict:
-    """Return the count and age basis used by inbox orientation surfaces."""
-    entries = open_entries(vault)
+    """Return the count and age basis used by inbox orientation surfaces.
+
+    SKIPPED findings stay in ``open_entries()`` — verify's dedup keys off
+    that list to avoid re-filing them — but are excluded from the count and
+    age basis returned here.
+    """
+    entries = [
+        entry for entry in open_entries(vault) if entry.result != Result.SKIPPED.value
+    ]
     return {
         "unacknowledged": len(entries),
         "oldest": min((entry.date for entry in entries if entry.date), default=None),

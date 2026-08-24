@@ -864,6 +864,45 @@ def test_summary_counts_and_age(fixture_vault):
     }
 
 
+def test_skipped_entries_not_counted_unacknowledged(fixture_vault):
+    inbox.append_entry(
+        fixture_vault,
+        "metadata",
+        "a",
+        Result.SKIPPED,
+        "no-identifier",
+        date="2026-08-01",
+    )
+
+    # A queue holding only SKIPPED findings reports nothing unacknowledged:
+    # SKIPPED means "does not apply", not "needs a human decision".
+    assert inbox.summary(fixture_vault) == {"unacknowledged": 0, "oldest": None}
+
+    inbox.append_entry(
+        fixture_vault,
+        "doi",
+        "b",
+        Result.UNMATCHED,
+        "mismatch",
+        date="2026-08-16",
+    )
+
+    # Mixed queue: the SKIPPED entry still contributes neither to the count
+    # nor to the oldest-age basis, so both derive from the UNMATCHED entry
+    # alone even though it is dated later than the excluded SKIPPED entry.
+    assert inbox.summary(fixture_vault) == {
+        "unacknowledged": 1,
+        "oldest": "2026-08-16",
+    }
+
+    # SKIPPED entries stay in the audit trail and in full listings — only
+    # the counting surface excludes them.
+    assert {entry.result for entry in inbox.open_entries(fixture_vault)} == {
+        Result.SKIPPED.value,
+        Result.UNMATCHED.value,
+    }
+
+
 # The review queue is append-only, so one unparseable row is permanent: every
 # later `inbox`, `ack`, doctor probe and `verify` read of the file raises, and
 # on a fresh vault the first bad write both creates and corrupts it. ``load``
