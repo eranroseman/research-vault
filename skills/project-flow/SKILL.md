@@ -81,4 +81,4 @@ Any finding drained from the review inbox is acknowledged only through the `ack`
 python3 -m knowledge_harness ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"
 ```
 
-Compose and explain the finding; the person consents; the CLI writes. Every mechanical act in this skill — events, statuses, tags, holds, acknowledgments — is a CLI verb call, never prose written by hand.
+Compose and explain the finding; the person consents; the CLI writes — every mechanical act in this skill (events, statuses, tags, holds, acknowledgments) is a CLI verb call, never prose written by hand.

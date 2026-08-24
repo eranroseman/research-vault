@@ -88,7 +88,7 @@ python3 -m knowledge_harness search-log --vault PATH --project NAME \
   --reason "not-admitted — ONE-LINE REASON" [--source "DATABASE NAME"]
 ```
 
-`--query` and `--not-admitted` are mutually exclusive — one call writes one record. Two genuinely separate runs of the same query on different days are two lines, never merged or deduplicated: this is a PRISMA-S trail a methods reviewer reconstructs, not a search index. Never hand-write a line into `search-log.md` yourself, for either record kind — every append is this verb, and the file is append-only (a rewritten line is a lint failure, the same guard `inbox/review-queue.md` and `log/` carry).
+`--query` and `--not-admitted` are mutually exclusive — one call writes one record. Two genuinely separate runs of the same query on different days are two lines, never merged or deduplicated: this is a PRISMA-S trail a methods reviewer reconstructs, not a search index. The CLI writes every line into `search-log.md`, for either record kind — every append is this verb, and the file is append-only (a rewritten line is a lint failure, the same guard `inbox/review-queue.md` and `log/` carry).
 
 ### Report what actually happened
 
@@ -105,7 +105,7 @@ Never promise a search you did not run, and never let a silent gap read as "noth
 
 ## Present candidates, then stop
 
-Report results the way the retrieval can be repeated, not as a raw dump — per candidate: title, authors, year, venue; identifiers (DOI/PMID/arXiv ID/URL, whichever apply); and enough provenance (endpoint, parameters, access date) that a human or another agent could reproduce the exact call. Default to a readable summary; quote raw JSON only when explicitly asked, labelled as untrusted third-party data. For a large full-text pull, save it to a local file and report the path rather than flooding the response.
+Report results the way the retrieval can be repeated — per candidate: title, authors, year, venue; identifiers (DOI/PMID/arXiv ID/URL, whichever apply); and enough provenance (endpoint, parameters, access date) that a human or another agent could reproduce the exact call. Default to a readable summary; quote raw JSON only when explicitly asked, labelled as untrusted third-party data. For a large full-text pull, save it to a local file and report the path rather than flooding the response.
 
 That report is the entire deliverable. This skill **terminates at the admission step**:
 

@@ -10,7 +10,7 @@ Admission is the human act of accepting a source into Zotero, and it is the **on
 
 **No project is required.** The information flow — admit, catalog, integrate — is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped, because its deliverable is one project's PRISMA-S search trail.
 
-In every command, `PATH` is the vault and `CITEKEY` is the Better BibTeX key — read it off the admitted item in Zotero, where Better BibTeX shows it in the item list's **Citation Key** column and in the item pane's own `Citation Key` row; never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. Never hand-write a literature note, a managed region, a `verified` event, or a review-inbox entry.
+In every command, `PATH` is the vault and `CITEKEY` is the Better BibTeX key — read it off the admitted item in Zotero, where Better BibTeX shows it in the item list's **Citation Key** column and in the item pane's own `Citation Key` row; never invent or guess one. Every mechanical act below — a literature note, a managed region, a `verified` event, a review-inbox entry — is a CLI verb call: you compose and explain, the CLI writes.
 
 ## 1. Catalog: `import-note`
 

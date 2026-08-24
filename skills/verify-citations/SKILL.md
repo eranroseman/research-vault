@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Verify citations
 
-This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of §6. Never carry an inventory of check ids in your head or in a report. Run the CLI; its output is always up to date. It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id. Never hand-write a result, a `verified` event, or a review-inbox entry — the CLI does all of that already, inside `verify` itself.
+This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of §6. Never carry an inventory of check ids in your head or in a report. Run the CLI; its output is always up to date. It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id — the CLI writes a result, a `verified` event, and a review-inbox entry, inside `verify` itself.
 
 ## Run the audit
 
@@ -24,7 +24,7 @@ Only add `--surface commit` or `--surface publish` if the person explicitly asks
 
 `verify` prints one line per non-MATCHED outcome — `RESULT check target — reason` — followed by a final JSON summary of counts by result. MATCHED outcomes never print individually, for every check id, whether or not they mint an event — silence about one check id in the line output is not itself news; read the JSON counts to confirm what actually ran.
 
-Present the printed lines to the person **grouped by check id as the CLI reports them** (the second token on each line), not in raw run order — a person triaging results wants "here is everything wrong with quotes," not an interleaved dump.
+Present the printed lines to the person **grouped by check id as the CLI reports them** (the second token on each line) — a person triaging results wants "here is everything wrong with quotes," not an interleaved dump.
 
 | Result      | Meaning                                                                                                                                                                                                                                                               |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Use this only when the person explicitly invokes it. "Publish" is this skill's action, not a branch merge.
 
-Every mechanical act below is a CLI verb call: you compose and explain, the person chooses, the CLI writes. Never hand-write a status, a `verified` event, a tag, an acknowledgment, or a review-inbox entry — not in a note, not in frontmatter, not anywhere.
+Every mechanical act below — a status, a `verified` event, a tag, an acknowledgment, a review-inbox entry — is a CLI verb call: you compose and explain, the person chooses, the CLI writes — never by hand, not in a note, not in frontmatter, not anywhere.
 
 In every command, `PATH` is the vault and `NAME` is the project's name under `projects/` — `brief`, not `projects/brief`.
 
