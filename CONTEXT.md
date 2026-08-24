@@ -2,7 +2,9 @@
 
 Trust-first academic research on a personal knowledge vault: every claim traceable to a real source, verified by mechanical checks. This glossary is the meaning layer; naming governance (why these words) lives in docs/terminology.md.
 
-## Vault
+## Language
+
+### Vault
 
 **Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, packaged to survive its tools (currently as an OKF — Open Knowledge Format — bundle; ADR 0001).
 _Avoid_: knowledge base, second brain
@@ -28,13 +30,13 @@ _Avoid_: calendar, journal, daily notes folder
 **Managed region**: The bridge-regenerated span of a literature note between `%%hk-managed%%` markers; never hand-edited.
 _Avoid_: generated section, machine block
 
-## Evidence and claims
+### Evidence and claims
 
-**Item**: A bibliographic record in Zotero/CSL terms — the thing a citekey names.
+**Item**: The thing a citekey names (CSL/Zotero vocabulary).
 _Avoid_: work (OpenAlex sense), paper (narrower than the corpus)
 
-**Source**: The cited document itself, in the scholarly sense (primary/secondary source).
-_Avoid_: using "source" for a journal, repository, or outlet — that is a **venue**, which is also what OpenAlex's "source" means and ours never does
+**Source**: The cited document itself — never the journal, repository, or outlet.
+_Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex's "source" means and ours never does
 
 **Citekey**: The stable, human-readable key (Better BibTeX) joining prose citations, filenames, and the bibliography.
 _Avoid_: reference ID, bibkey
@@ -60,13 +62,13 @@ _Avoid_: import (that is the projection step that follows), ingestion
 **Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered from Zotero, never authored.
 _Avoid_: admission (that is the human act before), sync
 
-**Bibliography export**: The universe of items a citekey can name: the Better BibTeX auto-export at `system/bibliography.json`, written only by BBT.
+**Bibliography export**: The universe of items a citekey can name — the whole admitted library, before any citability judgment.
 _Avoid_: bibliography file, reference list, citation universe (that is the evidence layer)
 
 **Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded.
 _Avoid_: unreviewed/active/rejected (old values), review status
 
-## Verification
+### Verification
 
 **Check**: One named verification a note or claim is put through; most are mechanical, some are LLM judgment.
 _Avoid_: test, validation
@@ -92,5 +94,5 @@ _Avoid_: dismissal, override (an ack keeps the record; it never deletes)
 **Publish gate**: The fail-closed verification boundary every publication crosses.
 _Avoid_: release check, CI gate (CI is the async auditor, not the gate)
 
-**Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …), recorded bi-temporally.
+**Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …).
 _Avoid_: retraction flag (one class of notice, not the concept)
