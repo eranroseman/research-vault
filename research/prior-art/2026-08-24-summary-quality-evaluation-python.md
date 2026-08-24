@@ -84,6 +84,16 @@ Raw prompting (asking any chat-capable LLM to score a summary 1–5 against stat
 
 **Bottom line:** a single "did I hallucinate?" self-critique prompt is cheap but has literature actively arguing it doesn't work reliably without external grounding. The self-check approach that *is* validated for hallucination detection costs ~N× generation calls, not 1×.
 
+## 3. Generation-side factor: context isolation for the summarizer itself
+
+Separate from how the summary is *scored*, evidence exists that where/how the summary is *generated* affects its quality — specifically, whether the LLM produces it in a fresh, isolated context versus deep inside a long, cluttered multi-turn conversation.
+
+**Irrelevant context measurably hurts accuracy.** Shi, Chen, Misra, Scales, Dohan, Chi, Schärli, Zhou, "Large Language Models Can Be Easily Distracted by Irrelevant Context," ICML 2023 ([arXiv:2302.00093](https://arxiv.org/abs/2302.00093)), introduce GSM-IC (Grade-School Math with Irrelevant Context) and find model accuracy drops sharply when unrelated information is present in the input, even when the model could in principle disregard it.
+
+**Multi-turn conversations degrade generation reliability.** Laban, Hayashi, Zhou, Neville, "LLMs Get Lost In Multi-Turn Conversation," 2025 ([arXiv:2505.06120](https://arxiv.org/abs/2505.06120)), simulate 200,000+ conversations across six generation tasks and find an **average 39% performance drop** for multi-turn versus single-turn delivery of the same task. The degradation is mostly unreliability, not aptitude: models prematurely commit to assumptions early in a conversation, over-rely on their own earlier (possibly wrong) turns, over-weight the first and last turns, and produce more verbose output — and once off-track, they "get lost and do not recover."
+
+Applied to summarization: generating the summary in a fresh, isolated context (source text plus instruction only, no accumulated unrelated conversation history) should outperform generating it deep inside a long-running multi-turn session. The mechanism is context cleanliness, not agency — any fresh single-turn call gets the same benefit; a subagent is simply one convenient way to force that isolation. This is a generation-quality lever, independent of and complementary to which evaluation metric (§1–§2) is used to check the result afterward.
+
 ## Comparison table
 
 | Approach | Package | Actively maintained? | Extractive / abstractive fit | Key limitation |
@@ -112,3 +122,4 @@ Raw prompting (asking any chat-capable LLM to score a summary 1–5 against stat
 - **Research-grade / cross-system comparison:** SummEval as the benchmark harness and reference human-judgment data, reporting ROUGE + BERTScore + MoverScore together the way the SummEval paper does, rather than trusting any single metric's correlation with human quality judgments.
 - **Nuanced abstractive quality (factuality, coverage, custom criteria), when LLM budget is available:** `deepeval`'s `SummarizationMetric` (purpose-built alignment/coverage scoring) or a G-Eval-style custom-criteria prompt via `deepeval`/`ragas` — the G-Eval paper's 0.514 Spearman correlation is the strongest human-alignment number in this whole set, at the cost of LLM API calls, latency, and self-preference bias that a fixed formula doesn't have.
 - **Hallucination check specifically, don't reach for a single "did you hallucinate?" self-critique prompt** — the literature (Huang et al. 2024, Kamoi et al. 2024) finds intrinsic self-correction without external feedback unreliable. If a self-check approach is wanted (no separate reference/source-grounded metric), use SelfCheckGPT's sampling-consistency method instead — it's the one actually validated for this, at the honest cost of N generations per output, not one extra call. `deepeval`'s `SummarizationMetric`/G-Eval-style prompting (source-grounded, not self-critique) remains the better-evidenced choice when LLM budget is available at all.
+- **Before reaching for any evaluator, generate in a clean context.** If summarization currently happens inline in a long-running multi-turn session, moving it to an isolated call/subagent (source text + instruction only) is a free, well-evidenced quality lever (§3) — cheaper than any metric above and addresses generation quality rather than just detecting problems after the fact.
