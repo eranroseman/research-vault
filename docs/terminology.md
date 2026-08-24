@@ -154,6 +154,6 @@ Field/concept pairs, ruled: **`ack`** is the spec-§3 serialization spelling of 
 `hk-selector` spells its noun on the durable note surface.
 
 Deferred with a home (not endorsed, not lost): module/function stutter (`checks.check_metadata` …)
-and noun-named functions — per-name judgment at the architecture deepening pass (the two findings
+and noun-named functions — per-name judgment at the architecture deepening pass; module-name candidates there include `notes.py` → `literature_notes.py` (the module renders only literature notes — latent class-4 ambiguity against the vault's other note kinds; full-word spelling if adopted, and bundle with a re-baseline boundary) (the two findings
 collide: de-stuttering creates noun functions); `FileImage`/`CapturedOutput` naming vs git's `blob`
 vocabulary — same pass.
