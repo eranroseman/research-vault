@@ -476,6 +476,33 @@ ______________________________________________________________________
 
 **Ordering:** independent of every other task in this plan — it touches `factcheck.py` and its own tests, which no other task modifies. Run it anywhere in the batch. If it lands before Task 21, its acceptance rides Task 21's suite and merge; if after, it carries its own suite run and merges on its own.
 
+______________________________________________________________________
+
+## Part 4: mutmut adoption (author-ruled 2026-08-23 on pilot data — NON-GATING: runs AFTER Task 21's merge; slice Phases 2–6 unblock at Task 21 regardless)
+
+The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured all three representative modules to completion including events.py — the exit-4 class is structurally absent under mutmut's env-var schemata (collection-time code stays importable; a collection-breaking mutant counts as a kill, verified live). Baseline correspondence sane (all 19 function-level mutate4py survivor locations carried). Cost: two documented tool-defect shims (embedded verbatim in the report): a sitecustomize shim for mutmut's config-load-at-import (false-kill risk otherwise) and a launcher widening pytest 9's re-escaped control-char node ids. Each Part 4 task runs on main after the Task 21 merge, conventional commit per task.
+
+### Task 23: Ruling record + shims land with provenance
+
+**Files:** Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§10 mutate4py exit-rule entry). Create: `scripts/mutmut_shims/sitecustomize.py`, `scripts/mutmut_shims/run_mutmut.py` (the launcher), `research/2026-08-23-mutmut-defect-reports.md`.
+
+- [ ] **Step 1:** Spec §10 amendment appended to the exit-rule entry: *"CLOSED EARLY by author ruling 2026-08-23 on the landed pilot (its pre-registered method ran; report banked): switch to mutmut 3.7.0. The upstream-responsiveness branch is superseded — the pilot showed complete coverage where the pin had a 23% hole over trust-core modules; the mutate4py upstream reports remain queued for filing as citizenship."*
+- [ ] **Step 2:** Copy both shim files VERBATIM from the pilot report into `scripts/mutmut_shims/`, each with a header comment naming the upstream defect it works around and the report as provenance. Draft the two mutmut upstream defect reports (config-at-import; node-id re-escaping) into `research/2026-08-23-mutmut-defect-reports.md` — ready-to-file, the author posts.
+- [ ] **Step 3:** Pin `mutmut==3.7.0` in dev extras. Commit `feat: adopt mutmut 3.7.0 — ruling, shims, upstream report drafts`.
+
+### Task 24: Gate script speaks mutmut
+
+**Files:** Modify: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`.
+
+- [ ] **Step 1: Failing tests first** — port the existing gate contract to mutmut's result format: survivor extraction from `mutmut results`/its cache, baseline compare (no-new-survivors), `--update-baseline` writes the full-module baseline, refuse-to-write on any module failure (the Q1 guard survives the port), two-class failure attribution retained, `PYTHONDONTWRITEBYTECODE=1` exported on every invocation (pin the env var in a test — its failure mode is a quietly wrong baseline).
+- [ ] **Step 2:** Implement; per-module invocation through `scripts/mutmut_shims/run_mutmut.py`; keep `--out-dir` durability + resume. Full suite. Commit `feat: mutation gate runs mutmut`.
+
+### Task 25: Full 26-module baseline — the hole closes
+
+- [ ] **Step 1:** Blanket baseline over ALL 26 modules (including the six mutate4py could not measure) under the 8 GB cap; record per-module wall-clock and the one-time stats-build cost in the task report.
+- [ ] **Step 2:** Commit `mutation-baseline.txt` (now complete — the exclusion list and its gate logic RETIRE in the same commit); update `.github/workflows/quality.yml` to the mutmut path. The spec §10 re-baseline-checkpoint task for "closing the six" is satisfied — note it in the commit body. Task 22's Step 4 stale-manifest allowance dissolves here too (mutate4py sidecars retire wholesale).
+- [ ] **Step 3:** Retire the mutate4py pin (drop from dev extras; venv patches die with the venv; the sidecar manifests and any mutate4py-only gate branches removed). The mutate4py upstream reports stay queued for the author. Commit `feat: complete 26-module mutation baseline; mutate4py retired`.
+
 ## NOT in this plan
 
 Four-state dedup (migrate 3–4 — RED-gated) · anything the in-flight references cross-read confirms beyond items 11–12's decided set (triaged separately when it reports) · the skills polish pass + skill-eval lane (POST-slice, informed by usage).
@@ -484,7 +511,7 @@ Plan V (docs/superpowers/plans/2026-08-22-plan-v-trust-core-remediation.md) was 
 
 ## Self-Review (at authoring)
 
-- **Item coverage**: all 19 numbered items of the ruled list map to Tasks 1–13 (items 3+4→T3; 5+7+11+12→T4; 9+10→T7; 13+14→T8; 15→T13); audit defects map 4→T10, 5→T11, 1→T14, 2→T15, 3→T16, fixity pair→T17, archive→T18, 6→T19, relation→T20, spec gaps 86/98/99→T16/T21. Nothing dropped; item 14 is an explicit no-op verification. **Task 22 (added 2026-08-23)** sits outside the original 19-item list — a terminology ruling made after this plan was authored, appended rather than renumbered.
+- **Item coverage**: all 19 numbered items of the ruled list map to Tasks 1–13 (items 3+4→T3; 5+7+11+12→T4; 9+10→T7; 13+14→T8; 15→T13); audit defects map 4→T10, 5→T11, 1→T14, 2→T15, 3→T16, fixity pair→T17, archive→T18, 6→T19, relation→T20, spec gaps 86/98/99→T16/T21. Nothing dropped; item 14 is an explicit no-op verification. **Task 22 (added 2026-08-23)** sits outside the original 19-item list — a terminology ruling made after this plan was authored, appended rather than renumbered. **Part 4 (Tasks 23–25, added 2026-08-23)** is the mutmut adoption, author-ruled on the landed pilot; non-gating by placement (post-Task-21), so the slice never waits on it. Commit-note: 3cfb79b's message says "Part 3 — mutmut adoption" but its content is Task 22 (terminology) — a parallel session's uncommitted work swept in under the wrong label; THIS commit carries the actual mutmut Part 4.
 - **Placeholder scan**: code tasks (9–12, 14–21) carry failing-test shapes with located scaffolding sources and exact implementation deltas; prose tasks name their content source docs (audit adjudication, cross-read triage) where the decided text is itemized — copy-verbatim instructions, not TBDs.
 - **Order dependencies**: T1 (rename) before T2 (index) before T13 (live vault gets the final template). T10's reason-code registration is same-commit with its check (dialect-surface rule). Part 2 runs after Part 1 (shared `checks.py`/inbox test surfaces — T10 and T14–15 touch the same file family). Acceptance consolidates at T21: full suite offline AND live, the audit's reproductions unreproducible, BOTH Plan S sequencing gates marked satisfied.
 - **Line numbers** read at 8e98a02/dd4e9f9; re-locate by content if drifted.
