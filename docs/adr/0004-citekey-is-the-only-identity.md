@@ -2,7 +2,7 @@
 
 Status: accepted (2026-08-24)
 
-**A literature note's filename, every claim address (`citekey#^claim-id`), and every citation in prose are the same Better BibTeX citekey, and the harness never mints a second identity for a source.** The key a human reads off the admitted item is the key the vault uses everywhere — no internal record id beside it, no alias table. Claim anchors are sub-addresses under that key, derived from the claim's own content; the machine hashes are witnesses to bytes, not identities.
+**A literature note's filename, every claim link (`citekey#^claim-id`), and every citation in prose are the same Better BibTeX citekey, and the harness never mints a second identity for a source.** The key a human reads off the admitted item is the key the vault uses everywhere — no internal record id beside it, no alias table. Claim anchors are sub-addresses under that key, derived from the claim's own content; the machine hashes are witnesses to bytes, not identities.
 
 ## Considered Options
 
