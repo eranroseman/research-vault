@@ -602,6 +602,13 @@ Headline defect, fixed first: the offline suite is NOT hermetic — 97 connects 
 - [ ] **Step 4:** `tmp_path_retention_policy = "failed"` in pyproject (−3 s; kills the 249 MB retained pile). Then `--dist worksteal` in the workflow's pytest invocations (tail latency only, safe once the 5 s tests are gone).
 - [ ] **Step 5: Acceptance** — offline suite green with sockets blocked and ZERO connects to 23119; serial ≤ ~40 s; live suite (both flags) still green. Commit `perf: hermetic offline suite + fixture speed`.
 
+### Task 24d: Version currency (checked 2026-08-24 — runs BEFORE Task 25 so the baseline hashes the post-ruff tree; a later ruff bump would force a re-baseline)
+
+- [ ] **Step 1: ruff 0.15.21 → 0.16.4, by the recorded protocol** (pyproject's own upgrade note): diff `ruff check --isolated --show-settings` against the deliberately-unselected families (BLE/D/TRY/PL — extend-select cannot unselect defaults); move any newly default-enabled skip into `ignore` with its recorded rationale intact. Three places move together: the dep pin, `required-version`, the pre-commit lane. Land trivial autofixes in the same commit; report anything larger.
+- [ ] **Step 2:** `pyproject-fmt` 2.28.0 → 2.28.1 (patch); fix quality.yml's stale "0.9.0" shellcheck comment to describe the runner's actual version source.
+- [ ] **Step 3: Actions v4/v5 → v7** in `.github/workflows/quality.yml` AND both vault CI templates (`knowledge_harness/templates/ci/{verify,rw-batch}.yml`) — the templates render into every user vault, so stale actions ship to users, not just this repo. Template pins update same commit.
+- [ ] **Step 4:** Suite green; commit `chore: version currency — ruff 0.16 (protocol), actions v7, template refresh`.
+
 ### Task 25: Full 26-module baseline — the hole closes
 
 - [ ] **Step 1:** Blanket baseline over ALL 26 modules (including the six mutate4py could not measure) under the 8 GB cap; record per-module wall-clock and the one-time stats-build cost in the task report.
