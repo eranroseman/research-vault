@@ -86,13 +86,13 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 - [ ] **Step 2:** Item 14 is a no-op by design: all §6 deferred items carry their triggers in the audit doc — verify none landed here.
 - [ ] **Step 3:** Pins; suite; commit `feat: ecosystem-steal prose adoptions (audit §6 adopted set)`.
 
-### Task 8b: Guard sentences from the ADR triage (added 2026-08-24 — the dropped ADR drafts land as prose where agents read it)
+### Task 8b: Guard sentences from the ADR triage — LANDED 2026-08-24 (d7fa91b, author session); VERIFY ONLY
 
-**Files:** Modify: `skills/evidence-conventions/SKILL.md`; pins.
+Step 1's content lives in the rewritten "The abstract said so." row (replaced, not duplicated); Step 2's inline-provenance sentence is at evidence-conventions:16. **Executor: verify both are present and land nothing — working the original steps would produce a duplicate row.** Original steps retained for the verify:
 
-- [ ] **Step 1 (from dropped 0007):** Add a rationalization-table row beside "The abstract said so.": *"I'll summarize from the abstract."* → *"A summary is written from the full text, or it says \"no full text available\" and stops. An abstract-derived summary states methods, conditions, and magnitudes the abstract cannot carry — fabricated facts under the source's citekey — and inherits the authors' pitch as fact. No tag repairs it."*
-- [ ] **Step 2 (from dropped 0009 — verify-then-add):** Check whether the claim-syntax section already forces provenance inline per claim (tag + citekey + anchor on the claim line, never frontmatter-only). If it does, add NOTHING — the rule shipped. If the never-frontmatter-only clause is absent, add its one sentence.
-- [ ] **Step 3:** Pins same commit; suite; commit `feat: evidence-conventions carries the full-text-summary and inline-provenance guards`.
+- [x] **Step 1 (from dropped 0007):** Add a rationalization-table row beside "The abstract said so.": *"I'll summarize from the abstract."* → *"A summary is written from the full text, or it says "no full text available" and stops. An abstract-derived summary states methods, conditions, and magnitudes the abstract cannot carry — fabricated facts under the source's citekey — and inherits the authors' pitch as fact. No tag repairs it."*
+- [x] **Step 2 (from dropped 0009 — verify-then-add):** Check whether the claim-syntax section already forces provenance inline per claim (tag + citekey + anchor on the claim line, never frontmatter-only). If it does, add NOTHING — the rule shipped. If the never-frontmatter-only clause is absent, add its one sentence.
+- [x] **Step 3:** Landed in d7fa91b with pins.
 
 **Test-name note for Part 2:** Task 16's regression tests name the invariant they pin (e.g. `test_absence_is_not_a_pass_*`) — the dropped 0005's home is a named test, not a doc. Task 12's duplicate-anchor guard already satisfies the dropped 0008 the same way.
 
@@ -292,7 +292,7 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 - [ ] **Step 5: Commit** `fix: update-notice reduction preserves non-blocking UNMATCHED`
 
-### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap)
+### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap; also closes [issue #17](https://github.com/eranroseman/knowledge-harness/issues/17) — human-reviewed tier unreachable — read the issue and cover it in this task's tests; reference #17 in the commit)
 
 **The reason, for the test name and the docstring:** an empty applicable-check set satisfies "every applicable check passed" vacuously, and vacuous truth is not evidence. A machine tier needs at least one check that ran and passed — otherwise a note with no identifiers, no quotes, and no verified events derives the top tier, which is what it does at HEAD.
 
@@ -512,7 +512,7 @@ ______________________________________________________________________
 - [ ] **Step 1: Tests first.** Rename the assertions in `tests/test_factcheck.py` to the new name and run: FAIL (`AttributeError: module 'knowledge_harness.factcheck' has no attribute 'skipped_sha256'`). This is a rename, so the RED phase is the rename's own proof, not a new behavior test — do not add coverage here.
 - [ ] **Step 2: Rename in `factcheck.py`** — the `def`, the call site inside `run()`, the report dict key, and the docstring's own use of the word. Tests: PASS.
 - [ ] **Step 3: Skill prose** — update both `skills/factcheck-draft/SKILL.md` sites (the JSON example field and the sentence describing `--target-hash`), then update that file's whole-file test pin in the SAME commit (Global Constraints).
-- [ ] **Step 4: Mutation sidecar.** `mutation-baseline.txt` carries NO entry for this function (verified 2026-08-23 — the eight `factcheck` baseline keys name other functions), so **no baseline key needs editing**. The sidecar `knowledge_harness/factcheck.py.manifest.json` does carry `func/skipped_digest` plus a `module_hash`/`source_sha256` over the file, both of which the rename invalidates: regenerate it through the gate script's own path (`scripts/mutation_gate.py` always invokes mutate4py with `--manifest-file`; gate mode already scopes to files changed vs the base ref) and commit the regenerated sidecar. **If regeneration is not clean, commit the rename anyway and record the stale manifest in the commit body** — mutate4py's role is frozen until the post-deepening checkpoint (spec §10), so a stale sidecar for one module is an accepted, recorded cost and never a reason to open a new mutation experiment.
+- [ ] **Step 4: Mutation sidecar.** `mutation-baseline.txt` carries NO entry for this function (verified 2026-08-23 — the eight `factcheck` baseline keys name other functions), so **no baseline key needs editing**. The sidecar `knowledge_harness/factcheck.py.manifest.json` does carry `func/skipped_digest` plus a `module_hash`/`source_sha256` over the file, both of which the rename invalidates: regenerate it through the gate script's own path (`scripts/mutation_gate.py` always invokes mutate4py with `--manifest-file`; gate mode already scopes to files changed vs the base ref) and commit the regenerated sidecar. **If regeneration is not clean, commit the rename anyway and record the stale manifest in the commit body** — mutate4py's role is frozen until the post-deepening checkpoint (spec §10), so a stale sidecar for one module is an accepted, recorded cost and never a reason to open a new mutation experiment. **If this task runs AFTER Part 4's Task 25 (mutmut adopted, mutate4py sidecars retired), skip this step entirely — there is no sidecar to regenerate.**
 - [ ] **Step 5: Verification.** `grep -rn "skipped_digest" . --exclude-dir=.git` returns nothing outside this plan's own text. Full offline suite green.
 - [ ] **Step 6: Commit** `refactor: rename skipped_digest to skipped_sha256 (one sense per term)`.
 
