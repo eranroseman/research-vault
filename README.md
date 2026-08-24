@@ -20,8 +20,3 @@ TOML, stdlib `json.tool` canonical form for JSON manifests (asserted in
 `tests/test_config_validity.py`), and — for vault-dialect Markdown, which no
 off-the-shelf formatter speaks — the sole writer, verified by
 `tests/test_canonical_form.py`.
-
-them so `git blame` keeps pointing at the change that meant something:
-
-```bash
-```
