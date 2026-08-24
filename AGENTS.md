@@ -2,6 +2,8 @@
 
 Merge back to main locally and push main to origin in the same motion. Fetch before claiming something is absent from origin.
 
+Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
+
 Testing — including the live legs that offline runs silently skip: `docs/testing.md`.
 
 ## Agent skills
