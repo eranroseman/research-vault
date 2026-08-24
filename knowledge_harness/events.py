@@ -252,21 +252,23 @@ def trust_tier(note_text: str) -> str:
     ):
         return "unverified"
     checks = {str(event.get("check", "")) for event in events}
-    machine_confirmed = _applicable_note_checks(data) <= checks
+    applicable = _applicable_note_checks(data)
+    machine_confirmed = applicable <= checks
     citekey = data.get("citekey", "")
 
-    applicable_failures = _applicable_note_checks(data)
     for row in failures:
         check = row["check"]
         quote = _QUOTE_CHECK.fullmatch(check)
-        if check in applicable_failures or (
+        if check in applicable or (
             quote is not None and quote.group("claim_link").split("#^", 1)[0] == citekey
         ):
             machine_confirmed = False
 
+    has_managed_quotes = False
     for claim in claims_mod.parse_claims(note_text):
         if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:
             continue
+        has_managed_quotes = True
         claim_link = claims_mod.claim_link(citekey, claim.claim_id)
         quote_checks = {
             f"quote:{claim_link}:managed-region",
@@ -274,6 +276,11 @@ def trust_tier(note_text: str) -> str:
         }
         if checks.isdisjoint(quote_checks):
             machine_confirmed = False
+
+    if not applicable and not has_managed_quotes:
+        # A subset test over an empty applicable set is vacuously true; require
+        # at least one deterministic check to have run and matched instead.
+        machine_confirmed = False
 
     if not machine_confirmed:
         return "unverified"

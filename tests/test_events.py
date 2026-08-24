@@ -25,6 +25,16 @@ pmid: "12345"
 %%/hk-managed%%
 """
 
+NO_ID_QUOTE = """---
+citekey: "noid2020"
+type: "literature"
+---
+%%hk-managed%%
+- (quote) [@noid2020, p. 1] ^c-11111111
+  > A quoted sentence.
+%%/hk-managed%%
+"""
+
 
 def test_record_pass_appends_event_and_preserves_note_contents():
     out = events.record_pass(BASE, "doi", Result.MATCHED, at="2026-08-16")
@@ -159,6 +169,59 @@ def test_trust_tier_progression():
         text, "doi", Result.MATCHED, by="human:eran", at="2026-08-17"
     )
     assert events.trust_tier(text) == "human-reviewed"
+
+
+def test_no_identifier_no_claims_note_is_unverified():
+    """An empty applicable-check set must not vacuously satisfy machine-confirmed."""
+    text = "---\ntype: literature\ncitekey: url2024only\nurl: https://example.org\n---\nbody\n"
+    assert events.trust_tier(text) == "unverified"
+
+
+def test_frontmatterless_text_is_unverified():
+    """No frontmatter means no applicable checks and no quote claims — still not machine-confirmed."""
+    assert events.trust_tier("just some text\n") == "unverified"
+
+
+def test_identifier_less_note_with_matched_quote_is_machine_confirmed():
+    """The floor is OR, not AND: a matched managed quote clears it on its own
+    even with an empty applicable-check set (no doi/pmid)."""
+    text = events.record_pass(
+        NO_ID_QUOTE,
+        "quote:noid2020#^c-11111111:managed-region",
+        Result.MATCHED,
+        at="2026-08-16",
+    )
+    assert events.trust_tier(text) == "machine-confirmed"
+
+
+def test_identifier_less_note_with_matched_quote_and_human_event_is_human_reviewed():
+    """human-reviewed inherits the same OR: a human: event on top of a
+    matched managed quote reaches it with no doi/pmid present."""
+    text = events.record_pass(
+        NO_ID_QUOTE,
+        "quote:noid2020#^c-11111111:managed-region",
+        Result.MATCHED,
+        at="2026-08-16",
+    )
+    text = events.record_pass(
+        text,
+        "quote:noid2020#^c-11111111:managed-region",
+        Result.MATCHED,
+        by="human:eran",
+        at="2026-08-17",
+    )
+    assert events.trust_tier(text) == "human-reviewed"
+
+
+def test_identifier_less_note_with_human_event_and_no_quotes_is_unverified():
+    """A human: event alone no longer derives human-reviewed when the note
+    has neither an applicable check nor a managed quote claim — the floor
+    applies before the human-actor check runs."""
+    text = '---\ncitekey: "noid2020"\ntype: "literature"\n---\nbody\n'
+    text = events.record_pass(
+        text, "doi", Result.MATCHED, by="human:eran", at="2026-08-16"
+    )
+    assert events.trust_tier(text) == "unverified"
 
 
 def test_human_event_alone_is_not_human_reviewed():
