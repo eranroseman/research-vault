@@ -13,9 +13,10 @@ fabricated URL. Nothing here ever composes an archive URL itself; it records
 only what the availability API returns, and only from the archive's own host.
 """
 
+import datetime
 import urllib.parse
 
-from . import Result, frontmatter, notes, webapi
+from . import AGENT_ACTOR, Result, frontmatter, notes, webapi
 from .outcome import Outcome
 from .verify import _read_note_text, _write_note_text
 
@@ -135,8 +136,63 @@ def _outage(target: str, detail: str) -> Outcome:
     return Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {detail}")
 
 
+def _generated_at() -> str:
+    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+    return now.isoformat().replace("+00:00", "Z")
+
+
+def _bump_generated(note_text: str, at: str) -> str:
+    """Attest this write in the note's ``generated`` field, inserted or replaced.
+
+    Byte-surgical for the same reason ``set_archive_url`` is: every other
+    line — the managed region, its witness, human-added keys — must survive
+    untouched, and the parse-back below refuses to hand back a note this
+    write broke. Gaining a snapshot is a meaningful content change (task 17b
+    step 2b), so this write carries the same writer attestation a re-render
+    would, keeping the evidence-layer guard from reading it as a hand-edit.
+    """
+    lines = note_text.splitlines(keepends=True)
+    fence = {"---\n", "---\r\n"}
+    if not lines or lines[0] not in fence:
+        raise ArchiveError("literature note has no frontmatter")
+    close = next(
+        (index for index, line in enumerate(lines[1:], start=1) if line in fence),
+        None,
+    )
+    if close is None:
+        raise ArchiveError("literature note frontmatter is unterminated")
+    existing = [
+        index for index in range(1, close) if lines[index].startswith("generated:")
+    ]
+    if len(existing) > 1:
+        raise ArchiveError(f"note carries {len(existing)} generated fields, need one")
+    inner = ", ".join(
+        f"{key}: {frontmatter._emit_scalar(value)}"
+        for key, value in (("by", AGENT_ACTOR), ("at", at))
+    )
+    field = f"generated: {{{inner}}}"
+    if existing:
+        line = lines[existing[0]]
+        ending = (
+            "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+        )
+        lines[existing[0]] = field + ending
+    else:
+        ending = "\r\n" if lines[close].endswith("\r\n") else "\n"
+        lines.insert(close, field + ending)
+    updated = "".join(lines)
+    try:
+        data, _ = frontmatter.parse(updated)
+    except frontmatter.FrontmatterError as error:
+        raise ArchiveError(f"generated write broke the frontmatter: {error}") from error
+    if data.get("generated") != {"by": AGENT_ACTOR, "at": at}:
+        raise ArchiveError(f"generated write did not round-trip: {at!r}")
+    return updated
+
+
 def _record(path, text, url, target) -> Outcome:
-    _write_note_text(path, set_archive_url(text, url))
+    updated = _bump_generated(set_archive_url(text, url), _generated_at())
+    _write_note_text(path, updated)
     return Outcome(CHECK, target, Result.MATCHED, "matched", extra={"archive_url": url})
 
 

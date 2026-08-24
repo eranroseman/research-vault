@@ -615,6 +615,81 @@ def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
         return None
 
 
+# Machine-owned fields that live outside %%hk-managed%%: `notes.render_note`
+# owns citekey/managed-sha256/fixity-sha256, `archive.set_archive_url` owns
+# archive-url (notes.py's comment on MANAGED_FIELDS names it explicitly as
+# passed-through). Neither writer is otherwise distinguishable from a
+# hand-edit, so legality here rides on the `generated` writer attestation
+# (task 17b), not on slice membership.
+_MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
+    {"archive-url", "managed-sha256", "fixity-sha256", "citekey"}
+)
+# docs/terminology.md's actor convention: process-written records carry
+# `knowledge_harness/<version>`, so this class test — not an exact-version
+# match — survives a `__version__` bump without flagging every prior note.
+_MACHINE_ACTOR_PREFIX = "knowledge_harness/"
+
+
+def _frontmatter(image: gitstate.FileImage | None) -> dict | None:
+    if image is None or image.kind != "file":
+        return None
+    try:
+        text = (image.data or b"").decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    try:
+        data, _ = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return None
+    return data
+
+
+def _generated(data: dict) -> dict | None:
+    value = data.get("generated")
+    return value if isinstance(value, dict) else None
+
+
+def _machine_attested(generated: dict | None) -> bool:
+    actor = generated.get("by") if generated is not None else None
+    return isinstance(actor, str) and actor.startswith(_MACHINE_ACTOR_PREFIX)
+
+
+def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
+    """Flag a machine-owned frontmatter change with no matching writer attestation.
+
+    Legality rule (ruled 2026-08-24): a change to any of the four machine-owned
+    keys is legal iff `generated` also changed in the same diff with `by` the
+    machine actor class. `generated` guards itself the same way, so it cannot
+    legalize its own unattested change.
+    """
+    if base_data is None or candidate_data is None:
+        return []
+    base_generated = _generated(base_data)
+    candidate_generated = _generated(candidate_data)
+    generated_changed = base_generated != candidate_generated
+    attested = generated_changed and _machine_attested(candidate_generated)
+    outcomes = [
+        Outcome(
+            "evidence-layer",
+            RepoPath(raw_path),
+            Result.UNMATCHED,
+            f"drift — {key} changed without writer attestation",
+        )
+        for key in sorted(_MACHINE_OWNED_FRONTMATTER_KEYS)
+        if base_data.get(key) != candidate_data.get(key) and not attested
+    ]
+    if generated_changed and not _machine_attested(candidate_generated):
+        outcomes.append(
+            Outcome(
+                "evidence-layer",
+                RepoPath(raw_path),
+                Result.UNMATCHED,
+                "drift — generated changed without writer attestation",
+            )
+        )
+    return outcomes
+
+
 def lint_evidence_layer(
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
@@ -692,4 +767,11 @@ def lint_evidence_layer(
                     "drift — managed literature region changed",
                 )
             )
+        outcomes.extend(
+            _frontmatter_attestation_outcomes(
+                raw_path,
+                _frontmatter(base_files[raw_path]),
+                _frontmatter(candidate_files[raw_path]),
+            )
+        )
     return _deduplicate(outcomes)

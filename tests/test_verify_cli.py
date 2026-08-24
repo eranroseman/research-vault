@@ -1042,6 +1042,13 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
             "",
         )
     )
+    # Committed so `lint_evidence_layer`'s base and candidate agree on the
+    # missing fixity-sha256 — this test exercises warning suppression, not
+    # the machine-owned-frontmatter guard task 17b adds.
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
+    )
     warning = _outcome(
         "update-notice",
         "smith2020",

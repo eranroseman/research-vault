@@ -7,6 +7,8 @@ network boundary is faked at ``webapi``'s own seam, exactly as
 so the offline suite never reaches the Internet Archive.
 """
 
+import subprocess
+
 import pytest
 
 from knowledge_harness import Result, archive, frontmatter, notes, webapi
@@ -110,7 +112,17 @@ def test_recording_preserves_every_other_byte_of_the_note(net_vault, monkeypatch
     archive.archive_source(net_vault, "rot2024")
 
     after = path.read_text()
-    assert after.replace(f'archive-url: "{SNAPSHOT}"\n', "") == before
+    # Step 2b (task 17b): the write also attests itself in `generated`, so two
+    # lines are new — the timestamp is not predicted, only located.
+    generated_line = next(
+        line
+        for line in after.splitlines(keepends=True)
+        if line.startswith("generated:")
+    )
+    stripped = after.replace(f'archive-url: "{SNAPSHOT}"\n', "").replace(
+        generated_line, ""
+    )
+    assert stripped == before
     # The managed region and its witness are untouched, so the evidence-layer
     # protection sees no change at all.
     assert notes.managed_slice_bytes(after.encode()) == notes.managed_slice_bytes(
@@ -490,6 +502,68 @@ def test_recording_clears_the_web_archive_lint_it_was_built_for(net_vault, monke
         if outcome.target == "rot2024"
     ]
     assert after == []
+
+
+def _tree_hash(vault) -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+
+def test_a_legitimate_archive_run_passes_the_closing_guard(net_vault, monkeypatch):
+    """Task 17b: gaining a snapshot is a meaningful content change, so this
+    write must carry the same writer attestation a re-render would — else the
+    evidence-layer guard cannot tell it apart from a bare hand-edit.
+    """
+    from knowledge_harness import gitstate, lints
+
+    _write_note(net_vault)
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "add web note"], cwd=net_vault, check=True
+    )
+    base = _tree_hash(net_vault)
+    _fake_network(monkeypatch, availability=_available())
+
+    outcome = archive.archive_source(net_vault, "rot2024")
+
+    assert outcome.result is Result.MATCHED
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(net_vault, base),
+        gitstate.snapshot_worktree(net_vault),
+    )
+    assert not any(item.reason.startswith("drift") for item in outcomes)
+
+
+def test_a_bare_archive_url_hand_edit_fails_the_closing_guard(net_vault):
+    """The gap this task closes: without Step 2b's attestation, this write —
+    indistinguishable from `archive-source`'s own — must still read as drift.
+    """
+    from knowledge_harness import gitstate, lints
+
+    path = _write_note(net_vault)
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "add web note"], cwd=net_vault, check=True
+    )
+    base = _tree_hash(net_vault)
+
+    path.write_text(
+        path.read_text().replace("accessed:", f'archive-url: "{SNAPSHOT}"\naccessed:')
+    )
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(net_vault, base),
+        gitstate.snapshot_worktree(net_vault),
+    )
+    assert any(
+        item.reason == "drift — archive-url changed without writer attestation"
+        for item in outcomes
+    ), outcomes
 
 
 def test_a_rerender_preserves_the_recorded_snapshot(net_vault, monkeypatch):

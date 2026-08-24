@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 import pytest
@@ -791,3 +792,93 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
     assert finding.check == "evidence-layer"
     assert finding.target_kind == "repo-path"
     assert finding.reason.startswith("schema-violation")
+
+
+def _hand_edit_machine_owned_key(text: str, key: str) -> str:
+    """Mutate exactly one machine-owned frontmatter field, managed slice untouched."""
+    if key == "archive-url":
+        return text.replace(
+            'doi: "10.1000/xyz"\n',
+            'doi: "10.1000/xyz"\n'
+            'archive-url: "https://web.archive.org/web/20260101000000/'
+            'https://example.org/x"\n',
+            1,
+        )
+    if key == "managed-sha256":
+        digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
+        return text.replace(digest, "b" * 64, 1)
+    if key == "fixity-sha256":
+        digest = re.search(r'fixity-sha256:\n  - "([0-9a-f]+)"', text).group(1)
+        return text.replace(digest, "c" * 64, 1)
+    if key == "generated":
+        return text.replace(
+            'generated: {by: "knowledge_harness/0.1.0"',
+            'generated: {by: "human:hand-edit"',
+            1,
+        )
+    if key == "citekey":
+        return text.replace('citekey: "smith2020"', 'citekey: "smith2020x"', 1)
+    raise ValueError(key)
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["archive-url", "managed-sha256", "fixity-sha256", "generated", "citekey"],
+)
+def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
+    """Task 17b: machine-owned frontmatter sits outside %%hk-managed%%, so a
+    hand-edit to it — with the managed slice untouched and no writer
+    attestation (a `generated` bump by the machine actor in the same diff) —
+    must surface as drift, the same as a managed-region change would.
+    """
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    source = fixture_vault / "literatures" / "smith2020.md"
+    original = source.read_text()
+    edited = _hand_edit_machine_owned_key(original, key)
+    assert edited != original
+    source.write_text(edited)
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    expected_reason = f"drift — {key} changed without writer attestation"
+    assert any(
+        item.target == "path-bytes:literatures/smith2020.md"
+        and item.reason == expected_reason
+        for item in outcomes
+    ), outcomes
+
+
+def test_screening_status_hand_edit_is_not_evidence_layer_drift(fixture_vault):
+    """Screening state is deliberately human-writable (spec) — the guard must
+    not treat it as machine-owned.
+    """
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    source = fixture_vault / "literatures" / "smith2020.md"
+    source.write_text(
+        source.read_text().replace('status: "included"', 'status: "excluded"', 1)
+    )
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    assert not any(
+        item.result is Result.UNMATCHED and item.reason.startswith("drift")
+        for item in outcomes
+    )
