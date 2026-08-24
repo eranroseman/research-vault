@@ -38,6 +38,13 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 - [ ] **Step 1:** Add the index: the seven entry names (post-rename) + one clause each — source each clause from the skill's own description line (compress, don't invent). `tests/test_skill_contracts.py:153`'s self-validation must pass (every cited name exists as a shipped skill).
 - [ ] **Step 2:** Update the template's whole-file pin in the same commit; full suite; commit `feat: vault AGENTS.md routing index (C-7)`.
 
+### Task 2b: Root index embeds the Bases (decided 2026-08-24 — dashboards surface at vault-open; the `.base` files stay filed as tool artifacts)
+
+**Files:** Modify: `knowledge_harness/templates/vault/index.md`; its whole-file pin. **Ordering:** independent — run anywhere in Part 1; if Task 2's template work already passed, this is its own commit.
+
+- [ ] **Step 1:** Add to the index template, under its folder links: `![[system/bases/trust-tier.base]]` and `![[system/bases/open-questions.base]]` with a one-line lead-in each (compress from the Base's own purpose; don't invent). Rationale in place: the Bases are the researcher's dashboards (§9 derives trust tiers in one), but `.base` is Obsidian-only, so the files stay in `system/` per vault-outlives-harness — embedding gives one-click access without moving a tool artifact into the knowledge tree.
+- [ ] **Step 2:** Pin updated same commit; suite; commit `feat: vault index embeds the trust-tier and open-questions Bases`.
+
 ### Task 3: verify-citations de-enumeration + the enumeration checker (items 3–4)
 
 **Files:** Modify: `skills/verify-citations/SKILL.md`; `tests/test_skill_contracts.py`.
