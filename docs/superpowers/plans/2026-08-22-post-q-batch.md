@@ -249,7 +249,7 @@ Closes the no-fabrication audit's remaining trust-core defects (research/validat
 
 **Interfaces:** `_rw_date(value) -> str | None | object` contract unchanged (ISO string, `None` for empty, `_INVALID` sentinel). No signature changes anywhere.
 
-- [ ] **Step 1: Failing test — production date formats parse**
+- [x] **Step 1: Failing test — production date formats parse**
 
 ```python
 def test_rw_date_accepts_production_formats():
@@ -260,9 +260,9 @@ def test_rw_date_accepts_production_formats():
     assert checks._rw_date("13/45/2023 0:00") is checks._INVALID
 ```
 
-- [ ] **Step 2: Run** `pytest tests/test_checks.py::test_rw_date_accepts_production_formats -v` — Expected: FAIL (first two assertions return `_INVALID` today).
+- [x] **Step 2: Run** `pytest tests/test_checks.py::test_rw_date_accepts_production_formats -v` — Expected: FAIL (first two assertions return `_INVALID` today).
 
-- [ ] **Step 3: Implement** — replace the `fromisoformat`-only body with an enumerated format loop:
+- [x] **Step 3: Implement** — replace the `fromisoformat`-only body with an enumerated format loop:
 
 ```python
 _RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")
@@ -287,9 +287,9 @@ def _rw_date(value) -> str | None | object:
 
 (`_datetime` = `datetime.datetime`; add the import alias beside `_date` if absent.)
 
-- [ ] **Step 4: Failing test — unarmed RW leg is legible, not silent.** The `verify` output summary must carry exactly one line when `--rw-csv` was not supplied, e.g. `update-notice: RW leg not run (no --rw-csv)`. Write the test against whatever summary surface `verify` already prints (locate the existing summary emission in `verify.py`; assert on captured stdout of a minimal vault run without `--rw-csv`). This is a stdout line, NOT a review-queue record — no new reason code, no inbox noise (the SKIPPED-counting lesson, slice finding 14).
+- [x] **Step 4: Failing test — unarmed RW leg is legible, not silent.** The `verify` output summary must carry exactly one line when `--rw-csv` was not supplied, e.g. `update-notice: RW leg not run (no --rw-csv)`. Write the test against whatever summary surface `verify` already prints (locate the existing summary emission in `verify.py`; assert on captured stdout of a minimal vault run without `--rw-csv`). This is a stdout line, NOT a review-queue record — no new reason code, no inbox noise (the SKIPPED-counting lesson, slice finding 14).
 
-- [ ] **Step 5: Implement the one-line emission. Run both tests + full offline suite. Commit** `fix: RW date parsing accepts production formats; unarmed RW leg says so`
+- [x] **Step 5: Implement the one-line emission. Run both tests + full offline suite. Commit** `fix: RW date parsing accepts production formats; unarmed RW leg says so`
 
 **Arming ruling implemented by this task (record in the commit body):** the RW leg's home is the scheduled CI lane (`templates/ci/rw-batch.yml`, already passes `--rw-csv`) and the drill runs it explicitly armed (Plan S amendment already recorded); local `verify` without the flag now states the absence. No default-on: fetching the RW CSV is a network+license act that stays deliberate.
 
