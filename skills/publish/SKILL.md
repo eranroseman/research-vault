@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Use this only when the person explicitly invokes it. "Publish" is this skill's action, not a branch merge.
 
+Say this before the first command: publishing here runs through an armed gate — `arm-publish` sets a state flag the Stop hook reads, and from the moment it is set the hook holds the session until the attempt lands, is acknowledged, or is disarmed. This is the most irreversible thing the vault does, so the person hears it at the start rather than meeting it at the first refusal.
+
 Every mechanical act below — a status, a `verified` event, a tag, an acknowledgment, a review-inbox entry — is a CLI verb call: you compose and explain, the person chooses, the CLI writes — never by hand, not in a note, not in frontmatter, not anywhere.
 
 In every command, `PATH` is the vault and `NAME` is the project's name under `projects/` — `brief`, not `projects/brief`.
@@ -122,3 +124,17 @@ python3 -m knowledge_harness arm-publish NAME --vault PATH --bypass "why this on
 ```
 
 The Stop hook records that token in the review inbox as an open finding. Explain that it is recorded, not forgiven, before writing it.
+
+## Rationalizations, answered
+
+Every act on this page is irreversible or close to it, and irreversible steps attract excuses. These are the ones that show up:
+
+| What you're tempted to think                                                         | The mechanical rule that forbids it                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "They said go ahead so the ack is covered."                                          | Consent spoken in conversation writes nothing. An acknowledgment exists only once the `ack` verb has written one, with a registry reason code and a real `human:` actor — and it is scoped to the content it was granted for, so an edit to the note takes it away again. |
+| "UNREACHABLE is basically fine."                                                     | It holds the gate. The check could not run, so publishing waits until it can — an outage is never a failure and never a pass, and never "probably fine".                                                                                                                  |
+| "They obviously want it out — I'll pick the disposition."                            | Present exactly the three and let the person choose. Never pick for them, and never read a green gate as a decision already made.                                                                                                                                         |
+| "'Drop it' is close enough to `discard`."                                            | Only the typed word `discard`, on its own, authorizes deletion. Anything less gets park or keep-draft offered instead — never infer the word from context and never type it on their behalf.                                                                              |
+| "The gate refused, so nothing is armed now."                                         | A refusal leaves the gate armed and the Stop hook still holding the session. It clears when `mark-published` succeeds, or when the person asks to disarm — never by failing.                                                                                              |
+| "It is already published; re-running the publish verb is simpler than a correction." | It is refused, and rightly. Re-publishing would record a correction as a first publication in tags and events that are never deleted; `mark-corrected` exists for exactly this, and keeps the project watched.                                                            |
+| "They're in a hurry — I'll offer the bypass."                                        | The bypass is the person's to ask for, never yours to suggest. Offering it turns a gate the person built into a step you talked them out of, and leaves a permanent open finding behind.                                                                                  |

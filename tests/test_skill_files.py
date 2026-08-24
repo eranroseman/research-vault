@@ -37,6 +37,21 @@ def test_setup_vault_uses_scaffold_with_separate_ci_consents():
     assert "use `git add .`" in text
 
 
+def test_setup_vault_fails_closed_on_an_ambiguous_vault_selection():
+    """`scaffold` writes into whatever tree it is handed, so a guessed
+    destination is a write nobody consented to, into a repo nobody named.
+    The rule has to stop the flow on ambiguity rather than resolve it from
+    context, and it has to sit in the scaffold section — after the command
+    runs, the wrong tree already has files in it.
+    """
+    text = _skill_text()
+    scaffold_section = text[text.index("## Scaffold") : text.index("## Diagnose")]
+
+    assert "Fail closed on an ambiguous vault." in scaffold_section
+    assert "stop and ask which" in scaffold_section
+    assert "Never resolve it yourself" in scaffold_section
+
+
 def test_setup_vault_documents_doctor_routing_and_complete_reporting():
     """Wrong base-URL placement or partial doctor reporting must fail."""
     text = _skill_text()

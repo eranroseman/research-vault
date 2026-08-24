@@ -110,6 +110,8 @@ Three more modes extend the core flow above; each is documented in full on its o
 | UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the source.** Retry later.                  |
 | SKIPPED     | The item lacks the field the check needs. Automatic only, and never final before discovery has been attempted (§2).     |
 
+The same honesty covers your own reading. A source you read only in part is reported **partial**, with the range you did not read named — the free region you skipped, the pages an attachment would not open past, the sections you never reached. That is SKIPPED applied to reading: an unread stretch must never read as read, exactly as an unrun check must never read as run. It is a rule about what you say, not about what you file — no verb watches your reading, which is precisely why the label has to come from you.
+
 Never describe an outage as a failure or as "probably fine". Never report a `NOOP` as an import you performed. Never claim a check ran that did not, and never claim a `verified` event exists — reading events is `trust-tier`'s job, running checks is `verify-citations`', and minting events is the CLI's alone.
 
 ## Routing

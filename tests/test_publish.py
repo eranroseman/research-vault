@@ -791,6 +791,42 @@ def test_publish_skill_routes_every_mechanical_act_through_a_verb():
         assert token in text, f"publish/SKILL.md never mentions {token!r}"
 
 
+def test_publish_skill_announces_the_armed_gate_before_the_first_command():
+    """The intro must warn that this flow runs through a Stop-hook gate, and
+    must not say the gate is armed: it is inert until `arm-publish` sets the
+    flag. Drop the warning and a person meets the hook at their first refusal;
+    claim an armed gate up front and the skill describes state the vault does
+    not have at that moment.
+    """
+    text = PUBLISH_SKILL.read_text(encoding="utf-8")
+    intro = text[: text.index("## Orient")]
+
+    assert "Say this before the first command" in intro
+    assert "runs through an armed gate" in intro
+    assert "`arm-publish` sets a state flag the Stop hook reads" in intro
+    # The false-state half of the rule, which no presence check can enforce.
+    assert "the gate is armed" not in intro
+
+
+def test_publish_skill_answers_the_disposition_rationalizations():
+    """The two seeded rows name this skill's live consent failures: spoken
+    assent mistaken for a written `ack`, and an outage mistaken for a pass.
+    Both are excuses that arrive immediately before an irreversible act, so a
+    table missing either row no longer answers the rationalization it exists
+    to catch. The answering cells are pinned too — a row whose answer drifts
+    is worse than an absent row, because it still reads as a ruling.
+    """
+    text = PUBLISH_SKILL.read_text(encoding="utf-8")
+
+    assert "## Rationalizations, answered" in text
+    # The two ported seed rows, verbatim from the survey.
+    assert "They said go ahead so the ack is covered." in text
+    assert "UNREACHABLE is basically fine." in text
+    # Each row answers with a rule this skill already enforces, never a new one.
+    assert "Consent spoken in conversation writes nothing." in text
+    assert "It holds the gate." in text
+
+
 def test_publish_skill_states_the_tag_grammar_and_that_same_day_corrections_work():
     """The tag shape is a contract a person reads back off this skill, and the
     grammar carries a UTC time precisely so a same-day correction is no longer

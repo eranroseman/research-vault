@@ -15,6 +15,8 @@ Before creating or editing anything here, read `synthesis/index.md` and the rece
 
 A synthesis page earns its existence at two or more sources on the same topic — the only threshold. One source is not yet a synthesis; its claims stay in the literature note until a second source gives them something to arrange against.
 
+The threshold *permits* a page; it never obligates one. Two sources on a topic make a page allowed, not owed — create one only when the arrangement adds synthesis. Sources set side by side with nothing said about how they relate are a compilation, and a compilation earns no page: leave the claims in their literature notes and say plainly that there was nothing to arrange yet.
+
 ## Minimum-link discipline
 
 Every synthesis note carries at least two outgoing wikilinks. A synthesis page with fewer than two links isn't arranging anything yet — it's a stub.

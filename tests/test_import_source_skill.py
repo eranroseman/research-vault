@@ -35,3 +35,16 @@ def test_import_source_says_where_to_read_the_citekey_after_admission():
 
     assert "Citation Key" in text
     assert "Better BibTeX" in text
+
+
+def test_import_source_labels_a_partially_read_source_as_partial():
+    """The four states govern the agent's own reading, not only the CLI's
+    checks. Nothing observes how much of a source was actually read, so a
+    partial read reported as a full one is undetectable downstream and this
+    prose is the only thing standing there. Naming the missing range is the
+    load-bearing half: "I read some of it" without the range is not a report.
+    """
+    text = _skill_text()
+
+    assert "SKIPPED applied to reading" in text
+    assert "the range you did not read named" in text

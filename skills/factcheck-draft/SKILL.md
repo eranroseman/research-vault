@@ -16,7 +16,7 @@ Selection under the budget is **deterministic** — run the CLI's `factcheck` su
 python3 -m knowledge_harness factcheck --vault PATH --draft projects/NAME/DRAFT.md --cap 30
 ```
 
-`--cap` defaults to 30 and is user-overridable — ask before changing it, and say what you changed it to. The budget is one LLM pass per selected claim; do not re-check a claim twice in the same run.
+`--cap` defaults to 30 and is user-overridable — ask before changing it, and say what you changed it to. The budget is one LLM pass per selected claim; do not re-check a claim twice in the same run. One pass, never a panel: re-running the same model in different roles separates the roles, not the errors — role separation is not independent error processes — so a second agreeing voice buys agreement rather than confidence, and closure stays deterministic-only, in `verify-citations`'s suite rather than in any count of LLM votes.
 
 `factcheck` is a read-only report, like `verify` — it prints one JSON report and writes nothing durable itself:
 
@@ -38,6 +38,8 @@ For each entry in `selected`, open the draft at `line_no` and the cited literatu
 - **`quote`** — quote fidelity: the deterministic checker already confirmed the text matches byte-for-byte (or flagged it if not); your job is whether the excerpt, as used in the draft, is fair to the source — not cherry-picked or presented out of the context that would change its meaning.
 - **`paraphrase`** — paraphrase support: does the cited managed region actually support this paraphrase's direction, magnitude, population, and certainty — not just its general topic?
 - **`inference`** — inference-marked-as-inference: is this genuinely an inference from the cited material (not dressed up as an established fact), and is it a reasonable step from what the source actually says?
+
+Read fully, or say you did not. When the cited managed region was truncated, or the source would not open past a point, report that claim's source as **partial** and name the range you did not read — SKIPPED applied to reading. Adjudicate from what you actually read and say what that was; never let an unread stretch read as read. This governs what you report, not which verb you file: the four states below still turn on whether the adjudication ran, not on how much of the source you reached.
 
 ## Record the result — never silently
 
@@ -73,6 +75,8 @@ The target is the project itself — a gate-run reference, not a claim link — 
 | SKIPPED     | Never checked — either structurally (this one claim) or by budget (the whole skipped set). **Never present a skipped claim as if it were checked and clean.** | Yes, `no-identifier` or `budget-cap`. |
 
 An UNREACHABLE result is named as an outage in every summary you give — never as a failure, never as "probably fine." Do not claim you checked a claim you did not: the skipped set exists precisely so silence never reads as clearance.
+
+MATCHED is narrower than it sounds, and saying so is the honest half of reporting one: this pass validates declarations, not their truth. It asks whether a claim says what its cited source supports — never whether that source is right. A faithful claim resting on a wrong paper passes here, exactly as it should; judging the source belongs to the person, to its trust tier, and to whatever update notice arrives later.
 
 ## This never blocks
 

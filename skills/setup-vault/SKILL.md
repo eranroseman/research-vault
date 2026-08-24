@@ -12,6 +12,8 @@ Use this only when the person explicitly invokes it. Keep the person in control 
 
 Ask together: the destination `PATH` and whether they want read-only CI. Ask separately: whether they want the scheduled write-capable RW workflow. Do not infer either consent from the other.
 
+Fail closed on an ambiguous vault. If the destination is not unambiguous — two candidate vaults in play, "my vault" with no path attached, a `PATH` that could name either an existing vault or a new one — stop and ask which. Never resolve it yourself: not from the working directory, not from the most recently mentioned path, not from the only vault you happen to have seen. Scaffolding into the wrong tree writes files nobody asked for, and repairing a vault the person did not mean is worse; one question costs less than either.
+
 Construct one command, with only the flags the user consented to:
 
 ```sh

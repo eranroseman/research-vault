@@ -127,6 +127,20 @@ def test_project_documents_every_routing_target():
         assert f"`{skill_name}`" in routing
 
 
+def test_project_routing_forbids_silently_broadening_the_routed_intent():
+    """An orchestrator that hands a routed skill more than the person asked
+    for does unrequested work under a routing decision nobody made. The slice
+    is the point of this test, not incidental: the guard has to sit where the
+    routing decision is taken, because the same sentence anywhere else in the
+    file is not read at the moment it would have to bind.
+    """
+    text = _skill_text()
+    routing = text[text.index("## Routing") : text.index("## Acknowledgments")]
+
+    assert "route the user's intent without silently broadening it" in routing.lower()
+    assert "let the person widen it" in routing
+
+
 def test_project_documents_acks_via_the_ack_verb_with_human_consent():
     """Hand-writing an acknowledgment, or skipping the human-consent step,
     must fail."""

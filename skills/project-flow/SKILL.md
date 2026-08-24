@@ -73,6 +73,8 @@ When it is time to draft, invoke `evidence-conventions` before writing a single 
 | Factcheck a draft against its sources | `factcheck-draft`  |
 | Publish, park, correct, or withdraw   | `publish`          |
 
+Route the user's intent without silently broadening it. Hand the routed skill the need the person actually stated — not an enlarged version of it, and not the adjacent work you can see it will need. "Import this paper" is not "import it and rebuild the synthesis page"; "find sources" is not "find and admit them." When the stated need turns out to sit inside a larger job, say so and let the person widen it; never widen it for them and report back on work they never asked for.
+
 ## Acknowledgments
 
 Any finding drained from the review inbox is acknowledged only through the `ack` verb, with the person's own consent and reason text:

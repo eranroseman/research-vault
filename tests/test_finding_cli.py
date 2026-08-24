@@ -419,5 +419,11 @@ def test_factcheck_draft_skill_names_its_bounds_and_never_blocks():
         "UNREACHABLE",
         "SKIPPED",
         "budget-cap",
+        # Each of the three below occurs exactly once in the skill, so deleting
+        # the paragraph it belongs to fails here. Every token above it recurs
+        # elsewhere in the file and so pins vocabulary, not any one paragraph.
+        "role separation is not independent error processes",
+        "SKIPPED applied to reading",
+        "validates declarations, not their truth",
     ):
         assert token in text, f"factcheck-draft/SKILL.md never mentions {token!r}"
