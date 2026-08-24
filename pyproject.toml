@@ -9,7 +9,9 @@ description = "Deterministic core for the knowledge-harness plugin"
 # Floor matches mutate4py's own >=3.11; nothing tests or claims 3.10.
 requires-python = ">=3.11"
 dependencies = [
-  # Lazy-imported at the single parse site — gate-path startup stays import-light.
+  # Lazy-imported at knowledge_harness's single parse site (package boundary only —
+  # the vendored find-sources scripts parse via stdlib by upstream's choice, recorded
+  # in that skill's vendoring notes).
   "defusedxml==0.7.1",
 ]
 [project.optional-dependencies]
@@ -115,7 +117,7 @@ ignore = [ "S310", "S603", "S607" ]
 # honours, and a side-effect fixture is named but never read. Guard stays armed in core.
 "tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
 "tests/test_cli_live.py" = [ "UP012" ]
-# print IS the CLI output contract (all 18 measured uses).
+# print IS the CLI output contract.
 "knowledge_harness/__main__.py" = [ "T20" ]
 # Gate scripts report via stdout by design.
 "scripts/*" = [ "T20" ]
