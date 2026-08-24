@@ -182,14 +182,22 @@ _BACKTICKED = re.compile(r"`([^`]+)`")
 # "check id" / "check ids", the phrase that marks the backticked run after it
 # as a claim *about check ids* rather than about verbs, tags, or fields.
 _CHECK_ID_PHRASE = re.compile(r"check ids?\b")
-# Two backticked tokens belong to one enumeration only when nothing but list
+# Two backticked tokens belong to one run only when nothing but list
 # punctuation separates them. Prose between them ends the run, so
 # ``check id `factcheck`, carrying that claim's `text_hash` `` reads as one
-# id followed by unrelated prose, not as a two-id list.
-_RUN_JOINER = re.compile(r"^[\s,/|]*(?:and|or)?[\s,/|]*$")
+# id followed by unrelated prose, not as a two-id list. A markdown cell
+# boundary ends a run too: ``|`` is deliberately NOT a joiner, or two
+# adjacent table cells would read as one enumeration.
+_RUN_JOINER = re.compile(r"^[\s,/]*(?:and|or)?[\s,/]*$")
 # A sentence break between the phrase and the first backticked token means the
 # token belongs to a later clause, not to the enumeration the phrase opened.
 _SENTENCE_BREAK = re.compile(r"[.;]\s")
+# How many members of a run must already be check ids the code files before
+# the run reads as a check-id enumeration on its own, with no phrase to
+# introduce it. Two: one is not a list, and single ids collide with other
+# vocabularies (``quote`` is also an evidence-boundary tag, ``disputed-claim``
+# also a reason code), so a threshold of one would fail correct prose.
+_CO_OCCURRENCE_ANCHOR = 2
 
 
 def _emitted_check_ids() -> set[str]:
@@ -252,43 +260,85 @@ def _known_check_ids() -> set[str]:
     )
 
 
+def _backticked_runs(line: str) -> list[list[re.Match]]:
+    """Split one line into maximal runs of backticked tokens.
+
+    A run continues only across list punctuation; anything else — prose, a
+    markdown cell boundary — starts a new run.
+    """
+    runs: list[list[re.Match]] = []
+    current: list[re.Match] = []
+    previous_end = None
+    for token in _BACKTICKED.finditer(line):
+        if previous_end is not None and _RUN_JOINER.match(
+            line[previous_end : token.start()]
+        ):
+            current.append(token)
+        else:
+            if current:
+                runs.append(current)
+            current = [token]
+        previous_end = token.end()
+    if current:
+        runs.append(current)
+    return runs
+
+
 def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
     """Every check id a document names as a check id, with its line number.
 
-    Anchored on the phrase "check id"/"check ids": the first backticked run
-    after that phrase, on that line, is the enumeration the phrase
-    introduces. Anchoring is what keeps the sweep honest — an unanchored scan
-    of backticked tokens cannot tell the check id ``quote`` from the
-    evidence-boundary tag of the same name, and would fail correct prose.
+    Two anchors decide whether a backticked run is a check-id enumeration.
+    Anchoring at all is what keeps the sweep honest: an unanchored scan
+    cannot tell the check id ``quote`` from the evidence-boundary tag of the
+    same name, and would fail correct prose.
+
+    1. **Phrase** — the first run after "check id"/"check ids" on that line,
+       provided no sentence break separates them. Catches the one-id claim
+       ("filed by check id `factcheck`"), which no count of members would.
+    2. **Co-occurrence** — any run with ``_CO_OCCURRENCE_ANCHOR`` or more
+       members the code already files. Catches the enumerations that never
+       write the phrase, which is most of them: at HEAD, four of the five
+       multi-id enumerations the corpus ships are introduced by prose like
+       "this surface closes on" or sit inside a table cell.
+
+    Known bound, and it is real: a run that neither says "check id" nor keeps
+    two still-valid ids is invisible here. A wholesale rename of every member
+    of one enumeration would slip past. Partial drift — the case that
+    actually happens, and the one C-1's class is made of — does not.
     """
+    known = _known_check_ids()
     found = []
     for number, line in enumerate(text.splitlines(), start=1):
+        runs = _backticked_runs(line)
         phrase = _CHECK_ID_PHRASE.search(line)
-        if phrase is None:
-            continue
-        end = phrase.end()
-        for index, token in enumerate(_BACKTICKED.finditer(line, end)):
-            gap = line[end : token.start()]
-            # The run's first token may sit behind a parenthetical aside
-            # ("grouped by check id (the second token on each line — …)"), but
-            # not behind a sentence break; every later token may sit behind
-            # list punctuation only.
-            if index == 0:
-                broken = _SENTENCE_BREAK.search(gap) is not None
-            else:
-                broken = _RUN_JOINER.match(gap) is None
-            if broken:
+        introduced = None
+        if phrase is not None:
+            for run in runs:
+                if run[0].start() < phrase.end():
+                    continue
+                if not _SENTENCE_BREAK.search(line[phrase.end() : run[0].start()]):
+                    introduced = run
                 break
-            found.append((number, token.group(1)))
-            end = token.end()
+        for run in runs:
+            named = sum(1 for token in run if token.group(1) in known)
+            if run is introduced or named >= _CO_OCCURRENCE_ANCHOR:
+                found.extend((number, token.group(1)) for token in run)
     return found
 
 
 @pytest.mark.parametrize("skill_md", _skill_md_files(), ids=lambda p: p.parent.name)
-def test_every_check_id_a_skill_enumerates_is_one_the_code_files(skill_md):
+def test_recognizable_check_id_enumerations_name_only_ids_the_code_files(skill_md):
     """C-1's class: a skill naming a check id the code renamed or dropped ships
     prose that describes output the CLI cannot produce. Prose is the one
-    surface no other test reads; this catches the drift at build time."""
+    surface no other test reads; this catches the drift at build time.
+
+    "Recognizable" is load-bearing and not a hedge — it names exactly what
+    ``_enumerated_check_ids`` reads, and that is less than every check id in
+    the file. A run introduced by no "check id" phrase and retaining fewer
+    than two still-valid ids is not read here. What is read at HEAD: all five
+    multi-id enumerations the shipped corpus carries, plus every phrase-led
+    single-id claim.
+    """
     known = _known_check_ids()
     unknown = sorted(
         f"line {number}: {check!r}"
@@ -316,22 +366,31 @@ def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
     } <= emitted
 
 
-def test_the_check_id_extractor_reads_a_run_and_stops_at_prose():
-    """Guards the extractor on a literal sample, so a regex change that
-    quietly stopped matching cannot pass as clean prose."""
+def test_the_check_id_extractor_anchors_on_the_phrase_and_on_co_occurrence():
+    """Guards the extractor on a literal sample, so an anchor that quietly
+    stopped matching cannot pass as clean prose. Every line here is a shape
+    the shipped corpus actually carries."""
     sample = (
-        "Present the printed lines **grouped by check id** (the second token "
-        "on each line — `citekey`, `doi`, and `source-status`), not in raw "
-        "run order.\n"
-        "Every other outcome is a finding, filed by check id `factcheck`, "
+        # Phrase anchor: one surviving id, introduced by the prose.
+        "Every other outcome is a finding, filed by check id `source-status`, "
         "carrying that claim's `text_hash` as `--target-hash`.\n"
+        # Co-occurrence anchor: an enumeration that never says "check id".
+        "This surface closes on `citekey`, `evidence-layer`, and `contested`.\n"
+        # One known id is not a list — the evidence-boundary-tag trap.
+        "Tag it `quote`, `paraphrase`, `inference`, or `open-question`.\n"
+        # No known id is not a list either.
         "`mark-published` and `mark-corrected` mint a project-level event.\n"
+        # A markdown cell boundary is not list punctuation: without that,
+        # `doi` and `quote` would merge into a two-id run and drag
+        # `paraphrase` in with them.
+        "| `doi` | check id `quote` | `paraphrase` |\n"
     )
     assert _enumerated_check_ids(sample) == [
-        (1, "citekey"),
-        (1, "doi"),
         (1, "source-status"),
-        (2, "factcheck"),
+        (2, "citekey"),
+        (2, "evidence-layer"),
+        (2, "contested"),
+        (5, "quote"),
     ]
 
 
