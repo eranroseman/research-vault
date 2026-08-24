@@ -725,6 +725,12 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
         capture_output=True,
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
+    expected_reason = {
+        "add": "drift — managed literature note added",
+        "edit": "drift — managed literature region changed",
+        "delete": "drift — managed literature note deleted",
+        "rename": "drift — managed literature note renamed",
+    }[change]
     if change == "add":
         added = fixture_vault / "literatures" / "added.md"
         added.write_bytes(source.read_bytes())
@@ -748,11 +754,21 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
         gitstate.snapshot_worktree(fixture_vault),
     )
 
-    finding = next(item for item in outcomes if item.result is Result.UNMATCHED)
-    assert finding.check == "evidence-layer"
-    assert finding.target == expected
-    assert finding.target_kind == "repo-path"
-    assert finding.reason.startswith("drift")
+    findings = [
+        item
+        for item in outcomes
+        if item.result is Result.UNMATCHED and item.target == expected
+    ]
+    assert findings, outcomes
+    for finding in findings:
+        assert finding.check == "evidence-layer"
+        assert finding.target_kind == "repo-path"
+    # Pinned, not prefix-matched: the `edit` case's witness refresh also
+    # changes `managed-sha256` with no writer attestation, so this target
+    # can carry a second same-target "drift" finding. A prefix check would
+    # let that second finding stand in for this one if the managed-region
+    # comparison itself ever regressed — pin the exact reason instead.
+    assert any(finding.reason == expected_reason for finding in findings), findings
 
 
 def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
@@ -1013,3 +1029,54 @@ def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_va
         item.reason == "drift — generated changed without writer attestation"
         for item in outcomes
     ), outcomes
+
+
+def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate(
+    fixture_vault,
+):
+    """An unparseable base cannot attest anything. A candidate whose
+    `generated` is otherwise validly machine-shaped must not be read as
+    evidence this diff was a legitimate write when there is no prior state to
+    compare it against — that would let an unreadable base auto-attest any
+    machine-owned key change hiding behind it.
+    """
+    source = fixture_vault / "literatures" / "smith2020.md"
+    original = source.read_text()
+    malformed = original.replace(
+        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
+        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
+        "  bad: nested\n---\n",
+        1,
+    )
+    source.write_text(malformed)
+    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "malformed base frontmatter"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=fixture_vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+    # Candidate is the pristine, untouched note: valid frontmatter, a
+    # validly-shaped machine-attested `generated`, nothing hand-edited at
+    # all — exactly the shape that would auto-attest a sibling machine-owned
+    # key change if the base's unreadability weren't itself the problem.
+    source.write_text(original)
+
+    outcomes = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_worktree(fixture_vault),
+    )
+
+    findings = [
+        item
+        for item in outcomes
+        if item.target == "path-bytes:literatures/smith2020.md"
+    ]
+    assert findings, "an unparseable base must not silently auto-attest"

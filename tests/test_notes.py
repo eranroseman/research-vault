@@ -1,8 +1,9 @@
+import datetime
 import hashlib
 
 import pytest
 
-from knowledge_harness import Result, events, frontmatter, notes
+from knowledge_harness import AGENT_ACTOR, Result, events, frontmatter, notes
 
 ITEM = {
     "id": "smith2020",
@@ -792,3 +793,74 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
 
     assert result is Result.UNMATCHED
     assert reason.startswith("schema-violation")
+
+
+# --- `_valid_generated`: the sole definition of `generated`'s shape --------
+# The attestation guard (`lints._machine_attested`), the re-render trigger
+# (`render_note`'s `projection_changed`), and `archive._bump_generated`'s
+# round-trip check all bottom out in this one predicate. It had no direct
+# test before this round.
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "not-a-dict",
+        42,
+        [],
+        {"by": "knowledge_harness/0.1.0"},
+        {"at": "2026-08-20T12:34:56Z"},
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z", "extra": "x"},
+        {"by": "knowledge_harness/0.1.0", "when": "2026-08-20T12:34:56Z"},
+        {"by": "", "at": "2026-08-20T12:34:56Z"},
+        {"by": 42, "at": "2026-08-20T12:34:56Z"},
+        {"by": "knowledge_harness/0.1.0", "at": 42},
+        {"by": "knowledge_harness/0.1.0", "at": "not-a-timestamp"},
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56+00:00"},
+        {"by": "knowledge_harness/0.1.0", "at": "2026-08-20"},
+    ],
+    ids=[
+        "none",
+        "string",
+        "int",
+        "empty-list",
+        "missing-at",
+        "missing-by",
+        "extra-key",
+        "wrong-key-names",
+        "empty-by",
+        "by-not-a-string",
+        "at-not-a-string",
+        "at-unparseable",
+        "at-offset-not-z",
+        "at-date-only",
+    ],
+)
+def test_valid_generated_rejects_every_malformed_shape(value):
+    assert notes._valid_generated(value) is False
+
+
+def test_valid_generated_accepts_the_one_true_shape():
+    assert (
+        notes._valid_generated(
+            {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+        )
+        is True
+    )
+
+
+# --- `generated_at_now`: the one spelling of "now" --------------------------
+
+
+def test_generated_at_now_output_satisfies_valid_generated():
+    stamp = notes.generated_at_now()
+    assert stamp.endswith("Z")
+    assert "." not in stamp
+    assert notes._valid_generated({"by": AGENT_ACTOR, "at": stamp}) is True
+
+
+def test_generated_at_now_truncates_microseconds_and_formats_utc_offset_as_z():
+    moment = datetime.datetime(2026, 8, 24, 15, 4, 5, 123456, tzinfo=datetime.UTC)
+
+    assert notes.generated_at_now(moment) == "2026-08-24T15:04:05Z"

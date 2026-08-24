@@ -317,3 +317,140 @@ by the reviewer directly).
 (Concerns 1, 2, and 3 from the round-0 report — other MANAGED_FIELDS,
 duplicate-key evasion, and forged-attestation scope — are being routed to
 the issue tracker by the reviewer per their message; not re-litigated here.)
+
+## Round 2 (fix round, review feedback on 5ac70df)
+
+### Status
+
+Complete. All four items (N1-N4) addressed. Full suite green, form gate
+silent/exit 0, ruff and mypy clean.
+
+### Commit
+
+(this round's commit — see final message to controller for the hash; forward
+fix, `5ac70df` and everything before it left untouched, no rebase). Pathspec
+includes this report file per the new process rule.
+
+### Test summary
+
+`python -m pytest -q`: **1605 passed, 7 skipped** (was 1581/7; +24 new tests
+— 1 in `test_lints.py` for N2, 17 in `test_notes.py` and 6 in
+`test_frontmatter.py` for N4). `ruff check`/`ruff format --check` clean,
+`mypy knowledge_harness/` clean, form gate silent/exit 0.
+
+### N1 — the disarmed test, re-armed
+
+`test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness`
+now collects every UNMATCHED finding for the expected target (not just the
+first one `next()` finds) and asserts the *exact* expected reason for each
+`change` parameter is among them, instead of asserting only that some
+finding's reason starts with `"drift"`. The `edit` case now legitimately
+carries two same-target findings (`"drift — managed literature region
+changed"` from the pre-existing check, `"drift — managed-sha256 changed
+without writer attestation"` from this task's own check, since the test's
+witness refresh changes `managed-sha256` without a `generated` bump) — pinning
+the exact reason means the second finding can no longer stand in for the
+first if the managed-region comparison itself regresses.
+
+**Mutation reproduced, matching the review's numbers:** flipped
+`lints.py`'s `if old != new:` (the managed-region comparison) to `if old ==
+new:`. Result: 1 failed (`[edit]`), 3 passed (`add`/`delete`/`rename`,
+unaffected since they use different code paths). Reverted; all 4 pass again.
+
+### N2 — Minor C's other half: unparseable base no longer auto-attests
+
+Root cause: `attested` was computed as `generated_changed and
+_machine_attested(candidate_generated)` with no reference to whether the
+*base* was even readable. When base is unparseable (`base_data is None`),
+`_field(base_data, "generated")` returns `None`, so any real candidate value
+made `generated_changed` true — and if that candidate `generated` happened to
+be validly machine-shaped (the ordinary, unremarkable case), `attested` came
+out `True` and legalized every other machine-owned key's change with it. Not
+forgery (the boundary this check explicitly declines to catch) — just an
+unreadable prior state being read as consent.
+
+Fix: `attested` now requires `base_data is not None` outright. Added
+`test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate`
+(base malformed via an injected `nested maps unsupported` line, candidate is
+the pristine, untouched, validly-attested note) — confirmed RED (`[]`, zero
+findings) against the code as `5ac70df` left it, GREEN after this fix.
+Findings on the fixed path: exactly 3 (`citekey`, `fixity-sha256`,
+`managed-sha256` — well under the review's observed 5-per-file bound), no
+`generated`-itself finding, since `generated`'s own shape genuinely is valid
+machine-class — only its power to legalize *other* keys is what an unreadable
+base must revoke. This is now honestly "fail-closed": the commit body doesn't
+need correcting because the behavior now matches what `5ac70df`'s commit body
+claimed.
+
+### N3 — the inline-dict emitter, down to one spelling
+
+`frontmatter.py` had two: `render_field`'s dict branch and `serialize`'s
+list-of-dicts branch. Extracted `_render_inline_mapping(mapping) -> str`
+(returns just the `{...}` — no leading `key: `), used by both. Verified
+byte-identical output via `test_frontmatter.py`'s existing round-trip tests
+plus two new direct ones (below).
+
+### N4 — direct tests for the shape contract
+
+Added, none of which existed before this round:
+- `tests/test_notes.py`: `test_valid_generated_rejects_every_malformed_shape`
+  (14 parametrized cases covering every branch of `notes._valid_generated`:
+  non-dict, wrong item count, wrong key names, missing `by`/`at`, empty
+  `by`, non-string `by`/`at`, unparseable `at`, `at` with a `+00:00` offset
+  instead of `Z`, date-only `at`) and
+  `test_valid_generated_accepts_the_one_true_shape`; two tests for
+  `notes.generated_at_now` (output satisfies `_valid_generated`; explicit
+  `now` truncates microseconds and renders `Z`).
+- `tests/test_frontmatter.py`: four direct `render_field` tests (scalar, int
+  scalar, one-level mapping, round-trip through `parse`) plus two
+  differential tests proving the "one spelling" property from N3 —
+  `render_field`'s output matches `serialize`'s own line for the same
+  key/value, and matches a list-item rendering of the same mapping.
+
+**Discrimination, checked by mutation, with one iteration recorded
+honestly:** my first probe — dropping just the `{key...} != {"by", "at"}`
+clause from `_valid_generated` — turned out not to be a real mutant at all:
+every case in my parametrization that used wrong/missing keys still got
+rejected downstream by the `isinstance(actor, str)` / `isinstance(at, str)`
+checks, because `.get()` on a missing key returns `None`. No test failed
+because there was nothing to discriminate — the two code paths are
+behaviorally equivalent for every case I had. That distrust turned up a real
+gap in the parametrization, not a false negative in the test: I hadn't
+covered a dict with exactly two keys, *neither* of which is `by`/`at`. Added
+`{"by": "knowledge_harness/0.1.0", "when": "...Z"}` (id `wrong-key-names`) —
+still didn't discriminate that specific clause (same reason: `.get("at")` is
+`None` either way), but a *second*, genuinely behavior-changing mutation
+(dropping the `at.endswith("Z")` requirement, keeping only the tzinfo check)
+was caught cleanly by the `at-offset-not-z` case: 1 failed, 15 passed.
+Reverted; all 16 pass again. Net effect: the keyset-equality clause in
+`_valid_generated` is logically redundant with the subsequent type checks
+for every input I could construct — recorded as a concern below rather than
+"fixed," since removing it isn't in scope and it costs nothing to leave.
+
+### Concerns — each with a destination
+
+1. **Other `notes.MANAGED_FIELDS` keys stay outside the guard**
+   (`type`, `aliases`, `doi`, `url`, `pmid`, `version`, `accessed`) — the
+   task's own five-key parametrization scoped it this way. **Destination:**
+   controller files as a GitHub issue at plan close (per the controller's
+   standing instruction on this round's concerns).
+2. **Duplicate-key evasion** — a duplicated machine-owned frontmatter key
+   whose last copy matches base evades the value comparison (last-key-wins
+   parsing); only `managed-sha256` has an independent duplicate guard via
+   the witness check. **Destination:** controller files as a GitHub issue at
+   plan close.
+3. **Renamed files skip the per-key diagnostic** — the rename-pairing path
+   never reaches the per-key loop, so a rename that also hand-edits a
+   machine-owned key gets the wholesale "note renamed" finding but no
+   per-key reason. **Destination:** controller files as a GitHub issue at
+   plan close.
+4. **`_valid_generated`'s keyset-equality check is logically redundant**
+   with the function's own subsequent `isinstance(actor, str)`/`isinstance(at,
+   str)` checks (found via mutation testing this round — see N4 above): for
+   every malformed-key-set input, `.get()` on a missing expected key already
+   returns `None`, which the type checks reject regardless of whether the
+   keyset check runs at all. **Destination:** declining to fix. The check
+   costs nothing to keep, documents the two-key shape explicitly at the top
+   of the function for a human reader (rather than relying on the reader to
+   trace through two `.get()` calls to infer it), and removing it would be a
+   pure-readability change unrelated to this task's scope.

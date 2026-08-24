@@ -685,7 +685,15 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     base_generated = _field(base_data, "generated")
     candidate_generated = _field(candidate_data, "generated")
     generated_changed = base_generated != candidate_generated
-    attested = generated_changed and _machine_attested(candidate_generated)
+    # An unparseable base (`base_data is None`) has no prior state to compare
+    # against, so a validly machine-shaped candidate `generated` must not be
+    # read as evidence of a legitimate write — that would let an unreadable
+    # base auto-attest a sibling machine-owned key change hiding behind it.
+    attested = (
+        base_data is not None
+        and generated_changed
+        and _machine_attested(candidate_generated)
+    )
     outcomes = [
         Outcome(
             "evidence-layer",

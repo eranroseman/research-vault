@@ -59,6 +59,18 @@ def _emit_scalar(v):
     return f'"{escaped}"'
 
 
+def _render_inline_mapping(mapping: dict) -> str:
+    """Render a one-level mapping as ``{a: b, c: d}`` — the sole spelling of
+    that grammar, shared by a ``key: {...}`` field and a ``  - {...}`` list
+    item.
+    """
+    inner = ", ".join(
+        f"{inner_key}: {_emit_scalar(inner_value)}"
+        for inner_key, inner_value in _mapping_items(mapping)
+    )
+    return f"{{{inner}}}"
+
+
 def render_field(key: str, value) -> str:
     """Render one top-level ``key: value`` frontmatter line.
 
@@ -70,11 +82,7 @@ def render_field(key: str, value) -> str:
     expect back cannot drift apart.
     """
     if isinstance(value, dict):
-        inner = ", ".join(
-            f"{inner_key}: {_emit_scalar(inner_value)}"
-            for inner_key, inner_value in _mapping_items(value)
-        )
-        return f"{key}: {{{inner}}}"
+        return f"{key}: {_render_inline_mapping(value)}"
     return f"{key}: {_emit_scalar(value)}"
 
 
@@ -85,11 +93,7 @@ def serialize(data: dict) -> str:
             lines.append(f"{key}:")
             for item in value:
                 if isinstance(item, dict):
-                    inner = ", ".join(
-                        f"{key}: {_emit_scalar(item_value)}"
-                        for key, item_value in _mapping_items(item)
-                    )
-                    lines.append(f"  - {{{inner}}}")
+                    lines.append(f"  - {_render_inline_mapping(item)}")
                 else:
                     lines.append(f"  - {_emit_scalar(item)}")
         else:

@@ -105,3 +105,63 @@ def test_parse_rejects_nested_maps():
     bad = '---\nouter:\n  inner: "x"\n---\n'
     with pytest.raises(frontmatter.FrontmatterError):
         frontmatter.parse(bad)
+
+
+# --- `render_field`: the one spelling of a frontmatter line -----------------
+# `archive.set_archive_url` and `archive._bump_generated` are byte-surgical
+# single-field writers that share this with `serialize`, so it had no direct
+# test of its own before this round even though `serialize` exercised it
+# indirectly.
+
+
+def test_render_field_renders_a_scalar():
+    assert frontmatter.render_field("citekey", "smith2020") == 'citekey: "smith2020"'
+
+
+def test_render_field_renders_an_int_scalar():
+    assert frontmatter.render_field("count", 3) == "count: 3"
+
+
+def test_render_field_renders_a_one_level_mapping():
+    line = frontmatter.render_field(
+        "generated", {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+    )
+    assert (
+        line == 'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-20T12:34:56Z"}'
+    )
+
+
+def test_render_field_round_trips_through_parse():
+    mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+    line = frontmatter.render_field("generated", mapping)
+
+    data, _ = frontmatter.parse(f"---\n{line}\n---\n")
+
+    assert data["generated"] == mapping
+
+
+def test_render_field_matches_serialize_for_the_same_key_and_value():
+    """A standalone `render_field` call and `serialize`'s own line for the
+    identical key/value must be byte-identical — the one spelling a byte-
+    surgical single-field writer and a full re-render must never drift apart
+    into two different formats.
+    """
+    mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+    standalone = frontmatter.render_field("generated", mapping)
+    from_serialize = next(
+        line
+        for line in frontmatter.serialize({"generated": mapping}).splitlines()
+        if line.startswith("generated:")
+    )
+    assert standalone == from_serialize
+
+
+def test_render_field_mapping_matches_the_same_mapping_as_a_list_item():
+    """The inline-dict grammar has one spelling, shared by a top-level
+    `key: {...}` field and a `  - {...}` list item.
+    """
+    mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"}
+    field_line = frontmatter.render_field("verified", mapping)
+    field_inner = field_line.split(": ", 1)[1]
+    list_line = frontmatter.serialize({"verified": [mapping]}).splitlines()[2]
+    assert list_line == f"  - {field_inner}"
