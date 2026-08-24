@@ -381,7 +381,7 @@ if not has_applicable and not has_managed_quotes:
 
 - Test: `tests/test_import_note.py` (or the file holding import-note frontmatter tests), `tests/test_verify.py`
 
-- [ ] **Step 1: Failing tests, both sides**
+- [x] **Step 1: Failing tests, both sides**
 
 ```python
 def test_unresolved_attachment_omitted_from_fixity(...):
@@ -398,11 +398,11 @@ def test_ack_hash_rejects_placeholder_fixity(...):
 
 Write these as real tests against the existing fixtures in those files — the shapes above are the contracts; copy the neighboring tests' vault/monkeypatch scaffolding.
 
-- [ ] **Step 2: Run — Expected: FAIL both.**
+- [x] **Step 2: Run — Expected: FAIL both.**
 
-- [ ] **Step 3: Implement side (a)** — in `__main__.py`'s attachment loop, on the unresolved branch, keep the stderr warning and **do not append** to `hashes` (delete the `hashes.append("unresolved")` line). The field's semantics become: list of successfully hashed attachment digests; absence is honest.
+- [x] **Step 3: Implement side (a)** — in `__main__.py`'s attachment loop, on the unresolved branch, keep the stderr warning and **do not append** to `hashes` (delete the `hashes.append("unresolved")` line). The field's semantics become: list of successfully hashed attachment digests; absence is honest.
 
-- [ ] **Step 4: Implement side (b)** — in `verify.py`, guard adoption with a digest-shape check so legacy notes can't anchor acks to a constant:
+- [x] **Step 4: Implement side (b)** — in `verify.py`, guard adoption with a digest-shape check so legacy notes can't anchor acks to a constant:
 
 ```python
 if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
@@ -411,7 +411,7 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 (The existing managed-bytes fallback below already handles the reject path.)
 
-- [ ] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
+- [x] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
 
 ### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%hk-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
 
