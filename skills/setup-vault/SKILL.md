@@ -18,7 +18,7 @@ Construct one command, with only the flags the user consented to:
 python3 -m knowledge_harness scaffold --vault PATH [--with-ci] [--with-rw-ci]
 ```
 
-Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, `inbox/review-queue.md`, `index.md`, `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`, `synthesis/index.md`, `system/bases/open-questions.base`, `system/bases/trust-tier.base`, `system/glossary.md`, and `system/templates/` daily, literature, project, and synthesis templates; CI paths appear only for their separately consented flags. It may create fewer paths when repairing an existing vault. Say only scaffold-created paths are committed; never claim unrelated changes were committed.
+Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
 
 ## Diagnose
 

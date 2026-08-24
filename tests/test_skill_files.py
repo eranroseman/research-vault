@@ -117,8 +117,8 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
         ".git/hooks/pre-commit",
     ):
         assert path in text
-    assert "only scaffold-created paths are committed" in text
-    assert "never claim unrelated changes were committed" in text
+    assert "report that list verbatim" in text
+    assert "never present a path it did not print as committed" in text
 
 
 def test_scaffold_provisioning_companions_are_exact_and_current():
