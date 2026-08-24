@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 import os
 import stat
 
@@ -12,6 +13,22 @@ INBOX_HEADER = '---\ntype: "review-queue"\n---\n'
 
 def _write_body(queue, body):
     queue.write_text(INBOX_HEADER + body)
+
+
+def _age_days(date_str: str) -> int:
+    """Whole days between ``date_str`` and today's UTC date.
+
+    Mirrors ``inbox.summary``'s own clock so assertions built around a
+    fixture's already-fixed literal date (chosen for reasons unrelated to
+    aging) stay correct without hardcoding a day count that would drift as
+    "today" moves. The tests that exercise the age math itself compute their
+    expected day count independently instead of calling this helper — see
+    ``test_skipped_entries_not_counted_unacknowledged``.
+    """
+    return (
+        datetime.datetime.now(datetime.UTC).date()
+        - datetime.date.fromisoformat(date_str)
+    ).days
 
 
 def test_new_inbox_is_typed_and_append_preserves_header_bytes(tmp_vault):
@@ -460,6 +477,7 @@ def test_changed_hash_recurrence_stays_open_in_summary_and_open_entries(fixture_
     assert inbox.summary(fixture_vault) == {
         "unacknowledged": 1,
         "oldest": "2026-08-16",
+        "oldest_age_days": _age_days("2026-08-16"),
     }
     assert not inbox.is_acknowledged(
         fixture_vault,
@@ -555,6 +573,7 @@ def test_update_notice_ack_closes_only_its_exact_notice_fingerprint(fixture_vaul
     assert inbox.summary(fixture_vault) == {
         "unacknowledged": 1,
         "oldest": "2026-08-01",
+        "oldest_age_days": _age_days("2026-08-01"),
     }
 
     blocking = inbox.append_entry(
@@ -574,6 +593,7 @@ def test_update_notice_ack_closes_only_its_exact_notice_fingerprint(fixture_vaul
     assert inbox.summary(fixture_vault) == {
         "unacknowledged": 2,
         "oldest": "2026-08-01",
+        "oldest_age_days": _age_days("2026-08-01"),
     }
 
 
@@ -861,10 +881,26 @@ def test_summary_counts_and_age(fixture_vault):
     assert inbox.summary(fixture_vault) == {
         "unacknowledged": 2,
         "oldest": "2026-08-01",
+        "oldest_age_days": _age_days("2026-08-01"),
     }
 
 
 def test_skipped_entries_not_counted_unacknowledged(fixture_vault):
+    # The UNMATCHED entry below is filed at "today minus `unmatched_age_days`"
+    # rather than a fixed calendar date, so the `oldest_age_days` assertion
+    # asserts a fixed, independent integer instead of duplicating production's
+    # own now-minus-date formula (see `_age_days`, used elsewhere in this file
+    # for assertions that are not themselves about the age math) — the fixed
+    # SKIPPED date below is always 2026-08-01 whatever "today" is when this
+    # runs, so if the SKIPPED-filter regressed and it started contributing to
+    # the age basis, `oldest_age_days` would jump to 23-and-growing, never
+    # stay at `unmatched_age_days`.
+    unmatched_age_days = 3
+    unmatched_date = (
+        datetime.datetime.now(datetime.UTC).date()
+        - datetime.timedelta(days=unmatched_age_days)
+    ).isoformat()
+
     inbox.append_entry(
         fixture_vault,
         "metadata",
@@ -875,8 +911,14 @@ def test_skipped_entries_not_counted_unacknowledged(fixture_vault):
     )
 
     # A queue holding only SKIPPED findings reports nothing unacknowledged:
-    # SKIPPED means "does not apply", not "needs a human decision".
-    assert inbox.summary(fixture_vault) == {"unacknowledged": 0, "oldest": None}
+    # SKIPPED means "does not apply", not "needs a human decision". With
+    # nothing unacknowledged there is no age basis either, so both `oldest`
+    # and `oldest_age_days` are None together.
+    assert inbox.summary(fixture_vault) == {
+        "unacknowledged": 0,
+        "oldest": None,
+        "oldest_age_days": None,
+    }
 
     inbox.append_entry(
         fixture_vault,
@@ -884,15 +926,17 @@ def test_skipped_entries_not_counted_unacknowledged(fixture_vault):
         "b",
         Result.UNMATCHED,
         "mismatch",
-        date="2026-08-16",
+        date=unmatched_date,
     )
 
     # Mixed queue: the SKIPPED entry still contributes neither to the count
-    # nor to the oldest-age basis, so both derive from the UNMATCHED entry
-    # alone even though it is dated later than the excluded SKIPPED entry.
+    # nor to the oldest-age basis, so all three fields derive from the
+    # UNMATCHED entry alone even though it is dated later than the excluded
+    # SKIPPED entry.
     assert inbox.summary(fixture_vault) == {
         "unacknowledged": 1,
-        "oldest": "2026-08-16",
+        "oldest": unmatched_date,
+        "oldest_age_days": unmatched_age_days,
     }
 
     # SKIPPED entries stay in the audit trail and in full listings — only
@@ -1202,4 +1246,5 @@ def test_a_legacy_update_notice_is_closed_only_by_an_ack_naming_it(fixture_vault
     assert inbox.summary(fixture_vault) == {
         "unacknowledged": 1,
         "oldest": "2026-08-17",
+        "oldest_age_days": _age_days("2026-08-17"),
     }

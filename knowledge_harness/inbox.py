@@ -715,11 +715,27 @@ def summary(vault) -> dict:
     SKIPPED findings stay in ``open_entries()`` — verify's dedup keys off
     that list to avoid re-filing them — but are excluded from the count and
     age basis returned here.
+
+    ``oldest_age_days`` is the whole number of days between today (UTC) and
+    ``oldest``, derived from that same filtered basis — supplying the fact
+    so a caller never has to do this date math itself. It is ``None`` exactly
+    when ``oldest`` is ``None`` (nothing unacknowledged to age); a freshly
+    filed entry reports ``0``, not ``None``.
     """
     entries = [
         entry for entry in open_entries(vault) if entry.result != Result.SKIPPED.value
     ]
+    oldest = min((entry.date for entry in entries if entry.date), default=None)
+    oldest_age_days = (
+        None
+        if oldest is None
+        else (
+            datetime.datetime.now(datetime.UTC).date()
+            - datetime.date.fromisoformat(oldest)
+        ).days
+    )
     return {
         "unacknowledged": len(entries),
-        "oldest": min((entry.date for entry in entries if entry.date), default=None),
+        "oldest": oldest,
+        "oldest_age_days": oldest_age_days,
     }
