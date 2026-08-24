@@ -21,9 +21,7 @@ TOML, stdlib `json.tool` canonical form for JSON manifests (asserted in
 off-the-shelf formatter speaks — the sole writer, verified by
 `tests/test_canonical_form.py`.
 
-Form-only commits are recorded in `.git-blame-ignore-revs`. Tell your local git to skip
 them so `git blame` keeps pointing at the change that meant something:
 
 ```bash
-git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
