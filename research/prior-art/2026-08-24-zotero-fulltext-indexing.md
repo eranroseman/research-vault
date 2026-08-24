@@ -1,5 +1,17 @@
 # Zotero full-text indexing: mechanism
 
+**Verified (2026-08-24):** A second session independently re-fetched all 60 claims raw at the pinned
+commits (plus GitHub API metadata and the live docs/forum pages): zero fabrications, verbatim quotes
+byte-exact, and both high-surprise findings hold — the FTS5 `fulltext.sqlite` schema, and
+`document-worker` being a rename of `pdf-worker` (301 redirect). Three substantive corrections and
+the citation-precision fixes were folded in `9c5850a`; the extraction file-size-cap unconfirmed
+marker closed (no size check in `getFullText()`). Dispositions routed: spec §10.1's /fulltext-leg
+entry now carries the consumer facts (`indexedPages == totalPages` gate, 404 semantics, `\f` page
+split, one-text-source rule for digest and lint) and the scanned-source remedy — zotero-ocr at the
+first scanned source that matters; conversion plugins declined (cloud exfiltration or unverifiable
+derived text). Remaining follow-ups (cutover dating, mineru hosted-API OCR default) stay with this
+note's author.
+
 We already confirmed empirically (curl against a local Zotero on :23119) that `GET /users/<id>/items/<key>/fulltext`
 returns `{content, indexedPages, totalPages}` and that `content` is a high-fidelity (99.5-99.7%
 similar to raw PyMuPDF) extraction. This note traces *how* Zotero builds and serves that index, from
