@@ -13,6 +13,7 @@ fabricated URL. Nothing here ever composes an archive URL itself; it records
 only what the availability API returns, and only from the archive's own host.
 """
 
+import re
 import urllib.parse
 
 from . import AGENT_ACTOR, Result, frontmatter, notes, webapi
@@ -26,6 +27,11 @@ AVAILABILITY_ENDPOINT = "https://archive.org/wayback/available"
 # arbitrary destination into a literature note.
 ARCHIVE_HOSTS = frozenset({"web.archive.org", "archive.org"})
 CHECK = "web-archive"
+
+# A supplied snapshot's required shape: `original` is the archived target URL.
+_SNAPSHOT_RE = re.compile(
+    r"^https?://web\.archive\.org/web/(\d{4,14})(?:[a-z_]+)?/(?P<original>https?://.+)$"
+)
 
 
 class ArchiveError(RuntimeError):
@@ -66,6 +72,13 @@ def is_archive_url(url) -> bool:
         return False
     parts = urllib.parse.urlsplit(url)
     return parts.scheme in {"http", "https"} and parts.netloc in ARCHIVE_HOSTS
+
+
+def _comparable_url(url: str) -> str:
+    """Lowercase scheme+host and strip one trailing slash, for URL comparison."""
+    parts = urllib.parse.urlsplit(url)
+    lowered = parts._replace(scheme=parts.scheme.lower(), netloc=parts.netloc.lower())
+    return urllib.parse.urlunsplit(lowered).removesuffix("/")
 
 
 def set_archive_url(note_text: str, url: str) -> str:
@@ -212,6 +225,21 @@ def archive_source(vault_root, citekey: str, snapshot: str | None = None) -> Out
                 target,
                 Result.UNMATCHED,
                 "missing-archive — supplied snapshot is not a web.archive.org URL",
+            )
+        match = _SNAPSHOT_RE.match(snapshot)
+        if match is None:
+            return Outcome(
+                CHECK,
+                target,
+                Result.UNMATCHED,
+                "missing-archive — supplied snapshot is not a Wayback snapshot URL",
+            )
+        if _comparable_url(match.group("original")) != _comparable_url(url):
+            return Outcome(
+                CHECK,
+                target,
+                Result.UNMATCHED,
+                "missing-archive — supplied snapshot is for a different URL",
             )
         try:
             status = webapi.get_status(snapshot, vault_root, query_mailto=False)
