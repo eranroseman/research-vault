@@ -43,12 +43,13 @@ Seed admission is no longer up-front: the library holds scholarly sources only. 
 
 - [x] **Question selected (2026-08-22): `trust-gates-prior-art`** — the most decision-relevant workshop question, re-asked under the harness; `research/prior-art/trust-gates-prior-art.md` is the loose-process baseline. Then `project-flow` start: frame it — question / scope / source types / success criteria — knowing the original loose-process answer exists as the baseline; the deliverable is the rigorous re-answer plus the delta.
 - [ ] Gap analysis vs the seeded synthesis layer + bibliography → gap list.
+- [ ] **Pre-registered pilot (2026-08-24, window not yet open): sampling-consistency on digests.** A handful of Phase 3 digests generate at N=3 in isolated contexts; the claim-disagreement rate is recorded as data. Decides whether SelfCheckGPT-style consistency checking becomes standing (its 2–3× generation cost is unpriced until this base rate exists — adopting by default would invent the cost-benefit number).
 - [ ] `find-sources` (project-scoped, PRISMA-S log) → candidates → **author admits 15–25 papers** into Zotero → `import-source` with integrate-at-import.
 
 ## Phase 4–6 — Draft, verify, publish
 
 - [ ] Draft a 1,000–2,000-word evidence brief in `projects/` under the Iron Law (via evidence-conventions); ~10 synthesis pages touched.
-- [ ] `verify-citations` + `factcheck-draft` → adjudicated findings; the recorded skipped set is real here.
+- [ ] `verify-citations` + `factcheck-draft` → adjudicated findings; the recorded skipped set is real here. **Pre-registered companion measurement (2026-08-24): the verify-the-verifier base rate** — on factcheck's MATCHED inference claims, run one fresh-context second pass (CoVe shape: the verifier never sees the first verdict) and record the disagreement rate as data. Decides whether the second pass becomes standing: near-zero disagreement makes the 2× cost pure tax; the number rules, not the paper.
 - [ ] `publish` → the gate; author chooses the disposition.
 
 ## Synthetic gate drill (decoupled — a scratch project, not the research)

@@ -328,7 +328,7 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 - [x] **Step 5: Commit** `fix: update-notice reduction preserves non-blocking UNMATCHED`
 
-### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap; also closes [issue #17](https://github.com/eranroseman/knowledge-harness/issues/17) — human-reviewed tier unreachable — read the issue and cover it in this task's tests; reference #17 in the commit)
+### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap; closes the DERIVATION half of [issue #17](https://github.com/eranroseman/knowledge-harness/issues/17): `human-reviewed` derives correctly given a `human:` event, pinned in this task's tests via fixture-written events (a fixture can write the event even though no production surface mints one). The MINTING half stays OPEN on #17 — deferred with a slice-Phase-5 trigger, spec §10 — so this task must NOT auto-close the issue; reference #17 in the commit with non-closing prose)
 
 **The reason, for the test name and the docstring:** an empty applicable-check set satisfies "every applicable check passed" vacuously, and vacuous truth is not evidence. A machine tier needs at least one check that ran and passed — otherwise a note with no identifiers, no quotes, and no verified events derives the top tier, which is what it does at HEAD.
 

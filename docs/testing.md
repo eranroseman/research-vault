@@ -29,6 +29,10 @@ Preference order:
 
 A same-length edit reverted within the same second is invisible to bytes, to `git status`, and to CPython's timestamp-based `.pyc` validation (mtime + size) — the interpreter keeps running the old bytecode while the source reads correctly. Rules: (1) never run a code-swap experiment (mutation replay, hot-patch trial) in a tree another run is using; (2) set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` first; (3) if caching is wanted, use hash-based pycs (`compileall --invalidation-mode checked-hash`).
 
+## The wrong-tree import trap
+
+An editable install can resolve `knowledge_harness` to the parent checkout instead of the scratch/worktree copy being probed — every probe then silently measures the wrong code. Rules for any scratch-tree or worktree probe: run with `PYTHONPATH=.` and open with an import-path canary (`python -c "import knowledge_harness; print(knowledge_harness.__file__)"`) asserting the tree under test.
+
 ## Exemplars
 
 Live test files (`tests/test_*_live.py`) are the copy-from source for new live tests: fixture shapes, settle windows, cleanup discipline. Environment facts (versions, API surfaces, path translation) live in `docs/environment.md` — check it before rediscovering; extend it when a live probe teaches something new.
