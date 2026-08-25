@@ -642,6 +642,28 @@ def test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_mark
     _assert_pretooluse_allows(result)
 
 
+def test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault(
+    fixture_vault, tmp_path
+):
+    """A `.harness` that exists but is not a real directory — here, a
+    symlink planted inside `literatures/` itself, closer to the target than
+    the real vault root — must not be accepted as a vault marker. If it
+    were, the write's "vault" boundary would collapse to `literatures/`
+    itself, `relative_to` that boundary would drop the `literatures/`
+    prefix entirely, and the deny would silently miss. The walk must keep
+    searching upward past the spoofed marker and find the real `.harness`
+    at the vault root instead."""
+    _make_hook_vault(fixture_vault)
+    spoofed = fixture_vault / "literatures" / ".harness"
+    spoofed.symlink_to(tmp_path)
+    target = fixture_vault / "literatures" / "evil.md"
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
 def test_pretooluse_denies_absolute_target_regardless_of_unrelated_cwd(
     fixture_vault, tmp_path
 ):
@@ -697,6 +719,23 @@ def test_pretooluse_allows_relative_target_when_declared_cwd_is_itself_relative(
     _make_hook_vault(fixture_vault)
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path="clean.md")
     payload["cwd"] = "literatures"
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_allows_relative_target_when_declared_cwd_is_non_string(
+    fixture_vault,
+):
+    """A `cwd` field that is present but not even a string (a stray integer,
+    here) must be coerced to "unusable" up front, the same as a missing
+    `cwd` — not passed through to `Path(cwd)`, where a non-string would
+    raise `TypeError` instead of behaving as an ordinary unresolved-relative
+    -candidate case."""
+    _make_hook_vault(fixture_vault)
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path="clean.md")
+    payload["cwd"] = 42
 
     result = _run_pretooluse(fixture_vault, payload)
 
@@ -788,6 +827,23 @@ def test_pretooluse_fails_closed_on_unexpected_exception(
     assert specific["permissionDecision"] == "deny"
     assert specific["permissionDecisionReason"] == GUARD_FAIL_CLOSED_REASON
     assert specific["permissionDecisionReason"] != MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_fails_closed_on_a_genuine_symlink_loop(fixture_vault):
+    """A real induced fault, not a synthetic monkeypatch: `Path.resolve()`
+    raises on a symlink loop (`RuntimeError` on CPython 3.12), and that
+    must deny with `FAIL_CLOSED_REASON` — the property this hook's
+    fail-closed tier exists for."""
+    _make_hook_vault(fixture_vault)
+    loop_a = fixture_vault / "projects" / "brief" / "loop_a"
+    loop_b = fixture_vault / "projects" / "brief" / "loop_b"
+    loop_a.symlink_to(loop_b)
+    loop_b.symlink_to(loop_a)
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(loop_a))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == GUARD_FAIL_CLOSED_REASON
 
 
 def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
