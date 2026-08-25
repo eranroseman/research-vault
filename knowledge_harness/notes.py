@@ -139,7 +139,7 @@ def _managed_body(item, annotations) -> str:
 
 
 def _split_free(existing) -> str:
-    if existing is None:
+    if not existing:
         return SEED_FREE
     offset = 0
     for line in existing.splitlines(keepends=True):
@@ -148,7 +148,9 @@ def _split_free(existing) -> str:
             # blank lines and a deliberately emptied free region (§3).
             return existing[offset + len(line) :]
         offset += len(line)
-    return SEED_FREE
+    raise RenderIntegrityError(
+        "existing note has no managed-close marker — refusing to overwrite the body"
+    )
 
 
 # Fields the renderer owns and may rewrite; EVERYTHING else in prior frontmatter

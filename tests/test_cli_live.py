@@ -1505,6 +1505,45 @@ def test_import_note_render_rejection_files_a_hold(
     assert hold.reason.startswith("schema-violation — ")
 
 
+def test_import_note_marker_less_existing_note_refuses_and_files_hold(
+    tmp_vault, monkeypatch, capsys
+):
+    """A real marker-less note reaches the render-rejection handler unmocked.
+
+    Every other render-rejection test in this file monkeypatches
+    ``notes.render_note`` to raise; this one lets a genuine hand-written note
+    with no managed-close marker flow through the real renderer, proving the
+    new refusal actually reaches ``cmd_import_note``'s existing catch/hold
+    wiring rather than merely being reachable in theory.
+    """
+    import knowledge_harness.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
+    destination = notes.note_path(tmp_vault, "smith2020")
+    destination.write_text(
+        '---\ncitekey: "smith2020"\n---\nhand-written prose, no marker\n'
+    )
+    before = destination.read_bytes()
+
+    code = _import(tmp_vault)
+
+    captured = capsys.readouterr()
+    assert code == 1
+    assert captured.err.strip() == (
+        "render rejected for smith2020: existing note has no managed-close "
+        "marker — refusing to overwrite the body"
+    )
+    assert destination.read_bytes() == before  # byte-identical: nothing rewritten
+    (hold,) = _holds(tmp_vault)
+    assert hold.check == "render"
+    assert hold.target == "smith2020"
+    assert hold.result == "UNMATCHED"
+    assert hold.reason == (
+        "schema-violation — existing note has no managed-close marker — "
+        "refusing to overwrite the body"
+    )
+
+
 def test_import_note_holds_collapse_on_a_same_day_retry(tmp_vault, monkeypatch, capsys):
     """A retried failure is one standing finding, not a growing pile of rows."""
     import knowledge_harness.__main__ as cli

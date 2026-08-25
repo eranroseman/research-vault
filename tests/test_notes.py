@@ -364,6 +364,23 @@ def test_free_region_byte_exact():
     assert v3.endswith(notes.MANAGED_CLOSE + "\n")  # emptied region stays empty
 
 
+def test_existing_note_without_marker_refuses_render():
+    existing = "---\ntype: literature\n---\nhand-written prose, no marker\n"
+    with pytest.raises(
+        notes.RenderIntegrityError,
+        match=r"^existing note has no managed-close marker — refusing to overwrite the body$",
+    ):
+        notes.render_note(ITEM, ["aa11"], [], existing=existing, accessed="2026-08-16")
+
+
+@pytest.mark.parametrize("existing", [None, ""], ids=["none", "empty-string"])
+def test_fresh_note_still_seeds(existing):
+    text = notes.render_note(
+        ITEM, ["aa11"], [], existing=existing, accessed="2026-08-16"
+    )
+    assert text.endswith(notes.SEED_FREE)
+
+
 QUOTE_ANN = {
     "key": "ANNKEY01",
     "type": "highlight",
