@@ -6007,3 +6007,543 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   A site where collapsing loses meaning is legitimately out of scope.
   Recorded so the coverage claim carries its true corpus. Destination: the
   method-findings retrospective owed at Task 21 close.
+
+### TASK 21 — BASE = c16195e. Steps 1, 2 and 4 dispatched; Step 3's sweep and
+### Step 5's merge stay with the controller.
+  BRIEF REGENERATED IMMEDIATELY BEFORE DISPATCH, per the rule adopted after Task
+  22's stale-brief error. Existence is not currency.
+### STEP 1'S PREMISE WAS FALSE, AND THE REAL DEFECT IS WORSE THAN THE PREDICTED ONE
+  The plan predicted check_metadata "silently folds" an absent field into
+  MATCHED, and says "if it silently folds, fix it". IT DOES NOT FOLD:
+  checks.py:400-411 returns UNREACHABLE "outage — malformed bibliography
+  metadata" for an absent or malformed LOCAL field, and a parallel UNREACHABLE
+  for the remote side. So the instruction's own trigger never fires, and a
+  literal implementer would verify, find no fold, and append a sentence THE CODE
+  CONTRADICTS.
+  RULED (2026-08-25, option 1): missing-LOCAL-field becomes WHOLE-CHECK SKIPPED
+  with the reason naming the absent field; remote-side failures stay UNREACHABLE,
+  because that side genuinely is an outage.
+  AND I TRACED THE CONSEQUENCE RATHER THAN ACCEPT THE ARGUMENT FOR IT, because
+  the argument is what makes this a defect rather than four-state pedantry:
+   - verify.surface_decision (verify.py:1126-1160) blocks on UNMATCHED, then for
+     EVERY NON-`audit` SURFACE — which includes `publish` — collects UNREACHABLE
+     outcomes and returns DECISION 3;
+   - publish.py:360-362 turns any non-zero decision into a Disposition and
+     returns WITHOUT PUBLISHING;
+   - SKIPPED APPEARS NOWHERE IN THAT LOGIC.
+  SO AN ITEM THAT MERELY LACKS A LOCAL METADATA FIELD IS CLASSIFIED AS AN OUTAGE
+  AND HOLDS PUBLISHING — for a fact that is locally, determinately true and WILL
+  NEVER RESOLVE BY RETRYING. The fix removes a false gate-hold class. That is
+  Step 1's own purpose done properly, not a deviation from it.
+  THE APPENDED SENTENCE IS WORDED TO WHAT LANDS, not to the draft's promise. The
+  draft said "SKIPPED FOR THAT FIELD, recorded in the outcome's detail";
+  check_metadata returns ONE WHOLE-CHECK OUTCOME, and inventing per-field detail
+  structure inside an instrument freeze is out of scope. Weaken the claim so the
+  sentence describes shipped reality — and record the per-field design as an
+  HONEST DECLINE with a destination rather than silence.
+  STEP 2's PREMISE HOLDS EXACTLY: _datacite_version_outcome (checks.py:731-733)
+  returns _provider_unreachable BEFORE MAKING ANY NETWORK CALL when the local
+  version is absent. Nothing attempted, nothing failed — SKIPPED by the doctrine.
+  Both fixes to be symmetric in shape and reason-string style.
+### LIVE LEGS — the skip census, and what the mailto actually unlocks
+  offline           1714 passed /  7 skipped
+  HARNESS_LIVE=1    1717 passed /  4 skipped   (Zotero probed HTTP 200 first)
+  Three Zotero legs ran and PASSED. The four remaining skips, enumerated with
+  their reasons rather than counted:
+   - tests/test_archive.py:935      — needs HARNESS_LIVE_NET=1
+   - tests/test_verify_cli.py:1852  — needs HARNESS_LIVE_NET=1
+   - tests/test_cli_live.py:99      — deferred autoexport drill
+   - tests/test_cli_live.py:119     — deferred autoexport drill
+  SO THE MAILTO UNLOCKS EXACTLY TWO TESTS. The other two are the documented
+  deferred end-to-end autoexport drill, which docs/testing.md says stays skipped
+  after BOTH flags because it needs a human BBT step and a real vault. Expected
+  final state: 1719 passed / 2 skipped, and those two are deferred BY DESIGN.
+  Counting the skips would have said "four remain"; enumerating them says which
+  two are a gate and which two are a decision.
+  AUTHOR AUTHORISED THE MAILTO EXPLICITLY ("use my address"). I had refused to
+  improvise it: the address is in my session context, but the standing rule
+  forbids sending it to an unrelated service in a header or URL unless the user
+  explicitly asks, and Crossref's polite pool is exactly a URL parameter — the
+  case the rule names. Scope held to an ENVIRONMENT VARIABLE for this acceptance
+  run; never committed, and deliberately not written into this ledger, which is
+  itself a tracked file.
+
+### TASK 21 STEP 3 — LIVE LEGS COMPLETE. 1719 passed / 2 skipped.
+  Full command: HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<author's
+  address, environment only> python -m pytest -q -rs. Exit 0, 146s.
+  THE PREDICTION FROM THE ENUMERATION HELD EXACTLY: 1717 + the two net-gated
+  tests = 1719, and THE ONLY REMAINING SKIPS ARE THE TWO DEFERRED-BY-DESIGN
+  autoexport-drill cases (tests/test_cli_live.py:99 and :119), which need a
+  human Better BibTeX step and a real vault. Nothing is skipped for want of a
+  flag any more.
+  THAT IS THE VALUE OF ENUMERATING RATHER THAN COUNTING, stated once because the
+  batch keeps proving it: "four skips remain" would have left it open whether
+  the acceptance run was complete. Naming which two were a GATE and which two
+  were a DECISION made the finish line checkable in advance — and then the run
+  landed on it.
+  SKIP CENSUS, FINAL, for the landing report:
+    offline                              1714 passed /  7 skipped
+    + HARNESS_LIVE=1                     1717 passed /  4 skipped
+    + HARNESS_LIVE_NET=1 + mailto        1719 passed /  2 skipped
+  The two survivors are documented in docs/testing.md as remaining after BOTH
+  flags. They are not a gap in this acceptance; they are the one leg this
+  project has always known it cannot automate.
+
+### TASK 21 STEP 3 — THE ACCEPTANCE SWEEP'S TARGETS, MAPPED FROM THE AUDIT ITSELF
+  The plan names "defects 1, 2, 3, 6, the fixity pair, the archive branch"
+  without saying where their evidence lives. Resolved against
+  research/validation-slice/2026-08-22-no-fabrication-audit.md rather than from
+  the plan's shorthand — its numbered list is at :5 and its per-defect verifier
+  evidence under "Confirmed findings" from :38:
+    defect 1  RW screening inert            checks.py:924    -> Task 14  (:88)
+    defect 2  UNMATCHED rounded to MATCHED  checks.py:1024   -> Task 15  (:94)
+    defect 3  vacuous machine-confirmed     events.py:255    -> Task 16  (:100)
+    defect 6  date-precision fabrication    checks.py:522    -> Task 19  (:76,:82)
+    defect 7  placeholder as ack anchor     __main__.py:234
+              ("the fixity pair")         + verify.py:209    -> Task 17  (:58,:112)
+    defect 8  unverified snapshot recorded  archive.py:191   -> Task 18  (:64)
+  Defects 4 and 5 are NOT in Step 3's list because they were Part 1's Tasks 10
+  and 11, accepted at the Part 1 checkpoint — so the sweep covers exactly the
+  Part 2 set, and the omission is deliberate rather than an oversight. Worth
+  writing down: a list that omits two of six numbered items invites a reader to
+  think something was dropped.
+  Defect 7 is one defect across TWO SURFACES (the writer at __main__.py:234 and
+  the adopter at verify.py:209), which is why the plan calls it a "pair" — a
+  sweep that reproduces only one surface would report the defect closed while
+  half of it stood.
+  THE SWEEP RUNS AFTER Steps 1/2/4 LAND, against the final state, not now.
+  Reproducing against an intermediate tree would prove nothing about what merges.
+
+Task 21: Steps 1/2/4 landed — 1c7f682. Offline 1717/7 (+3 net: four new tests,
+  one obsolete parametrize row removed). ruff, mypy, publish gate clean. NOT
+  merged, NOT pushed — those are mine.
+### I WAS WRONG ABOUT STEP 1'S PREMISE, AND THE IMPLEMENTER CAUGHT IT
+  I told the orchestrator, and recorded here, that Step 1's "silently folds into
+  MATCHED" premise was FALSIFIED. IT WAS TRUE — for a field I never examined.
+  check_metadata compares THREE local fields. I checked `title` and `author`,
+  found both return UNREACHABLE when absent or malformed, and concluded "it does
+  not fold". I NEVER CHECKED `issued`. The implementer did, reported it as
+  concern 5, and I verified it myself:
+      _metadata_authors(None) -> []
+      metadata_year(None)     -> (True, None)
+  metadata_year(None) is (True, None) — WELL-FORMED, NO YEAR — so an absent local
+  `issued` passes the guard at checks.py:413, and the comparison at :453 reads
+  `if local_year is not None and remote_year is not None and local_year !=
+  remote_year`. AN ABSENT YEAR IS STEPPED OVER, and if title and authors match
+  THE CHECK RETURNS MATCHED. Exactly the fold the plan predicted and the newly
+  appended spec sentence forbids.
+  THE THREE FIELDS NOW BEHAVE THREE DIFFERENT WAYS when absent locally:
+      title   -> SKIPPED   (this task's fix)
+      author  -> UNMATCHED (_metadata_authors(None) is [], so [] != [families]
+                            reads as a mismatch)
+      issued  -> MATCHED   (folded, silently)
+  AND THE SENTENCE WE JUST APPENDED TO §6 COVERS ALL THREE. That is WORSE than
+  the gap we started with: before, the spec was silent and the code inconsistent;
+  now THE SPEC ASSERTS A RULE TWO OF THE THREE FIELDS BREAK. Flagged before the
+  merge rather than after.
+  MY ERROR IS THIS RUN'S OWN RECURRING ONE: I DESCRIBED A THREE-FIELD CHECK FROM
+  TWO OF ITS FIELDS. Same shape as the `head -8` count — a partial view reported
+  as the whole. THE DIFFERENCE, AND IT IS THE PART WORTH KEEPING: this partial
+  view produced A CONFIDENT NEGATIVE. "Premise falsified" is the most expensive
+  kind of wrong answer, because IT RETIRES THE VERY INSTRUCTION THAT WOULD HAVE
+  FOUND THE REST. The plan said "if it silently folds, fix it"; I answered "it
+  does not", and that answer would have closed the search.
+  A NEGATIVE FINDING NEEDS ITS SEARCH SPACE STATED. Had I written "does not fold
+  — checked title and author" the gap would have been visible in my own sentence.
+  Routed to the orchestrator with three options; leaning 3 (fix `issued` to
+  SKIPPED since it is the actual fold and it PUBLISHES; leave `author`'s
+  UNMATCHED as a recorded gap because wrong-but-loud never silently passes; word
+  the sentence to match). ACCEPTANCE SWEEP HELD — running it against a tree we
+  are about to change would prove nothing about what merges.
+Task 21: controller error (minor, corrected by the implementer): my cited spec
+  line numbers were off by two — I gave table start :95 / metadata :98 /
+  update-notice :99; actual :96 / :100 / :101. The implementer matched BY CONTENT
+  rather than by my line numbers and edited the right rows, which is why an
+  off-by-two cost nothing. Content-match over line-match is the habit that
+  absorbed my error.
+Task 21: recorded (implementer's concern 4): placing the title-absence check
+  BEFORE the network registry_agency call changes one untested combination —
+  title absent + registry outage was UNREACHABLE, now SKIPPED. Doctrine-consistent
+  (nothing is attempted, so nothing failed) and it also spares a pointless
+  network call. Deliberate, in the commit body.
+
+Task 21: RULED — option 1. Absent-local becomes whole-check SKIPPED for ALL
+  THREE fields, symmetric, failing-test-first per field. Fix round 1 dispatched.
+  THE RULING CORRECTED MY LEAN, AND THE CORRECTION IS THE KEEPER. I had argued
+  author's false UNMATCHED was "wrong-but-loud, can wait". That MISREADS WHAT THE
+  RECORD CLAIMS: UNMATCHED ASSERTS "COMPARED AND CONTRADICTED". For an absent
+  field that assertion is FALSE, and A VERIFICATION RECORD ASSERTING A COMPARISON
+  THAT NEVER HAPPENED IS THE ADR-0002 SIN ITSELF — not a loudness trade-off. It
+  also false-blocks publish, since surface_decision's blocker loop keys on
+  UNMATCHED. Same false-gate-hold class as the title case, one lane over.
+  AND THE NAME FOR THE SHAPE: Step 1 done for one of three fields is not a
+  smaller version of the task, it is A PARTIAL FIXTURE MIGRATION — the exact
+  pattern this batch already caught at Task 17, where a change lands on some
+  sites and the suite stays green over the rest.
+### I MEASURED BOTH LANES PER FIELD BEFORE DISPATCHING — six cells, four wrong
+  Stubbed registry_agency and webapi.get_json in-tree, canary asserted:
+                 LOCAL absent                    REMOTE absent
+    title    SKIPPED  no-identifier — item     UNREACHABLE  outage — malformed
+                      has no title                          registry metadata
+    author   UNMATCHED  mismatch — author family names differ   (BOTH lanes)
+    issued   MATCHED    matched                                 (BOTH lanes)
+  THE TWO LANES FAIL IDENTICALLY for author and issued BECAUSE BOTH BUGS LIVE IN
+  SHARED HELPERS: _metadata_authors(None) returns [] (so [] != [families] reads
+  as a mismatch) and metadata_year(None) returns (True, None) (so the both-non-
+  None comparison at :453 steps over it). That is why the remote-side fixes are
+  TRIVIALLY SYMMETRIC with the local ones and ride the same step — the branch
+  question the ruling posed, answered by measurement rather than estimate.
+  `remote title` -> UNREACHABLE STAYS. A registry record returning NO TITLE AT
+  ALL genuinely is a malformed response; a work with no issued date or no author
+  is an ORDINARY RECORD, not an outage. The asymmetry is chosen, and the commit
+  body says so.
+### AND THE RULING ASSUMED A SENTENCE THAT IS NOT WHAT LANDED
+  It said the §6 sentence "stands as already worded because it is true". What the
+  implementer actually wrote is TITLE-SCOPED: "absent local `title` — the one
+  field the comparison cannot run without — is whole-check SKIPPED". HONESTLY
+  SO — it wrote the sentence to what it had implemented, which was right at the
+  time and is the weaken-the-claim discipline working. But the fix now widens, so
+  the sentence widens with it: absent on EITHER SIDE, any of the three compared
+  fields. Flagged rather than silently widened, because a ruling resting on a
+  misread artifact should be corrected out loud — the same courtesy the
+  orchestrator paid me over the preamble bullet.
+  Proof obligations set at SIX CASES (per field per lane), exact reason strings
+  rather than four-state alone, plus four no-change constructions: present-and-
+  matching stays MATCHED, present-and-differing stays UNMATCHED (a real mismatch
+  must stay loud), a genuine outage stays UNREACHABLE, and remote-title-absent
+  stays UNREACHABLE.
+
+Task 21: fix round 1 landed — 111ddbf. Offline 1722/7 (+5: four new tests plus
+  one from splitting a test whose first half had PINNED THE NOW-FIXED MATCHED
+  BUG — a test that was documenting the defect as correct behaviour).
+  All six cells now symmetric except the chosen exception: remote-title-absent
+  stays UNREACHABLE.
+### TWO CORRECTIONS TO ME, BOTH FROM THE IMPLEMENTER
+  (1) IT REFUSED MY SUGGESTED SPEC SENTENCE, CORRECTLY. I wrote "absent on EITHER
+      SIDE, any of the three compared fields -> SKIPPED" and, ONE PARAGRAPH LATER
+      IN THE SAME MESSAGE, "remote title stays UNREACHABLE". Those contradict. It
+      wrote the sentence to the six-cell reality instead and FLAGGED THE
+      DEVIATION rather than taking it silently. My text was internally
+      inconsistent inside a single message and it caught that.
+  (2) ITS CONCERN 2 IS REAL AND BIGGER THAN EITHER OF US IMPLIED. Measured, both
+      lanes, canary asserted:
+                                    LOCAL        REMOTE
+        author=[]                UNMATCHED    UNMATCHED
+        issued={}                MATCHED      MATCHED
+        issued={'date-parts':[]} MATCHED      MATCHED
+        issued={'date-parts':[[]]} MATCHED    MATCHED
+        title=''                 UNMATCHED    UNMATCHED
+      THE ENTIRE ORIGINAL BUG IS INTACT FOR EVERY EMPTY REPRESENTATION — the fold
+      into MATCHED and the false compared-and-contradicted, on both sides. And
+      `{"date-parts": []}` IS WHAT CSL/CROSSREF ACTUALLY EMIT for a work with no
+      date, so THE COMMON CASE IS THE ONE STILL BROKEN while the fix covers
+      `is None`, the rarer one.
+Task 21: fix round 2 dispatched WITHOUT RE-ASKING, and the orchestrator told so
+  explicitly rather than left to infer it. Reasoning: they have ruled this exact
+  axis TWICE — same function, same defect class, same task — both times "extend,
+  symmetric, a partial fix is a partial fixture migration". This is the THIRD
+  instance of an identical question, the measurement is decisive, the work is
+  reversible. Re-asking a settled principle costs a cycle and teaches nothing.
+  Offered them the stop.
+  ONE JUDGMENT LEFT TO THE IMPLEMENTER RATHER THAN DECIDED FOR IT: whether an
+  EMPTY-STRING TITLE counts as absent. Unlike [] and {} it is arguably a
+  real-but-bad value, and it is the field its own sentence calls "the one the
+  comparison cannot run without". Either answer accepted; SILENCE NOT.
+  Also fenced the widening: `author: [{"family": ""}]` and
+  `issued: {"date-parts": [["not-an-int"]]}` are MALFORMED, NOT ABSENT, and must
+  not become SKIPPED — at least one pinned, so the fix cannot swallow malformed
+  input as "absent" while closing the fold.
+### THE METHOD FINDING, sharper than "go look"
+  TWICE IN ONE TASK a measurement of mine covered a SUBSET and got reported as
+  THE WHOLE, and both times the implementer's report caught it:
+   - I checked `title` and `author`, never `issued`, and reported "does not fold";
+   - I probed with `.pop(field)` — LITERAL absence — and reported it as covering
+     "absent", when the empty representations are the common ones.
+  THE ROOT IS NOT A FAILURE TO CHECK. IT IS A FAILURE TO STATE WHAT THE CHECK
+  COVERED. The instrument I chose defined the answer's scope, and I published the
+  answer without its scope — same root as the truncating pipe (`head -8`) and the
+  version-gated `--help` flag. A finding needs its search space stated, and a
+  NEGATIVE finding needs it most, because a confident negative retires the
+  instruction that would have found the rest.
+
+### STANDING DELEGATION RULE (orchestrator, 2026-08-25) — named after the fact,
+### from the round-2 decision that turned out correct
+  Proceeding WITHOUT re-asking is right when ALL FOUR hold:
+    1. same function, same defect class, same task as an already-ruled question;
+    2. a DECISIVE MEASUREMENT in hand, not an argument;
+    3. the work is REVERSIBLE;
+    4. the decision is made VISIBLE IMMEDIATELY rather than assumed.
+  WHEN ANY ONE FAILS, ASK. All four held for round 2, which is why it was
+  ratified rather than merely tolerated.
+  This is the rule I had been applying by instinct and getting right by luck as
+  much as by judgement; having it written means the next borderline case is
+  decided by the conditions rather than by how confident I happen to feel.
+  AND THE MEASUREMENT WAS WHAT SEALED IT: `{"date-parts": []}` is what Crossref
+  ACTUALLY EMITS for undated works, so the shipped fix covered THE RARE SPELLING
+  OF ABSENCE and left THE COMMON ONE FOLDING. Extension is not scope creep when
+  it is the fix reaching the case that actually occurs.
+  THE INCONSISTENT SENTENCE GOES ON THE ORCHESTRATOR'S SIDE OF THE LEDGER, by
+  their own accounting: "absent on either side -> SKIPPED" beside "remote title
+  stays UNREACHABLE" was internally inconsistent text, and the implementer
+  writing to the six-cell reality WITH A FLAGGED DEVIATION is the
+  correction-over-obedience this run keeps rewarding. Three parties have now had
+  an instruction corrected by the artifact it described; the catalogue really
+  does grow evenly.
+### THE RETROSPECTIVE'S SPINE, and its title candidate
+  THE INSTRUMENT DEFINES THE ANSWER'S SCOPE, AND THE FAILURE IS REPORTING THE
+  ANSWER WITHOUT ITS SCOPE.
+  ONE ROOT, FOUR INSTANCES, all mine:
+    - `head -8` truncating a file list -> "eight files", shipped into three artifacts
+    - `--help` omitting a version-gated flag -> "mdformat has no --exclude"
+    - two of three fields checked -> "the premise is falsified"
+    - `.pop(field)` for absence -> "absent is covered"
+  AND THE OPERATIONAL LESSON IS IN THE CATCH RATE, NOT THE ROOT: every one was
+  caught BY A SECOND READER USING A DIFFERENT INSTRUMENT — the peer's git
+  check-ignore, the reviewer's read of _cli.py, the implementer's look at
+  metadata_year, the implementer's empty-representation probe.
+  SCOPE-STATING IS THE WRITER'S DUTY; THE CATCHES CAME FROM READERS WHO
+  RE-MEASURED. Both halves are needed, and only the second one has actually been
+  working reliably.
+Task 21: passed the orchestrator's framing to the implementer for the
+  empty-title judgment, as an ARGUMENT TO WEIGH rather than a ruling: is `""` a
+  value the registry could MEANINGFULLY DISAGREE WITH? A comparison against ""
+  CAN run, it just cannot WIN — which distinguishes it from author=[] and
+  issued={}, where there is nothing to compare at all. Added the counter-argument
+  myself so the framing does not read as a steer: a local title of "" is almost
+  certainly a broken bibliography record, and "mismatch — title differs from
+  registry" asserts a contradiction that is not really about titles.
+  THE REASONING IS THE DELIVERABLE, more than the branch chosen.
+
+Task 21: fix round 2 landed — 04896d7. Offline 1734/7 (+12), publish gate exit 0.
+  THE TITLE JUDGMENT CAME BACK AS REASONING, WHICH WAS THE DELIVERABLE. The
+  implementer argued BOTH sides — "can the comparison run" (yes, favours
+  UNMATCHED) versus "what does the record then CLAIM" (a blank title is almost
+  always a data-entry gap, not a real disagreement, so UNMATCHED asserts a FALSE
+  CONTRADICTION) — and chose the second, treating blank identically to missing on
+  each side, consistent with the already-ruled local/remote asymmetry. It picked
+  the branch I would have, and more usefully it PICKED IT FOR THE RECORD'S CLAIM
+  RATHER THAN THE COMPARISON'S MECHANICS, which is the same principle that
+  decided the author case.
+### FINAL STATE VERIFIED BY THE CONTROLLER, ALL TWELVE CELLS PLUS THE FENCE
+  Probed in-tree, canary asserted, stubbing registry_agency and webapi.get_json:
+    ABSENT (key popped)                EMPTY-BUT-PRESENT
+      local  title   SKIPPED             local  title=''     SKIPPED
+      remote title   UNREACHABLE         remote title=''     UNREACHABLE
+      local  author  SKIPPED             local  author=[]    SKIPPED
+      remote author  SKIPPED             remote author=[]    SKIPPED
+      local  issued  SKIPPED             local  issued={}    SKIPPED
+      remote issued  SKIPPED             remote issued dp=[] SKIPPED
+  And the reasons NAME THE SIDE, not just the field: "item has no author" versus
+  "registry record has no author". A reader of the review queue can tell which
+  half of the comparison was empty without opening the code.
+  THE FENCE HOLDS — the widening did NOT swallow malformed input, which was the
+  specific risk of turning absence into SKIPPED:
+      baseline               MATCHED
+      real title mismatch    UNMATCHED   (a genuine disagreement stays loud)
+      real author mismatch   UNMATCHED
+      author="not-a-list"    UNREACHABLE (malformed, NOT absent)
+      issued dp=[["x"]]      UNREACHABLE (malformed, NOT absent)
+  Six-cell table -> twelve cells plus five no-change constructions, every one
+  measured against the shipped tree rather than argued from the diff.
+Task 21: ACCEPTANCE SWEEP + review dispatched over c16195e..04896d7 on the most
+  capable model. This is the sweep that decides whether the batch may merge, so
+  it is framed as REPRODUCTION rather than inspection: for each of defects 1, 2,
+  3, 6, 7 and 8 the reviewer must go to THE AUDIT'S OWN EVIDENCE SECTION,
+  reconstruct the reproduction it describes, and run it at HEAD.
+  THREE FENCES ON THE SWEEP ITSELF, because a sweep can pass for the wrong
+  reasons:
+   - DEFECT 7 IS ONE DEFECT ACROSS TWO SURFACES (the writer emitting the
+     placeholder, the consumer adopting it as an ack anchor) and BOTH must be
+     reproduced — exercising only the writer would report it closed while half
+     of it stood;
+   - the audit's line numbers are from 2026-08-22 and the files have moved a
+     great deal, so LOCATE BY CONTENT, NOT BY LINE, and say so if a defect's
+     referent cannot be found;
+   - "CANNOT REPRODUCE BECAUSE THE SCENARIO IS UNBUILDABLE" IS A DIFFERENT
+     FINDING FROM "REPRODUCED AND THE DEFECT IS GONE". A reproduction that fails
+     to reproduce for the wrong reason is not a pass, and that distinction is
+     exactly where an acceptance sweep quietly becomes theatre.
+  Handed the reviewer my twelve-cell table explicitly AND asked it to verify
+  independently and say if it disagrees — a measurement offered as a claim to
+  check, not as a fact to inherit. Also told it defects 4 and 5 are absent BY
+  DESIGN so their omission does not read as a gap.
+
+Task 21: FULL LIVE SUITE AT THE SETTLED TREE — 1739 passed / 2 skipped, exit 0.
+  Final census across all three lanes:
+    offline                          1734 passed / 7 skipped
+    + HARNESS_LIVE=1 + LIVE_NET + mailto   1739 passed / 2 skipped
+  The +5 is the 3 Zotero legs and the 2 external-registry legs; the 2 survivors
+  are the documented autoexport drill, deferred by design.
+### THE METHOD RETROSPECTIVE WRITTEN — research/validation-slice/
+### 2026-08-25-pre-slice-batch-method-retrospective.md
+  The deliverable owed at 21's close. Its spine is the finding the orchestrator
+  named as its title candidate: THE INSTRUMENT DEFINES THE ANSWER'S SCOPE, AND
+  THE FAILURE IS REPORTING THE ANSWER WITHOUT ITS SCOPE — four instances
+  tabulated with the instrument, the answer given, and the answer's real scope,
+  plus the observation that ALL FOUR WERE CAUGHT BY A SECOND READER USING A
+  DIFFERENT INSTRUMENT.
+  Also carries: correct-observation-wrong-conclusion; existence-is-not-currency;
+  verify-against-the-artifact-handed; the true-and-misleading coverage number;
+  enumerate-don't-count; partial fixture migration WITH ITS TELL (ask what a
+  green suite is a sample of); the converts-one-failure-mode-into-another policy;
+  the four-condition delegation rule; and an accounting of what the loop was
+  worth in both directions — two no-fix-round closes, and why the three- and
+  four-round tasks were not padding.
+  A DECISION ABOUT THE NOTE ITSELF, and it is the batch's own rule applied to my
+  own artifact: mdformat --check REPORTS IT UNFORMATTED, and I am leaving it that
+  way. `research/` IS DELIBERATELY OUTSIDE the mdformat path list — the hook's
+  own comment says "research/ and sources/ are excluded: immutable records" and
+  the entry confirms it. Running the formatter over it because a manual check
+  complained would be EXACTLY THE VENDOR-DRIFT MISTAKE Task 2e spent two rounds
+  fixing: a tool reaching past its owner because someone ran it out of scope.
+  The check I ran was the thing that was wrong, not the file.
+
+### TASK 21 ACCEPTANCE SWEEP — ALL SIX AUDIT DEFECTS UNREPRODUCIBLE AT HEAD
+  And the fence I set on the sweep HELD: "None was closed by making the scenario
+  unbuildable — every audit input still constructs and reaches the code under
+  test." That sentence is the difference between an acceptance sweep and theatre,
+  and it was answered explicitly rather than left implied.
+   1 RW inert        — synthetic CSV in production column shape, the audit's exact
+                       row: doi/pmid indices 1/1, notice_date 2026-04-10,
+                       check_rw_batch now UNMATCHED "retracted — retraction" where
+                       it was None. `_rw_date("garbage")` still _INVALID — the fix
+                       did not become a pass-through.
+   2 UNMATCHED->MATCHED — reduce() over both argument orders: UNMATCHED survives
+                       with warn_notices preserved, order-independent.
+   3 vacuous tier    — url-only, frontmatter-less and PMID-only notes all
+                       "unverified"; CONTROL: a DOI note with a quote check still
+                       reaches machine-confirmed, so the floor was RAISED, not the
+                       tier disabled.
+   6 date padding    — "2023"/"2023-07" emitted unpadded; the year-only block
+                       SURVIVES a 2023-06-15 reinstatement; [[2023,0]] still
+                       _INVALID; CONTROL: a full-precision earlier retraction
+                       still clears.
+   7 placeholder ack — BOTH SURFACES, as demanded. Writer: fixity-sha256 is [],
+                       the literal absent, stderr loud. Consumer: "unresolved",
+                       "aa11" and 64-char UPPERCASE hex all rejected; only real
+                       lowercase 64-hex adopted.
+   8 unverified snap — with a FRESH VAULT PER CASE, because already_recorded
+                       otherwise hands back a false MATCHED — a trap the reviewer
+                       spotted and stated.
+  MY 17-CELL TABLE: NO DISAGREEMENT, and re-run on BOTH registry routes (Crossref
+  via _crossref_csl and raw content-negotiation) — broader than my own
+  measurement, which used one route.
+### AND THE FIFTH INSTANCE OF MY ROOT ERROR, FOUND BY THE REVIEWER'S INSTRUMENT
+  MEDIUM, checks.py:417-434: the ABSENCE guards run BEFORE the malformed-registry
+  check at :436-449, so WHEN BOTH CONDITIONS HOLD, ABSENCE WINS AND THE RECORD
+  STATES A CAUSE THAT IS NOT THE REAL ONE. Verified by me:
+    single fault  remote author="not-a-list"     UNREACHABLE malformed registry
+    MULTI-fault   remote {}                      SKIPPED "registry record has no author"
+    MULTI-fault   remote author bad + issued {}  SKIPPED "registry record has no year"
+    MULTI-fault   local title=123 + author absent SKIPPED "item has no author"
+  AN ENTIRELY EMPTY REGISTRY RECORD IS A MALFORMED RESPONSE, NOT A RECORD THAT
+  "HAS NO AUTHOR". These write A FABRICATED CAUSE ONTO AN APPEND-ONLY INBOX — the
+  exact class this batch exists to eliminate, reintroduced by the fix that
+  eliminated its siblings. Bounded (SKIPPED mints no verified event, the metadata
+  row closes nothing) but the reason text is wrong and the §6 clause is false
+  while it stands.
+  MY TABLE VARIED ONE FIELD AT A TIME. I reported the malformed-input fence as
+  holding; IT HOLDS FOR SINGLE FAULTS. The reviewer's instrument — MULTI-FAULT
+  COMBINATIONS — found the rest. Same root as the other four: THE INSTRUMENT
+  DEFINED THE SCOPE OF THE ANSWER AND I PUBLISHED THE ANSWER WITHOUT ITS SCOPE.
+  Fifth instance, and the retrospective now needs a fifth row — written before
+  this one was found, which is its own small lesson about when a retrospective
+  is finished.
+Task 21: fix round 3 dispatched — the ordering fix (malformed decided BEFORE
+  absence, both sides), with the reviewer's caution carried: THE LOCAL MIRROR
+  NEEDS A DIFFERENT FIX. Malformed-local sits AFTER the network call, so it must
+  be HOISTED PRE-NETWORK rather than having the absence guards moved down —
+  moving them down would keep a pointless round-trip for input already known
+  unusable and undo the precedence improvement made deliberately in round 0.
+  Plus: the single-fault test at test_checks.py:2105-2125 that let this through
+  gains multi-fault cases with exact reasons; the :436 asymmetry gains a comment
+  AT ITS OWN SITE, since its reasoning currently lives only in a report, a commit
+  body and a test docstring — three places a "make this symmetric" tidy-up will
+  never look.
+Task 21: Plan S :8's gate mark — reviewer LOW, judged NO ACTION. It reads "is
+  complete and merging to main", which was TRUE WHEN WRITTEN and becomes exact
+  the moment the merge lands. The honest fix is to merge, not to reword.
+
+Task 21: fix round 3 landed — f8915c2. Offline 1738/7 (+4), publish gate exit 0.
+  Malformed is now decided BEFORE absence on both sides; the local malformed
+  check was HOISTED PRE-NETWORK rather than reordered downward, per the
+  distinction the reviewer drew — so round 0's title-before-network precedence
+  survives and no pointless round-trip is made for input already known unusable.
+  A mypy narrowing regression from the restructure was caught and fixed inside
+  the round by inlining the blank-check and dropping a now-unused helper.
+  CONTROLLER-VERIFIED THE MERGE-BLOCKING CELLS:
+    remote author bad + issued {}   UNREACHABLE  outage — malformed registry metadata
+    local title=123 + author absent UNREACHABLE  outage — malformed bibliography metadata
+    remote author not-a-list        UNREACHABLE  outage — malformed registry metadata
+  And the full remote-absence map, which is the property the asymmetry rests on:
+    title only absent      UNREACHABLE      author only absent   SKIPPED
+    title+author absent    UNREACHABLE      issued only absent   SKIPPED
+    title+issued absent    UNREACHABLE      author+issued absent SKIPPED
+    ALL absent ({})        UNREACHABLE
+  TITLE-ABSENT DOMINATES IN EVERY COMBINATION, which is exactly the ruled
+  behaviour: a registry record with no title is a malformed response however many
+  other fields are also missing.
+### A NEAR-MISS I CAUSED AND CAUGHT MYSELF — sixth instance, first self-caught
+  My first verification probe reported `remote {}` -> MATCHED, and I was one step
+  from reporting a fold-into-MATCHED REGRESSION that would have blocked the merge
+  and sent the implementer chasing a defect that does not exist.
+  THE BUG WAS IN MY PROBE, NOT THE CODE. The helper read
+  `{"message": remote or dict(FULL)}` — and `{}` IS FALSY, so `remote={}` fell
+  through to the FULL record and I measured the baseline while labelling it "all
+  absent". Re-measured with a helper that passes the dict through unconditionally:
+  UNREACHABLE, correct.
+  SAME ROOT AS THE OTHER FIVE — the instrument defined the answer — but a
+  different failure surface: not a truncating pipe or a partial input set, but AN
+  IDIOM THAT SILENTLY SUBSTITUTED A DIFFERENT INPUT. `x or default` is a
+  truncating pipe for empty containers.
+  AND THE FIRST ONE I CAUGHT WITHOUT A SECOND READER, by re-measuring with a
+  different helper shape rather than trusting a surprising result. THE LESSON IS
+  NARROW AND USEFUL: A SURPRISING MEASUREMENT IS A REASON TO CHECK THE
+  INSTRUMENT BEFORE REPORTING THE FINDING. Every earlier instance had a plausible
+  answer; this one had an implausible one, and implausibility is the cheapest
+  signal available.
+Task 21: recorded (implementer's new concern): hoisting the local malformed check
+  pre-network means its `extra` no longer carries `agency` — confirmed by me
+  (extra_keys=['doi'] for local-malformed against ['agency','doi'] elsewhere).
+  Nothing reads that key off this outcome. And it is HONEST rather than merely
+  harmless: the agency has not been resolved at that point, so reporting one
+  would state a fact not yet established. Destination: recorded, no action.
+
+### TASK 21 COMPLETE — AND WITH IT THE PLAN. 112 CHECKED / 0 UNCHECKED.
+  Final acceptance state:
+    offline                              1738 passed / 7 skipped
+    live (Zotero + registries + mailto)  1743 passed / 2 skipped
+    publish gate exit 0; ruff, ruff format, mypy clean
+  The two remaining skips are the deferred autoexport drill, which needs a human
+  Better BibTeX step and a real vault — documented in docs/testing.md as
+  remaining after BOTH flags. Not a gap in this acceptance; the one leg the
+  project has always known it cannot automate.
+  ACCEPTANCE SWEEP: all six audit defects (1, 2, 3, 6, the fixity pair, the
+  archive branch) UNREPRODUCIBLE at HEAD, each by rebuilding the audit's own
+  scenario, and NONE closed by making its scenario unbuildable.
+  Task 21 took THREE fix rounds and every one of them closed a real defect:
+   - round 1: the four-state fix had landed on ONE of three compared fields;
+   - round 2: it covered `is None` but not the EMPTY representations, and
+     `{"date-parts": []}` is what Crossref ACTUALLY EMITS for undated works — the
+     common spelling of absence was the one still folding;
+   - round 3: absence was being decided BEFORE malformed, so a record with both
+     wrote A FABRICATED CAUSE onto an append-only inbox.
+  NONE OF THE THREE WAS THE DEFECT THE PLAN PREDICTED, and the plan's own
+  prediction ("silently folds into MATCHED") turned out TRUE for a field nobody
+  had looked at. The task closed the gap it named and three it did not.
+### WHAT THE BATCH DID, for the landing report
+  26 tasks. Every plan box ticked. The trust core's audited defects are closed
+  and PROVEN closed against the audit's own reproductions rather than against
+  their fixes' own tests. The live vault carries the current template set,
+  committed through its own trust gate unbypassed. The form gates now say what
+  they do. And the method findings have a durable home in
+  research/validation-slice/2026-08-25-pre-slice-batch-method-retrospective.md.
+  THE HONEST TALLY OF MY OWN ERRORS, since the retrospective's spine is exactly
+  this: SIX instances of one root — the instrument defined the answer's scope and
+  I published the answer without it. Five were caught by a second reader with a
+  different instrument; ONE I caught myself, and only because its result was
+  IMPLAUSIBLE rather than merely wrong. The retrospective as committed carries
+  four; instances five (single-fault probes) and six (`{} or default`) arrived
+  after it was written, which is its own lesson about when a retrospective is
+  finished. THEY GO IN AS A FOLLOW-UP RATHER THAN SILENTLY — the note records a
+  position, not a score.
