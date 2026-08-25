@@ -1,0 +1,68 @@
+# Label color scheme:
+#   red    #ff0000 - HITL, definite: a human must act/decide
+#   yellow #ffdd00 - pending/undetermined: could resolve to either HITL or AFK
+#   green  #0e8a16 - AFK, definite: an agent can proceed autonomously
+#   purple           - structural wayfinder labels (map, and task since its
+#                      HITL/AFK answer arrives later via a paired triage label)
+#   pastel           - type axis (bug/enhancement/documentation), deliberately
+#                      off the red/yellow/green family so it never dilutes
+#                      that signal
+#   gray   #cfd3d7 - wontfix, terminal, outside the signal entirely
+
+# GitHub
+
+- name: "bug"
+  color: f2c9c8
+  description: Something isn't working
+
+- name: "enhancement"
+  color: d3f5f6
+  description: New feature or request
+
+- name: "documentation"
+  color: d6ecfc
+  description: Improvements or additions to documentation
+
+# Triage
+
+- name: "wontfix"
+  color: cfd3d7
+  description: This will not be worked on
+
+- name: "needs-triage"
+  color: ffdd00
+  description: Maintainer needs to evaluate
+
+- name: "needs-info"
+  color: ffdd00
+  description: Waiting on reporter
+
+- name: "ready-for-agent"
+  color: 0e8a16
+  description: Fully specified, ready for an AFK agent
+
+- name: "ready-for-human"
+  color: ff0000
+  description: Requires human implementation
+
+# Wayfinder
+
+- name: "wayfinder:map"
+  color: 8b2fae
+  description: Wayfinder map issue
+
+- name: "wayfinder:research"
+  color: 0E8A16
+  description: AFK research ticket
+
+- name: "wayfinder:grilling"
+  color: ff0000
+  description: HITL decision ticket
+
+- name: "wayfinder:prototype"
+  color: ff0000
+  description: HITL prototype ticket
+
+- name: "wayfinder:task"
+  color: cbaadf
+  description: Task ticket
