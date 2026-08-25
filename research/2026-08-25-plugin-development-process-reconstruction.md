@@ -1,5 +1,17 @@
 # How this plugin was designed and built — process reconstruction from artifacts
 
+**Verified (2026-08-25):** two independent passes. (1) Citation verification: every in-scope
+artifact claim re-derived fresh — scale numbers exact at the note's snapshot (658 commits at
+0abec75; drift since is the note's own commits), all eight commit spot-checks and all six
+verbatim quotes character-confirmed, the wayfinder structure confirmed, and both anomalies
+resolved (Plan Q landed by fast-forward, no merge commit exists; the 094121b date inversion is a
+UTC-vs-−0500 rendering artifact — the commit followed issue #16 by 3m33s). (2) Seat-bias peer
+review by the batch implementer session, folded below: the fix-round base rate corrected
+(10 of 26 tasks, not a Task-21 anomaly), the batch's start date corrected to 08-23, "SHA-walks"
+corrected to one, ten execution-seat inventions added (ledger 17–26), and two transcript-side
+claims amended — the decision-budget instrument's population caveat, and the catch-latency claim
+recorded as a two-seat disagreement rather than a finding.
+
 Methods material, 2026-08-25. Every claim below is derived from repo artifacts — git history,
 GitHub issues, tracked files — by an artifact walk (no memory-derived process facts; commits,
 issues, and file:line cited throughout). Two consumers: the methods section if harness-as-paper
