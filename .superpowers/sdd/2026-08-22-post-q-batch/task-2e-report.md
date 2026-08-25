@@ -380,13 +380,18 @@ branch's starting point, so not something this task or a concurrent
 session did) titled "style: one-time canonical-form churn (mdformat over
 docs+skills, ruff format)" — mdformat over `docs/`, `skills/` was already
 part of the repo's history before this task began. `gh issue view 24`
-confirms the routed restoration ticket is real, OPEN, and states the exact
-same finding: eight files inside `skills/find-sources/references/`
-(`arxiv.md`, `biorxiv.md`, `core.md`, `crossref.md`, `europepmc.md`,
-`medrxiv.md`, `openalex.md`) plus `SKILL.md` were reformatted by that
-commit, and `mdformat --check` on the directory exits 0 today — the fork
-sits in this repo's canonical form, not upstream's, and the "skills" root
-in mdformat's path list was actively keeping it that way.
+confirms the routed restoration ticket is real, OPEN, and (as of the
+coordinator's correction this round) states the exact finding: all eleven
+files inside `skills/find-sources/references/` (`arxiv.md`, `biorxiv.md`,
+`core.md`, `crossref.md`, `europepmc.md`, `medrxiv.md`, `openalex.md`,
+`pmc.md`, `pubmed.md`, `semantic-scholar.md`, `unpaywall.md`) plus
+`SKILL.md` — twelve files total — were reformatted by that commit, and
+`mdformat --check` on the directory exits 0 today — the fork sits in this
+repo's canonical form, not upstream's, and the "skills" root in mdformat's
+path list was actively keeping it that way. (Round 1's report and
+`.pre-commit-config.yaml`'s comment both said "eight" — traced to a
+truncated `grep -i find-sources | head -8` in the coordinator's own
+original check, corrected this round; see §12.)
 
 Ruling accepted: this absorbs into 2e, same reasoning as Step 1's ruff
 vendor-exclusion one file type over — not scope creep, a correction. The
@@ -402,7 +407,7 @@ Verified: `find skills -name '*.md'` returns 23; with the exclusion, 12
 files, none from the vendored fork).
 
 **Stated plainly, per the coordinator's explicit instruction: this does
-NOT undo `ce0f1e3`'s churn.** The eight reformatted files (plus SKILL.md,
+NOT undo `ce0f1e3`'s churn.** All eleven reformatted files (plus SKILL.md,
 which is not part of the frozen fork and was intentionally left gated)
 remain in their reformatted, non-upstream state. Excluding the directory
 from mdformat only stops the gate from *keeping* it that way on future
@@ -570,3 +575,147 @@ committed `.pre-commit-config.yaml` (not a hand-typed approximation).
   carries `ce0f1e3`'s churn. → GitHub issue #24 (verified OPEN), as ruled.
 - All four Concerns from §10 (round 0) stand unchanged; none were
   addressed or superseded by this round's findings.
+
+## 12. Fix round 2 — vendored-file count corrected, mirror test's defanged-hook blind spot closed
+
+Coordinator's round-2 review: round 1's substance all confirmed (the 11
+lost tests are exactly the vendored-file table-truncation cases,
+byte-for-byte, none gained; Drift B closed; Drift A still escaped and
+accurately described; the mirror test discriminates in all three round-1
+directions; all four comment-truth fixes land). Two items plus a LOW.
+Commit `1be8e96`.
+
+### 12.1 ITEM 1 — "eight" corrected to "eleven"
+
+The coordinator identified this as their own error (a `head -8`-truncated
+`grep` count, propagated into round 1's work) but asked me to fix the two
+in-repo sites, since GitHub issue #24 was already corrected directly.
+Verified independently before editing anything, rather than trusting the
+correction at face value: `git show --stat ce0f1e3 | grep
+'find-sources/references' | wc -l` → **11** (`arxiv.md`, `biorxiv.md`,
+`core.md`, `crossref.md`, `europepmc.md`, `medrxiv.md`, `openalex.md`,
+`pmc.md`, `pubmed.md`, `semantic-scholar.md`, `unpaywall.md`), plus
+`SKILL.md` — twelve files total. Corrected:
+
+- `.pre-commit-config.yaml:43`: "reformatted eight of its files" →
+  "reformatted all eleven of its files".
+- `task-2e-report.md` (this file), two sites in §11.2: the file list and
+  count in the `gh issue view 24` summary, and "The eight reformatted
+  files" in the "does NOT undo `ce0f1e3`'s churn" paragraph — both now say
+  "eleven" and, in the first case, list all eleven names in full rather
+  than a partial list.
+
+Per the coordinator's instruction, this is stated in the fix commit's body
+rather than silently corrected, since the wrong count shipped inside the
+very commit whose purpose was fixing comment-truth defects. The
+generalizable remedy, also recorded there: a count taken from a command
+containing a truncating pipe (`head`, `tail`, a line-limited `grep -m`) is
+not a count — use `wc -l`, or print the list in full. (This report's §11.2
+already printed the list in full from a `wc -l`-counted command, which is
+how the "eight" appeared internally inconsistent with its own eleven-item
+list before this fix — a discrepancy that should have been caught on
+re-reading and was not, until flagged.)
+
+### 12.2 ITEM 2 — the mirror test's defanged-hook blind spot
+
+The round-1 mirror test compared only the RESOLVED FILE SET between the
+hook (executed) and the mirror (independently reimplemented). The
+coordinator demonstrated that a flag inserted between the fixed prefix and
+the path list — `--end-of-line lf` or `--check` — tokenizes to something
+that resolves to no existing file or directory (e.g. `ROOT / "--check"`
+is neither `is_file()` nor `is_dir()`), so the old code silently dropped
+it from the resolved set and moved on. Since `--check` changes mdformat's
+BEHAVIOUR (report-only, not write-in-place) without changing which files
+it NAMES, a hook defanged this way would resolve to an IDENTICAL file set
+to the real hook, and `assert hook_files == mirror_files` would stay
+green — a real hook regression the test could never catch. Confirmed this
+was a regression, not a wash: round 0's text-tokenizing parser DID fail on
+this class of mutation (confusingly — a KeyError-shaped failure, not a
+clean assertion — but it failed), so round 1 traded a real, if awkward,
+detection for cleaner subprocess-based fidelity without noticing the
+trade.
+
+**Fix: fail loudly instead of silently dropping.** Split
+`_resolved_paths_for_mdformat_entry(entry: str)` out of
+`_resolved_mdformat_hook_paths()` so the parsing/validation logic is
+testable against a synthetic entry string, not only the real config (the
+real-config version is now a two-line wrapper that reads
+`.pre-commit-config.yaml` and delegates). The remainder after the fixed
+prefix (`mdformat --number --wrap keep `) is tokenized at the TOP level
+only, via `_MDFORMAT_TOP_LEVEL_TOKEN = re.compile(r"\$\([^)]*\)|\S+")` —
+this matches a `$(find ...)` substitution as ONE atomic token first
+(non-greedy up to its first `)`, which is safe here since neither `find`
+call contains a nested paren), falling back to plain whitespace-split
+otherwise. `find`'s own flags (`-name`, `-not`, `-path`) sit safely inside
+that atomic `$(...)` token and are never inspected individually — only
+tokens OUTSIDE any `$(...)` block are checked, and any one of those that
+starts with `-` now raises `AssertionError` naming the exact flag, instead
+of being silently treated as a nonexistent path.
+
+**Pinned, not just asserted to work — two new tests, each constructing a
+synthetic defanged entry string and using `pytest.raises(AssertionError,
+match=...)`:**
+
+- `test_mdformat_hook_parser_rejects_a_flag_inserted_before_the_path_list`
+  — the coordinator's own `--check` case.
+- `test_mdformat_hook_parser_rejects_end_of_line_flag_before_the_path_list`
+  — the two-token `--end-of-line lf` shape, confirming specifically that
+  the FIRST token (`--end-of-line`) is what trips the check, not the
+  second (`lf`, which does not start with `-` and would otherwise be
+  silently swallowed as a bogus "path" on its own).
+
+**Also re-verified against the REAL hook, not only the synthetic pinned
+cases** (mirroring how round 1's mutation tests were verified against both
+the shipped config and standalone assertions): inserted `--check` into the
+actual `.pre-commit-config.yaml` mdformat entry (`sed`-equivalent string
+replace via a scratch Python script, real file, real backup taken first),
+ran `test_mdformat_roots_mirror_the_hook_the_seam_actually_runs` — it now
+fails with `AssertionError: unrecognized flag '--check' between
+mdformat's fixed prefix and its path list...` — then restored the file
+from the pre-mutation backup and re-confirmed all five mdformat-related
+tests green.
+
+A legitimate future mdformat flag (e.g. if `--compact-tables` were ever
+wanted) now requires updating the literal `prefix` constant explicitly —
+a visible, reviewable code change — rather than being silently absorbed
+either way (accepted without comment, as round 1 would have; or rejected
+outright, which was never the goal — the goal is that ADDING a flag is a
+deliberate act this parser demands to be told about).
+
+### 12.3 LOW — round 1's commit subject overstated, corrected here rather than amended
+
+`17e3ad4`'s subject reads "dynamic exclusion closes both drifts". Drift B
+(a new file at the vault root being silently ungated) is closed. Drift A
+(a new dialect-bearing template elsewhere in the vault still not being
+automatically protected from corruption) is documented, not closed — and
+§11.1 of this report already scoped it correctly at the time ("It does
+**not** provide content-based dialect detection... a new wikilink-bearing
+file dropped in elsewhere in the vault is still not automatically
+protected"). Only the landed commit's subject line overstated it. Per the
+coordinator's explicit instruction, `17e3ad4` is landed and reviewed and
+is NOT amended; this correction is recorded here and in `1be8e96`'s commit
+body instead.
+
+### 12.4 Gates, this round
+
+- Full suite: **1705 passed, 7 skipped** — up from 1703 by exactly 2 (the
+  two new pinned mutation tests from §12.2; nothing else moved).
+- `ruff check knowledge_harness tests scripts hooks`: all checks passed.
+- `ruff format --check knowledge_harness tests scripts hooks`: 75 files
+  already formatted.
+- `mypy knowledge_harness`: no issues, 27 source files.
+- `echo '{}' | python hooks/stop_publish_gate.py`: exit 0.
+
+**`pre-commit run --all-files` was intentionally NOT run this round**,
+per explicit instruction: the coordinator ran it on a clean tree at HEAD
+(8/8, zero files modified) and asked that I not run it again and not
+touch files I do not own to force a clean tree. `progress.md` (the
+coordinator's uncommitted file) remained dirty for this round's entire
+duration and was not touched — consistent with the standing shared-
+checkout policy this task has followed since round 1.
+
+### 12.5 Concerns, round 2
+
+- No new concerns this round. The two items were both fixed in full
+  within scope; the LOW was a documentation correction with no residual
+  question. All prior Concerns (§10, §11.7) stand unchanged.
