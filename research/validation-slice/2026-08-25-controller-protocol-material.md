@@ -19,7 +19,10 @@ A coordinator may act on a settled principle without re-asking the controller wh
 
 When any one fails, ask. Ratified on the third instance of an identical four-state extension
 question; the first two instances were asked and ruled identically, which is what made the
-principle "settled."
+principle "settled." Condition 3's standing, stated honestly (rethink audit, 2026-08-25): the
+other three conditions carry prior-art anchors (rule-of-three; checker-in-isolation; RACI's
+consulted/informed split) — reversibility is asserted, unanchored, and untested by any instance
+that turned on it specifically.
 
 ## Ask-vs-assume, scored
 
@@ -48,7 +51,8 @@ assumed lost.
 
 ## Correction-vs-decision (full test wording)
 
-The spec's status note carries the rule ("a correction of a mistake is not a decision"); the
+The spec's status note (docs/superpowers/specs/2026-08-16-foundation-spec.md:3) carries the rule
+("a correction of a mistake is not a decision"); the
 operating test the session used, stated fully: **would this text read differently had it been
 written after the fact it collides with? Then it is corrected, not obeyed, and the correction
 does not harvest as a decision.** Applied to: a brief's stale four-path list (log.md ruling), a
@@ -63,7 +67,8 @@ Four separate sessions re-verified the controller's claims against primary sourc
 on them — the implementer traced the publish-gate reasoning through verify.py before citing it;
 both note authors re-fetched every correction at the pinned commits before folding; a task
 reviewer confirmed a diff claim against the artifact the implementer was handed, not the one it
-"should" have had. None were told to. The plugin-comparison note's insight 2 explains the
+"should" have had. None were told to. The plugin-comparison note's Further Insight §2
+(docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md) explains the
 mechanism: the discipline lives in artifacts every session reads unconditionally, so it
 propagates without invocation. Corollary the session proved twice: **verify an agent's claim
 against the artifact it was handed** — a claim exactly true against a stale brief is not a false
@@ -82,7 +87,8 @@ both directions at once.
 ## The autostash trap (shared-checkout instance, 2026-08-25)
 
 Rebase blocked by another session's unstaged file has a one-flag temptation — `--autostash` —
-that is a stealth violation of the never-touch rule: it stashes and reapplies someone else's
+that is a stealth violation of the never-touch rule (AGENTS.md:7, "never revert or restore
+another session's uncommitted files"): it stashes and reapplies someone else's
 working state, and "it restores it perfectly" is the rationalization. The correct move,
 exercised: merge instead of rebase; the foreign file is never touched.
 
@@ -99,11 +105,17 @@ exercised: merge instead of rebase; the foreign file is never touched.
   the safe direction; a brief clause whose literal reading had no trigger).
 
 The through-line matches the batch retrospective's: partial views reported without their scope,
-caught by a second reader with a different instrument.
+caught by a second reader with a different instrument. Ledgering the seat's own errors against
+named failure classes is ADR 0002's four-state honesty generalized to the seat itself — the
+record never claims a check ran that did not, whoever's seat it is.
 
 ## Disposition
 
-Material for the orchestration layer's future home (a skill, a user-level reference, or nothing —
-undecided, deliberately). Nothing here is binding; the delegation rule and word-hygiene items are
-live practice in the current controller session only. Revisit when a second controller-shaped
-session accumulates its own record to compare against.
+Material for the orchestration layer's future home (a skill, a user-level reference, or nothing).
+Nothing here is binding; the delegation rule and word-hygiene items are live practice in the
+current controller session only. Formalization trigger, made concrete (rethink audit,
+2026-08-25): the choice becomes decidable when a second controller-shaped session accumulates its
+own record independently — the two adapters then either converge, promoting each improvised seam
+from hypothetical to real, or diverge, naming which condition or module was circumstantial to
+this one batch. Until then, one adapter is a hypothetical seam, and extracting a skill from it
+would formalize circumstance as design.
