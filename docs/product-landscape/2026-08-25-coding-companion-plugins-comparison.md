@@ -161,3 +161,64 @@ code-review/diagnosing-bugs/ask-matt alongside; upstream filing stands.
 - **Long-form writing leg**: wayfinder → grill-with-docs → to-spec/to-tickets, with
   domain-modeling underneath and the beta writing suite (fragments/beats/shape) evaluated when
   workload 3's map is drawn. Tracked as part of the §10 workload-pipelines entry.
+
+## Final verdict — full-text pass (2026-08-25, supersedes both prior verdicts)
+
+At the author's direction, all three skill corpora were loaded verbatim into one context — this
+repo's 9 skills, superpowers' 14 plus the SDD dispatch prompts and reviewer templates,
+mattpocock's promoted 25 — and the question rethought from primary text. Both prior verdicts were
+partial views from partial instruments (agent inventories, then argument-and-response), and both
+answered a false binary. **The correct architecture is layered, not based**: neither plugin
+replaces the other because they govern different layers, and the repo already runs the correct
+assignment.
+
+What the full text shows that no inventory did:
+
+1. **Genre alignment runs the other way at the doctrine layer.** This repo's skills are
+   superpowers-genre texts — Iron Laws, rationalization tables answering excuses, four-state
+   honesty tables, "never claim a check ran that did not." Evidence-conventions' Iron Law is
+   verification-before-completion's Iron Law generalized into a product. Mattpocock skills are
+   craft essays — compact, vocabulary-driven (seams, depth, frontier, fog), trusting the agent,
+   with almost no anti-rationalization armor; their README disclaims wanting to own discipline.
+   The mattpocock model-alignment claim (previous verdict) is true at the config/architecture
+   layer — docs/agents/, tracker conventions, user-invoked skills, no injection, all already this
+   repo's shape. Both alignments are real, at different layers.
+2. **The execution-machine gap is wider in full text.** `/implement` has the implementing agent
+   aggregate the review of its own work; SDD's controller never implements, its reviewer is told
+   "do not trust the report — a stated rationale never downgrades a finding," its re-reviewer
+   holds "attempted is not addressed," and its fix loop carries round caps, model escalation,
+   adjudicate-only-at-the-cap, and ledger discipline. And mattpocock's code-review has no
+   test-honesty axis at all — nothing reads tests adversarially ("tests that assert nothing" is
+   an SDD reviewer rubric line), which is precisely the instrument that caught this batch's
+   disarmed-test class (#22).
+3. **The concerns-durability argument cuts differently than either verdict had it.** SDD's
+   report contract is where Concerns come from; mattpocock's `implement` has no report contract —
+   its machine loses fewer concerns partly by never birthing them. Tickets fix durability;
+   removing the concern-generator is not a fix. The correct synthesis is the one already built:
+   SDD's concern generation with write-time tracker destinations.
+4. **Real mattpocock wins confirmed and sharpened by full text**: wayfinder is this repo's own
+   provenance (the foundation map IS a wayfinder map) and the right instrument for the vault↔repo
+   seam and workload maps; diagnosing-bugs' loop-first discipline ("no red-capable command, no
+   hypothesis") is instrument-first debugging — arguably a better fit for this repo's
+   measurement doctrine than systematic-debugging's four phases; to-tickets' expand–contract
+   doctrine for wide refactors; writing-for-agents is the best available reference for editing
+   this repo's own skills (its context-load principle IS the "every letter reduces compliance"
+   rule) and should govern future skill edits here.
+5. **The inverse hybrid's real cost surfaced**: SDD consumes writing-plans' plan-file format
+   (task-brief extracts `### Task N`); to-tickets produces tickets. Vendoring SDD without
+   writing-plans means adapting its substrate to tickets — natural (ticket body ≈ task brief,
+   ticket comments ≈ ledger) but a fork with a real seam change, maintained forever, with
+   6.3.0-class upstream convergence forfeited. Keeping the plugin and de-fanging the injection
+   selectively in settings (`skillOverrides` name-only, the grilling precedent) gets nearly all
+   of the inverse hybrid's benefit at none of the fork cost.
+
+**Standing resolution**: keep both plugins. Layer governance — mattpocock owns repo config,
+planning surfaces, domain language, and the tracker (it already does); superpowers' execution
+core owns planned code changes on this repo (SDD + reviews + verification + finishing, injection
+intact for dev sessions); this plugin is the doctrine both serve. Concrete adoptions: SDD
+artifacts route to tracker destinations at write time (rule live); wayfinder for the seam and
+workload maps (already planned); writing-for-agents as the reference for skill edits here;
+evaluate diagnosing-bugs beside systematic-debugging at next real debugging need; revisit the
+injection's session-start weight only when the PKM/writing workload maps make it a measured
+problem, via settings, not plugin removal. The upstream filing and deliberate 6.3.0 upgrade
+stand.
