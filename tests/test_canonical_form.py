@@ -1,12 +1,20 @@
 """Canonicality of the surfaces no off-the-shelf formatter may touch.
 
 The one-form-owner matrix (research/rethink-audits/2026-08-21-lint-format-rethink.md) gives every
-file type a single owner. For vault-dialect markdown the owner is *the sole
-writer*: mdformat measurably mangles the dialect — ``[[wikilink]]`` becomes
-``\\[[wikilink]\\]``, ``[field:: value]`` gets escaped, ``%%hk-managed%%``
-gets indented — and ``mdformat-obsidian`` does the same, so no formatter speaks
-it. "The emitter is the formatter" only means something if the emitter is
-actually canonical, which is what this file makes mechanical:
+file type a single owner. For RENDERED vault-dialect markdown -- literature
+notes with real managed-region content, not the placeholder templates they
+render from -- the owner is *the sole writer*: mdformat measurably mangles
+the dialect on real content — ``[[wikilink]]`` becomes ``\\[[wikilink]\\]``,
+``[field:: value]`` gets escaped, a managed-region close marker that follows
+a list item gets indented into it (verified: a real ``render_note`` output
+round-tripped through mdformat) — and ``mdformat-obsidian`` does the same, so
+no formatter speaks it. (Task 2e gated nine of the vault's ten STATIC
+templates through mdformat instead: their placeholder content carries no
+list markup or wikilinks to mangle, so mdformat owns them now. The tenth,
+``vault/index.md``, does carry real wikilinks and Base embeds and stays
+excluded — see .pre-commit-config.yaml's mdformat hook.) "The emitter is the
+formatter" only means something if the emitter is actually canonical, which
+is what this file makes mechanical:
 
 1. renders are idempotent — same inputs, same bytes, and re-rendering rendered
    output is a fixed point;

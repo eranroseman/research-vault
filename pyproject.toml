@@ -22,17 +22,16 @@ dev = [
   # RENDER-CONTRACT pin: canonical template form leaks into rendered vault notes,
   # so an mdformat upgrade is judged like a render change.
   # Upgrade protocol (mdformat pinned; upgrades are deliberate acts, matching
-  # ruff's protocol below): a canonical-form-changing upgrade rewrites every
-  # file under the mdformat hook's gated paths, including docs/adr -- one of
-  # record-immutability's append-only roots -- so the upgrade cannot land
-  # through the normal commit-time gate; it lands as its own churn commit
-  # through the bypass channel (`git commit --no-verify`), with the commit
-  # message itself as the record. On any mdformat upgrade, also re-run it over
-  # knowledge_harness/templates/vault/AGENTS.md, system/glossary.md, and
-  # system/templates/literature.md and confirm every `%%hk-managed%%` /
-  # `%%/hk-managed%%` marker survives byte-for-byte: today's mdformat only adds
-  # blank lines around them, but a version that starts escaping `%%` sequences
-  # would corrupt two of these three files if only one were watched.
+  # ruff's protocol below): a canonical-form-changing upgrade must land as its
+  # own churn commit through the bypass channel (`git commit --no-verify`),
+  # never through the normal commit-time gate -- it would rewrite files under
+  # docs/adr, one of record-immutability's two append-only roots -- with the
+  # commit message itself as the record. Before that commit: re-run mdformat
+  # over knowledge_harness/templates/vault/AGENTS.md, system/glossary.md, and
+  # system/templates/literature.md, and confirm every `%%hk-managed%%` /
+  # `%%/hk-managed%%` marker survives byte-for-byte in all three -- today's
+  # mdformat only adds blank lines around them; block the upgrade if any
+  # version starts escaping `%%` sequences instead.
   "mdformat==1.0.0",
   "mdformat-frontmatter==2.1.2",
   "mdformat-gfm==1.0.0",

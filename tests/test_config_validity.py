@@ -16,6 +16,7 @@ gains a JSON owner with zero new dependencies (research/rethink-audits/2026-08-2
 import ast
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -23,15 +24,16 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import yaml
 
 from knowledge_harness import frontmatter, inbox
 
 ROOT = Path(__file__).resolve().parents[1]
 
 # The repo's own JSON manifests, and only those. Deliberately NOT globbed:
-# `research/` and `analysis/` JSON are immutable records (AGENTS.md history rule),
-# `.vscode/*.json` is JSONC — a dialect VS Code owns — and a vault's
-# `system/bibliography.json` is BBT-owned, outside every repo formatter.
+# `research/` JSON is immutable records (AGENTS.md history rule), `.vscode/*.json`
+# is JSONC — a dialect VS Code owns — and a vault's `system/bibliography.json`
+# is BBT-owned, outside every repo formatter.
 JSON_MANIFESTS = [
     "hooks/hooks.json",
     ".claude-plugin/plugin.json",
@@ -424,66 +426,100 @@ def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
 # --------------------------------------------------------------------------
 
 # The mdformat-owned CommonMark set, matching .pre-commit-config.yaml's hook.
-# vault/index.md is deliberately absent -- see that hook's own comment for why
-# (dialect ownership, not a filename exception) -- so its five vault-template
-# siblings are named individually rather than via the vault directory itself.
+# Two path exclusions apply inside the directory roots below, mirroring the
+# hook's own `find ... -not -path` clauses (both are path exclusions, not
+# content detection -- see the hook's own comment for what that does and does
+# not protect): knowledge_harness/templates/vault excludes only index.md
+# (vault-dialect content mdformat corrupts on contact), and skills excludes
+# the whole find-sources/references tree (a frozen vendored fork -- same
+# reasoning as the ruff hook's vendor-exclusion comment, one file type over).
 _MDFORMAT_ROOTS = (
     "README.md",
     "AGENTS.md",
     "CONTEXT.md",
     "docs",
     "skills",
-    "knowledge_harness/templates/vault/AGENTS.md",
-    "knowledge_harness/templates/vault/inbox",
-    "knowledge_harness/templates/vault/log.md",
-    "knowledge_harness/templates/vault/synthesis",
-    "knowledge_harness/templates/vault/system",
+    "knowledge_harness/templates/vault",
 )
+_MDFORMAT_EXCLUDED_FILES = ("knowledge_harness/templates/vault/index.md",)
+_MDFORMAT_EXCLUDED_DIRS = ("skills/find-sources/references",)
 
 
 def _mdformat_owned_markdown() -> list[Path]:
     root = Path(__file__).resolve().parent.parent
+    excluded_files = {root / entry for entry in _MDFORMAT_EXCLUDED_FILES}
+    excluded_dirs = tuple(root / entry for entry in _MDFORMAT_EXCLUDED_DIRS)
     files: list[Path] = []
     for entry in _MDFORMAT_ROOTS:
         target = root / entry
         if target.is_file():
             files.append(target)
         elif target.is_dir():
-            files.extend(sorted(target.rglob("*.md")))
+            for candidate in sorted(target.rglob("*.md")):
+                if candidate in excluded_files:
+                    continue
+                if any(
+                    candidate == excluded_dir or excluded_dir in candidate.parents
+                    for excluded_dir in excluded_dirs
+                ):
+                    continue
+                files.append(candidate)
     return files
 
 
+def _resolved_mdformat_hook_paths() -> set[Path]:
+    """Run the hook's OWN shell logic -- mdformat swapped for a
+    line-per-path printer -- and return the file set it actually resolves to
+    today. Parsed via PyYAML (a hard transitive dependency of the pinned
+    `pre-commit` dev tool, the same library pre-commit itself uses to read
+    this exact file) rather than a text slice, so a multi-line folded scalar
+    round-trips into one shell-safe line the way pre-commit itself would run
+    it. This then executes the real `find ... -not -path` clauses rather
+    than re-parsing their text, so it cannot drift from what the hook
+    actually RUNS; only from what it actually RESOLVES TO, which is the
+    thing a mirror needs to match.
+    """
+    config = yaml.safe_load(
+        (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    )
+    (hook,) = (h for h in config["repos"][0]["hooks"] if h["id"] == "mdformat")
+    command = shlex.split(hook["entry"])
+    assert command[:2] == ["bash", "-c"], (
+        "mdformat hook's entry has changed shape; update this parse"
+    )
+    inner = command[2]
+    prefix = "mdformat --number --wrap keep "
+    assert inner.startswith(prefix), (
+        "mdformat hook's fixed flags changed; update this parse"
+    )
+    printer = 'printf "%s\\n" ' + inner[len(prefix) :]
+    result = subprocess.run(
+        ["bash", "-c", printer], cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    resolved: set[Path] = set()
+    for line in result.stdout.splitlines():
+        if not line:
+            continue
+        target = ROOT / line
+        if target.is_file():
+            resolved.add(target)
+        elif target.is_dir():
+            resolved.update(target.rglob("*.md"))
+    return resolved
+
+
 def test_mdformat_roots_mirror_the_hook_the_seam_actually_runs():
-    """_MDFORMAT_ROOTS narrates the mdformat hook; nothing else checked the
-    narration stayed true -- the exact defect this task exists to close."""
-    config = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
-    start = config.index("- id: mdformat\n")
-    entry = config[start : config.index("- id: ", start + 1)]
-    match = re.search(r"entry: bash -c '([^']*)'", entry, re.DOTALL)
-    assert match, "mdformat hook's entry has changed shape; update this parse"
-    tokens = match.group(1).split()
-    assert tokens[0] == "mdformat"
-    # Known fixed flags today: --number (no value) and --wrap keep (one value).
-    # Anything else is a path. A new no-value flag needs no change here; a new
-    # value-taking flag needs a name added to the skip set below.
-    value_taking = {"--wrap"}
-    paths = []
-    skip_next = False
-    for token in tokens[1:]:
-        if skip_next:
-            skip_next = False
-            continue
-        if token in value_taking:
-            skip_next = True
-            continue
-        if token.startswith("--"):
-            continue
-        paths.append(token)
-    assert set(paths) == set(_MDFORMAT_ROOTS), (
-        "the mdformat hook's path list and this file's _MDFORMAT_ROOTS mirror "
-        "have drifted apart.\n"
-        f"  hook only:  {sorted(set(paths) - set(_MDFORMAT_ROOTS))}\n"
-        f"  mirror only: {sorted(set(_MDFORMAT_ROOTS) - set(paths))}"
+    """_mdformat_owned_markdown()'s independent reimplementation and the
+    hook's OWN shell logic, actually executed, must resolve to the same file
+    set -- nothing else checked that the mirror stayed true, the exact
+    defect this task exists to close."""
+    hook_files = _resolved_mdformat_hook_paths()
+    mirror_files = set(_mdformat_owned_markdown())
+    assert hook_files == mirror_files, (
+        "the mdformat hook's actual resolved file set and this file's "
+        "_mdformat_owned_markdown() mirror have drifted apart.\n"
+        f"  hook only:   {sorted(p.relative_to(ROOT) for p in hook_files - mirror_files)}\n"
+        f"  mirror only: {sorted(p.relative_to(ROOT) for p in mirror_files - hook_files)}"
     )
 
 

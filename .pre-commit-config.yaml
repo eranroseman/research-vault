@@ -38,21 +38,33 @@ repos:
       # this markdown is read RAW by agents and carries numeric cross-references;
       # mdformat's default collapses ordered lists to all `1.`, so "item 6" would
       # point at nothing. research/ and sources/ are excluded: immutable records.
+      # skills/find-sources/references is excluded too: a frozen vendored fork,
+      # same reasoning as the ruff vendor-exclusion comment above, one file type
+      # over. ce0f1e3 already reformatted eight of its files before this
+      # exclusion existed; this stops it recurring but does NOT undo that churn
+      # -- restoring upstream bytes needs a re-vendor (GitHub issue #24).
       # Vault-dialect templates (wikilinks, managed-region markers, Base embeds)
-      # belong to their sole writer, not the CommonMark owner: vault/index.md is
-      # named individually below, by omission, because mdformat measurably
-      # escapes its wikilinks and Base embeds on contact. That is an ownership
-      # boundary, not a name on an exception list — the next dialect-bearing
-      # template excludes itself by the same rule, not by incident.
+      # belong to their sole writer, not the CommonMark owner: every file under
+      # knowledge_harness/templates/vault is mdformat's except vault/index.md,
+      # which mdformat measurably escapes on contact (wikilinks, Base embeds).
+      # Both exclusions below are PATH exclusions, not content detection: a new
+      # dialect-bearing template anywhere else in the vault, or a new file
+      # dropped into skills/find-sources/references, is NOT automatically
+      # protected -- mdformat will still touch it -- so name it here explicitly
+      # when that happens, the same way these two are named. This `find`-based
+      # shape is a workaround with a known expiry: mdformat 1.0.0 HAS an
+      # --exclude flag, but `_cli.py` only registers it when
+      # `sys.version_info >= (3, 13)` (confirmed: unrecognized on this venv's
+      # 3.12 -- "unrecognized arguments: --exclude") -- collapse both `find`
+      # substitutions below to `--exclude` once the floor moves to 3.13+.
       - id: mdformat
         name: "form: markdown CommonMark (mdformat)"
         language: system
         entry: bash -c 'mdformat --number --wrap keep README.md AGENTS.md
-          CONTEXT.md docs skills knowledge_harness/templates/vault/AGENTS.md
-          knowledge_harness/templates/vault/inbox
-          knowledge_harness/templates/vault/log.md
-          knowledge_harness/templates/vault/synthesis
-          knowledge_harness/templates/vault/system'
+          CONTEXT.md docs $(find skills -name "*.md" -not -path
+          "skills/find-sources/references/*") $(find
+          knowledge_harness/templates/vault -name "*.md" -not -path
+          "knowledge_harness/templates/vault/index.md")'
         pass_filenames: false
         always_run: true
       # .pre-commit-config.yaml itself is yaml but stays OUT of this path
