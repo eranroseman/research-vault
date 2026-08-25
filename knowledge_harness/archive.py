@@ -9,8 +9,10 @@ what keeps the evidence layer's never-free-written rule intact.
 Four-state honesty on an outward call: ``archive-url`` is written only on a
 snapshot the Wayback Machine confirms it is serving. A Save Page Now failure or
 timeout is UNREACHABLE — reported, retried on the next refresh, never a
-fabricated URL. Nothing here ever composes an archive URL itself; it records
-only what the availability API returns, and only from the archive's own host.
+fabricated URL. Nothing here ever composes an archive URL itself: an
+automatic capture records only what the availability API returns, and a
+caller-supplied snapshot is recorded only once it is independently confirmed
+to be a Wayback capture of this note's own url.
 """
 
 import re
@@ -22,15 +24,15 @@ from .verify import _read_note_text, _write_note_text
 
 SAVE_ENDPOINT = "https://web.archive.org/save/"
 AVAILABILITY_ENDPOINT = "https://archive.org/wayback/available"
-# The only hosts a recorded snapshot may live on. A snapshot URL is durable
-# vault content, so an odd or hostile response must never be able to write an
-# arbitrary destination into a literature note.
+# Hosts is_archive_url accepts, for both an automatic capture and a
+# caller-supplied one. A caller-supplied snapshot is narrowed further, to
+# web.archive.org only, by _SNAPSHOT_RE below.
 ARCHIVE_HOSTS = frozenset({"web.archive.org", "archive.org"})
 CHECK = "web-archive"
 
 # A supplied snapshot's required shape: `original` is the archived target URL.
 _SNAPSHOT_RE = re.compile(
-    r"^https?://web\.archive\.org/web/(\d{4,14})(?:[a-z_]+)?/(?P<original>https?://.+)$"
+    r"^https?://web\.archive\.org/web/(?:\d{4,14})(?:[a-z_]+)?/(?P<original>https?://.+)$"
 )
 
 
@@ -75,10 +77,14 @@ def is_archive_url(url) -> bool:
 
 
 def _comparable_url(url: str) -> str:
-    """Lowercase scheme+host and strip one trailing slash, for URL comparison."""
+    """Lowercase scheme+host and strip one trailing slash from the path."""
     parts = urllib.parse.urlsplit(url)
-    lowered = parts._replace(scheme=parts.scheme.lower(), netloc=parts.netloc.lower())
-    return urllib.parse.urlunsplit(lowered).removesuffix("/")
+    normalized = parts._replace(
+        scheme=parts.scheme.lower(),
+        netloc=parts.netloc.lower(),
+        path=parts.path.removesuffix("/"),
+    )
+    return urllib.parse.urlunsplit(normalized)
 
 
 def set_archive_url(note_text: str, url: str) -> str:
@@ -227,7 +233,9 @@ def archive_source(vault_root, citekey: str, snapshot: str | None = None) -> Out
                 "missing-archive — supplied snapshot is not a web.archive.org URL",
             )
         match = _SNAPSHOT_RE.match(snapshot)
-        if match is None:
+        if match is None or "\t" in snapshot:
+            # A tab matches `.` in the shape regex above but is silently
+            # dropped by `urlsplit`, which the comparison below relies on.
             return Outcome(
                 CHECK,
                 target,

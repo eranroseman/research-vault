@@ -326,6 +326,37 @@ def test_a_supplied_snapshot_off_the_archives_host_is_refused(net_vault, monkeyp
     )
 
     assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason
+        == "missing-archive — supplied snapshot is not a web.archive.org URL"
+    )
+    assert path.read_bytes() == before
+
+
+def test_a_supplied_snapshot_with_a_smuggled_trailing_newline_is_refused(
+    net_vault, monkeypatch
+):
+    """The shape regex's ``$`` matches before a single trailing newline, so
+    an otherwise-valid snapshot with one appended still satisfies both the
+    shape and target-url checks below — only ``is_archive_url``'s own
+    control-character check refuses this string."""
+    path = _write_note(net_vault)
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError(
+            "a snapshot carrying a smuggled newline must make no outward call"
+        )
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    outcome = archive.archive_source(net_vault, "rot2024", snapshot=SNAPSHOT + "\n")
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason
+        == "missing-archive — supplied snapshot is not a web.archive.org URL"
+    )
     assert path.read_bytes() == before
 
 
@@ -354,10 +385,11 @@ def test_supplied_snapshot_must_have_wayback_shape(net_vault, monkeypatch):
     assert path.read_bytes() == before
 
 
-def test_supplied_snapshot_on_the_availability_hosts_bare_domain_fails_shape(
+def test_supplied_snapshot_shape_requires_web_archive_org_not_bare_archive_org(
     net_vault, monkeypatch
 ):
-    """``archive.org`` is the availability API's host, not a snapshot host."""
+    """``archive.org`` is the availability API's host, not a snapshot host —
+    even a full, shape-plausible capture path hosted there is refused."""
     path = _write_note(net_vault)
     before = path.read_bytes()
 
@@ -433,6 +465,160 @@ def test_supplied_snapshot_original_may_differ_from_note_url_by_one_trailing_sla
     assert data["archive-url"] == snapshot
     assert calls["save"] == [(snapshot, False)]
     assert calls["availability"] == []
+
+
+@pytest.mark.parametrize(
+    ("digit_count", "expect_valid_shape"),
+    [(3, False), (4, True), (15, False), (17, False)],
+    ids=["3-digit", "4-digit", "15-digit", "17-digit"],
+)
+def test_supplied_snapshot_timestamp_length_bound(
+    net_vault, monkeypatch, digit_count, expect_valid_shape
+):
+    """Wayback timestamps run 4-14 digits (a bare year through
+    YYYYMMDDHHMMSS); shorter or longer digit runs are not a capture."""
+    path = _write_note(net_vault)
+    snapshot = (
+        f"https://web.archive.org/web/{'2' * digit_count}/https://example.org/page"
+    )
+
+    if expect_valid_shape:
+        calls = _fake_network(monkeypatch, save=200)
+
+        outcome = archive.archive_source(net_vault, "rot2024", snapshot=snapshot)
+
+        assert outcome.result is Result.MATCHED
+        data, _ = frontmatter.parse(path.read_text())
+        assert data["archive-url"] == snapshot
+        assert calls["save"] == [(snapshot, False)]
+        return
+
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a malshaped snapshot must make no outward call")
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    outcome = archive.archive_source(net_vault, "rot2024", snapshot=snapshot)
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason
+        == "missing-archive — supplied snapshot is not a Wayback snapshot URL"
+    )
+    assert path.read_bytes() == before
+
+
+def test_supplied_snapshot_original_with_a_non_http_scheme_fails_shape(
+    net_vault, monkeypatch
+):
+    path = _write_note(net_vault)
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a malshaped snapshot must make no outward call")
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    outcome = archive.archive_source(
+        net_vault,
+        "rot2024",
+        snapshot="https://web.archive.org/web/20240101000000/ftp://example.org/page",
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason
+        == "missing-archive — supplied snapshot is not a Wayback snapshot URL"
+    )
+    assert path.read_bytes() == before
+
+
+def test_supplied_snapshot_uppercase_modifier_suffix_fails_shape(
+    net_vault, monkeypatch
+):
+    """Wayback's own suffixes (``id_``, ``if_``, ``js_``, ...) are always
+    lowercase; the modifier class is deliberately lowercase-only."""
+    path = _write_note(net_vault)
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a malshaped snapshot must make no outward call")
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    outcome = archive.archive_source(
+        net_vault,
+        "rot2024",
+        snapshot="https://web.archive.org/web/20240101000000ID_/https://example.org/page",
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason
+        == "missing-archive — supplied snapshot is not a Wayback snapshot URL"
+    )
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("note_url", "snapshot_original"),
+    [
+        ("https://example.org/page?a=b", "https://example.org/page?a=b/"),
+        ("https://example.org/page#frag", "https://example.org/page#frag/"),
+    ],
+    ids=["query-string", "fragment"],
+)
+def test_supplied_snapshot_trailing_slash_outside_the_path_does_not_match(
+    net_vault, monkeypatch, note_url, snapshot_original
+):
+    """The stated normalization strips one trailing slash from the path
+    only; a query string or fragment that happens to end in ``/`` is left
+    exactly as it is, so it must not compare equal to one that does not."""
+    text = WEB_NOTE.replace('url: "https://example.org/page"', f'url: "{note_url}"')
+    path = _write_note(net_vault, text)
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a mismatched snapshot must make no outward call")
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    snapshot = f"https://web.archive.org/web/20240101000000/{snapshot_original}"
+
+    outcome = archive.archive_source(net_vault, "rot2024", snapshot=snapshot)
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason == "missing-archive — supplied snapshot is for a different URL"
+    )
+    assert path.read_bytes() == before
+
+
+def test_supplied_snapshot_carrying_a_raw_tab_is_never_recorded(net_vault, monkeypatch):
+    """A tab satisfies the shape regex's ``.`` but is one of the three bytes
+    ``urlsplit`` silently drops, so it could otherwise compare equal to the
+    clean note url and reach ``frontmatter.render_field`` unmodified — where
+    it raises instead of this verb returning an Outcome."""
+    path = _write_note(net_vault)
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a snapshot carrying a raw tab must make no outward call")
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    snapshot = "https://web.archive.org/web/20240101000000/https://exa\tmple.org/page"
+
+    outcome = archive.archive_source(net_vault, "rot2024", snapshot=snapshot)
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason
+        == "missing-archive — supplied snapshot is not a Wayback snapshot URL"
+    )
+    assert path.read_bytes() == before
 
 
 # --- Cannot-run cases ------------------------------------------------------
