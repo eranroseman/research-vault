@@ -1163,6 +1163,40 @@ def test_crossref_notices_relation_retraction_adds_alongside_updated_by_withdraw
     assert warns == []
 
 
+def test_crossref_notices_relation_multiple_entries_each_append_their_own_notice():
+    """Every well-formed relation entry appends its own blocking notice --
+    not just the first one encountered. Two distinct linked DOIs are two
+    distinct pieces of signal, both kept, each with its own id."""
+    payload = {
+        "message": {
+            "relation": {
+                "is-retracted-by": [
+                    {"id": "10.1/first", "id-type": "doi"},
+                    {"id": "10.1/second", "id-type": "doi"},
+                ]
+            }
+        }
+    }
+
+    blocking, warns = checks._crossref_notices(payload)
+
+    assert blocking == [
+        {
+            "type": "retraction",
+            "notice_date": None,
+            "source": "relation",
+            "id": "10.1/first",
+        },
+        {
+            "type": "retraction",
+            "notice_date": None,
+            "source": "relation",
+            "id": "10.1/second",
+        },
+    ]
+    assert warns == []
+
+
 @pytest.mark.parametrize(
     "relation",
     [
@@ -1171,10 +1205,12 @@ def test_crossref_notices_relation_retraction_adds_alongside_updated_by_withdraw
         7,
         {"is-retracted-by": {}},
         {"is-retracted-by": "bad"},
+        {"is-retracted-by": 7},
         {"is-retracted-by": ["not-a-dict"]},
         {"is-retracted-by": [{"id-type": "doi"}]},
         {"is-retracted-by": [{"id": 7, "id-type": "doi"}]},
         {"is-retracted-by": [{"id": "", "id-type": "doi"}]},
+        {"has-preprint": [{"id": "10.1/preprint", "id-type": "doi"}]},
     ],
 )
 def test_crossref_notices_ignores_malformed_relation_entries_without_erasing_updated_by(

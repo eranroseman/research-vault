@@ -576,9 +576,8 @@ def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
         elif notice_type == "reinstatement":
             blocking.append({"type": "reinstatement", "notice_date": notice_date})
 
-    # Dedup is same-type: an updated-by withdrawal does not suppress a
-    # relation retraction, since the two are distinct signals and the
-    # additive contract forbids a weaker notice masking a stronger one.
+    # A withdrawal and a retraction are distinct signals, so the weaker
+    # must not mask the stronger.
     already_retracted = any(notice["type"] == "retraction" for notice in blocking)
     relation = message.get("relation")
     retracted_by = (
