@@ -4253,3 +4253,200 @@ Task 18: minor (deferred): other pre-existing loose-prefix reason assertions
 Task 18: minor (deferred): archive.py.manifest.json still stale. Destination: the
   measured 10-of-25 manifest-staleness note in this ledger; Plan W replaces the
   tool that reads it.
+
+### CORRECTION TO MY OWN REMAINING-TASK COUNT
+  When asked which task I was on, I listed the remainder as 18, 19, 20, 21 plus
+  Part 1's 11, 12, 13, 2e and Task 22. THAT OMITTED TASK 19b (PreToolUse deny on
+  machine surfaces). I enumerated the plan's `### Task` headings afterwards
+  rather than trusting the list again: the true remainder is 2e, 11, 12, 13, 19,
+  19b, 20, 21, 22 — NINE tasks, not eight. Recorded because a controller's own
+  task list is exactly the kind of artifact this run keeps catching people
+  describing from memory instead of deriving.
+
+Task 19: BASE = ccde1bc. Implementer dispatched (sonnet). Brief generated and
+  READ before dispatch — which is how the next item was caught.
+  THE EXTRACTOR OVER-CAPTURED: task-19-brief.md contains Task 19 AND ALL OF TASK
+  19b. Handing that over unqualified invites an implementer to build a
+  PreToolUse hook nobody asked this task for. The dispatch fences it explicitly:
+  everything from the 19b heading on is a different task and not theirs.
+  PRE-CHECK FOUND A HARD BLOCKER THE BRIEF DOES NOT MENTION, and it would have
+  surfaced as a mid-implementation failure rather than a design input:
+  inbox._validate_date (inbox.py:167-177) enforces
+  `re.fullmatch(r"\d{4}-\d{2}-\d{2}")` and RAISES otherwise, and notice_date
+  reaches it through _validate_optional_date at inbox.py:193. Measured in-tree,
+  canary asserted:
+      '2023'       -> RAISES: notice_date must be a YYYY-MM-DD calendar date
+      '2023-06'    -> RAISES
+      '2023-06-15' -> ok
+  So THE MOMENT _notice_date_from_updated RETURNS AN HONEST "2023", FILING THAT
+  FINDING RAISES. The brief's own Step 4 ("trace every consumer") names the
+  activity that would have found this — after the fact. The file list grows to
+  include inbox.py.
+  AND THE OBVIOUS FIX IS THE WRONG ONE: _validate_date is SHARED with
+  detection_date (inbox.py:194) and the `date` field, both of which must stay
+  strict full dates. Loosening it would silently widen two fields the task has no
+  business touching. The dispatch requires a SEPARATE partial-date validator
+  scoped to notice_date, still rejecting 2023-13, 2023-06-31, 23 and 2023-6 —
+  "a validator that accepts everything is not a validator".
+  TWO MORE HAND-OVERS, both located rather than described:
+   - the two comparison sites: _active_blocking_notices (checks.py:566-584),
+     which does `reinstatement >= notice["notice_date"]` — note the `>=`, so a
+     SAME-DAY reinstatement clears today and must keep doing so in the
+     unambiguous case — and _effective_blocking (checks.py:586-598), whose max()
+     key is `(notice_date is not None, notice_date or "", type)`.
+   - inbox.py:263 embeds notice_date IN THE FINDING ID
+     (`f"/{notice_class}/{notice_type}/{notice_date or 'unknown'}"`), so changing
+     emitted precision CHANGES IDS for year-only notices and an entry keyed
+     2023-01-01 will not dedup against a new one keyed 2023. The brief never
+     names that consequence.
+  ALSO TOLD IT TO VERIFY, NOT ACCEPT, the brief's claim that string ordering over
+  ISO prefixes is "already consistent" for the max() key — "2023" sorts BEFORE
+  "2023-01-01" and AFTER "2022-12-31", which is a defensible choice but a choice,
+  and the brief states it as a law.
+  Consumer list handed over (27 sites in inbox.py, 3 regions in checks.py) with
+  the instruction to search a SECOND way rather than trust my grep, and to record
+  the METHOD in the commit body, not just the conclusion.
+
+Task 19: implementer DONE (commit 50538bb; 5 files, +484/-5, report included,
+  progress.md correctly untouched). Suite 1646/7 (= 1624 + 22 new tests); ruff,
+  mypy, form gate clean, and the implementer separately ran the 8-hook pre-commit
+  set against the exact committed files.
+  BOTH PRE-CHECK HAND-OVERS LANDED THE WAY THEY WERE MEANT TO:
+   - The blocker was treated as a DESIGN INPUT rather than discovered as a
+     failure: inbox.py gained a SEPARATE _validate_partial_date +
+     _validate_optional_partial_date, wired ONLY at notice_date (inbox.py:224),
+     while detection_date keeps _validate_optional_date on the next line. The
+     shared strict validator was NOT loosened, which was the specific hazard.
+   - The 19b fence held — no hook, no plugin config, no §10 edit.
+  AND IT WENT PAST WHAT I HANDED OVER, on the part that mattered most. The
+  ambiguity rule is factored into two named predicates rather than inlined:
+  _dates_incomparable and _reinstatement_clears. The first documents a case I had
+  NOT specified and the brief does not mention — TWO EQUAL PARTIAL STRINGS
+  ("2023" vs "2023") are incomparable, because a string is its own prefix and a
+  year-only reinstatement could fall before or after a year-only retraction. Two
+  equal FULL dates stay comparable, so the `>=` same-day clear survives. That is
+  the fail-safe boundary drawn in the right place, and drawn where I had left the
+  spec silent.
+  CONTROLLER-TRACED THE PREDICATE'S CASES BY HAND before dispatching the review,
+  because a date comparison is exactly where a plausible-looking rule hides a
+  wrong branch: 2023-06 vs 2023-07-15 CLEARS (July is unambiguously after June);
+  2023-06 vs 2023-06-15 does NOT (prefix); 2023 vs 2024-01-01 CLEARS; 2022 vs
+  2023 CLEARS; 2023-06-15 reinstated by a 2023-06 partial does NOT. Each is the
+  answer the asymmetry demands. The review is asked to enumerate the full table
+  rather than take my spot-check.
+  DESTINATIONS ACTED ON, NOT MERELY NAMED — a step beyond the rule as written:
+  the implementer FILED GitHub issue #23 for the max()-ordering finding it
+  measured ("2023" < "2023-01-01" is True) and COMMENTED on existing #22 for a
+  loose .startswith("2010-02") assertion it found in a live-network test. Noted
+  as a deviation from my "name the destination" instruction in the direction of
+  doing more, and it is the right direction.
+  MY OWED FILING IS ALREADY DISCHARGED, verified rather than assumed: `gh issue
+  list` now shows #19 (other MANAGED_FIELDS keys outside the guard), #20
+  (attestation evadable via duplicate frontmatter keys) and #21 (renamed notes
+  skip the per-key diagnostic) — exactly Task 17b's three concerns, which my
+  ledger had recorded as "controller files at plan close". They exist; I no
+  longer owe them.
+Task 19: review dispatched over ccde1bc..50538bb on the most capable model. Told
+  outright that the extractor over-captured, so 19b's absence is NOT unmet scope
+  — a reviewer reading the brief cold would file that as a spec failure.
+  Required: a FULL TRUTH TABLE over _dates_incomparable across every precision
+  pairing AND BOTH ARGUMENT ORDERS, flagging any pair where the code clears but a
+  human could not have known the order; proof that _validate_date did NOT widen
+  for detection_date and date; rejection probes rather than acceptance probes on
+  the new validator; and the reason-swap check for the recurring loose-assertion
+  defect, on tests that must assert WHICH notices survive rather than that a list
+  is non-empty.
+
+Task 19: review returned — SPEC PASS and QUALITY PASS, one Medium, three Low/Info.
+  Review file: task-19-review.md
+  THE TRUTH TABLE CAME BACK CLEAN, and the reviewer went past enumeration to the
+  reason: THE PREFIX TEST IS NOT A HEURISTIC. ISO-prefix intervals are
+  NESTED-OR-DISJOINT, so `startswith` is an EXACT DECISION PROCEDURE for
+  ambiguity rather than a good-enough approximation. Every precision pairing was
+  run in BOTH argument orders and NO ROW CLEARS WHERE A HUMAN COULD NOT HAVE
+  KNOWN THE ORDER. That is the property the task exists to guarantee, established
+  rather than argued.
+  THE IMPLEMENTER'S TWO DEVIATIONS FROM THE BRIEF WERE BOTH UPHELD AS
+  IMPROVEMENTS: the None sentinel (so an explicit 0 month/day FAILS instead of
+  silently becoming 1) and reading equal partials as ambiguous — without which
+  the brief's own "or both are full dates" clause is DEAD CODE. Planner text
+  improved on by the implementer, twice, with reasons.
+  AND THE REPORT UNDER-CLAIMED, which is the rarer direction: four tests the
+  implementer labelled "regression guards, not discriminators" each have a
+  killer. All 22 have one. M12 — a mutant returning a NON-EMPTY BUT WRONG list —
+  reds four of them, which is the exact probe for this plan's recurring defect
+  and it comes back NEGATIVE: those assertions are exact-list, not non-emptiness.
+  Row 21 needed M13 (widening _validate_date wholesale) to prove it pins the
+  shared-validator hazard, AND IT IS THE ONLY TEST IN test_inbox + test_checks
+  THAT CATCHES IT.
+Task 19: MEDIUM F1 — THE NEW VALIDATOR LETS NON-ASCII DIGITS INTO A GOVERNED
+  IDENTIFIER, and it is a regression this diff introduced. _PARTIAL_DATE uses
+  `\d`, which is UNICODE-AWARE, and validation goes through date(int(...)) rather
+  than fromisoformat — so the ASCII backstop the REPLACED _validate_date happened
+  to have is gone. CONTROLLER REPRODUCED IN-TREE, canary asserted:
+      '٢٠٢٣'       -> ACCEPTED as '٢٠٢٣'
+      '２０２３'      -> ACCEPTED as '２０２３'
+      '2023-٠٦'    -> ACCEPTED as '2023-٠٦'
+      '2023-06-١٥' -> ACCEPTED as '2023-06-١٥'
+  int() parses them and THE VALUE IS RETURNED VERBATIM, so it reaches finding_id
+  (inbox.py:263) and ack fingerprints; load() re-validates through the same path,
+  so a hand-written inbox line that PREVIOUSLY RAISED InboxError NOW PARSES.
+  Unreachable from Crossref today — but "the current caller cannot produce it" is
+  not the contract a validator on a durable governed identifier advertises. One
+  token to fix (re.ASCII or [0-9]).
+  THE SHAPE IS WORTH KEEPING SEPARATELY FROM THE INSTANCE: a safety property that
+  was never stated, only INHERITED as a side effect of an implementation detail,
+  vanished when that detail was legitimately replaced. Nothing was done wrong to
+  the property, because nobody knew it was there. That is why the dispatch also
+  asks for a search for OTHER `\d` patterns whose only ASCII backstop was a
+  fromisoformat call no longer being made.
+Task 19: fix round 1/5 dispatched — F1 plus two hygiene items: the
+  _dates_incomparable docstring spends its length restating what startswith does
+  while omitting the nested-or-disjoint property that actually justifies it, and
+  provenance duplicated from the commit body into a comment and a test docstring.
+Task 19: minor (deferred): mutation-baseline.txt:32-34 and both .manifest.json
+  sidecars are stale after this diff. Task 24 Step 4 establishes the
+  regenerate-or-record convention, Task 19's brief has no such step, and the lane
+  is advisory. Destination: the measured manifest-staleness note in this ledger
+  (10 of 25) plus Plan W's Task 24.
+Task 19: info (no action): tests/test_inbox.py:204's `match="notice_date"` matches
+  the FIELD NAME rather than the message, so it survives M10 — judged not a real
+  gap by the reviewer, and I agree: the field name is what that test is about.
+
+Task 19: fix round 1 landed — 7b28dd8. 5 files, +93/-17; suite 1650/7 (+4).
+Task 19: ROUND-1 RE-REVIEW DONE BY THE CONTROLLER — the round was one regex flag
+  and two docstrings, and its single substantive claim is settleable by one
+  mutant, so a dispatch would have added latency and no evidence.
+   - THE FIX WORKS, probed in-tree with the canary asserted: '٢٠٢٣', '２０２３',
+     '2023-٠٦' and '2023-06-١٥' are ALL REJECTED now, while '2023', '2023-06' and
+     '2023-06-15' still pass. Same four values that were accepted verbatim before.
+   - THE PINS DISCRIMINATE AND ARE EXACTLY SCOPED: reverting `re.ASCII` in an
+     archive scratch tree reds EXACTLY the four new
+     test_notice_date_rejects_non_ascii_digits parameters and NOTHING ELSE —
+     4 failed / 273 passed. A revert that had reddened extra tests would have
+     meant the flag was doing more than the finding described.
+   - The implementer searched a SECOND WAY for the same shape (grep for int()
+     over regex groups, rather than re-grepping `\d`) and found no other
+     validator with it — which is the right method, since re-running the search
+     that found the first instance can only find the first instance.
+   - The docstring now states the LOAD-BEARING FACT — ISO-precision strings
+     denote nested-or-disjoint intervals, so the prefix test is EXACT rather than
+     a heuristic — instead of narrating what startswith does. That sentence is
+     the difference between a reader trusting the rule and re-deriving it.
+  Gates re-run by me in the real tree: 1650 passed / 7 skipped, form gate exit 0.
+Task 19: complete (commits ccde1bc..7b28dd8 — 50538bb, 7b28dd8 — review clean
+  after 1 fix round, 2 minors deferred). Ticked below: 5 boxes; 77 checked /
+  35 unchecked.
+  THE TASK'S OWN RESULT, stated plainly because it is the point: a year-only
+  Crossref retraction can no longer be cleared by a mid-year reinstatement, and
+  where precision leaves the order genuinely unknown the alert now STANDS. The
+  cost of that choice is an acknowledgement; the cost of the old behaviour was a
+  silently un-retracted citation.
+Task 19: minor (deferred): mutation-baseline.txt:32-34 and both .manifest.json
+  sidecars stale after this diff. Destination: Plan W Task 24 Step 4, which
+  establishes the regenerate-or-record convention; the lane is advisory today.
+Task 19: minor (deferred, filed by the implementer): the max() newest-wins key
+  sorts a year-only date BEFORE a full date in the same year — measured, not
+  reasoned ("2023" < "2023-01-01" is True), at TWO call sites rather than the one
+  the brief assumed. Not a safety hole, because clearing provably runs earlier in
+  the pipeline (checks.py:889). Destination: GitHub issue #23, verified OPEN.

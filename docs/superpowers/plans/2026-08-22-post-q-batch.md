@@ -465,7 +465,7 @@ Shape fails → the first UNMATCHED. Shape passes → compare `original` against
 
 - Test: `tests/test_checks.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_partial_date_parts_keep_precision():
@@ -478,13 +478,13 @@ def test_ambiguous_reinstatement_does_not_clear():
     # the ordering is ambiguous at shared precision → the alert STANDS.
 ```
 
-- [ ] **Step 2: Run — Expected: FAIL** (year-only pads to `2023-01-01` today, and the padded date lets the June reinstatement clear the alert).
+- [x] **Step 2: Run — Expected: FAIL** (year-only pads to `2023-01-01` today, and the padded date lets the June reinstatement clear the alert).
 
-- [ ] **Step 3: Implement** — `_notice_date_from_updated` returns the ISO-prefix string at the given precision (validate ranges via `_date(year, month or 1, day or 1)` but *emit* only the supplied parts). The reinstatement-clears comparison becomes conservative: it clears **only when** `retraction_date < reinstatement_date` is unambiguous — i.e., neither is a strict prefix of the other and plain string comparison decides, or both are full dates. A prefix-ambiguous pair keeps the alert standing (fail-safe: a standing alert costs an ack; a wrongly-cleared retraction costs the thesis).
+- [x] **Step 3: Implement** — `_notice_date_from_updated` returns the ISO-prefix string at the given precision (validate ranges via `_date(year, month or 1, day or 1)` but *emit* only the supplied parts). The reinstatement-clears comparison becomes conservative: it clears **only when** `retraction_date < reinstatement_date` is unambiguous — i.e., neither is a strict prefix of the other and plain string comparison decides, or both are full dates. A prefix-ambiguous pair keeps the alert standing (fail-safe: a standing alert costs an ack; a wrongly-cleared retraction costs the thesis).
 
-- [ ] **Step 4: Trace every consumer of `notice_date`** (grep; the reduction's `max()` key, inbox record fields, ack fingerprints). String ordering over ISO prefixes is already consistent for the `max()` newest-wins key; inbox and fingerprints carry the honest partial string. Record each consumer checked in the commit body.
+- [x] **Step 4: Trace every consumer of `notice_date`** (grep; the reduction's `max()` key, inbox record fields, ack fingerprints). String ordering over ISO prefixes is already consistent for the `max()` newest-wins key; inbox and fingerprints carry the honest partial string. Record each consumer checked in the commit body.
 
-- [ ] **Step 5: Full suite; fix tests that pinned padded dates (note each). Commit** `fix: partial Crossref dates keep precision; ambiguous reinstatement never clears`
+- [x] **Step 5: Full suite; fix tests that pinned padded dates (note each). Commit** `fix: partial Crossref dates keep precision; ambiguous reinstatement never clears`
 
 ### Task 19b: PreToolUse deny on machine surfaces (trigger fired 2026-08-24 — the §10 entry said revisit blocking "only on evidence that warnings fail"; the 2c reproduction showed warnings don't exist for two of them: an in-format append to `log/` day files or `inbox/review-queue.md` passes the append-only lint (prefix-preserving), draws no PostToolUse warning (hook covers `literatures/` only), and `okf.py` launders appended log lines into root `log.md`. The sharpest consequence: a hand-Written ack line silently bypasses closures — the publish gate rests on ack integrity)
 
