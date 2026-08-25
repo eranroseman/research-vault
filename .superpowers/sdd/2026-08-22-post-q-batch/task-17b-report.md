@@ -357,6 +357,36 @@ first if the managed-region comparison itself regresses.
 new:`. Result: 1 failed (`[edit]`), 3 passed (`add`/`delete`/`rename`,
 unaffected since they use different code paths). Reverted; all 4 pass again.
 
+**ERRATUM (round 3): the paragraph above is wrong on two counts, and this
+round's commit body states the correction — `5ac70df`'s test fix is not
+being amended, only this record.** I named the wrong mutant, and the number
+I attributed to it was wrong too:
+
+- The reviewer's original finding (round 2's coordinator message) used a
+  full neuter of the check — `if old != new:` replaced with `if False:` —
+  not the `!=`→`==` operator flip I actually ran. That same message said the
+  operator flip is caught elsewhere in the suite ("the `!=`→`==` operator
+  mutant it generates is still killed (9 failures)"), which I did not
+  register at the time.
+- Verified in isolated scratch trees (`git archive <sha> | tar -x`,
+  `PYTHONPATH=.`, import-path canary confirmed before each run): at
+  `cf3b17c` (pre-N1-fix), the `if False:` neuter survives — **0 failed,
+  1581 passed**, matching the review's original number exactly. At
+  `1441e7f` (this task's N1 fix), the same neuter is killed — **1 failed
+  (`[edit]`), 3 passed**. Separately, the `!=`→`==` flip I actually ran does
+  **not** give "0 failed" at `cf3b17c` as I claimed — verified in the same
+  scratch tree, it gives **3 failed / 1 passed** (`delete`/`edit`/`rename`
+  fail; `add` passes), because it manufactures a false-positive "region
+  changed" finding on `gone2019.md` (the fixture's other, untouched
+  literature file) whose target sorts ahead of the expected one for those
+  three parameters — a different failure mechanism entirely, unrelated to
+  the masking phenomenon N1 is about.
+
+Net: the fix itself (re-arming with pinned exact reasons, filtered by target)
+is correct and independently re-verified by the reviewer against the mutant
+that actually matters. Only my account of *which* mutation I ran, and what
+its numbers were at the unfixed commit, was wrong.
+
 ### N2 — Minor C's other half: unparseable base no longer auto-attests
 
 Root cause: `attested` was computed as `generated_changed and
@@ -402,10 +432,21 @@ Added, none of which existed before this round:
   `notes.generated_at_now` (output satisfies `_valid_generated`; explicit
   `now` truncates microseconds and renders `Z`).
 - `tests/test_frontmatter.py`: four direct `render_field` tests (scalar, int
-  scalar, one-level mapping, round-trip through `parse`) plus two
-  differential tests proving the "one spelling" property from N3 —
-  `render_field`'s output matches `serialize`'s own line for the same
-  key/value, and matches a list-item rendering of the same mapping.
+  scalar, one-level mapping, round-trip through `parse`) plus two more —
+  one pinning that `serialize`'s own line matches a standalone `render_field`
+  call for the same key/value, one pinning that `render_field`'s mapping
+  output matches a list-item rendering of the same mapping. **Correction
+  (round 3, N5): the first of those two does not "prove the one-spelling
+  property"** as this report originally claimed — `serialize` calls
+  `render_field` directly for a dict-valued key, so it pins call-site
+  agreement on code that already shares one path, not independent agreement
+  between two paths that could have diverged. Renamed to
+  `test_serialize_delegates_to_render_field_for_a_dict_valued_key` and its
+  docstring corrected to say so. The second test (list-item comparison) is
+  unaffected by this correction — it compares two syntactically different
+  renderings (a `key: {...}` field line and a `  - {...}` list line) of the
+  same mapping, which is a real, checkable invariant regardless of shared
+  implementation.
 
 **Discrimination, checked by mutation, with one iteration recorded
 honestly:** my first probe — dropping just the `{key...} != {"by", "at"}`
@@ -426,6 +467,9 @@ Reverted; all 16 pass again. Net effect: the keyset-equality clause in
 `_valid_generated` is logically redundant with the subsequent type checks
 for every input I could construct — recorded as a concern below rather than
 "fixed," since removing it isn't in scope and it costs nothing to leave.
+(Round 3 amendment below: the *other* half of that same `if` — `len(items)
+!= 2` — is not redundant at all, and this paragraph's silence on that point
+was itself the defect N7 named. See the amended concern 4.)
 
 ### Concerns — each with a destination
 
@@ -444,13 +488,147 @@ for every input I could construct — recorded as a concern below rather than
    machine-owned key gets the wholesale "note renamed" finding but no
    per-key reason. **Destination:** controller files as a GitHub issue at
    plan close.
-4. **`_valid_generated`'s keyset-equality check is logically redundant**
-   with the function's own subsequent `isinstance(actor, str)`/`isinstance(at,
-   str)` checks (found via mutation testing this round — see N4 above): for
-   every malformed-key-set input, `.get()` on a missing expected key already
-   returns `None`, which the type checks reject regardless of whether the
-   keyset check runs at all. **Destination:** declining to fix. The check
-   costs nothing to keep, documents the two-key shape explicitly at the top
-   of the function for a human reader (rather than relying on the reader to
-   trace through two `.get()` calls to infer it), and removing it would be a
-   pure-readability change unrelated to this task's scope.
+4. **AMENDED (round 3): `_valid_generated`'s guard clause is
+   `len(items) != 2 or {key for key, _ in items} != {"by", "at"}` — its two
+   sub-clauses are NOT equally redundant, and my original wording did not
+   say so.** Only the second sub-clause (`{key...} != {"by", "at"}`) is
+   redundant with the function's later `isinstance(actor, str)`/
+   `isinstance(at, str)` checks — verified by brute force independently by
+   the reviewer (15,901 inputs, 0 divergences from dropping it alone). The
+   first sub-clause, `len(items) != 2`, is load-bearing and is the SOLE
+   rejecter of a duplicate-`by` forgery: `generated: {by: "human:eran", by:
+   "knowledge_harness/0.1.0", at: "2026-08-24T00:00:00Z"}` parses to 3 items
+   whose unique key set is still exactly `{by, at}` (so the keyset check
+   alone would accept it), and `.get("by")` is last-value-wins, so it reads
+   the machine actor and ignores that a forged decoy preceded it — only the
+   item-count check catches this shape (reviewer-verified: dropping
+   `len(items) != 2` alone gives 144 divergences and survives the full
+   suite). **Destination:** declining to remove the keyset-equality
+   sub-clause specifically (still redundant, still costs nothing to keep,
+   still documents the two-key shape for a reader); the item-count
+   sub-clause is NOT a candidate for removal at all. The blind spot — no
+   test exercised the duplicate-`by` shape — is closed this round:
+   `tests/test_notes.py`'s `test_valid_generated_rejects_every_malformed_shape`
+   gained a `duplicate-by-last-wins` case built from an actual parsed
+   `_DuplicateKeyMapping` (not a Python dict literal, which would silently
+   collapse the duplicate key at parse time and never exercise the shape at
+   all), verified to fail if `len(items) != 2` is dropped (1 failed, 16
+   passed) and to pass at head.
+
+## Round 3 (fix round, review feedback on 1441e7f)
+
+### Status
+
+Complete. N5, N6, N7, N8 all addressed. Full suite green, form gate
+silent/exit 0, ruff and mypy clean.
+
+### Commit
+
+(this round's commit — see the coordinator reply for the hash; forward fix,
+`1441e7f` and everything before it left untouched, no rebase). Pathspec
+includes this report file; `progress.md` and `review-*.diff` excluded per
+the coordinator's instruction.
+
+### Test summary
+
+`python -m pytest -q`: **1606 passed, 7 skipped** (was 1605/7; +1 —
+`duplicate-by-last-wins` added to `_valid_generated`'s rejection
+parametrization for N7). `ruff check`/`ruff format --check` clean, `mypy
+knowledge_harness/` clean, form gate silent/exit 0.
+
+### N6 — the same defect class, reintroduced in the commit that fixed N1
+
+`test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate`
+filtered on `item.target` only, with no `Result` filter and no reason
+pinned — exactly the loose-assertion shape N1 was about, in the very test
+written to prove N2. Fixed: now collects the *set* of reasons for
+`Result.UNMATCHED` findings on the target and asserts it equals exactly
+`{"drift — citekey changed without writer attestation", "drift —
+fixity-sha256 changed without writer attestation", "drift — managed-sha256
+changed without writer attestation"}`.
+
+**Proven by suppression, not assumed:** temporarily made
+`_frontmatter_attestation_outcomes` return `[]` unconditionally (in place,
+reverted immediately after) — the test failed with `assert set() == {...}`,
+confirming it would have gone red had the four-key outcomes vanished
+entirely, which is exactly what N6 asked to demonstrate. Reverted; test
+passes again.
+
+**Destination for the pattern itself:** the coordinator identified this as
+the third instance of one shape (loose target-only or prefix-only
+assertions masking a vanished finding) and stated it is tracked as
+**GitHub issue #22**. Per the coordinator's instruction, this round does not
+open a new issue for it; the three pinned reason strings above are the
+comment payload for issue #22, not a new tracker entry.
+
+### N7 — concern 4's decline was true as scoped, but worded so a future
+reader could delete the wrong line
+
+Amended concern 4 (see the amended entry above, in the round-2 section) to
+state precisely which sub-clause of `_valid_generated`'s combined `if
+len(items) != 2 or {key for key, _ in items} != {"by", "at"}:` is redundant
+(the keyset-equality half — reviewer-confirmed 0 divergences across 15,901
+brute-forced inputs) and which is load-bearing (the item-count half — sole
+rejecter of a duplicate-`by` forgery, 144 divergences, and that mutant
+survived the full suite before this round).
+
+Added the `duplicate-by-last-wins` case to
+`test_valid_generated_rejects_every_malformed_shape`, built by actually
+parsing `'generated: {by: "human:eran", by: "knowledge_harness/0.1.0", at:
+"2026-08-24T00:00:00Z"}'` through `frontmatter.parse` (not a Python dict
+literal — a literal with a repeated key silently collapses to the last value
+at the language level and would never exercise the `_DuplicateKeyMapping`
+shape this case needs). Verified: dropping `len(items) != 2` from
+`_valid_generated` — leaving only the keyset check — makes this new case
+fail (1 failed, 16 passed); reverted, all 16 pass.
+
+### N8 — the N1 mutation account was wrong; corrected in place with an
+erratum, not by rewriting history
+
+See the `ERRATUM (round 3)` block inserted directly after the original N1
+mutation paragraph in the round-2 section above for the full correction. In
+short: I ran and reported the `!=`→`==` operator flip, but the review's
+actual mutant was a full `if False:` neuter, and the operator flip's
+before-number I cited (0 failed at the pre-fix commit) was also wrong — the
+operator flip actually fails 3 of 4 parameters there, for an unrelated
+reason (a false-positive finding on the fixture's other literature file).
+Both numbers were re-verified empirically in isolated scratch trees
+(`git archive <sha> | tar -x -C /tmp/<name>`, `PYTHONPATH=.`, import-path
+canary confirmed before trusting each result) rather than asserted from
+memory:
+- `if False:` neuter at `cf3b17c`: 0 failed, 1581 passed (full suite) —
+  matches the review's original number.
+- `if False:` neuter at `1441e7f`: 1 failed (`[edit]`), 3 passed — matches
+  "KILLED... (1 failed)".
+- `!=`→`==` flip at `cf3b17c` (what I actually ran in round 2): 3 failed
+  (`delete`/`edit`/`rename`), 1 passed (`add`) — not "0 failed" as I wrote.
+
+The underlying fix (N1's re-arming) was never in question; only my account
+of which mutant I ran and its numbers was wrong. This correction lives here
+and in this round's commit body rather than as an amendment to `5ac70df` or
+`1441e7f`, both reviewed records.
+
+### N5 — an overclaiming test, renamed and corrected
+
+See the `Correction (round 3, N5)` note inserted into the round-2 N4 section
+above. `test_render_field_matches_serialize_for_the_same_key_and_value`
+claimed to prove render_field/serialize "must never drift apart into two
+different formats," but `serialize`'s non-list branch calls `render_field`
+directly — there are not two independent formats to diverge, only one
+call site to agree with itself. Renamed to
+`test_serialize_delegates_to_render_field_for_a_dict_valued_key` with a
+docstring stating exactly that: it pins call-site agreement, not
+independent-path equivalence.
+
+### Concerns — each with a destination (round 3 additions/amendments only;
+see round 1/2 sections above for the full carried-forward list)
+
+- Concern 4 (`_valid_generated`'s keyset-equality clause) — **amended, not
+  new** — see the round-2 Concerns section for the corrected text
+  distinguishing the redundant sub-clause from the load-bearing one.
+  Destination unchanged: declining to remove the redundant sub-clause; the
+  load-bearing sub-clause is not a removal candidate.
+- The loose-target-only/prefix-only assertion pattern (N1, and now N6) —
+  **destination: GitHub issue #22** (per the coordinator; not a new issue).
+  The three exact reason strings N6 pinned are this round's contribution to
+  that issue's comment thread, not a new tracker entry.

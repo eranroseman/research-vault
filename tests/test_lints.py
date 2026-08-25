@@ -1074,9 +1074,19 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         gitstate.snapshot_worktree(fixture_vault),
     )
 
-    findings = [
-        item
+    findings = {
+        item.reason
         for item in outcomes
-        if item.target == "path-bytes:literatures/smith2020.md"
-    ]
-    assert findings, "an unparseable base must not silently auto-attest"
+        if item.result is Result.UNMATCHED
+        and item.target == "path-bytes:literatures/smith2020.md"
+    }
+    # Pinned, not presence-only: `schema-violation — missing managed-sha256`,
+    # `schema-violation — malformed managed boundary`, and `drift — managed
+    # literature region changed` all carry this same target and would each
+    # satisfy a looser assertion, including one where the attestation check's
+    # own findings had vanished entirely.
+    assert findings == {
+        "drift — citekey changed without writer attestation",
+        "drift — fixity-sha256 changed without writer attestation",
+        "drift — managed-sha256 changed without writer attestation",
+    }

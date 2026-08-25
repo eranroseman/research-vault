@@ -140,11 +140,11 @@ def test_render_field_round_trips_through_parse():
     assert data["generated"] == mapping
 
 
-def test_render_field_matches_serialize_for_the_same_key_and_value():
-    """A standalone `render_field` call and `serialize`'s own line for the
-    identical key/value must be byte-identical — the one spelling a byte-
-    surgical single-field writer and a full re-render must never drift apart
-    into two different formats.
+def test_serialize_delegates_to_render_field_for_a_dict_valued_key():
+    """`serialize`'s non-list branch calls `render_field` directly, so this
+    pins call-site agreement rather than proving the two outputs could not
+    diverge — they share one code path, not two independent ones that happen
+    to agree.
     """
     mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
     standalone = frontmatter.render_field("generated", mapping)

@@ -801,6 +801,17 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
 # round-trip check all bottom out in this one predicate. It had no direct
 # test before this round.
 
+# A parsed frontmatter dict from a source line with a duplicate `by`: the
+# unique key set is still exactly {by, at} (so the keyset-equality clause
+# alone would accept it), but the item COUNT is 3, not 2. `len(items) != 2`
+# is the sole rejecter of this shape — last-value-wins `.get("by")` would
+# otherwise read the second, machine-actor-looking `by` and ignore that a
+# forged decoy preceded it.
+_DUPLICATE_BY_LAST_WINS = frontmatter.parse(
+    '---\ngenerated: {by: "human:eran", by: "knowledge_harness/0.1.0", '
+    'at: "2026-08-24T00:00:00Z"}\n---\n'
+)[0]["generated"]
+
 
 @pytest.mark.parametrize(
     "value",
@@ -819,6 +830,7 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
         {"by": "knowledge_harness/0.1.0", "at": "not-a-timestamp"},
         {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56+00:00"},
         {"by": "knowledge_harness/0.1.0", "at": "2026-08-20"},
+        _DUPLICATE_BY_LAST_WINS,
     ],
     ids=[
         "none",
@@ -835,6 +847,7 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
         "at-unparseable",
         "at-offset-not-z",
         "at-date-only",
+        "duplicate-by-last-wins",
     ],
 )
 def test_valid_generated_rejects_every_malformed_shape(value):
