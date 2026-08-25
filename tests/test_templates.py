@@ -113,7 +113,7 @@ def test_markdown_templates_match_canonical_content():
     # lint_append_only's startswith predicate (knowledge_harness/lints.py)
     # before landing.
     assert asset("vault/AGENTS.md").read_text() == (
-        '---\ntype: "guide"\n---\n'
+        '---\ntype: "guide"\n---\n\n'
         "# Vault agents guide\n\n"
         "This is a knowledge-harness vault. `literatures/`, `log/`, `log.md`, "
         "and `inbox/review-queue.md` are machine-written — the CLI writes "
@@ -156,8 +156,8 @@ def test_markdown_templates_match_canonical_content():
         '---\ncitekey: "{{CITEKEY}}"\ntype: "literature"\n'
         'accessed: "{{TODAY}}"\nfixity-sha256:\n'
         'managed-sha256: "{{MANAGED_SHA256}}"\nstatus: "unscreened"\n'
-        'generated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
-        "%%hk-managed%%\n# {{TITLE}}\n%%/hk-managed%%\n\n## Notes\n"
+        'generated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n\n'
+        "%%hk-managed%%\n\n# {{TITLE}}\n\n%%/hk-managed%%\n\n## Notes\n"
     )
     for kind in ("synthesis", "project"):
         assert asset(f"vault/system/templates/{kind}.md").read_text() == (
@@ -165,12 +165,13 @@ def test_markdown_templates_match_canonical_content():
             'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
         )
     assert asset("vault/system/templates/daily.md").read_text() == (
-        '---\ntype: "daily"\n---\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
+        '---\ntype: "daily"\n---\n\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
     )
     assert asset("vault/system/glossary.md").read_text() == (
         "---\n"
         'type: "guide"\n'
         "---\n"
+        "\n"
         "# Vault glossary\n"
         "\n"
         "Trust-first academic research on this vault: every claim traceable to "

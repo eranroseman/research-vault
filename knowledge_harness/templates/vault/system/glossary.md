@@ -1,6 +1,7 @@
 ---
 type: "guide"
 ---
+
 # Vault glossary
 
 Trust-first academic research on this vault: every claim traceable to a real source, verified by mechanical checks. This page defines the words this vault's notes, folders, and fields use.

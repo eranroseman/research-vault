@@ -30,10 +30,21 @@ repos:
       # this markdown is read RAW by agents and carries numeric cross-references;
       # mdformat's default collapses ordered lists to all `1.`, so "item 6" would
       # point at nothing. research/ and sources/ are excluded: immutable records.
+      # Vault-dialect templates (wikilinks, managed-region markers, Base embeds)
+      # belong to their sole writer, not the CommonMark owner: vault/index.md is
+      # named individually below, by omission, because mdformat measurably
+      # escapes its wikilinks and Base embeds on contact. That is an ownership
+      # boundary, not a name on an exception list — the next dialect-bearing
+      # template excludes itself by the same rule, not by incident.
       - id: mdformat
         name: "form: markdown CommonMark (mdformat)"
         language: system
-        entry: bash -c 'mdformat --number --wrap keep README.md AGENTS.md CONTEXT.md docs skills'
+        entry: bash -c 'mdformat --number --wrap keep README.md AGENTS.md
+          CONTEXT.md docs skills knowledge_harness/templates/vault/AGENTS.md
+          knowledge_harness/templates/vault/inbox
+          knowledge_harness/templates/vault/log.md
+          knowledge_harness/templates/vault/synthesis
+          knowledge_harness/templates/vault/system'
         pass_filenames: false
         always_run: true
       - id: yamlfix

@@ -1,6 +1,7 @@
 ---
 type: "guide"
 ---
+
 # Vault agents guide
 
 This is a knowledge-harness vault. `literatures/`, `log/`, `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; don't edit them by hand.

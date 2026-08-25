@@ -424,7 +424,21 @@ def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
 # --------------------------------------------------------------------------
 
 # The mdformat-owned CommonMark set, matching .pre-commit-config.yaml's hook.
-_MDFORMAT_ROOTS = ("README.md", "AGENTS.md", "CONTEXT.md", "docs", "skills")
+# vault/index.md is deliberately absent -- see that hook's own comment for why
+# (dialect ownership, not a filename exception) -- so its five vault-template
+# siblings are named individually rather than via the vault directory itself.
+_MDFORMAT_ROOTS = (
+    "README.md",
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs",
+    "skills",
+    "knowledge_harness/templates/vault/AGENTS.md",
+    "knowledge_harness/templates/vault/inbox",
+    "knowledge_harness/templates/vault/log.md",
+    "knowledge_harness/templates/vault/synthesis",
+    "knowledge_harness/templates/vault/system",
+)
 
 
 def _mdformat_owned_markdown() -> list[Path]:
@@ -437,6 +451,40 @@ def _mdformat_owned_markdown() -> list[Path]:
         elif target.is_dir():
             files.extend(sorted(target.rglob("*.md")))
     return files
+
+
+def test_mdformat_roots_mirror_the_hook_the_seam_actually_runs():
+    """_MDFORMAT_ROOTS narrates the mdformat hook; nothing else checked the
+    narration stayed true -- the exact defect this task exists to close."""
+    config = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    start = config.index("- id: mdformat\n")
+    entry = config[start : config.index("- id: ", start + 1)]
+    match = re.search(r"entry: bash -c '([^']*)'", entry, re.DOTALL)
+    assert match, "mdformat hook's entry has changed shape; update this parse"
+    tokens = match.group(1).split()
+    assert tokens[0] == "mdformat"
+    # Known fixed flags today: --number (no value) and --wrap keep (one value).
+    # Anything else is a path. A new no-value flag needs no change here; a new
+    # value-taking flag needs a name added to the skip set below.
+    value_taking = {"--wrap"}
+    paths = []
+    skip_next = False
+    for token in tokens[1:]:
+        if skip_next:
+            skip_next = False
+            continue
+        if token in value_taking:
+            skip_next = True
+            continue
+        if token.startswith("--"):
+            continue
+        paths.append(token)
+    assert set(paths) == set(_MDFORMAT_ROOTS), (
+        "the mdformat hook's path list and this file's _MDFORMAT_ROOTS mirror "
+        "have drifted apart.\n"
+        f"  hook only:  {sorted(set(paths) - set(_MDFORMAT_ROOTS))}\n"
+        f"  mirror only: {sorted(set(_MDFORMAT_ROOTS) - set(paths))}"
+    )
 
 
 def _escaped_backticks_in_row(line: str) -> bool:
