@@ -596,6 +596,59 @@ def test_supplied_snapshot_trailing_slash_outside_the_path_does_not_match(
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize(
+    ("note_url", "snapshot_original"),
+    [
+        ("https://example.org/page?a=b", "https://example.org/page/?a=b"),
+        ("https://example.org/page#frag", "https://example.org/page/#frag"),
+    ],
+    ids=["query-string", "fragment"],
+)
+def test_supplied_snapshot_trailing_slash_before_the_query_or_fragment_still_matches(
+    net_vault, monkeypatch, note_url, snapshot_original
+):
+    """The stripped trailing slash is a path-level one: a snapshot whose path
+    carries it right before an otherwise-identical query string or fragment
+    is still the same normalized target as the note's un-slashed url."""
+    text = WEB_NOTE.replace('url: "https://example.org/page"', f'url: "{note_url}"')
+    path = _write_note(net_vault, text)
+    calls = _fake_network(monkeypatch, save=200)
+
+    snapshot = f"https://web.archive.org/web/20240101000000/{snapshot_original}"
+
+    outcome = archive.archive_source(net_vault, "rot2024", snapshot=snapshot)
+
+    assert outcome.result is Result.MATCHED
+    data, _ = frontmatter.parse(path.read_text())
+    assert data["archive-url"] == snapshot
+    assert calls["save"] == [(snapshot, False)]
+    assert calls["availability"] == []
+
+
+def test_supplied_snapshot_with_two_trailing_path_slashes_does_not_match(
+    net_vault, monkeypatch
+):
+    """Only a single trailing slash is stripped, so a snapshot path ending in
+    two must not compare equal to a note url with none."""
+    path = _write_note(net_vault)  # url: "https://example.org/page" (no slash)
+    before = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a mismatched snapshot must make no outward call")
+
+    monkeypatch.setattr(webapi, "get_status", forbidden)
+
+    snapshot = "https://web.archive.org/web/20240101000000/https://example.org/page//"
+
+    outcome = archive.archive_source(net_vault, "rot2024", snapshot=snapshot)
+
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason == "missing-archive — supplied snapshot is for a different URL"
+    )
+    assert path.read_bytes() == before
+
+
 def test_supplied_snapshot_carrying_a_raw_tab_is_never_recorded(net_vault, monkeypatch):
     """A tab satisfies the shape regex's ``.`` but is one of the three bytes
     ``urlsplit`` silently drops, so it could otherwise compare equal to the

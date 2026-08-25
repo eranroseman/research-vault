@@ -236,6 +236,8 @@ def archive_source(vault_root, citekey: str, snapshot: str | None = None) -> Out
         if match is None or "\t" in snapshot:
             # A tab matches `.` in the shape regex above but is silently
             # dropped by `urlsplit`, which the comparison below relies on.
+            # Checking only for a tab here depends on is_archive_url, above,
+            # having already rejected `\r`/`\n` via its splitlines() check.
             return Outcome(
                 CHECK,
                 target,

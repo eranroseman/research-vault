@@ -382,3 +382,115 @@ production change tied to them to discriminate against.
 - Confirmed-path residual: a `closest.url` pointing at a different site than
   the note's own `url` is still recorded on that path — deliberate, out of
   this task's scope (see the asymmetry discussion above).
+
+## Fix round 2 (review response)
+
+Commit: `fix: Task 18 review round 2 — document the tab-check's dependency on is_archive_url, pin the F4 trailing-slash widening` (follow-up on top of `2fbad42`, nothing amended, nothing rebased).
+
+Round-2 verdict was **ALL ADDRESSED** for F1-F9 (each re-verified empirically
+by the coordinator against the tree, not read). Two items, both newly
+created by round 1 itself, are addressed here.
+
+### Item 1 — the tab-only check's dependency on `is_archive_url` was undocumented
+
+The F5 guard (`"\t" in snapshot`) is complete today only because
+`is_archive_url`'s `splitlines()` check already rejects `\r`/`\n` upstream;
+if that upstream check were ever loosened, the tab-only guard would
+silently under-cover. Verified the full enumeration directly (not assumed):
+
+```
+char   is_archive_url   in urlsplit's unsafe-byte set   reaches the gap
+\t     True             True                            TRUE
+\r     False            True                            False
+\n     False            True                            False
+\v \f \x1c \x1d \x1e \x85   False (all)   False (all)    False (all)
+```
+
+Tab is the only character that is both silently dropped by `urlsplit` and
+still accepted by `is_archive_url` — confirmed this is exactly the
+coordinator's table, not merely consistent with it. Added one line to the
+existing comment at the tab-check site naming the dependency (not its
+discovery history, per this repo's comment-hygiene doctrine):
+
+> Checking only for a tab here depends on is_archive_url, above, having
+> already rejected `\r`/`\n` via its splitlines() check.
+
+No test added for this item — it is a documentation fix pinning an
+already-correct, already-tested behavior (the tab test from round 1 already
+exercises the guard; nothing about the guard's logic changed here).
+
+### Item 2 — F4's path-only fix widened `_comparable_url` in ways nothing pinned
+
+Moving the trailing-slash strip to `parts.path` (round 1's F4 fix) also
+flipped two comparisons from unequal to equal — consistent with the stated
+contract ("strip one trailing slash from the path"), but new behavior with
+no test. Verified all four boundary combinations directly against
+`_comparable_url` (with an import-path canary confirming the function under
+test, per the coordinator's method warning) before writing any test:
+
+```
+'https://example.org/p/?a=b'  vs '.../p?a=b'   -> True   (now EQUAL, correct)
+'https://example.org/p/#frag' vs '.../p#frag'  -> True   (now EQUAL, correct)
+'https://example.org/p?a=b/'  vs '.../p?a=b'   -> False  (stays UNEQUAL)
+'https://example.org/p//'     vs '.../p'       -> False  (stays UNEQUAL — one slash, not all)
+```
+
+Added two tests through `archive_source` (matching this file's existing
+convention):
+
+- `test_supplied_snapshot_trailing_slash_before_the_query_or_fragment_still_matches`
+  (parametrized: query-string and fragment) — asserts `MATCHED` and
+  recorded, pinning the two flipped-to-equal cases.
+- `test_supplied_snapshot_with_two_trailing_path_slashes_does_not_match` —
+  asserts `UNMATCHED` / "for a different URL", pinning that only a single
+  trailing slash is ever stripped, not a run of them.
+
+The fourth boundary case (`.../p?a=b/` vs `.../p?a=b` stays unequal) is
+already pinned — round 1's `test_supplied_snapshot_trailing_slash_outside_the_path_does_not_match`
+covers it and was already discrimination-proven there (reverting to the
+pre-F4 recompose-then-strip version turned it `MATCHED`). Not duplicated
+here.
+
+**Discrimination, both directions:**
+
+1. Reverted `_comparable_url` to round 1's pre-F4 (recompose-then-strip)
+   version — both parametrizations of the "must match" test went red
+   (`UNMATCHED` instead of `MATCHED`), since that version never normalizes
+   `parts.path` at all.
+2. Changed `parts.path.removesuffix("/")` to `parts.path.rstrip("/")`
+   (strips every trailing slash, not one) — the double-slash test went red
+   by reaching the forbidden `webapi.get_status` call, since `rstrip`
+   collapses `"page//"` to `"page"`, wrongly matching the note's
+   slash-free url.
+
+Restored the committed version after each mutation; reran the full file
+clean both times.
+
+### Method note (the coordinator's own near-miss, applied going forward)
+
+Every probe this round ran with the working directory already inside this
+worktree (never `python /tmp/probe.py`, which would put `/tmp` on
+`sys.path[0]` and silently resolve `knowledge_harness` to the parent repo's
+editable install instead of this tree), and asserted
+`archive.__file__` ends in `fix+pre-slice-batch/knowledge_harness/archive.py`
+before trusting any result.
+
+### Verification
+
+- Full offline suite: `1624 passed, 7 skipped` (round-1's `1621 passed / 7
+  skipped` + 3 new tests: 2 parametrizations of the "still matches" test +
+  1 double-slash test).
+- `ruff check` — clean.
+- `ruff format --check` — clean.
+- `mypy knowledge_harness/` — `Success: no issues found in 27 source files`.
+- `echo '{}' | python hooks/stop_publish_gate.py` — silent, exit 0.
+- Working tree clean after commit; no amend, no rebase — this round's
+  commit sits on top of `2fbad42`. `progress.md` excluded (concurrent edit
+  by the coordinator).
+
+### Concerns
+
+None new. Everything from round 1's concerns section stands unchanged
+(asymmetry — deliberate, recorded; other loose-prefix reason assertions —
+routed to GitHub issue #22; deferred items — coordinator's own deferral,
+listed above).
