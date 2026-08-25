@@ -6547,3 +6547,47 @@ Task 21: recorded (implementer's new concern): hoisting the local malformed chec
   after it was written, which is its own lesson about when a retrospective is
   finished. THEY GO IN AS A FOLLOW-UP RATHER THAN SILENTLY — the note records a
   position, not a score.
+
+### THE BATCH IS ON ORIGIN/MAIN — d9b3acf..4b9f427, fast-forward.
+  Branch and origin/main identical in BOTH directions (0 ahead, 0 behind),
+  verified after a fetch rather than assumed from the push output.
+  MERGE MECHANISM CHOSEN FOR THE ETIQUETTE POLICY, not convenience: main is
+  checked out in the SHARED checkout at /home/eranr/New folder, held by another
+  session. `git push . HEAD:main` would refuse it and `git update-ref` would
+  leave THEIR index stale — the exact class 3d6ad73 forbids. So I pushed to
+  ORIGIN and asked the orchestrator to run `git merge --ff-only origin/main` in
+  its own worktree: one safe command, in the hands of the session that owns the
+  checkout. The instruction says merge locally and push in the same motion; the
+  durable half is done and the local half belongs to whoever holds the tree.
+  FINAL STATE:
+    offline                              1738 passed /  7 skipped
+    live (Zotero + registries + mailto)  1743 passed /  2 skipped
+    pre-commit                           8/8 hooks, ZERO files modified
+    plan                                 112 boxes checked / 0 unchecked
+### AND A LAST CATCH AT THE GATE, ON THE ONE SURFACE THIS REPO HAS BEEN
+### SILENTLY DAMAGED BEFORE
+  `pre-commit run --all-files` REWROTE the spec's §6 table — mdformat re-padding
+  the separator row after the widened metadata and update-notice cells. I did not
+  wave it through as cosmetic: the 2026-08-22 canonical-form churn destroyed enum
+  values and an entire clause in a table exactly like that one, and
+  test_config_validity.py exists because of it.
+  Checked against THE DAMAGE SIGNATURE ITSELF rather than by eye:
+  `git diff --ignore-all-space` EMPTY, and ZERO escaped backticks in the file —
+  the orphaned-backtick tell that keeps the count even and defeats naive
+  backtick-counting. Whitespace only. Committed as its own `style:` commit with
+  that evidence in the body, so the next reader inherits the check rather than
+  the conclusion.
+  A GATE THAT MODIFIES FILES AT THE LAST STEP IS THE EASIEST THING IN A LONG RUN
+  TO ACCEPT WITHOUT LOOKING. It was also the last opportunity to ship the exact
+  defect this batch spent two rounds fixing elsewhere.
+### OWED, AND NAMED RATHER THAN LET PASS
+  The method retrospective carries FOUR instances of the instrument-scope root.
+  TWO MORE ARRIVED AFTER IT WAS WRITTEN — single-fault probes reporting a fence
+  as holding, and `{} or default` silently substituting a full record for an
+  empty one. The note must be AMENDED and must SAY it was amended; absorbing them
+  silently would make the note itself an artifact that describes a state it no
+  longer has.
+  The sixth instance is the only one I caught unaided, and the reason generalises:
+  A SURPRISING MEASUREMENT IS A REASON TO CHECK THE INSTRUMENT BEFORE REPORTING
+  THE FINDING. The other five all produced PLAUSIBLE answers, which is precisely
+  why nothing prompted a second look.
