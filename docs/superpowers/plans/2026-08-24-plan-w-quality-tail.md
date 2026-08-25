@@ -24,6 +24,8 @@ The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured
 - [ ] **Step 2:** Copy both shim files VERBATIM from the pilot report into `scripts/mutmut_shims/`, each with a header comment naming the upstream defect it works around and the report as provenance. Draft the two mutmut upstream defect reports (config-at-import; node-id re-escaping) into `research/2026-08-23-mutmut-defect-reports.md` — ready-to-file, the author posts.
 - [ ] **Step 3:** Pin `mutmut==3.7.0` in dev extras. Commit `feat: adopt mutmut 3.7.0 — ruling, shims, upstream report drafts`.
 
+Measured caveat for this Part (Task 19b round 2, 2026-08-24): a `coverage.py` 100%-branch number can be true and misleading — short-circuit sub-expressions inside a single `return` are outside its branch model (the `pretooluse_guard.py:75` fail-open guard sat invisible under 100%). Mutation results are the check on coverage numbers, not the other way around; treat "100% branch" as "100% of what the model sees." Same family, from Task 20: a correct observation can carry a wrong conclusion — "2 of 9 cases only go red under both guards" was true, "so one guard is redundant" would have shipped an uncaught TypeError; honest self-reports are worth more than silence AND still need checking, and the honesty is what makes the wrong conclusion persuasive.
+
 ### Task 24: Gate script speaks mutmut
 
 **Files:** Modify: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`.
