@@ -6647,3 +6647,45 @@ Task 21: recorded (implementer's new concern): hoisting the local malformed chec
   Its shape is recorded separately too: not a truncating pipe, not a partial
   input set, but AN IDIOM THAT SILENTLY SUBSTITUTED A DIFFERENT INPUT.
   `x or default` IS A TRUNCATING PIPE FOR EMPTY CONTAINERS.
+
+### RECONSTRUCTION REVIEW CLOSED — all findings accepted, none softened
+  A bounded, author-worded request: bias-check
+  research/2026-08-25-plugin-development-process-reconstruction.md from the
+  EXECUTION seat, since the note was written from the controller's.
+  WHAT WENT BACK, and what landed:
+   - PHASE 8's WEIGHT WAS WRONG. The note framed Task 21's three fix rounds as a
+     notable data point; counted from this ledger's close lines, 10 OF 26
+     TASK-CLOSES RECORD AT LEAST ONE FIX ROUND (6x1, 2x2, 2x3). Rewritten with
+     fix rounds stated as the norm.
+   - THE PRE-CHECK WAS ABSENT FROM BOTH THE NARRATIVE AND THE LEDGER, and it was
+     the highest-leverage single activity from this seat. Now named as such in
+     the phase text, with the four cases where it changed what shipped.
+   - TEN METHOD INVENTIONS the ledger missed landed as items 17-26 under an
+     execution-seat heading — pre-check hand-over (with its inverse discipline),
+     brief regeneration, the scratch-probe canary, discrimination proof,
+     the four-condition delegation rule, destination-per-concern,
+     correct-forward-over-amend, the-seat-holding-consent-acts,
+     enumerate-don't-count, and reproduce-don't-read with its unbuildable fence.
+   - TWO TRANSCRIPT-SIDE CLAIMS CONTESTED AND RECORDED AS DISAGREEMENTS rather
+     than resolved: the decision-budget measure may count AUTHOR APPROVALS rather
+     than DECISIONS-THE-METHOD-CONSUMED, since the orchestrator relay was the
+     binding constraint during the batch; and "error-catch latency collapsed" is
+     not visible from this seat — CATCH QUALITY improved, the instruments
+     improved, and the final task still produced three fix rounds.
+   - Item 5 gained the SDD ledger as a partial counter-example: preservation was
+     DONE HERE AND IT WORKED, and it existed because a skill prescribed it rather
+     than because anyone decided to preserve anything.
+  AND THE CAVEAT I PUT FIRST TURNED OUT TO BE THE POINT. I opened the review by
+  saying I had checked my own instinct against the ledger and it was wrong — I
+  had believed only two tasks passed clean; the real number is sixteen. THE
+  INSTINCT WAS WRONG IN THE DIRECTION THAT FLATTERED MY OWN VIGILANCE, which is
+  the direction hardest to notice, and counting is what caught it. That is the
+  note's own spine applied to the review of the note.
+  Separately: the independent citation verifier returned ZERO mismatches, and
+  resolved both anomalies flagged earlier — Plan Q merged by FAST-FORWARD (so no
+  merge commit exists to find, which is why the search failed) and the 094121b
+  date inversion is a UTC-vs-(-0500) ARTIFACT, not an ordering violation.
+### NOTHING IS OWED BY THIS SEAT.
+  Outstanding elsewhere: the post-merge boundary walk (new-folder-67), the
+  preamble/body inconsistency issue (orchestrator files), Plan W and slice
+  Phases 2-6 (author's schedule).
