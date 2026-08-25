@@ -2282,6 +2282,110 @@ def test_metadata_treats_local_malformed_issued_shape_as_unreachable_not_skipped
     assert outcome.reason == "outage — malformed bibliography metadata"
 
 
+def _datacite_route(monkeypatch, remote):
+    """Route a DOI through the non-Crossref content-negotiation path, unfiltered —
+    round 3's multi-fault cases must hold on both registry routes, not just the
+    Crossref one `_crossref_csl` pre-filters."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/z.1": (
+                200,
+                [{"DOI": "10.5281/z.1", "RA": "DataCite"}],
+            ),
+            "doi.org/10.5281/z.1": (200, remote),
+        },
+    )
+
+
+def _datacite_entry(**overrides):
+    entry = {
+        "id": "smithdata",
+        "DOI": "10.5281/z.1",
+        "title": "Dataset of mortality",
+        "author": [{"family": "Smith"}],
+        "issued": {"date-parts": [[2020]]},
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_metadata_treats_a_completely_empty_registry_record_as_malformed(
+    net_vault, monkeypatch
+):
+    """Round 3: multi-fault. A registry record with nothing in it at all — no
+    title, no author, no year — is malformed, not merely 'has no author'.
+    Absence guards must not fire before the malformed check has ruled on every
+    field; this is the coordinator's `remote={}` case. Content-negotiation only:
+    on the Crossref route, `_crossref_csl` already rejects a titleless message as
+    "outage — registry record unavailable" before this fix's checks ever run —
+    that path is pre-existing and unaffected, covered by the parametrized
+    malformed-Crossref-shapes test above."""
+    _datacite_route(monkeypatch, {})
+
+    outcome = checks.check_metadata(net_vault, _datacite_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed registry metadata"
+
+
+@pytest.mark.parametrize("route", ["crossref", "datacite"])
+def test_metadata_treats_malformed_remote_author_with_absent_year_as_malformed(
+    net_vault, monkeypatch, route
+):
+    """Round 3: multi-fault, remote side. A malformed `author` (wrong type) and
+    an absent `issued` in the same record must report the malformed cause, not
+    silently prefer the absence in a different field — reason names the real
+    defect, not merely the field that happened to be checked second."""
+    if route == "crossref":
+        _crossref_route(
+            monkeypatch,
+            {
+                "message": {
+                    "title": ["Mortality decline"],
+                    "author": "not-a-list",
+                    "issued": {},
+                }
+            },
+        )
+        outcome = checks.check_metadata(net_vault, _metadata_entry())
+    else:
+        _datacite_route(
+            monkeypatch,
+            {
+                "title": "Dataset of mortality",
+                "author": "not-a-list",
+                "issued": {},
+            },
+        )
+        outcome = checks.check_metadata(net_vault, _datacite_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed registry metadata"
+
+
+def test_metadata_treats_malformed_local_title_with_absent_author_as_malformed(
+    net_vault, monkeypatch
+):
+    """Round 3: multi-fault, local side. A malformed local `title` (wrong type)
+    and an absent local `author` in the same entry must report the malformed
+    cause, not silently prefer the absence in a different field."""
+    _crossref_route(monkeypatch, CROSSREF_METADATA)
+
+    outcome = checks.check_metadata(
+        net_vault,
+        {
+            "id": "smith2020",
+            "DOI": "10.1000/xyz",
+            "title": 123,
+            "issued": {"date-parts": [[2020]]},
+        },
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed bibliography metadata"
+
+
 def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():
     live = checks.Outcome(
         "update-notice",

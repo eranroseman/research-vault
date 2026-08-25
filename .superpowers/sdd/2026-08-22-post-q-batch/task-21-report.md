@@ -436,3 +436,148 @@ pre-existing, unrelated reformat candidates in `skills/find-sources/scripts/*`.
 
 No new concerns from this round — the residual this round closes was the only one
 carried forward from round 1.
+
+
+## Fix Round 3 (2026-08-25)
+
+**What the acceptance sweep found.** All six audit defects unreproducible at
+HEAD, none closed by making its scenario unbuildable. The round 2 absent/empty
+widening reproduced correctly on both registry routes (Crossref `_crossref_csl`
+and raw content-negotiation). Item 7 (exact-reason-string discipline) came back
+fully clean: 12 `Result.X` assertions, 12 matching exact `reason ==`, zero
+result-only assertions across this task's tests. One defect remained, MEDIUM
+severity, and it blocked the merge.
+
+**The bug.** In both the local block and the remote block, the absence guards
+(`title`/`author`/`year` "has no X") ran *before* the malformed-shape check, so
+when a record carried both a malformed field and a separately absent field, the
+absence guard fired first and reported the wrong cause. Four cells confirmed the
+defect: `remote author="not-a-list"` (single fault) correctly reported malformed;
+but `remote={}` (nothing at all) reported "no-identifier — registry record has no
+author" instead of the whole record being malformed; `remote author bad + issued
+{}` reported "no year" instead of the actual author-shape defect; `local
+title=123 + author absent` reported "no author" instead of the actual
+title-shape defect. Each of these writes a fabricated cause onto an append-only
+inbox record — the exact defect class this whole task exists to eliminate,
+reintroduced by the fix that eliminated its siblings for the single-fault case.
+It was bounded (SKIPPED mints no `verified` event and the metadata row closes
+nothing on any surface), but the reason text was wrong, and the §6 sentence
+already landed was false for the multi-fault cells while it stood.
+
+**Fix: malformed decided before absence, on both sides, and the local check
+hoisted pre-network — not just reordered.** For the remote side, the fix
+reorders: `remote_title`, `remote_authors`, and `remote_year_ok`/`remote_year`
+are now all computed up front (right after confirming the response is a dict),
+the combined malformed check runs first, and only if nothing is malformed do the
+two absence checks (`author == []`, `year_ok and year is None`) run. For the
+local side, the coordinator was explicit that simply moving the absence guards
+down (to match the remote fix's shape) would keep a pointless network
+round-trip for input already known to be unusable, and would undo round 1's
+deliberate title-before-network precedence improvement — so the malformed-local
+check was hoisted *up*, to run alongside the local-absence checks before
+`registry_agency` is ever called, rather than staying in its old post-network
+position. One observable, deliberate side effect of the hoist: the `extra` dict
+on the "outage — malformed bibliography metadata" outcome no longer carries
+`agency` (it is computed from `_metadata_extra(doi)`, not
+`_metadata_extra(doi, agency)`, since agency is not yet known pre-network) —
+noted as a concern below since no test currently pins it either way, but nothing
+elsewhere in the codebase reads `extra["agency"]` off this specific outcome
+(confirmed by grep), so it is a shape change with no known consumer.
+
+**A comment landed at the remote-title asymmetry's own site** (`checks.py`,
+directly above the combined malformed check): the reasoning that a registry
+record with no title at all is a malformed response, while a work with no
+recorded author or publication year is an ordinary one, previously lived only in
+a report, a commit body, and a test docstring — now it also lives where a future
+"make this symmetric" tidy-up would actually read it.
+
+**A mypy regression, found and fixed before it reached the gates.** Hoisting the
+local malformed check and restructuring around a stored `local_title_blank`
+boolean broke mypy's type narrowing: by the time `_metadata_text(local_title)`
+ran near the end of the function, mypy could no longer prove `local_title` was
+`str` (first `Any | None`, then `str | None` after a partial fix), because the
+opaque `_is_blank(...)` helper is not something mypy's narrower can reason
+through. Resolved by inlining the blank check directly as
+`local_title is None or not local_title.strip()` at its one call site (matching
+the pattern the remote-title check already used successfully) and removing the
+now-unused `_is_blank` helper entirely rather than leaving dead code behind.
+Verified equivalent to the helper for every case (`None`, `""`, a real string,
+and a non-string type) before removing it. `mypy knowledge_harness/` is clean
+after this change.
+
+**Spec sentence (`docs/superpowers/specs/2026-08-16-foundation-spec.md:100`)
+was false for the multi-fault cells and is corrected.** The round 1/round 2
+sentence read "An absent local `title`, `author`, or `year`... is whole-check
+SKIPPED" with no qualification — true only when nothing else in the same record
+is malformed, which round 3's own fix means is no longer every cell. Reworded to
+add the "otherwise well-formed" qualifier and state the new malformed-before-
+absence precedence explicitly:
+
+> "A record that is otherwise well-formed, with an absent local `title`,
+> `author`, or `year`, or an absent remote `author` or `year`, is whole-check
+> SKIPPED, the reason naming the field, never folded into MATCHED — a remote
+> record missing `title` entirely, or any record carrying a present-but-
+> malformed field, is a malformed-response outage instead, decided before
+> absence (ruled 2026-08-25, audit gap closed)."
+
+**The test that let this through, and how it is fixed.**
+`test_metadata_treats_registry_record_with_no_title_as_unreachable` (round 1)
+supplied a valid, present `author` and `issued` alongside the missing title, so
+it pinned the remote-title asymmetry single-fault only — every existing test in
+this task, in fact, varied one field at a time, which is exactly why the suite
+stayed green over all four broken cells above. New multi-fault tests, failing
+first, exact reason asserted:
+- `test_metadata_treats_a_completely_empty_registry_record_as_malformed` — the
+  coordinator's `remote={}` case, content-negotiation route. (The equivalent
+  Crossref-route input is pre-gated by `_crossref_csl`'s own title-list
+  requirement into "outage — registry record unavailable" before this fix's
+  checks ever run — pre-existing, unaffected either way, and already covered by
+  the existing malformed-Crossref-shapes parametrize; not a round-3 concern, so
+  not parametrized here.)
+- `test_metadata_treats_malformed_remote_author_with_absent_year_as_malformed`
+  (parametrized `crossref`/`datacite`) — malformed `author` + absent `issued`,
+  remote side, both routes.
+- `test_metadata_treats_malformed_local_title_with_absent_author_as_malformed` —
+  malformed `title` + absent `author`, local side.
+
+**Discriminator matrix** (each side's reordering reverted independently to its
+round-2 shape, confirmed red for the stated reason, then restored; verified once
+more against the mypy-clean final code after the `_is_blank` removal, not just
+the intermediate version):
+
+| Reverted | Test(s) | Result when reverted |
+|---|---|---|
+| Local: malformed check moved back to run after the absence guards (round-2 order, using the round-2 blank-check shape) | `test_metadata_treats_malformed_local_title_with_absent_author_as_malformed` | Against the intermediate round-3 code: `Result.SKIPPED` "no-identifier — item has no author" — the exact fabricated cause. Against the final (post-mypy-fix) code, reverting to the literal round-2 line (`entry.get("title").strip()` with no isinstance guard) instead **crashes** with `AttributeError: 'int' object has no attribute 'strip'` on the same input — a second, independent confirmation that the old ordering cannot safely handle this case at all |
+| Remote: malformed check moved back to run after the absence guards (round-2 order) | `test_metadata_treats_a_completely_empty_registry_record_as_malformed`, `test_metadata_treats_malformed_remote_author_with_absent_year_as_malformed` (both routes) | All three reproduce `Result.SKIPPED` with a fabricated cause ("no-identifier — registry record has no year" / "no author") — the exact bug, on demand |
+
+Every pre-existing single-fault test (all 41 from before this round) stayed
+green throughout both reverts, confirming the discriminator isolates the
+reordering rather than the whole guard structure.
+
+Confirmed by construction, still unchanged: present-and-matching stays MATCHED,
+present-and-differing stays UNMATCHED, a genuine single-fault outage stays
+UNREACHABLE with its original reason, and single-fault absence (all four fields,
+both sides, from rounds 1–2) stays SKIPPED with its original reason.
+
+**Test arithmetic:** offline suite 1734 → 1738 passed, 7 skipped (net +4: the
+three multi-fault tests above, one of which is parametrized across two routes).
+`ruff check .` clean on changed files. `ruff format --check .` clean. `mypy
+knowledge_harness/` clean (after removing `_is_blank` and inlining its check, as
+described above). `stop_publish_gate.py` hook exits 0.
+
+**Not touched, per explicit instruction:** the Plan S `:8` gate mark. Its
+"complete and merging to main" wording was true when written in round 1 and
+becomes exact at the coordinator's merge, which follows this round directly — no
+action needed or taken here.
+
+**New concern (destination: controller).** Hoisting the local malformed check
+pre-network changes the `extra` dict on the "outage — malformed bibliography
+metadata" outcome specifically: it now carries only `{"doi": ...}` (via
+`local_extra`), not `{"doi": ..., "agency": ...}` (via the post-network `extra`)
+as it did before this round, because agency is not yet resolved at the point
+this check now runs. No existing test asserts `extra` for this particular
+outcome, and nothing else in the codebase reads `extra["agency"]` off it
+(confirmed by grep across `knowledge_harness/` and `hooks/`), so this is an
+unpinned, currently-inconsequential shape change rather than a break — but it is
+a real, observable difference from before this round, worth naming rather than
+letting it be discovered later as unexplained drift.

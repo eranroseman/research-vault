@@ -268,11 +268,6 @@ def _metadata_text(value: str) -> str:
     return normalize_text(value).casefold()
 
 
-def _is_blank(value) -> bool:
-    """True for a missing title or one with no real text — absent either way."""
-    return value is None or (isinstance(value, str) and not value.strip())
-
-
 def _metadata_authors(value) -> list[tuple[str, str]] | None:
     """Return comparable CSL authors, or reject an invalid author shape."""
     if value is None:
@@ -347,7 +342,25 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
         )
     doi = doi.strip()
     local_extra = _metadata_extra(doi)
-    if _is_blank(entry.get("title")):
+    local_title = entry.get("title")
+    local_authors = _metadata_authors(entry.get("author"))
+    local_year_ok, local_year = metadata_year(entry.get("issued"))
+    # Malformed is decided before absent, on both sides (round 3): a present-but-
+    # wrong-typed field is not "the item lacks the field" and must not be reported
+    # as one, even when another field in the same record is genuinely absent.
+    if (
+        (local_title is not None and not isinstance(local_title, str))
+        or local_authors is None
+        or not local_year_ok
+    ):
+        return Outcome(
+            "metadata",
+            target,
+            Result.UNREACHABLE,
+            "outage — malformed bibliography metadata",
+            extra=local_extra,
+        )
+    if local_title is None or not local_title.strip():
         return Outcome(
             "metadata",
             target,
@@ -355,7 +368,6 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "no-identifier — item has no title",
             extra=local_extra,
         )
-    local_authors = _metadata_authors(entry.get("author"))
     if local_authors == []:
         return Outcome(
             "metadata",
@@ -364,7 +376,6 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "no-identifier — item has no author",
             extra=local_extra,
         )
-    local_year_ok, local_year = metadata_year(entry.get("issued"))
     if local_year_ok and local_year is None:
         return Outcome(
             "metadata",
@@ -414,26 +425,14 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "outage — registry record unavailable",
             extra=extra,
         )
-    remote_authors = _metadata_authors(remote.get("author"))
-    if remote_authors == []:
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — registry record has no author",
-            extra=extra,
-        )
-    remote_year_ok, remote_year = metadata_year(remote.get("issued"))
-    if remote_year_ok and remote_year is None:
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — registry record has no year",
-            extra=extra,
-        )
-
     remote_title = remote.get("title")
+    remote_authors = _metadata_authors(remote.get("author"))
+    remote_year_ok, remote_year = metadata_year(remote.get("issued"))
+    # Malformed before absent (round 3), same as the local side above. A registry
+    # record with no title at all is a malformed response — real registries
+    # essentially always populate title — while a work with no recorded author or
+    # publication year is an ordinary record; that is why title has no absence
+    # branch here while author/year do.
     if (
         not isinstance(remote_title, str)
         or not remote_title.strip()
@@ -447,14 +446,20 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "outage — malformed registry metadata",
             extra=extra,
         )
-
-    local_title = entry.get("title")
-    if not isinstance(local_title, str) or local_authors is None or not local_year_ok:
+    if remote_authors == []:
         return Outcome(
             "metadata",
             target,
-            Result.UNREACHABLE,
-            "outage — malformed bibliography metadata",
+            Result.SKIPPED,
+            "no-identifier — registry record has no author",
+            extra=extra,
+        )
+    if remote_year_ok and remote_year is None:
+        return Outcome(
+            "metadata",
+            target,
+            Result.SKIPPED,
+            "no-identifier — registry record has no year",
             extra=extra,
         )
 
