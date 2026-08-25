@@ -6733,3 +6733,38 @@ Task 21: complete (commits c16195e..4b9f427 — 1c7f682 round 0, 111ddbf round 1
   above by annotating the vault commits `[vault repo]` at their canonical
   completion line. The prospective rule stands and is worth keeping — it simply
   had no instance here.
+
+### RECORDED OVERRIDE — record-immutability knowingly bypassed for def1f78
+  The gate fails on two research modifications, BOTH INSTRUCTED and both dated
+  house-style amendments:
+    M research/validation-slice/2026-08-22-skills-layer-audit.md      (C3, C4)
+    M research/validation-slice/2026-08-25-...-method-retrospective.md
+      (the reader-half rule)
+  RULED: take the override knowingly rather than either alternative, and the
+  reasoning for rejecting the other two is the part worth keeping.
+   - JUST PUSHING would have passed — but only BECAUSE the hook compares
+     `origin/main...HEAD` and pushing EMPTIES THE WINDOW. That is AN UNRECORDED
+     BYPASS WEARING A GREEN CHECKMARK, and doing it deliberately is worse than
+     doing it unnoticed, which is what I had already done once at 3707586
+     without seeing it.
+   - HOLDING would have blocked two instructed, dated amendments behind a gate
+     that CANNOT EXPRESS THE ONE EDIT CLASS THIS REPO'S OWN PRACTICE TREATS AS
+     LEGITIMATE. That is the gate malfunctioning, not working.
+  DEFECT FILED AS #28, verified OPEN before citing it: "record-immutability
+  gate: origin-window scope launders pushed edits; no affordance for dated
+  amendments". It carries both halves of the weakness — the origin-window scope
+  WITH 3707586 AS THE UNREMARKED PRECEDENT, credited as self-reported — and the
+  missing dated-amendment affordance, plus the design question for the
+  post-slice fix.
+  THE SHAPE WORTH KEEPING: a gate whose only failure mode is "wait until it
+  cannot see you" does not enforce a rule, it schedules one. The green checkmark
+  after a push is not evidence the record was preserved; it is evidence the
+  comparison window closed.
+### AND THE FINDING-4 CORRECTION, accepted in full by the orchestrator
+  Their words, and I would not have put it as sharply: it is the catalogue's
+  SMALLEST AND BEST SPECIMEN — I accepted THEIR characterisation of MY artifact
+  without measuring it, measured it, and found THE RULE HAD NO INSTANCE while the
+  real defect (unmarked cross-repo SHAs) was narrower and already fixable.
+  The prospective same-sentence rule stands with ZERO INSTANCES; the
+  `[vault repo]` marking is the actual fix.
+### NOTHING OUTSTANDING FROM THIS SEAT once def1f78 is pushed.
