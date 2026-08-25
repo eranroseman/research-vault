@@ -305,3 +305,29 @@ record in one context:
    cites the SDD Finish step's behavior; 6.3.0 changed adjacent SDD text. On upgrade, re-verify
    the premise against the new text (confirmed at today's HEAD: Finish still deletes the
    workspace).
+
+## Completeness pass — the beta set read in full (2026-08-25)
+
+The last load-bearing claims resting on agent summaries were grounded in primary text:
+`implement-spec` and the three writing skills, read verbatim.
+
+- **`implement-spec` confirmed, and thinner than the doc said**: 36 lines. Frontier concurrency,
+  worktree-per-implementer, a merger subagent, one `/code-review` at the end with a single fix
+  subagent. No per-ticket review, no report contract, no fix-round caps or escalation, no
+  test-evidence discipline, no ledger/recovery — versus SDD's 500-line controller plus three
+  dispatch contracts. The execution-gap argument stands on primary text now. Two ideas in it
+  worth stealing regardless: the exploration-subagent pre-pass (an institutionalized form of the
+  pre-check practice that produced this batch's two zero-fix-round tasks) and context-pointer
+  communication doctrine for dispatches.
+- **The writing suite is undersold by "beta, evaluate later."** fragments/beats/shape is a real
+  explore/exploit discipline: fragments is diary-mining via grilling (and maps directly onto the
+  PKM capture-streams decision — fleeting noticings, appended, author-readable bar); beats and
+  shape track a **grounding set** — concepts the reader holds — and offer only reachable next
+  moves, which is the ticket-graph frontier model applied to prose dependencies. One mental model
+  (blocked-until-grounded) across code and writing. All three are user-invoked, re-read-before-
+  write, preserve-user-edits — compatible with this vault's free-region discipline. The
+  workload-3 evaluation should treat them as serious candidates, not curiosities; their
+  "can change or disappear" beta status is the only caveat (vendor a snapshot if adopted).
+- **Remaining unread by design**: the 6.3.0 skill-text diffs (owned by the upgrade ritual) and
+  reference-tier sub-files no claim rests on. The tracker-mediated ruling-latency question is a
+  pilot, not reading — registered in Plan W's dispatch notes.
