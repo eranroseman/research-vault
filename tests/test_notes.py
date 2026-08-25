@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import re
 
 import pytest
 
@@ -415,6 +416,77 @@ def test_claim_id_from_text_when_no_key():
     a = notes.claim_id(ann)
     b = notes.claim_id(dict(ann, annotationText="Mortality  fell 12% (95% CI 8-16)."))
     assert a == b  # whitespace-normalized
+
+
+def test_duplicate_anchors_refuse_render():
+    ann = dict(QUOTE_ANN, key=None)  # identical text -> identical anchor
+    cid = notes.claim_id(ann)
+    pattern = f"^{re.escape(f'duplicate claim anchors in render: {[cid, cid]!r}')}$"
+    with pytest.raises(notes.RenderIntegrityError, match=pattern):
+        notes.render_note(
+            ITEM, ["aa11"], [ann, dict(ann)], existing=None, accessed="2026-08-16"
+        )
+
+
+def test_duplicate_keyless_empty_text_anchors_refuse_render():
+    # Two keyless, comment-only annotations: annotationText is empty for
+    # both, so claim_id hashes b"" for both regardless of comment (issue
+    # #16) -> same anchor c-e3b0c442, not merely a coincidental text match.
+    first = dict(COMMENT_ANN, key=None, comment="Design is retrospective only")
+    second = dict(COMMENT_ANN, key=None, comment="A completely different remark")
+    cid = notes.claim_id(first)
+    assert cid == "c-e3b0c442"
+    pattern = f"^{re.escape(f'duplicate claim anchors in render: {[cid, cid]!r}')}$"
+    with pytest.raises(notes.RenderIntegrityError, match=pattern):
+        notes.render_note(
+            ITEM, ["aa11"], [first, second], existing=None, accessed="2026-08-16"
+        )
+
+
+def test_distinct_keyed_annotations_still_render():
+    text = notes.render_note(
+        ITEM,
+        ["aa11"],
+        [QUOTE_ANN, COMMENT_ANN],
+        existing=None,
+        accessed="2026-08-16",
+    )
+    assert notes.claim_id(QUOTE_ANN) != notes.claim_id(COMMENT_ANN)
+    assert f"^{notes.claim_id(QUOTE_ANN)}" in text
+    assert f"^{notes.claim_id(COMMENT_ANN)}" in text
+
+
+def test_distinct_keyless_annotations_still_render():
+    first = dict(QUOTE_ANN, key=None)
+    second = dict(QUOTE_ANN, key=None, annotationText="A wholly different quote.")
+    text = notes.render_note(
+        ITEM, ["aa11"], [first, second], existing=None, accessed="2026-08-16"
+    )
+    assert notes.claim_id(first) != notes.claim_id(second)
+    assert f"^{notes.claim_id(first)}" in text
+    assert f"^{notes.claim_id(second)}" in text
+
+
+def test_parse_mismatch_still_raises_when_anchors_are_unique(monkeypatch):
+    """The duplicate-anchor guard must not shadow a genuine parse mismatch."""
+    from knowledge_harness import claims as claims_mod
+
+    real_parse_claims = claims_mod.parse_claims
+
+    def corrupted_parse_claims(text):
+        parsed = real_parse_claims(text)
+        if parsed:
+            parsed[0].claim_id = "c-deadbeef"
+        return parsed
+
+    monkeypatch.setattr(claims_mod, "parse_claims", corrupted_parse_claims)
+    with pytest.raises(
+        notes.RenderIntegrityError,
+        match=r"^managed body parsed to \['c-deadbeef'\], expected \['.+'\]$",
+    ):
+        notes.render_note(
+            ITEM, ["aa11"], [QUOTE_ANN], existing=None, accessed="2026-08-16"
+        )
 
 
 def test_render_quote_claim():

@@ -274,6 +274,8 @@ def _assert_managed_body_parses(managed_body: str, annotations) -> None:
     from . import claims as claims_mod
 
     expected = [claim_id(annotation) for annotation in annotations]
+    if len(set(expected)) != len(expected):
+        raise RenderIntegrityError(f"duplicate claim anchors in render: {expected!r}")
     parsed = [
         claim.claim_id
         for claim in claims_mod.parse_claims(managed_body)

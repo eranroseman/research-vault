@@ -229,13 +229,13 @@ def test_normalize_annotation_malformed_or_unknown_degrades_to_paraphrase(
     )
 
 
-def _raw_quote(text):
+def _raw_quote(text, key="ANNKEY01"):
     return {
         "annotationType": "highlight",
         "annotationComment": "",
         "annotationPageLabel": "12",
         "annotationText": text,
-        "key": "ANNKEY01",
+        "key": key,
     }
 
 
@@ -1076,8 +1076,8 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
 ):
     import knowledge_harness.__main__ as cli
 
-    first = _raw_quote("First attachment quote")
-    second = _raw_quote("Second attachment quote")
+    first = _raw_quote("First attachment quote", key="ANNKEY01")
+    second = _raw_quote("Second attachment quote", key="ANNKEY02")
     attachments = [
         {"path": "first.pdf", "annotations": [first]},
         {"path": "second.pdf", "annotations": [second]},
@@ -1212,8 +1212,8 @@ def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
 ):
     import knowledge_harness.__main__ as cli
 
-    first = _raw_quote("Resolved quote")
-    second = _raw_quote("Unresolved quote")
+    first = _raw_quote("Resolved quote", key="ANNKEY01")
+    second = _raw_quote("Unresolved quote", key="ANNKEY02")
 
     class FakeClient:
         def __init__(self, base):
