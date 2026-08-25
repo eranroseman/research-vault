@@ -5,13 +5,46 @@ coding companion for knowledge-harness, and what would switching from superpower
 cost — assuming all in-flight work done and one-time churn free, so the answer weighs steady state
 only.
 
-**Verdict (2026-08-25): superpowers stays the coding companion; the hybrid already running (both
-installed, superpowers owning the dev-process lifecycle, mattpocock owning tracker/domain hygiene)
-is the correct division of labor.** The full-repo review strengthened the incumbent: mattpocock's
-only per-task execution engine is beta and reviews once at the end, while this repo's just-closed
-batch demonstrated that per-task review rounds and receiving-review discipline are where its
-defects get caught. Two real superpowers frictions are named below with mitigations, and one flip
-trigger is recorded.
+**Verdict (2026-08-25, superseding the same-day original below): the target architecture inverts —
+mattpocock/skills becomes the base plugin, with three or four superpowers skills vendored as
+adapted copies for heavy code batches.** The author's challenge to the original verdict survived
+verification against the sources (ask-matt and code-review read in full; three of the original's
+claims corrected below), and their strongest argument is this repo's own doctrine: mattpocock's
+ticket discipline *eliminates* the lost-unresolved-concerns class that superpowers' ephemeral
+workspaces created and this project patched with rules — every unit of work is born durable on a
+tracker with blocking edges. Model alignment runs the same way: knowledge-harness is itself a
+skill pack + `docs/agents/` config + tracker conventions (the `docs/agents/issue-tracker.md`
+convention IS mattpocock's), with no session injection; and the coming workloads (PKM loop,
+long-form writing) are ones where mattpocock's wayfinder/domain-modeling/codebase-design/
+improve-codebase-architecture flows plus its beta writing suite (fragments/beats/shape,
+explore/exploit) fit and superpowers has nothing. The superpowers skills that remain genuinely
+unmatched — the SDD multi-round review loop, receiving-code-review, verification-before-completion,
+finishing-a-development-branch — are text, vendorable via skills.sh into the existing
+`~/.agents/skills` topology, invoked deliberately with no SessionStart injection.
+
+**Corrections to the original (2026-08-25, same day):** (1) "no per-task machinery" was wrong —
+ask-matt's main flow is to-spec → to-tickets → per-ticket `/implement` with `/clear` between,
+each ticket driving `/tdd` internally and closing with `/code-review` (two parallel sub-agents)
+before commit; per-task review exists, tracker-durable. What remains absent is the *loop*: the
+findings→fix-dispatch→re-review-until-clean cycle and evidence-before-completion-claims
+discipline. (2) The "public-tracker seam" cost was wrong as stated — a private repo's issues are
+private, and the local tracker (`.scratch/<feature>/issues/`, one file per ticket, blockers-first)
+is supported natively; tracker choice is per-repo configuration, not a plugin property. (3)
+"code-review includes no verification" was too strong — its Spec axis verifies conformance against
+the originating issue with quoted spec lines; what it lacks is fresh-evidence-before-claims and
+the receiving-side skeptical discipline.
+
+The original verdict and analysis follow, retained for the reasoning that still stands (the
+deciding-delta section's catalogue of what the batch's review rounds caught remains the argument
+for vendoring those specific superpowers skills rather than dropping them).
+
+**Original verdict (2026-08-25, superseded):** superpowers stays the coding companion; the hybrid
+already running (both installed, superpowers owning the dev-process lifecycle, mattpocock owning
+tracker/domain hygiene) is the correct division of labor. The full-repo review strengthened the
+incumbent: mattpocock's only per-task execution engine is beta and reviews once at the end, while
+this repo's just-closed batch demonstrated that per-task review rounds and receiving-review
+discipline are where its defects get caught. Two real superpowers frictions are named below with
+mitigations, and one flip trigger is recorded.
 
 ## Evidence rule
 
@@ -102,15 +135,29 @@ changes, the engine stops earning its injection weight and mattpocock-as-primary
 invoked per-project) becomes the right shape. That decision belongs to the workload maps (§10's
 workload-pipelines entry), not to this note.
 
-## Recommendations
+## Recommendations (superseded 2026-08-25 — see the superseding verdict at top)
 
-- Keep the hybrid; switch nothing off.
-- Upgrade superpowers 6.2.0 → 6.3.0 as a deliberate reviewed event — it codifies three practices
-  this repo hand-built (controller self-ruling, conflict ledgers, non-destructive worktree
-  cleanup).
-- Adopt from mattpocock's uninstalled set where useful: `to-tickets`/frontier for tracker-side
-  planning, `code-review` as a second-opinion axis beside superpowers' review, `diagnosing-bugs`,
-  `ask-matt` as router. None requires displacing anything.
-- The superpowers upstream filing already queued (adjudicate-residuals includes Concerns; workspace
-  deletion gated on dispositions) stands; v6.3.0's non-destructive cleanup reduces but does not
-  remove its motivation.
+Original recommendations, retained: keep the hybrid; deliberate 6.3.0 upgrade; adopt to-tickets/
+code-review/diagnosing-bugs/ask-matt alongside; upstream filing stands.
+
+## Revised target architecture (2026-08-25)
+
+- **Base**: mattpocock/skills as the plugin layer — complete the install (the full promoted set,
+  including ask-matt, code-review, tdd, diagnosing-bugs, implement, to-spec), via the skills.sh
+  editable-copies path already in use (`npx skills add -g`), which matches the author's
+  control preference; run `/setup-matt-pocock-skills` per repo (already done here — the
+  `docs/agents/` layout is its output).
+- **Vendored supplement**: subagent-driven-development, receiving-code-review,
+  verification-before-completion, finishing-a-development-branch from obra/superpowers, adapted
+  (cross-references to using-superpowers/writing-plans rewritten to stand alone), invoked
+  deliberately for heavy code batches. Superpowers' SessionStart injection retires with the
+  plugin — routing moves to AGENTS.md/CLAUDE.md, which this setup already relies on.
+- **Ticket discipline as the concerns backbone**: units of work and their residuals are born on
+  the tracker with blocking edges (native links, or one file per ticket locally); the
+  write-time-destination rule for Concerns remains, with the tracker as its default destination.
+- **Adaptation cost accepted**: vendored superpowers skills freeze at the vendored state and
+  drift from upstream (no more free 6.3.0-style convergence); that is the control-over-currency
+  trade the author has consistently chosen. The queued superpowers upstream filing stands.
+- **Long-form writing leg**: wayfinder → grill-with-docs → to-spec/to-tickets, with
+  domain-modeling underneath and the beta writing suite (fragments/beats/shape) evaluated when
+  workload 3's map is drawn. Tracked as part of the §10 workload-pipelines entry.
