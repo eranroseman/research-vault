@@ -3624,3 +3624,382 @@ Task 17b: fix round 1 re-review dispatched over f3f5a7f..5ac70df, on the most
   scope on my own judgment is the wrong default — offered a correct-forward
   removal commit if they would rather main carry only reports, reviews, briefs
   and ledger.
+
+SDD workspace: review packages UNTRACKED at cf3b17c (ruled — byte-
+  reconstructible artifacts do not earn repo history; reports, reviews, briefs
+  and the ledger do). 31 files, -7105 from the index, ALL 31 STILL ON DISK for
+  the rest of the run. Tracked count 92 -> 61. Corrected FORWARD; 95a81b3 stands.
+  A REAL TRAP IN THIS REPO'S OWN CONVENTION, worth carrying beyond this plan.
+  AGENTS.md mandates explicit-pathspec commits (`git commit -- <files>`) because
+  parallel sessions share the checkout. But `git commit -- <pathspec>` COMMITS
+  THE WORKING-TREE STATE of those paths and IGNORES THE INDEX — so the
+  `git rm --cached` I had staged was SILENTLY DISCARDED. The files stayed
+  tracked, and the commit message asserted they had been removed.
+  A CACHE-ONLY REMOVAL CANNOT BE EXPRESSED IN THE PATHSPEC FORM AT ALL; it has
+  to go through the index. So the convention and the operation are genuinely
+  incompatible here, and the safe procedure is: confirm `git status --porcelain`
+  is EMPTY first (proving no parallel session has anything staged or dirty),
+  then stage and commit through the index.
+  CAUGHT BY VERIFYING RATHER THAN BY READING THE EXIT CODE: the commit reported
+  "1 file changed, 35 insertions(+)" for what should have been 31 deletions, and
+  `git ls-files .superpowers/ | wc -l` still said 92. Message amended at 2393658
+  to state what the commit actually did and why, following the a3db464
+  precedent for a false claim in a commit message.
+  THE THROUGH-LINE AGAIN, this time in my own work: the commit was described
+  from intent instead of derived from the result.
+
+### TASK 18 PRE-CHECK (done while the 17b re-review runs; read-only, no collision)
+  THE PLAN ASKS THE IMPLEMENTER TO "LOCATE IT — DO NOT INVENT A SECOND
+  NORMALIZER". I looked, so the answer ships with the brief instead of costing a
+  round: THERE IS NO GENERAL URL NORMALIZER IN THIS PACKAGE, established from
+  THREE ANGLES rather than one grep, because an absence claim from a single grep
+  is unfalsifiable by that same grep:
+   - no `def` in knowledge_harness takes two URLs to compare (enumerated every
+     def whose name carries url/link);
+   - EVERY `netloc` use is a single-URL membership or equality test against a
+     CONSTANT — archive.py:68, checks.py:713, checks.py:729, webapi.py:64 — never
+     a two-URL comparison;
+   - the only casefold-on-host idiom is arXiv-specific (_arxiv_identity,
+     _arxiv_base_identity).
+  So the plan's stated FALLBACK governs: exact match after stripping a single
+  trailing slash and lowercasing scheme+host only.
+  A DISAGREEMENT THE PLAN'S OWN SNIPPET WOULD INTRODUCE, and the important find:
+  ARCHIVE_HOSTS is frozenset({"web.archive.org", "archive.org"}) — TWO hosts —
+  but the plan's _SNAPSHOT_RE hardcodes ONLY `web\.archive\.org`. A snapshot on
+  archive.org passes is_archive_url TODAY and would fail the new shape check. The
+  tightening is probably RIGHT (a real Wayback snapshot always lives on
+  web.archive.org; archive.org is the availability API host), but it is a
+  behaviour change the plan never states, and it leaves TWO OVERLAPPING
+  VALIDATORS DISAGREEING about what a snapshot URL is — the same "two spellings
+  of one contract" shape Task 17b just spent a fix round eliminating. The
+  implementer must state which one governs rather than let them drift.
+  ASYMMETRY WORTH STATING TOO: _closest_snapshot (archive.py:129) already routes
+  the CONFIRMED snapshot through is_archive_url, so both paths check host
+  membership — but only the SUPPLIED path gains shape + target-URL checking.
+  Lower exposure (the availability API is queried with params={"url": url}, so it
+  answers about that URL), but the asymmetry should be deliberate, not accidental.
+Task 18/final-review: minor (deferred) — MODULE MANIFESTS ARE STALE, 10 OF 25.
+  knowledge_harness/*.manifest.json carry a source_sha256 per module; I compared
+  each against the file it names: __main__, archive, checks, events, frontmatter,
+  inbox, lints, notes, scaffold and verify are all stale — precisely the modules
+  this batch touched. NO PYTHON FILE READS THEM (grep for manifest.json across
+  *.py returns nothing), so no gate catches the drift and none can: they are
+  mutate4py's own cache. INERT TODAY, and Plan W replaces that tool with mutmut
+  (Tasks 23-25, out of scope here), which is the disposition — but recorded with
+  the measurement rather than left as a vague "probably fine".
+
+Task 17b: fix round 1 re-review — SOME OPEN. Every round-1 item addressed and
+  revert-red, but one NEW IMPORTANT, and two of round 1's own findings only
+  HALF-CLOSED. Review file: task-17b-rereview-r1.md
+  WHAT THE RE-REVIEW ESTABLISHED BY RUNNING RATHER THAN READING:
+   - 14 malformed `generated` shapes probed; at f3f5a7f SEVEN of them attested
+     and legalized an archive-url edit, at 5ac70df all are blocked. Revert-red
+     2/2. _machine_attested has exactly two call sites, both behind
+     _valid_generated, so the AttributeError I checked for is UNREACHABLE —
+     probed with "junk"/[1,2]/None: raises at base, returns False at head.
+   - THE INSTRUMENTATION AUDIT REPRODUCED EXACTLY: 17 failed at f3f5a7f (7
+     intentional + 10 real across the three named functions), 11 at 5ac70df, all
+     intentional. NO MISSED SITE, and no env-gate trace shipped.
+   - serialize BYTE-IDENTICAL across a 52-input differential (including
+     _DuplicateKeyMapping at top level, inner and in-list, and 13 control-char
+     raise-parity cases) — same md5 on both trees. That is what makes the core
+     refactor safe to keep, and a green suite could never have shown it.
+   - Boundary verified three ways: docstring carries §2's form plus piggy-backing
+     (probed: legit bump + unrelated citekey edit -> n=0), ZERO production reason
+     strings changed, ZERO ADRs added.
+  A METHOD FINDING WORTH KEEPING: an import-path canary caught an EDITABLE
+  INSTALL resolving `knowledge_harness` to the PARENT repo instead of the scratch
+  tree. Every scratch probe in this plan has been at risk of silently measuring
+  the wrong code; from now on scratch dispatches carry `PYTHONPATH=.` and a canary.
+Task 17b: IMPORTANT (N1) — THIS TASK DISARMED A PRE-EXISTING TEST, and the
+  implementer had judged exactly this benign in its concern 3. Controller
+  confirmed by reading the test: tests/test_lints.py:751-755 takes the FIRST
+  UNMATCHED outcome and asserts only `reason.startswith("drift")`. The [edit]
+  case refreshes the managed witness, so managed-sha256 changes with no
+  `generated` bump and the NEW check emits a SECOND drift outcome carrying THE
+  SAME TARGET. If the managed-region comparison broke, the attestation outcome
+  now satisfies the assertion in its place.
+  MUTATION PROOF on lints.py:779: 1 failed at a2d7942, 0 failed at BOTH f3f5a7f
+  and 5ac70df. The test caught that regression before this task and does not now.
+  AND THE REPO'S OWN MUTATION GATE IS BLIND TO IT — the `!=`->`==` operator mutant
+  it generates is still killed (9 failures), so nothing downstream would ever
+  report the loss. A loose assertion is how a guard gets disarmed without any
+  test turning red; this is the second instance this plan has caught, after Task
+  17's fixture migration.
+Task 17b: fix round 2/5 dispatched — N1 plus three items that are NOT new minors
+  but ROUND 1'S OWN FINDINGS LEFT HALF-CLOSED, which is why they re-enter the
+  loop rather than the deferred list:
+   - N2: Minor C half-closed. Base frontmatter unparseable AND candidate carrying
+     an intact machine `generated` yields ZERO findings — same as pre-fix,
+     because the changed side AUTO-ATTESTS. The test name and 5ac70df's commit
+     body both say "fail-closed"; for this path it is not, so a commit body
+     asserts something untrue. Correction goes in round 2's body, not an amend.
+   - N3: Minor A half-closed. One "now" spelling remains, but the inline-dict
+     emitter is STILL WRITTEN TWICE (frontmatter.py:73-77 and :88-92).
+   - N4: notes._valid_generated is now the SOLE definition of `generated`'s shape
+     — attestation, render trigger and archive's round-trip all bottom out in it
+     — and it has NO DIRECT TEST; render_field and generated_at_now have zero
+     test references; frontmatter.py is mutation-excluded, so nothing else would
+     catch a regression either. The task made it load-bearing without covering it.
+  Dispatch also carries the new report-in-task-commit rule and the explicit
+  instruction NOT to re-add the review packages untracked at cf3b17c.
+
+### TASK-REPORTS RULE REWORKED (author, relayed by the orchestrator) — THE SKILL
+### OVERRIDE IS GONE, AND THAT IS THE BETTER SHAPE
+  New form: a report NAMES A DESTINATION PER CONCERN AT WRITE TIME, and a plan's
+  workspace closes only once every Concern's disposition has landed in its
+  durable home. The SDD skill's Finish delete then runs AS WRITTEN, because by
+  then it destroys only exhaust. That eliminates the contradiction I flagged
+  rather than papering over it with an override — the mechanism moved up a rung,
+  exactly as AGENTS.md orders the choices.
+  FOR POST-Q, NOTHING CHANGES and one thing is explicitly ruled OUT: the
+  committed workspace (95a81b3 + cf3b17c) STANDS — it was the rescue for concerns
+  written BEFORE write-time destinations existed — and NO DELETION COMMIT is
+  added at Finish. The workspace is already history; deleting it now would
+  destroy the very record the rescue created.
+  ACTED ON IMMEDIATELY rather than deferred to Task 18: sent an addendum to 17b's
+  in-flight round-2 implementer requiring a destination per Concern, including
+  re-stating destinations for the three carried from rounds 0 and 1 (unguarded
+  MANAGED_FIELDS keys; duplicate-key evasion; renamed files skipping the per-key
+  diagnostic — destination: controller files them as GitHub issues at plan
+  close). Told it explicitly that AN HONEST DECLINE IS A DISPOSITION AND SILENCE
+  IS NOT, so "no destination" cannot be the cheap answer.
+  STANDING CHANGE TO EVERY REMAINING DISPATCH: reports ship in the task commit,
+  and every Concern names its destination at write time.
+
+Task 17b: BOTH FINDINGS ROUTED TO DURABLE HOMES, and I VERIFIED BOTH rather than
+  record them on the relay — AGENTS.md's own "fetch before claiming something is
+  absent from origin" cuts both ways:
+   - `gh issue view 22` -> OPEN, "Sweep loose prefix assertions on outcome reason
+     strings", labels enhancement + needs-triage. Candidate home named as Plan
+     W's quality tail, WHICH KEEPS THIS BATCH'S FREEZE INTACT — the sweep is a
+     real task and it is deliberately NOT this plan's. DESTINATION RULE FOR ME:
+     when round 2 pins the exact reason strings, they go as a COMMENT ON #22, not
+     as a new issue.
+   - `git fetch` then `git show 3faab3c` -> real, and it is the CURRENT TIP of
+     origin/main: "testing: wrong-tree import trap (PYTHONPATH=. + canary for
+     scratch probes)", 4 lines into docs/testing.md. My dispatch-level fix
+     stands; the doc is what makes it outlive this plan and this session.
+  ORIGIN/MAIN HAS MOVED (3faab3c, and f9d95df's pathspec exception before it).
+  NOT MERGING NOW — the standing ruling is merge at a Part boundary and Part 2 is
+  not done. Recorded so the divergence is a known quantity rather than a surprise
+  at Task 21.
+
+Task 17b: fix round 2 landed — 1441e7f, follow-up not an amend. 6 files
+  including task-17b-report.md, THE FIRST COMMIT UNDER THE NEW
+  REPORT-IN-TASK-COMMIT RULE. progress.md deliberately EXCLUDED from its
+  pathspec because the controller was editing it concurrently — the right call,
+  and exactly why the explicit-pathspec convention exists in a shared checkout.
+  No review-*.diff re-added. Suite 1605/7 (+24: 1 for N2, 17 in test_notes.py and
+  6 in test_frontmatter.py for N4); ruff, mypy, form gate clean.
+  ALL FOUR CONCERNS NOW CARRY DESTINATIONS, per the addendum — three routed to
+  "controller files as GitHub issues at plan close", and the fourth is AN EXPLICIT
+  DECLINE WITH A REASON (_valid_generated's keyset-equality clause judged
+  behaviourally redundant with its own later type checks; kept for readability).
+  That is the shape the new rule wanted: silence would not have been a
+  disposition, and a decline is.
+  IMPLEMENTER SELF-REPORTED A SECOND FAILED PROBE — its first N4 mutation "turned
+  out not to be a real mutant" and was redone. Second time this task it has
+  disclosed a method failure rather than shipping past it.
+  CONTROLLER-READ THE PRODUCTION DIFF BEFORE DISPATCHING:
+   - N3's extraction also removes a confusing `key` SHADOW in serialize's
+     list-of-dicts comprehension. Harmless in Python 3 (comprehensions own their
+     scope) but it made the duplicate genuinely hard to see as a duplicate.
+   - N2's guard is `attested = base_data is not None and generated_changed and
+     _machine_attested(...)`. AN ASYMMETRY IT LEAVES, which I am sending to the
+     re-review AS A QUESTION rather than a verdict: the SECOND predicate, the
+     `generated`-guards-itself block, did NOT get the base_data guard. So with an
+     unparseable base and a machine-shaped candidate `generated`, the four keys
+     now flag but `generated` ITSELF does not. My reading is that the four-key
+     findings always fire first so no file passes silently — but that is a
+     reading, and the re-review is asked to settle it empirically and give
+     reasoning rather than a verdict.
+Task 17b: fix round 2 re-review dispatched over cf3b17c..1441e7f (the round-2
+  commit ALONE — the three intervening docs commits are excluded by choosing its
+  parent as base, so the reviewer sees the fix and nothing else). Required to
+  rebuild the lints.py:779 mutant and show it now goes RED; to confirm EVERY
+  `change` parameter is pinned rather than only the one the finding named; to
+  differentially test serialize AND render_field byte-for-byte across both
+  commits INCLUDING exception parity, since frontmatter.py is mutation-excluded
+  and nothing else guards it; and to prove each new N4 test discriminates by
+  mutation, PER TEST rather than in aggregate.
+  ALSO ASKED TO FALSIFY THE DECLINE: construct an input the keyset-equality
+  clause rejects that the type checks would accept, or show none exists — because
+  A WRONG REDUNDANCY CLAIM LEFT IN A REPORT BECOMES A FUTURE DELETION.
+  AND CARRIES THE WRONG-TREE IMPORT CANARY as a hard precondition, per
+  docs/testing.md on main.
+
+Task 17b: fix round 2 re-review — N1-N4 ALL GENUINELY FIXED, four new Minors.
+  Review file: task-17b-rereview-r2.md (608 lines).
+  THE EVIDENCE, all reproduced rather than read:
+   - N1 RE-ARMED: the reviewer's own `if False:` neuter on lints.py:787 SURVIVES
+     at cf3b17c (0 failed / 1581 passed) and is KILLED at 1441e7f (1 failed) by
+     test_managed_change...[edit]. All FOUR parametrize values pin
+     expected_reason, and `next()` was replaced by a comprehension filtered on
+     result AND target — so wrong-outcome substitution is closed structurally,
+     not just for the one parameter the finding named.
+   - N2 CLOSED: the exact case goes n=0 -> n=4. Reverting only `base_data is not
+     None` reds the new test with `assert []`.
+   - N3 BYTE-IDENTICAL over 251 evaluations per SHA — and crucially 107 RAISES
+     IDENTICAL IN TYPE AND MESSAGE, which a same-output comparison alone would
+     have missed.
+   - N4 discriminates, 8 of 10 mutants killed cleanly; the implementer's
+     "first probe wasn't a real mutant" self-report VERIFIED ACCURATE.
+  THE N2 ASYMMETRY I FLAGGED — ANSWERED, AND MY READING WAS WRONG IN THE DETAIL.
+  The asymmetry is CORRECT by design: the two predicates answer different
+  questions ("is there evidence of a legitimate write in this diff?" is
+  unanswerable with an unreadable base, so it fails closed; "is this value
+  machine-shaped?" is answerable from the candidate alone, so guarding it would
+  emit a false positive about a perfectly valid `generated` because a DIFFERENT
+  line is malformed). But I claimed the four-key findings always catch it, and
+  THEY DO NOT: base unparseable + machine `generated` + NONE of the four keys
+  gives n=0 at both SHAs. The file still fails end to end — netted by
+  notes.validate_managed_witness with `schema-violation — missing managed-sha256`,
+  which runs unconditionally upstream. Since managed-sha256 IS one of the four
+  keys, the split is exhaustive: present -> four-key rule flags, absent -> witness
+  rule flags. Harmless, BUT BY A SIBLING CHECK, NOT THE RULE I NAMED. Recorded
+  because "I reasoned it was covered" and "I measured what covers it" are
+  different claims, and only the second one is worth anything.
+Task 17b: fix round 3/5 dispatched — four items, three of them ACCURACY DEFECTS
+  and one the task's recurring failure mode:
+   - N6: THE N1 DEFECT CLASS REINTRODUCED IN THE COMMIT THAT FIXED N1.
+     tests/test_lints.py:1082 filters on TARGET ONLY, no Result filter and no
+     reason pinned, then asserts truthiness. CONTROLLER CONFIRMED BY READING IT:
+     `schema-violation — missing managed-sha256`, `— malformed managed boundary`
+     and `drift — managed literature region changed` ALL carry that same target,
+     so the test stays green even if the attestation outcomes vanish entirely.
+     Third instance in this task of one shape — an assertion loose enough to be
+     satisfied by the wrong outcome.
+   - N7: the concern-4 decline is TRUE AS SCOPED AND DANGEROUSLY WORDED. Dropping
+     the keyset clause alone: 0 divergences over 15,901 inputs, suite green — a
+     genuine equivalent mutant, so the implementer was right. Dropping
+     `len(items) != 2` alone: 144 divergences, AND THAT MUTANT SURVIVES THE FULL
+     SUITE. CONTROLLER VERIFIED THE DECISIVE CASE DIRECTLY: `generated: {by:
+     "human:eran", by: "knowledge_harness/0.1.0", at: <valid>}` PARSES, keeps
+     both `by` entries, `.get("by")` LAST-WINS RETURNS THE MACHINE ACTOR, and
+     _valid_generated rejects it ONLY via the length check — the keyset check
+     passes it. So the clause called redundant SHARES AN `if` WITH THE SOLE
+     REJECTER OF DUPLICATE-KEY `generated` FORGERY, and a reader acting on
+     "behaviourally redundant" deletes the line and opens that path. Round 3 must
+     amend the concern to separate the two sub-clauses AND add a
+     duplicate-by-last-wins rejection parameter, since the suite is blind to it.
+   - N8: the report's and commit body's N1 mutation account names the WRONG
+     MUTANT (the `==` flip, which round 1 had already calibrated as killed, not
+     the `if False:` neuter actually run) and the WRONG BEFORE-NUMBER (that flip
+     fails 3 of 4 params at cf3b17c, not 0). Correction goes in round 3's body
+     per the a3db464 precedent, not an amend.
+   - N5: test_render_field_matches_serialize... COMPARES render_field TO ITSELF,
+     because serialize's non-list branch routes through render_field. Worth
+     having as a call-site-agreement pin, but the report calls it "proving the
+     one-spelling property", which it does not.
+  Dispatch names issue #22 as N6's destination, with the pinned strings to be
+  added there as a COMMENT rather than a new issue.
+
+Task 17b: fix round 3 landed — ff6b2f3, follow-up not an amend. 4 files,
+  +225/-24, and ZERO PRODUCTION LINES: tests and the report only, which is the
+  right shape for a round whose four findings were all accuracy defects.
+  Suite 1606/7 (+1: duplicate-by-last-wins); ruff, mypy, form gate clean.
+  progress.md again excluded from the pathspec for the concurrent-edit reason.
+  CONTROLLER-READ THE DIFF, and two choices are better than they had to be:
+   - N7's _DUPLICATE_BY_LAST_WINS is built by ACTUALLY CALLING frontmatter.parse
+     on a duplicate-`by` source line, NOT by hand-constructing a dict that
+     imitates one. That matters: a hand-built fake would pin the predicate
+     against a shape the parser might never produce, which is how a test comes to
+     defend an unreachable case while the reachable one walks past. Parsing it
+     proves reachability and the rejection in a single artifact.
+   - N6's pinned set is a SET OF EXACT REASONS with a comment naming the three
+     decoy reasons that share the target. The fix does not merely tighten the
+     assertion, it records WHY tightening was necessary — which is what stops the
+     next person loosening it back.
+  N8 IS THE ONE WORTH KEEPING: the implementer had named and run the WRONG MUTANT
+  and reported a wrong before-number, then re-ran the real one in isolated
+  scratch trees at both SHAs and recorded the correction AS AN ERRATUM rather
+  than silently rewriting the original text. Third disclosed method failure from
+  this implementer in one task. A run where the implementer's self-reports are
+  reliable is a different kind of run, and it is worth saying so explicitly.
+Task 17b: fix round 3 re-review dispatched over 1441e7f..ff6b2f3, on a mid tier
+  rather than the top one — the diff is small and touches no production code, and
+  the skill's own guidance sizes re-reviews to the diff. Required to:
+   - suppress _frontmatter_attestation_outcomes entirely and show the N6 test was
+     GREEN at 1441e7f and RED at ff6b2f3, which is the only thing that proves the
+     pin does work the loose version did not;
+   - check the pinned set is neither over- NOR under-specified against the
+     fixture's actual outcomes, since an over-specified set is its own defect;
+   - answer why `archive-url` — one of the four machine-owned keys — is ABSENT
+     from the pinned set, and whether that absence is correct or a gap;
+   - falsify the amended concern in BOTH directions: dropping `len(items) != 2`
+     must red the new parameter, and dropping the keyset clause must leave the
+     suite green. An amendment that is only checked in the direction it now
+     emphasises is half-checked.
+   - judge the MODULE-IMPORT-TIME parse behind _DUPLICATE_BY_LAST_WINS, since a
+     raise there would fail collection of the whole test module rather than one
+     test.
+  And told outright to assume THE RECURRING DEFECT CLASS CAN APPEAR IN THE FIX
+  FOR IT — it has already appeared three times in this task, once inside the
+  commit that fixed it.
+
+Task 17b: fix round 3 re-review — ALL ADDRESSED. One new Minor, and it landed on
+  ME. Review file: task-17b-rereview-r3.md
+   - N5 rename verified: body BYTE-IDENTICAL by diff, only name and docstring
+     changed, so the rename did not quietly weaken the test.
+   - N6 pinned set verified COMPLETE AND CORRECT by debug print — exactly
+     {citekey, fixity-sha256, managed-sha256}, all UNMATCHED, nothing else shares
+     the target. Neither over- nor under-specified.
+   - N7 falsified in BOTH directions, which is what the dispatch demanded:
+     dropping only `len(items) != 2` REDS duplicate-by-last-wins (1 failed / 16
+     passed); dropping only the keyset clause leaves the FULL SUITE GREEN. The
+     amended concern's split is accurate both ways, not just the way it now
+     emphasises.
+   - N8 rebuilt: cf3b17c 0 failed / 1581 passed, 1441e7f 1 failed. Matches the
+     corrected account exactly, and the erratum is APPENDED AFTER the untouched
+     original wrong paragraph rather than replacing it.
+   - archive-url's absence from the pinned set is CORRECT, not a gap: the fixture
+     note never sets that key on either side, so None != None yields nothing.
+   - The module-import-time parse is acceptable: a frontmatter.parse regression
+     becomes a whole-module COLLECTION ERROR for test_notes.py — loud, and
+     undegraded on coverage, only on diagnostic granularity.
+Task 17b: THE NEW MINOR WAS MY ERROR, NOT THE IMPLEMENTER'S. The comment
+  justifying the pinned set claimed a looser assertion would be satisfied
+  "including one where the attestation check's own findings had vanished
+  entirely". FALSE — AND THE FALSE CLAIM CAME FROM MY OWN ROUND-3 DISPATCH,
+  pasted into the comment because I asserted it.
+  I MEASURED IT BOTH WAYS in a canary-checked scratch tree at 1441e7f rather than
+  take the reviewer's word about my own mistake:
+   - full suppression (_frontmatter_attestation_outcomes returns []) -> the LOOSE
+     assertion FAILS. This fixture corrupts the BASE and leaves the candidate
+     PRISTINE, so no schema-violation or managed-region finding carries that
+     target at all; zeroing the check empties the list and truthiness notices.
+     My "decoys are always present" premise was reasoning about a DIFFERENT
+     scenario than the one the fixture builds.
+   - partial loss (only the citekey outcome dropped) -> the LOOSE assertion
+     PASSES. THAT is the real reason to pin the set: a truthiness check survives
+     losing any single reason because the remaining two keep it non-empty.
+  Corrected at 18ba920, comment-only, with the commit message naming the error as
+  mine and carrying both measurements. Did NOT spend a fifth round on a one-line
+  comment whose falsehood I authored.
+  THE THROUGH-LINE, THIRD TIME AGAINST MY OWN WORK: described from reasoning
+  instead of derived from the thing itself. It is worth noting the shape it took
+  here — I did not invent a fact, I generalised a TRUE fact about one scenario
+  onto a fixture that does not build that scenario. That is the harder version to
+  catch, because the claim is true somewhere.
+Task 17b: complete (commits a2d7942..18ba920 — f3f5a7f, 5ac70df, 1441e7f,
+  ff6b2f3, 18ba920 — review clean after 3 fix rounds, 3 minors deferred).
+  Ticked at the plan commit below: 4 boxes; 68 checked / 44 unchecked.
+  Suite 1606/7; form gate exit 0. Both re-verified by the controller.
+  FOUR ROUNDS, AND THE TASK EARNED THEM: it began as "add a check", and the
+  review loop turned up a version-bump time bomb (pre-check), an attestation that
+  accepted malformed input, a partial absence claim that hid a third defect site,
+  a disarmed pre-existing test, a commit body asserting fail-closed behaviour it
+  did not have, a wrong mutation account, and a decline whose wording invited a
+  deletion that would reopen a forgery path. NONE of those were the original
+  defect; all of them were real.
+Task 17b: minor (deferred): other MANAGED_FIELDS keys (type, aliases, doi, url,
+  pmid, version, accessed) remain outside the guard — the brief scoped it to five
+  keys. Destination: GitHub issue at plan close.
+Task 17b: minor (deferred): DUPLICATE-KEY EVASION at the parser — .get() is
+  last-wins, so a duplicated machine-owned key whose final copy matches base
+  evades the value comparison. Only managed-sha256 has an independent duplicate
+  guard. Destination: GitHub issue at plan close. This is the one with teeth.
+Task 17b: minor (deferred): renamed files get the wholesale "note renamed" drift
+  but skip the per-key attestation diagnostic. Destination: GitHub issue at plan
+  close.
