@@ -11,6 +11,8 @@
 
 **Authority:** spec §9 verbatim (phases, validated-when, falsified-when); the shipped skills are the instrument under test — where a skill's behavior diverges from what the slice needs, that is a FINDING about the skill, recorded, not worked around (routing around the vault is the §9 falsification condition).
 
+**Standing sequence (decided 2026-08-25, with both gates clear):** this slice runs now, with the author — it is the critical path to validation and the author-in-the-loop work. Plan W (`2026-08-24-plan-w-quality-tail.md`) runs in a parallel peer session per its own non-gating charter; it does not gate these phases and these phases do not wait for it (both commit to main; W touches code/tests, the slice writes the vault and research/ — low collision, shared-checkout etiquette governs). After the slice closes, the post-slice improvement queue opens; its contents live in five homes: the polish ledger (`research/validation-slice/2026-08-22-skills-layer-audit.md`), the open tracker issues (#16, #19–#21, #24–#28), the standing recommendations register (`docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md`), this plan's Phase 5 pre-registered pilots, and spec §10's triggered deferrals. The author-scheduled wayfinder work (vault↔repo seam, then workload maps) is independent of this sequence.
+
 ## Global Constraints
 
 - The vault lives at a path OUTSIDE this repo (e.g. `~/kh-vault`); it gets its own `git init` via `setup-vault`. Nothing from the slice is committed into the plugin repo except this plan and the findings log.
