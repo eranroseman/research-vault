@@ -611,6 +611,7 @@ def test_metadata_reports_author_family_and_given_initial_divergence(
                     {"family": "Jones", "given": "Jo"},
                     {"family": "Smith", "given": "Ava"},
                 ],
+                "issued": {"date-parts": [[2020]]},
             }
         },
     )
@@ -633,6 +634,7 @@ def test_metadata_reports_author_family_and_given_initial_divergence(
             "message": {
                 "title": ["Mortality decline"],
                 "author": [{"family": "Smith", "given": "Anne"}],
+                "issued": {"date-parts": [[2020]]},
             }
         },
     )
@@ -642,8 +644,8 @@ def test_metadata_reports_author_family_and_given_initial_divergence(
     assert initial.reason.startswith("mismatch — author given-name")
 
 
-def test_metadata_compares_year_only_when_both_records_have_one(net_vault, monkeypatch):
-    """An absent optional remote year is not a mismatch, but conflicting years are."""
+def test_metadata_skips_when_registry_record_has_no_year(net_vault, monkeypatch):
+    """A registry record with no year is a legitimate data state, not a silent pass."""
     _crossref_route(
         monkeypatch,
         {
@@ -653,8 +655,16 @@ def test_metadata_compares_year_only_when_both_records_have_one(net_vault, monke
             }
         },
     )
-    assert checks.check_metadata(net_vault, _metadata_entry()).result is Result.MATCHED
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
 
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — registry record has no year"
+
+
+def test_metadata_reports_year_divergence_when_both_records_have_one(
+    net_vault, monkeypatch
+):
+    """Conflicting years, both present, is a genuine mismatch."""
     _crossref_route(
         monkeypatch,
         {
@@ -684,7 +694,11 @@ def test_metadata_uses_csl_content_negotiation_for_non_crossref_agencies(
             ),
             "doi.org/10.5281/z.1": (
                 200,
-                {"title": "Dataset of mortality", "author": [{"family": "Smith"}]},
+                {
+                    "title": "Dataset of mortality",
+                    "author": [{"family": "Smith"}],
+                    "issued": {"date-parts": [[2020]]},
+                },
             ),
         },
     )
@@ -696,6 +710,7 @@ def test_metadata_uses_csl_content_negotiation_for_non_crossref_agencies(
             "DOI": "10.5281/z.1",
             "title": "Dataset of mortality",
             "author": [{"family": "Smith"}],
+            "issued": {"date-parts": [[2020]]},
         },
     )
 
@@ -722,7 +737,13 @@ def test_metadata_stops_when_registry_routing_is_unavailable(net_vault, monkeypa
         {"message": []},
         {"message": {"title": "not-a-list", "author": []}},
         {"message": {"title": [], "author": []}},
-        {"message": {"title": ["Mortality decline"], "author": [{}]}},
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "author": [{}],
+                "issued": {"date-parts": [[2020]]},
+            }
+        },
         {
             "message": {
                 "title": ["Mortality decline"],
@@ -1977,7 +1998,11 @@ def test_metadata_treats_malformed_csl_shape_as_unreachable(net_vault, monkeypat
             ),
             "doi.org/10.5281/z.1": (
                 200,
-                {"title": ["wrong CSL title type"], "author": "Smith"},
+                {
+                    "title": ["wrong CSL title type"],
+                    "author": "Smith",
+                    "issued": {"date-parts": [[2020]]},
+                },
             ),
         },
     )
@@ -1989,6 +2014,7 @@ def test_metadata_treats_malformed_csl_shape_as_unreachable(net_vault, monkeypat
             "DOI": "10.5281/z.1",
             "title": "Dataset",
             "author": [{"family": "Smith"}],
+            "issued": {"date-parts": [[2020]]},
         },
     )
 
@@ -2016,6 +2042,101 @@ def test_metadata_skips_entries_whose_local_bibliography_has_no_title(
     assert outcome.result is Result.SKIPPED
     assert outcome.reason == "no-identifier — item has no title"
     assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+def test_metadata_skips_entries_whose_local_bibliography_has_no_author(
+    net_vault, monkeypatch
+):
+    """Symmetric with the title case: a locally absent author will never resolve by
+    retrying — skip, don't hold. (Round 1 wrongly left this as a false UNMATCHED.)"""
+    _fake_get(monkeypatch, {"": AssertionError("no metadata request should be made")})
+
+    outcome = checks.check_metadata(
+        net_vault,
+        {"id": "noauthor2024", "DOI": "10.1000/xyz", "title": "Mortality decline"},
+    )
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — item has no author"
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+def test_metadata_skips_entries_whose_local_bibliography_has_no_year(
+    net_vault, monkeypatch
+):
+    """Symmetric with the title case: a locally absent year will never resolve by
+    retrying — skip, don't hold. (Round 1 wrongly let this fall through to MATCHED.)"""
+    _fake_get(monkeypatch, {"": AssertionError("no metadata request should be made")})
+
+    outcome = checks.check_metadata(
+        net_vault,
+        {
+            "id": "noyear2024",
+            "DOI": "10.1000/xyz",
+            "title": "Mortality decline",
+            "author": [{"family": "Smith", "given": "Jo"}],
+        },
+    )
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — item has no year"
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+def test_metadata_skips_when_registry_record_has_no_author(net_vault, monkeypatch):
+    """A registry record with no author field is a legitimate data state, not an
+    outage — skip the whole check rather than silently comparing against nothing."""
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": ["Mortality decline"],
+                "issued": {"date-parts": [[2020]]},
+            }
+        },
+    )
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — registry record has no author"
+
+
+def test_metadata_treats_registry_record_with_no_title_as_unreachable(
+    net_vault, monkeypatch
+):
+    """Unlike author/year, a registry record with no title at all genuinely is a
+    malformed response — this lane is deliberately NOT symmetric with the others."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.5281/z.1": (
+                200,
+                [{"DOI": "10.5281/z.1", "RA": "DataCite"}],
+            ),
+            "doi.org/10.5281/z.1": (
+                200,
+                {
+                    "author": [{"family": "Smith"}],
+                    "issued": {"date-parts": [[2020]]},
+                },
+            ),
+        },
+    )
+
+    outcome = checks.check_metadata(
+        net_vault,
+        {
+            "id": "smithdata",
+            "DOI": "10.5281/z.1",
+            "title": "Dataset of mortality",
+            "author": [{"family": "Smith"}],
+            "issued": {"date-parts": [[2020]]},
+        },
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed registry metadata"
 
 
 def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():

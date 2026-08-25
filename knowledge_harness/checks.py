@@ -341,13 +341,30 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "metadata", target, Result.SKIPPED, "no-identifier — item has no DOI"
         )
     doi = doi.strip()
+    local_extra = _metadata_extra(doi)
     if entry.get("title") is None:
         return Outcome(
             "metadata",
             target,
             Result.SKIPPED,
             "no-identifier — item has no title",
-            extra=_metadata_extra(doi),
+            extra=local_extra,
+        )
+    if entry.get("author") is None:
+        return Outcome(
+            "metadata",
+            target,
+            Result.SKIPPED,
+            "no-identifier — item has no author",
+            extra=local_extra,
+        )
+    if entry.get("issued") is None:
+        return Outcome(
+            "metadata",
+            target,
+            Result.SKIPPED,
+            "no-identifier — item has no year",
+            extra=local_extra,
         )
 
     agency = registry_agency(vault_root, doi)
@@ -357,7 +374,7 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             target,
             Result.UNREACHABLE,
             "outage — registry routing unavailable",
-            extra=_metadata_extra(doi),
+            extra=local_extra,
         )
 
     try:
@@ -388,6 +405,22 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             target,
             Result.UNREACHABLE,
             "outage — registry record unavailable",
+            extra=extra,
+        )
+    if remote.get("author") is None:
+        return Outcome(
+            "metadata",
+            target,
+            Result.SKIPPED,
+            "no-identifier — registry record has no author",
+            extra=extra,
+        )
+    if remote.get("issued") is None:
+        return Outcome(
+            "metadata",
+            target,
+            Result.SKIPPED,
+            "no-identifier — registry record has no year",
             extra=extra,
         )
 

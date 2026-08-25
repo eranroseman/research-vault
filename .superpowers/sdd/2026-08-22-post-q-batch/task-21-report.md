@@ -157,3 +157,133 @@ unaffected).
   not part of either ruling; the spec sentence was scoped to `title` precisely to
   avoid asserting something false of these two. Widening the fix to cover them is
   unruled scope, not attempted here.
+  **SUPERSEDED by Fix Round 1 below — ruled, fixed, and closed.**
+
+## Fix Round 1 (2026-08-25)
+
+**What changed and why.** This concern (the one directly above) turned out to be
+the most consequential finding in the round-1 report, not a footnote: it corrected
+the coordinator's own earlier claim (relayed upstream) that Step 1's "silently
+folds into MATCHED" premise had been fully falsified. It hadn't — `author` and
+`issued` were never checked, only `title`. **New ruling (2026-08-25): absent-local
+becomes whole-check SKIPPED for all three compared fields, symmetric, and — because
+the same shared helpers (`_metadata_authors`, `metadata_year`) produce the identical
+absent-vs-malformed conflation on the remote side — the fix also covers absent
+remote `author`/`year`.** The one deliberately asymmetric cell: a **remote** record
+missing `title` entirely stays UNREACHABLE ("outage — malformed registry metadata",
+unchanged) — a registry response with no title at all is a malformed response, not
+a legitimate data state, unlike a work genuinely having no author or no publication
+year on record.
+
+**Six-cell before/after** (local absent × remote absent, for each compared field):
+
+| Field | Local absent — before | Local absent — after | Remote absent — before | Remote absent — after |
+|---|---|---|---|---|
+| title | SKIPPED (round 1) | SKIPPED (unchanged) | UNREACHABLE "outage — malformed registry metadata" | unchanged (deliberate — see above) |
+| author | UNMATCHED "mismatch — author family names differ" | SKIPPED "no-identifier — item has no author" | UNMATCHED "mismatch — author family names differ" | SKIPPED "no-identifier — registry record has no author" |
+| year | MATCHED "matched" (year leg silently skipped) | SKIPPED "no-identifier — item has no year" | MATCHED "matched" (year leg silently skipped) | SKIPPED "no-identifier — registry record has no year" |
+
+Root cause, one line: `_metadata_authors(None)` returns `[]` and `metadata_year(None)`
+returns `(True, None)` — both helpers already treat an absent value as
+valid-but-empty for shape-validation purposes, so absence for `author`/`year` never
+reached either side's "malformed" branch; it fell through into the ordinary
+comparison, reading as a real (and sometimes false) verdict on data that was never
+there to compare.
+
+**Implementation.** All three local-absence checks (`title`, `author`, `issued`)
+now return SKIPPED before the network `registry_agency` call — extending round 1's
+title-only precedent (SKIPPED is a property of the item, determined offline) to all
+three fields uniformly. The two new remote-absence checks (`author`, `issued`) sit
+immediately after the remote response is confirmed to be a dict and before the
+existing combined malformed-shape check, so a field that is present-but-malformed
+still routes to the unchanged UNREACHABLE branch — only literal absence
+(`entry.get(field) is None` / `remote.get(field) is None`) is newly SKIPPED.
+
+**Spec sentence — written to the six cells, not to the coordinator's literal
+wording.** The coordinator's suggested replacement text ("absent on either side, any
+of the three compared fields ... is whole-check SKIPPED") contradicts the
+coordinator's own asymmetry ruling one paragraph earlier (remote `title` stays
+UNREACHABLE). Shipping it verbatim would have re-created the exact defect this round
+exists to close: a spec sentence the implementation does not fully satisfy. The
+landed sentence instead names all three local fields, both non-title remote fields,
+and states the remote-title exception explicitly, in one sentence, without
+reflowing the row:
+
+> "An absent local `title`, `author`, or `year`, or an absent remote `author` or
+> `year`, is whole-check SKIPPED, the reason naming the field, never folded into
+> MATCHED — a remote record missing `title` entirely remains a malformed-response
+> outage, not a legitimate absence (ruled 2026-08-25, audit gap closed)."
+
+**Five existing tests were a partial fixture migration, corrected in place —** the
+same pattern the coordinator named: a change lands on some call sites (the four new
+SKIP branches) while pre-existing fixtures that happened to omit `author`/`issued`
+kept exercising the *old*, now-wrong branch and staying green for the wrong reason.
+Each was re-pinned to test only its original, single concern by adding the field
+its payload was incidentally missing (the absent-field lane it accidentally
+exercised now has its own dedicated test instead):
+- `test_metadata_reports_author_family_and_given_initial_divergence` — both remote
+  payloads were missing `issued`; added it so the test asserts author-mismatch
+  detection, not year-absence.
+- `test_metadata_compares_year_only_when_both_records_have_one` — its first half
+  asserted MATCHED for a remote record with no `issued` (the exact bug). Split into
+  `test_metadata_skips_when_registry_record_has_no_year` (now SKIPPED, exact reason)
+  and `test_metadata_reports_year_divergence_when_both_records_have_one` (the
+  genuine-mismatch half, unchanged in substance).
+- `test_metadata_uses_csl_content_negotiation_for_non_crossref_agencies` — neither
+  local nor remote had `issued`; added it to both so the test asserts
+  content-negotiation routing, not year-absence.
+- `test_metadata_treats_malformed_crossref_shapes_as_unreachable[remote4]` (the
+  `{"author": [{}]}` malformed-author-shape row) — was missing `issued`; added it so
+  the row still exercises malformed-author detection instead of tripping the new
+  remote-year-absence SKIP first.
+- `test_metadata_treats_malformed_csl_shape_as_unreachable` — neither side had
+  `issued`; added it to both so the test still asserts malformed title/author-shape
+  detection (content-negotiation path).
+
+**New tests added:** `test_metadata_skips_entries_whose_local_bibliography_has_no_author`,
+`test_metadata_skips_entries_whose_local_bibliography_has_no_year`,
+`test_metadata_skips_when_registry_record_has_no_author`,
+`test_metadata_skips_when_registry_record_has_no_year` (from the split above),
+`test_metadata_reports_year_divergence_when_both_records_have_one` (from the split
+above), and `test_metadata_treats_registry_record_with_no_title_as_unreachable` (the
+construction proof that the remote-title asymmetry is unchanged). Every new/changed
+assertion checks the exact reason string, not just the four-state result.
+
+**Discriminator matrix, four new branches** (each hunk reverted individually,
+target test rerun, confirmed RED for the stated reason, then restored):
+
+| Branch reverted | Test | Result when reverted |
+|---|---|---|
+| Local `author`-absent check removed | `test_metadata_skips_entries_whose_local_bibliography_has_no_author` | Still SKIPPED, but reason became `"no-identifier — item has no year"` (fell through to the next check) — caught only because the test asserts the exact reason string, not just the four-state result |
+| Local `issued`-absent check removed | `test_metadata_skips_entries_whose_local_bibliography_has_no_year` | `AssertionError` from the always-raising network fake — the check reached a network call it shouldn't have |
+| Remote `author`-absent check removed | `test_metadata_skips_when_registry_record_has_no_author` | `Result.UNMATCHED` "mismatch — author family names differ" — the original bug, reproduced on demand |
+| Remote `issued`-absent check removed | `test_metadata_skips_when_registry_record_has_no_year` | `Result.MATCHED` "matched" — the original "folded into MATCHED" bug, reproduced on demand |
+
+Confirmed by construction, still unchanged: a present-and-matching field (all
+MATCHED tests green), a present-and-differing field (title/author/year mismatch
+tests all still UNMATCHED with their original reasons), a genuinely unreachable
+registry (routing/network/status/malformed-shape tests all still UNREACHABLE), and
+the remote-title-absent lane specifically (new dedicated test, UNREACHABLE
+unchanged).
+
+**Test arithmetic:** offline suite 1717 → 1722 passed, 7 skipped (net +5: four
+dedicated new tests, plus +1 from splitting the one test whose first half pinned
+the MATCHED bug). `ruff check .` / `ruff format --check .` run repo-wide this round
+(not just on the changed files): 10 pre-existing errors and 5 reformat candidates,
+all in unrelated `skills/find-sources/scripts/*` files untouched by this task —
+confirmed absent from `git diff`/grep against `checks.py`/`test_checks.py`. `mypy
+knowledge_harness/` clean. `stop_publish_gate.py` hook exits 0.
+
+**New concern (destination: controller).** The fix scopes "absent" to literal
+`is None` on the raw entry/remote dict value, matching the coordinator's own
+six-cell measurement. That leaves the *present-but-empty* representations of the
+same defect class untouched, one representation over: a local or remote
+`"author": []` still reaches the comparison as an empty list (not `None`, so the
+new SKIP guard doesn't fire) and can still produce a false UNMATCHED against a
+populated other side; a local or remote `"issued": {}` or
+`"issued": {"date-parts": []}` still parses to `(True, None)` and can still let the
+year leg silently pass, letting the check reach MATCHED. Same root cause
+(`_metadata_authors`/`metadata_year` treating "no meaningful value" as valid-empty
+regardless of whether the key was omitted or explicitly emptied), one
+representation the six-cell measurement didn't cover. Not fixed here — unruled, and
+raising it now rather than leaving it for the next audit to rediscover.
