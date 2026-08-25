@@ -171,28 +171,65 @@ spec"), so the fix is honestly a rule, in `docs/agents/issue-tracker.md`: *a `re
 issue IS the spec; execution enters at plan/SDD, brainstorming is not re-invoked.* Plan W's
 tracker-mediation pilot exercises this path.
 
-### Recommendations from the audit (recorded 2026-08-25, not yet landed)
+### Standing recommendations register (2026-08-25; author-directed: recorded only, nothing
+
+implemented now)
+
+Everything open from this arc — the comparison, its validation, and both rethink audits — in one
+place, each with its destination and trigger. This register is the record; no item is landed.
+
+**From the layering rethink audit:**
 
 1. **The bridge rule** — one line in `docs/agents/issue-tracker.md`: a `ready-for-agent` issue IS
    the spec; execution enters at plan/SDD; brainstorming is not re-invoked. Closes the one
-   collision this setup is exposed to today (audit gap F, the load-bearing one).
-2. **The scope statement** — one line in AGENTS.md: the layering decision's mechanism
-   (`skillOverrides`/`enabledPlugins`) is deliberately user-global (`~/.claude/settings.json`; no
-   project settings file exists), stated so the per-repo language and the global mechanism don't
-   sit in unstated tension (audit gap C).
+   collision this setup is exposed to today (gap F, load-bearing).
+2. **The scope statement** — one line in AGENTS.md: the layering mechanism
+   (`skillOverrides`/`enabledPlugins`) is deliberately user-global; no project settings file
+   exists, and the per-repo language shouldn't sit in unstated tension with that (gap C).
 3. **The mattpocock update ritual** — one line in `docs/agents/`: on `npx skills update`, review
-   the lockfile hash-diff before accepting, mirroring superpowers' reviewed-upgrade ritual (audit
-   gap E).
+   the lockfile hash-diff before accepting, mirroring superpowers' reviewed-upgrade ritual
+   (gap E).
 4. **ADR 0005 — the layering decision itself** — mattpocock owns config/planning/tracker/domain
    language, superpowers' execution core owns planned code changes, this repo's doctrine binds
-   both, the bridge is this repo's responsibility. Passes the three-test bar in the controller's
-   reading (hard to reverse, surprising without context, real trade-off); recorded here so future
-   domain-modeling passes can flag conflicts against it once accepted — the author's word decides
-   (audit gap B).
+   both, the bridge is this repo's responsibility — plus one clause from the controller-protocol
+   audit's step 5: the controller seat is the mechanism that keeps a batch's rulings bound to
+   ADRs 0001–0004 (folding that audit's gap D-analog without minting a competing ADR). Passes the
+   three-test bar in the controller's reading; the author's word decides (gap B).
+5. **The layering audit's own dated corrections** — nocoders.com never argues against combining
+   (only the zenn piece does); the #1007 maintainer-position provenance (AI-posted at obra's
+   direction; the #163 gloss is retroactive); gap D was stale at filing (the controller-protocol
+   note already existed). Destination: a dated correction block in the audit file.
 
-Remaining dispositions: the four-state dedup stays the post-slice candidate; the audit's
-controller-seat gap was stale — the note it asks for already exists
-(research/validation-slice/2026-08-25-controller-protocol-material.md).
+**From the comparison and its validation:**
+
+06. **Superpowers 6.2.0 → 6.3.0 upgrade** as a deliberate reviewed event, with the premise
+    re-check (the user-level Task-reports rule cites the SDD Finish step) — see Frictions §2.
+07. **The superpowers upstream filing** — adjudicate-residuals includes Concerns; workspace
+    deletion gated on dispositions. Author's queue, author's schedule.
+08. **The four-state dedup** — one canonical four-state reference, per-skill deltas only (or a
+    recorded decision that per-surface copies are deliberate). Post-slice audit candidate
+    (Further Insight §3).
+09. **diagnosing-bugs beside systematic-debugging** — evaluate at the next real debugging need.
+10. **writing-for-agents as the reference for this repo's skill edits** — standing adoption;
+    the writing-suite snapshot-vendoring caveat applies if fragments/beats/shape are adopted at
+    workload 3's map.
+11. **The Plan W tracker-mediation pilot** — one controller ruling routed through an issue
+    comment, round-trip measured; registered in Plan W's dispatch notes; exercises the bridge
+    rule's path.
+12. **The record-immutability gate fix (#28)** — full-history protection plus a recognized
+    dated-amendment shape; post-slice design.
+
+**From the process-reconstruction arc:**
+
+13. **Transcript preservation** — export the key sessions into `research/raw/` or `sources/`
+    before the corpus decays; the paper's process claims need transcript citations the way
+    product claims need file:line. Clock ticking; author's word.
+14. **Workload 2 framed as a methods replication** — the template applied to a different domain
+    with divergences recorded is the paper's external-validity evidence, free if framed before
+    that build starts.
+15. **The controller-protocol formalization trigger** — decidable at a second controller-shaped
+    session's independent record (converge → promote the seams; diverge → name what was
+    circumstantial). Concretized in the material note; nothing to do until the trigger fires.
 
 ## Validation — recommendations tested against the session record
 
