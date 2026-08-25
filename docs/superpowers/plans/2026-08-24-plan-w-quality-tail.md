@@ -24,6 +24,8 @@ The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured
 - [ ] **Step 2:** Copy both shim files VERBATIM from the pilot report into `scripts/mutmut_shims/`, each with a header comment naming the upstream defect it works around and the report as provenance. Draft the two mutmut upstream defect reports (config-at-import; node-id re-escaping) into `research/2026-08-23-mutmut-defect-reports.md` — ready-to-file, the author posts.
 - [ ] **Step 3:** Pin `mutmut==3.7.0` in dev extras. Commit `feat: adopt mutmut 3.7.0 — ruling, shims, upstream report drafts`.
 
+Measured caveat for this Part (Task 19b round 2, 2026-08-24): a `coverage.py` 100%-branch number can be true and misleading — short-circuit sub-expressions inside a single `return` are outside its branch model (the `pretooluse_guard.py:75` fail-open guard sat invisible under 100%). Mutation results are the check on coverage numbers, not the other way around; treat "100% branch" as "100% of what the model sees."
+
 ### Task 24: Gate script speaks mutmut
 
 **Files:** Modify: `scripts/mutation_gate.py`, `tests/test_mutation_gate.py`.
@@ -67,4 +69,3 @@ Headline defect, fixed first: the offline suite is NOT hermetic — 97 connects 
 - [ ] **Step 1b (CI audit 2026-08-24 — the mutation gate has NEVER actually executed: push runs no-op by construction and this repo has zero PR runs, so every claim in the gate's comment block is reasoned, not observed):** after the port and baseline land, `gh workflow run quality.yml --ref <branch-touching-core>` and OBSERVE a real gate execution end-to-end. Then set `timeout-minutes` from the measured bound — do not invent the number before the first real run measures it.
 - [ ] **Step 2:** Commit `mutation-baseline.txt` (now complete — the exclusion list and its gate logic RETIRE in the same commit); update `.github/workflows/quality.yml` to the mutmut path. The spec §10 re-baseline-checkpoint task for "closing the six" is satisfied — note it in the commit body. Task 22's Step 4 stale-manifest allowance dissolves here too (mutate4py sidecars retire wholesale).
 - [ ] **Step 3:** Retire the mutate4py pin (drop from dev extras; venv patches die with the venv; the sidecar manifests and any mutate4py-only gate branches removed). The mutate4py upstream reports stay queued for the author. Commit `feat: complete 26-module mutation baseline; mutate4py retired`.
-
