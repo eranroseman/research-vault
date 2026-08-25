@@ -266,3 +266,42 @@ inside one plan, not the orchestration layer above it. (b) **Ruling latency unde
 mediation is untested** — the session's mid-flight catches depended on a direct dialog channel;
 tickets-as-backbone routes rulings through issue comments, and no event tests that round-trip
 against a blocked implementer.
+
+## Further insights from the full-text pass (2026-08-25)
+
+Beyond the verdict and its validation — findings from holding all three corpora and the session
+record in one context:
+
+1. **The empty niche is this plugin's.** Superpowers governs code discipline; mattpocock governs
+   process and planning; neither catalog has anything for evidence and trust — verification
+   records, four-state honesty, admission boundaries, deprecate-never-delete. The doctrine layer
+   of this repo's nine skills is portable to any knowledge work with citable sources; if
+   harness-as-paper materializes, harness-as-published-skill-pack is its sibling with no
+   competitor in either catalog.
+2. **A sharper criterion for the process-belongs-to-user split, observed live**: the session's
+   cross-session verification refusals (implementers verifying controller claims; note authors
+   re-verifying before folding) were receiving-code-review discipline running WITHOUT invocation,
+   because the doctrine lives in artifacts every session reads unconditionally. Doctrine in
+   plugins reaches only sessions that invoke the skill. Universally-binding discipline goes where
+   every session reads it (AGENTS.md / CLAUDE.md); role-specific process goes in invocable
+   skills. That is why the trust culture propagated to five peer sessions unprompted while the
+   SDD process needed a dispatch each time.
+3. **This repo's own pack violates the doc-design principle adopted above**: the four-state
+   honesty table appears in four skills (import-source, verify-citations, factcheck-draft,
+   publish), each a local restatement — duplication by writing-for-agents' single-source-of-truth
+   rule, and the exact "restatement that drifts from the guard" failure project-flow itself
+   warns about. Post-slice audit candidate: one canonical four-state reference, per-skill deltas
+   only (or a recorded decision that per-surface semantics justify the copies).
+4. **The controller-seat gap has a decaying-evidence fix**: the session's improvised protocol
+   (ratification conditions, ask-vs-assume, relay hygiene, first-hand-word-beats-relayed-word) is
+   reconstructible from message history now and will not be later. Banking it as a short research
+   note — material, not design — preserves the raw input for whenever the orchestration layer
+   gets a real home.
+5. **Verdicts name their instrument**: the three-verdict arc above is the argument — a landscape
+   verdict derived from agent inventories, from argument-response, and from primary text are
+   three different claims. Convention for future product-landscape entries: every verdict states
+   what it was derived from, one clause.
+6. **The 6.3.0 upgrade ritual includes one premise re-check**: the user-level Task-reports rule
+   cites the SDD Finish step's behavior; 6.3.0 changed adjacent SDD text. On upgrade, re-verify
+   the premise against the new text (confirmed at today's HEAD: Finish still deletes the
+   workspace).
