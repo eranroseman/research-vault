@@ -1,333 +1,210 @@
 # Coding-companion plugins: obra/superpowers vs mattpocock/skills
 
-Comparison note, 2026-08-25. Question asked by the author: which of the two works better as the
-coding companion for knowledge-harness, and what would switching from superpowers to mattpocock
-cost — assuming all in-flight work done and one-time churn free, so the answer weighs steady state
-only.
+Comparison note, 2026-08-25. The author's question: which of the two works better as the coding
+companion for knowledge-harness, and what would switching from superpowers to mattpocock cost —
+assuming in-flight work done and one-time churn free, so only steady state counts.
 
-**Verdict (2026-08-25, superseding the same-day original below): the target architecture inverts —
-mattpocock/skills becomes the base plugin, with three or four superpowers skills vendored as
-adapted copies for heavy code batches.** The author's challenge to the original verdict survived
-verification against the sources (ask-matt and code-review read in full; three of the original's
-claims corrected below), and their strongest argument is this repo's own doctrine: mattpocock's
-ticket discipline *eliminates* the lost-unresolved-concerns class that superpowers' ephemeral
-workspaces created and this project patched with rules — every unit of work is born durable on a
-tracker with blocking edges. Model alignment runs the same way: knowledge-harness is itself a
-skill pack + `docs/agents/` config + tracker conventions (the `docs/agents/issue-tracker.md`
-convention IS mattpocock's), with no session injection; and the coming workloads (PKM loop,
-long-form writing) are ones where mattpocock's wayfinder/domain-modeling/codebase-design/
-improve-codebase-architecture flows plus its beta writing suite (fragments/beats/shape,
-explore/exploit) fit and superpowers has nothing. The superpowers skills that remain genuinely
-unmatched — the SDD multi-round review loop, receiving-code-review, verification-before-completion,
-finishing-a-development-branch — are text, vendorable via skills.sh into the existing
-`~/.agents/skills` topology, invoked deliberately with no SessionStart injection.
-
-**Corrections to the original (2026-08-25, same day):** (1) "no per-task machinery" was wrong —
-ask-matt's main flow is to-spec → to-tickets → per-ticket `/implement` with `/clear` between,
-each ticket driving `/tdd` internally and closing with `/code-review` (two parallel sub-agents)
-before commit; per-task review exists, tracker-durable. What remains absent is the *loop*: the
-findings→fix-dispatch→re-review-until-clean cycle and evidence-before-completion-claims
-discipline. (2) The "public-tracker seam" cost was wrong as stated — a private repo's issues are
-private, and the local tracker (`.scratch/<feature>/issues/`, one file per ticket, blockers-first)
-is supported natively; tracker choice is per-repo configuration, not a plugin property. (3)
-"code-review includes no verification" was too strong — its Spec axis verifies conformance against
-the originating issue with quoted spec lines; what it lacks is fresh-evidence-before-claims and
-the receiving-side skeptical discipline.
-
-The original verdict and analysis follow, retained for the reasoning that still stands (the
-deciding-delta section's catalogue of what the batch's review rounds caught remains the argument
-for vendoring those specific superpowers skills rather than dropping them).
-
-**Original verdict (2026-08-25, superseded):** superpowers stays the coding companion; the hybrid
-already running (both installed, superpowers owning the dev-process lifecycle, mattpocock owning
-tracker/domain hygiene) is the correct division of labor. The full-repo review strengthened the
-incumbent: mattpocock's only per-task execution engine is beta and reviews once at the end, while
-this repo's just-closed batch demonstrated that per-task review rounds and receiving-review
-discipline are where its defects get caught. Two real superpowers frictions are named below with
-mitigations, and one flip trigger is recorded.
+**Verdict (2026-08-25, third pass, derived from full primary text): the question is a false
+binary — the correct architecture is layered, not based, and the repo already runs the correct
+assignment.** Mattpocock owns repo config, planning surfaces, domain language, and the tracker
+(it already does); superpowers' execution core owns planned code changes (SDD + reviews +
+verification + finishing, injection intact for dev sessions); this plugin is the doctrine both
+serve. Neither replaces the other because they govern different layers. Two earlier same-day
+verdicts were superseded — see Verdict history at the end.
 
 ## Evidence rule
 
-Both repos inventoried at pinned states by fan-out agents reading primary source
-(raw.githubusercontent.com + GitHub API + the local installs), 2026-08-25:
+Verdicts name their instrument (a convention this note's own arc argues for — its three verdicts
+came from three instruments and only the third had the scope its claims needed):
 
-- `mattpocock/skills` @ `6654f6b` (HEAD of main, 2026-08-24) — full tree (`truncated: false`),
-  every SKILL.md frontmatter read verbatim. 37 skills; 25 promoted in the Claude plugin.
-- `obra/superpowers` — local install 6.2.0 read directly
-  (`~/.claude/plugins/cache/superpowers-dev/superpowers/6.2.0/`), upstream HEAD `b36e082`
-  (= v6.3.0 tag) diffed against it. 14 skills, unchanged across 6.2→6.3.
-- Fit evidence: the post-q pre-slice batch (merged `d9b3acf..4b9f427`, 2026-08-25), executed
-  end-to-end on superpowers SDD with mattpocock triage/domain-modeling running beside it.
+- Repo inventories by fan-out agents at pinned states: `mattpocock/skills` @ `6654f6b` (full
+  tree, every frontmatter verbatim; 37 skills, 25 promoted in the plugin), `obra/superpowers`
+  local 6.2.0 + upstream `b36e082` (= v6.3.0; 14 skills, unchanged 6.2→6.3).
+- Full-text pass: all three corpora loaded verbatim into one context — this repo's 9 skills,
+  superpowers' 14 plus the SDD dispatch prompts and reviewer templates, mattpocock's promoted set,
+  plus the beta `implement-spec` and writing suite.
+- Fit evidence: the post-q pre-slice batch (merged `d9b3acf..4b9f427`), executed end-to-end on
+  superpowers SDD with mattpocock triage/domain-modeling running beside it, and this controller
+  session's event record.
 
-## What each actually is
+## What each is
 
 **superpowers (14 skills, MIT, release every 1–3 weeks)** is a process *engine*: brainstorming →
 writing-plans → subagent-driven-development / executing-plans → requesting/receiving-code-review →
 finishing-a-development-branch, plus TDD, systematic-debugging, using-git-worktrees,
 verification-before-completion. Machinery: exactly one SessionStart hook injecting the
-mandatory-invocation rules (`<EXTREMELY_IMPORTANT>`, the 1%-rule, Iron Laws) — no commands, no
-agents, no MCP, no enforcing hooks; all gating is prompt-level. Subagent prompts and helper
-scripts (sdd-workspace, task-brief, review-package) live inside skill dirs. Hard-coded paths:
-`docs/superpowers/specs|plans`, `.superpowers/sdd/`, `.worktrees/`.
+mandatory-invocation rules (the 1%-rule, Iron Laws) — no commands, agents, MCP, or enforcing
+hooks; all gating is prompt-level. Hard-coded paths: `docs/superpowers/specs|plans`,
+`.superpowers/sdd/`, `.worktrees/`.
 
-**mattpocock/skills (37 skills: 18 engineering, 7 productivity, 8 in-progress, 4 misc; MIT)** is a
-skill pack that explicitly refuses to own the process layer (README: approaches like GSD/BMAD/
-Spec-Kit "take away your control… small, easy to adapt, composable"). Tracker-centric: to-spec /
-to-tickets (tracer-bullet tickets with blocking edges, frontier model) / triage / wayfinder publish
-to the configured issue tracker. Has real TDD (seam-confirmed), a two-axis parallel code-review
-(standards vs spec, requesting side only), hard-gated diagnosing-bugs, domain-modeling/CONTEXT/ADR,
-grilling, wizard, handoff, research. No hooks, no commands; per-repo config via
-`/setup-matt-pocock-skills`. Distribution: official-marketplace read-only plugin (sha pinned by
-Anthropic) or skills.sh editable copies with a lockfile — pick one.
+**mattpocock/skills (37 skills; MIT)** is a skill pack that explicitly refuses to own the process
+layer ("small, easy to adapt, composable"). Tracker-centric: to-spec / to-tickets (tracer-bullet
+tickets with blocking edges, frontier model) / triage / wayfinder publish to the configured
+tracker — GitHub, GitLab, or local one-file-per-ticket, per-repo via `/setup-matt-pocock-skills`
+(already run here; the `docs/agents/` layout is its output). Has seam-confirmed TDD, a two-axis
+parallel code-review (standards vs spec, requesting side only), hard-gated diagnosing-bugs,
+domain-modeling/CONTEXT/ADR, grilling, wizard, handoff, research. No hooks, no injection.
+Distribution: read-only official-marketplace plugin or skills.sh editable copies with a lockfile.
 
-## The deciding delta
+## The deciding delta: the execution machine
 
-The stable mattpocock `implement` skill is six lines (use /tdd… use /code-review… commit) —
-single session, no per-task machinery. The subagent-driven equivalent, `implement-spec`
-(worktree-per-implementer, frontier concurrency), is in `in-progress/`, excluded from the plugin,
-marked "can change or disappear without warning," and runs **one review at the end**, not
-per-task rounds. Nothing in the catalog corresponds to receiving-code-review,
-verification-before-completion, or finishing-a-development-branch.
+Mattpocock's per-task machinery is real but thin. The main flow (ask-matt) runs to-spec →
+to-tickets → per-ticket `/implement` with `/clear` between, each ticket driving `/tdd` and
+closing with `/code-review` before commit — per-task review exists, tracker-durable. But
+`/implement` is six lines and has the implementing agent aggregate the review of its own work;
+the beta `implement-spec` (36 lines, in-progress, "can change or disappear") adds frontier
+concurrency and worktree-per-implementer with **one** review at the end — no report contract, no
+fix-round caps or escalation, no test-evidence discipline, no ledger.
 
-Measured against the post-q batch: the disarmed-test catch, the stale-brief catch, the six-cell
-empty-representations catch, the fail-open guard deletion, the None-idiom trap aversion — every
-one arrived through per-task review rounds or receiving-review discipline (implementers verifying
-the controller's claims before adopting them). For a trust-first repo whose doctrine is
-records-tell-the-truth, superpowers' process side is the mirror of the product doctrine;
-mattpocock's deliberately is not trying to be.
+SDD's machine, by contrast: the controller never implements; the reviewer is instructed "do not
+trust the report — a stated rationale never downgrades a finding"; the re-reviewer holds
+"attempted is not addressed"; the fix loop carries round caps, model escalation,
+adjudicate-only-at-the-cap, and ledger discipline. Nothing in mattpocock's catalog corresponds to
+receiving-code-review, verification-before-completion, or finishing-a-development-branch, and its
+code-review has no test-honesty axis — nothing reads tests adversarially ("tests that assert
+nothing" is an SDD rubric line).
 
-## Switching cost (churn excluded — permanent costs and gains)
+Measured against the post-q batch: the disarmed-test catch (#22's class), the stale-brief catch,
+the six-cell empties, the fail-open guard deletion, the None-idiom aversion — every one arrived
+through per-task review rounds or receiving-review discipline. For a trust-first repo, that
+machine is the process-side mirror of records-tell-the-truth.
 
-Costs:
+Two findings settle the layer question:
 
-1. **Defect-escape rate.** Per-task two-stage review disappears (stable set) or becomes end-only
-   (beta). Capability loss, not migration pain.
-2. **Verification disciplines gone** — no verification-before-completion, no receiving-code-review;
-   the process-side fail-closed posture becomes self-maintained prose.
-3. **Beta dependency** — the only SDD-equivalent is explicitly disclaimed by its author.
-4. **Public-tracker seam** — to-spec/to-tickets publish design content to the tracker; this repo's
-   tracker is public GitHub, colliding with the vault↔repo privacy seam (§10's named open gap) for
-   research-content workloads.
+- **Genre**: this repo's skills are superpowers-genre texts — Iron Laws, rationalization tables,
+  four-state honesty, "never claim a check ran that did not" (evidence-conventions' Iron Law is
+  verification-before-completion's, generalized into a product). Mattpocock skills are craft
+  essays — compact, vocabulary-driven, trusting the agent, by stated design. Mattpocock's
+  alignment with this repo is real at the config/architecture layer (docs/agents/, tracker,
+  user-invoked skills, no injection); superpowers' is real at the doctrine layer. Different
+  layers, both true.
+- **Concerns durability**: SDD's report contract is where Concerns come from; `implement` has no
+  report contract, so its machine loses fewer concerns partly by never birthing them (the post-q
+  evidence: 17b's concerns 1–4 — now #19/#20/#21 + spec §10.2 — exist only because the contract
+  demanded they be written). Tickets fix durability; removing the concern-generator is not a fix.
+  The synthesis already built here is correct: SDD generation + write-time tracker destinations.
 
-Gains (honest): the editable-copies update model (lockfile hashes; superpowers updates overwrite
-silently — a hazard the author's global CLAUDE.md already documents), zero session-start injection
-weight, and tracker-native planning that nests into the existing gh-issues/triage/wayfinder
-investment. Every gain except the update model is available **without switching** — the packs
-coexist, and already do here.
+## What mattpocock wins, adopted or adoptable
 
-## Steady-state frictions of the incumbent, with mitigations
+- **wayfinder** — this repo's own provenance (the foundation map IS a wayfinder map); the right
+  instrument for the vault↔repo seam and workload maps.
+- **diagnosing-bugs** — loop-first ("no red-capable command, no hypothesis") is instrument-first
+  debugging, arguably a better fit for this repo's measurement doctrine than
+  systematic-debugging's four phases; evaluate at the next real debugging need.
+- **writing-for-agents** — the best available reference for editing this repo's own skills; its
+  context-load principle is the "every letter reduces compliance" rule written out. Governs
+  future skill edits here.
+- **to-tickets** — expand–contract doctrine for wide refactors; tracker-native planning nesting
+  into the existing gh-issues/triage investment.
+- **The beta writing suite (fragments/beats/shape)** — a real explore/exploit discipline, not a
+  curiosity: fragments is diary-mining via grilling and maps onto the PKM capture-streams
+  decision; beats/shape track a **grounding set** and offer only reachable next moves — the
+  ticket-graph frontier model applied to prose dependencies, one mental model
+  (blocked-until-grounded) across code and writing. Serious candidates for workload 3's map;
+  beta status is the only caveat (vendor a snapshot if adopted).
+- Two ideas from `implement-spec` worth stealing without adopting it: the exploration-subagent
+  pre-pass (the institutionalized form of the pre-check practice that produced the batch's two
+  zero-fix-round tasks) and context-pointer communication for dispatches.
+
+## Why not the inverse hybrid (mattpocock base + vendored superpowers skills)
+
+Considered and rejected in the second pass's favor, then unwound by full text: SDD consumes
+writing-plans' plan-file format (task-brief extracts `### Task N`); to-tickets produces tickets.
+Vendoring SDD without writing-plans means adapting its substrate — natural (ticket ≈ brief,
+comments ≈ ledger) but a fork maintained forever, with 6.3.0-class upstream convergence
+forfeited. De-fanging the injection selectively in settings (`skillOverrides` name-only, the
+grilling precedent) gets nearly all the benefit at none of the fork cost.
+
+## Frictions of the incumbent, with mitigations
 
 1. **SessionStart injection pressures every session toward skill invocation** — right for coding,
-   wrong-shaped for the coming non-coding workloads (PKM loop, long-form). Already cost one
-   settings surgery (grilling name-only override). Mitigation: per-skill `skillOverrides` in
-   settings; revisit at the workload maps.
-2. **Process governed by a fast upstream with silent overwrite on update.** v6.3.0 changed SDD
-   behavior in this repo's direction — controller self-ruling on non-catastrophic plan conflicts,
-   conflict scans ledgered, worktree removal no longer `--force`ing untracked files away —
-   independently converging on what the post-q run built by hand. Mitigation: upgrades are
-   deliberate reviewed events, not subscriptions; policy overlays live in settings/CLAUDE.md,
-   never the vendored SKILL.md.
+   wrong-shaped for the coming non-coding workloads. Mitigation: per-skill `skillOverrides`;
+   revisit only when the PKM/writing maps make it a measured problem — via settings, never plugin
+   removal. Flip trigger, recorded not predicted: if the harness's center of gravity moves to
+   non-coding work, mattpocock-as-primary becomes the right shape; that decision belongs to the
+   workload maps.
+2. **Process governed by a fast upstream with silent overwrite on update.** Mitigation: upgrades
+   are deliberate reviewed events; policy overlays live in settings/CLAUDE.md, never the vendored
+   SKILL.md. The 6.2.0→6.3.0 upgrade is recommended — it codifies three practices the post-q run
+   hand-built (controller self-ruling, conflict-scan ledgers, non-destructive worktree cleanup) —
+   with one premise re-check in the ritual: the user-level Task-reports rule cites the SDD Finish
+   step (confirmed at today's HEAD: Finish still deletes the workspace, so the queued upstream
+   filing — deletion gated on concern dispositions — stays motivated).
 
-## Flip trigger (recorded, not predicted)
+## Validation — recommendations tested against the session record
 
-If the harness's center of gravity moves to non-coding workloads with only occasional small code
-changes, the engine stops earning its injection weight and mattpocock-as-primary (superpowers
-invoked per-project) becomes the right shape. That decision belongs to the workload maps (§10's
-workload-pipelines entry), not to this note.
-
-## Recommendations (superseded 2026-08-25 — see the superseding verdict at top)
-
-Original recommendations, retained: keep the hybrid; deliberate 6.3.0 upgrade; adopt to-tickets/
-code-review/diagnosing-bugs/ask-matt alongside; upstream filing stands.
-
-## Revised target architecture (2026-08-25)
-
-- **Base**: mattpocock/skills as the plugin layer — complete the install (the full promoted set,
-  including ask-matt, code-review, tdd, diagnosing-bugs, implement, to-spec), via the skills.sh
-  editable-copies path already in use (`npx skills add -g`), which matches the author's
-  control preference; run `/setup-matt-pocock-skills` per repo (already done here — the
-  `docs/agents/` layout is its output).
-- **Vendored supplement**: subagent-driven-development, receiving-code-review,
-  verification-before-completion, finishing-a-development-branch from obra/superpowers, adapted
-  (cross-references to using-superpowers/writing-plans rewritten to stand alone), invoked
-  deliberately for heavy code batches. Superpowers' SessionStart injection retires with the
-  plugin — routing moves to AGENTS.md/CLAUDE.md, which this setup already relies on.
-- **Ticket discipline as the concerns backbone**: units of work and their residuals are born on
-  the tracker with blocking edges (native links, or one file per ticket locally); the
-  write-time-destination rule for Concerns remains, with the tracker as its default destination.
-- **Adaptation cost accepted**: vendored superpowers skills freeze at the vendored state and
-  drift from upstream (no more free 6.3.0-style convergence); that is the control-over-currency
-  trade the author has consistently chosen. The queued superpowers upstream filing stands.
-- **Long-form writing leg**: wayfinder → grill-with-docs → to-spec/to-tickets, with
-  domain-modeling underneath and the beta writing suite (fragments/beats/shape) evaluated when
-  workload 3's map is drawn. Tracked as part of the §10 workload-pipelines entry.
-
-## Final verdict — full-text pass (2026-08-25, supersedes both prior verdicts)
-
-At the author's direction, all three skill corpora were loaded verbatim into one context — this
-repo's 9 skills, superpowers' 14 plus the SDD dispatch prompts and reviewer templates,
-mattpocock's promoted 25 — and the question rethought from primary text. Both prior verdicts were
-partial views from partial instruments (agent inventories, then argument-and-response), and both
-answered a false binary. **The correct architecture is layered, not based**: neither plugin
-replaces the other because they govern different layers, and the repo already runs the correct
-assignment.
-
-What the full text shows that no inventory did:
-
-1. **Genre alignment runs the other way at the doctrine layer.** This repo's skills are
-   superpowers-genre texts — Iron Laws, rationalization tables answering excuses, four-state
-   honesty tables, "never claim a check ran that did not." Evidence-conventions' Iron Law is
-   verification-before-completion's Iron Law generalized into a product. Mattpocock skills are
-   craft essays — compact, vocabulary-driven (seams, depth, frontier, fog), trusting the agent,
-   with almost no anti-rationalization armor; their README disclaims wanting to own discipline.
-   The mattpocock model-alignment claim (previous verdict) is true at the config/architecture
-   layer — docs/agents/, tracker conventions, user-invoked skills, no injection, all already this
-   repo's shape. Both alignments are real, at different layers.
-2. **The execution-machine gap is wider in full text.** `/implement` has the implementing agent
-   aggregate the review of its own work; SDD's controller never implements, its reviewer is told
-   "do not trust the report — a stated rationale never downgrades a finding," its re-reviewer
-   holds "attempted is not addressed," and its fix loop carries round caps, model escalation,
-   adjudicate-only-at-the-cap, and ledger discipline. And mattpocock's code-review has no
-   test-honesty axis at all — nothing reads tests adversarially ("tests that assert nothing" is
-   an SDD reviewer rubric line), which is precisely the instrument that caught this batch's
-   disarmed-test class (#22).
-3. **The concerns-durability argument cuts differently than either verdict had it.** SDD's
-   report contract is where Concerns come from; mattpocock's `implement` has no report contract —
-   its machine loses fewer concerns partly by never birthing them. Tickets fix durability;
-   removing the concern-generator is not a fix. The correct synthesis is the one already built:
-   SDD's concern generation with write-time tracker destinations.
-4. **Real mattpocock wins confirmed and sharpened by full text**: wayfinder is this repo's own
-   provenance (the foundation map IS a wayfinder map) and the right instrument for the vault↔repo
-   seam and workload maps; diagnosing-bugs' loop-first discipline ("no red-capable command, no
-   hypothesis") is instrument-first debugging — arguably a better fit for this repo's
-   measurement doctrine than systematic-debugging's four phases; to-tickets' expand–contract
-   doctrine for wide refactors; writing-for-agents is the best available reference for editing
-   this repo's own skills (its context-load principle IS the "every letter reduces compliance"
-   rule) and should govern future skill edits here.
-5. **The inverse hybrid's real cost surfaced**: SDD consumes writing-plans' plan-file format
-   (task-brief extracts `### Task N`); to-tickets produces tickets. Vendoring SDD without
-   writing-plans means adapting its substrate to tickets — natural (ticket body ≈ task brief,
-   ticket comments ≈ ledger) but a fork with a real seam change, maintained forever, with
-   6.3.0-class upstream convergence forfeited. Keeping the plugin and de-fanging the injection
-   selectively in settings (`skillOverrides` name-only, the grilling precedent) gets nearly all
-   of the inverse hybrid's benefit at none of the fork cost.
-
-**Standing resolution**: keep both plugins. Layer governance — mattpocock owns repo config,
-planning surfaces, domain language, and the tracker (it already does); superpowers' execution
-core owns planned code changes on this repo (SDD + reviews + verification + finishing, injection
-intact for dev sessions); this plugin is the doctrine both serve. Concrete adoptions: SDD
-artifacts route to tracker destinations at write time (rule live); wayfinder for the seam and
-workload maps (already planned); writing-for-agents as the reference for skill edits here;
-evaluate diagnosing-bugs beside systematic-debugging at next real debugging need; revisit the
-injection's session-start weight only when the PKM/writing workload maps make it a measured
-problem, via settings, not plugin removal. The upstream filing and deliberate 6.3.0 upgrade
-stand.
-
-## Validation — recommendations tested against the session record (2026-08-25)
-
-At the author's direction, each recommendation was replayed against the controller session's own
-event history (the post-q batch and its surrounding work). Seven for seven supported; two blind
-spots found.
+Each recommendation replayed against this controller session's event history. Seven for seven
+supported; two blind spots found.
 
 1. **Layered governance**: the session ran the layers without collision — SDD executed the batch
    (21 rulings through its review machinery) while the mattpocock layer carried triage (#16), the
-   ADR bar (0004's scope correction came from domain-modeling's three-test discipline), and the
-   tracker (#18–#25). The one recorded layer-fight (grilling vs brainstorming) was settled in
-   settings — the prescribed mechanism.
-2. **Write-time destinations + SDD generation, both halves**: the disposition sweep found 12
-   undisposed concerns across 31 sections; after the rule landed mid-batch, destinations were
-   named at write time and 19b's residue became #25 with corrected framing. Counterfactual: 17b's
-   concerns 1–4 (now #19/#20/#21 + spec §10.2) exist only because SDD's report contract demanded
-   they be written — `implement` has no report contract, so under it they are never born.
-3. **Wayfinder**: the author's workload-scoping session instinctively produced wayfinder's exact
-   artifacts before anyone named it — banked decisions, a documented not-yet-specified gap,
-   deliberate stop-short-of-design, and the sizing call "more than a single /wayfinder map."
-4. **writing-for-agents**: the controller's Task-reports rule needed three revisions, and each
-   defect is a named failure mode in that skill — the `.git/info/exclude` misclaim is its
-   environment-as-cache warning; the skill-override was its single-source-of-truth violation; the
-   pathspec-exception trim was its pruning/no-op test. Two of three revisions vanish under its
-   governance.
+   ADR bar (0004's scope correction), and the tracker (#18–#25). The one recorded layer-fight
+   (grilling vs brainstorming) was settled in settings — the prescribed mechanism.
+2. **Write-time destinations + SDD generation**: the disposition sweep found 12 undisposed
+   concerns across 31 sections; after the rule landed mid-batch, destinations were named at write
+   time and 19b's residue became #25 with corrected framing. The counterfactual is the
+   concerns-durability finding above.
+3. **wayfinder**: the author's workload-scoping session instinctively produced its exact
+   artifacts before anyone named it — banked decisions, a not-yet-specified gap, deliberate
+   stop-short-of-design, "more than a single /wayfinder map."
+4. **writing-for-agents**: the controller's Task-reports rule needed three revisions; each defect
+   is a named failure mode in that skill (environment-as-cache; single-source-of-truth; the
+   pruning/no-op test). Two of three revisions vanish under its governance.
 5. **diagnosing-bugs**: the run's most expensive error class (instrument scope — the `.pop()`
-   measurement missing `{"date-parts": []}`) maps directly onto its Phase-1 completion criterion:
-   a red-capable loop asserting the exact symptom forces enumerating the representations until
-   the common case goes red. systematic-debugging has no equivalent instrument criterion.
+   measurement missing `{"date-parts": []}`) maps onto its Phase-1 red-capable-loop criterion;
+   systematic-debugging has no equivalent.
 6. **Injection deferred to measurement**: consistent — implementer discipline rode the injection;
    no PKM session exists yet to measure the cost side.
-7. **6.3.0 + upstream filing**: the session hand-built controller self-ruling (ratified with four
-   named conditions), conflict-scan-in-ledger, and suffered the destructive-cleanup hazard —
-   6.3.0 codifies the first two and softens the third; the filing stays motivated because
-   workspace deletion at Finish remains ungated upstream.
+7. **6.3.0 + upstream filing**: three hand-built convergences and one suffered hazard, as in the
+   frictions section.
 
-Blind spots the test exposed, owned by no recommendation and no skill in any of the three sets:
-(a) **the controller seat is ungoverned** — cross-session rulings, relay protocol, permission
-hygiene, ratification conditions, and ask-vs-assume were improvised live and worked, but their
-lessons live only in the batch retrospective and message history; SDD describes a controller
-inside one plan, not the orchestration layer above it. (b) **Ruling latency under tracker
-mediation is untested** — the session's mid-flight catches depended on a direct dialog channel;
-tickets-as-backbone routes rulings through issue comments, and no event tests that round-trip
-against a blocked implementer.
+Blind spots, owned by no recommendation and no skill in any of the three sets: (a) **the
+controller seat is ungoverned** — cross-session rulings, relay protocol, permission hygiene,
+ratification conditions, ask-vs-assume were improvised live and worked, but their lessons live
+only in the batch retrospective and message history; SDD describes a controller inside one plan,
+not the orchestration layer above it. (b) **Ruling latency under tracker mediation is untested**
+— the session's mid-flight catches depended on a direct dialog channel; a one-ruling pilot is
+registered in Plan W.
 
-## Further insights from the full-text pass (2026-08-25)
+## Further insights
 
-Beyond the verdict and its validation — findings from holding all three corpora and the session
-record in one context:
-
-1. **The empty niche is this plugin's.** Superpowers governs code discipline; mattpocock governs
-   process and planning; neither catalog has anything for evidence and trust — verification
-   records, four-state honesty, admission boundaries, deprecate-never-delete. The doctrine layer
-   of this repo's nine skills is portable to any knowledge work with citable sources; if
-   harness-as-paper materializes, harness-as-published-skill-pack is its sibling with no
-   competitor in either catalog.
+1. **The empty niche is this plugin's.** Neither catalog has anything for evidence and trust —
+   verification records, four-state honesty, admission boundaries, deprecate-never-delete. The
+   doctrine layer of this repo's nine skills is portable to any knowledge work with citable
+   sources; if harness-as-paper materializes, harness-as-published-skill-pack is its sibling with
+   no competitor in either catalog.
 2. **A sharper criterion for the process-belongs-to-user split, observed live**: the session's
-   cross-session verification refusals (implementers verifying controller claims; note authors
-   re-verifying before folding) were receiving-code-review discipline running WITHOUT invocation,
-   because the doctrine lives in artifacts every session reads unconditionally. Doctrine in
-   plugins reaches only sessions that invoke the skill. Universally-binding discipline goes where
-   every session reads it (AGENTS.md / CLAUDE.md); role-specific process goes in invocable
-   skills. That is why the trust culture propagated to five peer sessions unprompted while the
-   SDD process needed a dispatch each time.
-3. **This repo's own pack violates the doc-design principle adopted above**: the four-state
-   honesty table appears in four skills (import-source, verify-citations, factcheck-draft,
-   publish), each a local restatement — duplication by writing-for-agents' single-source-of-truth
-   rule, and the exact "restatement that drifts from the guard" failure project-flow itself
-   warns about. Post-slice audit candidate: one canonical four-state reference, per-skill deltas
-   only (or a recorded decision that per-surface semantics justify the copies).
-4. **The controller-seat gap has a decaying-evidence fix**: the session's improvised protocol
-   (ratification conditions, ask-vs-assume, relay hygiene, first-hand-word-beats-relayed-word) is
+   cross-session verification refusals were receiving-code-review discipline running WITHOUT
+   invocation, because the doctrine lives in artifacts every session reads unconditionally.
+   Universally-binding discipline goes where every session reads it (AGENTS.md / CLAUDE.md);
+   role-specific process goes in invocable skills. That is why the trust culture propagated to
+   five peer sessions unprompted while the SDD process needed a dispatch each time.
+3. **This repo's own pack violates the doc-design principle it just adopted**: the four-state
+   honesty table appears in four skills, each a local restatement — duplication by
+   writing-for-agents' single-source-of-truth rule, and the exact "restatement that drifts from
+   the guard" failure project-flow warns about. Post-slice audit candidate: one canonical
+   four-state reference, per-skill deltas only (or a recorded decision that per-surface semantics
+   justify the copies).
+4. **The controller-seat gap has a decaying-evidence fix**: the session's improvised protocol is
    reconstructible from message history now and will not be later. Banking it as a short research
    note — material, not design — preserves the raw input for whenever the orchestration layer
    gets a real home.
-5. **Verdicts name their instrument**: the three-verdict arc above is the argument — a landscape
-   verdict derived from agent inventories, from argument-response, and from primary text are
-   three different claims. Convention for future product-landscape entries: every verdict states
-   what it was derived from, one clause.
-6. **The 6.3.0 upgrade ritual includes one premise re-check**: the user-level Task-reports rule
-   cites the SDD Finish step's behavior; 6.3.0 changed adjacent SDD text. On upgrade, re-verify
-   the premise against the new text (confirmed at today's HEAD: Finish still deletes the
-   workspace).
 
-## Completeness pass — the beta set read in full (2026-08-25)
+## Verdict history
 
-The last load-bearing claims resting on agent summaries were grounded in primary text:
-`implement-spec` and the three writing skills, read verbatim.
+Three same-day passes, each named by its instrument; the corrections are the record of what each
+instrument missed.
 
-- **`implement-spec` confirmed, and thinner than the doc said**: 36 lines. Frontier concurrency,
-  worktree-per-implementer, a merger subagent, one `/code-review` at the end with a single fix
-  subagent. No per-ticket review, no report contract, no fix-round caps or escalation, no
-  test-evidence discipline, no ledger/recovery — versus SDD's 500-line controller plus three
-  dispatch contracts. The execution-gap argument stands on primary text now. Two ideas in it
-  worth stealing regardless: the exploration-subagent pre-pass (an institutionalized form of the
-  pre-check practice that produced this batch's two zero-fix-round tasks) and context-pointer
-  communication doctrine for dispatches.
-- **The writing suite is undersold by "beta, evaluate later."** fragments/beats/shape is a real
-  explore/exploit discipline: fragments is diary-mining via grilling (and maps directly onto the
-  PKM capture-streams decision — fleeting noticings, appended, author-readable bar); beats and
-  shape track a **grounding set** — concepts the reader holds — and offer only reachable next
-  moves, which is the ticket-graph frontier model applied to prose dependencies. One mental model
-  (blocked-until-grounded) across code and writing. All three are user-invoked, re-read-before-
-  write, preserve-user-edits — compatible with this vault's free-region discipline. The
-  workload-3 evaluation should treat them as serious candidates, not curiosities; their
-  "can change or disappear" beta status is the only caveat (vendor a snapshot if adopted).
-- **Remaining unread by design**: the 6.3.0 skill-text diffs (owned by the upgrade ritual) and
-  reference-tier sub-files no claim rests on. The tracker-mediated ruling-latency question is a
-  pilot, not reading — registered in Plan W's dispatch notes.
+1. **Installed-subsets pass** (agent inventories of the local installs): "superpowers stays; keep
+   the hybrid." Wrong in three particulars the second pass corrected: mattpocock DOES have
+   per-task machinery (per-ticket implement + code-review, tracker-durable — what it lacks is the
+   fix loop and evidence-before-claims); tracker privacy is per-repo configuration, not a plugin
+   cost (private repo → private issues; local tracker supported); code-review's Spec axis IS
+   conformance verification (what it lacks is fresh-evidence and receiving-side discipline).
+2. **Argument-response pass** (author's challenge, sources spot-read): "invert — mattpocock base,
+   vendor four superpowers skills." Its lasting contributions: the ticket-discipline insight and
+   the model-alignment observation, both absorbed into the final verdict at their correct layer.
+   Its error: overweighting the architecture layer because the challenge was fresh, and pricing
+   the vendoring fork at zero.
+3. **Full-text pass** (all corpora verbatim): the layered verdict above. The arc itself is the
+   argument for the verdicts-name-their-instrument convention.
