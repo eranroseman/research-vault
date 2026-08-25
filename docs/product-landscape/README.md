@@ -15,6 +15,10 @@ deliberate: the first is evidence with a re-run protocol, the second is a decisi
 it is executed. They were one document until the positioning verdict, the adoption tiers and the
 per-file actions had all been corrected twice in two places.
 
+**Every verdict names its instrument** — what it was derived from (agent inventories, argument,
+primary text read in full). A verdict from a lesser instrument is a lesser claim; the
+coding-companion note's three-verdict arc is the demonstration.
+
 ## The evidence rule they share
 
 Roster names came from `research/`; every fact was re-derived from the GitHub API, a clone read
