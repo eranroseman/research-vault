@@ -171,13 +171,28 @@ spec"), so the fix is honestly a rule, in `docs/agents/issue-tracker.md`: *a `re
 issue IS the spec; execution enters at plan/SDD, brainstorming is not re-invoked.* Plan W's
 tracker-mediation pilot exercises this path.
 
-Audit dispositions at this writing: the bridge rule, the AGENTS.md scope statement (the layering
-decision uses per-repo language but lives in user-global settings — state that it is deliberate),
-and the mattpocock update-ritual line are accepted pending landing; ADR 0005 (the layering
-decision itself, so future domain-modeling passes can flag conflicts against it) passes the
-three-test bar in the controller's reading and awaits the author's word; the four-state dedup
-remains the post-slice candidate; the audit's controller-seat gap was stale — the note it asks
-for already exists (research/validation-slice/2026-08-25-controller-protocol-material.md).
+### Recommendations from the audit (recorded 2026-08-25, not yet landed)
+
+1. **The bridge rule** — one line in `docs/agents/issue-tracker.md`: a `ready-for-agent` issue IS
+   the spec; execution enters at plan/SDD; brainstorming is not re-invoked. Closes the one
+   collision this setup is exposed to today (audit gap F, the load-bearing one).
+2. **The scope statement** — one line in AGENTS.md: the layering decision's mechanism
+   (`skillOverrides`/`enabledPlugins`) is deliberately user-global (`~/.claude/settings.json`; no
+   project settings file exists), stated so the per-repo language and the global mechanism don't
+   sit in unstated tension (audit gap C).
+3. **The mattpocock update ritual** — one line in `docs/agents/`: on `npx skills update`, review
+   the lockfile hash-diff before accepting, mirroring superpowers' reviewed-upgrade ritual (audit
+   gap E).
+4. **ADR 0005 — the layering decision itself** — mattpocock owns config/planning/tracker/domain
+   language, superpowers' execution core owns planned code changes, this repo's doctrine binds
+   both, the bridge is this repo's responsibility. Passes the three-test bar in the controller's
+   reading (hard to reverse, surprising without context, real trade-off); recorded here so future
+   domain-modeling passes can flag conflicts against it once accepted — the author's word decides
+   (audit gap B).
+
+Remaining dispositions: the four-state dedup stays the post-slice candidate; the audit's
+controller-seat gap was stale — the note it asks for already exists
+(research/validation-slice/2026-08-25-controller-protocol-material.md).
 
 ## Validation — recommendations tested against the session record
 
