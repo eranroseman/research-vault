@@ -4,13 +4,17 @@ Comparison note, 2026-08-25. The author's question: which of the two works bette
 companion for knowledge-harness, and what would switching from superpowers to mattpocock cost —
 assuming in-flight work done and one-time churn free, so only steady state counts.
 
-**Verdict (2026-08-25, third pass, derived from full primary text): the question is a false
-binary — the correct architecture is layered, not based, and the repo already runs the correct
-assignment.** Mattpocock owns repo config, planning surfaces, domain language, and the tracker
-(it already does); superpowers' execution core owns planned code changes (SDD + reviews +
-verification + finishing, injection intact for dev sessions); this plugin is the doctrine both
-serve. Neither replaces the other because they govern different layers. Two earlier same-day
-verdicts were superseded — see Verdict history at the end.
+**Verdict (2026-08-25, third pass, derived from full primary text; conditioned by the same-day
+rethink audit): the question is a false binary — the correct architecture is layered, not based,
+and the repo already runs the correct assignment — CONDITIONED on the bridge between the layers
+being maintained as its own named piece.** Mattpocock owns repo config, planning surfaces, domain
+language, and the tracker (it already does); superpowers' execution core owns planned code
+changes (SDD + reviews + verification + finishing, injection intact for dev sessions); this
+plugin is the doctrine both serve. Neither replaces the other because they govern different
+layers. The clean-slate audit
+([rethink audit](../../research/rethink-audits/2026-08-25-coding-companion-plugin-layering-rethink-audit.md))
+stress-tested this verdict against field evidence and upheld it with the condition — see "The
+bridge" below. Two earlier same-day verdicts were superseded — see Verdict history at the end.
 
 ## Evidence rule
 
@@ -26,6 +30,12 @@ came from three instruments and only the third had the scope its claims needed):
 - Fit evidence: the post-q pre-slice batch (merged `d9b3acf..4b9f427`), executed end-to-end on
   superpowers SDD with mattpocock triage/domain-modeling running beside it, and this controller
   session's event record.
+- Adversarial pass: a clean-slate rethink audit (requires → prior-art → design → gap → migrate),
+  its eight external citations independently verified — seven confirmed with verbatim quotes,
+  one mismatch corrected (nocoders.com compares the packs but never argues against layering;
+  that argument belongs to the zenn.dev piece alone), two provenance caveats recorded (obra's
+  #1007 position was posted by an AI agent from his account at his direction; its "#163 played
+  out the same way" is that comment's retroactive gloss).
 
 ## What each is
 
@@ -131,6 +141,44 @@ grilling precedent) gets nearly all the benefit at none of the fork cost.
    step (confirmed at today's HEAD: Finish still deletes the workspace, so the queued upstream
    filing — deletion gated on concern dispositions — stays motivated).
 
+## The bridge — the layered verdict's condition (rethink audit, 2026-08-25)
+
+The audit's central contribution: the architecture has **four pieces, not three** — the
+execution-discipline module (adapter: superpowers), the repo-policy module (adapter: mattpocock),
+the doctrine module (this repo's invariants, read unconditionally, not an adapter), and **the
+bridge**: this repo's own responsibility for reconciling the two adapters' trigger surfaces at
+their collision points. Today the bridge is one settings override (grilling ↔ brainstorming).
+
+Field evidence says unbridged layering fails in the wild, and the citations were verified:
+
+- A mattpocock user (discussion #257) had a `ready-for-agent`, fully-specified task; superpowers'
+  mandatory brainstorming fired anyway and started a design-doc process — he disabled superpowers
+  over exactly this. Verbatim confirmed.
+- The zenn.dev comparison argues "philosophical conflict… you should choose one or the other"
+  (the 1%-rule false-positives against mattpocock skills). Confirmed verbatim. (nocoders.com,
+  previously lumped with it, makes no such argument — corrected.)
+- Three downstream tools that faced both packs all reconciled by mutual-exclusion detection,
+  fusion into one canon, or pick-one-with-selective-retention — none ran raw side-by-side.
+- Superpowers' side (#1007, provenance caveat above): "the tools compose fine, and the bridging
+  logic lives in the consuming tool rather than upstream." This repo IS the consuming tool.
+
+Every cited failure is an *unbridged* raw install; this repo's post-q batch ran both layers live
+with zero collision — but partly because the batch never entered through a ticket. The one
+unmitigated collision here today is the field-reported one: **a fully-specified tracker ticket
+meeting mandatory brainstorming.** The audit checked `skillOverrides`' schema (static enum, no
+conditional form — a settings mechanism cannot express "skip brainstorming when the ticket is the
+spec"), so the fix is honestly a rule, in `docs/agents/issue-tracker.md`: *a `ready-for-agent`
+issue IS the spec; execution enters at plan/SDD, brainstorming is not re-invoked.* Plan W's
+tracker-mediation pilot exercises this path.
+
+Audit dispositions at this writing: the bridge rule, the AGENTS.md scope statement (the layering
+decision uses per-repo language but lives in user-global settings — state that it is deliberate),
+and the mattpocock update-ritual line are accepted pending landing; ADR 0005 (the layering
+decision itself, so future domain-modeling passes can flag conflicts against it) passes the
+three-test bar in the controller's reading and awaits the author's word; the four-state dedup
+remains the post-slice candidate; the audit's controller-seat gap was stale — the note it asks
+for already exists (research/validation-slice/2026-08-25-controller-protocol-material.md).
+
 ## Validation — recommendations tested against the session record
 
 Each recommendation replayed against this controller session's event history. Seven for seven
@@ -185,10 +233,10 @@ registered in Plan W.
    the guard" failure project-flow warns about. Post-slice audit candidate: one canonical
    four-state reference, per-skill deltas only (or a recorded decision that per-surface semantics
    justify the copies).
-4. **The controller-seat gap has a decaying-evidence fix**: the session's improvised protocol is
-   reconstructible from message history now and will not be later. Banking it as a short research
-   note — material, not design — preserves the raw input for whenever the orchestration layer
-   gets a real home.
+4. **The controller-seat gap has a decaying-evidence fix** — executed same day: the protocol is
+   banked at research/validation-slice/2026-08-25-controller-protocol-material.md (delegation
+   conditions, word hygiene, dispute adjudication, the seat's own error ledger), material for
+   whenever the orchestration layer gets a real home.
 
 ## Verdict history
 
