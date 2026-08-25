@@ -509,7 +509,10 @@ def _notice_target(entry: dict, doi: str | None, pmid: str | None) -> str:
 
 
 def _notice_date_from_updated(value):
-    """Validate Crossref's optional date-parts and return an ISO date or None."""
+    """Validate Crossref's optional date-parts and return it at its own
+    precision: ``YYYY``, ``YYYY-MM``, or ``YYYY-MM-DD``. A missing month/day
+    defaults to 1 for range validation only and is never emitted; a present
+    but out-of-range month/day (including 0) still fails validation."""
     if value is None:
         return None
     if not isinstance(value, dict):
@@ -528,11 +531,16 @@ def _notice_date_from_updated(value):
         return _INVALID
     if len(parts) > 3 or any(type(part) is not int for part in parts):
         return _INVALID
-    year, month, day = [*parts, 1, 1][:3]
+    year, month, day = [*parts, None, None][:3]
     try:
-        return _date(year, month, day).isoformat()
+        _date(year, month if month is not None else 1, day if day is not None else 1)
     except ValueError:
         return _INVALID
+    if day is not None:
+        return f"{year:04d}-{month:02d}-{day:02d}"
+    if month is not None:
+        return f"{year:04d}-{month:02d}"
+    return f"{year:04d}"
 
 
 def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
@@ -564,6 +572,29 @@ def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
     return blocking, warns
 
 
+def _dates_incomparable(a: str, b: str) -> bool:
+    """True when partial-precision ISO date strings leave chronological order
+    undetermined. Two full (``YYYY-MM-DD``) dates are always comparable,
+    including when equal — a same-day match is a real, decisive fact. Anywhere
+    else, the shorter string being a prefix of the longer (this covers strict
+    prefixes, e.g. ``"2023"`` of ``"2023-06-15"``, and equal partial strings,
+    e.g. ``"2023"`` of ``"2023"``, since a string is always its own prefix)
+    means the low-precision side could denote any point across its range, so
+    which one actually came first is unknown."""
+    if len(a) == 10 and len(b) == 10:
+        return False
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    return longer.startswith(shorter)
+
+
+def _reinstatement_clears(reinstatement_date: str, notice_date: str) -> bool:
+    """A reinstatement clears a blocking notice only when the two dates'
+    precisions leave no ambiguity about which came first."""
+    if _dates_incomparable(reinstatement_date, notice_date):
+        return False
+    return reinstatement_date >= notice_date
+
+
 def _active_blocking_notices(notices: list[dict]) -> list[dict]:
     """Remove only dated blocks that a later dated reinstatement clears."""
     reinstatements = [
@@ -578,7 +609,7 @@ def _active_blocking_notices(notices: list[dict]) -> list[dict]:
         and (
             notice["notice_date"] is None
             or not any(
-                reinstatement >= notice["notice_date"]
+                _reinstatement_clears(reinstatement, notice["notice_date"])
                 for reinstatement in reinstatements
             )
         )

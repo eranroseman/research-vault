@@ -181,6 +181,37 @@ def _validate_optional_date(name: str, value) -> str | None:
     return None if value is None else _validate_date(name, value)
 
 
+_PARTIAL_DATE = re.compile(r"(?P<year>\d{4})(?:-(?P<month>\d{2})(?:-(?P<day>\d{2}))?)?")
+
+
+def _validate_partial_date(name: str, value) -> str:
+    """Validate Crossref's own precision (``YYYY``, ``YYYY-MM``, or
+    ``YYYY-MM-DD``) rather than pad it to a full date. A missing month/day
+    skips range validation for that part; a present-but-invalid one
+    (``2023-13``, ``2023-06-31``) still fails it."""
+    value = _validate_text(name, value)
+    match = _PARTIAL_DATE.fullmatch(value)
+    if not match:
+        raise ValueError(f"{name} must be a YYYY, YYYY-MM, or YYYY-MM-DD date")
+    year = int(match.group("year"))
+    month, day = match.group("month"), match.group("day")
+    try:
+        datetime.date(
+            year,
+            int(month) if month is not None else 1,
+            int(day) if day is not None else 1,
+        )
+    except ValueError as error:
+        raise ValueError(
+            f"{name} must be a YYYY, YYYY-MM, or YYYY-MM-DD date"
+        ) from error
+    return value
+
+
+def _validate_optional_partial_date(name: str, value) -> str | None:
+    return None if value is None else _validate_partial_date(name, value)
+
+
 def _validate_notice_fingerprint(
     check,
     notice_class,
@@ -190,7 +221,7 @@ def _validate_notice_fingerprint(
 ):
     notice_class = _validate_optional_text("notice_class", notice_class)
     notice_type = _validate_optional_text("notice_type", notice_type)
-    notice_date = _validate_optional_date("notice_date", notice_date)
+    notice_date = _validate_optional_partial_date("notice_date", notice_date)
     detection_date = _validate_optional_date("detection_date", detection_date)
     if notice_class is None and notice_type is None:
         if notice_date is not None or detection_date is not None:

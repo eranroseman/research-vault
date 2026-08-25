@@ -163,6 +163,119 @@ def test_entry_round_trips_bitemporal_dates(fixture_vault):
     assert entry.detection_date == "2026-08-16"
 
 
+@pytest.mark.parametrize("notice_date", ["2023", "2023-06", "2023-06-15"])
+def test_notice_date_accepts_crossrefs_own_precision(fixture_vault, notice_date):
+    """A year-only or month-only Crossref notice date must round-trip at its
+    own precision, not silently gain a padded day."""
+    inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "retracted — retraction",
+        date="2026-08-16",
+        target_hash="aa11",
+        notice_class="blocking",
+        notice_type="retraction",
+        notice_date=notice_date,
+    )
+
+    entry = inbox.load(fixture_vault)[-1]
+
+    assert entry.notice_date == notice_date
+
+
+@pytest.mark.parametrize(
+    "notice_date",
+    [
+        "2023-13",  # month out of range
+        "2023-06-31",  # June has 30 days
+        "23",  # not four year digits
+        "2023-6",  # month must be two digits
+        "2023-00",  # month 0 is not absent, it is invalid
+        "2023-06-00",  # day 0 is not absent, it is invalid
+        "2023/06/15",  # wrong separator
+        "2023-06-15 ",  # trailing whitespace
+    ],
+)
+def test_notice_date_rejects_malformed_or_out_of_range_partial_dates(
+    fixture_vault, notice_date
+):
+    with pytest.raises(ValueError, match="notice_date"):
+        inbox.append_entry(
+            fixture_vault,
+            "update-notice",
+            "smith2020",
+            Result.UNMATCHED,
+            "retracted — retraction",
+            date="2026-08-16",
+            target_hash="aa11",
+            notice_class="blocking",
+            notice_type="retraction",
+            notice_date=notice_date,
+        )
+
+
+def test_detection_date_still_requires_full_precision(fixture_vault):
+    """Only ``notice_date`` gained partial-precision acceptance — the
+    detection date is the harness's own clock reading and must stay a full
+    calendar date."""
+    with pytest.raises(ValueError, match="detection_date"):
+        inbox.append_entry(
+            fixture_vault,
+            "update-notice",
+            "smith2020",
+            Result.UNMATCHED,
+            "retracted — retraction",
+            date="2026-08-16",
+            target_hash="aa11",
+            notice_class="blocking",
+            notice_type="retraction",
+            notice_date="2023",
+            detection_date="2023",
+        )
+
+
+def test_partial_notice_date_finding_is_fully_acknowledgeable(fixture_vault):
+    """The whole point of keeping the alert standing is that a human can still
+    close it: a year-only notice date must not choke the ack path."""
+    finding = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "retracted — retraction",
+        date="2026-08-16",
+        target_hash="aa11",
+        notice_class="blocking",
+        notice_type="retraction",
+        notice_date="2023",
+    )
+
+    assert inbox.load(fixture_vault)[-1].notice_date == "2023"
+
+    inbox.append_ack(
+        fixture_vault,
+        finding.id,
+        "manual — reviewed",
+        actor="human:eran",
+        target_hash="aa11",
+        notice_class="blocking",
+        notice_type="retraction",
+        notice_date="2023",
+    )
+
+    assert inbox.is_acknowledged(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        current_hash="aa11",
+        notice_class="blocking",
+        notice_type="retraction",
+        notice_date="2023",
+    )
+
+
 def test_entry_round_trips_brackets_field_like_text_and_literal_backslashes(
     fixture_vault,
 ):

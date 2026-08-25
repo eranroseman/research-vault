@@ -909,6 +909,129 @@ def test_update_notice_unknown_blocking_date_never_auto_clears(net_vault, monkey
     assert outcome.extra["notice_date"] is None
 
 
+def test_partial_date_parts_keep_precision():
+    """Crossref's optional date-parts precision must survive unpadded."""
+    assert checks._notice_date_from_updated({"date-parts": [[2023]]}) == "2023"
+    assert checks._notice_date_from_updated({"date-parts": [[2023, 6]]}) == "2023-06"
+    assert (
+        checks._notice_date_from_updated({"date-parts": [[2023, 6, 15]]})
+        == "2023-06-15"
+    )
+
+
+def test_partial_date_parts_still_reject_an_explicit_zero_month_or_day():
+    """An explicit 0 is not "absent" — it must still fail range validation,
+    not be silently treated as a missing part and laundered through."""
+    assert (
+        checks._notice_date_from_updated({"date-parts": [[2023, 0]]}) is checks._INVALID
+    )
+    assert (
+        checks._notice_date_from_updated({"date-parts": [[2023, 6, 0]]})
+        is checks._INVALID
+    )
+
+
+def _notice(notice_type, notice_date):
+    return {"type": notice_type, "notice_date": notice_date}
+
+
+def test_ambiguous_reinstatement_does_not_clear():
+    """A year-only retraction and a same-year full-date reinstatement cannot be
+    ordered — the reinstatement could have preceded the retraction — so the
+    alert must stand."""
+    notices = [_notice("retraction", "2023"), _notice("reinstatement", "2023-06-15")]
+
+    assert checks._active_blocking_notices(notices) == [_notice("retraction", "2023")]
+
+
+def test_ambiguous_reinstatement_does_not_clear_reversed_precision():
+    """The same ambiguity with precision roles reversed: a full-date retraction
+    and a year-only reinstatement in the same year still cannot be ordered."""
+    notices = [
+        _notice("retraction", "2023-06-15"),
+        _notice("reinstatement", "2023"),
+    ]
+
+    assert checks._active_blocking_notices(notices) == [
+        _notice("retraction", "2023-06-15")
+    ]
+
+
+def test_equal_partial_dates_do_not_clear():
+    """Two year-only dates that read identically as strings carry no evidence
+    of day-level order — the reinstatement could be the earlier of the two —
+    so the alert must stand."""
+    notices = [_notice("retraction", "2023"), _notice("reinstatement", "2023")]
+
+    assert checks._active_blocking_notices(notices) == [_notice("retraction", "2023")]
+
+
+def test_unambiguous_full_date_reinstatement_still_clears():
+    """The ordinary case, unchanged: two full dates, a later reinstatement
+    clears the retraction exactly as before this fix."""
+    notices = [
+        _notice("retraction", "2023-06-15"),
+        _notice("reinstatement", "2023-06-16"),
+    ]
+
+    assert checks._active_blocking_notices(notices) == []
+
+
+def test_same_day_full_date_reinstatement_still_clears():
+    """`>=` is load-bearing: a same-day reinstatement still clears today."""
+    notices = [
+        _notice("retraction", "2023-06-15"),
+        _notice("reinstatement", "2023-06-15"),
+    ]
+
+    assert checks._active_blocking_notices(notices) == []
+
+
+def test_differing_precision_reinstatement_still_clears_when_not_a_prefix():
+    """A month-only retraction and a full-date reinstatement the following
+    month: neither string is a prefix of the other, so the comparison is
+    decisive and the later reinstatement clears — differing precision is not,
+    by itself, ambiguity."""
+    notices = [
+        _notice("retraction", "2023-06"),
+        _notice("reinstatement", "2023-07-01"),
+    ]
+
+    assert checks._active_blocking_notices(notices) == []
+
+
+def test_update_notice_year_only_retraction_survives_same_year_reinstatement(
+    net_vault, monkeypatch
+):
+    """End-to-end: Crossref reports the retraction with year-only precision and
+    a same-year, fully-dated reinstatement. Before this fix the retraction
+    padded to January 1st, which let the June reinstatement clear it outright;
+    the alert must now stand."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/year-only": _notice_route("10.1000/year-only"),
+            "api.crossref.org/works/10.1000/year-only": _works(
+                [
+                    {"type": "retraction", "updated": {"date-parts": [[2023]]}},
+                    {
+                        "type": "reinstatement",
+                        "updated": {"date-parts": [[2023, 6, 15]]},
+                    },
+                ]
+            ),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/year-only"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == "retracted — retraction"
+    assert outcome.extra["notice_date"] == "2023"
+
+
 def test_update_notice_stops_when_registry_routing_is_unavailable(
     net_vault, monkeypatch
 ):
