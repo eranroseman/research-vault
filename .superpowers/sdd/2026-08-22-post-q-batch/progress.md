@@ -4709,3 +4709,49 @@ Task 19b: concern (destination named, per the ruling's rider): the guard denies
       noticed if a later edit changed it.
   Both flagged as contract-consistent derivations rather than new scope, and
   summarised upward so the author can override either.
+
+Task 19b: fix round 1 landed — 6a62cab. 3 files; suite 1682/7 (= 1650 + 32 hook
+  tests, up from 27); hooks.json exact-equality pin re-confirmed passing.
+  log.md joined the deny list per the ruling, the dead `except ValueError` was
+  deleted, and the matrix overclaim was corrected.
+### SYNC MERGE ATTEMPTED AND STOPPED — ONE CONFLICT, spec §10
+  Everything auto-merged EXCEPT docs/superpowers/specs/2026-08-16-foundation-spec.md
+  — including the plan file I had flagged in advance as the likely conflict, which
+  merged cleanly. My prediction was wrong about WHICH file; being wrong about it
+  cost nothing because the instruction was "stop on any conflict" regardless.
+  THE CONFLICT IS STRUCTURAL, NOT TEXTUAL, and that is the whole difficulty:
+  OURS is the §10 mega-line — ONE LINE, 13,528 CHARACTERS. MAIN HAS SPLIT THAT
+  LINE INTO A BULLET LIST (52 lines on their side of the hunk). So git can only
+  offer the whole line one way or the other; there is no hunk-level middle.
+  I told 19b's implementer "do not reflow the line". MAIN REFLOWED IT.
+  WHAT EACH SIDE SAYS ABOUT THE SAME ENTRY — they were written TOWARD each other,
+  neither is wrong:
+   - main, a clean bullet at :181 — "PreToolUse blocking for the citekey lint —
+     revisit only on evidence that warnings fail; staleness lint fixed first.
+     (The machine-surface deny shipped separately when its trigger fired — batch
+     Task 19b.)" MAIN ALREADY KNOWS ABOUT 19b AND POINTS AT IT.
+   - ours, inline — the full trigger-evidence paragraph (the 2c reproduction, the
+     append-only / PostToolUse / okf.py-laundering chain, pretooluse_guard.py
+     named) plus the citekey-lint question held separately deferred. OURS CARRIES
+     THE EVIDENCE.
+  AND A THIRD FACT THAT DECIDES PART OF IT INDEPENDENTLY OF THE MERGE: OUR SPEC
+  TEXT IS ALREADY STALE. It names the FOUR-path list, because it was written at
+  a2b829d BEFORE the log.md ruling, and 6a62cab fixed the code and tests but DID
+  NOT TOUCH THE SPEC — verified, 3 files, none of them the spec. So the shipped
+  guard denies FIVE paths and the spec says FOUR, on either side of this merge.
+  That is a defect the merge merely surfaced; it would have shipped silently.
+  MERGE ABORTED rather than left half-resolved — the same reasoning that made me
+  hold the merge while an implementer was live: a half-merged tree lying around
+  waiting on a ruling is exactly the hazard. Re-running it is deterministic and
+  costs nothing.
+  PROPOSED (sent, not applied): take MAIN'S STRUCTURE — a bullet list is strictly
+  better than a 13.5k-character line, and reverting their reflow to preserve our
+  edit would be the tail wagging the dog — then rewrite main's :181 bullet to
+  carry OUR evidence paragraph with the CORRECTED FIVE-PATH list. Main's
+  formatting wins, our content wins, and the staleness is fixed in the same
+  motion instead of deferred.
+  TWO CHECKS PROMISED AFTER RESOLVING: that no other `·` entry from the 13.5k
+  line was LOST in taking main's split — diffing the ENTRY SETS, not the bytes,
+  because a 52-line replacement of a 13.5k-character line is exactly where a
+  dropped entry is invisible — and that §10 ends with no duplicate PreToolUse
+  entry.
