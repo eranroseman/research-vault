@@ -44,11 +44,20 @@ built the same way.
    adversarially verified by a fresh agent instructed to refute — 21 confirmed, 18 refuted");
    decision rules pre-registered before their evidence window opens; trust-core remediation
    absorbed into one combined pre-slice plan so a single merge unblocks Phases 2–6.
-8. **Pre-slice batch (08-24 → 08-25).** 26 tasks, 58KB plan, controller/implementer/reviewer
-   topology, per-task review + fix rounds (Task 21 took three, each closing a real defect),
-   boundary SHA-walks, an independent plan review, a concern-disposition sweep, ADR 0004
-   accepted, issues #16–#25 filed. Plan W split out so the batch header's single-dispatch claim
-   "becomes true again" (f6b7788).
+8. **Pre-slice batch (08-23 → 08-25; first batch commit 002cb25 is author-dated 08-23).** 26
+   tasks, 58KB plan, controller/implementer/reviewer topology, per-task review + fix rounds —
+   not an exception but the norm: **10 of 26 task-closes record at least one fix round** (six
+   took one, two took two, two took three; peer-counted from the ledger). One boundary SHA-walk
+   at the Part 1/2 boundary (ca0281d; the pre-merge walk did not run and the post-merge walk is
+   owed), an independent plan review, a concern-disposition sweep, ADR 0004 accepted, issues
+   #16–#25 filed. What was hard, from the execution seat: plan text drifting from the tree
+   (stale line numbers, a brief naming a nonexistent test file, a two-day-stale brief, a
+   falsified premise that was true for an unchecked field), claims outrunning evidence in both
+   directions, and three seats coordinating without ever seeing the same artifact. The
+   highest-leverage single activity: the controller pre-check — reading the code a brief points
+   at before dispatch and handing over facts the brief cannot know (see the execution-seat
+   ledger below). Plan W split out so the batch header's single-dispatch claim "becomes true
+   again" (f6b7788).
 9. **Present (08-25).** Batch complete 112/112, acceptance sweep clean, merged; method
    retrospective committed and visibly amended; slice Phases 2–6 unblocked, not yet run; Plan W
    pending.
@@ -100,6 +109,40 @@ Each mechanism with its first-appearance artifact — the reusable part.
 16. **Method retrospectives as artifacts** — "what the *method* produced, not what the tasks
     did," amended visibly when late instances arrived (2026-08-25 retrospective).
 
+### From the execution seat (peer review by the batch implementer session, 2026-08-25)
+
+Ten inventions the controller-side ledger missed, counted from the implementer's own record:
+
+17. **Pre-check hand-over, with its inverse discipline** — the controller reads the code a brief
+    points at before dispatch and hands over facts the brief cannot know (Task 17b's
+    version-bump time bomb; Task 20's None-idiom trap; Task 11 shrunk to proving reachability;
+    Task 2e's wikilink-escaping dry-run) — AND the implementer re-verifies rather than inherits:
+    "a pre-check that becomes a fact the implementer inherits unexamined is just a longer game
+    of telephone."
+18. **Brief regeneration immediately before dispatch** — born from a two-day-stale-brief error;
+    existence is not currency.
+19. **Scratch-probe canary discipline** — `git archive | tar -x`, never `cp -r` (a worktree's
+    `.git` pointer means a copy's git commands mutate the real index — happened); `PYTHONPATH=.`
+    plus an asserted import path (a probe silently measured the parent repo — happened). In
+    docs/testing.md.
+20. **Discrimination proof as the unit of review evidence** — not "the test passes" but "revert
+    the line, show it red," per test; sharper form: make the targeted path emit a
+    different-but-plausible outcome and confirm the test still fails.
+21. **The four-condition delegation rule** — same axis, decisive measurement, reversible,
+    immediately visible; all four or ask.
+22. **Destination-per-concern at write time** — an honest decline is a disposition; silence is
+    not.
+23. **Correct-forward over amend for reviewed commits** — including commit messages that made
+    false claims (a3db464, 2393658 precedents).
+24. **The seat holding the consent context performs the consented act** — Task 13's live-vault
+    write stayed with the controller because a delegate would re-derive the safety context or
+    act without it.
+25. **Enumerate, don't count** — "four skips remain" leaves acceptance open; naming which two
+    are a gate and which two a decision makes the finish line checkable in advance.
+26. **Reproduce-don't-read for acceptance sweeps** — with the fence that "cannot reproduce
+    because the scenario is unbuildable" is a different finding from "reproduced and the defect
+    is gone."
+
 ## Plan lineage
 
 A (bridge core) → B (verification) → C (scaffold/enforcement) → T (terminology) → Q (quality
@@ -121,11 +164,19 @@ so recorded separately from the cited sections above.
    short-form approval turns only — "word"/"yes"/"approved"/"okay"; a floor, since prose rulings
    and dialog picks don't match the pattern): 163 across the run, ~23 per active day, peaking at
    36 on 08-20. For workloads 2/3, that is the constraint to design around explicitly.
-2. **Error-catch latency collapsed over the run.** Spec-era errors were caught by scheduled
-   adversarial passes days later; by batch's end they were caught in the message that made them.
-   The culture moved catches from scheduled verification to point-of-writing. Consequence for
-   future readers: the counted-findings numbers should FALL over time — falling counts are the
-   doctrine internalizing, not rigor declining.
+   Population caveat from the execution seat: during the batch, most decisions consumed the
+   ORCHESTRATOR's relay, not the author's word — the author gated only consent and scope. The
+   163 may measure a different population than "decisions the method consumed"; a
+   scope-of-instrument question, stated rather than resolved.
+2. **Catch latency vs catch quality — a two-seat disagreement, recorded unresolved.**
+   Controller-seat observation: spec-era errors were caught by scheduled adversarial passes days
+   later; by batch's end some were caught in the message that made them — catches moved toward
+   point-of-writing. Execution-seat contest: the batch's final task still took three fix rounds
+   and instrument-scope errors span the whole run including its last day; what improved was the
+   INSTRUMENTS (discrimination proofs, canaries, enumeration, reproduce-don't-read), so "catch
+   quality improved; catch latency is not visible from this seat." The falling-findings
+   prediction carries the execution seat's counter-reason too: later tasks had more machinery
+   available to violate.
 3. **The method has n=1 on both axes** — one author, one model family, co-evolved with its own
    product. The slice validates the product; nothing tests the method's transferability.
    Workload 2's build is the natural replication run: template applied to a different domain,
@@ -141,7 +192,11 @@ so recorded separately from the cited sections above.
    decaying. Product claims cite file:line; the paper's process claims will need transcript
    citations, and no fixity or archive discipline exists for them. If harness-as-paper is live,
    transcript preservation is a decision with a clock on it (export key sessions into
-   `research/raw/` or `sources/`; small cost, shrinking window).
+   `research/raw/` or `sources/`; small cost, shrinking window). Partial counter-example that
+   strengthens the point: the batch's SDD ledger (progress.md, committed at 95a81b3) IS a
+   preserved partial transcript — rulings with derivations, errors included — and served as the
+   recovery map across a context compaction. The one place preservation was done, it worked;
+   it exists because a skill happened to prescribe it, not because preservation was decided.
 
 ## What repeats for the next workload
 
