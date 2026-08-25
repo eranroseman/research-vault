@@ -69,6 +69,23 @@ propagates without invocation. Corollary the session proved twice: **verify an a
 against the artifact it was handed** — a claim exactly true against a stale brief is not a false
 claim.
 
+## Dispute adjudication (added 2026-08-25, from the boundary-review finding-2 exchange)
+
+When a peer disputes a reviewer's finding with evidence: the controller **re-runs the evidence
+itself before ruling** — never adopts the disputant's word, however checkable it looks (three
+commands, run fresh, settled it). An overturned finding gets a **dated correction in the review's
+own file**, not a quiet drop; the honest residual is restated and **owned by whoever's artifact
+carries it** (here: the disputant's own ledger defect, self-offered). Symmetry observed: the
+disputant offered the reviewer the re-check first, no gotcha — the reader-side rule running in
+both directions at once.
+
+## The autostash trap (shared-checkout instance, 2026-08-25)
+
+Rebase blocked by another session's unstaged file has a one-flag temptation — `--autostash` —
+that is a stealth violation of the never-touch rule: it stashes and reapplies someone else's
+working state, and "it restores it perfectly" is the rationalization. The correct move,
+exercised: merge instead of rebase; the foreign file is never touched.
+
 ## Controller error ledger (this seat's own instances of the run's error classes)
 
 - Instruction written from memory of an unverified structure (the "preserve the separate
