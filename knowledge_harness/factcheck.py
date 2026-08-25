@@ -38,7 +38,7 @@ class ClaimRef:
 
 
 def claim_text_hash(text: str) -> str:
-    """Return the stable SHA-256 hex digest of one claim's normalized text."""
+    """Return the stable SHA-256 hex value of one claim's normalized text."""
     return hashlib.sha256(normalize_text(text).encode()).hexdigest()
 
 
@@ -162,8 +162,8 @@ def select_claims(
     return ordered_refs[:cap], ordered_refs[cap:]
 
 
-def skipped_digest(skipped: list[ClaimRef]) -> str:
-    """Return a content-derived digest of one skipped set.
+def skipped_sha256(skipped: list[ClaimRef]) -> str:
+    """Return a content-derived SHA-256 hex value of one skipped set.
 
     Used as the skipped-set finding's `target_hash` so a same-day rerun
     with an unchanged skipped set is idempotent (the `finding` verb's own
@@ -189,5 +189,5 @@ def run(vault_root, draft_path, cap: int = DEFAULT_CAP) -> dict:
         "cap": cap,
         "selected": [asdict(ref) for ref in selected],
         "skipped": [asdict(ref) for ref in skipped],
-        "skipped_digest": skipped_digest(skipped) if skipped else None,
+        "skipped_sha256": skipped_sha256(skipped) if skipped else None,
     }

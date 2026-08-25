@@ -196,21 +196,21 @@ def test_contested_adjacent_links_reuses_the_disputed_claim_lint(tmp_vault):
     assert contested == {"smith2020#^c-33333333"}
 
 
-# --- skipped_digest ----------------------------------------------------------
+# --- skipped_sha256 ----------------------------------------------------------
 
 
-def test_skipped_digest_is_order_independent_and_content_sensitive():
+def test_skipped_sha256_is_order_independent_and_content_sensitive():
     a = ClaimRef("smith2020#^c-1", "inference", 1, "h1")
     b = ClaimRef("smith2020#^c-2", "inference", 2, "h2")
 
-    assert factcheck.skipped_digest([a, b]) == factcheck.skipped_digest([b, a])
-    assert factcheck.skipped_digest([a]) != factcheck.skipped_digest([a, b])
+    assert factcheck.skipped_sha256([a, b]) == factcheck.skipped_sha256([b, a])
+    assert factcheck.skipped_sha256([a]) != factcheck.skipped_sha256([a, b])
 
 
 # --- run() and the CLI entry -------------------------------------------------
 
 
-def test_run_reports_cap_selected_skipped_and_a_digest_only_when_something_skipped(
+def test_run_reports_cap_selected_skipped_and_a_sha256_only_when_something_skipped(
     tmp_vault,
 ):
     draft_path = _write_vault(
@@ -224,7 +224,7 @@ def test_run_reports_cap_selected_skipped_and_a_digest_only_when_something_skipp
     assert report["cap"] == 30
     assert len(report["selected"]) == 1
     assert report["skipped"] == []
-    assert report["skipped_digest"] is None
+    assert report["skipped_sha256"] is None
 
 
 def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):

@@ -312,7 +312,7 @@ def test_finding_refiles_when_the_target_hash_changes(tmp_vault):
 
 
 def test_two_distinct_skipped_sets_same_day_stay_separately_acknowledgeable(tmp_vault):
-    """The digest-as-target-hash design exists so two genuinely different
+    """The sha256-as-target-hash design exists so two genuinely different
     skipped sets, filed on the same target on the same day, get distinct
     finding ids (``finding_id`` appends ``/scope-<hash>`` whenever a target
     hash is supplied) — proving the ack-ambiguity defect a same-day,
@@ -328,7 +328,7 @@ def test_two_distinct_skipped_sets_same_day_stay_separately_acknowledgeable(tmp_
         str(tmp_vault),
     ]
     first_id = None
-    for target_hash in ("digest-aaaa", "digest-bbbb"):
+    for target_hash in ("sha256-aaaa", "sha256-bbbb"):
         code = main([*base, "--target-hash", target_hash])
         assert code == 0
         if first_id is None:
@@ -354,7 +354,7 @@ def test_two_distinct_skipped_sets_same_day_stay_separately_acknowledgeable(tmp_
     assert ack_code == 0
     remaining = inbox.open_entries(tmp_vault)
     assert len(remaining) == 1
-    assert remaining[0].target_hash == "digest-bbbb"
+    assert remaining[0].target_hash == "sha256-bbbb"
 
 
 def test_finding_prints_an_id_the_ack_verb_can_reference(tmp_vault):

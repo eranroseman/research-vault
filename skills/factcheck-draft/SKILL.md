@@ -25,7 +25,7 @@ python3 -m knowledge_harness factcheck --vault PATH --draft projects/NAME/DRAFT.
   "cap": 30,
   "selected": [{"claim_link": "smith2020#^c-1a2b3c4d", "tag": "paraphrase", "line_no": 12, "text_hash": "…"}],
   "skipped": [{"claim_link": "smith2020#^c-9f8e7d6c", "tag": "quote", "line_no": 40, "text_hash": "…"}],
-  "skipped_digest": "…" 
+  "skipped_sha256": "…" 
 }
 ```
 
@@ -60,10 +60,10 @@ Per-claim SKIPPED here means a claim the script selected but that turned out str
 If `skipped` is non-empty, file **one** finding naming everything the budget cap left unchecked this pass — an unchecked claim must never read as checked:
 
 ```sh
-python3 -m knowledge_harness finding factcheck "projects/NAME" SKIPPED "budget-cap — N claims not checked this pass: LINK1, LINK2, …" --vault PATH --target-hash SKIPPED_DIGEST
+python3 -m knowledge_harness finding factcheck "projects/NAME" SKIPPED "budget-cap — N claims not checked this pass: LINK1, LINK2, …" --vault PATH --target-hash SKIPPED_SHA256
 ```
 
-The target is the project itself — a gate-run reference, not a claim link — and `--target-hash` is the script's own `skipped_digest`: a rerun with the identical skipped set is a no-op (the `finding` verb collapses it to the existing entry), while a genuinely different skipped set gets its own record.
+The target is the project itself — a gate-run reference, not a claim link — and `--target-hash` is the script's own `skipped_sha256`: a rerun with the identical skipped set is a no-op (the `finding` verb collapses it to the existing entry), while a genuinely different skipped set gets its own record.
 
 ## Four-state honesty, at the factcheck level too
 
