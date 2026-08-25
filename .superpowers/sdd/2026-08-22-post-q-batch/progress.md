@@ -5307,3 +5307,162 @@ Task 2e: ALL FOUR ITEMS RULED (orchestrator, 2026-08-25); fix round 1/5
   canonicalization, index.md's unescaped byte-pin, the pins moving with their
   bytes, the both-directions swallowed-error proof, and the mirror test that
   discriminates BOTH WAYS against the real config.
+
+Task 2e: fix round 1 landed — 17e3ad4 + 45bcd91. Suite 1703/7, DOWN 11 from 1714.
+  THE DECREASE IS THE POINT AND IT RECONCILES: skills/ holds 23 markdown files,
+  11 under the vendored references/, 12 remaining — and the suite fell by exactly
+  11. So the test-count delta is EXPLAINED BY the file-count delta rather than
+  merely equal to it. A drop is the one direction that hides a mistake, because
+  "fewer tests" and "less coverage" look identical from the number alone; the
+  arithmetic having a cause is what makes it safe.
+  THE NEW REPO POLICY PASSED ITS FIRST LIVE TEST. The implementer could not run
+  `pre-commit run --all-files` because MY uncommitted progress.md made the tree
+  dirty, and per 3d6ad73 it REPORTED THE PRECONDITION AS UNMEETABLE instead of
+  reaching into a file it did not own — the exact thing it did last round and the
+  exact thing the rule now forbids. It verified every constituent gate
+  individually instead, each using the real config's own extracted commands.
+  I DISCHARGED THE GATE I OWED: committed progress.md, ran `pre-commit run
+  --all-files` on a porcelain-clean tree, 8/8 HOOKS PASSED, ZERO FILES MODIFIED,
+  exit 0.
+  CONTROLLER-VERIFIED THE MECHANISM DIRECTLY: the vault `find` selects exactly
+  NINE files and excludes root index.md; the skills `find` drops the 11 vendored
+  ones. Both counts match what the fix claims.
+  AND THE DOCTRINE WAS APPLIED PER-DRIFT RATHER THAN UNIFORMLY, which is the
+  right reading of it: drift B (a new file at vault root going ungated) is CLOSED
+  — STRENGTHEN REALITY, the find now sweeps it in. Drift A (a new dialect-bearing
+  file under vault/system being escaped) is NOT closed — a path exclusion cannot
+  detect content — so the comment WEAKENS THE CLAIM and says so outright: "both
+  exclusions below are PATH exclusions, not content detection ... name it here
+  explicitly when that happens". The comment no longer asserts a property the
+  code lacks, which is what the finding demanded.
+  THE REPORT'S SUMMARY OVERSTATES IT, though: it says the round is "closing both
+  demonstrated drifts". Drift A is DOCUMENTED, not closed. The comment — the
+  thing that ships — is right; the report sentence is not. Sent to the re-review
+  to confirm rather than asserted by me.
+Task 2e: fix round 1 re-review dispatched over 01e2a96..45bcd91. Required to:
+   - ENUMERATE the test ids present at 01e2a96 and absent at 45bcd91 and confirm
+     every one is a table-truncation case over a vendored file — because a
+     decrease is exactly where a second, unrelated loss would hide;
+   - construct BOTH drifts and report what actually happens, with the expectation
+     stated up front that drift A is STILL escaped, so a reviewer who finds
+     otherwise knows it contradicts me rather than confirms me;
+   - discriminate the redesigned mirror test THREE WAYS, since it now executes
+     the hook's real `find` via subprocess — and to report CONCRETE FRAGILITY
+     MODES (quoting, cwd, find availability, ordering) rather than a verdict,
+     because a test that runs shell buys power with new ways to break;
+   - check EVERY claim in the long mdformat comment against the shipped entry,
+     since "a comment asserting a property the code lacks is worse than no
+     comment" is the finding this round exists to fix and residue would be worse
+     than the original.
+  Also flagged: synthesis/index.md IS included by the vault find (only the ROOT
+  index.md is excluded) — same filename, different path, and therefore a trap
+  for a future editor who remembers "index.md is excluded".
+
+Task 2e: fix round 1 re-review — NEW DEFECTS. Round-0 items ALL addressed, but
+  the fixing commit introduced two of its own.
+  ROUND-0 CONFIRMATIONS, all by construction: the 11 lost tests are EXACTLY the
+  table-truncation cases over the 11 vendored files, byte-for-byte, NONE GAINED;
+  drift B closed (a new vault/rootnote.md IS now touched — triple space
+  collapsed); drift A still escaped with the comment accurately saying so; the
+  mirror discriminates in all three asked directions.
+### THE FIRST NEW DEFECT IS MINE, AND IT SHIPPED INTO THREE ARTIFACTS
+  "ce0f1e3 reformatted EIGHT files" is WRONG — it is ELEVEN under references/
+  (arxiv, biorxiv, core, crossref, europepmc, medrxiv, openalex, pmc, pubmed,
+  semantic-scholar, unpaywall) plus SKILL.md, twelve total. Verified:
+  `git show --stat ce0f1e3 | grep 'find-sources/references' | wc -l` -> 11.
+  I PRODUCED THE WRONG NUMBER WITH `... | grep -i find-sources | head -8` AND
+  REPORTED THE TRUNCATED OUTPUT AS THE COUNT. The eight are simply the first
+  eight alphabetically. It propagated into .pre-commit-config.yaml:43, into
+  task-2e-report.md twice, and into GitHub issue #24.
+  A COMMENT-TRUTH DEFECT SHIPPED INSIDE THE COMMIT WHOSE PURPOSE WAS FIXING
+  COMMENT-TRUTH DEFECTS — and the source of it was the controller.
+  THIRD TIME THIS RUN A PIPE OF MINE HAS TRUNCATED EVIDENCE AND I TREATED THE
+  TRUNCATED VIEW AS THE FINDING:
+   - `tail -15` hid .gitignore, and I nearly reported a teammate's correct claim
+     as wrong;
+   - `--help` omitted a version-gated flag, and I called --exclude absent;
+   - `head -8` cut a file list, and I stated "eight files" — WHICH SHIPPED.
+  The first two were caught before they landed. This one landed in three places,
+  which is what makes it worth a RULE rather than another catalogue line:
+  A COUNT TAKEN FROM A COMMAND CONTAINING A TRUNCATING PIPE IS NOT A COUNT.
+  Use `wc -l`, or print the list in full. Truncation is for READING, never for
+  COUNTING.
+  ISSUE #24 CORRECTED BY ME, not delegated — the comment states the real count,
+  the full eleven-file list, and how the wrong number got there. My error, my
+  correction, and the provenance recorded so the next reader does not re-derive
+  the discrepancy from scratch.
+Task 2e: SECOND NEW DEFECT — THE MIRROR TEST IS A LOOSE ASSERTION AFTER ALL, and
+  in a way that is a REGRESSION against what it replaced. A flag inserted between
+  the fixed prefix and the path list (`--end-of-line lf`, `--check`) is SILENTLY
+  DROPPED as a non-path token and the test PASSES GREEN. So the mirror would not
+  notice a hook DEFANGED BY `--check`, which makes mdformat report instead of
+  format. Round 0's text parser FAILED on that same mutation, confusingly but
+  correctly.
+  A REAL DETECTION WAS LOST WHILE SUBPROCESS FIDELITY WAS GAINED — a trade the
+  implementer did not intend to make, and the exact shape of this plan's most
+  common defect: `assert hook_files == mirror_files` is satisfiable by a hook
+  that no longer formats anything.
+Task 2e: fix round 2/5 dispatched — the count correction (with the rule stated in
+  the commit body rather than the number edited silently), the mirror test
+  asserting the WHOLE resolved invocation with the `--check` mutation pinned, and
+  a correct-forward note for 17e3ad4's subject line, which says "closes both
+  drifts" where the report body correctly scopes it to drift B.
+
+Task 2e: fix round 2 landed — 1be8e96 + b871431. Suite 1705/7, up exactly 2 (the
+  two new pinned mutation tests, nothing else moved).
+Task 2e: ROUND-2 RE-REVIEW DONE BY THE CONTROLLER — one mutant settles the item
+  that mattered, and it settles it decisively. In a canary-checked archive tree I
+  DEFANGED THE REAL HOOK by inserting `--check` into .pre-commit-config.yaml and
+  ran the suite: test_mdformat_roots_mirror_the_hook_the_seam_actually_runs
+  FAILS. Before this round the same mutation left it GREEN. The detection round
+  0's text parser had is restored, and now on top of subprocess fidelity rather
+  than instead of it.
+  The count correction landed too — .pre-commit-config.yaml:43 now reads "all
+  eleven of its files". Gates re-run by me: suite 1705/7, publish gate exit 0,
+  and `pre-commit run --all-files` 8/8 hooks, zero files modified.
+  THE FIX'S SHAPE IS THE INTERESTING PART: rather than patch the comparison, the
+  implementer split out _resolved_paths_for_mdformat_entry so the resolver is
+  INDEPENDENTLY TESTABLE, made `$(find ...)` match as ONE ATOMIC TOKEN so find's
+  own flags can never be mistaken for mdformat's, and made any remaining
+  `-`-prefixed token RAISE LOUDLY. A blind spot closed by making the unknown case
+  fail rather than by enumerating the known ones — which is the same move as
+  deleting 19b's fail-open guard, one layer up.
+Task 2e: A SLIP OF MINE, recorded because I had just told two agents not to do
+  it: I ran `pre-commit run --all-files` with progress.md DIRTY. pre-commit
+  stashes unstaged changes onto the stack SHARED BY EVERY CHECKOUT of this repo.
+  I verified afterwards that the ledger is byte-intact and `git stash list` is
+  EMPTY, so nothing was lost and nothing was left for another session to pop —
+  but the check was after the fact, and the rule exists because the failure is
+  not always this quiet. The correct order was: commit, then run.
+Task 2e: complete (commits 57fabf3..b871431 — 5c640d5, 212d135, 01e2a96, 17e3ad4,
+  45bcd91, 1be8e96, b871431 — review clean after 2 fix rounds, 4 concerns
+  carrying destinations). Ticked below: 5 boxes; 89 checked / 23 unchecked.
+  Suite 1705/7; publish gate exit 0; pre-commit 8/8.
+  WHAT THE TASK SHIPPED: every form gate now says what it does. The vendored fork
+  is excluded from BOTH the Python and the markdown gates rather than one; the
+  vault templates are mdformat's EXCEPT index.md, whose wikilinks and Base embeds
+  a CommonMark formatter corrupts on contact; the hook header no longer claims to
+  run where it does not; the record-immutability hook fails loud instead of
+  swallowing a git error into a pass; and the mirror between the hook and its
+  test constant is now enforced in three directions instead of asserted in a
+  comment.
+  THE TASK'S OWN LESSON, and it is uncomfortable in the right way: THIS TASK'S
+  SUBJECT IS COMMENTS THAT CLAIM MORE THAN THE CODE DOES, AND BOTH FIX ROUNDS
+  CLOSED EXACTLY THAT DEFECT INSIDE THE FIXES THEMSELVES — round 1's comment
+  asserted a self-exclusion property the inclusion list did not have, and round
+  2's corrected a count I had truncated with `head -8` and shipped into three
+  artifacts. A gate that checks claims does not exempt the claims made while
+  building it.
+Task 2e: minor (deferred): the `.index()` ValueError fragility persists in the
+  pre-existing test_pyproject_fmt_flags_match_the_hook_the_seam_actually_runs —
+  untouched, out of scope. Destination: controller; candidate GitHub issue at
+  batch close.
+Task 2e: minor (deferred): restoring skills/find-sources/references' upstream
+  bytes is explicitly NOT done here — the exclusion stops recurrence, only a
+  re-vendor undoes ce0f1e3's churn across all eleven files. Destination: GitHub
+  issue #24, verified OPEN and corrected by me with the real count.
+Task 2e: minor (deferred): synthesis/index.md IS included by the vault find —
+  only the ROOT index.md is excluded. Harmless today (mdformat leaves it
+  unchanged) but a genuine naming trap for a future editor who remembers
+  "index.md is excluded". Destination: recorded here; the comment's "name it
+  here explicitly when that happens" is the standing instruction.
