@@ -287,3 +287,152 @@ year leg silently pass, letting the check reach MATCHED. Same root cause
 regardless of whether the key was omitted or explicitly emptied), one
 representation the six-cell measurement didn't cover. Not fixed here — unruled, and
 raising it now rather than leaving it for the next audit to rediscover.
+**SUPERSEDED by Fix Round 2 below — measured, ruled, and closed.**
+
+## Fix Round 2 (2026-08-25)
+
+**What changed and why.** The coordinator measured the "New concern" above
+directly (both lanes, both fields, canary asserted) and confirmed it in full: every
+present-but-empty representation of `author`/`issued` still exhibited the original
+bug — `author=[]` still UNMATCHED (both lanes), and `issued={}`,
+`issued={"date-parts": []}`, `issued={"date-parts": [[]]}` all still MATCHED (both
+lanes). `{"date-parts": []}` in particular is not an edge case — it is what
+CSL/Crossref actually emit for a work with no recorded date, so **the common case
+was the one still broken.** Ruled: this is the same defect one representation over,
+not a smaller residual, and it lands in this task rather than being recorded for
+the next audit to rediscover — the same principle already applied twice on this
+axis (partial fixture migrations, partial field coverage) applies unchanged to
+partial *representation* coverage.
+
+**Scope, as ruled:**
+- `author`: an empty list (`[]`, either side) is *no authors to compare*, not a
+  contradiction — treated as absent, SKIPPED, same as the missing-key case.
+- `issued`: `{}`, `{"date-parts": []}`, and `{"date-parts": [[]]}` (either side) all
+  mean *no year present* — `metadata_year` already normalizes every one of these to
+  `(True, None)`, so the honest reading is "well-formed, no value," i.e. absent, not
+  "well-formed and comparably empty." Treated as absent, SKIPPED, same as the
+  missing-key case.
+- `title`: an empty/whitespace-only string — a genuine judgment call, reasoned
+  below, decided as: **LOCAL blank title → SKIPPED (same as missing); REMOTE blank
+  title → stays UNREACHABLE/malformed (same as missing).**
+
+**Implementation.** A new `_is_blank(value)` helper (`value is None or
+(isinstance(value, str) and not value.strip())`) replaces the raw `is None` check
+for the local title guard. For `author`, the existing `_metadata_authors(...)` call
+was already being computed early (round 1); the guard changed from checking the raw
+dict value to checking the *parsed* result against `[]` — `_metadata_authors(None)`
+and `_metadata_authors([])` both already produced `[]`, so this one change catches
+both representations with no new parsing logic. Same move for `issued`:
+`metadata_year(...)` was already computed early; the guard changed from raw
+`is None` to `local_year_ok and local_year is None` — since `metadata_year` already
+normalizes every "no real date" shape to `(True, None)`, this catches all three
+empty representations (and any other shape `metadata_year` treats the same way) via
+the one function it already delegates the normalization to, rather than
+re-implementing shape-sniffing in `check_metadata` itself. The remote side mirrors
+this exactly, plus one addition: the combined malformed-registry-metadata check
+gained `not remote_title.strip()` (guarded by the preceding `not isinstance(...,
+str)` short-circuit, so a non-string title never reaches `.strip()`) so a blank
+remote title still routes to the unchanged UNREACHABLE bucket instead of falling
+through to the mismatch comparison.
+
+**The `title=""` judgment call, argued both ways, and the decision.** The
+coordinator posed the sharpest form of the question directly: *is `""` a value the
+registry could meaningfully disagree with?* A comparison against an empty-string
+title *can* run — unlike an empty author list or an empty date, where there is
+genuinely nothing to compare, an empty title string is still a string, and
+`_metadata_text("")` is still a well-defined value the checker can byte-compare
+against the registry's title. That is the strongest argument for leaving it
+UNMATCHED: the comparison is not vacuous in the way the other two are.
+
+It loses to a stronger argument about what the record would then *claim*. A real
+bibliographic work always has some title — even a placeholder ("Untitled") is a
+title. So a blank local title is not a genuine "this work has no title" state in
+the way an anonymous work genuinely has no authors, or a forthcoming work genuinely
+has no year yet; it is almost always a data-entry gap in the local record — the
+same practical shape as the missing-key case round 1 already ruled SKIPPED for
+exactly that reason ("a fact that will never resolve by retrying"). Reporting
+"mismatch — title differs from registry" for it asserts a *contradiction* — that
+the two records disagree about what the work is called — when the actual, honest
+defect is that the local record does not have real title text yet. That assertion
+would send a human investigating the wrong thing (compare the title strings) instead
+of the right one (the local bibliography entry needs a title filled in). That is
+the same "verification record claiming a comparison that never really happened"
+defect class the whole of Fix Round 1 exists to close, one field over — so `""`
+is treated identically to a missing key on the **local** side: SKIPPED, not
+UNMATCHED.
+
+The **remote** side is decided the opposite way, deliberately, preserving the
+already-ruled local/remote title asymmetry (round 1: a registry record with no
+title at all is a malformed response, not a legitimate data state, because real
+registries essentially always populate title, unlike author/year which are
+legitimately sometimes absent). The same reasoning applies to a *blank* remote
+title exactly as it applied to a *missing* one: a Crossref/DataCite record
+returning an empty title string is not a real, if unusual, bibliographic fact — it
+is a sign the response itself is degraded. So remote `title=""` stays UNREACHABLE
+("outage — malformed registry metadata"), symmetric with remote `title=None`, and
+asymmetric with the local decision — both sides now treat blank exactly the way
+they already treated missing.
+
+**Spec sentence: left unchanged, per the coordinator's own scoping.** The
+coordinator's instruction was to extend the §6 sentence only if the title decision
+changed what it must *say* — otherwise leave it. It doesn't: the landed sentence
+already reads "an absent local `title`... is whole-check SKIPPED... a remote record
+missing `title` entirely remains a malformed-response outage." Treating a blank
+string the same way a missing key is already treated is a widening of what counts
+as *absent*, not a change to the claim the sentence makes about what happens once
+something is absent. Left as-is.
+
+**Boundary pins — the widening does not swallow malformed input as absent.** Two
+new tests confirm the guard is on the parsed *value*, not merely presence:
+`author: [{"family": ""}]` (a non-empty list with an invalid entry) still returns
+UNREACHABLE "outage — malformed bibliography metadata" — `_metadata_authors` returns
+`None` for it, not `[]`, so the new `== []` guard correctly does not fire.
+`issued: {"date-parts": [["not-an-int"]]}` (a present, non-empty, wrong-typed year)
+still returns the same UNREACHABLE reason — `metadata_year` returns
+`(False, None)`, so the new `year_ok and year is None` guard correctly requires
+`year_ok` to be `True` and does not fire on malformed-but-present data.
+
+**New tests** (12 total): a 4-case parametrize for local empty representations
+(`author-empty-list`, `issued-empty-dict`, `issued-empty-date-parts`,
+`issued-empty-inner-list`), the registry-side twin (same 4 cases), a local
+blank-title test, a remote blank-title test, and the two malformed-boundary pins
+above. One pre-existing parametrize row in
+`test_metadata_treats_malformed_crossref_shapes_as_unreachable` (the
+malformed-`issued`-shape row) incidentally used `"author": []` and was updated to a
+populated author list so it still exercises malformed-`issued` detection instead of
+tripping the new author-absence SKIP first — the same "partial fixture migration"
+pattern as fix round 1, one row this time.
+
+**Discriminator matrix** (each of the six widened guards reverted to its round-1,
+`is None`-only form individually, target test(s) rerun, confirmed RED for the
+stated reason, then restored):
+
+| Guard reverted | Test(s) | Result when reverted |
+|---|---|---|
+| Local title: `_is_blank` → `is None` | blank-title test | reached a network call it shouldn't have (always-raising fake) |
+| Local author: `== []` → raw `is None` | `author-empty-list` (local) | same — reached a network call it shouldn't have |
+| Local issued: `year_ok and year is None` → raw `is None` | all 3 local issued cases | same — reached a network call it shouldn't have; the `is None` case (unchanged elsewhere) stayed green throughout, confirming the revert isolated exactly the widening |
+| Remote author: `== []` → raw `is None` | `author-empty-list` (remote) | `Result.UNMATCHED` "mismatch — author family names differ" — the original bug, reproduced on demand |
+| Remote issued: `year_ok and year is None` → raw `is None` | all 3 remote issued cases | `Result.MATCHED` "matched" — the original bug, reproduced on demand |
+| Remote title: dropped `not remote_title.strip()` | remote blank-title test | `Result.UNMATCHED` "mismatch — title differs from registry" — a false contradiction asserted over a blank field, reproduced on demand |
+
+Each revert's sibling test (the `is None` case for the same field/side) stayed
+green throughout every revert, confirming the discriminator isolates the new
+widening rather than the whole guard.
+
+Confirmed by construction, still unchanged: present-and-matching stays MATCHED,
+present-and-*differing* stays UNMATCHED (title/author/year mismatch tests
+untouched), a genuine outage stays UNREACHABLE, and `remote title` fully absent
+(missing key) stays UNREACHABLE (its own dedicated test from round 1, unaffected).
+
+**Test arithmetic:** offline suite 1722 → 1734 passed, 7 skipped (net +12: the
+described new tests). `ruff check .` clean on changed files (same pre-existing,
+unrelated findings elsewhere as prior rounds). `ruff format --check .` initially
+flagged a line in `tests/test_checks.py` this round — fixed by running
+`ruff format` on the file (one line collapsed to fit the line length; verified via
+`git diff` that nothing else changed) — now clean, along with the same 5
+pre-existing, unrelated reformat candidates in `skills/find-sources/scripts/*`.
+`mypy knowledge_harness/` clean. `stop_publish_gate.py` hook exits 0.
+
+No new concerns from this round — the residual this round closes was the only one
+carried forward from round 1.

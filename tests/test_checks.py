@@ -747,7 +747,7 @@ def test_metadata_stops_when_registry_routing_is_unavailable(net_vault, monkeypa
         {
             "message": {
                 "title": ["Mortality decline"],
-                "author": [],
+                "author": [{"family": "Smith", "given": "Jo"}],
                 "issued": {"date-parts": "bad"},
             }
         },
@@ -2137,6 +2137,149 @@ def test_metadata_treats_registry_record_with_no_title_as_unreachable(
 
     assert outcome.result is Result.UNREACHABLE
     assert outcome.reason == "outage — malformed registry metadata"
+
+
+def _blank_entry(**overrides):
+    """A well-formed local entry, mutable one field at a time."""
+    entry = {
+        "id": "empty2024",
+        "DOI": "10.1000/xyz",
+        "title": "Mortality decline",
+        "author": [{"family": "Smith", "given": "Jo"}],
+        "issued": {"date-parts": [[2020]]},
+    }
+    entry.update(overrides)
+    return entry
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"author": []}, "no-identifier — item has no author"),
+        ({"issued": {}}, "no-identifier — item has no year"),
+        ({"issued": {"date-parts": []}}, "no-identifier — item has no year"),
+        ({"issued": {"date-parts": [[]]}}, "no-identifier — item has no year"),
+    ],
+    ids=[
+        "author-empty-list",
+        "issued-empty-dict",
+        "issued-empty-date-parts",
+        "issued-empty-inner-list",
+    ],
+)
+def test_metadata_skips_local_empty_representations_of_absence(
+    net_vault, monkeypatch, overrides, reason
+):
+    """Round 2: the same defect one representation over. An empty author list or
+    an empty/no-op issued date carries no real content to compare — it is absence,
+    not a contradiction, on the local side exactly as it is on the remote side."""
+    _fake_get(monkeypatch, {"": AssertionError("no metadata request should be made")})
+
+    outcome = checks.check_metadata(net_vault, _blank_entry(**overrides))
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == reason
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"author": []}, "no-identifier — registry record has no author"),
+        ({"issued": {}}, "no-identifier — registry record has no year"),
+        ({"issued": {"date-parts": []}}, "no-identifier — registry record has no year"),
+        (
+            {"issued": {"date-parts": [[]]}},
+            "no-identifier — registry record has no year",
+        ),
+    ],
+    ids=[
+        "author-empty-list",
+        "issued-empty-dict",
+        "issued-empty-date-parts",
+        "issued-empty-inner-list",
+    ],
+)
+def test_metadata_skips_remote_empty_representations_of_absence(
+    net_vault, monkeypatch, overrides, reason
+):
+    """The registry-side twin of the local test above — same empty shapes, same
+    conclusion: nothing there to compare, so skip rather than silently pass or
+    falsely contradict."""
+    message = {
+        "title": ["Mortality decline"],
+        "author": [{"family": "Smith", "given": "Jo"}],
+        "issued": {"date-parts": [[2020]]},
+    }
+    message.update(overrides)
+    _crossref_route(monkeypatch, {"message": message})
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == reason
+
+
+def test_metadata_skips_when_local_title_is_blank(net_vault, monkeypatch):
+    """A blank local title carries no real text to compare. Decided 2026-08-25:
+    treated the same as an absent title (SKIPPED), not as a real disagreement —
+    see the commit body for the reasoning against the alternative (UNMATCHED)."""
+    _fake_get(monkeypatch, {"": AssertionError("no metadata request should be made")})
+
+    outcome = checks.check_metadata(net_vault, _blank_entry(title="   "))
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — item has no title"
+    assert outcome.extra == {"doi": "10.1000/xyz"}
+
+
+def test_metadata_treats_remote_blank_title_as_malformed(net_vault, monkeypatch):
+    """Unlike the local side, a registry record with a blank title is NOT treated
+    as absence — deliberately asymmetric with the local case above, matching the
+    already-ruled local/remote title asymmetry for a fully missing title."""
+    _crossref_route(
+        monkeypatch,
+        {
+            "message": {
+                "title": [""],
+                "author": [{"family": "Smith", "given": "Jo"}],
+                "issued": {"date-parts": [[2020]]},
+            }
+        },
+    )
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry())
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed registry metadata"
+
+
+def test_metadata_treats_local_malformed_author_entry_as_unreachable_not_skipped(
+    net_vault, monkeypatch
+):
+    """A non-empty author list with an invalid entry is malformed data, not an
+    absent field — the widening must not swallow garbage input as absence."""
+    _crossref_route(monkeypatch, CROSSREF_METADATA)
+
+    outcome = checks.check_metadata(net_vault, _metadata_entry(author=[{"family": ""}]))
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed bibliography metadata"
+
+
+def test_metadata_treats_local_malformed_issued_shape_as_unreachable_not_skipped(
+    net_vault, monkeypatch
+):
+    """A present, non-empty issued value with a non-int year is malformed data,
+    not an absent field — same boundary as the author case above."""
+    _crossref_route(monkeypatch, CROSSREF_METADATA)
+
+    outcome = checks.check_metadata(
+        net_vault, _metadata_entry(issued={"date-parts": [["not-an-int"]]})
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — malformed bibliography metadata"
 
 
 def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():

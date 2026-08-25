@@ -268,6 +268,11 @@ def _metadata_text(value: str) -> str:
     return normalize_text(value).casefold()
 
 
+def _is_blank(value) -> bool:
+    """True for a missing title or one with no real text — absent either way."""
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
 def _metadata_authors(value) -> list[tuple[str, str]] | None:
     """Return comparable CSL authors, or reject an invalid author shape."""
     if value is None:
@@ -342,7 +347,7 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
         )
     doi = doi.strip()
     local_extra = _metadata_extra(doi)
-    if entry.get("title") is None:
+    if _is_blank(entry.get("title")):
         return Outcome(
             "metadata",
             target,
@@ -350,7 +355,8 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "no-identifier — item has no title",
             extra=local_extra,
         )
-    if entry.get("author") is None:
+    local_authors = _metadata_authors(entry.get("author"))
+    if local_authors == []:
         return Outcome(
             "metadata",
             target,
@@ -358,7 +364,8 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "no-identifier — item has no author",
             extra=local_extra,
         )
-    if entry.get("issued") is None:
+    local_year_ok, local_year = metadata_year(entry.get("issued"))
+    if local_year_ok and local_year is None:
         return Outcome(
             "metadata",
             target,
@@ -407,7 +414,8 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "outage — registry record unavailable",
             extra=extra,
         )
-    if remote.get("author") is None:
+    remote_authors = _metadata_authors(remote.get("author"))
+    if remote_authors == []:
         return Outcome(
             "metadata",
             target,
@@ -415,7 +423,8 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "no-identifier — registry record has no author",
             extra=extra,
         )
-    if remote.get("issued") is None:
+    remote_year_ok, remote_year = metadata_year(remote.get("issued"))
+    if remote_year_ok and remote_year is None:
         return Outcome(
             "metadata",
             target,
@@ -425,10 +434,9 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
         )
 
     remote_title = remote.get("title")
-    remote_authors = _metadata_authors(remote.get("author"))
-    remote_year_ok, remote_year = metadata_year(remote.get("issued"))
     if (
         not isinstance(remote_title, str)
+        or not remote_title.strip()
         or remote_authors is None
         or not remote_year_ok
     ):
@@ -441,8 +449,6 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
         )
 
     local_title = entry.get("title")
-    local_authors = _metadata_authors(entry.get("author"))
-    local_year_ok, local_year = metadata_year(entry.get("issued"))
     if not isinstance(local_title, str) or local_authors is None or not local_year_ok:
         return Outcome(
             "metadata",
