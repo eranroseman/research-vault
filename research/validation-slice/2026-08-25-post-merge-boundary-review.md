@@ -66,7 +66,7 @@ closure is the one a future reader is most likely to want to confirm.
 Cheapest durable fix: two completion lines in the ledger's own form. If Task 21's closure is
 genuinely the merge itself and not a range, then the line should say that.
 
-### 2. `88c6c09`'s commit message is false, and the record still carries it
+### 2. ~~`88c6c09`'s commit message is false, and the record still carries it~~ — RETRACTED, see the amendment
 
     88c6c09 docs: untrack the SDD review packages, keep the reports
      .../sdd/2026-08-22-post-q-batch/progress.md | 35 ++++++++++++++++++++++
@@ -88,6 +88,9 @@ It is also the retrospective's own spine wearing a different coat: a claim repor
 checking what the action actually covered. Worth noting where it landed — the commit that failed
 to observe its own claim is part of the work that fixed reports which assert without observing.
 
+**The above is wrong. It is left standing rather than deleted, because the correction below is
+about how it was produced, and a retraction that erases its own subject teaches nothing.**
+
 ### 3. Sweep categories B, C and D are still unrouted
 
 Confirmed against `main` at the merge tip. The polish-pass section holds 20 numbered entries;
@@ -101,6 +104,11 @@ checklist". So:
   stale survivor key) — Part 2 items the ledger's Part 1 entries never covered.
 - **D2** (vendored line references rot at re-vendor; nothing enforces re-verification) — needs a
   re-vendor checklist that still does not exist.
+
+**Routed as of 2026-08-25, verified:** B1 and B2 are issues **#26** and **#27**. C3 and C4 go to
+the polish ledger. D2 needed no new route — **#24**'s body already absorbs it in the same motion
+("add the re-vendor checklist while doing the re-vendor"), which the finding above missed by
+looking for a checklist rather than for a commitment to write one. Only C3/C4 remain unlanded.
 
 Deferring these to the batch close was agreed and remains safe: `5c0325e` is tracked, so the
 record survives. The caveat from that agreement now has evidence behind it. With the SDD workspace
@@ -173,3 +181,55 @@ down costs a line and makes the arrangement's rationale legible to whoever inher
 ## Standing role
 
 Next boundary is Plan W's close. This document is a new file; `research/` stands as written.
+
+______________________________________________________________________
+
+## Amendment, 2026-08-25 — finding 2 retracted
+
+**Finding 2 is wrong, and its error is an instance of the very class this review's scope section
+was written to guard against.**
+
+Re-verified independently before accepting the overturn, not taken from the disputant:
+
+    git merge-base --is-ancestor 88c6c09 origin/main   →  NO
+    git log --all --oneline --grep="untrack the SDD review packages"
+                                                       →  cf3b17c, and only cf3b17c
+    git merge-base --is-ancestor 2393658 origin/main   →  YES
+
+`88c6c09` is not in `main` and never was. It was amended into `2393658` — same content, one file,
+progress.md +35 — under the honest message *"docs: append the workspace-tracking ruling to the SDD
+ledger"*, precisely because the original message was false. `main` therefore carries exactly one
+commit with the untracking message: `cf3b17c`, the one that did the work. The correction I reported
+as missing is the commit the finding stands on.
+
+The ledger records the whole episode at lines 3643–3647, including its own catch:
+
+> CAUGHT BY VERIFYING RATHER THAN BY READING THE EXIT CODE: the commit reported "1 file changed, 35
+> insertions(+)" for what should have been 31 deletions, and `git ls-files .superpowers/ | wc -l`
+> still said 92. Message amended at 2393658 to state what the commit actually did and why,
+> following the a3db464 precedent for a false claim in a commit message.
+
+**How the error was produced.** Two greps returned nothing — `88c6c09` in the ledger, and `88c6c09`
+in the merged range's commit bodies — and I read both absences as *"the correction was never
+recorded."* The correct reading of the second was *"the commit is not in the range."* I had the
+disconfirming datum in hand, twice, and scored it as confirming. The finding I filed one section
+later, about a regex whose non-resolving tokens I nearly reported as phantoms, is the same failure
+caught in time; this one was not. My scope section covered the walk's regex and the coverage metric
+and did not cover the greps that produced finding 2 — an instrument list is only as good as its
+completeness, which is the spine's own point turned one notch further.
+
+It also fits the retrospective's sharpest row exactly. This was a **confident negative** — "the
+record still carries it", "no correction anywhere" — and a confident negative retires the search
+that would have found the rest. Stating the search space in the sentence ("no correction — searched
+the ledger and the range's commit bodies for `88c6c09`") would have exposed the gap inside the claim
+that contained it, because the obvious next question is whether `88c6c09` is in the range at all.
+
+**The honest residual, which is small and real.** The ledger's account at 3643–3647 never names
+`88c6c09`. It names only the surviving SHA, `2393658`. A reader searching for the superseded commit
+— which is what a reader who saw it at branch tip will search for — finds nothing, and nothing tells
+them the commit was amended away. That is exactly the path this reviewer took. **A ledger line
+recording an amend should name the superseded SHA in the same sentence as the surviving one**, not
+leave the old one unmentioned and the new one unlinked to it. That is the whole of what should
+change; the record is otherwise complete and self-caught.
+
+Findings 1, 3 and 4 stand. Finding 3's routing is now recorded above.
