@@ -302,3 +302,271 @@ every worktree of this repo — the exact hazard fact #5 names), I:
   either checks an exact set/string or is proven against induced failure,
   per the brief's own standard); noted per the "silence is not a
   disposition" instruction, not because a new instance was found.
+
+## 11. Fix round 1 — dynamic exclusion, vendored markdown absorbed, comment truths corrected
+
+The coordinator's round-1 review: **spec PASS with one material deviation
+(HIGH 1), quality PASS with findings (HIGH 2, four MEDIUM, two LOW).**
+Upheld without change: the four canonicalized templates (whitespace-only,
+ignore-all-space diff empty), `index.md` unescaped and byte-pinned, every
+pin moved with its bytes, the swallowed-error fix (both directions), and
+the round-1 mirror test (discriminated both ways against the real config).
+Addressed below, in the coordinator's order. Commit `17e3ad4`.
+
+### 11.1 HIGH 1 — the "excludes itself by rule" claim made true, not softer
+
+The round-1 comment claimed the vault exclusion pattern would protect
+future dialect-bearing templates "by the same rule, not by incident." It
+did not: `vault/system` was one of five *directories* in the static
+`entry:` path list, so mdformat would sweep in and silently corrupt
+(escape wikilinks in) any new `vault/system/newnote.md` — exit 0, no
+warning. The opposite drift also existed: a new `vault/rootnote.md`,
+outside all five named subpaths, would be silently ungated entirely.
+Demonstrated, not asserted — the coordinator constructed both cases before
+reporting them.
+
+**Strengthened reality, per the repo's claim-vs-reality doctrine applied
+to comments** (weaken the claim or strengthen reality, never soften into
+ambiguity — chose to strengthen). The hook's `entry:` now runs:
+
+```
+find knowledge_harness/templates/vault -name "*.md" -not -path \
+  "knowledge_harness/templates/vault/index.md"
+```
+
+Verified the `-not -path` form excludes *only* the top-level `index.md`
+and not the nested `synthesis/index.md` (find's `-path` requires an exact
+full-string match with no wildcard, so
+`knowledge_harness/templates/vault/index.md` cannot also match
+`knowledge_harness/templates/vault/synthesis/index.md`): ran both
+`find ... -name '*.md'` (10 files) and the same with `-not -path` added (9
+files, `synthesis/index.md` present, top-level `index.md` absent).
+
+This closes the "silently ungated" drift completely — every file anywhere
+under the vault, present or future, is now in scope unless it is literally
+`vault/index.md`. It does **not** provide content-based dialect detection:
+a new wikilink-bearing file dropped in elsewhere in the vault is still not
+automatically protected. The rewritten comment says this explicitly rather
+than implying otherwise — "Both exclusions below are PATH exclusions, not
+content detection... name it here explicitly when that happens, the same
+way these two are named."
+
+**Correction to my own prior claim, verified before writing anything:** I
+stated in round 0 that mdformat 1.0.0 has no `--exclude` mechanism, based
+on `mdformat --help`. That was checking the wrong source. Read
+`mdformat/_cli.py` directly: the `--exclude` flag exists but `_cli.py`
+only calls `parser.add_argument("--exclude", ...)` when
+`sys.version_info >= (3, 13)`; the exclusion-application logic
+(`is_excluded()`) is likewise gated. Confirmed empirically on this venv
+(Python 3.12.3, `python3 --version`):
+
+```
+$ .venv/bin/mdformat --exclude "*.md" --check README.md
+mdformat: error: unrecognized arguments: --exclude README.md
+```
+
+A `.mdformat.toml` `exclude` key produces an explicit error on <3.13
+("'exclude' patterns are only available on Python 3.13+"), not silent
+inertness. So the `find`-based shape is a **workaround with a known
+expiry**, not a permanent tool limit, and the hook's comment records that:
+collapse both `find` substitutions to `--exclude` once the floor moves to
+3.13+.
+
+### 11.2 HIGH 2 — skills/find-sources/references absorbed into the exclusion
+
+Verified before acting, not taken on the ruling alone: `git show --stat
+ce0f1e3` confirms a 2026-08-22 commit (`ce0f1e3`, an ancestor of this
+branch's starting point, so not something this task or a concurrent
+session did) titled "style: one-time canonical-form churn (mdformat over
+docs+skills, ruff format)" — mdformat over `docs/`, `skills/` was already
+part of the repo's history before this task began. `gh issue view 24`
+confirms the routed restoration ticket is real, OPEN, and states the exact
+same finding: eight files inside `skills/find-sources/references/`
+(`arxiv.md`, `biorxiv.md`, `core.md`, `crossref.md`, `europepmc.md`,
+`medrxiv.md`, `openalex.md`) plus `SKILL.md` were reformatted by that
+commit, and `mdformat --check` on the directory exits 0 today — the fork
+sits in this repo's canonical form, not upstream's, and the "skills" root
+in mdformat's path list was actively keeping it that way.
+
+Ruling accepted: this absorbs into 2e, same reasoning as Step 1's ruff
+vendor-exclusion one file type over — not scope creep, a correction. The
+hook now excludes `skills/find-sources/references` the same `find -not
+-path` way as `vault/index.md`:
+
+```
+$(find skills -name "*.md" -not -path "skills/find-sources/references/*")
+```
+
+Verified: `find skills -name '*.md'` returns 23; with the exclusion, 12
+(the same 12 own-skill `SKILL.md` and `import-source/references/*.md`
+files, none from the vendored fork).
+
+**Stated plainly, per the coordinator's explicit instruction: this does
+NOT undo `ce0f1e3`'s churn.** The eight reformatted files (plus SKILL.md,
+which is not part of the frozen fork and was intentionally left gated)
+remain in their reformatted, non-upstream state. Excluding the directory
+from mdformat only stops the gate from *keeping* it that way on future
+runs; restoring the actual upstream bytes requires a re-vendor, which is
+GitHub issue #24's job, not this task's.
+
+### 11.3 MEDIUM — comment truths
+
+- **`.pre-commit-config.yaml`'s self-contradictory "named individually
+  below, by omission"** (index.md was not named at all under the old
+  static list) is resolved by 11.1's redesign: the comment now describes
+  the actual `find`-based mechanism instead of a roster that never
+  existed for index.md specifically.
+- **`_MDFORMAT_ROOTS`'s "five siblings named individually"** was the same
+  HIGH-1-class defect one file over — three of the five were directories
+  that silently absorb future files. Redesigned to mirror the hook's
+  actual shape: `_MDFORMAT_ROOTS` is now six directory/file roots
+  (`README.md`, `AGENTS.md`, `CONTEXT.md`, `docs`, `skills`,
+  `knowledge_harness/templates/vault`), with two new tuples,
+  `_MDFORMAT_EXCLUDED_FILES` and `_MDFORMAT_EXCLUDED_DIRS`, that
+  `_mdformat_owned_markdown()` applies when walking each directory root.
+- **`test_canonical_form.py`'s module docstring**, which this task's own
+  Step 2 commit made stale ("no formatter speaks it" for vault-dialect
+  markdown, when nine of ten static templates are now mdformat-owned).
+  Verified the remaining claim empirically before narrowing the docstring
+  to it, rather than trusting the original wording: rendered a real
+  literature note via `notes.render_note` (with one annotation, so the
+  managed region contains an actual list item) and ran the pinned mdformat
+  over it. Result: the closing `%%/hk-managed%%` marker gets indented two
+  spaces into the preceding list item's CommonMark continuation, and the
+  list item's own internal double space (`(paraphrase)  [@smith2020]`)
+  collapses to one — both real, content-level changes, distinct from the
+  static templates' blank-line-only churn. The docstring now scopes the
+  "sole writer" claim to RENDERED content (literature notes with real
+  managed-region content) and the one static template that still carries
+  real dialect markup (`vault/index.md`), and states which nine templates
+  mdformat now owns and why they're safe (placeholder content, no list
+  markup or wikilinks to mangle).
+- **`tests/test_config_validity.py:32`'s dead `analysis/` reference**
+  (round 1's own Concern 2, left unfixed pending this instruction): one
+  line, "and `analysis/`" dropped from the JSON_MANIFESTS scope comment.
+
+### 11.4 The mirror test, redesigned around the new mechanism (not patched)
+
+Text-tokenizing a static path list no longer describes what the hook
+does — it now runs shell `find` expressions. Rather than parse the new
+shell syntax as more text (which would just move the "does the parse
+match reality" risk rather than close it), the test now **executes the
+hook's own logic**:
+
+1. Parses `.pre-commit-config.yaml` via `yaml.safe_load` — the same
+   library `pre-commit==4.6.2` (a hard pin) uses internally to read this
+   exact file, not a from-scratch approximation of YAML folding.
+2. Looks up the `mdformat` hook by `id`, `shlex.split`s its `entry`.
+3. Swaps the fixed `mdformat --number --wrap keep ` prefix for
+   `printf "%s\n" ` and runs the resulting string via `bash -c`, cwd the
+   repo root — this actually invokes the real `find ... -not -path`
+   clauses against the live filesystem.
+4. Compares the resolved file set against `_mdformat_owned_markdown()`'s
+   independent reimplementation (walk each root, apply the two exclusion
+   tuples).
+
+This is strictly stronger than parsing hook text: it cannot be fooled by a
+`find` pattern that *parses* correctly but *resolves* to the wrong files.
+
+**Mutation-tested, both directions, plus the new skills exclusion** (the
+coordinator credited round 1's version for discriminating both ways; this
+redesign is re-verified to keep that property):
+
+1. Hook-only mutation (`vault/index.md` → `vault/WRONG.md` in
+   `.pre-commit-config.yaml`): **red** — `hook only: [index.md]`.
+2. Mirror-only mutation (`_MDFORMAT_EXCLUDED_FILES` → a wrong path):
+   **red** — `mirror only: [index.md]`.
+3. Mirror-only mutation (`_MDFORMAT_EXCLUDED_DIRS` → a wrong path):
+   **red** — the 11 references files show up as `mirror only`.
+
+All three restored to the original text and re-verified green
+individually.
+
+**Two defects in my own first draft of this rewrite, caught by running the
+test rather than by inspection, corrected before this commit:**
+
+- The initial regex, `re.search(r"entry: bash -c '(.*)'", entry,
+  re.DOTALL)`, is greedy: against the raw sliced YAML text it matched past
+  the intended closing quote, through the rest of the hook block and into
+  the *next* hook's comment. Symptom: the captured "inner" script
+  contained `pass_filenames: false`, `always_run: true`, and the next
+  hook's comment lines as literal text.
+- Separately, extracting the entry from raw config text (rather than
+  through `yaml.safe_load`) preserved the literal newlines YAML's
+  block-folded scalar uses for line wrapping. Fed to `bash -c`, an
+  unquoted newline mid-command terminates the statement — the second
+  physical line's first token (`CONTEXT.md`) then ran as its own command
+  and failed with "command not found" (exit 127).
+
+Both are gone in the shipped version: it parses through PyYAML from the
+start (which correctly folds the multi-line scalar into one shell-safe
+line, exactly as pre-commit itself would run it) and never touches raw
+multi-line config text.
+
+### 11.5 LOW — judged, both fixed (cheap)
+
+- **The raw-text `config.index("- id: ", start + 1)` slice**, which would
+  raise an unhandled `ValueError` (not a clean test failure) if `mdformat`
+  ever became the config's last hook: gone entirely in 11.4's redesign —
+  `yaml.safe_load` plus a dict lookup by `id` has no ordering dependency
+  at all. The identical pattern still exists in the pre-existing, untouched
+  `test_pyproject_fmt_flags_match_the_hook_the_seam_actually_runs` (line
+  ~354) — out of this task's scope, not touched; see Concerns.
+- **`pyproject.toml`'s 12-line upgrade-protocol comment ending in
+  rationale** ("...would corrupt two of these three files if only one
+  were watched") rather than a constraint. Restructured to lead with the
+  imperative (an upgrade "must land as its own churn commit... never
+  through the normal commit-time gate") and end on one too ("block the
+  upgrade if any version starts escaping `%%` sequences").
+
+### 11.6 Gates, this round
+
+- Full suite: **1703 passed, 7 skipped** — down from 1714 by exactly 11,
+  computed in advance (the 11 `skills/find-sources/references/*.md` files
+  dropped out of the mdformat table-truncation sweep once excluded) and
+  matched exactly on the run.
+- `ruff check knowledge_harness tests scripts hooks`: all checks passed.
+- `ruff format --check knowledge_harness tests scripts hooks`: 75 files
+  already formatted.
+- `mypy knowledge_harness`: no issues, 27 source files.
+- `mdformat --number --wrap keep --check` over the hook's actual resolved
+  file set (extracted and run the identical way the mirror test does):
+  exit 0.
+- `pyproject-fmt --keep-full-version --no-generate-python-version-classifiers
+  --table-format long pyproject.toml`: no change.
+- `yamlfix --check .github/workflows knowledge_harness/templates/ci`: 0
+  fixed.
+- `record-immutability` hook's exact command, re-run against real git
+  (not re-touched this round, upheld by the coordinator): exit 0.
+- `echo '{}' | python hooks/stop_publish_gate.py`: exit 0.
+
+**`pre-commit run --all-files` was NOT run this round.** The working tree
+carries `.superpowers/sdd/2026-08-22-post-q-batch/progress.md`, the
+coordinator's uncommitted file, for the entire duration of this task. Per
+the new repo policy landed on `origin/main` mid-task (`3d6ad73`, "AGENTS.md:
+shared-checkout etiquette — never touch another session's uncommitted
+files"), no session may `git checkout --`, `git stash`, or otherwise
+revert/restore another session's uncommitted file to force a clean tree
+for that gate — even with the checksummed-copy-and-exact-restore procedure
+used safely in round 0. Verified this is current, not stale advice: `git
+branch --all --contains 3d6ad73` shows it on `main`/`origin/main`;
+confirmed via `git show 3d6ad73` that the AGENTS.md line change is real and
+states the rule verbatim. Reporting the precondition as unmeetable, per
+the instruction, rather than working around it: every constituent gate the
+`pre-commit` hooks would run was instead verified individually above,
+each using the hook's own exact command extracted from the real,
+committed `.pre-commit-config.yaml` (not a hand-typed approximation).
+
+### 11.7 Concerns, round 1
+
+- **The same `config.index(..., start + 1)` ValueError-fragility pattern**
+  (11.5) also exists, untouched, in the pre-existing
+  `test_pyproject_fmt_flags_match_the_hook_the_seam_actually_runs`
+  (`tests/test_config_validity.py`, ~line 354) — a different test than the
+  one this round's LOW item named, not fixed here since it was not in
+  scope. → controller, candidate one-line fix if wanted.
+- **Restoring `skills/find-sources/references`'s upstream bytes** is
+  explicitly NOT done by this round's exclusion (11.2) — the fork still
+  carries `ce0f1e3`'s churn. → GitHub issue #24 (verified OPEN), as ruled.
+- All four Concerns from §10 (round 0) stand unchanged; none were
+  addressed or superseded by this round's findings.
