@@ -6591,3 +6591,59 @@ Task 21: recorded (implementer's new concern): hoisting the local malformed chec
   A SURPRISING MEASUREMENT IS A REASON TO CHECK THE INSTRUMENT BEFORE REPORTING
   THE FINDING. The other five all produced PLAUSIBLE answers, which is precisely
   why nothing prompted a second look.
+
+### THE TWO OWED ITEMS, ANSWERED FROM THE TREE — and item 1 corrects my own record
+  (1) PREAMBLE RE-PIN: YES, THERE WAS ONE, AND I MISSED IT. 5c640d5 (Task 2e Step
+      2, the render-contract canonicalization) touched
+      knowledge_harness/templates/vault/AGENTS.md AND updated
+      tests/test_templates.py in the same commit. Task 2e ran AFTER 19b recorded
+      the residue, so by the standing arrangement the preamble edit could have
+      ridden it. IT DID NOT. I carried the residue forward as a Task-21-close
+      item and never noticed that the re-pin it was waiting for had already
+      happened, eight tasks earlier.
+      AND THE RESIDUE IS NARROWER THAN I RECORDED IT. I wrote "the preamble never
+      names system/bibliography.json". Checked against the file:
+        - the PREAMBLE (line 7) names four surfaces — literatures/, log/,
+          log.md, inbox/review-queue.md — and NOT system/bibliography.json;
+        - LINE 27, the machine-surface line Task 2d shaped, DOES name it:
+          "Machine surfaces (`log/`, `inbox/review-queue.md`, managed regions,
+          `system/bibliography.json`) are owner-written: hand or tool edits are
+          regenerated away or raise a finding."
+      So an agent hitting that deny CAN find the path documented in the same
+      file, twenty lines below. What it cannot do is find it in the two-sentence
+      preamble written for THE AGENT THAT READS NOTHING ELSE — which is the
+      population the preamble exists for.
+      STILL WORTH FILING, BUT AS WHAT IT IS: A PREAMBLE/BODY INCONSISTENCY INSIDE
+      ONE FILE, not an undocumented deny surface. Told the orchestrator not to
+      file my original wording, which overstated it. A residue carried for eight
+      tasks is exactly the kind of claim that ossifies without being re-read.
+  (2) THE BOUNDARY REVIEW DID NOT RUN PRE-MERGE. The only SHA-walk on record is
+      ca0281d, 2026-08-24, at the PART 1 / PART 2 boundary — artifact at
+      research/validation-slice/2026-08-24-boundary-sha-walk.md. NOTHING ran
+      against the final pre-merge range, and I did not dispatch one: my Task 21
+      review was THE ACCEPTANCE SWEEP, a different instrument answering a
+      different question.
+      So it is OWED POST-MERGE against d9b3acf..4b9f427, and its report must say
+      plainly that it ran AFTER the merge rather than before. The merge stands on
+      its own evidence — fast-forward, 8/8 hooks, 1743/2 live, six defects
+      reconstructed and unreproducible — BUT "REVIEWED BEFORE MERGING" IS A CLAIM
+      NOBODY SHOULD MAKE ON ITS BEHALF.
+  BOTH OF THESE SURFACED BECAUSE THE ORCHESTRATOR ASKED RATHER THAN ASSUMED, at a
+  point where the batch was already merged and everything looked finished. That
+  is the second time today that asking instead of assuming turned up something
+  real, and both times the thing found was MINE.
+### RETROSPECTIVE AMENDED — instances five and six added, explicitly as an
+### amendment rather than absorbed
+  research/validation-slice/2026-08-25-pre-slice-batch-method-retrospective.md
+  now carries all six rows plus a dated amendment note: "a note that quietly
+  grows to match its subject is doing the thing it warns against."
+  The sixth row keeps its own paragraph because it is the only one CAUGHT WITHOUT
+  A SECOND READER: "A SURPRISING MEASUREMENT IS A REASON TO CHECK THE INSTRUMENT
+  BEFORE REPORTING THE FINDING." The other five produced PLAUSIBLE answers, so
+  nothing prompted a re-check; that one produced an implausible one — a
+  fold-into-MATCHED regression appearing in the commit that fixed folding — and
+  implausibility is the cheapest signal available. It is also the only instance
+  that cost nothing, because it was caught before it was reported.
+  Its shape is recorded separately too: not a truncating pipe, not a partial
+  input set, but AN IDIOM THAT SILENTLY SUBSTITUTED A DIFFERENT INPUT.
+  `x or default` IS A TRUNCATING PIPE FOR EMPTY CONTAINERS.

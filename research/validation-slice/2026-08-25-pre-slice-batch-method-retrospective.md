@@ -22,6 +22,18 @@ Four instances, all from the same session, all caught by someone else:
 | `mdformat --help` | "mdformat 1.0.0 has **no** `--exclude`" | flags registered on this Python; `--exclude` exists, gated to 3.13+ |
 | read `title` and `author` handling | "Step 1's fold-into-MATCHED premise is **falsified**" | two of three compared fields; `issued` **did** fold |
 | probe absence with `.pop(field)` | "absent-field handling is **covered**" | literal key absence; `{"date-parts": []}` — what Crossref actually emits — still folded |
+| vary **one field at a time** | "the malformed-input fence **holds**" | single-fault inputs; a record both malformed *and* absent reported the wrong cause |
+| `{"message": remote or FULL}` | "`remote={}` returns **MATCHED** — a regression" | `{}` is falsy, so the probe silently substituted the *full* record and measured the baseline |
+
+**Amended 2026-08-25, after the note was first written.** The last two rows arrived during Task 21's final rounds, after this note existed. They are added rather than absorbed silently, because a note that quietly grows to match its subject is doing the thing it warns against.
+
+The sixth row is the only instance of the six **caught without a second reader**, and the reason is narrow enough to use:
+
+> **A surprising measurement is a reason to check the instrument before reporting the finding.**
+
+The other five produced *plausible* answers, so nothing prompted a re-check. That one produced an implausible one — a fold-into-MATCHED regression appearing in the commit that fixed folding — and implausibility is the cheapest signal available. It is also the only one that cost nothing, because it was caught before it was reported.
+
+Note the sixth row's shape: not a truncating pipe, not a partial input set, but **an idiom that silently substituted a different input**. `x or default` is a truncating pipe for empty containers.
 
 The `head -8` instance is the worst of the four because it **shipped**: the wrong count reached a source comment, a task report, and a GitHub issue before a reviewer re-counted. From it, one rule that generalises past this batch:
 
