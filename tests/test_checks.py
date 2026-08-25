@@ -1003,10 +1003,8 @@ def test_differing_precision_reinstatement_still_clears_when_not_a_prefix():
 def test_update_notice_year_only_retraction_survives_same_year_reinstatement(
     net_vault, monkeypatch
 ):
-    """End-to-end: Crossref reports the retraction with year-only precision and
-    a same-year, fully-dated reinstatement. Before this fix the retraction
-    padded to January 1st, which let the June reinstatement clear it outright;
-    the alert must now stand."""
+    """End-to-end: Crossref reports the retraction with year-only precision
+    and a same-year, fully-dated reinstatement. The alert must stand."""
     _fake_get(
         monkeypatch,
         {

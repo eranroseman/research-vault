@@ -573,14 +573,11 @@ def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
 
 
 def _dates_incomparable(a: str, b: str) -> bool:
-    """True when partial-precision ISO date strings leave chronological order
-    undetermined. Two full (``YYYY-MM-DD``) dates are always comparable,
-    including when equal — a same-day match is a real, decisive fact. Anywhere
-    else, the shorter string being a prefix of the longer (this covers strict
-    prefixes, e.g. ``"2023"`` of ``"2023-06-15"``, and equal partial strings,
-    e.g. ``"2023"`` of ``"2023"``, since a string is always its own prefix)
-    means the low-precision side could denote any point across its range, so
-    which one actually came first is unknown."""
+    """True when neither date's range can be shown to precede the other's.
+    ISO date-precision strings denote nested-or-disjoint intervals, so one
+    being a prefix of the other (equality included) is an exact test for
+    interval overlap, not a heuristic — except two full (``YYYY-MM-DD``)
+    dates, which denote single days and are always comparable."""
     if len(a) == 10 and len(b) == 10:
         return False
     shorter, longer = (a, b) if len(a) <= len(b) else (b, a)

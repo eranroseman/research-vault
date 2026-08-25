@@ -216,6 +216,34 @@ def test_notice_date_rejects_malformed_or_out_of_range_partial_dates(
         )
 
 
+@pytest.mark.parametrize(
+    "notice_date",
+    ["٢٠٢٣", "２０２３", "2023-٠٦", "2023-06-١٥"],
+    ids=[
+        "arabic-indic-year",
+        "fullwidth-digit-year",
+        "arabic-indic-month",
+        "arabic-indic-day",
+    ],
+)
+def test_notice_date_rejects_non_ascii_digits(fixture_vault, notice_date):
+    """``\\d`` is Unicode-aware; a governed identifier must stay ASCII-only
+    rather than accept whatever Python's int() happens to parse."""
+    with pytest.raises(ValueError, match="notice_date"):
+        inbox.append_entry(
+            fixture_vault,
+            "update-notice",
+            "smith2020",
+            Result.UNMATCHED,
+            "retracted — retraction",
+            date="2026-08-16",
+            target_hash="aa11",
+            notice_class="blocking",
+            notice_type="retraction",
+            notice_date=notice_date,
+        )
+
+
 def test_detection_date_still_requires_full_precision(fixture_vault):
     """Only ``notice_date`` gained partial-precision acceptance — the
     detection date is the harness's own clock reading and must stay a full

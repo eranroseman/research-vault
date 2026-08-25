@@ -179,3 +179,54 @@ implementing both production changes, the full suite is still 1646 passed
 3. **finding_id dedup one-time duplicate** for year-only notices upgrading
    from padded to honest precision — destination: recorded accept, reasoned
    above (not a bug; a one-time consequence of correcting bad data).
+
+## Fix round 1 (response to review of commit 50538bb)
+
+Both verdicts on the round-1 review were PASS (spec and quality); three
+quality findings addressed here without amending 50538bb.
+
+**F1 (Medium) — `inbox.py`'s `_PARTIAL_DATE` accepted non-ASCII digits.**
+`\d` is Unicode-aware, and unlike the sibling `_validate_date` (backstopped
+by `datetime.date.fromisoformat`, which rejects non-ASCII digits), the new
+`_validate_partial_date` converts matched groups with plain `int()`, which
+happily parses them too. Reproduced before the fix: `'٢٠٢٣'`, `'２０２３'`,
+`'2023-٠٦'`, and `'2023-06-١٥'` were all accepted and returned verbatim,
+which would have landed in `finding_id` and ack fingerprints, and would have
+let a hand-written inbox line that previously raised `InboxError` parse
+silently on `load()`. Fixed with one `re.ASCII` flag on `_PARTIAL_DATE`.
+Pinned by `test_notice_date_rejects_non_ascii_digits` (4 parametrized
+cases, ids `arabic-indic-year`, `fullwidth-digit-year`, `arabic-indic-month`,
+`arabic-indic-day`); reverting the `re.ASCII` flag was confirmed to turn
+all four red (`DID NOT RAISE ValueError`), then the fix was restored and
+`diff`-verified clean before moving on.
+
+Searched a second way (not just re-finding the `\d` occurrence): grepped
+`inbox.py` for every `int(...)` call over a regex-captured group. Only
+`_validate_partial_date`'s three (`year`, `month`, `day`) exist; `_validate_date`
+at line 169 also matches `\d` but is backstopped by `fromisoformat`
+(confirmed it raises on the same four inputs), and `_REASON` (line 81) is
+built from `REASON_CODES`, not `\d`, so it was never in scope. No other
+instance of the "regex `\d` feeding straight into `int()` with no ASCII
+backstop" shape exists in `inbox.py`.
+
+**F2 (Low) — `_dates_incomparable` docstring restated what `startswith`
+does instead of stating the load-bearing fact.** Rewritten to state the
+property the review named: ISO date-precision strings denote
+nested-or-disjoint intervals, so a prefix test is an exact decision
+procedure, not a heuristic — worked examples dropped.
+
+**F3 (Low) — provenance/history duplicated from the commit body into a
+comment and a test docstring.** Trimmed `_validate_partial_date`'s
+docstring (dropped "rather than pad it to a full date") and
+`test_update_notice_year_only_retraction_survives_same_year_reinstatement`'s
+docstring (dropped the "Before this fix..." sentence) to state only the
+current constraint/behavior.
+
+Full suite: 1650 passed, 7 skipped (1646 + 4 new). `ruff check`, `ruff
+format --check`, and `mypy knowledge_harness/` all clean on the four
+touched files; `stop_publish_gate.py` silent, exit 0.
+
+Deferred per coordinator instruction, not fixed here: `mutation-baseline.txt`
+and the two `.manifest.json` sidecars are stale after this diff — Task 24
+Step 4 owns the regenerate-or-record convention and this task's brief has
+no such step.

@@ -181,14 +181,16 @@ def _validate_optional_date(name: str, value) -> str | None:
     return None if value is None else _validate_date(name, value)
 
 
-_PARTIAL_DATE = re.compile(r"(?P<year>\d{4})(?:-(?P<month>\d{2})(?:-(?P<day>\d{2}))?)?")
+_PARTIAL_DATE = re.compile(
+    r"(?P<year>\d{4})(?:-(?P<month>\d{2})(?:-(?P<day>\d{2}))?)?", re.ASCII
+)
 
 
 def _validate_partial_date(name: str, value) -> str:
-    """Validate Crossref's own precision (``YYYY``, ``YYYY-MM``, or
-    ``YYYY-MM-DD``) rather than pad it to a full date. A missing month/day
-    skips range validation for that part; a present-but-invalid one
-    (``2023-13``, ``2023-06-31``) still fails it."""
+    """Validate Crossref's own precision: ``YYYY``, ``YYYY-MM``, or
+    ``YYYY-MM-DD``. A missing month/day skips range validation for that
+    part; a present-but-invalid one (``2023-13``, ``2023-06-31``) still
+    fails it."""
     value = _validate_text(name, value)
     match = _PARTIAL_DATE.fullmatch(value)
     if not match:
