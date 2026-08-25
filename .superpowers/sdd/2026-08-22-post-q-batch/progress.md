@@ -5951,3 +5951,59 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   means the commit completes in one command the moment the author rules.
   NOT PUSHED. The vault remote (github.com/eranroseman/kv-vault.git) has taken
   nothing.
+
+### TASK 13 — COMPLETE. Author ruled OPTION 1; both vault commits landed through
+### the gate, unbypassed.
+  ec5e9ef  records: verification outcomes and bibliography entries from the
+           2026-08-22 run  (inbox/review-queue.md +2 SKIPPED outcomes,
+           system/bibliography.json +4 lines)
+  1293295  chore: adopt the current harness template set  (5 files: AGENTS.md
+           and index.md updated, .editorconfig/.prettierignore/
+           .markdownlintignore created)
+  Vault clean afterwards. THREE COMMITS UNPUSHED — mine two plus one that was
+  ALREADY unpushed before I touched anything (5eed40f). I PUSHED NOTHING; the
+  plan text names no push, so the consent does not reach one.
+  THE GATE PASSED ON BOTH, and its output is worth keeping because it shows the
+  refusal was about STATE, not about the change: both commits printed the same
+  two SKIPPED outcomes and `{"SKIPPED": 2}`, then exited 0. SKIPPED is legible
+  absence, not failure — the note was examined and had nothing to check.
+  ORDER MATTERED AND THE RULING GOT IT RIGHT: committing the records FIRST made
+  index and worktree agree on the machine surfaces, which is precisely what the
+  verifier had refused to proceed without. No --no-verify anywhere.
+  I REWROTE THE PREPARED COMMIT MESSAGE BEFORE USING IT. The draft said the two
+  record files "are deliberately left uncommitted and untouched" — TRUE when I
+  wrote it, FALSE by the time it would have shipped. A message prepared before a
+  ruling is a claim about a state that the ruling changed.
+### PART 1 CHECKPOINT (Task 13 Step 2) — GREEN, with one measured finding
+  Suite 1714 passed / 7 skipped. test_skill_contracts 53 passed. NOT merged —
+  the merge lives at Task 21, as the plan says.
+  Judged grep, retired `project` skill: SIX hits, ALL non-referential — five in
+  write-once records (research/prior-art/ x3, research/validation-slice/,
+  docs/product-landscape/) which AGENTS.md says stand as written, and one in the
+  plan's own Step 4 text. NO LIVE REFERENCE SURVIVES.
+  Judged grep, returned prohibitions: both deleted lines STAY deleted
+  ("not as a raw dump", "not in raw run order"). The never-hand-write refrain has
+  ONE surviving hit — and it is a finding about the corpus, not about the prose.
+### THE FINDING: TASK 6'S MOVE SHRANK TASK 7'S SEARCH CORPUS
+  skills/import-source/references/archive-at-import.md:9 still reads "never
+  hand-write, edit, or remove an `archive-url` yourself". Traced rather than
+  judged on sight:
+   - the line existed PRE-BATCH at skills/import-source/SKILL.md:132;
+   - Task 6 (8bc6294) moved §7-9 into references/, CARRYING THE LINE WITH IT;
+   - Task 7 ran AFTER Task 6 and scoped its grep to SKILL.md FILES — so by then
+     the line had already left the searched set.
+  SO TASK 7's "judged grep confirms no returned prohibitions" WAS TRUE OF WHAT IT
+  SEARCHED AND SMALLER THAN WHAT IT WAS BELIEVED TO COVER. The through-line
+  again, at the level of a corpus rather than a claim.
+  AND I HAD CHECKED THIS EXACT HAZARD ONCE — the ledger records measuring Task
+  6's move against TASK 3's sweep corpus and finding the delta empty. I measured
+  the right hazard against the wrong task. One instance of a class is not the
+  class.
+  DISPOSITION: NOT A DEFECT TO FIX. Two readings are both defensible and probably
+  both true — the site was never seen, AND had it been seen it would likely have
+  been kept: Task 7's own rule was "one token per site, MEANING PRESERVED", and
+  collapsing this line to "the CLI writes" would lose the edit/remove
+  prohibition, the "in any note, for any reason" scope, and the reason clause.
+  A site where collapsing loses meaning is legitimately out of scope.
+  Recorded so the coverage claim carries its true corpus. Destination: the
+  method-findings retrospective owed at Task 21 close.
