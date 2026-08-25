@@ -508,6 +508,7 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
         Path("literatures") / "nested" / "note.md",
         Path("log") / "2026-08-16.md",
         Path("log") / "2026-01-01.md",
+        Path("log.md"),
         Path("inbox") / "review-queue.md",
         Path("system") / "bibliography.json",
     ],
@@ -528,6 +529,8 @@ def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relati
         Path("synthesis") / "note.md",
         Path("inbox") / "note.md",
         Path("projects") / "brief" / "draft.md",
+        Path("projects") / "brief" / "search-log.md",
+        Path("projects") / "brief" / "log.md",
     ],
 )
 def test_pretooluse_allows_edit_outside_machine_surfaces(fixture_vault, relative):
@@ -683,6 +686,23 @@ def test_pretooluse_allows_relative_target_when_cwd_is_missing(fixture_vault):
     _assert_pretooluse_allows(result)
 
 
+def test_pretooluse_allows_relative_target_when_declared_cwd_is_itself_relative(
+    fixture_vault,
+):
+    """A `cwd` field that is present but not itself absolute must not be
+    trusted as an absolutizing anchor either — same posture, and for the
+    same reason, as a missing `cwd`: an unanchored relative candidate must
+    not silently resolve against the hook process's own ambient working
+    directory (here, `subprocess.run(cwd=fixture_vault)`, a real vault)."""
+    _make_hook_vault(fixture_vault)
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path="clean.md")
+    payload["cwd"] = "literatures"
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
 def test_pretooluse_is_silent_for_missing_tool_input(fixture_vault):
     _make_hook_vault(fixture_vault)
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path="clean.md")
@@ -698,6 +718,24 @@ def test_pretooluse_is_silent_for_malformed_input(tmp_path):
         [sys.executable, str(PRETOOLUSE_HOOK)],
         cwd=tmp_path,
         input="{",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
+
+
+def test_pretooluse_is_silent_for_parseable_non_dict_payload(tmp_path):
+    """Valid JSON that isn't an object (a list, here) parses cleanly but has
+    no `tool_name`/`tool_input` to read — structurally not applicable, not a
+    parse failure."""
+    result = subprocess.run(
+        [sys.executable, str(PRETOOLUSE_HOOK)],
+        cwd=tmp_path,
+        input=json.dumps([]),
         text=True,
         capture_output=True,
         check=False,

@@ -9,8 +9,15 @@ import sys
 from pathlib import Path
 
 MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log"})
+# Root-only exact match: a deeper `log.md` (e.g. inside a project) or
+# `search-log.md` (searchlog.py writes `projects/<name>/search-log.md`) is
+# a different file and is not on this list.
 MACHINE_SURFACE_FILES = frozenset(
-    {Path("inbox/review-queue.md"), Path("system/bibliography.json")}
+    {
+        Path("log.md"),
+        Path("inbox/review-queue.md"),
+        Path("system/bibliography.json"),
+    }
 )
 TOOL_PATH_KEYS = ("file_path", "notebook_path")
 
@@ -99,10 +106,10 @@ def _handle(payload: object) -> None:
         vault = _vault_from_target(resolved)
         if vault is None:
             continue
-        try:
-            relative = resolved.relative_to(vault)
-        except ValueError:
-            continue
+        # `vault` is always drawn from `resolved`'s own parents (see
+        # `_vault_from_target`), so it is always a prefix of `resolved` —
+        # `relative_to` cannot raise `ValueError` here.
+        relative = resolved.relative_to(vault)
         if _is_machine_surface(relative):
             _deny(DENY_REASON)
             return
