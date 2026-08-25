@@ -4984,3 +4984,133 @@ Task 19b: minor (deferred): the dotdot-traversal test does not discriminate the
   .resolve() line it was written for, because the os.lstat-based vault walk
   already resolves `..` at the syscall level. Kept as a regression guard,
   labelled honestly rather than counted as coverage.
+
+Task 20: BASE = 4ab9273. Implementer DONE (commit 39bf192; 3 files, report
+  included, progress.md untouched). Suite 1701/7 (= 1687 + 14 new tests); ruff,
+  mypy, form gate clean.
+  THE None-IDIOM TRAP WAS AVOIDED — the pre-check's central hand-over. Malformed
+  relation entries `continue`; the function never bails out of the whole payload
+  because of one, so an updated-by verdict already established cannot be
+  discarded by a bad relation entry. Consistency with the surrounding code would
+  have produced exactly that defect.
+  BOTH RULINGS IMPLEMENTED AS DERIVED: same-type dedup keys on
+  `notice["type"] == "retraction"` (a withdrawal does not suppress a relation
+  retraction), and the undated-permanence sentence is in the docstring.
+  CONTROLLER-READ THE DIFF BEFORE DISPATCHING THE REVIEW:
+   - `already_retracted` is computed ONCE BEFORE the loop, so with no updated-by
+     retraction present, EVERY well-formed relation entry appends a notice. That
+     matches the brief ("each well-formed entry appends a blocking record") but
+     it is a count the review should judge rather than assume.
+   - a non-dict `relation` yields None then `[]`, so the whole relation read is
+     skipped without touching `blocking` — the additive contract's floor.
+   - the `source` and `id` keys are internal, as designed.
+  ONE HONEST SELF-REPORT WORTH THE REVIEW'S TIME: the implementer records that
+  2 OF 9 malformed-relation parametrize cases DO NOT GO RED under a single-guard
+  revert, only under the CONJUNCTION of two guards. That is either a genuinely
+  redundant guard or a test set that fails to separate two guards covering
+  different inputs — and the difference matters, because the first means delete a
+  line and the second means add a case. The review is told to answer it WITH
+  CONSTRUCTED INPUTS, not reasoning.
+Task 20: review dispatched over 4ab9273..39bf192 on the most capable model —
+  this is the check that stops a retracted source being cited as evidence, and
+  the stakes are asymmetric (a missed retraction is expensive; a redundant one
+  costs an ack). The dispatch tells it to ATTACK THE ADDITIVE CONTRACT rather
+  than confirm it: every malformed relation shape paired with a valid updated-by
+  retraction AND with a valid warn, and the reverse case — updated-by malformed
+  while relation is well-formed, where the OLD `return None` still fires and a
+  good relation signal may be lost. That last one is not in the brief and is the
+  question I most want answered.
+
+Task 20: review returned — SPEC PASS, QUALITY PASS. 1 Major, 2 Medium, 2 Minor,
+  1 nit. Review file: task-20-review.md
+  THE ADDITIVE CONTRACT HELD UNDER ATTACK, which is what the dispatch asked for
+  rather than confirmation: 15 MALFORMED RELATION SHAPES x 2 PAIRINGS — an
+  updated-by retraction survives all 15 UNCHANGED and an updated-by warn survives
+  all 15 too, with no exception raised. The None-idiom trap was the pre-check's
+  central hand-over and it was avoided.
+  MY OUT-OF-BRIEF QUESTION ANSWERED: updated-by malformed + relation well-formed
+  returns None -> UNREACHABLE "outage — malformed Crossref notice record". The
+  relation signal IS lost, but it FAILS CLOSED and never reaches MATCHED. Correct,
+  and correctly out of scope — worth having asked, because "a good signal is
+  discarded" and "a bad payload is reported as an outage" look identical from the
+  outside and only one of them is a defect.
+Task 20: MAJOR — A `break` AFTER THE FIRST RELATION APPEND LEAVES ALL 147 TESTS
+  GREEN. CONTROLLER REPRODUCED IT in a canary-checked archive tree: injected the
+  break, 147 passed. So the brief's own Step 3 wording — "each well-formed entry
+  appends a blocking record" — is UNPINNED, and so is the reason already_retracted
+  sits BEFORE the loop rather than inside it. A payload with two retraction
+  notices would record one, and nothing would say so.
+Task 20: MEDIUM — THE IMPLEMENTER'S "GUARD REDUNDANCY" SELF-REPORT IS A WRONG
+  DIAGNOSIS, and this is the round's most valuable finding because an honest
+  self-report pointed at the wrong conclusion. CONTROLLER PROBED IT DIRECTLY,
+  removing the list-normalization guard alone:
+      is-retracted-by=7      -> RAISES TypeError
+      is-retracted-by=None   -> RAISES TypeError
+      is-retracted-by=True   -> RAISES TypeError
+      is-retracted-by='bad'  -> ([], [])
+      is-retracted-by={}     -> ([], [])
+  ITERATION RAISES BEFORE THE ENTRY GUARD IS EVER REACHED, so the entry guard
+  CANNOT cover non-iterables. BOTH GUARDS ARE LOAD-BEARING. The only reason two
+  cases showed no single-guard red is that the parametrize set's two non-list
+  shapes — `{}` and `"bad"` — ARE BOTH ITERABLE. The fix is A TEST CASE, NOT A
+  GUARD DELETION.
+  AND THE COST OF BELIEVING IT IS WORSE THAN EITHER FAILURE DIRECTION: deleting
+  that guard turns a malformed payload into an UNCAUGHT TypeError out of
+  _crossref_notices — neither fail-open nor fail-closed, but a crash.
+  THE GENERAL LESSON, worth more than the instance: A CORRECT OBSERVATION CAN
+  CARRY A WRONG CONCLUSION, and the observation's honesty is what makes the
+  conclusion persuasive. "Two cases only go red under the conjunction" was TRUE.
+  "Therefore one guard is redundant" did not follow — the missing step was asking
+  what the two cases had in common, which was iterability, not redundancy.
+Task 20: fix round 1/5 dispatched — the Major, both Mediums (the wrong report
+  section corrected, and two parametrize cases added: a NON-ITERABLE to isolate
+  the list guard, and `relation` present with `is-retracted-by` ABSENT, which is
+  the commonest real Crossref shape and currently untested), and the comment trim.
+Task 20: recorded, no action: a dated withdrawal plus a relation retraction
+  reports "retracted — withdrawal" and the relation retraction never surfaces in
+  extra. The block is never lost; that is the additive promise working as designed.
+
+Task 20: fix round 1 landed — c44d233. 3 files; suite 1704/7 (+3: the multi-entry
+  test and the two missing parametrize cases). No production logic changed for
+  the guard-redundancy item — only the report text and a test, which is the right
+  shape when the defect was a WRONG CONCLUSION rather than wrong code.
+Task 20: ROUND-1 RE-REVIEW DONE BY THE CONTROLLER — two mutants settle both
+  substantive items, so a dispatch would have added latency and no evidence.
+  Both run in canary-checked `git archive` trees:
+   - THE `break` MUTANT NOW REDS EXACTLY ONE TEST — the new multi-entry test —
+     and nothing else. 1 failed / 149 passed, against 0 failed / 147 passed
+     before the round. Precisely scoped: a fix that had reddened extra tests
+     would mean the new test was pinning more than the finding named.
+   - REMOVING THE LIST-NORMALIZATION GUARD NOW REDS THE `[7]` CASE among others.
+     That is the case that did not exist before, and it is the one that ISOLATES
+     the guard — the previous set's two non-list shapes were both iterable, which
+     is exactly why the redundancy misdiagnosis looked supported.
+  Gates re-run in the real tree: 1704 passed / 7 skipped, form gate exit 0.
+  THE IMPLEMENTER REPRODUCED BOTH OF MY PROBES ITSELF rather than take them —
+  the break-canary and the isolated guard removal — and its report now states the
+  corrected finding. That closes the loop the right way round: I checked its
+  claim, it checked mine, and the artifact records the version that survived both.
+Task 20: complete (commits 4ab9273..c44d233 — 39bf192, c44d233 — review clean
+  after 1 fix round, 2 minors deferred). Ticked below: 4 boxes; 84 checked /
+  28 unchecked. Suite 1704/7; form gate exit 0.
+  WHAT THE TASK SHIPPED: Crossref's relation.is-retracted-by is now read as a
+  second, ADDITIVE retraction signal, so a work carrying that relation with NO
+  updated-by entry no longer passes unnoticed. It may only ADD a blocking notice,
+  never invalidate one already established — proven against 15 malformed shapes
+  paired with both a valid retraction and a valid warn.
+  THE TASK'S OWN LESSON, and it is not about Crossref: A CORRECT OBSERVATION CAN
+  CARRY A WRONG CONCLUSION, and the observation's honesty is what makes the
+  conclusion persuasive. "Two cases only go red under the conjunction of two
+  guards" was TRUE and was volunteered. "Therefore one guard is redundant" did
+  not follow, and acting on it would have replaced a guard with an uncaught
+  TypeError. The missing step was asking what the two cases had in common —
+  iterability, not redundancy. Self-reports are worth more than silence AND still
+  need checking; those are not in tension.
+Task 20: minor (deferred): mutation-baseline.txt and checks.py.manifest.json are
+  stale after this diff. Destination: Plan W Task 24 Step 4's regenerate-or-record
+  convention. NOTE the reviewer's caveat — no task-24-*.md brief exists yet, so
+  that destination is a plan section rather than a written brief; it is real but
+  not yet actionable, which is worth stating rather than implying otherwise.
+Task 20: minor (deferred): 10 pre-existing ruff errors in
+  skills/find-sources/scripts/paginate.py, confirmed unchanged by this diff.
+  Destination: Task 2e Step 1, which owns the vendored-fork exclusion.

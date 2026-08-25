@@ -502,13 +502,13 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - Test: `tests/test_checks.py`
 
-- [ ] **Step 1: Failing test** — a Crossref message fixture with NO `updated-by` but `"relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]}` yields one blocking notice (type `retraction`, `notice_date` None, the relation id recorded).
+- [x] **Step 1: Failing test** — a Crossref message fixture with NO `updated-by` but `"relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]}` yields one blocking notice (type `retraction`, `notice_date` None, the relation id recorded).
 
-- [ ] **Step 2: Run — Expected: FAIL** (only `updated-by` is read today).
+- [x] **Step 2: Run — Expected: FAIL** (only `updated-by` is read today).
 
-- [ ] **Step 3: Implement** — after the `updated-by` loop, read `message.get("relation", {}).get("is-retracted-by", [])`; each well-formed entry appends a blocking record `{"type": "retraction", "notice_date": None, "source": "relation", ...}` **unless** an `updated-by` retraction for the same work already exists (no double-count). Malformed relation entries are ignored (the field is additive — it may only add signal, never change an existing verdict). Add the no-double-count test.
+- [x] **Step 3: Implement** — after the `updated-by` loop, read `message.get("relation", {}).get("is-retracted-by", [])`; each well-formed entry appends a blocking record `{"type": "retraction", "notice_date": None, "source": "relation", ...}` **unless** an `updated-by` retraction for the same work already exists (no double-count). Malformed relation entries are ignored (the field is additive — it may only add signal, never change an existing verdict). Add the no-double-count test.
 
-- [ ] **Step 4: Full suite. Commit** `feat: read Crossref relation.is-retracted-by as an additive retraction signal`
+- [x] **Step 4: Full suite. Commit** `feat: read Crossref relation.is-retracted-by as an additive retraction signal`
 
 ### Task 21: Spec gap closures + acceptance
 
