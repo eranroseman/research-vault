@@ -221,9 +221,13 @@ place, each with its destination and trigger. This register is the record; no it
 
 **From the process-reconstruction arc:**
 
-13. **Transcript preservation** — export the key sessions into `research/raw/` or `sources/`
-    before the corpus decays; the paper's process claims need transcript citations the way
-    product claims need file:line. Clock ticking; author's word.
+13. **Transcript preservation** — EXECUTED 2026-08-25: auto-deletion stopped
+    (`cleanupPeriodDays: 3650`), all 63 sessions snapshotted into a private local archive repo
+    (`~/knowledge-harness-transcripts`, e45c976), fixity manifest in this repo at
+    `research/raw/2026-08-25-transcript-archive-manifest.md` — process claims cite session id +
+    SHA-256; bytes never enter this publication-intended repo's history. Residual, author's
+    choice: an off-machine home for the archive (private remote or second disk) — it is still a
+    single-machine copy.
 14. **Workload 2 framed as a methods replication** — the template applied to a different domain
     with divergences recorded is the paper's external-validity evidence, free if framed before
     that build starts.
