@@ -4800,3 +4800,187 @@ Task 19b: fix round 1 landed — 6a62cab. 3 files; suite 1682/7 (= 1650 + 32 hoo
   the DERIVATION half of issue #17". This ledger had carried an open question
   about why #17 stayed open after Task 16 completed. Answered — the task closed
   half of it by design.
+
+Task 19b: fix round 1 re-review — SOME OPEN. Items 1-3 confirmed empirically;
+  item 4's own correction is itself an overclaim. Review at
+  task-19b-rereview-r1.md (the reviewer committed it itself, 8a917ed — a role
+  boundary reviewers should not cross, but harmless here: 148 lines, its own
+  review file, consistent with the tracked-workspace convention).
+  ITEM 1 CONFIRMED WITH ITS BOUNDARY, which is the part that mattered: root
+  log.md denies with the exact reason and the entry DISCRIMINATES, while
+  projects/brief/search-log.md is ALLOWED, a nested projects/brief/log.md is
+  ALLOWED, and log/2026-01-01.md is still DENIED. Root-only means root-only, and
+  it is pinned rather than merely true.
+  ITEM 2(c) — THE DELETION WAS RIGHT, AND THE REVIEWER PROVED IT RATHER THAN
+  ACCEPTED THE ARGUMENT. It tried symlinks, `..`, and a broken final component
+  and could not reach the deleted `except ValueError`; `vault` really is always a
+  lexical-prefix ancestor of `resolved`. Worth recording as a positive: an
+  unreachability claim is the one kind that CANNOT be settled by adding a test,
+  so an independent attempt to reach it is the only available evidence.
+  ITEM 3 — THE FAILURE POSTURE IS RIGHT, AND ONE ROW IS THE WHOLE POINT: a
+  SYMLINK LOOP (ELOOP) — a GENUINELY INDUCED exception rather than a synthetic
+  one — produces DENY with FAIL_CLOSED_REASON, live. Malformed JSON, empty stdin,
+  missing cwd with a relative path, missing tool_input and a non-string
+  file_path all go silent; a missing cwd with an ABSOLUTE in-vault path still
+  DENIES. That is a deny hook behaving as a deny hook, and the decision is
+  documented in main()'s docstring where an editor will meet it.
+  NO LOOSE-ASSERTION INSTANCE in the new tests, and demonstrated rather than
+  asserted: mutating DENY_REASON itself keeps the denial but changes the text,
+  and the tests fail — so they assert the reason, not merely that a denial
+  occurred.
+Task 19b: fix round 2/5 dispatched — ONE BRANCH AND ONE SENTENCE.
+  hooks/pretooluse_guard.py:101 (`cwd = cwd if isinstance(cwd, str) else None`)
+  has NO test feeding a non-string, non-None cwd; mutating it away is undetected.
+  So the report's CORRECTED sentence — "every branch ... one documented
+  exception" — is ITSELF a second, undocumented overclaim.
+  IT FAILS SAFE (deny, not allow), so it is not a security defect. IT MATTERS
+  BECAUSE IT IS THE THIRD TIME IN THIS TASK A CLAIM HAS OUTRUN ITS EVIDENCE, AND
+  THE FIX FOR THE SECOND ONE CARRIED THE THIRD.
+  THE REMEDY IS THE INTERESTING PART, and it generalises: the dispatch requires
+  the claim to be DERIVED rather than asserted — enumerate the hook's branches,
+  say which are covered, name every exception explicitly. A BLANKET SENTENCE WITH
+  "ONE DOCUMENTED EXCEPTION" IS WHAT PRODUCED THIS ROUND; A LIST IS CHECKABLE AND
+  A SUMMARY IS NOT. Also asked to search a DIFFERENT way for other
+  untested-but-safe-direction branches, and to say how it established there are
+  none if it finds none.
+  Told explicitly that the spec file moved under it in the merge, so the changed
+  §10 does not read as someone undoing its work.
+
+Task 19b: fix round 2 landed — d75e95a. Suite 1686/7 (+3: non-string cwd,
+  symlinked-.harness rejection, and a LIVE symlink-loop test);
+  hooks/pretooluse_guard.py measured at 100% BRANCH COVERAGE by coverage.py,
+  subprocess-aware. The :101 overclaim is closed, and closed by enumeration
+  rather than by another summary sentence.
+Task 19b: CONCERN 6 RAISED BY THE IMPLEMENTER while building the requested
+  branch-by-branch enumeration — which is the enumeration paying for itself
+  immediately. hooks/pretooluse_guard.py:75's `bool(relative.parts) and ...` is
+  unreachable by the same construction argument that justified deleting round 1's
+  `except ValueError` — BUT UNLIKE THAT ONE IT FAILS OPEN (allow) IF REACHED, and
+  it sits OUTSIDE coverage.py's model entirely, since short-circuit
+  sub-expressions in a single `return` are not tracked as branches. So the 100%
+  number DOES NOT COVER IT.
+  CONTROLLER TRACED IT RATHER THAN ACCEPT THE ARGUMENT, and the claim is right
+  with ONE DEGENERATE EXCEPTION THE IMPLEMENTER DID NOT NAME: _vault_from_target
+  walks `(target.parent, *target.parent.parents)` — starting at the PARENT, never
+  the target — so vault is always a STRICT ancestor and relative always has at
+  least one part. EXCEPT for target = Path('/'), whose .parent IS Path('/'), so
+  the walk includes the root itself; with /.harness present and the target the
+  root, vault == resolved, relative is Path('.'), parts are empty, and the hook
+  ALLOWS.
+  RECOMMENDED DELETION — AND THE REASON IS SAFETY, NOT TIDINESS. With the guard
+  gone, empty parts makes relative.parts[0] raise IndexError, and main() catches
+  every POST-PARSE exception into _deny(FAIL_CLOSED_REASON) (verified at :131-135;
+  the ELOOP test proves that path fires live). So deletion converts the one
+  reachable-in-principle case from SILENT ALLOW to DENY. The guard is the only
+  thing standing between that case and the hook's own fail-closed posture.
+  Round-1 precedent extends without strain: there, unreachable code was deleted
+  because testing unreachable code is worse than removing it; here deletion ALSO
+  removes a fail-open hole. Same direction, stronger reason.
+  ARGUED AGAINST documenting it as deliberate belt-and-braces: it would be
+  belt-and-braces THAT UNBUCKLES — a defensive line whose only possible effect is
+  to permit a write the rest of the hook exists to refuse.
+  Routed to the orchestrator per the new channel; round 3 ready to dispatch on
+  agreement, with a test pinning fail-closed for the empty-relative case
+  (constructible: a .harness at a temp-dir root with the target being that dir).
+Task 19b: FINDING WORTH KEEPING REGARDLESS OF THE RULING — A 100%-BRANCH-COVERAGE
+  NUMBER THAT IS TRUE AND MISLEADING. coverage.py's model does not see
+  short-circuit sub-expressions, so a fail-open branch sat unmeasured underneath
+  a perfect score. "100%" is exactly the kind of number that STOPS FURTHER
+  LOOKING, which is what makes this instance worth recording rather than merely
+  fixing. Destination: Plan W's mutation/coverage work.
+
+Task 19b: CONCERN 6 RULED — DELETE the `bool(relative.parts) and` guard. Round
+  3/5 dispatched. The ruling rests on the trace rather than on precedent: the
+  guard's ONLY REACHABLE-IN-PRINCIPLE ACT IS TO ALLOW the one write the hook
+  exists to refuse, and deleting it routes that same case into main()'s blanket
+  fail-closed deny (:131-135), the path the ELOOP test proves fires live. Round
+  1's "delete unreachable code rather than test it" applies with a STRICTLY
+  STRONGER reason: this deletion also closes a fail-open hole.
+  THE ORCHESTRATOR CAUGHT A FLAW IN MY OWN PROPOSED TEST, and it is worth
+  recording as a correction to me rather than to the implementer. I had offered
+  an end-to-end construction — a .harness at a temp-dir root with the target
+  being that same dir — and IT DOES NOT REACH THE CASE: _vault_from_target starts
+  at target.parent, so with target == the vault dir the walk begins ABOVE the
+  .harness, never finds it, returns None, and the candidate is skipped entirely.
+  vault == resolved requires target.parent == target, WHICH ONLY Path('/')
+  SATISFIES — so the degenerate case is unconstructible in a test.
+  I had derived the Path('/') fact correctly and then proposed a test that
+  contradicted it. THE ERROR WAS NOT IN THE ANALYSIS BUT IN THE STEP AFTER IT:
+  having established that only the filesystem root satisfies the condition, I
+  proposed building it at a temp dir anyway. Deriving a constraint and then not
+  applying it to the next sentence is its own failure mode, and it is the one a
+  second reader catches cheapest.
+  SO THE PIN GOES AT THE PREDICATE LEVEL: call _is_machine_surface(Path(".")) and
+  assert IndexError after the deletion, plus ONE end-to-end test that main()
+  converts an exception raised inside _handle into _deny — which the ELOOP test
+  may already be, and if so it is to be cited rather than duplicated. The
+  implementer must REPORT WHICH FORM THE TEST TOOK AND WHY the end-to-end form
+  was unavailable, because the next reader will wonder why a safety-relevant
+  branch is pinned by a unit test instead of through the hook.
+  Also required: a before/after over the existing path fixtures confirming the
+  deletion changes NO decision the hook makes today.
+Task 19b: THE COVERAGE FINDING IS DURABLE — main now carries it as a measured
+  caveat ahead of Plan W's mutation tasks (3c4a1f5): "treat 100% branch as 100%
+  OF WHAT THE MODEL SEES; mutation results are the check on coverage numbers, not
+  the other way around." This task's fail-open branch, invisible beneath a
+  perfect score, is the concrete instance behind it. It arrives here with the
+  next sync.
+
+Task 19b: fix round 3 landed — b0b1112. 3 files; suite 1687/7 (+1 predicate-level
+  test). The guard is gone and A COMMENT STANDS IN ITS PLACE, which is the one
+  situation where a long comment plainly earns its lines: THE ABSENCE OF CODE IS
+  INVISIBLE, so the reason for the absence has nowhere else to live. It names the
+  degenerate case, says why no bool() guard is present, and says where the
+  IndexError goes.
+Task 19b: ROUND-3 RE-REVIEW DONE BY THE CONTROLLER — one deletion and one test,
+  and every claim is settleable by calling the function. Loaded the module by
+  path with the canary asserted and ran the full decision table:
+      empty path              -> IndexError   (the fail-closed route)
+      literatures/x.md        -> True         log/2026-01-01.md  -> True
+      log.md                  -> True         inbox/review-queue.md -> True
+      system/bibliography.json-> True
+      synthesis/n.md          -> False        inbox/note.md      -> False
+      projects/b/search-log.md-> False        projects/b/log.md  -> False
+      a/b/c.md                -> False
+  ALL FIVE MACHINE SURFACES DENY; ALL FIVE NON-SURFACES ALLOW, INCLUDING BOTH
+  BOUNDARY CASES the log.md ruling created. Checked against the code, not the
+  report. Gates re-run in the real tree: 1687 passed / 7 skipped, form gate
+  exit 0.
+  THE IMPLEMENTER CORRECTED ITS OWN ROUND-2 CLAIM rather than let it stand: it
+  had said "relative can never be the empty path", which was imprecise, and the
+  report now states the actual degenerate case (target.parent == target, true
+  only for Path('/')) instead of glossing it. Fourth disclosed self-correction
+  from this implementer across two tasks.
+  AND IT RE-MEASURED COVERAGE AFTER THE DELETION: still 100%, confirming the
+  branch was invisible TO THE TOOL IN BOTH DIRECTIONS. That is the cleanest
+  possible evidence for the caveat now on main — the number did not move when a
+  real branch disappeared, because the number never saw it.
+Task 19b: complete (commits 897d91d..b0b1112 — a2b829d, 6a62cab, d75e95a,
+  b0b1112 — review clean after 3 fix rounds, 5 concerns carrying destinations).
+  Ticked below: 3 boxes; 80 checked / 32 unchecked. Suite 1687/7; gate exit 0.
+  WHAT THE TASK ACTUALLY SHIPPED: the vault's machine-written surfaces are now
+  refused at the tool boundary rather than warned about after the fact —
+  literatures/, log/, root log.md, inbox/review-queue.md, system/bibliography.json
+  — with the CLI unaffected because it writes through Python, not tool calls. The
+  §10 entry that had been waiting on "evidence that warnings fail" now carries
+  the evidence and is marked shipped, and the citekey-lint question it had been
+  bundled with is stated separately as still deferred.
+  THE ROUNDS EARNED THEMSELVES, and the pattern across them is one thing: EVERY
+  ROUND CLOSED A CLAIM THAT HAD OUTRUN ITS EVIDENCE. Round 1, the deny list
+  omitted a surface the vault's own preamble called machine-written. Round 2, the
+  report claimed a coverage property it did not have. Round 3, the fix for round
+  2's claim carried a third — a fail-open branch invisible to the metric that
+  said 100%. None was found by the suite; each was found by asking what the
+  claim would have to be true of.
+Task 19b: minor (deferred): the guard denies system/bibliography.json but Task
+  2c's preamble never names it, so an agent can hit that deny with no preamble
+  warning. Destination, ruled: the preamble gains it at the next legitimate
+  template re-pin; checked at Task 21 close, and if no re-pin landed the
+  orchestrator files the issue that day.
+Task 19b: minor (deferred): research/prior-art/trust-gates-prior-art.md:47 names
+  a `defer` permissionDecision value the current docs do not list. Destination:
+  recorded decline — a frozen research record is not corrected in passing.
+Task 19b: minor (deferred): the dotdot-traversal test does not discriminate the
+  .resolve() line it was written for, because the os.lstat-based vault walk
+  already resolves `..` at the syscall level. Kept as a regression guard,
+  labelled honestly rather than counted as coverage.
