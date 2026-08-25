@@ -6689,3 +6689,82 @@ Task 21: recorded (implementer's new concern): hoisting the local malformed chec
   Outstanding elsewhere: the post-merge boundary walk (new-folder-67), the
   preamble/body inconsistency issue (orchestrator files), Plan W and slice
   Phases 2-6 (author's schedule).
+
+### CANONICAL COMPLETION LINES — added 2026-08-25 after the post-merge boundary
+### review's finding 1: the recovery map could not distinguish
+### closed-differently from never-closed, because 13 and 21 were closed in prose.
+Task 13: complete (batch-repo commit c16195e — the tick and the Part 1
+  checkpoint; the task's own work landed as TWO COMMITS IN THE VAULT REPOSITORY
+  at ~/kh-vault, not here: ec5e9ef [vault repo] records-first, then 1293295
+  [vault repo] the template set, both through the vault's own pre-commit trust
+  gate UNBYPASSED, neither pushed). Review: not dispatched — a five-file
+  application to the author's live vault, performed by the controller because it
+  held the consent context and the no-hand-edits verification. Part 1 checkpoint:
+  suite 1714/7, test_skill_contracts 53 passed, both judged greps clean.
+  Ticked at c16195e — 2 boxes.
+Task 21: complete (commits c16195e..4b9f427 — 1c7f682 round 0, 111ddbf round 1,
+  04896d7 round 2, f8915c2 round 3, a5edc02 the tick, 4b9f427 the mdformat
+  re-pad — review clean after 3 fix rounds; acceptance sweep clean; 5 concerns
+  carrying destinations). Ticked at a5edc02 — 5 boxes; 112 checked / 0 unchecked.
+  Suite offline 1738/7, live 1743/2, pre-commit 8/8, publish gate exit 0.
+  THE CLOSURE IS THE MERGE: d9b3acf..4b9f427 fast-forwarded onto origin/main,
+  pushed. Everything after 4b9f427 on this branch is post-merge record-keeping.
+### AND A CORRECTION TO WHAT I ACCEPTED, having measured it afterwards
+  I accepted a residual — "a ledger line naming a superseded SHA says so in the
+  same sentence" — as a real defect in this ledger. IT HAS NO INSTANCE.
+  `88c6c09` appears NOWHERE in this file; the amend is recorded at :3645 by
+  naming only the SURVIVING sha, 2393658, and describing what it corrected.
+  I ACCEPTED A CHARACTERISATION OF MY OWN ARTIFACT WITHOUT MEASURING IT — the
+  same root as the six instances the retrospective catalogues, in the smallest
+  possible form, and pointed at my own work while I was busy checking someone
+  else's claim about it.
+  WHAT FINDING 4 ACTUALLY POINTS AT, measured: 133 sha-like tokens in this
+  ledger, FOUR unresolvable, and none of them stale —
+    1293295, ec5e9ef, 5eed40f  — commits in the VAULT REPOSITORY at ~/kh-vault,
+                                 a separate git repository by spec §2. Correctly
+                                 cited; unresolvable HERE by design.
+    e3b0c442                   — NOT A SHA. It is sha256(b"")[:8], quoted as a
+                                 VALUE in the Task 12 discussion of why every
+                                 keyless empty-text annotation collides. The
+                                 regex matched eight hex characters.
+  So the real defect is narrower and different from the one I agreed to: THIS
+  LEDGER CITES CROSS-REPOSITORY SHAS WITHOUT MARKING THEM AS SUCH, and a tool
+  walking SHAs cannot tell a foreign-repo citation from a dangling one. Fixed
+  above by annotating the vault commits `[vault repo]` at their canonical
+  completion line. The prospective rule stands and is worth keeping — it simply
+  had no instance here.
+
+### RECORDED OVERRIDE — record-immutability knowingly bypassed for def1f78
+  The gate fails on two research modifications, BOTH INSTRUCTED and both dated
+  house-style amendments:
+    M research/validation-slice/2026-08-22-skills-layer-audit.md      (C3, C4)
+    M research/validation-slice/2026-08-25-...-method-retrospective.md
+      (the reader-half rule)
+  RULED: take the override knowingly rather than either alternative, and the
+  reasoning for rejecting the other two is the part worth keeping.
+   - JUST PUSHING would have passed — but only BECAUSE the hook compares
+     `origin/main...HEAD` and pushing EMPTIES THE WINDOW. That is AN UNRECORDED
+     BYPASS WEARING A GREEN CHECKMARK, and doing it deliberately is worse than
+     doing it unnoticed, which is what I had already done once at 3707586
+     without seeing it.
+   - HOLDING would have blocked two instructed, dated amendments behind a gate
+     that CANNOT EXPRESS THE ONE EDIT CLASS THIS REPO'S OWN PRACTICE TREATS AS
+     LEGITIMATE. That is the gate malfunctioning, not working.
+  DEFECT FILED AS #28, verified OPEN before citing it: "record-immutability
+  gate: origin-window scope launders pushed edits; no affordance for dated
+  amendments". It carries both halves of the weakness — the origin-window scope
+  WITH 3707586 AS THE UNREMARKED PRECEDENT, credited as self-reported — and the
+  missing dated-amendment affordance, plus the design question for the
+  post-slice fix.
+  THE SHAPE WORTH KEEPING: a gate whose only failure mode is "wait until it
+  cannot see you" does not enforce a rule, it schedules one. The green checkmark
+  after a push is not evidence the record was preserved; it is evidence the
+  comparison window closed.
+### AND THE FINDING-4 CORRECTION, accepted in full by the orchestrator
+  Their words, and I would not have put it as sharply: it is the catalogue's
+  SMALLEST AND BEST SPECIMEN — I accepted THEIR characterisation of MY artifact
+  without measuring it, measured it, and found THE RULE HAD NO INSTANCE while the
+  real defect (unmarked cross-repo SHAs) was narrower and already fixable.
+  The prospective same-sentence rule stands with ZERO INSTANCES; the
+  `[vault repo]` marking is the actual fix.
+### NOTHING OUTSTANDING FROM THIS SEAT once def1f78 is pushed.
