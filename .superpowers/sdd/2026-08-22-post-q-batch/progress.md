@@ -5728,3 +5728,142 @@ Task 12: info (no action): `key="ANNKEY01"` default at tests/test_cli_live.py:23
 Task 12: info (no action): a redundant `(issue #16)` provenance citation in a
   test comment at tests/test_notes.py:432-434 — the commit body already carries
   it. Comment-hygiene nit, below the bar for a round.
+
+### TWO POLICIES LANDED FROM THIS RUN'S FINDINGS (orchestrator, 2026-08-25)
+  - d9b3acf, docs/agents/issue-tracker.md: A FIX THAT CONVERTS ONE FAILURE MODE
+    INTO ANOTHER COMMENTS THE NEW MODE AND KEEPS THE ISSUE OPEN — the record
+    tracks THE POSITION, NOT JUST THE OUTCOME. Task 12's implementer left #16
+    open and asked rather than assuming; that instinct was the policy before it
+    was written.
+  - #16 IS NO LONGER UNOWNED: ruled on the issue. Positional discriminator
+    REJECTED (evidence-conventions' never-render-order line settles it);
+    comment-in-basis ACCEPTED IN PRINCIPLE as a symmetric extension of the
+    keyless-quote hash rule, same content-moves-anchor trade-off; residual
+    collisions are TRUE duplicates where refusal stays correct but the message
+    must name the remedy. LANDING CONDITION: verify keyless annotations occur in
+    live shapes AT ALL before sizing the anchor-rewrite consequence.
+    Implementation is post-batch; no remaining batch task carries it.
+  And the pre-check observation was named for what it is: SHRINKING A TASK TO
+  PROVING REACHABILITY INSTEAD OF BUILDING WHAT ALREADY EXISTS IS THE
+  "ELIMINATE THE PROBLEM" RUNG APPLIED TO TASK BRIEFS. Two consecutive
+  no-fix-round closes is the measurement, not the claim.
+
+Task 22: BASE = 438ebfc. Implementer dispatched (sonnet). 13 and 21 stay blocked
+  on the author's live-vault consent, surfaced upward twice and not yet arrived.
+  I RE-RAN THE BRIEF'S OWN CHECKS RATHER THAN TRUST ITS DATES — the brief cites
+  verifications made 2026-08-23, and the tree has moved a great deal since:
+   - THE SITE LIST re-enumerated at HEAD, with ONE DRIFT: SKILL.md's prose site
+     is :66, not the :64 the brief records. Everything else is where it says.
+   - mutation-baseline.txt carries 8 factcheck entries and ZERO mentioning
+     skipped_digest, so Step 4's "no baseline key needs editing" HOLDS.
+   - the sidecar manifest DOES carry func/skipped_digest at :57-58, plus
+     module_hash and source_sha256 over the file, all invalidated by the rename.
+  AND ONE INSTRUCTION IS A NO-OP THAT WOULD HAVE COST TIME: Step 3 says update
+  the SKILL.md "whole-file test pin", and THERE IS NO SUCH PIN.
+  tests/test_skill_files.py pins setup-vault/SKILL.md specifically; the nearest
+  thing is test_finding_cli.py:415-429's TOKEN LIST over factcheck-draft, and
+  `skipped_digest` IS NOT AMONG THOSE TOKENS. So nothing blocks or requires the
+  rename there. Told the implementer explicitly not to hunt for it — and to say
+  so if it finds a pin I missed, rather than INVENTING one to satisfy the
+  instruction, which is the likelier failure when a brief names an artifact that
+  does not exist.
+  THE ESCAPE HATCH WAS HANDED OVER AS AN INSTRUCTION, NOT A FOOTNOTE: if Step 4's
+  sidecar regeneration resists AT ALL, commit the rename and record the stale
+  manifest. Ten of twenty-five sidecars in this repo are ALREADY stale for the
+  same frozen-tool reason, so this one costs nothing new — and the failure mode
+  worth preventing is an implementer debugging mutation tooling inside an
+  instrument-freeze window because a step said "regenerate".
+  Also fenced: the `factcheck` check id, the `budget-cap` reason code, the
+  four-state word `skipped` (ADR 0002) and stdlib `hexdigest()` all STAY. And
+  Step 1's RED phase is the rename's own AttributeError — with the instruction
+  that A RENAME TASK THAT GROWS TESTS IS A RENAME TASK THAT STOPPED BEING A
+  RENAME. A pure rename must leave 1714/7 unchanged; if the number moves, stop.
+
+Task 22: implementer DONE (1800aeb; 6 files). Suite 1714/7 UNCHANGED, which is
+  the correct result for a pure rename and the number I told it to stop on if it
+  moved. Gate exit 0. Sidecar REGENERATED CLEANLY on the first attempt, so the
+  escape hatch was never needed. The commit body carries a FULL JUDGED-GREP LIST
+  BY SENSE — hash-sense living surfaces renamed, hexdigest() stdlib untouched,
+  authored-account sense preserved, write-once records left as written, the three
+  governed identifiers fenced. Best-documented rename in the batch.
+### AND I MADE THE ERROR, NOT THE IMPLEMENTER: I DISPATCHED AGAINST A STALE BRIEF
+  task-22-brief.md was generated 2026-08-23 18:09; the plan was last written
+  2026-08-25 03:38. I CONFIRMED THE FILE EXISTED AND NEVER REGENERATED IT.
+  MY OWN STANDING PROCESS FIX, WRITTEN AT TASK 15, WAS "generate the brief and
+  confirm existence BEFORE writing the dispatch". That fix guarded against a
+  MISSING brief. It never guarded against a STALE one. EXISTENCE IS NOT CURRENCY
+  — and this is the SECOND time a brief-related process fix of mine has proved
+  NARROWER THAN THE FAILURE CLASS it was written for.
+  THE TWO BRIEFS DIFFER SUBSTANTIALLY, not just in wording. The stale one carries
+  a JUDGED-GREP Step 4 requiring every "digest" hit ruled by sense, and NAMES
+  tests/test_finding_cli.py's docstring and its digest-aaaa/digest-bbbb fixture
+  values AS IN-SCOPE RENAMES. The current plan DROPS that step and says instead:
+  "Scope bound — rename this and nothing else ... one function, one dict key, and
+  their references."
+  So the shipped commit renames a docstring and two OPAQUE FIXTURE STRINGS that
+  are NOT references to the renamed function or key. Required by the brief it was
+  given; out of bounds under the plan as it stands today. Routed to the
+  orchestrator with a recommendation to ACCEPT (semantically inert --target-hash
+  inputs, suite unchanged, the fixtures document the very dedup mechanism
+  skipped_sha256 feeds, and reverting costs a round in a freeze window for zero
+  gain) — but ruled by them rather than by me, because reading "and nothing else"
+  generously about MY OWN MISTAKE is exactly the judgement I should not make.
+  TICK HELD pending that ruling.
+### A NEAR-MISS WORTH MORE THAN THE ERROR
+  The implementer reported using "the brief's exact wording" for the commit
+  message. Checked against the PLAN, that is FALSE — plan says "refactor: rename
+  skipped_digest to ...", commit says "refactor: skipped_digest becomes ...".
+  Checked against THE BRIEF IT WAS GIVEN, it is EXACTLY TRUE.
+  I checked both, which is the only reason I did not file a false-claim finding
+  against an implementer that was precisely accurate. THE RULE: WHEN AN AGENT'S
+  CLAIM IS ABOUT AN ARTIFACT, VERIFY AGAINST THE ARTIFACT IT WAS HANDED, NOT THE
+  ONE YOU THINK IT SHOULD HAVE HAD. My report-checking instinct fired on the
+  right claim and would have hit the wrong target.
+  PROCESS CHANGE, EFFECTIVE NOW: regenerate every brief IMMEDIATELY BEFORE
+  dispatch; never reuse one found on disk. Audited this session's others — 2e, 11
+  and 12 were all freshly generated; 22 was the only reuse, and it was the only
+  one where a pre-existing file tempted me to skip the step.
+
+Task 22: DEVIATION ACCEPTED (orchestrator ruling, 2026-08-25) — tick released.
+  The reasoning is recorded in task-22-report.md as a controller addendum rather
+  than resting on authority: the changed strings are THE EXACT CLASS THE EARLIER
+  PLAN VERSION DELIBERATELY REQUIRED (fixtures documenting the very --target-hash
+  dedup mechanism skipped_sha256 feeds); the current bound's purpose is SCOPE
+  CONTAINMENT IN THE FREEZE and these edits are semantically inert; and a revert
+  round would churn MORE tree than the deviation while re-introducing stale
+  naming. THE BOUND PROTECTS AGAINST CREEP, NOT AGAINST COHERENCE. The author may
+  override with a ride-along revert in a later task if they read "and nothing
+  else" stricter.
+  The addendum states the CAUSE plainly — a controller error, a stale brief — and
+  says the implementer followed its brief exactly. A deviation recorded without
+  its cause invites the next reader to blame the wrong party, which is precisely
+  what I nearly did myself.
+Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched:
+  a pure rename with the RED phase as its own proof, gates re-run by the
+  controller). Ticked below: 6 boxes; 105 checked / 7 UNCHECKED. Suite 1714/7
+  unchanged; publish gate exit 0.
+  ALL SEVEN REMAINING BOXES BELONG TO TASKS 13 AND 21, both blocked on the
+  author's live-vault consent. Every other task in the plan is closed.
+### OWED AT TASK 21 CLOSE — now a named deliverable, not a habit
+  Roll this run's METHOD findings into one research note under
+  research/validation-slice/ (batch retrospective). The named set:
+   - observation-vs-conclusion: a CORRECT observation can carry a WRONG
+     conclusion, and the observation's honesty is what makes it persuasive
+     (Task 20's guard "redundancy").
+   - existence is not currency: a process fix guarding a MISSING artifact does
+     not guard a STALE one (Task 22, this entry).
+   - verify against the artifact HANDED, not the one you think it should have
+     been (the false-claim near-miss, same task).
+   - the truncating pipe: tail -15 hid a file, --help hid a version-gated flag,
+     head -8 shipped a wrong count into three artifacts. A COUNT FROM A COMMAND
+     WITH A TRUNCATING PIPE IS NOT A COUNT.
+   - the wrong-tree canary: a script run by path from /tmp silently measures the
+     PARENT repo; caught me after I had warned four agents about it.
+   - coverage-model blindness: a 100%-branch number TRUE AND MISLEADING, because
+     the model does not see short-circuit sub-expressions.
+  RATIONALE FOR THE NOTE RATHER THAN MORE PLAN PROSE, and it is the right
+  instinct: Plan W's measured-caveat paragraph has already absorbed three of
+  these and SHOULD NOT BECOME A DOCTRINE DUMP. The note becomes the durable home;
+  Plan W keeps only what its tasks act on. Otherwise a caveat block grows until
+  nobody reads any of it — the same failure as an exception list growing by
+  filenames.

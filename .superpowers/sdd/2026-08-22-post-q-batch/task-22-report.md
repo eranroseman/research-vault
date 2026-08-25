@@ -57,3 +57,64 @@ Import canary run in-tree before trusting any test result: `./.venv/bin/python -
 
 - **`knowledge_harness/verify.py:244-245,403,406`** still use "digest" in its generic cryptography sense ("a validly-shaped digest", "digest-shaped") to describe the `fixity-sha256`/`managed-sha256` value. Left unrenamed — out of this task's scope (not a reference to `skipped_digest`, and the brief named no site there). Destination: a terminology-polish pass, if `docs/terminology.md` §4.3's "one sense per term" ruling is later extended to prose describing fixity mechanics generally, not just to named report fields.
 - **`.superpowers/sdd/2026-08-22-post-q-batch/progress.md`** is modified in the working tree (controller-owned, pre-existing before this task started). Left untouched and excluded from this commit's pathspec per the global constraint. Destination: whoever owns that ledger (the controller) reconciles it; no action taken here.
+
+______________________________________________________________________
+
+## Controller addendum — a recorded deviation and its cause (2026-08-25)
+
+**This section is the controller's, not the implementer's.** The deviation below
+traces to a controller error; the implementer followed its brief exactly.
+
+### The deviation
+
+This commit renames a docstring and two fixture strings in
+`tests/test_finding_cli.py` — `"digest-as-target-hash"` → `"sha256-as-target-hash"`,
+and the `--target-hash` inputs `digest-aaaa` / `digest-bbbb` →
+`sha256-aaaa` / `sha256-bbbb`.
+
+Those are **not** references to the renamed function or dict key. They are
+opaque test inputs whose text happened to contain the word. The plan's Task 22
+says: *"Scope bound — rename this and nothing else. … This task renames one
+function, one dict key, and their references."* By that bound, these three
+edits are out of scope.
+
+### Why they were made
+
+The dispatch pointed the implementer at `task-22-brief.md` as generated on
+**2026-08-23 18:09**. The plan was last amended **2026-08-25 03:38**. The brief
+was two days stale and was never regenerated — the controller confirmed the file
+existed and skipped the regeneration step.
+
+The two versions differ materially. The stale brief carries a **judged-grep
+step** requiring every occurrence of *digest* to be ruled by sense, and names
+these exact `tests/test_finding_cli.py` sites as in-scope renames. The current
+plan drops that step and adds the narrower bound quoted above.
+
+So the implementer did precisely what its brief required. The scope excess is
+the controller's, from dispatching against an artifact it had not refreshed.
+
+### Disposition: accepted (orchestrator ruling, 2026-08-25)
+
+Accepted rather than reverted, for reasons that belong in the record rather than
+resting on authority:
+
+- the changed strings are the exact class the earlier plan version deliberately
+  required — fixtures documenting the very `--target-hash` dedup mechanism
+  `skipped_sha256` feeds;
+- the current bound's purpose is **scope containment during the instrument
+  freeze**, and these edits are semantically inert: the values are arbitrary
+  opaque inputs and the suite is unchanged at 1714 passed / 7 skipped;
+- a revert round would churn more tree than the deviation does, while
+  re-introducing stale naming — **the bound protects against creep, not against
+  coherence.**
+
+The author may override with a ride-along revert in a later task if they read
+"and nothing else" more strictly than the orchestrator did.
+
+### The process fix
+
+Regenerate every task brief immediately before dispatch; never reuse one found
+on disk. The prior rule — "generate the brief and confirm existence before
+writing the dispatch", adopted at Task 15 — guarded against a **missing** brief
+and not against a **stale** one. **Existence is not currency.** This session's
+other briefs (2e, 11, 12) were all freshly generated; Task 22 was the only reuse.
