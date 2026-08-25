@@ -4450,3 +4450,262 @@ Task 19: minor (deferred, filed by the implementer): the max() newest-wins key
   reasoned ("2023" < "2023-01-01" is True), at TWO call sites rather than the one
   the brief assumed. Not a safety hole, because clearing provably runs earlier in
   the pipeline (checks.py:889). Destination: GitHub issue #23, verified OPEN.
+
+Task 19b: BASE = 897d91d. Implementer dispatched (sonnet). Brief generated and
+  read first. FOUR PRE-CHECK FINDINGS, and the first is the task's whole point.
+  (1) WHAT "NO FAIL-OPEN INHERITANCE" ACTUALLY MEANS, made concrete rather than
+      quoted. posttooluse_lint.py's main() is `with suppress(Exception):
+      _handle(...)` then `return 0` — deliberately fail-OPEN, and CORRECT for a
+      warning surface. COPYING THAT SHAPE INTO A DENY HOOK INVERTS ITS MEANING: a
+      swallowed exception plus return 0 means ALLOW. A guard whose failure mode
+      is silent permission is worse than no guard, because it REPORTS PROTECTION
+      IT IS NOT PROVIDING. The dispatch requires the failure posture to be
+      decided explicitly, tested with malformed input, and stated in the commit
+      body. Also noted that posttooluse_lint imports knowledge_harness lazily
+      INSIDE helpers — an import that can fail is exactly the fail-open path the
+      brief's "no vault import" forbids — while _vault_from_cwd
+      (posttooluse_lint.py:41-48) walks up for a `.harness` dir in PURE STDLIB,
+      so the technique is reusable without the package.
+  (2) A TEST IT WILL BREAK, AND MUST UPDATE RATHER THAN WEAKEN: tests/
+      test_hooks.py:445 asserts `json.loads(HOOKS_MANIFEST.read_text()) == {...}`
+      — an EXACT-EQUALITY PIN ON THE WHOLE of hooks/hooks.json. Adding PreToolUse
+      breaks it, and the plan's Global Constraints require whole-file pins to move
+      in the SAME commit. Told explicitly not to loosen it to a subset check,
+      because that is the tempting fix and it silently retires the pin.
+  (3) VERIFY THE HOOK PROTOCOL, DO NOT GUESS IT. The brief gives
+      `permissionDecision: deny`, but I have NOT verified the surrounding schema —
+      the key nesting, or whether the reason field is permissionDecisionReason.
+      GUESSING AN EXTERNAL API'S SHAPE AND SHIPPING IT IS THIS PLAN'S MOST
+      REPEATED DEFECT, and it is especially dangerous here: A MALFORMED DECISION
+      OBJECT FAILS SILENTLY — nothing errors, so it LOOKS like it works. Required
+      to find an authoritative source and STATE IT in the report.
+  (4) NotebookEdit may not carry `file_path`. The brief's matcher is
+      Edit/Write/NotebookEdit; the existing hook reads only
+      tool_input["file_path"] and matches only Edit|Write. Shipping a matcher
+      that fires on a tool whose payload is never read is A DENY THAT NEVER
+      DENIES. Check the real key first.
+  ALSO FLAGGED, a surgical-edit hazard: Step 3's §10 entry lives inside a SINGLE
+  ENORMOUS LINE of docs/superpowers/specs/2026-08-16-foundation-spec.md (~:155)
+  carrying dozens of `·`-separated entries. NO TEST PINS THAT FILE — I checked
+  tests/ for references and found none — so nothing but a reader would catch an
+  over-broad edit or a reflow.
+  TEST DEMANDS BEYOND THE BRIEF'S LIST, aimed at where a path guard actually
+  leaks: a relative file_path resolved against cwd; a `..` path that lands inside
+  a machine surface; a SYMLINK pointing into one; a path outside any vault; and
+  payloads missing cwd or tool_input. Plus the brief's own allow-cases, including
+  inbox/note.md — INSIDE inbox/ but not the queue file — since "the deny is
+  path-scoped, not content-scoped" is only demonstrated by a near-miss.
+
+Task 19b: implementer DONE (commit a2b829d; 5 files incl. a new
+  hooks/pretooluse_guard.py, the hooks.json manifest, its exact-equality pin, the
+  §10 spec entry and the report). Suite 1677/7 (= 1650 + 27 new hook tests).
+  THE REPORT IS THE BEST-SHAPED ONE OF THE RUN, and each part is a behaviour
+  worth naming rather than a result:
+   - IT ASKED INSTEAD OF WIDENING. The brief's deny list is four paths; the
+     implementer noticed root log.md was missing and STOPPED, rather than adding
+     it on its own judgement or shipping past the doubt.
+   - IT VERIFIED THE PROTOCOL AGAINST LIVE DOCS instead of guessing, which was
+     the pre-check's sharpest warning — a malformed decision object FAILS
+     SILENTLY, so a guess would have looked like it worked. It also caught that
+     research/prior-art/trust-gates-prior-art.md:47 claims a `defer` decision
+     value the current docs do not list, and DECLINED to edit it: a frozen
+     research record is not corrected in passing. Right call, recorded.
+   - IT RAN A POST-COMMIT REVIEW ON ITSELF, found its own summary sentence
+     ("every new production branch has at least one test that goes red")
+     OVERSTATED THE MATRIX, named the three gaps precisely, PRE-SPECIFIED the
+     fix — and did NOT apply it, because the brief mandated one commit and the
+     dispatch said to ask on ambiguity. A self-caught overclaim disclosed with
+     its remedy is the most useful thing an implementer can hand a reviewer.
+   - IT REPORTED A TEST THAT DOES NOT DISCRIMINATE rather than let it pass as
+     coverage: the dotdot-traversal test cannot pin the .resolve() line it was
+     written for, because the os.lstat-based vault walk already resolves `..` at
+     the syscall level. Kept as a regression guard, LABELLED HONESTLY.
+Task 19b: AUTHOR RULING (2026-08-24) — ROOT log.md JOINS THE DENY LIST; planner
+  defect #9, and the author corrected their own enumeration again.
+  THE ARTIFACTS OF THIS SAME PLAN DISAGREED IN BOTH DIRECTIONS, which is what
+  made it a ruling rather than a judgement call: Task 2c's shipped vault preamble
+  names `literatures/`, `log/`, `log.md`, `inbox/review-queue.md`; the brief's
+  deny list names `literatures/`, `log/`, `inbox/review-queue.md`,
+  `system/bibliography.json`. Four each, and not the same four.
+  CONTROLLER VERIFIED BOTH SIDES BEFORE ASKING: the preamble text read from the
+  template (not recalled), and okf.py:1 states root log.md has a SINGLE WRITER,
+  writing at okf.py:38 via `(vault / "log.md").write_text(text)` — Python, not a
+  tool call. So the deny cannot touch the legitimate writer.
+  THE AUTHOR'S DECIDING TEST, worth keeping as doctrine: "correction-vs-decision
+  — had the brief been written AFTER 2c's preamble shipped, log.md would be on
+  it. Correct the brief, don't obey it." Omitting it would have shipped a guard
+  that ignores THE EXACT LAUNDERING ROUTE THIS TASK'S OWN TRIGGER EVIDENCE CITES
+  (okf.regenerate_log folding appended log/ lines into log.md).
+  Rejected alternatives, with reasons: aligning BOTH lists was declined because a
+  second preamble edit re-pins a whole-file template inside a task that never
+  scoped it; recording the divergence was declined because "shipping a guard the
+  vault's own preamble contradicts, when one path entry fixes it, is recording a
+  divergence you CHOSE to keep".
+  Plan amended at 3c73676 and the brief REGENERATED before the fix dispatch, so
+  the implementer reads five paths rather than four.
+Task 19b: fix round 1/5 dispatched — the log.md addition (with a
+  projects/<name>/search-log.md ALLOW case, so the boundary between root log.md
+  and every other *log.md is stated by a test rather than by intent), plus the
+  implementer's own concern-5 items applied as it pre-specified them, INCLUDING
+  DELETING THE DEAD `except ValueError` — unreachable code is better deleted than
+  tested, with the rider that if re-examination shows it IS reachable, keep and
+  pin it and say which.
+Task 19b: concern (destination named, per the ruling's rider): the guard denies
+  system/bibliography.json but Task 2c's preamble never names that path, so an
+  agent can hit that deny with NO PREAMBLE WARNING. Guard-stricter-than-doc is
+  tolerable; silence about it is not. Destination: the preamble gains
+  system/bibliography.json at the next legitimate template re-pin, or a GitHub
+  issue if no re-pin lands before batch close.
+
+### RULING CHANNEL CHANGED (author, 2026-08-24)
+  Rulings and clarifications now go to new-folder-c1 [4123b2] DIRECTLY; it relays
+  upward as needed. No more AskUserQuestion for plan-text conflicts or
+  governed-surface decisions — same questions, different address.
+  WHAT DOES NOT CHANGE, and is worth stating so the channel change is not read as
+  a lowering of the bar: the questions still get ASKED. The failure this run keeps
+  catching is picking by reflex when claim and reality disagree, and a cheaper
+  channel makes asking easier, not more optional. The three directions still
+  apply — weaken the claim, strengthen reality, or state the exception.
+  Sent the peer a state handoff on adoption: 21 tasks complete, 19b in fix round
+  1, remainder 20, 21, 2e, 11, 12, 13, 22 — with 13 consent-gated on the live
+  vault and 21 running the live legs. Also queued the two decisions already owed
+  (Task 2e's `.superpowers/` scope note, and 19b's system/bibliography.json
+  residue needing an owner for "the next legitimate re-pin" rather than waiting
+  for one to occur by chance), and re-raised the merge question: origin/main has
+  moved at least twice (f9d95df, 3faab3c) and the standing instruction is merge
+  at a Part boundary, which Part 2 has not reached.
+
+### SYNC-MERGE RULING (orchestrator, 2026-08-24) — AND WHY IT IS HELD FOR MINUTES
+  Ruling: (a) merge TO main stays at the Part 2 boundary, unchanged; (b) sync
+  origin/main INTO the branch NOW, before 19b's fix round closes; (c) any
+  conflict stops and goes to the orchestrator before resolution.
+  HELD, NOT DECLINED, FOR ONE REASON: the 19b fix-round implementer is LIVE with
+  UNCOMMITTED EDITS to hooks/pretooluse_guard.py and tests/test_hooks.py.
+  Merging into a tree an agent is actively editing is how a half-merged working
+  copy ends up inside somebody's commit. Neither file is touched on main, so
+  there is no textual conflict waiting — the hazard is purely the concurrent
+  write. Taking the sync the moment its commit lands, which still satisfies
+  "before the round closes".
+  DRIFT MEASURED RATHER THAN ESTIMATED: 30 commits behind, 15 files,
+  +2052/-16 — AGENTS.md, .gitignore, docs/testing.md, the foundation spec,
+  product-landscape, three new research files, mutation-exclusions.txt (+5) and
+  two audit records. ALL DOCS AND CONFIG, NO CODE, so the instrument freeze
+  cannot be touched by it.
+  CONFLICT POINT IDENTIFIED IN ADVANCE: docs/superpowers/plans/2026-08-22-post-q-
+  batch.md is modified on main (1 line) AND amended twice locally — 47fc2d2
+  (Task 17b's boundary clause) and 3c73676 (Task 19b's deny list gaining log.md),
+  both author-ruled. That is the file most likely to conflict, and both sides are
+  rulings rather than drafts.
+### A NEAR-MISS I CAUSED WITH MY OWN PIPE
+  I ran `git diff --stat HEAD...origin/main | tail -15` and .gitignore was not in
+  the output, so I was one step from reporting the orchestrator's ad97db9 claim
+  as WRONG. The commit is real and on origin/main; my branch's .gitignore genuinely
+  lacks the block; `git diff origin/main -- .gitignore` shows it plainly.
+  THE CAUSE WAS `tail -15` CUTTING AN ALPHABETICALLY-EARLY ROW — the summary line
+  said 15 files and tail showed 14 of them plus the summary. Same failure class
+  this plan keeps cataloguing, except the tool that hid the fact was MINE, and
+  the thing it nearly falsified was a teammate's correct statement. Checking the
+  specific claim directly, rather than trusting a truncated view of it, is what
+  caught it.
+  AND THE TREE HAD A THIRD ANSWER NEITHER OF US NAMED: what ignores the workspace
+  TODAY is `.superpowers/sdd/.gitignore`, a `*` file the SDD script writes —
+  not the root .gitignore and not the exclude line. After the sync there will be
+  TWO ignore mechanisms over one tree, which Task 2e's coherence check would
+  otherwise report as an unexplained second source of truth. Carried into 2e's
+  dispatch alongside the ruled two-tense framing.
+### OWED AT TASK 21 CLOSE (recorded here so a context boundary cannot lose it)
+  Check whether any intervening task legitimately re-pinned the Task 2c preamble
+  template. If yes, the preamble gains `system/bibliography.json` in that re-pin.
+  If no, report it in the 21-close message and the orchestrator files the issue
+  the same day.
+
+### TASK 2e DISPATCH TEXT — SETTLED (orchestrator clarification, 2026-08-24)
+  The root `.gitignore` entry is the VERSIONED DECISION; `.superpowers/sdd/
+  .gitignore` (the skill-written `*` file) is an IMPLEMENTATION DETAIL the skill
+  re-creates per plan. If 2e's coherence check wants a single source of truth it
+  is the ROOT entry — the nested file is EXPECTED DUPLICATION, NOT DIVERGENCE.
+  So 2e's dispatch carries three things, and the third is the one I found rather
+  than was given:
+   1. `.superpowers/` is deliberately unowned by the form gate — machine-written
+      process records, not prose.
+   2. Both tenses: the ~60 committed post-q files are GRANDFATHERED and stay
+      tracked through the merge (tracked overrides ignore); FUTURE `.superpowers/`
+      content is ignored at the root.
+   3. The nested `*` file exists and is expected duplication, so a coherence
+      check does not report it as a second source of truth.
+  Without (3) the check would find two ignore mechanisms over one tree and be
+  RIGHT to flag it — the answer just happens to be "expected", which is exactly
+  the kind of thing a dispatch has to say out loud or the task rediscovers it as
+  a defect.
+
+### TASK 20 PRE-CHECK (done while 19b's fix round runs; read-only, no collision)
+  THE SHARPEST FINDING, and it is a trap the surrounding code sets:
+  _crossref_notices RETURNS None ON ANY MALFORMED INPUT — `if not
+  isinstance(update, dict): return None`, `if notice_type is None: return None`,
+  `if notice_date is _INVALID: return None`. Three bail-outs in eleven lines, and
+  None means "no notices at all" for the WHOLE payload.
+  BUT TASK 20's CONTRACT IS THE OPPOSITE: "malformed relation entries are IGNORED
+  — the field is additive, it may only ADD signal, never change an existing
+  verdict." So an implementer who copies the local idiom gets it EXACTLY WRONG:
+  returning None on a malformed relation entry would DISCARD the updated-by
+  verdict that was already established, which is precisely the thing the additive
+  rule forbids. The neighbouring pattern is the wrong pattern here, and that is
+  the hardest kind of hazard to see, because consistency with the file looks like
+  the responsible choice.
+  WHY "ADDITIVE" IS ALREADY TRUE MECHANICALLY, worth handing over so the
+  implementer preserves it rather than rediscovers it: _effective_blocking's max
+  key is `(notice_date is not None, notice_date or "", type)`, so a relation
+  notice carrying notice_date=None sorts LOWEST and A DATED updated-by NOTICE
+  ALWAYS WINS. The additive promise is enforced by the sort key, not by
+  convention.
+  AND THE UNDATED RECORD INTERACTS WITH TASK 19: _active_blocking_notices keeps
+  every notice whose notice_date is None UNCONDITIONALLY, so a relation-sourced
+  retraction CAN NEVER BE CLEARED BY A REINSTATEMENT. That is the fail-safe
+  answer and it should be stated deliberately rather than inherited — it is a
+  permanent block created by a field the brief calls "additive".
+  THE `source` KEY IS SAFE AND INTERNAL: _blocking_outcome builds its `extra`
+  dict EXPLICITLY from notice["type"] and notice["notice_date"] only, so a new
+  "source": "relation" key CANNOT leak into the Outcome or the inbox. Surfacing
+  it would require changing _blocking_outcome, which the brief does not ask for —
+  so adding it there is scope creep, and NOT adding it is correct.
+  ONE GENUINE AMBIGUITY FOR THE IMPLEMENTER TO SETTLE AND PIN: the dedup rule
+  says skip "unless an updated-by RETRACTION for the same work already exists".
+  _crossref_notices handles ONE payload = one work, so "same work" is just "this
+  payload". But is the test `type == "retraction"` specifically, or any
+  BLOCKING_TYPES member? If updated-by carried a `withdrawal` and no
+  `retraction`, does the relation retraction still get added? Additivity argues
+  yes; the brief's wording is silent. Must be chosen explicitly and pinned by a
+  test, not left to whichever reading the code happens to encode.
+  EXISTING IDIOM FOR READING THE RELATION ENTRY'S ID: _notice_target
+  (checks.py:503) already does `entry["id"]` with an isinstance-and-non-empty
+  guard — reuse that shape rather than inventing a second one.
+
+### TASK 20 — TWO RULINGS RECEIVED (orchestrator, 2026-08-24), both DERIVED from
+### the contract rather than chosen, which is why they are recorded with reasons
+  (1) DEDUP IS SAME-TYPE: skip only if an updated-by notice of type "retraction"
+      for the same work already exists. The derivation: dedup exists to stop
+      double-counting THE SAME SIGNAL ARRIVING BY TWO TRANSPORTS. A withdrawal
+      and a retraction are DISTINCT SIGNALS WITH DISTINCT SEMANTICS, so a
+      relation retraction landing over an existing updated-by withdrawal is NEW
+      INFORMATION, and the additive contract says new signal gets added.
+      SUPPRESSING IT WOULD LET THE WEAKER NOTICE MASK THE STRONGER — inverted
+      fail-closed, which is the worst direction for this system to fail in.
+      And it is MECHANICALLY HARMLESS to add, by the supporting fact from my own
+      pre-check: an undated notice sorts LOWEST in _effective_blocking, so the
+      addition cannot flip any dated verdict. Pin: updated-by withdrawal present,
+      relation retraction arrives, BOTH notices exist afterward.
+  (2) UNDATED PERMANENCE IS ACCEPTED, STATED DELIBERATELY. A relation-sourced
+      notice has no date, so its temporal order against a reinstatement is
+      UNDECIDABLE — and auto-clearing on undated evidence would let
+      ABSENCE-OF-DATE READ AS PASS, which is the ADR-0002 sin. The escape path
+      already exists and is the right one: human ack or adjudication, never
+      automatic clearance. Required: one sentence in the check's docstring
+      ("undated relation notices never auto-clear; reinstatement requires a dated
+      source or a human ack") plus a test that an undated relation retraction
+      SURVIVES a reinstatement notice.
+      THAT IS THE WHOLE POINT OF THE FINDING, and worth keeping as doctrine:
+      CONVERTING INHERITED BEHAVIOUR INTO CHOSEN BEHAVIOUR. The code did the
+      right thing already; nothing about it said so, and nothing would have
+      noticed if a later edit changed it.
+  Both flagged as contract-consistent derivations rather than new scope, and
+  summarised upward so the author can override either.
