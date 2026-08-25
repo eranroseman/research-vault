@@ -6,17 +6,15 @@ artifact claim re-derived fresh — scale numbers exact at the note's snapshot (
 verbatim quotes character-confirmed, the wayfinder structure confirmed, and both anomalies
 resolved (Plan Q landed by fast-forward, no merge commit exists; the 094121b date inversion is a
 UTC-vs-−0500 rendering artifact — the commit followed issue #16 by 3m33s). (2) Seat-bias peer
-review by the batch implementer session, folded below: the fix-round base rate corrected
-(10 of 26 tasks, not a Task-21 anomaly), the batch's start date corrected to 08-23, "SHA-walks"
-corrected to one, ten execution-seat inventions added (ledger 17–26), and two transcript-side
-claims amended — the decision-budget instrument's population caveat, and the catch-latency claim
-recorded as a two-seat disagreement rather than a finding.
+review by the batch implementer session, folded throughout: three narrative corrections, ten
+execution-seat inventions (ledger 17–26), and two transcript-side claims amended.
 
-Methods material, 2026-08-25. Every claim below is derived from repo artifacts — git history,
-GitHub issues, tracked files — by an artifact walk (no memory-derived process facts; commits,
-issues, and file:line cited throughout). Two consumers: the methods section if harness-as-paper
+Methods material, 2026-08-25, for two consumers: the methods section if harness-as-paper
 materializes, and the process template when workloads 2/3 (analysis/reports, PKM, long-form) are
-built the same way.
+built the same way. Instruments by section: Scale, the arc, plan lineage, and ledger 1–16 are
+artifact-derived (commits, issues, file:line cited; no memory-sourced facts); ledger 17–26 is the
+implementer seat's counted testimony; the what-artifacts-cannot-show section is controller-seat
+testimony with its measurements scoped inline.
 
 ## Scale
 
@@ -25,8 +23,8 @@ built the same way.
   15 test, 15 spec, 15 research, 12 refactor, 11 ruling, 7 adr — documentation commits outnumber
   feature commits five to one, which is the docs-first culture measured, not asserted.
 - 25 issues (#1–#15 the wayfinder foundation map and its tickets, all closed 08-16 era; #16–#25
-  triage- and batch-born, open). 19 plan documents ever, 4 extant, 14 deleted after absorption
-  (553ae6f). 62 research files. 4 accepted ADRs. Spec: 211 lines, ~7.5k words. Test suite: 24
+  triage- and batch-born, open). 19 plan documents ever, 4 extant — 14 deleted in one
+  sweep after absorption (553ae6f), one folded into Plan Q earlier (308dd01). 62 research files. 4 accepted ADRs. Spec: 211 lines, ~7.5k words. Test suite: 24
   gated live tests at slice Phase 0 → 1,454 (08-22) → ~1,747 collected at HEAD.
 
 ## The arc, in nine phases
@@ -66,10 +64,8 @@ built the same way.
    (stale line numbers, a brief naming a nonexistent test file, a two-day-stale brief, a
    falsified premise that was true for an unchecked field), claims outrunning evidence in both
    directions, and three seats coordinating without ever seeing the same artifact. The
-   highest-leverage single activity: the controller pre-check — reading the code a brief points
-   at before dispatch and handing over facts the brief cannot know (see the execution-seat
-   ledger below). Plan W split out so the batch header's single-dispatch claim "becomes true
-   again" (f6b7788).
+   highest-leverage single activity was the controller pre-check (ledger item 17). Plan W split
+   out so the batch header's single-dispatch claim "becomes true again" (f6b7788).
 9. **Present (08-25).** Batch complete 112/112, acceptance sweep clean, merged; method
    retrospective committed and visibly amended; slice Phases 2–6 unblocked, not yet run; Plan W
    pending.
