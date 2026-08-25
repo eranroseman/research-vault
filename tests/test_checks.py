@@ -1095,6 +1095,173 @@ def test_update_notice_rejects_malformed_crossref_json(net_vault, monkeypatch, p
     assert outcome.reason.startswith("outage")
 
 
+def test_crossref_notices_reads_relation_is_retracted_by_with_no_updated_by():
+    """Crossref can express retraction solely through relation.is-retracted-by
+    with no updated-by entry at all -- the second read this task adds."""
+    payload = {
+        "message": {
+            "relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]}
+        }
+    }
+
+    blocking, warns = checks._crossref_notices(payload)
+
+    assert blocking == [
+        {
+            "type": "retraction",
+            "notice_date": None,
+            "source": "relation",
+            "id": "10.1/notice",
+        }
+    ]
+    assert warns == []
+
+
+def test_crossref_notices_relation_retraction_does_not_double_count_updated_by_retraction():
+    """A relation retraction naming the same work as an already-established
+    updated-by retraction is not double-counted -- same-type dedup."""
+    payload = {
+        "message": {
+            "updated-by": [
+                {"type": "retraction", "updated": {"date-parts": [[2024, 1, 1]]}}
+            ],
+            "relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]},
+        }
+    }
+
+    blocking, warns = checks._crossref_notices(payload)
+
+    assert blocking == [{"type": "retraction", "notice_date": "2024-01-01"}]
+    assert warns == []
+
+
+def test_crossref_notices_relation_retraction_adds_alongside_updated_by_withdrawal():
+    """Dedup is same-type only: a withdrawal and a relation-sourced
+    retraction are distinct signals, so the relation retraction is new
+    information and must be added, not suppressed by the differently-typed
+    updated-by notice -- both notices exist afterward."""
+    payload = {
+        "message": {
+            "updated-by": [
+                {"type": "withdrawal", "updated": {"date-parts": [[2024, 1, 1]]}}
+            ],
+            "relation": {"is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]},
+        }
+    }
+
+    blocking, warns = checks._crossref_notices(payload)
+
+    assert blocking == [
+        {"type": "withdrawal", "notice_date": "2024-01-01"},
+        {
+            "type": "retraction",
+            "notice_date": None,
+            "source": "relation",
+            "id": "10.1/notice",
+        },
+    ]
+    assert warns == []
+
+
+@pytest.mark.parametrize(
+    "relation",
+    [
+        [],
+        "bad",
+        7,
+        {"is-retracted-by": {}},
+        {"is-retracted-by": "bad"},
+        {"is-retracted-by": ["not-a-dict"]},
+        {"is-retracted-by": [{"id-type": "doi"}]},
+        {"is-retracted-by": [{"id": 7, "id-type": "doi"}]},
+        {"is-retracted-by": [{"id": "", "id-type": "doi"}]},
+    ],
+)
+def test_crossref_notices_ignores_malformed_relation_entries_without_erasing_updated_by(
+    relation,
+):
+    """A malformed relation.is-retracted-by shape is additive-only: it is
+    skipped, never a reason to discard the verdict updated-by already
+    established -- the opposite of updated-by's own fail-closed bail-out."""
+    payload = {
+        "message": {
+            "updated-by": [
+                {"type": "withdrawal", "updated": {"date-parts": [[2024, 1, 1]]}}
+            ],
+            "relation": relation,
+        }
+    }
+
+    blocking, warns = checks._crossref_notices(payload)
+
+    assert blocking == [{"type": "withdrawal", "notice_date": "2024-01-01"}]
+    assert warns == []
+
+
+def test_active_blocking_notices_undated_relation_retraction_survives_reinstatement():
+    """An undated relation-sourced retraction can never be auto-cleared: its
+    chronological order against a dated reinstatement is undecidable, so the
+    escape path is human ack/adjudication, not automatic clearance."""
+    notices = [
+        {
+            "type": "retraction",
+            "notice_date": None,
+            "source": "relation",
+            "id": "10.1/notice",
+        },
+        {"type": "reinstatement", "notice_date": "2024-01-01"},
+    ]
+
+    assert checks._active_blocking_notices(notices) == [
+        {
+            "type": "retraction",
+            "notice_date": None,
+            "source": "relation",
+            "id": "10.1/notice",
+        }
+    ]
+
+
+def test_update_notice_relation_only_retraction_blocks_without_leaking_internal_keys(
+    net_vault, monkeypatch
+):
+    """End-to-end: a relation-only retraction (no updated-by at all) blocks,
+    and the notice dict's internal source/id bookkeeping keys never reach
+    the Outcome extra -- _blocking_outcome builds extra explicitly from
+    type/notice_date only."""
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/10.1000/relation-only": _notice_route(
+                "10.1000/relation-only"
+            ),
+            "api.crossref.org/works/10.1000/relation-only": (
+                200,
+                {
+                    "message": {
+                        "relation": {
+                            "is-retracted-by": [{"id": "10.1/notice", "id-type": "doi"}]
+                        }
+                    }
+                },
+            ),
+        },
+    )
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "cite", "DOI": "10.1000/relation-only"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == "retracted — retraction"
+    assert checks.outcome_to_record(outcome)["extra"] == {
+        "class": "blocking",
+        "type": "retraction",
+        "notice_date": None,
+        "detection_date": "2026-08-16",
+    }
+
+
 @pytest.mark.parametrize("status", [404, 500])
 def test_update_notice_rejects_non_ok_crossref_responses(
     net_vault, monkeypatch, status

@@ -544,7 +544,13 @@ def _notice_date_from_updated(value):
 
 
 def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
-    """Validate Crossref's envelope and separate blocking/warn notice records."""
+    """Validate Crossref's envelope and separate blocking/warn notice records.
+    Also reads relation.is-retracted-by as a second, additive retraction
+    signal: it can only add a blocking notice, never invalidate an
+    updated-by verdict already established above, so a malformed relation
+    entry is skipped rather than failing the whole payload. Each relation
+    notice carries no date, so undated relation notices never auto-clear;
+    reinstatement requires a dated source or a human ack."""
     if not isinstance(payload, dict) or not isinstance(payload.get("message"), dict):
         return None
     message = payload["message"]
@@ -569,6 +575,33 @@ def _crossref_notices(payload) -> tuple[list[dict], list[dict]] | None:
             warns.append(notice)
         elif notice_type == "reinstatement":
             blocking.append({"type": "reinstatement", "notice_date": notice_date})
+
+    # Dedup is same-type: an updated-by withdrawal does not suppress a
+    # relation retraction, since the two are distinct signals and the
+    # additive contract forbids a weaker notice masking a stronger one.
+    already_retracted = any(notice["type"] == "retraction" for notice in blocking)
+    relation = message.get("relation")
+    retracted_by = (
+        relation.get("is-retracted-by") if isinstance(relation, dict) else None
+    )
+    if not isinstance(retracted_by, list):
+        retracted_by = []
+    if not already_retracted:
+        for entry in retracted_by:
+            if not (
+                isinstance(entry, dict)
+                and isinstance(entry.get("id"), str)
+                and entry["id"]
+            ):
+                continue
+            blocking.append(
+                {
+                    "type": "retraction",
+                    "notice_date": None,
+                    "source": "relation",
+                    "id": entry["id"],
+                }
+            )
     return blocking, warns
 
 
