@@ -430,7 +430,7 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 - Test: `tests/test_archive.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_supplied_snapshot_must_have_wayback_shape(...):
@@ -443,9 +443,9 @@ def test_supplied_snapshot_must_match_note_url(...):
     # → UNMATCHED "missing-archive — supplied snapshot is for a different URL"
 ```
 
-- [ ] **Step 2: Run — Expected: FAIL** (today `is_archive_url` + non-404 liveness suffices and both cases record MATCHED).
+- [x] **Step 2: Run — Expected: FAIL** (today `is_archive_url` + non-404 liveness suffices and both cases record MATCHED).
 
-- [ ] **Step 3: Implement** — parse the supplied snapshot before any network call:
+- [x] **Step 3: Implement** — parse the supplied snapshot before any network call:
 
 ```python
 _SNAPSHOT_RE = re.compile(
@@ -455,7 +455,7 @@ _SNAPSHOT_RE = re.compile(
 
 Shape fails → the first UNMATCHED. Shape passes → compare `original` against the note's `url` after the same normalization the codebase already uses for URL comparison (locate it — do not invent a second normalizer; if none exists, exact-match after stripping a single trailing slash and lowercasing scheme+host only). Mismatch → the second UNMATCHED. Then the existing liveness probe and `_record` proceed unchanged.
 
-- [ ] **Step 4: Full suite (the live archive legs are env-gated — run them at Task 21). Commit** `fix: supplied archive snapshots verified by shape and target URL`
+- [x] **Step 4: Full suite (the live archive legs are env-gated — run them at Task 21). Commit** `fix: supplied archive snapshots verified by shape and target URL`
 
 ### Task 19: Partial notice dates keep their precision (audit defect 6)
 

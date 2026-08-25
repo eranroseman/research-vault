@@ -4003,3 +4003,253 @@ Task 17b: minor (deferred): DUPLICATE-KEY EVASION at the parser — .get() is
 Task 17b: minor (deferred): renamed files get the wholesale "note renamed" drift
   but skip the per-key attestation diagnostic. Destination: GitHub issue at plan
   close.
+
+Task 18: BASE = c010d0f. Implementer DONE (commit f05103e; 3 files, +312/-0,
+  including its report per the new tracking rule; progress.md correctly
+  untouched). Suite 1611/7 (= 1606 + 5); ruff, mypy, form gate clean.
+  THE PRE-CHECK'S TWO HAND-OVERS BOTH LANDED: no URL normalizer was invented
+  beyond the stated fallback (_comparable_url lowercases scheme+host and strips
+  ONE trailing slash, nothing more), and the host disagreement was decided
+  deliberately rather than inherited.
+  AND THE IMPLEMENTER REVERSED MY DISPATCH'S IMPLIED PREFERENCE ON EVIDENCE,
+  WHICH IS THE RIGHT WAY TO BE OVERRULED. I had framed the two overlapping
+  validators as the "two spellings of one contract" defect and invited merging
+  them. It kept them LAYERED and justified it by measurement: _SNAPSHOT_RE ALONE
+  WOULD ADMIT A SNAPSHOT STRING WITH A TRAILING NEWLINE, because Python's `$`
+  MATCHES BEFORE A TRAILING `\n`, and is_archive_url's splitlines() check is what
+  actually blocks it.
+  CONTROLLER VERIFIED THAT DIRECTLY rather than accept it: the regex returns
+  True on "...paper\n" and False on "...paper\nevil", and splitlines() sees the
+  trailing-newline case. So the layering is load-bearing, not redundancy — and my
+  "two validators disagreeing" framing was right about the DISAGREEMENT and wrong
+  about the REMEDY. Merging them would have removed a guard.
+  This matters beyond the task: a trailing newline in a value bound for
+  frontmatter is exactly the second-line forgery that _emit_scalar exists to
+  refuse, so the guard sits in a family with a known threat, not in isolation.
+Task 18: review dispatched over c010d0f..f05103e on the most capable model. The
+  target-match decision rests entirely on _comparable_url, so the review is told
+  to probe it ADVERSARIALLY rather than read it — no path, query or fragment
+  ending in `/` (does removesuffix strip from the QUERY instead of the path?),
+  explicit default port, percent-encoding, UPPERCASE IN THE PATH (which must NOT
+  be lowercased, since paths are case-sensitive), http-vs-https for one host,
+  trailing `//`, empty string — and to flag anything TOO PERMISSIVE, since a
+  loose normalizer silently re-opens the hole the task closes.
+  Also required: a PER-TEST discrimination matrix, and one specific probe for
+  this plan's recurring defect — archive_source has several UNMATCHED paths all
+  reading `missing-archive — ...`, so the reviewer must make the targeted path
+  emit a DIFFERENT `missing-archive —` reason and confirm the test still fails.
+  Prefix-sharing is precisely how the previous four instances hid.
+Task 18: minor (deferred, PRE-EXISTING): test_a_supplied_snapshot_off_the_
+  archives_host_is_refused asserts only Result.UNMATCHED with no reason pinned.
+  The implementer declined it as out of scope, which is right — but THIS DIFF ADDS
+  TWO MORE `missing-archive —` UNMATCHED PATHS TO THE SAME FUNCTION, so the
+  pre-existing looseness now has more ways to be satisfied by the wrong outcome
+  than it did before. Recorded as a question for the review rather than asserted:
+  is that test WEAKER than it was? Destination: GitHub issue #22, the loose-
+  prefix-assertion sweep.
+
+Task 18: review returned — spec PASS, quality PASS with 3 Important / 7 Minor.
+  Review file: task-18-review.md
+  SPEC CHECKED THE WAY IT SHOULD BE: both reason strings BYTE-COMPARED brief to
+  source to tests, em dash (\xe2\x80\x94) included; the regex reproduced character
+  for character; and the normalizer-absence claim RE-GREPPED WITH DIFFERENT TERMS
+  than the report used — which is the only way a second search adds anything,
+  since repeating the first one just reproduces its blind spot.
+  THE RECURRING LOOSE-ASSERTION DEFECT DOES NOT APPEAR IN THE NEW TESTS, and that
+  was PROVEN rather than asserted: R1 and R2 swapped each targeted path's reason
+  for a DIFFERENT `missing-archive — ...` string and the tests still went red. So
+  the new assertions are outcome-specific, not prefix-specific. Five clean
+  discrimination mutants besides (M1-M5), each reddening exactly one test.
+  IMPORTANT F2 — AND IT IS THE FIFTH INSTANCE OF THE CLASS, WITH A TWIST: THE
+  IMPLEMENTER SHIPPED AN EVIDENCE-BACKED ARGUMENT FOR KEEPING A GUARD AND NO TEST
+  FOR THE GUARD. Deleting `if not is_archive_url(snapshot):` from the supplied
+  branch leaves the WHOLE OFFLINE SUITE GREEN. CONTROLLER REPRODUCED IT in a
+  canary-checked archive tree: tests/test_archive.py goes 48 passed / 1 skipped
+  with the gate deleted. So is_archive_url on that branch is detected by ZERO
+  tests repo-wide, and the newline-smuggling case the layering argument RESTS ON
+  is pinned only on the CONFIRMED path, never the supplied one.
+  The diff also DISARMED test_a_supplied_snapshot_off_the_archives_host_is_refused
+  (:315), which asserts only Result.UNMATCHED: the two NEW `missing-archive —`
+  outcomes can now satisfy it in place of the host check. The implementer's
+  concern 2 declined retrofitting that test as out of scope — RIGHT BEFORE THIS
+  DIFF, WRONG AFTER IT, and the report misses that its own change is what moved
+  the line. I had flagged this exact question to the review; the answer is yes,
+  the test is weaker than it was.
+  IMPORTANT F3 — commit body EMPTY AGAIN (second task running). The host-split
+  decision, the layering reasoning and the deliberate asymmetry live only in the
+  report. The repo's own hygiene doctrine routes that material to the commit
+  body, so with no body it has nowhere to live and ends up in comments instead.
+  IMPORTANT F1 / F8 — two statements the code now falsifies: ARCHIVE_HOSTS's
+  comment "the only hosts a recorded snapshot may live on" and the module
+  docstring's "records only what the availability API returns". Both were true
+  before the supplied branch tightened.
+  _COMPARABLE_URL IS MEASURABLY TOO PERMISSIVE — CONTROLLER PROBED IT DIRECTLY
+  rather than take the table:
+    'https://example.org/p?a=b/'  vs '.../p?a=b'  -> True   WRONG
+    'https://example.org/p#frag/' vs '.../p#frag' -> True   WRONG
+    'https://exa\tmple.org/p'     vs '.../p'      -> True   WRONG
+    'https://example.org/PAPER'   vs '.../paper'  -> False  correct
+  F4: removesuffix("/") runs on the RECOMPOSED url, so it strips the slash off a
+  QUERY or FRAGMENT rather than the path.
+  F5, and the sharper one: urlsplit SILENTLY STRIPS TAB CHARACTERS, so a snapshot
+  whose `original` carries a tab compares EQUAL to the clean note URL, passes both
+  gates, and then raises an UNCAUGHT FrontmatterError out of archive_source at
+  render_field — breaking the four-state contract for a verb that must return an
+  Outcome, never raise. A value that survives validation and explodes at write
+  time is the wrong failure mode for durable vault content.
+  A SECOND REASON FOR THE ORDERING, which the implementer had not stated and the
+  review found: `web.arch\tive.org` PASSES is_archive_url (urlsplit strips the
+  tab) but FAILS the regex — so control characters must be screened first. The
+  host-then-shape order is load-bearing for a reason beyond the one given.
+Task 18: fix round 1/5 dispatched — F1, F2, F3 (Important), F4, F5, and the
+  cheap correctness items F6 (a capturing group never read), F7 (a test named
+  bare_domain whose body supplies a full capture path) and F8. F9's unpinned
+  boundary cases go in too, justified explicitly by F2's lesson: "behaves
+  correctly and is untested" IS the state that lets a guard be deleted silently.
+Task 18: minor (deferred): the confirmed-path residual — a payload whose
+  closest.url points at a different site is still MATCHED and recorded verbatim.
+  Deliberate and out of scope. Destination: GitHub issue at plan close.
+Task 18: minor (deferred): archive.py.manifest.json not refreshed — already stale
+  at c010d0f, and the tool that reads it is replaced in Plan W. Destination: the
+  measured manifest-staleness note already in this ledger (10 of 25).
+
+Task 18: fix round 1 landed — 2fbad42, follow-up not an amend. 3 files,
+  +424/-24, report included, progress.md correctly excluded. Suite 1621/7 (+10);
+  ruff, mypy, form gate clean. THE COMMIT BODY IS 112 LINES — F3 answered in the
+  only way that counts, since a body is where this repo's doctrine sends the
+  reasoning that would otherwise silt up in comments.
+  CONTROLLER SETTLED THE ONE QUESTION THE FIX RAISED, BY MEASUREMENT, BEFORE
+  DISPATCHING THE RE-REVIEW. The F5 guard is `"\t" in snapshot` — TAB ONLY — and
+  I had handed the implementer exactly one example, a tab. An under-fix shaped to
+  my example was the obvious risk. So I ENUMERATED every character that both
+  PASSES is_archive_url AND is STRIPPED BY urlsplit:
+      char    is_archive_url   urlsplit_strips   reaches the gap
+      \t      True             True              TRUE
+      \r      False            True              False
+      \n      False            True              False
+      \v \f \x1c \x1d \x1e \x85        neither, on both counts
+      space   True             False             False
+  TAB IS THE ONLY ONE. The guard is complete today, and it is complete for a
+  reason worth stating: \r and \n ARE stripped by urlsplit, and the only thing
+  stopping them is is_archive_url's splitlines() check upstream.
+  WHICH MAKES THE REAL FINDING A COUPLING, NOT A GAP: the tab-only guard is
+  correct ONLY WHILE is_archive_url keeps rejecting \r and \n. Loosen that
+  upstream check and this one silently becomes incomplete. The guard's comment
+  mentions only the tab/urlsplit interaction and not the dependency — and a
+  constraint the code cannot show is exactly what a comment is for here. Sent to
+  the re-review as a judgement call rather than a verdict.
+  ALSO CONFIRMED BY READING THE DIFF: _comparable_url now strips the trailing
+  slash from parts.path BEFORE recomposing, which is the right fix for F4 — the
+  bug was that removesuffix ran on the recomposed string and so could strip a
+  query's or fragment's slash instead of the path's.
+Task 18: fix round 1 re-review dispatched over f05103e..2fbad42, mid tier — the
+  subtle question is already answered and what remains is discrimination
+  checking. Handed the reviewer my character enumeration explicitly SO IT DOES
+  NOT REDO IT, and pointed it at the coupling question instead. Required to:
+   - delete the is_archive_url gate at 2fbad42 and name WHICH tests go red,
+     since F2 was precisely "no test detects this" and only a deletion proves it
+     now does;
+   - confirm the new newline test exercises the SUPPLIED path, not the confirmed
+     path where that case was already covered — a regression test placed on the
+     wrong branch would look like coverage and be none;
+   - probe _comparable_url on a fragment ending in `/`, a path of exactly `/`,
+     an empty path and a path ending `//`, not just the query case I named;
+   - re-run the reason-swap probe on every NEW test, because five instances of
+     the loose-assertion defect say the sixth is likelier than the base rate.
+
+Task 18: fix round 1 re-review — ALL ADDRESSED. Two new Minors, both created by
+  the round. Review file: task-18-rereview-r1.md
+   - F2 PROVEN CLOSED THE ONLY WAY IT COULD BE: deleting the is_archive_url gate
+     now reddens EXACTLY 2 tests, where before it reddened NONE. And the newline
+     regression test was confirmed to exercise the SUPPLIED path — a test of the
+     right case placed on the wrong branch would have looked like coverage and
+     been none.
+   - F4 verified in both directions: `.../p?a=b/` vs `.../p?a=b` now UNEQUAL,
+     while `.../p/` vs `.../p` stays EQUAL. A fix that only moved the bug would
+     have shown up here.
+   - F5's crash reproduced end to end with the clause removed, and a clean
+     Outcome with it restored.
+   - F9: 4 of 4 targeted regex mutations reddened exactly their own test.
+   - THE RECURRING DEFECT IS ABSENT, AND DEMONSTRATED ABSENT: a `\w+://` mutation
+     made a test fail via a DIFFERENT `missing-archive — ...` reason, which is
+     the discriminator. Sixth task in a row where this was checked by swapping
+     the reason rather than by reading the assertion.
+### THE WRONG-TREE IMPORT TRAP CAUGHT ME — the controller, who had put the
+### warning in four consecutive dispatches
+  I ran a probe as `python /tmp/probe.py` from this worktree. That puts /tmp on
+  sys.path[0], NOT the worktree, so `knowledge_harness` resolved to the EDITABLE
+  INSTALL AT THE PARENT REPO — /home/eranr/New folder/knowledge_harness/archive.py
+  — and the probe measured code that does not contain Task 18 at all. PROVEN, not
+  surmised: running the same import with cwd=/tmp prints the parent path.
+  IT ONLY FAILED LOUDLY BY LUCK. `_comparable_url` does not exist in the parent
+  tree, so it raised AttributeError. Had I probed a function that exists in BOTH
+  trees, I would have received a plausible wrong answer and never known.
+  AND I HAD ALREADY DONE EXACTLY THAT: the character enumeration behind the
+  tab-only completeness claim ran the same way. It happens to stand — I checked
+  `is_archive_url` BYTE-IDENTICAL between origin/main and this branch, and the
+  probe used only that function plus stdlib urlsplit — and I RE-RAN IT IN-TREE
+  with the canary asserted, same table. But the claim was right by accident of
+  the code being unchanged, not by method, and those are different things.
+  THE HABIT THAT CAUSED IT is worth naming because it was formed for a good
+  reason: I put helper scripts in /tmp to avoid polluting a tracked tree. That
+  reflex is correct about the tree and wrong about sys.path. Fix: run probes with
+  the working directory INSIDE the tree under test and assert
+  knowledge_harness.archive.__file__ before trusting any result. Wrote the probe
+  into the worktree, ran it, deleted it, confirmed `git status` clean.
+Task 18: fix round 2/5 dispatched — two items, both this round's own making:
+   - the tab-only guard is COMPLETE TODAY but its completeness DEPENDS on
+     is_archive_url continuing to reject \r and \n upstream; nothing anywhere
+     says so, and loosening that check would silently under-cover this one. One
+     line, naming the dependency.
+   - F4's fix also flipped `.../p/?a=b` and `.../p/#frag` from UNEQUAL to EQUAL —
+     consistent with the stated contract, so not a defect, but NEW BEHAVIOUR
+     PINNED BY NOTHING. Pin them, and pin the two that must NOT flip beside them
+     (`.../p?a=b/` stays UNEQUAL; `.../p//` stays UNEQUAL — one slash, not all).
+  Both measured in-tree with the canary asserted, after the lesson above.
+
+Task 18: fix round 2 landed — 3bd8f21. 3 files, +167/-0; ONE production line pair
+  (a two-line comment) and 3 tests. Suite 1624/7.
+Task 18: ROUND-2 RE-REVIEW DONE BY THE CONTROLLER, NOT DELEGATED — deliberate,
+  and worth recording as a judgement rather than a shortcut. The round was one
+  comment plus three pins, and both of its claims are settleable by two mutants,
+  so an agent dispatch would have added latency without adding evidence. The
+  standard still applied: REPRODUCED, in a canary-checked `git archive` tree,
+  never `cp -r`, and never from a /tmp working directory after this morning's
+  lesson.
+   - Revert the F4 fix (path-only strip back to strip-on-recomposed): FOUR tests
+     red, and they are exactly the right four — BOTH the widening pins
+     (trailing_slash_before_the_query_or_fragment_still_matches, query-string and
+     fragment) AND the must-not-match pins (trailing_slash_OUTSIDE_the_path, same
+     two ids). A pin that only caught one direction would have left the other
+     free to drift.
+   - Swap removesuffix("/") for rstrip("/"): EXACTLY ONE test red,
+     test_supplied_snapshot_with_two_trailing_path_slashes_does_not_match. That
+     is the mutant that distinguishes "strip ONE slash" from "strip all", which
+     is the actual contract, and nothing else in the file notices it.
+  Both mutants isolate cleanly. Gates re-run in the real tree by me: 1624 passed
+  / 7 skipped, form gate exit 0.
+  THE COMMENT LANDED IN THE RIGHT SHAPE TOO: two lines naming the dependency
+  ("checking only for a tab here depends on is_archive_url, above, having already
+  rejected \r/\n via its splitlines() check"), with the full character
+  enumeration and its consequence in the COMMIT BODY. Constraint in the comment,
+  evidence in history — which is the repo's doctrine applied rather than quoted.
+Task 18: complete (commits c010d0f..3bd8f21 — f05103e, 2fbad42, 3bd8f21 — review
+  clean after 2 fix rounds, 3 minors deferred). Ticked below: 4 boxes;
+  72 checked / 40 unchecked. Suite 1624/7; form gate exit 0.
+  WHAT THE LOOP BOUGHT HERE, since "two rounds for one regex" deserves an
+  accounting: the shipped task began as a shape check and a URL match, and the
+  loop added a guard nothing tested (deleting is_archive_url left the ENTIRE
+  suite green), a normalizer that matched URLs differing in their query string, a
+  tab that passed every gate and then CRASHED the verb out of its own four-state
+  contract, two comments the code had falsified, an empty commit body, and a
+  disarmed pre-existing test. The original defect was real; none of those were it.
+Task 18: minor (deferred): the confirmed-snapshot path still has no shape or
+  target check — a payload whose closest.url points at a different site is
+  recorded verbatim. Deliberate, scoped out. Destination: GitHub issue at plan
+  close.
+Task 18: minor (deferred): other pre-existing loose-prefix reason assertions
+  remain in tests/test_archive.py. Destination: GitHub issue #22 (the sweep),
+  which already exists — not a new entry.
+Task 18: minor (deferred): archive.py.manifest.json still stale. Destination: the
+  measured 10-of-25 manifest-staleness note in this ledger; Plan W replaces the
+  tool that reads it.
