@@ -63,3 +63,17 @@ Checked against current state (`~/.claude/settings.json`, `docs/adr/`, `.agents/
 Two upstreams tracked instead of one, doubling upgrade-review — flips only if AFK/tracker workflows stop being used, at which point mattpocock's upkeep cost stops paying for itself. Two vocabularies live in one head (ticket vs. task-brief/ledger) — flips on an actual term-collision mistake; none observed yet per the comparison doc's own validation pass. **No single enforcement point is field-observed, not hypothetical** — `matttk` (discussion #257) actually disabled superpowers over exactly this collision; this repo's exposure is real until migrate step 6 lands. Global settings scope trades per-repo duplication for zero isolation from a future non-coding repo — flips the moment that repo goes active, the exact trigger the comparison doc's friction §1 already names.
 
 **Verdict:** not "already sound" — six divergences found, five ordinary hygiene (A–E), one (F) load-bearing enough to gate the layered verdict's own stated condition (the bridge must actually cover the collision it's supposed to prevent). Layered architecture confirmed as the right target; migrate steps close every gap without deforming it.
+
+______________________________________________________________________
+
+## Amendment, 2026-08-25 — three factual corrections after user verification
+
+Re-verified independently before accepting each, not taken as given.
+
+**1. nocoders mischaracterized.** The prior-art section's "real tension" paragraph states both blog posts "argue against layering it — 'philosophical conflict,' pick one." Only [zenn.dev/kanagen](https://zenn.dev/kanagen/articles/claude-code-skills-superpowers-vs-mattpocock?locale=en) makes that argument. [nocoders.com](https://www.nocoders.com/blog/superpowers-vs-pocock-agent-skills/) is a neutral comparison — "neither bet is wrong" — that never discusses combining the two packs. The claim should have been scoped to zenn alone; nocoders only supplies the shared framing (mandatory-process vs. driven-toolkit), not the anti-layering argument.
+
+**2. obra #1007 quote's provenance undisclosed.** The "bridging logic belongs to the consuming tool, not core" line, and its "#163 played out the same way" gloss, are both from the issue's closing comment — posted by an AI agent acting from the maintainer's account at his direction, not typed by him directly. The citation is accurate to what's on the issue; the provenance wasn't stated in the prior-art section and should have been.
+
+**3. Gap D was already closed when filed.** `research/validation-slice/2026-08-25-controller-protocol-material.md` was committed at 15:07:24 (`0abec75`), 16 minutes before this audit's own commit at 15:23:28 (`e144a4e`) — confirmed via `git log`, not taken on report. Gap D ("controller seat ungoverned") and migrate step 4 ("bank the controller-seat protocol... before it's unreconstructable") describe a gap that no longer existed at filing time.
+
+None of the three change the verdict — design: is still layered, still conditioned on gap F. They correct the audit's record of what it found and when, per this repo's own evidence-honesty doctrine (ADR 0002/0003): the note ships errors as written; corrections append, they don't silently rewrite.
