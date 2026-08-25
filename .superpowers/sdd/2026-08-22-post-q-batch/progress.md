@@ -4755,3 +4755,48 @@ Task 19b: fix round 1 landed — 6a62cab. 3 files; suite 1682/7 (= 1650 + 32 hoo
   because a 52-line replacement of a 13.5k-character line is exactly where a
   dropped entry is invisible — and that §10 ends with no duplicate PreToolUse
   entry.
+
+### SYNC MERGE LANDED — a42c7a1. Suite 1683/7 (main brought one test), publish
+### gate exit 0, mdformat --check clean on the resolved file, tree clean.
+  Resolved as ruled: MAIN'S STRUCTURE, OUR CONTENT, and the five-path correction
+  riding the merge rather than deferred behind it.
+  THE PreToolUse ENTRY BECAME TWO BULLETS BECAUSE IT HAD BEEN DOING TWO JOBS —
+  the machine-surface deny (now SHIPPED, carrying the trigger evidence the entry
+  had been waiting on) and the citekey-lint question (still deferred, now stated
+  as A DIFFERENT QUESTION: warning-vs-blocking for [@citekey] prose, not path
+  scope). Without that split, Task 19b would read as having settled a question it
+  never touched.
+  THE THREE CHECKS, WITH RESULTS:
+   (1) ENTRY-SET DIFF — NOTHING LOST. 25 `·` entries ours, 62 bullets theirs. Six
+       of ours had NO lead-in match, and all six were present under REWORDED
+       lead-ins, probed by distinctive content rather than lead-in: faithfulness
+       (2 hits), BibLaTeX (3), full-arc (2), workload pipelines (1),
+       CORPUS-TO-VAULT (1), runner-up (1).
+       THE BRITTLE PART WAS MY COMPARISON KEY, NOT MAIN'S SPLIT — and that is the
+       finding worth keeping. A first pass that reports "6 entries missing" is
+       exactly the shape that gets believed and acted on; the second probe is
+       what turned a false alarm into a clean result. First-four-words is a
+       fragile identity for prose someone has deliberately rewritten.
+   (2) NO DUPLICATE PreToolUse ENTRY — two bullets, :181 and :182, distinct
+       subjects.
+   (3) THE FIVE PATHS MATCH THE SHIPPED GUARD, checked against
+       hooks/pretooluse_guard.py itself: MACHINE_SURFACE_DIR_NAMES =
+       {"literatures", "log"} plus root-only log.md, inbox/review-queue.md,
+       system/bibliography.json. Checked against the CODE, not the report.
+  A STALENESS FIX RODE THE MERGE, correctly labelled a correction rather than a
+  decision: the spec named FOUR paths because it was written at a2b829d BEFORE
+  the log.md ruling, and 6a62cab fixed the code and tests WITHOUT touching the
+  spec. Spec and guard now both say five. The merge surfaced a defect that would
+  otherwise have shipped silently — nothing in the suite compares spec prose to
+  a frozenset.
+  DEVIATION RECORDED RATHER THAN BURIED: the instruction was to preserve main's
+  SEPARATE citekey-lint bullet as-is. THERE WAS NO SEPARATE BULLET — main had ONE
+  bullet doing both jobs, whose parenthetical pointed at Task 19b. Kept verbatim
+  beside the new entry, that parenthetical would point at the bullet directly
+  above it. Split into two and the parenthetical replaced with an explicit
+  distinction. Serves the stated intent; is NOT "as-is"; flagged for the
+  orchestrator's call on the wording.
+  A LOOSE END CLOSED BY THE MERGE, UNPROMPTED: main retitles Task 16 to "closes
+  the DERIVATION half of issue #17". This ledger had carried an open question
+  about why #17 stayed open after Task 16 completed. Answered — the task closed
+  half of it by design.
