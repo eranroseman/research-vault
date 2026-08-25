@@ -107,6 +107,40 @@ lane) → R/L/rename (remediation, layout) → D (skills) → S (validation slic
 pre-slice batch (absorbed Plan V; complete, merged) → W (quality tail, pending). Fourteen dead
 plans deleted after absorption — the plan corpus itself follows the absorb-outward model.
 
+## What the artifacts cannot show (transcript-side, controller session 2026-08-25)
+
+Five observations from inside the process that no artifact walk reaches — a different instrument,
+so recorded separately from the cited sections above.
+
+1. **The inventions share an economics the ledger doesn't name: they conserve the author's
+   decision budget.** Pre-registration decides once, early, when deciding is cheap; the ADR bar
+   makes constitutional decisions rare; verdict headers prevent re-deciding; correction-vs-
+   decision stops mistakes from consuming decisions; the delegation conditions stop settled
+   questions from being re-asked. The method scales agents freely — the binding resource is the
+   single human every "word" passes through (~30+ author decisions across two batch days). For
+   workloads 2/3, that is the constraint to design around explicitly.
+2. **Error-catch latency collapsed over the run.** Spec-era errors were caught by scheduled
+   adversarial passes days later; by batch's end they were caught in the message that made them.
+   The culture moved catches from scheduled verification to point-of-writing. Consequence for
+   future readers: the counted-findings numbers should FALL over time — falling counts are the
+   doctrine internalizing, not rigor declining.
+3. **The method has n=1 on both axes** — one author, one model family, co-evolved with its own
+   product. The slice validates the product; nothing tests the method's transferability.
+   Workload 2's build is the natural replication run: template applied to a different domain,
+   divergences recorded — the paper's external-validity evidence from already-scheduled work.
+4. **The 5:1 docs:feat ratio's failure mode is doc drift**, the run's dominant drift class
+   (spec-vs-code four-state episodes, comment-truth findings, thrice-revised rules). The late-run
+   answers — parity tests, comments-state-only-what-code-cannot, absorb-outward, the four-state
+   dedup candidate — converge on an unstated target worth naming: every doc is eventually either
+   a contract with a parity test, a register with triggers, or deletable. The absorption pass can
+   steer toward that endpoint instead of discovering it.
+5. **The transcripts are the unpreserved lab notebook.** Records-tell-the-truth stops at the
+   repo boundary: every ruling's reasoning lives in session transcripts — unversioned, uncited,
+   decaying. Product claims cite file:line; the paper's process claims will need transcript
+   citations, and no fixity or archive discipline exists for them. If harness-as-paper is live,
+   transcript preservation is a decision with a clock on it (export key sessions into
+   `research/raw/` or `sources/`; small cost, shrinking window).
+
 ## What repeats for the next workload
 
 The arc compresses to a template: **map the fog as decision tickets → grill each into a spec
