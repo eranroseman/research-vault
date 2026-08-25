@@ -1417,12 +1417,11 @@ def test_update_notice_datacite_requires_matching_provider_version(
 @pytest.mark.parametrize(
     ("local_version", "payload", "expected"),
     [
-        (None, {"data": {"attributes": {"version": "2"}}}, Result.UNREACHABLE),
         ("2", {"data": {"attributes": {}}}, Result.UNREACHABLE),
         ("2", {"data": {"attributes": {"version": ["2"]}}}, Result.UNREACHABLE),
         ("2", {"data": {"attributes": {"version": "3"}}}, Result.UNMATCHED),
     ],
-    ids=["missing-local", "missing-remote", "ambiguous-remote", "mismatch"],
+    ids=["missing-remote", "ambiguous-remote", "mismatch"],
 )
 def test_update_notice_datacite_fails_closed_on_version_status(
     net_vault, monkeypatch, local_version, payload, expected
@@ -1445,6 +1444,94 @@ def test_update_notice_datacite_fails_closed_on_version_status(
         entry["version"] = local_version
 
     assert checks.check_update_notice(net_vault, entry, "2026-08-16").result is expected
+
+
+def test_update_notice_datacite_skips_when_local_version_is_absent(
+    net_vault, monkeypatch
+):
+    """A locally absent version will never resolve by retrying — skip, don't hold."""
+    seen = []
+
+    def fake(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append(url)
+        if "doiRA" in url:
+            return _notice_route("10.5281/versioned", "DataCite")
+        if "openalex" in url:
+            return 200, {"is_retracted": False}
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(webapi, "get_json", fake)
+
+    outcome = checks.check_update_notice(
+        net_vault, {"id": "data", "DOI": "10.5281/versioned"}, "2026-08-16"
+    )
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — item has no local version"
+    assert not any("api.datacite.org" in url for url in seen)
+
+
+def test_update_notice_arxiv_skips_when_local_version_is_absent(net_vault, monkeypatch):
+    """The arXiv twin of the DataCite missing-local-version skip."""
+    seen = []
+
+    def fake_json(url, vault_root, params=None, headers=None, timeout=10.0):
+        if "doiRA" in url:
+            return _notice_route("10.48550/arxiv.2401.12345", "DataCite")
+        return 200, {"is_retracted": False}
+
+    def fake_text(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append(url)
+        raise AssertionError("no arXiv feed request should be made")
+
+    monkeypatch.setattr(webapi, "get_json", fake_json)
+    monkeypatch.setattr(webapi, "get_text", fake_text)
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {
+            "id": "preprint",
+            "DOI": "10.48550/arxiv.2401.12345",
+            "URL": "https://arxiv.org/abs/2401.12345v2",
+        },
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — item has no local version"
+    assert seen == []
+
+
+def test_update_notice_arxiv_malformed_local_version_stays_unreachable(
+    net_vault, monkeypatch
+):
+    """A present-but-malformed local version is not absent — still an outage."""
+
+    def fake_text(url, vault_root, params=None, headers=None, timeout=10.0):
+        raise AssertionError("no arXiv feed request should be made")
+
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/": _notice_route("10.48550/arxiv.2401.12345", "DataCite"),
+            "api.openalex.org/works/": (200, {"is_retracted": False}),
+        },
+    )
+    monkeypatch.setattr(webapi, "get_text", fake_text)
+
+    outcome = checks.check_update_notice(
+        net_vault,
+        {
+            "id": "preprint",
+            "DOI": "10.48550/arxiv.2401.12345",
+            "URL": "https://arxiv.org/abs/2401.12345v2",
+            "version": "2",
+        },
+        "2026-08-16",
+    )
+
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — arXiv version status unavailable"
 
 
 ARXIV_FEED = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1914,6 +2001,21 @@ def test_metadata_skips_entries_without_a_doi(net_vault):
 
     assert outcome.result is Result.SKIPPED
     assert outcome.target == "webonly2024"
+
+
+def test_metadata_skips_entries_whose_local_bibliography_has_no_title(
+    net_vault, monkeypatch
+):
+    """A locally absent title will never resolve by retrying — skip, don't hold."""
+    _fake_get(monkeypatch, {"": AssertionError("no metadata request should be made")})
+
+    outcome = checks.check_metadata(
+        net_vault, {"id": "notitle2024", "DOI": "10.1000/xyz"}
+    )
+
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — item has no title"
+    assert outcome.extra == {"doi": "10.1000/xyz"}
 
 
 def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():

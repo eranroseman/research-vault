@@ -341,6 +341,14 @@ def check_metadata(vault_root, entry: dict) -> Outcome:
             "metadata", target, Result.SKIPPED, "no-identifier — item has no DOI"
         )
     doi = doi.strip()
+    if entry.get("title") is None:
+        return Outcome(
+            "metadata",
+            target,
+            Result.SKIPPED,
+            "no-identifier — item has no title",
+            extra=_metadata_extra(doi),
+        )
 
     agency = registry_agency(vault_root, doi)
     if agency is None:
@@ -712,6 +720,15 @@ def _provider_unreachable(target: str, provider: str) -> Outcome:
     )
 
 
+def _provider_skipped(target: str) -> Outcome:
+    return Outcome(
+        "update-notice",
+        target,
+        Result.SKIPPED,
+        "no-identifier — item has no local version",
+    )
+
+
 def _version_mismatch(target: str, provider: str) -> Outcome:
     return Outcome(
         "update-notice",
@@ -730,7 +747,7 @@ def _datacite_version_outcome(
 ) -> Outcome:
     local_version = _nonempty_version(entry.get("version"))
     if local_version is None:
-        return _provider_unreachable(target, "DataCite")
+        return _provider_skipped(target)
     status, payload = webapi.get_json(
         f"https://api.datacite.org/dois/{_doi_path(doi)}", vault_root
     )
@@ -813,7 +830,9 @@ def _arxiv_version_outcome(
     vault_root, entry: dict, identifier: str, target: str, detection_date: str
 ) -> Outcome:
     local_version = _nonempty_version(entry.get("version"))
-    if local_version is None or re.fullmatch(r"v[1-9]\d*", local_version) is None:
+    if local_version is None:
+        return _provider_skipped(target)
+    if re.fullmatch(r"v[1-9]\d*", local_version) is None:
         return _provider_unreachable(target, "arXiv")
     status, text = webapi.get_text(
         "https://export.arxiv.org/api/query",
