@@ -5867,3 +5867,87 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   Plan W keeps only what its tasks act on. Otherwise a caveat block grows until
   nobody reads any of it — the same failure as an exception list growing by
   filenames.
+
+### TASK 13 — AUTHOR CONSENT GRANTED (relayed by the orchestrator, 2026-08-25;
+### the author's word verbatim: "approved")
+  Consent covers what Task 13's plan text does. Explicitly NOT covered, and the
+  orchestrator said so unprompted: any step reaching beyond that text, IN
+  PARTICULAR ANY PUSH TO A REMOTE THE PLAN DOES NOT NAME. Read narrowly, not
+  generously.
+### PRE-CHECK ON THE LIVE VAULT — read-only, before touching anything
+  THE VAULT HAS A REMOTE, so "never push" is a LIVE constraint rather than a
+  theoretical one: origin -> https://github.com/eranroseman/kv-vault.git, branch
+  `main`, last commit 5eed40f.
+  AND THE WORKING TREE IS DIRTY WITH THE USER'S OWN WORK: `inbox/review-queue.md`
+  and `system/bibliography.json` are MODIFIED AND UNCOMMITTED. Both are
+  machine-written surfaces, so this is very likely a prior harness run's output
+  that was never committed. THEY MUST NOT BE TOUCHED AND MUST NOT BE SWEPT INTO
+  THE VAULT COMMIT — explicit pathspec is not a style preference here, and repo
+  policy forbids reverting or restoring files that are not mine.
+  THE FILE LIST, ENUMERATED FROM THE TREE as the plan requires rather than
+  recited from the task text — FIVE files, two updates and three creations:
+    UPDATE  AGENTS.md      (Task 2 routing index + 2c preamble + 2d scope line)
+    UPDATE  index.md       (Task 2b Base embeds)
+    CREATE  .editorconfig        <- template ships it dotless as `editorconfig`
+    CREATE  .prettierignore      <- `prettierignore`
+    CREATE  .markdownlintignore  <- `markdownlintignore`
+  The three ignore files are ABSENT from the live vault entirely (checked: zero
+  matches), and scaffold.py:69-71 is what maps the dotless template names to
+  their dotted targets.
+  THE DECISIVE CHECK, because "update to the current template set" is a
+  DESTRUCTIVE instruction if the live files carry hand-edits: I diffed both live
+  files against the template AS OF THE PRE-BATCH MERGE BASE (002cb25).
+   - index.md is BYTE-IDENTICAL to the pre-batch template. No customization.
+   - AGENTS.md differs by exactly TWO LINES, and in the direction that matters:
+     the live file LACKS the formatter paragraph the pre-batch template HAS. So
+     the live vault is an OLDER template generation, not a hand-edited one — and
+     Task 2d has since shrunk that very paragraph to one line, so the current
+     template supersedes both.
+  CONCLUSION: NO USER CUSTOMIZATION EXISTS IN EITHER FILE. Overwriting with the
+  current template loses nothing. That is what makes this write safe, and it is a
+  fact I would not have had by reading the plan.
+  DOING THIS ONE MYSELF RATHER THAN DISPATCHING IT, deliberately and against the
+  skill's default. The operation is five files and one commit, but it lands on
+  THE USER'S REAL VAULT with their uncommitted work sitting in the tree. A fresh
+  subagent would have to re-derive the no-hand-edits finding, the dirty-file
+  fence and the remote's existence before it could act safely, and the failure
+  mode — clobbering real data — is worse than the cost of me doing it. The
+  controller holds the consent context; the controller does the consented act.
+
+### TASK 13 — APPLIED, THEN STOPPED AT THE VAULT'S OWN TRUST GATE
+  The five files are applied and STAGED in ~/kh-vault; the commit was REFUSED by
+  the vault's pre-commit hook, and I did not force it.
+      verification unavailable: selected candidate differs from live projection
+      destination: path-bytes:inbox/review-queue.md
+      pre-commit: verifier exited unexpectedly with status 2.
+  READ THE HOOK RATHER THAN GUESS AT THE MESSAGE: it runs
+  `verify --offline --surface commit --git-base HEAD --git-candidate index`, and
+  maps exit 0 -> pass, 1 -> fail, 3 -> unreachable-but-open. Status 2 is none of
+  those, so its `*)` branch fired. The verifier REFUSES TO VERIFY AN INDEX
+  CANDIDATE WHILE A MACHINE-WRITTEN SURFACE DIFFERS BETWEEN THE INDEX AND THE
+  WORKTREE — inbox/review-queue.md is modified and unstaged, so the thing it
+  would verify is not the thing that would land.
+  THAT IS THE GATE WORKING, NOT FAILING. It is the same doctrine this whole batch
+  has been hardening: a check that cannot establish its claim says so instead of
+  passing. I refused a commit for exactly that reason in Task 15 and again in
+  19b; being on the receiving end of it does not change the verdict.
+  THE BLOCKER IS THE USER'S OWN UNCOMMITTED WORK, and every way past it is
+  THEIRS TO CHOOSE, not mine:
+   (a) commit inbox/review-queue.md and system/bibliography.json first — their
+       files, their call, and repo policy forbids me touching another party's
+       uncommitted work;
+   (b) `git commit --no-verify` — A RECORDED BYPASS OF A TRUST GATE on the live
+       vault. The consent I hold is for Task 13's plan text; bypassing the
+       vault's own verifier is not in that text;
+   (c) leave it applied-but-uncommitted until the tree is clean.
+  CONSENT READ NARROWLY, WHICH IS WHAT THE ORCHESTRATOR ASKED FOR UNPROMPTED:
+  "if any step reaches beyond that text ... stop and ask rather than read the
+  consent generously". This is precisely that case, and it arrived within minutes
+  of the instruction — the plan text says "one vault commit" and silently assumes
+  a clean tree, which the live vault is not.
+  RESTING STATE, chosen so nothing is lost and nothing is presumed: the five
+  files stay STAGED. The working-tree changes are correct and wanted; unstaging
+  would hide the deliberate grouping, and committing would force a gate. Staged
+  means the commit completes in one command the moment the author rules.
+  NOT PUSHED. The vault remote (github.com/eranroseman/kv-vault.git) has taken
+  nothing.
