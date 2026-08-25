@@ -1080,11 +1080,10 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         if item.result is Result.UNMATCHED
         and item.target == "path-bytes:literatures/smith2020.md"
     }
-    # Pinned, not presence-only: `schema-violation — missing managed-sha256`,
-    # `schema-violation — malformed managed boundary`, and `drift — managed
-    # literature region changed` all carry this same target and would each
-    # satisfy a looser assertion, including one where the attestation check's
-    # own findings had vanished entirely.
+    # Pinned, not presence-only: a truthiness check survives the loss of any
+    # single reason below, because the remaining two keep the set non-empty.
+    # Measured — dropping only the citekey outcome leaves a presence-only
+    # assertion green.
     assert findings == {
         "drift — citekey changed without writer attestation",
         "drift — fixity-sha256 changed without writer attestation",
