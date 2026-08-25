@@ -72,7 +72,14 @@ def _vault_from_target(target: Path) -> Path | None:
 def _is_machine_surface(relative: Path) -> bool:
     if relative in MACHINE_SURFACE_FILES:
         return True
-    return bool(relative.parts) and relative.parts[0] in MACHINE_SURFACE_DIR_NAMES
+    # `relative.parts` is empty only in the degenerate case where the
+    # resolved target IS the vault root (`target.parent == target`, true
+    # only for the filesystem root, `/`, with a real `.harness` there too).
+    # No `bool(...)` guard here: that guard's only reachable-in-principle
+    # act would be to ALLOW the one write this hook exists to refuse.
+    # `relative.parts[0]` raising `IndexError` instead routes the same
+    # case into `main()`'s fail-closed deny, which is the correct outcome.
+    return relative.parts[0] in MACHINE_SURFACE_DIR_NAMES
 
 
 def _deny(reason: str) -> None:

@@ -846,6 +846,27 @@ def test_pretooluse_fails_closed_on_a_genuine_symlink_loop(fixture_vault):
     assert _pretooluse_deny(result) == GUARD_FAIL_CLOSED_REASON
 
 
+def test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_path():
+    """`_is_machine_surface(Path())` (empty `.parts`) is unreachable
+    through `main()` in every practical scenario -- it requires the
+    resolved target to literally BE the vault root (`target.parent ==
+    target`, true only for the filesystem root `/`, with a real
+    `.harness` there too) -- so this is a predicate-level unit test, not
+    an end-to-end one. An end-to-end reproduction would require creating
+    `/.harness` on the real filesystem, which no test may safely do (no
+    permission in general, and it would be a shared, global side effect
+    across the whole test run). `main()` converting an exception raised
+    inside `_handle` into a fail-closed deny is instead proven end-to-end
+    by `test_pretooluse_fails_closed_on_a_genuine_symlink_loop` above --
+    the same `try/except` wraps this call site too, so that test already
+    covers "an exception anywhere in `_handle` becomes `_deny`"; it is not
+    duplicated here."""
+    hook = _load_pretooluse_hook()
+
+    with pytest.raises(IndexError):
+        hook._is_machine_surface(Path())
+
+
 def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
     assert json.loads(HOOKS_MANIFEST.read_text()) == {
         "description": "Knowledge-harness verification hooks",

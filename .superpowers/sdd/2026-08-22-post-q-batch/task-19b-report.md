@@ -2,15 +2,20 @@
 
 ## Status
 
-Complete. Steps 1–3 implemented and committed, plus two fix rounds
+Complete. Steps 1–3 implemented and committed, plus three fix rounds
 responding to coordinator review: round 1 (root `log.md` added to the deny
 list per author ruling, two coverage gaps closed, one dead branch removed,
-one overstated report sentence corrected) and round 2 (the remaining named
+one overstated report sentence corrected), round 2 (the remaining named
 coverage gap closed, a second gap found via an independent tool-based
 branch-coverage sweep and closed, the report's summary sentence replaced
-with an enumerated, checkable branch table) — see the "Fix round 1" and
-"Fix round 2" sections below. No production-code changes were needed in
-round 2; the gaps were entirely in test evidence.
+with an enumerated, checkable branch table — and a third, unreachable-but
+-fails-open branch flagged as Concern 6, not applied), and round 3
+(Concern 6 resolved: the unreachable branch deleted, pinned at the
+predicate level since no end-to-end reproduction is safely possible,
+before/after equivalence confirmed over every non-degenerate input) — see
+the "Fix round 1", "Fix round 2", and "Fix round 3" sections below. No
+production-code changes were needed in round 2; round 3's only
+production-code change is the one-line deletion Concern 6 asked for.
 
 ## Commits
 
@@ -24,22 +29,27 @@ round 2; the gaps were entirely in test evidence.
    `.superpowers/sdd/2026-08-22-post-q-batch/task-19b-report.md`.
 3. `fix: Task 19b review round 2 — non-string cwd, symlinked-marker
    rejection, and a live symlink-loop test close the branch-coverage gap`
-   — files: `tests/test_hooks.py`,
+   (`d75e95a`) — files: `tests/test_hooks.py`,
+   `.superpowers/sdd/2026-08-22-post-q-batch/task-19b-report.md`.
+4. `fix: Task 19b review round 3 — delete the unreachable-and-fails-open
+   bool(relative.parts) guard, pin it at the predicate level` (this
+   commit) — files: `hooks/pretooluse_guard.py`, `tests/test_hooks.py`,
    `.superpowers/sdd/2026-08-22-post-q-batch/task-19b-report.md`.
 
 ## Test summary
 
-Full suite: 1686 passed, 7 skipped (1683 post-merge baseline + 3 new tests
-this round: non-string `cwd`, symlinked-`.harness` rejection, live
-symlink-loop fail-closed — 35 pretooluse tests total, up from 32 after fix
-round 1). `hooks/pretooluse_guard.py` measured at **100% branch coverage**
-via `coverage.py` (subprocess-aware), up from 99% before this round's two
-new tests. `ruff check .` and `ruff format --check .` show only the five
-pre-existing vendored-fork findings under `skills/find-sources/scripts/`
-(confirmed identical before and after my changes via `git stash`; Task 2e
-owns that explicit exclusion, not this task). `mypy knowledge_harness/`:
-clean, 27 files. `echo '{}' | python hooks/stop_publish_gate.py`: silent,
-exit 0.
+Full suite: **1687 passed, 7 skipped** (1686 baseline + 1 new predicate
+-level test this round — 36 pretooluse tests total, up from 35 after fix
+round 2). `hooks/pretooluse_guard.py` measured at **100% branch coverage**
+via `coverage.py` (subprocess-aware), both before and after this round's
+one-line deletion (69 statements, 26 branches, 0 missing in each
+measurement — the deleted branch was never visible to this number in
+either direction, see "Fix round 3"). `ruff check .` and
+`ruff format --check .` show only the five pre-existing vendored-fork
+findings under `skills/find-sources/scripts/` (confirmed identical before
+and after my changes via `git stash`; Task 2e owns that explicit
+exclusion, not this task). `mypy knowledge_harness/`: clean, 27 files.
+`echo '{}' | python hooks/stop_publish_gate.py`: silent, exit 0.
 
 ## Hook protocol — sources (per the controller's instruction to verify, not guess)
 
@@ -224,20 +234,23 @@ each** (line numbers as of this round's `hooks/pretooluse_guard.py`):
 | `_vault_from_target:67` | `.harness` found, `S_ISDIR` `False` (symlink) → keep searching | `test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault` (fix round 2, **new finding**, see below) |
 | `_vault_from_target:69` | loop exhausted, no marker anywhere → `None` | `test_pretooluse_is_silent_outside_a_vault`, `..._machine_surface_shaped_path_without_a_real_vault_marker` |
 | `_is_machine_surface:73` | exact-file match → `True` | `log.md`/`inbox/review-queue.md`/`system/bibliography.json` deny cases |
-| `_is_machine_surface:73` | no exact match → falls to line 75 | every other test |
-| `_is_machine_surface:75` | `relative.parts[0]` in dir names → `True` | `literatures/`/`log/` deny cases |
-| `_is_machine_surface:75` | not in dir names → `False` | allow tests |
-| `_handle:93` | payload not a `dict` → `return` | `test_pretooluse_is_silent_for_parseable_non_dict_payload` |
-| `_handle:95` | `tool_name` not matched → `return` | `test_pretooluse_is_silent_for_unmatched_tool_names` (3 params) |
-| `_handle:98` | `tool_input` not a `dict` → `return` | `test_pretooluse_is_silent_for_missing_tool_input` |
-| `_handle:101` | `cwd` not a `str` → coerced to `None` | `test_pretooluse_allows_relative_target_when_declared_cwd_is_non_string` (fix round 2, closes the coordinator's named item) |
-| `_handle:101` | `cwd` is a `str` → kept as-is | every cwd-bearing test |
-| `_handle:104` | `resolved is None` → `continue` | the three cwd-edge-case allow tests |
-| `_handle:107` | `vault is None` → `continue` | the two outside-a-vault allow tests |
-| `_handle:113` | machine surface → deny, `return` | every deny test |
-| `_handle:113` | not a machine surface → loop falls through, no output | every allow test |
-| `main:130` | `json.load` raises → `return 0` | `test_pretooluse_is_silent_for_malformed_input` |
-| `main:134` | `_handle` raises → deny with `FAIL_CLOSED_REASON` | `test_pretooluse_fails_closed_on_unexpected_exception` (synthetic) + `test_pretooluse_fails_closed_on_a_genuine_symlink_loop` (real, fix round 2) |
+| `_is_machine_surface:73` | no exact match → falls through to line 82 | every other test |
+| `_is_machine_surface:82` | `relative.parts[0]` in dir names → `True` | `literatures/`/`log/` deny cases |
+| `_is_machine_surface:82` | not in dir names → `False` | allow tests |
+| `_is_machine_surface:82` | `relative.parts` empty → `IndexError` (fix round 3; the `bool(relative.parts) and` guard that used to make this `False`/allow was deleted, see below) | `test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_path` (predicate-level; see "Fix round 3" for why no end-to-end form exists) |
+| `_handle:100` | payload not a `dict` → `return` | `test_pretooluse_is_silent_for_parseable_non_dict_payload` |
+| `_handle:102` | `tool_name` not matched → `return` | `test_pretooluse_is_silent_for_unmatched_tool_names` (3 params) |
+| `_handle:105` | `tool_input` not a `dict` → `return` | `test_pretooluse_is_silent_for_missing_tool_input` |
+| `_handle:108` | `cwd` not a `str` → coerced to `None` | `test_pretooluse_allows_relative_target_when_declared_cwd_is_non_string` (fix round 2, closes the coordinator's named item) |
+| `_handle:108` | `cwd` is a `str` → kept as-is | every cwd-bearing test |
+| `_handle:111` | `resolved is None` → `continue` | the three cwd-edge-case allow tests |
+| `_handle:114` | `vault is None` → `continue` | the two outside-a-vault allow tests |
+| `_handle:120` | machine surface → deny, `return` | every deny test |
+| `_handle:120` | not a machine surface → loop falls through, no output | every allow test |
+| `main:137` | `json.load` raises → `return 0` | `test_pretooluse_is_silent_for_malformed_input` |
+| `main:141` | `_handle` raises → deny with `FAIL_CLOSED_REASON` | `test_pretooluse_fails_closed_on_unexpected_exception` (synthetic) + `test_pretooluse_fails_closed_on_a_genuine_symlink_loop` (real, fix round 2) + `test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_path`'s underlying property (fix round 3 — see below for why this specific case isn't proven end-to-end) |
+
+Line numbers above are current as of fix round 3 (`hooks/pretooluse_guard.py` after the round-3 deletion added a 7-line explanatory comment, shifting everything from `_is_machine_surface`'s `return` onward). Round 2's version of this table cited the pre-round-3 numbers; superseded here, not left stale.
 
 **One thing this table is careful not to conflate:** the dotdot-traversal
 test not discriminating the `.resolve()` call it was originally written to
@@ -295,8 +308,11 @@ folded into a blanket sentence.**
    on scope declined. Destination: preamble gains `system/bibliography.json`
    at the next legitimate template re-pin; a GitHub issue if no re-pin lands
    before batch close.
-6. **(Found while building the fix-round-2 branch table, not applied — new
-   this round.) `_is_machine_surface`'s `bool(relative.parts) and ...` guard
+6. **RESOLVED in fix round 3** (see below — that section also corrects
+   this entry's "relative can never be the empty path" claim, which was
+   imprecise; there is one reachable-in-principle degenerate case).
+   **(Found while building the fix-round-2 branch table, originally not
+   applied.) `_is_machine_surface`'s `bool(relative.parts) and ...` guard
    is unreachable in the same way the round-1 `except ValueError` was.**
    `relative` is always `resolved.relative_to(vault)`, and `vault` is always
    drawn from `resolved.parent`/`resolved.parent.parents` — so `relative` can
@@ -466,6 +482,115 @@ symlinked-marker test, and the live symlink-loop test).
 `hooks/pretooluse_guard.py` is byte-identical to `6a62cab`'s version — no
 production-code change this round. `ruff check .` and `ruff format --check .`:
 same five pre-existing vendored-fork findings, nothing new. `mypy
+knowledge_harness/`: clean, 27 files. `echo '{}' | python
+hooks/stop_publish_gate.py`: silent, exit 0.
+`tests/test_hooks.py:445`'s `hooks.json` exact-equality pin re-run
+unchanged (no manifest touched this round) and still passes.
+
+
+## Fix round 3 (response to coordinator ruling on Concern 6)
+
+**The deletion, and the reasoning for it (not just "unreachable"):**
+`bool(relative.parts) and` is gone from `hooks/pretooluse_guard.py`'s
+`_is_machine_surface`; it now reads
+`return relative.parts[0] in MACHINE_SURFACE_DIR_NAMES`. This is not
+tidying. That guard's only reachable-in-principle act was to ALLOW the one
+write this hook exists to refuse — `bool(())` is `False`, short-circuiting
+the `and` to `False`, i.e. "not a machine surface," i.e. allow. Deleting it
+means the same case now raises `IndexError` on `relative.parts[0]`, which
+propagates out of `_handle` uncaught and is converted by `main()`'s
+existing `try: _handle(payload) except Exception: _deny(FAIL_CLOSED_REASON)`
+(`hooks/pretooluse_guard.py:139-142`) into a deny. Same precedent as
+deleting round 1's unreachable `except ValueError`, strictly stronger
+reason: that one was inert either way; this one silently permitted exactly
+the write class the hook is for.
+
+**Two things I was right about, stated plainly:** the branch is unreachable
+in every practical scenario, and — unlike round 1's `ValueError` — it fails
+OPEN, not closed, if ever reached. Finding it while building the round-2
+enumeration was the enumeration paying for itself, exactly as flagged.
+
+**One thing I was wrong about, and it matters:** my round-2 Concern 6 said
+"`relative` can never be the empty path" as an unqualified claim. That was
+imprecise — there IS one reachable-in-principle degenerate case, which I
+did not name and the coordinator's own trace supplied:
+`_vault_from_target` walks `(target.parent, *target.parent.parents)`, and
+`vault == resolved` requires `target.parent == target`, which only
+`Path('/')` satisfies (the filesystem root is its own parent in `pathlib`).
+With a real `.harness` directory at `/` and the resolved target being `/`
+itself, `relative` is `Path('.')` (`Path()`), `.parts` is `()`, and — before
+this round's deletion — the hook allowed. The conclusion I drew (route this
+into fail-closed deny) was right; the "can never happen" framing that got
+me there was not exact, and this report should not paper over that.
+
+**Why the pinning test could not be end-to-end, and what form it took
+instead:** the coordinator's own first idea for a test — a `.harness`
+placed at a temp-dir root with the target being that same directory — does
+not reach the case: `_vault_from_target` starts its walk at
+`target.parent`, one level *above* the target, so a `.harness` placed *at*
+the target itself is never seen; `vault` comes back `None` and `_handle`
+skips the candidate before `_is_machine_surface` is ever called. The
+*actual* degenerate case requires the resolved target to literally be `/`
+with a real `.harness` there too — and no test may safely create
+`/.harness` on the real filesystem (no permission in the general case, and
+even where permitted it would be a shared, global, irreversible side effect
+across the entire test run, on every future run, forever). So this is
+pinned at the **predicate level** instead:
+`test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_path`
+calls `hook._is_machine_surface(Path())` directly and asserts it raises
+`IndexError`. Confirmed it discriminates: reverted to the pre-deletion
+`bool(relative.parts) and ...` guard, the same call returns `False`
+instead of raising — "DID NOT RAISE IndexError", reproduced directly, then
+restored.
+
+The separate property — "`main()` converts an exception raised anywhere
+inside `_handle` into a fail-closed deny" — is generic to the `try/except`
+at `main()`'s outer layer; it does not care which line inside `_handle`
+raised. `test_pretooluse_fails_closed_on_a_genuine_symlink_loop` (fix round
+2) already proves exactly this, with a real induced fault. No new
+end-to-end test was added for that half — it would duplicate, not
+strengthen, the existing one.
+
+**Before/after equivalence, checked directly, not inferred from the suite
+passing:** ran both the pre-deletion and post-deletion implementations of
+`_is_machine_surface` (as plain functions, not through the hook) over 16
+representative relative paths covering every deny/allow case in the suite
+— `literatures/clean.md`, `literatures/nested/note.md`, `log/2026-08-16.md`,
+`log/2026-01-01.md`, `log.md`, `inbox/review-queue.md`,
+`system/bibliography.json`, `synthesis/note.md`, `inbox/note.md`,
+`projects/brief/draft.md`, `projects/brief/search-log.md`,
+`projects/brief/log.md`, plus the single-component shapes `literatures`,
+`log`, `system`, and `evil.md`. All 16 matched exactly (`old == new` on
+every case); the only divergence anywhere is the degenerate empty-parts
+input, where `old` returns `False` and `new` raises `IndexError` — the
+one, deliberate, reported behavior change. Zero mismatches over
+non-degenerate input.
+
+**The coverage caveat, made concrete:** re-measured `hooks/pretooluse_guard.py`
+branch coverage after the deletion, same method as fix round 2
+(subprocess-aware `coverage.py`, `COVERAGE_PROCESS_START` +
+`sitecustomize.py`): **100% branch coverage, before and after this round's
+change alike** — 69 statements, 26 branches, 0 missing in both
+measurements. The branch this round deletes was never visible to that
+number at all, in either direction: it was a short-circuit boolean
+sub-expression (`bool(x) and y`) inside a single `return` statement, not a
+tracked control-flow branch (`if`/`for`/`while`/`try`), so `coverage.py`
+had nothing to mark as partial for it even when it was silently wrong. This
+is the concrete instance behind the now-durable-on-main caveat: **100%
+branch coverage means 100% of what the tool's model can see; mutation
+results (or, here, hand-derived reachability plus a predicate-level test)
+are the check on the coverage number, not the reverse.**
+
+Concerns 1–5 stand as previously recorded. Concern 6 is **RESOLVED** — the
+branch is deleted, the deletion is pinned at the level the case actually
+requires, and the reasoning above supersedes the round-2 wording that
+first raised it.
+
+**Gates, re-run after all of the above:** full suite **1687 passed, 7
+skipped** (1686 baseline + 1 new predicate-level test). `ruff check .` and
+`ruff format --check .`: clean on touched files (one `PTH201` finding
+during development — `Path(".")` → `Path()` — fixed before commit; same
+five pre-existing vendored-fork findings elsewhere, nothing new). `mypy
 knowledge_harness/`: clean, 27 files. `echo '{}' | python
 hooks/stop_publish_gate.py`: silent, exit 0.
 `tests/test_hooks.py:445`'s `hooks.json` exact-equality pin re-run
