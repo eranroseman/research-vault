@@ -5595,3 +5595,136 @@ Task 11: info (no action): the new integration test lives in
   given the "live" in the filename. Verified BY ME that it actually runs offline
   (passes in an offline run; total skips stayed at 7), which was the thing that
   would have made it coverage-shaped and empty. Rename is a separate task.
+
+Task 12: BASE = 6ac7381. Implementer dispatched (sonnet). Six pre-check facts.
+  WHY THE EXISTING CHECK IS BLIND, established as a MECHANISM rather than a
+  missing case: _assert_managed_body_parses raises only `if parsed != expected`,
+  and WITH DUPLICATES BOTH LISTS CARRY THE SAME DUPLICATES, so they compare EQUAL
+  and the check passes. Structural blindness — which is worth stating in the
+  commit body, because "we forgot a case" and "the check cannot see this class"
+  lead to different fixes.
+  PLACEMENT RULED AND REASONED: the uniqueness line goes BEFORE the
+  `parsed != expected` comparison. Either order detects it, but with duplicates
+  present BOTH conditions can be true, and a duplicate reported as "managed body
+  parsed to [...] expected [...]" sends the reader chasing a parse bug that does
+  not exist.
+  STEP 1b VERIFIED FROM THE CODE, not from the brief's description. claim_id
+  (notes.py:292) is `basis = annotation.get("key") or _norm(
+  annotation.get("annotationText", ""))`, so THE COMMENT IS NOT PART OF THE
+  BASIS. A keyless annotation with empty annotationText hashes THE EMPTY STRING,
+  and sha256(b"")[:8] is `e3b0c442` — confirmed by running it — giving
+  `c-e3b0c442`. That is why EVERY keyless comment-only annotation collides with
+  EVERY OTHER, not merely ones whose text matches. The brief called this "the
+  broader case"; the code says why.
+  THE SHARPEST HAND-OVER: THIS IS THE THIRD RenderIntegrityError RAISE SITE IN
+  notes.py, AND THE BRIEF'S OWN STEP 1 SNIPPET IS THE WEAK FORM. After Task 11
+  landed there are three — _split_free's marker-less fallthrough, the
+  parsed != expected mismatch, and this new one — and the brief shows a BARE
+  `with pytest.raises(notes.RenderIntegrityError):`. A bare pytest.raises here
+  CAN PASS BECAUSE THE WRONG RAISE FIRED.
+  Told to copy Task 11's model verbatim in shape — `match=r"^...$"`, anchored at
+  both ends — AND TO PROVE IT by making each of the other two sites fire instead
+  and confirming the test still fails. Task 11's review closed exactly this
+  hazard by substitution one task ago; the plan should not have to discover it a
+  third time.
+  Also required: no false positives (distinct anchors still render, keyed and
+  keyless-with-different-text), and the pre-existing parsed != expected check
+  must STILL FIRE for a real parse mismatch — the new line must not SHADOW it.
+  Issue #16 verified OPEN and is this defect; referenced in the commit, and the
+  implementer must say whether this closes it FULLY or PARTLY rather than
+  closing it unilaterally.
+
+Task 12: implementer DONE (de324d1; 4 files). Suite 1714/7 (= 1709 + 5).
+  Production change is EXACTLY the brief's one line, placed BEFORE the `parsed`
+  computation as ruled.
+  THE GUARD REJECTED TWO PRE-EXISTING TEST FIXTURES, and the implementer
+  STRENGTHENED THE FIXTURE RATHER THAN WEAKENING THE GUARD — `_raw_quote` gained
+  a `key` parameter and the two call sites that render two annotations together
+  now pass distinct keys. Same situation as Task 17's fixture migration and the
+  same correct resolution: a fixture that hardcoded one synthetic Zotero key for
+  two annotations was modelling AN IMPOSSIBLE STATE, since Zotero annotation
+  keys are unique per annotation. The guard was right; the fixture was wrong.
+  A STRUCTURAL DIFFERENCE FROM TASK 17 WORTH RECORDING, because it changes how
+  much the green suite is worth: THIS GUARD RUNS ON EVERY RENDER THE SUITE
+  PERFORMS, so a PARTIAL fixture migration COULD NOT STAY GREEN. Task 17's guard
+  sat in production with fixtures as mere inputs, which is exactly why its
+  partial migration survived undetected. Here the suite is a complete check on
+  fixture correctness rather than a sample of it.
+  CONTROLLER ENUMERATED THE CALL SITES ANYWAY rather than rest on that argument:
+  :370, :398-399, :1079-1080, :1132, :1168, :1215-1216. The one that needed
+  checking is :398-399, where two _raw_quote calls both take the default key —
+  and I READ THE TEST rather than infer from green: old_raw goes into `original`
+  (a one-annotation render) and new_raw arrives through the re-import client, so
+  they are in SEPARATE RENDERS and cannot collide. Inspection, not inference.
+Task 12: review dispatched over 6ac7381..de324d1. Leads with the THREE-WAY
+  discrimination matrix — three RenderIntegrityError sites now, so each new test
+  must be shown to fail when EITHER of the other two fires — plus a
+  no-shadowing construction (the pre-existing `parsed != expected` check must
+  still fire for a genuine mismatch involving no duplicates; if the new line made
+  it unreachable that is serious) and false-positive constructions.
+  AND ONE QUESTION THE BRIEF NEVER RAISES, which may matter more than the fix:
+  THE RENDERER NOW REFUSES RATHER THAN DISAMBIGUATES. Two keyless comment-only
+  annotations both hash the empty string, so a user with two comment-only
+  annotations on one source CAN NOW NOT IMPORT THAT SOURCE AT ALL — where before
+  they got a silently corrupt note. Refusal is the safer failure, but it is a NEW
+  HARD STOP on a shape a real Zotero library can contain.
+  The review must confirm the end-to-end user-visible behaviour, judge whether
+  the message NAMES A REMEDY or only the symptom ("duplicate claim anchors in
+  render: [...]" names the symptom), and say whether this CLOSES issue #16 or
+  CONVERTS it from silent corruption into a blocked import needing its own
+  follow-up. The implementer left #16 open and asked the same question, which was
+  the right instinct — a fix that turns one failure mode into another should not
+  close the issue describing the first one without saying so.
+
+Task 12: review returned — SPEC PASS, QUALITY PASS. No fix round. Three INFO
+  findings only. Review file: task-12-review.md
+  THE THREE-WAY MATRIX CAME BACK COMPLETE — six mutations executed, and EVERY
+  new test fails when EITHER of the other two RenderIntegrityError sites fires
+  instead. ZERO bare pytest.raises anywhere in the new tests. The hazard the
+  brief's own snippet would have introduced was closed before it could become
+  the ninth instance.
+  AND THE REVIEWER RE-RAN STEP 2 ITSELF rather than trust the brief's
+  parenthetical: with the check removed, both duplicate tests report
+  "Failed: DID NOT RAISE RenderIntegrityError". The red phase was confirmed by
+  execution, not assumed from the plan text.
+  MIGRATION CONFIRMED COMPLETE by independent enumeration of all nine _raw_quote
+  call sites, matching mine. And the reviewer sharpened my structural argument:
+  the `key="ANNKEY01"` default REMAINS a latent same-key trap for future tests,
+  but is LARGELY DEFANGED — because the guard fires on every render, a recurrence
+  FAILS LOUDLY AT WRITE TIME rather than silently. An authoring-hygiene issue,
+  not a defect.
+Task 12: complete (commits 6ac7381..de324d1 — de324d1 — review clean, NO fix
+  round, 3 INFO findings, 1 issue-state comment). Ticked below: 5 boxes;
+  99 checked / 13 unchecked. Suite 1714/7; publish gate exit 0.
+  SECOND CONSECUTIVE TASK TO PASS BOTH VERDICTS WITH NO FIX ROUND.
+### ISSUE #16'S STATE RECORDED RATHER THAN THE ISSUE CLOSED
+  The implementer left #16 open and ASKED whether this closes it. That instinct
+  was right and the answer is: PARTLY, IN A WAY THAT MATTERS.
+   - CLOSED: the silent corruption. The render refuses, import-note exits 1, the
+     note is byte-identical, and a render/UNMATCHED/schema-violation hold is
+     filed. Verified end to end by the reviewer, not inferred.
+   - OPENED IN ITS PLACE: THE FIX REFUSES RATHER THAN DISAMBIGUATES. claim_id
+     hashes `key or _norm(annotationText)`, so THE COMMENT IS NOT IN THE BASIS —
+     every keyless comment-only annotation collides with every other. A user with
+     TWO COMMENT-ONLY ANNOTATIONS ON ONE SOURCE CAN NOW NOT IMPORT THAT SOURCE AT
+     ALL, where before they got a silently corrupt note.
+  That is the safer failure — A BLOCKED IMPORT IS RECOVERABLE, A SILENTLY
+  AMBIGUOUS ANCHOR IS NOT — but it is a new hard stop on a shape a real Zotero
+  library can contain, and THE MESSAGE NAMES THE SYMPTOM WITHOUT NAMING A REMEDY.
+  For the keyless-empty-text case the actual cause (the comment never enters the
+  hash) is not discoverable from the message text.
+  COMMENTED ON #16 with all of it, including three candidate remedies and why
+  none was taken here: including the comment in the basis, or a positional
+  discriminator on collision, both CHANGE ANCHOR IDENTITY and so are not a
+  passing fix — they want their own ruling. The third is to keep refusing and say
+  what to do about it.
+  A FIX THAT CONVERTS ONE FAILURE MODE INTO ANOTHER SHOULD NOT CLOSE THE ISSUE
+  DESCRIBING THE FIRST ONE WITHOUT SAYING SO. That is the principle worth keeping
+  from this task, independent of anchors.
+Task 12: info (no action): the error message at notes.py:278 names the symptom
+  only. Destination: folded into the #16 comment as a candidate remedy.
+Task 12: info (no action): `key="ANNKEY01"` default at tests/test_cli_live.py:232
+  is a latent trap for future tests, defanged by the guard firing at write time.
+Task 12: info (no action): a redundant `(issue #16)` provenance citation in a
+  test comment at tests/test_notes.py:432-434 — the commit body already carries
+  it. Comment-hygiene nit, below the bar for a round.
