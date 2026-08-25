@@ -117,8 +117,10 @@ so recorded separately from the cited sections above.
    makes constitutional decisions rare; verdict headers prevent re-deciding; correction-vs-
    decision stops mistakes from consuming decisions; the delegation conditions stop settled
    questions from being re-asked. The method scales agents freely — the binding resource is the
-   single human every "word" passes through (~30+ author decisions across two batch days). For
-   workloads 2/3, that is the constraint to design around explicitly.
+   single human every "word" passes through. Measured (transcript grep by message timestamp,
+   short-form approval turns only — "word"/"yes"/"approved"/"okay"; a floor, since prose rulings
+   and dialog picks don't match the pattern): 163 across the run, ~23 per active day, peaking at
+   36 on 08-20. For workloads 2/3, that is the constraint to design around explicitly.
 2. **Error-catch latency collapsed over the run.** Spec-era errors were caught by scheduled
    adversarial passes days later; by batch's end they were caught in the message that made them.
    The culture moved catches from scheduled verification to point-of-writing. Consequence for
