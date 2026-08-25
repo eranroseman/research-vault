@@ -491,6 +491,11 @@ Source: `research/validation-slice/2026-08-24-post-q-batch-review.md` (independe
 - **NEW** — the `oldest_age_days` docstring's zero-case is untested.
 - **NEW, sized as test-writing** — `__main__.py:761`'s CLI JSON output is **entirely unpinned**; no test asserts the `inbox` verb's printed contract. Size this as writing a test file, not as a one-line fix.
 
+**Part 2 additions (2026-08-25).** The disposition sweep found this ledger's 38 entries were built from Part 1 only, so two Part 2 concerns had no home. Added here rather than left in a report:
+
+- **C3** — the 64-char digest literal is spelled three ways across the test suite: the conftest YAML literal, seven raw literals, and `"aa11" * 16` in assertions. All nine verified exactly 64 characters today, so this is a drift hazard rather than a defect — but a future fixture change must be mirrored by hand across long literals **whose failure mode is a silent no-op**. Deferred by the Task 17 coordinator.
+- **C4** — `mutation-baseline.txt:130` still lists a `_citekey_hash::isinstance(first, str) and first` survivor keyed to the exact expression Task 17 deleted from both adoption sites. Inert for the gate (`found - baseline` can never produce that key again) — inventory drift, obsoleted in the good direction.
+
 **Negative knowledge — do not re-derive.** Two candidates were investigated and *refuted*: crash-on-bad-date, and mixed-precision `min`. Recorded so the polish pass does not spend the analysis twice.
 
 **Category tension, noted with the entry**: a living ledger inside the append-only zone is what the record-immutability hook just made visible. It resolves when the polish pass extracts this list into its own plan, not by loosening the gate.

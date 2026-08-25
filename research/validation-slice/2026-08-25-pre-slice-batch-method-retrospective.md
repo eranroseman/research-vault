@@ -51,6 +51,14 @@ All four were caught by **a second reader using a different instrument** — a p
 
 > Scope-stating is the writer's duty. **The catch rate came from readers who re-measured.** Both halves are needed; only the second has been working reliably.
 
+**Amended 2026-08-25 — why the reader half is not optional.** The post-merge boundary review supplied the sentence that closes the gap between the two halves:
+
+> **A re-measurement with the same instrument reproduces the same scope, and therefore the same blind spot; what catches an unstated scope is a reader who measures differently.**
+
+That is the rationale for the standing arrangement, written down. Checking your own work again is not the remedy — `head -8` run twice still returns eight. Every one of the six was caught by an instrument the first measurement did not use: `git check-ignore` against a truncated stat, `_cli.py` against `--help`, `metadata_year` against two fields, empty representations against `.pop`, multi-fault inputs against single-fault, and a second helper against a falsy `{}`.
+
+The review that supplied this sentence then demonstrated its converse in the same document: it reported a commit as uncorrected because its SHA-extraction regex found a token in the ledger, without checking whether the token was reachable from `main`. It was not — the commit had been amended away, and the next ledger line said so. **A correct observation carrying a wrong conclusion, inside the document warning about exactly that**, and it was caught the same way everything else was: by a reader with a different instrument.
+
 ______________________________________________________________________
 
 ## Findings that stand on their own
