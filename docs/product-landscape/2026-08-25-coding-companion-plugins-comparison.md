@@ -222,3 +222,47 @@ evaluate diagnosing-bugs beside systematic-debugging at next real debugging need
 injection's session-start weight only when the PKM/writing workload maps make it a measured
 problem, via settings, not plugin removal. The upstream filing and deliberate 6.3.0 upgrade
 stand.
+
+## Validation — recommendations tested against the session record (2026-08-25)
+
+At the author's direction, each recommendation was replayed against the controller session's own
+event history (the post-q batch and its surrounding work). Seven for seven supported; two blind
+spots found.
+
+1. **Layered governance**: the session ran the layers without collision — SDD executed the batch
+   (21 rulings through its review machinery) while the mattpocock layer carried triage (#16), the
+   ADR bar (0004's scope correction came from domain-modeling's three-test discipline), and the
+   tracker (#18–#25). The one recorded layer-fight (grilling vs brainstorming) was settled in
+   settings — the prescribed mechanism.
+2. **Write-time destinations + SDD generation, both halves**: the disposition sweep found 12
+   undisposed concerns across 31 sections; after the rule landed mid-batch, destinations were
+   named at write time and 19b's residue became #25 with corrected framing. Counterfactual: 17b's
+   concerns 1–4 (now #19/#20/#21 + spec §10.2) exist only because SDD's report contract demanded
+   they be written — `implement` has no report contract, so under it they are never born.
+3. **Wayfinder**: the author's workload-scoping session instinctively produced wayfinder's exact
+   artifacts before anyone named it — banked decisions, a documented not-yet-specified gap,
+   deliberate stop-short-of-design, and the sizing call "more than a single /wayfinder map."
+4. **writing-for-agents**: the controller's Task-reports rule needed three revisions, and each
+   defect is a named failure mode in that skill — the `.git/info/exclude` misclaim is its
+   environment-as-cache warning; the skill-override was its single-source-of-truth violation; the
+   pathspec-exception trim was its pruning/no-op test. Two of three revisions vanish under its
+   governance.
+5. **diagnosing-bugs**: the run's most expensive error class (instrument scope — the `.pop()`
+   measurement missing `{"date-parts": []}`) maps directly onto its Phase-1 completion criterion:
+   a red-capable loop asserting the exact symptom forces enumerating the representations until
+   the common case goes red. systematic-debugging has no equivalent instrument criterion.
+6. **Injection deferred to measurement**: consistent — implementer discipline rode the injection;
+   no PKM session exists yet to measure the cost side.
+7. **6.3.0 + upstream filing**: the session hand-built controller self-ruling (ratified with four
+   named conditions), conflict-scan-in-ledger, and suffered the destructive-cleanup hazard —
+   6.3.0 codifies the first two and softens the third; the filing stays motivated because
+   workspace deletion at Finish remains ungated upstream.
+
+Blind spots the test exposed, owned by no recommendation and no skill in any of the three sets:
+(a) **the controller seat is ungoverned** — cross-session rulings, relay protocol, permission
+hygiene, ratification conditions, and ask-vs-assume were improvised live and worked, but their
+lessons live only in the batch retrospective and message history; SDD describes a controller
+inside one plan, not the orchestration layer above it. (b) **Ruling latency under tracker
+mediation is untested** — the session's mid-flight catches depended on a direct dialog channel;
+tickets-as-backbone routes rulings through issue comments, and no event tests that round-trip
+against a blocked implementer.
