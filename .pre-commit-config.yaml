@@ -1,5 +1,9 @@
-# The ONE command for every form/lint check, locally and in CI:
+# The ONE command for every form/lint check, when typed, and in CI:
 #     source .venv/bin/activate && pre-commit run --all-files
+# In a shared checkout, run the form owner directly on the touched files
+# before committing instead: `pre-commit run` also stashes unstaged changes,
+# onto a git stash stack shared by every worktree of this repo, and is NOT
+# the safe form here.
 # Repo-local system hooks over the pinned venv — no remote hook repos, no network
 # at check time. This is the DEV-LANE pre-commit; the vault's pre-commit
 # (knowledge_harness/templates/git/pre-commit) is a trust gate — do not conflate.
@@ -8,6 +12,10 @@ default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:
+      # skills/find-sources/scripts/*.py stay OUT of this path list: a frozen
+      # vendored fork (K-Dense's paper-lookup skill) — re-vendor from upstream
+      # to pick up fixes; running our formatter/linter over it would create
+      # vendor drift instead of tracking upstream's own form.
       - id: ruff-format
         name: "form: python (ruff format)"
         language: system
@@ -47,6 +55,10 @@ repos:
           knowledge_harness/templates/vault/system'
         pass_filenames: false
         always_run: true
+      # .pre-commit-config.yaml itself is yaml but stays OUT of this path
+      # list: yamlfix would reflow this file's hand-wrapped, comment-adjacent
+      # entries (quoting, line breaks) into its own form, trading away the
+      # readability the wrapping exists for — a choice, not an oversight.
       - id: yamlfix
         name: "form: yaml (yamlfix)"
         language: system
@@ -77,12 +89,13 @@ repos:
       # in-flight plans are amended routinely and --diff-filter=MRD would fail
       # every checkbox tick.
       - id: record-immutability
-        name: "records: append-only under research/analysis/adr"
+        name: "records: append-only under research/adr"
         language: system
         entry: bash -c 'git rev-parse --verify --quiet origin/main >/dev/null ||
           { echo "origin/main is not fetched; cannot check record immutability"; exit 1; };
           touched=$(git diff --name-status --diff-filter=MRD origin/main...HEAD --
-          research analysis docs/adr);
+          research docs/adr) ||
+          { echo "git diff failed while checking record immutability"; exit 1; };
           [ -z "$touched" ] ||
           { echo "record paths are append-only; these were modified/renamed/deleted:";
           echo "$touched"; exit 1; }'
