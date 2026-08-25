@@ -40,7 +40,7 @@ repos:
       # point at nothing. research/ and sources/ are excluded: immutable records.
       # skills/find-sources/references is excluded too: a frozen vendored fork,
       # same reasoning as the ruff vendor-exclusion comment above, one file type
-      # over. ce0f1e3 already reformatted eight of its files before this
+      # over. ce0f1e3 already reformatted all eleven of its files before this
       # exclusion existed; this stops it recurring but does NOT undo that churn
       # -- restoring upstream bytes needs a re-vendor (GitHub issue #24).
       # Vault-dialect templates (wikilinks, managed-region markers, Base embeds)

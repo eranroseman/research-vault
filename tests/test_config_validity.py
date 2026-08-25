@@ -467,32 +467,47 @@ def _mdformat_owned_markdown() -> list[Path]:
     return files
 
 
-def _resolved_mdformat_hook_paths() -> set[Path]:
-    """Run the hook's OWN shell logic -- mdformat swapped for a
-    line-per-path printer -- and return the file set it actually resolves to
-    today. Parsed via PyYAML (a hard transitive dependency of the pinned
-    `pre-commit` dev tool, the same library pre-commit itself uses to read
-    this exact file) rather than a text slice, so a multi-line folded scalar
-    round-trips into one shell-safe line the way pre-commit itself would run
-    it. This then executes the real `find ... -not -path` clauses rather
-    than re-parsing their text, so it cannot drift from what the hook
-    actually RUNS; only from what it actually RESOLVES TO, which is the
-    thing a mirror needs to match.
+# Every top-level token after the fixed prefix must be either a literal path
+# or a `$(find ...)` substitution -- never another flag. `find`'s OWN flags
+# (-name, -not, -path...) live safely inside a `$(...)` block, matched here
+# as one atomic token, so they never reach this check.
+_MDFORMAT_TOP_LEVEL_TOKEN = re.compile(r"\$\([^)]*\)|\S+")
+
+
+def _resolved_paths_for_mdformat_entry(entry: str) -> set[Path]:
+    """Given a raw pre-commit `entry:` value for the mdformat hook, resolve
+    it to the file set it would actually touch -- mdformat swapped for a
+    line-per-path printer, then the resulting shell command actually
+    EXECUTED (real `find ... -not -path` clauses against the live
+    filesystem), rather than re-parsed as text. A stray token between the
+    fixed prefix and the path list -- e.g. an inserted `--check`, which
+    would defang the hook into report-only mode without changing which
+    files it NAMES -- fails loudly here instead of being silently treated
+    as a nonexistent path and dropped: a file-set-only comparison downstream
+    cannot see a defanged hook, since --check does not change the file set,
+    only what mdformat DOES with it.
     """
-    config = yaml.safe_load(
-        (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
-    )
-    (hook,) = (h for h in config["repos"][0]["hooks"] if h["id"] == "mdformat")
-    command = shlex.split(hook["entry"])
+    command = shlex.split(entry)
     assert command[:2] == ["bash", "-c"], (
         "mdformat hook's entry has changed shape; update this parse"
     )
     inner = command[2]
     prefix = "mdformat --number --wrap keep "
     assert inner.startswith(prefix), (
-        "mdformat hook's fixed flags changed; update this parse"
+        "mdformat hook's fixed flags changed; update this parse "
+        "(add the new flag to `prefix` above once it is deliberate)"
     )
-    printer = 'printf "%s\\n" ' + inner[len(prefix) :]
+    remainder = inner[len(prefix) :]
+    for token in _MDFORMAT_TOP_LEVEL_TOKEN.findall(remainder):
+        if token.startswith("-") and not token.startswith("$("):
+            raise AssertionError(
+                f"unrecognized flag {token!r} between mdformat's fixed prefix "
+                "and its path list. This parser only understands paths and "
+                "$(find ...) substitutions there -- a real flag insertion "
+                "must fail loudly, not be silently dropped as a "
+                "nonexistent path."
+            )
+    printer = 'printf "%s\\n" ' + remainder
     result = subprocess.run(
         ["bash", "-c", printer], cwd=ROOT, capture_output=True, text=True, check=True
     )
@@ -508,6 +523,22 @@ def _resolved_mdformat_hook_paths() -> set[Path]:
     return resolved
 
 
+def _resolved_mdformat_hook_paths() -> set[Path]:
+    """The real mdformat hook's entry, resolved. Parsed via PyYAML (a hard
+    transitive dependency of the pinned `pre-commit` dev tool, the same
+    library pre-commit itself uses to read this exact file) rather than a
+    text slice, so a multi-line folded scalar round-trips into one
+    shell-safe line the way pre-commit itself would run it -- this cannot
+    drift from what the hook actually RUNS; only from what it actually
+    RESOLVES TO, which is the thing a mirror needs to match.
+    """
+    config = yaml.safe_load(
+        (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    )
+    (hook,) = (h for h in config["repos"][0]["hooks"] if h["id"] == "mdformat")
+    return _resolved_paths_for_mdformat_entry(hook["entry"])
+
+
 def test_mdformat_roots_mirror_the_hook_the_seam_actually_runs():
     """_mdformat_owned_markdown()'s independent reimplementation and the
     hook's OWN shell logic, actually executed, must resolve to the same file
@@ -521,6 +552,34 @@ def test_mdformat_roots_mirror_the_hook_the_seam_actually_runs():
         f"  hook only:   {sorted(p.relative_to(ROOT) for p in hook_files - mirror_files)}\n"
         f"  mirror only: {sorted(p.relative_to(ROOT) for p in mirror_files - hook_files)}"
     )
+
+
+def test_mdformat_hook_parser_rejects_a_flag_inserted_before_the_path_list():
+    """Pin: a flag inserted between the fixed prefix and the path list --
+    e.g. `--check`, which turns mdformat into report-only mode without
+    changing which files it names -- must fail loudly, not be silently
+    dropped as a nonexistent path. This is the exact blind spot a
+    file-set-only comparison has: --check changes BEHAVIOUR, not the
+    resolved file set, so nothing downstream of a silent drop could ever
+    catch it.
+    """
+    defanged = (
+        "bash -c 'mdformat --number --wrap keep --check README.md AGENTS.md "
+        "CONTEXT.md docs'"
+    )
+    with pytest.raises(AssertionError, match=r"--check"):
+        _resolved_paths_for_mdformat_entry(defanged)
+
+
+def test_mdformat_hook_parser_rejects_end_of_line_flag_before_the_path_list():
+    """Same pin, a second flag shape: `--end-of-line lf` is two tokens, and
+    the first one (`--end-of-line`) must be what trips the check."""
+    defanged = (
+        "bash -c 'mdformat --number --wrap keep --end-of-line lf README.md "
+        "AGENTS.md CONTEXT.md docs'"
+    )
+    with pytest.raises(AssertionError, match=r"--end-of-line"):
+        _resolved_paths_for_mdformat_entry(defanged)
 
 
 def _escaped_backticks_in_row(line: str) -> bool:
