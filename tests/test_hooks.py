@@ -18,7 +18,16 @@ from knowledge_harness.checks import Outcome
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "hooks" / "posttooluse_lint.py"
 STOP_HOOK = REPO / "hooks" / "stop_publish_gate.py"
+PRETOOLUSE_HOOK = REPO / "hooks" / "pretooluse_guard.py"
 HOOKS_MANIFEST = REPO / "hooks" / "hooks.json"
+
+MACHINE_SURFACE_DENY_REASON = (
+    "machine surface; the CLI writes this — use the matching verb "
+    "(`finding`, `ack`, `import-note`, …)"
+)
+GUARD_FAIL_CLOSED_REASON = (
+    "Machine-surface guard failed closed; resolve the fault before retrying this edit."
+)
 
 
 def _make_hook_vault(vault: Path) -> None:
@@ -60,6 +69,57 @@ def _load_stop_hook():
     hook = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(hook)
     return hook
+
+
+def _load_pretooluse_hook():
+    spec = importlib.util.spec_from_file_location("pretooluse_guard", PRETOOLUSE_HOOK)
+    assert spec is not None
+    assert spec.loader is not None
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+    return hook
+
+
+def _pretooluse_payload(cwd: Path, tool_name: str, **tool_input: object) -> dict:
+    return {
+        "cwd": str(cwd),
+        "hook_event_name": "PreToolUse",
+        "tool_name": tool_name,
+        "tool_input": tool_input,
+    }
+
+
+def _run_pretooluse(cwd: Path, payload: object) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(PRETOOLUSE_HOOK)],
+        cwd=cwd,
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def _pretooluse_deny(result: subprocess.CompletedProcess[str]) -> str:
+    assert result.returncode == 0
+    assert result.stderr == ""
+    output = json.loads(result.stdout)
+    assert set(output) == {"hookSpecificOutput"}
+    specific = output["hookSpecificOutput"]
+    assert set(specific) == {
+        "hookEventName",
+        "permissionDecision",
+        "permissionDecisionReason",
+    }
+    assert specific["hookEventName"] == "PreToolUse"
+    assert specific["permissionDecision"] == "deny"
+    return specific["permissionDecisionReason"]
+
+
+def _assert_pretooluse_allows(result: subprocess.CompletedProcess[str]) -> None:
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
 
 
 def _stop_payload(vault: Path, *, active: bool = False) -> dict:
@@ -441,10 +501,275 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
     assert "UNREACHABLE quote" in context
 
 
+@pytest.mark.parametrize(
+    "relative",
+    [
+        Path("literatures") / "clean.md",
+        Path("literatures") / "nested" / "note.md",
+        Path("log") / "2026-08-16.md",
+        Path("log") / "2026-01-01.md",
+        Path("inbox") / "review-queue.md",
+        Path("system") / "bibliography.json",
+    ],
+)
+def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relative):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / relative
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        Path("synthesis") / "note.md",
+        Path("inbox") / "note.md",
+        Path("projects") / "brief" / "draft.md",
+    ],
+)
+def test_pretooluse_allows_edit_outside_machine_surfaces(fixture_vault, relative):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / relative
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_denies_write_creating_new_log_day_file(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "log" / "2026-01-01.md"
+    assert not target.exists()
+    payload = _pretooluse_payload(
+        fixture_vault, "Write", file_path=str(target), content="- entry\n"
+    )
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_denies_notebookedit_into_literatures(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "literatures" / "notebook.ipynb"
+    payload = _pretooluse_payload(
+        fixture_vault,
+        "NotebookEdit",
+        notebook_path=str(target),
+        cell_id="1",
+        new_source="x",
+        edit_mode="replace",
+    )
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_allows_notebookedit_outside_machine_surfaces(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "synthesis" / "notebook.ipynb"
+    payload = _pretooluse_payload(
+        fixture_vault,
+        "NotebookEdit",
+        notebook_path=str(target),
+        cell_id="1",
+        new_source="x",
+    )
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_resolves_relative_file_path_against_cwd(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    cwd = fixture_vault / "literatures"
+    payload = _pretooluse_payload(cwd, "Edit", file_path="clean.md")
+
+    result = _run_pretooluse(cwd, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_denies_dotdot_traversal_into_machine_surface(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "synthesis" / ".." / "literatures" / "clean.md"
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_denies_symlink_that_resolves_into_machine_surface(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    decoy = fixture_vault / "projects" / "brief" / "decoy.md"
+    decoy.symlink_to(fixture_vault / "literatures" / "smuggled.md")
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(decoy))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_is_silent_outside_a_vault(tmp_path):
+    note = tmp_path / "outside.md"
+    payload = _pretooluse_payload(tmp_path, "Edit", file_path=str(note))
+
+    result = _run_pretooluse(tmp_path, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_marker(
+    tmp_path,
+):
+    """A path that merely looks like `literatures/...` is not enough — the
+    guard requires a real, non-symlinked `.harness` marker above it."""
+    target = tmp_path / "literatures" / "clean.md"
+    payload = _pretooluse_payload(tmp_path, "Edit", file_path=str(target))
+
+    result = _run_pretooluse(tmp_path, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_denies_absolute_target_regardless_of_unrelated_cwd(
+    fixture_vault, tmp_path
+):
+    """A `cd` elsewhere must not defeat the guard: vault detection is anchored
+    on the resolved write target, never on `cwd` — `cwd` only completes a
+    relative candidate path."""
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "literatures" / "clean.md"
+    payload = _pretooluse_payload(tmp_path, "Edit", file_path=str(target))
+
+    result = _run_pretooluse(tmp_path, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_denies_absolute_target_when_cwd_is_missing(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "literatures" / "clean.md"
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
+    del payload["cwd"]
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+def test_pretooluse_allows_relative_target_when_cwd_is_missing(fixture_vault):
+    """A relative candidate with no declared `cwd` must stay unresolved — it
+    must NOT silently fall back to the hook process's own ambient working
+    directory, even though that happens to equal `fixture_vault` here (set
+    via `subprocess.run(cwd=...)`) and even though the relative path,
+    resolved against that ambient directory, would land in a machine
+    surface. Only the payload's own `cwd` field is a trusted anchor."""
+    _make_hook_vault(fixture_vault)
+    payload = _pretooluse_payload(
+        fixture_vault, "Edit", file_path="literatures/clean.md"
+    )
+    del payload["cwd"]
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_is_silent_for_missing_tool_input(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path="clean.md")
+    del payload["tool_input"]
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_is_silent_for_malformed_input(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(PRETOOLUSE_HOOK)],
+        cwd=tmp_path,
+        input="{",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
+
+
+@pytest.mark.parametrize("tool_name", ["Bash", "Read", "Grep"])
+def test_pretooluse_is_silent_for_unmatched_tool_names(fixture_vault, tool_name):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "literatures" / "clean.md"
+    payload = _pretooluse_payload(fixture_vault, tool_name, file_path=str(target))
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_is_silent_for_non_string_file_path(fixture_vault):
+    _make_hook_vault(fixture_vault)
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=1)
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    _assert_pretooluse_allows(result)
+
+
+def test_pretooluse_fails_closed_on_unexpected_exception(
+    fixture_vault, monkeypatch, capsys
+):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / "synthesis" / "clean.md"
+    hook = _load_pretooluse_hook()
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(hook, "_vault_from_target", explode)
+    payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+
+    assert hook.main() == 0
+    output = json.loads(capsys.readouterr().out)
+    assert set(output) == {"hookSpecificOutput"}
+    specific = output["hookSpecificOutput"]
+    assert specific["hookEventName"] == "PreToolUse"
+    assert specific["permissionDecision"] == "deny"
+    assert specific["permissionDecisionReason"] == GUARD_FAIL_CLOSED_REASON
+    assert specific["permissionDecisionReason"] != MACHINE_SURFACE_DENY_REASON
+
+
 def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
     assert json.loads(HOOKS_MANIFEST.read_text()) == {
         "description": "Knowledge-harness verification hooks",
         "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Edit|Write|NotebookEdit",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": (
+                                'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/'
+                                'pretooluse_guard.py"'
+                            ),
+                        }
+                    ],
+                }
+            ],
             "PostToolUse": [
                 {
                     "matcher": "Edit|Write",
@@ -902,6 +1227,7 @@ def test_stop_hook_manifest_commands_execute_from_plugin_path_with_spaces(tmp_pa
     vault.mkdir()
     _make_hook_vault(vault)
     payloads = {
+        "PreToolUse": {},
         "PostToolUse": {},
         "Stop": _stop_payload(vault),
     }
