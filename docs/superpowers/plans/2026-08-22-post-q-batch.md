@@ -177,7 +177,7 @@ def test_cited_citekey_absent_everywhere(tmp_vault): ...     # existing "mismatc
 
 **Files:** Modify: `knowledge_harness/notes.py` (`_split_free`, ~line 141; `render_note`), `knowledge_harness/__main__.py` (`cmd_import_note` catch + review record). Test: `tests/test_notes.py`, `tests/test_import_note.py`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_existing_note_without_marker_refuses_render():
@@ -195,10 +195,10 @@ def test_fresh_note_still_seeds():  # parametrize existing=None AND existing="" 
     #  must be an explicit first-branch catch or fresh renders start crashing)
 ```
 
-- [ ] **Step 2: Run — Expected: FAIL** (marker-less body silently replaced by `SEED_FREE` today, printed as success).
-- [ ] **Step 3: Implement:** `_split_free` distinguishes three cases — `existing` None/empty → `SEED_FREE` (fresh seed); marker found → preserved tail (unchanged); non-empty without marker → raise `RenderIntegrityError("existing note has no managed-close marker — refusing to overwrite the body")`. `cmd_import_note` already routes render rejections to exit 1 + the review record (verify against the import-note skill §1 table: check `render`, UNMATCHED, `schema-violation`); confirm the record actually files, don't assume.
-- [ ] **Step 4:** Never-delete (§5) now covers the free region — add the sentence to the spec §5 invariants line in the same commit.
-- [ ] **Step 5:** Full suite (the byte-exact free-region preservation test stays green); commit `fix: refuse import over a marker-less note — never reseed the free region`.
+- [x] **Step 2: Run — Expected: FAIL** (marker-less body silently replaced by `SEED_FREE` today, printed as success).
+- [x] **Step 3: Implement:** `_split_free` distinguishes three cases — `existing` None/empty → `SEED_FREE` (fresh seed); marker found → preserved tail (unchanged); non-empty without marker → raise `RenderIntegrityError("existing note has no managed-close marker — refusing to overwrite the body")`. `cmd_import_note` already routes render rejections to exit 1 + the review record (verify against the import-note skill §1 table: check `render`, UNMATCHED, `schema-violation`); confirm the record actually files, don't assume.
+- [x] **Step 4:** Never-delete (§5) now covers the free region — add the sentence to the spec §5 invariants line in the same commit.
+- [x] **Step 5:** Full suite (the byte-exact free-region preservation test stays green); commit `fix: refuse import over a marker-less note — never reseed the free region`.
 
 ### Task 12: Duplicate-anchor render assert (item 19, claim-anchor audit)
 

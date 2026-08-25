@@ -5466,3 +5466,132 @@ Task 2e: minor (deferred): synthesis/index.md IS included by the vault find —
   unchanged) but a genuine naming trap for a future editor who remembers
   "index.md is excluded". Destination: recorded here; the comment's "name it
   here explicitly when that happens" is the standing instruction.
+
+Task 2e: closed at b79c632. Task 11: BASE = b79c632, implementer dispatched
+  (sonnet). Six pre-check facts handed over, and THREE OF THEM SHRINK THE TASK
+  rather than complicate it — which is the useful direction for a pre-check:
+   (1) RenderIntegrityError ALREADY EXISTS (notes.py:27, a RuntimeError, already
+       raised at :281). Nothing to create.
+   (2) THE CLI WIRING ALREADY EXISTS. __main__.py:278-296 catches it, prints
+       "render rejected for <citekey>", calls _hold(..., "render", ...,
+       Result.UNMATCHED, _hold_reason("schema-violation", ...)) and returns 1 —
+       EXACTLY the render/UNMATCHED/schema-violation triple Step 3 asks to verify
+       against the import-note skill table. So the work is NOT wiring; it is
+       DEMONSTRATING THE NEW RAISE REACHES THAT HANDLER. Told outright: an exit
+       code of 1 is not evidence a record was written — assert the record's exact
+       check id, result and reason, and the note's byte-identity.
+   (3) _split_free HAS EXACTLY ONE CALLER (notes.py:267). Making it raise cannot
+       break another path — but the implementer must confirm that A SECOND WAY,
+       since an absence claim from one grep is unfalsifiable by that same grep.
+       I am not exempt from my own rule just because the grep was mine.
+  AND THE ONE THAT COULD BREAK FRESH IMPORTS: `"".splitlines()` returns [], so
+  the loop never runs and existing="" REACHES THE SAME FALLTHROUGH as a
+  marker-less note. Harmless today (returns SEED_FREE); the moment the
+  fallthrough raises, "" MUST be caught by an explicit first branch or every
+  render with an empty existing note crashes. A ZERO-BYTE FILE ON DISK IS THE
+  REAL-WORLD SOURCE — this is not a theoretical parametrize case, which is why
+  the brief's Step 1 carries both None and "".
+  ALSO FENCED: SEED_FREE stays "\n## Notes\n" — the ## Summary rename belongs to
+  a later task and would entangle this fix with unrelated churn. And the spec
+  edit target is now :90 (§5 Invariants, normal length after the merge split it
+  out of the mega-line), so the surgical edit is safe here in a way it was not
+  for §10.
+  DISCRIMINATION HAZARD NAMED SPECIFICALLY, because this one is subtle:
+  `pytest.raises(RenderIntegrityError)` ALONE IS WEAK, since that same class is
+  raised at notes.py:281 for a managed-body parse mismatch. A test for the new
+  raise could pass because THE OTHER raise fired. Match on the message and prove
+  the test cannot be satisfied by the wrong exception — the ninth instance of
+  this plan's recurring defect would otherwise be a one-line pytest.raises.
+
+Task 11: implementer DONE (1501d9c + c6eaa06). Suite 1709/7 (= 1705 + 4). ruff,
+  mypy, publish gate clean. `_split_free`'s guard became `if not existing`,
+  catching None AND "" as the fresh-seed case, and the bare fallthrough now
+  raises RenderIntegrityError with the brief's exact message.
+  CONTROLLER PROBED ALL FOUR CASES DIRECTLY, canary asserted, against the code
+  rather than the report:
+      None         -> '\n## Notes\n'
+      empty ''     -> '\n## Notes\n'      <- the hazard case, correctly caught
+      marker-less  -> RAISES "existing note has no managed-close marker —
+                      refusing to overwrite the body"
+      marker present -> 'HUMAN PROSE HERE\n'   (tail verbatim)
+  I ALSO CHECKED THE ONE THING ITS OWN CONCERN LIST WOULD HAVE HIDDEN. The brief
+  named tests/test_import_note.py, which does not exist; the implementer put the
+  integration test in tests/test_cli_live.py instead — AND THAT FILE IS PARTLY
+  ENV-GATED. A test proving the hold fires, parked in a file whose live legs skip
+  offline, would look like coverage and be none. VERIFIED IT RUNS: the test
+  passes in an offline run and total skips stayed at 7, so it is not gated. The
+  placement is cosmetically odd, not functionally wrong.
+  THE WIRING NEEDED NO CODE CHANGE, as the pre-check said it would not — the
+  value of that hand-over was telling the implementer to prove the new raise
+  REACHES the existing handler rather than to build a handler that already
+  existed. It wrote an unmonkeypatched end-to-end test that puts a real
+  marker-less note on disk and asserts exit 1, byte-identical file, and the exact
+  render/UNMATCHED/schema-violation hold.
+Task 11: review dispatched over b79c632..c6eaa06. Told to check the
+  DISCRIMINATION HAZARD FIRST, because it is the one this task was warned about
+  and the one a green suite cannot see: RenderIntegrityError is raised at TWO
+  sites — the new one in _split_free and the pre-existing managed-body parse
+  mismatch at notes.py:281 — so a bare `pytest.raises(RenderIntegrityError)`
+  could pass BECAUSE THE WRONG RAISE FIRED. Required to make the other site fire
+  and confirm each new test still fails.
+  Also required: the five-input behaviour table (None, '', '\n', '   ', 'x'),
+  since `if not existing` treats "\n" as TRUTHY and marker-less — so a note
+  containing only a newline now RAISES, which is either correct or a usability
+  trap and should be decided rather than inherited; a `_hold`-to-no-op mutation
+  proving the end-to-end test would catch a missing record; and a mutation of the
+  marker branch proving the byte-exact preservation test STILL DISCRIMINATES,
+  because a preservation test that has stopped discriminating is worse than none.
+
+Task 11: review returned — SPEC PASS and QUALITY PASS. Review file:
+  task-11-review.md
+  THE DISCRIMINATION HAZARD IS CLOSED IN BOTH MODES, which is the strongest
+  available answer and the reason it was checked first. Both new tests go RED
+  under a DECOY MESSAGE and under FORCING THE OTHER RAISE SITE (notes.py:281) to
+  fire. So neither can pass because the wrong RenderIntegrityError was raised.
+  The mechanism is visible in the test itself: `match=r"^existing note has no
+  managed-close marker — refusing to overwrite the body$"` — ANCHORED at both
+  ends. An unanchored pytest.raises would have been the ninth instance of this
+  plan's recurring defect.
+  THE FIVE-INPUT TABLE, and the ruling it forced: None -> seeds, '' -> seeds,
+  '\n' -> RAISES, '   ' -> RAISES, 'x' -> RAISES. The reviewer judged raising on
+  a whitespace-only note CORRECT, and the reasoning is worth keeping because it
+  is not obvious: `existing` is THE WHOLE FILE FROM DISK, so a one-byte file is
+  NEITHER VALID NOR PROVABLY FRESH — and REFUSAL IS RECOVERABLE WHILE RESEEDING
+  IS NOT. That asymmetry is the whole task in one sentence.
+  ITEM 3 PROVED THE RECORD IS LOAD-BEARING, not incidental: mutating _hold to a
+  no-op leaves exit 1 and stderr UNCHANGED, and the test still goes RED on the
+  record unpacking. So "exit 1" really was insufficient evidence, exactly as the
+  dispatch claimed — and now that claim is measured rather than asserted.
+Task 11: complete (commits b79c632..c6eaa06 — 1501d9c, c6eaa06 — review clean,
+  NO fix round, 1 finding routed). Ticked below: 5 boxes; 94 checked /
+  18 unchecked. Suite 1709/7; publish gate exit 0.
+  FIRST TASK OF THIS BATCH TO PASS BOTH VERDICTS WITH NO FIX ROUND. Worth naming
+  what was different: three of the six pre-check facts SHRANK the task —
+  RenderIntegrityError already existed, the CLI wiring already filed the exact
+  record, and _split_free had exactly one caller — so the implementer spent its
+  effort on PROVING REACHABILITY rather than building infrastructure that was
+  already there. The pre-check did not make the work easier; it made the work be
+  the right work.
+Task 11: finding ROUTED, not deferred: tests/test_notes.py:355's
+  test_free_region_byte_exact is PRE-EXISTING and uses `endswith`, not equality —
+  A TEST NAMED "BYTE EXACT" THAT CHECKS A SUFFIX. Two mutations of _split_free's
+  marker branch stay GREEN: returning existing[offset:] (duplicating the full
+  marker line into the preserved tail) and an exact 1-char over-trim (masked by a
+  coincidental adjacent newline). A 2-char over-trim does go red, so it is not
+  inert — it just checks less than its name promises.
+  THAT MATTERS MORE THAN AN ORDINARY LOOSE ASSERTION because it is THE
+  PRESERVATION TEST FOR THE FREE REGION — the human-owned bytes whose destruction
+  this very task exists to prevent. The guard over the thing we just fixed was
+  weaker than its name claimed.
+  Destination: commented on GitHub issue #22 with both mutations, the fix
+  (`==` against the full expected render), and WHY IT WAS NOT DONE HERE —
+  pre-existing, and strengthening a test inside a surgical data-loss fix mixes
+  two changes. Also flagged in the comment that it is ADJACENT to #22's stated
+  scope (reason strings), so the issue can be retitled or split rather than
+  silently widened.
+Task 11: info (no action): the new integration test lives in
+  tests/test_cli_live.py because the brief's named tests/test_import_note.py does
+  not exist. Locally consistent with its siblings, misleading to a fresh reader
+  given the "live" in the filename. Verified BY ME that it actually runs offline
+  (passes in an offline run; total skips stayed at 7), which was the thing that
+  would have made it coverage-shaped and empty. Rename is a separate task.
