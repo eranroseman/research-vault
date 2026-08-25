@@ -5114,3 +5114,196 @@ Task 20: minor (deferred): mutation-baseline.txt and checks.py.manifest.json are
 Task 20: minor (deferred): 10 pre-existing ruff errors in
   skills/find-sources/scripts/paginate.py, confirmed unchanged by this diff.
   Destination: Task 2e Step 1, which owns the vendored-fork exclusion.
+
+Task 2e: BASE = 57fabf3. Implementer dispatched (sonnet). Proceeding 2e -> 11 ->
+  12 while Task 13's consent is relayed to the author; 21 held until 13 resolves
+  or the author rules on ordering.
+  THE DISPATCH CARRIES A RULING AND FOUR PRE-CHECK FINDINGS. The ruling was made
+  earlier in this run and is reproduced whole rather than summarised, because its
+  VALUE IS THE CRITERION AND A SUMMARY WOULD KEEP ONLY THE OUTCOME:
+   - Step 2 executed as written SHIPS A BROKEN VAULT. mdformat escapes every
+     Obsidian wikilink in index.md — `[[literatures/]]` -> `\[[literatures/]\]`,
+     `![[system/bases/trust-tier.base]]` -> `!\[[...]\]` — killing all six folder
+     links and both Base embeds in a file that ships VERBATIM into every user
+     vault. The other four changed files are blank lines only.
+   - AUTHOR RULING: THE CRITERION IS DIALECT OWNERSHIP, NOT A FILENAME LIST.
+     Vault-dialect markdown belongs to its SOLE WRITER, not to mdformat, whose
+     jurisdiction is CommonMark. index.md is excluded not for its name but
+     because a CommonMark formatter corrupts it BY DEFINITION — "not an exception
+     to the rule, a different owner". AN EXCEPTION LIST GROWS BY FILENAMES; AN
+     OWNERSHIP BOUNDARY DOES NOT GROW AT ALL.
+  FOUR CONTROLLER FINDINGS BEYOND THE RULING:
+   (1) Step 4's upgrade-protocol comment must name ALL THREE `%%`-bearing files —
+       literature.md, system/glossary.md AND AGENTS.md — not just literature.md
+       as the author's rider had it. A protocol watching one of three would miss
+       the drift two times in three.
+   (2) AN UNENFORCED MIRROR, and it is a form-gate coherence defect in its own
+       right: tests/test_config_validity.py:426-427's _MDFORMAT_ROOTS carries a
+       comment saying it matches the pre-commit hook, and NO TEST ASSERTS THAT.
+       Adding a path to the hook and forgetting the constant desyncs them
+       SILENTLY and the table-truncation test simply stops covering the new
+       files. Updating both is required; adding the enforcement is a judgment
+       call the implementer must DECIDE AND REPORT EITHER WAY rather than leave
+       unmentioned.
+   (3) The `.superpowers/` collision this run created, with the settled
+       three-point framing so a coherence check does not rediscover it as a
+       defect: deliberately unowned; grandfathered files stay tracked while
+       future content is ignored at the root; and the nested `*` .gitignore is
+       EXPECTED DUPLICATION, with the ROOT entry as the single source of truth.
+   (4) A HAZARD INSIDE STEP 5'S OWN INSTRUCTION. Step 5 requires `pre-commit run
+       --all-files` green while Step 3 correctly says pre-commit's stash/restore
+       is the interference the pathspec rule guards against. Both are true, and
+       THE STASH STACK IS SHARED ACROSS EVERY CHECKOUT OF THIS REPO — a stash
+       pushed here can be popped elsewhere. Mitigation given: run it ONLY with a
+       clean working tree, commit first, never leave unstaged work in the tree
+       while pre-commit runs.
+  AND THE DISPATCH REQUIRES THE DRY-RUNS RE-RUN RATHER THAN TRUSTED — per file,
+  reporting whether each changes and how, with an instruction to STOP AND REPORT
+  if index.md does NOT escape wikilinks on its run. A pre-check that becomes a
+  fact the implementer inherits unexamined is just a longer game of telephone.
+  Also required: prove the swallowed-git-error behaviour BEFORE fixing it, since
+  a fix to a swallowed error is only demonstrated by inducing the error.
+
+Task 2e: implementer DONE — THREE commits (5c640d5 Step 2 as its own
+  render-contract event; 212d135 Steps 1/3/4 with the brief's exact message;
+  01e2a96 the report). Suite 1714/7 (= 1704 + 9 table-truncation cases over the
+  newly gated vault files + 1 mirror test, PREDICTED IN ADVANCE and matched
+  exactly). ruff, mypy, pyproject-fmt round-trip, yamlfix --check and the publish
+  gate all clean; `pre-commit run --all-files` on a porcelain-clean tree: 8/8
+  hooks, ZERO files modified.
+  IT RESPECTED THE SHARED-STASH HAZARD AND FOUND A BETTER MOVE THAN THE ONE I
+  GAVE IT: to get a genuinely clean tree for the pre-commit run it parked
+  progress.md by CHECKSUMMED COPY + `git checkout --`, never `git stash`, and
+  restored it checksum-exact. My instruction was "commit first"; its method also
+  works when the file is not yours to commit.
+  IT ALSO CHECKED WHETHER THE UPSTREAM NOTE WAS ALREADY FILED rather than filing
+  a second one — jats_to_text.py:291 was already recorded at ebea360, an ancestor
+  of HEAD. That is the duplicate-filing failure avoided by looking.
+Task 2e: THE CENTRAL REVIEW QUESTION IS ONE I FOUND IN THE DIFF, not in the
+  report. The ruling said THE CRITERION IS DIALECT OWNERSHIP, NOT A FILENAME
+  LIST, with the reason that "an exception list grows by filenames; an ownership
+  boundary does not grow at all". The shipped shape is AN INCLUSION LIST —
+  mdformat's entry now enumerates .../vault/AGENTS.md, .../vault/inbox,
+  .../vault/log.md, .../vault/synthesis, .../vault/system, omitting index.md by
+  NOT LISTING IT.
+  THAT IS THE SAME FAILURE MODE INVERTED, and it drifts in BOTH directions: a new
+  DIALECT-BEARING template under .../vault/system/ would be SILENTLY FORMATTED
+  (and possibly corrupted), while a new CommonMark template at vault root would
+  be SILENTLY UNFORMATTED.
+  BUT I ESTABLISHED THE CONSTRAINT BEFORE CALLING IT A DEFECT: mdformat 1.0.0 HAS
+  NO `--exclude` OPTION (checked --help: only --check --no-validate --version
+  --number --wrap --end-of-line --extensions --codeformatters --compact-tables).
+  So "this directory except that one file" CANNOT BE EXPRESSED by the tool with a
+  bare invocation, and the enumeration may be forced rather than careless.
+  WHICH TURNS THE FINDING INTO A DIFFERENT ONE: if the shape is forced by a tool
+  limitation, THE COMMENT MUST SAY SO. As written it explains why index.md is out
+  and not why the shape is an inclusion list — so a future reader meets what
+  looks like a deliberate ownership boundary and is actually a workaround. The
+  review is asked to construct BOTH drift cases against the shipped entry, to
+  report what mechanisms it actually tried (pre-commit files:/exclude: with
+  pass_filenames:false, .mdformat.toml, a wrapper), and to judge the comment on
+  that basis rather than on mine.
+Task 2e: review dispatched over 57fabf3..01e2a96 on the most capable model —
+  Step 2 is a RENDER-CONTRACT EVENT and these templates ship VERBATIM into every
+  user vault, so a formatting decision here reaches real users' files.
+  Also required: reproduce BOTH HALVES of the swallowed-git-error fix by inducing
+  the error; prove the new _MDFORMAT_ROOTS mirror test DISCRIMINATES in both
+  directions, since a mirror test that compares a hardcoded pair to each other
+  proves nothing; and verify the report's sharpest concern — that mdformat's
+  `skills` root ALREADY REWRITES the vendored skills/find-sources/references/*.md,
+  which would be a LIVE CONTRADICTION OF THE VENDOR RULE discovered while making
+  the vendor exclusion explicit.
+
+Task 2e: review returned — SPEC PASS WITH ONE MATERIAL DEVIATION, QUALITY PASS
+  WITH FINDINGS. 2 HIGH, 6 MEDIUM, 3 LOW. Suite 1714/7 confirmed.
+### THE REVIEW CORRECTED ME, AND THE CORRECTION CHANGES THE FINDING
+  I told the reviewer — and recorded here — that mdformat 1.0.0 HAS NO
+  `--exclude` OPTION, based on `--help`. WRONG. _cli.py gates it:
+  `if sys.version_info >= (3, 13)`. The venv is Python 3.12.3, so the flag EXISTS
+  but is INERT, and a .mdformat.toml `exclude` errors with "only available on
+  Python 3.13+". I VERIFIED THIS MYSELF against the installed source after the
+  reviewer said so.
+  SO THE CONSTRAINT IS THE PYTHON VERSION, NOT THE TOOL — and that changes what
+  the finding is. The inclusion-list shape is not forced forever; it is A
+  WORKAROUND WITH A KNOWN EXPIRY, and nothing in the config says so. A future
+  reader on 3.13 would have no reason to revisit it.
+  THE FAILURE WAS MINE AND IT IS THE FAMILIAR ONE: I read a TOOL'S
+  SELF-DESCRIPTION instead of its SOURCE. `--help` does not list a
+  conditionally-registered flag, and I treated its silence as absence — an
+  absence claim from an instrument that cannot see the thing. Same shape as the
+  `tail -15` near-miss and the /tmp import trap: the instrument was wrong, not
+  the world.
+Task 2e: HIGH 1 — THE COMMENT ASSERTS A SAFETY PROPERTY THE CODE DOES NOT HAVE.
+  It claims "the next dialect-bearing template excludes itself by the same rule,
+  not by incident". It does not: `vault/system` is a DIRECTORY in the inclusion
+  list, so a new vault/system/newnote.md carrying wikilinks is SILENTLY ESCAPED,
+  exit 0, no warning — demonstrated by construction, not argued. Drift the other
+  way too: a new vault/rootnote.md is silently UNGATED.
+  A comment asserting a safety property the code lacks is WORSE THAN NO COMMENT,
+  because it answers the question a reader would otherwise go and check.
+  Mechanism decided at controller level (not a governed surface): the reviewer
+  tested a `find ... -not -path .../index.md` form yielding exactly the right 9
+  files today, which makes the boundary REAL rather than DOCUMENTED and closes
+  the omission drift as well; the comment then records the 3.13 expiry.
+Task 2e: HIGH 2 — A REALISED VENDOR-RULE VIOLATION, ALREADY LANDED, ROUTED FOR
+  RULING. CONTROLLER VERIFIED: commit ce0f1e3 REFORMATTED EIGHT FILES INSIDE THE
+  FROZEN FORK — arxiv.md, biorxiv.md, core.md, crossref.md, europepmc.md,
+  medrxiv.md, openalex.md and SKILL.md — and `mdformat --check` on that directory
+  now EXITS 0, meaning the fork sits in OUR canonical form and the gate keeps it
+  there.
+  So Task 2e made the vendor exclusion explicit FOR PYTHON while markdown in the
+  SAME FORK stays gated, and the rule at .pre-commit-config.yaml:15-18 — "re-vendor
+  to update; running our formatter over it would create vendor drift" — is
+  ALREADY VIOLATED BY THE CONFIG IT SITS IN. Found while making the vendor
+  exclusion explicit, which is the audit finding its own subject.
+  RECOMMENDED SPLIT: 2e absorbs the EXCLUSION (stop the bleeding — a gate
+  ENFORCING a rule's violation is worse than the churn already landed), and the
+  RESTORATION routes to the re-vendor, since only re-vendoring returns upstream
+  form. Excluding does not undo ce0f1e3.
+Task 2e: PROCESS NOTE, and it needs tightening rather than praise. To get a
+  porcelain-clean tree the implementer ran `git checkout --` ON THE CONTROLLER'S
+  UNCOMMITTED progress.md, after taking a checksummed copy, and restored it
+  exactly. It worked, and the checksum proves it. BUT THE CORRECT MOVE WAS TO
+  REPORT THE PRECONDITION AS UNMEETABLE — reaching into another agent's
+  uncommitted file is not made safe by getting the restore right, and the next
+  one may not. Going into the dispatch template.
+Task 2e: the mirror test DISCRIMINATES BOTH WAYS (hook-only mutation red at :482,
+  constant-only red at :481, restored green) and reads the real config — so the
+  unenforced mirror I flagged is now genuinely enforced, not merely paired.
+
+Task 2e: ALL FOUR ITEMS RULED (orchestrator, 2026-08-25); fix round 1/5
+  dispatched.
+  (1) THE VENDOR VIOLATION: 2e ABSORBS THE EXCLUSION for
+      skills/find-sources/references — "same finding one file type over, so
+      Step 1's own reasoning covers it: A CORRECTION, NOT SCOPE CREEP", and A
+      GATE THAT ACTIVELY ENFORCES A RULE'S VIOLATION IS WORSE THAN ANY TIDINESS
+      ARGUMENT FOR DEFERRING. RESTORATION IS ROUTED to GitHub issue #24, verified
+      OPEN by me before citing it — "Re-vendor skills/find-sources/references —
+      mdformat canonicalized the frozen fork" — which also absorbs the
+      disposition-sweep re-vendor checklist so both land in one motion.
+      ce0f1e3's churn STAYS until then, and the report must SAY SO rather than
+      let the exclusion read as a fix.
+  (2) MECHANISM: mine, no objection — the `find ... -not -path .../index.md`
+      shape, PAIRED WITH a comment recording the PYTHON-3.13 EXPIRY of the
+      inclusion-list workaround, per my own correction.
+  (3) PROCESS: the dispatch template tightens AND IT IS NOW REPO POLICY —
+      AGENTS.md (3d6ad73 on main): "never revert or restore another session's
+      uncommitted files, report the precondition as unmeetable instead". The
+      orchestrator's line on it is the right frame: THE CHECKSUMMED RESTORE
+      WORKED; THE NEXT ONE IS THE ONE THE RULE EXISTS FOR.
+  (4) COMMENT-TRUTH AND STALENESS to the fix round, with the doctrine named
+      explicitly: "a comment asserting a safety property the code lacks is worse
+      than no comment" IS THE REPO'S CLAIM-VS-REALITY DOCTRINE APPLIED TO
+      COMMENTS — WEAKEN THE CLAIM OR STRENGTHEN REALITY, EXPLICITLY ONE OR THE
+      OTHER, NEVER SOFTEN WORDING INTO AMBIGUITY. The fix strengthens reality:
+      the find-form makes the boundary real instead of described.
+  ON MY OWN ERROR, and the orchestrator's framing of it is worth keeping:
+  reading `--help` instead of `_cli.py` "goes on the same ledger as my
+  preamble-bullet instruction; THE CATALOGUE GROWS EVENLY". Both of us have now
+  had an instruction corrected by the thing it described — which is the point of
+  keeping the catalogue rather than keeping score.
+  The dispatch also told the implementer what NOT to touch, because a fix round
+  that disturbs verified work costs more than it fixes: the whitespace-only
+  canonicalization, index.md's unescaped byte-pin, the pins moving with their
+  bytes, the both-directions swallowed-error proof, and the mirror test that
+  discriminates BOTH WAYS against the real config.
