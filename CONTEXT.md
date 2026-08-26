@@ -21,6 +21,12 @@ _Avoid_: source note, paper note, reference note
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 _Avoid_: effort, draft folder
 
+**Analysis**: The evidence-guided reasoning within a project that answers its framed question.
+_Avoid_: report (that is the deliverable carrying the analysis)
+
+**Report**: A bounded, shareable project deliverable that presents an analysis and its traceable evidence; length does not define it.
+_Avoid_: short form, analysis (that is the reasoning the report carries)
+
 **Inbox**: Fleeting captures and the review queue (`inbox/`); never an admission path for citable sources.
 _Avoid_: `+`, capture folder
 
