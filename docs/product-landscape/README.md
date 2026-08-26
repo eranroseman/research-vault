@@ -44,3 +44,11 @@ our projects has measured one. And the ownership calculus **inverts between code
 (adoption plan §3.2): a code fork is cheap to hold because tests keep it still, while a skill is
 prose with no test that catches drift — so third-party skills are worth more than third-party
 libraries, and writing one should need a reason.
+
+**The build-versus-adopt binary is itself false** (adoption plan §1.2): what decides a candidate is
+a per-candidate instrument — a pinned-commit inventory, a licence and coupling test, a pilot on real
+data where behavior is what is being bought — not a standing preference for either side. Adoption is
+carried, not copied: vendored code keeps a provenance header and pinned SHA (§2.2), and stacking more
+than one adopted piece needs a maintained bridge at their collision points (coding-companion-plugins
+comparison, "The bridge"). Build custom only the trust core — the differentiator itself (§1.3) — and
+the gaps that same instrument measures.
