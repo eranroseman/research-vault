@@ -178,6 +178,14 @@ implemented now)
 Everything open from this arc — the comparison, its validation, and both rethink audits — in one
 place, each with its destination and trigger. This register is the record; no item is landed.
 
+**Program note (2026-08-26):** the companion-plugin program is now ticketed — #56–#65 on this
+tracker, tracer bullets with native blocking edges (design decisions in #58, human-gated). It
+absorbs items 1 and 3 below (the bridge rule and the update ritual ship inside the companion,
+#61/#63), evolves item 13's residual (the archive's off-machine story rides the companion's
+intent-repo shape, #64), and carries the kh CLI-skill/item-8 decision as #65 (post-slice). The
+speckit-superpowers-bridge model, the skillOverrides retirement, and the harness-backup
+dissolution are recorded in the tickets, which are the program's source of truth from here.
+
 **From the layering rethink audit:**
 
 1. **The bridge rule** — one line in `docs/agents/issue-tracker.md`: a `ready-for-agent` issue IS
