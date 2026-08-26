@@ -178,13 +178,17 @@ implemented now)
 Everything open from this arc — the comparison, its validation, and both rethink audits — in one
 place, each with its destination and trigger. This register is the record; no item is landed.
 
-**Program note (2026-08-26):** the companion-plugin program is now ticketed — #56–#65 on this
-tracker, tracer bullets with native blocking edges (design decisions in #58, human-gated). It
-absorbs items 1 and 3 below (the bridge rule and the update ritual ship inside the companion,
-#61/#63), evolves item 13's residual (the archive's off-machine story rides the companion's
-intent-repo shape, #64), and carries the kh CLI-skill/item-8 decision as #65 (post-slice). The
-speckit-superpowers-bridge model, the skillOverrides retirement, and the harness-backup
-dissolution are recorded in the tickets, which are the program's source of truth from here.
+**Program note (2026-08-26):** the companion-plugin program is now charted in
+[Programming companion plugin — wayfinder map](https://github.com/eranroseman/knowledge-harness/issues/53).
+Its children carry the inventory, bridge research, human design gate, tracer-bullet build,
+routing, setup, drift detection, and harness-backup retirement through native blocking edges.
+The program absorbs items 1 and 3 below, and evolves item 13's residual by moving the archive's
+off-machine story into the companion's intent-repository shape. The
+[kh: CLI reference skill](https://github.com/eranroseman/knowledge-harness/issues/65) remains a
+cross-map, post-slice record under
+[Disposition the complete post-slice improvement queue](https://github.com/eranroseman/knowledge-harness/issues/45),
+not a companion child. The bridge model, skillOverrides retirement, and harness-backup
+dissolution live in the map's tickets, which are the program's source of truth from here.
 
 **From the layering rethink audit:**
 
