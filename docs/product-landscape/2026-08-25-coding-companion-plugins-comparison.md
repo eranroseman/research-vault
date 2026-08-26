@@ -294,6 +294,54 @@ registered in Plan W.
    conditions, word hygiene, dispute adjudication, the seat's own error ledger), material for
    whenever the orchestration layer gets a real home.
 
+## Cross-check against harness-backup (2026-08-25)
+
+New instrument: `eranroseman/harness-backup`, the repo that versions the five
+authored config files this note discusses (`CLAUDE.md`, `settings.json`, the
+Codex mirrors, `.skill-lock.json`) plus a weekly drift detector. Read verbatim
+(README, `bin/harness-drift-check.py`, recent commits, current
+`config.toml`/`.skill-lock.json`).
+
+Confirms three claims already made here, corrects one framing, and partially
+closes one open recommendation:
+
+- **Confirmed — item 13 landed and is durable.** `cleanupPeriodDays: 3650` is
+  in harness-backup's `settings.json` copy as of commit `a1ecdfa`
+  (2026-08-25T21:10:31Z): the transcript-preservation change isn't only live
+  locally, it's backed up.
+- **Confirmed — the Task-reports rule's three revisions (Validation §4).**
+  Commits `964d574`/`adfdd99`/`fac519d` (2026-08-24) are exactly the
+  write-time-destinations + disposition-gated-workspace-close rewrite that
+  validation item describes; the live `CLAUDE.md` text matches the
+  post-rewrite version verbatim.
+- **Confirmed — the `skillOverrides` grilling precedent is standing
+  infrastructure, not a one-off.** harness-backup's `settings.json` carries
+  `"skillOverrides": {"grilling": "name-only"}`, and its README documents the
+  same symlink-vs-copy split this note leans on in "Why not the inverse
+  hybrid."
+- **Correction — superpowers' upstream isn't marketplace-tracked like the
+  others.** `codex/config.toml`'s `[marketplaces.superpowers-dev]` has
+  `source_type = "local"` and no `last_revision` field, unlike
+  `caveman`/`obsidian-skills`/`jrjsmrtn-skills`, which all pin a revision hash.
+  Frictions §2's "fast upstream with silent overwrite on update" framing
+  assumed marketplace-style tracking; superpowers is actually a local dev
+  checkout the owner pulls by hand.
+- **Partially closes recommendation item 3.** `bin/harness-drift-check.py`
+  (added 2026-08-19, predates this note) already runs weekly, `git ls-remote`s every marketplace clone under
+  `~/.claude/plugins/marketplaces/` — superpowers-dev included, since it's a
+  real git checkout regardless of its `local` config label — and files one
+  standing issue (unlabeled, to `eranroseman/memoria-vault`, not this repo's
+  own tracker) when local lags remote. That's the detection half of "review
+  before accepting" already running symmetrically for both packs. What it does
+  *not* do: diff mattpocock's `.skill-lock.json` content hashes against
+  upstream `mattpocock/skills` before an `npx skills update` is accepted —
+  the hash-diff review step item 3 names is still undocumented and still
+  open.
+
+Doesn't change the verdict: harness-backup is infrastructure for the config
+layer this note already assigns to mattpocock/the bridge, not a third
+coding-companion candidate.
+
 ## Verdict history
 
 Three same-day passes, each named by its instrument; the corrections are the record of what each
