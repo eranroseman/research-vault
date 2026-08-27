@@ -37,7 +37,10 @@ repos:
       # --number is part of the canonical form, every invocation including --check:
       # this markdown is read RAW by agents and carries numeric cross-references;
       # mdformat's default collapses ordered lists to all `1.`, so "item 6" would
-      # point at nothing. research/ and sources/ are excluded: immutable records.
+      # point at nothing. research/ and sources/ are excluded for churn, not doctrine —
+      # reformatting dozens of landed notes buries real diffs. No record in this
+      # repo is immutable: wrong records get corrected, dated. Some acts need
+      # human approval; none are forbidden.
       # skills/find-sources/references is excluded too: a frozen vendored fork,
       # same reasoning as the ruff vendor-exclusion comment above, one file type
       # over. ce0f1e3 already reformatted all eleven of its files before this
@@ -94,23 +97,6 @@ repos:
         name: "lint: json canonical + skill frontmatter (suite)"
         language: system
         entry: bash -c 'python -m pytest tests/test_config_validity.py -q'
-        pass_filenames: false
-        always_run: true
-      # Record paths are append-only: modification/rename/deletion against
-      # origin/main fails here. docs/superpowers/plans/ is deliberately OUT —
-      # in-flight plans are amended routinely and --diff-filter=MRD would fail
-      # every checkbox tick.
-      - id: record-immutability
-        name: "records: append-only under research/adr"
-        language: system
-        entry: bash -c 'git rev-parse --verify --quiet origin/main >/dev/null ||
-          { echo "origin/main is not fetched; cannot check record immutability"; exit 1; };
-          touched=$(git diff --name-status --diff-filter=MRD origin/main...HEAD --
-          research docs/adr) ||
-          { echo "git diff failed while checking record immutability"; exit 1; };
-          [ -z "$touched" ] ||
-          { echo "record paths are append-only; these were modified/renamed/deleted:";
-          echo "$touched"; exit 1; }'
         pass_filenames: false
         always_run: true
       # Manual stage: binary tools not required locally; CI runs them.

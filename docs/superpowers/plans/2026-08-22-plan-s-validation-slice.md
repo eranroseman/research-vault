@@ -35,12 +35,6 @@
 
 Seed admission is no longer up-front: the library holds scholarly sources only. The classification ledger is a CANDIDATE list, not a manifest (findings 11–12): migration re-authors each record under evidence-conventions, every claim faces vault-grade sourcing judgment, and only surviving citations admit (RIS pipeline, scoped per note). The three `sources/` PDFs admit now (scholarly; the author kept them). Phase 1's zero-unresolved-links criterion is evaluated per migrated note.
 
-### Original phase text (superseded)
-
-- [ ] Admit this repo's research corpus into Zotero: the web sources under `research/` (~40 cited URLs), the `sources/` PDFs. **This is the corpus-to-vault migration the release gate names** — PDFs go to Zotero storage (§2 boundary), not the vault.
-- [ ] `import-source` in batch mode over the admitted set → literature notes, index, log; live hold policy exercised on the one known live contradiction.
-- [ ] Validated-when check: seed migration lands with **zero unresolved links**. Record every hold and its reason code.
-
 ## Phase 2–3 — Framing, gap analysis, acquisition
 
 - [x] **Question selected (2026-08-22): `trust-gates-prior-art`** — the most decision-relevant workshop question, re-asked under the harness; `research/prior-art/trust-gates-prior-art.md` is the loose-process baseline. Then `project-flow` start: frame it — question / scope / source types / success criteria — knowing the original loose-process answer exists as the baseline; the deliverable is the rigorous re-answer plus the delta.
