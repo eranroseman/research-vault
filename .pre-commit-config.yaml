@@ -37,13 +37,8 @@ repos:
       # --number is part of the canonical form, every invocation including --check:
       # this markdown is read RAW by agents and carries numeric cross-references;
       # mdformat's default collapses ordered lists to all `1.`, so "item 6" would
-      # point at nothing. research/ and sources/ are excluded for churn: reformatting
-      # dozens of landed notes buries real diffs.
-      # skills/find-sources/references is excluded too: a frozen vendored fork,
-      # same reasoning as the ruff vendor-exclusion comment above, one file type
-      # over. ce0f1e3 already reformatted all eleven of its files before this
-      # exclusion existed; this stops it recurring but does NOT undo that churn
-      # -- restoring upstream bytes needs a re-vendor (GitHub issue #24).
+      # point at nothing. research/ and sources/ are excluded: reformat churn.
+      # skills/find-sources/references is a vendored fork — re-vendor to update (#24).
       # Vault-dialect templates (wikilinks, managed-region markers, Base embeds)
       # belong to their sole writer, not the CommonMark owner: every file under
       # knowledge_harness/templates/vault is mdformat's except vault/index.md,
