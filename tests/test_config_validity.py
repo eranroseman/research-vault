@@ -31,9 +31,9 @@ from knowledge_harness import frontmatter, inbox
 ROOT = Path(__file__).resolve().parents[1]
 
 # The repo's own JSON manifests, and only those. Deliberately NOT globbed:
-# `research/` JSON is immutable records (AGENTS.md history rule), `.vscode/*.json`
-# is JSONC — a dialect VS Code owns — and a vault's `system/bibliography.json`
-# is BBT-owned, outside every repo formatter.
+# `research/` JSON is source material outside this formatter's managed surface,
+# `.vscode/*.json` is JSONC — a dialect VS Code owns — and a vault's
+# `system/bibliography.json` is BBT-owned, outside every repo formatter.
 JSON_MANIFESTS = [
     "hooks/hooks.json",
     ".claude-plugin/plugin.json",

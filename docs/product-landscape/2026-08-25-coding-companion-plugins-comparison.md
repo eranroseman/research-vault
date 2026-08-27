@@ -228,22 +228,17 @@ dissolution live in the map's tickets, which are the program's source of truth f
 11. **The Plan W tracker-mediation pilot** — one controller ruling routed through an issue
     comment, round-trip measured; registered in Plan W's dispatch notes; exercises the bridge
     rule's path.
-12. **The record-immutability gate fix (#28)** — full-history protection plus a recognized
-    dated-amendment shape; post-slice design.
 
 **From the process-reconstruction arc:**
 
-13. **Transcript preservation** — EXECUTED 2026-08-25: auto-deletion stopped
-    (`cleanupPeriodDays: 3650`), all 63 sessions snapshotted into a private local archive repo
-    (`~/knowledge-harness-transcripts`, e45c976), fixity manifest in this repo at
-    `research/raw/2026-08-25-transcript-archive-manifest.md` — process claims cite session id +
-    SHA-256; bytes never enter this publication-intended repo's history. Residual, author's
-    choice: an off-machine home for the archive (private remote or second disk) — it is still a
-    single-machine copy.
-14. **Workload 2 framed as a methods replication** — the template applied to a different domain
+12. **Transcript mining and disposal (#68)** — the one-time 63-session export is intentionally
+    tracked under `research/raw/knowledge-harness-transcripts/` as the private repository backup
+    while it is mined. The redundant external clone is discarded; after relevant findings are
+    recorded in their durable homes, the raw export is discarded too.
+13. **Workload 2 framed as a methods replication** — the template applied to a different domain
     with divergences recorded is the paper's external-validity evidence, free if framed before
     that build starts.
-15. **The controller-protocol formalization trigger** — decidable at a second controller-shaped
+14. **The controller-protocol formalization trigger** — decidable at a second controller-shaped
     session's independent record (converge → promote the seams; diverge → name what was
     circumstantial). Concretized in the material note; nothing to do until the trigger fires.
 
