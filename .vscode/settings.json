@@ -1,4 +1,4 @@
-// One form-owner per type (research/rethink-audits/2026-08-21-lint-format-rethink.md):
+// One form-owner per type (docs/research/rethink-audits/2026-08-21-lint-format-rethink.md):
 // the IDE never fights the owners. Python alone formats on save, via the same pinned ruff.
 {
   "editor.formatOnSave": false,

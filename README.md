@@ -113,7 +113,7 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 
 ## Planning
 
-The foundation was planned on a wayfinder map (issue #1, closed 2026-08-16, label `wayfinder:map`); current sequencing lives in the active plan under `docs/superpowers/plans/`, with the issue tracker holding the work queue. `research/harness-audits/dev-harness-analysis.md` is the anatomy of the software-dev harness this re-imagines.
+The foundation was planned on a wayfinder map (issue #1, closed 2026-08-16, label `wayfinder:map`); current sequencing lives in the active plan under `docs/superpowers/plans/`, with the issue tracker holding the work queue. `docs/research/harness-audits/dev-harness-analysis.md` is the anatomy of the software-dev harness this re-imagines.
 
 ## Development
 

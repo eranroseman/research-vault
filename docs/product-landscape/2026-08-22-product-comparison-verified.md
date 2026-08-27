@@ -26,11 +26,11 @@ ______________________________________________________________________
 
 ## 1. Method and evidence rule
 
-The roster began with the products named in `research/prior-art/prior-art-knowledge-work-harness.md` and
-`research/prior-art/llm-wiki-integration-prior-art.md` — **names and URLs only**. Four things extended it:
+The roster began with the products named in `docs/research/prior-art/prior-art-knowledge-work-harness.md` and
+`docs/research/prior-art/llm-wiki-integration-prior-art.md` — **names and URLs only**. Four things extended it:
 30 GitHub searches across academic skills, LLM-wiki implementations, citation verification, Zotero
 bridges, systematic-review automation and second-brain harnesses; two skill frameworks the user
-named; the external tooling and standards this repository's own `research/` and `analysis/` notes
+named; the external tooling and standards this repository's own `docs/research/` and `analysis/` notes
 cite; and the two repositories those notes left unread.
 
 No mechanism claim, capability claim, star count, license or verdict was carried over from any
@@ -1096,7 +1096,7 @@ Neither obra/superpowers nor mattpocock/skills is a domain competitor: neither t
 citations, Zotero or a research vault. They are comparable at the layer *below* the domain — how a
 skill set is packaged, invoked, governed and tested — and both are in practice this repository's
 process substrate rather than its rivals. `mattpocock/skills` ships the `research` skill whose
-procedure produced this repo's `research/` notes, and the `wayfinder` method its README names as
+procedure produced this repo's `docs/research/` notes, and the `wayfinder` method its README names as
 where planning happens.
 
 |                                                 | obra/superpowers                         | mattpocock/skills                | knowledge-harness                   |

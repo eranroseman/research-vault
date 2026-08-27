@@ -18,10 +18,10 @@ The pilot (report: /home/eranr/kh-mutmut-pilot-report.md; mutmut 3.7.0) measured
 
 ### Task 23: Ruling record + shims land with provenance
 
-**Files:** Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§10 mutate4py exit-rule entry). Create: `scripts/mutmut_shims/sitecustomize.py`, `scripts/mutmut_shims/run_mutmut.py` (the launcher), `research/2026-08-23-mutmut-defect-reports.md`.
+**Files:** Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§10 mutate4py exit-rule entry). Create: `scripts/mutmut_shims/sitecustomize.py`, `scripts/mutmut_shims/run_mutmut.py` (the launcher), `docs/research/2026-08-23-mutmut-defect-reports.md`.
 
 - [ ] **Step 1:** Spec §10 amendment appended to the exit-rule entry: *"CLOSED EARLY by author ruling 2026-08-23 on the landed pilot (its pre-registered method ran; report banked): switch to mutmut 3.7.0. The upstream-responsiveness branch is superseded — the pilot showed complete coverage where the pin had a 23% hole over trust-core modules; the mutate4py upstream reports remain queued for filing as citizenship."*
-- [ ] **Step 2:** Copy both shim files VERBATIM from the pilot report into `scripts/mutmut_shims/`, each with a header comment naming the upstream defect it works around and the report as provenance. Draft the two mutmut upstream defect reports (config-at-import; node-id re-escaping) into `research/2026-08-23-mutmut-defect-reports.md` — ready-to-file, the author posts.
+- [ ] **Step 2:** Copy both shim files VERBATIM from the pilot report into `scripts/mutmut_shims/`, each with a header comment naming the upstream defect it works around and the report as provenance. Draft the two mutmut upstream defect reports (config-at-import; node-id re-escaping) into `docs/research/2026-08-23-mutmut-defect-reports.md` — ready-to-file, the author posts.
 - [ ] **Step 3:** Pin `mutmut==3.7.0` in dev extras. Commit `feat: adopt mutmut 3.7.0 — ruling, shims, upstream report drafts`.
 
 Pilot registered 2026-08-25 (plugin-comparison validation, blind spot b): route ONE of this plan's controller rulings through an issue comment instead of the direct dialog channel and record the round-trip time against the blocked implementer — the tickets-as-backbone model assumes tracker-mediated rulings are viable and no event has tested it. One ruling, measured, then revert to dialog.

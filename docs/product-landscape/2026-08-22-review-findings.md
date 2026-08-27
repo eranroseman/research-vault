@@ -319,11 +319,11 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`
 
-**Verifier:** Stands, at medium not high. Doc line 138-139 states unqualified "We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`" as our sweep's source inventory; ground truth (research/validation-slice/2026-08-22-no-fabrication-audit.md:88-92, finding 1, verifier-CONFIRMED against the production CSV) shows the RW leg is inert — checks.py:898-906 parses RetractionDate fromisoformat-only, 922-927 silently drops \_INVALID rows, and the production CSV's "M/D/YYYY 0 …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Stands, at medium not high. Doc line 138-139 states unqualified "We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`" as our sweep's source inventory; ground truth (docs/research/validation-slice/2026-08-22-no-fabrication-audit.md:88-92, finding 1, verifier-CONFIRMED against the production CSV) shows the RW leg is inert — checks.py:898-906 parses RetractionDate fromisoformat-only, 922-927 silently drops \_INVALID rows, and the production CSV's "M/D/YYYY 0 …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-memoria-and-knowledge-harness.md:139 — MEDIUM (cross-doc)
 
-**Claim:** "We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`" states Retraction Watch CSV use as operational fact, but the same-day audit (research/validation-slice/2026-08-22-no-fabrication-audit.md, finding 1, CONFIRMED by independent reproduction) shows the RW leg is inert — load_rw_csv drops every production row because RetractionDate is "M/D/YYYY 0:00", not ISO — so the sweep comparison understates the gap against Memoria.
+**Claim:** "We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`" states Retraction Watch CSV use as operational fact, but the same-day audit (docs/research/validation-slice/2026-08-22-no-fabrication-audit.md, finding 1, CONFIRMED by independent reproduction) shows the RW leg is inert — load_rw_csv drops every production row because RetractionDate is "M/D/YYYY 0:00", not ISO — so the sweep comparison understates the gap against Memoria.
 
 **Evidence:** "We use the RW CSV" vs audit line 11: "Retraction Watch screening is inert ... The entire RW leg silently dead while verify reports as if coverage ran."
 

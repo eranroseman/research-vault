@@ -1,6 +1,6 @@
 """Canonicality of the surfaces no off-the-shelf formatter may touch.
 
-The one-form-owner matrix (research/rethink-audits/2026-08-21-lint-format-rethink.md) gives every
+The one-form-owner matrix (docs/research/rethink-audits/2026-08-21-lint-format-rethink.md) gives every
 file type a single owner. For RENDERED vault-dialect markdown -- literature
 notes with real managed-region content, not the placeholder templates they
 render from -- the owner is *the sole writer*: mdformat measurably mangles

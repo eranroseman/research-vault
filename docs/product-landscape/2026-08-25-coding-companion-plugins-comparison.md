@@ -12,7 +12,7 @@ language, and the tracker (it already does); superpowers' execution core owns pl
 changes (SDD + reviews + verification + finishing, injection intact for dev sessions); this
 plugin is the doctrine both serve. Neither replaces the other because they govern different
 layers. The clean-slate audit
-([rethink audit](../../research/rethink-audits/2026-08-25-coding-companion-plugin-layering-rethink-audit.md))
+([rethink audit](../research/rethink-audits/2026-08-25-coding-companion-plugin-layering-rethink-audit.md))
 stress-tested this verdict against field evidence and upheld it with the condition — see "The
 bridge" below. Two earlier same-day verdicts were superseded — see Verdict history at the end.
 
@@ -232,7 +232,7 @@ dissolution live in the map's tickets, which are the program's source of truth f
 **From the process-reconstruction arc:**
 
 12. **Transcript mining and disposal (#68)** — the one-time 63-session export is intentionally
-    tracked under `research/raw/knowledge-harness-transcripts/` as the private repository backup
+    tracked under `docs/research/raw/knowledge-harness-transcripts/` as the private repository backup
     while it is mined. The redundant external clone is discarded; after relevant findings are
     recorded in their durable homes, the raw export is discarded too.
 13. **Workload 2 framed as a methods replication** — the template applied to a different domain
@@ -297,7 +297,7 @@ registered in Plan W.
    four-state reference, per-skill deltas only (or a recorded decision that per-surface semantics
    justify the copies).
 4. **The controller-seat gap has a decaying-evidence fix** — executed same day: the protocol is
-   banked at research/validation-slice/2026-08-25-controller-protocol-material.md (delegation
+   banked at docs/research/validation-slice/2026-08-25-controller-protocol-material.md (delegation
    conditions, word hygiene, dispute adjudication, the seat's own error ledger), material for
    whenever the orchestration layer gets a real home.
 

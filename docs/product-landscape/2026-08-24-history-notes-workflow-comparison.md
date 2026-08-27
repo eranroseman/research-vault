@@ -134,7 +134,7 @@ color: `annotationText` present → `(quote)`, else a bare `comment` → `(parap
 
 Both are missing for the same reason, not two reasons. Better BibTeX's `item.attachments` call
 already returns `annotationColor` and a per-attachment `zotero://open-pdf/...` URI
-(`research/prior-art/zotero-bridge-design-space.md:51`; the `open` URI is visible at the
+(`docs/research/prior-art/zotero-bridge-design-space.md:51`; the `open` URI is visible at the
 attachment level in the fixture at `tests/test_zotero.py:29`, though that fixture's own
 `annotations` list is empty). The exact-match evidence is
 `tests/test_cli_live.py:160-185` (`test_normalize_annotation_maps_live_bbt_shape_without_raw_aliases`):

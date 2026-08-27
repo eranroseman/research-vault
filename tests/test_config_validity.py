@@ -10,7 +10,7 @@ plugin loader or a human reader trusts, which nothing mechanically checks:
 
 The JSON half doubles as the *formatter*: ``json.tool``'s canonical form is
 asserted here rather than run as a separate hook, so the one-form-owner matrix
-gains a JSON owner with zero new dependencies (research/rethink-audits/2026-08-21-lint-format-rethink.md).
+gains a JSON owner with zero new dependencies (docs/research/rethink-audits/2026-08-21-lint-format-rethink.md).
 """
 
 import ast
@@ -31,7 +31,7 @@ from knowledge_harness import frontmatter, inbox
 ROOT = Path(__file__).resolve().parents[1]
 
 # The repo's own JSON manifests, and only those. Deliberately NOT globbed:
-# `research/` JSON is source material outside this formatter's managed surface,
+# `docs/research/` JSON is source material outside this formatter's managed surface,
 # `.vscode/*.json` is JSONC — a dialect VS Code owns — and a vault's
 # `system/bibliography.json` is BBT-owned, outside every repo formatter.
 JSON_MANIFESTS = [
@@ -430,9 +430,9 @@ def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
 # hook's own `find ... -not -path` clauses (both are path exclusions, not
 # content detection -- see the hook's own comment for what that does and does
 # not protect): knowledge_harness/templates/vault excludes only index.md
-# (vault-dialect content mdformat corrupts on contact), and skills excludes
-# the whole find-sources/references tree (a frozen vendored fork -- same
-# reasoning as the ruff hook's vendor-exclusion comment, one file type over).
+# (vault-dialect content mdformat corrupts on contact), and skills excludes the
+# whole find-sources/references tree (a frozen vendored fork -- same reasoning
+# as the ruff hook's vendor-exclusion comment, one file type over).
 _MDFORMAT_ROOTS = (
     "README.md",
     "AGENTS.md",

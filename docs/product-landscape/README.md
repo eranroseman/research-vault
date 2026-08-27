@@ -21,7 +21,7 @@ coding-companion note's three-verdict arc is the demonstration.
 
 ## The evidence rule they share
 
-Roster names came from `research/`; every fact was re-derived from the GitHub API, a clone read
+Roster names came from `docs/research/`; every fact was re-derived from the GitHub API, a clone read
 directly, a primary specification, or a paper in `sources/`. Claims cite the file and line that
 produced them. Read depth is marked per row — a file was opened, or the row rests on repository
 metadata.

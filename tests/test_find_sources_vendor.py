@@ -243,7 +243,7 @@ def _env_vars_read_by_the_vendored_scripts() -> set[str]:
 
 def test_the_skill_names_exactly_the_environment_variables_the_scripts_read():
     """Pins two SKILL.md corrections from the references cross-read
-    (``research/validation-slice/2026-08-22-references-cross-read.md``),
+    (``docs/research/validation-slice/2026-08-22-references-cross-read.md``),
     both of them hand-maintainable prose about what the code reads: the
     scripts are not credential-free — ``paginate.py`` consumes three env vars —
     and ``paginate.py``'s docstring names two more (``NCBI_API_KEY``,
