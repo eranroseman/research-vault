@@ -425,24 +425,11 @@ def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
 # mdformat table-cell truncation
 # --------------------------------------------------------------------------
 
-# The mdformat-owned CommonMark set, matching .pre-commit-config.yaml's hook.
-# Two path exclusions apply inside the directory roots below, mirroring the
-# hook's own `find ... -not -path` clauses (both are path exclusions, not
-# content detection -- see the hook's own comment for what that does and does
-# not protect): knowledge_harness/templates/vault excludes only index.md
-# (vault-dialect content mdformat corrupts on contact), and skills excludes the
-# whole find-sources/references tree (a frozen vendored fork -- same reasoning
-# as the ruff hook's vendor-exclusion comment, one file type over).
-_MDFORMAT_ROOTS = (
-    "README.md",
-    "AGENTS.md",
-    "CONTEXT.md",
-    "docs",
-    "skills",
-    "knowledge_harness/templates/vault",
-)
+# The mdformat-owned CommonMark set, matching .pre-commit-config.yaml's hook:
+# every tracked Markdown file except the explicitly excluded ephemeral workspaces
+# and the vault index, whose Obsidian dialect mdformat corrupts on contact (#70).
 _MDFORMAT_EXCLUDED_FILES = ("knowledge_harness/templates/vault/index.md",)
-_MDFORMAT_EXCLUDED_DIRS = ("skills/find-sources/references",)
+_MDFORMAT_EXCLUDED_DIRS = (".superpowers", ".worktrees", ".claude/worktrees")
 
 
 def _mdformat_owned_markdown() -> list[Path]:
@@ -450,20 +437,23 @@ def _mdformat_owned_markdown() -> list[Path]:
     excluded_files = {root / entry for entry in _MDFORMAT_EXCLUDED_FILES}
     excluded_dirs = tuple(root / entry for entry in _MDFORMAT_EXCLUDED_DIRS)
     files: list[Path] = []
-    for entry in _MDFORMAT_ROOTS:
-        target = root / entry
-        if target.is_file():
-            files.append(target)
-        elif target.is_dir():
-            for candidate in sorted(target.rglob("*.md")):
-                if candidate in excluded_files:
-                    continue
-                if any(
-                    candidate == excluded_dir or excluded_dir in candidate.parents
-                    for excluded_dir in excluded_dirs
-                ):
-                    continue
-                files.append(candidate)
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "*.md"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    for entry in tracked.stdout.splitlines():
+        candidate = root / entry
+        if candidate in excluded_files:
+            continue
+        if any(
+            candidate == excluded_dir or excluded_dir in candidate.parents
+            for excluded_dir in excluded_dirs
+        ):
+            continue
+        files.append(candidate)
     return files
 
 
