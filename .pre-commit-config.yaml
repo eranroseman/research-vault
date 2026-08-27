@@ -40,6 +40,8 @@ repos:
       # point at nothing. It owns every tracked Markdown file except the ephemeral
       # `.superpowers/`, `.worktrees/`, and `.claude/worktrees/` workspaces, plus
       # the vault index below. A staged Markdown file joins this set automatically.
+      # This hook is the scope authority; pyproject.toml's mdformat pin refers here
+      # for upgrade review rather than copying a path list that could drift.
       # Vault-dialect templates (wikilinks, managed-region markers, Base embeds)
       # belong to their sole writer, not the CommonMark owner: vault/index.md is
       # the only functional exception because mdformat measurably escapes its

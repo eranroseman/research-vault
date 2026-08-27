@@ -19,16 +19,18 @@ pdf = [ "pypdf>=4" ]
 dev = [
   "crap4py==0.1.1",
   "drywall==0.1.3",
-  # RENDER-CONTRACT pin: canonical template form leaks into rendered vault notes,
-  # so an mdformat upgrade is judged like a render change.
+  # FORMAT + RENDER-CONTRACT pin: mdformat owns every tracked CommonMark file
+  # selected by .pre-commit-config.yaml; template form also leaks into rendered
+  # vault notes.
   # Upgrade protocol (mdformat pinned; upgrades are deliberate acts, matching
-  # ruff's protocol below): review a canonical-form-changing upgrade as its own
-  # render-contract change. Before updating: re-run mdformat over
-  # knowledge_harness/templates/vault/AGENTS.md, system/glossary.md, and
-  # system/templates/literature.md, and confirm every `%%hk-managed%%` /
-  # `%%/hk-managed%%` marker survives byte-for-byte in all three -- today's
-  # mdformat only adds blank lines around them; block the upgrade if any
-  # version starts escaping `%%` sequences instead.
+  # ruff's protocol below): a canonical-form-changing upgrade is a corpus-format
+  # and render-contract change. Before updating, run the exact mdformat hook from
+  # .pre-commit-config.yaml over a clean worktree and review its complete diff.
+  # Also confirm every `%%hk-managed%%` / `%%/hk-managed%%` marker survives
+  # byte-for-byte in knowledge_harness/templates/vault/AGENTS.md,
+  # system/glossary.md, and system/templates/literature.md; block an upgrade if it
+  # starts escaping `%%` sequences. vault/index.md remains excluded pending #70;
+  # never feed that Obsidian-dialect template to mdformat during this review.
   "mdformat==1.0.0",
   "mdformat-frontmatter==2.1.2",
   "mdformat-gfm==1.0.0",
