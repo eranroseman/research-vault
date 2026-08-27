@@ -22,12 +22,9 @@ dev = [
   # RENDER-CONTRACT pin: canonical template form leaks into rendered vault notes,
   # so an mdformat upgrade is judged like a render change.
   # Upgrade protocol (mdformat pinned; upgrades are deliberate acts, matching
-  # ruff's protocol below): a canonical-form-changing upgrade must land as its
-  # own churn commit through the bypass channel (`git commit --no-verify`),
-  # never through the normal commit-time gate -- it would rewrite files under
-  # docs/adr, one of record-immutability's two append-only roots -- with the
-  # commit message itself as the record. Before that commit: re-run mdformat
-  # over knowledge_harness/templates/vault/AGENTS.md, system/glossary.md, and
+  # ruff's protocol below): review a canonical-form-changing upgrade as its own
+  # render-contract change. Before updating: re-run mdformat over
+  # knowledge_harness/templates/vault/AGENTS.md, system/glossary.md, and
   # system/templates/literature.md, and confirm every `%%hk-managed%%` /
   # `%%/hk-managed%%` marker survives byte-for-byte in all three -- today's
   # mdformat only adds blank lines around them; block the upgrade if any
