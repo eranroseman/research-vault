@@ -2,7 +2,7 @@
 
 Merge back to main locally and push main to origin in the same motion. Fetch before claiming something is absent from origin.
 
-Everything in this repo states current truth. Wrong content is corrected or deleted, never preserved; research, plans, and specs are scaffolding — absorbed into code, skills, ADRs, and the tracker, then deleted. Git history is the only archive.
+Research, plans, and specs are scaffolding: absorbed into code, skills, ADRs, and the tracker, then deleted — git history is the only archive.
 
 Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
 

@@ -37,10 +37,8 @@ repos:
       # --number is part of the canonical form, every invocation including --check:
       # this markdown is read RAW by agents and carries numeric cross-references;
       # mdformat's default collapses ordered lists to all `1.`, so "item 6" would
-      # point at nothing. research/ and sources/ are excluded for churn, not doctrine —
-      # reformatting dozens of landed notes buries real diffs. No record in this
-      # repo is immutable: wrong records get corrected, dated. Some acts need
-      # human approval; none are forbidden.
+      # point at nothing. research/ and sources/ are excluded for churn: reformatting
+      # dozens of landed notes buries real diffs.
       # skills/find-sources/references is excluded too: a frozen vendored fork,
       # same reasoning as the ruff vendor-exclusion comment above, one file type
       # over. ce0f1e3 already reformatted all eleven of its files before this
