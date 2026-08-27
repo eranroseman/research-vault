@@ -3,12 +3,9 @@ sources/*.zip
 .worktrees/
 .claude/worktrees/
 .superpowers/
-# PDFs belong in Zotero (spec §2 preservation boundary); recovering a primary
-# into sources/ is a deliberate act: git add -f + a README table row.
 *.pdf
 .mutate4py/
 lcov.info
-# wildcard also matches mutate4py's <db>.test-context-cache.json sidecar
 .contexts.db*
 
 # Python
