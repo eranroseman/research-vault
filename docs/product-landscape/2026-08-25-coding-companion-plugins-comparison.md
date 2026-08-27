@@ -228,8 +228,8 @@ dissolution live in the map's tickets, which are the program's source of truth f
 11. **The Plan W tracker-mediation pilot** — one controller ruling routed through an issue
     comment, round-trip measured; registered in Plan W's dispatch notes; exercises the bridge
     rule's path.
-12. **The record-immutability gate fix (#28)** — full-history protection plus a recognized
-    dated-amendment shape; post-slice design.
+12. **The record-immutability gate** — RESOLVED by deletion (author ruling 2026-08-27; #28
+    closed): no repo record is immutable; the hook is gone.
 
 **From the process-reconstruction arc:**
 
