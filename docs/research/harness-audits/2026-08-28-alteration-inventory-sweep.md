@@ -103,6 +103,41 @@ This is the same mismatch already tracked in [#51](https://github.com/eranrosema
 tracked tree contains a fourth `finding-duplicate-functions`") — confirmed present,
 no new orphans beyond it.
 
+Of these four, three (`consistency-audit`, `rethink`, `rethink-audit`) are
+originally authored, no upstream to diff against. The fourth,
+`finding-duplicate-functions`, is a stated fork (per the user's own account) of
+[obra/superpowers-lab's skill of the same name](https://github.com/obra/superpowers-lab/blob/main/skills/finding-duplicate-functions/SKILL.md)
+— missed in the first pass of this sweep, caught on review. Diffed directly
+against a fresh clone of `obra/superpowers-lab`:
+
+- `SKILL.md` differs from upstream.
+- The upstream implementation is shell-script-based
+  (`extract-functions.sh`, `generate-report.sh`, `prepare-category-analysis.sh`);
+  the local fork replaced these entirely with a Python implementation
+  (`extract-functions.py`, `cluster.py`). This is a substantial adaptation, not a
+  drift-sized tweak — squarely what #60's vendoring decision needs to know about.
+
+**Also noted, not chased further (out of scope for the companion, which is about
+the global/user-level setup):** `~/memoria-vault` is a separate project with its
+own project-scoped plugin config — its `superpowers` install is pinned at a
+different commit (`3dcbd5c4b48e02263fbf4a3c01e3fe4f81d584d9`) than the
+user-level default (`44c9b2d6e889982ac18c27d05a19fefe335194e1`), and it has its
+own `settings.json` and `hooks/` directory. Not diffed — a different vault
+entirely, not part of this companion's asset surface.
+
+**On ponytail's hooks specifically** (re-checked directly after a challenge to
+this sweep): `.claude-plugin/plugin.json` points at `./hooks/claude-codex-hooks.json`;
+the entire `hooks/` directory (`ponytail-activate.js`, `ponytail-runtime.js`,
+`ponytail-mode-tracker.js`, `ponytail-config.js`, `ponytail-instructions.js`,
+`ponytail-subagent.js`, `ponytail-statusline.sh/.ps1`, `claude-codex-hooks.json`)
+was diffed a second time, in isolation, against the exact pinned commit — clean,
+byte-identical. `settings.json`'s top-level keys and its full `hooks` block were
+also checked directly: no ponytail-specific override or hook customization
+exists there, and `CLAUDE.md`/`AGENTS.md` mention ponytail only once each, neither
+about a hook. No modification found in the places a hook modification would
+live; if a specific one is known, naming the file would let this be checked
+precisely rather than by continued search.
+
 ## Findings: custom agents
 
 Exactly one: `~/.claude/agents/consistency-audit-inspector.md` — matches the
@@ -111,7 +146,9 @@ already-tracked entry (#51), no surprises.
 ## What this feeds
 
 - [#60](https://github.com/eranroseman/knowledge-harness/issues/60) (vendor changed
-  third-party skills): the confirmed candidates for a "changed" vendored copy are
+  third-party skills): `finding-duplicate-functions` is the clearest vendoring
+  case in this whole sweep — a substantially rewritten fork with real provenance
+  to record, not a drift-sized tweak. The confirmed candidates beyond that are
   superpowers' two independent divergences (Claude-side README addition,
   Codex-side `AGENTS.md` deletion — neither functional) and whatever
   `skillOverrides` mechanics apply regardless of file content. Ponytail is not
