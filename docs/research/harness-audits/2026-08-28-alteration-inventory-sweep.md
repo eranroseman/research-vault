@@ -86,8 +86,27 @@ Codex-side counterpart to check.
 ## Findings: skills reconciliation
 
 `~/.agents/skills/` contains exactly the 20 entries locked in `.skill-lock.json`
-(18 from `mattpocock/skills`, 2 from `obra/superpowers-developing-for-claude-code`)
-— a perfect 1:1 match, no orphans, nothing missing.
+— a perfect 1:1 match, no orphans, nothing missing. Named explicitly (a count
+alone doesn't let a reader verify anything):
+
+18 from `mattpocock/skills`: `codebase-design`, `domain-modeling`, `grilling`,
+`grill-with-docs`, `handoff`, `improve-codebase-architecture`, `prototype`,
+`research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `teach`,
+`to-questionnaire`, `to-tickets`, `triage`, `wait-what`, `wayfinder`, `wizard`,
+`writing-for-agents`.
+
+2 from `obra/superpowers-developing-for-claude-code`: `developing-claude-code-plugins`,
+`working-with-claude-code`.
+
+`grilling`, `domain-modeling`, `grill-with-docs`, and `wayfinder` — all four used
+directly in the session that produced this report — are present and correctly
+symlinked into both `~/.claude/skills/` and `~/.codex/skills/`, same as every
+other entry on this list. `wayfinder` and `grill-with-docs` carry
+`disable-model-invocation: true` in their own upstream frontmatter (explicit-
+invoke-only by mattpocock's own design, not a local modification); `grilling`
+additionally has its description stripped locally via `skillOverrides` in
+`settings.json` (documented, deliberate — see `#60`). None of this affects
+whether they're installed correctly, which is what this section checks.
 
 `~/.claude/skills/` (and its mirror `~/.codex/skills/`) additionally carries 4
 symlinks with no lockfile entry at all, because they were never installed via the
