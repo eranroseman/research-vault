@@ -455,3 +455,80 @@ ______________________________________________________________________
 - This repo's own `AGENTS.md` `## Agent skills` block and `docs/agents/*.md` files are a live,
   verified instance of the mechanism already having run here — direct confirmation the documented
   process matches production behavior, not just the SKILL.md's stated intent.
+
+______________________________________________________________________
+
+## Section 5 — `superpowers:brainstorming` vs. `domain-modeling` and the proposed synthesis skill (2026-08-29 addendum, for #72)
+
+Source: `~/.claude/plugins/cache/superpowers-dev/superpowers/6.2.0/skills/brainstorming/SKILL.md`
+and its `scripts/`/companion files, read in full;
+`/tmp/mp-skills-verify/skills/engineering/domain-modeling/SKILL.md`, read in full.
+
+### `domain-modeling` vs. brainstorming: no content overlap
+
+Grepped `brainstorming/SKILL.md` for every term the banked #72 synthesis-skill proposal wants a
+new skill to own — "adr", "glossary", "context.md", "user stor[y/ies]", "out of scope", "seam",
+"staleness"/"file path"/"snippet" — **zero matches for all of them**. Brainstorming never mentions
+a glossary, never mentions ADRs, never cross-references code-vs-stated-behavior, never bans file
+paths or snippets, produces no user stories, and has no dedicated Out-of-Scope section. Its own
+design-doc checklist is "architecture, components, data flow, error handling, testing" — a
+different, non-overlapping list. So as content, `domain-modeling`'s glossary/ADR discipline is a
+pure addition on top of brainstorming, not a duplicate of anything brainstorming already does.
+
+### But the proposed synthesis skill's *process shape* does collide with brainstorming
+
+Brainstorming does not just supply content — it asserts **hard, exclusive ownership** of the
+pre-implementation phase. Quoted verbatim:
+
+> `<HARD-GATE>Do NOT invoke any implementation skill, write any code, scaffold any project, or take
+> any implementation action until you have presented a design and the user has approved it. This
+> applies to EVERY project regardless of perceived simplicity.</HARD-GATE>`
+
+> "You MUST use this before any creative work - creating features, building components, adding
+> functionality, or modifying behavior." (its own trigger description)
+
+> "The terminal state is invoking writing-plans. Do NOT invoke frontend-design, mcp-builder, or any
+> other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans."
+
+Brainstorming's own checklist already implements essentially the full shape the banked proposal
+wants for a new synthesis skill: ask-questions-one-at-a-time → propose-2-3-approaches →
+present-design-with-per-section-approval → write-design-doc-and-commit → a **spec self-review**
+step (placeholders/contradictions/scope/ambiguity — near-identical in kind to an
+adversarial-verification pass) → a **user review gate** on the written spec → invoke writing-plans.
+That is the same lifecycle slot the banked proposal wants for its new synthesis skill
+(dialogue → spec artifact → self-review → user-approval gate → handoff to writing-plans/SDD), minus
+the specific glossary/ADR/user-story/Out-of-Scope/anti-staleness content and a separate
+adversarial-verification step.
+
+This is not just an internal detail — it collides directly with a standing global instruction
+(`~/.claude/CLAUDE.md`): "Process — how work happens — is owned by the installed superpowers
+skills (brainstorm → plan → TDD/SDD → review → finish...)." A new synthesis skill built as a
+parallel front door that re-implements dialogue → spec → self-review → user-gate → writing-plans
+would duplicate brainstorming's **process**, not just risk redundant content — unless it is
+explicitly composed as a step inside/after brainstorming (e.g. grilling + domain-modeling invoked
+during brainstorming's own "Explore project context," "Present design," or "Write design doc"
+steps) rather than built to stand beside it as a competing top-level gate. The proposal's own
+framing — grilling + domain-modeling as "shared invoked primitives" — is already compatible with
+slotting into brainstorming's existing checklist rather than building a rival pipeline.
+
+**Sharper question for #72, replacing "does synthesis duplicate brainstorming's content" (it
+doesn't):** does the front door's proposed synthesis skill duplicate brainstorming's
+**gate/terminal-state role** — and if the front door is meant to be genuinely distinct from
+brainstorming's coding-workflow ownership (per the CLAUDE.md line "confusing brainstorming with
+brainstorming and grilling is the failure this rule exists to prevent" — the friction is naming,
+but the deeper issue is two skills both claiming the same "before you build, gate on approval"
+slot), the design needs to say explicitly whether the new skill composes with brainstorming or
+replaces it for the companion's own workflows.
+
+### One more data point: brainstorming's weight, for #61's benefit
+
+Beyond `SKILL.md` itself, brainstorming ships a substantial **optional** visual-companion
+subsystem: a hand-rolled HTTP+WebSocket server (`scripts/server.cjs`, 723 lines, manual RFC 6455
+framing, no `ws` dependency), a browser-side helper (167 lines), an HTML frame template (213
+lines), start/stop lifecycle scripts (329 lines combined), a 298-line usage guide, and a 49-line
+reviewer-prompt file — **~1,779 lines across 7 files**, larger by raw size than the SKILL.md body
+itself. It's opt-in and offered "just-in-time" (never upfront, never invoked if no visual question
+arises), but it means brainstorming's *total* footprint is an order of magnitude heavier than
+grilling's simple, server-free interview loop. Relevant to #61's "lean router" framing: the weight
+asymmetry between skills in this roster varies enormously, and grilling is toward the light end of
+it, not the heavy end.
