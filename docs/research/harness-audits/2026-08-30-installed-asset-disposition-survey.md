@@ -15,20 +15,19 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 1. **The per-asset recommendations** below — all of them, individually or wholesale.
 2. **`caveman`'s bucket.** Two of the four survey passes disagreed and the author's answer arrived in a message truncated mid-word. Both sides are set out with the row.
-3. **The obra double-install dedupe**, resting on the same truncated message.
-4. **Is the `superpowers` fork public or private?**
-5. **The fork's marketplace name.**
-6. **Does `writing-specs` vendor from upstream HEAD or freeze at the 6.2.0 pin?** See [Handoff to #60](#handoff-to-60).
+3. **Is the `superpowers` fork public or private?**
+4. **The fork's marketplace name.**
+5. **Does `writing-specs` vendor from upstream HEAD or freeze at the 6.2.0 pin?** See [Handoff to #60](#handoff-to-60).
 
 ## Ground rules
 
 **The ladder, the bucket rule and the `defer` state are recorded on map #53** under *Design doctrine*, along with the duplication and fork-obligation doctrines. They are not restated here; this survey applies them.
 
-Two points bear directly on reading the tables below. **Buckets attach to rungs 1 and 2 only** — those are the rungs where something is depended on — so a rung 3–5 asset has no bucket rather than an empty one. And **where a plugin is rung 1 or 2, all its components come across**, so per-skill detail for those rows is informational.
+Two points bear directly on reading the tables below. **Buckets attach to rungs 1 and 2 only** — those are the rungs where something is depended on, and the three are **required** (the plugin does not work without it), **recommended** (works without it, but a user should have it) and **unrelated** (no relationship to either product; personal harness furniture). A rung 3–5 asset has no bucket rather than an empty one. And **where a plugin is rung 1 or 2, all its components come across**, so per-skill detail for those rows is informational.
 
 Three inputs the author settled that the doctrine does not cover:
 
-**Fork policy is per-plugin with no default.** Each call rests on its own upstream evidence, gathered as a **one-time research cost at adoption** — no scheduled re-audit. That does not freeze the decision: a material upstream change may trigger a re-audit of the affected call, the trigger being an event rather than a calendar. A plugin going unmaintained, a licence change, or a maintainer handover are the cases that would. #63 already watches upstream, so this needs no separate mechanism.
+**Fork policy is per-plugin with no default.** Each call rests on its own upstream evidence, gathered as a **one-time research cost at adoption** — no scheduled re-audit. That does not freeze the decision: a material upstream change may trigger a re-audit of the affected call, the trigger being an event rather than a calendar. A plugin going unmaintained, a licence change, or a maintainer handover are the cases that would. Surfacing such a change is #63's existing job, so the trigger needs no mechanism of its own — which is separate from the two additions #63 does need for the fork, below.
 
 **Repository count is unconstrained** — *"we can have as many repos as we want."* The three-peer framing describes the **distribution** graph, what a user installs, not a limit on what the author may own. This was the only premise that could have overturned the fork recommendation.
 
@@ -55,7 +54,7 @@ Three inputs the author settled that the doctrine does not cover:
 | Plugin | Harness | Rung | Bucket | Fork call |
 |---|---|---|---|---|
 | `superpowers` | both | **2 — fork plugin** | required | **fork** |
-| `superpowers-developing-for-claude-code` | Claude | 4 — adapt its two skills | — | no fork; upstream dormant |
+| `superpowers-developing-for-claude-code` | Claude | 4 — adapt its two skills | — | — |
 | `obsidian` | both | 1 — plugin as-is | recommended | depend upstream |
 | `writing-clearly-and-concisely` | both | 1 — plugin as-is | recommended | depend upstream (softaworks) |
 | `diataxis-skills` | both | 1 — plugin as-is | recommended | depend upstream |
@@ -136,7 +135,7 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 - Merge: **exactly two conflicts**, both `DU` on the deleted directory, resolved by `git rm -r`, fully scriptable.
 - The one file the fork edits **auto-merged cleanly** even though upstream touched it.
 
-**Upstream health, for the fork call.** `obra` (Jesse Vincent), 279,648 stars, last push 2026-08-29, monthly releases (v6.1.0 06-30, v6.2.0 07-24, v6.3.0 08-12), 100 commits touching `skills/` since 2026-06-01. No `eranroseman` fork exists. **The machine is pinned at 6.2.0 while v6.3.0 shipped 2026-08-12** — one minor behind, and v6.3.0 touched 12 skill files.
+**Upstream health, for the fork call.** `obra` (Jesse Vincent), 279,648 stars, last push 2026-08-29, monthly releases (v6.1.0 06-30, v6.2.0 07-24, v6.3.0 08-12), 100 commits touching `skills/` since 2026-06-01. No `eranroseman` fork exists. **The machine is pinned at 6.2.0 while v6.3.0 shipped 2026-08-12** — one minor behind, and that delta touches 13 skill files across 7 skills.
 
 **Asking upstream instead is a non-starter.** `brainstorming` is the plugin's first manifest keyword and its `defaultPrompt` is *"I've got an idea for something I'd like to build."* — the front door obra is selling, not an incidental skill.
 
@@ -194,7 +193,7 @@ The upstream roster is 37 skills — engineering 18, productivity 7, in-progress
 
 **Fifteen are recommended not adopted:** `ask-matt`, `code-review`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`. Adoption of something the author currently lives without required naming a concrete gap it fills; none did.
 
-**Four were parked, not declined, and the survey could not say so.** The standing recommendations register (`docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md`) — named in map #53's Notes as background for this programme, and never supplied to the survey passes — parks each with an explicit trigger. Before the `defer` state existed, a parked skill was indistinguishable from a rejected one and all four printed as `not-adopted`.
+**Four were parked, not declined, and the survey could not say so.** The standing recommendations register (`docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md`) parks each with an explicit trigger; it was not supplied to the assessment passes, which is why they missed this. Before the `defer` state existed, a parked skill was indistinguishable from a rejected one and all four printed as `not-adopted`.
 
 | Skill | Register's trigger | Correct state |
 |---|---|---|
@@ -264,9 +263,9 @@ Four were deferred here by #89 — `domain-modeling`, `triage`, `writing-for-age
 | `triage` | `software-development` |
 | `working-with-claude-code` | `software-development` |
 | `superpowers` | `software-development` — meaning **`software-development` depends on it and `research-vault` does not**. The fork stays a separate plugin with its own root; this axis assigns which product needs the capability, not where files sit |
-| `setup-matt-pocock-skills` | **no bucket** — a rung-4 template rather than a capability either product ships |
+| `setup-matt-pocock-skills` | **the axis does not apply** — it is a rung-4 template feeding #62's setup mechanism, not a capability either product ships |
 
-`working-with-claude-code` is the one reversal. It was argued during the grilling as shared, on the grounds that it documents the runtime both products run on. Two passes placed it with engineering: its depth is hook wiring, MCP server setup and settings resolution — maintainer work rather than vault work — and it does not separate from `developing-claude-code-plugins` the way the shared reading required.
+`working-with-claude-code` is the one reversal. It was argued during the grilling as shared, on the grounds that it documents the runtime both products run on; two passes placed it with engineering for the reasons given under [The obra pair](#the-obra-pair).
 
 ## Handoff to #60
 
@@ -283,7 +282,7 @@ Every asset landing on rung 4, copy-consumable.
 
 All six need a provenance header; the table lists what is needed beyond that.
 
-**The list shrank because of the fork.** Earlier passes marked `systematic-debugging`, `test-driven-development`, `writing-plans`, `writing-skills` and `using-superpowers` as rung-4 adaptations. Those were artefacts of the vendoring branch — a fork keeps the namespace, so none needs adaptation. That collapse is the fork's clearest practical benefit.
+**The list shrank because of the fork.** Earlier passes marked `systematic-debugging`, `test-driven-development`, `writing-plans`, `writing-skills` and `using-superpowers` as rung-4 adaptations. Those were artefacts of the vendoring branch — a fork keeps the namespace, so none needs adaptation as a *vendored copy*. `using-superpowers` is still edited, but inside the fork as two lines of its ten-file patch, which is the fork's business rather than #60's. That collapse is the fork's clearest practical benefit.
 
 **Two decisions #60 must make knowingly.**
 
@@ -295,9 +294,9 @@ All six need a provenance header; the table lists what is needed beyond that.
 
 **#62 — hard sequencing, and a migration.** The fork's edited bootstrap points at `software-development:writing-specs`. Until that ships, every session injects a route, inside `<EXTREMELY_IMPORTANT>` tags, to a skill that does not exist, so `writing-specs` must land before or with the cutover. The cutover must also uninstall first on both harnesses, because the fork keeps the plugin name and collides with the installed copy. **Two installs must be migrated, not one:** `installed_plugins.json` carries a project-scope entry for `/home/eranr/memoria-vault` at `gitCommitSha` `3dcbd5c4…` while the user-scope entry has `44c9b2d6…`, both naming the **same** `installPath`. Easy to miss, and it establishes that install path does not imply pin — which #63 and #78 should know independently.
 
-**#63 — two additions.** Watch upstream HEAD against the fork's merge-base, not just the fork against the installed cache; this is a precondition of the fork recommendation rather than an enhancement. And catch **unqualified** references: upstream already added `skill_view("brainstorming")` to `using-superpowers/references/hermes-tools.md:31`, which auto-merges clean and is invisible to a `grep superpowers:brainstorming`.
+**#63 — two additions.** Watch upstream HEAD against the fork's merge-base, not just the fork against the installed cache — a precondition, as the fork section states. And catch **unqualified** references: upstream already added `skill_view("brainstorming")` to `using-superpowers/references/hermes-tools.md:31`, which auto-merges clean and is invisible to a `grep superpowers:brainstorming`.
 
-**#61 — a live constraint, not a blank slate.** A SessionStart injection already fires every startup/clear/compact from the forked superpowers, carrying the skill-invocation discipline. #61 must decide whether `software-development`'s own hook composes with that or duplicates it; Claude Code merges hooks from multiple plugins without dedup. The two edited routing lines in `using-superpowers/SKILL.md` are a supported seam and merge cleanly. #61 also inherits the unwired Codex hook.
+**#61 — a live constraint, not a blank slate.** A SessionStart injection already fires every startup/clear/compact from the forked superpowers, carrying the skill-invocation discipline. #61 must decide whether `software-development`'s own hook composes with that or duplicates it; Claude Code merges hooks from multiple plugins without dedup. The two edited routing lines in `using-superpowers/SKILL.md` are a supported seam and merge cleanly.
 
 **#64 — two.** The declared-asset policy gap (below), and **`finding-duplicate-functions` is absent from `harness-backup`'s README entirely**, so a fresh-machine restore silently omits it.
 
@@ -327,6 +326,6 @@ Four adversarially-verified survey passes, plus a fifth cross-checking them agai
 
 Sources read fresh rather than inherited from earlier tickets: `~/.claude/settings.json`, `~/.claude/plugins/installed_plugins.json`, `~/.claude/plugins/known_marketplaces.json`, `~/.claude/plugins/cache/`, `~/.codex/config.toml`, `~/.codex/plugins/cache/`, `~/.agents/.skill-lock.json`, `~/harness-backup/claude/skills/`, and the installed Claude Code binary at `~/.local/share/claude/versions/2.1.220`.
 
-Where a claim decided a branch it was re-verified by hand outside the surveys — the override resolver, the cross-reference count, the upstream licence and repository statistics, the Codex manifest, and the `writing-clearly-and-concisely` derivation chronology. Four figures the surveys reported were corrected that way: the cross-reference count (24 and 25 were both reported; 26 is correct), the upstream licence (`gh repo view` reported none; the licence endpoint confirms MIT), the orphaned-cache count, and the obra/softaworks fork claim, which was inherited from the ticket brief and is false in both directions.
+Where a claim decided a branch it was re-verified by hand outside the surveys — the override resolver, the cross-reference count, the upstream licence and repository statistics, the Codex manifest, and the `writing-clearly-and-concisely` derivation chronology. Four figures the surveys reported were corrected that way: the cross-reference count (24 and 25 were both reported; 26 is correct), the upstream licence (`gh repo view` reported none; the licence endpoint confirms MIT), the orphaned-cache count, and the obra/softaworks derivation, inherited from the ticket brief as a fork by obra from softaworks and found to be neither a fork nor in that direction.
 
-**One methodological failure worth recording**, because it produced four wrong verdicts rather than one: the standing recommendations register is named in map #53's Notes as background for this programme, and it was never supplied to any survey pass. The nineteen not-installed skills were judged without the repository's own prior evidence about them.
+**One methodological failure worth recording**, because it produced four wrong verdicts rather than one: the standing recommendations register was never supplied to the four assessment passes, so the nineteen not-installed skills were judged without the repository's own prior evidence about them. The fifth pass exists only because that was noticed afterwards.
