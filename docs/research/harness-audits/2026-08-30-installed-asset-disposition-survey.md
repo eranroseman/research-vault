@@ -279,7 +279,7 @@ Its skeleton — `requires:` → `prior-art:` → `design:` → `gap:` → `trad
 
 **Rung 4, for #60:** generalise the boundary-reconstruction line and give the evidence tags vault equivalents. Both skills ship `agents/openai.yaml`, so they are cross-harness ready.
 
-*One observation for `software-development`'s own doctrine.* That *"if available"* at `:38` is precisely the construction research-vault's dependency doctrine forbids in its shipped text — and here it is what lets the skill cross the product boundary intact. Evidence that the rule is right for authored content and wrong as a general law, which is a live question for whoever writes this plugin's doctrine.
+The *"if available"* at `:38` reads as a portability affordance but is not one. An agent that cannot find a skill does not invoke it, so the branch is redundant either way — which is why research-vault's doctrine bans the construction as dead text rather than as a hazard. What actually makes this skill portable is that `codebase-design` is optional to its method at all; the hedge is words, not mechanism.
 
 The author has separately ruled that `rethink`/`rethink-audit` land in either `software-development` or `shared-skills`, and that **both** the public `eranroseman/rethink` repository and the harness-backup copies are deleted. Recorded on #73.
 
