@@ -75,7 +75,7 @@ Plugin-level disposition is the operative call. **Where a plugin is step 1, all 
 | `superpowers` | both | **3 — fork** | required | **fork** |
 | `superpowers-developing-for-claude-code` | Claude | 3 — adapt components | required | n/a — plugin not adopted |
 | `obsidian` | both | 1 — as-is | recommended | depend upstream |
-| `writing-clearly-and-concisely` | both | 1 — as-is | recommended | **three-way, see below** |
+| `writing-clearly-and-concisely` | both | 1 — as-is | recommended | depend upstream (softaworks) |
 | `diataxis-skills` | both | 1 — as-is | recommended | depend upstream |
 | `codex` (openai-codex bridge) | Claude | 1 — as-is | recommended | depend upstream |
 | `codex-security` | Codex | 1 — as-is | recommended | depend upstream |
@@ -87,7 +87,11 @@ Four rows need their reasoning stated.
 
 **`caveman` — unconfirmed, and genuinely two-sided.** *For `unrelated`:* under the necessity test nothing in `software-development` invokes it, and a public plugin recommending an output-style mode recommends taste rather than capability. *For `recommended`:* its core mode is general compressed communication that a researcher benefits from identically, and only two of its skills — `caveman-commit` and `caveman-review` — are git-specific. Two of the four survey passes split on exactly this. It stays installed either way; the bucket only decides whether the README names it.
 
-**`writing-clearly-and-concisely` — the fork call is a three-way, not two.** obra already forked this skill from `softaworks/agent-toolkit` into `obra/superpowers-marketplace`, a marketplace already consumed here for `superpowers`. So "depend on someone else's existing fork" is available alongside depending on softaworks directly and forking independently. It is also the plugin here most likely to hit the re-audit trigger: a single skill from a small upstream, where obra's fork is already evidence someone judged that upstream worth leaving.
+**`writing-clearly-and-concisely` — depend on softaworks, as already installed.** An earlier reading treated obra's fork of this skill into `obra/superpowers-marketplace` as a three-way choice, and as evidence the upstream was worth leaving. Checking the marketplace corrects that.
+
+`softaworks/agent-toolkit` is not a bundle. Its `marketplace.json` offers **56 separate plugins**, each wrapping a single capability, and `writing-clearly-and-concisely` is one of them — `enabledPlugins` carries `writing-clearly-and-concisely@agent-toolkit` and nothing else from the 56. The installed tree is one skill directory: `SKILL.md`, `README.md`, `signs-of-ai-writing.md`, and a five-file `elements-of-style/`. So the granularity a fork would normally buy is already on offer upstream, and obra's fork is evidence of wanting the skill inside their own marketplace, not of a defect in softaworks'.
+
+Two things worth carrying elsewhere. This marketplace is **live proof of the marketplace-entry component declaration** found in the binary and discussed under the rejected fourth arrangement below — every one of the 56 entries declares its components explicitly, e.g. `"skills": ["./skills/writing-clearly-and-concisely"]`, as an array. And the **one-capability-per-plugin pattern across 56 entries** is a distribution shape #59 and #96 should look at before designing their own.
 
 **`security-guidance` ships no skills, agents or commands** — hooks and nothing else: six registrations invoking a shared entrypoint over roughly 330KB of interdependent Python across 9 modules, plus an Agent SDK bootstrap at SessionStart with a 180-second timeout. Its Stop-hook half has no Codex equivalent; Codex's event set is `pre_tool_use`, `post_tool_use`, `permission_request`, `pre_compact`, `post_compact`, `session_start`, `session_end`, `user_prompt_submit`, `subagent_start`, `subagent_stop` — no main-agent Stop. Keeping it at step 1 avoids vendoring that Python for a Claude-only capability `codex-security` already covers by another mechanism on the other harness.
 
