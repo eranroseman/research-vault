@@ -1,116 +1,71 @@
 # Installed asset disposition survey
 
-**Date:** 2026-08-30
-**Ticket:** [#75 — Installed plugin/skill disposition](https://github.com/eranroseman/knowledge-harness/issues/75), a `wayfinder:grilling` ticket on map [#53](https://github.com/eranroseman/knowledge-harness/issues/53)
-**Status:** recommendation. The author has ruled on the framing questions recorded below; the per-asset dispositions are proposals pending sign-off.
-**Scope:** every plugin and skill installed on this machine across Claude Code and Codex, plus the full upstream `mattpocock/skills` roster including skills not installed here.
+**Status: recommendation. Nothing here is approved.**
+**Date:** 2026-08-30 · **Ticket:** [#75](https://github.com/eranroseman/knowledge-harness/issues/75), a `wayfinder:grilling` ticket on map [#53](https://github.com/eranroseman/knowledge-harness/issues/53)
 
-Prior survey in this series: [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-inventory-sweep.md), which diffed every enabled plugin against its pinned commit. This one asks a different question — not "has it drifted" but "what do we do with it".
+Every plugin and skill installed on this machine across Claude Code and Codex, plus the full upstream `mattpocock/skills` roster including the 19 skills not installed here, and the four `harness-backup`-owned skills. Each gets a ladder step, a bucket, a sharing verdict, and — for plugins — a fork call.
 
-## Method
+Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-inventory-sweep.md), which asked whether assets had drifted. This one asks what to do with them.
 
-Four adversarially-verified survey passes, each assessing on evidence read off disk or fetched from upstream, then refuted by an independent agent instructed to default to rejection where a claim rested on a description rather than a file body. Sources read fresh rather than copied from earlier tickets: `~/.claude/settings.json`, `~/.claude/plugins/installed_plugins.json`, `~/.claude/plugins/known_marketplaces.json`, `~/.claude/plugins/cache/`, `~/.codex/config.toml`, `~/.codex/plugins/cache/`, `~/.agents/.skill-lock.json`, `~/harness-backup/claude/skills/`, and the installed Claude Code binary at `~/.local/share/claude/versions/2.1.220`.
+Two things in this document have different standing, and the difference matters:
 
-Where a claim decided a branch, it was re-verified by hand outside the surveys. Those re-verifications are marked below.
+- **Measurements** are properties of the installed artefacts, independently verifiable, and true regardless of what is decided. They are marked where they carry weight.
+- **Recommendations** are conclusions drawn from those measurements. They await review.
 
-## The disposition axis, as the author fixed it
+Method is in the appendix.
 
-The ticket's original axis was adopt-as-is / modify-import / unrelated. The author replaced it on 2026-08-30 with a preference ladder, in strict order:
+## What needs deciding
 
-1. **Use the whole plugin as-is.** A plugin is all its components together — skills, hooks, subagents, slash commands, MCP servers.
-2. **Use selected components as-is** — any subset of those component kinds, unmodified.
+1. **The per-asset recommendations** in [Recommendations](#recommendations) — all of them, individually or wholesale.
+2. **`caveman`'s bucket** and **the obra double-install dedupe** — both flagged **unconfirmed** below, resting on a reading of a truncated message rather than a clear answer.
+3. **Is the `superpowers` fork public or private?** MIT permits either. Public is better for the destination: a fresh machine can clone without credentials, whereas the current Codex marketplace uses an SSH remote and so carries a credential dependency at setup.
+4. **The fork's marketplace name.** The *plugin* name must stay `superpowers` — that is what preserves the cross-references — but the marketplace should differ from `superpowers-dev` to keep registrations unambiguous.
+5. **Does `writing-specs` vendor from upstream HEAD or freeze at the 6.2.0 pin?** See [Handoff to #60](#handoff-to-60).
+
+## Settled inputs
+
+These were answered directly by the author and are not in question.
+
+**The ladder**, which replaced this ticket's original adopt-as-is / modify-import / unrelated axis:
+
+1. **Use the whole plugin as-is.** A plugin is all its components — skills, hooks, subagents, slash commands, MCP servers.
+2. **Use selected components as-is** — any subset of those kinds, unmodified.
 3. **Adapt a component** — a modified copy carrying provenance.
 4. **Write one.**
 
-Anything clearing the as-is gate lands in exactly one bucket: **required** (the plugin does not work without it), **recommended** (works without it), or **unrelated** (no relationship to either product).
+Steps 2–4 read *component*, not *skill*. That is not cosmetic: the difference between step 3 and step 4 is **provenance**, so confining step 3 to skills would force any adapted hook, subagent or command to be filed as step 4 — silently stripping the provenance obligation and leaving #63 nothing to watch. #61's lean-router SessionStart hook is a live case.
 
-Two further rulings from the same session. **Fork policy is per-plugin with no default** — every fork-or-depend call rests on its own upstream evidence, gathered once at adoption rather than re-audited on a schedule. **Distribution of the recommended bucket is deferred** to its own ticket rather than decided here; a README link is the interim position, and a two-package split (dependencies-only plus a bundle) waits until the recommended list exists and is long enough to justify one.
+**The buckets.** Anything clearing the as-is gate is exactly one of **required** (the plugin does not work without it), **recommended** (works without it), or **unrelated**.
 
-The first function of `software-development` is to be the single home for the non-as-is assets, so they are managed in one designated location rather than per repository.
+**Fork policy is per-plugin with no default.** Every fork-or-depend call rests on its own upstream evidence, gathered **once at adoption** — not a standing re-audit. If upstream later goes stale, #63's drift monitoring is the signal that prompts revisiting.
 
-## The superpowers decision
+**Repository count is unconstrained** — *"we can have as many repos as we want."* The three-peer framing (`research-vault`, `software-development`, `shared-skills`) describes the **distribution** graph, what a user installs, not a limit on what the author may own. This was the only premise that could have overturned the fork recommendation, so the fork below stands on its own merits rather than on any scarcity of repositories.
 
-**Recommendation: fork `obra/superpowers` into the author's own marketplace, delete `brainstorming` there, and depend on the fork from both harnesses.**
+**Distribution of the recommended bucket is deferred** to [#96](https://github.com/eranroseman/knowledge-harness/issues/96). README link is the interim position.
 
-**Nature: the findings below are measured; the fork is decided by #75.** The author's position on as-is adoption is an observation rather than a ruling — verbatim: *"I didn't rule that superpowers can't be adopted as-is. I said unfortunately the evidence suggests it is impossible."* The distinction is load-bearing and the foundation spec's status vocabulary requires naming it: a measurement is overturnable by better evidence, a ruling is not. So what follows are measurements of the installed artefacts, and the fork is a conclusion drawn from them — reopenable if the artefacts change.
+**The first function of `software-development`** is to be the single home for the non-as-is assets, so they are managed in one designated location rather than per repository.
 
-The conclusion reverses a clause of [#72](https://github.com/eranroseman/knowledge-harness/issues/72), which recorded the process spine as "adopted as-is" while simultaneously vendoring `brainstorming` out of it — two statements that cannot both hold at plugin granularity. Recorded as a dated reversal rather than left contradicted, per the precedent [#77](https://github.com/eranroseman/knowledge-harness/issues/77) set when it reversed clauses of [#89](https://github.com/eranroseman/knowledge-harness/issues/89). The reversal is #75's, not an author ruling.
+## How assets can physically travel
 
-### Why ladder step 1 fails
+**Measured.** This constraint governs what each ladder step *means*, so it comes before the recommendations rather than after.
 
-`hooks/hooks.json` registers a SessionStart hook on matcher `startup|clear|compact`, and `hooks/session-start` injects `skills/using-superpowers/SKILL.md` verbatim, wrapped in `<EXTREMELY_IMPORTANT>` tags. That file routes to the skill being replaced, by qualified name, twice:
+**Legality.** MIT throughout — `obra/superpowers` (Copyright (c) 2025 Jesse Vincent), `mattpocock/skills` (Copyright (c) 2026 Matt Pocock). The grant covers modified copies. The binding condition is that `software-development` and `shared-skills` each ship the notice and copyright line.
 
-- line 22 — *"**Before entering plan mode:** if you haven't already brainstormed, invoke the brainstorming skill first."*
-- line 30 — *"`\"Let's build X\"` → superpowers:brainstorming first, then implementation skills."*
+**Structure.** Anything shipping *inside* a plugin must be a vendored copy in that plugin's own root. Three independent facts force it:
 
-So the cost of step 1 is not a passive catalog duplicate that a better description could out-compete. It is an always-on injected instruction naming the competitor, followed — once inside `brainstorming` — by a `<HARD-GATE>` and the clause *"The ONLY skill you invoke after brainstorming is writing-plans"*, which forecloses handing back. The failure mode is not "picks arbitrarily"; it is "reliably picks the replaced skill, then locks the door".
+- Agent Plugins §4.1 requires every discovered file to resolve inside the plugin root; a `SKILL.md` that does not **must be skipped silently**.
+- Codex copies the plugin tree and **drops symlinks**, so a symlinked skill arrives empty.
+- `.codex-plugin/plugin.json` accepts `skills` as a **single path string** — arrays are rejected — so no subset can be curated from one path.
 
-**It cannot be muted, and this was verified by hand rather than inferred.** Claude Code 2.1.220's resolver:
+`mattpocock/skills` cooperates with this: `find . -type l` over the whole repo returns exactly one symlink, `./AGENTS.md -> CLAUDE.md` at root, none inside `skills/`. Every skill folder is self-contained, so copying it in satisfies §4.1 with no rework.
 
-```js
-function jFe(e) {
-  if ((e.type === "local-jsx" || e.type === "local") && sPy.has(e.name))
-    return eo().skillOverrides?.[e.name] === "off" ? "off" : "on";
-  if (e.type !== "prompt" || e.source === "plugin") return "on";
-  ...
-}
-```
+**This does not collapse step 2 into step 3.** It changes what step 2 *means* — not "depend on upstream" but "vendor a byte-identical copy with provenance". The ladder distinguishes whether the text changed, not how it arrived.
 
-`e.source === "plugin"` returns `"on"` unconditionally; the `skillOverrides` map is never consulted. The preceding branch is not a plugin path — `sPy` is `new Set(["auto-mode-setup"])`, a single built-in command. Corroborated twice in the same binary: the `/skills` management UI skips entries where `loadedFrom !== "skills" && loadedFrom !== "commands_DEPRECATED"`, and the `/plugin` UI exposes only `plugin:toggle` and `plugin:install` with no per-component action.
+**The consequence worth carrying:** every vendored copy, modified or not, becomes a #63 drift surface. A dependency on a **separately distributed plugin** does not, because it keeps its own plugin root. That asymmetry is why the `superpowers` fork beats vendoring `superpowers`' skills.
 
-This settles [#60](https://github.com/eranroseman/knowledge-harness/issues/60)'s open question about whether the foundation spec §7 ruling had gone stale. It has not. Recorded there in full.
+## Recommendations
 
-Codex is worse, not better: `codex plugin --help` on codex-cli 0.147.0 lists only `add`, `list`, `marketplace`, `remove`; there is no `codex skill` subcommand and no skill-level key anywhere in `~/.codex/config.toml`.
-
-### Why ladder step 2 fails
-
-The wanted skills carry **26** hard-coded `superpowers:`-qualified cross-references across 9 files — 25 lines, one of which carries two — verified by `grep -ro` against the installed cache. None is inside `skills/brainstorming/`, so every one survives that directory's deletion and every one breaks under vendoring. Per file: `subagent-driven-development/SKILL.md` 6, `writing-plans/SKILL.md` 4, `writing-skills/SKILL.md` 4, `executing-plans/SKILL.md` 3, `systematic-debugging/SKILL.md` 2, `using-superpowers/SKILL.md` 2, `using-superpowers/references/gemini-tools.md` 2, `test-driven-development/writing-good-tests.md` 1, `writing-skills/testing-skills-with-subagents.md` 1. Examples: `writing-plans/SKILL.md:163` — *"**REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development"*; `systematic-debugging/SKILL.md:177` — *"Use the `superpowers:test-driven-development` skill"*. Copied into `software-development`'s root unmodified, every one points at a namespace that is absent or routes back to the upstream copy. Step 2 therefore collapses into step 3 for every skill carrying one.
-
-The breakage class is permanent, not one-off: 20 commits since 2026-01-01 added or moved lines containing `superpowers:` under `skills/`, and `writing-skills/SKILL.md:283` prescribes the qualified form as house style. Such changes auto-merge without conflict, so each future one would land silently broken.
-
-### Why the fork wins
-
-Qualified names are `pluginName:skillName`, independent of marketplace — corroborated live in this session's own skill listing, where `superpowers-developing-for-claude-code:developing-claude-code-plugins` is namespaced by plugin name while its marketplace is `superpowers-developing-for-claude-code-dev`. Keeping `"name": "superpowers"` in the fork preserves all 26 cross-references untouched.
-
-Measured, by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0829` (v6.3.0, five weeks, 415 lines across 13 skill files):
-
-- The patch is **10 files changed, 117 insertions, 1933 deletions** — delete `skills/brainstorming/`, edit two lines of `using-superpowers/SKILL.md`, replace the `AGENTS.md` symlink with a regular file.
-- The merge produced **exactly two conflicts**, both `DU` on the deleted directory, resolvable by `git rm -r` and fully scriptable.
-- `skills/using-superpowers/SKILL.md`, the one file the fork edits, **auto-merged cleanly** even though upstream touched it.
-
-Licence permits it: `LICENSE` is MIT, Copyright (c) 2025 Jesse Vincent; the only obligation is retaining the notice. Asking upstream to drop `brainstorming` is a non-starter — it is the plugin's first manifest keyword and its `defaultPrompt` is *"I've got an idea for something I'd like to build."*
-
-### A fourth arrangement, evaluated and rejected
-
-Claude Code marketplace entries can declare a plugin's components. The binary carries *"has conflicting manifests: both plugin.json and marketplace entry specify components. Set `strict: true` in marketplace entry or remove component specs from one location."* Since upstream's `.claude-plugin/plugin.json` declares no components, an entry-level `skills` array selecting 13 of 14 would conflict with nothing — curation with no fork and no vendoring.
-
-**It dies on Codex.** `~/.codex/plugins/cache/superpowers-dev/superpowers/6.2.0/.codex-plugin/plugin.json` declares `"skills": "./skills/"` — a single path string, not an array. No subset is expressible. A Claude-only mechanism fails the destination's cross-harness requirement.
-
-### Three defects the fork fixes as a side effect
-
-1. **A non-reproducible marketplace.** `~/.codex/config.toml` currently declares `[marketplaces.superpowers-dev]` with `source_type = "local"` and `source = "/home/eranr/.claude/plugins/marketplaces/superpowers-dev"`. Codex's superpowers install is parasitic on a Claude install having happened first, in a specific order — it cannot reproduce on a fresh machine. Every other Codex marketplace on this machine is `source_type = "git"` with a real URL. Publishing the fork at a git URL converts the one non-reproducible marketplace into a reproducible one, which is a direct hit on the destination's fresh-machine requirement.
-2. **The Codex hook never fires.** The Codex-side manifest declares `"hooks": {}` — an empty object — so superpowers' SessionStart hook does not register on Codex at all, even though `hooks/` is copied there. The mechanism exists (Codex supports `session_start` and sets `CLAUDE_PLUGIN_ROOT`); superpowers simply does not wire it.
-3. **The missing Codex `AGENTS.md`**, still unfixed from the 2026-08-28 sweep. `git ls-files -s AGENTS.md` in the Codex cache returns mode `120000` (a symlink, tracked at the pin) while `git status --porcelain` reports ` D AGENTS.md` and no such file exists on disk. Codex's checkout drops the symlink, so 8,873 bytes of plugin-level guidance are silently absent. A fork fixes it at source by committing `AGENTS.md` as a regular file.
-
-### Amendments the adversarial pass forced
-
-Three, all accepted:
-
-1. **The proposed drift check is insufficient.** Upstream's `using-superpowers/references/hermes-tools.md:31` contains `skill_view("brainstorming")` — **unqualified** — which auto-merges silently and is invisible to a `grep superpowers:brainstorming`. #63's check must cover unqualified forms.
-2. **The patch is under-scoped.** `tests/brainstorm-server/` holds 12 live test files hard-coding `skills/brainstorming/scripts/...`, all orphaned by the deletion.
-3. **A framing correction.** An earlier claim in this session's discussion held that ladder steps 2 and 3 use the same mechanism, so the ladder's real cliff sits between 1 and 2. On Claude Code that is overstated — the containment check is lexical and marketplace-entry declaration exists. The cliff holds only because Codex cannot express curation.
-
-### Residual risks
-
-- **Sequencing.** The fork's edited bootstrap points at `software-development:writing-specs`. Until that ships, every session injects a route to a skill that does not exist. `writing-specs` must land before or with the fork cutover. Owned by [#62](https://github.com/eranroseman/knowledge-harness/issues/62).
-- **Name collision at cutover.** The fork keeps `"name": "superpowers"` — which is what preserves the 26 references — so it collides with the installed plugin; the binary carries a precedence message confirming the loser is shadowed. The cutover must uninstall first on both harnesses. Note `installed_plugins.json` also carries a **project-scope entry for `/home/eranr/memoria-vault` at a different sha** (`3dcbd5c4…`) pointing at the same install path — easy to miss, and it must be migrated too.
-- **Fork staleness.** A fork nobody merges becomes a stale private snapshot — the exact failure `harness-backup` exists to avoid, reintroduced elsewhere. #63's monitor must watch upstream HEAD against the fork's merge-base, not just the fork against the installed cache. Without that the fork is strictly worse than step 1.
-
-## Disposition table
-
-Plugin-level disposition is the operative call. **Where a plugin is ladder step 1, all its components come across and per-skill rows are informational only.**
-
-### Plugins
+Plugin-level disposition is the operative call. **Where a plugin is step 1, all its components come across and per-skill detail is informational only.**
 
 | Plugin | Harness | Step | Bucket | Fork call |
 |---|---|---|---|---|
@@ -123,120 +78,177 @@ Plugin-level disposition is the operative call. **Where a plugin is ladder step 
 | `codex-security` | Codex | 1 — as-is | recommended | depend upstream |
 | `security-guidance` | Claude | 1 — as-is | recommended | depend upstream |
 | `ponytail` | both | 1 — as-is | recommended | depend upstream |
-| `caveman` | both | 1 — as-is | **disputed** | depend upstream |
+| `caveman` | both | 1 — as-is | **unrelated** *(unconfirmed)* | depend upstream |
 
-`caveman`'s bucket is the one unresolved disagreement between passes — recommended on one reading, unrelated on another. Its core mode is general compressed communication, which a researcher benefits from identically; two of its skills (`caveman-commit`, `caveman-review`) are git-specific. Author's call.
+Three of these rows need their reasoning stated.
 
-On `writing-clearly-and-concisely` the fork question is a genuine three-way rather than two: obra already forked this skill from `softaworks/agent-toolkit` into `obra/superpowers-marketplace`, a marketplace already consumed here. Depending on that existing fork costs nothing and is a live option alongside depending on softaworks directly.
+**`caveman` — unconfirmed.** Recommended `unrelated` because under the necessity test nothing in `software-development` invokes it, and a public plugin recommending an output-style mode recommends taste rather than capability. It stays installed either way; the bucket only decides whether the README names it. Two survey passes disagreed here — one read it `recommended` — so this is a genuine judgement call rather than a settled one.
 
-`security-guidance` ships **no skills, agents or commands at all** — it is hooks and nothing else: six hook registrations invoking a shared entrypoint over roughly 330KB of interdependent Python across 9 modules, plus an Agent SDK bootstrap at SessionStart with a 180-second timeout. Its Stop-hook half has no Codex equivalent; Codex's hook event set is `pre_tool_use`, `post_tool_use`, `permission_request`, `pre_compact`, `post_compact`, `session_start`, `session_end`, `user_prompt_submit`, `subagent_start`, `subagent_stop` — no main-agent Stop. Keeping it at step 1 avoids vendoring that Python for a Claude-only capability that `codex-security` already covers by another mechanism on the other harness.
+**`writing-clearly-and-concisely` — the fork call is a three-way, not two.** obra already forked this skill from `softaworks/agent-toolkit` into `obra/superpowers-marketplace`, a marketplace already consumed here for `superpowers`. So "depend on someone else's existing fork" is available alongside depending on softaworks directly and forking independently.
 
-### mattpocock's 18 installed skills
+**`security-guidance` ships no skills, agents or commands** — hooks and nothing else: six registrations invoking a shared entrypoint over roughly 330KB of interdependent Python across 9 modules, plus an Agent SDK bootstrap at SessionStart with a 180-second timeout. Its Stop-hook half has no Codex equivalent; Codex's event set is `pre_tool_use`, `post_tool_use`, `permission_request`, `pre_compact`, `post_compact`, `session_start`, `session_end`, `user_prompt_submit`, `subagent_start`, `subagent_stop` — no main-agent Stop. Keeping it at step 1 avoids vendoring that Python for a Claude-only capability `codex-security` already covers by another mechanism on the other harness.
 
-Installed standalone via `~/.agents/.skill-lock.json`, not as a plugin. Six were independently hash-matched against exact upstream commits and are pristine but stale: `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
+### superpowers — fork it
 
-**To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
+**Nature.** The author's position on as-is adoption is an observation, not a ruling — verbatim: *"I didn't rule that superpowers can't be adopted as-is. I said unfortunately the evidence suggests it is impossible."* A measurement is overturnable by better evidence; a ruling is not. The three findings below are measurements. The fork is the conclusion drawn from them, and it is a recommendation.
 
-**To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`.
+**Step 1 fails — measured.** `hooks/hooks.json` registers a SessionStart hook on matcher `startup|clear|compact`, and `hooks/session-start` injects `skills/using-superpowers/SKILL.md` verbatim inside `<EXTREMELY_IMPORTANT>` tags. That file routes to the skill being replaced, by qualified name, twice:
 
-**Adapt (step 3):** `domain-modeling` — genuinely split on the sharing axis, and load-bearing for two adopted skills (`improve-codebase-architecture`, `wayfinder`) that reference it. `setup-matt-pocock-skills` — its disposition is not a sharing bucket at all; it is the transferable template for #62's setup mechanism, as [#85](https://github.com/eranroseman/knowledge-harness/issues/85) already found.
+- line 22 — *"**Before entering plan mode:** if you haven't already brainstormed, invoke the brainstorming skill first."*
+- line 30 — *"`\"Let's build X\"` → superpowers:brainstorming first, then implementation skills."*
 
-**Not adopted:** `grill-with-docs` and `to-tickets`, per #72's process-skill ruling.
+So step 1's cost is not a passive catalog duplicate that a better description could out-compete. It is an always-on injected directive naming the competitor — and once inside, `brainstorming`'s `<HARD-GATE>` and its *"The ONLY skill you invoke after brainstorming is writing-plans"* clause foreclose handing back. The failure is not "picks arbitrarily"; it is "reliably picks the replaced skill, then locks the door."
 
-This closes the four sharing verdicts #89 deferred to #75, plus `working-with-claude-code` and `superpowers` below — the six the ticket owed.
+**And it cannot be muted — measured against the installed binary.** Claude Code 2.1.220's resolver returns `"on"` unconditionally when `e.source === "plugin"`, before `skillOverrides` is consulted. The preceding branch is not a plugin path: `sPy` is `new Set(["auto-mode-setup"])`, one built-in command. Corroborated twice in the same binary — the `/skills` UI excludes entries where `loadedFrom !== "skills" && loadedFrom !== "commands_DEPRECATED"`, and `/plugin` exposes only `plugin:toggle` and `plugin:install`. This settles #60's open question about whether the foundation spec §7 ruling had gone stale; it has not, and the resolver source is posted there. Codex is more total, not less: `codex plugin --help` on codex-cli 0.147.0 lists only `add`, `list`, `marketplace`, `remove`, there is no `codex skill` subcommand, and `~/.codex/config.toml` carries no skill-level key.
 
-### mattpocock's 19 not-installed skills
+**Step 2 fails — measured.** The wanted skills carry **26** hard-coded `superpowers:`-qualified cross-references across 9 files, on 25 lines (one carries two), verified by `grep -ro` against the installed cache. **None sits inside `skills/brainstorming/`**, so every one survives that directory's deletion and every one breaks under vendoring.
 
-The upstream roster is 37 skills; enumeration was certified by mechanical set-diff against `find skills -name SKILL.md`, empty in both directions. 18 installed, 19 not.
+| File | Refs |
+|---|---|
+| `subagent-driven-development/SKILL.md` | 6 |
+| `writing-plans/SKILL.md` | 4 |
+| `writing-skills/SKILL.md` | 4 |
+| `executing-plans/SKILL.md` | 3 |
+| `systematic-debugging/SKILL.md` | 2 |
+| `using-superpowers/SKILL.md` | 2 |
+| `using-superpowers/references/gemini-tools.md` | 2 |
+| `test-driven-development/writing-good-tests.md` | 1 |
+| `writing-skills/testing-skills-with-subagents.md` | 1 |
 
-**All 19 are recommended not-adopted:** `ask-matt`, `code-review`, `diagnosing-bugs`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `writing-beats`, `writing-fragments`, `writing-shape`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`.
+Examples: `writing-plans/SKILL.md:163` — *"**REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development"*; `systematic-debugging/SKILL.md:177` — *"Use the `superpowers:test-driven-development` skill"*.
 
-Adoption of something the author currently lives without required naming a concrete gap it fills; none did. The only dissent ran the other way — two verifiers argued `diagnosing-bugs`, `tdd` and the `writing-*` trio were declined without pricing an adaptation.
+The breakage class is permanent, not one-off: 20 commits since 2026-01-01 touched `superpowers:` strings under `skills/`, `writing-skills/SKILL.md:283` prescribes the qualified form as house style, and such changes **auto-merge without conflict** — so each future one lands silently broken.
 
-### The obra pair, and the double-install anomaly
+**So the choice was never step 1 versus step 2.** Taking the skills individually requires editing them, which is step 3 by definition. The real question is which flavour of step 3.
 
-`working-with-claude-code` and `developing-claude-code-plugins` are each installed **twice** — once inside the `superpowers-developing-for-claude-code` plugin, once standalone via the lockfile from the same upstream. Both are live simultaneously.
+**Why the fork wins.** Qualified names are `pluginName:skillName`, independent of marketplace — corroborated live against `superpowers-developing-for-claude-code:developing-claude-code-plugins`, namespaced by plugin name while its marketplace is `superpowers-developing-for-claude-code-dev`. Keeping `"name": "superpowers"` preserves all 26 references untouched.
 
-Both are **`software-development` only, step 3**. This corrects an earlier position taken in discussion, which argued `working-with-claude-code` should be shared because it documents the runtime both products run on. Both surveys placed it with the engineering side and that reading is accepted: it is a power-user runtime reference, and it does not separate from its sibling the way the shared reading required.
+Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0829` (v6.3.0, five weeks, 415 lines across 13 skill files):
 
-The dedupe itself is the author's call. What it costs to leave both live: two catalog entries with identical descriptions, each spending the per-entry skill-listing character budget; bare `/name` invocation stops resolving; and the plugin-side copy cannot be muted, since `skillOverrides` does not reach plugin skills.
+- Patch: **10 files changed, 117 insertions, 1933 deletions** — delete `skills/brainstorming/`, edit two lines of `using-superpowers/SKILL.md`, replace the `AGENTS.md` symlink with a regular file.
+- Merge: **exactly two conflicts**, both `DU` on the deleted directory, resolved by `git rm -r`, fully scriptable.
+- The one file the fork edits **auto-merged cleanly** even though upstream touched it.
+
+**Upstream health, for the fork call.** MIT, `obra` (Jesse Vincent), 279,648 stars, last push 2026-08-29, monthly releases (v6.1.0 06-30, v6.2.0 07-24, v6.3.0 08-12), 100 commits touching `skills/` since 2026-06-01. No `eranroseman` fork exists today. **Note the machine is pinned at 6.2.0 while v6.3.0 shipped 2026-08-12** — one minor version behind, and v6.3.0 touched 12 skill files.
+
+**A fourth arrangement, rejected.** Claude Code marketplace entries can declare a plugin's components — the binary carries *"has conflicting manifests: both plugin.json and marketplace entry specify components. Set `strict: true` in marketplace entry or remove component specs from one location."* Since upstream's `.claude-plugin/plugin.json` declares no components, an entry-level `skills` array selecting 13 of 14 would conflict with nothing: curation with no fork and no vendoring. **It dies on Codex**, where `skills` is a single path string and no subset is expressible. A Claude-only mechanism fails the cross-harness destination.
+
+**Three defects the fork fixes as a side effect — all measured, all currently live.**
+
+1. Codex's `[marketplaces.superpowers-dev]` is `source_type = "local"`, pointing at `/home/eranr/.claude/plugins/marketplaces/superpowers-dev`. Codex's superpowers install is parasitic on a Claude install having happened first, in a specific order — **it cannot reproduce on a fresh machine**. Every other Codex marketplace here is `source_type = "git"` with a real URL.
+2. Codex's manifest declares `"hooks": {}`, so **superpowers' SessionStart hook does not fire on Codex at all**, even though `hooks/` is copied there. The mechanism exists — Codex supports `session_start` and sets `CLAUDE_PLUGIN_ROOT` — superpowers simply does not wire it.
+3. #56's missing Codex `AGENTS.md`, still unfixed: `git ls-files -s AGENTS.md` in the Codex cache returns mode `120000` (a tracked symlink) while `git status --porcelain` reports ` D AGENTS.md` and no file exists on disk. Codex's checkout drops the symlink, so 8,873 bytes of plugin-level guidance are silently absent. A fork commits it as a regular file.
+
+Publishing the fork at a git URL resolves all three.
+
+**Known gaps in this recommendation.** The fork patch is under-scoped as measured: `tests/brainstorm-server/` holds 12 live test files hard-coding `skills/brainstorming/scripts/...`, all orphaned by the deletion. And a fork nobody merges becomes a stale private snapshot — the exact failure `harness-backup` exists to avoid, reintroduced elsewhere. The mitigation is #63's and is stated in [Handoff](#handoff-to-other-tickets).
+
+### mattpocock's skills
+
+**18 installed**, standalone via `~/.agents/.skill-lock.json`, not as a plugin.
+
+- **To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
+- **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`.
+- **Step 3:** `domain-modeling` and `setup-matt-pocock-skills`.
+- **Not adopted:** `grill-with-docs` and `to-tickets`, per #72's process-skill ruling.
+
+Six were independently hash-matched against exact upstream commits and are **pristine but stale** — `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
+
+**19 not installed — all recommended not adopted.** `ask-matt`, `code-review`, `diagnosing-bugs`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `writing-beats`, `writing-fragments`, `writing-shape`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`.
+
+The upstream roster is 37 skills — engineering 18, productivity 7, in-progress 8, misc 4 — certified by mechanical set-diff against `find skills -name SKILL.md`, empty in both directions. Adoption of something the author currently lives without required naming a concrete gap it fills; none did. The only dissent ran the other way: two verifiers argued `diagnosing-bugs`, `tdd` and the `writing-*` trio were declined without pricing an adaptation.
+
+### The obra pair
+
+`working-with-claude-code` and `developing-claude-code-plugins` are each installed **twice** — inside the `superpowers-developing-for-claude-code` plugin, and standalone via the lockfile from the same upstream. Both live simultaneously. Both are **`software-development` only, step 3**.
+
+**Recommended dedupe — keep the plugin, drop the lockfile entries. Unconfirmed.** Both skills are step-3 adaptations regardless, so the lockfile copy is the one with no future; and since `skillOverrides` reaches lockfile skills but *not* plugin skills, keeping the muteable copy while dropping the unmuteable one would be backwards.
+
+Cost of leaving both live: two catalog entries with identical descriptions, each spending the per-entry skill-listing character budget; bare `/name` stops resolving; and the plugin-side copy cannot be muted.
 
 ### The four harness-backup skills
 
-Recommendation only — other tickets own the final calls, and these are recorded so the recommendation routes rather than collides.
+Recommendation only — the owning tickets decide. All four sit with `software-development` on the sharing axis.
 
-| Skill | Step | Home | Owning ticket |
-|---|---|---|---|
-| `finding-duplicate-functions` | 3 — adapt | `software-development` | #60 (the clearest vendoring case; also #64) |
-| `consistency-audit` | 2 — as-is | `software-development` | #79 |
-| `rethink` | 2 — as-is | `software-development` | #73 |
-| `rethink-audit` | 2 — as-is | `software-development` | #73 |
+| Skill | Step | Owning ticket |
+|---|---|---|
+| `finding-duplicate-functions` | 3 — adapt | #60 (the clearest vendoring case on the machine) |
+| `consistency-audit` | 2 — as-is | #79 |
+| `rethink` | 2 — as-is | #73 |
+| `rethink-audit` | 2 — as-is | #73 |
 
-The author ruled during this session that `rethink`/`rethink-audit` land in either `software-development` or `shared-skills`, and that **both** the public `eranroseman/rethink` repository and the `harness-backup` copies are deleted. Recorded on #73.
+On `rethink`, the author has ruled these land in either `software-development` or `shared-skills`, and that **both** the public `eranroseman/rethink` repository and the harness-backup copies are deleted. Recorded on #73.
 
-New finding for [#64](https://github.com/eranroseman/knowledge-harness/issues/64): **`finding-duplicate-functions` is absent from `harness-backup`'s README entirely**, so a fresh-machine restore silently omits it.
+## The six sharing verdicts this ticket owed
 
-## The #60 input list
+#89 deferred four; two more were left unforced. All six rest on the skill bodies rather than on folder names.
 
-Every asset landing on ladder step 3, which #60 consumes directly.
+| Skill | Verdict |
+|---|---|
+| `writing-for-agents` | `shared-skills` |
+| `triage` | `software-development` |
+| `working-with-claude-code` | `software-development` |
+| `superpowers` | `software-development` |
+| `domain-modeling` | **genuinely split** — step 3, and load-bearing for two adopted skills (`improve-codebase-architecture`, `wayfinder`) that reference it, so it cannot simply be dropped from either side |
+| `setup-matt-pocock-skills` | **no bucket** — its disposition is step 3 as the template for #62's setup mechanism, per #85 |
+
+`working-with-claude-code` went against the reading argued earlier in the grilling, which held it shared because it documents the runtime both products run on. Both surveys placed it with engineering: it is a power-user runtime reference, and it does not separate from `developing-claude-code-plugins` the way the shared reading required.
+
+## Handoff to #60
+
+Every asset landing on step 3, copy-consumable.
 
 | Asset | What must change |
 |---|---|
-| `brainstorming` → `writing-specs` | Rename; correct the description to name the funnel and the HARD-GATE; decide the Visual Companion's fate; decide the base version |
-| `domain-modeling` | Sharing split resolution; adaptation scope to be set by #60 |
+| `brainstorming` → `writing-specs` | Rename; correct the description to name the funnel and the HARD-GATE; decide the Visual Companion; decide the base version |
+| `domain-modeling` | Resolve the split; adaptation scope for #60 to set |
 | `setup-matt-pocock-skills` | Adapt as the template for #62's setup mechanism |
-| `working-with-claude-code` | Adaptation plus dedupe against the standalone install |
+| `working-with-claude-code` | Adapt, plus the dedupe above |
 | `developing-claude-code-plugins` | Same |
-| `finding-duplicate-functions` | Provenance header against `obra/superpowers-lab`; the local copy is a substantial rewrite (shell replaced with Python) |
+| `finding-duplicate-functions` | Provenance header against `obra/superpowers-lab`; the local copy is a substantial rewrite, shell replaced with Python |
 
-**The list shrank because of the fork.** Earlier passes marked `systematic-debugging`, `test-driven-development`, `writing-plans`, `writing-skills` and `using-superpowers` as step-3 adaptations. Those marks were artifacts of the vendoring branch — the fork preserves the `superpowers:` namespace, so none of them needs adaptation. That collapse is the fork's clearest practical benefit.
+**The list shrank because of the fork.** Earlier passes marked `systematic-debugging`, `test-driven-development`, `writing-plans`, `writing-skills` and `using-superpowers` as step-3 adaptations. Those were artifacts of the vendoring branch — the fork preserves the namespace, so none needs adaptation. That collapse is the fork's clearest practical benefit.
 
 **Two decisions #60 must make knowingly.**
 
-The Visual Companion is separable but not free. It is 1,730 lines — `scripts/server.cjs` 723, `scripts/frame-template.html` 213, `scripts/start-server.sh` 209, `scripts/helper.js` 167, `scripts/stop-server.sh` 120, plus `visual-companion.md` 298 — and the whole `brainstorming` directory is 1,930 lines across 8 files. Nothing outside that directory references it, so dropping it costs one file deletion, one directory deletion, and about 19 lines removed from the skill body. But removing those 19 lines means "internals untouched" no longer describes the vendoring, which is what #72 specified. Note also that the companion loads a logo from an external site carrying the Superpowers version, opt-out via `SUPERPOWERS_DISABLE_TELEMETRY`.
+*The Visual Companion is separable but not free.* It is 1,730 lines — `scripts/server.cjs` 723, `scripts/frame-template.html` 213, `scripts/start-server.sh` 209, `scripts/helper.js` 167, `scripts/stop-server.sh` 120, plus `visual-companion.md` 298 — within a `brainstorming` directory totalling 1,930 lines across 8 files. Nothing outside that directory references it, so dropping it costs one file deletion, one directory deletion and about 19 lines from the skill body. But removing those 19 lines means *"internals untouched"*, which is what #72 specified, no longer describes the vendoring. Note also that the companion loads a logo from an external site carrying the Superpowers version, opt-out via `SUPERPOWERS_DISABLE_TELEMETRY`.
 
-The base version matters. Upstream HEAD replaced `brainstorming` with a three-path Spike/Bounded/Architectural router — 117 changed lines in `SKILL.md` — after the 6.2.0 text #72 judged. Vendoring from the pin ships a skill that is already a generation behind a substantial upstream improvement. Vendor from HEAD, freeze at the pin deliberately, or place `writing-specs` under #63's drift watch as a tracked adaptation.
+*The base version matters.* Upstream HEAD replaced `brainstorming` with a three-path Spike/Bounded/Architectural router — 117 changed lines — **after** the 6.2.0 text #72 judged. Vendoring from the pin ships a skill already a generation behind. Vendor from HEAD, freeze deliberately, or place `writing-specs` under #63's drift watch as a tracked adaptation.
 
-## Anomalies
+## Handoff to other tickets
 
-The five anomalies #75 carried, as resolved.
+**#62 — hard sequencing, and a migration.** The fork's edited bootstrap points at `software-development:writing-specs`. Until that ships, every session injects a route, inside `<EXTREMELY_IMPORTANT>` tags, to a skill that does not exist. `writing-specs` must land before or with the cutover. The fork also keeps `"name": "superpowers"`, so it collides by name and the cutover must uninstall first on both harnesses — including the easily-missed **project-scope entry for `/home/eranr/memoria-vault` at a different sha** (`3dcbd5c4…`) against the same install path.
 
-**Orphaned plugin caches — the original count was wrong.** `~/.claude/plugins/cache/` holds 16 directories; nine are the enabled pins. Of the other seven, three are superseded versions of still-enabled plugins (routine garbage-collection lag from a batch update on 2026-08-10), three are true orphans with no enabled successor (`interface-design`, `pr-review-toolkit`, `frontend-design` — the ticket named only the first), and one, `caveman/caveman/17f9f2ec2377`, is unreferenced **and unmarked**, with a larger roster than the pinned version. Ruled out of scope for map #53 as machine hygiene and filed as [#95](https://github.com/eranroseman/knowledge-harness/issues/95). The finding that matters for [#78](https://github.com/eranroseman/knowledge-harness/issues/78): the client's own `.orphaned_at` marker is **not** a complete signal, so a doctor check that trusts it misses exactly the case most warranting a look. Set subtraction against `installPath` is the reliable test.
+**#63 — two additions.** Watch upstream HEAD against the fork's merge-base, not just the fork against the installed cache; without that the fork silently rots. And catch **unqualified** references: upstream already added `skill_view("brainstorming")` to `using-superpowers/references/hermes-tools.md:31`, which auto-merges clean and is invisible to a `grep superpowers:brainstorming`.
 
-**Double-installed obra skills** — covered above; cost of each branch supplied, decision open.
+**#61 — a live constraint, not a blank slate.** A SessionStart injection already fires every startup/clear/compact from the forked superpowers, carrying the skill-invocation discipline. #61 must decide whether `software-development`'s own hook composes with that or duplicates it; Claude Code merges hooks from multiple plugins without dedup. The two edited routing lines in `using-superpowers/SKILL.md` are a supported seam and they merge cleanly.
 
-**Dormant `rethink` marketplace** — routed to #73 as one motion with the placement and deletion calls, per #51's deliberate bundling.
+**#64 — two.** The declared-asset policy gap below, and: **`finding-duplicate-functions` is absent from `harness-backup`'s README entirely**, so a fresh-machine restore silently omits it.
 
-**Empty `claude-plugins-official` marketplace** — out of scope, filed with #95. Note it is a different registration from `claude-code-plugins`, which supplies the live `security-guidance` and must not be removed alongside it.
+**#78 — an offered requirement.** See the cache anomaly below.
 
-**Declared-asset policy gap** — the gap is real and was mislocated in #75's body. It lives in the global `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`, both of which cover only the `npx skills add -g` path with no declared-asset surface for native plugin installs. The author routed it to #64 rather than to #78 or to a patch of the two files, on the reasoning that a hand-maintained table is the weakest tier available under this repo's own *eliminate > mechanism > rule > prose* ordering and goes stale on the next install.
+## Incidental findings
 
-## A finding for #81
+These came out of the survey without bearing on any disposition.
 
-`to-spec` **is** mattpocock's PRD skill, renamed. `CHANGELOG.md:181` — *"`to-prd` is renamed to `to-spec`"*; `docs/engineering/to-spec.md:38` — *"Where did `/to-prd` go? It is this skill, renamed in v1.1."* So the premise that no vendor's roster contains a PRD skill is wrong in letter.
+**The orphaned-cache count in #75's body is wrong.** Of 16 directories under `~/.claude/plugins/cache/`, nine are enabled pins. Of the remaining seven: three are superseded versions of still-enabled plugins (routine garbage-collection lag from a batch update on 2026-08-10); three are **true orphans** with no enabled successor — `interface-design`, `pr-review-toolkit`, `frontend-design`, where the ticket named only the first; and one, `caveman/caveman/17f9f2ec2377`, is unreferenced **and unmarked**, with a larger roster than the pin. Filed as [#95](https://github.com/eranroseman/knowledge-harness/issues/95) and ruled out of scope for map #53 as machine hygiene.
 
-It is still worth more to [#81](https://github.com/eranroseman/knowledge-harness/issues/81) as a cited failure mode than as a donor, because upstream documents its own defect at `docs/engineering/to-spec.md:57`: *"The template leans hard on user stories, which is the wrong shape for architectural work: you end up writing stories nobody asked for around decisions that are really about interfaces and invariants."* That is a maintained vendor conceding in writing exactly the split #81 exists to draw. Its template divides cleanly along that line — product: Problem Statement, Solution, User Stories; engineering: Implementation Decisions, Testing Decisions; shared: Out of Scope, Further Notes.
+*The finding for #78:* the client's own `.orphaned_at` marker is **not** a complete signal — six of seven carry it and one does not — so a doctor check that trusts it misses exactly the case most warranting a human look. Set subtraction against `installPath` is the reliable test. Offered as an inherited requirement, to take or decline.
 
-Also minable for #81's agent-handoff dimension: `triage/AGENT-BRIEF.md`, 207 lines, MIT, already installed.
+**The declared-asset policy gap was mislocated in #75's body.** It is not in this repository's `AGENTS.md`; it lives in the global `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`, both covering only the `npx skills add -g` path with no declared-asset surface for native installs. Routed to #64 by the author, on the reasoning that a hand-maintained table is the weakest tier under this repo's own *eliminate > mechanism > rule > prose* ordering and goes stale on the next install.
 
-## Redistribution: lawful, and vendoring is the only structurally valid path
+**The dormant `rethink` marketplace** routes to #73 as one motion with the placement and deletion calls, per #51's deliberate bundling — deleting the upstream repository makes the registration dead by definition.
 
-MIT permits modified copies; the binding condition is that `software-development` and `shared-skills` each ship the notice and copyright line.
+**The empty `claude-plugins-official` marketplace** is out of scope, filed with #95. It is a different registration from `claude-code-plugins`, which supplies the live `security-guidance` and must not be removed alongside it.
 
-Structurally, anything shipping **inside** the plugins must be a vendored copy in the plugin's own root. Agent Plugins §4.1 forbids symlink escape, and two independent Codex facts confirm it mechanically: Codex copies the plugin tree and **drops symlinks**, and `.codex-plugin/plugin.json` accepts `skills` as a single path string with arrays rejected, so no subset can be curated from one path.
+**`to-spec` is mattpocock's PRD skill, renamed** — `CHANGELOG.md:181` *"`to-prd` is renamed to `to-spec`"*, `docs/engineering/to-spec.md:38` *"Where did `/to-prd` go? It is this skill, renamed in v1.1."* So #81's premise that no vendor's roster contains one is wrong in letter. It remains worth more as a cited failure mode than as a donor, because upstream documents its own defect at `docs/engineering/to-spec.md:57`: *"The template leans hard on user stories, which is the wrong shape for architectural work: you end up writing stories nobody asked for around decisions that are really about interfaces and invariants."* Its template divides along exactly the line #81 must draw. Also minable: `triage/AGENT-BRIEF.md`, 207 lines, MIT, already installed.
 
-This does not move step 2 to step 3. It changes what step 2 *means* — not "depend on upstream" but "vendor a byte-identical copy with provenance". The ladder distinguishes whether the text changed, not how it got there. The consequence worth recording: **every vendored copy, modified or not, becomes a #63 drift surface.** A dependency on a separately-distributed plugin — which is what the superpowers fork is — does not, because it keeps its own plugin root.
+**A drift-detection hazard, noted not chased.** `installed_plugins.json` carries a `memoria-vault` project-scope entry for `superpowers` at `gitCommitSha` `3dcbd5c4…` while the user-scope entry has `44c9b2d6…`, both naming the **same** `installPath`. memoria-vault is out of scope as a project, but install path does not imply pin, and #63/#78 should know that.
 
-## Answered since this document was first written
+## Appendix: method
 
-- **"No repository outside the three products" is not a constraint** — verbatim: *"we can have as many repos as we want."* This was the only premise that would have overturned the fork. It does not hold, so the fork stands on its own merits rather than on any implied scarcity of repositories.
-- **`caveman`'s bucket is `unrelated`.** Under the necessity test nothing in `software-development` invokes it, and a public plugin recommending an output-style mode recommends taste rather than capability. It stays installed; the bucket only decides whether the README names it.
-- **The obra double-install is deduped in favour of the plugin**, dropping the standalone lockfile entries. Both skills are step-3 adaptations regardless, so the lockfile copy is the one with no future — and since `skillOverrides` reaches lockfile skills but not plugin skills, keeping the muteable copy while dropping the unmuteable one would be backwards.
+Four adversarially-verified survey passes. Each assessed on evidence read off disk or fetched from upstream, then was refuted by an independent agent instructed to default to rejection where a claim rested on a description rather than a file body.
 
-## Open for the author
+Sources read fresh rather than inherited from earlier tickets: `~/.claude/settings.json`, `~/.claude/plugins/installed_plugins.json`, `~/.claude/plugins/known_marketplaces.json`, `~/.claude/plugins/cache/`, `~/.codex/config.toml`, `~/.codex/plugins/cache/`, `~/.agents/.skill-lock.json`, `~/harness-backup/claude/skills/`, and the installed Claude Code binary at `~/.local/share/claude/versions/2.1.220`.
 
-Ranked by downstream work unblocked. These route to other tickets and block nothing here.
-
-1. **Should the fork be public?** MIT permits either. Public is better for the destination: a fresh machine can clone without credentials, whereas the current Codex marketplace uses an SSH remote, which is a credential dependency at setup.
-2. **Does `writing-specs` track upstream `brainstorming` or freeze?** See the #60 section.
-3. **Marketplace naming for the fork.** The plugin name must stay `superpowers` to preserve the cross-references, but the marketplace name should differ from `superpowers-dev` to keep the registrations unambiguous.
+Where a claim decided a branch it was re-verified by hand outside the surveys — the override resolver, the cross-reference count, the upstream licence and repository statistics, and the Codex manifest. Three figures reported by the surveys were corrected that way: the cross-reference count (24 and 25 were both reported; 26 is correct), the upstream licence (`gh repo view` reported none; the licence endpoint confirms MIT), and the orphaned-cache count.
