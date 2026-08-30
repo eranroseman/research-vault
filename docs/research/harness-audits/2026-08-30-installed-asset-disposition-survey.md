@@ -47,6 +47,8 @@ These were answered directly by the author and are not in question.
 | 4 adapt component | the copy and a delta | re-vendoring, then re-applying your edits |
 | 5 write | everything | not at all |
 
+**The ladder needs a sixth state it does not have: `defer`.** Not a rung — an orthogonal parking state, for a capability judged worth having whose adoption waits on a named trigger. Its absence silently corrupted four verdicts in this survey (see [Deferred, not rejected](#deferred-not-rejected)): a skill parked with a trigger was indistinguishable from one rejected on the merits, so both printed as `not-adopted`. #66 in this tracker already uses a four-state axis — adopt / adapt / reject / **defer** — so the vocabulary exists; it was simply absent from the ladder these verdicts were written against. A `defer` entry must carry its trigger, or it is a rejection with better manners.
+
 Two consequences of the shape. **Granularity changes at rung 3**: rungs 1 and 2 are whole-artefact, rungs 3–5 are per-component, which is why only the latter say *component*. And **buckets attach to rungs 1 and 2 only** — those are the rungs where you depend on something, so required / recommended / unrelated has something to describe. Rungs 3–5 are contained content and take no bucket.
 
 Rungs 3–5 read *component*, not *skill*, deliberately. The difference between rung 3 and rung 4 is **provenance**, so confining them to skills would force any adapted hook, subagent or command up to rung 5 — silently stripping the provenance obligation and leaving #63 nothing to watch. #61's lean-router SessionStart hook is a live case.
@@ -229,7 +231,35 @@ Note this is a **product-boundary** problem, not a component-kind one. A skill's
 
 Six were independently hash-matched against exact upstream commits and are **pristine but stale** — `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
 
-**19 not installed — all recommended not adopted.** `ask-matt`, `code-review`, `diagnosing-bugs`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `writing-beats`, `writing-fragments`, `writing-shape`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`.
+#### Deferred, not rejected
+
+**Four of the nineteen below were parked, not declined, and the survey could not say so.** The standing recommendations register (`docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md`) — named in map #53's Notes as background for this programme, and never supplied to the survey passes — parks each with an explicit trigger. Their correct state is `defer`.
+
+| Skill | Register's trigger | Correct state |
+|---|---|---|
+| `diagnosing-bugs` | *"evaluate at the next real debugging need"* (register item 09) | **adopt now at rung 4** — see below |
+| `writing-fragments` | *"serious candidates for workload 3's map"* | defer to workload 3 |
+| `writing-beats` | same | defer to workload 3 |
+| `writing-shape` | same | defer to workload 3 |
+
+If the writing suite is adopted at workload 3 it lands at **rung 3 with a vendored snapshot**, because upstream marks all three in-progress — *"can change or disappear"*.
+
+**`diagnosing-bugs` is a correction, not a deferral: adopt at rung 4, hard-gated to explicit invocation.** The survey declined it on two grounds, and both are true only of as-is adoption:
+
+- *The Codex miscalibration is real* — upstream documents it over-firing on non-Claude models, four reports on issue #578 — *and the fix is the vendor's own prescription*: `policy:\n  allow_implicit_invocation: false` in `agents/openai.yaml`, already shipped upstream on `ask-matt` and `implement`. Two lines.
+- *The trigger race with `superpowers:systematic-debugging`* is resolved by the same gating, plus a Claude-side `user-invocable-only` override while the skill remains lockfile-installed.
+
+The register backs it with the strongest evidence in this survey: not an opinion about a skill, but **an audited failure of this repository's own work**. Register validation item 5 — *"the run's most expensive error class (instrument scope — the `.pop()` measurement missing `{\"date-parts\": []}`) maps onto its Phase-1 red-capable-loop criterion; systematic-debugging has no equivalent."*
+
+That gap is confirmed by reading both skills in full, and it is worse than "missing content". **On the one point where the two overlap, the spine is inverted**: `systematic-debugging`'s Iron Law gates *fixes* on investigation; `diagnosing-bugs` gates *investigation* on a red-capable command existing. The spine has no loop-construction material anywhere — not in `SKILL.md`, `root-cause-tracing.md`, `defense-in-depth.md` or `condition-based-waiting.md`.
+
+A complementary option, cheap and licence-clean: since the fork puts `skills/systematic-debugging/` under the author's control, add `building-a-feedback-loop.md` beside `root-cause-tracing.md` carrying the Phase-1 ladder and the red-capable criterion, with provenance. That transfers the *method* but not the *gate*, so it complements hard-gated adoption rather than replacing it.
+
+**One register recommendation that is stale, resolved in this survey's favour.** The register proposes *"de-fanging the injection selectively in settings (`skillOverrides` name-only, the grilling precedent) gets nearly all the benefit at none of the fork cost."* That does not work, and the diagnosis is precise: **`grilling` is lockfile-installed, where `skillOverrides` does reach.** The register generalised that precedent to plugin skills, where the resolver returns `"on"` before consulting the override map. The superpowers fork recommendation stands.
+
+**19 not installed — fifteen recommended not adopted, four deferred or corrected above.** `ask-matt`, `code-review`, `diagnosing-bugs`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `writing-beats`, `writing-fragments`, `writing-shape`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`.
+
+**Scope caveat.** #75's declared inventory sources are what is *installed*. These nineteen were surveyed at the author's request for completeness across mattpocock's roster, so they sit outside the ticket's own scope and their verdicts carry correspondingly less authority than the in-scope ones — they are a reading of upstream, not a disposition of an installed asset.
 
 The upstream roster is 37 skills — engineering 18, productivity 7, in-progress 8, misc 4 — certified by mechanical set-diff against `find skills -name SKILL.md`, empty in both directions. Adoption of something the author currently lives without required naming a concrete gap it fills; none did. The only dissent ran the other way: two of the four passes argued `diagnosing-bugs`, `tdd` and the `writing-*` trio were declined without pricing an adaptation.
 
