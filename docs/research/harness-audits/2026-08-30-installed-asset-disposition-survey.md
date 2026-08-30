@@ -73,7 +73,7 @@ Plugin-level disposition is the operative call. **Where a plugin is step 1, all 
 | Plugin | Harness | Step | Bucket | Fork call |
 |---|---|---|---|---|
 | `superpowers` | both | **3 — fork** | required | **fork** |
-| `superpowers-developing-for-claude-code` | Claude | 3 — adapt components | required | n/a — plugin not adopted |
+| `superpowers-developing-for-claude-code` | Claude | 3 — adapt its two skills | n/a — plugin not adopted | no fork; upstream dormant |
 | `obsidian` | both | 1 — as-is | recommended | depend upstream |
 | `writing-clearly-and-concisely` | both | 1 — as-is | recommended | depend upstream (softaworks) |
 | `diataxis-skills` | both | 1 — as-is | recommended | depend upstream |
@@ -110,7 +110,9 @@ softaworks' description is also better shaped for invocation — *"Use when writ
 
 **`security-guidance` ships no skills, agents or commands** — hooks and nothing else: six registrations invoking a shared entrypoint over roughly 330KB of interdependent Python across 9 modules, plus an Agent SDK bootstrap at SessionStart with a 180-second timeout. Its Stop-hook half has no Codex equivalent; Codex's event set is `pre_tool_use`, `post_tool_use`, `permission_request`, `pre_compact`, `post_compact`, `session_start`, `session_end`, `user_prompt_submit`, `subagent_start`, `subagent_stop` — no main-agent Stop. Keeping it at step 1 avoids vendoring that Python for a Claude-only capability `codex-security` already covers by another mechanism on the other harness.
 
-**`superpowers-developing-for-claude-code` has no fork call because the plugin is not adopted.** Both of its skills are step-3 adaptations into `software-development` (see [The obra pair](#the-obra-pair)), so nothing is depended on and there is nothing to fork.
+**`superpowers-developing-for-claude-code` has no bucket and no fork call, because the plugin is not adopted.** Both its skills are step-3 adaptations into `software-development` (see [The obra pair](#the-obra-pair)), so there is no as-is dependency for a bucket to describe and nothing to fork. An earlier draft marked it `required` on the reasoning that the destination is a maintainer product; that is not the bucket test, which asks whether `software-development` runs without it. It does.
+
+Upstream is **dormant**: `pushedAt` 2025-12-03, and main HEAD equals the `v0.3.1` tag equals the installed pin `74afe935` — nine months quiet with no unreleased work. That makes vendoring the easy case rather than the risky one; there is nothing to merge.
 
 ### superpowers — fork it
 
@@ -205,11 +207,20 @@ The upstream roster is 37 skills — engineering 18, productivity 7, in-progress
 
 ### The obra pair
 
-`working-with-claude-code` and `developing-claude-code-plugins` are each installed **twice** — inside the `superpowers-developing-for-claude-code` plugin, and standalone via the lockfile from the same upstream. Both live simultaneously. Both are step 3.
+`working-with-claude-code` and `developing-claude-code-plugins` are each installed **twice** — inside the `superpowers-developing-for-claude-code` plugin, and standalone via the lockfile from the same upstream. Both live simultaneously.
 
-**Recommended dedupe — keep the plugin, drop the lockfile entries. Unconfirmed.** Both are step-3 adaptations regardless, so the lockfile copy is the one with no future; and since `skillOverrides` reaches lockfile skills but *not* plugin skills, keeping the muteable copy while dropping the unmuteable one would be backwards.
+**Both are step 3, both to `software-development`, neither shared.** They separate on *consumer* rather than depth. `developing-claude-code-plugins` is an authoring workflow whose artefacts are `.claude-plugin/plugin.json`, `marketplace.json`, `hooks.json` and git tags. `working-with-claude-code` is a runtime reference whose nine "When to Use" triggers are all harness extension, configuration and troubleshooting. A researcher doing evidence work in a vault produces neither class of artefact, so the sharing test excludes both — and it excludes them for different reasons, which is why they were judged separately rather than as a pair.
 
-Cost of leaving both live: two catalog entries with identical descriptions, each spending the per-entry skill-listing character budget (1,536 characters per entry, governed by `skillListingBudgetFraction`), and bare `/name` stops resolving.
+**What forces step 3 rather than step 2 — measured, and it is the same finding that decides the dedupe.** Each install shape is broken in a way the other one masks:
+
+- The **plugin's** copy of `working-with-claude-code` hardcodes standalone paths — `SKILL.md:119` reads `path: ~/.claude/skills/working-with-claude-code/references/` and `SKILL.md:132` invokes `node ~/.claude/skills/working-with-claude-code/scripts/update_docs.js`. `${CLAUDE_PLUGIN_ROOT}` appears **zero** times in the file. Neither path resolves from a plugin install; they resolve today only because the standalone copy coincidentally exists.
+- The **standalone** copy of `developing-claude-code-plugins` references `examples/simple-greeter-plugin/` and `examples/full-featured-plugin/` in three places, but those directories live at **plugin root**, not inside the skill folder. The lockfile install therefore ships no examples at all.
+
+**So the dedupe answer is: keep both for now, drop both later.** An earlier draft recommended keeping the plugin and dropping the lockfile entries. That is wrong on this evidence — removing either copy today breaks the other. The correct sequence is that `software-development` ships the adapted copies first, at which point both current installs become redundant together. **The adaptation is what makes deduplication safe, not a precondition of it.** Routes to #60 and #62 as one motion.
+
+**A drift asymmetry for #63.** `working-with-claude-code`'s true upstream is not obra: its 42 reference files are generated from `docs.claude.com` by the bundled `scripts/update_docs.js`, and they are stale — missing `skillOverrides`, plugin `dependencies`, and `allowCrossMarketplaceDependenciesOn`, all three of which this programme now relies on. Its drift question is "have Anthropic's docs moved", not "has obra committed", and a monitor watching the obra pin would report clean while the content rots.
+
+**Adaptations for #60**, beyond the provenance header both need: rewrite the two hardcoded paths in `working-with-claude-code` to `${CLAUDE_PLUGIN_ROOT}`-relative form and re-run `update_docs.js` to refresh the 42 references; co-locate or re-path the two `examples/` directories for `developing-claude-code-plugins`, and subordinate its Phase 1 (Plan) and Phase 6 (Release) to `superpowers:writing-plans` and `superpowers:finishing-a-development-branch` so the spine settled in #72 is not duplicated.
 
 ### The four harness-backup skills
 
