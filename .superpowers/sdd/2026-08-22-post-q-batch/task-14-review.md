@@ -6,11 +6,11 @@
 
 Every value the brief names landed verbatim. The Step 1 test body is copied exactly, all five assertions
 (tests/test_checks.py:1370). `_RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")` matches the brief's snippet
-(knowledge_harness/checks.py:919), tried only after `date.fromisoformat`, falling through to `_INVALID`. The
+(research_vault/checks.py:919), tried only after `date.fromisoformat`, falling through to `_INVALID`. The
 `_rw_date(value) -> str | None | object` contract is unchanged: ISO string, `None` for empty and blank,
 `_INVALID` for non-strings and unparseable text; the only import change is the `_datetime` alias the brief
 called for. The absence string is the brief's own example, `update-notice: RW leg not run (no --rw-csv)`
-(knowledge_harness/__main__.py:409). The commit subject matches the brief character for character. One commit,
+(research_vault/__main__.py:409). The commit subject matches the brief character for character. One commit,
 four files, no scope creep.
 
 The brief's hard constraint - stdout line, not a review-queue record, no new reason code - holds structurally
@@ -26,7 +26,7 @@ where the existing stdout-capture assertions live; and the brief's snippet did n
 resolved with a line-scoped `# noqa: DTZ007` carrying a one-line reason rather than by widening the project's
 deliberate lint configuration.
 
-The brief also pointed at `knowledge_harness/verify.py:986` as the emission site. `verify.py` was not modified.
+The brief also pointed at `research_vault/verify.py:986` as the emission site. `verify.py` was not modified.
 This is not a spec miss: `verify.py` has no `print` calls at all, so emission can only happen in `cmd_verify`,
 which already receives the same `rw_csv` value. Detection parity is exact - `if not args.rw_csv` in
 `cmd_verify` mirrors `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None` at verify.py:986,
@@ -78,7 +78,7 @@ they are not re-opened.
 
 ## Strengths
 
-- The `_rw_date` rewrite (knowledge_harness/checks.py:922-938) preserves the three-way contract exactly with no
+- The `_rw_date` rewrite (research_vault/checks.py:922-938) preserves the three-way contract exactly with no
   signature change: ISO is still tried first through the untouched `fromisoformat` path, the format loop
   `continue`s rather than swallowing, and the function falls through to `_INVALID` when nothing matches.
 - The negative test cases include `13/45/2023 0:00` (tests/test_checks.py:1375-1376) - a string that matches the
@@ -88,7 +88,7 @@ they are not re-opened.
   exactly-once rather than mere presence, and the adjacent `inbox.open_entries` assertion pins the task's hard
   constraint empirically in the same run that prints the line, instead of arguing it by construction.
 - The emission sits after the exit-2 error return and before the outcome loop
-  (knowledge_harness/__main__.py:405-409), so a failed run stays silent about the leg and the final JSON counts
+  (research_vault/__main__.py:405-409), so a failed run stays silent about the leg and the final JSON counts
   line remains the last line of stdout.
 - The `# noqa: DTZ007` is line-scoped with a one-line reason (a bare calendar date, no tzinfo applies) rather
   than a widening of the project's deliberate DTZ configuration.
@@ -104,7 +104,7 @@ None.
 
 ### Important (Should Fix)
 
-**1. knowledge_harness/__main__.py:409 - the new unconditional stdout line does not conform to `verify`'s
+**1. research_vault/__main__.py:409 - the new unconditional stdout line does not conform to `verify`'s
 documented output grammar, and the one consumer that documents and positionally parses that grammar was not
 updated. Status: CONFIRMED.**
 
@@ -115,7 +115,7 @@ on each line)". The new line, `update-notice: RW leg not run (no --rw-csv)`, put
 RESULT slot and `RW` in the check-id slot.
 
 *Why it matters.* The collision lands on the skill's own default path. SKILL.md:16 documents
-`python3 -m knowledge_harness verify --vault PATH`, with no `--rw-csv`, so every documented invocation now
+`python3 -m research_vault verify --vault PATH`, with no `--rw-csv`, so every documented invocation now
 emits the line - first, ahead of the outcome lines and the JSON counts. An agent following the skill literally
 would report a phantom check id `RW` carrying a bogus result state: a fabricated reporting surface in the exact
 domain this task exists to make honest. The consumer's own guard against a phantom id was removed the day
@@ -125,7 +125,7 @@ nothing in the skill now rejects an unknown second token. `tests/test_skill_cont
 that check ids a SKILL.md *names* exist in code; it does not model CLI output grammar, so no test catches this.
 
 *Blast radius, checked independently.* Exit-code consumers are unaffected.
-`knowledge_harness/templates/ci/verify.yml:48` also runs without `--rw-csv` and so will print the line, but it
+`research_vault/templates/ci/verify.yml:48` also runs without `--rw-csv` and so will print the line, but it
 branches purely on `$?` (0/1/3/other) and never parses stdout. `hooks/stop_publish_gate.py:88-90` imports
 `verify_state` directly and never sees the CLI's stdout. The damage is confined to the documented
 human-and-agent-facing grammar in the skill.
@@ -137,7 +137,7 @@ brief explicitly forbids.
 
 ### Minor (Nice to Have)
 
-**2. knowledge_harness/__main__.py:406 - rationale and provenance live in code comments and a test docstring
+**2. research_vault/__main__.py:406 - rationale and provenance live in code comments and a test docstring
 rather than in the commit body. Status: NOT-VERIFIED-MINOR (substance confirmed by synthesis).**
 
 Both the spec and quality lenses raised this independently; it is one defect and is merged here. The comment at
@@ -177,7 +177,7 @@ the loader would leave the new unit test green.
 fixture CSV (tests/test_checks.py:1379, immediately below the new test) from ISO to `1/2/2023 0:00`. The parsed
 value is ISO either way, so no other assertion in that test moves.
 
-**4. knowledge_harness/__main__.py:405 - `not args.rw_csv` re-derives the RW-leg arming predicate that
+**4. research_vault/__main__.py:405 - `not args.rw_csv` re-derives the RW-leg arming predicate that
 verify.py:986 owns. Status: NOT-VERIFIED-MINOR.**
 
 The same fact is now encoded in two places. If the leg's arming ever gains a term in verify.py (offline, empty

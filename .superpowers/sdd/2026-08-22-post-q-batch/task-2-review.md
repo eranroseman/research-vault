@@ -10,7 +10,7 @@ than taking the implementer's report on trust.
 Step 1 asked for the seven post-rename entry names with one clause each, each clause
 sourced from that skill's own `description:` line, with
 `tests/test_skill_contracts.py`'s citation self-validation still passing.
-`knowledge_harness/templates/vault/AGENTS.md:12-20` carries exactly seven rows. The
+`research_vault/templates/vault/AGENTS.md:12-20` carries exactly seven rows. The
 set is corroborated four ways, each checked independently of the report: the C-7
 adjudication rules option (a), "the seven names in the vault `AGENTS.md` template"
 (`docs/2026-08-22-skills-layer-audit.md:340`); `skills/` ships nine directories and
@@ -58,7 +58,7 @@ other test, and no `.superpowers/` artifact entered the commit.
 - The seven clauses are genuinely sourced. All three lenses and this synthesis
   checked them against the real frontmatter rather than the report's table, and none
   is invented or drifted from its description line.
-- The framing sentence at `knowledge_harness/templates/vault/AGENTS.md:10` states a
+- The framing sentence at `research_vault/templates/vault/AGENTS.md:10` states a
   fact that is both true and mechanically defended: exactly the seven listed skills
   carry `disable-model-invocation: true`, and
   `test_invocation_flags_match_the_ruled_control_model`
@@ -68,7 +68,7 @@ other test, and no `.superpowers/` artifact entered the commit.
   the five skills in the same order as `project-flow`'s own routing table
   (`skills/project-flow/SKILL.md:66-74`), so the two routing surfaces read as one.
 - The table is byte-aligned to mdformat-canonical widths (every row 81 bytes, no
-  trailing whitespace) even though `knowledge_harness/templates/` sits outside
+  trailing whitespace) even though `research_vault/templates/` sits outside
   mdformat's owned path list, so a future ownership change would not silently rewrite
   the file out from under the whole-file pin.
 - The pin landed in the same commit as the content it pins, with the mandated
@@ -88,7 +88,7 @@ downgraded it, and it appears under Minor below with the reasoning recorded.
 ### Minor (Nice to Have)
 
 **1. The index is not mechanically bound to `ENTRY_SKILLS` in either direction —
-`knowledge_harness/templates/vault/AGENTS.md:10`** (status: CONFIRMED; severity
+`research_vault/templates/vault/AGENTS.md:10`** (status: CONFIRMED; severity
 corrected from Important to Minor)
 
 *What is wrong.* Nothing asserts that every entry skill appears in the vault
@@ -99,7 +99,7 @@ the per-skill invocation-flag check. `test_every_skill_name_a_shipped_template_c
 shipped directories. No test closes the loop. The forward guard also has a hole of
 its own: `_BACKTICKED_KEBAB_TOKEN` (`tests/test_skill_contracts.py:47`) requires at
 least one hyphen, so the new `publish` row
-(`knowledge_harness/templates/vault/AGENTS.md:20`) — the first single-word skill
+(`research_vault/templates/vault/AGENTS.md:20`) — the first single-word skill
 citation in any shipped template — is invisible to it, leaving that one row unguarded
 in both directions.
 
@@ -140,7 +140,7 @@ rather than in a rejection.
 
 *Merge provenance.* This finding consolidates three lens findings that one added
 assertion closes: fidelity's finding at
-`knowledge_harness/templates/vault/AGENTS.md:14` (Important, CONFIRMED — the missing
+`research_vault/templates/vault/AGENTS.md:14` (Important, CONFIRMED — the missing
 converse check), quality's finding at line 10 (Minor — the same converse check, with
 the "These seven" prose exposure), and spec's finding at line 20 (Minor — the
 `publish` hyphen-regex leg). None was dropped.
@@ -165,7 +165,7 @@ exactly this reason. The fidelity lens found the ambient PATH resolves these too
 the main checkout's venv, then compared versions across both venvs and found them
 identical (ruff 0.15.21, mdformat 1.0.0 with mdformat-gfm 1.0.0 and
 mdformat_frontmatter 2.1.2), so the reported 8-hook pass stands. Impact here is
-further limited because `knowledge_harness/templates/` is outside mdformat's owned
+further limited because `research_vault/templates/` is outside mdformat's owned
 paths, so the new table was never a formatter target.
 
 *How to fix.* Re-run `source .venv/bin/activate && pre-commit run --all-files` from

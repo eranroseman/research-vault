@@ -1,6 +1,6 @@
-# Vale as a prose linter for the harness repo and the vault — declined
+# Vale as a prose linter for the research-vault repo and the vault — declined
 
-**Verdict (author-ruled 2026-08-24): declined.** The terminology guard is adopted instead as a pytest that parses `CONTEXT.md` at test time — no generated artifact, so registry drift is structurally impossible (the eliminate rung, per AGENTS.md). Vale would be mechanism-plus-guard. **Revisit triggers, and only these: a demand for editor integration (LSP squiggles for a human author), or a vault-side user request.** The user-side answer that never touches trust machinery is the [Obsidian Vale plugin](https://github.com/ChrisChinchilla/obsidian-vale) — a reader installs it in their own vault, and the harness knows nothing about it. **A third surface, user-facing documentation, was measured the same day and adds a third trigger; see §8.**
+**Verdict (author-ruled 2026-08-24): declined.** The terminology guard is adopted instead as a pytest that parses `CONTEXT.md` at test time — no generated artifact, so registry drift is structurally impossible (the eliminate rung, per AGENTS.md). Vale would be mechanism-plus-guard. **Revisit triggers, and only these: a demand for editor integration (LSP squiggles for a human author), or a vault-side user request.** The user-side answer that never touches trust machinery is the [Obsidian Vale plugin](https://github.com/ChrisChinchilla/obsidian-vale) — a reader installs it in their own vault, and research-vault knows nothing about it. **A third surface, user-facing documentation, was measured the same day and adds a third trigger; see §8.**
 
 This note exists so nobody re-runs the evaluation from scratch. The measured yields are the decision; the configuration knowledge in §4 is the part a future evaluator would otherwise have to rediscover by experiment.
 
@@ -10,7 +10,7 @@ Method: Vale v3.18.0 (Linux 64-bit release binary) unpacked to `/tmp`, driven wi
 
 A Go binary, MIT-licensed, read-only: it reports and never rewrites. Rules are YAML files extending one of twelve checks (`existence`, `substitution`, `occurrence`, `repetition`, `consistency`, `conditional`, `capitalization`, `metric`, `readability`, `spelling`, `sequence`, `script`), grouped into styles under a `StylesPath`. A `Vocab` folder holds `accept.txt` and `reject.txt`, one regex per line; `reject.txt` entries feed a built-in `Vale.Avoid` existence rule, `accept.txt` entries feed `Vale.Terms` (which enforces exact casing) and are added to every style's exception list.
 
-The read-only property matters for the vault: Vale does not violate the "formatters are writers too" contract in `knowledge_harness/templates/vault/AGENTS.md`. That contract is not what rules it out — §5 is.
+The read-only property matters for the vault: Vale does not violate the "formatters are writers too" contract in `research_vault/templates/vault/AGENTS.md`. That contract is not what rules it out — §5 is.
 
 ## 2. Measured yield — terminology
 
@@ -37,7 +37,7 @@ The structural objection, not just the count: **citekeys are unbounded and grow 
 
 Each item below was confirmed by running the binary, not read off the docs.
 
-**Glossary self-flagging is the first thing that breaks.** `CONTEXT.md` and `knowledge_harness/templates/vault/system/glossary.md` *define* the rejected terms, so `Vale.Avoid` fires on every `_Avoid_:` line — 28 alerts on `CONTEXT.md` alone. The fix that works:
+**Glossary self-flagging is the first thing that breaks.** `CONTEXT.md` and `research_vault/templates/vault/system/glossary.md` *define* the rejected terms, so `Vale.Avoid` fires on every `_Avoid_:` line — 28 alerts on `CONTEXT.md` alone. The fix that works:
 
 ```ini
 BlockIgnores = (_Avoid_:[^\n]+)
@@ -50,7 +50,7 @@ Confirmed: 28 alerts to 0. The alternative fallback, if a `BlockIgnores` form ev
 **`BlockIgnores` *does* reach managed regions.** This form works:
 
 ```ini
-BlockIgnores = (?s)(%%hk-managed%%.*?%%/hk-managed%%)
+BlockIgnores = (?s)(%%rv-managed%%.*?%%/rv-managed%%)
 ```
 
 Confirmed: a synthetic literature note with `Teh`, `Zhao`, and `bioRxiv` inside its managed region went silent under it. Necessary, not optional — a finding inside a managed region cannot be acted on, because the bridge regenerates the region and a hand edit raises a drift finding.
@@ -113,7 +113,7 @@ The project took the idea and, on evidence, declines the tool.
 
 Asked after the ruling: does the verdict change for prose written for a *reader* rather than for an agent? It does not, and the measurement is worth keeping because the failure mode is different from §2's and §5's.
 
-**There is barely a corpus.** Strict user-facing — what a reader of this project actually reads — is `README.md` (165 words) plus the vault templates shipped into every reader's vault (1,062 words): **roughly 1,200 words.** The CLI contributes nothing; `knowledge_harness/__main__.py` has one `help=` string and no help prose. The number reaches 11.4k words only by folding in `skills/*/SKILL.md`, which `docs/terminology.md` T7 already classifies as dev-facing rather than vault prose — a different surface with a different ruled vocabulary.
+**There is barely a corpus.** Strict user-facing — what a reader of this project actually reads — is `README.md` (165 words) plus the vault templates shipped into every reader's vault (1,062 words): **roughly 1,200 words.** The CLI contributes nothing; `research_vault/__main__.py` has one `help=` string and no help prose. The number reaches 11.4k words only by folding in `skills/*/SKILL.md`, which `docs/terminology.md` T7 already classifies as dev-facing rather than vault prose — a different surface with a different ruled vocabulary.
 
 **Method.** Unlike §2–§5, this run used real style packages: `Packages = Microsoft, Google`, synced over the network into a scratch `StylesPath` (`vale sync` worked first try; the package route is not the friction point). Run over `README.md`, the vault templates, and the nine `SKILL.md` files — 14 files, ~11.4k words. **Caveat on every count below: both styles were loaded at once and they duplicate heavily** — the acronym rules fired 50 times each on identical spots. A real deployment picks one style, so the raw counts roughly halve. The percentage does not move.
 

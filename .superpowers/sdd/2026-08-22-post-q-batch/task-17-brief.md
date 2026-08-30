@@ -2,9 +2,9 @@
 
 **Files:**
 
-- Modify: `knowledge_harness/__main__.py` (attachment loop, ~line 234)
+- Modify: `research_vault/__main__.py` (attachment loop, ~line 234)
 
-- Modify: `knowledge_harness/verify.py` (`_citekey_hash` fixity adoption, ~line 209)
+- Modify: `research_vault/verify.py` (`_citekey_hash` fixity adoption, ~line 209)
 
 - Test: `tests/test_import_note.py` (or the file holding import-note frontmatter tests), `tests/test_verify.py`
 
@@ -40,9 +40,9 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 - [ ] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
 
-### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%hk-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
+### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%rv-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
 
-**Files:** Modify: `knowledge_harness/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
+**Files:** Modify: `research_vault/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
 
 - [ ] **Step 1: Failing test** — a hand-edit to a literature note's `archive-url` (and parametrized: `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) with the managed slice untouched currently passes `lint_evidence_layer`; after the fix it is UNMATCHED (`drift`), while edits to non-machine keys (`status`, free-region prose) still pass — screening is human-writable by design.
 - [ ] **Step 2 (legality rule decided 2026-08-24, superseding the managed-slice coupling — which leaks on archive-url's frontmatter-only write AND on attachment-only fixity changes):** a machine-owned key change (`archive-url`, `managed-sha256`, `fixity-sha256`, `citekey`) is legal iff `generated` changed in the same diff with `by` = the machine actor — writer attestation, not slice coupling. `generated` itself stays guarded under its OWN predicate: a `generated` change whose `by` is not the machine actor is drift — no circularity (it can't legalize itself), and Step 1's five-key parametrization stands, with `generated` asserting the second predicate. Scope stated in the lint's finding text: this catches accidents and oblivious agents; forging the attestation is deliberate circumvention (recorded-bypass class, spec §2's stated-boundary language). Extend `lint_evidence_layer` accordingly.

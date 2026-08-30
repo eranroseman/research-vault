@@ -33,7 +33,7 @@ find-sources' shape as the controller scoped it: three columns ending in a plain
 code-span reference path, the same form as `skills/find-sources/SKILL.md:41-52`.
 The three rows are accurate against the files they point at, and all three verbs
 (`import-note`, `backfill-selectors`, `archive-source`) exist in
-`knowledge_harness/__main__.py`.
+`research_vault/__main__.py`.
 
 Step 2's commit subject is exact and there is one commit on top of BASE.
 

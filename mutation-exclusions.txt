@@ -39,9 +39,9 @@
 #               isolated repro the way gitstate.py was
 #   unexplained matches neither class; still open
 
-knowledge_harness/events.py::A::mutant makes test-file module-scope code raise, breaking collection of that file (reproduced in isolation with a traceback)
-knowledge_harness/frontmatter.py::A::5 collection-time reachers, in test_cli_live.py and test_events.py
-knowledge_harness/gitstate.py::B::module-level mutant breaks the module's import ("0" * 40 -> "0" / 40 raises TypeError at import)
-knowledge_harness/outcome.py::B?::0 collection-time reachers, 3 module-level sites
-knowledge_harness/pathcodec.py::B?::0 collection-time reachers, 1 module-level site
-knowledge_harness/selectors.py::unexplained::0 collection-time reachers and 0 module-level sites; serial run also hit a mutant timeout at [22/54] line 79 func/_norm_with_map
+research_vault/events.py::A::mutant makes test-file module-scope code raise, breaking collection of that file (reproduced in isolation with a traceback)
+research_vault/frontmatter.py::A::5 collection-time reachers, in test_cli_live.py and test_events.py
+research_vault/gitstate.py::B::module-level mutant breaks the module's import ("0" * 40 -> "0" / 40 raises TypeError at import)
+research_vault/outcome.py::B?::0 collection-time reachers, 3 module-level sites
+research_vault/pathcodec.py::B?::0 collection-time reachers, 1 module-level site
+research_vault/selectors.py::unexplained::0 collection-time reachers and 0 module-level sites; serial run also hit a mutant timeout at [22/54] line 79 func/_norm_with_map

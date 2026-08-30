@@ -2,8 +2,8 @@
 
 **Files:**
 
-- Modify: `knowledge_harness/checks.py` (`_rw_date`, ~line 910)
-- Modify: `knowledge_harness/verify.py` (RW-leg absence line, near `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`, ~line 986)
+- Modify: `research_vault/checks.py` (`_rw_date`, ~line 910)
+- Modify: `research_vault/verify.py` (RW-leg absence line, near `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`, ~line 986)
 - Test: `tests/test_checks.py`, `tests/test_verify.py`
 
 **Interfaces:** `_rw_date(value) -> str | None | object` contract unchanged (ISO string, `None` for empty, `_INVALID` sentinel). No signature changes anywhere.

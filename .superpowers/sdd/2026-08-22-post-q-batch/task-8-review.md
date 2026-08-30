@@ -199,7 +199,7 @@ never by failing", while `:61` of the same file says the hook holds "until the f
 acknowledged, or the person abandons the attempt", and `hooks/stop_publish_gate.py:535` clears the
 flag with no verb at all once the surface comes back green. Nothing in the row is false, and the
 ack path normally routes back through `mark-published` succeeding
-(`knowledge_harness/publish.py:354-362`), so this is an incomplete enumeration rather than a
+(`research_vault/publish.py:354-362`), so this is an incomplete enumeration rather than a
 contradiction. Adding the third path — "when the blocker is fixed or acknowledged and the surface
 comes back green" — makes the row agree with `:11` and `:61` at no cost.
 
@@ -259,7 +259,7 @@ and then the four content asserts against the slice.
 the hook, and steers an agent toward disarm or the bypass after a refusal." Refuted as stated;
 residual kept at Minor.** The verification held on the mechanics and it re-checks out: the row
 asserts nothing false ("never by failing" is true, and both listed exits are true), and
-`knowledge_harness/publish.py:354-362` — with its comment that "a green decision here *is* spec
+`research_vault/publish.py:354-362` — with its comment that "a green decision here *is* spec
 §6's 'green, or every blocking entry carries a standing ack'" — means the ack path routes back
 through `mark-published` succeeding rather than around it. The one path genuinely not named is
 `hooks/stop_publish_gate.py:535`'s verb-less cleanup on the next Stop, which is automatic

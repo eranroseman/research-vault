@@ -6,7 +6,7 @@
 # the safe form here.
 # Repo-local system hooks over the pinned venv — no remote hook repos, no network
 # at check time. This is the DEV-LANE pre-commit; the vault's pre-commit
-# (knowledge_harness/templates/git/pre-commit) is a trust gate — do not conflate.
+# (research_vault/templates/git/pre-commit) is a trust gate — do not conflate.
 # default pinned so `--hook-stage manual` selects ONLY the manual hooks below.
 default_stages: [pre-commit]
 repos:
@@ -19,19 +19,19 @@ repos:
       - id: ruff-format
         name: "form: python (ruff format)"
         language: system
-        entry: bash -c 'ruff format knowledge_harness tests scripts hooks'
+        entry: bash -c 'ruff format research_vault tests scripts hooks'
         pass_filenames: false
         always_run: true
       - id: ruff-check
         name: "lint: python (ruff)"
         language: system
-        entry: bash -c 'ruff check knowledge_harness tests scripts hooks'
+        entry: bash -c 'ruff check research_vault tests scripts hooks'
         pass_filenames: false
         always_run: true
       - id: mypy
         name: "types: python (mypy rung-1)"
         language: system
-        entry: bash -c 'mypy knowledge_harness'
+        entry: bash -c 'mypy research_vault'
         pass_filenames: false
         always_run: true
       # --number is part of the canonical form, every invocation including --check:
@@ -53,7 +53,7 @@ repos:
         entry: bash -c 'mdformat --number --wrap keep $(git ls-files -- "*.md" |
           grep -v -e "^\\.superpowers/" -e "^\\.worktrees/" -e
           "^\\.claude/worktrees/" -e
-          "^knowledge_harness/templates/vault/index\\.md$")'
+          "^research_vault/templates/vault/index\\.md$")'
         pass_filenames: false
         always_run: true
       # .pre-commit-config.yaml itself is yaml but stays OUT of this path
@@ -63,7 +63,7 @@ repos:
       - id: yamlfix
         name: "form: yaml (yamlfix)"
         language: system
-        entry: bash -c 'yamlfix .github/workflows knowledge_harness/templates/ci'
+        entry: bash -c 'yamlfix .github/workflows research_vault/templates/ci'
         pass_filenames: false
         always_run: true
       # All three flags are load-bearing: --keep-full-version (bare tool loosens
@@ -89,14 +89,14 @@ repos:
       - id: shellcheck
         name: "lint: shell (shellcheck)"
         language: system
-        entry: shellcheck knowledge_harness/templates/git/pre-commit
+        entry: shellcheck research_vault/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]
       - id: shfmt
         name: "form: shell (shfmt, diff mode)"
         language: system
-        entry: shfmt -d -i 2 -ci knowledge_harness/templates/git/pre-commit
+        entry: shfmt -d -i 2 -ci research_vault/templates/git/pre-commit
         pass_filenames: false
         always_run: true
         stages: [manual]

@@ -1,7 +1,7 @@
 import builtins
 import re
 
-from knowledge_harness import checks, notes, selectors
+from research_vault import checks, notes, selectors
 
 TEXT = (
     "Background prose before the finding. The cohort showed that "
@@ -73,7 +73,7 @@ def test_unescape_inverts_notes_escaping_for_entity_looking_input():
         "context_suffix": "tail",
     }
     rendered = notes.render_claim(ann)
-    selector = next(line for line in rendered.splitlines() if "hk-selector" in line)
+    selector = next(line for line in rendered.splitlines() if "rv-selector" in line)
     prefix_escaped = re.search(r'prefix="([^"]*)"', selector).group(1)
     assert selectors.unescape_selector(prefix_escaped) == value
 
@@ -91,7 +91,7 @@ def test_unescape_inverts_newline_selector_escaping():
         "context_suffix": "tail",
     }
     selector = next(
-        line for line in notes.render_claim(ann).splitlines() if "hk-selector" in line
+        line for line in notes.render_claim(ann).splitlines() if "rv-selector" in line
     )
     prefix_escaped = re.search(r'prefix="([^"]*)"', selector).group(1)
     assert selectors.unescape_selector(prefix_escaped) == value

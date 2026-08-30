@@ -10,7 +10,7 @@ hook created, no plugin hooks config touched, §10 deferred entry untouched.
 
 `fix: partial Crossref dates keep precision; ambiguous reinstatement never clears`
 
-Files: `knowledge_harness/checks.py`, `knowledge_harness/inbox.py`,
+Files: `research_vault/checks.py`, `research_vault/inbox.py`,
 `tests/test_checks.py`, `tests/test_inbox.py`,
 `.superpowers/sdd/2026-08-22-post-q-batch/task-19-report.md`.
 
@@ -18,7 +18,7 @@ Files: `knowledge_harness/checks.py`, `knowledge_harness/inbox.py`,
 
 Full suite: 1646 passed, 7 skipped (baseline 1624/7 + 22 new tests: 9 in
 `test_checks.py`, 13 in `test_inbox.py`). `ruff check` clean, `ruff format
---check` clean, `mypy knowledge_harness/` clean (27 files), `echo '{}' |
+--check` clean, `mypy research_vault/` clean (27 files), `echo '{}' |
 python hooks/stop_publish_gate.py` silent, exit 0.
 
 ## What changed
@@ -223,7 +223,7 @@ docstring (dropped the "Before this fix..." sentence) to state only the
 current constraint/behavior.
 
 Full suite: 1650 passed, 7 skipped (1646 + 4 new). `ruff check`, `ruff
-format --check`, and `mypy knowledge_harness/` all clean on the four
+format --check`, and `mypy research_vault/` all clean on the four
 touched files; `stop_publish_gate.py` silent, exit 0.
 
 Deferred per coordinator instruction, not fixed here: `mutation-baseline.txt`

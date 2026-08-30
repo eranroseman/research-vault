@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import Result, bibliography, frontmatter, notes, paths, scaffold
+from research_vault import Result, bibliography, frontmatter, notes, paths, scaffold
 
 REAL_OBSERVE_AUTOEXPORT = bibliography.observe_autoexport
 
-PROVISIONED_VAULT_ENV = "HARNESS_LIVE_AUTOEXPORT_VAULT"
+PROVISIONED_VAULT_ENV = "RV_LIVE_AUTOEXPORT_VAULT"
 DEFERRAL_REASON = (
-    "deferred: the harness never registers an auto-export, so no BBT output "
+    "deferred: research-vault never registers an auto-export, so no BBT output "
     "reaches a throwaway vault. Set "
     f"{PROVISIONED_VAULT_ENV} to the absolute path of a vault after a person "
     "creates the whole-library Better CSL JSON auto-export in BBT Preferences "
@@ -62,7 +62,7 @@ def test_provisioned_vault_opt_in_rejects_a_path_that_is_not_a_vault(tmp_path):
 @pytest.fixture(autouse=True)
 def matched_autoexport_observer(monkeypatch):
     """Keep import-unit fakes deterministic; observer behavior is tested explicitly."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(
         cli.bibliography,
@@ -79,9 +79,9 @@ def matched_autoexport_observer(monkeypatch):
 
 def run_cli(*args):
     # check=False: callers assert on returncode, and a nonzero exit is a normal
-    # expected outcome for the refusal tests, not a harness failure.
+    # expected outcome for the refusal tests, not a research-vault failure.
     return subprocess.run(
-        [sys.executable, "-m", "knowledge_harness", *args],
+        [sys.executable, "-m", "research_vault", *args],
         capture_output=True,
         text=True,
         check=False,
@@ -99,7 +99,7 @@ def test_probe():
 @pytest.mark.live
 def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
     # Pick any real citekey from the live library.
-    from knowledge_harness.zotero import ZoteroClient
+    from research_vault.zotero import ZoteroClient
 
     items = ZoteroClient().export_csl(None)
     citekey = items[0]["id"]
@@ -108,7 +108,7 @@ def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
     assert proc.returncode == 0, proc.stderr
     note = (provisioned_vault / "literatures" / f"{citekey}.md").read_text()
     assert f'citekey: "{citekey}"' in note
-    assert "%%hk-managed%%" in note
+    assert "%%rv-managed%%" in note
     assert (provisioned_vault / "system" / "bibliography.json").is_file()
 
     # Second import is a no-op.
@@ -118,7 +118,7 @@ def test_import_note_end_to_end_in_a_provisioned_vault(provisioned_vault):
 
 @pytest.mark.live
 def test_staleness_after_import_into_a_provisioned_vault(provisioned_vault):
-    from knowledge_harness.zotero import ZoteroClient
+    from research_vault.zotero import ZoteroClient
 
     citekey = ZoteroClient().export_csl(None)[0]["id"]
 
@@ -137,7 +137,7 @@ def test_probe_unreachable():
 
 
 def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     bases = []
 
@@ -158,7 +158,7 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
 
 
 def test_normalize_annotation_maps_live_bbt_shape_without_raw_aliases():
-    from knowledge_harness.__main__ import normalize_annotation
+    from research_vault.__main__ import normalize_annotation
 
     raw = {
         "annotationType": "highlight",
@@ -204,7 +204,7 @@ def test_normalize_annotation_maps_live_bbt_shape_without_raw_aliases():
 def test_normalize_annotation_malformed_or_unknown_degrades_to_paraphrase(
     raw, expected_comment
 ):
-    from knowledge_harness.__main__ import normalize_annotation
+    from research_vault.__main__ import normalize_annotation
 
     normalized = normalize_annotation(raw, "smith2020")
 
@@ -265,7 +265,7 @@ def test_import_source_runs_standalone_on_a_vault_with_zero_projects(
     search, so `import-source` answers to no project — catalog, index, log, and
     integrate-at-import all land on a freshly scaffolded vault that has none. A
     project gate anywhere on that path fails here."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     vault = tmp_path / "vault"
     scaffold.scaffold_vault(vault)
@@ -319,7 +319,7 @@ def test_import_note_reads_an_explicit_utc_clock_never_naive_local_time(
     live 2026-08-22 on the structurally identical test_publish.py double), so
     only `cmd_import_note`'s own clock read is intercepted.
     """
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     seen_timezones = []
 
@@ -364,7 +364,7 @@ def test_import_note_reads_an_explicit_utc_clock_never_naive_local_time(
 
 
 def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
     raw = _raw_quote("Mortality fell.")
@@ -392,7 +392,7 @@ def test_import_note_identical_projection_is_noop(tmp_vault, monkeypatch, capsys
 
 
 def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     item = {"title": "Mortality decline", "DOI": "10.1000/xyz"}
     old_raw = _raw_quote("Mortality fell.")
@@ -423,7 +423,7 @@ def test_import_note_annotation_only_change_rerenders(tmp_vault, monkeypatch, ca
 
 
 def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     note_path = notes.note_path(tmp_vault, "smith2020")
     original = notes.render_note(
@@ -453,7 +453,7 @@ def test_import_note_metadata_only_change_rerenders(tmp_vault, monkeypatch, caps
 def test_import_note_rerender_preserves_crlf_free_tail_bytes(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -511,7 +511,7 @@ def test_import_note_rerender_preserves_crlf_free_tail_bytes(
 def test_import_note_rejects_unsafe_citekey_before_side_effects(
     citekey, tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     constructed = []
 
@@ -576,7 +576,7 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
 def test_import_note_unresolved_attachment_and_normalized_annotation(
     attachment, tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     raw_annotation = {
         "annotationType": "highlight",
@@ -623,7 +623,7 @@ def test_import_note_unresolved_attachment_and_normalized_annotation(
 def test_import_note_observes_autoexport_before_noop_without_old_writer(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -684,7 +684,7 @@ def test_import_note_observes_autoexport_before_noop_without_old_writer(
 def test_import_note_autoexport_failure_prevents_attachment_and_note_writes(
     tmp_vault, monkeypatch, capsys, state, expected_code
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -723,7 +723,7 @@ def test_import_note_stderr_carries_the_bbt_preferences_repair(
     tmp_vault, monkeypatch, capsys
 ):
     """Telling a person the auto-export is broken without the remedy must fail."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -774,7 +774,7 @@ def test_import_note_stderr_carries_the_bbt_preferences_repair(
 def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
     target = tmp_vault / bibliography.BIB_PATH
@@ -834,7 +834,7 @@ def test_import_note_post_commit_git_read_oserror_exits_three_without_note_write
 def test_import_note_target_read_oserror_exits_three_without_note_write(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
     target = tmp_vault / bibliography.BIB_PATH
@@ -890,7 +890,7 @@ def test_import_note_target_read_oserror_exits_three_without_note_write(
 def test_import_note_accepts_genuine_bbt_output_already_at_the_target(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     items = [{"id": "smith2020", "title": "Mortality decline"}]
     (tmp_vault / bibliography.BIB_PATH).write_bytes(
@@ -942,7 +942,7 @@ def test_import_note_accepts_genuine_bbt_output_already_at_the_target(
 def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     tracked = tmp_vault / "tracked.txt"
     tracked.write_bytes(b"baseline\n")
@@ -1074,7 +1074,7 @@ def test_import_note_autoexport_commit_preserves_all_unrelated_git_state(
 def test_import_note_applies_extracted_text_only_to_its_attachment(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     first = _raw_quote("First attachment quote", key="ANNKEY01")
     second = _raw_quote("Second attachment quote", key="ANNKEY02")
@@ -1107,7 +1107,7 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
     monkeypatch.setattr(cli.paths, "to_local", local)
     monkeypatch.setattr(cli.notes, "sha256_file", lambda _: "hash")
-    monkeypatch.setattr("knowledge_harness.selectors.pdf_text", extracted)
+    monkeypatch.setattr("research_vault.selectors.pdf_text", extracted)
 
     assert (
         cli.cmd_import_note(
@@ -1120,14 +1120,14 @@ def test_import_note_applies_extracted_text_only_to_its_attachment(
     note = (tmp_vault / "literatures" / "smith2020.md").read_text()
     assert 'prefix="prefix " suffix=" suffix"' in note
     second_claim = note.split("Second attachment quote", 1)[1].split("- (quote)", 1)[0]
-    assert "hk-selector" not in second_claim
+    assert "rv-selector" not in second_claim
     assert "no extractable PDF text" in capsys.readouterr().err
 
 
 def test_import_note_preserves_prior_selectors_when_contexts_degrade(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     raw = _raw_quote("Quote remains")
     existing_ann = cli.normalize_annotation(raw, "smith2020")
@@ -1163,7 +1163,7 @@ def test_import_note_preserves_prior_selectors_when_contexts_degrade(
 def test_import_note_migrates_and_retains_legacy_multiline_selector(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     raw = _raw_quote("Quote remains")
     note_path = notes.note_path(tmp_vault, "smith2020")
@@ -1176,7 +1176,7 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
         generated_at="2026-08-16T00:00:00Z",
     )
     legacy = (
-        '  <!-- hk-selector prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
+        '  <!-- rv-selector prefix="legacy\r\nprefix" suffix="suffix\nlegacy" -->\n'
     )
     note_path.write_bytes(
         original.replace(notes.MANAGED_CLOSE, legacy + notes.MANAGED_CLOSE).encode()
@@ -1210,7 +1210,7 @@ def test_import_note_migrates_and_retains_legacy_multiline_selector(
 def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     first = _raw_quote("Resolved quote", key="ANNKEY01")
     second = _raw_quote("Unresolved quote", key="ANNKEY02")
@@ -1235,7 +1235,7 @@ def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
     monkeypatch.setattr(cli.paths, "to_local", lambda path, vault: tmp_vault / path)
     monkeypatch.setattr(cli.notes, "sha256_file", lambda _: "hash")
     monkeypatch.setattr(
-        "knowledge_harness.selectors.pdf_text", lambda _: "before Resolved quote after"
+        "research_vault.selectors.pdf_text", lambda _: "before Resolved quote after"
     )
 
     assert (
@@ -1254,7 +1254,7 @@ def test_import_note_reports_unresolved_attachment_in_mixed_extraction(
 def test_backfill_selectors_skips_malformed_and_unsafe_notes_and_aggregates_failures(
     fixture_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     (fixture_vault / "literatures" / "bad.md").write_text("not frontmatter")
     (fixture_vault / "literatures" / "unsafe.md").write_text(
@@ -1309,8 +1309,8 @@ def test_backfill_selectors_skips_malformed_and_unsafe_notes_and_aggregates_fail
     ],
 )
 def test_staleness_exit_codes(state, expected_code, tmp_vault, monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
-    from knowledge_harness import Result
+    import research_vault.__main__ as cli
+    from research_vault import Result
 
     monkeypatch.setattr(
         cli.bibliography, "staleness", lambda vault, client: Result[state]
@@ -1327,7 +1327,7 @@ def test_staleness_exit_codes(state, expected_code, tmp_vault, monkeypatch, caps
 def test_staleness_cli_reports_corrupt_committed_bibliography_as_unmatched(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class FakeClient:
         def __init__(self, base):
@@ -1368,7 +1368,7 @@ class _HoldClient:
 
 
 def _import(vault, citekey="smith2020"):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     return cli.cmd_import_note(
         argparse.Namespace(citekey=citekey, vault=str(vault), base="http://unused")
@@ -1376,7 +1376,7 @@ def _import(vault, citekey="smith2020"):
 
 
 def _holds(vault):
-    from knowledge_harness import inbox
+    from research_vault import inbox
 
     return inbox.open_entries(vault)
 
@@ -1384,7 +1384,7 @@ def _holds(vault):
 def test_import_note_invalid_citekey_files_a_schema_violation_hold(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
 
@@ -1403,7 +1403,7 @@ def test_import_note_reports_a_citekey_that_cannot_be_a_finding_target(
     tmp_vault, monkeypatch, capsys
 ):
     """Swallowing a refused review record must fail — the queue is not silent."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
 
@@ -1419,7 +1419,7 @@ def test_import_note_reports_a_citekey_that_cannot_be_a_finding_target(
 def test_import_note_unadmitted_citekey_files_a_not_admitted_hold(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class EmptyClient(_HoldClient):
         def search(self, terms):
@@ -1445,7 +1445,7 @@ def test_import_note_unadmitted_citekey_files_a_not_admitted_hold(
 def test_import_note_autoexport_failure_files_a_hold(
     tmp_vault, monkeypatch, capsys, state, expected_code, expected_reason_code
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
     monkeypatch.setattr(
@@ -1483,7 +1483,7 @@ def test_import_note_autoexport_failure_files_a_hold(
 def test_import_note_render_rejection_files_a_hold(
     tmp_vault, monkeypatch, capsys, error
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
 
@@ -1516,7 +1516,7 @@ def test_import_note_marker_less_existing_note_refuses_and_files_hold(
     new refusal actually reaches ``cmd_import_note``'s existing catch/hold
     wiring rather than merely being reachable in theory.
     """
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
     destination = notes.note_path(tmp_vault, "smith2020")
@@ -1546,7 +1546,7 @@ def test_import_note_marker_less_existing_note_refuses_and_files_hold(
 
 def test_import_note_holds_collapse_on_a_same_day_retry(tmp_vault, monkeypatch, capsys):
     """A retried failure is one standing finding, not a growing pile of rows."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class EmptyClient(_HoldClient):
         def search(self, terms):
@@ -1565,7 +1565,7 @@ def test_import_note_hold_inherits_the_finding_verbs_collision_guard(
     tmp_vault, monkeypatch, capsys
 ):
     """A forked writer would silently append a second unacknowledgeable row."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class EmptyClient(_HoldClient):
         def search(self, terms):
@@ -1602,7 +1602,7 @@ def test_import_note_hold_is_acknowledgeable_through_the_ack_verb(
     tmp_vault, monkeypatch, capsys
 ):
     """A hold nobody can ack is a dead row — the queue's whole point is drainable."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     class EmptyClient(_HoldClient):
         def search(self, terms):
@@ -1632,7 +1632,7 @@ def test_import_note_hold_is_acknowledgeable_through_the_ack_verb(
 
 
 def test_import_note_success_files_no_hold(tmp_vault, monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _HoldClient)
 

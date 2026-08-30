@@ -30,7 +30,7 @@ import re
 
 import pytest
 
-from knowledge_harness import Result, appendlog, inbox, notes, scaffold, searchlog
+from research_vault import Result, appendlog, inbox, notes, scaffold, searchlog
 
 ITEM = {
     "id": "smith2020",

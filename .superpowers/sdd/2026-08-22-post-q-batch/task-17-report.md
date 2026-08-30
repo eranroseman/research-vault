@@ -22,7 +22,7 @@ AssertionError: assert ['unresolved'] == []
 ```
 
 **Implementation.** Deleted `hashes.append("unresolved")` at
-`knowledge_harness/__main__.py:234`, keeping the `print(f"warning: attachment
+`research_vault/__main__.py:234`, keeping the `print(f"warning: attachment
 unresolved: {error}", ...)` line immediately above it, and leaving
 `degradation_reasons.append("attachment unresolved")` (a separate record,
 ~line 254) untouched.

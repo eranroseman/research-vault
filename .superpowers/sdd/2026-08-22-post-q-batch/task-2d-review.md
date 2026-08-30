@@ -18,11 +18,11 @@ claims against the real tools rather than against documentation:
   `insert_final_newline=false` / `trim_trailing_whitespace=false` for files
   directly inside `literatures/` and `log/`. The AGENTS.md formatter paragraph
   shrank to the one line the brief asked for
-  (`knowledge_harness/templates/vault/AGENTS.md:28`).
+  (`research_vault/templates/vault/AGENTS.md:28`).
 - **Step 2** — `grep -L disable-model-invocation skills/*/SKILL.md` returns
   exactly `evidence-conventions` and `synthesis-conventions` out of nine skills,
-  so "the two model-invocable knowledge-harness skills" at
-  `knowledge_harness/templates/vault/AGENTS.md:10` is literally true, and the
+  so "the two model-invocable research-vault skills" at
+  `research_vault/templates/vault/AGENTS.md:10` is literally true, and the
   seven rows in the table below it are exactly the gated set. `skills/` does not
   appear in the changed-file list at all, so the "do not flip any
   `disable-model-invocation` flag" prohibition is intact.
@@ -57,7 +57,7 @@ its central claims empirically.
   lines is correct, and the residual gap the header comment declares is honestly
   scoped rather than overstated.
 - The dotless packaging pattern is correct and complete.
-  `_DOTLESS_TEMPLATE_RENAMES` (`knowledge_harness/scaffold.py:64`) extends the
+  `_DOTLESS_TEMPLATE_RENAMES` (`research_vault/scaffold.py:64`) extends the
   existing single-file rename without changing its semantics, keeps the
   fallthrough explicit via `.get(relative, relative)`, and states the packaging
   constraint that forces dotless naming instead of narrating mechanics. A real
@@ -83,33 +83,33 @@ None.
 
 #### 1. `projects/*/search-log.md` is lint-protected but uncovered by all three ignore files
 
-`knowledge_harness/templates/vault/prettierignore:6` (identically
+`research_vault/templates/vault/prettierignore:6` (identically
 `markdownlintignore:6`, `editorconfig:37`, claim at `AGENTS.md:28`) —
 **status: CONFIRMED, plan-mandated.**
 
-**What is wrong.** `knowledge_harness/lints.py:110-116` (`_is_append_only_path`,
+**What is wrong.** `research_vault/lints.py:110-116` (`_is_append_only_path`,
 docstring: "The three durable-append surfaces this lint protects") protects
 `inbox/review-queue.md`, `log/`, **and** `projects/*/search-log.md`. The three
 shipped ignore files cover the first two and omit the third, while
 `AGENTS.md:28` now says the three files "keep them off the machine surfaces".
 
 **Why it matters.** `search-log.md` is CLI-written by construction
-(`knowledge_harness/__main__.py:689`: "`find-sources` never hand-writes
+(`research_vault/__main__.py:689`: "`find-sources` never hand-writes
 `projects/<name>/search-log.md` — every line, of either kind, is this verb") and
-prefix-enforced (`knowledge_harness/lints.py:143`, `not
+prefix-enforced (`research_vault/lints.py:143`, `not
 new_bytes.startswith(old_bytes)` → "drift — append-only file rewrote history").
 Both the quality and fidelity lenses reproduced the failure end to end: with the
 scaffold-installed `.prettierignore`/`.editorconfig` in place, prettier 3.9.6
 run from the vault root rewrites a realistic `projects/alpha/search-log.md`
 (a blank line inserted after the frontmatter), and `lint_append_only` — wired
-unconditionally into every verify run at `knowledge_harness/verify.py:1008` —
+unconditionally into every verify run at `research_vault/verify.py:1008` —
 raises the drift outcome. This is the exact scenario the shrunken AGENTS.md line
 tells the reader is now handled.
 
 **Blast radius, stated precisely** (both lens verifications were partly right,
 and neither said this outright): the `append-only` check is **not** in
 `CLOSING_BY_SURFACE` for either the `commit` or the `publish` surface
-(`knowledge_harness/verify.py:53-59`, which closes on `citekey` and
+(`research_vault/verify.py:53-59`, which closes on `citekey` and
 `evidence-layer` only), so the drift outcome surfaces as a finding in the verify
 report rather than failing the pre-commit hook. The PRISMA-S records still parse
 (`searchlog.load()` skips blank lines), the pristine bytes remain at the lint's
@@ -131,7 +131,7 @@ this is a scope question for the author, not an implementer error.
 **Closing out the `log.md` sub-claim (fidelity lens): not a defect.** `log.md`
 is named machine-written at `AGENTS.md:6` and is also uncovered, but it does not
 appear in `_is_append_only_path` and I found no other lint keyed to it, and
-`knowledge_harness/okf.py:37-38` rewrites it wholesale with `write_text`. A
+`research_vault/okf.py:37-38` rewrites it wholesale with `write_text`. A
 formatter touch is therefore overwritten on the next regeneration and alarms on
 nothing. It is also entangled with the known-deferred line-6 / line-26
 divergence. No action.
@@ -157,7 +157,7 @@ this task can fix that; it is a property of the tools.
 
 #### 2. `literatures/` and `log/` are unanchored, so the three files disagree about scope
 
-`knowledge_harness/templates/vault/prettierignore:3-4` (identically
+`research_vault/templates/vault/prettierignore:3-4` (identically
 `markdownlintignore:3-4`) — **status: NOT-VERIFIED-MINOR.**
 
 Both entries are unanchored gitignore patterns, so they exclude any directory
@@ -168,7 +168,7 @@ for `projects/thesis/log/notes.md` and markdownlint-cli 0.49.1 skips it, while
 the `.editorconfig` file's directory — correctly applies nothing to it. The
 three files thus cover different sets, and a user's own project log notes go
 silently unformatted. This is the same principle the author invoked in round 1
-when ruling `[*]` out of `.editorconfig`: the harness does not impose on files
+when ruling `[*]` out of `.editorconfig`: research-vault does not impose on files
 it does not own. Fix: write `/literatures/` and `/log/` in both ignore files.
 `inbox/review-queue.md` and `system/bibliography.json` already contain a `/` and
 are anchored.
@@ -208,7 +208,7 @@ each of the four section headers instead of counting file-wide.
 
 #### 4. `AGENTS.md:28` credits `.editorconfig` with an ignore capability it does not have
 
-`knowledge_harness/templates/vault/AGENTS.md:28` — **status:
+`research_vault/templates/vault/AGENTS.md:28` — **status:
 NOT-VERIFIED-MINOR.**
 
 The one-liner says all three files "keep them off the machine surfaces", but
@@ -228,7 +228,7 @@ surfaces; `.editorconfig` stops editors trimming or newline-padding them."
 
 #### 5. The `.editorconfig` header narrative is duplicated in the test comment
 
-`knowledge_harness/templates/vault/editorconfig:1-20` and
+`research_vault/templates/vault/editorconfig:1-20` and
 `tests/test_templates.py:325-333` — **status: NOT-VERIFIED-MINOR.**
 
 Twenty lines of header comment precede twelve lines of config, and the
@@ -243,7 +243,7 @@ sentences in the header, shorten the test comment to point at the config file.
 
 #### 6. The `root = true` rationale states a mechanism the measurement contradicts
 
-`knowledge_harness/templates/vault/editorconfig:10-12` — **status:
+`research_vault/templates/vault/editorconfig:10-12` — **status:
 NOT-VERIFIED-MINOR.**
 
 The header says `root = true` means "these overrides cannot be diluted by
@@ -266,7 +266,7 @@ regardless."
 #### 7. Two provenance statements in the commit body are inaccurate
 
 Commit `c418cf7` message body (no source line; anchored at
-`knowledge_harness/templates/vault/markdownlintignore`) — **status: CONFIRMED.**
+`research_vault/templates/vault/markdownlintignore`) — **status: CONFIRMED.**
 
 The body cites the brief as
 `docs/superpowers/sdd/2026-08-22-post-q-batch/task-2d-brief.md`, a path that

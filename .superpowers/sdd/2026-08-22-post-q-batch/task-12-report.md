@@ -13,7 +13,7 @@ not just against "no exception."
 
 `fix: render refuses duplicate claim anchors`
 
-Files: `knowledge_harness/notes.py`, `tests/test_notes.py`,
+Files: `research_vault/notes.py`, `tests/test_notes.py`,
 `tests/test_cli_live.py` (3 files, +80/-6). Report file included in the same
 commit per instruction; `.superpowers/sdd/2026-08-22-post-q-batch/progress.md`
 excluded (controller-owned).
@@ -24,12 +24,12 @@ Refs [#16](https://github.com/eranroseman/knowledge-harness/issues/16).
 
 `python -m pytest -q`: **1714 passed, 7 skipped** (baseline 1709 passed / 7
 skipped + 5 new tests in `test_notes.py`). `ruff check` / `ruff format --check`
-/ `mypy knowledge_harness/` clean on every file this task touched. Form gate
+/ `mypy research_vault/` clean on every file this task touched. Form gate
 (`echo '{}' | python hooks/stop_publish_gate.py`) silent, exit 0.
 
 ## What was implemented
 
-`knowledge_harness/notes.py::_assert_managed_body_parses` (notes.py:272-286)
+`research_vault/notes.py::_assert_managed_body_parses` (notes.py:272-286)
 now computes `expected` and immediately checks `len(set(expected)) !=
 len(expected)` before computing `parsed` or reaching the `parsed != expected`
 comparison:

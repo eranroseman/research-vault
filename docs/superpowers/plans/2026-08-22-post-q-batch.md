@@ -33,39 +33,39 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 
 ### Task 2: C-7 routing index into the vault AGENTS.md template (item 2)
 
-**Files:** Modify: `knowledge_harness/templates/vault/AGENTS.md`; its whole-file test pin.
+**Files:** Modify: `research_vault/templates/vault/AGENTS.md`; its whole-file test pin.
 
 - [x] **Step 1:** Add the index: the seven entry names (post-rename) + one clause each — source each clause from the skill's own description line (compress, don't invent). `tests/test_skill_contracts.py:153`'s self-validation must pass (every cited name exists as a shipped skill).
 - [x] **Step 2:** Update the template's whole-file pin in the same commit; full suite; commit `feat: vault AGENTS.md routing index (C-7)`.
 
 ### Task 2b: Root index embeds the Bases (decided 2026-08-24 — dashboards surface at vault-open; the `.base` files stay filed as tool artifacts)
 
-**Files:** Modify: `knowledge_harness/templates/vault/index.md`; its whole-file pin. **Ordering:** independent — run anywhere in Part 1; if Task 2's template work already passed, this is its own commit.
+**Files:** Modify: `research_vault/templates/vault/index.md`; its whole-file pin. **Ordering:** independent — run anywhere in Part 1; if Task 2's template work already passed, this is its own commit.
 
-- [x] **Step 1:** Add to the index template, under its folder links: `![[system/bases/trust-tier.base]]` and `![[system/bases/open-questions.base]]` with a one-line lead-in each (compress from the Base's own purpose; don't invent). Rationale in place: the Bases are the researcher's dashboards (§9 derives trust tiers in one), but `.base` is Obsidian-only, so the files stay in `system/` per vault-outlives-harness — embedding gives one-click access without moving a tool artifact into the knowledge tree.
+- [x] **Step 1:** Add to the index template, under its folder links: `![[system/bases/trust-tier.base]]` and `![[system/bases/open-questions.base]]` with a one-line lead-in each (compress from the Base's own purpose; don't invent). Rationale in place: the Bases are the researcher's dashboards (§9 derives trust tiers in one), but `.base` is Obsidian-only, so the files stay in `system/` per vault-outlives-its-tools — embedding gives one-click access without moving a tool artifact into the knowledge tree.
 - [x] **Step 2:** Pin updated same commit; suite; commit `feat: vault index embeds the trust-tier and open-questions Bases`.
 
 ### Task 2c: Vault AGENTS.md integrity preamble (decided 2026-08-24 — the oblivious-agent defense)
 
-**Files:** Modify: `knowledge_harness/templates/vault/AGENTS.md`; its whole-file pin. **Ordering:** independent — its own commit if Task 2's template work already passed.
+**Files:** Modify: `research_vault/templates/vault/AGENTS.md`; its whole-file pin. **Ordering:** independent — its own commit if Task 2's template work already passed.
 
-- [x] **Step 1:** The template OPENS with a two-sentence integrity preamble, before the routing index — for the agent that reads nothing else: *"This is a knowledge-harness vault. `literatures/`, `log/`, root `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits are warned in session and caught at commit."* (Adjust the surface list to what the template already names; don't restate the routing index.)
+- [x] **Step 1:** The template OPENS with a two-sentence integrity preamble, before the routing index — for the agent that reads nothing else: *"This is a research-vault vault. `literatures/`, `log/`, root `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits are warned in session and caught at commit."* (Adjust the surface list to what the template already names; don't restate the routing index.)
 - [x] **Step 2:** Pin same commit; suite; commit `feat: vault AGENTS.md opens with the integrity preamble`. Item 15's live-vault application now carries this too.
 
 ### Task 2d: Formatter ignore files + invocation-scope line (audit findings 1 and 12)
 
-**Files:** Modify: `knowledge_harness/scaffold.py` + vault templates (new `.prettierignore`, `.markdownlintignore`, `.editorconfig` covering `literatures/`, `log/`, `inbox/review-queue.md`, `system/bibliography.json`); `knowledge_harness/templates/vault/AGENTS.md`; pins.
+**Files:** Modify: `research_vault/scaffold.py` + vault templates (new `.prettierignore`, `.markdownlintignore`, `.editorconfig` covering `literatures/`, `log/`, `inbox/review-queue.md`, `system/bibliography.json`); `research_vault/templates/vault/AGENTS.md`; pins.
 
 - [x] **Step 1:** Scaffold ships the three ignore files — formatters obey config, not paragraphs. The AGENTS.md formatter paragraph (which says of itself "it is not what enforces them") shrinks to one line naming the ignore files.
-- [x] **Step 2 (finding 12):** Scope AGENTS.md's "prefer the knowledge-harness skills" line to the two model-invocable guards — seven of nine skills are user-gated by deliberate design; the line must not read as steering all nine. Do NOT flip any `disable-model-invocation` flag.
+- [x] **Step 2 (finding 12):** Scope AGENTS.md's "prefer the research-vault skills" line to the two model-invocable guards — seven of nine skills are user-gated by deliberate design; the line must not read as steering all nine. Do NOT flip any `disable-model-invocation` flag.
 - [x] **Step 3:** Pins; suite; commit `feat: formatter ignores ship with the vault; AGENTS.md scope line corrected`.
 
 ### Task 2e: Form-gate coherence (measured audit 2026-08-24 — root cause is the recorded imperative-path-list debt, now with measured cost)
 
-**Files:** Modify: `pyproject.toml` (comments), `.pre-commit-config.yaml`, `knowledge_harness/templates/vault/**/*.md` + pins.
+**Files:** Modify: `pyproject.toml` (comments), `.pre-commit-config.yaml`, `research_vault/templates/vault/**/*.md` + pins.
 
 - [x] **Step 1 (vendored exclusion made explicit — REVERSES the audit's gate-them recommendation):** `skills/find-sources/scripts/*.py` stay ungated BY the vendor rule (frozen fork; re-vendor to update; our formatters/fixers would create vendor drift). Make it explicit: one comment at ruff's path list naming the exclusion and its reason. The real finding there — `jats_to_text.py:291` passing `Element | None` into `collect_sections` — goes to the vendor channel: a ready-to-file upstream note in the K-Dense report queue, fix lands at next re-vendor, never by hand.
-- [x] **Step 2 (render-contract event, NOT a path-list edit):** add `knowledge_harness/templates/vault` to mdformat's paths and canonicalize the 11 template files — five change. This IS a render change by the repo's own doctrine (canonical template form leaks into rendered notes): its own commit, template pins updated, and the note that existing vaults see managed-region diffs on next refresh (legitimate `stale` outcomes, not defects). The RENDER-CONTRACT pin's justification becomes enforced on the files it names.
+- [x] **Step 2 (render-contract event, NOT a path-list edit):** add `research_vault/templates/vault` to mdformat's paths and canonicalize the 11 template files — five change. This IS a render change by the repo's own doctrine (canonical template form leaks into rendered notes): its own commit, template pins updated, and the note that existing vaults see managed-region diffs on next refresh (legitimate `stale` outcomes, not defects). The RENDER-CONTRACT pin's justification becomes enforced on the files it names.
 - [x] **Step 3 (hook stays uninstalled — ruled):** pre-commit's stash/restore plus whole-tree `always_run` hooks is exactly the interference the pathspec rule guards against in a shared checkout. Fix the header sentence to the truth: "when typed, and in CI"; add one line naming the practice that replaces it (run the form owner directly on touched files before committing — `pre-commit run` also stashes and is NOT the safe form here).
 - [x] **Step 4 (small trues):** document yamlfix's self-exclusion in one comment (readability of the hand-wrapped entries — a choice, now stated); drop the dead `analysis` pathspec from the record-immutability hook; make that hook fail loud on git errors (it currently swallows any `git diff` failure into an empty `touched` and passes — add explicit failure handling inside the `bash -c`); add an mdformat upgrade-protocol comment on its pin, matching ruff's: a canonical-form-changing upgrade rewrites append-only paths, so it lands as a recorded churn commit through the bypass channel (the commit message IS the record — blame-ignore-revs was measured useless against mdformat churn and deleted 2026-08-24).
 - [x] **Step 5:** Suite + `pre-commit run --all-files` green; commit `fix: form gates match their own claims — explicit vendor exclusion, templates canonicalized, hook truths`.
@@ -76,14 +76,14 @@ Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the
 
 - [x] **Step 1 (C-1):** Replace the check-id enumeration with the canonical obsidian-cli form — the replacement sentence: *"Run the CLI; its output is always up to date."* Teach the four states, not the fourteen ids (the four-state table stays; the id list goes).
 - [x] **Step 2 (C-2):** Correct the registry-scope sentence: TWO registry codes are out of scope, not one (the audit's C-2 card names them — copy from it), and pin with a test.
-- [x] **Step 3 (the enumeration checker):** Generalize the `test_skill_contracts.py:133` instrument: every check id any SKILL.md enumerates must be one `verify` can emit. Write it as a parametrized sweep over `skills/*/SKILL.md` extracting backtick-quoted check ids against the CLI's emitted set (source the canonical set from `knowledge_harness` code, not a hand list).
+- [x] **Step 3 (the enumeration checker):** Generalize the `test_skill_contracts.py:133` instrument: every check id any SKILL.md enumerates must be one `verify` can emit. Write it as a parametrized sweep over `skills/*/SKILL.md` extracting backtick-quoted check ids against the CLI's emitted set (source the canonical set from `research_vault` code, not a hand list).
 - [x] **Step 4:** Full suite; commit `fix: verify-citations defers to CLI output; enumeration checker guards all skills`.
 
 ### Task 4: find-sources corrections + cross-read wiring (items 5, 7, 11, 12)
 
 **Files:** Modify: `skills/find-sources/SKILL.md` (+ its `references/` where the cross-read says so); test pins.
 
-- [x] **Step 1 (C-3 + item 11 fold):** Credential counts align to `redact_url` — the SKILL.md says "several" and defers to `redact_url` as the authority (3 query-string-auth APIs; 6 redacted params live in code, not prose). Mailto: SKILL.md states it is sourced from harness config and that vendored scripts don't read it.
+- [x] **Step 1 (C-3 + item 11 fold):** Credential counts align to `redact_url` — the SKILL.md says "several" and defers to `redact_url` as the authority (3 query-string-auth APIs; 6 redacted params live in code, not prose). Mailto: SKILL.md states it is sourced from research-vault config and that vendored scripts don't read it.
 - [x] **Step 2 (C-5):** One vendoring-note line: upstream prose describes upstream's corpus.
 - [x] **Step 3 (item 12):** One vendoring-note section carrying the six upstream-fact annotations — copy verbatim from the cross-read report's triage (docs/research/validation-slice/2026-08-22-references-cross-read.md). Add the routing guards: no single-DOI lookups via paginate; the openalex row points at `openalex_abstract.py`; `OPENALEX_API_KEY` env caution. Add the XML annotation (ruled 2026-08-24): `arxiv_atom.py`/`jats_to_text.py` parse network XML via stdlib ElementTree by upstream's choice — not XXE (no EXTERNAL entity expansion — internal entities DO expand, probe-verified 2026-08-24, which is exactly the class the next clause hedges); residual expansion-DoS rides the runtime's libexpat; kept frozen per the vendor rule, noted in the K-Dense upstream queue beside the jats arg-type finding.
 - [x] **Step 4:** Pins updated same commit; full suite; commit `fix: find-sources credential/vendoring corrections + cross-read wiring`.
@@ -130,7 +130,7 @@ Step 1's content lives in the rewritten "The abstract said so." row (replaced, n
 
 ### Task 9: SKIPPED entries excluded from unacknowledged counts (item 16, slice finding 14)
 
-**Files:** Modify: `knowledge_harness/inbox.py` (`summary`, ~line 710, and every drain surface that counts). Test: `tests/test_inbox.py`.
+**Files:** Modify: `research_vault/inbox.py` (`summary`, ~line 710, and every drain surface that counts). Test: `tests/test_inbox.py`.
 
 - [x] **Step 1: Failing test**
 
@@ -151,7 +151,7 @@ def test_skipped_entries_not_counted_unacknowledged(tmp_vault):
 
 ### Task 10: Two-tier citekey check (item 17, spec §4 as ruled 2026-08-22)
 
-**Files:** Modify: `knowledge_harness/checks.py` (`check_citekeys`, ~line 131); `knowledge_harness/inbox.py` (REASON_CODES) or wherever the registry lives; `docs/terminology.md` §4.4 (new row); `skills/evidence-conventions/SKILL.md` reason-code table. Test: `tests/test_checks.py`.
+**Files:** Modify: `research_vault/checks.py` (`check_citekeys`, ~line 131); `research_vault/inbox.py` (REASON_CODES) or wherever the registry lives; `docs/terminology.md` §4.4 (new row); `skills/evidence-conventions/SKILL.md` reason-code table. Test: `tests/test_checks.py`.
 
 **Interfaces:** `check_citekeys` signature unchanged; new reason code `not-imported`.
 
@@ -175,7 +175,7 @@ def test_cited_citekey_absent_everywhere(tmp_vault): ...     # existing "mismatc
 
 ### Task 11: Free-region destruction fix (item 18, audit defect 5)
 
-**Files:** Modify: `knowledge_harness/notes.py` (`_split_free`, ~line 141; `render_note`), `knowledge_harness/__main__.py` (`cmd_import_note` catch + review record). Test: `tests/test_notes.py`, `tests/test_import_note.py`.
+**Files:** Modify: `research_vault/notes.py` (`_split_free`, ~line 141; `render_note`), `research_vault/__main__.py` (`cmd_import_note` catch + review record). Test: `tests/test_notes.py`, `tests/test_import_note.py`.
 
 - [x] **Step 1: Failing tests**
 
@@ -202,7 +202,7 @@ def test_fresh_note_still_seeds():  # parametrize existing=None AND existing="" 
 
 ### Task 12: Duplicate-anchor render assert (item 19, claim-anchor audit)
 
-**Files:** Modify: `knowledge_harness/notes.py` (`_assert_managed_body_parses`, ~line 260). Test: `tests/test_notes.py`.
+**Files:** Modify: `research_vault/notes.py` (`_assert_managed_body_parses`, ~line 260). Test: `tests/test_notes.py`.
 
 - [x] **Step 1: Failing test** — two identical keyless annotation texts (ids derive from quote hash, truncate to 8 hex) render duplicate `^id` anchors undetected today:
 
@@ -243,8 +243,8 @@ Closes the no-fabrication audit's remaining trust-core defects (docs/research/va
 
 **Files:**
 
-- Modify: `knowledge_harness/checks.py` (`_rw_date`, ~line 910)
-- Modify: `knowledge_harness/verify.py` (RW-leg absence line, near `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`, ~line 986)
+- Modify: `research_vault/checks.py` (`_rw_date`, ~line 910)
+- Modify: `research_vault/verify.py` (RW-leg absence line, near `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`, ~line 986)
 - Test: `tests/test_checks.py`, `tests/test_verify.py`
 
 **Interfaces:** `_rw_date(value) -> str | None | object` contract unchanged (ISO string, `None` for empty, `_INVALID` sentinel). No signature changes anywhere.
@@ -297,7 +297,7 @@ def _rw_date(value) -> str | None | object:
 
 **Files:**
 
-- Modify: `knowledge_harness/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)
+- Modify: `research_vault/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)
 
 - Test: `tests/test_checks.py`
 
@@ -334,7 +334,7 @@ for result in (Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIP
 
 **Files:**
 
-- Modify: `knowledge_harness/events.py` (`trust_tier`, ~line 240)
+- Modify: `research_vault/events.py` (`trust_tier`, ~line 240)
 
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§5 Event-integrity paragraph)
 
@@ -375,9 +375,9 @@ if not has_applicable and not has_managed_quotes:
 
 **Files:**
 
-- Modify: `knowledge_harness/__main__.py` (attachment loop, ~line 234)
+- Modify: `research_vault/__main__.py` (attachment loop, ~line 234)
 
-- Modify: `knowledge_harness/verify.py` (`_citekey_hash` fixity adoption, ~line 209)
+- Modify: `research_vault/verify.py` (`_citekey_hash` fixity adoption, ~line 209)
 
 - Test: `tests/test_import_note.py` (or the file holding import-note frontmatter tests), `tests/test_verify.py`
 
@@ -413,9 +413,9 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 - [x] **Step 5: Full suite. Commit** `fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
 
-### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%hk-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
+### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%rv-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
 
-**Files:** Modify: `knowledge_harness/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
+**Files:** Modify: `research_vault/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
 
 - [x] **Step 1: Failing test** — a hand-edit to a literature note's `archive-url` (and parametrized: `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) with the managed slice untouched currently passes `lint_evidence_layer`; after the fix it is UNMATCHED (`drift`), while edits to non-machine keys (`status`, free-region prose) still pass — screening is human-writable by design.
 - [x] **Step 2 (legality rule decided 2026-08-24, superseding the managed-slice coupling — which leaks on archive-url's frontmatter-only write AND on attachment-only fixity changes):** a machine-owned key change (`archive-url`, `managed-sha256`, `fixity-sha256`, `citekey`) is legal iff `generated` changed in the same diff with `by` = the machine actor — writer attestation, not slice coupling. `generated` itself stays guarded under its OWN predicate: a `generated` change whose `by` is not the machine actor is drift — no circularity (it can't legalize itself), and Step 1's five-key parametrization stands, with `generated` asserting the second predicate. Scope stated in the lint's docstring (author ruling 2026-08-24, correcting this clause's original "finding text" — over-specification, not a requirement: the reason string is a governed one-liner repeated on every inbox row, and it carries findings, not scope philosophy): this catches accidents and oblivious agents; forging the attestation is deliberate circumvention (recorded-bypass class). Stated boundary, not a compliance control. No ADR — a scope limitation is a fact, not a decision, and minting one dilutes "only ADRs are binding". Extend `lint_evidence_layer` accordingly.
@@ -426,7 +426,7 @@ if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
 
 **Files:**
 
-- Modify: `knowledge_harness/archive.py` (supplied-snapshot branch, ~lines 166–185; `is_archive_url` or a new `_snapshot_original`)
+- Modify: `research_vault/archive.py` (supplied-snapshot branch, ~lines 166–185; `is_archive_url` or a new `_snapshot_original`)
 
 - Test: `tests/test_archive.py`
 
@@ -461,7 +461,7 @@ Shape fails → the first UNMATCHED. Shape passes → compare `original` against
 
 **Files:**
 
-- Modify: `knowledge_harness/checks.py` (`_notice_date_from_updated`, ~line 506; the reinstatement-clears comparison — locate by `notice_date` ordering use)
+- Modify: `research_vault/checks.py` (`_notice_date_from_updated`, ~line 506; the reinstatement-clears comparison — locate by `notice_date` ordering use)
 
 - Test: `tests/test_checks.py`
 
@@ -498,7 +498,7 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 **Files:**
 
-- Modify: `knowledge_harness/checks.py` (`_crossref_notices`, ~line 533)
+- Modify: `research_vault/checks.py` (`_crossref_notices`, ~line 533)
 
 - Test: `tests/test_checks.py`
 
@@ -522,7 +522,7 @@ def test_ambiguous_reinstatement_does_not_clear():
 
 - [x] **Step 2: Update-notice row (§6, ~line 99)** — append the missing-local-version rule by the four-state definitions: *"an item lacking a local `version` field is SKIPPED for the version leg (the item lacks the field the check needs) — never UNREACHABLE, which is reserved for attempted-and-failed"* — then reconcile the implementation (`_datacite_version_outcome` / arXiv twin report UNREACHABLE "outage — version status unavailable" for a missing local field today; both audit lanes disputed this — settle it by the doctrine definition, failing test first, and record the resolution in the commit body).
 
-- [x] **Step 3: Acceptance sweep** — re-run the audit's confirmed reproductions for every defect this plan claims (defects 1, 2, 3, 6, the fixity pair, the archive branch): each must now be unreproducible. Full suite offline AND live (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`, Zotero running). 8/8 hooks.
+- [x] **Step 3: Acceptance sweep** — re-run the audit's confirmed reproductions for every defect this plan claims (defects 1, 2, 3, 6, the fixity pair, the archive branch): each must now be unreproducible. Full suite offline AND live (`RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real>`, Zotero running). 8/8 hooks.
 
 - [x] **Step 4: Mark BOTH Plan S sequencing gates satisfied** (one line each, dated, pointing at this plan) — Phases 2–6 and the drill unblock together.
 
@@ -540,13 +540,13 @@ ______________________________________________________________________
 
 **Declined, so they are not re-proposed:** `digest` (adopted earlier the same day and superseded — the sole ecosystem instance is a 9-star repo, and `hexdigest()` is stdlib so the collision residual never fully clears); `synopsis` (zero collisions but no user-facing currency, which the ruling makes decisive); `précis` (same, and it implies a proportional in-order restatement, which an `(inference)`-tagged region is not); `annotation` (exact in annotated-bibliography practice, fatal against Zotero's highlight sense); bare `summary` **as a vault-facing word for anything else** is now spent.
 
-**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `knowledge_harness/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. The entry's wording is settled by this ruling; write it when the step ships.
+**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `research_vault/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. The entry's wording is settled by this ruling; write it when the step ships.
 
 **What the implementer of that step pays, all priced at zero (`docs/terminology.md` §1) but listed so none is discovered late:**
 
-- `knowledge_harness/templates/vault/index.md:10` — "daily activity log (summary: \[[log]\])" is the only *vault-facing* competing use of the word; reword ("rolled up") in the same change, and update its whole-file test pin in the same commit.
+- `research_vault/templates/vault/index.md:10` — "daily activity log (summary: \[[log]\])" is the only *vault-facing* competing use of the word; reword ("rolled up") in the same change, and update its whole-file test pin in the same commit.
 - `CONTEXT.md`'s *Log* entry — "summarized in root `log.md`" → same reword, with the vault-glossary projection.
-- `knowledge_harness/okf.py:1` ("the log summary artifact") and `inbox.summary()` are dev-facing (T7) and never reach vault prose — rename or leave, implementer's discretion, not a blocker.
+- `research_vault/okf.py:1` ("the log summary artifact") and `inbox.summary()` are dev-facing (T7) and never reach vault prose — rename or leave, implementer's discretion, not a blocker.
 - **Third-party surfaces never rename:** arXiv's `<summary>` element and PubMed's `eSummary` endpoint keep their own names. `skills/find-sources/scripts/arxiv_atom.py:93` already translates arXiv's `<summary>` to `abstract` at the boundary — keep that translation exactly, because it is what stops the wire word for *abstract* from reaching the vault as the word for the one thing an abstract may never produce (ADR-level rule, slice finding 16).
 - The section heading in the literature-note free region reads `## Summary`, matching the ecosystem the researcher already knows.
 
@@ -560,12 +560,12 @@ ______________________________________________________________________
 
 **Scope bound — rename this and nothing else.** The `factcheck` check id, the `budget-cap` reason code, and the word `skipped` (the four-state result, ADR 0002) are governed vocabulary and stay exactly as they are. This task renames one function, one dict key, and their references.
 
-**Files:** Modify: `knowledge_harness/factcheck.py` (function def + the report dict key); `skills/factcheck-draft/SKILL.md` (the JSON example and the prose sentence naming the field); `tests/test_factcheck.py` (the section marker, the two assertions, the None-case assertion); `knowledge_harness/factcheck.py.manifest.json` (regenerated, see Step 4). Line numbers read at this authoring: `factcheck.py:165,192`; `SKILL.md:28,64`; `tests/test_factcheck.py:199-227` — re-locate by content if drifted. **Also `factcheck.py:39` (`claim_text_hash`'s docstring, "the stable SHA-256 hex digest of one claim's normalized text")** — found 2026-08-23 by the naming sweep, missed by the first site list; the word *digest* there is the hash sense in prose, so it reads "SHA-256 hex value" after this task. `hexdigest()` itself is stdlib and never renames.
+**Files:** Modify: `research_vault/factcheck.py` (function def + the report dict key); `skills/factcheck-draft/SKILL.md` (the JSON example and the prose sentence naming the field); `tests/test_factcheck.py` (the section marker, the two assertions, the None-case assertion); `research_vault/factcheck.py.manifest.json` (regenerated, see Step 4). Line numbers read at this authoring: `factcheck.py:165,192`; `SKILL.md:28,64`; `tests/test_factcheck.py:199-227` — re-locate by content if drifted. **Also `factcheck.py:39` (`claim_text_hash`'s docstring, "the stable SHA-256 hex digest of one claim's normalized text")** — found 2026-08-23 by the naming sweep, missed by the first site list; the word *digest* there is the hash sense in prose, so it reads "SHA-256 hex value" after this task. `hexdigest()` itself is stdlib and never renames.
 
-- [x] **Step 1: Tests first.** Rename the assertions in `tests/test_factcheck.py` to the new name and run: FAIL (`AttributeError: module 'knowledge_harness.factcheck' has no attribute 'skipped_sha256'`). This is a rename, so the RED phase is the rename's own proof, not a new behavior test — do not add coverage here.
+- [x] **Step 1: Tests first.** Rename the assertions in `tests/test_factcheck.py` to the new name and run: FAIL (`AttributeError: module 'research_vault.factcheck' has no attribute 'skipped_sha256'`). This is a rename, so the RED phase is the rename's own proof, not a new behavior test — do not add coverage here.
 - [x] **Step 2: Rename in `factcheck.py`** — the `def`, the call site inside `run()`, the report dict key, and the docstring's own use of the word. Tests: PASS.
 - [x] **Step 3: Skill prose** — update both `skills/factcheck-draft/SKILL.md` sites (the JSON example field and the sentence describing `--target-hash`), then update that file's whole-file test pin in the SAME commit (Global Constraints).
-- [x] **Step 4: Mutation sidecar.** `mutation-baseline.txt` carries NO entry for this function (verified 2026-08-23 — the eight `factcheck` baseline keys name other functions), so **no baseline key needs editing**. The sidecar `knowledge_harness/factcheck.py.manifest.json` does carry `func/skipped_digest` plus a `module_hash`/`source_sha256` over the file, both of which the rename invalidates: regenerate it through the gate script's own path (`scripts/mutation_gate.py` always invokes mutate4py with `--manifest-file`; gate mode already scopes to files changed vs the base ref) and commit the regenerated sidecar. **If regeneration is not clean, commit the rename anyway and record the stale manifest in the commit body** — mutate4py's role is frozen until the post-deepening checkpoint (spec §10), so a stale sidecar for one module is an accepted, recorded cost and never a reason to open a new mutation experiment. **If this task runs AFTER Part 4's Task 25 (mutmut adopted, mutate4py sidecars retired), skip this step entirely — there is no sidecar to regenerate.**
+- [x] **Step 4: Mutation sidecar.** `mutation-baseline.txt` carries NO entry for this function (verified 2026-08-23 — the eight `factcheck` baseline keys name other functions), so **no baseline key needs editing**. The sidecar `research_vault/factcheck.py.manifest.json` does carry `func/skipped_digest` plus a `module_hash`/`source_sha256` over the file, both of which the rename invalidates: regenerate it through the gate script's own path (`scripts/mutation_gate.py` always invokes mutate4py with `--manifest-file`; gate mode already scopes to files changed vs the base ref) and commit the regenerated sidecar. **If regeneration is not clean, commit the rename anyway and record the stale manifest in the commit body** — mutate4py's role is frozen until the post-deepening checkpoint (spec §10), so a stale sidecar for one module is an accepted, recorded cost and never a reason to open a new mutation experiment. **If this task runs AFTER Part 4's Task 25 (mutmut adopted, mutate4py sidecars retired), skip this step entirely — there is no sidecar to regenerate.**
 - [x] **Step 5: Verification.** `grep -rn "skipped_digest" . --exclude-dir=.git` returns nothing outside this plan's own text. Full offline suite green.
 - [x] **Step 6: Commit** `refactor: rename skipped_digest to skipped_sha256 (one sense per term)`.
 

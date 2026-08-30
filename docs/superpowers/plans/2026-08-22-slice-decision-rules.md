@@ -44,4 +44,4 @@ Why: §9's falsified-when ("the author routed around the vault") and validated-w
   status: registered
 ```
 
-Cost honesty: this file plus the tagging habit is the whole cost. No harness code changes — clear of the pre-slice instrument freeze, the trust-core remediation gate, and Plan Q.
+Cost honesty: this file plus the tagging habit is the whole cost. No research-vault code changes — clear of the pre-slice instrument freeze, the trust-core remediation gate, and Plan Q.

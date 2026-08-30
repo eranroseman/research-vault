@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from knowledge_harness import scaffold
+from research_vault import scaffold
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 SKILL = REPOSITORY / "skills" / "setup-vault" / "SKILL.md"
@@ -29,7 +29,7 @@ def test_setup_vault_uses_scaffold_with_separate_ci_consents():
     assert "read-only CI" in text
     assert "Ask separately:" in text
     assert "scheduled write-capable RW workflow" in text
-    assert "python3 -m knowledge_harness scaffold --vault PATH" in text
+    assert "python3 -m research_vault scaffold --vault PATH" in text
     assert "--with-ci" in text
     assert "--with-rw-ci" in text
     assert "only the flags the user consented to" in text
@@ -56,8 +56,8 @@ def test_setup_vault_documents_doctor_routing_and_complete_reporting():
     """Wrong base-URL placement or partial doctor reporting must fail."""
     text = _skill_text()
 
-    assert "python3 -m knowledge_harness --base URL doctor --vault PATH" in text
-    assert "python3 -m knowledge_harness doctor --base URL --vault PATH" in text
+    assert "python3 -m research_vault --base URL doctor --vault PATH" in text
+    assert "python3 -m research_vault doctor --base URL --vault PATH" in text
     assert "every doctor probe" in text
     assert "inbox count" in text
     assert "oldest age" in text
@@ -68,7 +68,7 @@ def test_setup_vault_names_probe_as_the_vault_less_reachability_instrument():
     text = _skill_text()
 
     assert "`doctor` always requires `--vault`; it has no vault-less mode." in text
-    assert "python3 -m knowledge_harness probe [--base URL]" in text
+    assert "python3 -m research_vault probe [--base URL]" in text
     assert "vault-less reachability instrument" in text
     assert "takes no `--vault` flag" in text
 

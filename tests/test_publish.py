@@ -21,21 +21,21 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import Result, events, frontmatter, inbox, lints, publish
-from knowledge_harness.__main__ import main
-from knowledge_harness.outcome import Outcome
-from knowledge_harness.verify import _projection_identity
+from research_vault import Result, events, frontmatter, inbox, lints, publish
+from research_vault.__main__ import main
+from research_vault.outcome import Outcome
+from research_vault.verify import _projection_identity
 
 REPO = Path(__file__).resolve().parents[1]
 STOP_HOOK = REPO / "hooks" / "stop_publish_gate.py"
 PUBLISH_SKILL = REPO / "skills" / "publish" / "SKILL.md"
-FLAG = Path(".harness") / "publish-pending.json"
+FLAG = Path(".research-vault") / "publish-pending.json"
 
 PROJECT_FRONTMATTER = """---
 title: "Evidence brief"
 type: "project"
 status: "draft"
-generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 """
 UNCITED_CLAIM = "- (open-question) Does this replicate? ^c-88888888\n"
@@ -110,7 +110,7 @@ def _build_vault(
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "project vault"], cwd=root, check=True)
-    (root / ".harness").mkdir()
+    (root / ".research-vault").mkdir()
     return root
 
 
@@ -739,7 +739,7 @@ def test_ack_closes_an_open_finding(blocked_vault):
 @pytest.mark.parametrize(
     ("actor", "reason"),
     [
-        ("knowledge_harness/0.1.0", "manual — the CLI cannot consent for a human"),
+        ("research_vault/0.1.0", "manual — the CLI cannot consent for a human"),
         ("human:eran", "invented-code — not in the registry"),
     ],
     ids=["non-human-actor", "unregistered-reason"],

@@ -1,6 +1,6 @@
 ---
 name: import-source
-description: Use when a person asks to import, catalog, refresh, or backfill a source they have admitted to Zotero in a knowledge-harness vault
+description: Use when a person asks to import, catalog, refresh, or backfill a source they have admitted to Zotero in a research-vault vault
 disable-model-invocation: true
 ---
 
@@ -15,7 +15,7 @@ In every command, `PATH` is the vault and `CITEKEY` is the Better BibTeX key —
 ## 1. Catalog: `import-note`
 
 ```sh
-python3 -m knowledge_harness import-note CITEKEY --vault PATH
+python3 -m research_vault import-note CITEKEY --vault PATH
 ```
 
 The catalog comes first and answers to no judgment of yours: nothing downstream — no dedup question, no synthesis decision, no hold — can stop the literature note from landing or hold it back until you have made up your mind. When the projection changed, this renders `literatures/CITEKEY.md` from Zotero (managed region above the free region, which survives untouched) and regenerates root `log.md`.
@@ -46,7 +46,7 @@ Read the stderr message back verbatim; do not summarize it as "the import failed
 An item with no DOI and no PMID would make the `doi`, `metadata`, and `update-notice` checks SKIPPED — and a DOI-less retracted paper must never be structurally exempt from the update-notice gate. So no SKIPPED identifier result is final until discovery has been attempted:
 
 ```sh
-python3 -m knowledge_harness verify --vault PATH
+python3 -m research_vault verify --vault PATH
 ```
 
 `verify` runs discovery itself, on the network, for every bibliography entry lacking a DOI: a Crossref bibliographic query by title/author/year and a PubMed lookup, feeding whatever it finds into the same run's identifier checks. It reports the attempt under check id `identifier-discovery` and files its own finding when discovery comes up empty or unreachable.
@@ -72,9 +72,9 @@ These land immediately, without asking. Exactly three conditions hold a single c
 Each held claim gets a review record, and the `finding` verb is the only way you may write one:
 
 ```sh
-python3 -m knowledge_harness finding integrate CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH
-python3 -m knowledge_harness finding integrate CLAIM_LINK UNMATCHED "low-confidence — ONE-LINE REASON" --vault PATH
-python3 -m knowledge_harness finding integrate CLAIM_LINK UNMATCHED "schema-violation — ONE-LINE REASON" --vault PATH
+python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH
+python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "low-confidence — ONE-LINE REASON" --vault PATH
+python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "schema-violation — ONE-LINE REASON" --vault PATH
 ```
 
 The target is the source claim link (`citekey#^claim-id`) — surgical means the record names the one claim, not the import. If one claim needs two of these on the same day, the verb refuses the second rather than quietly overwriting the first: give each a distinct `--target-hash` so both stay separately identifiable and acknowledgeable. Read the refusal back; never work around it by editing the queue.

@@ -4,10 +4,10 @@ Commit: `079c287` — `fix: RW date parsing accepts production formats; unarmed 
 
 ## Surfaces (as verified before touching anything)
 
-- `knowledge_harness/checks.py:914` — `_rw_date`, exact `fromisoformat`-only body the brief describes.
-- `knowledge_harness/checks.py:8` — `from datetime import date as _date`; no `_datetime` alias existed. Added one.
-- `knowledge_harness/verify.py:986` — `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`. Exact match, unmodified in the end (see decision below).
-- `knowledge_harness/__main__.py:377-422` — `cmd_verify`, the only place `verify` prints anything. Confirmed `verify.py` has zero `print` calls (the 3 `grep -c "print("` hits are the substring inside `_notice_fingerprint(`).
+- `research_vault/checks.py:914` — `_rw_date`, exact `fromisoformat`-only body the brief describes.
+- `research_vault/checks.py:8` — `from datetime import date as _date`; no `_datetime` alias existed. Added one.
+- `research_vault/verify.py:986` — `notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None`. Exact match, unmodified in the end (see decision below).
+- `research_vault/__main__.py:377-422` — `cmd_verify`, the only place `verify` prints anything. Confirmed `verify.py` has zero `print` calls (the 3 `grep -c "print("` hits are the substring inside `_notice_fingerprint(`).
 
 ## Step 1/2 — RED evidence (date parsing)
 
@@ -36,7 +36,7 @@ Failed exactly as predicted: `_rw_date("1/2/2023 0:00")` returned the `_INVALID`
 
 ## Step 3 — implementation (date parsing)
 
-`knowledge_harness/checks.py`: added `from datetime import datetime as _datetime` beside `_date`; replaced the ISO-only body with the brief's enumerated-format loop (`_RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")`), tried only after `fromisoformat` fails, falling through to `_INVALID` when nothing matches. One deviation from the brief's literal snippet: `datetime.strptime(...).date().isoformat()` trips ruff's `DTZ007` (naive datetime from `strptime` without `%z`); added `# noqa: DTZ007` with a one-line comment — these are bare calendar dates, no timezone semantics apply, and the project has `DTZ` enabled deliberately (`pyproject.toml`).
+`research_vault/checks.py`: added `from datetime import datetime as _datetime` beside `_date`; replaced the ISO-only body with the brief's enumerated-format loop (`_RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")`), tried only after `fromisoformat` fails, falling through to `_INVALID` when nothing matches. One deviation from the brief's literal snippet: `datetime.strptime(...).date().isoformat()` trips ruff's `DTZ007` (naive datetime from `strptime` without `%z`); added `# noqa: DTZ007` with a one-line comment — these are bare calendar dates, no timezone semantics apply, and the project has `DTZ` enabled deliberately (`pyproject.toml`).
 
 ## Step 4 — RED evidence (arming honesty)
 
@@ -81,7 +81,7 @@ Failed exactly as predicted: the unarmed run printed the absence line zero times
 
 1. Emission can only happen in `cmd_verify` — `verify.py` has no `print` calls at all, confirmed by grep.
 2. `cmd_verify` already receives the identical `rw_csv` value that flows into `verify_state(..., rw_csv=args.rw_csv, ...)` and on into `_plan_state`'s `checks.load_rw_csv(rw_csv) if rw_csv else None`. There is no additional information `verify.py` could compute that `cmd_verify` doesn't already have — detection needs no plumbing.
-3. Widening the report contract (`{"outcomes": raw, "counts": counts}`) to carry a new key would have touched every place that pattern-matches that exact two-key dict literal. `tests/test_verify_cli.py` has several `monkeypatch.setattr("knowledge_harness.__main__.verify_state", lambda *_: ({"outcomes": [...], "counts": {...}}, ...))` fixtures (lines ~427, 453, 632, 1095, 1560) that construct this dict by hand; adding a field would force touching all of them for a decision the CLI can make on its own. `knowledge_harness/publish.py` also calls `verify_state` and discards the report entirely (`_report, effective, ...`), so a report-side change would add surface with no consumer there.
+3. Widening the report contract (`{"outcomes": raw, "counts": counts}`) to carry a new key would have touched every place that pattern-matches that exact two-key dict literal. `tests/test_verify_cli.py` has several `monkeypatch.setattr("research_vault.__main__.verify_state", lambda *_: ({"outcomes": [...], "counts": {...}}, ...))` fixtures (lines ~427, 453, 632, 1095, 1560) that construct this dict by hand; adding a field would force touching all of them for a decision the CLI can make on its own. `research_vault/publish.py` also calls `verify_state` and discards the report entirely (`_report, effective, ...`), so a report-side change would add surface with no consumer there.
 4. Keeping the check purely inside `cmd_verify`'s `print` block means the absence line is architecturally incapable of touching the `Outcome`/`effective`/`hashes`/inbox pipeline — it is a bare `print`, never a `checks.Outcome`, so it structurally cannot be filed, counted, or acknowledged.
 
 `verify.py` was not modified.
@@ -108,7 +108,7 @@ Full offline suite: `.venv/bin/python -m pytest tests -q` → `1557 passed, 7 sk
 
 ## Arming ruling (recorded, not new work)
 
-Verified `knowledge_harness/templates/ci/rw-batch.yml` line 34 before recording this: it already invokes `python -m knowledge_harness verify --vault . --offline --surface audit --git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" ...` — the scheduled CI lane runs the RW leg explicitly armed. The drill runs it explicitly armed too (Plan S amendment already recorded elsewhere). Local `verify` invocations without `--rw-csv` now state the absence via the new stdout line instead of running silent. No default-on: fetching the RW CSV remains a deliberate network-and-license act, never automatic. This ruling required no code change beyond the absence line itself — recorded here and in the commit body per the brief.
+Verified `research_vault/templates/ci/rw-batch.yml` line 34 before recording this: it already invokes `python -m research_vault verify --vault . --offline --surface audit --git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" ...` — the scheduled CI lane runs the RW leg explicitly armed. The drill runs it explicitly armed too (Plan S amendment already recorded elsewhere). Local `verify` invocations without `--rw-csv` now state the absence via the new stdout line instead of running silent. No default-on: fetching the RW CSV remains a deliberate network-and-license act, never automatic. This ruling required no code change beyond the absence line itself — recorded here and in the commit body per the brief.
 
 ## Self-review
 

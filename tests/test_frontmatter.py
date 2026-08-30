@@ -1,6 +1,6 @@
 import pytest
 
-from knowledge_harness import frontmatter
+from research_vault import frontmatter
 
 SAMPLE = {
     "citekey": "smith2020",
@@ -10,7 +10,7 @@ SAMPLE = {
     "fixity-sha256": ["aa11", "bb22"],
     "status": "unscreened",
     "verified": [
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"},
+        {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"},
     ],
     "aliases": ["Smith 2020 — Mortality decline"],
 }
@@ -29,7 +29,7 @@ def test_serialize_shape():
     assert text.endswith("---\n")
     assert 'citekey: "smith2020"' in text
     assert "fixity-sha256:" in text
-    assert '- {by: "knowledge_harness/0.1.0", at: "2026-08-16", check: "doi"}' in text
+    assert '- {by: "research_vault/0.1.0", at: "2026-08-16", check: "doi"}' in text
 
 
 def test_parse_no_frontmatter():
@@ -75,7 +75,7 @@ def test_inline_dict_value_with_escaped_quote_roundtrip():
 def test_top_level_inline_mapping_with_iso_datetime_roundtrips():
     data = {
         "generated": {
-            "by": "knowledge_harness/0.1.0",
+            "by": "research_vault/0.1.0",
             "at": "2026-08-20T12:34:56Z",
         }
     }
@@ -83,9 +83,7 @@ def test_top_level_inline_mapping_with_iso_datetime_roundtrips():
     text = frontmatter.serialize(data)
     parsed, _ = frontmatter.parse(text)
 
-    assert (
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
-    )
+    assert 'generated: {by: "research_vault/0.1.0", at: "2026-08-20T12:34:56Z"}' in text
     assert parsed == data
 
 
@@ -124,15 +122,13 @@ def test_render_field_renders_an_int_scalar():
 
 def test_render_field_renders_a_one_level_mapping():
     line = frontmatter.render_field(
-        "generated", {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+        "generated", {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z"}
     )
-    assert (
-        line == 'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-20T12:34:56Z"}'
-    )
+    assert line == 'generated: {by: "research_vault/0.1.0", at: "2026-08-20T12:34:56Z"}'
 
 
 def test_render_field_round_trips_through_parse():
-    mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+    mapping = {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z"}
     line = frontmatter.render_field("generated", mapping)
 
     data, _ = frontmatter.parse(f"---\n{line}\n---\n")
@@ -146,7 +142,7 @@ def test_serialize_delegates_to_render_field_for_a_dict_valued_key():
     diverge — they share one code path, not two independent ones that happen
     to agree.
     """
-    mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+    mapping = {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z"}
     standalone = frontmatter.render_field("generated", mapping)
     from_serialize = next(
         line
@@ -160,7 +156,7 @@ def test_render_field_mapping_matches_the_same_mapping_as_a_list_item():
     """The inline-dict grammar has one spelling, shared by a top-level
     `key: {...}` field and a `  - {...}` list item.
     """
-    mapping = {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"}
+    mapping = {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"}
     field_line = frontmatter.render_field("verified", mapping)
     field_inner = field_line.split(": ", 1)[1]
     list_line = frontmatter.serialize({"verified": [mapping]}).splitlines()[2]

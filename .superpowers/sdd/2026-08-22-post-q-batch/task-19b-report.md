@@ -48,7 +48,7 @@ either direction, see "Fix round 3"). `ruff check .` and
 `ruff format --check .` show only the five pre-existing vendored-fork
 findings under `skills/find-sources/scripts/` (confirmed identical before
 and after my changes via `git stash`; Task 2e owns that explicit
-exclusion, not this task). `mypy knowledge_harness/`: clean, 27 files.
+exclusion, not this task). `mypy research_vault/`: clean, 27 files.
 `echo '{}' | python hooks/stop_publish_gate.py`: silent, exit 0.
 
 ## Hook protocol — sources (per the controller's instruction to verify, not guess)
@@ -81,10 +81,10 @@ guard, per review.
 sketch (mirroring `posttooluse_lint.py`) would have found the vault from
 `cwd` and then checked the target path against it. Advisor review caught
 that this is an evasion route for a *deny* hook: `cd /tmp`, then `Edit` with
-an absolute path into `<vault>/literatures/x.md` — no `.harness` above
+an absolute path into `<vault>/literatures/x.md` — no `.research-vault` above
 `/tmp`, silent allow, hand-written ack lands. Fixed: `_vault_from_target`
 walks up from the **resolved candidate path's own parent directory**,
-reusing the existing pure-stdlib `.harness`-walk technique (`os.lstat` +
+reusing the existing pure-stdlib `.research-vault`-walk technique (`os.lstat` +
 `stat.S_ISDIR`, symlink-rejecting) already proven in both
 `posttooluse_lint.py` and `stop_publish_gate.py`, just re-anchored. `cwd` is
 used **only** to absolutize an already-relative candidate path; a relative
@@ -126,7 +126,7 @@ verb (`finding`, `ack`, `import-note`, …)"`.
 {"literatures", "log"}` (prefix match via `relative.parts[0]`) and
 `MACHINE_SURFACE_FILES = {Path("log.md"), Path("inbox/review-queue.md"),
 Path("system/bibliography.json")}` (exact match — root `log.md` added in
-fix round 1, see below). No import of `knowledge_harness` anywhere in the
+fix round 1, see below). No import of `research_vault` anywhere in the
 module, lazy or otherwise.
 
 ## §10 spec edit (Step 3)
@@ -167,7 +167,7 @@ pre-mutation backup before moving to the next probe.
 | `test_pretooluse_is_silent_for_unmatched_tool_names` (3 params: Bash, Read, Grep) | tool-name membership check removed entirely | RED, all 3 |
 | `test_pretooluse_is_silent_for_malformed_input` | outer `try/except` around `json.load(sys.stdin)` removed | RED — uncaught `JSONDecodeError`, nonzero exit and stderr instead of silent exit 0 |
 | `test_pretooluse_fails_closed_on_unexpected_exception` | outer `try: _handle(payload) except Exception: _deny(...)` removed from `main()` | RED — the monkeypatched `RuntimeError` propagates out of `hook.main()` uncaught instead of producing the fail-closed deny JSON |
-| `test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_marker` | `_vault_from_target` unconditionally returns `target.parent.parent` (no `.harness` check at all) | RED — a path merely shaped like `literatures/clean.md`, with no real vault anywhere, gets denied instead of allowed |
+| `test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_marker` | `_vault_from_target` unconditionally returns `target.parent.parent` (no `.research-vault` check at all) | RED — a path merely shaped like `literatures/clean.md`, with no real vault anywhere, gets denied instead of allowed |
 | `test_pretooluse_is_silent_outside_a_vault` | (same class of mutation as above) | Not independently re-run as a distinct discriminator — same underlying mechanism as the prior row; kept as a plain regression/sanity case (arbitrary path, no vault, no machine-surface-shaped name) |
 | `test_stop_hooks_manifest_registers_posttooluse_and_stop_commands`, `test_stop_hook_manifest_commands_execute_from_plugin_path_with_spaces` | `"PreToolUse"` entry deleted from `hooks/hooks.json` | RED, both (`KeyError: 'PreToolUse'` for the second, dict-inequality for the first) |
 | `test_pretooluse_denies_edit_into_every_machine_surface[relative4]` (`log.md`) | `Path("log.md")` removed from `MACHINE_SURFACE_FILES` | RED on exactly that one param; the other six stayed green (confirms the addition is isolated, not accidentally coupled to the existing entries) |
@@ -176,7 +176,7 @@ pre-mutation backup before moving to the next probe.
 | `test_pretooluse_is_silent_for_parseable_non_dict_payload` (fix round 1, Concern 5a) | `if not isinstance(payload, dict): return` guard removed from `_handle` | RED — `[].get(...)` raises `AttributeError`, fails closed instead of silent allow |
 | `test_pretooluse_allows_relative_target_when_declared_cwd_is_itself_relative` (fix round 1, Concern 5b) | `not Path(cwd).is_absolute()` clause dropped from `_resolve_candidate` (kept only `cwd is None`) | RED — a relative `cwd` ("literatures") plus relative `file_path` ("clean.md") then resolves through `Path.resolve()`'s implicit `os.getcwd()` fallback, landing in the real vault at `fixture_vault/literatures/clean.md`, and denies instead of staying unresolved |
 | `test_pretooluse_allows_relative_target_when_declared_cwd_is_non_string` (fix round 2) | `cwd = cwd if isinstance(cwd, str) else None` coercion removed from `_handle` (bare `cwd = payload.get("cwd")`) | RED — `cwd=42` reaches `Path(cwd)` in `_resolve_candidate`, raises `TypeError`, fails closed instead of silent allow |
-| `test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault` (fix round 2, new — found via the coverage sweep below, not the coordinator's named item) | `if stat.S_ISDIR(marker_stat.st_mode): return candidate` in `_vault_from_target` widened to accept any `.harness` unconditionally (`return candidate` with the `S_ISDIR` check removed) | RED — a symlinked `.harness` planted inside `literatures/` (closer to the target than the real vault root) gets accepted as the vault boundary; `relative_to` that boundary drops the `literatures/` prefix entirely, and the write silently allows instead of denying. Confirmed via a direct rerun: stdout goes from the deny JSON to empty. |
+| `test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault` (fix round 2, new — found via the coverage sweep below, not the coordinator's named item) | `if stat.S_ISDIR(marker_stat.st_mode): return candidate` in `_vault_from_target` widened to accept any `.research-vault` unconditionally (`return candidate` with the `S_ISDIR` check removed) | RED — a symlinked `.research-vault` planted inside `literatures/` (closer to the target than the real vault root) gets accepted as the vault boundary; `relative_to` that boundary drops the `literatures/` prefix entirely, and the write silently allows instead of denying. Confirmed via a direct rerun: stdout goes from the deny JSON to empty. |
 | `test_pretooluse_fails_closed_on_a_genuine_symlink_loop` (fix round 2, new) | outer `try: _handle(payload) except Exception: _deny(...)` removed from `main()` | RED — the real `RuntimeError` from `Path.resolve()`'s symlink-loop detection propagates out of the process uncaught (nonzero exit, traceback on stderr) instead of producing the fail-closed deny JSON |
 
 ## Branch-by-branch coverage (derived, not asserted — fix round 2)
@@ -206,7 +206,7 @@ run of every `pretooluse` test in `tests/test_hooks.py`. All scratch files
 
 Before adding this round's tests: **69 statements, 26 branches, 99% branch
 coverage, exactly one partial branch: `67->61`** — the `for` loop in
-`_vault_from_target` never took the "found a `.harness`, but it isn't a
+`_vault_from_target` never took the "found a `.research-vault`, but it isn't a
 directory, keep searching upward" path. After adding
 `test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault`
 and `test_pretooluse_allows_relative_target_when_declared_cwd_is_non_string`
@@ -229,9 +229,9 @@ each** (line numbers as of this round's `hooks/pretooluse_guard.py`):
 | `_resolve_candidate:49` | both `False` (proceed to absolutize) | `test_pretooluse_resolves_relative_file_path_against_cwd` |
 | `_resolve_candidate:52` | `.resolve()` returns normally | almost every test |
 | `_resolve_candidate:52` | `.resolve()` raises (symlink loop) | `test_pretooluse_fails_closed_on_a_genuine_symlink_loop` (fix round 2) |
-| `_vault_from_target:61` loop | ancestor has no `.harness` (`OSError`) → `continue` | every nested-path test (`literatures/nested/note.md`, etc.) |
-| `_vault_from_target:67` | `.harness` found, `S_ISDIR` `True` → `return` | every deny test that resolves to a real vault |
-| `_vault_from_target:67` | `.harness` found, `S_ISDIR` `False` (symlink) → keep searching | `test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault` (fix round 2, **new finding**, see below) |
+| `_vault_from_target:61` loop | ancestor has no `.research-vault` (`OSError`) → `continue` | every nested-path test (`literatures/nested/note.md`, etc.) |
+| `_vault_from_target:67` | `.research-vault` found, `S_ISDIR` `True` → `return` | every deny test that resolves to a real vault |
+| `_vault_from_target:67` | `.research-vault` found, `S_ISDIR` `False` (symlink) → keep searching | `test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault` (fix round 2, **new finding**, see below) |
 | `_vault_from_target:69` | loop exhausted, no marker anywhere → `None` | `test_pretooluse_is_silent_outside_a_vault`, `..._machine_surface_shaped_path_without_a_real_vault_marker` |
 | `_is_machine_surface:73` | exact-file match → `True` | `log.md`/`inbox/review-queue.md`/`system/bibliography.json` deny cases |
 | `_is_machine_surface:73` | no exact match → falls through to line 82 | every other test |
@@ -297,7 +297,7 @@ folded into a blanket sentence.**
    owns the explicit vendor-exclusion fix.
 5. **The `log.md` ruling leaves a one-direction residue: `system/bibliography.json`
    has no matching preamble warning.** Task 2c's vault AGENTS.md preamble
-   (`knowledge_harness/templates/vault/AGENTS.md:6`) reads: `` `literatures/`,
+   (`research_vault/templates/vault/AGENTS.md:6`) reads: `` `literatures/`,
    `log/`, `log.md`, and `inbox/review-queue.md` are machine-written `` — it
    does not name `system/bibliography.json`, so an agent that reads only the
    preamble gets no advance warning before hitting that specific deny. The
@@ -388,7 +388,7 @@ Concerns 2, 3, and 4 from the original report stand unchanged, as directed.
 **Gates, re-run after all of the above:** full suite 1682 passed, 7 skipped
 (1650 baseline + 32 in `test_hooks.py`, up from 27). `ruff check .` and
 `ruff format --check .`: same five pre-existing vendored-fork findings
-under `skills/find-sources/scripts/`, nothing new. `mypy knowledge_harness/`:
+under `skills/find-sources/scripts/`, nothing new. `mypy research_vault/`:
 clean, 27 files. `echo '{}' | python hooks/stop_publish_gate.py`: silent,
 exit 0. `tests/test_hooks.py:445`'s `hooks.json` exact-equality pin re-run
 unchanged (this round touched no manifest content) and still passes.
@@ -429,12 +429,12 @@ re-find the coordinator's instance.
 missed.** Before adding this round's tests: 69 statements, 26 branches, 99%
 branch coverage, one partial branch — `hooks/pretooluse_guard.py:67`
 (`if stat.S_ISDIR(marker_stat.st_mode): return candidate`) had never been
-exercised on its *false* side: no existing test ever planted a `.harness`
+exercised on its *false* side: no existing test ever planted a `.research-vault`
 that exists but isn't a real directory, so the "reject it, keep searching
 upward" path had zero coverage. This is **not merely "safe-direction, minor"
 like the cwd branch** — reasoned through concretely: if that check were
-ever weakened (e.g. "simplified" to accept any `.harness`, symlink or not),
-a symlink named `.harness` planted *inside* `literatures/` itself would be
+ever weakened (e.g. "simplified" to accept any `.research-vault`, symlink or not),
+a symlink named `.research-vault` planted *inside* `literatures/` itself would be
 accepted as the vault boundary; `relative_to` against that boundary would
 drop the `literatures/` prefix, and a machine-surface write would **silently
 allow** — a false negative, not a false positive. Currently the code is
@@ -482,7 +482,7 @@ symlinked-marker test, and the live symlink-loop test).
 `hooks/pretooluse_guard.py` is byte-identical to `6a62cab`'s version — no
 production-code change this round. `ruff check .` and `ruff format --check .`:
 same five pre-existing vendored-fork findings, nothing new. `mypy
-knowledge_harness/`: clean, 27 files. `echo '{}' | python
+research_vault/`: clean, 27 files. `echo '{}' | python
 hooks/stop_publish_gate.py`: silent, exit 0.
 `tests/test_hooks.py:445`'s `hooks.json` exact-equality pin re-run
 unchanged (no manifest touched this round) and still passes.
@@ -517,22 +517,22 @@ did not name and the coordinator's own trace supplied:
 `_vault_from_target` walks `(target.parent, *target.parent.parents)`, and
 `vault == resolved` requires `target.parent == target`, which only
 `Path('/')` satisfies (the filesystem root is its own parent in `pathlib`).
-With a real `.harness` directory at `/` and the resolved target being `/`
+With a real `.research-vault` directory at `/` and the resolved target being `/`
 itself, `relative` is `Path('.')` (`Path()`), `.parts` is `()`, and — before
 this round's deletion — the hook allowed. The conclusion I drew (route this
 into fail-closed deny) was right; the "can never happen" framing that got
 me there was not exact, and this report should not paper over that.
 
 **Why the pinning test could not be end-to-end, and what form it took
-instead:** the coordinator's own first idea for a test — a `.harness`
+instead:** the coordinator's own first idea for a test — a `.research-vault`
 placed at a temp-dir root with the target being that same directory — does
 not reach the case: `_vault_from_target` starts its walk at
-`target.parent`, one level *above* the target, so a `.harness` placed *at*
+`target.parent`, one level *above* the target, so a `.research-vault` placed *at*
 the target itself is never seen; `vault` comes back `None` and `_handle`
 skips the candidate before `_is_machine_surface` is ever called. The
 *actual* degenerate case requires the resolved target to literally be `/`
-with a real `.harness` there too — and no test may safely create
-`/.harness` on the real filesystem (no permission in the general case, and
+with a real `.research-vault` there too — and no test may safely create
+`/.research-vault` on the real filesystem (no permission in the general case, and
 even where permitted it would be a shared, global, irreversible side effect
 across the entire test run, on every future run, forever). So this is
 pinned at the **predicate level** instead:
@@ -591,7 +591,7 @@ skipped** (1686 baseline + 1 new predicate-level test). `ruff check .` and
 `ruff format --check .`: clean on touched files (one `PTH201` finding
 during development — `Path(".")` → `Path()` — fixed before commit; same
 five pre-existing vendored-fork findings elsewhere, nothing new). `mypy
-knowledge_harness/`: clean, 27 files. `echo '{}' | python
+research_vault/`: clean, 27 files. `echo '{}' | python
 hooks/stop_publish_gate.py`: silent, exit 0.
 `tests/test_hooks.py:445`'s `hooks.json` exact-equality pin re-run
 unchanged (no manifest touched this round) and still passes.

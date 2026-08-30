@@ -2,11 +2,11 @@
 
 Status: accepted (2026-08-24)
 
-**A literature note's filename, every claim link (`citekey#^claim-id`), and every citation in prose are the same Better BibTeX citekey, and the harness never mints a second identity for a source.** The key a human reads off the admitted item is the key the vault uses everywhere — no internal record id beside it, no alias table. Claim anchors are sub-addresses under that key, derived from the claim's own content; the machine hashes are witnesses to bytes, not identities.
+**A literature note's filename, every claim link (`citekey#^claim-id`), and every citation in prose are the same Better BibTeX citekey, and research-vault never mints a second identity for a source.** The key a human reads off the admitted item is the key the vault uses everywhere — no internal record id beside it, no alias table. Claim anchors are sub-addresses under that key, derived from the claim's own content; the machine hashes are witnesses to bytes, not identities.
 
 ## Considered Options
 
-Mint an internal stable id at import and demote the citekey to a frontmatter alias. Rejected on two counts. The id would be invisible in the researcher's own prose, which is written in `[@citekey]` and read by pandoc, so following it would need a resolver only the harness can read — a successor tool opening the folder cold would find addresses it cannot follow. And it moves identity into the harness: once the citekey is an alias, something has to decide when two records are the same work, which is a reference manager's job and arrives with a reference manager's machinery — metadata enrichment, per-field provenance, record linkage.
+Mint an internal stable id at import and demote the citekey to a frontmatter alias. Rejected on two counts. The id would be invisible in the researcher's own prose, which is written in `[@citekey]` and read by pandoc, so following it would need a resolver only research-vault can read — a successor tool opening the folder cold would find addresses it cannot follow. And it moves identity into research-vault: once the citekey is an alias, something has to decide when two records are the same work, which is a reference manager's job and arrives with a reference manager's machinery — metadata enrichment, per-field provenance, record linkage.
 
 ## Consequences
 

@@ -20,7 +20,7 @@ Commit: `514d12b feat: vault AGENTS.md opens with the integrity preamble`
 
 Root `log.md` appears in **neither**. It is nonetheless a genuine
 machine-written surface — confirmed in code, not assumed:
-`knowledge_harness/okf.py:1` ("Root log.md regeneration: the single writer
+`research_vault/okf.py:1` ("Root log.md regeneration: the single writer
 for OKF's log summary artifact"), with `scaffold.py:206-207` shipping a
 freshly-scaffolded vault's `log.md` already OKF-conformant.
 
@@ -33,7 +33,7 @@ reading that avoids silently expanding the preamble past what line 24
 already says — which the brief explicitly warned against.
 
 **Finding, reported not fixed:** line 24's "machine surfaces" enumeration
-is itself incomplete relative to what the harness actually machine-writes
+is itself incomplete relative to what research-vault actually machine-writes
 — it omits root `log.md`. This is a real inconsistency in the template's
 existing text, pre-dating this task. Fixing it would mean editing line 24,
 which this brief does not authorize ("the brief authorises adding a
@@ -46,7 +46,7 @@ Inserted as the first paragraph after the `# Vault agents guide` heading,
 before the existing orientation paragraph and before the routing index
 (the seven-skill table landed by `45aa45d`):
 
-> This is a knowledge-harness vault. `literatures/`, `log/`, and
+> This is a research-vault vault. `literatures/`, `log/`, and
 > `inbox/review-queue.md` are machine-written — the CLI writes them; hand
 > edits are warned in session and caught at commit.
 
@@ -89,7 +89,7 @@ out of bounds for this task):
 - **`literatures/`**: warned in session — `hooks/posttooluse_lint.py:97-98`
   fires an explicit warning for any path under `literatures/`. Also
   **blocks** at commit — `lint_evidence_layer`'s check id `evidence-layer`
-  is in `CLOSING_BY_SURFACE["commit"]` (`knowledge_harness/verify.py:53-58`),
+  is in `CLOSING_BY_SURFACE["commit"]` (`research_vault/verify.py:53-58`),
   so a hand-edited managed region fails the pre-commit gate.
 - **`log/`** and **`inbox/review-queue.md`**: **not** warned in session —
   `hooks/posttooluse_lint.py:13,104` only fires its warning path for
@@ -135,7 +135,7 @@ only the pin named in the brief.
    byte-equality assertion exists there, so there is no second pin to move.
 4. Repo-wide grep for the template's distinctive strings ("Vault agents
    guide", "Evidence is admitted through Zotero") found only
-   `knowledge_harness/templates/vault/AGENTS.md` itself, `tests/test_templates.py`,
+   `research_vault/templates/vault/AGENTS.md` itself, `tests/test_templates.py`,
    and `docs/superpowers/plans/2026-08-22-vault-agents-template-revision.md`
    (a completed plan doc — per this repo's AGENTS.md, "completed plans ...
    stand as written," so correctly left untouched).
@@ -152,7 +152,7 @@ only the pin named in the brief.
 2. `PATH="$PWD/.venv/bin:$PATH" .venv/bin/pre-commit run --all-files` —
    8/8 passed.
 3. `git status --short` / `git diff` inspected before staging — confirmed
-   only the two intended files changed (`knowledge_harness/templates/vault/AGENTS.md`,
+   only the two intended files changed (`research_vault/templates/vault/AGENTS.md`,
    `tests/test_templates.py`), five inserted lines total, no formatter
    churn.
 4. Verified `mdformat`'s pre-commit hook is structurally scoped away from
@@ -160,8 +160,8 @@ only the pin named in the brief.
    AGENTS.md CONTEXT.md docs skills`, `pass_filenames: false`), and the
    green form-gate run corroborates this empirically.
 5. Read the actual enforcement code (`hooks/posttooluse_lint.py`,
-   `knowledge_harness/verify.py`'s `CLOSING_BY_SURFACE`,
-   `knowledge_harness/lints.py`'s `_is_append_only_path` and
+   `research_vault/verify.py`'s `CLOSING_BY_SURFACE`,
+   `research_vault/lints.py`'s `_is_append_only_path` and
    `lint_evidence_layer`) rather than trusting the prose, before deciding
    which surfaces belonged in a sentence that makes a specific enforcement
    claim.
@@ -171,7 +171,7 @@ only the pin named in the brief.
 - **Is every surface I named actually machine-written?** Yes: `literatures/`
   (projected from Zotero, never hand-written per line 6 and
   `hooks/posttooluse_lint.py:97-98`), `log/` (per-day activity log, written
-  by `knowledge_harness/publish.py:400`'s append step), `inbox/review-queue.md`
+  by `research_vault/publish.py:400`'s append step), `inbox/review-queue.md`
   (owner-written per line 24 and protected by `lint_append_only`).
 - **Does the preamble read as protection for someone who stops there,
   rather than a summary of the document?** It states the one fact that
@@ -184,7 +184,7 @@ only the pin named in the brief.
 ## Concerns
 
 1. **Line 24's own surface list is incomplete** (omits root `log.md`,
-   which is genuinely machine-written per `knowledge_harness/okf.py`).
+   which is genuinely machine-written per `research_vault/okf.py`).
    Reported per the brief's explicit instruction, not fixed — out of this
    task's scope.
 2. **The preamble's enforcement clause ("warned in session and caught at
@@ -205,7 +205,7 @@ rather than introduced by it.
 
 Concern 2 above (the enforcement clause's precision) was escalated by the
 coordinator to the plan author, who independently verified it against
-`CLOSING_BY_SURFACE` in `knowledge_harness/verify.py:53-58` and ruled:
+`CLOSING_BY_SURFACE` in `research_vault/verify.py:53-58` and ruled:
 weaken the clause to what is true of every named surface, keep all three
 surface names, do not narrow the list and do not change gate behavior
 (spec §6's warn-tier lint design is deliberate; changing it as a side
@@ -213,7 +213,7 @@ effect of a sentence fix would be out of scope).
 
 **Change applied:** `hand edits are warned in session and caught at
 commit` → `hand edits leave a trace`, in both the template
-(`knowledge_harness/templates/vault/AGENTS.md`) and its pin
+(`research_vault/templates/vault/AGENTS.md`) and its pin
 (`tests/test_templates.py:105`). The author confirmed `leave a trace` is
 true on all three named surfaces: `literatures/` via evidence-layer
 closure (blocks at commit), `log/` and `inbox/review-queue.md` via
@@ -251,19 +251,19 @@ Review reproduced, end to end in a scaffolded vault, that round 1's
 day file produces no PostToolUse warning
 (`hooks/posttooluse_lint.py:97,104` covers only `literatures/` and
 `CONCEPT_ROOTS = {synthesis, projects}`), no append-only finding
-(`knowledge_harness/lints.py`'s `lint_append_only` fires only on
+(`research_vault/lints.py`'s `lint_append_only` fires only on
 `not new_bytes.startswith(old_bytes)`, and an append keeps the old bytes
 as a prefix, so the predicate never trips — verified by reading the exact
 condition), and no gate (`append-only` is absent from
 `CLOSING_BY_SURFACE["commit"]`). `verify --surface commit` exits 0 with
-zero findings, and `knowledge_harness/okf.py` then copies the fabricated
+zero findings, and `research_vault/okf.py` then copies the fabricated
 line into root `log.md` unchallenged. The same prefix predicate silences
 in-format appends to `inbox/review-queue.md` too — so no enforcement
 wording is true of every named surface, confirming the pattern my original
 concern 2 flagged was structural, not a one-clause wording slip.
 
 **Ruling:** drop the mechanism claim entirely — assert a boundary, not a
-compliance control. **Decided sentence:** "This is a knowledge-harness
+compliance control. **Decided sentence:** "This is a research-vault
 vault. `literatures/`, `log/`, `log.md`, and `inbox/review-queue.md` are
 machine-written — the CLI writes them; don't edit them by hand." This
 also resolves concern 1 (root `log.md` named nowhere in the template):
@@ -272,7 +272,7 @@ per-surface enforcement claim that would need separate verification
 against `log.md`.
 
 **Changes applied:**
-1. Template (`knowledge_harness/templates/vault/AGENTS.md` line 6) and its
+1. Template (`research_vault/templates/vault/AGENTS.md` line 6) and its
    pin (`tests/test_templates.py`) both updated to the decided sentence,
    same commit.
 2. Added a constraint comment directly above the `vault/AGENTS.md`

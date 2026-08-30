@@ -55,7 +55,7 @@ intended, not a defect.
 
 ## What changed
 
-`knowledge_harness/checks.py:_crossref_notices` (~line 546) now reads
+`research_vault/checks.py:_crossref_notices` (~line 546) now reads
 `message.get("relation", {}).get("is-retracted-by", [])` after the
 existing `updated-by` loop. Each well-formed entry
 (`isinstance(entry, dict) and isinstance(entry.get("id"), str) and
@@ -178,7 +178,7 @@ in round 1); `{"is-retracted-by": ["not-a-dict"]}` (non-dict entry);
 Round 0 (initial landing, commit `39bf192`):
 - `python -m pytest -q`: **1701 passed, 7 skipped** (baseline 1687 passed
   / 7 skipped + 14 new tests = 1701; exact match).
-- `ruff check knowledge_harness/checks.py tests/test_checks.py`: clean.
+- `ruff check research_vault/checks.py tests/test_checks.py`: clean.
   `ruff check .` (whole repo) reports 10 pre-existing errors, all in
   `skills/find-sources/scripts/paginate.py` — confirmed pre-existing by
   `git stash && ruff check . | tail && git stash pop` (identical 10 errors
@@ -186,24 +186,24 @@ Round 0 (initial landing, commit `39bf192`):
 - `ruff format --check` on the two changed files: clean after running
   `ruff format` once (two lines needed wrapping — a `retracted_by = (...)`
   assignment and one over-long test dict key — no semantic change).
-- `mypy knowledge_harness/`: `Success: no issues found in 27 source files`.
+- `mypy research_vault/`: `Success: no issues found in 27 source files`.
 - `echo '{}' | python hooks/stop_publish_gate.py`: silent, exit 0.
 
 Round 1 (this fix-forward commit, 3 new tests: 1 multi-entry + 2
 parametrize cases):
 - `python -m pytest -q`: **1704 passed, 7 skipped** (1701 + 3; exact
   match).
-- `ruff check knowledge_harness/checks.py tests/test_checks.py`: clean.
+- `ruff check research_vault/checks.py tests/test_checks.py`: clean.
   `ruff check .` still reports the same 10 pre-existing errors in
   `skills/find-sources/scripts/paginate.py` — unchanged, confirmed no new
   errors introduced.
 - `ruff format --check` on the two changed files: clean.
-- `mypy knowledge_harness/`: `Success: no issues found in 27 source files`.
+- `mypy research_vault/`: `Success: no issues found in 27 source files`.
 - `echo '{}' | python hooks/stop_publish_gate.py`: silent, exit 0.
 
 ## Concerns (each with a destination)
 
-1. **`mutation-baseline.txt` and `knowledge_harness/checks.py.manifest.json`
+1. **`mutation-baseline.txt` and `research_vault/checks.py.manifest.json`
    are now stale.** Same situation commit `7b28dd8` recorded for its own
    `checks.py` diff: "Task 24 Step 4 owns the regenerate-or-record
    convention and this task's brief has no such step." Deferred here on
@@ -212,7 +212,7 @@ parametrize cases):
    `skills/find-sources/scripts/paginate.py`** (10 errors: unused `noqa`,
    `B904`, `FURB188`, an import-from-`collections.abc` suggestion, etc.).
    Confirmed pre-existing (present with this diff stashed out) and outside
-   `knowledge_harness/`. Explicit recorded decline: out of this task's
+   `research_vault/`. Explicit recorded decline: out of this task's
    scope, not fixed here. No GitHub issue filed — flagging in this report
    is the disposition; escalate separately if it should block something.
 3. **Loose-prefix-assertion pattern**: not reintroduced by this diff (all

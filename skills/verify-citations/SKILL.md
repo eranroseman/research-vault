@@ -13,7 +13,7 @@ This is a thin wrapper over the CLI's `verify` verb — the deterministic suite 
 Default to an open audit — it reports everything and blocks nothing:
 
 ```sh
-python3 -m knowledge_harness verify --vault PATH
+python3 -m research_vault verify --vault PATH
 ```
 
 This is `--surface audit`, the default. It is always safe to run: no surface closes on its result, so running it never holds a commit, a session, or a publish attempt.

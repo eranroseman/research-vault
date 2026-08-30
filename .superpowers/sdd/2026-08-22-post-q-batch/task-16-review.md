@@ -21,8 +21,8 @@ Issues:
 
 - `docs/superpowers/plans/2026-08-22-post-q-batch.md:331` — the plan records task 16 as closing issue
   #17, but #17 is still OPEN and its precondition is untouched: no shipped surface mints a
-  `human:`-attributed verified event (`knowledge_harness/verify.py:797` and
-  `knowledge_harness/publish.py:368` are the only production `record_pass` call sites and neither
+  `human:`-attributed verified event (`research_vault/verify.py:797` and
+  `research_vault/publish.py:368` are the only production `record_pass` call sites and neither
   passes `by=`). I confirmed by grep that no other task in the plan owns that surface — #17 appears
   exactly once in the plan, at line 331.
 - `tests/test_events.py:164` — the brief's "cover it in this task's tests" clause produced no
@@ -47,7 +47,7 @@ Resolved during synthesis (recorded so the controller does not re-run them):
   minted by any shipped surface". Its own body calls the two defects "distinct" and merely "best fixed
   in the same pass", which supports the implementer's scope call.
 - **Form checks, partially.** Run read-only against a scratch export: `ruff format --check` (74 files
-  already formatted), `ruff check` (all checks passed), `mypy knowledge_harness` (no issues, 27 files),
+  already formatted), `ruff check` (all checks passed), `mypy research_vault` (no issues, 27 files),
   and `mdformat --check --number --wrap keep` on the amended spec file. Four of the eight hooks, chosen
   as the ones this diff can affect.
 
@@ -65,7 +65,7 @@ Residual, for the controller:
 ## Strengths
 
 - The floor is OR-shaped exactly as the brief required. `if not applicable and not has_managed_quotes`
-  (`knowledge_harness/events.py:280`) is NOT(applicable OR managed quotes), so a citekey-only note with
+  (`research_vault/events.py:280`) is NOT(applicable OR managed quotes), so a citekey-only note with
   a matched managed-quote check still reaches `machine-confirmed` — I reproduced that on the real tree
   — and every note with a doi or pmid whose checks pass is untouched.
 - The reuse requirement is over-satisfied. `has_managed_quotes = True` is set inside the pre-existing
@@ -98,7 +98,7 @@ None.
 
 ### Important (Should Fix)
 
-**1. `knowledge_harness/events.py:280` — the floor's `has_managed_quotes` clause is unpinned; a mutant
+**1. `research_vault/events.py:280` — the floor's `has_managed_quotes` clause is unpinned; a mutant
 that deletes it survives the entire suite. Status: CONFIRMED.**
 
 The floor is a two-clause predicate but only the first clause is tested. No test anywhere exercises a
@@ -116,7 +116,7 @@ reachable: `verify.py`'s `_projection_identity` mints `quote:<link>:<target>` ev
 quote outcomes, with no doi or pmid involved.
 
 One correction to the lens's rationale, which does not weaken the finding. The claim that the repo's
-mutation gate "would immediately trip" on this clause is wrong: `knowledge_harness/events.py` is one of
+mutation gate "would immediately trip" on this clause is wrong: `research_vault/events.py` is one of
 the six modules listed in `mutation-exclusions.txt` and is explicitly not represented in
 `mutation-baseline.txt`. Mutation testing will never see this clause. That makes the missing test more
 valuable, not less — the gate is not a fallback here.
@@ -155,7 +155,7 @@ new CLI surface. The production-minting half of #17 stays out of scope.
 
 Why it matters: #17 is OPEN, and its precondition remains unproducible — `human:` reaches production only
 through `inbox.py`'s acknowledgment path, and neither `record_pass` call site
-(`knowledge_harness/verify.py:797`, `knowledge_harness/publish.py:368`) passes `by=`. Leaving the plan line
+(`research_vault/verify.py:797`, `research_vault/publish.py:368`) passes `by=`. Leaving the plan line
 as written records a closure that did not happen, and my grep shows #17 is named exactly once in the whole
 plan, so no later task inherits the work by default. The three items the report cites as "coverage" for #17
 all pre-date this commit, so no new evidence about #17 was produced either.

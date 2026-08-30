@@ -24,7 +24,7 @@ Both failed for the predicted reason — the empty-applicable-set / frontmatterl
 
 ## Implementation
 
-`knowledge_harness/events.py::trust_tier` — added the checkability floor after the existing
+`research_vault/events.py::trust_tier` — added the checkability floor after the existing
 `machine_confirmed` computation (mirrors the brief's Step 3 exactly, adapted to the code as it
 actually stands):
 
@@ -141,10 +141,10 @@ the commit body as a scope note, not a closure claim.
    the brief specifies only the two RED tests):
    ```
    $ .venv/bin/python - <<'EOF'
-   from knowledge_harness import Result, events
+   from research_vault import Result, events
    text = ("---\ncitekey: \"noid2020\"\ntype: \"literature\"\n---\n"
-           "%%hk-managed%%\n- (quote) [@noid2020, p. 1] ^c-11111111\n"
-           "  > A quoted sentence.\n%%/hk-managed%%\n")
+           "%%rv-managed%%\n- (quote) [@noid2020, p. 1] ^c-11111111\n"
+           "  > A quoted sentence.\n%%/rv-managed%%\n")
    print(events.trust_tier(text))                     # unverified — quote check hasn't run
    text2 = events.record_pass(text, "quote:noid2020#^c-11111111:managed-region",
                                Result.MATCHED, at="2026-08-16")
@@ -167,7 +167,7 @@ the commit body as a scope note, not a closure claim.
 ## Fix round 1 (coordinator review)
 
 Two findings, both the same shape — behaviour the fix changed that no test pinned, and
-`knowledge_harness/events.py` sits in `mutation-exclusions.txt`, so a test is the only backstop.
+`research_vault/events.py` sits in `mutation-exclusions.txt`, so a test is the only backstop.
 Both addressed by adding tests to `tests/test_events.py`, each verified by hand to discriminate
 the specific mutant it targets.
 
@@ -196,7 +196,7 @@ surface mints one in production — the derivation is testable, only the minting
 
 ### Discrimination evidence (manual mutation testing)
 
-`knowledge_harness/events.py` was temporarily mutated, the targeted tests run, then the file was
+`research_vault/events.py` was temporarily mutated, the targeted tests run, then the file was
 restored from a pre-mutation backup (`cp` to `/tmp/events.py.orig` and back — no commit was made
 with either mutant in place; `git diff` against the fix confirmed byte-identical restoration
 after each round).

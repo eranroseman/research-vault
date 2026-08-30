@@ -1,10 +1,10 @@
-# knowledge-harness
+# research-vault
 
-A Claude Code harness for knowledge work — academic research first (question → literature → synthesis → draft → submit), then analysis/reports, personal knowledge management, and long-form writing.
+A Claude Code plugin for knowledge work — academic research first (question → literature → synthesis → draft → submit), then analysis/reports, personal knowledge management, and long-form writing.
 
 Success criterion: **trustworthy output** — every claim traceable to a real source, zero fabricated citations.
 
-The harness is an Obsidian vault, a Python CLI (`knowledge_harness`), and a set of agent skills. The vault holds the evidence; the CLI performs every mechanical write; the skills carry the judgment. That separation is the whole design: **the agent composes and explains, the CLI writes.** No skill hand-edits a managed region or machine surface, mints a verification event, or files a review record — those are verbs, and only the CLI runs them. (Prose is composed by hand where it belongs: free regions, synthesis pages, drafts.)
+research-vault is an Obsidian vault, a Python CLI (`research_vault`), and a set of agent skills. The vault holds the evidence; the CLI performs every mechanical write; the skills carry the judgment. That separation is the whole design: **the agent composes and explains, the CLI writes.** No skill hand-edits a managed region or machine surface, mints a verification event, or files a review record — those are verbs, and only the CLI runs them. (Prose is composed by hand where it belongs: free regions, synthesis pages, drafts.)
 
 ## The Iron Law
 

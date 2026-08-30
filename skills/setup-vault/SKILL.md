@@ -1,6 +1,6 @@
 ---
 name: setup-vault
-description: Use when a person asks to create, repair, or provision a knowledge-harness vault
+description: Use when a person asks to create, repair, or provision a research-vault vault
 disable-model-invocation: true
 ---
 
@@ -17,7 +17,7 @@ Fail closed on an ambiguous vault. If the destination is not unambiguous — two
 Construct one command, with only the flags the user consented to:
 
 ```sh
-python3 -m knowledge_harness scaffold --vault PATH [--with-ci] [--with-rw-ci]
+python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci]
 ```
 
 Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
@@ -27,13 +27,13 @@ Do not create directories or files by hand, substitute custom CI, use `git add .
 Run doctor after scaffold. Either accepted base override position is valid:
 
 ```sh
-python3 -m knowledge_harness --base URL doctor --vault PATH
-python3 -m knowledge_harness doctor --base URL --vault PATH
+python3 -m research_vault --base URL doctor --vault PATH
+python3 -m research_vault doctor --base URL --vault PATH
 ```
 
 Report every doctor probe, not only failures, plus the inbox count and oldest age. `inbox`'s summary reports `oldest_age_days` directly — whole days since that date, 0 for one filed today, `None` only when the queue is empty — so state that figure rather than estimating the age yourself. Do not replace this with a `doctor --url` command or environment variable.
 
-`doctor` always requires `--vault`; it has no vault-less mode. To check Zotero/BBT reachability before a vault exists, or independent of one, run `python3 -m knowledge_harness probe [--base URL]` instead — it is the vault-less reachability instrument and takes no `--vault` flag.
+`doctor` always requires `--vault`; it has no vault-less mode. To check Zotero/BBT reachability before a vault exists, or independent of one, run `python3 -m research_vault probe [--base URL]` instead — it is the vault-less reachability instrument and takes no `--vault` flag.
 
 ## Provision companions
 

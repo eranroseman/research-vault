@@ -2,7 +2,7 @@
 
 Research note, 2026-08-28. Feeds the rethink-audit of the docs subsystem:
 (1) the three-way hand-maintained glossary (`CONTEXT.md`,
-`knowledge_harness/templates/vault/system/glossary.md`,
+`research_vault/templates/vault/system/glossary.md`,
 `tests/test_templates.py`) and (2) the ADR-0005 incident (a decision record
 written `Status: accepted` and committed straight into the numbered register
 without review, now being pulled back — see `docs/adr/` currently holding only
@@ -18,7 +18,7 @@ ______________________________________________________________________
 ## 1. Single-source-of-truth glossary generation
 
 **Repo state, verified.** `CONTEXT.md` and the shipped
-`knowledge_harness/templates/vault/system/glossary.md` each define 31 terms.
+`research_vault/templates/vault/system/glossary.md` each define 31 terms.
 They have already drifted: `Synthesis note`, `System folder`, and `Venue` exist
 in the shipped template but not in `CONTEXT.md`. `tests/test_templates.py`
 asserts the template's exact bytes as a ~150-line inline Python string literal
@@ -141,9 +141,9 @@ different weight classes of problem.
 
 The Vale precedent's "eliminate" option is not available in the same form
 here: the shipped template **must** exist as its own standalone file, because
-`knowledge_harness/templates/vault/system/glossary.md` is copied into a vault
-that, per ADR 0001, "outlives" the harness — a live pointer back to
-`CONTEXT.md` would break the moment the harness is absent. So the real choice
+`research_vault/templates/vault/system/glossary.md` is copied into a vault
+that, per ADR 0001, "outlives" its tools — a live pointer back to
+`CONTEXT.md` would break the moment research-vault is absent. So the real choice
 is between the current state (three hand-synced copies, one of them a
 hand-typed Python byte-literal) and a generation step that only runs at
 scaffold-template build/dev time — never at vault-runtime — with the parity

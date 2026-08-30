@@ -9,7 +9,7 @@ UTC-vs-−0500 rendering artifact — the commit followed issue #16 by 3m33s). (
 review by the batch implementer session, folded throughout: three narrative corrections, ten
 execution-seat inventions (ledger 17–26), and two transcript-side claims amended.
 
-Methods material, 2026-08-25, for two consumers: the methods section if harness-as-paper
+Methods material, 2026-08-25, for two consumers: the methods section if research-vault-as-paper
 materializes, and the process template when workloads 2/3 (analysis/reports, PKM, long-form) are
 built the same way. Instruments by section: Scale, the arc, plan lineage, and ledger 1–16 are
 artifact-derived (commits, issues, file:line cited; no memory-sourced facts); ledger 17–26 is the
@@ -198,7 +198,7 @@ so recorded separately from the cited sections above.
 5. **The transcripts are the unpreserved lab notebook.** Records-tell-the-truth stops at the
    repo boundary: every ruling's reasoning lives in session transcripts — unversioned, uncited,
    decaying. Product claims cite file:line; the paper's process claims will need transcript
-   citations, and no fixity or archive discipline exists for them. If harness-as-paper is live,
+   citations, and no fixity or archive discipline exists for them. If research-vault-as-paper is live,
    transcript preservation is a decision with a clock on it (export key sessions into
    `docs/research/raw/` or `sources/`; small cost, shrinking window). Partial counter-example that
    strengthens the point: the batch's SDD ledger (progress.md, committed at 95a81b3) IS a

@@ -1,4 +1,4 @@
-# knowledge-harness
+# research-vault
 
 Trust-first academic research on a personal knowledge vault: every claim traceable to a real source, verified by mechanical checks. This glossary is the meaning layer; naming governance (why these words) lives in docs/terminology.md.
 
@@ -33,7 +33,7 @@ _Avoid_: `+`, capture folder
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
 _Avoid_: calendar, journal, daily notes folder
 
-**Managed region**: The bridge-regenerated span of a literature note between `%%hk-managed%%` markers; never hand-edited.
+**Managed region**: The bridge-regenerated span of a literature note between `%%rv-managed%%` markers; never hand-edited.
 _Avoid_: generated section, machine block
 
 ### Evidence and claims

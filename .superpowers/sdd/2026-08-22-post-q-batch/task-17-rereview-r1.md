@@ -14,7 +14,7 @@ tree files are independent copies.
 While preparing a second scratch copy (`/tmp/khs_base`, materializing
 `213a826`'s content for the Finding 1 base leg) I ran
 `git checkout 213a826 -- .` inside it. That command updated the *shared*
-index (staging `knowledge_harness/verify.py` and `tests/test_verify_cli.py`
+index (staging `research_vault/verify.py` and `tests/test_verify_cli.py`
 at their `213a826` blobs) without touching any working-tree files — but
 because the index is shared, this showed up in the **real worktree** as
 `git status` reporting `MM` on both files.
@@ -23,7 +23,7 @@ Verified before repairing: the real worktree's working-tree file contents
 were untouched throughout (`git diff` — index vs. working tree — was
 non-empty in the "looks like the fix was just reapplied" direction, i.e.
 purely an index artifact; the actual bytes on disk still hashed identically
-to `HEAD`). Repaired with `git reset HEAD -- knowledge_harness/verify.py
+to `HEAD`). Repaired with `git reset HEAD -- research_vault/verify.py
 tests/test_verify_cli.py` (updates the index to match `HEAD`, does not
 touch the working tree). Confirmed clean afterward: `git status` →
 "nothing to commit, working tree clean"; both `git diff` and
@@ -34,7 +34,7 @@ transiently mis-staged, and that has been fully restored. All further
 experiments were run in `/tmp/khs` after severing its `.git` pointer
 (`rm /tmp/khs/.git`), which turns any further stray git command in scratch
 into a loud failure instead of a silent cross-contamination. `/tmp/khs_base`
-was deleted. Restores of `knowledge_harness/verify.py` inside `/tmp/khs`
+was deleted. Restores of `research_vault/verify.py` inside `/tmp/khs`
 were done from a plain file backup (`/tmp/verify.py.orig`, saved from the
 untouched checkout) and checked byte-for-byte (`sha256sum`) against the
 real worktree's file after each restore, not via git.
@@ -47,7 +47,7 @@ real fixity had widened to 64 chars) and is now armed at `7374ebd`
 (literals migrated to `"aa11" * 16`).
 
 **Fault injected** (reproducing the coordinator's/implementer's method), in
-`knowledge_harness/verify.py`:
+`research_vault/verify.py`:
 1. `_effective()`: dropped the unconditional `outcome.result is
    Result.MATCHED or` clause, leaving only `not inbox.is_acknowledged(...)`
    — so a MATCHED outcome with a same-hash ack is now filtered *out* of
@@ -110,7 +110,7 @@ a present-but-empty `fixity-sha256: []`, not an absent key, and covers both
 `_citekey_hash` branches.
 
 **Shape check.** The project's frontmatter parser
-(`knowledge_harness/frontmatter.py:134`) is a hand-rolled flat-schema
+(`research_vault/frontmatter.py:134`) is a hand-rolled flat-schema
 parser, not PyYAML: a key line with nothing after the colon explicitly sets
 `current_list = []` (line 159-161), i.e. a bare `fixity-sha256:` line
 parses to a **present key with value `[]`**, not `None` and not a missing
@@ -176,7 +176,7 @@ reasonably expect it to be adopted. Confirmed empirically
 (`re.fullmatch(r"[0-9a-f]{64}", "AA11"*16)` → `False`,
 `re.fullmatch(r"[0-9a-f]{64}", "aa11"*16)` → `True`). In practice this is
 inert: the only production writer, `notes.sha256_file()` at
-`knowledge_harness/notes.py:333`
+`research_vault/notes.py:333`
 (`hashlib.sha256(...).hexdigest()`), always emits lowercase, so no real
 digest can ever hit this gap. **Finding 4 is fixed**, with one cosmetic
 wording gap not worth a further round.

@@ -15,8 +15,8 @@ was missing — only the standalone brief artifact was absent.
 
 ## Surfaces (re-verified)
 
-- `knowledge_harness/checks.py:1018` — `reduce_update_notice_outcomes`.
-- `knowledge_harness/checks.py:1057` (pre-fix) — the fallback tuple:
+- `research_vault/checks.py:1018` — `reduce_update_notice_outcomes`.
+- `research_vault/checks.py:1057` (pre-fix) — the fallback tuple:
   `for result in (Result.UNREACHABLE, Result.MATCHED, Result.SKIPPED)`.
   Notably this tuple never listed `Result.UNMATCHED` at all — a non-blocking
   UNMATCHED reached the tuple only via the trailing `outcomes[0]` default, and
@@ -30,7 +30,7 @@ Added `tests/test_checks.py::test_reduce_preserves_nonblocking_unmatched_over_ma
 call was adjusted from the brief's literal draft, per the task's explicit
 permission to do so:
 
-- `Outcome`'s real signature (`knowledge_harness/outcome.py:46`) is positional
+- `Outcome`'s real signature (`research_vault/outcome.py:46`) is positional
   `(check, target, result, reason, extra=...)`, which the brief's call already
   matched shape-for-shape.
 - The brief's `reason="version mismatch"` does NOT validate: `Outcome.__post_init__`
@@ -172,10 +172,10 @@ the routing already holds), then as part of the full suite above.
 
 ## Files changed
 
-- `knowledge_harness/checks.py` — the one-line fallback-tuple fix (`checks.py:1057`).
+- `research_vault/checks.py` — the one-line fallback-tuple fix (`checks.py:1057`).
 - `tests/test_checks.py` — added `test_reduce_preserves_nonblocking_unmatched_over_matched`.
 - `tests/test_verify_cli.py` — added `_apply_state_transitions` to the
-  imports from `knowledge_harness.verify`, and added
+  imports from `research_vault.verify`, and added
   `test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a_mint`.
 
 ## Self-review

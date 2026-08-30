@@ -1,19 +1,19 @@
 """The live observation drill: doctor against real Zotero/BBT, registration-free.
 
-The harness never registers an auto-export; a person creates the whole-library
+research-vault never registers an auto-export; a person creates the whole-library
 Better CSL JSON auto-export in BBT Preferences. The drill therefore observes an
 absent auto-export against a throwaway vault. The MATCHED end-to-end leg —
 genuine BBT output observed, one real item imported, rerun to NOOP — is
 deferred by author decision 2026-08-20 because no human-created auto-export
 points at a throwaway vault.
 
-`HARNESS_LIVE=1` alone means "run everything that can honestly run on this
+`RV_LIVE=1` alone means "run everything that can honestly run on this
 machine". The end-to-end legs that need genuine BBT output — the import and
 staleness legs in `test_cli_live.py` — additionally read
-`HARNESS_LIVE_AUTOEXPORT_VAULT`, the absolute path of a vault a person has
+`RV_LIVE_AUTOEXPORT_VAULT`, the absolute path of a vault a person has
 already pointed a whole-library Better CSL JSON auto-export at in BBT
 Preferences. Unset, those legs skip aloud naming that human step; they never
-fabricate the export, and the harness still writes nothing to it.
+fabricate the export, and research-vault still writes nothing to it.
 """
 
 import argparse
@@ -23,12 +23,12 @@ from pathlib import Path
 
 import pytest
 
-import knowledge_harness.__main__ as cli
-from knowledge_harness import Result, bibliography, paths, scaffold
-from knowledge_harness.zotero import ZoteroClient
+import research_vault.__main__ as cli
+from research_vault import Result, bibliography, paths, scaffold
+from research_vault.zotero import ZoteroClient
 
 REPO = Path(__file__).resolve().parents[1]
-DRILL_USER_NAME = "knowledge-harness-live-drill"
+DRILL_USER_NAME = "research-vault-live-drill"
 DRILL_USER_EMAIL = "live-drill@example.invalid"
 SETTLE_SECONDS = 2
 
@@ -89,7 +89,7 @@ def _drill_vault(tmp_path: Path) -> Path:
             capture_output=True,
         )
     scaffold.scaffold_vault(vault)
-    (vault / ".harness" / "machine.json").write_text(
+    (vault / ".research-vault" / "machine.json").write_text(
         json.dumps(
             {
                 "mailto": DRILL_USER_EMAIL,

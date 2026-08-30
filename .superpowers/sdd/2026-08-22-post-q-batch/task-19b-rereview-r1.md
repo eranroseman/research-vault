@@ -15,7 +15,7 @@ item exists to fix (an overclaimed coverage sentence) is not fully fixed.
 ## Method
 
 All discrimination checks were run as subprocess probes against
-`hooks/pretooluse_guard.py` (stdlib-only, no `knowledge_harness` import) —
+`hooks/pretooluse_guard.py` (stdlib-only, no `research_vault` import) —
 mutated in a `git archive 6a62cab | tar -x` scratch tree at
 `/tmp/task19b-scratch` (never `cp -r`, never `git` inside it), diffed
 byte-identical back to the real worktree file after every restore, deleted
@@ -24,7 +24,7 @@ becomes allow, or the reason string changes) and separately confirms the
 test helpers (`_pretooluse_deny`, `_assert_pretooluse_allows`) assert exact
 shape/equality/silence — so a behavior flip necessarily fails the assertion.
 I did not run `pytest` against the mutants directly (the scratch tree can't
-import `knowledge_harness`); the chain from "behavior flips" to "test goes
+import `research_vault`); the chain from "behavior flips" to "test goes
 red" is by inspection of the assertion helpers, not a directly observed red
 run. Full suite was run once, unmutated, in the real worktree at current
 HEAD (`a42c7a1`, post-merge) — see counts below. I did not check out or run

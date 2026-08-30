@@ -246,7 +246,7 @@ grounds that every other cited writer is agent-actored (`__main__.py:716` stamps
 `AGENT_ACTOR` unless `--actor` is given), leaving `manual` as the only
 human-actored reason code (`hooks/stop_publish_gate.py:137`,
 `actor="human:publish-bypass"`). That argument is incomplete: `inbox.append_ack`
-(`knowledge_harness/inbox.py:381-384`) *requires* a `human:` actor and runs
+(`research_vault/inbox.py:381-384`) *requires* a `human:` actor and runs
 `validate_reason`, so every acknowledgment is a human-actored queue entry whose
 reason must start with a registry code - and the shipped skills tell the agent
 to have the person supply that reason (`skills/publish/SKILL.md:80`,

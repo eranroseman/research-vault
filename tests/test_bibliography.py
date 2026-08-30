@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import Result, bibliography
+from research_vault import Result, bibliography
 
 ITEMS = [
     {"id": "smith2020", "title": "Mortality decline", "type": "article-journal"},
@@ -19,7 +19,7 @@ class StubClient:
 
     def export_csl(self, citekeys):
         if self.fail:
-            from knowledge_harness.zotero import ZoteroError
+            from research_vault.zotero import ZoteroError
 
             raise ZoteroError("down")
         return self._items
@@ -1078,7 +1078,7 @@ def test_observe_target_unicode_failure_is_unreachable(tmp_vault):
 
 @pytest.mark.parametrize("result", [Result.UNMATCHED, Result.UNREACHABLE])
 def test_observe_preserves_raw_zotero_error_and_classification(tmp_vault, result):
-    from knowledge_harness.zotero import ZoteroError
+    from research_vault.zotero import ZoteroError
 
     class FailingClient(StubClient):
         def export_csl(self, citekeys):

@@ -23,10 +23,10 @@ jobs:
       # GitHub-hosted runners carry no git identity (actions/checkout writes only
       # safe.directory and the auth header), and the test fixtures commit into
       # `git init` temp repos outside the workspace, so --global is load-bearing.
-      # Same identity the harness's own vault CI template uses.
+      # Same identity research-vault's own vault CI template uses.
       - name: Git identity (tests commit into temp repos)
         run: |
-          git config --global user.name "harness-ci"
+          git config --global user.name "research-vault-ci"
           git config --global user.email "actions@users.noreply.github.com"
       - name: Form + lint (the one command — same as local)
         run: pre-commit run --all-files --show-diff-on-failure
@@ -42,11 +42,11 @@ jobs:
       - name: Workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
       - name: Tests + branch coverage
-        run: python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
+        run: python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info
       - name: CRAP ceiling (crap4py)
-        run: crap4py knowledge_harness --lcov lcov.info --max-crap 30
+        run: crap4py research_vault --lcov lcov.info --max-crap 30
       - name: Duplicate gate (drywall)
-        run: drywall knowledge_harness
+        run: drywall research_vault
       # No-op on push by construction (origin/main...HEAD is empty after a landing);
       # this gate earns its keep on pull_request and workflow_dispatch. Until the
       # baseline lands, an absent mutation-baseline.txt reads as zero baselined

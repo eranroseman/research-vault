@@ -1,7 +1,7 @@
 # Plan S: Validation Slice — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans (this plan is largely author-in-the-loop research work, not fresh-subagent tasks). Steps use `- [ ]`.
-> This plan validates the harness by USING it. It runs the shipped skills against a real corpus in a fresh vault — the falsification test of spec §9. It is not a build; almost nothing here is code.
+> This plan validates research-vault by USING it. It runs the shipped skills against a real corpus in a fresh vault — the falsification test of spec §9. It is not a build; almost nothing here is code.
 
 **Goal:** One trip around the project flow (§9) over two corpora plus the synthetic gate drill, ending in an author judgment: is the brief defensible and did the vault carry the work without being routed around?
 
@@ -16,19 +16,19 @@
 ## Global Constraints
 
 - The vault lives at a path OUTSIDE this repo (e.g. `~/kh-vault`); it gets its own `git init` via `setup-vault`. Nothing from the slice is committed into the plugin repo except this plan and the findings log.
-- **Findings are the product as much as the brief.** Every point of friction, every skill that under-delivers, every drill result → `docs/research/validation-slice/2026-08-22-slice-findings.md` (in the plugin repo — it is a record about the harness). A slice that ships a brief but hides friction has failed its purpose.
+- **Findings are the product as much as the brief.** Every point of friction, every skill that under-delivers, every drill result → `docs/research/validation-slice/2026-08-22-slice-findings.md` (in the plugin repo — it is a record about research-vault). A slice that ships a brief but hides friction has failed its purpose.
 - Minimum two sessions with a real cold resume between them (§9 — exercises orientation and inbox-drain for real).
-- Live throughout: Zotero running, `HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`.
+- Live throughout: Zotero running, `RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real>`.
 - The author performs every admission (human act) and every disposition (human-chosen); the agent orchestrates.
 
 ## Phase 0 — Scaffold + the human BBT step (front-loaded, parallel to Plan Q)
 
-- [ ] `python -m knowledge_harness scaffold ~/kh-vault` (or the `setup-vault` skill) → fresh vault tree, `git init`, templates, Bases, vault AGENTS.md, glossary seed.
+- [ ] `python -m research_vault scaffold ~/kh-vault` (or the `setup-vault` skill) → fresh vault tree, `git init`, templates, Bases, vault AGENTS.md, glossary seed.
 - [ ] **Human step (BBT Preferences — the wizard-form guide, delivered as prose here; the polish pass will formalize it):**
   1. Zotero → Edit → Preferences → Better BibTeX → Automatic export.
   2. File → Export Library → format **Better CSL JSON**, check **Keep updated**, target `~/kh-vault/system/bibliography.json`.
   3. Confirm the export appears under BBT's auto-export list and the file exists.
-- [ ] `python -m knowledge_harness doctor ~/kh-vault` → every probe reported; autoexport MATCHED (this is the step that unblocks the two `HARNESS_LIVE_AUTOEXPORT_VAULT`-gated tests — set that env var to `~/kh-vault` and confirm they now run, not skip).
+- [ ] `python -m research_vault doctor ~/kh-vault` → every probe reported; autoexport MATCHED (this is the step that unblocks the two `RV_LIVE_AUTOEXPORT_VAULT`-gated tests — set that env var to `~/kh-vault` and confirm they now run, not skip).
 - [ ] Record in findings: did scaffold + the human step match the prose? Every gap is a setup-vault finding.
 
 ## Phase 1 — Seed migration (AMENDED 2026-08-22 — just-in-time admission per the library-as-search-space ruling; see findings log 11)
@@ -84,7 +84,7 @@ After the slice, adoption is friction-selected through the existing channel (fin
 | Search coverage gaps in Phase 3                                    | cookjohn cnki-skills, gs-skills                                   |
 | Submission friction in Phase 6                                     | medsci sync-submission                                            |
 
-No friction observed = no adoption; the map never becomes a shopping list. The same discipline covers the Memoria-item pool (2026-08-22): per-finding severity ← whether the run produces findings of visibly different weight; the no-refutation finding kind ← Phase 4's brief (where a claim with no counter-evidence considered would first appear); propagation's consequence walk ← whether ~10 synthesis pages generate cross-claim consequences; the capability contract and integrity/argument-quality ops ← post-slice by necessity (they change skill frontmatter, the system under test); code grounds ← parked until analysis work exists. The ledger discipline itself converged independently (the findings log's "friction is the product" IS Memoria's shape) — nothing to take there. **gap-to-topic is excluded from the map and decided on merits (ruled 2026-08-22): not adopted** — it gates whether a question is worth asking, the slice's question is already chosen, so no slice evidence can bear on it; and question-selection sits upstream of the harness boundary (the harness begins at framing a chosen question, spec §7). An upstream workflow choice, not a harness gap — this also resolves its two-tier contradiction in the adoption plan (review cluster 6).
+No friction observed = no adoption; the map never becomes a shopping list. The same discipline covers the Memoria-item pool (2026-08-22): per-finding severity ← whether the run produces findings of visibly different weight; the no-refutation finding kind ← Phase 4's brief (where a claim with no counter-evidence considered would first appear); propagation's consequence walk ← whether ~10 synthesis pages generate cross-claim consequences; the capability contract and integrity/argument-quality ops ← post-slice by necessity (they change skill frontmatter, the system under test); code grounds ← parked until analysis work exists. The ledger discipline itself converged independently (the findings log's "friction is the product" IS Memoria's shape) — nothing to take there. **gap-to-topic is excluded from the map and decided on merits (ruled 2026-08-22): not adopted** — it gates whether a question is worth asking, the slice's question is already chosen, so no slice evidence can bear on it; and question-selection sits upstream of research-vault's boundary (research-vault begins at framing a chosen question, spec §7). An upstream workflow choice, not a research-vault gap — this also resolves its two-tier contradiction in the adoption plan (review cluster 6).
 
 ## Self-Review (at authoring)
 

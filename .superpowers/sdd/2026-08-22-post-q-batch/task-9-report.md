@@ -28,7 +28,7 @@ This is the expected failure: a queue holding only one SKIPPED entry (dated
 2026-08-01) is counted today as 1 unacknowledged with `oldest` = that entry's
 date, when it should count as 0/None. The failure is on the assertion itself
 (a value mismatch), not a fixture/setup error — confirming the test exercises
-today's defect, not a broken harness.
+today's defect, not a broken research-vault.
 
 The companion dedup-hazard test
 (`tests/test_verify_cli.py::test_file_effects_does_not_refile_an_already_open_skipped_finding`)
@@ -92,15 +92,15 @@ records: append-only under research/analysis/adr.........................Passed
 ## Surface map — verified against the actual code
 
 Grepped every consumer of `inbox.summary(` and `inbox.open_entries(` in
-`knowledge_harness/`:
+`research_vault/`:
 
 ```
-knowledge_harness/verify.py:850:    for entry in inbox.open_entries(vault_root):
-knowledge_harness/inbox.py:701:def open_entries(vault) -> list[Finding]:
-knowledge_harness/inbox.py:713:    entries = [entry for entry in open_entries(vault) ...]   (was: entries = open_entries(vault))
-knowledge_harness/__main__.py:761:    print(json.dumps(inbox.summary(args.vault), sort_keys=True))
-knowledge_harness/__main__.py:763:        inbox.open_entries(args.vault), key=lambda item: (item.date, item.id)
-knowledge_harness/scaffold.py:295:        status = inbox.summary(vault)
+research_vault/verify.py:850:    for entry in inbox.open_entries(vault_root):
+research_vault/inbox.py:701:def open_entries(vault) -> list[Finding]:
+research_vault/inbox.py:713:    entries = [entry for entry in open_entries(vault) ...]   (was: entries = open_entries(vault))
+research_vault/__main__.py:761:    print(json.dumps(inbox.summary(args.vault), sort_keys=True))
+research_vault/__main__.py:763:        inbox.open_entries(args.vault), key=lambda item: (item.date, item.id)
+research_vault/scaffold.py:295:        status = inbox.summary(vault)
 ```
 
 This matches the brief's map exactly — no other counting surface exists.
@@ -121,7 +121,7 @@ counting surface it missed.
 
 ## Dedup-hazard demonstration
 
-`knowledge_harness/verify.py:850`'s `_file_effects` builds `open_keys` from
+`research_vault/verify.py:850`'s `_file_effects` builds `open_keys` from
 `inbox.open_entries(vault_root)` (unfiltered) to decide whether an outcome is
 already filed, and skips filing if so. Because the fix lives in `summary()`
 and does not touch `open_entries()`, this key set still includes SKIPPED
@@ -148,7 +148,7 @@ usage; no other test in the suite pinned SKIPPED-counts-as-unacknowledged.
 
 ## Files changed
 
-- `knowledge_harness/inbox.py` — `summary()` now filters
+- `research_vault/inbox.py` — `summary()` now filters
   `entry.result != Result.SKIPPED.value` before computing `unacknowledged`
   count and `oldest`. `open_entries()` untouched (deliberately — see hazard
   above). Docstring states only the mechanical constraint (SKIPPED stays in

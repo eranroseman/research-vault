@@ -20,9 +20,9 @@ ADR register.
   authority ("this glossary is the meaning layer") — one canonical body, no
   second hand-edited body elsewhere.
 - R2 (`caller`: vault end-user; `adr` 0001)
-  [the vault glossary](../../../knowledge_harness/templates/vault/system/glossary.md)
+  [the vault glossary](../../../research_vault/templates/vault/system/glossary.md)
   ships standalone into every scaffolded vault; per ADR 0001 a vault carries no
-  runtime dependency on the harness, so any projection mechanism has to run at
+  runtime dependency on research-vault, so any projection mechanism has to run at
   build/dev time, never at vault-runtime.
 - R3 (`docs`, proposal §2.2) a definition states what a thing is plus only the
   properties needed to distinguish it; mechanism, rationale, and rule detail
@@ -57,7 +57,7 @@ ADR register.
 Caller sweep: every accounted caller is in-repo — the domain-modeling skill,
 `scaffold.py`/its tests, `docs/terminology.md`, and the shipped vault
 template. The sweep cannot reach any vault already scaffolded outside this
-repo (ADR 0001 says vaults outlive the harness, so this audit has no way to
+repo (ADR 0001 says vaults outlive their tools, so this audit has no way to
 inspect or migrate those), nor any agent session that reads CONTEXT.md's
 conventions from memory instead of a fresh read — that failure mode is
 unenforceable from here.
@@ -141,7 +141,7 @@ parity test, in the shape API Extractor uses:
 2. A selection manifest — which terms project, plus the vault-specific title
    and intro overlay, resolving the proposal's §2.4 routing question — drives
    a generation script that renders
-   [the vault glossary](../../../knowledge_harness/templates/vault/system/glossary.md)
+   [the vault glossary](../../../research_vault/templates/vault/system/glossary.md)
    from CONTEXT.md. This runs at repo dev-time only; the scaffold's existing
    static copy at vault-creation time is untouched (R2, R7).
 3. Replace `tests/test_templates.py`'s hand-typed literal with a
@@ -169,15 +169,15 @@ just a documented one:
 
 ## gap:
 
-| Requirement | Current state | Divergence |
-| --- | --- | --- |
-| R1 — one canonical body | [CONTEXT.md](../../../CONTEXT.md), [the vault glossary](../../../knowledge_harness/templates/vault/system/glossary.md), and [tests/test_templates.py:170](../../../tests/test_templates.py#L170) each hand-carry the shared subset's prose | Three-way duplication, not the two the proposal document counts — the test's inline literal is a third body copy the proposal never named |
-| R2/R7 — build-time-only projection | No generator exists; the template is a hand-typed static file that `scaffold.py` copies verbatim | No generator, no selection manifest |
-| R3 — trim mechanism/rule detail out of definitions | CONTEXT.md's Bibliography export / Screening state / Update notice carry different amounts of mechanism detail than the template's versions of the same terms | Live drift today, confirmed by direct file read and independently by the research agent |
-| R4/R6 — no divergent wording between surfaces | Synthesis note, System folder, and Venue exist as full entries in the vault glossary but are absent from CONTEXT.md entirely | Live drift, already happened, uncaught until this audit |
-| R8 — accept only after review | ADR 0005 was committed with `Status: accepted` directly (commit `573489b`), with no `proposed` stage | Caught within the same session, but disposal sits uncommitted (`git status` shows `D docs/adr/0005-apply-open-standards-at-applicable-boundaries.md`) — unresolved limbo, not yet a closed gap |
-| R9 — the three-part ADR test | Lives only as prose in the new proposal document | No mechanical enforcement anywhere (no hook, no template checklist); consistent with the repo's general pattern of testing only what's cheap to test mechanically, not flagged as urgent on its own |
-| R10 — no reserved unspent numbers | ADRs 0001–0004 are accepted and well-formed, matching Nygard's Status/Considered Options/Consequences shape closely | No gap on 0001–0004; only 0005 violates this |
+| Requirement                                        | Current state                                                                                                                                                                                                                           | Divergence                                                                                                                                                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1 — one canonical body                            | [CONTEXT.md](../../../CONTEXT.md), [the vault glossary](../../../research_vault/templates/vault/system/glossary.md), and [tests/test_templates.py:170](../../../tests/test_templates.py#L170) each hand-carry the shared subset's prose | Three-way duplication, not the two the proposal document counts — the test's inline literal is a third body copy the proposal never named                                                           |
+| R2/R7 — build-time-only projection                 | No generator exists; the template is a hand-typed static file that `scaffold.py` copies verbatim                                                                                                                                        | No generator, no selection manifest                                                                                                                                                                 |
+| R3 — trim mechanism/rule detail out of definitions | CONTEXT.md's Bibliography export / Screening state / Update notice carry different amounts of mechanism detail than the template's versions of the same terms                                                                           | Live drift today, confirmed by direct file read and independently by the research agent                                                                                                             |
+| R4/R6 — no divergent wording between surfaces      | Synthesis note, System folder, and Venue exist as full entries in the vault glossary but are absent from CONTEXT.md entirely                                                                                                            | Live drift, already happened, uncaught until this audit                                                                                                                                             |
+| R8 — accept only after review                      | ADR 0005 was committed with `Status: accepted` directly (commit `573489b`), with no `proposed` stage                                                                                                                                    | Caught within the same session, but disposal sits uncommitted (`git status` shows `D docs/adr/0005-apply-open-standards-at-applicable-boundaries.md`) — unresolved limbo, not yet a closed gap      |
+| R9 — the three-part ADR test                       | Lives only as prose in the new proposal document                                                                                                                                                                                        | No mechanical enforcement anywhere (no hook, no template checklist); consistent with the repo's general pattern of testing only what's cheap to test mechanically, not flagged as urgent on its own |
+| R10 — no reserved unspent numbers                  | ADRs 0001–0004 are accepted and well-formed, matching Nygard's Status/Considered Options/Consequences shape closely                                                                                                                     | No gap on 0001–0004; only 0005 violates this                                                                                                                                                        |
 
 ## migrate:
 

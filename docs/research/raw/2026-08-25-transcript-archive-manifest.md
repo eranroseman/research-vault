@@ -1,7 +1,7 @@
 # Transcript-archive fixity manifest — snapshot 2026-08-25
 
 The project's one-time session-transcript export (the process lab notebook) is intentionally
-tracked under `docs/research/raw/knowledge-harness-transcripts/` while [#68](https://github.com/eranroseman/knowledge-harness/issues/68)
+tracked under `docs/research/raw/research-vault-transcripts/` while [#68](https://github.com/eranroseman/knowledge-harness/issues/68)
 mines it. The redundant external clone has been discarded. This manifest is the citable inventory:
 process claims cite a transcript by session id + SHA-256. The records carry private research
 content, personal data, and environment detail. It contains 63 point-in-time files, ~126MB.

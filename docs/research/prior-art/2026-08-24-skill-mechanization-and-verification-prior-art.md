@@ -80,7 +80,7 @@ ______________________________________________________________________
 
 **The gap.** `skills/synthesis-conventions/SKILL.md` states two binding, numerically precise rules —
 "A synthesis page earns its existence at two or more sources on the same topic" and "Every synthesis
-note carries at least two outgoing wikilinks" — as pure prose. A grep of `knowledge_harness/lints.py`
+note carries at least two outgoing wikilinks" — as pure prose. A grep of `research_vault/lints.py`
 confirms `check_id`s exist for `citekey`, `evidence-layer`, `published-drift`, and `disputed-claim`,
 but none for synthesis's source-count or link-count rules — every other rule in the system has both
 a prose description and a machine-enforced check; these two do not. `skills/find-sources/SKILL.md`
@@ -153,7 +153,7 @@ missing check this time but a missing single statement.
 
 **A sixth instance: `[confidence:: ...]` presence is unchecked.** `evidence-conventions`'s
 synthesis-only field `[confidence:: <level>]` (inference-only) has no `check_id` validating that an
-inference claim actually carries it — confirmed directly: `grep -rn "confidence" knowledge_harness/*.py` finds the string only once, as a reason code (`inbox.py:28`), never as a
+inference claim actually carries it — confirmed directly: `grep -rn "confidence" research_vault/*.py` finds the string only once, as a reason code (`inbox.py:28`), never as a
 check. hermes/llm-wiki "makes a missing confidence field a lint signal"
 (`docs/product-landscape/2026-08-22-product-comparison-verified.md:1628-1629`). This splits cleanly
 from §C's already-covered judgment question (is the value *low*) — presence-of-field is mechanical,
@@ -169,12 +169,12 @@ separate gap: count distinct independent sources, not a raw citation count.
 **Example — the pattern already exists, just not for these rules.** `verify-citations/SKILL.md`
 already describes the exact report shape a `synthesis` check_id would reuse: "`verify` prints one
 line per non-MATCHED outcome — `RESULT check target — reason` — followed by a final JSON summary of
-counts by result," invoked as `python3 -m knowledge_harness verify --vault PATH`. Nothing new to
+counts by result," invoked as `python3 -m research_vault verify --vault PATH`. Nothing new to
 design — `synthesis-source-count`/`synthesis-link-count` slot into that same reporting shape
 `citekey` and `evidence-layer` already use.
 
 **Fixes.** (1) Add a `synthesis` check_id (or two — `synthesis-source-count`,
-`synthesis-link-count`) to `knowledge_harness/lints.py`/`verify.py`, reporting MATCHED/UNMATCHED
+`synthesis-link-count`) to `research_vault/lints.py`/`verify.py`, reporting MATCHED/UNMATCHED
 exactly as `citekey` and `evidence-layer` already do, counting *independent* sources per the
 sharpening above, then trim the SKILL.md prose to state the rule and route to the check. (2) Remove
 `find-sources`'s "by hand" branch entirely by routing every URL that reaches the search log or a
@@ -183,7 +183,7 @@ itself, so an un-redacted URL cannot be appended regardless of which call produc
 the verb `find-sources/SKILL.md` already documents —
 
 ```sh
-python3 -m knowledge_harness search-log --vault PATH --project NAME \
+python3 -m research_vault search-log --vault PATH --project NAME \
   --query "QUERY AS RUN" --source "DATABASE NAME" --hits N
 ```
 
@@ -253,7 +253,7 @@ disagreement — never silently resolved in either direction. No new recording m
 `factcheck-draft/SKILL.md` already documents exactly this shape for every other UNMATCHED outcome —
 
 ```sh
-python3 -m knowledge_harness finding factcheck CLAIM_LINK UNMATCHED "mismatch — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
+python3 -m research_vault finding factcheck CLAIM_LINK UNMATCHED "mismatch — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
 ```
 
 — a second-pass disagreement is one more `mismatch —` reason on the same call, not a new verb.
@@ -355,7 +355,7 @@ combined candidates once. The recording verb for the debate outcome already exis
 `import-source/SKILL.md` files a held claim as
 
 ```sh
-python3 -m knowledge_harness finding integrate CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH
+python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH
 ```
 
 — an adjudicated debate verdict is the same call, with the reason naming which side the calling
@@ -374,13 +374,13 @@ exists — testing the *file*. "None of it tests the *firing*: given a phrasing 
 actually use, does the right skill activate, and does a user-invoked one correctly stay silent. gbrain
 ships a `routing-eval.jsonl` beside 41 of its 71 skills for exactly this. With seven of our nine
 skills locked to explicit invocation, a routing failure is silent by construction — nothing fires, and
-the person gets generic drafting instead of the harness"
+the person gets generic drafting instead of research-vault"
 (`docs/product-landscape/2026-08-22-product-comparison-verified.md:1795-1802`). Fix: a
 `routing-eval.jsonl`-style fixture per skill — phrasings a researcher would actually type, asserted
 against the expected fire/silent outcome. Illustrative, drawn from this repo's own skill
 descriptions rather than gbrain's actual schema (not read at that level of detail): `publish`'s
 description already lists its own triggers — "Use when a person asks to publish, park, correct, or
-withdraw a knowledge-harness project" — so a fixture entry might assert `{"phrasing": "can we get this project out the door", "expect_fires": "publish"}` alongside a negative case
+withdraw a research-vault project" — so a fixture entry might assert `{"phrasing": "can we get this project out the door", "expect_fires": "publish"}` alongside a negative case
 (`{"phrasing": "what's the citekey for this paper", "expect_fires": null}`) confirming a
 model-invocable skill stays silent on an unrelated ask.
 

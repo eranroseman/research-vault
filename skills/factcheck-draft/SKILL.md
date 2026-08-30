@@ -13,7 +13,7 @@ This is **factored verification** (§6): an LLM decompose-and-check pass at draf
 Selection under the budget is **deterministic** — run the CLI's `factcheck` subcommand; do not sort or prioritize claims by eye:
 
 ```sh
-python3 -m knowledge_harness factcheck --vault PATH --draft projects/NAME/DRAFT.md --cap 30
+python3 -m research_vault factcheck --vault PATH --draft projects/NAME/DRAFT.md --cap 30
 ```
 
 `--cap` defaults to 30 and is user-overridable — ask before changing it, and say what you changed it to. The budget is one LLM pass per selected claim; do not re-check a claim twice in the same run. One pass, never a panel: re-running the same model in different roles separates the roles, not the errors — role separation is not independent error processes — so a second agreeing voice buys agreement rather than confidence, and closure stays deterministic-only, in `verify-citations`'s suite rather than in any count of LLM votes.
@@ -48,9 +48,9 @@ Read fully, or say you did not. When the cited managed region was truncated, or 
 Every other outcome is a finding, filed by check id `factcheck`, targeting the claim link, carrying that claim's `text_hash` as `--target-hash` (so a later edit to the claim reopens the finding, and an unchanged retry does not duplicate it):
 
 ```sh
-python3 -m knowledge_harness finding factcheck CLAIM_LINK UNMATCHED "mismatch — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
-python3 -m knowledge_harness finding factcheck CLAIM_LINK UNREACHABLE "outage — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
-python3 -m knowledge_harness finding factcheck CLAIM_LINK SKIPPED "no-identifier — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
+python3 -m research_vault finding factcheck CLAIM_LINK UNMATCHED "mismatch — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
+python3 -m research_vault finding factcheck CLAIM_LINK UNREACHABLE "outage — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
+python3 -m research_vault finding factcheck CLAIM_LINK SKIPPED "no-identifier — ONE-LINE REASON" --vault PATH --target-hash TEXT_HASH
 ```
 
 Per-claim SKIPPED here means a claim the script selected but that turned out structurally uncheckable (its managed region was empty, or otherwise unreadable) — this should be rare, since ineligible claims are already excluded from `selected`.
@@ -60,7 +60,7 @@ Per-claim SKIPPED here means a claim the script selected but that turned out str
 If `skipped` is non-empty, file **one** finding naming everything the budget cap left unchecked this pass — an unchecked claim must never read as checked:
 
 ```sh
-python3 -m knowledge_harness finding factcheck "projects/NAME" SKIPPED "budget-cap — N claims not checked this pass: LINK1, LINK2, …" --vault PATH --target-hash SKIPPED_SHA256
+python3 -m research_vault finding factcheck "projects/NAME" SKIPPED "budget-cap — N claims not checked this pass: LINK1, LINK2, …" --vault PATH --target-hash SKIPPED_SHA256
 ```
 
 The target is the project itself — a gate-run reference, not a claim link — and `--target-hash` is the script's own `skipped_sha256`: a rerun with the identical skipped set is a no-op (the `finding` verb collapses it to the existing entry), while a genuinely different skipped set gets its own record.

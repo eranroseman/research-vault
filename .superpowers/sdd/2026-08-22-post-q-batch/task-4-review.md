@@ -12,7 +12,7 @@ specify rather than as a paraphrase.
   credential in the query string, so the fetched URL *is* a credential" - with
   the four-of-six hand-redaction list deleted and `scripts/_common.py`'s
   `redact_url` named as the authority. The polite-pool contact is sourced from
-  `.harness/machine.json`'s `mailto`, else `HARNESS_MAILTO`, with the plain
+  `.research-vault/machine.json`'s `mailto`, else `RV_MAILTO`, with the plain
   statement that the vendored scripts do not read it. The vendoring paragraph's
   "no-credential" claim is corrected in the same fold, which the brief's Step 1
   line does not name but the cross-read finding's own remedy does.

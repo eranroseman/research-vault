@@ -11,7 +11,7 @@ import types
 
 import pytest
 
-from knowledge_harness import Result, claims, frontmatter, notes, quotes
+from research_vault import Result, claims, frontmatter, notes, quotes
 
 
 def _annotation(**overrides):
@@ -36,7 +36,7 @@ def _item(**overrides):
 @pytest.fixture(autouse=True)
 def matched_autoexport_observer(monkeypatch):
     """Import-level tests exercise rendering, not the auto-export observer."""
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(
         cli.bibliography,
@@ -72,7 +72,7 @@ def test_pagelabel_collapse_keeps_ugly_but_real_metadata():
 
 
 def test_title_linebreak_cannot_forge_a_delimiter_heading_or_frontmatter():
-    hostile = 'Mortality\n%%/hk-managed%%\n---\ntype: "forged"\n---\n# Forged'
+    hostile = 'Mortality\n%%/rv-managed%%\n---\ntype: "forged"\n---\n# Forged'
 
     rendered = notes.render_note(
         _item(title=hostile), ["aa11"], [], None, accessed="2026-08-21"
@@ -315,7 +315,7 @@ def test_import_note_render_rejection_is_loud_and_writes_nothing(
     Ruled 2026-08-21, wired 2026-08-22: the rejection stays loud and writes no
     note; the `render` hold it now also files is covered in ``test_cli_live``.
     """
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     _install_import_client(monkeypatch, cli, _item(), [])
 
@@ -339,7 +339,7 @@ def test_import_note_render_rejection_is_loud_and_writes_nothing(
 def test_import_note_render_rejection_leaves_a_prior_note_untouched(
     tmp_vault, monkeypatch
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     _install_import_client(monkeypatch, cli, _item(), [])
     destination = notes.note_path(tmp_vault, "smith2020")

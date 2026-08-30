@@ -39,11 +39,11 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** Memoria adds `yaml` and provider keys.
 
-**Verifier:** CONFIRMED. Line 276 reads exactly "Memoria adds `yaml` and provider keys." Ground truth `git show 5395a87d:pyproject.toml` in ~/memoria-vault (the very commit the research doc pins at 2026-08-22-memoria-and-knowledge-harness.md:17, also current HEAD) declares dependencies = \["pydantic-ai-slim[openai]>=2.0", "PyMuPDF>=1.24,\<2", "PyYAML>=6.0"\] plus optional extras mcp>=2,\<3 and sqlite-vec>=0.1.6 (vector). So two unconditional runtime deps (pydantic …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. Line 276 reads exactly "Memoria adds `yaml` and provider keys." Ground truth `git show 5395a87d:pyproject.toml` in ~/memoria-vault (the very commit the research doc pins at 2026-08-22-memoria-and-research-vault.md:17, also current HEAD) declares dependencies = \["pydantic-ai-slim[openai]>=2.0", "PyMuPDF>=1.24,\<2", "PyYAML>=6.0"\] plus optional extras mcp>=2,\<3 and sqlite-vec>=0.1.6 (vector). So two unconditional runtime deps (pydantic …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:204 — HIGH (assembled-memoria)
+### 2026-08-22-memoria-and-research-vault.md:204 — HIGH (assembled-memoria)
 
-**Claim:** The verdict section re-asserts quote-correspondence checking as surviving distinctness against Memoria after the same document withdrew that exact claim ~20 lines earlier ('Withdrawn 2026-08-22... integrity-claim-quote-check... so not claimed'), a withdrawal the adoption plan (section 3.5, line 725) records as governing; the 'Where knowledge-harness is ahead' list also still opens 'Three things' while one of the three is struck through.
+**Claim:** The verdict section re-asserts quote-correspondence checking as surviving distinctness against Memoria after the same document withdrew that exact claim ~20 lines earlier ('Withdrawn 2026-08-22... integrity-claim-quote-check... so not claimed'), a withdrawal the adoption plan (section 3.5, line 725) records as governing; the 'Where research-vault is ahead' list also still opens 'Three things' while one of the three is struck through.
 
 **Evidence:** The distinctness that survives is narrow and real. A Zotero-anchored citekey spine and quote-correspondence checking are not small things
 
@@ -85,9 +85,9 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Claim:** The import-source description asserts free prose survives every render, but the audit confirmed import-note silently destroys the entire free region of any existing note lacking the exact managed-region marker line.
 
-**Evidence:** "renders `literatures/CITEKEY.md` from Zotero into a managed region, leaving free prose below untouched" — audit defect 5 (notes.py:151): a note without the exact %%/hk-managed%% marker "loses its whole body to the pristine seed on import/backfill, silently, printed as success"; the same defect undercuts line 1271's "the note is a render, not an LL
+**Evidence:** "renders `literatures/CITEKEY.md` from Zotero into a managed region, leaving free prose below untouched" — audit defect 5 (notes.py:151): a note without the exact %%/rv-managed%% marker "loses its whole body to the pristine seed on import/backfill, silently, printed as success"; the same defect undercuts line 1271's "the note is a render, not an LL
 
-**Verifier:** CONFIRMED against the tree. Doc line 1238 states unqualified: import-note renders "into a managed region, leaving free prose below untouched"; line 1271 builds on it ("the note is a render, not an LLM write, so re-import is a mechanical no-op and drift is lintable"). Ground truth contradicts both: knowledge_harness/notes.py:141-151 (\_split_free) matches only the three exact standalone spellings of the %%/hk-managed%% close marker (line 146) and o …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED against the tree. Doc line 1238 states unqualified: import-note renders "into a managed region, leaving free prose below untouched"; line 1271 builds on it ("the note is a render, not an LLM write, so re-import is a mechanical no-op and drift is lintable"). Ground truth contradicts both: research_vault/notes.py:141-151 (\_split_free) matches only the three exact standalone spellings of the %%/rv-managed%% close marker (line 146) and o …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:1866 — HIGH (self-claims)
 
@@ -99,11 +99,11 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 ### 2026-08-22-product-comparison-verified.md:1909 — HIGH (cross-doc)
 
-**Claim:** The §13 axis table says the core's dependencies are "stdlib only", contradicting §4 line 113 and §12 ("exactly one pinned runtime dependency — defusedxml"), the memoria note line 45, and adoption plan lines 261 ("Our core imports nothing outside the standard library today") and 729 ("Zero-dependency core") — and the tree itself is undecidable from the docs: main's pyproject.toml has dependencies = [] with no defusedxml anywhere in knowledge_harness/, the admission living only on the unmerged quality-lane worktree (commit cced181: "the core is no longer zero-dependency"); the 1,467-test count in §4 likewise matches the worktree (1,470 today), not main (1,330 collected).
+**Claim:** The §13 axis table says the core's dependencies are "stdlib only", contradicting §4 line 113 and §12 ("exactly one pinned runtime dependency — defusedxml"), the memoria note line 45, and adoption plan lines 261 ("Our core imports nothing outside the standard library today") and 729 ("Zero-dependency core") — and the tree itself is undecidable from the docs: main's pyproject.toml has dependencies = [] with no defusedxml anywhere in research_vault/, the admission living only on the unmerged quality-lane worktree (commit cced181: "the core is no longer zero-dependency"); the 1,467-test count in §4 likewise matches the worktree (1,470 today), not main (1,330 collected).
 
 **Evidence:** "| Dependencies | stdlib only | Node/Python trees, Postgres, embeddings, model providers |" vs line 113 "**one** pinned runtime dependency — `defusedxml`, admitted 2026-08-20"
 
-**Verifier:** CONFIRMED. Line 1909 reads exactly "| Dependencies | stdlib only | ..." with no hedge, while the same doc says "one pinned runtime dependency — defusedxml" at lines 113 and 1882–1886, and §14's corrections never touch it. The two-baseline mix is verified in the tree: main's pyproject.toml line 6 is "dependencies = []" with no defusedxml anywhere in knowledge_harness/, while the unmerged worktree .claude/worktrees/build+quality-lane pins defusedxm …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. Line 1909 reads exactly "| Dependencies | stdlib only | ..." with no hedge, while the same doc says "one pinned runtime dependency — defusedxml" at lines 113 and 1882–1886, and §14's corrections never touch it. The two-baseline mix is verified in the tree: main's pyproject.toml line 6 is "dependencies = []" with no defusedxml anywhere in research_vault/, while the unmerged worktree .claude/worktrees/build+quality-lane pins defusedxm …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### README.md:33 — HIGH (cross-doc)
 
@@ -119,7 +119,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "with a severity tier and a could-not-run exit we do not have"
 
-**Verifier:** Confirmed. The bullet's own cited evidence contradicts the exit half of adoption-plan line 125: docs/product-landscape/2026-08-22-product-comparison-verified.md:228-230 says medsci's sys.exit(2)-for-could-not-run is "the same separation our exit codes make between a failed check and a check that could not run." The code agrees: knowledge_harness/__main__.py:345-347 documents the contract ("0 recorded or not applicable, 1 the archive is serving no …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed. The bullet's own cited evidence contradicts the exit half of adoption-plan line 125: docs/product-landscape/2026-08-22-product-comparison-verified.md:228-230 says medsci's sys.exit(2)-for-could-not-run is "the same separation our exit codes make between a failed check and a check that could not run." The code agrees: research_vault/__main__.py:345-347 documents the contract ("0 recorded or not applicable, 1 the archive is serving no …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-adoption-plan.md:163 — MEDIUM (adoption)
 
@@ -281,39 +281,39 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Verifier:** Confirmed. The comparison doc's headings jump from §16 to §19 (grep "^#" shows no §17/§18; grep "§17" in it returns nothing), and its lines 14-15 say the positioning judgment that "once sat here as Part V now live[s] in the adoption plan". The adoption plan's preamble (lines 5-7) states §17/§18 of the comparison were merged into it, and the "build the trust core, adopt the breadth" conclusion now sits at adoption plan §1.2 (lines 85-89) — the pla …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:45 — MEDIUM (assembled-memoria)
+### 2026-08-22-memoria-and-research-vault.md:45 — MEDIUM (assembled-memoria)
 
 **Claim:** The dependency row understates Memoria's runtime dependency surface: pyproject.toml at the recorded commit 5395a87d declares dependencies = \["pydantic-ai-slim[openai]>=2.0", "PyMuPDF>=1.24,\<2", "PyYAML>=6.0"\] — an LLM framework and a PDF library are omitted, and pyproject is not in the doc's declared read list, so the fact lacks the evidence-rule sourcing.
 
 **Evidence:** Python 3.12+, `yaml`, provider keys per flow, Node 22 for the adapter
 
-**Verifier:** Confirmed. `git show 5395a87d:pyproject.toml` in ~/memoria-vault gives dependencies = \["pydantic-ai-slim[openai]>=2.0", "PyMuPDF>=1.24,\<2", "PyYAML>=6.0"\], exactly as the reviewer quoted; doc line 45 lists only "Python 3.12+, `yaml`, provider keys per flow, Node 22 for the adapter", omitting the LLM framework and PyMuPDF while the sibling knowledge-harness cell counts pinned packages ("one pinned runtime dependency... `pypdf` behind an extra") — …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed. `git show 5395a87d:pyproject.toml` in ~/memoria-vault gives dependencies = \["pydantic-ai-slim[openai]>=2.0", "PyMuPDF>=1.24,\<2", "PyYAML>=6.0"\], exactly as the reviewer quoted; doc line 45 lists only "Python 3.12+, `yaml`, provider keys per flow, Node 22 for the adapter", omitting the LLM framework and PyMuPDF while the sibling research-vault cell counts pinned packages ("one pinned runtime dependency... `pypdf` behind an extra") — …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:77 — MEDIUM (assembled-memoria)
+### 2026-08-22-memoria-and-research-vault.md:77 — MEDIUM (assembled-memoria)
 
 **Claim:** Memoria's K1 rule ('every non-reserved .md') is not verbatim ADR 0001's rule, which scopes to machine-written files ('every machine-written .md carries parseable YAML frontmatter with a non-empty type') and explicitly keeps fleeting human-captured notes frontmatter-free — a scope difference K1's rule would violate, so the claimed exact convergence is wrong.
 
 **Evidence:** That is verbatim the rule our ADR 0001 states.
 
-**Verifier:** Confirmed. The doc (docs/product-landscape/2026-08-22-memoria-and-knowledge-harness.md:77-78) says K1's rule "is verbatim the rule our ADR 0001 states," but docs/adr/0001-vault-outlives-harness.md:7 states "every machine-written `.md` carries parseable YAML frontmatter with a non-empty `type`" — not "every non-reserved `.md`" — and the same line makes the scope difference explicit and load-bearing: "fleeting human-captured notes stay frontmatter- …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed. The doc (docs/product-landscape/2026-08-22-memoria-and-research-vault.md:77-78) says K1's rule "is verbatim the rule our ADR 0001 states," but docs/adr/0001-vault-outlives-its-tools.md:7 states "every machine-written `.md` carries parseable YAML frontmatter with a non-empty `type`" — not "every non-reserved `.md`" — and the same line makes the scope difference explicit and load-bearing: "fleeting human-captured notes stay frontmatter- …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:138 — MEDIUM (assembled-memoria)
+### 2026-08-22-memoria-and-research-vault.md:138 — MEDIUM (assembled-memoria)
 
 **Claim:** Credits Memoria's sweep with Open Retractions as a live 'independent cross-check' advantage, while the sibling assembled-harness spec (section 2.6), from the same 2026-08-22 survey, verified openretractions.com 'not usable' — unreachable (HTTP 000) with the probe validated against two 200-returning hosts, and its data described upstream as ~2020.
 
 **Evidence:** **Open Retractions** as an independent cross-check
 
-**Verifier:** CONFIRMED. The memoria doc (docs/product-landscape/2026-08-22-memoria-and-knowledge-harness.md:135-140) bolds "Its retraction sweep is better than ours" and credits "**Open Retractions** as an independent cross-check" (line 138), then frames our lack of "an independent third source" as a gap — with no reachability or staleness caveat anywhere in the doc (grep for 000/unreachable/not usable/stale/2020 finds nothing relevant). The same-evening sibl …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. The memoria doc (docs/product-landscape/2026-08-22-memoria-and-research-vault.md:135-140) bolds "Its retraction sweep is better than ours" and credits "**Open Retractions** as an independent cross-check" (line 138), then frames our lack of "an independent third source" as a gap — with no reachability or staleness caveat anywhere in the doc (grep for 000/unreachable/not usable/stale/2020 finds nothing relevant). The same-evening sibl …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:138 — MEDIUM (cross-doc)
+### 2026-08-22-memoria-and-research-vault.md:138 — MEDIUM (cross-doc)
 
 **Claim:** The note credits Memoria's retraction sweep for using "Open Retractions as an independent cross-check" and faults us for lacking "an independent third source", but the assembled-harness spec (line 124) verified openretractions.com the same day as "not usable" — unreachable (HTTP 000, probe validated against Crossref/GitLab 200s) with data described upstream as ~2020 — so one doc scores as an advantage a source its sibling rules out.
 
 **Evidence:** "**Open Retractions** as an independent cross-check" vs assembled spec line 124: "**not usable.** Unreachable from this machine on 2026-08-22 (HTTP 000)"
 
-**Verifier:** Confirmed. docs/product-landscape/2026-08-22-memoria-and-knowledge-harness.md L135-140 credits Memoria's sweep with "**Open Retractions** as an independent cross-check" and faults us: "we use neither `relation.is-retracted-by` nor an independent third source" — with no qualification anywhere in the file. The sibling spec, same day/same tree, docs/product-landscape/2026-08-22-assembled-harness-spec.md L124: "openretractions.com | — | \*\*not usable. …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed. docs/product-landscape/2026-08-22-memoria-and-research-vault.md L135-140 credits Memoria's sweep with "**Open Retractions** as an independent cross-check" and faults us: "we use neither `relation.is-retracted-by` nor an independent third source" — with no qualification anywhere in the file. The sibling spec, same day/same tree, docs/product-landscape/2026-08-22-assembled-harness-spec.md L124: "openretractions.com | — | \*\*not usable. …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:139 — MEDIUM (assembled-memoria)
+### 2026-08-22-memoria-and-research-vault.md:139 — MEDIUM (assembled-memoria)
 
 **Claim:** Presents our Retraction Watch CSV leg as live coverage, while the same-day no-fabrication audit (finding 1, checks.py:924, verifier-CONFIRMED against the production CSV) records 'The entire RW leg silently dead while verify reports as if coverage ran' — the doc never notes this.
 
@@ -321,7 +321,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Verifier:** Stands, at medium not high. Doc line 138-139 states unqualified "We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`" as our sweep's source inventory; ground truth (docs/research/validation-slice/2026-08-22-no-fabrication-audit.md:88-92, finding 1, verifier-CONFIRMED against the production CSV) shows the RW leg is inert — checks.py:898-906 parses RetractionDate fromisoformat-only, 922-927 silently drops \_INVALID rows, and the production CSV's "M/D/YYYY 0 …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:139 — MEDIUM (cross-doc)
+### 2026-08-22-memoria-and-research-vault.md:139 — MEDIUM (cross-doc)
 
 **Claim:** "We use the RW CSV, Crossref `updated-by`, and OpenAlex `is_retracted`" states Retraction Watch CSV use as operational fact, but the same-day audit (docs/research/validation-slice/2026-08-22-no-fabrication-audit.md, finding 1, CONFIRMED by independent reproduction) shows the RW leg is inert — load_rw_csv drops every production row because RetractionDate is "M/D/YYYY 0:00", not ISO — so the sweep comparison understates the gap against Memoria.
 
@@ -329,7 +329,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Verifier:** CONFIRMED. checks.py:898-906 (\_rw_date returns \_INVALID for non-ISO strings) plus load_rw_csv's skip at checks.py:922-927 verify the audit's finding 1: every production RW row ("M/D/YYYY 0:00" dates) is silently dropped, so the RW leg is inert. The doc's line 139 ("We use the RW CSV") states it as live coverage in a source-by-source tally with no correction anywhere in the file; the Limits hedge (lines 219-223, "claims about what each implements, …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:198 — MEDIUM (assembled-memoria)
+### 2026-08-22-memoria-and-research-vault.md:198 — MEDIUM (assembled-memoria)
 
 **Claim:** Broken cross-references at lines 8, 198, and 201: the product comparison no longer contains a section 17 or 18.1 (its headers jump from '## 16' to '## 19' after the 2026-08-22 23:19 restructure) — the 'build the trust core, adopt the breadth' verdict now lives in the adoption plan section 1.2 and the adopt-by-default rule in adoption plan section 2.1 (line 203).
 
@@ -337,7 +337,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Verifier:** CONFIRMED. The comparison doc's headers jump from "## 16. Searched and not added" (line 2002) directly to "## 19. Re-running this comparison" (line 2031); grep for any ##/### 17.x or 18.x header returns nothing. Commit be4d83f (2026-08-22 23:19:39, "split the product-landscape notes by lifecycle") explicitly states it "Extracted §17 (positioning verdict) and §18 (vendoring tiers) from the comparison" into the adoption plan and rewrote "seven inbo …[full verdict in workflow journal wf_ffc62986-0a8]
 
-### 2026-08-22-memoria-and-knowledge-harness.md:198 — MEDIUM (cross-doc)
+### 2026-08-22-memoria-and-research-vault.md:198 — MEDIUM (cross-doc)
 
 **Claim:** The note cites the comparison's §17 twice (lines 8 and 198: "The comparison document's §17 concludes 'build the trust core, adopt the breadth'") and §18.1 (line 201), but those sections were moved out of the comparison — the verdict now lives at adoption plan §1.2 and the adopt-by-default rule at adoption plan §2.1; the comparison jumps from §16 to §19.
 
@@ -375,7 +375,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "Trust tiers | unverified → machine-confirmed → human-reviewed, derived from `verified` events" — audit defect 3 (events.py:255): `_applicable_note_checks(data) <= checks` is vacuously True for an empty applicable set; "even a frontmatter-less file derives 'machine-confirmed'" (reproduced empirically).
 
-**Verifier:** CONFIRMED. Doc line 125 reads exactly "Trust tiers | unverified → machine-confirmed → human-reviewed, derived from `verified` events". Ground truth contradicts the unqualified derivation claim: knowledge_harness/events.py:234-239 (\_applicable_note_checks falls through to `return set()` for any note lacking doi/pmid), :255 (`machine_confirmed = _applicable_note_checks(data) <= checks` — set() \<= checks is vacuously True), :282 (returns "machine-co …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. Doc line 125 reads exactly "Trust tiers | unverified → machine-confirmed → human-reviewed, derived from `verified` events". Ground truth contradicts the unqualified derivation claim: research_vault/events.py:234-239 (\_applicable_note_checks falls through to `return set()` for any note lacking doi/pmid), :255 (`machine_confirmed = _applicable_note_checks(data) <= checks` — set() \<= checks is vacuously True), :282 (returns "machine-co …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:143 — MEDIUM (cross-doc)
 
@@ -451,11 +451,11 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 ### 2026-08-22-product-comparison-verified.md:1902 — MEDIUM (self-claims)
 
-**Claim:** Git pre-commit is named a harness-armed closed enforcement point without noting the audit-confirmed defect that the shipped hook exits 0 when the knowledge_harness package is unimportable — the common default-install case — while promising a CI replay that a default scaffold does not have.
+**Claim:** Git pre-commit is named a research-vault-armed closed enforcement point without noting the audit-confirmed defect that the shipped hook exits 0 when the research_vault package is unimportable — the common default-install case — while promising a CI replay that a default scaffold does not have.
 
-**Evidence:** "Enforcement point | git pre-commit, PostToolUse warn, Stop gate — armed by the harness, not by an operator flag" — audit defect 16 (templates/git/pre-commit:12): "exits 0 when knowledge_harness is not importable while asserting 'CI will replay verification'; scaffold.py:192 defaults with_ci=False ... the promised compensating control is fabricated
+**Evidence:** "Enforcement point | git pre-commit, PostToolUse warn, Stop gate — armed by research-vault, not by an operator flag" — audit defect 16 (templates/git/pre-commit:12): "exits 0 when research_vault is not importable while asserting 'CI will replay verification'; scaffold.py:192 defaults with_ci=False ... the promised compensating control is fabricated
 
-**Verifier:** Defect stands. Ground truth confirms every element: templates/git/pre-commit:10-13 exits 0 when knowledge_harness is unimportable while printing "CI will replay verification", contrasting its own python3-missing branch (lines 6-9, exit 1); scaffold.py:192 defaults with_ci=False and copies verify.yml only when with_ci=True, so a default vault has no CI replay; pyproject.toml has no [project.scripts], supporting the audit's "reachable as the common …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Defect stands. Ground truth confirms every element: templates/git/pre-commit:10-13 exits 0 when research_vault is unimportable while printing "CI will replay verification", contrasting its own python3-missing branch (lines 6-9, exit 1); scaffold.py:192 defaults with_ci=False and copies verify.yml only when with_ci=True, so a default vault has no CI replay; pyproject.toml has no [project.scripts], supporting the audit's "reachable as the common …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### README.md:9 — MEDIUM (cross-doc)
 
@@ -463,7 +463,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "when Memoria moves, which is daily" — the memoria note self-describes only as "Analysis note, 2026-08-22"
 
-**Verifier:** CONFIRMED. README.md:9 flatly asserts the memoria note updates "when Memoria moves, which is daily". The memoria note (docs/product-landscape/2026-08-22-memoria-and-knowledge-harness.md) self-describes only as "Analysis note, 2026-08-22" (line 3); grep for daily/cadence/"per day"/"every day" across the note returns zero hits, so it contains no cadence statement. Its only cadence-adjacent data is the table at lines 38-39: first commit 2026-05-27, …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. README.md:9 flatly asserts the memoria note updates "when Memoria moves, which is daily". The memoria note (docs/product-landscape/2026-08-22-memoria-and-research-vault.md) self-describes only as "Analysis note, 2026-08-22" (line 3); grep for daily/cadence/"per day"/"every day" across the note returns zero hits, so it contains no cadence statement. Its only cadence-adjacent data is the table at lines 38-39: first commit 2026-05-27, …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-adoption-plan.md:53 — LOW (adoption)
 
@@ -471,7 +471,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "asserts `name` matches its directory, `description` is non-empty, and `disable-model-invocation` is boolean"
 
-**Verifier:** Confirmed. tests/test_skill_contracts.py:107 asserts data.get("disable-model-invocation") == "true" (string) for ENTRY_SKILLS and lines 111-114 assert the key is ABSENT for guard skills — no boolean-type assertion exists. It could not: the suite's own parser (knowledge_harness/frontmatter.py:88-94, \_parse_scalar) returns only str/int, so `true` parses as the string "true" and a boolean assertion would fail every skill. The doc's other description …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed. tests/test_skill_contracts.py:107 asserts data.get("disable-model-invocation") == "true" (string) for ENTRY_SKILLS and lines 111-114 assert the key is ABSENT for guard skills — no boolean-type assertion exists. It could not: the suite's own parser (research_vault/frontmatter.py:88-94, \_parse_scalar) returns only str/int, so `true` parses as the string "true" and a boolean assertion would fail every skill. The doc's other description …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:220 — LOW (cross-doc)
 

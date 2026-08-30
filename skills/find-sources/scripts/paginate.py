@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Vendored from https://github.com/K-Dense-AI/scientific-agent-skills @ 336c4f838a6c21b54e1e1f58cbbeae143d151fe2
 # (skills/paper-lookup/scripts/paginate.py), license MIT (© 2025 K-Dense Inc.).
-# Renamed into the knowledge-harness plugin namespace as skills/find-sources/.
+# Renamed into the research-vault plugin namespace as skills/find-sources/.
 # Do not hand-edit this file; re-vendor from upstream to update it.
 """Bounded, rate-limited, count-reconciling pagination for this skill's APIs.
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import Result, zotero
+from research_vault import Result, zotero
 
 
 class FakeTransport:
@@ -132,7 +132,7 @@ def test_export_named_translator(client):
     )
 
 
-def test_no_harness_module_can_issue_an_autoexport_rpc():
+def test_no_research_vault_module_can_issue_an_autoexport_rpc():
     """Restoring any autoexport.* JSON-RPC call or client registration must fail."""
     package = Path(zotero.__file__).parent
     callers = sorted(

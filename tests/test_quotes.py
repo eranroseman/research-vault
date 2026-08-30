@@ -1,6 +1,6 @@
-from knowledge_harness import Result, quotes
-from knowledge_harness.checks import Outcome
-from knowledge_harness.pathcodec import RepoPath
+from research_vault import Result, quotes
+from research_vault.checks import Outcome
+from research_vault.pathcodec import RepoPath
 
 
 def test_levenshtein_ratio_bounds():

@@ -1,6 +1,6 @@
 ---
 name: synthesis-conventions
-description: Use when creating or editing synthesis notes in a knowledge-harness vault, arranging claims across sources, or asking about synthesis rules
+description: Use when creating or editing synthesis notes in a research-vault vault, arranging claims across sources, or asking about synthesis rules
 ---
 
 # Synthesis conventions

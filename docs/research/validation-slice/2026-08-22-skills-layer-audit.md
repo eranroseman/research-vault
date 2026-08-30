@@ -10,7 +10,7 @@ conformance), `ponytail-audit` (over-engineering), `consistency-audit`
 ## Scope line
 
 - **Read in full**: all nine `skills/*/SKILL.md` (9,788 words); `skills/find-sources/references/` (11 files) and `scripts/` (5 files) read by header, entry point, and the specific claims the SKILL.md makes about them, not line-by-line.
-- **Evidence corpus for refutation**: `knowledge_harness/` (`__main__.py`, `verify.py`, `checks.py`, `inbox.py`, `scaffold.py`, `events.py`, `identify.py`, `factcheck.py`), `tests/test_skill_contracts.py`, `tests/test_skill_files.py`, `tests/test_project_skill.py`, `tests/test_find_sources_vendor.py`, `docs/superpowers/specs/2026-08-16-foundation-spec.md` §7–§8, `docs/superpowers/plans/2026-08-22-plan-d-skills.md`, `docs/terminology.md` §4.3–§4.4, `CONTEXT.md`, `AGENTS.md`, the shipped vault templates.
+- **Evidence corpus for refutation**: `research_vault/` (`__main__.py`, `verify.py`, `checks.py`, `inbox.py`, `scaffold.py`, `events.py`, `identify.py`, `factcheck.py`), `tests/test_skill_contracts.py`, `tests/test_skill_files.py`, `tests/test_project_skill.py`, `tests/test_find_sources_vendor.py`, `docs/superpowers/specs/2026-08-16-foundation-spec.md` §7–§8, `docs/superpowers/plans/2026-08-22-plan-d-skills.md`, `docs/terminology.md` §4.3–§4.4, `CONTEXT.md`, `AGENTS.md`, the shipped vault templates.
 - **Adaptations disclosed**: `consistency-audit` prescribes two independent `consistency-audit-inspector` readers per slice plus a skeptic that did not raise each candidate. This run used a single reader (the session) with self-refutation against code and tests, on the standing instruction not to dispatch subagents. Every finding below was refuted against primary evidence before it was recorded, and four candidates died there — but the *second-reader* leg did not run, so this run under-samples rather than surveys.
 - **Comparison not made**: the eleven `references/` files were not cross-read against each other for internal contradiction.
 
@@ -31,13 +31,13 @@ What the skills layer must do, tagged by evidence.
 | R5  | The Iron Law: no claim enters a draft before its citekey resolves                                                                        | `docs` — spec §5/§7                                                                                 |
 | R6  | PRISMA-S search provenance, append-only, project-scoped                                                                                  | `docs` — spec §7 `find-sources` row                                                                 |
 | R7  | Deprecate, never delete                                                                                                                  | `adr` — ADR 0003                                                                                    |
-| R8  | The vault outlives the harness; skills write vault-portable content only                                                                 | `adr` — ADR 0001                                                                                    |
+| R8  | The vault outlives its tools; skills write vault-portable content only                                                                   | `adr` — ADR 0001                                                                                    |
 | R9  | Skill prose uses CONTEXT.md vocabulary; every new identifier gets its terminology §4.3/§4.4 row in the same commit                       | `docs` — Plan D global constraints                                                                  |
 | R10 | Nine skills, names ruled                                                                                                                 | `docs` — terminology §4.3 line 127; Plan D Task 8 "the count is nine, not ten"                      |
 | R11 | The vendored fork stays frozen: re-vendor to update, never hand-edit                                                                     | `docs` + `tests` — spec §7 dependency discipline, `tests/test_find_sources_vendor.py`               |
 | R12 | A human can reach the right skill without holding all nine in their head                                                                 | `assumed` — no recorded requirement; the user-driven control model implies it and nothing states it |
 
-**Callers accounted for.** The skills have three classes of caller and all three were swept: the **human** typing a skill name (seven user-invoked entry points); **other skills** invoking the two guards (`project` → `evidence-conventions`, `import-source` → `synthesis-conventions`); the **shipped vault `AGENTS.md`** template, which names exactly one skill (`evidence-conventions`) and otherwise says "prefer the knowledge-harness skills" without naming them. Not reachable from this repo: how a real installed session resolves bare cross-reference names against the plugin namespace (see finding C-4), and any downstream consumer outside this checkout.
+**Callers accounted for.** The skills have three classes of caller and all three were swept: the **human** typing a skill name (seven user-invoked entry points); **other skills** invoking the two guards (`project` → `evidence-conventions`, `import-source` → `synthesis-conventions`); the **shipped vault `AGENTS.md`** template, which names exactly one skill (`evidence-conventions`) and otherwise says "prefer the research-vault skills" without naming them. Not reachable from this repo: how a real installed session resolves bare cross-reference names against the plugin namespace (see finding C-4), and any downstream consumer outside this checkout.
 
 ### `prior-art:`
 
@@ -178,7 +178,7 @@ ______________________________________________________________________
 
 **Quote** *"the deterministic suite of §6 (citekey, DOI, metadata, quote, update-notice, evidence-layer, identifier-discovery, web-archive, screening-state, disputed-claim)"* … *"Present the printed lines to the person **grouped by check id** (the second token on each line — `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`)"*
 
-**Contradiction** `knowledge_harness/verify.py:850` appends a `staleness` outcome on **every** run, and `verify.py:889-894` appends `append-only`, `claim-immutability`, and `published-drift` outcomes on every run, regardless of `--surface`. `docs/terminology.md:46-50` states this directly: *"the deterministic pipeline (verify.py, lints.py) legitimately files ids this registry does not carry (`staleness`, `append-only`, `claim-immutability`, `published-drift`, `publish-gate`)"*.
+**Contradiction** `research_vault/verify.py:850` appends a `staleness` outcome on **every** run, and `verify.py:889-894` appends `append-only`, `claim-immutability`, and `published-drift` outcomes on every run, regardless of `--surface`. `docs/terminology.md:46-50` states this directly: *"the deterministic pipeline (verify.py, lints.py) legitimately files ids this registry does not carry (`staleness`, `append-only`, `claim-immutability`, `published-drift`, `publish-gate`)"*.
 
 **Verdict** `confirmed`. Refutation attempted on two readings and both failed: (a) *"the list is scoped to §6's suite, not to what prints"* — the second use of the list is explicitly about "the printed lines" and "the second token on each line", so it is a claim about output; (b) *"the extra ids only appear on the commit surface"* — `verify.py:850` is unguarded by surface, and offline it emits `staleness` UNREACHABLE with reason `outage — network disabled`. That is precisely the result class this skill spends most of its length teaching a person to read correctly, arriving in a bucket the skill's own grouping rule cannot name.
 
@@ -192,7 +192,7 @@ ______________________________________________________________________
 
 **Quote** *"One registry code (`manual`) belongs to a surface not shipped yet — it gets its own glossary row when that surface lands."*
 
-**Contradiction** `knowledge_harness/inbox.py:24-45` — `REASON_CODES` carries 18 members. The table above the quoted line documents 16. Unaccounted: `manual` **and** `matched`.
+**Contradiction** `research_vault/inbox.py:24-45` — `REASON_CODES` carries 18 members. The table above the quoted line documents 16. Unaccounted: `manual` **and** `matched`.
 
 **Verdict** `confirmed`, low. Partial refutation holds and lowers the severity: `matched` is the reason string attached to MATCHED outcomes (`verify.py:508`, `checks.py:220`, `quotes.py:101`, `archive.py:140`), and MATCHED never files a finding — so it genuinely never appears in the review queue, and the table's own stated scope (*"the codes you meet in the review queue today"*) is correct. What is wrong is only the closing sentence's claim of completeness-with-one-exception.
 
@@ -222,7 +222,7 @@ ______________________________________________________________________
 
 **Quote** *"| Acquire new sources | `find-sources` |"*
 
-**Contradiction** `.claude-plugin/plugin.json` names the plugin `knowledge-harness`, and `docs/superpowers/plans/2026-08-20-plan-t-terminology-wave.md:242` writes the namespaced form for the same skills: `/knowledge-harness:setup-vault`, `…:find-sources`, `…:synthesis-conventions`. The shipped vault `AGENTS.md` template uses the bare form (*"Run `evidence-conventions` for claim syntax"*).
+**Contradiction** `.claude-plugin/plugin.json` names the plugin `research-vault`, and `docs/superpowers/plans/2026-08-20-plan-t-terminology-wave.md:242` writes the namespaced form for the same skills: `/research-vault:setup-vault`, `…:find-sources`, `…:synthesis-conventions`. The shipped vault `AGENTS.md` template uses the bare form (*"Run `evidence-conventions` for claim syntax"*).
 
 **Verdict** `unsettled` — and deliberately not rounded up. Two of these targets (`evidence-conventions`, `synthesis-conventions`) are model-invoked, so an agent resolves them from its own catalog whatever the spelling. The other five are user-invoked, so the routing line is a *human* instruction, and a human types what the picker shows. Whether the bare name resolves for either audience is a fact about an installed session that this repository cannot settle. `tests/test_skill_contracts.py:153` proves only that a directory of that name exists — not that the name is invocable as written.
 
@@ -248,9 +248,9 @@ ______________________________________________________________________
 
 **Where** `skills/setup-vault/SKILL.md:21`
 
-**Quote** *"Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.harness/machine.json`, `AGENTS.md`, … and `system/templates/` daily, literature, project, and synthesis templates"*
+**Quote** *"Run scaffold and report its exact printed created paths. On a fresh vault, scaffold can create `.git/hooks/pre-commit`, `.gitignore`, `.research-vault/machine.json`, `AGENTS.md`, … and `system/templates/` daily, literature, project, and synthesis templates"*
 
-**Contradiction** Not a factual contradiction — the enumeration matches `knowledge_harness/templates/vault/` exactly, verified file by file. It is a **duplication** finding: two sources of truth for one fact, one of them a cache of a lookup the same paragraph instructs the agent to perform. `scaffold.scaffold_vault()` returns `sorted(created)` (`scaffold.py:241`) and the skill's first instruction is to report it.
+**Contradiction** Not a factual contradiction — the enumeration matches `research_vault/templates/vault/` exactly, verified file by file. It is a **duplication** finding: two sources of truth for one fact, one of them a cache of a lookup the same paragraph instructs the agent to perform. `scaffold.scaffold_vault()` returns `sorted(created)` (`scaffold.py:241`) and the skill's first instruction is to report it.
 
 **Verdict** `confirmed` as duplication. Refutation partly holds and constrains the fix: `tests/test_skill_files.py:111-119` pins six of these paths, and that test exists for a real dishonesty (*"Claiming unrelated work was committed must fail"*). The pinned six are load-bearing; the other eight are inventory that goes stale the next time a template lands.
 
@@ -260,9 +260,9 @@ ______________________________________________________________________
 
 ### C-7 · No reachable index over seven user-invoked entry points — LOW
 
-**Where** `knowledge_harness/templates/vault/AGENTS.md:8`; the absence spans `skills/` as a whole
+**Where** `research_vault/templates/vault/AGENTS.md:8`; the absence spans `skills/` as a whole
 
-**Quote** *"Prefer the knowledge-harness skills over generic drafting, even for free-form requests. Run `evidence-conventions` for claim syntax."*
+**Quote** *"Prefer the research-vault skills over generic drafting, even for free-form requests. Run `evidence-conventions` for claim syntax."*
 
 **Contradiction** Seven of nine skills ship `disable-model-invocation: true`, so nothing but a human typing the name can reach them. The one always-loaded routing surface names one skill — a guard the agent could already reach on its own — and gestures at the other eight without naming them. `project`'s Routing table (`project/SKILL.md:66-74`) is the index, inside a user-invoked skill, reachable only by someone who already knew to type it.
 
@@ -337,7 +337,7 @@ The audit's own diagnosis governs the fixes: C-1, C-2, C-3 and C-6 are one class
 
 **C-5 · Stale vendored docstring — option (a), accept with an annotation.** One line added to the vendoring note: *upstream prose describes upstream's corpus.* The same move as the existing *"no additional source legs are owed"* parenthetical — an annotation that stops the next auditor re-finding it. The frozen-behaviour rule stays intact. → `ready-for-agent`, *record*.
 
-**C-7 · No reachable index — option (a), the seven names in the vault `AGENTS.md` template.** This addition passes the context bar where most fail it: the template already instructs *"prefer the knowledge-harness skills"* without saying which exist, and **an instruction the reader cannot follow is worse than a missing one.** Every vault session is the branch, so the material is branch-uniform; `tests/test_skill_contracts.py:153` already guards the names mechanically. Option (b)'s tenth router skill would reopen the ruled nine-count for what one paragraph does. Dialect surface: the whole-file test pin updates in the same commit. → `ready-for-agent`, *repair*.
+**C-7 · No reachable index — option (a), the seven names in the vault `AGENTS.md` template.** This addition passes the context bar where most fail it: the template already instructs *"prefer the research-vault skills"* without saying which exist, and **an instruction the reader cannot follow is worse than a missing one.** Every vault session is the branch, so the material is branch-uniform; `tests/test_skill_contracts.py:153` already guards the names mechanically. Option (b)'s tenth router skill would reopen the ruled nine-count for what one paragraph does. Dialect surface: the whole-file test pin updates in the same commit. → `ready-for-agent`, *repair*.
 
 ### Sequencing
 

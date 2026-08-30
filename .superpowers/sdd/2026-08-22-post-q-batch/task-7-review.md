@@ -26,7 +26,7 @@ Against the brief step by step:
   after Task 4's +20-line vendoring insert). The four "OUT" rulings
   (`setup-vault:21`, `evidence-conventions:64`, `publish:110`,
   `find-sources:74`) and the vault-template ruling
-  (`knowledge_harness/templates/vault/AGENTS.md`, pinned whole-file at
+  (`research_vault/templates/vault/AGENTS.md`, pinned whole-file at
   `tests/test_templates.py:100`) are each recorded with reasoning in the report
   and in the commit body, which is what the brief asked for. Meaning is preserved
   at every collapsed site; the two enumerations most at risk of silent loss

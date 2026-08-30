@@ -2,8 +2,8 @@
 
 ## What I implemented
 
-Added an index table to `knowledge_harness/templates/vault/AGENTS.md`, right after the
-existing "Prefer the knowledge-harness skills..." sentence and before the managed-region
+Added an index table to `research_vault/templates/vault/AGENTS.md`, right after the
+existing "Prefer the research-vault skills..." sentence and before the managed-region
 paragraph. The table lists the seven post-rename entry skills, each with a one-clause
 description, plus a one-line intro explaining why the index exists (all seven ship
 `disable-model-invocation: true`, so an agent cannot reach them on its own — this is the
@@ -38,13 +38,13 @@ Each compressed clause was sourced from the skill's own `description:` frontmatt
 
 | Skill | Source `description:` line | My compressed clause |
 | --- | --- | --- |
-| `setup-vault` | "Use when a person asks to create, repair, or provision a knowledge-harness vault" | create, repair, or provision a vault |
-| `project-flow` | "Use when a person starts a new knowledge-harness research project, resumes an existing one, or asks to frame a research question" | start or resume a research project |
-| `find-sources` | "Use when a person asks to find, search, or look up literature, papers, citations, DOIs, PMIDs, arXiv IDs, or open-access sources for a knowledge-harness project, before anything is admitted into Zotero" | find literature before it is admitted to Zotero |
-| `import-source` | "Use when a person asks to import, catalog, refresh, or backfill a source they have admitted to Zotero in a knowledge-harness vault" | import, catalog, refresh, or backfill an admitted source |
+| `setup-vault` | "Use when a person asks to create, repair, or provision a research-vault vault" | create, repair, or provision a vault |
+| `project-flow` | "Use when a person starts a new research-vault research project, resumes an existing one, or asks to frame a research question" | start or resume a research project |
+| `find-sources` | "Use when a person asks to find, search, or look up literature, papers, citations, DOIs, PMIDs, arXiv IDs, or open-access sources for a research-vault project, before anything is admitted into Zotero" | find literature before it is admitted to Zotero |
+| `import-source` | "Use when a person asks to import, catalog, refresh, or backfill a source they have admitted to Zotero in a research-vault vault" | import, catalog, refresh, or backfill an admitted source |
 | `verify-citations` | "Use when a person asks to verify citations, run the citation checks, or check whether a vault's evidence is trustworthy" | verify citations and run the citation checks |
 | `factcheck-draft` | "Use when a person asks to factcheck a draft, sanity-check claims against their sources, or run factored verification before review" | factcheck a draft against its sources before review |
-| `publish` | "Use when a person asks to publish, park, correct, or withdraw a knowledge-harness project" | publish, park, correct, or withdraw a project |
+| `publish` | "Use when a person asks to publish, park, correct, or withdraw a research-vault project" | publish, park, correct, or withdraw a project |
 
 Ordering in the table: `setup-vault` first (the one-time, out-of-band vault-creation step),
 then `project-flow` (the orchestrating entry point for the research flow), then the four
@@ -74,7 +74,7 @@ interpreter).
    ```
    Result: all 8 hooks passed, including `form: markdown CommonMark (mdformat)` — confirmed
    via `.pre-commit-config.yaml` that mdformat's owned path list (`README.md AGENTS.md
-   CONTEXT.md docs skills`) does **not** include `knowledge_harness/templates/`, so this
+   CONTEXT.md docs skills`) does **not** include `research_vault/templates/`, so this
    template file is not mdformat-owned and my hand-authored table formatting is not at risk
    of being silently rewritten later.
 
@@ -92,7 +92,7 @@ interpreter).
 
 ## Files changed
 
-- `knowledge_harness/templates/vault/AGENTS.md` — added the seven-row index table and its
+- `research_vault/templates/vault/AGENTS.md` — added the seven-row index table and its
   one-sentence intro.
 - `tests/test_templates.py` — updated the whole-file pin
   (`test_markdown_templates_match_canonical_content`) to match, in the same commit.

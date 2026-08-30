@@ -2,7 +2,7 @@ import string
 
 import pytest
 
-from knowledge_harness.pathcodec import (
+from research_vault.pathcodec import (
     PATH_BYTES_PREFIX,
     PathCodecError,
     RepoPath,

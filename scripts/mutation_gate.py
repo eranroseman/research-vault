@@ -3,9 +3,9 @@
 Invoked explicitly as `python scripts/mutation_gate.py` — no shebang on purpose
 (EXE001 fires on a shebang in a non-executable file, and nothing execs this directly).
 
-Gate mode (default): mutation-test the knowledge_harness files changed since --base,
+Gate mode (default): mutation-test the research_vault files changed since --base,
 fail (exit 1) on any survivor whose key is absent from the committed baseline.
---update-baseline: blanket-run every knowledge_harness module (--mutate-all) and
+--update-baseline: blanket-run every research_vault module (--mutate-all) and
 rewrite the baseline file with every current survivor.
 
 --out-dir (update-baseline only): per-module stdout+exit-code records written as
@@ -195,7 +195,7 @@ def changed_modules(base: str, cwd: Path = ROOT) -> list[str]:
             "--relative",
             f"{base}...HEAD",
             "--",
-            "knowledge_harness/*.py",
+            "research_vault/*.py",
         ],
         capture_output=True,
         text=True,
@@ -211,8 +211,8 @@ def changed_modules(base: str, cwd: Path = ROOT) -> list[str]:
 
 def _all_modules() -> list[str]:
     return sorted(
-        f"knowledge_harness/{p.name}"
-        for p in (ROOT / "knowledge_harness").glob("*.py")
+        f"research_vault/{p.name}"
+        for p in (ROOT / "research_vault").glob("*.py")
         if p.name != "__init__.py"
     )
 
@@ -516,7 +516,7 @@ def main() -> int:
 
     modules = changed_modules(args.base)
     if not modules:
-        print("[gate] no changed knowledge_harness modules; pass")
+        print("[gate] no changed research_vault modules; pass")
         return 0
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()

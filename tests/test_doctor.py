@@ -4,8 +4,8 @@ import subprocess
 
 import pytest
 
-from knowledge_harness import Result, bibliography, scaffold
-from knowledge_harness.zotero import ZoteroError
+from research_vault import Result, bibliography, scaffold
+from research_vault.zotero import ZoteroError
 
 PROBE_NAMES = [
     "tree",
@@ -32,7 +32,7 @@ def _probes(**states):
 
 
 def _run_cmd(monkeypatch, capsys, probes):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "doctor", lambda *args, **kwargs: probes)
     code = cli.cmd_doctor(argparse.Namespace(vault="/unused", base="http://unused"))
@@ -96,9 +96,9 @@ class ReadyClient:
 def _doctor_vault(tmp_vault, *, backup="/backup"):
     for relative in scaffold.VAULT_DIRS:
         (tmp_vault / relative).mkdir(parents=True, exist_ok=True)
-    harness = tmp_vault / ".harness"
-    harness.mkdir(exist_ok=True)
-    (harness / "machine.json").write_text(
+    rv_dir = tmp_vault / ".research-vault"
+    rv_dir.mkdir(exist_ok=True)
+    (rv_dir / "machine.json").write_text(
         json.dumps({"mailto": "researcher@example.edu", "zotero_backup": backup})
     )
     subprocess.run(
@@ -311,7 +311,7 @@ def test_doctor_probe_five_carries_the_observer_repair_guidance(tmp_vault, monke
 def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     vault = _doctor_vault(tmp_vault)
     items = [{"id": "smith2020", "title": "Mortality decline"}]
@@ -351,7 +351,7 @@ def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
 def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
     tmp_vault, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     vault = _doctor_vault(tmp_vault)
     items = [{"id": "smith2020", "title": "Mortality decline"}]
@@ -389,7 +389,7 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
 ):
     vault = _doctor_vault(tmp_vault, backup="")
     subprocess.run(["git", "remote", "remove", "origin"], cwd=vault, check=True)
-    (vault / ".harness" / "machine.json").write_text(
+    (vault / ".research-vault" / "machine.json").write_text(
         '{"mailto":"you@example.edu","zotero_backup":""}'
     )
     (vault / "inbox" / "review-queue.md").write_text(
@@ -435,7 +435,7 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
 def test_doctor_base_routes_before_and_after_subcommand(
     argv, expected, monkeypatch, capsys
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     bases = []
 

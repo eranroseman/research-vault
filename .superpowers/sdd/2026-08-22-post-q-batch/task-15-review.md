@@ -11,15 +11,15 @@ Every brief step landed:
   assertion pair, including its trailing comments. The brief explicitly licensed
   adjusting the constructor call shape, and the two adjustments the implementer made
   are forced rather than cosmetic. `Outcome.__post_init__`
-  (`knowledge_harness/outcome.py:91`) routes every reason through
-  `inbox.validate_reason`, whose `_REASON` regex (`knowledge_harness/inbox.py:81-83`)
+  (`research_vault/outcome.py:91`) routes every reason through
+  `inbox.validate_reason`, whose `_REASON` regex (`research_vault/inbox.py:81-83`)
   demands a `REASON_CODES` prefix, so the brief's literal `"version mismatch"` would
   have raised `ValueError` before the reducer ran; `"mismatch — version differs"` is
-  the shape `_version_mismatch` really emits (`knowledge_harness/checks.py:653-660`).
+  the shape `_version_mismatch` really emits (`research_vault/checks.py:653-660`).
   The brief's `extra={"class": "warn"}` was dropped because production non-blocking
   UNMATCHED outcomes never set a `class` key at all - only the blocking bucket reads
   it, and only for `== "blocking"`.
-- Step 3 (implement): `knowledge_harness/checks.py:1057-1063` is the brief's tuple
+- Step 3 (implement): `research_vault/checks.py:1057-1063` is the brief's tuple
   verbatim, `(Result.UNREACHABLE, Result.UNMATCHED, Result.MATCHED, Result.SKIPPED)`,
   ruff-expanded across lines. It is the only production-code change in the diff, and
   it sits in the `else` branch, so the blocking bucket at `checks.py:1038-1050` is
@@ -29,7 +29,7 @@ Every brief step landed:
   pre-existing `reduce_update_notice_outcomes` call sites named and dispositioned. The
   minting-path trace is present and correct, and it correctly corrects the task's own
   framing: `events.record_pass` has exactly two call sites repo-wide
-  (`knowledge_harness/verify.py:797`, `knowledge_harness/publish.py:368`), both passing
+  (`research_vault/verify.py:797`, `research_vault/publish.py:368`), both passing
   the literal `Result.MATCHED`, so the callee's guard is unreachable from this path and
   the ternary's condition is what actually stops the mint.
 - Step 5 (commit): one commit, `3d65856`, subject exactly
@@ -65,7 +65,7 @@ direct execution. Recorded here as **closed**, so the controller does not chase 
   trace. `checks.py` gained no provenance comment; the two test docstrings state
   contracts, not history.
 - **Form gate 8/8** - RESOLVED component-wise. `ruff format --check` and `ruff check`
-  pass on all three changed files; `mypy knowledge_harness` reports
+  pass on all three changed files; `mypy research_vault` reports
   `Success: no issues found in 27 source files`; `config-validity` runs
   `tests/test_config_validity.py`, which passed inside the full suite;
   mdformat / yamlfix / pyproject-fmt match no file type in this diff; shellcheck and
@@ -139,7 +139,7 @@ The assertion is
 `assert any(row["check"] == "update-notice" for row in events.current_failures(source))`
 - it checks that *a* failure row for the check exists, but not what result it records.
 `events.record_failure` writes `{"check": ..., "result": result.value}`
-(`knowledge_harness/events.py:146`), so a drift at the `verify.py:797` ternary that
+(`research_vault/events.py:146`), so a drift at the `verify.py:797` ternary that
 forwarded a wrong non-MATCHED result would still satisfy this test, even though the
 test's name and docstring claim it pins UNMATCHED routing.
 

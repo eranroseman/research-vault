@@ -113,7 +113,7 @@ coverage.
 ## 2. Dotless-asset mapping
 
 Followed the existing `gitignore` → `.gitignore` pattern exactly rather than
-inventing a new one. `knowledge_harness/scaffold.py`:
+inventing a new one. `research_vault/scaffold.py`:
 
 ```python
 # Dotfiles ship dotless (packaging pitfall: a dotfile committed directly as
@@ -135,14 +135,14 @@ def _vault_template_paths(templates):
 
 Verified the packaging concern directly rather than trusting the glob:
 built a real wheel (`pip wheel --no-deps --no-build-isolation`) and listed
-its contents — `knowledge_harness/templates/vault/{editorconfig,
+its contents — `research_vault/templates/vault/{editorconfig,
 markdownlintignore,prettierignore}` are all present, packaged dotless exactly
 like `gitignore`. Also ran a live `scaffold_vault()` against a throwaway
 directory: all three land renamed with the leading dot, with correct
 content, and are committed into the scaffolded vault's own first commit
 alongside `.gitignore` (confirmed via `git show --stat HEAD` in the
 scaffolded repo). Both throwaway directories and the wheel were removed
-afterward; a stray `knowledge_harness.egg-info/` (already gitignored) from
+afterward; a stray `research_vault.egg-info/` (already gitignored) from
 the wheel build was also removed to leave a clean tree.
 
 ## 3. Pins the suite revealed
@@ -154,12 +154,12 @@ task's brief named one pin and the suite found a second). Three pins moved:
 - **`tests/test_scaffold.py` `EXPECTED_CREATED`** (18 → 21 paths): added
   `.editorconfig`, `.markdownlintignore`, `.prettierignore` in their sorted
   position (scaffold_vault returns `sorted(created)`). `TRACKABLE_CREATED`
-  derives from this list by filtering out `.git/`/`.harness/`-prefixed
+  derives from this list by filtering out `.git/`/`.research-vault/`-prefixed
   paths; the three new dotfiles are neither, so they fall into
   `TRACKABLE_CREATED` and get committed by `scaffold_vault`'s own commit
   step. **Confirmed this is correct**: these are vault-owned config files
   that belong in the vault's own git history next to `.gitignore`, not
-  harness-local state — verified directly via the live scaffold smoke test
+  research-vault-local state — verified directly via the live scaffold smoke test
   in section 2.
 - **`tests/test_templates.py` `EXPECTED_PATHS`**: added `vault/prettierignore`,
   `vault/markdownlintignore`, `vault/editorconfig` (dotless, matching the
@@ -179,12 +179,12 @@ and ruled out as not tripped by this change:
   glob; does not include vault template JSON.
 - `tests/test_config_validity.py` `_mdformat_owned_markdown()` /
   `_MDFORMAT_ROOTS` — scans repo-root `README.md`/`AGENTS.md`/`CONTEXT.md`/
-  `docs`/`skills`, not `knowledge_harness/templates/`; matches the brief's
+  `docs`/`skills`, not `research_vault/templates/`; matches the brief's
   note that mdformat structurally cannot reach the templates directory.
 - `tests/test_skill_files.py` — checks skill-file prose, not template file
   lists; unaffected.
 - No `pytest.mark.parametrize` in the suite is driven by `EXPECTED_PATHS`,
-  `EXPECTED_CREATED`, or a glob over `knowledge_harness/templates/`.
+  `EXPECTED_CREATED`, or a glob over `research_vault/templates/`.
 
 I also added one new test, `test_formatter_ignores_cover_every_machine_surface`
 in `tests/test_templates.py`, asserting all four machine-surface strings
@@ -222,12 +222,12 @@ confirming the brief's claim.
 
 Before:
 
-> Prefer the knowledge-harness skills over generic drafting, even for
+> Prefer the research-vault skills over generic drafting, even for
 > free-form requests. Run `evidence-conventions` for claim syntax.
 
 After:
 
-> Prefer the two model-invocable knowledge-harness skills over generic
+> Prefer the two model-invocable research-vault skills over generic
 > drafting, even for free-form requests: run `evidence-conventions` for
 > claim syntax and `synthesis-conventions` for synthesis-note rules.
 
@@ -247,7 +247,7 @@ explain.
 
 ## 7. Lines 6 and 26 — untouched
 
-`git diff -- knowledge_harness/templates/vault/AGENTS.md` shows only two
+`git diff -- research_vault/templates/vault/AGENTS.md` shows only two
 hunks: the line-10 sentence and the formatter paragraph. Line 6 (the
 integrity preamble) and line 26 (`Machine surfaces (...) are owner-written`)
 do not appear in the diff at all — confirmed by inspection of the diff
@@ -288,10 +288,10 @@ overrides do their job (defending against **any** editor's defaults,
 including the user's own) with or without a `[*]` block above them; and the
 `[*]` block was a style opinion (LF/UTF-8/final-newline/no-trailing-
 whitespace on every vault file) carrying no correctness claim the trust
-machinery owns, which is exactly what "vault outlives harness" says the
-harness does not get to impose. Applied:
+machinery owns, which is exactly what "vault outlives its tools" says
+research-vault does not get to impose. Applied:
 
-**`[*]` removed entirely.** `knowledge_harness/templates/vault/editorconfig`
+**`[*]` removed entirely.** `research_vault/templates/vault/editorconfig`
 now opens straight from `root = true` into the four surface sections. No
 property is asserted for any file outside the four surfaces — silence about
 what the machinery does not own, matching line 26's framing.
@@ -366,7 +366,7 @@ sibling commit, `eff8d67`) into its two intended consumers.
 
 ### 10.1 The missing surface: `projects/*/search-log.md`
 
-`knowledge_harness/lints.py`'s `_is_append_only_path` (line 109) is the
+`research_vault/lints.py`'s `_is_append_only_path` (line 109) is the
 append-only lint's own scope authority — its docstring names three
 durable-append surfaces:
 
@@ -383,7 +383,7 @@ def _is_append_only_path(rel: bytes) -> bool:
 The shipped ignore files covered two of the three (`log/`,
 `inbox/review-queue.md`) and missed `projects/*/search-log.md` —
 `find-sources`'s PRISMA-S search-provenance trail
-(`knowledge_harness/searchlog.py`, always exactly one level under
+(`research_vault/searchlog.py`, always exactly one level under
 `projects/<name>/`). The author's ruling: the four-surface list in the
 task brief "was the planner describing from memory what lints.py already
 states precisely" — `_is_append_only_path` is the source of truth, not
@@ -443,7 +443,7 @@ $ node ~/.npm/_npx/f4da0b4ac6006cf9/node_modules/markdownlint-cli/markdownlint.j
 0.49.1
 ```
 
-Built a fixture vault at `/tmp/hk-anchor-check/` (removed after use) with
+Built a fixture vault at `/tmp/rv-anchor-check/` (removed after use) with
 all five real surfaces (`literatures/citekey.md`, `log/2026-08-24.md`,
 `inbox/review-queue.md`, `system/bibliography.json`,
 `projects/myproj/search-log.md`), two same-named nested decoys
@@ -619,14 +619,14 @@ reshapes existing pinned assertions and adds no new test.
 
 A sibling commit (`eff8d67`) added `oldest_age_days` to
 `inbox.summary()`, but nothing read it yet. Checked the exact shipped
-semantics in `knowledge_harness/inbox.py` before writing anything: whole
+semantics in `research_vault/inbox.py` before writing anything: whole
 days between today (UTC) and the oldest non-SKIPPED unacknowledged
 entry's date; `None` exactly when `oldest` is `None` (nothing
 unacknowledged); a freshly filed entry reports `0`, not `None`. Doctor's
-own "inbox" probe (`knowledge_harness/scaffold.py`'s `_inbox_probe`)
+own "inbox" probe (`research_vault/scaffold.py`'s `_inbox_probe`)
 reports only `count` and the raw `oldest` date in its reason string, not
 `oldest_age_days` — that field is only surfaced via `inbox.summary()`'s
-JSON, which the standalone `python3 -m knowledge_harness inbox --vault
+JSON, which the standalone `python3 -m research_vault inbox --vault
 PATH` command prints verbatim on its first line.
 
 Added one sentence naming `oldest_age_days` to each consumer, inserted

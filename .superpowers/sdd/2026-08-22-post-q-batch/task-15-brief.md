@@ -2,7 +2,7 @@
 
 **Files:**
 
-- Modify: `knowledge_harness/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)
+- Modify: `research_vault/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)
 
 - Test: `tests/test_checks.py`
 

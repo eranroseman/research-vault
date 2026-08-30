@@ -7,17 +7,17 @@ Offline (default): `python -m pytest tests -q -n auto` from the repo root, insid
 **Live invocation** (Zotero must be running on the Windows host; the local API answers on `localhost:23119`):
 
 ```bash
-HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real address> python -m pytest tests -q
+RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q
 ```
 
-`HARNESS_LIVE` unlocks the local-Zotero legs; `HARNESS_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`HARNESS_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
+`RV_LIVE` unlocks the local-Zotero legs; `RV_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`RV_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 
 ## Poking Zotero
 
 Preference order:
 
-1. **The harness's own client** — same code paths production uses, findings transfer:
-   `python -c "from knowledge_harness.zotero import ZoteroClient; ..."` — or the CLI: `python -m knowledge_harness probe` / `doctor`.
+1. **research-vault's own client** — same code paths production uses, findings transfer:
+   `python -c "from research_vault.zotero import ZoteroClient; ..."` — or the CLI: `python -m research_vault probe` / `doctor`.
 2. **pyzotero** (dev extra, pinned) — richer read API for test authoring and diagnostics:
    `python -c "from pyzotero import zotero; z = zotero.Zotero('0','user',local=True); print(z.top(limit=5))"`
    Posture: local mode is read-only by default and stays that way — local writes sit behind Zotero's own GUI consent dialog (admission is a human act). Web API for tests: read-only key by default; a write-capable key only for a test that needs it, only against a scratch/group library, and no key is ever stored in this repo.
@@ -31,7 +31,7 @@ A same-length edit reverted within the same second is invisible to bytes, to `gi
 
 ## The wrong-tree import trap
 
-An editable install can resolve `knowledge_harness` to the parent checkout instead of the scratch/worktree copy being probed — every probe then silently measures the wrong code. Rules for any scratch-tree or worktree probe: run with `PYTHONPATH=.` and open with an import-path canary (`python -c "import knowledge_harness; print(knowledge_harness.__file__)"`) asserting the tree under test.
+An editable install can resolve `research_vault` to the parent checkout instead of the scratch/worktree copy being probed — every probe then silently measures the wrong code. Rules for any scratch-tree or worktree probe: run with `PYTHONPATH=.` and open with an import-path canary (`python -c "import research_vault; print(research_vault.__file__)"`) asserting the tree under test.
 
 ## Exemplars
 

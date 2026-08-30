@@ -42,7 +42,7 @@ ordinary noun does not").
    and against `disable-model-invocation` gating
    (`test_invocation_flags_match_the_ruled_control_model`); leaving the
    old name in the set breaks both once the directory is renamed.
-6. `knowledge_harness/__main__.py` (`cmd_trust_tier` docstring, line 450)
+6. `research_vault/__main__.py` (`cmd_trust_tier` docstring, line 450)
    and `tests/test_trust_tier_cli.py` (module docstring, line 5): both
    had a `` `project`'s resume-orientation step `` self-reference. Found
    via a repo-wide grep for the exact backtick-quoted skill name that
@@ -51,7 +51,7 @@ ordinary noun does not").
    wouldn't have caught these. A stale self-reference in *shipped
    production code* would be a worse miss than one in a doc, so I
    treated "run the greps you actually need to find every hit" as
-   covering `knowledge_harness/` and `tests/` generally, not just the
+   covering `research_vault/` and `tests/` generally, not just the
    two named test files.
 7. Table realignment (cosmetic, no semantic change): editing a cell to a
    longer string broke GFM pipe-table column alignment in two tables
@@ -95,8 +95,8 @@ shouldn't stop at the brief's named files):
   (`docs/superpowers/plans/2026-08-22-post-q-batch.md:26,28` in addition
   to `:31,183` already counted). No new live ones. All frozen, none
   changed.
-- `` grep -rn '`project`' knowledge_harness/ `` — 1 hit,
-  `knowledge_harness/__main__.py:450` (`cmd_trust_tier` docstring) — live
+- `` grep -rn '`project`' research_vault/ `` — 1 hit,
+  `research_vault/__main__.py:450` (`cmd_trust_tier` docstring) — live
   source, changed (item 6 above).
 - `tests/test_trust_tier_cli.py:5` docstring — live test file, skill
   self-reference, changed (item 6 above).
@@ -174,13 +174,13 @@ doesn't show the literal `source` command from the global constraints.
   (renamed; SKILL path, frontmatter assertion, docstrings updated)
 - `tests/test_skill_contracts.py` (ENTRY_SKILLS entry + comment token)
 - `tests/test_trust_tier_cli.py` (docstring self-reference)
-- `knowledge_harness/__main__.py` (`cmd_trust_tier` docstring
+- `research_vault/__main__.py` (`cmd_trust_tier` docstring
   self-reference)
 
 ## Self-review findings
 
 - Completeness: every hit from the brief's two required greps, plus
-  supplementary greps over `knowledge_harness/`, the rest of
+  supplementary greps over `research_vault/`, the rest of
   `docs/terminology.md` SS4.3, and a path-form sweep, is accounted for
   and ruled above. No stray hits found on a final full-repo re-grep for
   `` `project` `` and `skills/project` other than the frozen docs and the
@@ -210,9 +210,9 @@ None blocking. Two notes:
   and the full suite stayed green through both.
 - `docs/testing.md` says "after renames or seam moves, run the live legs
   before claiming the wave complete." I did not run
-  `HARNESS_LIVE=1 HARNESS_LIVE_NET=1 ...`. This is deliberate, not an
+  `RV_LIVE=1 RV_LIVE_NET=1 ...`. This is deliberate, not an
   oversight: every `.py` change in this task is a docstring or a test
-  file (`knowledge_harness/__main__.py`'s one-line docstring edit,
+  file (`research_vault/__main__.py`'s one-line docstring edit,
   `test_skill_contracts.py`'s `ENTRY_SKILLS` set,
   `test_trust_tier_cli.py`'s docstring) — no executable code path
   changed, so none of the 7 gated live legs can be affected by this

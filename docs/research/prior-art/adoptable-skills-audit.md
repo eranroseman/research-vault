@@ -2,7 +2,7 @@
 
 Research note, 2026-08-16. Feeds ticket #11 (Foundation skill inventory). Method: actual skill files read, never READMEs alone — repos audited at pinned commits via shallow/sparse clone and raw.githubusercontent.com: K-Dense-AI/scientific-agent-skills @ `336c4f8`, AgriciDaniel/claude-obsidian @ `1c1bc49`, urschrei/zotero_search_skill @ `b7de66c`, hesreallyhim/awesome-claude-code @ `d33d6ca`. License strings recorded verbatim as found in each artifact.
 
-**Verdict frame.** Issues #8 and #10 are settled: the Zotero bridge is a harness-owned thin skill over BBT JSON-RPC/local API, and citation verification is built over the live-verified free API pipeline (prior-art §5). So for those two slots no external skill can be "adopt as-is" — the ceiling is fork/pattern-only, and this audit's job is to say what to mine. Adopt-as-is is only live for slots the foundation did not reserve: literature lookup (discovery, upstream of Zotero admission) and PDF parsing.
+**Verdict frame.** Issues #8 and #10 are settled: the Zotero bridge is a research-vault-owned thin skill over BBT JSON-RPC/local API, and citation verification is built over the live-verified free API pipeline (prior-art §5). So for those two slots no external skill can be "adopt as-is" — the ceiling is fork/pattern-only, and this audit's job is to say what to mine. Adopt-as-is is only live for slots the foundation did not reserve: literature lookup (discovery, upstream of Zotero admission) and PDF parsing.
 
 ______________________________________________________________________
 

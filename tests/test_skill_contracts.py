@@ -14,13 +14,13 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import inbox
-from knowledge_harness.frontmatter import FrontmatterError, parse
+from research_vault import inbox
+from research_vault.frontmatter import FrontmatterError, parse
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPOSITORY / "skills"
-TEMPLATES_DIR = REPOSITORY / "knowledge_harness" / "templates"
-PACKAGE_DIR = REPOSITORY / "knowledge_harness"
+TEMPLATES_DIR = REPOSITORY / "research_vault" / "templates"
+PACKAGE_DIR = REPOSITORY / "research_vault"
 
 # Control model (spec §7/§8, ruled 2026-08-22): entry skills ship
 # `disable-model-invocation: true` so they never enter the model catalog;
@@ -44,7 +44,7 @@ ENTRY_SKILLS = {
 # the shape a skill name takes when a template cites one in prose. Requires
 # at least one hyphen so ordinary single words never match, and excludes
 # slashes/dots/percents so path fragments (`` `synthesis/index.md` ``),
-# managed markers (`` `%%hk-managed%%` ``), and similar template furniture
+# managed markers (`` `%%rv-managed%%` ``), and similar template furniture
 # never false-positive.
 _BACKTICKED_KEBAB_TOKEN = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
 
@@ -120,7 +120,7 @@ def test_invocation_flags_match_the_ruled_control_model(skill_md):
     )
 
 
-_FINDING_INVOCATION = "python3 -m knowledge_harness finding "
+_FINDING_INVOCATION = "python3 -m research_vault finding "
 
 
 def _shipped_finding_invocations() -> list[tuple[Path, list[str]]]:
@@ -201,7 +201,7 @@ _CO_OCCURRENCE_ANCHOR = 2
 
 
 def _emitted_check_ids() -> set[str]:
-    """Every check id ``knowledge_harness`` can put on an ``Outcome``, off its AST.
+    """Every check id ``research_vault`` can put on an ``Outcome``, off its AST.
 
     Check ids are literals at their construction sites rather than a registry
     constant. ``inbox.CHECK_IDS`` is the *registry* — the boundary the

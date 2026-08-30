@@ -48,7 +48,7 @@ notice the class recurring.
 
 - **B1.** The reason-code pin proves accounting, not placement. Deriving which reason codes a
   shipped writer actually files — an AST scan of `inbox.append_entry` reason arguments across
-  `knowledge_harness/` and `hooks/` — "would have caught C-2 outright."
+  `research_vault/` and `hooks/` — "would have caught C-2 outright."
 - **B2.** The check-id sweep guards membership, not completeness. A phrase-less run drops out of
   view once fewer than two of its members stay valid; for a two-member run that is a single
   rename. `skills/publish/SKILL.md:37` is that shape today. Both obvious alternative anchors are

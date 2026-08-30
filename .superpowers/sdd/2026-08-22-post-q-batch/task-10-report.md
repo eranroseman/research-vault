@@ -40,7 +40,7 @@ any implementation change — they are pins, not RED cases. Confirmed by the
 run above: `1 failed, 2 passed`. The failure is on the assertion itself (a
 value mismatch: MATCHED where UNMATCHED is expected), not a fixture/setup
 error, confirming the test exercises today's defect rather than a broken
-harness.
+research-vault.
 
 ## GREEN evidence
 
@@ -105,7 +105,7 @@ column-padded; let it auto-fix, then reran clean — did not hand-align.)
 
 ## Citation case vs. note-identity case
 
-`check_citekeys` (`knowledge_harness/checks.py:131`) builds its `cited` set
+`check_citekeys` (`research_vault/checks.py:131`) builds its `cited` set
 purely from `claims.CITE_RE.finditer(note_text)` on the checked note's raw
 body — there is no separate frontmatter-driven "note identity" branch
 anywhere in the function; every row in the per-citekey loop is structurally
@@ -114,12 +114,12 @@ a citation.
 The "note's own citekey row" the brief warns about is a *specific instance*
 of that same citation loop, not a different code path: a literature note's
 own managed body self-cites its own subject. `notes.render_claim`
-(`knowledge_harness/notes.py:302-310`) renders every claim as
+(`research_vault/notes.py:302-310`) renders every claim as
 `[@{citekey}, p. {page}]` where `citekey` is the item's own id
-(`notes.render_note`, `knowledge_harness/notes.py:217`,
+(`notes.render_note`, `research_vault/notes.py:217`,
 `fm = {"citekey": item["id"], ...}`), and literature notes are always
 written to `literatures/{citekey}.md` (`notes.note_path`,
-`knowledge_harness/notes.py:118-129`). The fixture vault demonstrates this
+`research_vault/notes.py:118-129`). The fixture vault demonstrates this
 directly: `literatures/smith2020.md` contains `[@smith2020, p. 12]` and
 `[@smith2020, p. 3]` in its own managed region
 (`tests/conftest.py:52-58`). `verify.py:981-985` calls `file_outcomes` (and
@@ -142,7 +142,7 @@ argued) — see Self-review below.
 
 ## Implementation
 
-`knowledge_harness/checks.py`, per-citekey loop:
+`research_vault/checks.py`, per-citekey loop:
 
 ```python
 for citekey in cited:
@@ -162,14 +162,14 @@ for citekey in cited:
 
 Path construction (`vault / "literatures" / f"{citekey}.md"`, `.is_file()`)
 matches the existing convention for this exact lookup elsewhere in the
-codebase (`knowledge_harness/lints.py:491`, `knowledge_harness/factcheck.py:73,90`)
+codebase (`research_vault/lints.py:491`, `research_vault/factcheck.py:73,90`)
 rather than routing through `notes.note_path()`, which raises
 `InvalidCitekeyError` for unsafe input — a check function should stay total,
 and every citekey reaching this loop already passed `claims.CITE_RE`'s safe
 charset (`[A-Za-z0-9_.:-]+`), so the exception path was never reachable
 here.
 
-I checked `knowledge_harness/outcome.py` before writing any test: `Outcome`'s
+I checked `research_vault/outcome.py` before writing any test: `Outcome`'s
 `__post_init__` defers to `inbox.validate_reason` (imported locally to break
 a cycle — `inbox` itself imports `outcome` for `Result`), so there is no
 second, independent reason-code vocabulary anywhere else to update. One
@@ -177,7 +177,7 @@ registration site.
 
 ## Dialect surfaces the two enforcement tests flagged
 
-Registered `not-imported` in `knowledge_harness/inbox.py`'s `REASON_CODES`
+Registered `not-imported` in `research_vault/inbox.py`'s `REASON_CODES`
 first, then ran the full suite to let the two mechanically-enforced surfaces
 name themselves rather than guessing:
 
@@ -233,11 +233,11 @@ needed updating.
 
 ## Files changed
 
-- `knowledge_harness/checks.py` — `check_citekeys`'s per-citekey loop now
+- `research_vault/checks.py` — `check_citekeys`'s per-citekey loop now
   branches three ways (bibliography-absent / bibliography-present-but-note-absent
   / both-present) instead of two; new `not-imported` UNMATCHED branch; inline
   comment states only the tier-2 constraint, not its provenance.
-- `knowledge_harness/inbox.py` — `REASON_CODES` gains `"not-imported"`,
+- `research_vault/inbox.py` — `REASON_CODES` gains `"not-imported"`,
   inserted alphabetically after `"not-admitted"`.
 - `docs/terminology.md` — §4.4's "reason codes" row: `` `not-imported` ``
   added to the enumeration; a "Task 10 adds..." provenance clause appended

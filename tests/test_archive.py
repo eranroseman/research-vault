@@ -11,7 +11,7 @@ import subprocess
 
 import pytest
 
-from knowledge_harness import Result, archive, frontmatter, notes, webapi
+from research_vault import Result, archive, frontmatter, notes, webapi
 
 WEB_NOTE = """---
 citekey: "rot2024"
@@ -20,9 +20,9 @@ url: "https://example.org/page"
 accessed: "2026-08-22"
 status: "unscreened"
 ---
-%%hk-managed%%
+%%rv-managed%%
 # A web source
-%%/hk-managed%%
+%%/rv-managed%%
 
 ## Notes
 """
@@ -777,7 +777,7 @@ def test_set_archive_url_replaces_an_existing_snapshot_line_in_place(ending):
 def test_cli_exit_codes_follow_the_shared_four_state_contract(
     net_vault, monkeypatch, capsys, availability, expected_code
 ):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     _write_note(net_vault)
     _fake_network(monkeypatch, availability=availability)
@@ -793,7 +793,7 @@ def test_cli_exit_codes_follow_the_shared_four_state_contract(
 
 
 def test_cli_refusal_exits_two_and_writes_nothing(net_vault, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     code = cli.main(["archive-source", "absent2020", "--vault", str(net_vault)])
 
@@ -802,7 +802,7 @@ def test_cli_refusal_exits_two_and_writes_nothing(net_vault, capsys):
 
 
 def test_cli_snapshot_flag_reaches_the_module(net_vault, monkeypatch, capsys):
-    import knowledge_harness.__main__ as cli
+    import research_vault.__main__ as cli
 
     _write_note(net_vault)
     _fake_network(monkeypatch, save=200)
@@ -826,7 +826,7 @@ def test_cli_snapshot_flag_reaches_the_module(net_vault, monkeypatch, capsys):
 
 
 def test_recording_clears_the_web_archive_lint_it_was_built_for(net_vault, monkeypatch):
-    from knowledge_harness import lints
+    from research_vault import lints
 
     _write_note(net_vault)
     before = [
@@ -864,7 +864,7 @@ def test_a_legitimate_archive_run_passes_the_closing_guard(net_vault, monkeypatc
     carry the same writer attestation a re-render would — else the
     evidence-layer guard cannot tell it apart from a bare hand-edit.
     """
-    from knowledge_harness import gitstate, lints
+    from research_vault import gitstate, lints
 
     _write_note(net_vault)
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
@@ -888,7 +888,7 @@ def test_a_bare_archive_url_hand_edit_fails_the_closing_guard(net_vault):
     """Without `_bump_generated`'s attestation, this write — indistinguishable
     from `archive-source`'s own — must still read as drift.
     """
-    from knowledge_harness import gitstate, lints
+    from research_vault import gitstate, lints
 
     path = _write_note(net_vault)
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
@@ -934,7 +934,7 @@ def test_a_rerender_preserves_the_recorded_snapshot(net_vault, monkeypatch):
 
 @pytest.mark.live_net
 def test_archives_a_real_url_against_the_internet_archive(net_vault_real_mailto):
-    """Gated behind HARNESS_LIVE_NET: the offline suite never leaves the box."""
+    """Gated behind RV_LIVE_NET: the offline suite never leaves the box."""
     text = WEB_NOTE.replace(
         'url: "https://example.org/page"', 'url: "https://example.com/"'
     )

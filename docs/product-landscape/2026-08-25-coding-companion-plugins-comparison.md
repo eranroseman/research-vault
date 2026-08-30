@@ -1,7 +1,7 @@
 # Coding-companion plugins: obra/superpowers vs mattpocock/skills
 
 Comparison note, 2026-08-25. The author's question: which of the two works better as the coding
-companion for knowledge-harness, and what would switching from superpowers to mattpocock cost —
+companion for research-vault, and what would switching from superpowers to mattpocock cost —
 assuming in-flight work done and one-time churn free, so only steady state counts.
 
 **Verdict (2026-08-25, third pass, derived from full primary text; conditioned by the same-day
@@ -130,7 +130,7 @@ grilling precedent) gets nearly all the benefit at none of the fork cost.
 1. **SessionStart injection pressures every session toward skill invocation** — right for coding,
    wrong-shaped for the coming non-coding workloads. Mitigation: per-skill `skillOverrides`;
    revisit only when the PKM/writing maps make it a measured problem — via settings, never plugin
-   removal. Flip trigger, recorded not predicted: if the harness's center of gravity moves to
+   removal. Flip trigger, recorded not predicted: if research-vault's center of gravity moves to
    non-coding work, mattpocock-as-primary becomes the right shape; that decision belongs to the
    workload maps.
 2. **Process governed by a fast upstream with silent overwrite on update.** Mitigation: upgrades
@@ -232,7 +232,7 @@ dissolution live in the map's tickets, which are the program's source of truth f
 **From the process-reconstruction arc:**
 
 12. **Transcript mining and disposal (#68)** — the one-time 63-session export is intentionally
-    tracked under `docs/research/raw/knowledge-harness-transcripts/` as the private repository backup
+    tracked under `docs/research/raw/research-vault-transcripts/` as the private repository backup
     while it is mined. The redundant external clone is discarded; after relevant findings are
     recorded in their durable homes, the raw export is discarded too.
 13. **Workload 2 framed as a methods replication** — the template applied to a different domain
@@ -282,7 +282,7 @@ registered in Plan W.
 1. **The empty niche is this plugin's.** Neither catalog has anything for evidence and trust —
    verification records, four-state honesty, admission boundaries, deprecate-never-delete. The
    doctrine layer of this repo's nine skills is portable to any knowledge work with citable
-   sources; if harness-as-paper materializes, harness-as-published-skill-pack is its sibling with
+   sources; if research-vault-as-paper materializes, research-vault-as-published-skill-pack is its sibling with
    no competitor in either catalog.
 2. **A sharper criterion for the process-belongs-to-user split, observed live**: the session's
    cross-session verification refusals were receiving-code-review discipline running WITHOUT

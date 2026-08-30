@@ -20,21 +20,21 @@ def _core_path() -> None:
 
 def _load_bibliography(vault: Path):
     _core_path()
-    from knowledge_harness import bibliography
+    from research_vault import bibliography
 
     return bibliography.load(vault)
 
 
 def _file_outcomes(vault: Path, path: Path, bibliography_universe):
     _core_path()
-    from knowledge_harness.verify import file_outcomes as collect
+    from research_vault.verify import file_outcomes as collect
 
     return collect(vault, path, bibliography_universe)
 
 
 def _encode_repo_path(raw: bytes) -> str:
     _core_path()
-    from knowledge_harness.pathcodec import encode_repo_path
+    from research_vault.pathcodec import encode_repo_path
 
     return encode_repo_path(raw)
 
@@ -43,7 +43,7 @@ def _vault_from_cwd(cwd: str) -> Path | None:
     """Find the nearest vault, including cwd itself."""
     current = Path(cwd).resolve()
     for candidate in (current, *current.parents):
-        marker = candidate / ".harness"
+        marker = candidate / ".research-vault"
         if marker.is_dir() and not marker.is_symlink():
             return candidate
     return None

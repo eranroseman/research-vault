@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from knowledge_harness import frontmatter, inbox
+from research_vault import frontmatter, inbox
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,7 +38,7 @@ JSON_MANIFESTS = [
     "hooks/hooks.json",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
-    "knowledge_harness/templates/harness/machine.json.example",
+    "research_vault/templates/research-vault/machine.json.example",
 ]
 
 TOML_FILES = ["pyproject.toml"]
@@ -119,7 +119,7 @@ def _probe_ids() -> set[str]:
     constant, so the AST is the only honest source; a grep would also match
     prose in docstrings.
     """
-    tree = ast.parse((ROOT / "knowledge_harness/scaffold.py").read_text())
+    tree = ast.parse((ROOT / "research_vault/scaffold.py").read_text())
     return {
         node.args[0].value
         for node in ast.walk(tree)
@@ -271,15 +271,15 @@ PYPROJECT_FMT_FLAGS = [
 # two significant (non-comment, non-blank) lines following the comment block,
 # which allows for a `[table.header]` line sitting between a block and its key.
 RULING_ANCHORS = [
-    ("Lazy-imported at knowledge_harness's single parse site", '"defusedxml==0.7.1"'),
+    ("Lazy-imported at research_vault's single parse site", '"defusedxml==0.7.1"'),
     ("FORMAT + RENDER-CONTRACT pin", '"mdformat==1.0.0"'),
     ("never in addopts", '"pytest-xdist==3.8.0"'),
     ("Dev-lane instrument, read-only posture", '"pyzotero[cli]==1.14.0"'),
     ("Bandit idiom exclusions", "extend-select = ["),
     ("ARG in tests only", '"tests/*" = ['),
-    ("PTH off in gitstate ONLY", '"knowledge_harness/gitstate.py" = ['),
+    ("PTH off in gitstate ONLY", '"research_vault/gitstate.py" = ['),
     ("Test side of the same ruling", '"tests/test_gitstate.py" = ['),
-    ("print IS the CLI output contract", '"knowledge_harness/__main__.py" = ['),
+    ("print IS the CLI output contract", '"research_vault/__main__.py" = ['),
     ("Gate scripts report via stdout", '"scripts/*" = ['),
     ("competes with the CRAP ceiling", "max-complexity = 28"),
     ("Ratchet: disallow_incomplete_defs", "[tool.mypy]"),
@@ -428,7 +428,7 @@ def test_pyproject_fmt_round_trip_keeps_rulings_on_their_setting(
 # The mdformat-owned CommonMark set, matching .pre-commit-config.yaml's hook:
 # every tracked Markdown file except the explicitly excluded ephemeral workspaces
 # and the vault index, whose Obsidian dialect mdformat corrupts on contact (#70).
-_MDFORMAT_EXCLUDED_FILES = ("knowledge_harness/templates/vault/index.md",)
+_MDFORMAT_EXCLUDED_FILES = ("research_vault/templates/vault/index.md",)
 _MDFORMAT_EXCLUDED_DIRS = (".superpowers", ".worktrees", ".claude/worktrees")
 
 

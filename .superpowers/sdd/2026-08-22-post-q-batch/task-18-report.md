@@ -75,12 +75,12 @@ asserts it is refused with the shape reason, not silently accepted because
 the shape check nor the target-URL check. This is intentional: the
 availability API is queried with `params={"url": url}`, so its response is
 already an answer about the note's own `url`; the exposure the shape/match
-checks close is specific to a *user-supplied* value the harness never sent a
+checks close is specific to a *user-supplied* value research-vault never sent a
 query for. Not touched, not extended — flagged here per instruction rather
 than silently inherited.
 
 **Normalizer (`_comparable_url`).** No existing two-URL comparator exists
-anywhere in `knowledge_harness/` (confirmed by three independent checks:
+anywhere in `research_vault/` (confirmed by three independent checks:
 no `def` taking two URLs to compare; every `netloc` use elsewhere is a
 single-URL test against a constant; the only casefold-on-host idiom is
 `_arxiv_identity`/`_arxiv_base_identity`, which is arXiv-specific and not
@@ -149,7 +149,7 @@ paths.
   `str.removesuffix("/")` instead of a manual slice-ternary).
 - `ruff format --check` — clean (reformatting applied once during
   development, re-checked clean before commit).
-- `mypy knowledge_harness/` — `Success: no issues found in 27 source files`.
+- `mypy research_vault/` — `Success: no issues found in 27 source files`.
 - `echo '{}' | python hooks/stop_publish_gate.py` — silent, exit 0.
 
 **Live legs untouched by this change.** The one `live_net`-gated test in this
@@ -369,7 +369,7 @@ production change tied to them to discriminate against.
   as a comma string instead of a tuple, matching this file's own convention
   elsewhere; fixed, then `ruff format` reformatted the wrapped lines).
 - `ruff format --check` — clean.
-- `mypy knowledge_harness/` — `Success: no issues found in 27 source files`.
+- `mypy research_vault/` — `Success: no issues found in 27 source files`.
 - `echo '{}' | python hooks/stop_publish_gate.py` — silent, exit 0.
 - Working tree clean after commit; no amend, no rebase — this round's commit
   sits on top of `f05103e`. `progress.md` excluded (concurrent edit by the
@@ -470,9 +470,9 @@ clean both times.
 
 Every probe this round ran with the working directory already inside this
 worktree (never `python /tmp/probe.py`, which would put `/tmp` on
-`sys.path[0]` and silently resolve `knowledge_harness` to the parent repo's
+`sys.path[0]` and silently resolve `research_vault` to the parent repo's
 editable install instead of this tree), and asserted
-`archive.__file__` ends in `fix+pre-slice-batch/knowledge_harness/archive.py`
+`archive.__file__` ends in `fix+pre-slice-batch/research_vault/archive.py`
 before trusting any result.
 
 ### Verification
@@ -482,7 +482,7 @@ before trusting any result.
   1 double-slash test).
 - `ruff check` — clean.
 - `ruff format --check` — clean.
-- `mypy knowledge_harness/` — `Success: no issues found in 27 source files`.
+- `mypy research_vault/` — `Success: no issues found in 27 source files`.
 - `echo '{}' | python hooks/stop_publish_gate.py` — silent, exit 0.
 - Working tree clean after commit; no amend, no rebase — this round's
   commit sits on top of `2fbad42`. `progress.md` excluded (concurrent edit

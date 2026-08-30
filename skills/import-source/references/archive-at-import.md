@@ -3,7 +3,7 @@
 A source with a `url` and no `doi` is a web source, and web content rots. Rescue is impossible after the fact, so the snapshot has to exist **now**, at import — later detection cannot bring a dead page back. Run this for every web source you catalog, in the same session:
 
 ```sh
-python3 -m knowledge_harness archive-source CITEKEY --vault PATH
+python3 -m research_vault archive-source CITEKEY --vault PATH
 ```
 
 The verb triggers Internet Archive Save Page Now, confirms the capture against the Wayback availability API, and writes the confirmed snapshot into the note's frontmatter as `archive-url`. **It is the sole writer of that field** — never hand-write, edit, or remove an `archive-url` yourself, in any note, for any reason. That single owner is what keeps the evidence layer machine-written.
@@ -11,7 +11,7 @@ The verb triggers Internet Archive Save Page Now, confirms the capture against t
 If the person already has a snapshot, record that one instead of capturing a fresh one — the verb confirms it resolves before writing it:
 
 ```sh
-python3 -m knowledge_harness archive-source CITEKEY --vault PATH --snapshot SNAPSHOT-URL
+python3 -m research_vault archive-source CITEKEY --vault PATH --snapshot SNAPSHOT-URL
 ```
 
 It answers with a four-state line and the shared exit codes:

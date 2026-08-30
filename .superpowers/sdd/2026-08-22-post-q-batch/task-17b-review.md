@@ -24,17 +24,17 @@ hygiene against an empty commit body.
 
 Scratch trees built with `git archive <sha> | tar -x -C /tmp/…` (no `.git`, so
 no shared-git-state exposure). Import-path canary run in each tree before any
-measurement: `knowledge_harness.__file__` resolved to the scratch tree, not the
+measurement: `research_vault.__file__` resolved to the scratch tree, not the
 worktree, in every variant.
 
 | tree | contents |
 |---|---|
-| `/tmp/hk-head` | `f3f5a7f` as shipped |
-| `/tmp/hk-base` | `a2d7942` |
-| `/tmp/hk-mixed` | head + `lints.py` reverted to base |
-| `/tmp/hk-mixed2` | head + `archive.py` reverted to base |
+| `/tmp/rv-head` | `f3f5a7f` as shipped |
+| `/tmp/rv-base` | `a2d7942` |
+| `/tmp/rv-mixed` | head + `lints.py` reverted to base |
+| `/tmp/rv-mixed2` | head + `archive.py` reverted to base |
 
-Independent full-suite run in `/tmp/hk-head`: **1577 passed, 7 skipped** —
+Independent full-suite run in `/tmp/rv-head`: **1577 passed, 7 skipped** —
 matches the report and the stated +8 over the 1569 baseline. `ruff check`,
 `ruff format --check` and `mypy` clean on the touched files (re-run, not
 accepted).
@@ -42,7 +42,7 @@ accepted).
 ## 1. Per-key discrimination matrix (re-run, not read)
 
 `tests/test_lints.py::test_hand_edited_machine_owned_frontmatter_key_is_drift`,
-run in `/tmp/hk-mixed` (new test + **base** `lints.py`). Full outcome list
+run in `/tmp/rv-mixed` (new test + **base** `lints.py`). Full outcome list
 captured per parameter, so double coverage is visible rather than inferred.
 
 | key | outcome list at BASE | discriminates? | double coverage at base |
@@ -74,7 +74,7 @@ Adjacent tests, same run:
   over-broad expansion of `_MACHINE_OWNED_FRONTMATTER_KEYS`, which is a real
   regression it can catch.
 
-**Step 2b is load-bearing, not tidying.** In `/tmp/hk-mixed2` (head + base
+**Step 2b is load-bearing, not tidying.** In `/tmp/rv-mixed2` (head + base
 `archive.py`), `test_a_legitimate_archive_run_passes_the_closing_guard` FAILS
 on `assert not any(item.reason.startswith("drift"))`. Without the
 `_bump_generated` wiring, every legitimate `archive-source` run would be
@@ -82,15 +82,15 @@ flagged as drift.
 
 ## 2. The clock and the wire format
 
-`knowledge_harness/archive.py:139-141` is a byte-identical re-spelling of
-`knowledge_harness/__main__.py:267-268`:
+`research_vault/archive.py:139-141` is a byte-identical re-spelling of
+`research_vault/__main__.py:267-268`:
 
 ```python
 now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
 … now.isoformat().replace("+00:00", "Z")
 ```
 
-A third spelling lives at `knowledge_harness/notes.py:215`
+A third spelling lives at `research_vault/notes.py:215`
 (`generated_at = f"{accessed}T00:00:00Z"`, date resolution) as `render_note`'s
 default.
 
@@ -99,7 +99,7 @@ not materialise. The new lint compares `generated` for *inequality* and then
 tests `by` for the machine-actor prefix; it never inspects `at`'s format. Two
 writers disagreeing on format would therefore still produce a legal
 attestation. The real exposure is `notes._valid_generated`
-(`knowledge_harness/notes.py:195-209`), which requires `at.endswith("Z")` and
+(`research_vault/notes.py:195-209`), which requires `at.endswith("Z")` and
 `fromisoformat`-parseability: a writer that drifts off that spelling makes
 `render_note`'s `projection_changed` permanently true, re-bumping `generated`
 on every render and destroying byte-identical-rerender preservation. That risk
@@ -110,7 +110,7 @@ Second duplication, same family: `archive.py:168-172` hand-rolls
 `f"generated: {{{inner}}}"`, re-implementing `frontmatter.serialize`'s
 inline-dict branch (`frontmatter.py:75-82`). Verified byte-equal today
 (probe 8: both emit
-`generated: {by: "knowledge_harness/0.1.0", at: "2026-08-24T00:00:00Z"}`), but
+`generated: {by: "research_vault/0.1.0", at: "2026-08-24T00:00:00Z"}`), but
 it is a second spelling of the same wire format with nothing holding them
 together. **Minor.**
 
@@ -121,7 +121,7 @@ absence claim was re-verified with a broader grep than the report's — includin
 
 ## 3. `_bump_generated`'s single-line assumption — empirical results
 
-Direct probes against `/tmp/hk-head`'s package:
+Direct probes against `/tmp/rv-head`'s package:
 
 | case | result |
 |---|---|
@@ -166,7 +166,7 @@ Called directly with synthetic dicts — no git needed.
 | `__version__` bump only (`0.1.0`→`0.2.0`) | legal | correct — class test works as the comment claims |
 | `generated` non-dict → different non-dict + `archive-url` edited | drift on `archive-url` only | `generated` change invisible; see finding 8 |
 | `generated` dict → non-dict + `archive-url` edited | drift on both | correct |
-| `by = "knowledge_harness/evil"` | legal | stated boundary (class test), brief-sanctioned |
+| `by = "research_vault/evil"` | legal | stated boundary (class test), brief-sanctioned |
 | base frontmatter unparseable | no finding, silently skipped | see finding 9 |
 | all four keys edited, no attestation | four distinct drift reasons, sorted | correct |
 
@@ -218,11 +218,11 @@ be filed, not left as a paragraph in a report file that nothing reads again.
 
 ## Findings
 
-1. **Important** — `knowledge_harness/lints.py:652-654`: `_machine_attested`
-   tests only `by`, never `at`. `{by: "knowledge_harness/0.1.0", at: "banana"}`
+1. **Important** — `research_vault/lints.py:652-654`: `_machine_attested`
+   tests only `by`, never `at`. `{by: "research_vault/0.1.0", at: "banana"}`
    — and even `{by: …}` with no `at` at all — legalizes edits to all four
    machine-owned keys (probes c, c2). `notes._valid_generated`
-   (`knowledge_harness/notes.py:195-209`) already validates that shape
+   (`research_vault/notes.py:195-209`) already validates that shape
    (exactly `{by, at}`, non-empty `by`, `fromisoformat`-parseable, `Z`-suffixed)
    and is not reused. Spec-compliant, since the brief names only `by` — but a
    one-line strengthening that closes a whole class of half-forged attestation.
@@ -234,14 +234,14 @@ be filed, not left as a paragraph in a report file that nothing reads again.
    `tests/test_verify_cli.py:1505` and `tests/test_verify_cli.py:1541` both
    hand-edit `fixity-sha256` out of `smith2020.md` **uncommitted** and then call
    `verify_state`, which reaches `lint_evidence_layer` at
-   `knowledge_harness/verify.py:1014`. Reproduced directly: that setup now
+   `research_vault/verify.py:1014`. Reproduced directly: that setup now
    yields `['drift — fixity-sha256 changed without writer attestation']`. The
    tests still pass because they assert on hashes and inbox entries, not on the
    report — so the suite is silently carrying unasserted drift findings. Not a
    code defect; a wrong verification claim that a future assertion on
    `report["counts"]` will turn into a surprise failure.
 
-3. **Important** — `knowledge_harness/lints.py:670-690`: Step 2's clause
+3. **Important** — `research_vault/lints.py:670-690`: Step 2's clause
    "Scope stated in the lint's finding text" is unmet. The reason string is
    `drift — {key} changed without writer attestation`, which states the rule
    but not the boundary. The forging-is-recorded-bypass boundary
@@ -253,15 +253,15 @@ be filed, not left as a paragraph in a report file that nothing reads again.
    the docstring or an ADR would satisfy the intent. Either way the boundary
    must land somewhere durable.
 
-4. **Minor** — `knowledge_harness/archive.py:139-141` duplicates
-   `knowledge_harness/__main__.py:267-268` byte for byte; `notes.py:215` is a
+4. **Minor** — `research_vault/archive.py:139-141` duplicates
+   `research_vault/__main__.py:267-268` byte for byte; `notes.py:215` is a
    third spelling. The lint's equality test makes format skew *harmless to the
    legality decision* (only inequality plus `by` matter), so the feared
    consequence does not materialise — but `notes._valid_generated`'s `Z`
    requirement turns any future divergence into permanent re-render churn.
    Extract one helper.
 
-5. **Minor** — `knowledge_harness/lints.py:673-681`: attestation piggy-backing.
+5. **Minor** — `research_vault/lints.py:673-681`: attestation piggy-backing.
    One legitimate `generated` bump legalizes *every* machine-key change in the
    same diff, so an unrelated `citekey` hand-edit riding along with a real
    `archive-source` run passes silently (probe d). Inherent to the brief's own
@@ -269,37 +269,37 @@ be filed, not left as a paragraph in a report file that nothing reads again.
    discloses only *forged* attestation, not *borrowed* attestation. Should be
    disclosed as a boundary alongside it.
 
-6. **Minor** — `knowledge_harness/archive.py:168-172` re-implements
+6. **Minor** — `research_vault/archive.py:168-172` re-implements
    `frontmatter.serialize`'s inline-dict emitter (`frontmatter.py:75-82`).
    Verified byte-equal today; nothing keeps them equal tomorrow.
 
-7. **Minor** — `knowledge_harness/lints.py:657`:
+7. **Minor** — `research_vault/lints.py:657`:
    `_frontmatter_attestation_outcomes(raw_path, base_data, candidate_data)`
    carries no annotations, while every neighbour in the module is annotated
    (`_managed_bytes`, `_frontmatter`, `_generated`, `_machine_attested`).
 
-8. **Minor** — `knowledge_harness/lints.py:647-649`: `_generated` coerces any
+8. **Minor** — `research_vault/lints.py:647-649`: `_generated` coerces any
    non-dict `generated` to `None`, so a change *between* two malformed non-dict
    `generated` values is invisible (probe h) while dict→non-dict is caught.
    Only reachable on an already-broken note; no lint validates `generated`'s
    shape anywhere.
 
-9. **Minor** — `knowledge_harness/lints.py:667-668`: if the *base* note's
+9. **Minor** — `research_vault/lints.py:667-668`: if the *base* note's
    frontmatter is unparseable or non-UTF-8, the entire per-key check is skipped
    silently. The candidate side is covered by `validate_managed_witness`'s
    `schema-violation — malformed managed boundary`; the base side has no
    compensating outcome.
 
-10. **Minor** — `knowledge_harness/lints.py:632-644` re-parses every surviving
+10. **Minor** — `research_vault/lints.py:632-644` re-parses every surviving
     candidate note's frontmatter, which `notes.validate_managed_witness` already
     parsed in the same function's first loop (`lints.py:702`). Two full parses
     per note per run.
 
 11. **Minor (comment hygiene)** — history and provenance in comments, against
     this repo's rule that they belong in the commit body:
-    `knowledge_harness/lints.py:623` ("task 17b"),
-    `knowledge_harness/lints.py:660` ("Legality rule (ruled 2026-08-24)"),
-    `knowledge_harness/archive.py:150` ("task 17b step 2b"),
+    `research_vault/lints.py:623` ("task 17b"),
+    `research_vault/lints.py:660` ("Legality rule (ruled 2026-08-24)"),
+    `research_vault/archive.py:150` ("task 17b step 2b"),
     `tests/test_archive.py:115`, `tests/test_archive.py:518`,
     `tests/test_archive.py:543`, `tests/test_lints.py:829`,
     `tests/test_verify_cli.py:1047`. Compounding it: **`f3f5a7f`'s commit body
@@ -312,7 +312,7 @@ be filed, not left as a paragraph in a report file that nothing reads again.
     `tests/test_archive.py:542` `test_a_bare_archive_url_hand_edit_fails_the_closing_guard`
     duplicates the `archive-url` parameter of
     `test_hand_edited_machine_owned_frontmatter_key_is_drift`. It does
-    discriminate (verified failing in `/tmp/hk-mixed`), so it is not vacuous —
+    discriminate (verified failing in `/tmp/rv-mixed`), so it is not vacuous —
     but the report itself notes it was "green throughout" Step 2b, i.e. it was
     added for illustration rather than coverage. No test found that asserts
     nothing meaningful; no test name found that overclaims its body.

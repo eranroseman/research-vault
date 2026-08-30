@@ -5,7 +5,7 @@
 Extracted a clean copy of the tree via `git archive HEAD | tar -x` (never `cp
 -r`, per the environment constraint) and ran the pinned mdformat
 (`--number --wrap keep --check`) over each of the 10 markdown files under
-`knowledge_harness/templates/vault/` individually:
+`research_vault/templates/vault/` individually:
 
 | file | mdformat --check |
 |---|---|
@@ -16,7 +16,7 @@ Extracted a clean copy of the tree via `git archive HEAD | tar -x` (never `cp
 | `synthesis/index.md` | no change |
 | `system/glossary.md` | **changes** — 1 blank line added after frontmatter close |
 | `system/templates/daily.md` | **changes** — 1 blank line added after frontmatter close |
-| `system/templates/literature.md` | **changes** — 3 blank lines added around `%%hk-managed%%`/`%%/hk-managed%%` |
+| `system/templates/literature.md` | **changes** — 3 blank lines added around `%%rv-managed%%`/`%%/rv-managed%%` |
 | `system/templates/project.md` | no change |
 | `system/templates/synthesis.md` | no change |
 
@@ -34,7 +34,7 @@ inspected then discarded:
 All six folder wikilinks and both Base embeds escaped — exactly the brief's
 claim, confirmed on this run rather than assumed. The 11-vs-10 file count in
 the brief's own Step 2 text does not match what is on disk: `find
-knowledge_harness/templates/vault -name '*.md'` returns 10, not 11. This is
+research_vault/templates/vault -name '*.md'` returns 10, not 11. This is
 a brief erratum, not a defect in the tree — the "five change" figure it
 depends on is independently verified correct either way. Flagged in
 Concerns rather than silently corrected in the brief.
@@ -43,7 +43,7 @@ Concerns rather than silently corrected in the brief.
 
 `.pre-commit-config.yaml`'s mdformat hook gained five explicit vault paths
 (`vault/AGENTS.md`, `vault/inbox`, `vault/log.md`, `vault/synthesis`,
-`vault/system`) rather than the whole `knowledge_harness/templates/vault`
+`vault/system`) rather than the whole `research_vault/templates/vault`
 directory — mdformat 1.0.0 has no `--exclude`/ignore-file mechanism (checked
 `mdformat --help`; only positional `paths`), so excluding one file inside an
 otherwise-gated tree requires naming the rest individually. `vault/index.md`
@@ -99,7 +99,7 @@ and a heavier dependency than the small hand-rolled flag-skip it replaces).
 ## 5. Step 1: vendor exclusion — comment added; the queue note already existed
 
 `skills/find-sources/scripts/*.py` was already outside ruff's path list
-(`knowledge_harness tests scripts hooks` never names `skills`) — confirmed
+(`research_vault tests scripts hooks` never names `skills`) — confirmed
 by reading `.pre-commit-config.yaml` directly, not inferred. Added one
 comment above `ruff-format`/`ruff-check` stating the exclusion and its
 reason (frozen vendored fork, re-vendor to update).
@@ -198,7 +198,7 @@ grep before editing), so this was a free edit.
   comment names all three `%%`-bearing vault templates — `AGENTS.md`,
   `system/glossary.md`, `system/templates/literature.md` — not just
   `literature.md`, correcting the brief's narrower framing. Verified all
-  three carry `%%` (`grep -rln '%%' knowledge_harness/templates/vault/`)
+  three carry `%%` (`grep -rln '%%' research_vault/templates/vault/`)
   and that mdformat leaves the marker text itself untouched today (only
   adding blank lines around it — see Step 2's diffs above), before writing
   the claim.
@@ -211,10 +211,10 @@ grep before editing), so this was a free edit.
   matched exactly).
 - Full offline suite after Steps 1/3/4 (comment/config-only, no new test
   surface): **1714 passed, 7 skipped**, unchanged.
-- `ruff check knowledge_harness tests scripts hooks`: all checks passed.
-- `ruff format --check knowledge_harness tests scripts hooks`: 75 files
+- `ruff check research_vault tests scripts hooks`: all checks passed.
+- `ruff format --check research_vault tests scripts hooks`: 75 files
   already formatted.
-- `mypy knowledge_harness`: no issues, 27 source files.
+- `mypy research_vault`: no issues, 27 source files.
 - `pyproject-fmt --keep-full-version --no-generate-python-version-classifiers
   --table-format long pyproject.toml`: no change (comments sit correctly
   above the settings they rule, both the pre-existing ones and the new
@@ -253,7 +253,7 @@ every worktree of this repo — the exact hazard fact #5 names), I:
 
 ## 9. Commits
 
-- `5c640d5` — `fix: mdformat gates knowledge_harness/templates/vault
+- `5c640d5` — `fix: mdformat gates research_vault/templates/vault
   (render-contract event)` — Step 2 alone: hook path list + dialect-
   ownership comment, the four canonicalized template files, the
   `test_templates.py` pins, and the `_MDFORMAT_ROOTS` mirror + new mirror
@@ -275,7 +275,7 @@ every worktree of this repo — the exact hazard fact #5 names), I:
 ## 10. Concerns
 
 - **Brief erratum: "11 template files."** `find
-  knowledge_harness/templates/vault -name '*.md'` returns 10, not 11, both
+  research_vault/templates/vault -name '*.md'` returns 10, not 11, both
   before and after this task's changes (verified via `git archive`
   scratch trees at two points in the task). The "five change" figure the
   brief's Step 2 depends on is independently correct regardless of this
@@ -330,15 +330,15 @@ to comments** (weaken the claim or strengthen reality, never soften into
 ambiguity — chose to strengthen). The hook's `entry:` now runs:
 
 ```
-find knowledge_harness/templates/vault -name "*.md" -not -path \
-  "knowledge_harness/templates/vault/index.md"
+find research_vault/templates/vault -name "*.md" -not -path \
+  "research_vault/templates/vault/index.md"
 ```
 
 Verified the `-not -path` form excludes *only* the top-level `index.md`
 and not the nested `synthesis/index.md` (find's `-path` requires an exact
 full-string match with no wildcard, so
-`knowledge_harness/templates/vault/index.md` cannot also match
-`knowledge_harness/templates/vault/synthesis/index.md`): ran both
+`research_vault/templates/vault/index.md` cannot also match
+`research_vault/templates/vault/synthesis/index.md`): ran both
 `find ... -name '*.md'` (10 files) and the same with `-not -path` added (9
 files, `synthesis/index.md` present, top-level `index.md` absent).
 
@@ -426,7 +426,7 @@ GitHub issue #24's job, not this task's.
   that silently absorb future files. Redesigned to mirror the hook's
   actual shape: `_MDFORMAT_ROOTS` is now six directory/file roots
   (`README.md`, `AGENTS.md`, `CONTEXT.md`, `docs`, `skills`,
-  `knowledge_harness/templates/vault`), with two new tuples,
+  `research_vault/templates/vault`), with two new tuples,
   `_MDFORMAT_EXCLUDED_FILES` and `_MDFORMAT_EXCLUDED_DIRS`, that
   `_mdformat_owned_markdown()` applies when walking each directory root.
 - **`test_canonical_form.py`'s module docstring**, which this task's own
@@ -436,7 +436,7 @@ GitHub issue #24's job, not this task's.
   to it, rather than trusting the original wording: rendered a real
   literature note via `notes.render_note` (with one annotation, so the
   managed region contains an actual list item) and ran the pinned mdformat
-  over it. Result: the closing `%%/hk-managed%%` marker gets indented two
+  over it. Result: the closing `%%/rv-managed%%` marker gets indented two
   spaces into the preceding list item's CommonMark continuation, and the
   list item's own internal double space (`(paraphrase)  [@smith2020]`)
   collapses to one — both real, content-level changes, distinct from the
@@ -530,16 +530,16 @@ multi-line config text.
   computed in advance (the 11 `skills/find-sources/references/*.md` files
   dropped out of the mdformat table-truncation sweep once excluded) and
   matched exactly on the run.
-- `ruff check knowledge_harness tests scripts hooks`: all checks passed.
-- `ruff format --check knowledge_harness tests scripts hooks`: 75 files
+- `ruff check research_vault tests scripts hooks`: all checks passed.
+- `ruff format --check research_vault tests scripts hooks`: 75 files
   already formatted.
-- `mypy knowledge_harness`: no issues, 27 source files.
+- `mypy research_vault`: no issues, 27 source files.
 - `mdformat --number --wrap keep --check` over the hook's actual resolved
   file set (extracted and run the identical way the mirror test does):
   exit 0.
 - `pyproject-fmt --keep-full-version --no-generate-python-version-classifiers
   --table-format long pyproject.toml`: no change.
-- `yamlfix --check .github/workflows knowledge_harness/templates/ci`: 0
+- `yamlfix --check .github/workflows research_vault/templates/ci`: 0
   fixed.
 - `record-immutability` hook's exact command, re-run against real git
   (not re-touched this round, upheld by the coordinator): exit 0.
@@ -700,10 +700,10 @@ body instead.
 
 - Full suite: **1705 passed, 7 skipped** — up from 1703 by exactly 2 (the
   two new pinned mutation tests from §12.2; nothing else moved).
-- `ruff check knowledge_harness tests scripts hooks`: all checks passed.
-- `ruff format --check knowledge_harness tests scripts hooks`: 75 files
+- `ruff check research_vault tests scripts hooks`: all checks passed.
+- `ruff format --check research_vault tests scripts hooks`: 75 files
   already formatted.
-- `mypy knowledge_harness`: no issues, 27 source files.
+- `mypy research_vault`: no issues, 27 source files.
 - `echo '{}' | python hooks/stop_publish_gate.py`: exit 0.
 
 **`pre-commit run --all-files` was intentionally NOT run this round**,

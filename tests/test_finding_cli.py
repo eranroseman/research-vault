@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import AGENT_ACTOR, inbox
-from knowledge_harness.__main__ import main
+from research_vault import AGENT_ACTOR, inbox
+from research_vault.__main__ import main
 
 REPO = Path(__file__).resolve().parents[1]
 VERIFY_CITATIONS_SKILL = REPO / "skills" / "verify-citations" / "SKILL.md"
@@ -395,7 +395,7 @@ def test_finding_prints_an_id_the_ack_verb_can_reference(tmp_vault):
 def test_verify_citations_skill_routes_every_mechanical_act_through_a_verb():
     text = VERIFY_CITATIONS_SKILL.read_text(encoding="utf-8")
     for token in (
-        "knowledge_harness verify",
+        "research_vault verify",
         "--surface",
         "MATCHED",
         "UNMATCHED",
@@ -409,7 +409,7 @@ def test_verify_citations_skill_routes_every_mechanical_act_through_a_verb():
 def test_factcheck_draft_skill_names_its_bounds_and_never_blocks():
     text = FACTCHECK_DRAFT_SKILL.read_text(encoding="utf-8")
     for token in (
-        "knowledge_harness factcheck",
+        "research_vault factcheck",
         "30",
         "--cap",
         "finding",

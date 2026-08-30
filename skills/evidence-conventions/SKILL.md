@@ -1,6 +1,6 @@
 ---
 name: evidence-conventions
-description: Use when writing or editing claims, citing sources, or drafting in a knowledge-harness vault — also for claim or quote syntax questions
+description: Use when writing or editing claims, citing sources, or drafting in a research-vault vault — also for claim or quote syntax questions
 ---
 
 # Evidence conventions
@@ -61,11 +61,11 @@ This asserts the reader has seen the notice and is knowingly citing the work any
 
 ### Verifier-owned markers
 
-`failed-verification` markers are written and cleared only by the CLI's deterministic checks (`knowledge_harness.events.record_pass` / `record_failure`), never by hand. Never add, edit, or remove one yourself, including when retyping a claim — let the next check run clear it.
+`failed-verification` markers are written and cleared only by the CLI's deterministic checks (`research_vault.events.record_pass` / `record_failure`), never by hand. Never add, edit, or remove one yourself, including when retyping a claim — let the next check run clear it.
 
 ## Reason-code vocabulary
 
-Findings in `inbox/review-queue.md`, and any other durable surface this registry serves (`find-sources`'s `projects/<name>/search-log.md` is the other shipped one), carry a `reason` code from the controlled registry (`knowledge_harness.inbox.REASON_CODES`, governed at terminology §4.4). The codes you meet in the review queue today:
+Findings in `inbox/review-queue.md`, and any other durable surface this registry serves (`find-sources`'s `projects/<name>/search-log.md` is the other shipped one), carry a `reason` code from the controlled registry (`research_vault.inbox.REASON_CODES`, governed at terminology §4.4). The codes you meet in the review queue today:
 
 | Code               | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

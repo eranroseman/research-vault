@@ -9,8 +9,8 @@ VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "system"]
 
 
 def _with_managed_witness(text):
-    opening = text.index("%%hk-managed%%")
-    closing = text.index("%%/hk-managed%%", opening) + len("%%/hk-managed%%")
+    opening = text.index("%%rv-managed%%")
+    closing = text.index("%%/rv-managed%%", opening) + len("%%/rv-managed%%")
     if text[closing : closing + 2] == "\r\n":
         closing += 2
     elif text[closing : closing + 1] == "\n":
@@ -47,15 +47,15 @@ fixity-sha256:
 status: "included"
 aliases:
   - "Mortality decline"
-generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-%%hk-managed%%
+%%rv-managed%%
 # Mortality decline
 
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
 - (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222
-%%/hk-managed%%
+%%/rv-managed%%
 
 ## Notes
 """)
@@ -68,11 +68,11 @@ doi: "10.1000/old"
 accessed: "2026-08-16"
 status: "superseded"
 superseded-by: "smith2020"
-generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-%%hk-managed%%
+%%rv-managed%%
 # Old result
-%%/hk-managed%%
+%%/rv-managed%%
 
 ## Notes
 """)
@@ -85,7 +85,7 @@ generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 title: "Mortality trends"
 type: "synthesis"
 status: "draft"
-generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 - (inference) Decline is robust [confidence:: moderate] [supports:: [[smith2020#^c-11111111]]] [disputes:: [[gone2019#^c-22222222]]] ^c-55555555
 """
@@ -97,7 +97,7 @@ generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 title: "Evidence brief"
 type: "project"
 status: "draft"
-generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
+generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 - (quote) [@smith2020, p. 12] ^c-66666666
   > Mortality fell 12% across all strata.
@@ -140,27 +140,27 @@ generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}
 
 @pytest.fixture
 def net_vault(fixture_vault):
-    harness = fixture_vault / ".harness"
-    harness.mkdir(exist_ok=True)
-    (harness / "machine.json").write_text('{"mailto": "eran@example.edu"}')
+    rv_dir = fixture_vault / ".research-vault"
+    rv_dir.mkdir(exist_ok=True)
+    (rv_dir / "machine.json").write_text('{"mailto": "eran@example.edu"}')
     return fixture_vault
 
 
 @pytest.fixture
 def net_vault_real_mailto(fixture_vault):
-    harness = fixture_vault / ".harness"
-    harness.mkdir(exist_ok=True)
-    (harness / "machine.json").write_text(
-        _json.dumps({"mailto": os.environ.get("HARNESS_MAILTO", "")})
+    rv_dir = fixture_vault / ".research-vault"
+    rv_dir.mkdir(exist_ok=True)
+    (rv_dir / "machine.json").write_text(
+        _json.dumps({"mailto": os.environ.get("RV_MAILTO", "")})
     )
     return fixture_vault
 
 
 def pytest_collection_modifyitems(config, items):
-    skip_live = pytest.mark.skip(reason="live Zotero not enabled (HARNESS_LIVE=1)")
-    skip_net = pytest.mark.skip(reason="live network not enabled (HARNESS_LIVE_NET=1)")
+    skip_live = pytest.mark.skip(reason="live Zotero not enabled (RV_LIVE=1)")
+    skip_net = pytest.mark.skip(reason="live network not enabled (RV_LIVE_NET=1)")
     for item in items:
-        if "live" in item.keywords and os.environ.get("HARNESS_LIVE") != "1":
+        if "live" in item.keywords and os.environ.get("RV_LIVE") != "1":
             item.add_marker(skip_live)
-        if "live_net" in item.keywords and os.environ.get("HARNESS_LIVE_NET") != "1":
+        if "live_net" in item.keywords and os.environ.get("RV_LIVE_NET") != "1":
             item.add_marker(skip_net)

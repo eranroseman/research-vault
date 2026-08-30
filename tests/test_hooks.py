@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from knowledge_harness import Result, inbox
-from knowledge_harness.checks import Outcome
+from research_vault import Result, inbox
+from research_vault.checks import Outcome
 
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "hooks" / "posttooluse_lint.py"
@@ -31,7 +31,7 @@ GUARD_FAIL_CLOSED_REASON = (
 
 
 def _make_hook_vault(vault: Path) -> None:
-    (vault / ".harness").mkdir(exist_ok=True)
+    (vault / ".research-vault").mkdir(exist_ok=True)
 
 
 def _run_hook(cwd: Path, payload: object) -> subprocess.CompletedProcess[str]:
@@ -137,9 +137,9 @@ def _arm_publish(
     blocks: int = 0,
     bypass: str | None = None,
 ) -> Path:
-    harness = vault / ".harness"
-    harness.mkdir(exist_ok=True)
-    flag = harness / "publish-pending.json"
+    rv_dir = vault / ".research-vault"
+    rv_dir.mkdir(exist_ok=True)
+    flag = rv_dir / "publish-pending.json"
     state = {"project": project, "vault": str(vault), "blocks": blocks}
     if bypass is not None:
         state["bypass"] = bypass
@@ -405,10 +405,10 @@ def test_posttooluse_silences_outside_symlink_and_symlinked_vault_marker(
     assert result.returncode == 0
     assert result.stdout == ""
     assert result.stderr == ""
-    (fixture_vault / ".harness").rmdir()
+    (fixture_vault / ".research-vault").rmdir()
     marker = tmp_path / "marker"
     marker.mkdir()
-    (fixture_vault / ".harness").symlink_to(marker)
+    (fixture_vault / ".research-vault").symlink_to(marker)
     note = fixture_vault / "projects" / "brief" / "draft.md"
 
     result = _run_hook(fixture_vault, _payload(note, fixture_vault))
@@ -633,7 +633,7 @@ def test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_mark
     tmp_path,
 ):
     """A path that merely looks like `literatures/...` is not enough — the
-    guard requires a real, non-symlinked `.harness` marker above it."""
+    guard requires a real, non-symlinked `.research-vault` marker above it."""
     target = tmp_path / "literatures" / "clean.md"
     payload = _pretooluse_payload(tmp_path, "Edit", file_path=str(target))
 
@@ -642,19 +642,19 @@ def test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_mark
     _assert_pretooluse_allows(result)
 
 
-def test_pretooluse_rejects_a_nearer_symlinked_harness_and_finds_the_real_vault(
+def test_pretooluse_rejects_a_nearer_symlinked_research_vault_dir_and_finds_the_real_vault(
     fixture_vault, tmp_path
 ):
-    """A `.harness` that exists but is not a real directory — here, a
+    """A `.research-vault` that exists but is not a real directory — here, a
     symlink planted inside `literatures/` itself, closer to the target than
     the real vault root — must not be accepted as a vault marker. If it
     were, the write's "vault" boundary would collapse to `literatures/`
     itself, `relative_to` that boundary would drop the `literatures/`
     prefix entirely, and the deny would silently miss. The walk must keep
-    searching upward past the spoofed marker and find the real `.harness`
+    searching upward past the spoofed marker and find the real `.research-vault`
     at the vault root instead."""
     _make_hook_vault(fixture_vault)
-    spoofed = fixture_vault / "literatures" / ".harness"
+    spoofed = fixture_vault / "literatures" / ".research-vault"
     spoofed.symlink_to(tmp_path)
     target = fixture_vault / "literatures" / "evil.md"
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
@@ -851,9 +851,9 @@ def test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_p
     through `main()` in every practical scenario -- it requires the
     resolved target to literally BE the vault root (`target.parent ==
     target`, true only for the filesystem root `/`, with a real
-    `.harness` there too) -- so this is a predicate-level unit test, not
+    `.research-vault` there too) -- so this is a predicate-level unit test, not
     an end-to-end one. An end-to-end reproduction would require creating
-    `/.harness` on the real filesystem, which no test may safely do (no
+    `/.research-vault` on the real filesystem, which no test may safely do (no
     permission in general, and it would be a shared, global side effect
     across the whole test run). `main()` converting an exception raised
     inside `_handle` into a fail-closed deny is instead proven end-to-end
@@ -869,7 +869,7 @@ def test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_p
 
 def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
     assert json.loads(HOOKS_MANIFEST.read_text()) == {
-        "description": "Knowledge-harness verification hooks",
+        "description": "Research-vault verification hooks",
         "hooks": {
             "PreToolUse": [
                 {
@@ -1218,9 +1218,9 @@ def test_stop_gate_exception_fails_closed_while_armed(
 def test_stop_gate_rejects_malformed_project_key_path_or_blocks(
     fixture_vault, monkeypatch, capsys, state
 ):
-    harness = fixture_vault / ".harness"
-    harness.mkdir(exist_ok=True)
-    flag = harness / "publish-pending.json"
+    rv_dir = fixture_vault / ".research-vault"
+    rv_dir.mkdir(exist_ok=True)
+    flag = rv_dir / "publish-pending.json"
     state["vault"] = str(fixture_vault)
     flag.write_text(json.dumps(state))
     before = flag.read_bytes()
@@ -1395,28 +1395,30 @@ def test_stop_gate_armed_missing_core_fails_closed(tmp_path):
     assert json.loads(flag.read_text())["blocks"] == 1
 
 
-def test_stop_gate_rejects_symlinked_harness_and_flag(tmp_path, monkeypatch, capsys):
+def test_stop_gate_rejects_symlinked_research_vault_dir_and_flag(
+    tmp_path, monkeypatch, capsys
+):
     hook = _load_stop_hook()
     vault = tmp_path / "vault"
     vault.mkdir()
-    outside_harness = tmp_path / "outside-harness"
-    outside_harness.mkdir()
-    (vault / ".harness").symlink_to(outside_harness, target_is_directory=True)
+    outside_dir = tmp_path / "outside-research-vault"
+    outside_dir.mkdir()
+    (vault / ".research-vault").symlink_to(outside_dir, target_is_directory=True)
     monkeypatch.setattr(
         hook,
         "_verify_publish",
-        lambda _vault: pytest.fail("symlinked harness must stay unarmed"),
+        lambda _vault: pytest.fail("symlinked research-vault dir must stay unarmed"),
     )
 
     assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(vault)) == ""
 
-    (vault / ".harness").unlink()
-    (vault / ".harness").mkdir()
+    (vault / ".research-vault").unlink()
+    (vault / ".research-vault").mkdir()
     outside_flag = tmp_path / "outside-flag.json"
     outside_flag.write_text(
         json.dumps({"project": "projects/brief", "vault": str(vault), "blocks": 0})
     )
-    (vault / ".harness" / "publish-pending.json").symlink_to(outside_flag)
+    (vault / ".research-vault" / "publish-pending.json").symlink_to(outside_flag)
 
     assert _invoke_stop(hook, monkeypatch, capsys, _stop_payload(vault)) == ""
     assert json.loads(outside_flag.read_text())["blocks"] == 0
@@ -1906,7 +1908,7 @@ def test_stop_gate_bypass_retry_after_a_failed_clear_keeps_one_ackable_record(
 def test_stop_gate_matches_direct_publish_state_and_effects(
     fixture_vault, tmp_path_factory, monkeypatch, capsys
 ):
-    from knowledge_harness import verify
+    from research_vault import verify
 
     root = tmp_path_factory.mktemp("stop-publish-integration")
     direct_vault = shutil.copytree(fixture_vault, root / "direct")

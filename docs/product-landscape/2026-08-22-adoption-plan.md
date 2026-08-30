@@ -23,11 +23,11 @@ pre-baseline churn slot (Task 0) is closed regardless. Plan them as post-Q.
 
 That leaves one real gate and one class that is not gated at all.
 
-| Class                                                                                                                                               | When           | Why                                                                                                                                                                                    |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Gaps where we have nothing** — retrieval, full-text acquisition, a drafting skill, reporting checklists, submission integrity, session continuity | **now**        | none of it lands in `knowledge_harness/`; these are skills, mirrors and external tools. They perturb no measurement, and there is no "is ours better" to test because there is no ours |
-| **Replacements of code we own** — `_quote_match` at the selector site, duplicate detection, the richer status enum (§3.6)                           | **post-Q**     | measured code should not change while it is being measured                                                                                                                             |
-| **The tested path** — the result contract, the closing sets, the claim addressing                                                                   | **post-slice** | the only place "is ours better" is a real question, and the only place Plan S answers it                                                                                               |
+| Class                                                                                                                                               | When           | Why                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gaps where we have nothing** — retrieval, full-text acquisition, a drafting skill, reporting checklists, submission integrity, session continuity | **now**        | none of it lands in `research_vault/`; these are skills, mirrors and external tools. They perturb no measurement, and there is no "is ours better" to test because there is no ours |
+| **Replacements of code we own** — `_quote_match` at the selector site, duplicate detection, the richer status enum (§3.6)                           | **post-Q**     | measured code should not change while it is being measured                                                                                                                          |
+| **The tested path** — the result contract, the closing sets, the claim addressing                                                                   | **post-slice** | the only place "is ours better" is a real question, and the only place Plan S answers it                                                                                            |
 
 The rule underneath all three: **do not change the gate before the thing that tests the gate runs.**
 Everything else is scheduling.
@@ -44,7 +44,7 @@ weaker than claimed. The skills half is unaffected — nothing measures prose ei
 the argument.
 
 **Vendored code becomes measurable on arrival.** Once the gate exists, anything adopted into
-`knowledge_harness/` inherits it: a vendored module either has test grip or announces that it does
+`research_vault/` inherits it: a vendored module either has test grip or announces that it does
 not. That converts §2.2's self-containment test from a judgment into a check, and it is the
 strongest argument for adopting *after* Q rather than before.
 
@@ -67,7 +67,7 @@ below cites the section that verified it; the inferences are mine.
 
 ### 1.1 Verdict
 
-Yes, but not in the category the README names. As "a Claude Code harness for knowledge work —
+Yes, but not in the category the README names. As "a Claude Code plugin for knowledge work —
 academic research first", the field is crowded and better resourced: Imbad0202 at 43,339 stars with
 394 scripts, K-Dense at 34,130 with 163 skills, pedrohcgs with 52, medsci with 59. We ship nine.
 
@@ -124,7 +124,7 @@ research-hub (§6.1, §6.15) show that was too strong, and the accurate statemen
   extensively — 33 scripts halt on major findings under `--strict`, 43 call themselves gates — with
   a severity tier and a could-not-run exit we do not have. Two things still separate it. Every one
   of those gates is a **command a person chose to run with a flag a person chose to pass**: the
-  repository ships no `plugin.json` and no hooks, so nothing is armed by the harness. And it is
+  repository ships no `plugin.json` and no hooks, so nothing is armed by research-vault. And it is
   **domain-locked**: 21 of 59 skills are medical-specific, and it describes itself as
   "physician-built … not a generic skill catalog".
 - **WenyuChiou/research-hub** is MIT and gates fail-closed on registry evidence, with a layered
@@ -155,7 +155,7 @@ still holds.
    deployability, MCC is prevalence-invariant, and a recall figure quoted alone is the number its
    three failure modes exist to warn about. Then extrapolate against Zhao et al.'s measured
    prevalences — 0.39% arXiv, 0.27% PMC, 0.21% bioRxiv — rather than the benchmark's 2%, because
-   those are the corpora a knowledge-harness vault is actually built from (§8.5.1).
+   those are the corpora a research-vault vault is actually built from (§8.5.1).
    Split the report by leg: the closed-universe checks and the open-registry ones are different
    instruments and §8.5.2 predicts they will score differently.
 4. **Vendor rather than rebuild** anything breadth-shaped, following the `find-sources` pattern —
@@ -528,7 +528,7 @@ ______________________________________________________________________
 ## 3. What changes in this tree
 
 Sections 1 to 8 answer the question as asked — could this be assembled from scratch. This section
-answers the question that follows from it: **given the harness that already exists, what stays,
+answers the question that follows from it: **given research-vault that already exists, what stays,
 what is ported, and what is replaced now.** The sorting rule is §2.1 of the product comparison —
 *adopt by default; build only where the artifact decides a verdict* — and it is what makes these
 three lists non-arbitrary.
@@ -735,7 +735,7 @@ none, while authoring in a portable format precisely so other agents can use the
 | Four-state `Result` and the frozen registries | `outcome.py`, `inbox.py`                 | This *is* §3.1's result contract, already owned: 18 reason codes and 15 check ids enforced by the writer                                                                                                                                                                                                                                                                                                                                                   |
 | Hook surfaces                                 | `hooks/`                                 | The one differentiator that survived three narrowings. Memoria is a CLI; every competitor needs an operator flag                                                                                                                                                                                                                                                                                                                                           |
 | Publication lifecycle                         | `publish.py`, the published-drift lint   | Tags are never deleted and a correction adds one. Every other product stops when the artifact ships                                                                                                                                                                                                                                                                                                                                                        |
-| Zero-dependency core                          | `knowledge_harness/`                     | Cheap to keep, expensive to regain — and §5 shows what an assembly costs here                                                                                                                                                                                                                                                                                                                                                                              |
+| Zero-dependency core                          | `research_vault/`                        | Cheap to keep, expensive to regain — and §5 shows what an assembly costs here                                                                                                                                                                                                                                                                                                                                                                              |
 
 **This bucket is contingent.** Rows four to six are only assets while the false-positive rate is
 low enough that a person leaves the gate armed (§2.6). Unmeasured, they are a bet.
@@ -764,14 +764,14 @@ In-house, so this is porting rather than importing. Ranked by value.
 
 ### 3.7 Core — replace with third-party now
 
-| Replace                                         | With                                                              | Why now                                                                                                                                                                                                               |
-| ----------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The contiguous find in `selectors.find_context` | medsci `_quote_match.py`                                          | Measured: our find misses line-number and column-bleed cases it grades PARTIAL and INTERLEAVED. Wire at `__main__.py:257-263`, not at `check_quote` — both sides of that comparison are vault text                    |
-| Nothing — we have no retrieval                  | obra/knowledge-graph                                              | Our largest single gap, MIT, SQLite + FTS5 + MCP. **A dependency, not a vendor target** — TypeScript and Node, so it is installed and called, never carried into `knowledge_harness/` (§2.6). Do not build one either |
-| Duplicate detection we lack                     | medsci `check_reference_duplication.py`, `check_citation_keys.py` | stdlib, small, complement rather than replace our `citekey` check                                                                                                                                                     |
-| Building an evaluation harness                  | HALLMARK as a fixture                                             | Its six sub-tests already map onto four of our checks; registering a baseline is a supported operation                                                                                                                |
-| Any future renderer                             | pandoc + CSL                                                      | Both medsci and pedrohcgs shell out rather than reimplement                                                                                                                                                           |
-| Building reporting-guideline support            | medsci `check-reporting`                                          | 49 checklists, verified-permissive rows only, plus its `LICENSES.md` discipline                                                                                                                                       |
+| Replace                                         | With                                                              | Why now                                                                                                                                                                                                            |
+| ----------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The contiguous find in `selectors.find_context` | medsci `_quote_match.py`                                          | Measured: our find misses line-number and column-bleed cases it grades PARTIAL and INTERLEAVED. Wire at `__main__.py:257-263`, not at `check_quote` — both sides of that comparison are vault text                 |
+| Nothing — we have no retrieval                  | obra/knowledge-graph                                              | Our largest single gap, MIT, SQLite + FTS5 + MCP. **A dependency, not a vendor target** — TypeScript and Node, so it is installed and called, never carried into `research_vault/` (§2.6). Do not build one either |
+| Duplicate detection we lack                     | medsci `check_reference_duplication.py`, `check_citation_keys.py` | stdlib, small, complement rather than replace our `citekey` check                                                                                                                                                  |
+| Building an evaluation harness                  | HALLMARK as a fixture                                             | Its six sub-tests already map onto four of our checks; registering a baseline is a supported operation                                                                                                             |
+| Any future renderer                             | pandoc + CSL                                                      | Both medsci and pedrohcgs shell out rather than reimplement                                                                                                                                                        |
+| Building reporting-guideline support            | medsci `check-reporting`                                          | 49 checklists, verified-permissive rows only, plus its `LICENSES.md` discipline                                                                                                                                    |
 
 ### 3.8 What is deliberately not replaced
 

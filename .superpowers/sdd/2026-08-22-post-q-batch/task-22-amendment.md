@@ -15,11 +15,11 @@ ______________________________________________________________________
 
 The rename changes the **name** only. The value is the same SHA-256 hex string, computed the same way over the same input, so review-queue records already carrying it as `target_hash` keep working: no migration, no dedup break, no reopened findings.
 
-**Files:** Modify: `knowledge_harness/factcheck.py` (`skipped_digest`, ~line 165; the `run()` report key, ~line 192); `tests/test_factcheck.py`; `skills/factcheck-draft/SKILL.md`; `knowledge_harness/factcheck.py.manifest.json` (regenerated, not hand-edited).
+**Files:** Modify: `research_vault/factcheck.py` (`skipped_digest`, ~line 165; the `run()` report key, ~line 192); `tests/test_factcheck.py`; `skills/factcheck-draft/SKILL.md`; `research_vault/factcheck.py.manifest.json` (regenerated, not hand-edited).
 
 - [ ] **Step 1: Failing test** — rename every occurrence in `tests/test_factcheck.py`: the section comment (~199), the test name (~202), both call sites (~206–207), the report-key assertion (~227), and the *digest* in the neighbouring test's own name (~213, `test_run_reports_cap_selected_skipped_and_a_digest_only_when_something_skipped`). Run `python -m pytest tests/test_factcheck.py -q` — **Expected: FAIL** (`factcheck` has no attribute `skipped_sha256`; the report carries no `skipped_sha256` key).
 
-- [ ] **Step 2: Implement** — rename the function and the `run()` report key in `knowledge_harness/factcheck.py`, and reword hash-sense *digest* in the docstrings it touches (`skipped_digest`'s "content-derived digest"; `claim_text_hash`'s "SHA-256 hex digest", ~line 41). `hashlib`'s `.hexdigest()` is the standard library's own API — it is not ours to rename, at any call site. Re-run the focused file: PASS.
+- [ ] **Step 2: Implement** — rename the function and the `run()` report key in `research_vault/factcheck.py`, and reword hash-sense *digest* in the docstrings it touches (`skipped_digest`'s "content-derived digest"; `claim_text_hash`'s "SHA-256 hex digest", ~line 41). `hashlib`'s `.hexdigest()` is the standard library's own API — it is not ours to rename, at any call site. Re-run the focused file: PASS.
 
 - [ ] **Step 3: The skill surface** — `skills/factcheck-draft/SKILL.md`: the JSON example key (~28), the prose naming the script's own function (~64), and the `SKIPPED_DIGEST` placeholder in the budget-cap `finding` command (~62). Whole-file test pins update in the same commit as the prose they pin: `grep -rn "skipped_digest\|SKIPPED_DIGEST" tests/` and update every pin it hits.
 
@@ -36,10 +36,10 @@ The rename changes the **name** only. The value is the same SHA-256 hex string, 
 
 ```sh
 source .venv/bin/activate
-python -m pytest tests -q --cov=knowledge_harness --cov-branch --cov-report=lcov:lcov.info
-python -m mutate4py knowledge_harness/factcheck.py --lcov lcov.info --manifest-file
+python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info
+python -m mutate4py research_vault/factcheck.py --lcov lcov.info --manifest-file
 ```
 
-  Confirm `knowledge_harness/factcheck.py.manifest.json` now carries `func/skipped_sha256` and refreshed `module_hash`/`source_sha256`. **One attempt only.** If the run aborts or the manifest does not refresh, commit the stale sidecar anyway and record that plainly in the commit body — no debugging, no second experiment, no new lane: mutate4py's role is frozen until the post-deepening checkpoint. Re-verify rather than assume the baseline claim: `grep -n "skipped_digest" mutation-baseline.txt` — expected: no hits, so nothing to edit there.
+  Confirm `research_vault/factcheck.py.manifest.json` now carries `func/skipped_sha256` and refreshed `module_hash`/`source_sha256`. **One attempt only.** If the run aborts or the manifest does not refresh, commit the stale sidecar anyway and record that plainly in the commit body — no debugging, no second experiment, no new lane: mutate4py's role is frozen until the post-deepening checkpoint. Re-verify rather than assume the baseline claim: `grep -n "skipped_digest" mutation-baseline.txt` — expected: no hits, so nothing to edit there.
 
 - [ ] **Step 6:** Full offline suite green. **One** commit: `refactor: skipped_digest becomes skipped_sha256 (one sense per term)`, with Step 4's judgment list and Step 5's sidecar outcome in the body.

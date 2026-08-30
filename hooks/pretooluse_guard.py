@@ -59,7 +59,7 @@ def _vault_from_target(target: Path) -> Path | None:
     followed by an absolute-path write into a vault must still be caught.
     """
     for candidate in (target.parent, *target.parent.parents):
-        marker = candidate / ".harness"
+        marker = candidate / ".research-vault"
         try:
             marker_stat = os.lstat(marker)
         except OSError:
@@ -74,7 +74,7 @@ def _is_machine_surface(relative: Path) -> bool:
         return True
     # `relative.parts` is empty only in the degenerate case where the
     # resolved target IS the vault root (`target.parent == target`, true
-    # only for the filesystem root, `/`, with a real `.harness` there too).
+    # only for the filesystem root, `/`, with a real `.research-vault` there too).
     # No `bool(...)` guard here: that guard's only reachable-in-principle
     # act would be to ALLOW the one write this hook exists to refuse.
     # `relative.parts[0]` raising `IndexError` instead routes the same

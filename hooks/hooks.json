@@ -1,5 +1,5 @@
 {
-  "description": "Knowledge-harness verification hooks",
+  "description": "Research-vault verification hooks",
   "hooks": {
     "PreToolUse": [
       {

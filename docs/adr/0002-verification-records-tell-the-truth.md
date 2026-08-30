@@ -4,7 +4,7 @@ Status: accepted (2026-08-20)
 
 Every mechanical check reports one of four states, and the distinctions are load-bearing: **MATCHED** (the check ran and the claim held), **UNMATCHED** (the check ran and the claim did not hold), **UNREACHABLE** (the check could not run — network down, service absent, file missing), **SKIPPED** (the check does not apply, determined automatically, never by choice). The decision: **an outage is never an accusation** — UNREACHABLE is not UNMATCHED and is never presented as failure — and **only a genuine pass mints a verification record**: a `verified` event `{by, at, check}` is appended only on MATCHED, never on SKIPPED, UNREACHABLE, or any aggregate that merely contains no failures. Verification records are therefore positive evidence that a specific check ran and held, and their absence means exactly "not verified" — never "failed".
 
-**Emptiness is not a pass.** A tier or aggregate derived from checks requires at least one MATCHED result: an empty applicable-check set satisfies "everything applicable passed" vacuously, and vacuous truth certifies nothing. A value the harness does not have is never written — no padded precision, no placeholder in a field other records key on, no substituting one field for another.
+**Emptiness is not a pass.** A tier or aggregate derived from checks requires at least one MATCHED result: an empty applicable-check set satisfies "everything applicable passed" vacuously, and vacuous truth certifies nothing. A value research-vault does not have is never written — no padded precision, no placeholder in a field other records key on, no substituting one field for another.
 
 ## Considered Options
 

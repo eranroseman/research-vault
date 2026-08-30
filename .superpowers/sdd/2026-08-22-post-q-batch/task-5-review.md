@@ -9,7 +9,7 @@ Both of the brief's steps landed.
 Step 1 asked for the 14-path inventory to be dropped, the six test-pinned paths
 kept as an honesty rule rather than an inventory, and the whole thing said in one
 sentence. `skills/setup-vault/SKILL.md:21` now drops all eight of the stale-able
-entries (`.gitignore`, `.harness/machine.json`, `index.md`,
+entries (`.gitignore`, `.research-vault/machine.json`, `index.md`,
 `literatures/.gitkeep`, `log.md`, `log/.gitkeep`, `projects/.gitkeep`,
 `synthesis/index.md`) and keeps the six that `tests/test_skill_files.py:111-119`
 pins, reframed as "the contract, not an inventory of everything scaffold can
@@ -53,7 +53,7 @@ phrasing was closed ("the pinned six are the contract").
    `tests/test_scaffold.py:21-38` `EXPECTED_CREATED` is the hardcoded list four
    tests read, and `tests/test_templates.py::test_all_canonical_template_paths_are_packaged`
    is the fifth — but the run was not reproduced. Controller check, optional: copy
-   a file into `knowledge_harness/templates/vault/system/templates/`, run the
+   a file into `research_vault/templates/vault/system/templates/`, run the
    suite, expect exactly those five failures and `tests/test_skill_files.py` to
    pass, then delete the scratch file.
 4. **The `research/validation-slice/2026-08-22-skills-layer-audit.md` path cited
@@ -70,8 +70,8 @@ phrasing was closed ("the pinned six are the contract").
 lens could not see the commit body and asked whether it carries the provenance
 and the explicit no-deviation finding. I ran `git show --no-patch 97afad5`. The
 body carries the probe procedure and its result, both re-derived factual
-citations (`knowledge_harness/scaffold.py:241` is `return sorted(created)`; the
-old enumeration matched the 13 files under `knowledge_harness/templates/vault/`),
+citations (`research_vault/scaffold.py:241` is `return sorted(created)`; the
+old enumeration matched the 13 files under `research_vault/templates/vault/`),
 the adjudication quote, and the statement that neither citation was stale so no
 deviation was required. Nothing in the code, the skill text, or the test
 docstring carries that provenance, which is where the standing doctrine wants it.
@@ -98,8 +98,8 @@ This item is closed; no controller action needed.
   a fresh scaffold, are constraints rather than inventory, and both are still
   stated. Nothing load-bearing left with the eight dropped paths.
 - **Both of the card's factual citations were re-derived rather than trusted, and
-  both held.** `knowledge_harness/scaffold.py:241` is `return sorted(created)`,
-  and `knowledge_harness/templates/vault/` holds 13 files that map 1:1 onto the
+  both held.** `research_vault/scaffold.py:241` is `return sorted(created)`,
+  and `research_vault/templates/vault/` holds 13 files that map 1:1 onto the
   vault-derived entries of the old enumeration (`gitignore` -> `.gitignore`). I
   also confirmed independently that no other test, skill, or doc still quotes the
   old enumeration or the old "Say only scaffold-created paths are committed"

@@ -23,8 +23,10 @@ mechanism, and an "injection-weight problem" with superpowers' SessionStart hook
   `skill-inventory-gap-analysis.md` doesn't mention either name. The comparison doc's own §"Why
   not the inverse hybrid" and elsewhere don't touch grill-with-docs. This delta was genuinely
   unresolved before this note — consistent with #72 filing it as a formal blocker.
+
 - **setup-matt-pocock-skills mechanism**: named as a pattern donor in three places but never
   described in mechanism detail:
+
   - `dev-harness-analysis.md:47`: "**Per-project scaffolding** (setup-matt-pocock-skills) — a
     one-time skill that writes the config other skills assume (tracker, labels, doc layout)."
   - `dev-harness-analysis.md:107`: "**scriptorium-setup** (from setup-matt-pocock-skills):
@@ -35,7 +37,8 @@ mechanism, and an "injection-weight problem" with superpowers' SessionStart hook
   - `comparison.md:53`: "per-repo via `/setup-matt-pocock-skills` (already run here; the
     `docs/agents/` layout is its output)" — confirms this exact repo's `docs/agents/` came from
     running it, but doesn't describe *how* it ran.
-  None of the three give the interactive-wizard-shape detail #62 needs — that's new here (§2).
+    None of the three give the interactive-wizard-shape detail #62 needs — that's new here (§2).
+
 - **Superpowers SessionStart hook / "injection-weight problem"**: the *mechanism* is already
   documented, verbatim, in `plugin-packaging-mechanics.md:243-249` (§3.3, "What superpowers does
   with its hook"):
@@ -54,7 +57,7 @@ mechanism, and an "injection-weight problem" with superpowers' SessionStart hook
   Neither of these is phrased as "injection weight," and **neither gives a size measurement** —
   no byte count, line count, or token estimate for the payload anywhere in the four docs, or
   anywhere in `docs/` outside the raw unprocessed transcript export
-  (`docs/research/raw/knowledge-harness-transcripts/`, verified by grep, which is private-backup
+  (`docs/research/raw/research-vault-transcripts/`, verified by grep, which is private-backup
   raw material, not a design doc). The exact string "injection weight" / "injection-weight"
   appears nowhere in any design doc. **The size characterization in §3 below is new
   information** — see the explicit statement at the end of §3.
@@ -173,8 +176,7 @@ Source: `/tmp/mp-skills-verify/skills/engineering/setup-matt-pocock-skills/SKILL
   Claude-family agent-instruction files (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` are not enumerated
   beyond the CLAUDE.md/AGENTS.md pick logic) plus the `docs/agents/` directory it owns.
 
-**Corroboration found in this very repo**: this repo's `AGENTS.md` already carries a `## Agent
-skills` block with exactly the three sub-sections (`### Issue tracker`, `### Triage labels`,
+**Corroboration found in this very repo**: this repo's `AGENTS.md` already carries a `## Agent skills` block with exactly the three sub-sections (`### Issue tracker`, `### Triage labels`,
 `### Domain docs`) in the exact wording/order the template specifies
 (`setup-matt-pocock-skills/SKILL.md:86-100`), each pointing at `docs/agents/*.md` — matching
 `comparison.md:53`'s claim that "the `docs/agents/` layout is its output." This is a live,
@@ -480,9 +482,7 @@ pure addition on top of brainstorming, not a duplicate of anything brainstorming
 Brainstorming does not just supply content — it asserts **hard, exclusive ownership** of the
 pre-implementation phase. Quoted verbatim:
 
-> `<HARD-GATE>Do NOT invoke any implementation skill, write any code, scaffold any project, or take
-> any implementation action until you have presented a design and the user has approved it. This
-> applies to EVERY project regardless of perceived simplicity.</HARD-GATE>`
+> `<HARD-GATE>Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.</HARD-GATE>`
 
 > "You MUST use this before any creative work - creating features, building components, adding
 > functionality, or modifying behavior." (its own trigger description)

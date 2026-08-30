@@ -1,0 +1,17 @@
+# The vault outlives its tools
+
+Status: accepted (2026-08-20)
+
+The vault is the researcher's permanent record; research-vault is one tool that operates on it. The decision: **the vault must remain fully usable — readable, navigable, and adoptable by other tools — if research-vault disappears.** The vault is therefore plain markdown + YAML frontmatter in a git repository, with no runtime dependency on research-vault, and its survivability guarantee is carried by a named external mechanism rather than by research-vault-private convention.
+
+**Current mechanism: structural conformance with OKF** (Open Knowledge Format — spec: github.com/GoogleCloudPlatform/knowledge-catalog, `okf/SPEC.md`), which is growing an ecosystem of agent-facing knowledge tools. Conformance is version-tracking (v0.2 at adoption), whose rules are: every machine-written `.md` carries parseable YAML frontmatter with a non-empty `type`; root `index.md` declares the OKF version and lists the vault tree; root `log.md` is a machine-regenerated summary of recent activity linking the per-day log files. Conformance is cheap because OKF's rules are structural only and explicitly tolerate unknown keys and type values, so the vault's own schema rides inside them. Two bounds are part of the mechanism: **conformance is structural, not vocabulary** — OKF tools parse structure, not words, so adopting OKF's words would buy no additional interop while breaking contracts with tools the vault lives in (pandoc/CSL `[@citekey]` citations versus OKF's footnote attribution; stance-typed claim links versus its untyped lineage) — and **fleeting human-captured notes stay frontmatter-free**: forcing metadata syntax on quick capture fails in practice, and OKF instructs consumers to tolerate nonconforming files.
+
+**Scope bound:** the vault preserves the *record*, not the evidence artifacts. PDFs and snapshots live in Zotero storage, outside the git boundary — git is not the blob store — so artifact recoverability is delegated to the user's Zotero sync/backup, with doctor's persistent warning as the only compensating control. At solo scope this is a stated boundary, not a compliance control.
+
+## Considered Options
+
+Mechanism alternatives, all rejected: **no named mechanism** — rely on markdown + git being inherently portable (rejected: portable bytes are not an adoptable structure; a successor tool would inherit files but no contract for navigating them). **Export-boundary-only projection** — emit a conformant bundle only when publishing (rejected: insures published output, not the living vault). **Borrow OKF vocabulary without structural conformance** (rejected: the survivability gain of structure is nearly free, so declining it needed a cost that doesn't exist).
+
+## Consequences
+
+The decision and the mechanism are severable: if OKF stagnates or a stronger survivability standard emerges, the mechanism is replaced by amending this ADR — the decision itself is not reopened. While OKF is the mechanism, conformance tracks it as it evolves: each release creates a reconciliation obligation, and that tracking is the mechanism's substance, not a side cost — accepted knowingly for a young, currently one-vendor spec. The reserved files (`index.md`, `log.md`) are constraints on the vault scaffold. Revisit the mechanism (not the decision) if a future OKF version's structural rules start imposing real costs on the vault's own tools.

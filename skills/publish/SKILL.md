@@ -1,6 +1,6 @@
 ---
 name: publish
-description: Use when a person asks to publish, park, correct, or withdraw a knowledge-harness project
+description: Use when a person asks to publish, park, correct, or withdraw a research-vault project
 disable-model-invocation: true
 ---
 
@@ -19,7 +19,7 @@ In every command, `PATH` is the vault and `NAME` is the project's name under `pr
 Drain the review inbox before anything else:
 
 ```sh
-python3 -m knowledge_harness inbox --vault PATH
+python3 -m research_vault inbox --vault PATH
 ```
 
 Each finding line begins with its finding id — the argument `ack` needs later. Report the unacknowledged count and the oldest entry's date, then count the **blocking-class** entries separately: those carry the reason code `retracted` — a retraction, partial retraction, removal, or withdrawal targeting a cited work. They are the only *standing alerts* that hold the publish gate; every other finding already in the queue informs and never closes a surface. (The gate still closes on its own checks' current results — see below — so a clean inbox is not the same as a green gate.) State that count out loud before anyone chooses a disposition.
@@ -27,7 +27,7 @@ Each finding line begins with its finding id — the argument `ack` needs later.
 ## Run the gate
 
 ```sh
-python3 -m knowledge_harness verify --surface publish --vault PATH
+python3 -m research_vault verify --surface publish --vault PATH
 ```
 
 The publish surface closes on `citekey`, `evidence-layer`, `quote`, `update-notice`, and `doi`. Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, and `2` means verification could not run at all.
@@ -54,20 +54,20 @@ This is the **pre-publication** menu. Present exactly these three and let the pe
 To publish, arm the gate first, then run the disposition:
 
 ```sh
-python3 -m knowledge_harness arm-publish NAME --vault PATH
-python3 -m knowledge_harness mark-published NAME --vault PATH
+python3 -m research_vault arm-publish NAME --vault PATH
+python3 -m research_vault mark-published NAME --vault PATH
 ```
 
 Arming writes the state flag the Stop hook checks; while it is absent the hook is inert. `mark-published` runs the closed gate itself and refuses unless the publish surface is green or every blocking entry carries a standing acknowledgment. **A refusal leaves the gate armed** — the Stop hook keeps holding the session until the finding is resolved, acknowledged, or the person abandons the attempt:
 
 ```sh
-python3 -m knowledge_harness disarm-publish --vault PATH
+python3 -m research_vault disarm-publish --vault PATH
 ```
 
 `mark-published` disarms the gate itself once it has committed and tagged. `mark-parked` needs no arming:
 
 ```sh
-python3 -m knowledge_harness mark-parked NAME --vault PATH
+python3 -m research_vault mark-parked NAME --vault PATH
 ```
 
 `mark-published` and `mark-parked` both refuse a project that is already published, naming the two dispositions that do apply — see the correction lifecycle below.
@@ -79,7 +79,7 @@ Deletion is not on the menu. Delete a project only when the person explicitly as
 An acknowledgment is a human's standing acceptance of a finding — the only bypass a closed check has, and it keeps the record rather than deleting it. Show the person the exact finding, explain what accepting it means, and let them supply the reason. Then write it with the verb:
 
 ```sh
-python3 -m knowledge_harness ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"
+python3 -m research_vault ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"
 ```
 
 The finding id is the first token of each line in the `inbox` listing — copy it exactly, never retype or abbreviate it. The reason must start with a registry code (see `evidence-conventions`), and the actor must be a real `human:` identity — the CLI refuses to consent on anyone's behalf. An acknowledgment is scoped to the content it was granted for: if the note changes afterwards, the finding returns and needs a fresh one.
@@ -94,9 +94,9 @@ A blocking-class alert or a claim deprecation that targets an already-published 
 - **mark-withdrawn** — set `status: "withdrawn"` and record the withdrawal in the day's log.
 
 ```sh
-python3 -m knowledge_harness arm-publish NAME --vault PATH
-python3 -m knowledge_harness mark-corrected NAME --vault PATH
-python3 -m knowledge_harness mark-withdrawn NAME --vault PATH
+python3 -m research_vault arm-publish NAME --vault PATH
+python3 -m research_vault mark-corrected NAME --vault PATH
+python3 -m research_vault mark-withdrawn NAME --vault PATH
 ```
 
 **A correction on the day of publication just works.** Publish in the morning, correct in the afternoon when a retraction notice lands, correct again that evening: every tag carries a UTC time, so each disposition mints its own and none collides. Say so plainly rather than telling a person to wait for tomorrow.
@@ -104,7 +104,7 @@ python3 -m knowledge_harness mark-withdrawn NAME --vault PATH
 The date half of that tag — which is also the `verified` event's stamp and the withdrawal log line's day — defaults to today. Name it explicitly only to date a disposition to a different day, on any of the three dated dispositions:
 
 ```sh
-python3 -m knowledge_harness mark-corrected NAME --vault PATH --date YYYY-MM-DD
+python3 -m research_vault mark-corrected NAME --vault PATH --date YYYY-MM-DD
 ```
 
 The date must be a real calendar day in that form; anything else is refused before a byte is written. `--date` never supplies the time. `mark-parked` takes no `--date` — it writes a status and nothing dated.
@@ -120,7 +120,7 @@ Publishing commits only the project note. If the CLI reports uncommitted files u
 The gate has one audited bypass, and it is the person's to ask for, never yours to suggest:
 
 ```sh
-python3 -m knowledge_harness arm-publish NAME --vault PATH --bypass "why this one time"
+python3 -m research_vault arm-publish NAME --vault PATH --bypass "why this one time"
 ```
 
 The Stop hook records that token in the review inbox as an open finding. Explain that it is recorded, not forgiven, before writing it.

@@ -6,24 +6,24 @@
 
 Every step of the brief landed, and the values the brief fixed verbatim are verbatim in
 the commit: the reason string `not-imported — cited citekey has no literature note`
-(knowledge_harness/checks.py:164) with a true U+2014 em dash, the three test names as
+(research_vault/checks.py:164) with a true U+2014 em dash, the three test names as
 written (tests/test_checks.py:81, :94, :108), the commit subject character-for-character,
 and exactly one commit touching exactly the five files the brief named. The signature
 constraint holds — `check_citekeys(vault_root, note_path, bibliography_universe=None)` is
-unchanged at knowledge_harness/checks.py:131-133.
+unchanged at research_vault/checks.py:131-133.
 
 The implementation matches the ruling it cites. Spec §4
 (docs/superpowers/specs/2026-08-16-foundation-spec.md:45) rules that "a claim's citekey is
 citable only if its literature note exists (tier 2 — `literatures/` membership IS the
-vault's citation universe)". knowledge_harness/checks.py:159 tests exactly that, on
+vault's citation universe)". research_vault/checks.py:159 tests exactly that, on
 citations only, leaving tier 1 (`citekey not in bibliography_universe`) as the first branch
 so the pre-existing `mismatch — citekey not in bibliography` reason keeps priority.
 
 The scope bound the brief calls out — the note's own citekey row keeps its current
 semantics — is satisfied in behaviour. `cited` is built only from `claims.CITE_RE` over the
-note body (knowledge_harness/checks.py:139), with no frontmatter or identity branch, and a
+note body (research_vault/checks.py:139), with no frontmatter or identity branch, and a
 literature note's managed block carries its own citekey as a claim citation
-(`- (quote) [@smith2020, p. 12]`, rendered by knowledge_harness/notes.py:310). The tier-2
+(`- (quote) [@smith2020, p. 12]`, rendered by research_vault/notes.py:310). The tier-2
 probe for that row resolves to the very file `check_citekeys` just read, so it stays
 MATCHED. What is missing is a committed test pinning it; see the Minor issue below.
 
@@ -65,14 +65,14 @@ Remaining for the controller:
   it under AGENTS.md's "stand as written" rule. Rule whether §4 is taken to supersede the
   §6 row's wording or a follow-up task amends line 96.
 - **Manifest-sidecar refresh policy.** Whether a feature commit is expected to regenerate
-  `knowledge_harness/*.py.manifest.json`. Evidence gathered below narrows this to a policy
+  `research_vault/*.py.manifest.json`. Evidence gathered below narrows this to a policy
   call with near-zero mechanical stakes.
 
 ## Strengths
 
 - **Branch ordering carries the third case for free.** `if citekey not in
   bibliography_universe` short-circuits to the pre-existing `mismatch` reason before the
-  tier-2 branch is evaluated (knowledge_harness/checks.py:156-166), and
+  tier-2 branch is evaluated (research_vault/checks.py:156-166), and
   tests/test_checks.py:117 pins that reason by equality, so the new tier can never absorb
   the old one.
 - **The change is one branch, not a second pass.** Two coupled conditional expressions
@@ -80,7 +80,7 @@ Remaining for the controller:
   sets result and reason together, reading in doctrine order: not admitted → not imported →
   citable.
 - **`not-imported` is genuinely distinct from `not-admitted`,** not aliased or widened:
-  separate `REASON_CODES` members (knowledge_harness/inbox.py:31-32), separate table rows
+  separate `REASON_CODES` members (research_vault/inbox.py:31-32), separate table rows
   (skills/evidence-conventions/SKILL.md:85-86), separate terminology enumeration entries,
   each stating its own distinguishing condition (never entered Zotero vs. entered the
   library but not yet run through `import-note`).
@@ -135,7 +135,7 @@ How to fix: commit the throwaway. One test, zero new fixtures: call
 assert the `smith2020` row is `Result.MATCHED` / `"matched"`, with a docstring naming the
 invariant.
 
-**2. Fourth inlined copy of the literature-note path — knowledge_harness/checks.py:159**
+**2. Fourth inlined copy of the literature-note path — research_vault/checks.py:159**
 *(status: NOT-VERIFIED-MINOR — a design preference, not a defect; the call sites are
 confirmed)*
 
@@ -151,7 +151,7 @@ How to fix (opportunistic, not blocking): add a total `literature_path(vault_roo
 -> Path` beside `note_path`, have `note_path` call it after its safety guard, and use it
 here and at the existing sites.
 
-**3. Sidecar manifests left stale — knowledge_harness/checks.py.manifest.json:5**
+**3. Sidecar manifests left stale — research_vault/checks.py.manifest.json:5**
 *(status: CONFIRMED as stale; impact verified near-nil)*
 
 What is wrong: the tracked mutation sidecars for both changed modules were not regenerated.

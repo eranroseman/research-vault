@@ -1,4 +1,4 @@
-# Product comparison: knowledge-harness vs comparable products
+# Product comparison: research-vault vs comparable products
 
 Comparison note, 2026-08-22.
 
@@ -6,7 +6,7 @@ Comparison note, 2026-08-22.
 
 Four parts, all evidence. **Part I** states how it was gathered and measures our own side, so every
 later claim has a baseline. **Part II** is the field: every comparable product, tiered by whether
-it could replace the harness, replace one component, or only inform its design. **Part III** is
+it could replace research-vault, replace one component, or only inform its design. **Part III** is
 the comparison proper — skill by skill, then what we lack, then what only we have, then the
 differences as one table. **Part IV** is the record: corrections this pass forced on this
 repository's earlier notes, and what was deliberately left out.
@@ -42,7 +42,7 @@ from one of three sources:
   implements or specifies it is named, and where a line number is given, it was read;
 - the primary specification or API, for standards and property identifiers.
 
-Our own side was read from this repository's source only: `knowledge_harness/`, `skills/`,
+Our own side was read from this repository's source only: `research_vault/`, `skills/`,
 `tests/`, `hooks/`, `.claude-plugin/` and root files.
 
 Where a claim could not be traced to something actually read, it was cut rather than softened.
@@ -99,7 +99,7 @@ reported for its own baselines, and our suite has never been scored against it.
 
 **And the largest limit, which an earlier draft of this section denied.** It claimed "our own side
 was measured from source, so its numbers are exact." Counts were. **Behaviour was not.** Every
-claim here about what our harness *does* is read from code and specification — that is, from
+claim here about what research-vault *does* is read from code and specification — that is, from
 intended behaviour — and a same-day audit found several places where shipped behaviour differs:
 the Retraction Watch batch leg is reachable only when a caller passes `--rw-csv`, which nothing in
 the shipped surface does; the machine-confirmed trust tier can mint on a note with no applicable
@@ -131,7 +131,7 @@ taxonomy. Our own side was measured from source, so its numbers are exact.
 | Claim deprecation     | required fields `status`, `deprecated-at`, `deprecated-by`, `reason` on the claim line (`lints._DEPRECATION_REQUIRED_FIELDS`); `superseded-by` optional; never deletion                                                                                                                                       |
 | Registries called     | doi.org handle API, Crossref `/works`, OpenAlex `/works`, DataCite `/dois`, arXiv, NCBI eutils, Wayback save + availability; optional offline Retraction Watch CSV via `--rw-csv`                                                                                                                             |
 | Zotero bridge         | Better BibTeX JSON-RPC (`localhost:23119/better-bibtex/json-rpc`) plus the Zotero local web API (`/api/users/0/items/top?format=csljson`); 8-method client, read-only by design                                                                                                                               |
-| Vault layout          | `inbox/`, `literatures/`, `synthesis/`, `log/`, `projects/`, `system/templates/`, `system/bases/`, plus `index.md`, `log.md`, `AGENTS.md`, `.harness/`                                                                                                                                                        |
+| Vault layout          | `inbox/`, `literatures/`, `synthesis/`, `log/`, `projects/`, `system/templates/`, `system/bases/`, plus `index.md`, `log.md`, `AGENTS.md`, `.research-vault/`                                                                                                                                                 |
 | Portability target    | OKF (Open Knowledge Format), spec at `GoogleCloudPlatform/knowledge-catalog` `okf/SPEC.md`, tracked at v0.2; `index.md` declares `okf_version: "0.2"` and `scaffold._okf_probe` enforces conformance                                                                                                          |
 | Provenance unit       | claim line = evidence-boundary tag + `[@citekey, locator]` + `^c-XXXXXXXX`; global address `citekey#^claim-id`; stance links `supports`/`disputes`; quote selectors (prefix/suffix); `fixity-sha256`, `managed-sha256`                                                                                        |
 | Distribution          | MIT, plugin v0.1.0, unpublished                                                                                                                                                                                                                                                                               |
@@ -142,14 +142,14 @@ ______________________________________________________________________
 
 ## 5. Roster at a glance
 
-| Tier                             | What it means                                                                                      | Count                                                                                                               |
-| -------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **1 — harness comparables**      | owns an ingest→synthesis or research→manuscript lifecycle and could be run instead of this harness | 16 in the main table, all read at file level, plus 16 found by search of which 6 were read at file level (marked ✓) |
-| **2 — component comparables**    | replaces or overlaps exactly one layer of ours                                                     | 31                                                                                                                  |
-| **3 — informing prior art**      | pipelines, gate tooling, standards and benchmarks that shape the design without competing          | 21                                                                                                                  |
-| **4 — skill-framework baseline** | how a skill set is packaged, invoked, governed and tested                                          | 2                                                                                                                   |
+| Tier                               | What it means                                                                                        | Count                                                                                                               |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **1 — research-vault comparables** | owns an ingest→synthesis or research→manuscript lifecycle and could be run instead of research-vault | 16 in the main table, all read at file level, plus 16 found by search of which 6 were read at file level (marked ✓) |
+| **2 — component comparables**      | replaces or overlaps exactly one layer of ours                                                       | 31                                                                                                                  |
+| **3 — informing prior art**        | pipelines, gate tooling, standards and benchmarks that shape the design without competing            | 21                                                                                                                  |
+| **4 — skill-framework baseline**   | how a skill set is packaged, invoked, governed and tested                                            | 2                                                                                                                   |
 
-## 6. Tier 1 — harness comparables
+## 6. Tier 1 — research-vault comparables
 
 Stars, license and last push are as of 2026-08-22.
 
@@ -369,7 +369,7 @@ read-only verifier subagent (`model: sonnet`, `maxTurns: 35`, tools `Read, Grep,
 
 `claude_obsidian/transaction.py` is 4,680 lines and its safety machinery is the part worth
 reading, because we solve the same problems in `hooks/stop_publish_gate.py` and
-`knowledge_harness/gitstate.py` and it has gone further:
+`research_vault/gitstate.py` and it has gone further:
 
 - `TransactionConflict.exit_code = 75` — a dedicated exit code meaning *the vault changed
   underneath you*, distinct from both failure and refusal.
@@ -805,7 +805,7 @@ codes (`1` vs `3`) — convergence, not a gap.
 of the text which is being selected, **after normalization**"), with `prefix` and `suffix` each
 SHOULD-have-exactly-one, and the rule that "the text MUST be normalized before recording in the
 Annotation" (spec text fetched and verified). Our stored selectors
-(`<!-- hk-selector prefix="…" suffix="…" -->`) are that shape; no other product here stores
+(`<!-- rv-selector prefix="…" suffix="…" -->`) are that shape; no other product here stores
 prefix/suffix anchors at all.
 
 **Hypothes.is client** (721 stars) is the reference implementation of the opposite tolerance
@@ -909,15 +909,15 @@ so a fabrication is not missed. We have never measured, and nowhere reason about
 false-positive rate, and two of our tolerances are unevidenced knobs on exactly that dial: the
 `fuzzy-quote` threshold at 0.90 and the metadata-match comparison.
 
-This matters for the adoption plan §1 and not only for §11. Our differentiator is that the gate is armed by the
-harness rather than by an operator's flag (§12). That is an advantage only while the false-positive
+This matters for the adoption plan §1 and not only for §11. Our differentiator is that the gate is armed by
+research-vault rather than by an operator's flag (§12). That is an advantage only while the false-positive
 rate is low enough that a person leaves it armed. If it is not, we have built the thing this paper
 identifies as undeployable, and every competitor's opt-in `--strict` starts to look less like
 timidity and more like a considered response to the same evidence.
 
 ### 8.5 The research literature — the dimension the product survey never entered
 
-Everything in Parts II and III compares this harness against *products*. It never compares it
+Everything in Parts II and III compares research-vault against *products*. It never compares it
 against *what the field knows*. That is a blind spot rather than a scope decision, and it surfaced
 only at the end, from a comment inside someone else's lint.
 
@@ -964,7 +964,7 @@ inferred LLM usage at field level (r = 0.441, P < 0.001) and at paper level.
 1. **Agentic FPR inflation.** "The prompted model tends to flag an entry as soon as *any one*
    database returns no match, so partial database coverage becomes a false positive." A 5-call
    budget lifts recall past the conservative rule-based reference (DR .97–.99 vs .87) at **~5× its
-   false-positive rate (.43–.48 vs .09)**, and "the rise comes from the harness (any-no-match
+   false-positive rate (.43–.48 vs .09)**, and "the rise comes from research-vault (any-no-match
    flagging), not the base model."
 2. **Base-rate precision drop.** "At a venue-realistic ~2% base rate, precision is governed by FPR
    (Bayes' rule), not recall. FPR spans .05–.70 across verifiers, a ~7× precision gap: low-FPR
@@ -1003,14 +1003,14 @@ string-similarity confidence scores.
 
 #### 8.5.2 What this says about our architecture
 
-Finding 1 describes our harness, not merely a comparable one. `verify` runs several registry legs
+Finding 1 describes research-vault, not merely a comparable one. `verify` runs several registry legs
 and any UNMATCHED becomes a finding; the publish surface closes on the union of `citekey`,
 `evidence-layer`, `quote`, `update-notice` and `doi`. An OR over independent lookups is precisely
-the shape the paper identifies as the false-positive amplifier, and it names the harness rather
+the shape the paper identifies as the false-positive amplifier, and it names research-vault rather
 than the model as the cause.
 
 Finding 2 is worse for us than for the tools measured, because of the thing §12 calls a
-differentiator. A report with nine false alarms in ten is noisy; **a gate armed by the harness with
+differentiator. A report with nine false alarms in ten is noisy; **a gate armed by research-vault with
 nine false alarms in ten stops being armed.** The competitor pattern we characterised as timidity —
 Imbad0202's opt-in strict policy, medsci's `--strict` flag, research-hub's advisory staleness — is
 what a low base rate does to anyone who ships a verifier and watches people use it.
@@ -1037,7 +1037,7 @@ classes as one.
 
 That suggests a design response the literature supports and this document had not considered:
 **close on the closed-universe checks, warn on the open-registry ones.** It preserves the property
-§12 claims — a gate armed by the harness rather than an operator's flag — on the legs where the
+§12 claims — a gate armed by research-vault rather than an operator's flag — on the legs where the
 evidence says the false-positive cost is affordable, and demotes to warn-tier exactly the legs the
 paper shows are not. It is also a smaller change than it sounds: `CLOSING_BY_SURFACE` is a
 dictionary.
@@ -1099,7 +1099,7 @@ process substrate rather than its rivals. `mattpocock/skills` ships the `researc
 procedure produced this repo's `docs/research/` notes, and the `wayfinder` method its README names as
 where planning happens.
 
-|                                                 | obra/superpowers                         | mattpocock/skills                | knowledge-harness                   |
+|                                                 | obra/superpowers                         | mattpocock/skills                | research-vault                      |
 | ----------------------------------------------- | ---------------------------------------- | -------------------------------- | ----------------------------------- |
 | Stars                                           | 276,191                                  | 232,042                          | unpublished                         |
 | License                                         | MIT                                      | MIT                              | MIT                                 |
@@ -1663,7 +1663,7 @@ swarmvault's `lint`. Our lints cover append-only surfaces, claim immutability, p
 screening state, disputed claims, web archives and the evidence layer — nothing about the link
 graph between synthesis pages.
 
-### 11.3 Reach — what the harness can see and touch
+### 11.3 Reach — what research-vault can see and touch
 
 **Retrieval and query.** We ship no query verb and no retrieval index; a person reads the vault
 through Obsidian, and a skill orients by reading `synthesis/index.md` and `log/`. Everything else
@@ -1799,7 +1799,7 @@ exists. All of that tests the *file*. None of it tests the *firing*: given a phr
 would actually use, does the right skill activate, and does a user-invoked one correctly stay
 silent. gbrain ships a `routing-eval.jsonl` beside 41 of its 71 skills for exactly this. With seven
 of our nine skills locked to explicit invocation, a routing failure is silent by construction —
-nothing fires, and the person gets generic drafting instead of the harness.
+nothing fires, and the person gets generic drafting instead of research-vault.
 
 **Skill-set governance and portability.** mattpocock's bucket promotion, `plugin.json` `skills`
 array, two-sided invocation contract, per-skill docs pages and manifest validation; superpowers'
@@ -1822,7 +1822,7 @@ Two entries carry qualifications, stated inline rather than deferred.
   medsci halts widely but only under an operator's `--strict` flag, with no hook anywhere to arm
   it (§6.1); Imbad0202 blocks only under an opt-in strict policy; research-hub gates corpus
   admission rather than the draft (§6.15). The distinction that survives all three is narrow and
-  worth stating exactly: **ours is armed by the harness, theirs by the operator.**
+  worth stating exactly: **ours is armed by research-vault, theirs by the operator.**
   *Qualification (§8.5.2):* that is a differentiator only while our false-positive rate is low
   enough that a person leaves it armed. We have never measured it, and the same literature suggests
   the competitors' opt-in flags may be a response to that evidence rather than an absence of
@@ -1883,24 +1883,24 @@ differentiator.
 
 ## 13. Differences, axis by axis
 
-| Axis                          | Us                                                                                          | The field                                                                                                                                                                                                                            |
-| ----------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| What is citable               | only a human-admitted Zotero item                                                           | anything dropped into `raw/` or `sources/` — except research-hub, which screens candidates through a fail-closed resolver gate                                                                                                       |
-| Who writes the evidence layer | the CLI renders it; the LLM may not touch it                                                | the LLM writes source pages directly (all wiki-family products)                                                                                                                                                                      |
-| Provenance granularity        | claim block address + locator + stance                                                      | page, paragraph, line-range or `#L45` at best                                                                                                                                                                                        |
-| Verification                  | deterministic registry checks that close surfaces                                           | deterministic gates under an opt-in strict flag (Imbad0202, medsci: 33 such scripts), fail-closed at corpus admission (research-hub), LLM adjudication, structural lint, or nothing                                                  |
-| Failure vocabulary            | four states, frozen reason codes, never a verdict on an outage                              | the same four states as a schema (Imbad0202); elsewhere pass/fail, free-text findings or console output                                                                                                                              |
-| Enforcement point             | git pre-commit, PostToolUse warn, Stop gate — armed by the harness, not by an operator flag | prompt convention (hermes `llm-wiki`, SamurAIGPT, nvk, Pratiyush), script gate (hermes `grounded-citations`), write-path runtime (llmwiki), transaction approval (claude-obsidian), PreToolUse guard (Imbad0202), CI build (Manubot) |
-| Retrieval                     | none — index and log orientation                                                            | BM25, embeddings, hybrid, or graph expansion                                                                                                                                                                                         |
-| Breadth of ingest             | one item type                                                                               | tens of formats plus media and code                                                                                                                                                                                                  |
-| Breadth of output             | none                                                                                        | LaTeX, DOCX, PDF, slides, dashboards, `llms.txt`, JSON-LD, Neo4j                                                                                                                                                                     |
-| Evaluation                    | unit tests                                                                                  | citation coverage/precision harnesses, gold sets, calibration, routing evals, a labelled hallucination benchmark                                                                                                                     |
-| Deletion                      | never — records deprecate                                                                   | nvk retracts; llmwiki `rm` removes a source and derived pages                                                                                                                                                                        |
-| Concurrency                   | single-threaded skills                                                                      | agent panels, parallel workers, orchestrators                                                                                                                                                                                        |
-| Dependencies                  | stdlib only                                                                                 | Node/Python trees, Postgres, embeddings, model providers                                                                                                                                                                             |
-| Cross-agent testing           | none                                                                                        | superpowers runs per-agent conformance suites for 8 agents                                                                                                                                                                           |
-| Scale evidence                | none published                                                                              | gbrain frames a 150K-page brain as its target (README.md:14); several ship scale docs                                                                                                                                                |
-| Maturity                      | v0.1.0, unpublished                                                                         | 217 – 234k stars across Tier 1, versioned releases, marketplaces (the 276k Tier-4 framework is not a competitor)                                                                                                                     |
+| Axis                          | Us                                                                                             | The field                                                                                                                                                                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| What is citable               | only a human-admitted Zotero item                                                              | anything dropped into `raw/` or `sources/` — except research-hub, which screens candidates through a fail-closed resolver gate                                                                                                       |
+| Who writes the evidence layer | the CLI renders it; the LLM may not touch it                                                   | the LLM writes source pages directly (all wiki-family products)                                                                                                                                                                      |
+| Provenance granularity        | claim block address + locator + stance                                                         | page, paragraph, line-range or `#L45` at best                                                                                                                                                                                        |
+| Verification                  | deterministic registry checks that close surfaces                                              | deterministic gates under an opt-in strict flag (Imbad0202, medsci: 33 such scripts), fail-closed at corpus admission (research-hub), LLM adjudication, structural lint, or nothing                                                  |
+| Failure vocabulary            | four states, frozen reason codes, never a verdict on an outage                                 | the same four states as a schema (Imbad0202); elsewhere pass/fail, free-text findings or console output                                                                                                                              |
+| Enforcement point             | git pre-commit, PostToolUse warn, Stop gate — armed by research-vault, not by an operator flag | prompt convention (hermes `llm-wiki`, SamurAIGPT, nvk, Pratiyush), script gate (hermes `grounded-citations`), write-path runtime (llmwiki), transaction approval (claude-obsidian), PreToolUse guard (Imbad0202), CI build (Manubot) |
+| Retrieval                     | none — index and log orientation                                                               | BM25, embeddings, hybrid, or graph expansion                                                                                                                                                                                         |
+| Breadth of ingest             | one item type                                                                                  | tens of formats plus media and code                                                                                                                                                                                                  |
+| Breadth of output             | none                                                                                           | LaTeX, DOCX, PDF, slides, dashboards, `llms.txt`, JSON-LD, Neo4j                                                                                                                                                                     |
+| Evaluation                    | unit tests                                                                                     | citation coverage/precision harnesses, gold sets, calibration, routing evals, a labelled hallucination benchmark                                                                                                                     |
+| Deletion                      | never — records deprecate                                                                      | nvk retracts; llmwiki `rm` removes a source and derived pages                                                                                                                                                                        |
+| Concurrency                   | single-threaded skills                                                                         | agent panels, parallel workers, orchestrators                                                                                                                                                                                        |
+| Dependencies                  | stdlib only                                                                                    | Node/Python trees, Postgres, embeddings, model providers                                                                                                                                                                             |
+| Cross-agent testing           | none                                                                                           | superpowers runs per-agent conformance suites for 8 agents                                                                                                                                                                           |
+| Scale evidence                | none published                                                                                 | gbrain frames a 150K-page brain as its target (README.md:14); several ship scale docs                                                                                                                                                |
+| Maturity                      | v0.1.0, unpublished                                                                            | 217 – 234k stars across Tier 1, versioned releases, marketplaces (the 276k Tier-4 framework is not a competitor)                                                                                                                     |
 
 ______________________________________________________________________
 
@@ -2009,7 +2009,7 @@ From this repository's own notes, the following were reviewed and not carried in
 vault-structure conventions (nickmilo/IMF-v3, cassioborgesmenezes/pkm-imf), Zotero-ecosystem
 plugins already represented at component level (jlegewie/zotfile, MuiseDestiny/zotero-attanger,
 daeh/zotero-markdb-connect, dvanoni/notero, zotero/zotero itself), and W3C PROV-O, ICD 206/203 and
-CSL/JATS locator conventions — none is a harness comparable and none was re-verified here.
+CSL/JATS locator conventions — none is a research-vault comparable and none was re-verified here.
 
 **Previously outstanding, now closed:** `WenyuChiou/research-hub` was read on 2026-08-22 and is
 written up at §6.15; medsci-skills was surveyed skill-by-skill and its entry at §6.1 revised. The

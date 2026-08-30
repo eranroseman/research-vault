@@ -10,7 +10,7 @@
 
 - [ ] **Step 2: Update-notice row (§6, ~line 99)** — append the missing-local-version rule by the four-state definitions: *"an item lacking a local `version` field is SKIPPED for the version leg (the item lacks the field the check needs) — never UNREACHABLE, which is reserved for attempted-and-failed"* — then reconcile the implementation (`_datacite_version_outcome` / arXiv twin report UNREACHABLE "outage — version status unavailable" for a missing local field today; both audit lanes disputed this — settle it by the doctrine definition, failing test first, and record the resolution in the commit body).
 
-- [ ] **Step 3: Acceptance sweep** — re-run the audit's confirmed reproductions for every defect this plan claims (defects 1, 2, 3, 6, the fixity pair, the archive branch): each must now be unreproducible. Full suite offline AND live (`HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<real>`, Zotero running). 8/8 hooks.
+- [ ] **Step 3: Acceptance sweep** — re-run the audit's confirmed reproductions for every defect this plan claims (defects 1, 2, 3, 6, the fixity pair, the archive branch): each must now be unreproducible. Full suite offline AND live (`RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real>`, Zotero running). 8/8 hooks.
 
 - [ ] **Step 4: Mark BOTH Plan S sequencing gates satisfied** (one line each, dated, pointing at this plan) — Phases 2–6 and the drill unblock together.
 
@@ -28,13 +28,13 @@ ______________________________________________________________________
 
 **Declined, so they are not re-proposed:** `digest` (adopted earlier the same day and superseded — the sole ecosystem instance is a 9-star repo, and `hexdigest()` is stdlib so the collision residual never fully clears); `synopsis` (zero collisions but no user-facing currency, which the ruling makes decisive); `précis` (same, and it implies a proportional in-order restatement, which an `(inference)`-tagged region is not); `annotation` (exact in annotated-bibliography practice, fatal against Zotero's highlight sense); bare `summary` **as a vault-facing word for anything else** is now spent.
 
-**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `knowledge_harness/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. The entry's wording is settled by this ruling; write it when the step ships.
+**The glossary entry does NOT land now** (author ruling): a glossary defines what exists, and this artifact has no writer yet. `CONTEXT.md` gains the term — and `research_vault/templates/vault/system/glossary.md` its projection — in the same change that ships the step which authors it. The entry's wording is settled by this ruling; write it when the step ships.
 
 **What the implementer of that step pays, all priced at zero (`docs/terminology.md` §1) but listed so none is discovered late:**
 
-- `knowledge_harness/templates/vault/index.md:10` — "daily activity log (summary: \[[log]\])" is the only *vault-facing* competing use of the word; reword ("rolled up") in the same change, and update its whole-file test pin in the same commit.
+- `research_vault/templates/vault/index.md:10` — "daily activity log (summary: \[[log]\])" is the only *vault-facing* competing use of the word; reword ("rolled up") in the same change, and update its whole-file test pin in the same commit.
 - `CONTEXT.md`'s *Log* entry — "summarized in root `log.md`" → same reword, with the vault-glossary projection.
-- `knowledge_harness/okf.py:1` ("the log summary artifact") and `inbox.summary()` are dev-facing (T7) and never reach vault prose — rename or leave, implementer's discretion, not a blocker.
+- `research_vault/okf.py:1` ("the log summary artifact") and `inbox.summary()` are dev-facing (T7) and never reach vault prose — rename or leave, implementer's discretion, not a blocker.
 - **Third-party surfaces never rename:** arXiv's `<summary>` element and PubMed's `eSummary` endpoint keep their own names. `skills/find-sources/scripts/arxiv_atom.py:93` already translates arXiv's `<summary>` to `abstract` at the boundary — keep that translation exactly, because it is what stops the wire word for *abstract* from reaching the vault as the word for the one thing an abstract may never produce (ADR-level rule, slice finding 16).
 - The section heading in the literature-note free region reads `## Summary`, matching the ecosystem the researcher already knows.
 

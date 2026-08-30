@@ -4,7 +4,7 @@
 
 **Files:**
 
-- Modify: `knowledge_harness/events.py` (`trust_tier`, ~line 240)
+- Modify: `research_vault/events.py` (`trust_tier`, ~line 240)
 
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§5 Event-integrity paragraph)
 

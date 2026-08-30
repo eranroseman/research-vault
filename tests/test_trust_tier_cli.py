@@ -15,16 +15,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-from knowledge_harness import Result, events
-from knowledge_harness.__main__ import main
+from research_vault import Result, events
+from research_vault.__main__ import main
 
 PMID_ONLY = """---
 citekey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
-%%hk-managed%%
-%%/hk-managed%%
+%%rv-managed%%
+%%/rv-managed%%
 """
 
 
@@ -100,7 +100,7 @@ def test_trust_tier_reports_malformed_frontmatter_without_a_traceback(
 
 def test_trust_tier_is_reachable_through_the_one_binary_cli(tmp_vault):
     """Proves `trust-tier` is genuinely wired into the shared dispatch table —
-    ``python3 -m knowledge_harness trust-tier``, not a second binary."""
+    ``python3 -m research_vault trust-tier``, not a second binary."""
     _write_note(tmp_vault, "pmid2020", PMID_ONLY)
     repo = Path(__file__).resolve().parents[1]
 
@@ -108,7 +108,7 @@ def test_trust_tier_is_reachable_through_the_one_binary_cli(tmp_vault):
         [
             sys.executable,
             "-m",
-            "knowledge_harness",
+            "research_vault",
             "trust-tier",
             "pmid2020",
             "--vault",

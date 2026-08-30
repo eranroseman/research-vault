@@ -44,7 +44,7 @@ inbox/review-queue.md
 system/bibliography.json
 ```
 
-`knowledge_harness/lints.py:109` `_is_append_only_path` names three durable-append
+`research_vault/lints.py:109` `_is_append_only_path` names three durable-append
 surfaces, and its own docstring says so. The third — `projects/*/search-log.md` — is
 covered by none of the three files. The ruled fix (add search-log; anchor to
 `/literatures/` and `/log/`; one-line pointer at the source of truth in each file) is
@@ -66,7 +66,7 @@ or word the pointer as "machine-owned" rather than "append-only".
 
 ### 2.2 `eff8d67` is the only code commit on this branch never reviewed
 
-`knowledge_harness/inbox.py` +18, `tests/test_inbox.py` +57. It changes the shape of
+`research_vault/inbox.py` +18, `tests/test_inbox.py` +57. It changes the shape of
 `inbox.summary()`, which `__main__.py:761` serialises straight to CLI JSON. That is a public
 output contract on a branch whose whole method is three-lens review of every code change.
 `ebea360` is one prose line and low-risk by comparison, but is equally uncovered.
@@ -193,7 +193,7 @@ before the ledger is archived.
    subsequent green mean something.
 4. **Two human-presence gates**, both correctly flagged in the ledger head: Task 13's consent for
    the `~/kh-vault` commit, and Task 21 Step 3's live suite (Zotero running, real
-   `HARNESS_MAILTO`). Task 13's file set is now larger than when written; the class rule handles it.
+   `RV_MAILTO`). Task 13's file set is now larger than when written; the class rule handles it.
 5. **Task 25 Step 1b** correctly records that the mutation gate has never actually executed —
    push runs no-op by construction and the repo has zero PR runs. Every claim in the gate's
    comment block is reasoned, not observed.

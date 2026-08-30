@@ -4,7 +4,7 @@ Project-scoped, append-only ``projects/<name>/search-log.md``. Two record
 kinds through one verb, mutually exclusive per call: a search-run entry
 (query as run, source searched, date, hit count) and a not-admitted-candidate
 entry (candidate, reason code, date). Shares its low-level durable-append
-primitives with ``inbox.py`` via ``knowledge_harness/appendlog.py`` (Task 6
+primitives with ``inbox.py`` via ``research_vault/appendlog.py`` (Task 6
 review, 2026-08-22 — an earlier draft duplicated them instead); reuses
 ``inbox.validate_reason``/``inbox.REASON_CODES`` for the reason field and
 ``publish.project_dir`` for project resolution, so the reason-code registry
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import AGENT_ACTOR, searchlog
-from knowledge_harness.__main__ import main
+from research_vault import AGENT_ACTOR, searchlog
+from research_vault.__main__ import main
 
 FIND_SOURCES_SKILL = (
     Path(__file__).resolve().parents[1] / "skills" / "find-sources" / "SKILL.md"
@@ -473,7 +473,7 @@ def test_search_log_fsyncs_the_directory_only_when_the_file_is_created(
 
 def test_search_log_is_reachable_through_the_one_binary_cli(fixture_vault):
     """Proves `search-log` is genuinely wired into the shared dispatch table —
-    ``python3 -m knowledge_harness search-log``, not a second binary."""
+    ``python3 -m research_vault search-log``, not a second binary."""
     import subprocess
     import sys
 
@@ -482,7 +482,7 @@ def test_search_log_is_reachable_through_the_one_binary_cli(fixture_vault):
         [
             sys.executable,
             "-m",
-            "knowledge_harness",
+            "research_vault",
             "search-log",
             "--vault",
             str(fixture_vault),
@@ -511,7 +511,7 @@ def test_search_log_is_reachable_through_the_one_binary_cli(fixture_vault):
 def test_find_sources_skill_routes_every_mechanical_act_through_the_verb():
     text = FIND_SOURCES_SKILL.read_text(encoding="utf-8")
     for token in (
-        "knowledge_harness search-log",
+        "research_vault search-log",
         "--not-admitted",
         "--reason",
         "not-admitted",

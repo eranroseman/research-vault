@@ -9,7 +9,7 @@ agent and was not run.
 One commit, subject `fix: close spec §6 missing-data gaps; trust-core remediation
 acceptance` (commit hash reported in the agent's final response to the controller,
 since a commit cannot record its own hash inside itself). Files:
-`knowledge_harness/checks.py`, `tests/test_checks.py`,
+`research_vault/checks.py`, `tests/test_checks.py`,
 `docs/superpowers/specs/2026-08-16-foundation-spec.md`,
 `docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md`, and this report.
 
@@ -23,7 +23,7 @@ a missing **local** field (in practice, only `title` — `_metadata_authors(None
 the only local field whose absence reaches the error branch) becomes whole-check
 SKIPPED, reason naming the field; remote-side failures are unchanged (still
 UNREACHABLE, genuine outages). Added an early return in `check_metadata`
-(`knowledge_harness/checks.py`) right after the DOI-presence SKIPPED check, before
+(`research_vault/checks.py`) right after the DOI-presence SKIPPED check, before
 the network `registry_agency` lookup — SKIPPED is a property of the item, determined
 offline, so it returns before any attempt. This also changes precedence in the
 combined case (missing title + routing/network failure): previously UNREACHABLE,
@@ -79,7 +79,7 @@ gates satisfied by the same merge), not restated differently.
 
 Full offline suite: 1714 → 1717 passed, 7 skipped (net +3: four new tests added,
 one obsolete parametrize row removed). `ruff check`, `ruff format --check`, and
-`mypy knowledge_harness/` all clean; `echo '{}' | python hooks/stop_publish_gate.py`
+`mypy research_vault/` all clean; `echo '{}' | python hooks/stop_publish_gate.py`
 exits 0.
 
 New/changed tests in `tests/test_checks.py`:
@@ -272,7 +272,7 @@ the MATCHED bug). `ruff check .` / `ruff format --check .` run repo-wide this ro
 (not just on the changed files): 10 pre-existing errors and 5 reformat candidates,
 all in unrelated `skills/find-sources/scripts/*` files untouched by this task —
 confirmed absent from `git diff`/grep against `checks.py`/`test_checks.py`. `mypy
-knowledge_harness/` clean. `stop_publish_gate.py` hook exits 0.
+research_vault/` clean. `stop_publish_gate.py` hook exits 0.
 
 **New concern (destination: controller).** The fix scopes "absent" to literal
 `is None` on the raw entry/remote dict value, matching the coordinator's own
@@ -432,7 +432,7 @@ flagged a line in `tests/test_checks.py` this round — fixed by running
 `ruff format` on the file (one line collapsed to fit the line length; verified via
 `git diff` that nothing else changed) — now clean, along with the same 5
 pre-existing, unrelated reformat candidates in `skills/find-sources/scripts/*`.
-`mypy knowledge_harness/` clean. `stop_publish_gate.py` hook exits 0.
+`mypy research_vault/` clean. `stop_publish_gate.py` hook exits 0.
 
 No new concerns from this round — the residual this round closes was the only one
 carried forward from round 1.
@@ -502,7 +502,7 @@ through. Resolved by inlining the blank check directly as
 the pattern the remote-title check already used successfully) and removing the
 now-unused `_is_blank` helper entirely rather than leaving dead code behind.
 Verified equivalent to the helper for every case (`None`, `""`, a real string,
-and a non-string type) before removing it. `mypy knowledge_harness/` is clean
+and a non-string type) before removing it. `mypy research_vault/` is clean
 after this change.
 
 **Spec sentence (`docs/superpowers/specs/2026-08-16-foundation-spec.md:100`)
@@ -562,7 +562,7 @@ both sides, from rounds 1–2) stays SKIPPED with its original reason.
 **Test arithmetic:** offline suite 1734 → 1738 passed, 7 skipped (net +4: the
 three multi-fault tests above, one of which is parametrized across two routes).
 `ruff check .` clean on changed files. `ruff format --check .` clean. `mypy
-knowledge_harness/` clean (after removing `_is_blank` and inlining its check, as
+research_vault/` clean (after removing `_is_blank` and inlining its check, as
 described above). `stop_publish_gate.py` hook exits 0.
 
 **Not touched, per explicit instruction:** the Plan S `:8` gate mark. Its
@@ -577,7 +577,7 @@ metadata" outcome specifically: it now carries only `{"doi": ...}` (via
 as it did before this round, because agency is not yet resolved at the point
 this check now runs. No existing test asserts `extra` for this particular
 outcome, and nothing else in the codebase reads `extra["agency"]` off it
-(confirmed by grep across `knowledge_harness/` and `hooks/`), so this is an
+(confirmed by grep across `research_vault/` and `hooks/`), so this is an
 unpinned, currently-inconsequential shape change rather than a break — but it is
 a real, observable difference from before this round, worth naming rather than
 letting it be discovered later as unexplained drift.

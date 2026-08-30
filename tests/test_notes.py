@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from knowledge_harness import AGENT_ACTOR, Result, events, frontmatter, notes
+from research_vault import AGENT_ACTOR, Result, events, frontmatter, notes
 
 ITEM = {
     "id": "smith2020",
@@ -33,7 +33,7 @@ def test_fresh_note_uses_okf_literature_metadata():
     assert data["fixity-sha256"] == ["aa11"]
     assert data["status"] == "unscreened"
     assert data["generated"] == {
-        "by": "knowledge_harness/0.1.0",
+        "by": "research_vault/0.1.0",
         "at": GENERATED_AT,
     }
 
@@ -83,7 +83,7 @@ def test_rerender_repairs_incomplete_generation_metadata_with_injected_time():
         generated_at=GENERATED_AT,
     )
     data, body = frontmatter.parse(first)
-    data["generated"] = {"by": "knowledge_harness/0.1.0"}
+    data["generated"] = {"by": "research_vault/0.1.0"}
     incomplete = frontmatter.serialize(data) + body
 
     repaired = notes.render_note(
@@ -199,7 +199,7 @@ def test_unowned_frontmatter_fields_survive_rerender():
     v1 = notes.render_note(ITEM, ["aa11"], [], existing=None, accessed="2026-08-16")
     data, body = frontmatter.parse(v1)
     data["verified"] = [
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"}
+        {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"}
     ]
     data["superseded-by"] = "smith2024"
     data["authority"] = "peer-reviewed journal"
@@ -469,7 +469,7 @@ def test_distinct_keyless_annotations_still_render():
 
 def test_parse_mismatch_still_raises_when_anchors_are_unique(monkeypatch):
     """The duplicate-anchor guard must not shadow a genuine parse mismatch."""
-    from knowledge_harness import claims as claims_mod
+    from research_vault import claims as claims_mod
 
     real_parse_claims = claims_mod.parse_claims
 
@@ -496,7 +496,7 @@ def test_render_quote_claim():
     assert lines[0] == f"- (quote) [@smith2020, p. 12] ^{cid}"
     assert lines[1] == "  > Mortality fell 12% (95% CI 8-16)."
     assert (
-        lines[2] == '  <!-- hk-selector prefix="the cohort showed that " '
+        lines[2] == '  <!-- rv-selector prefix="the cohort showed that " '
         'suffix=" across all strata studied" -->'
     )
 
@@ -553,7 +553,7 @@ def test_selector_values_are_html_escaped():
     )
     selector = notes.render_claim(ann).split("\n")[-1]
     assert (
-        selector == '  <!-- hk-selector prefix="lead &quot;quoted&quot; &amp; --&gt;" '
+        selector == '  <!-- rv-selector prefix="lead &quot;quoted&quot; &amp; --&gt;" '
         'suffix="tail &quot;quoted&quot; &amp; --&gt;" -->'
     )
 
@@ -568,7 +568,7 @@ def test_selector_values_escape_newlines_on_one_line():
     selector = notes.render_claim(ann).split("\n")[-1]
 
     assert selector == (
-        '  <!-- hk-selector prefix="lead&#13;&#10;quoted" suffix="tail&#10;quoted" -->'
+        '  <!-- rv-selector prefix="lead&#13;&#10;quoted" suffix="tail&#10;quoted" -->'
     )
 
 
@@ -593,7 +593,7 @@ def test_selector_values_escape_full_control_class_on_one_line():
     selector = notes.render_claim(ann).split("\n")[-1]
 
     assert selector == (
-        '  <!-- hk-selector prefix="lead- (quote) [@evil] ^c-x" suffix="tail" -->'
+        '  <!-- rv-selector prefix="lead- (quote) [@evil] ^c-x" suffix="tail" -->'
     )
 
 
@@ -771,16 +771,16 @@ def test_sha256_file(tmp_path):
     ("managed", "expected"),
     [
         (
-            b"%%hk-managed%%\nbody\n%%/hk-managed%%\nfree",
-            b"%%hk-managed%%\nbody\n%%/hk-managed%%\n",
+            b"%%rv-managed%%\nbody\n%%/rv-managed%%\nfree",
+            b"%%rv-managed%%\nbody\n%%/rv-managed%%\n",
         ),
         (
-            b"%%hk-managed%%\r\nbody\r\n%%/hk-managed%%\r\nfree",
-            b"%%hk-managed%%\r\nbody\r\n%%/hk-managed%%\r\n",
+            b"%%rv-managed%%\r\nbody\r\n%%/rv-managed%%\r\nfree",
+            b"%%rv-managed%%\r\nbody\r\n%%/rv-managed%%\r\n",
         ),
         (
-            b"%%hk-managed%%\nbody\n%%/hk-managed%%",
-            b"%%hk-managed%%\nbody\n%%/hk-managed%%",
+            b"%%rv-managed%%\nbody\n%%/rv-managed%%",
+            b"%%rv-managed%%\nbody\n%%/rv-managed%%",
         ),
     ],
 )
@@ -796,15 +796,15 @@ def test_managed_slice_hashes_exact_delimiters_and_actual_line_endings(
     "body",
     [
         b"body only\n",
-        b"%%hk-managed%%\nbody\n",
-        b"%%/hk-managed%%\n%%hk-managed%%\n",
-        b"%%hk-managed%%\n%%hk-managed%%\n%%/hk-managed%%\n",
-        b"%%hk-managed%%\n%%/hk-managed%%\n%%/hk-managed%%\n",
-        b" %%hk-managed%%\n%%/hk-managed%%\n",
-        b"%%hk-managed%% \n%%/hk-managed%%\n",
-        b"%%hk-managed%%\n\t%%/hk-managed%%\n",
-        b"%%hk-managed%%\vbody\n%%/hk-managed%%\n",
-        b"%%hk-managed%%\nbody\n%%/hk-managed%%\v",
+        b"%%rv-managed%%\nbody\n",
+        b"%%/rv-managed%%\n%%rv-managed%%\n",
+        b"%%rv-managed%%\n%%rv-managed%%\n%%/rv-managed%%\n",
+        b"%%rv-managed%%\n%%/rv-managed%%\n%%/rv-managed%%\n",
+        b" %%rv-managed%%\n%%/rv-managed%%\n",
+        b"%%rv-managed%% \n%%/rv-managed%%\n",
+        b"%%rv-managed%%\n\t%%/rv-managed%%\n",
+        b"%%rv-managed%%\vbody\n%%/rv-managed%%\n",
+        b"%%rv-managed%%\nbody\n%%/rv-managed%%\v",
     ],
 )
 def test_managed_slice_rejects_missing_duplicate_nested_reordered_or_fuzzy_markers(
@@ -897,7 +897,7 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
 # otherwise read the second, machine-actor-looking `by` and ignore that a
 # forged decoy preceded it.
 _DUPLICATE_BY_LAST_WINS = frontmatter.parse(
-    '---\ngenerated: {by: "human:eran", by: "knowledge_harness/0.1.0", '
+    '---\ngenerated: {by: "human:eran", by: "research_vault/0.1.0", '
     'at: "2026-08-24T00:00:00Z"}\n---\n'
 )[0]["generated"]
 
@@ -909,16 +909,16 @@ _DUPLICATE_BY_LAST_WINS = frontmatter.parse(
         "not-a-dict",
         42,
         [],
-        {"by": "knowledge_harness/0.1.0"},
+        {"by": "research_vault/0.1.0"},
         {"at": "2026-08-20T12:34:56Z"},
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z", "extra": "x"},
-        {"by": "knowledge_harness/0.1.0", "when": "2026-08-20T12:34:56Z"},
+        {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z", "extra": "x"},
+        {"by": "research_vault/0.1.0", "when": "2026-08-20T12:34:56Z"},
         {"by": "", "at": "2026-08-20T12:34:56Z"},
         {"by": 42, "at": "2026-08-20T12:34:56Z"},
-        {"by": "knowledge_harness/0.1.0", "at": 42},
-        {"by": "knowledge_harness/0.1.0", "at": "not-a-timestamp"},
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56+00:00"},
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-20"},
+        {"by": "research_vault/0.1.0", "at": 42},
+        {"by": "research_vault/0.1.0", "at": "not-a-timestamp"},
+        {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56+00:00"},
+        {"by": "research_vault/0.1.0", "at": "2026-08-20"},
         _DUPLICATE_BY_LAST_WINS,
     ],
     ids=[
@@ -946,7 +946,7 @@ def test_valid_generated_rejects_every_malformed_shape(value):
 def test_valid_generated_accepts_the_one_true_shape():
     assert (
         notes._valid_generated(
-            {"by": "knowledge_harness/0.1.0", "at": "2026-08-20T12:34:56Z"}
+            {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z"}
         )
         is True
     )

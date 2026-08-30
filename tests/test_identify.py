@@ -2,7 +2,7 @@
 
 import pytest
 
-from knowledge_harness import Result, checks, identify, webapi
+from research_vault import Result, checks, identify, webapi
 
 
 def _fake_get(monkeypatch, table):

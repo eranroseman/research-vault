@@ -9,7 +9,7 @@ attestation) implemented, full suite green, form gate silent/exit 0.
 
 `f3f5a7f` — `fix: closing guard covers machine-owned frontmatter keys via writer attestation`
 
-Files: `knowledge_harness/lints.py`, `knowledge_harness/archive.py`,
+Files: `research_vault/lints.py`, `research_vault/archive.py`,
 `tests/test_lints.py`, `tests/test_archive.py`, `tests/test_verify_cli.py`
 (5 files, +313/-3).
 
@@ -27,7 +27,7 @@ touched files; `mypy` clean on `lints.py`/`archive.py`. Form gate
   four machine-owned frontmatter keys — `archive-url`, `managed-sha256`,
   `fixity-sha256`, `citekey` — plus `generated` under its own predicate. A
   change to any of the four is legal iff `generated` also changed in the same
-  diff with `by` a machine-actor-class string (`startswith("knowledge_harness/")`,
+  diff with `by` a machine-actor-class string (`startswith("research_vault/")`,
   per docs/terminology.md's actor convention — a class test, not an
   exact-version match, so a `__version__` bump doesn't flag every prior note).
   `generated` itself is drift if it changes without its own new `by` being
@@ -116,14 +116,14 @@ passes an explicit `generated_at` (second-resolution timestamp). So the
 "omitted `generated_at` defaults to date resolution, making a same-day
 re-render's `generated` byte-identical to the prior one and masking a real
 content change as unattested" tail case does not occur in production;
-`grep -rn "render_note(" knowledge_harness/` confirms this is the only
+`grep -rn "render_note(" research_vault/` confirms this is the only
 non-test call site.
 
 ## Concerns (not fixed — out of scope per the brief)
 
 1. **Other `MANAGED_FIELDS` stay outside the guard.** `type`, `aliases`,
    `doi`, `url`, `pmid`, `version`, `accessed` are all in
-   `notes.MANAGED_FIELDS` and all sit outside `%%hk-managed%%`, but the brief's
+   `notes.MANAGED_FIELDS` and all sit outside `%%rv-managed%%`, but the brief's
    Step 1 parametrization named exactly five keys (`archive-url`,
    `managed-sha256`, `fixity-sha256`, `generated`, `citekey`), so I scoped
    `_MACHINE_OWNED_FRONTMATTER_KEYS` to match. A hand-edit to, say, `doi`
@@ -145,7 +145,7 @@ non-test call site.
    flagged), but the specific-key diagnostic is.
 4. **Forged attestation is out of scope by design.** A hand-edit that also
    sets `generated.by` to a machine-class-shaped string (e.g. keeps
-   `"knowledge_harness/0.1.0"` unchanged, or forges it) passes the guard —
+   `"research_vault/0.1.0"` unchanged, or forges it) passes the guard —
    this is the brief's own stated boundary (recorded-bypass class, spec §2's
    stated-boundary language): the lint catches accidents and oblivious
    agents, not deliberate circumvention.
@@ -168,7 +168,7 @@ ruff and mypy clean.
 `python -m pytest -q`: **1581 passed, 7 skipped** (was 1577/7; +4 new
 regression tests — two parametrized cases for Important 1, one each for
 Minor B and Minor C). `ruff check`/`ruff format --check` clean, `mypy
-knowledge_harness/` clean, form gate silent/exit 0.
+research_vault/` clean, form gate silent/exit 0.
 
 ### IMPORTANT 1 — malformed `generated` no longer attests
 
@@ -176,8 +176,8 @@ knowledge_harness/` clean, form gate silent/exit 0.
 exactly `{by, at}`, `at` a valid `Z`-suffixed ISO 8601 timestamp) before
 checking `by`'s class prefix, instead of testing `by` alone. Added
 `test_malformed_generated_does_not_attest_a_machine_owned_key_change`,
-parametrized over `{by: "knowledge_harness/0.1.0", at: "banana"}` and
-`{by: "knowledge_harness/0.1.0"}` (no `at`) — both RED against the prior
+parametrized over `{by: "research_vault/0.1.0", at: "banana"}` and
+`{by: "research_vault/0.1.0"}` (no `at`) — both RED against the prior
 `by`-only predicate, both GREEN after.
 
 **Interlock proof (not assumed):** re-ran
@@ -286,9 +286,9 @@ citation the reviewer said earns its place.
 ### Gates
 
 `python -m pytest -q`: 1581 passed, 7 skipped. `ruff check
-knowledge_harness/ tests/`: clean. `ruff format --check`: clean (one
+research_vault/ tests/`: clean. `ruff format --check`: clean (one
 auto-reformat applied to `tests/test_lints.py`, re-verified after). `mypy
-knowledge_harness/`: clean (one fixup needed — `_machine_attested`'s
+research_vault/`: clean (one fixup needed — `_machine_attested`'s
 parameter was briefly annotated `object`, which mypy rejected at
 `generated["by"]`; left unannotated, matching `notes._valid_generated`'s own
 convention, since this project's mypy config only requires checking
@@ -336,7 +336,7 @@ includes this report file per the new process rule.
 `python -m pytest -q`: **1605 passed, 7 skipped** (was 1581/7; +24 new tests
 — 1 in `test_lints.py` for N2, 17 in `test_notes.py` and 6 in
 `test_frontmatter.py` for N4). `ruff check`/`ruff format --check` clean,
-`mypy knowledge_harness/` clean, form gate silent/exit 0.
+`mypy research_vault/` clean, form gate silent/exit 0.
 
 ### N1 — the disarmed test, re-armed
 
@@ -458,7 +458,7 @@ because there was nothing to discriminate — the two code paths are
 behaviorally equivalent for every case I had. That distrust turned up a real
 gap in the parametrization, not a false negative in the test: I hadn't
 covered a dict with exactly two keys, *neither* of which is `by`/`at`. Added
-`{"by": "knowledge_harness/0.1.0", "when": "...Z"}` (id `wrong-key-names`) —
+`{"by": "research_vault/0.1.0", "when": "...Z"}` (id `wrong-key-names`) —
 still didn't discriminate that specific clause (same reason: `.get("at")` is
 `None` either way), but a *second*, genuinely behavior-changing mutation
 (dropping the `at.endswith("Z")` requirement, keeping only the tzinfo check)
@@ -497,7 +497,7 @@ was itself the defect N7 named. See the amended concern 4.)
    the reviewer (15,901 inputs, 0 divergences from dropping it alone). The
    first sub-clause, `len(items) != 2`, is load-bearing and is the SOLE
    rejecter of a duplicate-`by` forgery: `generated: {by: "human:eran", by:
-   "knowledge_harness/0.1.0", at: "2026-08-24T00:00:00Z"}` parses to 3 items
+   "research_vault/0.1.0", at: "2026-08-24T00:00:00Z"}` parses to 3 items
    whose unique key set is still exactly `{by, at}` (so the keyset check
    alone would accept it), and `.get("by")` is last-value-wins, so it reads
    the machine actor and ignores that a forged decoy preceded it — only the
@@ -534,7 +534,7 @@ the coordinator's instruction.
 `python -m pytest -q`: **1606 passed, 7 skipped** (was 1605/7; +1 —
 `duplicate-by-last-wins` added to `_valid_generated`'s rejection
 parametrization for N7). `ruff check`/`ruff format --check` clean, `mypy
-knowledge_harness/` clean, form gate silent/exit 0.
+research_vault/` clean, form gate silent/exit 0.
 
 ### N6 — the same defect class, reintroduced in the commit that fixed N1
 
@@ -574,7 +574,7 @@ survived the full suite before this round).
 
 Added the `duplicate-by-last-wins` case to
 `test_valid_generated_rejects_every_malformed_shape`, built by actually
-parsing `'generated: {by: "human:eran", by: "knowledge_harness/0.1.0", at:
+parsing `'generated: {by: "human:eran", by: "research_vault/0.1.0", at:
 "2026-08-24T00:00:00Z"}'` through `frontmatter.parse` (not a Python dict
 literal — a literal with a repeated key silently collapses to the last value
 at the language level and would never exercise the `_DuplicateKeyMapping`

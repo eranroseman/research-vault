@@ -5,11 +5,11 @@ requires = [ "setuptools>=68" ]
 [project]
 name = "knowledge-harness"
 version = "0.1.0"
-description = "Deterministic core for the knowledge-harness plugin"
+description = "Deterministic core for the research-vault plugin"
 # Floor matches mutate4py's own >=3.11; nothing tests or claims 3.10.
 requires-python = ">=3.11"
 dependencies = [
-  # Lazy-imported at knowledge_harness's single parse site (package boundary only —
+  # Lazy-imported at research_vault's single parse site (package boundary only —
   # the vendored find-sources scripts parse via stdlib by upstream's choice, recorded
   # in that skill's vendoring notes).
   "defusedxml==0.7.1",
@@ -26,8 +26,8 @@ dev = [
   # ruff's protocol below): a canonical-form-changing upgrade is a corpus-format
   # and render-contract change. Before updating, run the exact mdformat hook from
   # .pre-commit-config.yaml over a clean worktree and review its complete diff.
-  # Also confirm every `%%hk-managed%%` / `%%/hk-managed%%` marker survives
-  # byte-for-byte in knowledge_harness/templates/vault/AGENTS.md,
+  # Also confirm every `%%rv-managed%%` / `%%/rv-managed%%` marker survives
+  # byte-for-byte in research_vault/templates/vault/AGENTS.md,
   # system/glossary.md, and system/templates/literature.md; block an upgrade if it
   # starts escaping `%%` sequences. vault/index.md remains excluded pending #70;
   # never feed that Obsidian-dialect template to mdformat during this review.
@@ -51,9 +51,9 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = [ "knowledge_harness*" ]
+include = [ "research_vault*" ]
 [tool.setuptools.package-data]
-knowledge_harness = [ "templates/**/*" ]
+research_vault = [ "templates/**/*" ]
 
 [tool.ruff]
 required-version = "==0.15.21"
@@ -128,14 +128,14 @@ ignore = [ "S310", "S603", "S607" ]
 "tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
 "tests/test_cli_live.py" = [ "UP012" ]
 # print IS the CLI output contract.
-"knowledge_harness/__main__.py" = [ "T20" ]
+"research_vault/__main__.py" = [ "T20" ]
 # Gate scripts report via stdout by design.
 "scripts/*" = [ "T20" ]
 # PTH off in gitstate ONLY: this module IS the byte-exact path plane — vault paths
 # are raw bytes pathlib cannot hold, os.path.abspath is NOT Path.resolve() (resolve
 # follows symlinks; containment requires not), and Path.readlink() normalises where
 # snapshot/restore must be byte-exact.
-"knowledge_harness/gitstate.py" = [ "PTH" ]
+"research_vault/gitstate.py" = [ "PTH" ]
 # Test side of the same ruling: fixtures are deliberately non-UTF-8 byte paths
 # pathlib cannot construct.
 "tests/test_gitstate.py" = [ "PTH" ]
@@ -151,7 +151,7 @@ max-complexity = 28
 # Full --strict waits for the evidence shapes to be modeled as TypedDicts — before
 # that it invites cast()-laundered "asserted, not verified" types at JSON boundaries.
 [tool.mypy]
-files = [ "knowledge_harness" ]
+files = [ "research_vault" ]
 # rung 1: untyped function bodies are checked.
 check_untyped_defs = true
 warn_redundant_casts = true
@@ -170,8 +170,8 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = [
-  "live: requires a running local Zotero (set HARNESS_LIVE=1)",
-  "live_net: hits real external APIs (set HARNESS_LIVE_NET=1 and HARNESS_MAILTO)",
+  "live: requires a running local Zotero (set RV_LIVE=1)",
+  "live_net: hits real external APIs (set RV_LIVE_NET=1 and RV_MAILTO)",
 ]
 # Pinning collection here makes bare `pytest` and `python -m pytest` resolve
 # scripts.* imports identically.

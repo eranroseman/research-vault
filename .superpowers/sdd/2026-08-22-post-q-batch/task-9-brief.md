@@ -1,6 +1,6 @@
 ### Task 9: SKIPPED entries excluded from unacknowledged counts (item 16, slice finding 14)
 
-**Files:** Modify: `knowledge_harness/inbox.py` (`summary`, ~line 710, and every drain surface that counts). Test: `tests/test_inbox.py`.
+**Files:** Modify: `research_vault/inbox.py` (`summary`, ~line 710, and every drain surface that counts). Test: `tests/test_inbox.py`.
 
 - [ ] **Step 1: Failing test**
 

@@ -31,9 +31,9 @@ Discovers mutation sites, applies each, runs pytest, reports killed/survived/unc
 
 **Verdict: adopt targeted, not blanket.** Run in sidecar-manifest mode with test narrowing on the trust-critical modules (`selectors.py`, `quotes.py`, `checks.py`, `frontmatter.py`, `claims.py`); blanket runs are cost-prohibitive without contexts.
 
-## Placement in this harness
+## Placement in research-vault
 
-All three belong in the **dev-quality lane** (advisory CI / pre-merge), never in the vault's publish-gate closing sets — they measure the harness's code, not the vault's claims. Adoption order: crap4py → mutate4py (targeted) → drywall. Risk to price in: v0.1.x single-maintainer tools; pin versions, treat as removable.
+All three belong in the **dev-quality lane** (advisory CI / pre-merge), never in the vault's publish-gate closing sets — they measure research-vault's code, not the vault's claims. Adoption order: crap4py → mutate4py (targeted) → drywall. Risk to price in: v0.1.x single-maintainer tools; pin versions, treat as removable.
 
 ## Baseline-then-differential plan (author-ruled 2026-08-20)
 

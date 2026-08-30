@@ -1,6 +1,6 @@
 ---
 name: project-flow
-description: Use when a person starts a new knowledge-harness research project, resumes an existing one, or asks to frame a research question
+description: Use when a person starts a new research-vault research project, resumes an existing one, or asks to frame a research question
 disable-model-invocation: true
 ---
 
@@ -19,7 +19,7 @@ Before framing anything or touching a draft, orient — whether this is a brand-
 ### Drain the review inbox
 
 ```sh
-python3 -m knowledge_harness inbox --vault PATH
+python3 -m research_vault inbox --vault PATH
 ```
 
 Report the unacknowledged count and the oldest entry's date, oldest first — the Whittaker inbox-rot guard: a warn queue nobody drains is a silent failure. `inbox`'s summary reports `oldest_age_days` directly — whole days since the oldest entry, 0 for one filed today, `None` only when nothing is unacknowledged — so read that figure rather than computing the entry's age from its date yourself. When the oldest entry is old, lead with it: name it first in your summary and say plainly that it has been sitting, rather than folding it into a routine count — an aging queue earns more prominence the longer it goes untouched. This is display only; nothing here blocks on age, and the inbox stays warn-tier regardless of how old an entry gets.
@@ -31,7 +31,7 @@ Every finding in that queue is another check's non-MATCHED result — UNMATCHED,
 For every citekey the project's files cite, look up its tier:
 
 ```sh
-python3 -m knowledge_harness trust-tier CITEKEY --vault PATH
+python3 -m research_vault trust-tier CITEKEY --vault PATH
 ```
 
 Report each cited note next to its tier — `unverified`, `machine-confirmed`, or `human-reviewed` (cumulative: human-reviewed implies machine-confirmed). This is a read-only report; it writes nothing. `unverified` is the normal starting tier, not a verdict of failure — it just means `verify-citations` has not yet run, or has not yet matched, for that note. This skill never claims a check ran that it did not; it only reads what the CLI already computed.
@@ -80,7 +80,7 @@ Route the user's intent without silently broadening it. Hand the routed skill th
 Any finding drained from the review inbox is acknowledged only through the `ack` verb, with the person's own consent and reason text:
 
 ```sh
-python3 -m knowledge_harness ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"
+python3 -m research_vault ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"
 ```
 
 Compose and explain the finding; the person consents; the CLI writes — every mechanical act in this skill (events, statuses, tags, holds, acknowledgments) is a CLI verb call.

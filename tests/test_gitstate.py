@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from knowledge_harness import gitstate
+from research_vault import gitstate
 
 
 def test_revision_paths_and_blob_bytes_preserve_an_arbitrary_revision(tmp_vault):
@@ -665,9 +665,9 @@ def test_apply_outputs_sweeps_scratch_files_stranded_by_a_killed_run(tmp_vault):
     dead_pid = 999999
     while gitstate._owner_is_live(dead_pid):
         dead_pid += 1
-    stranded = tmp_vault / "synthesis" / f".harness-projection-{dead_pid}-0"
+    stranded = tmp_vault / "synthesis" / f".research-vault-projection-{dead_pid}-0"
     stranded.write_bytes(b"half-written\n")
-    live = tmp_vault / "synthesis" / f".harness-projection-{os.getpid()}-0"
+    live = tmp_vault / "synthesis" / f".research-vault-projection-{os.getpid()}-0"
     live.write_bytes(b"mine\n")
 
     before = gitstate.snapshot_worktree(tmp_vault)

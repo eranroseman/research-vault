@@ -70,7 +70,7 @@ touching it:
 ### Trap 3 — the template variant
 
 `tests/test_templates.py:100` pins, byte-for-byte, whole-file, the vault template
-`knowledge_harness/templates/vault/AGENTS.md`, which contains "evidence notes exist
+`research_vault/templates/vault/AGENTS.md`, which contains "evidence notes exist
 only by projection, never by hand." **Ruling: OUT**, left untouched. The brief scopes
 this task to "the SKILL.md files the greps hit"; this is a shipped vault template, not
 a SKILL.md, and is pinned as an exact byte-for-byte whole-file comparison (a larger,

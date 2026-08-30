@@ -93,7 +93,7 @@ on them even pre-move). No prose in `tests/test_skill_contracts.py` overstates
 the sweep's corpus as a result of this change; nothing there needed correction.
 
 **Finding-invocation scan**: brief's own pre-check reproduced —
-`grep -n "python3 -m knowledge_harness finding "` over the isolated §7–9
+`grep -n "python3 -m research_vault finding "` over the isolated §7–9
 substring returns nothing (exit 1). Confirmed independently.
 
 ## Byte-preservation check and method

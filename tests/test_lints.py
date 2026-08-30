@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from knowledge_harness import Result, frontmatter, gitstate, lints, notes
+from research_vault import Result, frontmatter, gitstate, lints, notes
 
 
 def test_all_clean_on_fixture(fixture_vault):
@@ -828,7 +828,7 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
         return text.replace(digest, "c" * 64, 1)
     if key == "generated":
         return text.replace(
-            'generated: {by: "knowledge_harness/0.1.0"',
+            'generated: {by: "research_vault/0.1.0"',
             'generated: {by: "human:hand-edit"',
             1,
         )
@@ -842,7 +842,7 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
     ["archive-url", "managed-sha256", "fixity-sha256", "generated", "citekey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
-    """Machine-owned frontmatter sits outside %%hk-managed%%, so a hand-edit
+    """Machine-owned frontmatter sits outside %%rv-managed%%, so a hand-edit
     to it — with the managed slice untouched and no writer attestation (a
     `generated` bump by the machine actor in the same diff) — must surface as
     drift, the same as a managed-region change would.
@@ -903,8 +903,8 @@ def test_screening_status_hand_edit_is_not_evidence_layer_drift(fixture_vault):
 @pytest.mark.parametrize(
     "malformed_generated",
     [
-        'generated: {by: "knowledge_harness/0.1.0", at: "banana"}',
-        'generated: {by: "knowledge_harness/0.1.0"}',
+        'generated: {by: "research_vault/0.1.0", at: "banana"}',
+        'generated: {by: "research_vault/0.1.0"}',
     ],
     ids=["invalid-at", "missing-at"],
 )
@@ -927,7 +927,7 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
         'citekey: "smith2020"', 'citekey: "smith2020x"', 1
     )
     edited = edited.replace(
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}',
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
         malformed_generated,
         1,
     )
@@ -952,7 +952,7 @@ def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vau
     source = fixture_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
-            'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}',
+            'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
             'generated: "junk-one"',
             1,
         )
@@ -996,8 +996,8 @@ def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_va
     source = fixture_vault / "literatures" / "smith2020.md"
     original = source.read_text()
     malformed = original.replace(
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "  bad: nested\n---\n",
         1,
     )
@@ -1043,8 +1043,8 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
     source = fixture_vault / "literatures" / "smith2020.md"
     original = source.read_text()
     malformed = original.replace(
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "  bad: nested\n---\n",
         1,
     )

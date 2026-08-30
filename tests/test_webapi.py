@@ -5,7 +5,7 @@ import urllib.parse
 
 import pytest
 
-from knowledge_harness import Result, webapi
+from research_vault import Result, webapi
 
 
 class FakeResponse(io.BytesIO):
@@ -31,7 +31,7 @@ class UnreadableHtmlResponse:
 
 
 def test_mailto_requires_a_machine_or_environment_value(fixture_vault, monkeypatch):
-    monkeypatch.delenv("HARNESS_MAILTO", raising=False)
+    monkeypatch.delenv("RV_MAILTO", raising=False)
 
     with pytest.raises(webapi.ApiError):
         webapi.mailto(fixture_vault)
@@ -80,7 +80,7 @@ def test_get_json_merges_query_and_fragment_with_one_canonical_mailto(
         key == "mailto" and value != "eran@example.edu" for key, value in query
     )
     assert seen["timeout"] == 10.0
-    assert seen["ua"] == "knowledge_harness/0.1.0 (mailto:eran@example.edu)"
+    assert seen["ua"] == "research_vault/0.1.0 (mailto:eran@example.edu)"
     assert seen["accept"] == "application/json"
 
 
@@ -237,8 +237,8 @@ def test_network_outage_is_unreachable(net_vault, monkeypatch):
 
 
 def test_malformed_machine_config_is_an_api_error(fixture_vault, monkeypatch):
-    monkeypatch.delenv("HARNESS_MAILTO", raising=False)
-    config_dir = fixture_vault / ".harness"
+    monkeypatch.delenv("RV_MAILTO", raising=False)
+    config_dir = fixture_vault / ".research-vault"
     config_dir.mkdir(exist_ok=True)
     (config_dir / "machine.json").write_text("[]")
 

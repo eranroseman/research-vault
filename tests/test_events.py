@@ -1,16 +1,16 @@
 import pytest
 
-from knowledge_harness import Result, events, frontmatter
+from research_vault import Result, events, frontmatter
 
 BASE = """---
 citekey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
 ---
-%%hk-managed%%
+%%rv-managed%%
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
-%%/hk-managed%%
+%%/rv-managed%%
 
 ## Notes
 Free-region content remains untouched.
@@ -21,18 +21,18 @@ citekey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
-%%hk-managed%%
-%%/hk-managed%%
+%%rv-managed%%
+%%/rv-managed%%
 """
 
 NO_ID_QUOTE = """---
 citekey: "noid2020"
 type: "literature"
 ---
-%%hk-managed%%
+%%rv-managed%%
 - (quote) [@noid2020, p. 1] ^c-11111111
   > A quoted sentence.
-%%/hk-managed%%
+%%/rv-managed%%
 """
 
 
@@ -45,17 +45,17 @@ def test_record_pass_appends_event_and_preserves_note_contents():
     assert data["doi"] == "10.1000/xyz"
     assert (
         body
-        == """%%hk-managed%%
+        == """%%rv-managed%%
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
-%%/hk-managed%%
+%%/rv-managed%%
 
 ## Notes
 Free-region content remains untouched.
 """
     )
     assert events.verified_checks(out) == [
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"}
+        {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"}
     ]
 
 
@@ -67,7 +67,7 @@ def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
 
 
 def test_record_pass_lexically_changes_only_verified_events_with_crlf():
-    from knowledge_harness import notes
+    from research_vault import notes
 
     text = (
         "---\r\n"
@@ -91,7 +91,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
 )
 def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_line):
-    from knowledge_harness import notes
+    from research_vault import notes
 
     existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
     body = f"- (quote) body ^c-11111111{newline}"
@@ -99,7 +99,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
 
     out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
 
-    event = '  - {by: "knowledge_harness/0.1.0", at: "2026-08-17", check: "doi"}'
+    event = '  - {by: "research_vault/0.1.0", at: "2026-08-17", check: "doi"}'
     assert out == (
         f"---{newline}{existing_fields}verified:{newline}{event}{newline}"
         f"{newline}---{newline}{body}"
@@ -108,7 +108,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
     assert data.get("status") == ("included" if frontmatter_line else None)
     assert parsed_body == body
     assert events.verified_checks(out) == [
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-17", "check": "doi"}
+        {"by": "research_vault/0.1.0", "at": "2026-08-17", "check": "doi"}
     ]
     assert notes.canonical_content(out) == notes.canonical_content(text)
     if newline == "\r\n":
@@ -118,7 +118,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
-    from knowledge_harness import notes
+    from research_vault import notes
 
     body = f"- (quote) body-only ^c-11111111{newline}"
     first = events.record_pass(body, "doi", Result.MATCHED, at="2026-08-16")
@@ -134,9 +134,9 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     assert notes.canonical_content(first) == notes.canonical_content(body)
     assert notes.canonical_content(second) == notes.canonical_content(body)
     assert events.verified_checks(second) == [
-        {"by": "knowledge_harness/0.1.0", "at": "2026-08-16", "check": "doi"},
+        {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"},
         {
-            "by": "knowledge_harness/0.1.0",
+            "by": "research_vault/0.1.0",
             "at": "2026-08-17",
             "check": "metadata",
         },
@@ -244,10 +244,10 @@ def test_pmid_only_requires_update_notice_coverage():
 
 def test_each_managed_quote_requires_its_own_address():
     text = BASE.replace(
-        "%%/hk-managed%%",
+        "%%/rv-managed%%",
         "- (quote) [@smith2020, p. 13] ^c-22222222\n"
         "  > The decline was sustained.\n"
-        "%%/hk-managed%%",
+        "%%/rv-managed%%",
     )
     for check in ("doi", "metadata", "update-notice"):
         text = events.record_pass(text, check, Result.MATCHED, at="2026-08-16")

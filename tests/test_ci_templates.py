@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ASSETS = Path(__file__).resolve().parents[1] / "knowledge_harness" / "templates" / "ci"
+ASSETS = Path(__file__).resolve().parents[1] / "research_vault" / "templates" / "ci"
 
 
 def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authority():
@@ -13,7 +13,7 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
     assert 'git cat-file -e "$base^{tree}"' in text
     assert "BASE: ${{ steps.base.outputs.sha }}" in text
     assert (
-        "python -m knowledge_harness verify --vault . --offline --surface commit "
+        "python -m research_vault verify --vault . --offline --surface commit "
         '--git-base "$BASE" --git-candidate HEAD'
     ) in text
     assert '--git-base "${{' not in text
@@ -28,14 +28,14 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
 def test_rw_ci_delegates_exact_snapshot_commit_to_verifier_and_accepts_only_zero():
     text = (ASSETS / "rw-batch.yml").read_text()
     command = (
-        "python -m knowledge_harness verify --vault . --offline --surface audit "
+        "python -m research_vault verify --vault . --offline --surface audit "
         '--git-candidate worktree --rw-csv "$RUNNER_TEMP/rw.csv" '
-        '--changed-paths-file "$RUNNER_TEMP/harness-changed-paths" '
+        '--changed-paths-file "$RUNNER_TEMP/research-vault-changed-paths" '
         '--commit-projected "chore: rw-batch findings"'
     )
     assert "permissions:\n  contents: write" in text
     assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
-    assert 'git config user.name "harness-ci"' in text
+    assert 'git config user.name "research-vault-ci"' in text
     assert 'git config user.email "actions@users.noreply.github.com"' in text
     assert "curl --fail --show-error --location" in text
     assert command in text

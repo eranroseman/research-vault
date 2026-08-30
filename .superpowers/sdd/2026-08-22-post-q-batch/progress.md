@@ -12,13 +12,13 @@ branch touches §5/§6 of that file at Tasks 16/21 — different paragraphs, cle
 3-way merge expected at Task 21.
 Human-presence needs flagged up front: Task 13 Step 1 (consent for the
 ~/kh-vault commit), Task 21 Step 3 (live suite — Zotero running, real
-HARNESS_MAILTO).
+RV_MAILTO).
 
 Task 1: implementer DONE (commit 8dbf87f, suite 1548 passed / 7 skipped = baseline).
 Task 1: review dispatched (3-lens workflow + adversarial verify) over 002cb25..8dbf87f.
 
 Plan amendment (author, 2026-08-23): Part 3 / Task 22 — rename
-`skipped_digest` -> `skipped_sha256` in knowledge_harness/factcheck.py, its
+`skipped_digest` -> `skipped_sha256` in research_vault/factcheck.py, its
 tests, skills/factcheck-draft/SKILL.md, and the regenerated sidecar manifest.
 Ruling + six steps drafted at
 .superpowers/sdd/2026-08-22-post-q-batch/task-22-amendment.md; it is appended
@@ -46,7 +46,7 @@ Task 1: review clean — spec compliant, quality Approved, 0 Critical/Important.
   Cannot-verify #1 resolved by controller: re-ran the offline suite at 8dbf87f
     — 1548 passed, 7 skipped (= baseline); tests/test_project_flow_skill.py 10 passed.
   Cannot-verify #2 resolved from plan text: Task 21 Step 3 already mandates the
-    live run (HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO, Zotero running).
+    live run (RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO, Zotero running).
     No plan edit owed; the wave-level obligation stands and is already scheduled.
 Task 1: minor (deferred): test functions in tests/test_project_flow_skill.py keep
   the test_project_ prefix (10 defs from line 23) while file, directory and
@@ -186,7 +186,7 @@ any task 1-22.
   vault-facing. Section heading is `## Summary`. Glossary entry deliberately
   does NOT land now; draft held at docs/2026-08-23-proposed-adrs.md §7(e).
   ONE operational consequence for THIS run: Task 9 modifies
-  `knowledge_harness/inbox.py`'s `summary()`. The ruling classes `inbox.summary()`
+  `research_vault/inbox.py`'s `summary()`. The ruling classes `inbox.summary()`
   and `okf.py:1` as dev-facing (T7), never reaching vault prose — "rename or
   leave, implementer's discretion, not a blocker". Task 9's dispatch AND its
   review constraints must both carry this, so neither the implementer renames it
@@ -416,7 +416,7 @@ Task 4: implementer DONE (commit 800c492; skills/find-sources/SKILL.md +
 Task 4: review dispatched over 2150da9..800c492.
 
 TASK 24b added (author, 2026-08-23; origin/main 62d8360) — comment-hygiene sweep
-over knowledge_harness/*.py, scripts/*.py, tests/*.py. Comments and docstrings
+over research_vault/*.py, scripts/*.py, tests/*.py. Comments and docstrings
 only, zero behavior changes. Detect by grepping for `2026-`, `ruled`,
 `Plan [A-Z]\b`, `Task [0-9]`, `previously`, `postmortem`, `superseded`,
 `renamed from`; judge each hit against the doctrine that a comment states a
@@ -557,7 +557,7 @@ Task 5: review clean — spec COMPLIANT, quality APPROVED, 0 Critical/Important.
   Cannot-verify #3 (the probe) REPRODUCED by controller rather than accepted —
     the implementer has a known slip pattern on restated-vs-derived facts, and
     the probe's conclusion is what justifies dropping the inventory. Added
-    knowledge_harness/templates/vault/system/templates/zz-probe-scratch.md, ran
+    research_vault/templates/vault/system/templates/zz-probe-scratch.md, ran
     the full suite: EXACTLY 5 failures — test_scaffold.py x4
     (creates_the_complete_okf_vault, commits_only_its_created_paths,
     cli_prints_the_created_paths, cli_requires_literal_rw_consent) and
@@ -860,16 +860,16 @@ Task 8: review dispatched over a2a5aad..c0d0854.
 
 Task 9 PRE-CHECK (controller, done while Task 8's review ran; read-only). The
 plan says filter SKIPPED out of the COUNTING path. Located every surface:
-  - knowledge_harness/inbox.py:701 `open_entries()` — builds the open list.
-  - knowledge_harness/inbox.py:711 `summary()` — calls open_entries and returns
+  - research_vault/inbox.py:701 `open_entries()` — builds the open list.
+  - research_vault/inbox.py:711 `summary()` — calls open_entries and returns
     {"unacknowledged": len(entries), "oldest": min(dates)}. BOTH keys need the
     filter; the plan's "oldest-age basis" is the `oldest` key here.
-  - knowledge_harness/scaffold.py:293 `_inbox_probe()` — calls inbox.summary()
+  - research_vault/scaffold.py:293 `_inbox_probe()` — calls inbox.summary()
     and reads both keys, so it INHERITS the fix for free. No separate edit.
-  - knowledge_harness/__main__.py:761 prints inbox.summary() (fixed by the same
+  - research_vault/__main__.py:761 prints inbox.summary() (fixed by the same
     change); :763 uses open_entries() for the LISTING, which must keep showing
     SKIPPED entries — they stay RECORDED and visible per the plan.
-  HAZARD, the reason this pre-check was worth doing: knowledge_harness/verify.py:850
+  HAZARD, the reason this pre-check was worth doing: research_vault/verify.py:850
   also calls `open_entries()`, but NOT to count — `_file_effects` builds an
   `open_keys` set over (check, target, target_kind, result, ...) for DEDUP and
   SUPPRESSION. If the SKIPPED filter is pushed down into `open_entries()` instead
@@ -998,7 +998,7 @@ Task 9: BASE = e76805c. Implementer dispatched (sonnet). TDD task. The dispatch
   will be told the same so a non-rename is not flagged as a gap.
   Also required: DEMONSTRATE the hazard did not land (show verify's dedup still
   sees SKIPPED), not merely assert it.
-Task 9: implementer DONE (commit acd38b5; knowledge_harness/inbox.py,
+Task 9: implementer DONE (commit acd38b5; research_vault/inbox.py,
   tests/test_inbox.py, tests/test_verify_cli.py — 3 files, +70/-2). Suite 1572/7
   (baseline 1570 + 2 new tests); form gate 8/8; tree clean.
   RED confirmed for the RIGHT REASON: unacknowledged 1 -> expected 0, and oldest
@@ -1027,8 +1027,8 @@ Task 9: implementer DONE (commit acd38b5; knowledge_harness/inbox.py,
 Task 9: review dispatched over e76805c..acd38b5.
 
 Task 10 PRE-CHECK (controller, read-only, done while Task 9's review ran).
-  Surfaces located: knowledge_harness/checks.py:131 `check_citekeys` (the plan's
-  ~131 is exact, no drift); knowledge_harness/inbox.py:25 `REASON_CODES`.
+  Surfaces located: research_vault/checks.py:131 `check_citekeys` (the plan's
+  ~131 is exact, no drift); research_vault/inbox.py:25 `REASON_CODES`.
   THE DIALECT-SURFACE RULE IS NOW MECHANICALLY ENFORCED — and by an instrument
   THIS PLAN built two tasks ago. Adding `not-imported` to REASON_CODES alone
   turns the suite RED in two independent places:
@@ -1117,12 +1117,12 @@ Task 2 already passed, so this is its own commit:
   we do not merge mid-plan) to
   .superpowers/sdd/2026-08-22-post-q-batch/task-2b-brief.md.
   CONTROLLER PRE-CHECK, all read-only:
-  - knowledge_harness/templates/vault/index.md is 12 lines; the folder links are
+  - research_vault/templates/vault/index.md is 12 lines; the folder links are
     lines 7-12, so the embeds go under them.
   - The whole-file pin is tests/test_templates.py:79
     (`assert asset("vault/index.md").read_text() == (...)`) — a byte-equality
     pin, so it must move in the same commit or the suite goes red.
-  - Both Base files exist at knowledge_harness/templates/vault/system/bases/.
+  - Both Base files exist at research_vault/templates/vault/system/bases/.
     trust-tier.base: a table view named "Trust tier", filtered to
     `type == "literature"`. open-questions.base: a table view named "Open
     questions", filtered to `type == "synthesis"` with a formula
@@ -1167,7 +1167,7 @@ Task 10: minor (deferred): tests/test_checks.py:81 — the scope bound (a
   correct today, so this is test durability, not a missed requirement — but it is
   the exact boundary I flagged as highest-risk, so it is worth triaging up at the
   final review.
-Task 10: minor (deferred): knowledge_harness/checks.py:159 — the
+Task 10: minor (deferred): research_vault/checks.py:159 — the
   `vault/"literatures"/f"{citekey}.md"` layout convention is now inlined a FOURTH
   time (notes.py:129, lints.py:491, factcheck.py:73 and :90, checks.py:159) with
   no single owner. Design preference, not a defect.
@@ -1187,7 +1187,7 @@ Recorded as a carried INPUT to Task 21, and surfaced to the author, since it is 
 small scope addition to a task the plan already scoped.
 
 CONTROLLER RULING B — mutation sidecar refresh is a BASELINE act, not a task act.
-Task commits do NOT regenerate knowledge_harness/*.py.manifest.json. Grounds,
+Task commits do NOT regenerate research_vault/*.py.manifest.json. Grounds,
 all checked rather than assumed: nothing reads `source_sha256`; no hook and no CI
 step checks sidecar freshness; `__main__.py.manifest.json` was ALREADY STALE at
 this branch's BASE, so "do not refresh per task" is the repo's existing practice
@@ -1284,7 +1284,7 @@ PROSE-VS-MECHANISM AUDIT ROUTED IN (author, 2026-08-24; origin/main 1b25fad,
     inbox/review-queue.md, system/bibliography.json — formatters obey config,
     not paragraphs. The AGENTS.md formatter paragraph (which says of ITSELF "it
     is not what enforces them") shrinks to one line naming the ignore files.
-    Step 2 scopes the "prefer the knowledge-harness skills" line to the TWO
+    Step 2 scopes the "prefer the research-vault skills" line to the TWO
     model-invocable guards (evidence-conventions, synthesis-conventions).
     HARD CONSTRAINT: do NOT flip any disable-model-invocation flag — the
     seven-skill human gating is deliberate design, not an oversight.
@@ -1292,7 +1292,7 @@ PROSE-VS-MECHANISM AUDIT ROUTED IN (author, 2026-08-24; origin/main 1b25fad,
     Whittaker threshold. Rationale: the skill asks the agent to do date math
     against a clock it does not reliably have.
   TASK 17b (Part 2, after Task 17): the audit's biggest catch — literature
-    frontmatter sits OUTSIDE %%hk-managed%%, so lint_evidence_layer's
+    frontmatter sits OUTSIDE %%rv-managed%%, so lint_evidence_layer's
     managed-slice diff never sees it, and "sole writer of archive-url" is
     enforced by NOTHING at commit. Extend the closing lint to diff the
     machine-owned key set (archive-url, managed-sha256, fixity-sha256,
@@ -1348,7 +1348,7 @@ Part 2 — 14, 15, 16, 17, 17b, 18, 19, 20, 21; then Task 22 (before 21 per its
 ordering note, or anywhere — it is independent). Part 4 (23, 24, 24b, 24c, 25)
 runs on main AFTER the merge and is NOT this branch's work.
   FILE-COLLISION NOTE for sequencing: 2c and 2d BOTH edit
-  knowledge_harness/templates/vault/AGENTS.md, so they are strictly serial with
+  research_vault/templates/vault/AGENTS.md, so they are strictly serial with
   each other; 2b (landed) and 2c both touch tests/test_templates.py. The Task 9
   addendum touches inbox.py + tests/test_inbox.py and collides with neither.
 Task 2b: review — spec COMPLIANT, quality APPROVED, 0 Critical/Important.
@@ -1395,10 +1395,10 @@ Task 2b: CONTROLLER ACTION on the render cannot-verify — fix round dispatched,
 Task 2d PRE-CHECK (controller, read-only) — A DOTFILE PACKAGING TRAP:
   Task 2d ships three NEW scaffold files (.prettierignore, .markdownlintignore,
   .editorconfig). The repo ALREADY has a workaround for exactly this class:
-  knowledge_harness/templates/vault/ ships `gitignore` WITHOUT the leading dot,
+  research_vault/templates/vault/ ships `gitignore` WITHOUT the leading dot,
   and scaffold.py:67 renames it on write —
   `yield ".gitignore" if relative == "gitignore" else relative, source`.
-  Package data is `knowledge_harness = ["templates/**/*"]` (pyproject.toml:64).
+  Package data is `research_vault = ["templates/**/*"]` (pyproject.toml:64).
   So the established pattern is: ship the dotless name as the template asset, map
   it to the dotted name in scaffold.py's rename logic. Task 2d must follow it for
   all three files, or they may silently fail to package.
@@ -1439,7 +1439,7 @@ USEFUL FACT ESTABLISHED, worth carrying for the rest of the plan: mdformat's
 pre-commit hook uses a HARDCODED arg list — `mdformat --number --wrap keep
 README.md AGENTS.md CONTEXT.md docs skills` with `pass_filenames: false`
 (.pre-commit-config.yaml:57). So it structurally CANNOT reach
-knowledge_harness/templates/ or tests/, regardless of what is staged. Verified
+research_vault/templates/ or tests/, regardless of what is staged. Verified
 empirically too (md5 identical before and after running the hook against the
 template). Consequences: template edits are never reformatted, so byte-equality
 pins on templates are stable; and the repo-root AGENTS.md IS owned by mdformat
@@ -1465,7 +1465,7 @@ Task 2c: implementer DONE_WITH_CONCERNS (commit 514d12b; template +
 Task 2c: CONCERN 2 ESCALATED AND RULED — the important one. The shipped preamble
   carried the author's drafted clause verbatim: "hand edits are warned in session
   and caught at commit". CONTROLLER VERIFIED against the code before escalating:
-  knowledge_harness/verify.py:55 CLOSING_BY_SURFACE["commit"] is
+  research_vault/verify.py:55 CLOSING_BY_SURFACE["commit"] is
   {"citekey", "evidence-layer"}, so only `literatures/` closes at commit; `log/`
   and `inbox/review-queue.md` raise NON-GATING findings with no session warning.
   The clause was FALSE for two of the three surfaces it named — a false
@@ -1483,7 +1483,7 @@ Task 2c: CONCERN 2 ESCALATED AND RULED — the important one. The shipped preamb
 Task 2c: fix round 1/5 dispatched with the decided wording.
 Task 2c: deferred finding for the final review (implementer's concern 1, out of
   scope and correctly left alone): the template's OWN line 24 machine-surfaces
-  list omits root `log.md`, which knowledge_harness/okf.py shows is genuinely
+  list omits root `log.md`, which research_vault/okf.py shows is genuinely
   machine-written. A defect in a line this task does not scope.
 
 ### FOR THE BATCH'S LANDING REPORT (author asked this be logged where earned)
@@ -1506,7 +1506,7 @@ planner, not the implementers:
   system's own evidence that it is a doctrine and not a review posture.
 Task 2c: fix round 1 landed — 514d12b AMENDED into a5668d6 (still branch tip,
   nothing on top, so the amend is clean). The ruled clause shipped verbatim:
-  "This is a knowledge-harness vault. `literatures/`, `log/`, and
+  "This is a research-vault vault. `literatures/`, `log/`, and
   `inbox/review-queue.md` are machine-written — the CLI writes them; hand edits
   leave a trace." Suite 1575/7 baseline-equal; form gate 8/8.
   Controller verified the diff is PURELY ADDITIVE — 2 files, 5 insertions, ZERO
@@ -1681,7 +1681,7 @@ Task 2c: review returned — spec ISSUES, quality NEEDS FIXES. Review file:
   Cannot-verify closed by controller at a5668d6: form gate 8/8, tree clean.
   RULING 1 (author, 2026-08-24) — DROP THE MECHANISM CLAIM, STATE THE BOUNDARY.
   Assert no mechanism, so nothing can be falsified. Decided sentence, now naming
-  FOUR surfaces: "This is a knowledge-harness vault. `literatures/`, `log/`,
+  FOUR surfaces: "This is a research-vault vault. `literatures/`, `log/`,
   `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them;
   don't edit them by hand." Adding root log.md also resolves the Minor the
   implementer raised twice. Fix round 2 dispatched.
@@ -1710,7 +1710,7 @@ Task 2c: review returned — spec ISSUES, quality NEEDS FIXES. Review file:
   on origin/main every time. Flagged and awaiting either an amendment or an
   instruction to draft one.
 Task 2c: fix round 2 landed — a5668d6 AMENDED into c8cac73 (still branch tip).
-  Shipped sentence: "This is a knowledge-harness vault. `literatures/`, `log/`,
+  Shipped sentence: "This is a research-vault vault. `literatures/`, `log/`,
   `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes
   them; don't edit them by hand." Four surfaces, no mechanism asserted. Pin gained
   a constraint comment so a future editor cannot silently reintroduce a false
@@ -1784,7 +1784,7 @@ SCOPE — Part 4 runs on main after Task 21's merge.
   not landed.
   Step 3 scope note worth carrying: the Actions bump covers
   .github/workflows/quality.yml AND BOTH vault CI templates
-  (knowledge_harness/templates/ci/{verify,rw-batch}.yml), because those render
+  (research_vault/templates/ci/{verify,rw-batch}.yml), because those render
   into every user vault at scaffold — stale actions there ship to USERS, not just
   to this repo. Template pins move in the same commit.
   EXPLICITLY OUT OF SCOPE, decided: CI stays on Python 3.12 (everything is
@@ -1792,7 +1792,7 @@ SCOPE — Part 4 runs on main after Task 21's merge.
   --upgrade rides this task — pins only.
   CONTROLLER CHECK DONE: the harness-core dist-info ghost the author fixed
   outside the plan is NOT present in this worktree's venv. `pip list` shows only
-  `knowledge-harness 0.1.0` (editable, pointing at this worktree) and no
+  `research-vault 0.1.0` (editable, pointing at this worktree) and no
   harness_core* dist-info exists under site-packages. No uninstall needed here,
   so every suite result recorded in this ledger was produced against a clean venv.
   No collision with in-flight work: Task 2d touches templates/vault/, Task 24d
@@ -1935,7 +1935,7 @@ IN SCOPE — Part 1. Five steps; three carry decisions rather than mechanics.
   list's implicit "we gate everything" becomes "we gate everything except the
   vendored fork, because touching it would drift the fork".
   STEP 2 IS A RENDER-CONTRACT EVENT, not a path-list edit. Adding
-  knowledge_harness/templates/vault to mdformat canonicalizes 11 template files,
+  research_vault/templates/vault to mdformat canonicalizes 11 template files,
   FIVE of which change — and those ship VERBATIM into user vaults. Requirements:
   its OWN COMMIT; template pins in the same commit; and the commit body must
   state the downstream truth — existing vaults see MANAGED-REGION DIFFS on next
@@ -2032,7 +2032,7 @@ IN SCOPE — Part 1. Five steps; three carry decisions rather than mechanics.
   observed" failure the plan has caught four times elsewhere.
 
 TASK 2e STEP 2 PRE-CHECK — A DESTRUCTIVE DEFECT CAUGHT BEFORE DISPATCH.
-  Step 2 reads "add knowledge_harness/templates/vault to mdformat's paths and
+  Step 2 reads "add research_vault/templates/vault to mdformat's paths and
   canonicalize the 11 template files — five change". I dry-ran the change against
   every file rather than trusting that description. FIVE change, as the plan
   says, but they are not alike:
@@ -2049,7 +2049,7 @@ TASK 2e STEP 2 PRE-CHECK — A DESTRUCTIVE DEFECT CAUGHT BEFORE DISPATCH.
   RULING (author, 2026-08-24) — THE CRITERION IS DIALECT OWNERSHIP, NOT A
   FILENAME LIST, and it comes from the one-form-owner matrix this lane was built
   on. Vault-dialect markdown belongs to its SOLE WRITER, not to mdformat, whose
-  jurisdiction is CommonMark. Wikilinks are one dialect marker; %%hk-managed%%
+  jurisdiction is CommonMark. Wikilinks are one dialect marker; %%rv-managed%%
   comments and Base embeds are others. index.md is excluded NOT because of its
   name but because it is a vault-dialect file that a CommonMark formatter by
   definition corrupts — "that's not an exception to the rule, it's a different
@@ -2066,7 +2066,7 @@ TASK 2e STEP 2 PRE-CHECK — A DESTRUCTIVE DEFECT CAUGHT BEFORE DISPATCH.
   dialect-adjacent because it carries %% markers. I checked — THREE of the four
   canonicalized files do: literature.md, system/glossary.md AND AGENTS.md.
   Verified empirically that mdformat leaves the markers intact today
-  (literature.md's `%%hk-managed%%` / `%%/hk-managed%%` survive the probe
+  (literature.md's `%%rv-managed%%` / `%%/rv-managed%%` survive the probe
   unchanged), so canonicalizing all four is safe now. But the mdformat
   upgrade-protocol comment Step 4 already adds must name ALL THREE, not just
   literature.md — an upgrade that starts touching `%%` sequences is exactly the
@@ -2105,7 +2105,7 @@ TASK 2e STEP 2 PRE-CHECK — A DESTRUCTIVE DEFECT CAUGHT BEFORE DISPATCH.
   It landed on implementers six times, on the planner four, on infrastructure
   twice, and on the controller once. No level was exempt, and the same one-line
   fix answered all of them.
-  AUTHOR'S CLOSING FRAME (2026-08-24), the thesis in final form: the harness
+  AUTHOR'S CLOSING FRAME (2026-08-24), the thesis in final form: research-vault
   exists because knowledge work fabricates in exactly this way — describing
   sources from memory instead of deriving claims from the artifact — and the
   process building it committed the same error thirteen times at four levels
@@ -3038,7 +3038,7 @@ Task 16: review returned — spec ISSUES, quality NEEDS FIXES. Review file:
       MUTANT PASSES THE ENTIRE SUITE. The reviewer reproduced it and ran the
       mutated copy against test_events/test_trust_tier_cli/test_notes/test_quotes
       — 124 passed.
-      I VERIFIED THE AGGRAVATING FACT MYSELF: knowledge_harness/events.py is in
+      I VERIFIED THE AGGRAVATING FACT MYSELF: research_vault/events.py is in
       mutation-exclusions.txt (line 37), so THE MUTATION GATE CANNOT CATCH THIS
       EITHER. A hand-written test is the only thing that can.
       This is the exclusion list's real cost made concrete: a module nothing
@@ -3373,8 +3373,8 @@ Task 17b: BASE = a2d7942. Implementer dispatched (sonnet — multi-file, and the
   (1) VERSION-DEPENDENT ACTOR — THE BIG ONE. The brief's rule is "`generated`
       changed with `by` = THE MACHINE ACTOR". Implemented literally as
       `by == AGENT_ACTOR`, that is a time bomb: AGENT_ACTOR is
-      `f"knowledge_harness/{__version__}"` (__init__.py:8, today
-      knowledge_harness/0.1.0), so THE FIRST VERSION BUMP FLAGS EVERY NOTE
+      `f"research_vault/{__version__}"` (__init__.py:8, today
+      research_vault/0.1.0), so THE FIRST VERSION BUMP FLAGS EVERY NOTE
       LEGITIMATELY ATTESTED BY THE PREVIOUS VERSION AS DRIFT — a false-drift
       storm across a whole vault, caused by an upgrade rather than by any edit.
       Resolved to a machine-actor CLASS test, and resolved from the tree's own
@@ -3413,12 +3413,12 @@ Task 17b: BASE = a2d7942. Implementer dispatched (sonnet — multi-file, and the
 Task 17b: implementer DONE (commit f3f5a7f; 5 files, +313/-3). Suite 1577/7
   (= 1569 + 8 new); ruff and mypy clean; form gate exit 0.
   THE VERSION-BUMP TIME BOMB WAS AVOIDED: lints.py ships
-  `_MACHINE_ACTOR_PREFIX = "knowledge_harness/"` with a startswith test, not
+  `_MACHINE_ACTOR_PREFIX = "research_vault/"` with a startswith test, not
   `== AGENT_ACTOR`. That was the pre-check's central hand-over and it landed.
   CONTROLLER-VERIFIED BEFORE DISPATCHING THE REVIEW, because two of these are
   claims this run has been burned on before:
    - THE CITATION IS REAL. lints.py's new comment cites "docs/terminology.md's
-     actor convention: process-written records carry knowledge_harness/<version>".
+     actor convention: process-written records carry research_vault/<version>".
      I checked the document: terminology.md:44 says exactly that, in those words.
      Derived from the source, not from memory — recorded as a positive, since a
      fabricated citation is a defect this plan has already caught once.
@@ -3654,7 +3654,7 @@ SDD workspace: review packages UNTRACKED at cf3b17c (ruled — byte-
   round: THERE IS NO GENERAL URL NORMALIZER IN THIS PACKAGE, established from
   THREE ANGLES rather than one grep, because an absence claim from a single grep
   is unfalsifiable by that same grep:
-   - no `def` in knowledge_harness takes two URLs to compare (enumerated every
+   - no `def` in research_vault takes two URLs to compare (enumerated every
      def whose name carries url/link);
    - EVERY `netloc` use is a single-URL membership or equality test against a
      CONSTANT — archive.py:68, checks.py:713, checks.py:729, webapi.py:64 — never
@@ -3679,7 +3679,7 @@ SDD workspace: review packages UNTRACKED at cf3b17c (ruled — byte-
   Lower exposure (the availability API is queried with params={"url": url}, so it
   answers about that URL), but the asymmetry should be deliberate, not accidental.
 Task 18/final-review: minor (deferred) — MODULE MANIFESTS ARE STALE, 10 OF 25.
-  knowledge_harness/*.manifest.json carry a source_sha256 per module; I compared
+  research_vault/*.manifest.json carry a source_sha256 per module; I compared
   each against the file it names: __main__, archive, checks, events, frontmatter,
   inbox, lints, notes, scaffold and verify are all stale — precisely the modules
   this batch touched. NO PYTHON FILE READS THEM (grep for manifest.json across
@@ -3708,7 +3708,7 @@ Task 17b: fix round 1 re-review — SOME OPEN. Every round-1 item addressed and
      (probed: legit bump + unrelated citekey edit -> n=0), ZERO production reason
      strings changed, ZERO ADRs added.
   A METHOD FINDING WORTH KEEPING: an import-path canary caught an EDITABLE
-  INSTALL resolving `knowledge_harness` to the PARENT repo instead of the scratch
+  INSTALL resolving `research_vault` to the PARENT repo instead of the scratch
   tree. Every scratch probe in this plan has been at risk of silently measuring
   the wrong code; from now on scratch dispatches carry `PYTHONPATH=.` and a canary.
 Task 17b: IMPORTANT (N1) — THIS TASK DISARMED A PRE-EXISTING TEST, and the
@@ -3875,7 +3875,7 @@ Task 17b: fix round 3/5 dispatched — four items, three of them ACCURACY DEFECT
      genuine equivalent mutant, so the implementer was right. Dropping
      `len(items) != 2` alone: 144 divergences, AND THAT MUTANT SURVIVES THE FULL
      SUITE. CONTROLLER VERIFIED THE DECISIVE CASE DIRECTLY: `generated: {by:
-     "human:eran", by: "knowledge_harness/0.1.0", at: <valid>}` PARSES, keeps
+     "human:eran", by: "research_vault/0.1.0", at: <valid>}` PARSES, keeps
      both `by` entries, `.get("by")` LAST-WINS RETURNS THE MACHINE ACTOR, and
      _valid_generated rejects it ONLY via the length check — the keyset check
      passes it. So the clause called redundant SHARES AN `if` WITH THE SOLE
@@ -4177,8 +4177,8 @@ Task 18: fix round 1 re-review — ALL ADDRESSED. Two new Minors, both created b
 ### THE WRONG-TREE IMPORT TRAP CAUGHT ME — the controller, who had put the
 ### warning in four consecutive dispatches
   I ran a probe as `python /tmp/probe.py` from this worktree. That puts /tmp on
-  sys.path[0], NOT the worktree, so `knowledge_harness` resolved to the EDITABLE
-  INSTALL AT THE PARENT REPO — /home/eranr/New folder/knowledge_harness/archive.py
+  sys.path[0], NOT the worktree, so `research_vault` resolved to the EDITABLE
+  INSTALL AT THE PARENT REPO — /home/eranr/New folder/research_vault/archive.py
   — and the probe measured code that does not contain Task 18 at all. PROVEN, not
   surmised: running the same import with cwd=/tmp prints the parent path.
   IT ONLY FAILED LOUDLY BY LUCK. `_comparable_url` does not exist in the parent
@@ -4194,7 +4194,7 @@ Task 18: fix round 1 re-review — ALL ADDRESSED. Two new Minors, both created b
   reason: I put helper scripts in /tmp to avoid polluting a tracked tree. That
   reflex is correct about the tree and wrong about sys.path. Fix: run probes with
   the working directory INSIDE the tree under test and assert
-  knowledge_harness.archive.__file__ before trusting any result. Wrote the probe
+  research_vault.archive.__file__ before trusting any result. Wrote the probe
   into the worktree, ran it, deleted it, confirmed `git status` clean.
 Task 18: fix round 2/5 dispatched — two items, both this round's own making:
    - the tab-only guard is COMPLETE TODAY but its completeness DEPENDS on
@@ -4461,10 +4461,10 @@ Task 19b: BASE = 897d91d. Implementer dispatched (sonnet). Brief generated and
       is silent permission is worse than no guard, because it REPORTS PROTECTION
       IT IS NOT PROVIDING. The dispatch requires the failure posture to be
       decided explicitly, tested with malformed input, and stated in the commit
-      body. Also noted that posttooluse_lint imports knowledge_harness lazily
+      body. Also noted that posttooluse_lint imports research_vault lazily
       INSIDE helpers — an import that can fail is exactly the fail-open path the
       brief's "no vault import" forbids — while _vault_from_cwd
-      (posttooluse_lint.py:41-48) walks up for a `.harness` dir in PURE STDLIB,
+      (posttooluse_lint.py:41-48) walks up for a `.research-vault` dir in PURE STDLIB,
       so the technique is reusable without the package.
   (2) A TEST IT WILL BREAK, AND MUST UPDATE RATHER THAN WEAKEN: tests/
       test_hooks.py:445 asserts `json.loads(HOOKS_MANIFEST.read_text()) == {...}`
@@ -4847,7 +4847,7 @@ Task 19b: fix round 2/5 dispatched — ONE BRANCH AND ONE SENTENCE.
   §10 does not read as someone undoing its work.
 
 Task 19b: fix round 2 landed — d75e95a. Suite 1686/7 (+3: non-string cwd,
-  symlinked-.harness rejection, and a LIVE symlink-loop test);
+  symlinked-.research-vault rejection, and a LIVE symlink-loop test);
   hooks/pretooluse_guard.py measured at 100% BRANCH COVERAGE by coverage.py,
   subprocess-aware. The :101 overclaim is closed, and closed by enumeration
   rather than by another summary sentence.
@@ -4864,7 +4864,7 @@ Task 19b: CONCERN 6 RAISED BY THE IMPLEMENTER while building the requested
   walks `(target.parent, *target.parent.parents)` — starting at the PARENT, never
   the target — so vault is always a STRICT ancestor and relative always has at
   least one part. EXCEPT for target = Path('/'), whose .parent IS Path('/'), so
-  the walk includes the root itself; with /.harness present and the target the
+  the walk includes the root itself; with /.research-vault present and the target the
   root, vault == resolved, relative is Path('.'), parts are empty, and the hook
   ALLOWS.
   RECOMMENDED DELETION — AND THE REASON IS SAFETY, NOT TIDINESS. With the guard
@@ -4881,7 +4881,7 @@ Task 19b: CONCERN 6 RAISED BY THE IMPLEMENTER while building the requested
   to permit a write the rest of the hook exists to refuse.
   Routed to the orchestrator per the new channel; round 3 ready to dispatch on
   agreement, with a test pinning fail-closed for the empty-relative case
-  (constructible: a .harness at a temp-dir root with the target being that dir).
+  (constructible: a .research-vault at a temp-dir root with the target being that dir).
 Task 19b: FINDING WORTH KEEPING REGARDLESS OF THE RULING — A 100%-BRANCH-COVERAGE
   NUMBER THAT IS TRUE AND MISLEADING. coverage.py's model does not see
   short-circuit sub-expressions, so a fail-open branch sat unmeasured underneath
@@ -4898,10 +4898,10 @@ Task 19b: CONCERN 6 RULED — DELETE the `bool(relative.parts) and` guard. Round
   STRONGER reason: this deletion also closes a fail-open hole.
   THE ORCHESTRATOR CAUGHT A FLAW IN MY OWN PROPOSED TEST, and it is worth
   recording as a correction to me rather than to the implementer. I had offered
-  an end-to-end construction — a .harness at a temp-dir root with the target
+  an end-to-end construction — a .research-vault at a temp-dir root with the target
   being that same dir — and IT DOES NOT REACH THE CASE: _vault_from_target starts
   at target.parent, so with target == the vault dir the walk begins ABOVE the
-  .harness, never finds it, returns None, and the candidate is skipped entirely.
+  .research-vault, never finds it, returns None, and the candidate is skipped entirely.
   vault == resolved requires target.parent == target, WHICH ONLY Path('/')
   SATISFIES — so the degenerate case is unconstructible in a test.
   I had derived the Path('/') fact correctly and then proposed a test that
@@ -5957,7 +5957,7 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   ec5e9ef  records: verification outcomes and bibliography entries from the
            2026-08-22 run  (inbox/review-queue.md +2 SKIPPED outcomes,
            system/bibliography.json +4 lines)
-  1293295  chore: adopt the current harness template set  (5 files: AGENTS.md
+  1293295  chore: adopt the current research-vault template set  (5 files: AGENTS.md
            and index.md updated, .editorconfig/.prettierignore/
            .markdownlintignore created)
   Vault clean afterwards. THREE COMMITS UNPUSHED — mine two plus one that was
@@ -6047,11 +6047,11 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   Both fixes to be symmetric in shape and reason-string style.
 ### LIVE LEGS — the skip census, and what the mailto actually unlocks
   offline           1714 passed /  7 skipped
-  HARNESS_LIVE=1    1717 passed /  4 skipped   (Zotero probed HTTP 200 first)
+  RV_LIVE=1    1717 passed /  4 skipped   (Zotero probed HTTP 200 first)
   Three Zotero legs ran and PASSED. The four remaining skips, enumerated with
   their reasons rather than counted:
-   - tests/test_archive.py:935      — needs HARNESS_LIVE_NET=1
-   - tests/test_verify_cli.py:1852  — needs HARNESS_LIVE_NET=1
+   - tests/test_archive.py:935      — needs RV_LIVE_NET=1
+   - tests/test_verify_cli.py:1852  — needs RV_LIVE_NET=1
    - tests/test_cli_live.py:99      — deferred autoexport drill
    - tests/test_cli_live.py:119     — deferred autoexport drill
   SO THE MAILTO UNLOCKS EXACTLY TWO TESTS. The other two are the documented
@@ -6069,7 +6069,7 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   itself a tracked file.
 
 ### TASK 21 STEP 3 — LIVE LEGS COMPLETE. 1719 passed / 2 skipped.
-  Full command: HARNESS_LIVE=1 HARNESS_LIVE_NET=1 HARNESS_MAILTO=<author's
+  Full command: RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<author's
   address, environment only> python -m pytest -q -rs. Exit 0, 146s.
   THE PREDICTION FROM THE ENUMERATION HELD EXACTLY: 1717 + the two net-gated
   tests = 1719, and THE ONLY REMAINING SKIPS ARE THE TWO DEFERRED-BY-DESIGN
@@ -6083,8 +6083,8 @@ Task 22: complete (commits 438ebfc..1800aeb — 1800aeb — no review dispatched
   landed on it.
   SKIP CENSUS, FINAL, for the landing report:
     offline                              1714 passed /  7 skipped
-    + HARNESS_LIVE=1                     1717 passed /  4 skipped
-    + HARNESS_LIVE_NET=1 + mailto        1719 passed /  2 skipped
+    + RV_LIVE=1                     1717 passed /  4 skipped
+    + RV_LIVE_NET=1 + mailto        1719 passed /  2 skipped
   The two survivors are documented in docs/testing.md as remaining after BOTH
   flags. They are not a gap in this acceptance; they are the one leg this
   project has always known it cannot automate.
@@ -6371,7 +6371,7 @@ Task 21: ACCEPTANCE SWEEP + review dispatched over c16195e..04896d7 on the most
 Task 21: FULL LIVE SUITE AT THE SETTLED TREE — 1739 passed / 2 skipped, exit 0.
   Final census across all three lanes:
     offline                          1734 passed / 7 skipped
-    + HARNESS_LIVE=1 + LIVE_NET + mailto   1739 passed / 2 skipped
+    + RV_LIVE=1 + LIVE_NET + mailto   1739 passed / 2 skipped
   The +5 is the 3 Zotero legs and the 2 external-registry legs; the 2 survivors
   are the documented autoexport drill, deferred by design.
 ### THE METHOD RETROSPECTIVE WRITTEN — research/validation-slice/
@@ -6595,7 +6595,7 @@ Task 21: recorded (implementer's new concern): hoisting the local malformed chec
 ### THE TWO OWED ITEMS, ANSWERED FROM THE TREE — and item 1 corrects my own record
   (1) PREAMBLE RE-PIN: YES, THERE WAS ONE, AND I MISSED IT. 5c640d5 (Task 2e Step
       2, the render-contract canonicalization) touched
-      knowledge_harness/templates/vault/AGENTS.md AND updated
+      research_vault/templates/vault/AGENTS.md AND updated
       tests/test_templates.py in the same commit. Task 2e ran AFTER 19b recorded
       the residue, so by the standing arrangement the preamble edit could have
       ridden it. IT DID NOT. I carried the residue forward as a Task-21-close

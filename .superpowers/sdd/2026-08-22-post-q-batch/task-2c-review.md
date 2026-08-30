@@ -5,7 +5,7 @@
 **Verdict: issues.**
 
 Step 1 landed structurally as written. The template opens with a two-sentence
-integrity preamble at `knowledge_harness/templates/vault/AGENTS.md:6`, placed as
+integrity preamble at `research_vault/templates/vault/AGENTS.md:6`, placed as
 the first paragraph after the `# Vault agents guide` heading and ahead of the
 routing index at lines 12-22. It restates none of the seven skills,
 `synthesis/index.md`, or `evidence-conventions`, so the brief's "don't restate
@@ -30,7 +30,7 @@ is an author decision.
 - **Brief Step 2's rider: "Item 15's live-vault application now carries this
   too."** Nothing in this diff touches item 15. When item 15 lands, check that
   the live-vault AGENTS.md application reproduces the preamble bytes verbatim
-  from `knowledge_harness/templates/vault/AGENTS.md:6` — including whatever
+  from `research_vault/templates/vault/AGENTS.md:6` — including whatever
   final wording the enforcement clause settles on after the Important finding
   below is ruled.
 - **The 8-hook pre-commit form gate at a5668d6.** Report-claimed only. This
@@ -74,11 +74,11 @@ recorded here rather than passed to the controller:
 - Every surface the preamble names is genuinely machine-written. `literatures/`
   is projected and warned at `hooks/posttooluse_lint.py:97`; `log/` and
   `inbox/review-queue.md` have the CLI as sole writer and are protected by
-  `lint_append_only` at `knowledge_harness/lints.py:109-152`. "The CLI writes
+  `lint_append_only` at `research_vault/lints.py:109-152`. "The CLI writes
   them" is exactly right for `inbox/review-queue.md`, where human acknowledgment
   entries are a supported workflow but only through the CLI verb.
 - "Machine-written" is established repo vocabulary rather than a coinage — it is
-  the term used in `docs/adr/0001-vault-outlives-harness.md:7` and
+  the term used in `docs/adr/0001-vault-outlives-its-tools.md:7` and
   `docs/terminology.md:43` — so line 6 does not open a vocabulary split against
   line 26's "owner-written".
 - The implementer executed the author's ruling faithfully and verbatim, having
@@ -97,13 +97,13 @@ None.
 
 ### Important (Should Fix)
 
-**`knowledge_harness/templates/vault/AGENTS.md:6` — the enforcement clause
+**`research_vault/templates/vault/AGENTS.md:6` — the enforcement clause
 "hand edits leave a trace" is false for in-format hand appends to `log/`.**
 Status: CONFIRMED. Plan-mandated wording.
 
 *What is wrong.* An agent that hand-appends a well-formed line to a `log/` day
 file produces no session warning, no verify finding, and no record anywhere in
-the harness. The claim the preamble makes about that surface does not hold.
+research-vault. The claim the preamble makes about that surface does not hold.
 
 *Why it matters.* This is the anti-fabrication preamble, written for the agent
 that reads nothing else, and the author's ruling existed precisely to replace a
@@ -113,12 +113,12 @@ against code, not prose:
 - `hooks/posttooluse_lint.py:97,104` warns only for paths under `literatures/`
   and for `CONCEPT_ROOTS = {"synthesis", "projects"}` — never for `log/` or
   `inbox/review-queue.md`.
-- `knowledge_harness/lints.py:141-142` fires `append-only` only when
+- `research_vault/lints.py:141-142` fires `append-only` only when
   `not new_bytes.startswith(old_bytes)`, so a pure append passes silently.
 - `append-only` is absent from `CLOSING_BY_SURFACE["commit"]`
-  (`knowledge_harness/verify.py:53-58`, which is
+  (`research_vault/verify.py:53-58`, which is
   `frozenset({"citekey", "evidence-layer"})`), so nothing gates.
-- `knowledge_harness/okf.py:8-16,35` then copies the hand-appended line into
+- `research_vault/okf.py:8-16,35` then copies the hand-appended line into
   root `log.md` on the next regeneration — a fabricated log entry laundered into
   a machine artifact with zero trace.
 
@@ -135,7 +135,7 @@ so carries no discriminating force.
 *Scope, precisely.* Fully true for `literatures/` (warned in session and blocks
 at commit). True for destructive edits on all three surfaces. False for
 in-format appends to `log/`, and secondarily for a schema-conforming hand append
-to `inbox/review-queue.md` (`knowledge_harness/inbox.py:455-530` raises
+to `inbox/review-queue.md` (`research_vault/inbox.py:455-530` raises
 `InboxError` only on malformed lines).
 
 *How to fix.* Author decision, not the implementer's. Either narrow the clause
@@ -150,14 +150,14 @@ silently on the next regeneration. The two fixes belong in one pass.
 
 ### Minor (Nice to Have)
 
-**`knowledge_harness/templates/vault/AGENTS.md:6` — the preamble omits root
+**`research_vault/templates/vault/AGENTS.md:6` — the preamble omits root
 `log.md`.** Status: NOT-VERIFIED-MINOR (corroborated in synthesis by reading
-`knowledge_harness/okf.py:38`). Not plan-mandated.
+`research_vault/okf.py:38`). Not plan-mandated.
 
 The brief's draft listed root `log.md`; the implementer dropped it because the
 template names it nowhere else, which is the literal reading of "adjust the
 surface list to what the template already names". But root `log.md` has a single
-writer that rewrites the file wholesale (`knowledge_harness/okf.py:38`,
+writer that rewrites the file wholesale (`research_vault/okf.py:38`,
 `(vault / "log.md").write_text(text)`), so an agent that hand-edits it loses the
 edit silently on the next regeneration. A surface with that failure mode appears
 in neither line 6 nor line 26, so the oblivious-agent defense has no coverage for
@@ -167,7 +167,7 @@ Fix: have the plan author rule on whether root `log.md` belongs in the surface
 list. Do not simply append it to the current sentence — "hand edits leave a
 trace" is false for it, so adding it unchecked would ship a second false claim.
 
-**`knowledge_harness/templates/vault/AGENTS.md:6` — a second, divergent
+**`research_vault/templates/vault/AGENTS.md:6` — a second, divergent
 enumeration of machine surfaces.** Status: NOT-VERIFIED-MINOR. Plan-mandated
 (the overlap is directed by the brief; the divergence is not).
 
@@ -205,7 +205,7 @@ None. No finding from either lens was refuted. The one Important finding was
 independently reproduced against a scaffolded vault by the spec lens and its
 code anchors re-read during synthesis; the three Minor findings were carried at
 their lens status, and all three were corroborated by direct reads of
-`knowledge_harness/okf.py`, the template, and `tests/test_templates.py` during
+`research_vault/okf.py`, the template, and `tests/test_templates.py` during
 synthesis.
 
 ## Assessment

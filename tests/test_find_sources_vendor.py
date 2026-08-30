@@ -259,9 +259,9 @@ def test_the_skill_names_exactly_the_environment_variables_the_scripts_read():
         )
 
 
-def test_no_vendored_script_imports_the_harness():
+def test_no_vendored_script_imports_research_vault():
     for path in SCRIPTS.glob("*.py"):
         text = path.read_text(encoding="utf-8")
-        assert "knowledge_harness" not in text, (
-            f"{path} imports the harness — vendored code must stay standalone"
+        assert "research_vault" not in text, (
+            f"{path} imports research_vault — vendored code must stay standalone"
         )

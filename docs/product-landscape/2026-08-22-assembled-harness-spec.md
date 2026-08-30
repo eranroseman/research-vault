@@ -1,14 +1,14 @@
 # An assembled harness: the same thesis from third-party parts
 
 Design exploration, 2026-08-22. **Not approved, not planned, nothing built from it.** It answers
-one question: could the thing knowledge-harness and Memoria are both building be assembled from
+one question: could the thing research-vault and Memoria are both building be assembled from
 components that already exist, rather than written?
 
 Every component named below was inspected during the 2026-08-22 product survey. Licences are as
 verified then, and marked **[F]** where a file was opened and **[M]** where the row rests on
 repository metadata and the project's own description.
 
-**knowledge-harness and Memoria are excluded from the assembly.** Both are in-house, and using
+**research-vault and Memoria are excluded from the assembly.** Both are in-house, and using
 either as a component would answer a different question than the one asked. Where a design of
 theirs is the best available answer to a problem, it is named as **in-house prior art** and marked
 as such — never counted as something the assembly gets for free.
@@ -193,7 +193,7 @@ Three things, and only three.
 
 A single vocabulary every adapter maps into. The three shipped designs are:
 
-- **states in the type** — four-state `Result` (knowledge-harness);
+- **states in the type** — four-state `Result` (research-vault);
 - **states in a versioned schema** — Imbad0202's `bibliographic_integrity_signal`, which separates
   `deterministic_fact` from `heuristic_advisory` from `process_attestation`, keeps `check_status`
   independent of `finding`, and renders `not_checked`/`unknown`/`degraded` as NOT CLEAN;
@@ -272,7 +272,7 @@ three-source retraction sweep design, and a benchmark — none of it written her
 *other people's failure modes already found*: `_quote_match.py` exists because thirteen false
 positives were traced to contiguous-string matching, and that knowledge arrives with the file.
 
-**Costs.** A dependency surface neither existing project has. knowledge-harness carries one pinned
+**Costs.** A dependency surface neither existing project has. research-vault carries one pinned
 runtime dependency under a recorded admission ruling;
 Memoria adds `yaml` and provider keys. This assembly adds Node (obra/knowledge-graph),
 `sqlite-vec`, `python-docx`, pandoc as a binary, and several PyPI packages — each with its own
@@ -306,7 +306,7 @@ re-derived rather than used.
 - The assembled false-positive rate, measured on HALLMARK and extrapolated to a 0.2–0.4% base rate,
   landing worse than either existing project measured the same way. **Neither has been measured**,
   so this is the first experiment to run, and it applies equally to all three designs.
-- The integration layer growing past the ~10,000 lines knowledge-harness already is, at which point
+- The integration layer growing past the ~10,000 lines research-vault already is, at which point
   the assembly has bought nothing and owes maintenance to a dozen upstreams.
 
 ## 8. Verdict
@@ -317,13 +317,13 @@ in §17.2 by a different route: build the trust core, adopt the breadth.
 
 It is not viable for the **trust core**. The result contract, the closure policy and the claim
 addressing have no donor, and they are precisely the parts that decide whether the system tells the
-truth. An assembled harness is therefore not a third alternative to knowledge-harness and Memoria.
+truth. An assembled harness is therefore not a third alternative to research-vault and Memoria.
 It is what either becomes if it stops writing capabilities and starts writing adapters — which, on
 the evidence in §2, would leave most of both codebases unwritten.
 
 ______________________________________________________________________
 
-## 9. Applied to knowledge-harness
+## 9. Applied to research-vault
 
 Moved. The preserve / port / replace lists this section held now live in
 [the adoption plan](2026-08-22-adoption-plan.md) §3, beside the tier classification they depend on,

@@ -17,7 +17,7 @@ Three edits in `skills/verify-citations/SKILL.md`, all removing a hand-maintaine
 | 31 | "every other check id (…) leaves no separate durable trace" + six backticked ids | "every other check id the run reports leaves no separate durable trace" |
 
 - The brief's replacement sentence — *"Run the CLI; its output is always up to date."* — stands verbatim as its own sentence at line 9, which is where the suite-inventory claim lived. I implemented the brief's third option (defer to the CLI), not either of the two the C-1 card offers, as directed.
-- The four-state table stays; only the id list inside it goes. The minting-four list (`doi`, `metadata`, `update-notice`, `quote`) is kept: it is a scoped, true claim that `_projection_identity` (`knowledge_harness/verify.py:771-783`) still backs, and line 36's "the four check ids named above" depends on it.
+- The four-state table stays; only the id list inside it goes. The minting-four list (`doi`, `metadata`, `update-notice`, `quote`) is kept: it is a scoped, true claim that `_projection_identity` (`research_vault/verify.py:771-783`) still backs, and line 36's "the four check ids named above" depends on it.
 - **Line 31 was not on the brief's or the card's list; I removed its parenthetical anyway.** It is C-1's exact defect in a second place — `staleness`, `append-only`, `claim-immutability`, and `published-drift` also mint no `verified` event, so "every other check id (list of six)" was false for the same reason line 27 was. §5's C-1 ruling reads "`verify-citations` **stops hand-listing check ids altogether**", and the brief's "the id list goes" does not exempt a list because it happens to sit inside the table that stays. Leaving it would have shipped the defect the task exists to remove.
 
 ### Step 2 (C-2) — the registry-scope sentence, in `skills/evidence-conventions/SKILL.md`
@@ -44,7 +44,7 @@ All new code is in `tests/test_skill_contracts.py`, under a section header at li
 
 | Name | Line | Role |
 | ---- | ---- | ---- |
-| `_emitted_check_ids()` | 195 | AST scan of `knowledge_harness/*.py` for every check id the pipeline can put on an `Outcome` |
+| `_emitted_check_ids()` | 195 | AST scan of `research_vault/*.py` for every check id the pipeline can put on an `Outcome` |
 | `_known_check_ids()` | 240 | the universe the sweep compares against |
 | `_enumerated_check_ids(text)` | 255 | phrase-anchored extractor: the check ids a document names *as check ids* |
 | `test_every_check_id_a_skill_enumerates_is_one_the_code_files` | 288 | the sweep, parametrized over `skills/*/SKILL.md` |
@@ -56,9 +56,9 @@ ______________________________________________________________________
 
 ## 2. Where the canonical emitted set comes from, and why that source is authoritative
 
-`_emitted_check_ids()` parses every module in `knowledge_harness/` and collects the first positional argument of every `Outcome(...)` / `checks.Outcome(...)` call — accepting a string literal directly, or a `Name` that resolves to a module-level string constant (this is how `archive.py`'s `CHECK = "web-archive"` is picked up).
+`_emitted_check_ids()` parses every module in `research_vault/` and collects the first positional argument of every `Outcome(...)` / `checks.Outcome(...)` call — accepting a string literal directly, or a `Name` that resolves to a module-level string constant (this is how `archive.py`'s `CHECK = "web-archive"` is picked up).
 
-**Why the AST and not a constant:** check ids are literals at their construction sites; there is no emitted-set registry in the package. `inbox.CHECK_IDS` (`knowledge_harness/inbox.py:56`) is the **registry**, and `inbox.py:45-55`'s own comment states the split verbatim: *"the deterministic pipeline (verify.py, lints.py) legitimately files ids this registry does not carry (`staleness`, `append-only`, `claim-immutability`, `published-drift`, `publish-gate`) … The `finding` CLI verb is the boundary where this registry is actually enforced."* (The audit attributes this sentence to `docs/terminology.md:46-50`; it is in fact `inbox.py`. Same content, and code is the stronger source anyway.) A checker built on `CHECK_IDS` alone would flag correct prose, exactly as the parent warned.
+**Why the AST and not a constant:** check ids are literals at their construction sites; there is no emitted-set registry in the package. `inbox.CHECK_IDS` (`research_vault/inbox.py:56`) is the **registry**, and `inbox.py:45-55`'s own comment states the split verbatim: *"the deterministic pipeline (verify.py, lints.py) legitimately files ids this registry does not carry (`staleness`, `append-only`, `claim-immutability`, `published-drift`, `publish-gate`) … The `finding` CLI verb is the boundary where this registry is actually enforced."* (The audit attributes this sentence to `docs/terminology.md:46-50`; it is in fact `inbox.py`. Same content, and code is the stronger source anyway.) A checker built on `CHECK_IDS` alone would flag correct prose, exactly as the parent warned.
 
 **Precedent:** `_probe_ids()` in `tests/test_config_validity.py:113-129` already derives doctor probe ids from `scaffold.py`'s AST for the identical reason, in its own words: *"Probe ids are literals at their construction sites rather than a registry constant, so the AST is the only honest source; a grep would also match prose in docstrings."*
 
@@ -76,7 +76,7 @@ ______________________________________________________________________
 _emitted_check_ids()  ∪  inbox.CHECK_IDS  ∪  inbox.REPEATABLE_ACT_CHECKS
 ```
 
-= 20 ids. `REPEATABLE_ACT_CHECKS` (`inbox.py:87`) contributes `publish-gate`, which the Stop hook files — registered in `knowledge_harness` code, so no scan of `hooks/` is needed. Neither of the first two sources contains the other: the pipeline emits 4 ids the registry lacks, the registry carries 5 (`publish`, `factcheck`, `autoexport`, `render`, `integrate`) that only `finding` ever files.
+= 20 ids. `REPEATABLE_ACT_CHECKS` (`inbox.py:87`) contributes `publish-gate`, which the Stop hook files — registered in `research_vault` code, so no scan of `hooks/` is needed. Neither of the first two sources contains the other: the pipeline emits 4 ids the registry lacks, the registry carries 5 (`publish`, `factcheck`, `autoexport`, `render`, `integrate`) that only `finding` ever files.
 
 **Extraction — why it is phrase-anchored.** An unanchored scan of backticked tokens cannot work: the check id `quote` and the evidence-boundary tag `quote` are the same string, so `skills/evidence-conventions/SKILL.md:22`'s "`quote`, `paraphrase`, `inference`, or `open-question`" would seed a false positive; and `skills/publish/SKILL.md:37` carries the run "`mark-published` and `mark-corrected`" on a line that also says "check id". So: per line, find the phrase `check id`/`check ids`, then take the first backticked **run** after it — the first token may sit behind a parenthetical aside but not behind a sentence break (`. ` / `; `), and each later token may be separated only by list punctuation (`, `, ` and `, ` or `). Prose between tokens ends the run, so `` check id `factcheck`, carrying that claim's `text_hash` `` reads as one id followed by unrelated prose.
 
@@ -292,7 +292,7 @@ Unchanged from the round-0 totals — this round adds prose and a docstring, no 
 ## Concerns after this round
 
 1. **Concern #2 from round 0 is closed.** The table's "the codes you meet in the review queue today" scope and `manual`'s presence in the queue no longer contradict each other — `manual` is in the table.
-2. **The pin proves accounting, not placement.** Set equality would still pass if a future editor moved `manual` back into the closing sentence *and* deleted its row. Pinning placement mechanically would mean deriving "which reason codes a shipped writer actually files" from an AST scan of `inbox.append_entry` reason arguments across `knowledge_harness/` and `hooks/` — a real instrument of the same family as the check-id sweep, and it would have caught C-2 outright. I did not build it: it is beyond what this task's brief and the ruling asked for. Worth a card if the class recurs.
+2. **The pin proves accounting, not placement.** Set equality would still pass if a future editor moved `manual` back into the closing sentence *and* deleted its row. Pinning placement mechanically would mean deriving "which reason codes a shipped writer actually files" from an AST scan of `inbox.append_entry` reason arguments across `research_vault/` and `hooks/` — a real instrument of the same family as the check-id sweep, and it would have caught C-2 outright. I did not build it: it is beyond what this task's brief and the ruling asked for. Worth a card if the class recurs.
 3. **Unchanged from round 0:** the check-id sweep guards validity, not under-enumeration (report §4); the count-word leg of the C-2 pin is prose-coupled, and `_COUNT_WORDS` covers one through five.
 
 ______________________________________________________________________

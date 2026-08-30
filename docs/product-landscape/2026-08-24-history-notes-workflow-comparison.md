@@ -1,4 +1,4 @@
-# Workflow comparison: History Notes (Zotero + Obsidian) vs knowledge-harness
+# Workflow comparison: History Notes (Zotero + Obsidian) vs research-vault
 
 Comparison note, 2026-08-24. Workflow only — process and information flow, not UI or plugin
 mechanics for their own sake.
@@ -16,8 +16,8 @@ archive notes → declined (YAGNI, revisit on real friction).
 ## How to read this
 
 **Part I** frames both systems from primary sources. **Part II** maps pipeline stages
-side by side. **Part III** is what knowledge-harness lacks, ranked by how much workflow it
-costs. **Part IV** is the reverse: what knowledge-harness has that History Notes does not.
+side by side. **Part III** is what research-vault lacks, ranked by how much workflow it
+costs. **Part IV** is the reverse: what research-vault has that History Notes does not.
 **Part V** records the five corrections this pass and an independent peer-verification pass
 made. **Part VI**
 is the recommendation layer — what to do about Part III, split the way this folder's other
@@ -40,8 +40,8 @@ History Notes side, read directly (not summarized by an intermediate model):
   Part III: it is the only place the workflow's claims are checkable against real files rather
   than a template listing.
 
-knowledge-harness side, read directly from this repository: `knowledge_harness/notes.py`,
-`knowledge_harness/frontmatter.py`, `knowledge_harness/__main__.py`, `docs/adr/0003-*.md`,
+research-vault side, read directly from this repository: `research_vault/notes.py`,
+`research_vault/frontmatter.py`, `research_vault/__main__.py`, `docs/adr/0003-*.md`,
 `skills/evidence-conventions/SKILL.md`, `skills/synthesis-conventions/SKILL.md`,
 `skills/publish/SKILL.md`, `skills/verify-citations/SKILL.md`, `CONTEXT.md`. Claims cite
 file and line.
@@ -65,7 +65,7 @@ vault additionally ships Kanban and Longform (acknowledged in the vault's own `r
 for its `03 writing/` Longform project — not covered by the guide's own prose). There is no CLI
 and no agent anywhere in the stack.
 
-**knowledge-harness** (this repo) is a Claude Code harness for a pipeline — question → literature
+**research-vault** (this repo) is a Claude Code plugin for a pipeline — question → literature
 → synthesis → draft → submit (`README.md`) — built around **trust-first** output: "every claim
 traceable to a real source, zero fabricated citations" (`README.md`). Its unit of success is a
 publishable claim that survives a fail-closed gate. An agent composes and explains; a CLI is the
@@ -74,19 +74,19 @@ admission (accepting a source into Zotero) and disposition choices (publish, ack
 finding).
 
 These are different-genus tools solving overlapping halves of the same problem: History Notes is
-strong exactly where knowledge-harness is thin (capture, entities, assembly, retrieval), and
-knowledge-harness is strong exactly where History Notes has nothing (admission boundary,
+strong exactly where research-vault is thin (capture, entities, assembly, retrieval), and
+research-vault is strong exactly where History Notes has nothing (admission boundary,
 verification, publish gate, non-destructive history).
 
 ______________________________________________________________________
 
 # Part II — Stage-by-stage map
 
-| Stage                           | History Notes                                                                                                                                                                                                                                                                                                                                                                                     | knowledge-harness                                                                                                                                                                                                                                                   |
+| Stage                           | History Notes                                                                                                                                                                                                                                                                                                                                                                                     | research-vault                                                                                                                                                                                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Search / discovery              | not covered by the guide — assumes items are already found                                                                                                                                                                                                                                                                                                                                        | `find-sources` skill: 11 bibliographic databases, PRISMA-S search-log provenance, explicitly upstream of Zotero                                                                                                                                                     |
 | Admission                       | ordinary Zotero import, no distinct name                                                                                                                                                                                                                                                                                                                                                          | **admission**: named as the sole path to citability; `find-sources` never performs it (`skills/find-sources/SKILL.md`)                                                                                                                                              |
-| Annotate                        | Zotero 6 built-in PDF reader, 5-color highlight palette + free comments                                                                                                                                                                                                                                                                                                                           | same tool, harness has no opinion on annotation                                                                                                                                                                                                                     |
+| Annotate                        | Zotero 6 built-in PDF reader, 5-color highlight palette + free comments                                                                                                                                                                                                                                                                                                                           | same tool, research-vault has no opinion on annotation                                                                                                                                                                                                              |
 | Import → note                   | Zotero Integration renders one **research note** per Zotero item from a Templater template — fully editable top to bottom                                                                                                                                                                                                                                                                         | `import-note` CLI renders one **literature note** per citekey; frontmatter + a machine-owned **managed region** the CLI regenerates, never hand-edited (`notes.py:211-257`); free prose lives below it, preserved across re-renders (`notes.py:257`, `_split_free`) |
 | Atomize multi-topic source      | the system's defining move, not an edge case — the guide explicitly rejects the popular "one literature note per source" pattern: "different annotations from the same source actually might belong in different places in your draft," so a Templater hotkey extracts selected text into a **new file**, with a reciprocal link left in the original (`extract research note from selection.md`) | claims are atomized at the **line** inside one file: `- (quote\|paraphrase\|inference\|open-question) text [@citekey, locator] ^claim-id` (`skills/evidence-conventions/SKILL.md:12-26`); no new file, a stable anchor instead                                      |
 | Arrange across sources          | Graph view, backlinks, and a separate `02 analysis/` note type that transcludes claim blocks from multiple research notes (`obsidian-history-vault`, `02 analysis/3. boycotts...md`)                                                                                                                                                                                                              | **synthesis layer**: pages arrange claims across ≥2 sources on one topic (`2+-source threshold`, `skills/synthesis-conventions/SKILL.md:14`), minimum 2 outgoing links (`:18`), registered in `synthesis/index.md`                                                  |
@@ -95,12 +95,12 @@ ______________________________________________________________________
 | Fact-check                      | none                                                                                                                                                                                                                                                                                                                                                                                              | `factcheck-draft`: capped LLM pass per selected claim, non-blocking, files findings (`skills/factcheck-draft/SKILL.md`)                                                                                                                                             |
 | Verify                          | none                                                                                                                                                                                                                                                                                                                                                                                              | `verify-citations`: 10 deterministic checks (citekey, DOI, quote byte-match, update-notice/retraction, screening-state, disputed-claim, …), four-state MATCHED/UNMATCHED/UNREACHABLE/SKIPPED (`skills/verify-citations/SKILL.md`)                                   |
 | Publish                         | none — a finished draft just *is* finished                                                                                                                                                                                                                                                                                                                                                        | `publish` skill: drains review inbox, blocks on retraction-class findings, closes a fail-closed gate on 5 checks (`skills/publish/SKILL.md`)                                                                                                                        |
-| Retrieval                       | 6 saved Dataview views: faceted search (15 inputs including keyword, with operators and sort), the same facet engine as a single-column note-title list, a paragraph-scoped drafts search, quick search, 20-latest feed, cross-vault task aggregator (`obsidian-history-vault/meta/dataview/*.js`)                                                                                                | none shipped; frontmatter is flat, "spec §5: flat, Bases-queryable" (`frontmatter.py:1`), for an external Obsidian plugin to use — the harness ships no query itself                                                                                                |
+| Retrieval                       | 6 saved Dataview views: faceted search (15 inputs including keyword, with operators and sort), the same facet engine as a single-column note-title list, a paragraph-scoped drafts search, quick search, 20-latest feed, cross-vault task aggregator (`obsidian-history-vault/meta/dataview/*.js`)                                                                                                | none shipped; frontmatter is flat, "spec §5: flat, Bases-queryable" (`frontmatter.py:1`), for an external Obsidian plugin to use — research-vault ships no query itself                                                                                             |
 | History / deletion              | ordinary Obsidian files — delete or overwrite freely                                                                                                                                                                                                                                                                                                                                              | **deprecate, never delete** — excluded sources marked `excluded`, superseded claims keep a `superseded-by` pointer, nothing silently removed (`docs/adr/0003-deprecate-never-delete.md:1-15`)                                                                       |
 
 ______________________________________________________________________
 
-# Part III — What knowledge-harness lacks
+# Part III — What research-vault lacks
 
 Ranked by workflow cost, most expensive first.
 
@@ -112,7 +112,7 @@ works — e.g. `Gómez, Manuel Octavio (person note).md` carries `start-date`/`e
 notes. Research notes link into these, and Graph view then renders the social/spatial network
 for free.
 
-knowledge-harness has two note kinds — literature notes and synthesis pages — and no way to ask
+research-vault has two note kinds — literature notes and synthesis pages — and no way to ask
 "what do I know about this person" as a first-class object distinct from "which sources mention
 them." A biographical or place-based claim has nowhere durable to accumulate outside a claim
 line buried in whichever literature or synthesis note happened to cite it.
@@ -128,7 +128,7 @@ there too: the import template maps hex codes to callout headers (`#ff6666` → 
 `#5fb236` → "Reference," `#2ea8e5`/`#a28ae5` left for the researcher to define), styled by a
 `callouts.css` snippet; only the default yellow imports as plain text.
 
-A knowledge-harness claim has neither. `render_claim()` (`notes.py:302-329`) cites
+A research-vault claim has neither. `render_claim()` (`notes.py:302-329`) cites
 `[@citekey, p. N]` — text, not a link — and shapes every highlight the same way regardless of
 color: `annotationText` present → `(quote)`, else a bare `comment` → `(paraphrase)`.
 
@@ -164,7 +164,7 @@ longform:
 behind the "notes reshuffle into Chapter 1 / Chapter 2" diagram: moving a paragraph between
 chapters is a one-line edit to the list, not a cut-and-paste inside prose.
 
-No such assembly convention exists to compare against — a knowledge-harness draft is one
+No such assembly convention exists to compare against — a research-vault draft is one
 arbitrary file. `projects/NAME/DRAFT.md` is only the CLI's own example path
 (`skills/factcheck-draft/SKILL.md:16`, `--draft projects/NAME/DRAFT.md`, any path is accepted);
 `projects/NAME/` is formally defined to hold `question.md` (`skills/project/SKILL.md`) and
@@ -181,17 +181,17 @@ list instead of the full table (`research-notes.js`); a paragraph-scoped drafts 
 (`Drafts.md`, over `writing-notes.js`); a quick keyword search; a 20-latest-notes feed; and a
 cross-vault task aggregator.
 
-knowledge-harness's `__main__.py` command list (`inbox`, `search-log`, `verify`, `factcheck`,
+research-vault's `__main__.py` command list (`inbox`, `search-log`, `verify`, `factcheck`,
 `trust-tier`, …) has no query verb — nothing answers "show me every claim tagged `paraphrase`
 from 2024, sorted by date" without hand-grepping the vault. Frontmatter is deliberately kept flat,
 "spec §5: flat, Bases-queryable" (`frontmatter.py:1`), so an external tool (Obsidian Bases) could
-query it, but the harness itself ships zero canned retrieval.
+query it, but research-vault itself ships zero canned retrieval.
 
 ## 5. No archive/repository description note
 
 `06 archives/Sound Recordings, MOMA, NYC (archive note).md` describes the archive itself — finding
 aid URL, reel/tape numbers, a `- [ ] visit archive` task — as a research object independent of any
-single cited item. knowledge-harness has no equivalent; admission requires an item to already
+single cited item. research-vault has no equivalent; admission requires an item to already
 exist as a Zotero entry, so there is nowhere to record "this collection exists and I haven't
 processed it yet."
 
@@ -202,7 +202,7 @@ The template converts Zotero item tags into a hierarchy: `secondary`/`primary` �
 else → `#subject/<tag>` — confirmed live in `01 notes/1. cuban film....md`:
 `#source/secondary` `#project/film-censorship`.
 
-`grep -n '"tags?"' knowledge_harness/frontmatter.py knowledge_harness/notes.py knowledge_harness/zotero.py` returns nothing. Zotero item tags never reach the literature note.
+`grep -n '"tags?"' research_vault/frontmatter.py research_vault/notes.py research_vault/zotero.py` returns nothing. Zotero item tags never reach the literature note.
 
 ## 7. Thin per-note bibliographic metadata
 
@@ -224,7 +224,7 @@ are separate: `all tasks.md` runs `TASK FROM -"07 writing" SORT file.mtime DESC`
 query across the vault (and, as shipped, a stale reference — this vault's writing folder is
 `03 writing`, not `07 writing`).
 
-The mechanism to carry a `comment` on a knowledge-harness claim already exists — every claim line
+The mechanism to carry a `comment` on a research-vault claim already exists — every claim line
 accepts arbitrary `[field:: value ...]` pairs, parsed into a `fields: dict[str, str]`
 (`claims.py:25`, `claims.py:54-56`). Several keys are already documented this way: the
 synthesis-only `[confidence::]` and stance links, and the deprecation/retraction fields
@@ -238,7 +238,7 @@ general-purpose note-to-self.
 
 ______________________________________________________________________
 
-# Part IV — What knowledge-harness has that History Notes does not
+# Part IV — What research-vault has that History Notes does not
 
 For balance — the comparison runs both ways.
 
@@ -327,7 +327,7 @@ cost ranking Part III uses — cost to fix and cost to leave open aren't the sam
 
 The repo is currently under a pre-slice instrument freeze — "Phases 2+ wait for the pre-slice
 batch to merge — instrument freeze" (`docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md:8`).
-The harness is the instrument under test; changing `knowledge_harness/__main__.py` mid-freeze
+research-vault is the instrument under test; changing `research_vault/__main__.py` mid-freeze
 would be exactly the kind of change that plan is holding open. None of the below is blocked
 forever — just not now, and not by this document. Routing any of it past the freeze is the
 controller's call, not this file's.
@@ -349,17 +349,17 @@ controller's call, not this file's.
 ## Redirect to the existing tool ecosystem, don't rebuild
 
 - **Query/retrieval surface (§4) and manuscript assembly (§3)**. The vault is portable markdown
-  by design — "packaged to survive its tools" (`docs/adr/0001-vault-outlives-harness.md`) — and
+  by design — "packaged to survive its tools" (`docs/adr/0001-vault-outlives-its-tools.md`) — and
   literature-note frontmatter is already kept flat, "spec §5: flat, Bases-queryable"
   (`frontmatter.py:1`). Nothing stops a human opening the same vault directly in Obsidian and
   running Dataview, Bases, or Longform against it — that is precisely the portability the format
-  promises. Building a bespoke CLI query verb or a harness-native scene-manifest format would
+  promises. Building a bespoke CLI query verb or a research-vault-native scene-manifest format would
   duplicate tooling the ecosystem already does well, for a workflow stage (browsing, drafting)
-  that doesn't touch the trust core. Only build a harness-native version if a concrete need
+  that doesn't touch the trust core. Only build a research-vault-native version if a concrete need
   surfaces that Obsidian's own plugins can't cover.
 - **The task-aggregator half of §8.** Same redirect: a Dataview `TASK` query over the portable
   vault gets this for free — it's exactly how History Notes' own `all tasks.md` works. Not worth
-  a harness-native task type.
+  a research-vault-native task type.
 
 ## Leave as-is, but name the trade-off
 
@@ -374,10 +374,10 @@ controller's call, not this file's.
 ## Needs a design pass, not a patch
 
 - **Entity layer (§1)**, the highest-cost gap in Part III. This is not a small addition. ADR 0004
-  states "the harness never mints a second identity for a source"
+  states "research-vault never mints a second identity for a source"
   (`docs/adr/0004-citekey-is-the-only-identity.md`) — scoped to source identity at admission, so a
   person, place, or event note doesn't conflict with it; it falls outside what the ADR decided at
-  all. That makes this an *extension* of the identity doctrine to a class the harness has never
+  all. That makes this an *extension* of the identity doctrine to a class research-vault has never
   had to reason about, not a reopening of 0004: does an entity note get verified, carry a
   screening state, participate in `trust-tier`, or sit outside the trust core entirely the way
   `synthesis/` does? Each answer has downstream consequences for `verify.py` and the publish gate.

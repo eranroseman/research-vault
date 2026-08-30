@@ -7,12 +7,12 @@
 The brief asked for one thing: SKIPPED review-queue results stay recorded and stay
 visible in listings, but stop contributing to the unacknowledged count and the
 oldest-age basis on every drain surface. The change delivers exactly that, in one
-comprehension inside `summary()` (`knowledge_harness/inbox.py:718-720`), with both
+comprehension inside `summary()` (`research_vault/inbox.py:718-720`), with both
 returned keys derived from the same filtered list.
 
 The brief's "every drain surface" clause is satisfied by construction rather than by
 edits elsewhere, and I confirmed the surface map independently. A repo-wide grep for
-callers of `summary(` and `open_entries(` in `knowledge_harness/` returns exactly:
+callers of `summary(` and `open_entries(` in `research_vault/` returns exactly:
 `__main__.py:761` (the `inbox` verb's printed JSON summary), `__main__.py:763` (the
 listing, which reads `open_entries()` and therefore still shows SKIPPED rows),
 `scaffold.py:295` (the doctor inbox probe, which reads `status["unacknowledged"]` and
@@ -59,7 +59,7 @@ docstring states only the mechanical constraint, and the argument sits in git lo
 **Resolved — the orientation skills read the count, not the rows.**
 `skills/project-flow/SKILL.md:25` and `skills/publish/SKILL.md:25` both say "report the
 unacknowledged count and the oldest entry's date" immediately after invoking
-`python3 -m knowledge_harness inbox --vault PATH`, whose first printed line is
+`python3 -m research_vault inbox --vault PATH`, whose first printed line is
 `json.dumps(inbox.summary(...))` with keys `unacknowledged` and `oldest`
 (`__main__.py:761`). The naming maps one-to-one, and `project-flow/SKILL.md:27`
 explicitly teaches that SKIPPED findings appear in that queue's listing, so the

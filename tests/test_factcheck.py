@@ -1,7 +1,7 @@
 """The vendored claim-selection module for factored verification (spec §6).
 
 Forked from K-Dense-AI/scientific-agent-skills @ 336c4f8 (MIT) — see the
-provenance header in ``knowledge_harness/factcheck.py`` for exactly what was
+provenance header in ``research_vault/factcheck.py`` for exactly what was
 ported (SHA-256 claim hashing; verified-evidence-only counting) versus what
 is this repo's own contract (the four-bucket deterministic order, the
 budget cap).
@@ -14,11 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import Result, events, factcheck
-from knowledge_harness.__main__ import main
-from knowledge_harness.factcheck import ClaimRef
+from research_vault import Result, events, factcheck
+from research_vault.__main__ import main
+from research_vault.factcheck import ClaimRef
 
-MANAGED = "%%hk-managed%%\n{body}\n%%/hk-managed%%\n"
+MANAGED = "%%rv-managed%%\n{body}\n%%/rv-managed%%\n"
 
 
 def _note(citekey, body, verified=None):
@@ -35,7 +35,7 @@ def _note(citekey, body, verified=None):
 def _draft(claims_text):
     return (
         '---\ntitle: "Draft"\ntype: "project"\nstatus: "draft"\n'
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "---\n" + claims_text
     )
 
@@ -177,7 +177,7 @@ def test_contested_adjacent_links_reuses_the_disputed_claim_lint(tmp_vault):
     (tmp_vault / "literatures" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
     (tmp_vault / "synthesis" / "mortality.md").write_text(
         '---\ntitle: "Mortality"\ntype: "synthesis"\nstatus: "draft"\n'
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
         "- (inference) Contested [supports:: [[smith2020#^c-11111111]]] "
         "[disputes:: [[gone2019#^c-22222222]]] ^c-99999999\n"
     )
@@ -241,7 +241,7 @@ def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):
     )
     (tmp_vault / "synthesis" / "mortality.md").write_text(
         '---\ntitle: "Mortality"\ntype: "synthesis"\nstatus: "draft"\n'
-        'generated: {by: "knowledge_harness/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
         "- (inference) Disputing [supports:: [[smith2020#^c-11111111]]] "
         "[disputes:: [[gone2019#^c-99999999]]] ^c-syn00001\n"
     )
@@ -274,7 +274,7 @@ def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):
 
 
 def test_factcheck_subcommand_prints_json_and_exits_zero(tmp_vault, capsys):
-    """The CLI entry lives at ``knowledge_harness.__main__.main(["factcheck",
+    """The CLI entry lives at ``research_vault.__main__.main(["factcheck",
     …])`` — spec §7's one-binary/one-exit-code-contract CLI — not a separate
     ``factcheck.main``; the module itself ships no standalone entry point."""
     draft_path = _write_vault(
@@ -320,7 +320,7 @@ def test_factcheck_subcommand_reports_a_missing_draft_without_a_traceback(
 
 def test_factcheck_is_reachable_through_the_one_binary_cli(tmp_vault):
     """Proves `factcheck` is genuinely wired into the shared dispatch table —
-    ``python3 -m knowledge_harness factcheck``, not a second binary."""
+    ``python3 -m research_vault factcheck``, not a second binary."""
     draft_path = _write_vault(
         tmp_vault,
         {"smith2020": _note("smith2020", "# Note\n")},
@@ -332,7 +332,7 @@ def test_factcheck_is_reachable_through_the_one_binary_cli(tmp_vault):
         [
             sys.executable,
             "-m",
-            "knowledge_harness",
+            "research_vault",
             "factcheck",
             "--vault",
             str(tmp_vault),

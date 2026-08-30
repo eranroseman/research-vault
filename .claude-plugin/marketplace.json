@@ -7,7 +7,7 @@
     {
       "name": "knowledge-harness",
       "source": "./",
-      "description": "Trust-first academic research harness: Zotero bridge, per-claim provenance, deterministic citation gates."
+      "description": "Trust-first academic research on an Obsidian-convention vault: Zotero bridge, per-claim provenance, deterministic citation gates."
     }
   ]
 }

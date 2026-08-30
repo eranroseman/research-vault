@@ -6,7 +6,7 @@ Commit: `660f752 feat: vault index embeds the trust-tier and open-questions Base
 
 ## Each Base's actual content, beside the lead-in compressed from it
 
-### `knowledge_harness/templates/vault/system/bases/trust-tier.base`
+### `research_vault/templates/vault/system/bases/trust-tier.base`
 
 ```yaml
 views:
@@ -21,7 +21,7 @@ No `formulas` key, no explicit `order`/columns. It is a table view named
 "Trust tier" whose only mechanism is a filter to `type == "literature"`. I
 checked whether a `trust_tier` frontmatter property exists that the Base
 could be showing as a column — it does not: `trust_tier` is computed at
-runtime by `knowledge_harness/events.py:242 trust_tier(note_text)`, a Python
+runtime by `research_vault/events.py:242 trust_tier(note_text)`, a Python
 function over verified events, not a stored property. A Base (declarative
 filter/formula over file properties and content) cannot read it. So I did
 not write a lead-in implying the table shows or computes a tier — that would
@@ -33,7 +33,7 @@ into one table, named for its intended use.
 This states the filter (literature notes) and the view's own stated purpose
 (its name, "Trust tier") without asserting a mechanism the file doesn't have.
 
-### `knowledge_harness/templates/vault/system/bases/open-questions.base`
+### `research_vault/templates/vault/system/bases/open-questions.base`
 
 ```yaml
 views:
@@ -50,7 +50,7 @@ A table view named "Open questions", filtered to `type == "synthesis"`,
 with a formula column `open_q` that is `true` when the note's content
 contains the literal string `"(open-question)"` — the evidence-boundary tag
 used in synthesis claims (confirmed against
-`knowledge_harness/templates/vault/system/glossary.md:57` and
+`research_vault/templates/vault/system/glossary.md:57` and
 `docs/superpowers/specs/2026-08-16-foundation-spec.md:81`, which define
 `(open-question)` as the fourth evidence-boundary tag). Unlike trust-tier,
 this Base does carry a real formula, so the lead-in can honestly describe
@@ -123,7 +123,7 @@ duplicated between a template asset and a scaffold-output assertion.
 
 Confirmed out of scope before relying on it: the pre-commit hook's `entry`
 is `mdformat --number --wrap keep README.md AGENTS.md CONTEXT.md docs
-skills` (`.pre-commit-config.yaml:57`) — `knowledge_harness/templates` and
+skills` (`.pre-commit-config.yaml:57`) — `research_vault/templates` and
 `tests/` are not in that path list, so mdformat never touches
 `vault/index.md`, `test_templates.py`, or `test_scaffold.py`. Ran the form
 gate twice anyway (once after the template+test_templates.py edit, once
@@ -134,7 +134,7 @@ Both runs: 8/8 passed.
 
 ## Line 10 confirmation
 
-`sed -n '10p' knowledge_harness/templates/vault/index.md` after all edits
+`sed -n '10p' research_vault/templates/vault/index.md` after all edits
 still reads exactly:
 
 ```
@@ -198,7 +198,7 @@ it renders as a block`.
 
 ### Change
 
-`knowledge_harness/templates/vault/index.md`, before -> after:
+`research_vault/templates/vault/index.md`, before -> after:
 
 ```diff
  Literature notes, for trust-tier review:
@@ -235,7 +235,7 @@ only the three files above.
    touch (let alone collapse) the new blank lines. This matches the
    config read earlier: the `mdformat` hook's `entry` is scoped to
    `README.md AGENTS.md CONTEXT.md docs skills` (`.pre-commit-config.yaml:57`),
-   which excludes `knowledge_harness/templates` and `tests/` entirely, so
+   which excludes `research_vault/templates` and `tests/` entirely, so
    there was never a risk of the formatter reaching this file, and the
    checksum confirms it empirically rather than by config-reading alone.
 3. `.venv/bin/python -m pytest tests -q` -> `1575 passed, 7 skipped` —

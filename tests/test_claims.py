@@ -1,16 +1,16 @@
-from knowledge_harness import claims
+from research_vault import claims
 
 NOTE = """---
 citekey: "smith2020"
 ---
-%%hk-managed%%
+%%rv-managed%%
 # Mortality decline
 
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12%
   > across all strata.
 - (paraphrase) Design is retrospective [@smith2020, p. 3] ^c-22222222
-%%/hk-managed%%
+%%/rv-managed%%
 
 ## Notes
 - (inference) Generalizes widely [@smith2020] [confidence:: moderate] [status:: live] ^c-33333333
@@ -56,13 +56,13 @@ def test_open_question_may_lack_citation():
 
 
 def test_markers_must_be_exact_standalone_lines():
-    text = """ %%hk-managed%%
+    text = """ %%rv-managed%%
 - (inference) Not managed
-%%hk-managed%% trailing
+%%rv-managed%% trailing
 - (inference) Still not managed
-%%hk-managed%%
+%%rv-managed%%
 - (inference) Managed
-%%/hk-managed%%
+%%/rv-managed%%
 """
 
     parsed_claims = claims.parse_claims(text)

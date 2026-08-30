@@ -65,7 +65,7 @@ def test_project_documents_inbox_drain_with_count_and_age_oldest_first():
     display for an aging queue, must fail (spec §3's Whittaker guard)."""
     text = _skill_text()
 
-    assert "python3 -m knowledge_harness inbox --vault PATH" in text
+    assert "python3 -m research_vault inbox --vault PATH" in text
     assert "unacknowledged count and the oldest entry's date, oldest first" in text
     assert "aging queue earns more prominence" in text
     # Non-blocking: the inbox never gates anything at project orientation.
@@ -78,7 +78,7 @@ def test_project_documents_trust_tier_surface_read_only():
     retained for."""
     text = _skill_text()
 
-    assert "python3 -m knowledge_harness trust-tier CITEKEY --vault PATH" in text
+    assert "python3 -m research_vault trust-tier CITEKEY --vault PATH" in text
     for tier in ("unverified", "machine-confirmed", "human-reviewed"):
         assert tier in text
     assert "read-only report; it writes nothing" in text
@@ -148,7 +148,7 @@ def test_project_documents_acks_via_the_ack_verb_with_human_consent():
     ack_section = text[text.index("## Acknowledgments") :]
 
     assert (
-        "python3 -m knowledge_harness ack FINDING-ID --vault PATH "
+        "python3 -m research_vault ack FINDING-ID --vault PATH "
         '--reason "CODE free text" --actor "human:NAME"'
     ) in ack_section
     assert "the person consents; the CLI writes" in ack_section

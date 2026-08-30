@@ -2,8 +2,8 @@ import dataclasses
 
 import pytest
 
-from knowledge_harness import Result, checks, webapi
-from knowledge_harness.pathcodec import RepoPath
+from research_vault import Result, checks, webapi
+from research_vault.pathcodec import RepoPath
 
 
 def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):
@@ -93,7 +93,7 @@ def test_cited_citekey_requires_literature_note(tmp_vault):
 def test_cited_citekey_with_note_passes(tmp_vault):
     """A bibliography entry backed by a literature note still MATCHES."""
     (tmp_vault / "literatures" / "smith2020.md").write_text(
-        '---\ncitekey: "smith2020"\n---\n%%hk-managed%%\n%%/hk-managed%%\n'
+        '---\ncitekey: "smith2020"\n---\n%%rv-managed%%\n%%/rv-managed%%\n'
     )
     note = tmp_vault / "projects" / "draft.md"
     note.write_text("See the evidence [@smith2020].\n")

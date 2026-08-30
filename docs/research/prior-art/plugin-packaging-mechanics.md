@@ -211,7 +211,7 @@ string in plugin.json (ponytail → `hooks/claude-codex-hooks.json`), default `h
 `{"hooks": {"<Event>": [{"matcher"?: "...", "hooks": [{"type": "command", "command": "...", "timeout"?, "statusMessage"?, "async"?, "shell"?}]}]}}`. Plugin hook commands use
 `${CLAUDE_PLUGIN_ROOT}` for portability.
 
-Local inventory of hook events in this harness:
+Local inventory of hook events in research-vault:
 
 | Plugin            | Events                                                                                    | Config file                                                                       |
 | ----------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -284,7 +284,7 @@ Mechanisms that actually exist, strongest first:
 6. **Description-conditioned triggering.** Softest: write trigger conditions into the skill
    description ("Use when working in an Obsidian vault / on .md notes..."). Precedent: the
    obsidian plugin's description ("Use when working with .md, .base, or .canvas files in an
-   Obsidian vault") keeps five model-invocable skills quiet during dev work in this harness.
+   Obsidian vault") keeps five model-invocable skills quiet during dev work in research-vault.
 7. **Permission rules per project** — `Skill(plugin:skill)` deny in a repo's
    `.claude/settings.json` (inferred, untested; see §2.4).
 8. **Nested/project skills instead of plugin skills** — `.claude/skills/` in the vault repo, or
@@ -417,7 +417,7 @@ where superpowers is also enabled you get dueling mandates unless combined with 
 **E. Hybrid: plugin for tools, personal/project skill for the spine.** Ship commands/agents/
 hooks as the plugin; keep the collision-prone process spine as a personal or vault-repo skill so
 `skillOverrides` and level-precedence apply to it. Trade-off: splits distribution (marketplace no
-longer delivers the whole harness); diverges from the "proper plugin" decision.
+longer delivers the whole plugin); diverges from the "proper plugin" decision.
 
 **Dead ends / negative knowledge:**
 

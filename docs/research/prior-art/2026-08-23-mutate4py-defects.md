@@ -127,7 +127,7 @@ The guard was proven against a deliberate allocator first: killed at ~490 MB
 under a 512 MB cap, exit 137, host VM survived. Every run below used it, and
 the VM survived all of them.
 
-Three runs, all on `knowledge_harness/selectors.py` (71 total mutation
+Three runs, all on `research_vault/selectors.py` (71 total mutation
 sites, 54 covered/selected — from each run's own header, identical across
 all three), all under the same 8 GB cap:
 
@@ -188,7 +188,7 @@ cgroup cap above, and re-run (serially) whatever module the cap kills.
 
 The cap bounds the leak; it does not fix it, and the two claims must not be
 conflated. Across two full blanket passes over this project's 26-module
-`knowledge_harness/` package — 52 module-runs at `--max-workers 4` under the
+`research_vault/` package — 52 module-runs at `--max-workers 4` under the
 same 8 GB `MemoryMax` cap, on the machine described in the Environment
 section above, running this project's 1467-test suite — the cap produced
 zero cap kills. That is measured evidence the cap is sufficient *under those
@@ -598,7 +598,7 @@ live on the parallel path specifically.
 
 - **Class A — a mutant makes test-file module-scope code raise, breaking
   collection of that file.** Reproduced in isolation for
-  `knowledge_harness/events.py`: mutating line 30 in `_calendar_date`
+  `research_vault/events.py`: mutating line 30 in `_calendar_date`
   (`...isoformat() == value` → `!= value`) inverts a date-format validator, a
   valid date is then rejected, and the resulting `ValueError` is raised
   during test *collection*, not during a test body:
@@ -608,7 +608,7 @@ live on the parallel path specifically.
       frontmatter.parse(_machine_confirmed_text())[0]["verified"] + ["corrupt"]
   tests/test_events.py:243: in _machine_confirmed_text
       text = events.record_pass(text, check, Result.MATCHED, at="2026-08-16")
-  knowledge_harness/events.py:104: in record_pass
+  research_vault/events.py:104: in record_pass
       raise ValueError("verified event at must be a YYYY-MM-DD calendar date")
   ```
 
@@ -619,7 +619,7 @@ live on the parallel path specifically.
   reachers identified in `test_cli_live.py` and `test_events.py`.
 
 - **Class B — a module-level mutant breaks the module's import outright.**
-  Confirmed for `knowledge_harness/gitstate.py` line 20, `"0" * 40` →
+  Confirmed for `research_vault/gitstate.py` line 20, `"0" * 40` →
   `"0" / 40`, a `TypeError` at import time. `gitstate.py` has zero
   collection-time reachers and 5 module-level mutation sites, so it is class
   B and not class A.
@@ -664,7 +664,7 @@ against mutate4py's own output:
 ### Evidence: three full blanket passes over a 26-module project
 
 All three passes ran mutate4py against every module in this project's
-26-module `knowledge_harness/` package, under the 8 GB cgroup cap described
+26-module `research_vault/` package, under the 8 GB cgroup cap described
 in Defect 1, using `--out-dir`'s cache/re-run rule (a recorded success is
 skipped on re-run; a recorded failure re-runs).
 
@@ -705,7 +705,7 @@ isolation replay the way `events` and `gitstate` were.
 `selectors.py` failed differently from the other five, in both pass 2 and
 pass 3: `mutate4py exited -15` (a direct SIGTERM, not the exit 2 of the
 worker-retirement class above). Pass 3's per-module record
-(`.mutate4py/baseline-run/knowledge_harness__selectors.py.exit` = `-15`;
+(`.mutate4py/baseline-run/research_vault__selectors.py.exit` = `-15`;
 `...stdout`, 31 verdicts recorded) shows why: `[22/54] timeout line 79 1 -> 0: func/_norm_with_map` — mutate4py's own mutant timeout fired (default: 10x
 baseline duration) on a runaway mutant, and the process then ended on
 SIGTERM. That is a third failure mode, distinct from both the worker-
@@ -739,7 +739,7 @@ defects that happen to share the same `--max-workers` flag.
 
 All five defects can be reproduced from a project that already has a
 coverage-instrumented lcov file (`pytest --cov --cov-branch --cov-report=lcov:lcov.info`) and a module with a non-trivial number of
-covered mutation sites. This project used `knowledge_harness/selectors.py`:
+covered mutation sites. This project used `research_vault/selectors.py`:
 71 total mutation sites, 54 covered/selected.
 
 ### Defect 1 (memory leak) — reproduce only under a memory cap

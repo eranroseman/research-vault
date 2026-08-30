@@ -11,11 +11,11 @@ passed, 7 skipped** (matches the brief's stated baseline).
 ## Addendum 1 — `summary()` also emits `oldest_age_days`
 
 Commit: `eff8d67` — `feat: inbox summary emits oldest_age_days`
-Files: `knowledge_harness/inbox.py`, `tests/test_inbox.py`
+Files: `research_vault/inbox.py`, `tests/test_inbox.py`
 
 ### What was implemented
 
-`inbox.summary()` (`knowledge_harness/inbox.py:712`) now returns a third
+`inbox.summary()` (`research_vault/inbox.py:712`) now returns a third
 key, derived from the *same* SKIPPED-filtered `entries` list `oldest` is
 already computed from — confirmed by reading, not re-implemented:
 
@@ -147,12 +147,12 @@ is pragmatic rather than tautological in a way that matters — the one test
 that actually needs to catch an age-math regression (Task 9's) uses the
 independent fixed-N construction instead.
 
-No other file needed changes: `knowledge_harness/scaffold.py`'s
-`_inbox_probe` and `knowledge_harness/__main__.py`'s `cmd_inbox` both read
+No other file needed changes: `research_vault/scaffold.py`'s
+`_inbox_probe` and `research_vault/__main__.py`'s `cmd_inbox` both read
 `summary()` but only pull `"unacknowledged"`/`"oldest"` by key (no exact
 dict-equality), and no test outside `test_inbox.py` compares the full
 `summary()` dict (confirmed by grep for `"oldest"` across `tests/` and
-`knowledge_harness/`).
+`research_vault/`).
 
 ### Explicitly not done
 

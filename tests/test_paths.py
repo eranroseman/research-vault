@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import paths
+from research_vault import paths
 
 
 @pytest.fixture
 def vault_with_map(tmp_vault):
-    h = tmp_vault / ".harness"
+    h = tmp_vault / ".research-vault"
     h.mkdir()
     (h / "machine.json").write_text(
         json.dumps({"path_map": {"D:\\Zotero\\": "/mnt/d/Zotero/"}})

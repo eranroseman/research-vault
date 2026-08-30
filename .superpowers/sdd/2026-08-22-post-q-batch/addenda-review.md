@@ -31,9 +31,9 @@ Both commit bodies' testable claims were checked against the tree, not accepted:
 
 ## The author's direct question: did the no-threshold ruling hold?
 
-**Yes.** The implementation ships the number and nothing else. `knowledge_harness/inbox.py:718-738`
+**Yes.** The implementation ships the number and nothing else. `research_vault/inbox.py:718-738`
 introduces no module constant, no boolean, no comparison against any cutoff — one subtraction
-guarded by a `None` check. `grep -rn "aging" knowledge_harness/` returns nothing.
+guarded by a `None` check. `grep -rn "aging" research_vault/` returns nothing.
 
 The withdrawal reasoning also survives scrutiny, which is the part worth recording. The commit
 body claims no Whittaker *threshold* exists in the tree. `skills/project-flow/SKILL.md:25` does
@@ -76,9 +76,9 @@ closes it, or a recorded ruling that the agent should keep deriving age itself.
 future date is legal. `__main__.py:870` gives the `finding` verb a `--date` argument. Reproduced
 end to end against a scratch vault at `ebea360`, not reasoned from the validator:
 
-    $ python3 -m knowledge_harness finding --vault "$V" doi a UNMATCHED mismatch --date 2099-01-01
+    $ python3 -m research_vault finding --vault "$V" doi a UNMATCHED mismatch --date 2099-01-01
     doi/kind-10:identifier;target-1:a/2099-01-01
-    $ python3 -m knowledge_harness inbox --vault "$V"
+    $ python3 -m research_vault inbox --vault "$V"
     {"oldest": "2099-01-01", "oldest_age_days": -26428, "unacknowledged": 1}
 
 Display-only, nothing blocks on age, so the blast radius is a nonsensical number in a report.

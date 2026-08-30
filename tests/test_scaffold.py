@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_harness import frontmatter, scaffold
+from research_vault import frontmatter, scaffold
 
 VAULT_DIRS = [
     "inbox",
@@ -22,9 +22,9 @@ EXPECTED_CREATED = [
     ".editorconfig",
     ".git/hooks/pre-commit",
     ".gitignore",
-    ".harness/machine.json",
     ".markdownlintignore",
     ".prettierignore",
+    ".research-vault/machine.json",
     "AGENTS.md",
     "inbox/review-queue.md",
     "index.md",
@@ -42,7 +42,9 @@ EXPECTED_CREATED = [
     "system/templates/synthesis.md",
 ]
 TRACKABLE_CREATED = [
-    path for path in EXPECTED_CREATED if not path.startswith((".git/", ".harness/"))
+    path
+    for path in EXPECTED_CREATED
+    if not path.startswith((".git/", ".research-vault/"))
 ]
 
 
@@ -67,7 +69,7 @@ def initialize_repo(path):
 
 def test_scaffold_module_is_available():
     """Removing the scaffold command implementation makes this fail."""
-    assert find_spec("knowledge_harness.scaffold") is not None
+    assert find_spec("research_vault.scaffold") is not None
 
 
 def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
@@ -98,11 +100,13 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert (vault / "log.md").read_text() == (
         '---\ntype: "log"\n---\n# Log\n\n## Days\n'
     )
-    assert (vault / ".gitignore").read_text() == ".harness/\n.obsidian/workspace*\n"
+    assert (
+        vault / ".gitignore"
+    ).read_text() == ".research-vault/\n.obsidian/workspace*\n"
     # Byte-pinned against the CANONICAL json.tool form the JSON owner produces
     # (tests/test_config_validity.py asserts the template itself equals it). Same
     # object, expanded nesting; the one-time canonicalization is its own commit.
-    assert (vault / ".harness" / "machine.json").read_text() == (
+    assert (vault / ".research-vault" / "machine.json").read_text() == (
         "{\n"
         '  "mailto": "you@example.edu",\n'
         '  "path_map": {\n'
@@ -132,8 +136,8 @@ def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
     vault = tmp_path / "vault"
     vault.mkdir()
     (vault / "index.md").write_text("human index\n")
-    (vault / ".harness").mkdir()
-    (vault / ".harness" / "machine.json").write_text('{"mailto": "human"}\n')
+    (vault / ".research-vault").mkdir()
+    (vault / ".research-vault" / "machine.json").write_text('{"mailto": "human"}\n')
     hooks = vault / ".git" / "hooks"
     hooks.mkdir(parents=True)
     hook = hooks / "pre-commit"
@@ -142,10 +146,12 @@ def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
     created = scaffold.scaffold_vault(vault)
 
     assert "index.md" not in created
-    assert ".harness/machine.json" not in created
+    assert ".research-vault/machine.json" not in created
     assert ".git/hooks/pre-commit" not in created
     assert (vault / "index.md").read_text() == "human index\n"
-    assert (vault / ".harness" / "machine.json").read_text() == '{"mailto": "human"}\n'
+    assert (
+        vault / ".research-vault" / "machine.json"
+    ).read_text() == '{"mailto": "human"}\n'
     assert hook.read_text() == "#!/bin/sh\necho human\n"
     assert not os.access(hook, os.X_OK)
     assert scaffold.scaffold_vault(vault) == []
@@ -180,7 +186,7 @@ def test_scaffold_ci_flags_are_independent(tmp_path):
 def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path):
     vault = tmp_path / "vault"
     created = scaffold.scaffold_vault(vault, with_ci=True, with_rw_ci=True)
-    packaged = resources.files("knowledge_harness").joinpath("templates")
+    packaged = resources.files("research_vault").joinpath("templates")
     expected = {
         ".git/hooks/pre-commit": packaged.joinpath("git", "pre-commit"),
         ".github/workflows/verify.yml": packaged.joinpath("ci", "verify.yml"),
@@ -243,23 +249,23 @@ def test_scaffold_refuses_a_staged_deletion_of_an_owned_target_before_writing(tm
     assert not index.exists()
     assert git(vault, "diff", "--cached", "--binary") == index_before
     assert not (vault / ".gitignore").exists()
-    assert not (vault / ".harness").exists()
+    assert not (vault / ".research-vault").exists()
     assert not (vault / "inbox").exists()
 
 
 def test_scaffold_keeps_machine_configuration_local_without_an_ignore_rule(tmp_path):
-    """A missing .harness ignore rule must not make machine config committable."""
+    """A missing .research-vault ignore rule must not make machine config committable."""
     vault = tmp_path / "vault"
     initialize_repo(vault)
     (vault / ".gitignore").write_text(".obsidian/\n")
 
     scaffold.scaffold_vault(vault)
 
-    assert (vault / ".harness" / "machine.json").is_file()
+    assert (vault / ".research-vault" / "machine.json").is_file()
     assert git_result(
-        vault, "ls-files", "--error-unmatch", ".harness/machine.json"
+        vault, "ls-files", "--error-unmatch", ".research-vault/machine.json"
     ).returncode
-    assert "?? .harness/" in git(vault, "status", "--short")
+    assert "?? .research-vault/" in git(vault, "status", "--short")
 
 
 def test_scaffold_initializes_a_nested_repository_instead_of_using_an_enclosing_one(
@@ -345,7 +351,7 @@ def test_scaffold_cli_prints_the_created_paths(tmp_path):
         [
             sys.executable,
             "-m",
-            "knowledge_harness",
+            "research_vault",
             "scaffold",
             "--vault",
             str(vault),
@@ -372,7 +378,7 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
         [
             sys.executable,
             "-m",
-            "knowledge_harness",
+            "research_vault",
             "scaffold",
             "--vault",
             str(vault),
@@ -387,7 +393,7 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
     assert completed.stdout.splitlines() == sorted(
         [*EXPECTED_CREATED, ".github/workflows/rw-batch.yml"]
     )
-    packaged_rw = resources.files("knowledge_harness").joinpath(
+    packaged_rw = resources.files("research_vault").joinpath(
         "templates", "ci", "rw-batch.yml"
     )
     rw_workflow = vault / ".github/workflows/rw-batch.yml"

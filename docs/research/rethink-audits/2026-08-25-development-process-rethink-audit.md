@@ -15,9 +15,9 @@ failure behind it and was withdrawn as manufactured redesign, per this method's 
 confirmed against `docs/research/raw/2026-08-25-transcript-archive-manifest.md` before being marked closed rather
 than assumed from the reconstruction note's now-stale claim.
 
-Audit target: the spec-driven, multi-agent-LLM development *process* used to build the knowledge-harness
+Audit target: the spec-driven, multi-agent-LLM development *process* used to build the research-vault
 plugin — not the vault product it built. Consumers: workload 2 (analysis/reports), workload 3 (PKM daily
-loop), a possible harness-as-paper methods section, and the single human author across all of them. Method:
+loop), a possible research-vault-as-paper methods section, and the single human author across all of them. Method:
 rethink-audit (requires → prior-art → design → gap → migrate → trade-offs). Primary sources:
 [the process reconstruction](../2026-08-25-plugin-development-process-reconstruction.md),
 [the pre-slice batch method retrospective](../validation-slice/2026-08-25-pre-slice-batch-method-retrospective.md),
@@ -27,7 +27,7 @@ the foundation spec, and `docs/superpowers/plans/2026-08-22-slice-decision-rules
 ## requires:
 
 **Callers swept:** workload 2 and workload 3 builds (template reuse; domain-specific assumptions must be
-visible, not silently carried over) — `caller`. The harness-as-paper methods section, if it happens —
+visible, not silently carried over) — `caller`. The research-vault-as-paper methods section, if it happens —
 `caller`. The single human author, the one non-scalable resource — `caller`/`docs`. Multiple stateless LLM
 seats (controller, implementer, reviewer, orchestrator) sharing no context or artifact by default — `docs`. A
 future public reader or collaborator, per the spec's own "written for a reader with no shared history" line

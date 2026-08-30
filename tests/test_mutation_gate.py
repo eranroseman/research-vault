@@ -16,7 +16,7 @@ from scripts.mutation_gate import (
 )
 
 SAMPLE_OUTPUT = """\
-Mutation run: knowledge_harness/selectors.py
+Mutation run: research_vault/selectors.py
 Total mutation sites: 71
 Covered mutation sites: 54
 Uncovered mutation sites: 17
@@ -37,30 +37,29 @@ Survivors:
 
 
 def test_parse_survivors_extracts_file_func_and_mutation():
-    keys = parse_survivors("knowledge_harness/selectors.py", SAMPLE_OUTPUT)
+    keys = parse_survivors("research_vault/selectors.py", SAMPLE_OUTPUT)
     assert keys == {
-        'knowledge_harness/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
-        "knowledge_harness/selectors.py::func/find_context::position < 0 -> position <= 0",
-        "knowledge_harness/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
+        'research_vault/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
+        "research_vault/selectors.py::func/find_context::position < 0 -> position <= 0",
+        "research_vault/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
     }
 
 
 def test_parse_survivors_empty_when_no_survivors_section():
     assert (
-        parse_survivors("knowledge_harness/paths.py", "Killed: 5\nSurvived: 0\n")
-        == set()
+        parse_survivors("research_vault/paths.py", "Killed: 5\nSurvived: 0\n") == set()
     )
 
 
-# Byte-for-byte excerpt of real mutate4py 0.1.4 stdout for knowledge_harness/inbox.py
-# (see .mutate4py/baseline-run/knowledge_harness__inbox.py.stdout), trimmed from 9
+# Byte-for-byte excerpt of real mutate4py 0.1.4 stdout for research_vault/inbox.py
+# (see .mutate4py/baseline-run/research_vault__inbox.py.stdout), trimmed from 9
 # survivors to 3. Unlike SAMPLE_OUTPUT above (hand-written, a func/ id on every
 # line, which is exactly why the drop-everything-after-a-module-level-survivor bug
 # went uncaught), this reproduces the real shape: a module-level survivor with no
 # func id (line 115) followed by function-level survivors, plus a genuine
 # multi-line-wrapped mutation description (line 611).
 REALISTIC_OUTPUT = """\
-Mutation run: knowledge_harness/inbox.py
+Mutation run: research_vault/inbox.py
 Total mutation sites: 129
 Covered mutation sites: 58
 Uncovered mutation sites: 71
@@ -96,13 +95,13 @@ def test_parse_survivors_handles_module_level_and_wrapped_entries():
     """Regression for the drop bug: a module-level survivor (no func/ id) must
     key as `::module::`, not be discarded -- and must not truncate the
     function-level survivors and the wrapped multi-line entry that follow it."""
-    keys = parse_survivors("knowledge_harness/inbox.py", REALISTIC_OUTPUT)
+    keys = parse_survivors("research_vault/inbox.py", REALISTIC_OUTPUT)
     assert keys == {
-        "knowledge_harness/inbox.py::module::True -> False",
-        "knowledge_harness/inbox.py::func/_validate_notice_fingerprint::"
+        "research_vault/inbox.py::module::True -> False",
+        "research_vault/inbox.py::func/_validate_notice_fingerprint::"
         "notice_date is not None or detection_date is not None -> "
         "notice_date is not None and detection_date is not None",
-        "knowledge_harness/inbox.py::func/_scope_acknowledged::"
+        "research_vault/inbox.py::func/_scope_acknowledged::"
         "len(colliding) == 1 and any( ack.ack_of == finding.id and "
         'ack.actor.startswith("human:") and ack.target_hash == '
         "finding.target_hash and ack.notice_class is None for ack in entries "
@@ -118,18 +117,18 @@ def test_parse_survivors_raises_on_genuinely_unparseable_entry():
     read as zero survivors (same doctrine as a non-zero mutate4py exit)."""
     bad_output = "Survivors:\n  this is not a survivor line at all\n"
     with pytest.raises(ValueError, match="unparseable"):
-        parse_survivors("knowledge_harness/paths.py", bad_output)
+        parse_survivors("research_vault/paths.py", bad_output)
 
 
 def test_new_survivors_ignores_baselined_keys():
     baseline = {
-        'knowledge_harness/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
+        'research_vault/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
     }
-    found = parse_survivors("knowledge_harness/selectors.py", SAMPLE_OUTPUT)
+    found = parse_survivors("research_vault/selectors.py", SAMPLE_OUTPUT)
     fresh = new_survivors(found, baseline)
     assert fresh == {
-        "knowledge_harness/selectors.py::func/find_context::position < 0 -> position <= 0",
-        "knowledge_harness/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
+        "research_vault/selectors.py::func/find_context::position < 0 -> position <= 0",
+        "research_vault/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
     }
 
 
@@ -152,7 +151,7 @@ def test_baseline_keys_skips_comment_header(tmp_path: Path):
     header = (
         "# mutation-baseline.txt -- 1 module(s) excluded (see "
         "mutation-exclusions.txt), not represented below: "
-        "knowledge_harness/gitstate.py\n"
+        "research_vault/gitstate.py\n"
     )
     path.write_text(header + "\n" + "\n".join(sorted(keys)) + "\n", encoding="utf-8")
     assert baseline_keys(path) == keys
@@ -164,7 +163,7 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     import subprocess
 
     repo = tmp_path / "repo"
-    (repo / "knowledge_harness").mkdir(parents=True)
+    (repo / "research_vault").mkdir(parents=True)
 
     def git(*argv: str) -> None:
         subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
@@ -172,16 +171,16 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     git("init", "-q", "-b", "main")
     git("config", "user.email", "t@example.invalid")
     git("config", "user.name", "t")
-    (repo / "knowledge_harness" / "x.py").write_text("A = 1\n", encoding="utf-8")
-    (repo / "knowledge_harness" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "research_vault" / "x.py").write_text("A = 1\n", encoding="utf-8")
+    (repo / "research_vault" / "__init__.py").write_text("", encoding="utf-8")
     git("add", ".")
     git("commit", "-q", "-m", "base")
     git("checkout", "-q", "-b", "feature")
-    (repo / "knowledge_harness" / "x.py").write_text("A = 2\n", encoding="utf-8")
-    (repo / "knowledge_harness" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
+    (repo / "research_vault" / "x.py").write_text("A = 2\n", encoding="utf-8")
+    (repo / "research_vault" / "__init__.py").write_text("B = 1\n", encoding="utf-8")
     git("commit", "-q", "-a", "-m", "change")
 
-    assert changed_modules("main", cwd=repo) == ["knowledge_harness/x.py"]
+    assert changed_modules("main", cwd=repo) == ["research_vault/x.py"]
 
 
 def _run_baseline(
@@ -197,7 +196,7 @@ def _run_baseline(
     --exclusions defaults to a tmp_path file that is never created, so these
     tests stay isolated from the real, committed mutation-exclusions.txt at the
     repo root -- without this override, a fake module name that happens to
-    collide with a genuinely excluded one (e.g. "knowledge_harness/selectors.py",
+    collide with a genuinely excluded one (e.g. "research_vault/selectors.py",
     used as the sample module throughout this file) would be silently skipped
     instead of exercising the code path each test means to hit.
     """
@@ -247,11 +246,11 @@ def test_out_dir_skips_module_with_recorded_success(tmp_path: Path, monkeypatch)
     run already finished and recorded."""
     out_dir = tmp_path / "records"
     out_dir.mkdir()
-    module = "knowledge_harness/selectors.py"
-    (out_dir / "knowledge_harness__selectors.py.stdout").write_text(
+    module = "research_vault/selectors.py"
+    (out_dir / "research_vault__selectors.py.stdout").write_text(
         SAMPLE_OUTPUT, encoding="utf-8"
     )
-    (out_dir / "knowledge_harness__selectors.py.exit").write_text("0", encoding="utf-8")
+    (out_dir / "research_vault__selectors.py.exit").write_text("0", encoding="utf-8")
 
     def fail_if_called(*_args, **_kwargs):
         raise AssertionError("a recorded success must not be re-run")
@@ -269,11 +268,9 @@ def test_out_dir_skips_module_with_recorded_success(tmp_path: Path, monkeypatch)
 def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch):
     out_dir = tmp_path / "records"
     out_dir.mkdir()
-    module = "knowledge_harness/selectors.py"
-    (out_dir / "knowledge_harness__selectors.py.stdout").write_text(
-        "", encoding="utf-8"
-    )
-    (out_dir / "knowledge_harness__selectors.py.exit").write_text("4", encoding="utf-8")
+    module = "research_vault/selectors.py"
+    (out_dir / "research_vault__selectors.py.stdout").write_text("", encoding="utf-8")
+    (out_dir / "research_vault__selectors.py.exit").write_text("4", encoding="utf-8")
 
     calls: list[str] = []
 
@@ -289,7 +286,7 @@ def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch
     assert calls == [module]
     # Rewritten record now carries the class alongside the code -- proves a
     # rerun's record isn't just overwritten, but overwritten in the new format.
-    assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
+    assert (out_dir / "research_vault__selectors.py.exit").read_text(
         encoding="utf-8"
     ) == "0 ok"
     assert baseline_keys(baseline_path) == parse_survivors(module, SAMPLE_OUTPUT)
@@ -302,10 +299,10 @@ def test_out_dir_writes_no_baseline_when_a_module_still_fails(
     yield a written baseline, same as without --out-dir."""
     out_dir = tmp_path / "records"
     out_dir.mkdir()
-    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+    modules = ["research_vault/a.py", "research_vault/b.py"]
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        if relpath == "knowledge_harness/a.py":
+        if relpath == "research_vault/a.py":
             return "", 4
         return SAMPLE_OUTPUT, 0
 
@@ -324,7 +321,7 @@ def test_cap_kill_exit_code_classified_memcap_when_cap_in_effect(
     --memory-cap is a memcap kill, not a generic error."""
     out_dir = tmp_path / "records"
     out_dir.mkdir()
-    module = "knowledge_harness/selectors.py"
+    module = "research_vault/selectors.py"
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
         assert memory_cap == "8G"
@@ -337,7 +334,7 @@ def test_cap_kill_exit_code_classified_memcap_when_cap_in_effect(
     assert mutation_gate.main() == 1
     assert not baseline_path.exists()
     # The record on disk carries the class, not just the raw exit code.
-    assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
+    assert (out_dir / "research_vault__selectors.py.exit").read_text(
         encoding="utf-8"
     ) == "137 memcap"
     out = capsys.readouterr().out
@@ -352,7 +349,7 @@ def test_same_exit_code_classified_error_when_no_cap_in_effect(
     in the same unexplained-error bucket as exit 4, not be mislabelled memcap."""
     out_dir = tmp_path / "records"
     out_dir.mkdir()
-    module = "knowledge_harness/selectors.py"
+    module = "research_vault/selectors.py"
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
         assert memory_cap is None
@@ -364,7 +361,7 @@ def test_same_exit_code_classified_error_when_no_cap_in_effect(
 
     assert mutation_gate.main() == 1
     assert not baseline_path.exists()
-    assert (out_dir / "knowledge_harness__selectors.py.exit").read_text(
+    assert (out_dir / "research_vault__selectors.py.exit").read_text(
         encoding="utf-8"
     ) == "137 error"
     out = capsys.readouterr().out
@@ -379,10 +376,10 @@ def test_summary_reports_memcap_and_error_separately(
     summary lines, never blended into a single failure count."""
     out_dir = tmp_path / "records"
     out_dir.mkdir()
-    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+    modules = ["research_vault/a.py", "research_vault/b.py"]
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        if relpath == "knowledge_harness/a.py":
+        if relpath == "research_vault/a.py":
             return "", 137  # memcap, under an active cap
         return "", 4  # unrelated error
 
@@ -393,8 +390,8 @@ def test_summary_reports_memcap_and_error_separately(
     assert mutation_gate.main() == 1
     assert not baseline_path.exists()
     out = capsys.readouterr().out
-    assert "[baseline]   memcap (1): knowledge_harness/a.py" in out
-    assert "[baseline]   error (1): knowledge_harness/b.py" in out
+    assert "[baseline]   memcap (1): research_vault/a.py" in out
+    assert "[baseline]   error (1): research_vault/b.py" in out
 
 
 def test_memory_cap_wraps_invocation_in_systemd_run_scope(monkeypatch):
@@ -413,7 +410,7 @@ def test_memory_cap_wraps_invocation_in_systemd_run_scope(monkeypatch):
 
     monkeypatch.setattr(mutation_gate.subprocess, "run", fake_subprocess_run)
 
-    mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4, "8G")
+    mutation_gate._run_mutate("research_vault/x.py", "lcov.info", [], 4, "8G")
     assert captured[-1][:6] == [
         "systemd-run",
         "--user",
@@ -425,7 +422,7 @@ def test_memory_cap_wraps_invocation_in_systemd_run_scope(monkeypatch):
     assert "MemorySwapMax=0" in captured[-1]
     assert sys.executable in captured[-1]
 
-    mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4)
+    mutation_gate._run_mutate("research_vault/x.py", "lcov.info", [], 4)
     assert captured[-1][0] == sys.executable
 
 
@@ -447,7 +444,7 @@ def test_run_mutate_disables_bytecode_writing(monkeypatch):
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    mutation_gate._run_mutate("knowledge_harness/x.py", "lcov.info", [], 4)
+    mutation_gate._run_mutate("research_vault/x.py", "lcov.info", [], 4)
     assert seen.get("PYTHONDONTWRITEBYTECODE") == "1"
     # Inherited, not replaced: mutate4py resolves its own interpreter and tools
     # through the ambient environment.
@@ -471,13 +468,13 @@ def test_parse_exclusions_tolerates_comments_and_blank_lines(tmp_path: Path):
     path.write_text(
         "# header comment\n"
         "\n"
-        "knowledge_harness/gitstate.py::B::module import breaks\n"
+        "research_vault/gitstate.py::B::module import breaks\n"
         "\n"
         "# trailing comment\n",
         encoding="utf-8",
     )
     assert mutation_gate.parse_exclusions(path) == {
-        "knowledge_harness/gitstate.py": ("B", "module import breaks"),
+        "research_vault/gitstate.py": ("B", "module import breaks"),
     }
 
 
@@ -486,7 +483,7 @@ def test_parse_exclusions_malformed_line_raises(tmp_path: Path):
     -- exactly the undetectable hole the list exists to close -- so a line that
     doesn't split into three '::'-separated fields fails loudly instead."""
     path = tmp_path / "mutation-exclusions.txt"
-    path.write_text("knowledge_harness/gitstate.py::B\n", encoding="utf-8")
+    path.write_text("research_vault/gitstate.py::B\n", encoding="utf-8")
     with pytest.raises(ValueError, match="malformed"):
         mutation_gate.parse_exclusions(path)
 
@@ -500,12 +497,12 @@ def test_committed_exclusions_file_parses_and_names_the_known_six():
         mutation_gate.ROOT / "mutation-exclusions.txt"
     )
     assert set(exclusions) == {
-        "knowledge_harness/events.py",
-        "knowledge_harness/frontmatter.py",
-        "knowledge_harness/gitstate.py",
-        "knowledge_harness/outcome.py",
-        "knowledge_harness/pathcodec.py",
-        "knowledge_harness/selectors.py",
+        "research_vault/events.py",
+        "research_vault/frontmatter.py",
+        "research_vault/gitstate.py",
+        "research_vault/outcome.py",
+        "research_vault/pathcodec.py",
+        "research_vault/selectors.py",
     }
 
 
@@ -522,13 +519,13 @@ def test_excluded_module_is_skipped_and_does_not_block_write(
     out_dir.mkdir()
     exclusions_path = tmp_path / "mutation-exclusions.txt"
     exclusions_path.write_text(
-        "knowledge_harness/a.py::A::collection-time reacher, reproduced in isolation\n",
+        "research_vault/a.py::A::collection-time reacher, reproduced in isolation\n",
         encoding="utf-8",
     )
-    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+    modules = ["research_vault/a.py", "research_vault/b.py"]
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert relpath != "knowledge_harness/a.py", "excluded module must not run"
+        assert relpath != "research_vault/a.py", "excluded module must not run"
         return SAMPLE_OUTPUT, 0
 
     monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
@@ -541,10 +538,10 @@ def test_excluded_module_is_skipped_and_does_not_block_write(
     written = baseline_path.read_text(encoding="utf-8")
     # Excluded module never contributed keys -- only b's SAMPLE_OUTPUT did.
     assert baseline_keys(baseline_path) == parse_survivors(
-        "knowledge_harness/b.py", SAMPLE_OUTPUT
+        "research_vault/b.py", SAMPLE_OUTPUT
     )
     # The exclusion travels into the baseline file itself, not just stdout.
-    assert "knowledge_harness/a.py" in written.splitlines()[0]
+    assert "research_vault/a.py" in written.splitlines()[0]
 
 
 def test_excluded_module_skip_does_not_mask_a_real_failure(tmp_path: Path, monkeypatch):
@@ -553,11 +550,11 @@ def test_excluded_module_skip_does_not_mask_a_real_failure(tmp_path: Path, monke
     out_dir = tmp_path / "records"
     out_dir.mkdir()
     exclusions_path = tmp_path / "mutation-exclusions.txt"
-    exclusions_path.write_text("knowledge_harness/a.py::A::reason\n", encoding="utf-8")
-    modules = ["knowledge_harness/a.py", "knowledge_harness/b.py"]
+    exclusions_path.write_text("research_vault/a.py::A::reason\n", encoding="utf-8")
+    modules = ["research_vault/a.py", "research_vault/b.py"]
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert relpath == "knowledge_harness/b.py"
+        assert relpath == "research_vault/b.py"
         return "", 4
 
     monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
@@ -579,7 +576,7 @@ def test_exclusion_inventory_prints_even_when_empty(
     out_dir.mkdir()
     exclusions_path = tmp_path / "mutation-exclusions.txt"
     exclusions_path.write_text("# nothing excluded yet\n", encoding="utf-8")
-    module = "knowledge_harness/selectors.py"
+    module = "research_vault/selectors.py"
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
         return SAMPLE_OUTPUT, 0
@@ -604,9 +601,9 @@ def test_gate_reports_excluded_changed_module_without_failing(
     "pass — no new survivors" that would read as a clean verification."""
     exclusions_path = tmp_path / "mutation-exclusions.txt"
     exclusions_path.write_text(
-        "knowledge_harness/selectors.py::unexplained::reason\n", encoding="utf-8"
+        "research_vault/selectors.py::unexplained::reason\n", encoding="utf-8"
     )
-    module = "knowledge_harness/selectors.py"
+    module = "research_vault/selectors.py"
 
     def fail_if_called(*_args, **_kwargs):
         raise AssertionError("excluded module must not be run in gate mode either")
@@ -632,14 +629,14 @@ def test_gate_still_fails_on_a_fresh_survivor_alongside_an_excluded_module(
     survivor in a different changed, non-excluded module still fails the gate."""
     exclusions_path = tmp_path / "mutation-exclusions.txt"
     exclusions_path.write_text(
-        "knowledge_harness/selectors.py::unexplained::reason\n", encoding="utf-8"
+        "research_vault/selectors.py::unexplained::reason\n", encoding="utf-8"
     )
-    excluded = "knowledge_harness/selectors.py"
-    changed = "knowledge_harness/other.py"
+    excluded = "research_vault/selectors.py"
+    changed = "research_vault/other.py"
 
     def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
         assert relpath == changed, "excluded module must not run"
-        return SAMPLE_OUTPUT.replace("knowledge_harness/selectors.py", changed), 0
+        return SAMPLE_OUTPUT.replace("research_vault/selectors.py", changed), 0
 
     monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
     monkeypatch.setattr(
@@ -662,25 +659,25 @@ def test_restore_if_left_mutated_undoes_an_interrupted_runs_mutation(
     uncommitted edits.
     """
     monkeypatch.setattr(mutation_gate, "ROOT", tmp_path)
-    (tmp_path / "knowledge_harness").mkdir()
-    source = tmp_path / "knowledge_harness" / "x.py"
+    (tmp_path / "research_vault").mkdir()
+    source = tmp_path / "research_vault" / "x.py"
     source.write_text("index += 0\n", encoding="utf-8")  # the mutant left behind
-    (tmp_path / "knowledge_harness" / "x.py.bak").write_text(
+    (tmp_path / "research_vault" / "x.py.bak").write_text(
         "index += 1\n", encoding="utf-8"
     )
 
-    assert mutation_gate._restore_if_left_mutated("knowledge_harness/x.py") is True
+    assert mutation_gate._restore_if_left_mutated("research_vault/x.py") is True
     assert source.read_text(encoding="utf-8") == "index += 1\n"
-    assert not (tmp_path / "knowledge_harness" / "x.py.bak").exists()
+    assert not (tmp_path / "research_vault" / "x.py.bak").exists()
 
 
 def test_restore_if_left_mutated_is_a_noop_after_a_clean_run(tmp_path, monkeypatch):
     """mutate4py removes the .bak when a module finishes, so no .bak means the
     source was never left mutated -- and an untouched file must stay untouched."""
     monkeypatch.setattr(mutation_gate, "ROOT", tmp_path)
-    (tmp_path / "knowledge_harness").mkdir()
-    source = tmp_path / "knowledge_harness" / "x.py"
+    (tmp_path / "research_vault").mkdir()
+    source = tmp_path / "research_vault" / "x.py"
     source.write_text("index += 1\n", encoding="utf-8")
 
-    assert mutation_gate._restore_if_left_mutated("knowledge_harness/x.py") is False
+    assert mutation_gate._restore_if_left_mutated("research_vault/x.py") is False
     assert source.read_text(encoding="utf-8") == "index += 1\n"
