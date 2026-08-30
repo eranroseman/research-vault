@@ -37,7 +37,9 @@ Steps 2–4 read *component*, not *skill*. That is not cosmetic: the difference 
 
 **The buckets.** Anything clearing the as-is gate is exactly one of **required** (the plugin does not work without it), **recommended** (works without it), or **unrelated**.
 
-**Fork policy is per-plugin with no default.** Every fork-or-depend call rests on its own upstream evidence, and gathering that evidence is a **one-time research cost at adoption**, not an ongoing one.
+**Fork policy is per-plugin with no default.** Every fork-or-depend call rests on its own upstream evidence, and gathering it is a **one-time research cost at adoption** rather than a recurring one — there is no scheduled re-audit.
+
+That does not freeze the decision. **A material upstream change may trigger a re-audit of the affected call** — the trigger is an event, not a calendar, and it re-opens the question rather than answering it. A plugin going unmaintained, a licence change, or a maintainer handover are the cases that would. #63 is already where such a change surfaces, since it watches upstream, so this needs no separate mechanism.
 
 **Repository count is unconstrained** — *"we can have as many repos as we want."* The three-peer framing (`research-vault`, `software-development`, `shared-skills`) describes the **distribution** graph, what a user installs, not a limit on what the author may own. This was the only premise that could have overturned the fork recommendation, so the fork below stands on its own merits rather than on any scarcity of repositories.
 
