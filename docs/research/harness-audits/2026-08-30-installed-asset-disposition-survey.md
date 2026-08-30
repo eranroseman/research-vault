@@ -162,9 +162,9 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 Standalone via `~/.agents/.skill-lock.json`, not as a plugin. All adopted skills are **rung 3, vendored** into whichever product needs them.
 
 - **To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
-- **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`, `domain-modeling`.
+- **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`, `domain-modeling`, `grill-with-docs`.
 - **Rung 4, adapt:** `setup-matt-pocock-skills`, into `software-development` — the template for #62's setup mechanism rather than a shipped capability, so the sharing axis does not apply.
-- **Not adopted:** `grill-with-docs`, `to-tickets`, per #72's process-skill ruling.
+- **Not adopted:** `to-tickets`, per #72's process-skill ruling.
 
 Six were independently hash-matched against exact upstream commits and are **pristine but stale** — `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
 
@@ -181,6 +181,12 @@ That test optimised for closing the call graph rather than for the right outcome
 *Rung 3, not 4.* Earlier passes put it at rung 4 with "resolve the split" as its adaptation. The split is resolved, the copy is hash-matched pristine, no other adaptation was named — so it vendors unmodified and leaves #60's list.
 
 Two ways to remove the dangling `wayfinder` call if it irritates in practice, neither taken: adapt `wayfinder` so its grilling ticket type does not invoke `domain-modeling` unconditionally, moving `wayfinder` to rung 4 and buying a permanent adaptation; or leave it, the error being visible to the agent and costing one retry.
+
+**`grill-with-docs` is adopted, reversing #72 for this skill (author, 2026-08-30).** #72 dropped it with mattpocock's other process skills after #85 found it has no interview logic of its own — its whole body is *"Call the Skill tool twice, for `grilling` and `domain-modeling`."* Seven lines, `disable-model-invocation: true`, shipping `agents/` for Codex.
+
+Two things make it worth keeping. It is a **user-typed composition**, not a competing entry point — being outside the model catalog, it cannot race the spine, which is what #72's process-skill ruling was guarding against. And **both callees resolve in `software-development`**: `domain-modeling` lives there, `grilling` arrives via `shared-skills`. It vendors unmodified at rung 3; the bare names need no rewriting.
+
+It is not the `rethink` case. `rethink` restated a line already inside `rethink-audit`; `grill-with-docs` composes two skills, neither of which contains the composition — the same pairing `wayfinder:79` reaches for by hand.
 
 **`prototype` is the same shape and answer.** `wayfinder` calls it at one site, reached only when a prototype ticket is created. Its absence degrades `wayfinder` to three ticket types, and a researcher plausibly never reaches for *"a throwaway prototype... UI/logic code"*.
 
