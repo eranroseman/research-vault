@@ -252,14 +252,18 @@ Recommendation only — the owning tickets decide.
 
 | Skill | Rung | Home | Owning ticket |
 |---|---|---|---|
-| `consistency-audit` | 3 — vendor | **`shared-skills`** | #79 |
+| `consistency-audit` | 3 — vendor | `software-development` | #79 |
 | `rethink-audit` | 3 — vendor | `software-development` | #73 |
 | `rethink` | **not adopted — drop** | — | #73 |
 | `finding-duplicate-functions` | 4 — adapt | `software-development` | #60 |
 
-**`consistency-audit` is shared, correcting an earlier verdict.** Its description is *"contradictions, duplication, drifted terms, stale claims"* — what a research vault accumulates at least as much as a code repository. The earlier `software-development`-only call came from framing vocabulary (*"read a **repository** whole"*) rather than capability. The skill degrades gracefully by design: *"Most repositories have none of these. When one is absent, proceed with the defaults and say nothing."*
+**`consistency-audit` is `software-development`, after two reversals.** The original pass said so from framing vocabulary (*"read a **repository** whole"*); a second reversed it to `shared-skills` on capability, since *"contradictions, duplication, drifted terms, stale claims"* is what a research vault accumulates. Both were reasoning from the description. Reading the skill settles it: **the capability transfers and the plumbing does not.**
 
-Its subagent travels with it. `consistency-audit` hard-dispatches `consistency-audit-inspector` at `SKILL.md:78` (*"two independent readers over every slice"*) and `:116` (*"instructed to refute"*), and that agent lives outside the skill directory at `~/harness-backup/claude/agents/`. Reading #77 as *skills* and nothing else would have blocked the assignment; under the clarification that `shared-skills` holds **plugin components**, an agent qualifies. #51 flagged this agent as outside the drift detector's watched set and deferred it to #78 — still open, and now more load-bearing since the agent becomes shipped rather than local.
+Two blockers, neither cosmetic. Its report destination is hardcoded — *"Write the report to `docs/superpowers/specs/YYYY-MM-DD-<scope>-audit.md`"* (`SKILL.md:201`), a path no vault has. And its terminal state is `"Invoke writing-plans skill"`, the doublecircle in its After-the-Audit graph — a superpowers skill, `software-development`-only, so on a vault the audit's *exit* calls something absent.
+
+The mismatch is structural rather than a path string. A vault already has a destination for adjudicated findings: the foundation spec routes them to `inbox/review-queue.md` as append-only entries carrying reason codes and human acknowledgment. A vault audit should terminate there, not in a plan. A skill needing a different exit shape per product is two skills sharing a method, not one shared skill — which is what a survey pass meant in flagging a vault-side `vault-audit`/`tangle-check` derivative for #79 or the research-vault roster.
+
+Its subagent travels either way. `consistency-audit` hard-dispatches `consistency-audit-inspector` at `SKILL.md:78` (*"two independent readers over every slice"*) and `:116` (*"instructed to refute"*), and that agent lives outside the skill directory at `~/harness-backup/claude/agents/`. #51 flagged it as outside the drift detector's watched set and deferred it to #78 — still open, and more load-bearing once the agent ships rather than sitting local.
 
 **`rethink` is dropped, on duplication rather than principle.** Its entire body is one sentence: *"Run a `/rethink-audit` pass on a fresh design question: no implementation exists, so work through `design:` and finish at `trade-offs:`."* `rethink-audit` already carries that at line 60: *"On a fresh design question there is no implementation: run through `design:`, then `trade-offs:`."* Near-verbatim — not a wrapper adding a parameterisation but a restatement of a line inside the skill it delegates to.
 
