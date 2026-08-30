@@ -1,6 +1,6 @@
 # Terminology reference
 
-This document is the naming authority for knowledge-harness vault and tooling vocabulary: the cost model that governs renames, the ruled precedence order for anchor sources, the resulting adoptions and deviations, and the current user-facing inventory. Decisions carry inline dates; the passes that produced them live in git history.
+This document is the naming authority for knowledge-harness vault, tooling, and product vocabulary: the cost model that governs renames, the ruled precedence order for anchor sources, the resulting adoptions and deviations, and the current user-facing inventory. Decisions carry inline dates; the passes that produced them live in git history.
 
 ## 1. Cost model
 
@@ -12,6 +12,8 @@ This document is the naming authority for knowledge-harness vault and tooling vo
 4. **Collision/ambiguity** — the base term already means something else in our context.
 
 No class binding ⇒ the precedence order's term is adopted. Taste never justifies deviation.
+
+**Churn is not a cost; it is an investment in a better future** (adopted 2026-08-30, #87). This supersedes the "priced at zero" framing above, which prices churn cheaply where this denies it is a cost at all. It changes the **price, not the license**: the rule immediately above stands unamended — no class binding still means the precedence order's term is adopted, and taste still never justifies deviation. What the position removes is the argument that a rename costs too much to make; it supplies no argument that a rename is warranted.
 
 **The cost model governs decisions, not just names**: pre-first-vault, ANY prior ruling reverses at churn cost unless a real cost class binds. Precedent is information, never constraint — citing a prior ruling is an input to re-deriving from current facts, not a reason by itself. This is pre-alpha: everything is ten minutes away from different.
 
@@ -157,3 +159,33 @@ Deferred with a home (not endorsed, not lost): module/function stutter (`checks.
 and noun-named functions — per-name judgment at the architecture deepening pass; module-name candidates there include `notes.py` → `literature_notes.py` (the module renders only literature notes — latent class-4 ambiguity against the vault's other note kinds; full-word spelling if adopted, and bundle with a re-baseline boundary) (the two findings
 collide: de-stuttering creates noun functions); `FileImage`/`CapturedOutput` naming vs git's `blob`
 vocabulary — same pass.
+
+### 4.5 Product identity (adopted 2026-08-30, #87)
+
+The product's own name is a governed surface as of this section. §4.1–§4.4 inventory vault paths, claim
+language, CLI verbs, check ids, doctor probe ids, reason codes, and skill names; the naming authority had
+never governed itself, and that gap is why the collision recorded below went unexamined.
+
+**Plugin naming rule (adopted 2026-08-30; a new plugin walks this):** name the plugin for the noun that
+bounds its work — **the durable artifact it stewards** where one exists, otherwise **the activity it
+serves**. Qualify with the field when the bare noun is ambiguous. The kind word (`plugin`, `bundle`) stays
+out of the name and lives in the description. Kebab-case, no invented abbreviations, same grammar as the
+§4.3 verb rule.
+
+Walked here: this product stewards the vault, and the vault outlives it (ADR 0001), so the artifact branch
+applies and the name takes the form `<field>-vault`; the field qualifier is required because `vault` is
+ambiguous both in Obsidian's generic sense and in the public namespace. A companion plugin for software
+development stewards no durable artifact — codebases exist without it — so it takes the activity branch
+instead. The two shapes differ because the rule is a tree, not a template: the asymmetry is the rule
+working, not a defect.
+
+**Scope of class 4 for product identity.** Everywhere else in this document class 4 is workspace-internal
+(§1: the base term "already means something else *in our context*"). A product name ships publicly, so for
+§4.5 rows only, class 4 is also evaluated against the public namespace the product ships into. The widening
+is confined to this section.
+
+| Current term                                                                                                                                                                                 | Authority                                                                                                    | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product name `research-vault` (was `knowledge-harness`)                                                                                                                                      | `vault` — Obsidian (T2) and CONTEXT.md's canonical noun for the artifact; `research` — author's coinage (T8) | A/S — the naming rule above, walked. `research` replaces `knowledge` at **no cost class**: OKF's title word is not OKF vocabulary (§3.1's OKF adoptions name none), and ADR 0001 bounds conformance to structure, not words — so the product name never carried a T1 anchor to deviate from. Executing the rename is separate work.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Per-surface spellings — repo slug, `.claude-plugin/plugin.json` `name`, `pyproject.toml` `name`: `research-vault`; Python module: `research_vault`; actor string: `research_vault/<version>` | —                                                                                                            | S — one canonical name, per-surface grammar (the §4.4 field/concept-pair shape). The **actor string is the only spelling that persists into vault records** (§3.1) and therefore the only one carrying real churn; pre-first-vault status confirmed 2026-08-29. `research-vault` is already registered on PyPI — a constraint on the distribution name alone, and only if the package is ever published there.                                                                                                                                                                                                                                                                                                                                              |
+| `harness` — retired from the product name                                                                                                                                                    | —                                                                                                            | **D — class 4 (collision/ambiguity).** Three live senses in one workspace: the **agent runtime** (`harness-backup`, "cross-harness working rules", "software-dev harness"), the vault's **tooling layer** (`.harness/`, "ruled harness conventions", §4.1), and the product. §4.4's register split does not rescue it — that mechanism requires the senses never co-occur, and README.md's opening line uses the runtime sense to describe the product in one sentence. **The finding stands independently of the rename**: the runtime/`.harness/` collision survives the product dropping the word. Deferred with a home (not endorsed, not lost) — whether `.harness/` also moves is a §4.1 vault-path question, judged at the next vault-scaffold pass. |
