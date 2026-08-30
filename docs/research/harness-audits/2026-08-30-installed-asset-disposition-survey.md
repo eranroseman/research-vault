@@ -158,16 +158,24 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 
 Installed standalone via `~/.agents/.skill-lock.json`, not as a plugin. All adopted skills are **rung 3, vendored** into whichever product needs them.
 
-- **To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`, `domain-modeling`.
-- **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`.
+- **To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
+- **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`, `domain-modeling`.
 - **Rung 4, adapt:** `setup-matt-pocock-skills`.
 - **Not adopted:** `grill-with-docs`, `to-tickets`, per #72's process-skill ruling.
 
 Six were independently hash-matched against exact upstream commits and are **pristine but stale** — `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
 
-**`domain-modeling` is shared, and the call graph forces it.** `wayfinder` is shared and invokes `domain-modeling` at three unconditional sites: the default ticket type (*"Always call the Skill tool twice"*, line 79), the mandatory first act of charting a map (*"Name the destination. Call the Skill tool twice"*, line 111), and the fallback at line 124. A shared `wayfinder` whose callee lives only in `software-development` would fail on a research-vault-only install, and the Skill tool's error is visible to the agent but not to the user. This settles what earlier passes called "genuinely split" — it is not a judgement about which product wants the capability.
+**`domain-modeling` is `software-development` only — and the reasoning that nearly put it in `shared-skills` was wrong.** An earlier pass argued the call graph forced it: `wayfinder` is shared and invokes `domain-modeling` at three unconditional sites — the default ticket type (*"Always call the Skill tool twice"*, line 79), the mandatory first act of charting a map (*"Name the destination. Call the Skill tool twice"*, line 111), and the fallback at line 124 — so a research-vault-only install would leave the call dangling.
 
-**`prototype` is the tolerable case, for contrast.** `wayfinder` calls it at one site, reached only when a prototype ticket is created — one of four ticket types. Its absence degrades `wayfinder` to three types rather than breaking it, and a researcher plausibly never reaches for *"a throwaway prototype... UI/logic code"*. Worth stating where a user sees it rather than surfacing as an error the agent routes around.
+That test optimised for closing the call graph rather than for the right thing happening, and it never weighed what presence costs against what absence costs.
+
+*Presence is not neutral.* The skill is thoroughly repo-shaped: its description reads *"Use when discussing **codebase** terminology, writing or editing a **CONTEXT.md**, or recording or editing an **ADR**"*; its structure section opens *"Most **repos** have a single context"* and diagrams `src/`, `docs/adr/`, `CONTEXT.md`; it carries a *"Cross-reference with code"* step and ships `ADR-FORMAT.md` and `CONTEXT-FORMAT.md`. A scaffolded vault has none of those artefacts — `templates/`, what `setup-vault` ships, contains neither `CONTEXT.md` nor `docs/adr/`. And the skill creates what it does not find: *"If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed."* So a shared `wayfinder` invoking it in a vault session would write code-project scaffolding into an OKF-conformant vault — damage to the artefact `research-vault` exists to protect, not clutter.
+
+*Absence costs a retry.* The Skill tool errors, the agent proceeds, and no domain modelling happens — which is correct where the discipline does not apply.
+
+Two ways to remove the dangling call if it proves irritating in practice, neither taken now: adapt `wayfinder` so its grilling ticket type does not invoke `domain-modeling` unconditionally, which moves it from rung 3 to rung 4 and buys a permanent adaptation; or leave it, since the error is visible to the agent and costs one retry.
+
+**`prototype` is the same shape and the same answer.** `wayfinder` calls it at one site, reached only when a prototype ticket is created. Its absence degrades `wayfinder` to three ticket types, and a researcher plausibly never reaches for *"a throwaway prototype... UI/logic code"*.
 
 **Why not fork `mattpocock/skills`, given rung 2 outranks rung 3?** Four reasons, the first decisive.
 
@@ -252,7 +260,7 @@ Four were deferred here by #89 — `domain-modeling`, `triage`, `writing-for-age
 | Skill | Verdict |
 |---|---|
 | `writing-for-agents` | `shared-skills` |
-| `domain-modeling` | **`shared-skills`** — forced by the call graph, since a shared `wayfinder` invokes it unconditionally at map creation |
+| `domain-modeling` | **`software-development`** — repo-shaped (CONTEXT.md, ADRs, cross-reference with code) and it *creates* those artefacts where absent, so shipping it to a vault is damage rather than clutter. `wayfinder`'s unconditional call to it dangles on a vault-only install, which is the correct outcome |
 | `triage` | `software-development` |
 | `working-with-claude-code` | `software-development` |
 | `superpowers` | `software-development` — meaning **`software-development` depends on it and `research-vault` does not**. The fork stays a separate plugin with its own root; this axis assigns which product needs the capability, not where files sit |
