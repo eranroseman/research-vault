@@ -221,9 +221,11 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 - **Doubled merge burden on a live upstream.** Two forks tracking one active repository means two merges per upstream change, each maintaining a different deletion set — 28 skills deleted in one, 32 in the other — indefinitely.
 - **Recategorisation would become a two-repository transaction.** Moving one skill between the productivity and engineering sides becomes a delete in one fork and an add in the other, in lockstep. Under vendoring it is a file move.
 
-A fifth consideration is structural: `shared-skills` is defined by #77 as holding **skills and nothing else**. A fork of someone else's repository minus 28 skills is not that, and it could never cleanly hold an authored or non-mattpocock skill later.
+A fifth consideration is structural: `shared-skills` holds **plugin components and nothing else** (author, 2026-08-30, clarifying #77 — whose "nothing else" was aimed at `terminology.md` and glossaries, not at components). A fork of someone else's repository minus 28 skills is not a component set, and it could never cleanly hold an authored or non-mattpocock component later.
 
 **A defect in the sharing split, found by mapping those references.** The bare-name calls are fine within a product but not across the boundary, and one crosses it: **`wayfinder` is shared, and its Prototype ticket type instructs the agent to call `prototype`, which is `software-development`-only.** A researcher installing `research-vault` plus `shared-skills` gets `wayfinder` without `prototype`, and that ticket type silently has nothing to invoke. The same shape threatens `domain-modeling`, which `wayfinder` also calls — and that is the mechanical reason it is genuinely split rather than a matter of taste. Route to #89's mechanism or to whichever ticket owns the final shared roster; it is not resolvable inside a per-skill verdict.
+
+Note this is a **product-boundary** problem, not a component-kind one. A skill's own agents, hooks and commands travel with it into `shared-skills`, which holds plugin components; what does not travel is a call to a skill assigned to the *other* product.
 
 Six were independently hash-matched against exact upstream commits and are **pristine but stale** — `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
 
@@ -250,14 +252,24 @@ The upstream roster is 37 skills — engineering 18, productivity 7, in-progress
 
 ### The four harness-backup skills
 
-Recommendation only — the owning tickets decide. All four sit with `software-development` on the sharing axis.
+Recommendation only — the owning tickets decide.
 
-| Skill | Step | Owning ticket |
-|---|---|---|
-| `finding-duplicate-functions` | 4 — adapt | #60 (the clearest vendoring case on the machine) |
-| `consistency-audit` | 3 — vendor | #79 |
-| `rethink` | 3 — vendor | #73 |
-| `rethink-audit` | 3 — vendor | #73 |
+| Skill | Rung | Home | Owning ticket |
+|---|---|---|---|
+| `consistency-audit` | 3 — vendor | **`shared-skills`** | #79 |
+| `rethink-audit` | 3 — vendor | `software-development` | #73 |
+| `rethink` | **not adopted — drop** | — | #73 |
+| `finding-duplicate-functions` | 4 — adapt | `software-development` | #60 (the clearest vendoring case on the machine) |
+
+**`consistency-audit` is shared, correcting an earlier verdict.** Its own description is *"contradictions, duplication, drifted terms, stale claims"* — what a research vault accumulates at least as much as a code repository does. The earlier `software-development`-only call was reached from framing vocabulary (*"read a **repository** whole"*) rather than capability, the same error that produced the `wayfinder`/`prototype` finding above. The skill degrades gracefully by design: *"Most repositories have none of these. When one is absent, proceed with the defaults and say nothing."*
+
+Its subagent travels with it. `consistency-audit` hard-dispatches `consistency-audit-inspector` at `SKILL.md:78` (*"two independent readers over every slice"*) and again at `:116` (*"instructed to refute"*), and that agent lives outside the skill directory at `~/harness-backup/claude/agents/`. Under a reading of #77 as *skills* and nothing else this would have blocked the assignment; under the author's clarification that `shared-skills` holds **plugin components**, an agent qualifies and the blocker dissolves. #51 separately flagged this agent as sitting outside the drift detector's watched set and deferred it to #78 — that remains open and is now more load-bearing, since the agent becomes shipped rather than local.
+
+**`rethink` is dropped, on duplication rather than principle.** Its entire body is one sentence: *"Run a `/rethink-audit` pass on a fresh design question: no implementation exists, so work through `design:` and finish at `trade-offs:`."* `rethink-audit` already carries that instruction at line 60: *"On a fresh design question there is no implementation: run through `design:`, then `trade-offs:`."* Near-verbatim. It is not a wrapper adding a parameterisation — it restates a line already inside the skill it delegates to.
+
+This answers #73's second question differently from how that ticket frames it. The front door does not absorb `/rethink`, and it does not survive as a distinct no-dialog entry point: **`rethink-audit` absorbed it already.** It also means `rethink-audit` needs no adaptation to cover the fresh-design case, which keeps it at rung 3 rather than moving it to rung 4.
+
+**`rethink-audit` is `software-development`, but weakly.** Its method reconstructs `requires:` "from its boundary — signatures, call sites, tests" and reads "the current implementation" at `gap:`, with migration cost as the frame — that needs code. The usage evidence argues wider: of the seven audits in `docs/research/rethink-audits/`, several are not code at all (`controller-protocol`, `development-process`, `glossary-and-adr-triage`, `coding-companion-plugin-layering`). All remain engineering-domain, so the verdict holds, but it is a borderline call rather than a clean one. Both `rethink` and `rethink-audit` ship `agents/openai.yaml`, so they are already cross-harness ready.
 
 On `rethink`, the author has ruled these land in either `software-development` or `shared-skills`, and that **both** the public `eranroseman/rethink` repository and the harness-backup copies are deleted. Recorded on #73.
 
