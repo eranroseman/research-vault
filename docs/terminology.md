@@ -176,10 +176,10 @@ out of the name and lives in the description. Kebab-case, no invented abbreviati
 
 Walked here: this product stewards the vault, and the vault outlives it (ADR 0001), so the artifact branch
 applies and the name takes the form `<field>-vault`; the field qualifier is required because `vault` is
-ambiguous both in Obsidian's generic sense and in the public namespace. A companion plugin for software
-development stewards no durable artifact — codebases exist without it — so it takes the activity branch
-instead. The two shapes differ because the rule is a tree, not a template: the asymmetry is the rule
-working, not a defect.
+ambiguous both in Obsidian's generic sense and in the public namespace. The sibling plugin stewards no durable
+artifact — codebases exist without it — so it takes the activity branch instead and is named for the
+activity it serves: `software-development` (#76, 2026-08-30). The two shapes differ because the rule is a
+tree, not a template: the asymmetry is the rule working, not a defect.
 
 **Scope of class 4 for product identity.** Everywhere else in this document class 4 is workspace-internal
 (§1: the base term "already means something else *in our context*"). A product name ships publicly, so for
