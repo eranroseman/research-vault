@@ -197,7 +197,6 @@ It is not the `rethink` case. `rethink` restated a line already inside `rethink-
 - **Doubled merge burden on a live upstream**, each fork maintaining a different deletion set indefinitely.
 - **Recategorisation becomes a two-repository transaction** — a delete in one fork and an add in the other, in lockstep, where vendoring makes it a file move.
 
-Structurally, too: `shared-skills` holds **plugin components and nothing else** (author, 2026-08-30, clarifying #77 — whose "nothing else" targeted `terminology.md` and glossaries, not components). A fork of someone else's repository minus 28 skills is not a component set.
 
 ## mattpocock's skills — 19 not installed
 
