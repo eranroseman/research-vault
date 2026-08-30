@@ -32,7 +32,9 @@ The first function of `software-development` is to be the single home for the no
 
 **Recommendation: fork `obra/superpowers` into the author's own marketplace, delete `brainstorming` there, and depend on the fork from both harnesses.**
 
-The author ruled that superpowers cannot be used as-is. That reverses a clause of [#72](https://github.com/eranroseman/knowledge-harness/issues/72), which recorded the process spine as "adopted as-is" while simultaneously vendoring `brainstorming` out of it — two statements that cannot both hold at plugin granularity. Recorded here as a dated reversal rather than left contradicted, per the precedent [#77](https://github.com/eranroseman/knowledge-harness/issues/77) set when it reversed clauses of [#89](https://github.com/eranroseman/knowledge-harness/issues/89).
+**Nature: the findings below are measured; the fork is decided by #75.** The author's position on as-is adoption is an observation rather than a ruling — verbatim: *"I didn't rule that superpowers can't be adopted as-is. I said unfortunately the evidence suggests it is impossible."* The distinction is load-bearing and the foundation spec's status vocabulary requires naming it: a measurement is overturnable by better evidence, a ruling is not. So what follows are measurements of the installed artefacts, and the fork is a conclusion drawn from them — reopenable if the artefacts change.
+
+The conclusion reverses a clause of [#72](https://github.com/eranroseman/knowledge-harness/issues/72), which recorded the process spine as "adopted as-is" while simultaneously vendoring `brainstorming` out of it — two statements that cannot both hold at plugin granularity. Recorded as a dated reversal rather than left contradicted, per the precedent [#77](https://github.com/eranroseman/knowledge-harness/issues/77) set when it reversed clauses of [#89](https://github.com/eranroseman/knowledge-harness/issues/89). The reversal is #75's, not an author ruling.
 
 ### Why ladder step 1 fails
 
@@ -62,13 +64,13 @@ Codex is worse, not better: `codex plugin --help` on codex-cli 0.147.0 lists onl
 
 ### Why ladder step 2 fails
 
-The 13 wanted skills carry 24 hard-coded `superpowers:`-qualified cross-references across 9 files in 7 of the 13. Examples: `writing-plans/SKILL.md:163` — *"**REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development"*; `systematic-debugging/SKILL.md:177` — *"Use the `superpowers:test-driven-development` skill"*. Copied into `software-development`'s root unmodified, every one points at a namespace that is absent or routes back to the upstream copy. Step 2 therefore collapses into step 3 for 7 of 13 skills on day one.
+The wanted skills carry **26** hard-coded `superpowers:`-qualified cross-references across 9 files — 25 lines, one of which carries two — verified by `grep -ro` against the installed cache. None is inside `skills/brainstorming/`, so every one survives that directory's deletion and every one breaks under vendoring. Per file: `subagent-driven-development/SKILL.md` 6, `writing-plans/SKILL.md` 4, `writing-skills/SKILL.md` 4, `executing-plans/SKILL.md` 3, `systematic-debugging/SKILL.md` 2, `using-superpowers/SKILL.md` 2, `using-superpowers/references/gemini-tools.md` 2, `test-driven-development/writing-good-tests.md` 1, `writing-skills/testing-skills-with-subagents.md` 1. Examples: `writing-plans/SKILL.md:163` — *"**REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development"*; `systematic-debugging/SKILL.md:177` — *"Use the `superpowers:test-driven-development` skill"*. Copied into `software-development`'s root unmodified, every one points at a namespace that is absent or routes back to the upstream copy. Step 2 therefore collapses into step 3 for every skill carrying one.
 
 The breakage class is permanent, not one-off: 20 commits since 2026-01-01 added or moved lines containing `superpowers:` under `skills/`, and `writing-skills/SKILL.md:283` prescribes the qualified form as house style. Such changes auto-merge without conflict, so each future one would land silently broken.
 
 ### Why the fork wins
 
-Qualified names are `pluginName:skillName`, independent of marketplace — corroborated live in this session's own skill listing, where `superpowers-developing-for-claude-code:developing-claude-code-plugins` is namespaced by plugin name while its marketplace is `superpowers-developing-for-claude-code-dev`. Keeping `"name": "superpowers"` in the fork preserves all 24 cross-references untouched.
+Qualified names are `pluginName:skillName`, independent of marketplace — corroborated live in this session's own skill listing, where `superpowers-developing-for-claude-code:developing-claude-code-plugins` is namespaced by plugin name while its marketplace is `superpowers-developing-for-claude-code-dev`. Keeping `"name": "superpowers"` in the fork preserves all 26 cross-references untouched.
 
 Measured, by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0829` (v6.3.0, five weeks, 415 lines across 13 skill files):
 
@@ -101,7 +103,7 @@ Three, all accepted:
 ### Residual risks
 
 - **Sequencing.** The fork's edited bootstrap points at `software-development:writing-specs`. Until that ships, every session injects a route to a skill that does not exist. `writing-specs` must land before or with the fork cutover. Owned by [#62](https://github.com/eranroseman/knowledge-harness/issues/62).
-- **Name collision at cutover.** The fork keeps `"name": "superpowers"`, so it collides with the installed plugin; the binary carries a precedence message confirming the loser is shadowed. The cutover must uninstall first on both harnesses. Note `installed_plugins.json` also carries a **project-scope entry for `/home/eranr/memoria-vault` at a different sha** (`3dcbd5c4…`) pointing at the same install path — easy to miss, and it must be migrated too.
+- **Name collision at cutover.** The fork keeps `"name": "superpowers"` — which is what preserves the 26 references — so it collides with the installed plugin; the binary carries a precedence message confirming the loser is shadowed. The cutover must uninstall first on both harnesses. Note `installed_plugins.json` also carries a **project-scope entry for `/home/eranr/memoria-vault` at a different sha** (`3dcbd5c4…`) pointing at the same install path — easy to miss, and it must be migrated too.
 - **Fork staleness.** A fork nobody merges becomes a stale private snapshot — the exact failure `harness-backup` exists to avoid, reintroduced elsewhere. #63's monitor must watch upstream HEAD against the fork's merge-base, not just the fork against the installed cache. Without that the fork is strictly worse than step 1.
 
 ## Disposition table
@@ -225,13 +227,16 @@ Structurally, anything shipping **inside** the plugins must be a vendored copy i
 
 This does not move step 2 to step 3. It changes what step 2 *means* — not "depend on upstream" but "vendor a byte-identical copy with provenance". The ladder distinguishes whether the text changed, not how it got there. The consequence worth recording: **every vendored copy, modified or not, becomes a #63 drift surface.** A dependency on a separately-distributed plugin — which is what the superpowers fork is — does not, because it keeps its own plugin root.
 
+## Answered since this document was first written
+
+- **"No repository outside the three products" is not a constraint** — verbatim: *"we can have as many repos as we want."* This was the only premise that would have overturned the fork. It does not hold, so the fork stands on its own merits rather than on any implied scarcity of repositories.
+- **`caveman`'s bucket is `unrelated`.** Under the necessity test nothing in `software-development` invokes it, and a public plugin recommending an output-style mode recommends taste rather than capability. It stays installed; the bucket only decides whether the README names it.
+- **The obra double-install is deduped in favour of the plugin**, dropping the standalone lockfile entries. Both skills are step-3 adaptations regardless, so the lockfile copy is the one with no future — and since `skillOverrides` reaches lockfile skills but not plugin skills, keeping the muteable copy while dropping the unmuteable one would be backwards.
+
 ## Open for the author
 
-Ranked by downstream work unblocked.
+Ranked by downstream work unblocked. These route to other tickets and block nothing here.
 
-1. **Is "no repository outside the three products" a hard constraint?** This is the only premise that overturns the fork recommendation. If hard, the honest fallback is step 2 with eyes open: nine files renamespaced at adoption, routed to #60, plus a #63 check that greps merged upstream content for stray `superpowers:` and unqualified `brainstorming` references. If the three-peer framing is a description rather than a boundary, the fork is a fourth *upstream mirror*, not a fourth product.
-2. **`caveman`'s bucket** — recommended or unrelated.
-3. **Should the fork be public?** MIT permits either. Public is better for the destination: a fresh machine can clone without credentials, whereas the current Codex marketplace uses an SSH remote, which is a credential dependency at setup.
-4. **Does `writing-specs` track upstream `brainstorming` or freeze?** See the #60 section.
-5. **The obra double-install dedupe** — which path survives.
-6. **Marketplace naming for the fork.** The plugin name must stay `superpowers` to preserve the cross-references, but the marketplace name should differ from `superpowers-dev` to keep the registrations unambiguous.
+1. **Should the fork be public?** MIT permits either. Public is better for the destination: a fresh machine can clone without credentials, whereas the current Codex marketplace uses an SSH remote, which is a credential dependency at setup.
+2. **Does `writing-specs` track upstream `brainstorming` or freeze?** See the #60 section.
+3. **Marketplace naming for the fork.** The plugin name must stay `superpowers` to preserve the cross-references, but the marketplace name should differ from `superpowers-dev` to keep the registrations unambiguous.
