@@ -179,7 +179,17 @@ applies and the name takes the form `<field>-vault`; the field qualifier is requ
 ambiguous both in Obsidian's generic sense and in the public namespace. The sibling plugin stewards no durable
 artifact — codebases exist without it — so it takes the activity branch instead and is named for the
 activity it serves: `software-development` (#76, 2026-08-30). The two shapes differ because the rule is a
-tree, not a template: the asymmetry is the rule working, not a defect.
+tree, not a template: the asymmetry is the rule working, not a defect. A third repository, `shared-skills`
+(#77, 2026-08-30), holds the skills both plugins use and nothing else; it takes the artifact branch — the
+skills outlive either product — qualified by the thing that distinguishes them, that they are shared.
+
+Each of the three keeps **its own** `terminology.md` as needed. There is no shared naming authority, no
+shared glossary, and no mechanism holding them aligned: `CONTEXT.md`'s own format admits only terms specific
+to a single context, and the two products' vocabularies overlap only in words that never co-occur on one
+surface, because an agent reads the context of the repository it is working in. Keeping them from drifting
+is a developer responsibility, priced deliberately — a mechanism for documents that rarely disagree is
+overkill. This reverses #89's three-way split of this document, at churn cost and under §1: precedent is
+information, never constraint.
 
 **Scope of class 4 for product identity.** Everywhere else in this document class 4 is workspace-internal
 (§1: the base term "already means something else *in our context*"). A product name ships publicly, so for
