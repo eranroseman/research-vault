@@ -25,13 +25,15 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 Two points bear directly on reading the tables below. **Buckets attach to rungs 1 and 2 only** — those are the rungs where something is depended on, and the three are **required** (the plugin does not work without it), **recommended** (works without it, but a user should have it) and **unrelated** (no relationship to either product; personal harness furniture). A rung 3–5 asset has no bucket rather than an empty one. And **where a plugin is rung 1 or 2, all its components come across**, so per-skill detail for those rows is informational.
 
-Three inputs the author settled that the doctrine does not cover:
+Four inputs the author settled that the doctrine does not cover:
 
 **Fork policy is per-plugin with no default.** Each call rests on its own upstream evidence, gathered as a **one-time research cost at adoption** — no scheduled re-audit. That does not freeze the decision: a material upstream change may trigger a re-audit of the affected call, the trigger being an event rather than a calendar. A plugin going unmaintained, a licence change, or a maintainer handover are the cases that would. Surfacing such a change is #63's existing job, so the trigger needs no mechanism of its own — which is separate from the two additions #63 does need for the fork, below.
 
 **Repository count is unconstrained** — *"we can have as many repos as we want."* The three-peer framing describes the **distribution** graph, what a user installs, not a limit on what the author may own. This was the only premise that could have overturned the fork recommendation.
 
 **Distribution of the recommended bucket is deferred** to [#96](https://github.com/eranroseman/knowledge-harness/issues/96). A README link is the interim position; a two-package split waits until the recommended list is long enough to justify one.
+
+**The first function of `software-development`** is to be the single home for the non-as-is assets, so they are managed in one designated location rather than per repository. This is the reason rungs 3–5 default to that home rather than being scattered.
 
 ## How assets can physically travel
 
@@ -107,7 +109,7 @@ function jFe(e) {
 
 `e.source === "plugin"` returns `"on"` unconditionally; the override map is never reached. The branch above it is not a plugin path — `sPy` is `new Set(["auto-mode-setup"])`, one built-in command. Corroborated twice in the same binary: the `/skills` UI excludes entries where `loadedFrom !== "skills" && loadedFrom !== "commands_DEPRECATED"`, and `/plugin` exposes only `plugin:toggle` and `plugin:install`. Codex is more total, not less: `codex plugin --help` on codex-cli 0.147.0 lists only `add`, `list`, `marketplace`, `remove`; there is no `codex skill` subcommand and `~/.codex/config.toml` carries no skill-level key.
 
-This settles #60's open question, though that question was framed on a borrowed authority. #60 asked whether *"`skillOverrides` cannot patch plugin skills"* had gone stale, citing research-vault's foundation specification §7 — which governs **that** product. `software-development` inherits no doctrine from it. What settles the question is the fact itself, verified above.
+This settles #60's open question, though that question was framed on a borrowed authority. #60 asked whether *"`skillOverrides` cannot patch plugin skills"* had gone stale, citing research-vault's foundation specification (`docs/superpowers/specs/2026-08-16-foundation-spec.md`, §7) — which governs **that** product, and whose own status note warns its contents *"should not be over generalized"*. `software-development` inherits no doctrine from it. What settles the question is the fact itself, verified above.
 
 **Rung 3 — vendoring its components — fails too, measured.** The wanted skills carry **26** hard-coded `superpowers:`-qualified cross-references across 9 files, on 25 lines (one line carries two), verified by `grep -ro` against the installed cache. **None sits inside `skills/brainstorming/`**, so every one survives that directory's deletion and every one breaks under vendoring.
 
@@ -159,26 +161,30 @@ Installed standalone via `~/.agents/.skill-lock.json`, not as a plugin. All adop
 
 - **To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
 - **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`, `domain-modeling`.
-- **Rung 4, adapt:** `setup-matt-pocock-skills`.
+- **Rung 4, adapt:** `setup-matt-pocock-skills`, into `software-development` — it is the template for #62's setup mechanism rather than a shipped capability, so the sharing axis does not apply to it.
 - **Not adopted:** `grill-with-docs`, `to-tickets`, per #72's process-skill ruling.
 
 Six were independently hash-matched against exact upstream commits and are **pristine but stale** — `domain-modeling` @ `54bc6b6`, `triage` @ `6a34259e`, `writing-for-agents` @ `4aaccb58`, `setup-matt-pocock-skills` @ `c66bdee`, `grilling` @ `86cba45f`, `wayfinder` @ `6a34259e`.
 
-**`domain-modeling` is `software-development` only — and the reasoning that nearly put it in `shared-skills` was wrong.** An earlier pass argued the call graph forced it: `wayfinder` is shared and invokes `domain-modeling` at three unconditional sites — the default ticket type (*"Always call the Skill tool twice"*, line 79), the mandatory first act of charting a map (*"Name the destination. Call the Skill tool twice"*, line 111), and the fallback at line 124 — so a research-vault-only install would leave the call dangling.
+**`domain-modeling` is `software-development` only — and the reasoning that nearly put it in `shared-skills` was wrong.** An earlier pass argued the call graph forced it: `wayfinder` is shared and invokes `domain-modeling` unconditionally twice — the default ticket type (*"Always call the Skill tool twice"*, `wayfinder/SKILL.md:79`) and the mandatory first act of charting a map (*"Name the destination"*, `:111`) — with a third, conditional call at `:124` (*"If in doubt"*). A research-vault-only install would leave those dangling.
 
-That test optimised for closing the call graph rather than for the right thing happening, and it never weighed what presence costs against what absence costs.
+That test optimised for closing the call graph rather than for the right thing happening. It never weighed presence against absence — and it also counted only one of the three callers.
+
+*The caller map argues the other way.* `domain-modeling` is called by three skills: `wayfinder` (`shared-skills`), `triage` (`software-development`, `:76`) and `improve-codebase-architecture` (`software-development`, `:66`). Assigning it to `software-development` satisfies **two of three callers**; assigning it to `shared-skills` satisfies one. The call-graph argument, applied to the whole graph rather than to `wayfinder` alone, points where the content already pointed.
 
 *Presence is not neutral.* The skill is thoroughly repo-shaped: its description reads *"Use when discussing **codebase** terminology, writing or editing a **CONTEXT.md**, or recording or editing an **ADR**"*; its structure section opens *"Most **repos** have a single context"* and diagrams `src/`, `docs/adr/`, `CONTEXT.md`; it carries a *"Cross-reference with code"* step and ships `ADR-FORMAT.md` and `CONTEXT-FORMAT.md`. A scaffolded vault has none of those artefacts — `templates/`, what `setup-vault` ships, contains neither `CONTEXT.md` nor `docs/adr/`. And the skill creates what it does not find: *"If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed."* So a shared `wayfinder` invoking it in a vault session would write code-project scaffolding into an OKF-conformant vault — damage to the artefact `research-vault` exists to protect, not clutter.
 
 *Absence costs a retry.* The Skill tool errors, the agent proceeds, and no domain modelling happens — which is correct where the discipline does not apply.
 
-Two ways to remove the dangling call if it proves irritating in practice, neither taken now: adapt `wayfinder` so its grilling ticket type does not invoke `domain-modeling` unconditionally, which moves it from rung 3 to rung 4 and buys a permanent adaptation; or leave it, since the error is visible to the agent and costs one retry.
+*Rung 3, not 4.* Earlier passes put `domain-modeling` at rung 4 with "resolve the split" as its adaptation. The split is now resolved, the copy is hash-matched pristine, and no other adaptation was ever named — so it vendors unmodified at rung 3 and leaves #60's list.
+
+Two ways to remove the dangling `wayfinder` call if it proves irritating in practice, neither taken now: adapt `wayfinder` so its grilling ticket type does not invoke `domain-modeling` unconditionally, which moves `wayfinder` from rung 3 to rung 4 and buys a permanent adaptation; or leave it, since the error is visible to the agent and costs one retry.
 
 **`prototype` is the same shape and the same answer.** `wayfinder` calls it at one site, reached only when a prototype ticket is created. Its absence degrades `wayfinder` to three ticket types, and a researcher plausibly never reaches for *"a throwaway prototype... UI/logic code"*.
 
 **Why not fork `mattpocock/skills`, given rung 2 outranks rung 3?** Four reasons, the first decisive.
 
-- **Forking buys nothing here.** The whole justification for the `superpowers` fork is namespace preservation, and it does not apply: `grep -ro 'mattpocock-skills:'` across the installed set returns **zero**. Every cross-reference is a bare name — `grilling` referenced by `improve-codebase-architecture`, `triage` and `wayfinder`; `domain-modeling` by three; `prototype` by two — and bare names survive relocation.
+- **Forking buys nothing here.** What carries the `superpowers` fork specifically is namespace preservation, and that does not apply: `grep -ro 'mattpocock-skills:'` across the installed set returns **zero**. Every cross-reference is a bare name — `grilling` referenced by `improve-codebase-architecture`, `triage` and `wayfinder`; `domain-modeling` by three; `prototype` by two — and bare names survive relocation.
 - **Two forks would collide on the name.** The adopted skills split across two distributables, so one fork cannot serve both, and two forks cannot both be `mattpocock-skills`. At least one must be renamed, paying a rename cost for a namespace benefit that does not exist.
 - **Doubled merge burden on a live upstream**, each fork maintaining a different deletion set indefinitely.
 - **Recategorisation would become a two-repository transaction** — a delete in one fork and an add in the other, in lockstep, where vendoring makes it a file move.
@@ -191,7 +197,7 @@ A fifth consideration is structural: `shared-skills` holds **plugin components a
 
 The upstream roster is 37 skills — engineering 18, productivity 7, in-progress 8, misc 4 — certified by mechanical set-diff against `find skills -name SKILL.md`, empty in both directions.
 
-**Fifteen are recommended not adopted:** `ask-matt`, `code-review`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`. Adoption of something the author currently lives without required naming a concrete gap it fills; none did.
+**Fifteen are recommended not adopted:** `ask-matt`, `code-review`, `implement`, `tdd`, `to-spec`, `grill-me`, `claude-handoff`, `implement-spec`, `loop-me`, `retro`, `setup-ts-deep-modules`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `setup-pre-commit`. Adoption of something the author currently lives without required naming a concrete gap it fills; none did. The only dissent ran the other way: two of the four passes argued `tdd` and the `writing-*` trio were declined without pricing an adaptation.
 
 **Four were parked, not declined, and the survey could not say so.** The standing recommendations register (`docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md`) parks each with an explicit trigger; it was not supplied to the assessment passes, which is why they missed this. Before the `defer` state existed, a parked skill was indistinguishable from a rejected one and all four printed as `not-adopted`.
 
