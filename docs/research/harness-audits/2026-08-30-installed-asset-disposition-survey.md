@@ -253,7 +253,7 @@ Recommendation only — the owning tickets decide.
 | Skill | Rung | Home | Owning ticket |
 |---|---|---|---|
 | `consistency-audit` | 3 — vendor | `software-development` | #79 |
-| `rethink-audit` | 3 — vendor | `software-development` | #73 |
+| `rethink-audit` | 4 — adapt | **`shared-skills`** | #73 |
 | `rethink` | **not adopted — drop** | — | #73 |
 | `finding-duplicate-functions` | 4 — adapt | `software-development` | #60 |
 
@@ -269,7 +269,17 @@ Its subagent travels either way. `consistency-audit` hard-dispatches `consistenc
 
 This answers #73's second question differently from how that ticket frames it: the front door does not absorb `/rethink` and it does not survive as a distinct entry point — **`rethink-audit` absorbed it already.** It also means `rethink-audit` needs no adaptation for the fresh-design case, keeping it at rung 3.
 
-**`rethink-audit` is `software-development`, but weakly.** Its method reconstructs `requires:` "from its boundary — signatures, call sites, tests" and reads "the current implementation" at `gap:`, with migration cost as the frame — that needs code. Usage argues wider: of seven audits in `docs/research/rethink-audits/`, several are not code (`controller-protocol`, `development-process`, `glossary-and-adr-triage`, `coding-companion-plugin-layering`). All remain engineering-domain, so the verdict holds as a borderline call. Both skills ship `agents/openai.yaml`, so they are cross-harness ready.
+**`rethink-audit` is `shared-skills` at rung 4 — the mirror image of `consistency-audit`.** Same family, opposite answer, and the same check separates them: its plumbing is clean where the other's is not.
+
+- **No hardcoded write path.** *"Lists findings, applies nothing. One-shot."* The `docs/research/rethink-audits/` convention belongs to this repo, not the skill.
+- **No mandatory exit into an absent skill.** `SKILL.md:38` reads *"Run the `codebase-design` skill, **if available**"* — explicit optional composition. `superpowers:writing-plans` appears only as a note that `migrate:` is *"the input `superpowers:writing-plans` wants"*; `superpowers:brainstorming` only under Boundaries. Pointers, not invocations.
+- **It writes nothing**, so the harm test that decided `domain-modeling` does not apply. Worst case on a vault is confusing guidance, not scaffolding written into an OKF bundle.
+
+Its skeleton — `requires:` → `prior-art:` → `design:` → `gap:` → `trade-offs:` → `migrate:` — is domain-neutral. Roughly 8 of 87 lines carry code vocabulary: *"signatures, call sites, tests"* (`:19`), the evidence tags `caller`/`tests`/`docs`/`adr`/`assumed` (`:22`), *"Read the current implementation"* (`:46`). Examples and tags, not method. And it already stretches: four of the seven audits in `docs/research/rethink-audits/` are not code — `controller-protocol`, `development-process`, `glossary-and-adr-triage`, `coding-companion-plugin-layering`.
+
+**Rung 4, for #60:** generalise the boundary-reconstruction line and give the evidence tags vault equivalents. Both skills ship `agents/openai.yaml`, so they are cross-harness ready.
+
+*One observation for `software-development`'s own doctrine.* That *"if available"* at `:38` is precisely the construction research-vault's dependency doctrine forbids in its shipped text — and here it is what lets the skill cross the product boundary intact. Evidence that the rule is right for authored content and wrong as a general law, which is a live question for whoever writes this plugin's doctrine.
 
 The author has separately ruled that `rethink`/`rethink-audit` land in either `software-development` or `shared-skills`, and that **both** the public `eranroseman/rethink` repository and the harness-backup copies are deleted. Recorded on #73.
 
