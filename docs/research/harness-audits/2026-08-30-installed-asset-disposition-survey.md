@@ -188,6 +188,10 @@ Two things make it worth keeping. It is a **user-typed composition**, not a comp
 
 It is not the `rethink` case. `rethink` restated a line already inside `rethink-audit`; `grill-with-docs` composes two skills, neither of which contains the composition — the same pairing `wayfinder:79` reaches for by hand.
 
+**`resolving-merge-conflicts` fills a second spine gap, and more cheaply than `diagnosing-bugs` fills the first.** `finishing-a-development-branch` contains **zero occurrences of "conflict"**. Its Option 1 runs `git checkout <base-branch>`, `git pull`, `git merge <feature-branch>`, then goes straight to verifying tests — handling *tests failing after a successful merge* (*"stop, leave the worktree and branch in place, and investigate"*) but saying nothing about either command conflicting. The spine instructs an agent to run a merge and is silent on the most common way it goes wrong, at the moment the tree is dirty and mid-operation.
+
+`resolving-merge-conflicts` is exactly that path — *"Use when you need to resolve an **in-progress** git merge/rebase conflict"*. The integration is one conditional after the merge step in the fork's `finishing-a-development-branch/SKILL.md`, and it is cheaper than the debugging case on every axis: **no trigger race** (the description is situational, firing only when a conflict already exists, so no muting is needed), no classifier, and the skill stays **rung 3, vendored unmodified**.
+
 **`prototype` is the same shape and answer.** `wayfinder` calls it at one site, reached only when a prototype ticket is created. Its absence degrades `wayfinder` to three ticket types, and a researcher plausibly never reaches for *"a throwaway prototype... UI/logic code"*.
 
 **Why not fork `mattpocock/skills`, given rung 2 outranks rung 3?** Four reasons, the first decisive.
