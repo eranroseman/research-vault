@@ -19,7 +19,7 @@ Still open:
 
 Nothing. The marketplace is **`eroseman`**, and the shared distributable is named **`sensemaking`** (both 2026-08-31).
 
-One consequence of a single marketplace: `software-development` will declare dependencies on `sensemaking` and on the `superpowers` fork, and Claude Code resolves a plugin's dependencies **within its own marketplace** unless the root lists others in `allowCrossMarketplaceDependenciesOn`. Hosting all four in `eroseman` makes that allowlist unnecessary. Each plugin keeps its own repository — a marketplace entry carries its own source, as `obra/superpowers-marketplace` demonstrates across ten plugins. Whether Codex resolves the same way is unverified; it has no `dependencies` field at all, so the rule may simply not apply there.
+One consequence of a single marketplace: `software-development` will declare dependencies on `sensemaking` and on the `superpowers` fork, and Claude Code resolves a plugin's dependencies **within its own marketplace** unless the root lists others in `allowCrossMarketplaceDependenciesOn`. Hosting all four in `eroseman` makes that allowlist unnecessary. Each plugin keeps its own repository — a marketplace entry carries its own source, as `obra/superpowers-marketplace` demonstrates across ten plugins. Codex does not resolve dependencies at all — verified: `codex plugin add` takes `PLUGIN@MARKETPLACE` or `PLUGIN --marketplace M`, naming the marketplace explicitly per plugin, and neither `codex plugin` nor `codex plugin add` has any dependency concept. So the within-marketplace rule is Claude Code's alone, and on Codex a single marketplace buys only fewer `[marketplaces.*]` registrations for #62 to add and #78 to verify.
 
 ## Ground rules
 
