@@ -9,33 +9,29 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 **The destination**, per map #53: an installable cross-harness plugin, canonical home for shared authored and deliberately adapted guidance and automation, running on **both Claude Code and Codex**, **reproducing the harness on a fresh machine**, detecting drift, and retiring the private `harness-backup` repository only after verified functional parity.
 
-**Two kinds of claim appear here.** *Measurements* are properties of the installed artefacts, independently verifiable, true regardless of what is decided. *Recommendations* are conclusions drawn from them. Method is in the appendix.
+**Two kinds of claim appear here, and the distinction outlives the approval.** *Measurements* are properties of the installed artefacts, independently verifiable, and true regardless of what was decided. *Conclusions* are what was drawn from them — approved, but revisable if the artefacts change. Method is in the appendix.
 
-## What needs deciding
+## Decisions
 
-**Settled 2026-08-31:** the per-asset recommendations are approved as a set; `caveman` is **recommended**; the fork is **public**; `writing-specs` vendors from **upstream HEAD**; the marketplace is **`eroseman`**; the shared distributable is renamed **`sensemaking`**.
+Approved 2026-08-31. The per-asset dispositions below are approved as a set; alongside them:
 
-Still open:
+| | |
+|---|---|
+| `superpowers` | forked, **public** |
+| `caveman` | **recommended** — on use rather than the necessity test, with a trigger recorded at its row |
+| `writing-specs` | vendors from **upstream HEAD**, not the 6.2.0 pin |
+| Marketplace | **`eroseman`**, hosting all four plugins |
+| Shared distributable | renamed **`sensemaking`** (was `shared-skills`; `docs/terminology.md` §4.5, sweep on #92) |
 
-Nothing. The marketplace is **`eroseman`**, and the shared distributable is named **`sensemaking`** (both 2026-08-31).
-
-One consequence of a single marketplace: `software-development` will declare dependencies on `sensemaking` and on the `superpowers` fork, and Claude Code resolves a plugin's dependencies **within its own marketplace** unless the root lists others in `allowCrossMarketplaceDependenciesOn`. Hosting all four in `eroseman` makes that allowlist unnecessary. Each plugin keeps its own repository — a marketplace entry carries its own source, as `obra/superpowers-marketplace` demonstrates across ten plugins. Codex does not resolve dependencies at all — verified: `codex plugin add` takes `PLUGIN@MARKETPLACE` or `PLUGIN --marketplace M`, naming the marketplace explicitly per plugin, and neither `codex plugin` nor `codex plugin add` has any dependency concept. So the within-marketplace rule is Claude Code's alone, and on Codex a single marketplace buys only fewer `[marketplaces.*]` registrations for #62 to add and #78 to verify.
+**Why one marketplace.** Claude Code resolves a plugin's dependencies **within its own marketplace** unless the root lists others in `allowCrossMarketplaceDependenciesOn`, and `software-development` will depend on both `sensemaking` and the `superpowers` fork — so hosting all four in `eroseman` removes that allowlist. Each plugin still keeps its own repository; a marketplace entry carries its own source, as `obra/superpowers-marketplace` does across ten plugins. Codex resolves nothing — verified: `codex plugin add` takes `PLUGIN@MARKETPLACE` or `PLUGIN --marketplace M`, and neither it nor `codex plugin` has any dependency concept — so there a single marketplace buys only fewer `[marketplaces.*]` registrations for #62 to add and #78 to verify.
 
 ## Ground rules
 
-**The ladder, the bucket rule and the `defer` state are on map #53** under *Design doctrine*, with the duplication and fork-obligation doctrines. Not restated here; this survey applies them.
+**The ladder, the bucket rule, the `defer` state and the duplication, fork-obligation and sharing doctrines are on map #53** under *Design doctrine*. Not restated here; this survey applies them.
 
 Two points for the tables below. **Buckets attach to rungs 1 and 2 only** — the rungs where something is depended on — and are **required** (the plugin does not work without it), **recommended** (works without it, but a user should have it) or **unrelated** (no relationship to either product; personal harness furniture). Rungs 3–5 have no bucket. And **where a plugin is rung 1 or 2, all its components come across**, so per-skill detail for those rows is informational.
 
 Four author-settled inputs the doctrine does not cover:
-
-**Fork policy is per-plugin with no default.** Each call rests on its own upstream evidence, a **one-time research cost at adoption** — no scheduled re-audit. That does not freeze it: a material upstream change may trigger a re-audit, the trigger being an event rather than a calendar. Unmaintained upstream, a licence change, a maintainer handover. Surfacing such a change is #63's existing job, so the trigger needs no mechanism of its own — distinct from the two additions #63 does need for the fork, below.
-
-**Repository count is unconstrained** — *"we can have as many repos as we want."* The three-peer framing describes the **distribution** graph, not a limit on what the author may own. This was the only premise that could have overturned the fork.
-
-**Distribution of the recommended bucket is deferred** to [#96](https://github.com/eranroseman/knowledge-harness/issues/96). A README link is the interim position; a two-package split waits until the recommended list justifies one.
-
-**`software-development`'s first function** is to be the single home for the non-as-is assets, managed in one place rather than per repository — hence rungs 3–5 default there.
 
 ## How assets can physically travel
 
@@ -338,7 +334,7 @@ Every asset landing on rung 4. All six need a provenance header; the table lists
 
 | Asset | What must change |
 |---|---|
-| `brainstorming` → `writing-specs` | Rename; correct the description, which promises open-ended ideation while the body is a one-way funnel from idea to committed spec with a mandatory approval gate; decide the Visual Companion; decide the base version |
+| `brainstorming` → `writing-specs` | Vendor from **upstream HEAD** (decided); rename; correct the description, which promises open-ended ideation while the body is a one-way funnel from idea to committed spec with a mandatory approval gate; decide the Visual Companion |
 | `setup-matt-pocock-skills` | Adapt as the template for #62's setup mechanism, per #85 |
 | `working-with-claude-code` | Rewrite the two hardcoded paths to `${CLAUDE_PLUGIN_ROOT}`-relative form; re-run `update_docs.js` to refresh the 42 references |
 | `developing-claude-code-plugins` | Co-locate or re-path the two `examples/` directories; subordinate Phase 1 (Plan) and Phase 6 (Release) to `superpowers:writing-plans` and `superpowers:finishing-a-development-branch` so #72's spine is not duplicated |
@@ -347,11 +343,11 @@ Every asset landing on rung 4. All six need a provenance header; the table lists
 
 **The list shrank because of the fork.** Earlier passes marked `systematic-debugging`, `test-driven-development`, `writing-plans`, `writing-skills` and `using-superpowers` as rung-4 adaptations — artefacts of the vendoring branch, since a fork keeps the namespace. `using-superpowers` is still edited, but inside the fork as two lines of its ten-file patch, which is the fork's business rather than #60's.
 
-**Two decisions #60 must make knowingly.**
+**One decision #60 must make knowingly, and one already made.**
 
 *The Visual Companion is separable but not free.* 1,730 lines — `scripts/server.cjs` 723, `scripts/frame-template.html` 213, `scripts/start-server.sh` 209, `scripts/helper.js` 167, `scripts/stop-server.sh` 120, plus `visual-companion.md` 298 — within a `brainstorming` directory totalling 1,930 lines across 8 files. Nothing outside references it, so dropping it costs one file deletion, one directory deletion and about 19 lines from the body. But removing those 19 lines means *"internals untouched"*, which is what #72 specified, no longer describes the vendoring. The companion also loads a logo from an external site carrying the Superpowers version, opt-out via `SUPERPOWERS_DISABLE_TELEMETRY`.
 
-*The base version matters.* Upstream HEAD replaced `brainstorming` with a three-path Spike/Bounded/Architectural router — 117 changed lines — **after** the 6.2.0 text #72 judged. Vendoring from the pin ships a skill already a generation behind. Vendor from HEAD, freeze deliberately, or place `writing-specs` under #63's drift watch as a tracked adaptation.
+*The base version is HEAD* (decided 2026-08-31). Upstream replaced `brainstorming` with a three-path Spike/Bounded/Architectural router — 117 changed lines — **after** the 6.2.0 text #72 judged, so the pin would have shipped a skill a generation behind. Two consequences #60 inherits: #72's *"internals untouched"* now describes a materially different body, and `writing-specs` starts as a tracked adaptation of a moving upstream rather than a frozen one, which is #63's to watch.
 
 ## Handoff to other tickets
 
