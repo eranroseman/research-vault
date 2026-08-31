@@ -75,13 +75,24 @@ Against domain-modeling's three tests:
 - **A real trade-off — strong.** Live alternatives, costed: the original adopt-as-is / modify-import / unrelated axis; a four-rung version with no fork rung; and marketplace-entry component selection, which died on Codex's single-path `skills` key.
 - **Hard to reverse — partial, and the two halves separate.** The *classification* is cheap to reverse while nothing is built. The **ordering principle** is not: reversing "fork above vendor" means undoing a repository, a marketplace entry and a cutover on both harnesses. The durable commitment is the principle, so that is what an ADR would record.
 
-### 4.2 That product has no home for three kinds of record
+### 4.2 `Mode` is a term that product's glossary needs
+
+Proposed 2026-08-31 out of #73. This harness has three instances of a **posture set once and persisting across responses** — `caveman` (wired and running), `rethink` (authored, never wired), and superpowers' SessionStart injection — and no glossary distinguishes one from a skill.
+
+> **Mode**: A persistent posture installed by a hook, active across every response until switched off. Distinct from a **skill**, which is invoked on demand and ends when it returns.
+> _Avoid_: persistent skill, always-on skill
+
+The distinction earns its place because the two fail differently: **an unwired skill is inert, an unwired mode is invisible.** `eranroseman/rethink` demonstrated exactly that — `hooks/directive.md` authored in full, `plugin.json` declaring `hooks: null`, and nobody noticing because a mode that never activates produces no error. The disposition ladder also treats hooks as one component kind among several, which is right for distribution and wrong for reasoning about failure.
+
+### 4.3 That product has no home for three kinds of record
 
 It is accumulating a **glossary** (`rung`, `bucket`, `defer`, `fork`, `vendor`), **naming rules** of its own under §4.5's each-product-keeps-its-own ruling, and now **architectural decisions**. All three currently sit in map #53's Notes.
 
 **The map's Design doctrine block is functioning as a proto-ADR register** — three entries, each carrying a decision, its reasoning and measured evidence, which is what an ADR is, filed in the only place available. That works as a stopgap and does not survive the map: #58 is written when the frontier empties, at which point the map stops being the live index.
 
 Suggests #59 should establish the register with the repository rather than at build time, and that the ladder is its first entry. Raise with #58 or #59; not this repository's to decide.
+
+**Four kinds of record, now**, counting §4.2's glossary term.
 
 ## 5. Follow-up sequence
 
