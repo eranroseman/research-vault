@@ -63,12 +63,32 @@ The decision it would record is not "vendor everything" but the boundary: which 
 - **`sensemaking`, the ladder, the marketplace** — another product's, per §1.
 - **The `resolving-merge-conflicts` and `diagnosing-bugs` spine integrations** — design for `software-development`, carried on #60 and #61.
 
-## 4. Follow-up sequence
+## 4. Noted for `software-development`'s own register, when it has one
+
+Not proposals for this repository — recorded here because the observation came out of #75 and would otherwise be lost when map #53 closes.
+
+### 4.1 The five-rung ladder is that product's first ADR candidate
+
+Against domain-modeling's three tests:
+
+- **Surprising without context — strong.** A reader finds a fork of a 279,648-star repository, thirteen vendored skill directories and eight plugins depended on as-is, and needs to know why three treatments. The organising answer — ownership against upstream flow, with **fork outranking vendor because a fork keeps receiving by merge** — is counterintuitive; vendoring reads as the conservative default until the reasoning is stated.
+- **A real trade-off — strong.** Live alternatives, costed: the original adopt-as-is / modify-import / unrelated axis; a four-rung version with no fork rung; and marketplace-entry component selection, which died on Codex's single-path `skills` key.
+- **Hard to reverse — partial, and the two halves separate.** The *classification* is cheap to reverse while nothing is built. The **ordering principle** is not: reversing "fork above vendor" means undoing a repository, a marketplace entry and a cutover on both harnesses. The durable commitment is the principle, so that is what an ADR would record.
+
+### 4.2 That product has no home for three kinds of record
+
+It is accumulating a **glossary** (`rung`, `bucket`, `defer`, `fork`, `vendor`), **naming rules** of its own under §4.5's each-product-keeps-its-own ruling, and now **architectural decisions**. All three currently sit in map #53's Notes.
+
+**The map's Design doctrine block is functioning as a proto-ADR register** — three entries, each carrying a decision, its reasoning and measured evidence, which is what an ADR is, filed in the only place available. That works as a stopgap and does not survive the map: #58 is written when the frontier empties, at which point the map stops being the live index.
+
+Suggests #59 should establish the register with the repository rather than at build time, and that the ladder is its first entry. Raise with #58 or #59; not this repository's to decide.
+
+## 5. Follow-up sequence
 
 1. Adopt or decline §2.1's three CONTEXT.md entries.
 2. If adopted, amend the foundation specification's two "vendored fork" usages in place with a dated note.
 3. Leave ADR 0006 parked until #97 resolves; this document is its trigger record.
-4. Raise `software-development`'s missing glossary home with #58 or #59.
+4. Raise §4.2 with #58 or #59 — the sibling needs a glossary, naming rules and an ADR register, and the map is holding all three on borrowed time.
 
 ## Style reference
 
