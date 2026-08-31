@@ -1,6 +1,6 @@
 # Installed asset disposition survey
 
-**Status: recommendation. Nothing here is approved.**
+**Status: per-asset recommendations approved by the author 2026-08-31.** Two items remain open — see [What needs deciding](#what-needs-deciding).
 **Date:** 2026-08-30 · **Ticket:** [#75](https://github.com/eranroseman/knowledge-harness/issues/75), a `wayfinder:grilling` ticket on map [#53](https://github.com/eranroseman/knowledge-harness/issues/53)
 
 Every plugin and skill installed across Claude Code and Codex, the full upstream `mattpocock/skills` roster including the nineteen not installed here, and the four `harness-backup`-owned skills. Each gets a ladder rung, a bucket where one applies, a sharing verdict, and — for plugins — a fork call.
@@ -13,11 +13,12 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 ## What needs deciding
 
-1. **The per-asset recommendations** below — individually or wholesale.
-2. **`caveman`'s bucket.** Two of four passes disagreed, and the author's answer arrived truncated mid-word. Both sides are with the row.
-3. **Is the `superpowers` fork public or private?**
-4. **The fork's marketplace name.**
-5. **Does `writing-specs` vendor from upstream HEAD or freeze at the 6.2.0 pin?** See [Handoff to #60](#handoff-to-60).
+**Settled 2026-08-31:** the per-asset recommendations are approved as a set; `caveman` is **recommended**; the fork is **public**; `writing-specs` vendors from **upstream HEAD**.
+
+Still open:
+
+1. **The fork's marketplace name.** The plugin name must stay `superpowers` to preserve the 26 cross-references, so the marketplace must differ from `superpowers-dev` to keep the registrations distinguishable.
+2. **Whether `shared-skills` is renamed**, and to what — see the note under [mattpocock's skills](#mattpococks-skills--18-installed).
 
 ## Ground rules
 
@@ -64,11 +65,13 @@ Four author-settled inputs the doctrine does not cover:
 | `codex-security` | Codex | 1 — plugin as-is | recommended | depend upstream |
 | `security-guidance` | Claude | 1 — plugin as-is | recommended | depend upstream |
 | `ponytail` | both | 1 — plugin as-is | recommended | depend upstream |
-| `caveman` | both | 1 — plugin as-is | **unrelated** *(unconfirmed)* | depend upstream |
+| `caveman` | both | 1 — plugin as-is | recommended | depend upstream |
 
 Four rows need reasoning; `superpowers` gets its own section.
 
-**`caveman` — unconfirmed, genuinely two-sided.** *For `unrelated`:* nothing in `software-development` invokes it, and a public plugin recommending an output-style mode recommends taste rather than capability. *For `recommended`:* its core mode is general compressed communication a researcher benefits from identically, and only `caveman-commit` and `caveman-review` are git-specific. Two of four passes split on this. It stays installed either way; the bucket decides only whether the README names it.
+**`caveman` — recommended (author, 2026-08-31), on use rather than on the necessity test.** Nothing in `software-development` invokes it, so the necessity test would have said `unrelated`; the author's reason is that it has earned its keep in practice. Two of four passes split on the call.
+
+Note the deferral this carries. The argument that would make it `recommended` on the merits — its core mode is general compressed communication, and only `caveman-commit` and `caveman-review` are git-specific — is **domain-neutral**, which would put the dependency in the shared distributable rather than in `software-development`. Recommending it here instead is a decision to serve the current consumer and revisit if the vault ever wants it. That revisit is the trigger, and it is worth writing down as one rather than leaving implicit.
 
 **`writing-clearly-and-concisely` — depend on softaworks, as installed.** Two premises from the original brief were wrong.
 
