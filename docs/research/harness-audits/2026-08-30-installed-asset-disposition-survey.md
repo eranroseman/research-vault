@@ -1,6 +1,6 @@
 # Installed asset disposition survey
 
-**Status: per-asset recommendations approved by the author 2026-08-31.** Two items remain open — see [What needs deciding](#what-needs-deciding).
+**Status: approved by the author 2026-08-31.** No decisions remain open in this document.
 **Date:** 2026-08-30 · **Ticket:** [#75](https://github.com/eranroseman/knowledge-harness/issues/75), a `wayfinder:grilling` ticket on map [#53](https://github.com/eranroseman/knowledge-harness/issues/53)
 
 Every plugin and skill installed across Claude Code and Codex, the full upstream `mattpocock/skills` roster including the nineteen not installed here, and the four `harness-backup`-owned skills. Each gets a ladder rung, a bucket where one applies, a sharing verdict, and — for plugins — a fork call.
@@ -13,12 +13,13 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 ## What needs deciding
 
-**Settled 2026-08-31:** the per-asset recommendations are approved as a set; `caveman` is **recommended**; the fork is **public**; `writing-specs` vendors from **upstream HEAD**.
+**Settled 2026-08-31:** the per-asset recommendations are approved as a set; `caveman` is **recommended**; the fork is **public**; `writing-specs` vendors from **upstream HEAD**; the marketplace is **`eroseman`**; the shared distributable is renamed **`sensemaking`**.
 
 Still open:
 
-1. **The fork's marketplace name.** The plugin name must stay `superpowers` to preserve the 26 cross-references, so the marketplace must differ from `superpowers-dev` to keep the registrations distinguishable.
-2. **Whether `shared-skills` is renamed**, and to what — see the note under [mattpocock's skills](#mattpococks-skills--18-installed).
+Nothing. The marketplace is **`eroseman`**, and the shared distributable is named **`sensemaking`** (both 2026-08-31).
+
+One consequence of a single marketplace: `software-development` will declare dependencies on `sensemaking` and on the `superpowers` fork, and Claude Code resolves a plugin's dependencies **within its own marketplace** unless the root lists others in `allowCrossMarketplaceDependenciesOn`. Hosting all four in `eroseman` makes that allowlist unnecessary. Each plugin keeps its own repository — a marketplace entry carries its own source, as `obra/superpowers-marketplace` demonstrates across ten plugins. Whether Codex resolves the same way is unverified; it has no `dependencies` field at all, so the rule may simply not apply there.
 
 ## Ground rules
 
@@ -40,7 +41,7 @@ Four author-settled inputs the doctrine does not cover:
 
 **Measured.**
 
-**Legality.** MIT throughout — `obra/superpowers` (© 2025 Jesse Vincent), `mattpocock/skills` (© 2026 Matt Pocock). The grant covers modified copies; the binding condition is that `software-development` and `shared-skills` each ship the notice and copyright line.
+**Legality.** MIT throughout — `obra/superpowers` (© 2025 Jesse Vincent), `mattpocock/skills` (© 2026 Matt Pocock). The grant covers modified copies; the binding condition is that `software-development` and `sensemaking` each ship the notice and copyright line.
 
 **Structure.** Anything shipping *inside* a plugin must be a vendored copy in that plugin's root. Three independent facts force it:
 
@@ -164,7 +165,7 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 
 Standalone via `~/.agents/.skill-lock.json`, not as a plugin. All adopted skills are **rung 3, vendored** into whichever product needs them.
 
-- **To `shared-skills`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
+- **To `sensemaking`:** `grilling`, `research`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
 - **To `software-development`:** `codebase-design`, `prototype`, `resolving-merge-conflicts`, `improve-codebase-architecture`, `triage`, `domain-modeling`, `grill-with-docs`.
 - **Rung 4, adapt:** `setup-matt-pocock-skills`, into `software-development` — the template for #62's setup mechanism rather than a shipped capability, so the sharing axis does not apply.
 - **Not adopted:** `to-tickets`, per #72's process-skill ruling.
@@ -175,7 +176,7 @@ Six were independently hash-matched against exact upstream commits and are **pri
 
 That test optimised for closing the call graph rather than for the right outcome, never weighed presence against absence, and counted one of three callers.
 
-*The caller map argues the other way.* Three skills call `domain-modeling`: `wayfinder` (`shared-skills`), `triage` (`software-development`, `:76`) and `improve-codebase-architecture` (`software-development`, `:66`). Assigning it to `software-development` satisfies **two of three**; `shared-skills` satisfies one. The whole graph points where the content already pointed.
+*The caller map argues the other way.* Three skills call `domain-modeling`: `wayfinder` (`sensemaking`), `triage` (`software-development`, `:76`) and `improve-codebase-architecture` (`software-development`, `:66`). Assigning it to `software-development` satisfies **two of three**; `sensemaking` satisfies one. The whole graph points where the content already pointed.
 
 *Presence is not neutral.* The skill is repo-shaped: its description reads *"Use when discussing **codebase** terminology, writing or editing a **CONTEXT.md**, or recording or editing an **ADR**"*; its structure section opens *"Most **repos** have a single context"* and diagrams `src/`, `docs/adr/`, `CONTEXT.md`; it carries a *"Cross-reference with code"* step and ships `ADR-FORMAT.md` and `CONTEXT-FORMAT.md`. A scaffolded vault has none of those — `templates/`, what `setup-vault` ships, contains neither `CONTEXT.md` nor `docs/adr/`. And the skill creates what it does not find: *"If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed."* A shared `wayfinder` invoking it in a vault session would write code-project scaffolding into an OKF-conformant vault — damage, not clutter.
 
@@ -187,7 +188,7 @@ Two ways to remove the dangling `wayfinder` call if it irritates in practice, ne
 
 **`grill-with-docs` is adopted, reversing #72 for this skill (author, 2026-08-30).** #72 dropped it with mattpocock's other process skills after #85 found it has no interview logic of its own — its whole body is *"Call the Skill tool twice, for `grilling` and `domain-modeling`."* Seven lines, `disable-model-invocation: true`, shipping `agents/` for Codex.
 
-Two things make it worth keeping. It is a **user-typed composition**, not a competing entry point — being outside the model catalog, it cannot race the spine, which is what #72's process-skill ruling was guarding against. And **both callees resolve in `software-development`**: `domain-modeling` lives there, `grilling` arrives via `shared-skills`. It vendors unmodified at rung 3; the bare names need no rewriting.
+Two things make it worth keeping. It is a **user-typed composition**, not a competing entry point — being outside the model catalog, it cannot race the spine, which is what #72's process-skill ruling was guarding against. And **both callees resolve in `software-development`**: `domain-modeling` lives there, `grilling` arrives via `sensemaking`. It vendors unmodified at rung 3; the bare names need no rewriting.
 
 It is not the `rethink` case. `rethink` restated a line already inside `rethink-audit`; `grill-with-docs` composes two skills, neither of which contains the composition — the same pairing `wayfinder:79` reaches for by hand.
 
@@ -286,11 +287,11 @@ Recommendation only — the owning tickets decide.
 | Skill | Rung | Home | Owning ticket |
 |---|---|---|---|
 | `consistency-audit` | 3 — vendor | `software-development` | #79 |
-| `rethink-audit` | 4 — adapt | **`shared-skills`** | #73 |
+| `rethink-audit` | 4 — adapt | **`sensemaking`** | #73 |
 | `rethink` | **not adopted — drop** | — | #73 |
 | `finding-duplicate-functions` | 4 — adapt | `software-development` | #60 |
 
-**`consistency-audit` is `software-development`, after two reversals.** The original pass said so from framing vocabulary (*"read a **repository** whole"*); a second reversed it to `shared-skills` on capability, since *"contradictions, duplication, drifted terms, stale claims"* is what a research vault accumulates. Both were reasoning from the description. Reading the skill settles it: **the capability transfers and the plumbing does not.**
+**`consistency-audit` is `software-development`, after two reversals.** The original pass said so from framing vocabulary (*"read a **repository** whole"*); a second reversed it to `sensemaking` on capability, since *"contradictions, duplication, drifted terms, stale claims"* is what a research vault accumulates. Both were reasoning from the description. Reading the skill settles it: **the capability transfers and the plumbing does not.**
 
 Two blockers, neither cosmetic. Its report destination is hardcoded — *"Write the report to `docs/superpowers/specs/YYYY-MM-DD-<scope>-audit.md`"* (`SKILL.md:201`), a path no vault has. And its terminal state is `"Invoke writing-plans skill"`, the doublecircle in its After-the-Audit graph — a superpowers skill, `software-development`-only, so on a vault the audit's *exit* calls something absent.
 
@@ -302,7 +303,7 @@ Its subagent travels either way. `consistency-audit` hard-dispatches `consistenc
 
 This answers #73's second question differently from how that ticket frames it: the front door does not absorb `/rethink` and it does not survive as a distinct entry point — **`rethink-audit` absorbed it already.** It also means `rethink-audit` needs no adaptation for the fresh-design case, keeping it at rung 3.
 
-**`rethink-audit` is `shared-skills` at rung 4 — the mirror image of `consistency-audit`.** Same family, opposite answer, and the same check separates them: its plumbing is clean where the other's is not.
+**`rethink-audit` is `sensemaking` at rung 4 — the mirror image of `consistency-audit`.** Same family, opposite answer, and the same check separates them: its plumbing is clean where the other's is not.
 
 - **No hardcoded write path.** *"Lists findings, applies nothing. One-shot."* The `docs/research/rethink-audits/` convention belongs to this repo, not the skill.
 - **No mandatory exit into an absent skill.** `SKILL.md:38` reads *"Run the `codebase-design` skill, **if available**"* — explicit optional composition. `superpowers:writing-plans` appears only as a note that `migrate:` is *"the input `superpowers:writing-plans` wants"*; `superpowers:brainstorming` only under Boundaries. Pointers, not invocations.
@@ -314,7 +315,7 @@ Its skeleton — `requires:` → `prior-art:` → `design:` → `gap:` → `trad
 
 The *"if available"* at `:38` reads as a portability affordance but is not one. An agent that cannot find a skill does not invoke it, so the branch is redundant either way — which is why research-vault's doctrine bans the construction as dead text rather than as a hazard. What actually makes this skill portable is that `codebase-design` is optional to its method at all; the hedge is words, not mechanism.
 
-The author has separately ruled that `rethink`/`rethink-audit` land in either `software-development` or `shared-skills`, and that **both** the public `eranroseman/rethink` repository and the harness-backup copies are deleted. Recorded on #73.
+The author has separately ruled that `rethink`/`rethink-audit` land in either `software-development` or `sensemaking`, and that **both** the public `eranroseman/rethink` repository and the harness-backup copies are deleted. Recorded on #73.
 
 ## The six sharing verdicts this ticket owed
 
@@ -322,7 +323,7 @@ Four deferred here by #89 — `domain-modeling`, `triage`, `writing-for-agents`,
 
 | Skill | Verdict |
 |---|---|
-| `writing-for-agents` | `shared-skills` |
+| `writing-for-agents` | `sensemaking` |
 | `domain-modeling` | **`software-development`** — repo-shaped (CONTEXT.md, ADRs, cross-reference with code), and it *creates* those artefacts where absent, so shipping it to a vault is damage rather than clutter. `wayfinder`'s call dangling on a vault-only install is the correct outcome |
 | `triage` | `software-development` |
 | `working-with-claude-code` | `software-development` |
