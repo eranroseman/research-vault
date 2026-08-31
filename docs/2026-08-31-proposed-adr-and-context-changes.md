@@ -77,6 +77,8 @@ Against domain-modeling's three tests:
 
 **Drafted 2026-08-31:** `docs/2026-08-31-proposed-adr-software-development-component-adoption.md` — written out as that product's ADR 0001, recording the ordering principle rather than the per-asset table, per the split above. Held as a proposal because no register exists to accept it; #59 establishing the repository is its trigger.
 
+Its sibling, **ADR 0002 — which product holds a component**, is drafted alongside it: `docs/2026-08-31-proposed-adr-software-development-component-seam.md`. Kept separate deliberately; conflating *how a component is taken* with *where it goes* is the error the original three-way axis made.
+
 ### 4.2 `Mode` is a term that product's glossary needs
 
 Proposed 2026-08-31 out of #73. This harness has three instances of a **posture set once and persisting across responses** — `caveman` (wired and running), `rethink` (authored, never wired), and superpowers' SessionStart injection — and no glossary distinguishes one from a skill.

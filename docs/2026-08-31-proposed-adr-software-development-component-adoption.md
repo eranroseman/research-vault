@@ -39,3 +39,5 @@ The ordering is the decision. The five names are how it is applied.
 ## Not in this decision
 
 **Which product a component belongs to** — `sensemaking` or `software-development` — is a separate question with its own test: do the component's file paths and terminal state resolve in both products, and is a reference to another skill binding or merely a mention. That test earned itself when six verdicts changed under challenge, all having reasoned from a skill's description rather than from what it operates on and exits into. It is a sibling ADR candidate, and conflating it with this one would repeat in miniature the error the original three-way axis made: mixing *how we take a thing* with *where it goes*.
+
+**Drafted 2026-08-31** as that product's ADR 0002: `docs/2026-08-31-proposed-adr-software-development-component-seam.md`.
