@@ -2,7 +2,7 @@
 
 **This is a draft for another product's register, held here because that register does not exist yet.**
 
-`docs/adr/` is `research-vault`'s. Filing this there would repeat the error that recurred through #75 — applying one product's authority to another — and `docs/2026-08-31-proposed-adr-and-context-changes.md` §1 rules it out explicitly. §4.1 of that document identifies the ladder as `software-development`'s **first** ADR candidate and §4.3 records that the product has no register to file it in. This draft is what §4.1 describes, written out so that it survives map #53 closing rather than existing only as a note about a candidate.
+`docs/adr/` is `research-vault`'s register — structurally, because it is that product's repository. Filing another product's decisions there would repeat an error that recurred through #75: applying one product's authority to another. `docs/2026-08-31-proposed-adr-and-context-changes.md` §1 makes the same argument and §4.1 identifies the ladder as `software-development`'s first ADR candidate, but that document is a proposal — it argues the point, it does not settle it. This draft is what §4.1 describes, written out so that it survives map #53 closing rather than existing only as a note about a candidate.
 
 **Trigger for filing:** #59 establishes the repository and its register. Until then this is a proposal, unaccepted, and nothing depends on it.
 
