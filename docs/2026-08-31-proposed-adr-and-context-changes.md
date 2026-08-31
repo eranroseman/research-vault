@@ -35,7 +35,11 @@ Proposed entries, in CONTEXT.md's existing form, under a new **### Third-party c
 
 Adopting these implies one correction to the foundation spec: §7:122's *"Vendored fork"* becomes *"Vendored copy"*, and §7:132's *"Vendored forks"* becomes *"Vendored copies"*. Both are amendments in place with a dated note, per that document's own status rule.
 
-### 2.2 Not proposed
+### 2.2 These terms will exist in two glossaries, deliberately
+
+`software-development` will need `fork` and `vendor` too — its whole disposition ladder turns on them. Each product defines them in **its own** CONTEXT.md, because #77 ruled there is no shared glossary and no mechanism holding the two aligned; keeping them consistent is a developer responsibility, priced deliberately. The definitions below are written for *this* repository's usage — vendored reference documentation under a frozen contract — and the sibling's will emphasise the distribution side. That they overlap is the expected cost, not a defect to solve.
+
+### 2.3 Not proposed
 
 `rung`, `bucket`, `defer`, `sensemaking` and the sharing check are `software-development`'s vocabulary. §4.5's amendment says each of the three products keeps its own `terminology.md`; that product has no repository yet, so its glossary has nowhere to live and the map's Notes are holding the vocabulary in the meantime. **That gap is worth raising with #58 or #59 rather than filling it here.**
 
