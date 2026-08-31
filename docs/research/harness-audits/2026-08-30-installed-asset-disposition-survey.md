@@ -235,7 +235,25 @@ The register recommends **coexistence, not substitution** — item 09 reads *"di
 
 *Which settles a narrower question too:* `diagnosing-bugs` is **not** a replacement for `root-cause-tracing.md`. They cover disjoint branches of a decision the spine already documents — `root-cause-tracing`'s own graph routes *"Can trace backwards? → no — dead end → Fix at symptom point"*, contradicting its own closing rule. That dead end is where a loop-and-hypothesise method starts, which is what makes the carry-across below the right shape rather than merely a cheap one.
 
-A complementary option, cheap and licence-clean: the fork puts `skills/systematic-debugging/` under the author's control, so `building-a-feedback-loop.md` could sit beside `root-cause-tracing.md` carrying the Phase-1 ladder and the red-capable criterion, with provenance — and `root-cause-tracing`'s dead-end edge repointed at it. That transfers the *method* but not the *gate*, complementing hard-gated adoption rather than replacing it.
+**Five ways to get the method in, costed.** The fork owns `skills/systematic-debugging/`, and that `SKILL.md` is quiet — untouched between the pin and HEAD, 3 commits since 2026-01-01, none since 2026-07-05 — so editing it is cheap.
+
+| | Shape | Cost |
+|---|---|---|
+| A | Adopt `diagnosing-bugs`, rung 4, hard-gated to explicit invocation | Never reaches the implicit path; `root-cause-tracing`'s dead end stays broken |
+| B | Carry `building-a-feedback-loop.md` into the spine's Supporting Techniques | Advisory only — cannot carry the Phase-1 gate or the ranked-hypotheses ordering, both *not-separable* |
+| C | Edit the gate and hypothesis discipline into the spine's phases | Dissolves B's objection, but you hold a snapshot and forfeit upstream improvements |
+| D | Vendor `diagnosing-bugs` with a non-triggering description, and repoint `root-cause-tracing`'s dead-end edge at it | Smallest patch; the gate stays intact inside its own skill and upstream keeps flowing. Routes only *after* tracing has failed |
+| **E** | **Restructure the spine's entry as a three-path classifier, third path invoking `diagnosing-bugs`** | **Recommended** |
+
+**E, on upstream's own pattern.** v6.3.0 rebuilt `brainstorming` as a Spike / Bounded / Architectural router: classify before the first question and say it aloud, entry criteria that test the artefact rather than the agent's confidence (*"Bounded measures the repo, not your familiarity"*), path-bound terminal states, per-path checklists, and mandatory re-classification mid-task (*"Hidden complexity upgrades the path mid-task. Stop and say so"*). Ceremony scales with the task; the gate never does.
+
+Debugging takes the same shape — **simple** (error and recent diff explain it; the spine's existing cheap Phase 1), **traceable** (a call chain to walk; `root-cause-tracing.md`), **opaque** (no chain, or non-deterministic; `diagnosing-bugs`). That makes explicit a split both skills already assert against each other: the spine claims *"simple bugs have root causes too"* while `diagnosing-bugs` calls itself *"heavy by design, the wrong tool for a question you want answered in one message."*
+
+E beats D because classification happens **before** the tracing attempt rather than after it fails, and it has an argument no other option has: **it is the shape upstream just moved to.** If obra restructures `systematic-debugging` as he restructured `brainstorming`, a fork already shaped that way diverges less.
+
+Under D or E, `diagnosing-bugs` is vendored with a description that describes rather than triggers — the over-firing upstream documents is a description-match defect, so removing the trigger text removes it. Do not reach for `skillOverrides`: a vendored skill is a plugin skill, which overrides cannot touch, and Codex has no equivalent. Owning the frontmatter makes the point moot.
+
+**E's own risk:** misclassification is a failure mode the current spine does not have. Upstream mitigates it with an anti-pattern table, which is copyable in form.
 
 **One register recommendation is stale.** It proposes *"de-fanging the injection selectively in settings (`skillOverrides` name-only, the grilling precedent) gets nearly all the benefit at none of the fork cost."* It does not work, and the diagnosis is precise: **`grilling` is lockfile-installed, where `skillOverrides` does reach.** The register generalised that precedent to plugin skills, where the resolver returns `"on"` before consulting the override map.
 
