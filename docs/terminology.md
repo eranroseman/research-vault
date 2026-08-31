@@ -179,9 +179,19 @@ applies and the name takes the form `<field>-vault`; the field qualifier is requ
 ambiguous both in Obsidian's generic sense and in the public namespace. The sibling plugin stewards no durable
 artifact — codebases exist without it — so it takes the activity branch instead and is named for the
 activity it serves: `software-development` (#76, 2026-08-30). The two shapes differ because the rule is a
-tree, not a template: the asymmetry is the rule working, not a defect. A third repository, `shared-skills`
-(#77, 2026-08-30), holds the skills both plugins use and nothing else; it takes the artifact branch — the
-skills outlive either product — qualified by the thing that distinguishes them, that they are shared.
+tree, not a template: the asymmetry is the rule working, not a defect. A third repository, **`sensemaking`**
+(renamed 2026-08-31 from `shared-skills`, #77), holds the plugin components both plugins use and nothing
+else. It takes the **activity branch**, not the artifact branch its first name assumed: the set stewards no
+durable artifact — it produces handoff documents, questionnaires, maps and research files, no one of which
+outlives the others — so it is named for the activity it serves. That activity is the collective
+construction of shared understanding: of the ten components, nine move understanding across a boundary —
+agent to user, agent to agent, session to session, person to person, sources to record. `sensemaking` names
+it; `shared-skills` named the *consumers* rather than the work, which §4.5 excludes, and `skills` understated
+the contents once components other than skills were admitted. `thinking` and `reasoning` were declined under
+cost class 4: both are the agent runtime's own vocabulary for what the model does, the same register
+collision that retired `harness`. The name also carries its own admission test — does this move
+understanding between parties — where the old one invited the looser question of whether something is
+shared.
 
 Each of the three keeps **its own** `terminology.md` as needed. There is no shared naming authority, no
 shared glossary, and no mechanism holding them aligned: `CONTEXT.md`'s own format admits only terms specific
