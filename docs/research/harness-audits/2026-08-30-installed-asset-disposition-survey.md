@@ -15,9 +15,8 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 1. **The per-asset recommendations** below — individually or wholesale.
 2. **`caveman`'s bucket.** Two of four passes disagreed, and the author's answer arrived truncated mid-word. Both sides are with the row.
-3. **Is the `superpowers` fork public or private?**
-4. **The fork's marketplace name.**
-5. **Does `writing-specs` vendor from upstream HEAD or freeze at the 6.2.0 pin?** See [Handoff to #60](#handoff-to-60).
+3. **The fork's marketplace name.** The plugin name must stay `superpowers` to preserve the 26 cross-references; the marketplace should differ from `superpowers-dev`.
+4. **Does `writing-specs` vendor from upstream HEAD or freeze at the 6.2.0 pin?** See [Handoff to #60](#handoff-to-60).
 
 ## Ground rules
 
@@ -138,6 +137,10 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 - Patch: **10 files changed, 117 insertions, 1933 deletions** — delete `skills/brainstorming/`, edit two lines of `using-superpowers/SKILL.md`, replace the `AGENTS.md` symlink with a regular file.
 - Merge: **exactly two conflicts**, both `DU` on the deleted directory, resolved by `git rm -r`, fully scriptable.
 - The one file the fork edits **auto-merged cleanly** even though upstream touched it.
+
+**The fork is private** (author, 2026-08-31). It still fixes the defect that mattered — a git URL is reproducible where Codex's current `source_type = "local"`, pointing into `~/.claude/plugins/marketplaces/`, is not. What private forfeits is only the credential-free clone, and the delta is narrower than it looks: this machine's Codex marketplace already uses an SSH remote (`git@github.com:obra/superpowers.git`), so SSH marketplace-add is the established path here; a private fork makes the key load-bearing for read rather than incidental.
+
+Private also avoids what public would have cost — a visible fork of a 279,648-star repository deleting its flagship skill (`brainstorming` is that plugin's first manifest keyword and its `defaultPrompt`) reads as commentary whether or not intended; an implied support surface; and a raised chance of the name collision the fork deliberately courts by keeping `"name": "superpowers"`. It also pairs with the three-path restructure above: an opinionated divergence is more comfortable unpublished.
 
 **Upstream health.** `obra` (Jesse Vincent), 279,648 stars, last push 2026-08-29, monthly releases (v6.1.0 06-30, v6.2.0 07-24, v6.3.0 08-12), 100 commits touching `skills/` since 2026-06-01. No `eranroseman` fork exists. **The machine is pinned at 6.2.0 while v6.3.0 shipped 2026-08-12** — one minor behind, that delta touching 13 skill files across 7 skills.
 
@@ -352,6 +355,8 @@ Every asset landing on rung 4. All six need a provenance header; the table lists
 ## Handoff to other tickets
 
 **#62 — hard sequencing, and a migration.** The fork's edited bootstrap points at `software-development:writing-specs`. Until that ships, every session injects a route, inside `<EXTREMELY_IMPORTANT>` tags, to a skill that does not exist, so `writing-specs` must land before or with the cutover. The cutover must also uninstall first on both harnesses, since the fork keeps the plugin name and collides with the installed copy. **Two installs must be migrated, not one:** `installed_plugins.json` carries a project-scope entry for `/home/eranr/memoria-vault` at `gitCommitSha` `3dcbd5c4…` while the user-scope entry has `44c9b2d6…`, both naming the **same** `installPath`. Easy to miss, and it establishes that install path does not imply pin — which #63 and #78 should know independently.
+
+**#62 also inherits the private fork's credential step.** Both harnesses need read access before the marketplace can be added, so setup provisions the credential first and the fresh-machine sequence becomes credential → marketplace → plugin. That is a human-only step of the kind `wizard` exists for, and it is a precondition rather than a repair. **#78** should note that a truly clean environment cannot verify the fork without it.
 
 **#63 — two additions.** Watch upstream HEAD against the fork's merge-base, not just the fork against the installed cache — a precondition, as the fork section states. And catch **unqualified** references: upstream already added `skill_view("brainstorming")` to `using-superpowers/references/hermes-tools.md:31`, which auto-merges clean and is invisible to a `grep superpowers:brainstorming`.
 
