@@ -56,7 +56,7 @@ Its loop is **intent-confirmation written once at the end**; ours is write-as-yo
 
 **`brainstorming` claims four.** Expected and not disturbing: the screen measures artifact content, and the skeleton is being taken for its structure — classifier, gate, checklist, review ritual — not its content.
 
-**Two caveats on that number, both real.** Four is a *claimed* set; **which of the four survived verification is recorded nowhere**, here or upstream, so it does not contradict the "nothing exceeds three" headline but neither does it corroborate it. And one of the four is R10 — so the claim elsewhere that `interview-me` offers *"the only termination condition that is neither a score nor a count"* is unsupported until the verified per-candidate sets are published. Either publish them or drop "only".
+**Two caveats on that number, both real.** Four is a *claimed* set; **which of the four survived verification is recorded nowhere**, here or upstream, so it does not contradict the "nothing exceeds three" headline but neither does it corroborate it. And one of the four is R10 — so the claim that `interview-me` offered *"the only termination condition that is neither a score nor a count"* was unsupported. **Dropped 2026-09-01**, and it was wrong on its own terms besides: `interview-me`'s headline stop is *"The 95% Confidence Stop"*, a self-judged score. What it uniquely supplies is Step 5's enumeration of non-agreement, not a termination condition.
 
 ______________________________________________________________________
 
