@@ -2,7 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `writing-specs`. This document is the input to the design phase, not a design.
 >
-> **Status:** draft, 2026-09-01, revised the same day after review. **Not confirmed** — the gate this document specifies has not been run on this document. Archived on handoff; not maintained. Identifiers are never changed and never reused, which is why splitting R4 and R9 produced R30 and R31 rather than renumbering.
+> **Status:** draft, 2026-09-01, revised the same day after review. **Not confirmed** — the gate this document specifies has not been run on this document. Identifiers are never changed and never reused, which is why splitting R4 and R9 produced R30 and R31 rather than renumbering.
+>
+> **Delete when** `writing-requirements` ships and its skill body carries these requirements, or when the design is abandoned. This document is scaffolding, not a record: git history holds it after deletion. Precedent — `553ae6f`, "delete 14 merged/abandoned superpowers plan files". A never-maintained file sitting at a stable path is the stale record that deletion exists to prevent.
+>
+> **Durable home** is the `software-development` repository, which does not exist yet (#59 owes it). This tree is the working home while the design dossier lives here, not the destination.
 
 ## Problem
 
@@ -82,8 +86,8 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 *Fit:* the final restate covers every requirement written, not only those settled last.
 *Source:* as R9. Split out from it — continuous confirmation and a terminal restate are two obligations, and a skill could satisfy either alone.
 
-**R10** — Terminates on my explicit confirmation. No score, no count.
-*Fit:* "sounds good" and silence are not confirmation.
+**R10** — Terminates on a confirmation signal I chose in advance and do not use conversationally.
+*Fit:* the signal is agreed before the phase runs and is distinguishable from assent — "sounds good", "sure", "looks right" and silence do not match it. No score and no count substitutes for it.
 *Source:* ISO/IEC/IEEE 12207:2017 6.4.2.2(g) — "Stakeholder agreement that their needs and expectations are reflected adequately in the requirements is achieved." `assumed` — adopting it here is unconfirmed. The prohibition on an LLM-judged score as the gate is a decision, not evidence; no standard has a position on it.
 
 ### Artifact content
@@ -159,7 +163,7 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 
 ### Pipeline
 
-These three are requirements on the phase, not on any single skill. Every candidate failed all three, which measures the granularity rather than the field.
+These three are requirements on the **phase**, not on any single skill. Every candidate failed all three — which measures the granularity of the screen, not a gap in the field. A skill does not contain three sub-steps that are themselves skills; a pipeline composes them. They are satisfied by the composition and are not screening criteria for any component of it.
 
 **R26** — Runs a prior-art step before writing requirements, behind a gate.
 *Fit:* patterns found arrive as requirements, not as candidates to weigh.
@@ -235,12 +239,17 @@ That closes the top three treatments by measurement — **install a plugin as-is
 
 **Scope of the artifact-content rules, ruled here because a review found the question live.** R15, R18 and R24 govern the artifact the *skill produces*. They do **not** bind this document, which is an input to building that skill rather than an instance of its output. R4 and R9 were split on merit — a conjunction hides an untested half, and the sourcing screen demonstrated exactly that failure on R4 — not because R15 obliged it. A review that applies R15 to this document while declining to apply R18 to it is inconsistent; the consistent position is that neither applies.
 
-- Do R26–R28 belong in a skill screen at all? Every candidate failed all three, which suggests they are pipeline requirements and the pipeline is composed rather than sourced.
-- Do R3, R24 and R29 earn their place? None drove a sourcing verdict. R3 is additionally unreviewed.
+- Do R3 and R29 earn their place? Neither drove a sourcing verdict. R3 is additionally unreviewed. (R24 was on this list and comes off: it screened four candidates in and eight out.)
 - Does R7 do any screening work, or is it describing the field?
 - Do constraints belong before the requirements? 12207's activity order puts them first; readability puts them after. Currently after.
 - Does each requirement carry its nature — decided, corrected, deferred, measured? Currently only exceptions are marked.
-- Is R10 safe against acquiescence? Fitzpatrick argues verbal assent is the wrong termination signal; 12207 makes it a process outcome. Two traditions disagree and this takes the standards position.
+- What is the confirmation token? R10 now requires one chosen in advance and not used conversationally; which token is yours to pick, and it has to be picked before the phase can run.
+
+**Closed since drafting.**
+
+*Do R26–R28 belong in a skill screen?* No. They are pipeline requirements; a pipeline is composed rather than sourced, and the universal failure measured the screen's granularity. Moved into the Pipeline section as a statement.
+
+*Is R10 safe against acquiescence?* The disagreement is dissolved rather than adjudicated. Fitzpatrick's objection is to **verbal assent** as a termination signal — an utterance whose politeness meaning is indistinguishable from its agreement meaning. A token chosen in advance and never used conversationally is not that; it cannot be produced by politeness. 12207's process outcome is satisfied and Fitzpatrick's failure mode is closed, without needing his costly-commitment substitute.
 
 ## Evidence
 
@@ -248,7 +257,7 @@ That closes the top three treatments by measurement — **install a plugin as-is
 - **Competitive analysis** — `docs/research/2026-09-01-pre-spec-competitive-analysis.md`. **Carries unapplied findings**: four of its six corpora were read as verdict headlines only, and their items are leads rather than findings.
 - **Sourcing screen** — `docs/research/2026-09-01-pre-spec-sourcing-screen.md`
 
-These links are bare paths until the first commit. Pin them to a commit then — not against drift but against the reorganisation: `docs/` subfolders are provisional, and a pinned link survives a move where a relative path does not.
+Bare relative paths, deliberately. An earlier version instructed pinning them to a commit against the coming reorganisation; that was wrong for this repo, whose practice is to rewrite links when things move — #90 and #92 both swept them. A pinned link survives the move by pointing at a superseded copy, which is worse than a path that breaks loudly and gets fixed.
 
 Primary sources read directly: ISO/IEC/IEEE 29148:2018 (`sources/29148-2018.pdf`, clauses 5.2.5–5.2.8); ISO/IEC/IEEE 12207:2017 (`sources/12207-2017.pdf`, clause 6.4.2); the Volere requirements shell; the bodies of `brainstorming`, `interview-me`, `shape-spec`, `write-spec`, `deliver-prd`, `define-problem-statement`, `requirements-clarity`, `helm-brief`, `framing-doc`, `matter-intake-scoping`, `incoming-request-advisor`, `neuroarxiv`, `adhd`, `to-spec`, `grilling`, `research`, `writing-plans`, `subagent-driven-development`, and spec-kit's `specify.md` and `spec-template.md`.
 
