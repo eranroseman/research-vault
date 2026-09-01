@@ -36,3 +36,18 @@ An editable install can resolve `research_vault` to the parent checkout instead 
 ## Exemplars
 
 Live test files (`tests/test_*_live.py`) are the copy-from source for new live tests: fixture shapes, settle windows, cleanup discipline. Environment facts (versions, API surfaces, path translation) live in `docs/environment.md` — check it before rediscovering; extend it when a live probe teaches something new.
+
+## The WSL2 low-port trap
+
+WSL2 swallows RST on low ports, so a connection to `127.0.0.1:1` hangs for the full connect
+timeout (5s) instead of failing fast — three dead-port tests were ~15.2s of a 67.4s serial
+run (2026-08-24, `2e6f1385` @ 15:15:14Z). A dead-port fixture must bind an ephemeral port,
+close it, and hand out `http://127.0.0.1:<port>` (measured: ~1ms fail vs 5029ms for port 1).
+
+## Multi-seat venv parity
+
+During the pre-slice batch the seats kept each venv bound to its referent — main's venv
+validates main, each worktree's venv validates its branch — so environment upgrades were
+deferred until post-merge to keep the seats' green runs comparable (2026-08-24,
+`cb5ecedf` @ 16:30:23Z). A venv change mid-flight makes "main is green" and "branch is green"
+mean different things.

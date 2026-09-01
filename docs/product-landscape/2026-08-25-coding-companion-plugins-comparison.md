@@ -231,10 +231,11 @@ dissolution live in the map's tickets, which are the program's source of truth f
 
 **From the process-reconstruction arc:**
 
-12. **Transcript mining and disposal (#68)** — the one-time 63-session export is intentionally
-    tracked under `docs/research/raw/research-vault-transcripts/` as the private repository backup
-    while it is mined. The redundant external clone is discarded; after relevant findings are
-    recorded in their durable homes, the raw export is discarded too.
+12. **Transcript mining and disposal (#68)** — **EXECUTED 2026-09-01.** The one-time 63-session
+    export was mined (lineage map + 30+ provenance-bearing findings) and deleted at HEAD; the
+    redundant external clone was already discarded. Mining record:
+    `docs/research/raw/2026-09-01-transcript-archive-mining-record.md`; authentic pre-sweep bytes
+    survive at commit `e900dfa`. This entry now points at that record instead of the archive.
 13. **Workload 2 framed as a methods replication** — the template applied to a different domain
     with divergences recorded is the paper's external-validity evidence, free if framed before
     that build starts.

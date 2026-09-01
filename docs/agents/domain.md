@@ -49,3 +49,27 @@ If the concept you need isn't in the glossary yet, that's a signal — either yo
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
 > _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+
+## This repo's ADR authoring rules
+
+Distilled 2026-09-01 from the transcript archive (#68 mining; provenance:
+`a89fa797` @ 2026-08-24, `2e6f1385` @ 2026-08-24) — the shape rules behind the accepted ADRs
+(13–33 lines), which were ruled in-chat and never written down. The ADR bar itself is the
+domain-modeling skill's three tests; these rules govern *content*, not admission:
+
+- Cut what a reader working in this repo already knows; ADRs carry only what a cold reader
+  must be told.
+- Never cite a record the reader cannot open — assert borrowed reasoning on its own merits
+  ("the reference to memoria and its ADRs will be meaningless to the reader").
+- The title states the decision, not a truism ("# Human gates only where judgment can differ"
+  was rejected: "doesn't really say anything").
+- ADRs carry no history: no change logs, no provenance narratives, no "(revised after…)"
+  status lines. Git history holds that; the file restates a lookup.
+- Prefer one sentence in an existing ADR or the vault AGENTS.md over a new file ("better
+  adding a single sentence to an ADR than being locked to a useless ceremony").
+- A correction of an agent's mistake is not a decision. Cheap test: "would this decision
+  exist if the agent had simply done the obvious thing?" If not, it is a correction — it
+  belongs in the skill/AGENTS.md the agent loads, not in an ADR.
+- Routing doctrine: rules agents follow go where agents read them; invariants code must hold
+  go in tests that name the reason; an ADR is only for a choice a future designer would
+  otherwise reverse without knowing what it cost.
