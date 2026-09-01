@@ -405,6 +405,44 @@ are grouped by durable home below; every one carries provenance.
     corrupt-on-write case is pinned as a test; this entry records the extraction-stack fact.
     Provenance: `b1fcd241` @ 2026-08-21T19:41:48Z.
 
+43. **`M` Authoring experiments gate plan content; plans hold only unconditional outcomes.**
+    An experiment whose verdict decides *whether* tasks exist runs author-side before any
+    plan; plans never embed "run the experiment; if pointer≈inline then …" branches — "the
+    plan only ever contains the unconditional outcome." The verdict is recorded, then the
+    next batch is authored with or without the dedup.
+    Provenance: `b1fcd241` @ 2026-08-22T16:47:40Z.
+
+44. **`M/E` tmpfs + `GIT_TEST_FSYNC=0` rejected on a measured null.** The pair cut sys time
+    54→32s but wall time stayed flat (78.4→79.7s) — the suite's wait is the settle bug and
+    deliberate timeout sleeps, not filesystem I/O. "Ruled: not adopted — the measurement
+    said no." xdist is in docs/testing.md; the suite profile (127s, ~18s CPU) and this
+    null-result ruling survive nowhere else.
+    Provenance: `b1fcd241` @ 2026-08-22T20:32:11Z, @ 20:41:28Z.
+
+45. **`E` The BBT postscript applies to `.bib` translators only.** The installed postscript
+    (memoria's zotero-selection deep-link adder) guards on
+    `Translator.BetterBibTeX || Translator.BetterBibLaTeX`, so the harness's Better CSL JSON
+    translator never executes it — "all BibTeX/BibLaTeX/postscript settings apply only to
+    `.bib` translators." environment.md records the settings screens but not this
+    applicability. Added as an environment row this run.
+    Provenance: `b1fcd241` @ 2026-08-22T18:51:42Z.
+
+46. **`M` PID-wait over `pgrep -f` dodges the self-match trap.** "Waiting via
+    `pgrep -f 'build-test-contexts'` would have matched the waiting shell's own command line
+    and exited instantly, reporting success within a second. Waiting on the PID directly
+    can't self-match." A detached PID-wait was armed to resume a parked implementer when a
+    buffered background job finished.
+    Provenance: `b1fcd241` @ 2026-08-22T22:15:32Z.
+
+47. **`E` Citekey-formula constraints behind the adopted BBT formula.** The author drove a
+    once-only bulk key regeneration while the vault held zero literature notes (0 pins →
+    formula-governed; "the right time to optimize"), and the adopted formula
+    `authEtal2.lower.len + year | shorttitle.lower + year` rests on constraints
+    environment.md does not carry: `authEtAl`'s space separator fails the vault's citekey
+    identity rule; `shorttitle(3,3)` is pointless before `.lower`; the fallback is a single
+    pipe between complete patterns.
+    Provenance: `b1fcd241` @ 2026-08-22T18:55:34Z, @ 19:06:48Z.
+
 ## Disposition
 
 - Deleted at HEAD: `docs/research/raw/research-vault-transcripts/` — all 63 session files and
