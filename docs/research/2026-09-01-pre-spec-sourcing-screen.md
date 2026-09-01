@@ -6,28 +6,28 @@ Research note, 2026-09-01. Evidence for the sourcing decisions in `docs/superpow
 
 **Method.** One isolated agent per candidate. Each was given the twenty-nine requirements and its own candidate only — it did not know what else was being screened, could not compare, and was instructed not to rank or recommend. Every screen was then re-run by an adversarial verifier instructed to refute the passes, defaulting to refuted where the deciding line could not be confirmed. Judgement was from the artifact body — SKILL.md, templates, references — never from a description or README.
 
----
+______________________________________________________________________
 
 ## Result
 
-| Candidate | Licence | Claimed passes | Fails |
-|---|---|---|---|
-| `write-spec` — anthropics/knowledge-work-plugins | Apache-2.0 | R1, R7, R14, R17, R20, R21, R22, R25 | 21 |
-| `interview-me` — addyosmani/agent-skills | MIT | R1, R7, R10, R20, R21, R22, R24 | 22 |
-| `shape-spec` — duthaho/claudekit | MIT | R1, R2, R21, R22, R24, R25 | 23 |
-| `requirements-clarity` — softaworks/agent-toolkit | MIT | R1, R2, R20, R21, R22 | 24 |
-| `deliver-prd` — product-on-purpose/pm-skills | Apache-2.0 | R7, R20, R21, R22, R25 | 24 |
-| spec-kit `/specify` — github/spec-kit | MIT | R1, R5, R15, R20, R24 | 24 |
-| `alirezarezvani`'s PRD | MIT | R1, R20, R21, R22, R25 | 24 |
-| `define-problem-statement` — product-on-purpose | Apache-2.0 | R1, R7, R20, R22, R25 | 24 |
-| `helm-brief` — tonone-ai/tonone | MIT | R1, R20, R21, R25 | 25 |
-| `brainstorming` — obra/superpowers | MIT | R1, R5, R7, R10 | 25 |
-| `create-prd` — phuryn/pm-skills | MIT | R1, R20, R22 | 26 |
-| `framing-doc` — rjs/shaping-skills | **none** | R11, R13, R24 | 26 |
+| Candidate                                         | Licence    | Claimed passes                       | Fails |
+| ------------------------------------------------- | ---------- | ------------------------------------ | ----- |
+| `write-spec` — anthropics/knowledge-work-plugins  | Apache-2.0 | R1, R7, R14, R17, R20, R21, R22, R25 | 21    |
+| `interview-me` — addyosmani/agent-skills          | MIT        | R1, R7, R10, R20, R21, R22, R24      | 22    |
+| `shape-spec` — duthaho/claudekit                  | MIT        | R1, R2, R21, R22, R24, R25           | 23    |
+| `requirements-clarity` — softaworks/agent-toolkit | MIT        | R1, R2, R20, R21, R22                | 24    |
+| `deliver-prd` — product-on-purpose/pm-skills      | Apache-2.0 | R7, R20, R21, R22, R25               | 24    |
+| spec-kit `/specify` — github/spec-kit             | MIT        | R1, R5, R15, R20, R24                | 24    |
+| `alirezarezvani`'s PRD                            | MIT        | R1, R20, R21, R22, R25               | 24    |
+| `define-problem-statement` — product-on-purpose   | Apache-2.0 | R1, R7, R20, R22, R25                | 24    |
+| `helm-brief` — tonone-ai/tonone                   | MIT        | R1, R20, R21, R25                    | 25    |
+| `brainstorming` — obra/superpowers                | MIT        | R1, R5, R7, R10                      | 25    |
+| `create-prd` — phuryn/pm-skills                   | MIT        | R1, R20, R22                         | 26    |
+| `framing-doc` — rjs/shaping-skills                | **none**   | R11, R13, R24                        | 26    |
 
 **Every verification refuted something.** Surviving pass sets after adversarial re-check ran between one and three requirements. **Nothing exceeds three of twenty-nine.**
 
----
+______________________________________________________________________
 
 ## What follows
 
@@ -35,7 +35,7 @@ Research note, 2026-09-01. Evidence for the sourcing decisions in `docs/superpow
 
 **The decision is between copy-plus-delta on a chosen skeleton, and authoring to credited designs** — and since the patterns come from six sources, mostly the latter.
 
----
+______________________________________________________________________
 
 ## Findings that changed a sourcing decision
 
@@ -56,7 +56,7 @@ Its loop is **intent-confirmation written once at the end**; ours is write-as-yo
 
 **`brainstorming` passes four.** Expected and not disturbing: the screen measures artifact content, and the skeleton is being taken for its structure — classifier, gate, checklist, review ritual — not its content.
 
----
+______________________________________________________________________
 
 ## A limit of the screen
 
@@ -66,7 +66,7 @@ That is a measurement of **granularity**, not of the field. Those three are pipe
 
 Recorded as an open question against the requirement set rather than treated as a finding about the candidates.
 
----
+______________________________________________________________________
 
 ## Provenance
 

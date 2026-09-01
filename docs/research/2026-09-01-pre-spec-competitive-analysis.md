@@ -8,7 +8,7 @@ Research note, 2026-09-01. Calibrates the requirements for `writing-requirements
 
 **Status warning.** Two of six dimensions were read in full and folded into the requirements document. **Four were read only as verdict headlines and their findings are not applied.** Everything under "Not yet applied" below is an open item, not a closed one.
 
----
+______________________________________________________________________
 
 ## Applied
 
@@ -50,7 +50,7 @@ The harm is measured rather than speculative: Pew documents acquiescence bias, *
 - FDA's General Wellness guidance was **reissued January 2026**, superseding the 2019 version; its low-risk test is now three questions.
 - The Predetermined Change Control Plan guidance was **reissued August 2025**.
 
----
+______________________________________________________________________
 
 ## Not yet applied
 
@@ -104,7 +104,7 @@ Findings from four dimensions read only as headlines. Each is an open item.
 
 **The model provider's usage policy is a binding-constraint source.** For this developer specifically, the acceptable-use policy draws its licence line **through the product**: healthcare, therapy and mental-health uses trigger mandatory human-in-the-loop conditions. R28's sourcing step will miss this entirely if sourcing means libraries and prior art.
 
----
+______________________________________________________________________
 
 ## Method and limits
 

@@ -8,7 +8,7 @@ Research note, 2026-09-01. Feeds the requirements for `writing-requirements`, th
 
 **Result, stated up front:** the convergence is **rediscovery, and lossy**. The Volere requirements shell had the per-requirement shape in the mid-1990s, including two fields all six modern designs dropped.
 
----
+______________________________________________________________________
 
 ## Volere requirements shell — the strongest single finding
 
@@ -16,21 +16,21 @@ Suzanne and James Robertson, Atlantic Systems Guild. Shell fields read from Edit
 
 The shell is a **per-requirement card**. Its fields, with the glosses printed on the card:
 
-| Field | Gloss |
-|---|---|
-| Requirement # | Unique id |
-| Event/use case #'s | List of events / use cases that need this requirement |
-| Requirement Type | The type from the template |
-| **Description** | A one sentence statement of the intention of the requirement |
-| **Rationale** | A justification of the requirement |
-| **Originator** | The person who raised this requirement |
-| **Fit Criterion** | A measurement of the requirement such that it is possible to test if the solution matches the original requirement |
-| Customer Satisfaction | Degree of stakeholder happiness if implemented. 1 = uninterested to 5 = extremely pleased |
-| Customer Dissatisfaction | Measure of unhappiness if not part of the final product. 1 = hardly matters to 5 = extremely displeased |
-| Priority | A rating of the customer value |
-| Conflicts | Other requirements that cannot be implemented if this one is |
-| Supporting Materials | Pointer to documents that illustrate and explain this requirement |
-| History | Creation, changes |
+| Field                    | Gloss                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Requirement #            | Unique id                                                                                                          |
+| Event/use case #'s       | List of events / use cases that need this requirement                                                              |
+| Requirement Type         | The type from the template                                                                                         |
+| **Description**          | A one sentence statement of the intention of the requirement                                                       |
+| **Rationale**            | A justification of the requirement                                                                                 |
+| **Originator**           | The person who raised this requirement                                                                             |
+| **Fit Criterion**        | A measurement of the requirement such that it is possible to test if the solution matches the original requirement |
+| Customer Satisfaction    | Degree of stakeholder happiness if implemented. 1 = uninterested to 5 = extremely pleased                          |
+| Customer Dissatisfaction | Measure of unhappiness if not part of the final product. 1 = hardly matters to 5 = extremely displeased            |
+| Priority                 | A rating of the customer value                                                                                     |
+| Conflicts                | Other requirements that cannot be implemented if this one is                                                       |
+| Supporting Materials     | Pointer to documents that illustrate and explain this requirement                                                  |
+| History                  | Creation, changes                                                                                                  |
 
 **Why it fits.** Description + Rationale + Originator + Fit Criterion is requirement, why, source and check — on one card. `Fit Criterion` is the field every modern candidate drops, and it is the one a downstream planning phase needs in order to write a test. `Originator` is the provenance tag six separate agent skills were each solving independently.
 
@@ -40,7 +40,7 @@ So build-or-buy is a numbered section of a requirements specification, kept sepa
 
 **Caveat.** The shell's `Priority`, `Customer Satisfaction` and `Customer Dissatisfaction` fields are planning apparatus for an organisation choosing what to build first. They do not transfer to a one-person setting and are not taken.
 
----
+______________________________________________________________________
 
 ## ISO/IEC/IEEE 29148:2018 — read from the primary
 
@@ -88,7 +88,7 @@ The assumption rule is a `shall`, and it is per requirement.
 
 **Identification:** *"Once assigned, the identification is unique — it is never changed (even if the identified requirement changes) nor is it reused (even if the identified requirement is deleted)."*
 
----
+______________________________________________________________________
 
 ## ISO/IEC/IEEE 12207:2017 — read from the primary
 
@@ -131,17 +131,17 @@ Factors to identify: *"Anticipated physical, mental, and learned capabilities of
 
 And the critical quality characteristics named at d.2 include **health** explicitly: *"assurance, safety, security, environment, or health."*
 
----
+______________________________________________________________________
 
 ## Syntax traditions
 
-**EARS** (Mavin et al., Rolls-Royce). A sentence grammar: *"While \<optional pre-condition\>, when \<optional trigger\>, the \<system name\> shall \<system response\>."* Fits the singularity and unambiguity requirements. **Silent on** document structure, on rationale, on source, and on quantification — it says when a sentence is well-formed, never when a specification is done.
+**EARS** (Mavin et al., Rolls-Royce). A sentence grammar: *"While \<optional pre-condition>, when \<optional trigger>, the \<system name> shall \<system response>."* Fits the singularity and unambiguity requirements. **Silent on** document structure, on rationale, on source, and on quantification — it says when a sentence is well-formed, never when a specification is done.
 
 **Planguage** (Tom Gilb). Quantifies a quality requirement with `Scale` and `Meter`, and separates the failure threshold from the target: **`Must`** is the level below which the requirement fails, **`Plan`** the level aimed at. A quality with no scale of measure is not a requirement. This is the two-level threshold, thirty years before the "guardrail metric" appeared in agent PRD templates.
 
 *Caveat, marked unverified:* Planguage was read through a mirror site rather than Gilb's own publication.
 
----
+______________________________________________________________________
 
 ## The agile lineage dissents from the artifact
 
@@ -153,13 +153,13 @@ Jeffries: *"The card is a token representing the requirement"* — the requireme
 
 Mattpocock documents the related failure for his own template: *"The template leans hard on user stories, which is the wrong shape for architectural work: you end up writing stories nobody asked for around decisions that are really about interfaces and invariants."*
 
----
+______________________________________________________________________
 
 ## Requirements defects
 
 Femmer, Méndez Fernández, Wagner and Eder, "Rapid Quality Assurance with Requirements Smells". The smell catalogue maps onto 29148 5.2.7 and adds detection tooling. **Recorded as secondary to the standard**: 5.2.7 is the older and more authoritative statement of the same list, and it carries two categories the smells literature does not.
 
----
+______________________________________________________________________
 
 ## Interview technique
 
@@ -173,7 +173,7 @@ Where a hypothesis must precede an answer, Willis names **single-possibility pro
 
 **Nobody caps question count.** Every practice caps something adjacent instead — learning goals per person-type, session length, question density. One quantified rule exists, from motivational interviewing: reflections must outnumber questions, and stacked questions are forbidden.
 
----
+______________________________________________________________________
 
 ## Unanchored
 
