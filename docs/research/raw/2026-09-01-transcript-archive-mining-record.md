@@ -390,6 +390,21 @@ are grouped by durable home below; every one carries provenance.
     lcov/.contexts rebuilt as untrustworthy). Workaround: `setsid` to detach from the group.
     Provenance: `b1fcd241` @ 2026-08-23T00:47:08Z, @ 03:25:36Z.
 
+41. **`E` Obsidian treats dot-folders as invisible — the reason the support folder is
+    `system/`, not a dot-folder.** "Obsidian treats dot folders as invisible — not indexed,
+    not browsable, not openable", and `system/` holds things Obsidian must *use*
+    (`system/templates/`, `system/bases/*.base`). The author ruled `system/` (from `x/`) the
+    same day; the fact behind the choice is unrecorded. Added to environment.md this run.
+    Provenance: `6253e249` @ 2026-08-21T15:01:54Z.
+
+42. **`E` Real PDF extraction emits U+2028 — an intended import-hold path.** The parser's
+    `splitlines()` authority breaks on `\x85`/`U+2028`/`U+2029`, and "real PDF extraction
+    does emit U+2028, so that's a live hold path, not a theoretical one" — quote-class text
+    is held at import rather than repaired, because collapsing verbatim text would break
+    quote verification. The serializer's reject class now matches `splitlines()` and the
+    corrupt-on-write case is pinned as a test; this entry records the extraction-stack fact.
+    Provenance: `b1fcd241` @ 2026-08-21T19:41:48Z.
+
 ## Disposition
 
 - Deleted at HEAD: `docs/research/raw/research-vault-transcripts/` — all 63 session files and
