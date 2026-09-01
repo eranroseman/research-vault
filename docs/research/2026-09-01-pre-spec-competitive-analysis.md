@@ -58,9 +58,9 @@ Findings from four dimensions read only as headlines. Each is an open item.
 
 ### Directly against a current requirement
 
-**Against R25 (archived, not maintained) — for the health workload only.** In US medical-device regulation the requirements artifact is the **opposite** of archived: it is a controlled record under design controls. If any coaching-app feature crosses the wellness boundary, R25 inverts for that workload.
+**Against the archived-not-maintained constraint — for the health workload only.** *(This was labelled "R25" in an earlier draft. It is not R25: archival is an unnumbered constraint, and R25 is the open-questions exemption below. One number was carrying two propositions, which breaks the stability rule R19 states — inside this document's own evidence.)* In US medical-device regulation the requirements artifact is the **opposite** of archived: it is a controlled record under design controls. If any coaching-app feature crosses the wellness boundary, R25 inverts for that workload.
 
-**Against R25 — a named re-run trigger.** If the artifact is archived rather than maintained, something must say when it has gone stale enough to warrant a fresh pass. NIST makes continued re-application an obligation. Our set has no trigger.
+**Against the archived-not-maintained constraint — a named re-run trigger.** If the artifact is archived rather than maintained, something must say when it has gone stale enough to warrant a fresh pass. NIST makes continued re-application an obligation. Our set has no trigger.
 
 **Against R24 (no architecture) — every tradition has an escape hatch and ours does not.** Implementation may be stated **when accompanied by rationale for constraining the design**: INCOSE R31 states the exception inside the rule and makes the rationale mandatory; UK PCR reg 42(13) permits naming a specific make *"on an exceptional basis"*. Our prohibition is stricter than any engineering tradition surveyed.
 

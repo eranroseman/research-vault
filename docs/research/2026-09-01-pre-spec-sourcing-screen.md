@@ -54,7 +54,9 @@ Its loop is **intent-confirmation written once at the end**; ours is write-as-yo
 
 **`framing-doc` passes R11 and R13 and nothing else** — exactly the provenance pair, which is what it was taken for. It has **no LICENSE file**, so it is an idea source regardless.
 
-**`brainstorming` passes four.** Expected and not disturbing: the screen measures artifact content, and the skeleton is being taken for its structure — classifier, gate, checklist, review ritual — not its content.
+**`brainstorming` claims four.** Expected and not disturbing: the screen measures artifact content, and the skeleton is being taken for its structure — classifier, gate, checklist, review ritual — not its content.
+
+**Two caveats on that number, both real.** Four is a *claimed* set; **which of the four survived verification is recorded nowhere**, here or upstream, so it does not contradict the "nothing exceeds three" headline but neither does it corroborate it. And one of the four is R10 — so the claim elsewhere that `interview-me` offers *"the only termination condition that is neither a score nor a count"* is unsupported until the verified per-candidate sets are published. Either publish them or drop "only".
 
 ______________________________________________________________________
 
