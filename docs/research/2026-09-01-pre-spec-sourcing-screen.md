@@ -41,7 +41,7 @@ ______________________________________________________________________
 
 **`write-spec` is the only candidate passing R14 after verification.** Its body: *"Requirements: Categorized as Must-Have (P0), Nice-to-Have (P1), and Future Considerations (P2), **each with acceptance criteria**"* and *"For each requirement… Include acceptance criteria."* A per-requirement fit criterion, which nothing else has.
 
-An earlier pass in this session had rejected it for *"no per-requirement fit criterion"* — wrong, about a file that had been read. It moves from reject to adapt. Its name collides with `writing-specs` and it carries Cowork connector placeholders; both are reasons to rename and strip, not to reject.
+An earlier pass in this session had rejected it for *"no per-requirement fit criterion"* — wrong, about a file that had been read. Correcting that verdict does not make it a source to copy from: re-reading the body on 2026-09-01, every line of its acceptance-criteria section is already held here from a higher rung — 29148 5.2.5 and 5.2.7, 12207, Volere, and BDD for Given/When/Then, which write-spec relays rather than originates. Its own contribution is the P0/P1/P2 three-tier scheme, which this set declines. **The pass is kept as a measurement; no text is taken.**
 
 **`interview-me` fails the loop it was chosen for.** Measured failures:
 
