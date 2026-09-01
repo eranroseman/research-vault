@@ -350,6 +350,7 @@ are grouped by durable home below; every one carries provenance.
     decision not written becomes a ruling interrupt mid-run."
     Provenance: `6253e249` @ 2026-08-20T15:35:51Z, @ 17:02:19Z; relayed implementer packages
     from 2026-08-16T21:24:57Z onward. (Home: process-reconstruction amendment, via #30.)
+
 36. **`R` The ruled skill-name grammar system vanished in the terminology consolidation.**
     The 08-20 skills-name review ruled a grammar for skill names — entry points verb-first,
     the frame-opener may be a noun, guards/references are noun phrases — committed into the
@@ -360,6 +361,34 @@ are grouped by durable home below; every one carries provenance.
     terminology §4.3 is **deferred**: the file has another session's rewrite in flight at
     the time of this record (2026-09-01); this entry is the durable home until then.
     Provenance: `6253e249` @ 2026-08-20T16:26:14Z (ruling @ 16:28:25Z).
+
+37. **`R` Upstream filings are author-owned; agents prepare, never publish.** Ready-to-file
+    upstream bug reports (mutate4py, K-Dense DOI-loop, stderr-leak) sit in the author's queue
+    (#67) and agents post nothing to a public tracker — "I wasn't willing to publish to a
+    public tracker on an ambiguous instruction." The queue exists as an issue; the ownership
+    rule does not.
+    Provenance: `b1fcd241` @ 2026-08-23T00:31:05Z.
+
+38. **`L` The claim-atomicity ADR deferral is untracked.** The deepest design thread of the
+    08-23 ADR sweep — "the claim — not the note, not the document — is the atomic unit of
+    evidence", "claim anchors derive from content, never render order" (Wikidata/micropub
+    precedents) — was scrapped ("per claim assertion is the most basic of academic writing…
+    which makes this ADR trivial") and deferred to "a fresh session". The spec marks the
+    ruling pending; no ADR (0001–0005) and no issue records the deferral's disposition.
+    Provenance: `b1fcd241` @ 2026-08-23T20:08:51Z, @ 20:19:23Z.
+
+39. **`L` gap-to-topic awaits its own decision.** "It needs a decision on its own merits
+    rather than waiting for evidence the slice cannot generate" — an upstream workflow
+    choice, not a harness gap; no issue carries it.
+    Provenance: `b1fcd241` @ 2026-08-23T14:57:30Z.
+
+40. **`E` The harness's background-task lifetime cap reaps process groups (~35 min).** Run 1
+    of the mutation blanket died at 35m08s; the hypothesis — a duration-triggered
+    background-task cap firing on the process group, not per agent-turn — predicted a death
+    time (~20:19) and the orphaned worker tree dated 20:21 matched it. Silent hazard: orphaned
+    workers' late restore-to-original corrupts derived state (notes.py reverted mid-session;
+    lcov/.contexts rebuilt as untrustworthy). Workaround: `setsid` to detach from the group.
+    Provenance: `b1fcd241` @ 2026-08-23T00:47:08Z, @ 03:25:36Z.
 
 ## Disposition
 
