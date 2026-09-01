@@ -338,6 +338,29 @@ are grouped by durable home below; every one carries provenance.
     still sits in the tree as a completed plan with no recorded disposition.
 34. **`L` Issue — nocoders correction block** (finding 28).
 
+### Late additions (second mining pass, same run)
+
+35. **`M` The foundation build's executor is never named.** Plans A/B/C and the later waves
+    were executed by **Codex** (unattended) while the Claude controller authored the plans,
+    ran the adversarial passes, and issued the SDD rulings — the author relayed the
+    implementer's pre-flight/ruling packages back into the controller session for ruling
+    ("both plans are implemented by codex"; "route to codex anter c"). The reconstruction
+    note never says this (grep: zero "Codex" occurrences), so the 658-commit build reads as a
+    single-harness process. The cross-vendor split is why plan discipline mattered: "every
+    decision not written becomes a ruling interrupt mid-run."
+    Provenance: `6253e249` @ 2026-08-20T15:35:51Z, @ 17:02:19Z; relayed implementer packages
+    from 2026-08-16T21:24:57Z onward. (Home: process-reconstruction amendment, via #30.)
+36. **`R` The ruled skill-name grammar system vanished in the terminology consolidation.**
+    The 08-20 skills-name review ruled a grammar for skill names — entry points verb-first,
+    the frame-opener may be a noun, guards/references are noun phrases — committed into the
+    dated terminology doc's §10 manifest ("so Plan D authors future skill names against a
+    rule instead of taste"). When the terminology files merged into the living
+    `docs/terminology.md`, the rule disappeared: §4.3 keeps the resulting names but no
+    grammar row. Future skill authoring has lost its ruled basis. Landing the restoration in
+    terminology §4.3 is **deferred**: the file has another session's rewrite in flight at
+    the time of this record (2026-09-01); this entry is the durable home until then.
+    Provenance: `6253e249` @ 2026-08-20T16:26:14Z (ruling @ 16:28:25Z).
+
 ## Disposition
 
 - Deleted at HEAD: `docs/research/raw/research-vault-transcripts/` — all 63 session files and
