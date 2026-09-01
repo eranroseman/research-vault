@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `writing-specs`. This document is the input to the design phase, not a design.
 >
-> **Status:** draft, 2026-09-01. Archived on handoff; not maintained. Identifiers are never changed and never reused.
+> **Status:** draft, 2026-09-01, revised the same day after review. **Not confirmed** — the gate this document specifies has not been run on this document. Archived on handoff; not maintained. Identifiers are never changed and never reused, which is why splitting R4 and R9 produced R30 and R31 rather than renumbering.
 
 ## Problem
 
@@ -12,7 +12,9 @@ The process I have starts one step too late. `writing-specs` takes an idea and p
 
 The cost lands on my attention. An agent starts work carrying assumptions I never gave it and it never declared, and I find them by interrogating it three rounds later. Interviews are not the cost — I will take an agent interviewing me all day if that gets the job right. Interrogation is the cost.
 
-The absence is not hypothetical. Four artifacts in my own roster each compensate for it somewhere else: `to-spec` puts Problem Statement and User Stories inside a spec template; `brainstorming` asks the questions in a conversation that discards the answers; `rethink-audit` carries it as rung one of an audit method; this repo's foundation spec puts it in §1 of the design document. And no agent coding framework surveyed — ten of them — has a phase before design.
+The absence is not hypothetical. Four artifacts compensate for it somewhere else. Three are in my roster: `brainstorming` asks the questions in a conversation that discards the answers; `rethink-audit` carries it as rung one of an audit method; this repo's foundation spec puts it in §1 of the design document. The fourth, mattpocock's `to-spec`, is neither installed nor adopted here — it puts Problem Statement and User Stories inside a spec template, and its author documents the resulting deformation.
+
+A survey of ten agent coding frameworks found none with a phase before design. **That survey was run in conversation and never written up** — the claim has no evidence trail, unlike the prior art, competitive analysis and sourcing screen linked below.
 
 ## Solution
 
@@ -47,9 +49,13 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 *Fit:* three questions, each answerable no; any no aborts with one sentence naming how to invoke it deliberately.
 *Source:* `neuroarxiv` and `adhd` pre-flight gates, both with an explicit-invocation bypass.
 
-**R4** — Asks questions in dependency order, and does not spend separate round-trips on questions that do not depend on each other.
+**R4** — Asks questions in dependency order.
 *Fit:* no question is asked whose answer hinges on another still open in the same round.
 *Source:* `mattpocock/skills` commit `a4b2009a` — "Same 13 questions land in ~3 rounds instead of 13."
+
+**R30** — Does not spend separate round-trips on questions that do not depend on each other.
+*Fit:* a set of mutually independent questions is put in one round, not serialised.
+*Source:* as R4. Split out because the two were joined by a conjunction and only the first was tested — the sourcing screen failed `interview-me` on the second half while R4's written fit would have passed it.
 
 **R5** — Where a hypothesis is offered before an answer exists, offers the plausible alternatives rather than a single guess.
 *Fit:* no question presents one guess as the expected answer.
@@ -57,7 +63,7 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 
 **R6** — Anchors questions in specific past events rather than opinions, generalities or predictions.
 *Fit:* each question asks what happened, not what would.
-*Source:* three independent primaries in the discovery corpus; the most-agreed rule in it.
+*Source:* Fitzpatrick, *The Mom Test* — recoverable. Reported by the competitive-analysis pass as the most-agreed rule in the discovery corpus, converged on by "three independent primaries"; **two of the three were never named and are unrecovered**. Treat the strength of the convergence claim as unverified.
 
 **R7** — Places no cap on the number of questions or clarification markers.
 *Fit:* no number bounds questioning anywhere in the skill.
@@ -68,9 +74,13 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 *Fit:* a requirement exists in the artifact before the interview ends.
 *Source:* `elicited` — "interview user for why and what, write requirement, verify, repeat until done."
 
-**R9** — Confirms each requirement when written, and restates the accumulated set before terminating.
-*Fit:* confirmation happens at least twice — in the moment and at the end.
-*Source:* contextual inquiry's *Interpretation* principle; qualitative research's *member checking*. Both are continuous rather than terminal. `assumed` — the two-point rendering is mine.
+**R9** — Confirms each requirement when it is written.
+*Fit:* no requirement enters the artifact unconfirmed.
+*Source:* contextual inquiry's *Interpretation* principle; qualitative research's *member checking*. Both are continuous rather than terminal. `assumed` — the rendering is mine.
+
+**R31** — Restates the accumulated set before terminating.
+*Fit:* the final restate covers every requirement written, not only those settled last.
+*Source:* as R9. Split out from it — continuous confirmation and a terminal restate are two obligations, and a skill could satisfy either alone.
 
 **R10** — Terminates on my explicit confirmation. No score, no count.
 *Fit:* "sounds good" and silence are not confirmation.
@@ -92,7 +102,7 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 
 **R13** — Marks verbatim material as verbatim, distinct from paraphrase.
 *Fit:* a reader can tell my words from the agent's summary of them.
-*Source:* Fitzpatrick, *The Mom Test* — "the artifact's job is to make self-deception harder."
+*Source:* Fitzpatrick, *The Mom Test*, reported as imposing a provenance discipline of this shape. **Paraphrase, not verbatim** — the book is not in the read-directly list below, and the phrasing previously carried here in quotation marks came from an agent's report rather than from the text. Verify before quoting.
 
 **R14** — Each requirement carries a fit criterion: a measurement testing whether a solution matches it.
 *Fit:* Volere's own test. Per requirement, not per goal and not per document.
@@ -137,11 +147,15 @@ Source vocabulary: `elicited` — stated directly, quoted where short. `inferred
 **R24** — Contains no architecture, components, phases or estimates.
 *Fit:* nothing in it would change if the implementation approach changed.
 *Source:* 29148:2018 5.2.7 — "Requirements should state 'what' is needed, not 'how'." A `should`, with an acknowledged exception at lower decomposition levels.
-*Note:* drove no sourcing verdict — every candidate satisfies it, because none is a design skill. It describes the phase rather than screening for it.
+*Note:* it did screen. Four of twelve candidates claimed it — `interview-me`, `shape-spec`, spec-kit `/specify`, `framing-doc` — and eight failed. An earlier note here claimed the opposite and was false against the screen's own table.
 
 **R25** — Records open questions, exempt from the completeness count.
 *Fit:* an artifact with open questions can still be confirmed.
 *Source:* 29148:2018 5.2.6 permits TBx during evolution — "Resolution of the TBx designations may be iterative and there is an acceptable timeframe for TBx items" — and forbids them at completion. The exemption holds because this artifact is never the completed set: it is an input to a design phase that resolves the open items, and it is archived rather than contracted.
+
+**R32** — Records whether the confirmation gate has passed.
+*Fit:* a cold session opening the file can tell a confirmed artifact from an abandoned one without asking.
+*Source:* `inferred` — follows from R8, R10 and R29 interacting. R8 guarantees a partial artifact exists on disk mid-interview; R29 promises cold-session consumption at a stable path; R10 defines a gate whose outcome nothing currently records. Without this, `writing-specs` cannot distinguish a set I confirmed from one I walked away from.
 
 ### Pipeline
 
@@ -164,45 +178,47 @@ These three are requirements on the phase, not on any single skill. Every candid
 **R29** — Output lands at a stable path with a header naming its consumer.
 *Fit:* `/writing-specs @path` works from a cold session.
 *Source:* the house convention, specified verbatim in `writing-plans`' plan header.
-*Note:* drove no sourcing verdict — nothing failed it because no candidate does it at all. An obligation on what we build, not a screen on what we take.
+*Note:* every candidate failed it, so it screened nothing — the same shape as R26–R28. An obligation on what we build, not a discriminator among what we might take.
 
 ## Constraints
 
 - Runs on Claude Code and Codex.
 - Sourced rather than authored where possible; fewest changes.
 - Archived on handoff, never maintained. Drift from the product is expected.
-- `writing-plans` consumes the artifact and walks it requirement by requirement: "Can you point to a task that implements it? List any gaps."
-- `writing-specs` is not modified by this phase.
+- `writing-specs` is the only consumer, and it is not modified by this phase.
+- **Enumerability is a pipeline obligation, not a direct one.** `writing-plans` never reads this artifact — its Self-Review walks the *spec* against the *plan*: "Can you point to a task that implements it? List any gaps." So each requirement must survive into the spec in a form that check can walk, and nothing in the current pipeline guarantees it does. An earlier version of this constraint claimed `writing-plans` consumes this artifact directly; it does not.
 - MIT and Apache-2.0 attribution is owed wherever text is taken substantially, regardless of how the maintenance relationship is described.
 
 ## Sourcing decisions
 
 Sourcing sits in this phase because `writing-specs` cannot hold it — its approach comparison is architectural alternatives inside your own tree, not build-or-buy. **Trigger to move: `writing-specs` gains build-or-buy comparison.**
 
-**Screen result, 2026-09-01.** Twelve candidates screened pass/fail against all twenty-nine, one isolated agent each, every result adversarially verified. Claimed passes ran three to eight; after verification **nothing exceeds three of twenty-nine**. Rungs 1, 2 and 3 are therefore closed by measurement: a copy of any candidate is a copy of something failing twenty-six musts.
+**Screen result, 2026-09-01.** Twelve candidates screened pass/fail against the twenty-nine requirements that existed at the time, one isolated agent each, every result adversarially verified. **R30, R31 and R32 post-date the screen and no candidate has been tested against them** — R30 in particular would have failed at least one candidate the screen passed. Claimed passes ran three to eight; after verification **nothing exceeds three of twenty-nine**.
+
+That closes the top three treatments by measurement — **install a plugin as-is**, **fork it and keep merging**, and **copy it frozen** — since each takes something that fails at least twenty-six musts. What remains is **copy plus a delta**, **author to someone else's design and credit it**, or **write from scratch**. (These six treatments are the sourcing ladder drafted in `docs/2026-08-31-proposed-adr-software-development-component-adoption.md`, which is a proposal and not accepted; the names are used here for brevity, not as authority.)
 
 ### Adapt
 
-| Source | Licence | What we take | Why |
-|---|---|---|---|
-| `brainstorming` — obra/superpowers | MIT | The skeleton: three-path classifier and its one-way ratchet, the HARD-GATE, the per-path checklist, the Red Flags and Anti-Pattern forms, the process-flow graph, and the After-the-Design ritual — write, self-review, user review gate, invoke next skill | The only implementation of proportionality in the roster, and it makes the two phases structurally symmetric |
-| `write-spec` — anthropics/knowledge-work-plugins | Apache-2.0 | The per-requirement acceptance-criteria discipline — "Requirements: Categorized as Must-Have (P0), Nice-to-Have (P1), and Future Considerations (P2), each with acceptance criteria" | The only candidate passing R14 after verification. Rename to avoid the collision with `writing-specs`; strip the connector placeholders |
-| `deliver-prd` — product-on-purpose/pm-skills | Apache-2.0 | The Requirement Verification Map, the AI Behavior and Evaluation section, and the conditional-section discipline | The only source with model-behaviour requirements tied to evidence — needed for the coaching-app workload |
-| `interview-me` — addyosmani/agent-skills | MIT | The explicit-yes gate with its enumerated false yeses, and the confidence-number-with-a-reason | The only termination condition available that is neither a score nor a count. **Its loop is not taken**: it fails R4, R5, R8 and R9 — one question at a time, a single guess, and nothing written until the end |
+| Source                                           | Licence    | What we take                                                                                                                                                                                                                                                | Why                                                                                                                                                                                                             |
+| ------------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `brainstorming` — obra/superpowers               | MIT        | The skeleton: three-path classifier and its one-way ratchet, the HARD-GATE, the per-path checklist, the Red Flags and Anti-Pattern forms, the process-flow graph, and the After-the-Design ritual — write, self-review, user review gate, invoke next skill | The only implementation of proportionality in the roster, and it makes the two phases structurally symmetric                                                                                                    |
+| `write-spec` — anthropics/knowledge-work-plugins | Apache-2.0 | The per-requirement acceptance-criteria discipline — "Requirements: Categorized as Must-Have (P0), Nice-to-Have (P1), and Future Considerations (P2), each with acceptance criteria"                                                                        | The only candidate passing R14 after verification. Rename to avoid the collision with `writing-specs`; strip the connector placeholders                                                                         |
+| `deliver-prd` — product-on-purpose/pm-skills     | Apache-2.0 | The Requirement Verification Map, the AI Behavior and Evaluation section, and the conditional-section discipline                                                                                                                                            | The only source with model-behaviour requirements tied to evidence — needed for the coaching-app workload                                                                                                       |
+| `interview-me` — addyosmani/agent-skills         | MIT        | The explicit-yes gate with its enumerated false yeses, and the confidence-number-with-a-reason                                                                                                                                                              | The only termination condition available that is neither a score nor a count. **Its loop is not taken**: it fails R4, R5, R8 and R9 — one question at a time, a single guess, and nothing written until the end |
 
 ### Take the idea — credited, not copied
 
-| Source | What we take | Serves |
-|---|---|---|
-| Volere requirements shell | Description, Rationale, Originator, Fit Criterion | R11, R14 |
-| ISO/IEC/IEEE 29148:2018 | 5.2.5 characteristics; 5.2.7 forbidden terms; 5.2.8 identifier rule | R15, R18, R19 |
-| ISO/IEC/IEEE 12207:2017 | Agreement as a process outcome; abuse-and-failure scenarios; the four constraint sources | R10, R23, R22 |
-| Planguage — Gilb | Scale and meter; `Must` versus `Plan` | R16, R17 |
-| `shape-spec` — duthaho/claudekit | "Ceremony is what scales, not the gate", and evidence never scaling to zero | The invariant `brainstorming` implements without naming |
-| `neuroarxiv` / `adhd` — UditAkhourii | The three-question pre-flight with explicit-invocation bypass; the isolation invariant; converge rather than shortlist | R2, R26's gate |
-| `framing-doc` — rjs/shaping-skills | The per-line provenance audit with a delete rule. **No LICENSE file — idea only** | R11, R13 (the only two it passes) |
-| Fitzpatrick, *The Mom Test* | Anchor in specific past events; verbatim marked as verbatim | R6, R13 |
-| Willis; Pew Research | Multi-possibility probing over single-possibility | R5 |
+| Source                               | What we take                                                                                                           | Serves                                                  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Volere requirements shell            | Description, Rationale, Originator, Fit Criterion                                                                      | R11, R14                                                |
+| ISO/IEC/IEEE 29148:2018              | 5.2.5 characteristics; 5.2.7 forbidden terms; 5.2.8 identifier rule                                                    | R15, R18, R19                                           |
+| ISO/IEC/IEEE 12207:2017              | Agreement as a process outcome; abuse-and-failure scenarios; the four constraint sources                               | R10, R23, R22                                           |
+| Planguage — Gilb                     | Scale and meter; `Must` versus `Plan`                                                                                  | R16, R17                                                |
+| `shape-spec` — duthaho/claudekit     | "Ceremony is what scales, not the gate", and evidence never scaling to zero                                            | The invariant `brainstorming` implements without naming |
+| `neuroarxiv` / `adhd` — UditAkhourii | The three-question pre-flight with explicit-invocation bypass; the isolation invariant; converge rather than shortlist | R2, R26's gate                                          |
+| `framing-doc` — rjs/shaping-skills   | The per-line provenance audit with a delete rule. **No LICENSE file — idea only**                                      | R11, R13 (the only two it passes)                       |
+| Fitzpatrick, *The Mom Test*          | Anchor in specific past events; verbatim marked as verbatim                                                            | R6, R13                                                 |
+| Willis; Pew Research                 | Multi-possibility probing over single-possibility                                                                      | R5                                                      |
 
 ### Defer
 
@@ -216,6 +232,8 @@ Sourcing sits in this phase because `writing-specs` cannot hold it — its appro
 - **`create-prd`, `alirezarezvani`'s PRD, `define-problem-statement`** — screened; nothing survives verification beyond R1 and one or two content slots.
 
 ## Open questions
+
+**Scope of the artifact-content rules, ruled here because a review found the question live.** R15, R18 and R24 govern the artifact the *skill produces*. They do **not** bind this document, which is an input to building that skill rather than an instance of its output. R4 and R9 were split on merit — a conjunction hides an untested half, and the sourcing screen demonstrated exactly that failure on R4 — not because R15 obliged it. A review that applies R15 to this document while declining to apply R18 to it is inconsistent; the consistent position is that neither applies.
 
 - Do R26–R28 belong in a skill screen at all? Every candidate failed all three, which suggests they are pipeline requirements and the pipeline is composed rather than sourced.
 - Do R3, R24 and R29 earn their place? None drove a sourcing verdict. R3 is additionally unreviewed.
