@@ -230,6 +230,14 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 *Fit:* a reader who has never seen the skill can say what each section is for, and reach that section's evidence from inside it. Sections follow the order of the phases that produced them. Presentation may depart from run order only where a section cannot be understood before a later-run section, and that section says so and says why.
 *Source:* the author's ruling of 2026-09-02 — the artifact is consumed by humans and by agents managing the process, who must understand it without reading the skill. That is the consumer the ceremony test missed: it swept for in-document readers and for `writing-specs`, and found none, because the reader is outside both. ECSS-E-ST-10-06C Annex A mandates a table of contents for the same reason, verified locally 2026-09-01. This is R35's rule one level up — R35 makes a requirement readable lifted out alone, R40 makes the document readable opened cold.
 
+**R43** — Each requirement carries its priority.
+*Fit:* every requirement carries one, on a scale stated once in the artifact. A priority does not mean a requirement is optional — every requirement in the set is necessary — it marks which are candidates for trade-off when alternatives are being decided.
+*Source:* ISO/IEC/IEEE 29148:2018 5.2.8, which names **Stakeholder Priority** among the attributes a requirement carries: *"The priority of each requirement should be identified… a scale such as 1-5 or a simple scheme such as High, Medium or Low, could be used."* The clause that settles the apparent conflict with this set's all-musts convention is the standard's own: *"The priority is not intended to imply that some requirements are not necessary, but it may indicate **what requirements are candidates for the trade space when decisions regarding alternatives are necessary**."* Sourcing is that decision, and `sourcing` S17 is the consumer — it picks the screening subset, and without this it was inferring importance from a set that never stated it. Added 2026-09-02 on the author's instruction to follow best practice on placement rather than rule on it.
+
+**R44** — Each requirement carries its rationale, distinct from its source.
+*Fit:* a reader can say why the requirement is needed, not only where it came from. R11's source answers *who said this*; this answers *why it must hold*. A rationale restating the requirement fails.
+*Source:* ISO/IEC/IEEE 29148:2018 5.2.8 — *"The rationale for establishing each requirement should be captured. The rationale provides the reason that the requirement is needed and points to any supporting analysis, trade study, modelling, simulation or other substantive objective evidence."* Three consumers: the R42 review gate, where a reader deciding what to change needs the reason; `writing-specs`, where a requirement's reason bounds how it may be met; and `sourcing` S15, where deciding whether a candidate's gap is a critical flaw depends on why the requirement exists. Twice raised by the R27 pass and twice dropped — once refuted for resting on a vendor document that stated a preference rather than an obligation, once unverified. It is a named attribute in a standard already held.
+
 ### Pipeline
 
 These three are requirements on the **phase**, not on any single skill. Every candidate failed all three — which measures the granularity of the screen, not a gap in the field. A skill does not contain three sub-steps that are themselves skills; a pipeline composes them. They are satisfied by the composition and are not screening criteria for any component of it.
@@ -265,6 +273,10 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 The build-or-buy decisions for constructing this skill are an appendix: `docs/superpowers/reqs/2026-09-01-writing-reqs-sourcing.md`. They are suspended pending a re-run against the final set, and they are not requirements — this artifact carries no approach decisions.
 
 ## Open questions
+
+- ~~**Is the tiering sourcing's or the requirement set's?**~~ **Answered 2026-09-02 from 29148 5.2.8: both, at different grains.** Priority is a requirement attribute (R43); which requirements form the screen is the screener's call within it (`sourcing` S17). The standard is explicit that priority does not make a requirement optional.
+
+- **Four attributes 29148 names are deliberately absent.** Owner — one person. Risk — its definition is requirements that fail to be well-formed, which R15, R18 and R35 already catch. Difficulty — it exists for cost modelling and affordability, and there is no cost model here. Type — it groups requirements for allocation, and nothing allocates. Each was tested for a consumer and none has one; recorded so a later pass does not rediscover them as gaps.
 
 - ~~**Where do sourcing verdicts live?**~~ **Answered 2026-09-02: in the sourcing skill's own artifact.** Keeping them here would change `writing-reqs`' output after it was approved, which is what approval-before-sourcing exists to prevent. R24's exemption is dropped rather than re-pointed — this artifact now carries no approach decisions at all.
 
