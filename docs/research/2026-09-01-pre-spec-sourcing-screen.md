@@ -72,6 +72,6 @@ ______________________________________________________________________
 
 ## Provenance
 
-Screened at whatever each repository's HEAD was on 2026-09-01. Licences were read from LICENSE files, not from GitHub's detected label. `framing-doc` has no LICENSE file — verified, not inferred.
+Screened at whatever each repository's HEAD was on 2026-09-01. **One provenance failure found, and it undercuts this claim.** The spec-kit `/specify` rejection cited a hard error on empty input and a three-marker clarification cap; re-reading `presets/lean/commands/speckit.specify.md` and `presets/scaffold/commands/speckit.specify.md` the same day found neither — both are 23 lines, and `NEEDS CLARIFICATION` is uncapped in `templates/spec-template.md`. So at least one screen read something other than the HEAD recorded here: a stale cache, a different preset, or an older version. Treat the date as the intent of the method, not as verified for every row. Licences were read from LICENSE files, not from GitHub's detected label. `framing-doc` has no LICENSE file — verified, not inferred.
 
 Candidates surfaced but not screened, from an earlier sweep and carried forward as idea sources only: `matter-intake-scoping` (lawve-ai), `incoming-request-advisor` and `prd-development` (deanpeters, CC BY-NC-SA), `quality-playbook` and `doc-and-modernize` (github/awesome-copilot), `neuroarxiv` and `adhd` (UditAkhourii).
