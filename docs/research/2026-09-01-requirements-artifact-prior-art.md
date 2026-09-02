@@ -301,7 +301,7 @@ with his reason: *"notes make it harder to lie to yourself."*
 
 **One claim refuted.** The competitive analysis attributed to him, in quotation marks, *"the artifact's job is to make self-deception harder."* The string "self-deception" occurs **zero** times in the book. It was an agent's paraphrase wearing quotation marks. The idea is his; the sentence is not.
 
-### Willis, *Cognitive Interviewing Training Guide* (2012) — R5
+### Willis, two guides (1999 and 2012) — R5
 
 > *"the use of probes may lead the respondent to particular types of responses… can be minimized through the careful selection of non-leading probing techniques… **rather than suggesting to the subject one possibility** ('Did you think the question was asking just about physicians?'), **it is preferable to list all reasonable possibilities**… probes should be characterized by unbiased phrasing."*
 
@@ -311,7 +311,9 @@ with his reason: *"notes make it harder to lie to yourself."*
 
 The same page confirms order effects and that randomisation spreads rather than eliminates them. Pew supplies both halves of R5 — the measured harm and the remedy — so R5's two legs are genuinely independent. It had previously been cited as bare "Pew", with no document, author, date or URL; that was an organisation name, not a citation.
 
-**One claim refuted.** The labels *"single-possibility probing"* and *"multi-possibility probing"* appear **nowhere** in this document and were reported as quotation. They are presumably from Willis's Sage book, which this guide cites and which is not in hand. The substance is verbatim; the terminology is not.
+The author supplied a second Willis document on 2026-09-01: *Cognitive Interviewing: A "How To" Guide* (1999, Research Triangle Institute, from an ASA short course). **It carries the passage above word for word** — the same physicians example, the same conclusion. A formulation stable across thirteen years and two publications is a stronger leg than one guide.
+
+**One claim refuted, now across three documents.** The labels *"single-possibility probing"* and *"multi-possibility probing"* appear **nowhere** in the 1999 guide, **nowhere** in the 2012 guide, and **nowhere** in Elaine McColl's published review of the 2005 Sage book (*Quality of Life Research*, supplied 2026-09-01 — a **secondary** source, recorded as such). The review does confirm the book contains a section titled *"The Intricacies of Verbal Probing"*, so the book remains the only place the labels could live. **The substance is verbatim twice over; the terminology remains unattested anywhere.**
 
 ### Beyer and Holtzblatt, *Contextual Design* — R9, and a third voice on R10
 
