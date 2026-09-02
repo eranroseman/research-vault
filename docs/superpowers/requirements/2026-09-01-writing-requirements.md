@@ -32,14 +32,17 @@ It runs as a loop, not a document generator — interview for the why and what, 
 
 ## Out of scope
 
-Each item is something a reader would reasonably expect this phase to do.
+One item, and it is a choice rather than a definition.
 
-- **Deciding whether to build.** This phase assumes that decision is made. A funnel with a kill gate is a different tool; for an already-decided need, spec-kit's `assess` cannot reach a `go` verdict at all.
-- **Producing a PRD.** Stakeholder sign-off, timelines, milestones, dependencies-with-owners and escalation matrices are the machinery of an organisation, and there is not one here.
-- **Aligning multiple stakeholders.** One person holds the need, the decision and the cost. This is why most of the field's apparatus does not transfer, and it is the assumption most likely to become wrong later.
-- **Prioritising or sequencing the requirements.** No MoSCoW, no P1/P2/P3. This artifact holds only musts; ISO/IEC/IEEE 12207:2017 puts the down-select on *needs*, one step upstream.
-- **Traceability past handoff.** 29148 and the regulated regimes trace a requirement through to verification and code. This stops when `writing-specs` takes the artifact.
-- **Running non-interactively.** A live dialogue by definition. What it does instead is R33, not a scope note — an earlier version smuggled testable behaviour into this list with no number, no source and no fit.
+- **Deciding whether to build.** This phase assumes that decision is made. It is listed because a named framework puts it here — NIST places a go/no-go at the end of context establishment — so excluding it is a decision, not a tautology. A funnel with a kill gate is a different tool; for an already-decided need, spec-kit's `assess` cannot reach a `go` verdict at all.
+
+Four earlier items were removed on 2026-09-01 as definitional rather than chosen: producing a PRD (timelines, milestones and escalation matrices are project management, not requirements), prioritising or sequencing (12207 puts the down-select on *needs*, one step upstream), traceability past handoff, and running non-interactively. A requirements document does not contain these by definition, so listing them told a reader nothing.
+
+## Assumptions
+
+Claims about the world this phase depends on and that **nobody is obliged to make true** — distinct from constraints, which bind what may be built. The distinction and the separate section are the FAA handbook's.
+
+- **One person holds the need, the decision and the cost.** This is why most of the field's apparatus does not transfer, and it is the assumption most likely to become wrong later. It was previously filed as an out-of-scope item ("aligning multiple stakeholders"), which read as a decision this phase made; it is not one, and 12207 6.4.2 outcome (g) contemplates multiple stakeholders throughout.
 
 ## Requirements
 
