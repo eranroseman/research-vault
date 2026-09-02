@@ -1,6 +1,6 @@
 # Competitive analysis: calibrating the pre-spec requirement set
 
-Research note, 2026-09-01. Calibrates the requirements for `writing-requirements` — see `docs/superpowers/requirements/2026-09-01-writing-requirements.md`.
+Research note, 2026-09-01. Calibrates the requirements for `writing-reqs` — see `docs/superpowers/reqs/2026-09-01-writing-reqs.md`.
 
 **Question asked:** how does our requirement set compare to what others require? Not *which product is best* — every verdict is about **our** set: ADD, RECALIBRATE, DROP or CONFIRM.
 

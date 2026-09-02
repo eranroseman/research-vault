@@ -1,6 +1,6 @@
 # R27 completion: the four corpora read properly
 
-Research note, 2026-09-01. Completes the competitive analysis begun in `docs/research/2026-09-01-pre-spec-competitive-analysis.md`, whose four remaining corpora had been read as verdict headlines only. Calibrates `docs/superpowers/requirements/2026-09-01-writing-requirements.md`.
+Research note, 2026-09-01. Completes the competitive analysis begun in `docs/research/2026-09-01-pre-spec-competitive-analysis.md`, whose four remaining corpora had been read as verdict headlines only. Calibrates `docs/superpowers/reqs/2026-09-01-writing-reqs.md`.
 
 **Method.** One isolated agent per corpus, each given the 33-requirement set and its own corpus, told it did not know what else was being read. Every corpus's first four MEASURED ADD or RECALIBRATE findings went to an adversarial verifier instructed to refute — on inexact quotation, wrong clause, secondary-presented-as-primary, over-generalisation, or transfer failure — and to default to refuted where it could not independently confirm. 20 agents.
 

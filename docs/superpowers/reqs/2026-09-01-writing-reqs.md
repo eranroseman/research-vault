@@ -1,4 +1,4 @@
-# Requirements: writing-requirements (the pre-spec phase)
+# Requirements: writing-reqs (the pre-spec phase)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `writing-specs`. This document is the input to the design phase, not a design.
 >
@@ -8,9 +8,9 @@
 >
 > Identifiers are never changed and never reused, which is why splitting R4 and R9 produced R30 and R31 rather than renumbering, and why the retired four leave gaps.
 >
-> **Delete when** `writing-requirements` ships and its skill body carries these requirements, or when the design is abandoned. This document is scaffolding, not a record: git history holds it after deletion. Precedent — `553ae6f`, "delete 14 merged/abandoned superpowers plan files". A never-maintained file sitting at a stable path is the stale record that deletion exists to prevent.
+> **Delete when** `writing-reqs` ships and its skill body carries these requirements, or when the design is abandoned. This document is scaffolding, not a record: git history holds it after deletion. Precedent — `553ae6f`, "delete 14 merged/abandoned superpowers plan files". A never-maintained file sitting at a stable path is the stale record that deletion exists to prevent.
 >
-> **Sequencing, ruled 2026-09-01:** build now, not after `writing-specs`. `writing-requirements` is written here, drawing text from four skills rather than vendored from any one — so it never merges upstream, was never a drift surface, and waiting for `writing-specs` buys nothing. The two are not siblings and are not required to match; each carries what its own altitude needs. **The R27 gate is lifted, 2026-09-01** — all six corpora are read and applied; `docs/research/2026-09-01-r27-completion.md` carries the result. Nothing now blocks building.
+> **Sequencing, ruled 2026-09-01:** build now, not after `writing-specs`. `writing-reqs` is written here, drawing text from four skills rather than vendored from any one — so it never merges upstream, was never a drift surface, and waiting for `writing-specs` buys nothing. The two are not siblings and are not required to match; each carries what its own altitude needs. **The R27 gate is lifted, 2026-09-01** — all six corpora are read and applied; `docs/research/2026-09-01-r27-completion.md` carries the result. Nothing now blocks building.
 >
 > **Durable home** is the `software-development` repository, which does not exist yet. #59 owes its **structure decision**, not the repository — its own body puts building it out of scope. This tree is the working home while the design dossier lives here, not the destination.
 
