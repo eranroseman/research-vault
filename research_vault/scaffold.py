@@ -23,6 +23,8 @@ VAULT_DIRS = [
 PROVISION_COMPANIONS = ["kepano/obsidian-skills"]
 _EMPTY_ROOTS = ("literatures", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
+GLOSSARY_PATH = "system/glossary.md"
+GLOSSARY_ENVELOPE = b'---\ntype: "guide"\n---\n\n'
 
 
 class Probe(NamedTuple):
@@ -83,6 +85,18 @@ def _copy_vault_templates(vault: Path, templates, created: list[str]) -> None:
         _copy_if_absent(source, vault / relative, relative, created)
 
 
+def _render_glossary_if_absent(vault: Path, templates, created: list[str]) -> None:
+    target = vault / GLOSSARY_PATH
+    if target.exists():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source = templates.joinpath("context.md")
+    with source.open("rb") as input_file, target.open("xb") as output_file:
+        output_file.write(GLOSSARY_ENVELOPE)
+        shutil.copyfileobj(input_file, output_file)
+    created.append(GLOSSARY_PATH)
+
+
 def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
     for root in _EMPTY_ROOTS:
         directory = vault / root
@@ -95,6 +109,7 @@ def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
 def _owned_paths(templates, with_ci: bool, with_rw_ci: bool) -> list[str]:
     paths = [*VAULT_DIRS]
     paths.extend(relative for relative, _source in _vault_template_paths(templates))
+    paths.append(GLOSSARY_PATH)
     paths.extend(f"{root}/.gitkeep" for root in _EMPTY_ROOTS)
     paths.extend((".research-vault/machine.json", ".git/hooks/pre-commit"))
     if with_ci:
@@ -149,6 +164,8 @@ def _preflight_conflicts(
     for relative, _source in _vault_template_paths(templates):
         if not (vault / relative).exists():
             candidates.append(relative)
+    if not (vault / GLOSSARY_PATH).exists():
+        candidates.append(GLOSSARY_PATH)
     for root in _EMPTY_ROOTS:
         directory = vault / root
         if not directory.exists() or not any(directory.iterdir()):
@@ -214,6 +231,7 @@ def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> lis
         (vault / directory).mkdir(parents=True, exist_ok=True)
 
     _copy_vault_templates(vault, templates, created)
+    _render_glossary_if_absent(vault, templates, created)
     if "log.md" in created:
         # Ship a freshly-scaffolded vault's log.md already OKF-conformant
         # (type: "log") rather than leaving the inert packaged placeholder

@@ -1,12 +1,12 @@
 # research-vault
 
-Trust-first academic research on a personal knowledge vault: every claim traceable to a real source, verified by mechanical checks. This glossary is the meaning layer; naming governance (why these words) lives in docs/terminology.md.
+Trust-first academic research on a personal knowledge vault: every claim traceable to a real source, verified by mechanical checks.
 
 ## Language
 
 ### Vault
 
-**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, packaged to survive its tools (currently as an OKF — Open Knowledge Format — bundle; ADR 0001).
+**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store.
 _Avoid_: knowledge base, second brain
 
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
@@ -17,6 +17,9 @@ _Avoid_: atlas, wiki, topic pages
 
 **Literature note**: The vault projection of one Zotero item, filename = citekey; a managed region above free prose.
 _Avoid_: source note, paper note, reference note
+
+**Synthesis note**: One page of the synthesis layer, carrying block-anchored claims with stance links.
+_Avoid_: topic page (collides with OpenAlex topics), evergreen note, concept page
 
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 _Avoid_: effort, draft folder
@@ -33,8 +36,14 @@ _Avoid_: `+`, capture folder
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
 _Avoid_: calendar, journal, daily notes folder
 
+**System folder**: The vault's support artifacts (`system/`): templates, bases, and the bibliography export.
+_Avoid_: x (old name), assets, meta
+
 **Managed region**: The bridge-regenerated span of a literature note between `%%rv-managed%%` markers; never hand-edited.
 _Avoid_: generated section, machine block
+
+**Machine surface**: A path or durable field with a designated mechanical writer; it is a category, not a particular writer or enforcement mechanism.
+_Avoid_: generated file, protected path
 
 ### Evidence and claims
 
@@ -43,6 +52,9 @@ _Avoid_: work (OpenAlex sense), paper (narrower than the corpus)
 
 **Source**: The cited document itself — never the journal, repository, or outlet.
 _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex's "source" means and ours never does
+
+**Venue**: The journal, repository, or outlet an item appeared in.
+_Avoid_: OpenAlex's "source" sense in our prose
 
 **Citekey**: The stable, human-readable key (Better BibTeX) joining prose citations, filenames, and the bibliography.
 _Avoid_: reference ID, bibkey
@@ -68,10 +80,10 @@ _Avoid_: import (that is the projection step that follows), ingestion
 **Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered from Zotero, never authored.
 _Avoid_: admission (that is the human act before), sync
 
-**Bibliography export**: The universe of items a citekey can name — the whole admitted library, before any citability judgment.
+**Bibliography export**: The whole admitted library used to resolve a citekey, before any citability judgment.
 _Avoid_: bibliography file, reference list, citation universe (that is the evidence layer)
 
-**Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded — note-level only (a superseded *claim* is a deprecation carrying a `superseded-by` pointer, not a status).
+**Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded — note-level only (a superseded *claim* is a deprecation carrying a superseded-by pointer, not a status).
 _Avoid_: unreviewed/active/rejected (old values), review status
 
 ### Verification
@@ -100,5 +112,5 @@ _Avoid_: dismissal, override (an ack keeps the record; it never deletes)
 **Publish gate**: The fail-closed verification boundary every publication crosses.
 _Avoid_: release check, CI gate (CI is the async auditor, not the gate)
 
-**Update notice**: A registry's post-publication signal about an item (retraction, correction, expression of concern, …).
+**Update notice**: A registry's post-publication signal about an item, such as a retraction or correction, recorded with its publication date and the date it was detected.
 _Avoid_: retraction flag (one class of notice, not the concept)

@@ -83,6 +83,17 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert all((vault / path).exists() for path in EXPECTED_CREATED)
     assert all((vault / path).is_dir() for path in VAULT_DIRS)
     assert (vault / ".git").is_dir()
+    glossary = vault / "system" / "glossary.md"
+    glossary_data, glossary_body = frontmatter.parse(glossary.read_text())
+    canonical_context = resources.files("research_vault").joinpath(
+        "templates", "context.md"
+    )
+    assert glossary_data == {"type": "guide"}
+    # The parser retains the blank line that separates the fixed frontmatter
+    # envelope from the unchanged canonical body.
+    assert glossary_body.removeprefix("\n").encode() == canonical_context.read_bytes()
+    assert glossary.is_file()
+    assert not glossary.is_symlink()
     assert (vault / "index.md").read_text() == (
         '---\ntype: "index"\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
@@ -138,6 +149,9 @@ def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
     (vault / "index.md").write_text("human index\n")
     (vault / ".research-vault").mkdir()
     (vault / ".research-vault" / "machine.json").write_text('{"mailto": "human"}\n')
+    (vault / "system").mkdir()
+    glossary = vault / "system" / "glossary.md"
+    glossary.write_text("human glossary\n")
     hooks = vault / ".git" / "hooks"
     hooks.mkdir(parents=True)
     hook = hooks / "pre-commit"
@@ -148,13 +162,16 @@ def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
     assert "index.md" not in created
     assert ".research-vault/machine.json" not in created
     assert ".git/hooks/pre-commit" not in created
+    assert "system/glossary.md" not in created
     assert (vault / "index.md").read_text() == "human index\n"
     assert (
         vault / ".research-vault" / "machine.json"
     ).read_text() == '{"mailto": "human"}\n'
     assert hook.read_text() == "#!/bin/sh\necho human\n"
+    assert glossary.read_text() == "human glossary\n"
     assert not os.access(hook, os.X_OK)
     assert scaffold.scaffold_vault(vault) == []
+    assert glossary.read_text() == "human glossary\n"
 
 
 def test_scaffold_installs_an_executable_hook_and_keeps_empty_roots_in_clones(tmp_path):
@@ -247,6 +264,29 @@ def test_scaffold_refuses_a_staged_deletion_of_an_owned_target_before_writing(tm
         scaffold.scaffold_vault(vault)
 
     assert not index.exists()
+    assert git(vault, "diff", "--cached", "--binary") == index_before
+    assert not (vault / ".gitignore").exists()
+    assert not (vault / ".research-vault").exists()
+    assert not (vault / "inbox").exists()
+
+
+def test_scaffold_refuses_a_staged_glossary_deletion_before_writing(tmp_path):
+    """Recreating a staged glossary deletion must fail before any output writes."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    glossary = vault / "system" / "glossary.md"
+    glossary.parent.mkdir()
+    glossary.write_text("user glossary\n")
+    git(vault, "add", "--", "system/glossary.md")
+    git(vault, "commit", "-qm", "baseline")
+    glossary.unlink()
+    git(vault, "add", "--", "system/glossary.md")
+    index_before = git(vault, "diff", "--cached", "--binary")
+
+    with pytest.raises(ValueError, match="conflict"):
+        scaffold.scaffold_vault(vault)
+
+    assert not glossary.exists()
     assert git(vault, "diff", "--cached", "--binary") == index_before
     assert not (vault / ".gitignore").exists()
     assert not (vault / ".research-vault").exists()
