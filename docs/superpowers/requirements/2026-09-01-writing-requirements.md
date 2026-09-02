@@ -269,6 +269,10 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 
 ## Sourcing decisions
 
+> **Provisional, 2026-09-02. Every verdict below is suspended pending a re-run.** Sourcing was screened against the requirement set as it stood on 2026-09-01. That set is changing: R3 and R10 are dropped, R34 is issued, and every remaining requirement is being tested for whether it earns its place. A screen is only as good as the requirements it screened against, so these verdicts do not carry.
+>
+> One is already void rather than merely stale. `interview-me` holds an Adapt row for "the explicit-yes gate with its enumerated false yeses" — a gate that R10 defined and that no longer exists. The whole section is re-run once the requirements are final.
+
 Sourcing sits in this phase because `writing-specs` cannot hold it — its approach comparison is architectural alternatives inside your own tree, not build-or-buy. **Trigger to move: `writing-specs` gains build-or-buy comparison.**
 
 Full screen, method and per-candidate failures: `docs/research/2026-09-01-pre-spec-sourcing-screen.md`.
