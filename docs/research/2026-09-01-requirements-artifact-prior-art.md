@@ -227,6 +227,38 @@ The first is task **2** under activity d), *"Transform stakeholder needs into st
 
 So IEC 62304's classes A/B/C are one health-specific instantiation of a tier scheme; 12207's own pointer for the general case is 15026-3. Neither is reachable from here.
 
+### IMDRF SaMD, four documents — the taxonomy 12207 delegates
+
+Supplied by the author 2026-09-01 after I reported them unreachable, and read from the PDFs.
+
+**N10FINAL:2013 sets the gate by intent, not by function.** SaMD is *"software intended to be used for one or more medical purposes that perform these purposes without being part of a hardware medical device"*, and *"Mobile apps that meet the definition above are considered SaMD."* Medical purpose is the GHTF list — *"diagnosis, prevention, monitoring, treatment or alleviation of disease"* and the rest. So the boundary is what the software is **intended and claimed** to do, which is the same shape as the wellness/device line the first competitive-analysis pass found and only partly applied.
+
+**N12FINAL:2014 is the taxonomy.** §7.2 is a 3×3 matrix:
+
+| State of the healthcare situation | Treat or diagnose | Drive clinical management | Inform clinical management |
+| --------------------------------- | ----------------- | ------------------------- | -------------------------- |
+| Critical                          | IV                | III                       | II                         |
+| Serious                           | III               | II                        | I                          |
+| Non-serious                       | II                | I                         | I                          |
+
+> *"The categories are in relative significance to each other. Category IV has the highest level of impact, Category I the lowest."*
+
+**The load-bearing sentence for R3 is §7.1**, and it is about derivation rather than about the labels:
+
+> *"The categorization relies on an accurate and complete SaMD definition statement."*
+
+§6.0 fixes that statement's form: significance of information (treat or diagnose / drive / inform), state of the situation (critical / serious / non-serious), and the core functionality essential to the first two. **The class falls out of the statement.** R3 previously asked for a class and a reason; it now asks for the statement, because a class without one cannot be checked.
+
+**N41FINAL:2017 supplies the scaling claim**, which is what R3 originally asserted without a source:
+
+> *"global regulators expect that performance metrics for a SaMD have a scientific level of rigor that is commensurate with the risk and impact of the SaMD to demonstrate assurance of safety, effectiveness, and performance."*
+
+> *"The level of evaluation and independent review should be commensurate with the risk posed by the specific SaMD."*
+
+**N23FINAL:2015** applies QMS principles informed by the N12 category, and adds nothing R3 needs.
+
+**Two honest limits.** IMDRF contains **zero** occurrences of "wellness", "fitness" or "lifestyle" — it does not carve out wellness, it simply does not reach software with no intended medical purpose. The carve-out document is FDA's General Wellness guidance, which is **not** in hand. And nothing in these four supports the claim, made in an earlier draft, that the tier declaration is *"a deliverable that never scales down"*; what they support is that **rigour** scales with the category. That phrasing is withdrawn.
+
 ### NIST AI RMF 1.0, NIST AI 100-1
 
 > *"Framework users are expected to benefit from: … explicit processes for making **go/no-go** system commissioning and deployment decisions"*.
