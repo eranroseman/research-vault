@@ -54,6 +54,8 @@ ______________________________________________________________________
 
 ## Not yet applied
 
+> **Superseded 2026-09-01.** All four dimensions below were subsequently read properly and adversarially verified; the result is in `docs/research/2026-09-01-r27-completion.md`, which is authoritative where the two disagree. Nine findings survived and are applied; the rest were refuted or remain unverified leads. This section is kept as the record of what was believed before the corpora were read — several items here did **not** survive, including the two-tier split and every testable-at-scale item.
+
 Findings from four dimensions read only as headlines. Each is an open item.
 
 ### Directly against a current requirement

@@ -298,7 +298,7 @@ A rejection here is of a **component**, never of a skill. Failing a requirement 
 
 ## Open questions
 
-**Scope of the artifact-content rules, ruled here because a review found the question live.** R15, R18 and R24 govern the artifact the *skill produces*. They do **not** bind this document, which is an input to building that skill rather than an instance of its output. R4 and R9 were split on merit — a conjunction hides an untested half, and the sourcing screen demonstrated exactly that failure on R4 — not because R15 obliged it. A review that applies R15 to this document while declining to apply R18 to it is inconsistent; the consistent position is that neither applies.
+**Scope of the artifact-content rules, ruled here because a review found the question live.** R15, R18, R24, R35, R37 and R38 govern the artifact the *skill produces*. They do **not** bind this document, which is an input to building that skill rather than an instance of its output. R4 and R9 were split on merit — a conjunction hides an untested half, and the sourcing screen demonstrated exactly that failure on R4 — not because R15 obliged it. A review that applies R15 to this document while declining to apply R18 to it is inconsistent; the consistent position is that neither applies.
 
 - Do R3 and R29 earn their place? Neither drove a sourcing verdict. R3 is additionally unreviewed. (R24 was on this list and comes off: four candidates claimed it and eight did not — so it discriminated. Verification then refuted at least one of the four, `framing-doc`, which survives on R11 and R13 only.)
 
@@ -310,9 +310,9 @@ A rejection here is of a **component**, never of a skill. Failing a requirement 
 
 - What is the confirmation token? R10 now requires one chosen in advance and not used conversationally; which token is yours to pick, and it has to be picked before the phase can run.
 
-- **No compliant exemplar of the output exists.** The scope ruling below exempts this document from R15, R18 and R24, so the only worked instance is exempt from three rules the skill must enforce — and the exemption is load-bearing: R2 joins three conditions with "or" against R15, and R19 uses "never" twice against 29148 5.2.7's totality terms. (29148 5.2.8 uses "never" too, which is why the exemption exists and why an exemplar is needed to show what does survive.) Ship a compliant sample artifact, or the skill is built against a specification never instantiated.
+- **No compliant exemplar of the output exists, and R27 widened the gap.** The scope ruling below exempts this document from R15, R18, R24 and now R35, R37 and R38 — this document's requirements lean on their section headings, its prose carries obligations outside requirement statements, and no set-level consistency check has been run on it. So the only worked instance is exempt from **six** rules the skill must enforce — and the exemption is load-bearing: R2 joins three conditions with "or" against R15, and R19 uses "never" twice against 29148 5.2.7's totality terms. (29148 5.2.8 uses "never" too, which is why the exemption exists and why an exemplar is needed to show what does survive.) Ship a compliant sample artifact, or the skill is built against a specification never instantiated.
 
-- **Is R27 finished on this set?** No. Four of six corpora were read as headlines and remain leads. Their unapplied items predicted at least three defects found later by review — the collision rule, R24's missing escape hatch, and R28's ordering. Finishing it before building buys defect-detection already paid for.
+- ~~**Is R27 finished on this set?**~~ **Closed 2026-09-01.** All four remaining corpora were read properly; `docs/research/2026-09-01-r27-completion.md` carries the result. The prediction that finishing it would repay itself held: R24's escape hatch and R28's ordering were both confirmed at their primaries, and five requirements were found that no earlier pass had. The collision rule was **not** confirmed — the corpus that would have supplied it was refuted on transfer.
 
 **Closed since drafting.**
 
