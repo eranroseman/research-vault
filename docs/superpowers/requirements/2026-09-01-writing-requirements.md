@@ -2,7 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `writing-specs`. This document is the input to the design phase, not a design.
 >
-> **Status:** draft, 2026-09-01, revised the same day after review. **Not confirmed** — the gate this document specifies has not been run on this document. Identifiers are never changed and never reused, which is why splitting R4 and R9 produced R30 and R31 rather than renumbering.
+> **Status:** **feature-complete, 2026-09-02.** 38 requirements, four retired numbers (R3, R10, R16, R17). Every requirement derives from prior art or a screened competitor, every source has been read directly, and every requirement has a named consumer. A red-team pass confirmed three blockers and thirteen minor defects; all sixteen are fixed. Six independent attacks on the joint satisfiability of R15, R18, R24, R35, R37 and R38 were all refuted, which was the one question that could have blocked this.
+>
+> **Not confirmed, and deliberately so.** R42 requires me to read this file and answer with a signal distinguishable from assent, and R32 forbids recording a set as confirmed while any requirement in it is unconfirmed. Neither has happened. Marking this confirmed to tidy the status line is precisely the hollow confirmation the red team found and R42 now forbids — so the artifact that specifies the gate is the first thing held by it. Sourcing may be re-run against this set; the set is not agreed until the gate runs.
+>
+> Identifiers are never changed and never reused, which is why splitting R4 and R9 produced R30 and R31 rather than renumbering, and why the retired four leave gaps.
 >
 > **Delete when** `writing-requirements` ships and its skill body carries these requirements, or when the design is abandoned. This document is scaffolding, not a record: git history holds it after deletion. Precedent — `553ae6f`, "delete 14 merged/abandoned superpowers plan files". A never-maintained file sitting at a stable path is the stale record that deletion exists to prevent.
 >
