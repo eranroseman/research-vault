@@ -218,12 +218,13 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 
 ## Constraints
 
-- Runs on Claude Code and Codex.
-- Sourced rather than authored where possible; fewest changes.
+**Test applied**, ISO/IEC/IEEE 29148:2018 3.1.7: a constraint is an *"externally imposed limitation… imposed on the solution by force or compulsion"*. Could it have been decided otherwise? If yes it is a requirement, not a constraint.
+
+- Runs on Claude Code and Codex. **Fails the test and is pending promotion to R34** — the harnesses are pre-existing, but supporting both is a decision and is testable; shipping Claude-only was available. Held here until the number is issued, because identifiers are never reused.
 - **Archived on handoff, never maintained — inherited, not chosen here.** This is how the whole superpowers workflow operates: specs and plans are archived once implemented, and this artifact sits in the same pipeline. Drift from the product is expected. Two competitive-analysis findings push against it — a controlled-record obligation under design controls if a coaching-app feature crosses the wellness boundary, and the absence of any named re-run trigger. Neither is answerable inside this phase; both are about the pipeline. **Neither has a tracker home yet** — they sit in the competitive-analysis note, which is temporary, and which ticket takes them (#60, #62 or #63 territory) is unresolved. Carried as a leftover for the #81 post, not silently absorbed.
-- `writing-specs` is the only consumer, and it is not modified by this phase.
+- `writing-specs` is the only consumer. (An earlier version added "and it is not modified by this phase", which is definitional rather than imposed.)
 - **Enumerability is a pipeline obligation, and it is not discharged here.** `writing-plans` never reads this artifact — its Self-Review walks the *spec* against the *plan*: "Can you point to a task that implements it? List any gaps." So each requirement must survive into the spec in a form that check can walk. **Nothing in this phase can guarantee that**, because the guarantee belongs to `writing-specs`' own design, which #60 and #62 own. Filed there as an obligation, not left here as an aside. (An earlier version claimed `writing-plans` consumes this artifact directly; it does not.)
-- MIT and Apache-2.0 attribution is owed wherever text is taken substantially, regardless of how the maintenance relationship is described.
+- MIT and Apache-2.0 attribution is owed wherever text is taken substantially, regardless of how the maintenance relationship is described. The licence is the constraint — 29148's own example is *"laws of a particular country"* — and carrying the attribution is a requirement derived from it, currently unnumbered.
 
 ## Sourcing decisions
 
@@ -236,6 +237,8 @@ Full screen, method and per-candidate failures: `docs/research/2026-09-01-pre-sp
 That measurement closes the top three treatments — **install a plugin as-is**, **fork it and keep merging**, **copy it frozen** — since each takes something failing at least twenty-six musts.
 
 What remains is **copy plus a delta**, **author to someone else's design and credit it**, or **write from scratch**. (The first five are the sourcing ladder drafted in `docs/2026-08-31-proposed-adr-software-development-component-adoption.md`, which is a proposal and not accepted. The sixth — author to someone else's design and credit it — is **not in that draft**; it was added in the 2026-09-01 conversation, along with a ruling that the ladder is not finalised. Names used for brevity, not as authority.)
+
+**Preference.** Sourced rather than authored where possible, fewest changes. This was previously filed as a constraint; it is not one — it is chosen, and it rests on the ladder drafted in `docs/2026-08-31-proposed-adr-software-development-component-adoption.md`, which is a proposal and not accepted.
 
 **What belongs here, and what does not.** A sourcing decision is a build-or-buy call about a **component we would include in the implementation**. It is not the same as **prior art**, which is where a requirement came from. ISO/IEC/IEEE 29148 and 12207, the Volere shell, Planguage, Fitzpatrick and the survey-methodology literature each generated requirements in this set; none is a component and none is bought. Their derivation lives in each requirement's *Source:* line and in `docs/research/2026-09-01-requirements-artifact-prior-art.md`, and is not restated here as a sourcing verdict. Only skills and skill components appear below.
 
