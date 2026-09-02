@@ -6,7 +6,7 @@ Same standing as [the component-adoption ladder draft](2026-08-31-proposed-adr-s
 
 **Trigger for filing:** #59 establishes the repository and its register.
 
----
+______________________________________________________________________
 
 # A component is shared only if its plumbing resolves in both products
 

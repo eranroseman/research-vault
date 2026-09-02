@@ -8,7 +8,7 @@
 
 **Numbering:** this is that product's ADR **0001**, not a number in `docs/adr/`. `0005` there is spent (`0005-better-bibtex-owns-the-bibliography-export.md`, landed via #93) and `0006` is parked pending #97.
 
----
+______________________________________________________________________
 
 # Third-party components are taken at the highest rung that still works
 

@@ -15,13 +15,13 @@ Companion to the [2026-08-28 alteration-inventory sweep](2026-08-28-alteration-i
 
 Approved 2026-08-31. The per-asset dispositions below are approved as a set; alongside them:
 
-| | |
-|---|---|
-| `superpowers` | forked, **public** |
-| `caveman` | **recommended** — on use rather than the necessity test, with a trigger recorded at its row |
-| `writing-specs` | vendors from **upstream HEAD**, not the 6.2.0 pin |
-| Marketplace | **`eroseman`**, hosting all four plugins |
-| Shared distributable | renamed **`sensemaking`** (was `shared-skills`; `docs/terminology.md` §4.5, sweep on #92) |
+|                      |                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `superpowers`        | forked, **public**                                                                          |
+| `caveman`            | **recommended** — on use rather than the necessity test, with a trigger recorded at its row |
+| `writing-specs`      | vendors from **upstream HEAD**, not the 6.2.0 pin                                           |
+| Marketplace          | **`eroseman`**, hosting all four plugins                                                    |
+| Shared distributable | renamed **`sensemaking`** (was `shared-skills`; `docs/terminology.md` §4.5, sweep on #92)   |
 
 **Why one marketplace.** Claude Code resolves a plugin's dependencies **within its own marketplace** unless the root lists others in `allowCrossMarketplaceDependenciesOn`, and `software-development` will depend on both `sensemaking` and the `superpowers` fork — so hosting all four in `eroseman` removes that allowlist. Each plugin still keeps its own repository; a marketplace entry carries its own source, as `obra/superpowers-marketplace` does across ten plugins. Codex resolves nothing — verified: `codex plugin add` takes `PLUGIN@MARKETPLACE` or `PLUGIN --marketplace M`, and neither it nor `codex plugin` has any dependency concept — so there a single marketplace buys only fewer `[marketplaces.*]` registrations for #62 to add and #78 to verify.
 
@@ -51,18 +51,18 @@ Four author-settled inputs the doctrine does not cover:
 
 ## Plugins
 
-| Plugin | Harness | Rung | Bucket | Fork call |
-|---|---|---|---|---|
-| `superpowers` | both | **2 — fork plugin** | required | **fork** |
-| `superpowers-developing-for-claude-code` | Claude | 4 — adapt its two skills | — | — |
-| `obsidian` | both | 1 — plugin as-is | recommended | depend upstream |
-| `writing-clearly-and-concisely` | both | 1 — plugin as-is | recommended | depend upstream (softaworks) |
-| `diataxis-skills` | both | 1 — plugin as-is | recommended | depend upstream |
-| `codex` (openai-codex bridge) | Claude | 1 — plugin as-is | recommended | depend upstream |
-| `codex-security` | Codex | 1 — plugin as-is | recommended | depend upstream |
-| `security-guidance` | Claude | 1 — plugin as-is | recommended | depend upstream |
-| `ponytail` | both | 1 — plugin as-is | recommended | depend upstream |
-| `caveman` | both | 1 — plugin as-is | recommended | depend upstream |
+| Plugin                                   | Harness | Rung                     | Bucket      | Fork call                    |
+| ---------------------------------------- | ------- | ------------------------ | ----------- | ---------------------------- |
+| `superpowers`                            | both    | **2 — fork plugin**      | required    | **fork**                     |
+| `superpowers-developing-for-claude-code` | Claude  | 4 — adapt its two skills | —           | —                            |
+| `obsidian`                               | both    | 1 — plugin as-is         | recommended | depend upstream              |
+| `writing-clearly-and-concisely`          | both    | 1 — plugin as-is         | recommended | depend upstream (softaworks) |
+| `diataxis-skills`                        | both    | 1 — plugin as-is         | recommended | depend upstream              |
+| `codex` (openai-codex bridge)            | Claude  | 1 — plugin as-is         | recommended | depend upstream              |
+| `codex-security`                         | Codex   | 1 — plugin as-is         | recommended | depend upstream              |
+| `security-guidance`                      | Claude  | 1 — plugin as-is         | recommended | depend upstream              |
+| `ponytail`                               | both    | 1 — plugin as-is         | recommended | depend upstream              |
+| `caveman`                                | both    | 1 — plugin as-is         | recommended | depend upstream              |
 
 Four rows need reasoning; `superpowers` gets its own section.
 
@@ -115,17 +115,17 @@ This settles #60's question, which was framed on borrowed authority: #60 cited r
 
 **Rung 3 — vendoring its components — fails too, measured.** The wanted skills carry **26** hard-coded `superpowers:`-qualified cross-references across 9 files, on 25 lines (one carries two), verified by `grep -ro` against the installed cache. **None sits inside `skills/brainstorming/`**, so every one survives that deletion and every one breaks under vendoring.
 
-| File | Lines carrying a reference |
-|---|---|
-| `subagent-driven-development/SKILL.md` | 6 |
-| `writing-plans/SKILL.md` | 4 |
-| `writing-skills/SKILL.md` | 4 |
-| `executing-plans/SKILL.md` | 3 |
-| `systematic-debugging/SKILL.md` | 2 |
-| `using-superpowers/SKILL.md` | 2 |
-| `using-superpowers/references/gemini-tools.md` | 2 |
-| `test-driven-development/writing-good-tests.md` | 1 |
-| `writing-skills/testing-skills-with-subagents.md` | 1 |
+| File                                              | Lines carrying a reference |
+| ------------------------------------------------- | -------------------------- |
+| `subagent-driven-development/SKILL.md`            | 6                          |
+| `writing-plans/SKILL.md`                          | 4                          |
+| `writing-skills/SKILL.md`                         | 4                          |
+| `executing-plans/SKILL.md`                        | 3                          |
+| `systematic-debugging/SKILL.md`                   | 2                          |
+| `using-superpowers/SKILL.md`                      | 2                          |
+| `using-superpowers/references/gemini-tools.md`    | 2                          |
+| `test-driven-development/writing-good-tests.md`   | 1                          |
+| `writing-skills/testing-skills-with-subagents.md` | 1                          |
 
 Examples: `writing-plans/SKILL.md:163` — *"**REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development"*; `systematic-debugging/SKILL.md:177` — *"Use the `superpowers:test-driven-development` skill"*.
 
@@ -147,11 +147,11 @@ Measured by building the fork at pin `44c9b2d6` and merging upstream HEAD `b36e0
 
 **Three live defects a fork lets you fix — each by a different act.**
 
-| Defect | Fixed by |
-|---|---|
-| Codex's `[marketplaces.superpowers-dev]` is `source_type = "local"`, pointing into `~/.claude/plugins/marketplaces/`, so the Codex install is parasitic on a Claude install happening first and **cannot reproduce on a fresh machine**. Every other Codex marketplace here is `source_type = "git"`. | Publishing the fork at a **git URL** |
-| #56's missing Codex `AGENTS.md`: `git ls-files -s AGENTS.md` returns mode `120000` (a tracked symlink) while `git status --porcelain` reports ` D AGENTS.md` and no file exists. Codex drops the symlink, so 8,873 bytes of plugin-level guidance are silently absent. | The **10-file patch**, which commits it as a regular file |
-| Codex's manifest declares `"hooks": {}`, so **superpowers' SessionStart hook does not fire on Codex at all**, though `hooks/` is copied there. Codex supports `session_start` and sets `CLAUDE_PLUGIN_ROOT`; superpowers does not wire it. | **Nothing yet.** The measured patch does not wire it either — a fork makes the fix *possible*. Route to #61 |
+| Defect                                                                                                                                                                                                                                                                                                | Fixed by                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Codex's `[marketplaces.superpowers-dev]` is `source_type = "local"`, pointing into `~/.claude/plugins/marketplaces/`, so the Codex install is parasitic on a Claude install happening first and **cannot reproduce on a fresh machine**. Every other Codex marketplace here is `source_type = "git"`. | Publishing the fork at a **git URL**                                                                        |
+| #56's missing Codex `AGENTS.md`: `git ls-files -s AGENTS.md` returns mode `120000` (a tracked symlink) while `git status --porcelain` reports ` D AGENTS.md` and no file exists. Codex drops the symlink, so 8,873 bytes of plugin-level guidance are silently absent.                                | The **10-file patch**, which commits it as a regular file                                                   |
+| Codex's manifest declares `"hooks": {}`, so **superpowers' SessionStart hook does not fire on Codex at all**, though `hooks/` is copied there. Codex supports `session_start` and sets `CLAUDE_PLUGIN_ROOT`; superpowers does not wire it.                                                            | **Nothing yet.** The measured patch does not wire it either — a fork makes the fix *possible*. Route to #61 |
 
 **Known gaps.** The patch is under-scoped as measured: `tests/brainstorm-server/` holds 12 live test files hard-coding `skills/brainstorming/scripts/...`, all orphaned by the deletion. And a fork nobody merges becomes a stale private snapshot — the failure `harness-backup` exists to avoid, reintroduced elsewhere. **Without #63's merge-base monitor the fork is strictly worse than rung 1**, making that monitor a precondition rather than an enhancement.
 
@@ -201,7 +201,6 @@ It is not the `rethink` case. `rethink` restated a line already inside `rethink-
 - **Doubled merge burden on a live upstream**, each fork maintaining a different deletion set indefinitely.
 - **Recategorisation becomes a two-repository transaction** — a delete in one fork and an add in the other, in lockstep, where vendoring makes it a file move.
 
-
 ## mattpocock's skills — 19 not installed
 
 **Scope caveat.** #75's declared inventory sources are what is *installed*. These nineteen were surveyed at the author's request for completeness, so they sit outside the ticket's scope and their verdicts carry less authority — a reading of upstream, not a disposition of an installed asset.
@@ -212,12 +211,12 @@ The upstream roster is 37 skills — engineering 18, productivity 7, in-progress
 
 **Four were parked, not declined, and the survey could not say so.** The standing recommendations register (`docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md`) parks each with an explicit trigger; it was not supplied to the assessment passes, which is why they missed this. Before the `defer` state existed, a parked skill was indistinguishable from a rejected one.
 
-| Skill | Register's trigger | Correct state |
-|---|---|---|
-| `diagnosing-bugs` | *"evaluate at the next real debugging need"* (register item 09) | **adopt now, rung 4** |
-| `writing-fragments` | *"serious candidates for workload 3's map"* | defer to workload 3 |
-| `writing-beats` | same | defer to workload 3 |
-| `writing-shape` | same | defer to workload 3 |
+| Skill               | Register's trigger                                              | Correct state         |
+| ------------------- | --------------------------------------------------------------- | --------------------- |
+| `diagnosing-bugs`   | *"evaluate at the next real debugging need"* (register item 09) | **adopt now, rung 4** |
+| `writing-fragments` | *"serious candidates for workload 3's map"*                     | defer to workload 3   |
+| `writing-beats`     | same                                                            | defer to workload 3   |
+| `writing-shape`     | same                                                            | defer to workload 3   |
 
 Adopted at workload 3, the writing suite lands at **rung 3 with a vendored snapshot**, because upstream marks all three in-progress — *"can change or disappear"*.
 
@@ -241,13 +240,13 @@ The register recommends **coexistence, not substitution** — item 09 reads *"di
 
 **Five ways to get the method in, costed.** The fork owns `skills/systematic-debugging/`, and that `SKILL.md` is quiet — untouched between the pin and HEAD, 3 commits since 2026-01-01, none since 2026-07-05 — so editing it is cheap.
 
-| | Shape | Cost |
-|---|---|---|
-| A | Adopt `diagnosing-bugs`, rung 4, hard-gated to explicit invocation | Never reaches the implicit path; `root-cause-tracing`'s dead end stays broken |
-| B | Carry `building-a-feedback-loop.md` into the spine's Supporting Techniques | Advisory only — cannot carry the Phase-1 gate or the ranked-hypotheses ordering, both *not-separable* |
-| C | Edit the gate and hypothesis discipline into the spine's phases | Dissolves B's objection, but you hold a snapshot and forfeit upstream improvements |
-| D | Vendor `diagnosing-bugs` with a non-triggering description, and repoint `root-cause-tracing`'s dead-end edge at it | Smallest patch; the gate stays intact inside its own skill and upstream keeps flowing. Routes only *after* tracing has failed |
-| **E** | **Restructure the spine's entry as a three-path classifier, third path invoking `diagnosing-bugs`** | **Approved 2026-08-31** |
+|       | Shape                                                                                                              | Cost                                                                                                                          |
+| ----- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| A     | Adopt `diagnosing-bugs`, rung 4, hard-gated to explicit invocation                                                 | Never reaches the implicit path; `root-cause-tracing`'s dead end stays broken                                                 |
+| B     | Carry `building-a-feedback-loop.md` into the spine's Supporting Techniques                                         | Advisory only — cannot carry the Phase-1 gate or the ranked-hypotheses ordering, both *not-separable*                         |
+| C     | Edit the gate and hypothesis discipline into the spine's phases                                                    | Dissolves B's objection, but you hold a snapshot and forfeit upstream improvements                                            |
+| D     | Vendor `diagnosing-bugs` with a non-triggering description, and repoint `root-cause-tracing`'s dead-end edge at it | Smallest patch; the gate stays intact inside its own skill and upstream keeps flowing. Routes only *after* tracing has failed |
+| **E** | **Restructure the spine's entry as a three-path classifier, third path invoking `diagnosing-bugs`**                | **Approved 2026-08-31**                                                                                                       |
 
 **E is approved (2026-08-31), on upstream's own pattern.** v6.3.0 rebuilt `brainstorming` as a Spike / Bounded / Architectural router: classify before the first question and say it aloud, entry criteria that test the artefact rather than the agent's confidence (*"Bounded measures the repo, not your familiarity"*), path-bound terminal states, per-path checklists, and mandatory re-classification mid-task (*"Hidden complexity upgrades the path mid-task. Stop and say so"*). Ceremony scales with the task; the gate never does.
 
@@ -280,12 +279,12 @@ Under D or E, `diagnosing-bugs` is vendored with a description that describes ra
 
 Recommendation only — the owning tickets decide.
 
-| Skill | Rung | Home | Owning ticket |
-|---|---|---|---|
-| `consistency-audit` | 3 — vendor | `software-development` | #79 |
-| `rethink-audit` | 4 — adapt | **`sensemaking`** | #73 |
-| `rethink` | **not adopted — drop** | — | #73 |
-| `finding-duplicate-functions` | 4 — adapt | `software-development` | #60 |
+| Skill                         | Rung                   | Home                   | Owning ticket |
+| ----------------------------- | ---------------------- | ---------------------- | ------------- |
+| `consistency-audit`           | 3 — vendor             | `software-development` | #79           |
+| `rethink-audit`               | 4 — adapt              | **`sensemaking`**      | #73           |
+| `rethink`                     | **not adopted — drop** | —                      | #73           |
+| `finding-duplicate-functions` | 4 — adapt              | `software-development` | #60           |
 
 **`consistency-audit` is `software-development`, after two reversals.** The original pass said so from framing vocabulary (*"read a **repository** whole"*); a second reversed it to `sensemaking` on capability, since *"contradictions, duplication, drifted terms, stale claims"* is what a research vault accumulates. Both were reasoning from the description. Reading the skill settles it: **the capability transfers and the plumbing does not.**
 
@@ -317,14 +316,14 @@ The author has separately ruled that `rethink`/`rethink-audit` land in either `s
 
 Four deferred here by #89 — `domain-modeling`, `triage`, `writing-for-agents`, `setup-matt-pocock-skills`. Two left unforced — `working-with-claude-code` and `superpowers`. All six rest on skill bodies rather than folder names.
 
-| Skill | Verdict |
-|---|---|
-| `writing-for-agents` | `sensemaking` |
-| `domain-modeling` | **`software-development`** — repo-shaped (CONTEXT.md, ADRs, cross-reference with code), and it *creates* those artefacts where absent, so shipping it to a vault is damage rather than clutter. `wayfinder`'s call dangling on a vault-only install is the correct outcome |
-| `triage` | `software-development` |
-| `working-with-claude-code` | `software-development` |
-| `superpowers` | `software-development` — meaning **`software-development` depends on it and `research-vault` does not**. The fork stays a separate plugin with its own root; this axis assigns which product needs the capability, not where files sit |
-| `setup-matt-pocock-skills` | **the axis does not apply** — a rung-4 template feeding #62's setup mechanism, not a capability either product ships |
+| Skill                      | Verdict                                                                                                                                                                                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `writing-for-agents`       | `sensemaking`                                                                                                                                                                                                                                                              |
+| `domain-modeling`          | **`software-development`** — repo-shaped (CONTEXT.md, ADRs, cross-reference with code), and it *creates* those artefacts where absent, so shipping it to a vault is damage rather than clutter. `wayfinder`'s call dangling on a vault-only install is the correct outcome |
+| `triage`                   | `software-development`                                                                                                                                                                                                                                                     |
+| `working-with-claude-code` | `software-development`                                                                                                                                                                                                                                                     |
+| `superpowers`              | `software-development` — meaning **`software-development` depends on it and `research-vault` does not**. The fork stays a separate plugin with its own root; this axis assigns which product needs the capability, not where files sit                                     |
+| `setup-matt-pocock-skills` | **the axis does not apply** — a rung-4 template feeding #62's setup mechanism, not a capability either product ships                                                                                                                                                       |
 
 `working-with-claude-code` is the one reversal. It was argued during the grilling as shared, on the grounds that it documents the runtime both products run on; two passes placed it with engineering for the reasons under [The obra pair](#the-obra-pair).
 
@@ -332,14 +331,14 @@ Four deferred here by #89 — `domain-modeling`, `triage`, `writing-for-agents`,
 
 Every asset landing on rung 4. All six need a provenance header; the table lists what is needed beyond that.
 
-| Asset | What must change |
-|---|---|
+| Asset                             | What must change                                                                                                                                                                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `brainstorming` → `writing-specs` | Vendor from **upstream HEAD** (decided); rename; correct the description, which promises open-ended ideation while the body is a one-way funnel from idea to committed spec with a mandatory approval gate; decide the Visual Companion |
-| `setup-matt-pocock-skills` | Adapt as the template for #62's setup mechanism, per #85 |
-| `working-with-claude-code` | Rewrite the two hardcoded paths to `${CLAUDE_PLUGIN_ROOT}`-relative form; re-run `update_docs.js` to refresh the 42 references |
-| `developing-claude-code-plugins` | Co-locate or re-path the two `examples/` directories; subordinate Phase 1 (Plan) and Phase 6 (Release) to `superpowers:writing-plans` and `superpowers:finishing-a-development-branch` so #72's spine is not duplicated |
-| `finding-duplicate-functions` | Provenance header against `obra/superpowers-lab`; the local copy is a substantial rewrite, shell replaced with Python |
-| `diagnosing-bugs` | Add `policy:\n  allow_implicit_invocation: false` to `agents/openai.yaml`; gate Claude-side invocation |
+| `setup-matt-pocock-skills`        | Adapt as the template for #62's setup mechanism, per #85                                                                                                                                                                                |
+| `working-with-claude-code`        | Rewrite the two hardcoded paths to `${CLAUDE_PLUGIN_ROOT}`-relative form; re-run `update_docs.js` to refresh the 42 references                                                                                                          |
+| `developing-claude-code-plugins`  | Co-locate or re-path the two `examples/` directories; subordinate Phase 1 (Plan) and Phase 6 (Release) to `superpowers:writing-plans` and `superpowers:finishing-a-development-branch` so #72's spine is not duplicated                 |
+| `finding-duplicate-functions`     | Provenance header against `obra/superpowers-lab`; the local copy is a substantial rewrite, shell replaced with Python                                                                                                                   |
+| `diagnosing-bugs`                 | Add `policy:\n  allow_implicit_invocation: false` to `agents/openai.yaml`; gate Claude-side invocation                                                                                                                                  |
 
 **The list shrank because of the fork.** Earlier passes marked `systematic-debugging`, `test-driven-development`, `writing-plans`, `writing-skills` and `using-superpowers` as rung-4 adaptations — artefacts of the vendoring branch, since a fork keeps the namespace. `using-superpowers` is still edited, but inside the fork as two lines of its ten-file patch, which is the fork's business rather than #60's.
 

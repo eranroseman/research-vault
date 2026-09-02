@@ -1,215 +1,181 @@
 # Terminology reference
 
-This document is the naming authority for research-vault's vault, tooling, and product vocabulary: the cost model that governs renames, the ruled precedence order for anchor sources, the resulting adoptions and deviations, and the current user-facing inventory. Decisions carry inline dates; the passes that produced them live in git history.
+Use [CONTEXT.md](../CONTEXT.md) for domain terms and avoided synonyms, and
+[the ADRs](adr/) for architectural decisions. This file only defines how to
+choose names and records spellings or exceptions not owned by those sources.
 
-## 1. Cost model
+## 1. Deviating from the standard term
 
-**Rename churn is priced at zero** (~10 minutes of implementation time pre-users; occurrence counts are not costs; sunk effort is not an argument). Exactly four real cost classes justify deviating from the precedence order:
+Use the term selected by §2 unless one of these costs binds:
 
 1. **Permanent surface mismatch** — with tool surfaces we don't control.
-2. **Information loss** — the base term carries less structure than the concept needs.
-3. **Semantic falsification** — the base term would make our records state something false.
-4. **Collision/ambiguity** — the base term already means something else in our context.
+2. **Information loss** — the base term carries less structure than the concept
+   needs.
+3. **Semantic falsification** — the base term would make our records state
+   something false.
+4. **Collision/ambiguity** — the base term already means something else in our
+   context.
 
-No class binding ⇒ the precedence order's term is adopted. Taste never justifies deviation.
+For product names, class 4 also covers public-namespace collisions. Rename
+effort, taste, sunk work, and precedent are not forcing costs.
 
-**Churn is not a cost; it is an investment in a better future** (adopted 2026-08-30, #87). This supersedes the "priced at zero" framing above, which prices churn cheaply where this denies it is a cost at all. It changes the **price, not the license**: the rule immediately above stands unamended — no class binding still means the precedence order's term is adopted, and taste still never justifies deviation. What the position removes is the argument that a rename costs too much to make; it supplies no argument that a rename is warranted.
+Use one canonical term per concept. Add an alias only when an external contract
+requires it. Preserve external API names verbatim at the boundary. A rename
+updates every repository surface, including dated reports, transcripts, and
+plans; git retains the earlier wording.
 
-**A rename sweeps the historical record too** (adopted 2026-08-30, #87). Dated reports, transcripts, and past plans are rewritten to the current name rather than preserved verbatim: the sweep is a bounded, one-time effort, while a stale name left standing in the archive has an unbounded blast radius of future misreading. This is the churn position applied to the record — the cost is paid once and knowably. The class-3 objection (rewriting makes a record state something untrue of its moment) is declined: the records describe the same product throughout, and the date each carries is what fixes its moment, not the name.
+## 2. Precedence order for anchor sources
 
-**The cost model governs decisions, not just names**: pre-first-vault, ANY prior ruling reverses at churn cost unless a real cost class binds. Precedent is information, never constraint — citing a prior ruling is an input to re-deriving from current facts, not a reason by itself. This is pre-alpha: everything is ten minutes away from different.
+For the target surface, use the first applicable tier:
 
-## 2. Precedence order for anchor sources (RULED)
+- **T1 — OKF**, within the structural scope set by
+  [ADR 0001](adr/0001-vault-outlives-its-tools.md).
+- **T2 — User-visible toolchain**: CSL first on bibliographic surfaces; then
+  Zotero, BBT/ZotLit, Obsidian, Dataview, and Markdown.
+- **T3 — Authorities of record**: Crossref, DataCite, DOI, W3C, CiTO/SPAR, and
+  IETF.
+- **T4 — Scholarly methods**: PRISMA/Cochrane/Covidence, GRADE, ICD 203/206,
+  and plain scholarly English.
+- **T5 — Cross-cutting aggregators**: OpenAlex, Wikidata, and scite.
+- **T6 — Community conventions**: llm-wiki, Ideaverse/LYT, Ahrens/PKM,
+  Appleton, GTD/PARA, and Wikipedia.
+- **T7 — Developer tools**, on developer-facing surfaces only.
+- **T8 — Author's coinage**.
 
-**OKF leads (decided 2026-08-20); the four-cost model governs every deviation.** Eight tiers, ordered by cost of contradiction, evaluated per surface — a lower tier wins only where higher tiers are silent.
+Surface fit is absolute: discard any candidate that does not fit the target
+surface. Among the remaining candidates within a tier, apply these tie-breakers
+in order:
 
-- **T1 — OKF** (Open Knowledge Format; the vault is a structurally conformant OKF bundle per ADR 0001): its vocabulary is the first source of names wherever it speaks.
-- **T2 — Toolchain surfaces the user physically inhabits** (contradiction = class-1, paid daily): **CSL first** (fields in `bibliography.json`, pandoc citations), Zotero UI, BBT/ZotLit conventions, Obsidian (aliases, block links, properties, Bases), Dataview field syntax, Markdown.
-- **T3 — Authorities of record**: Crossref (update types), DataCite (relation types), DOI system, W3C (Web Annotation selectors, PROV), CiTO/SPAR (citation typing), IETF where applicable.
-- **T4 — Scholarly-method vocabularies**: PRISMA/Cochrane/Covidence, GRADE, ICD 203/206, plain scholarly English.
-- **T5 — Cross-cutting aggregators**: OpenAlex, Wikidata, scite.
-- **T6 — Community conventions**: llm-wiki, Ideaverse/LYT, Ahrens/PKM, Appleton, GTD/PARA, Wikipedia template vocabulary.
-- **T7 — Developer-tool conventions, dev-facing surfaces only** (never vault prose): pytest outcomes, GitHub checks, Vale severities, CLI verb lore.
-- **T8 — Author's coinage** — only where T1–T7 are silent.
+1. The vocabulary whose data we record beats one we merely resemble.
+2. Verbatim machine-readable identifiers beat prose labels.
+3. A versioned specification beats a living wiki, which beats a blog.
 
-**Tie-breakers:** (1) the vocabulary whose data we record beats the one we merely resemble; (2) verbatim machine-readable identifiers beat prose labels; (3) versioned spec beats living wiki beats blog; (4) surface fit is absolute.
+Determine scope before walking the tiers. A domain-specific authority governs
+only its domain.
 
-Domain-scoped authorities (Crossref updates, W3C selectors) retain authority inside their domains regardless of tier walk order.
+## 3. Recording a ruling
 
-## 3. Adoptions and deviations
+Record an adoption once, with its source, in the relevant §4 section. Record a
+T8 coinage there with its local rule. Record a deviation once in the table
+below, naming the declined anchor and §1 cost class. Put architectural rationale
+in an ADR and term meanings in [CONTEXT.md](../CONTEXT.md), then link to them
+instead of restating them here.
 
-### 3.1 Current adoptions (inverted T1–T8 order)
+| Governed spelling                                                              | Declined anchor                 | Cost                                                                                                   |
+| ------------------------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Pandoc `[@citekey, locator]`                                                   | OKF footnote attribution        | 1 — permanent toolchain mismatch; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                     |
+| `citekey` as source identity                                                   | OKF `sources`/`resource`        | 1 — Better BibTeX and prose use the same address; [ADR 0004](adr/0004-citekey-is-the-only-identity.md) |
+| `supports` / `disputes`                                                        | OKF untyped lineage             | 2 — stance would be lost; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                             |
+| Literature screening states in [CONTEXT.md](../CONTEXT.md#evidence-and-claims) | OKF document lifecycle          | 2 — screening is distinct from document maturity                                                       |
+| Project `draft` / `parked` / `published` / `corrected` / `withdrawn`           | OKF document lifecycle          | 2 — publication states would be lost                                                                   |
+| `source` for the cited document; `venue` for its outlet                        | OpenAlex `source` for an outlet | 4 — the senses collide; see [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                            |
+| `superseded` / `superseded-by`                                                 | OKF identity merge              | 3 — succession does not imply identity; [ADR 0003](adr/0003-deprecate-never-delete.md)                 |
 
-| Term or contract                                                                                                             | Authority                                  | Current status                                                                                                                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| OKF v0.2 reserved files (`index.md`, `log.md`), non-empty concept `type`                                                     | OKF (T1)                                   | Adopted; vaults are structural OKF bundles.                                                                                                                                                      |
-| Optional `description` / `stale_after` (pass-through fields; no writer rewrites them)                                        | OKF (T1)                                   | Adopted per-note fields.                                                                                                                                                                         |
-| `generated: {by, at}` on machine-written notes                                                                               | OKF (T1)                                   | Adopted alongside `verified` events.                                                                                                                                                             |
-| Actor convention (`research_vault/<version>` for process-written records; `human:`-prefixed actor for human-attributed ones) | OKF (T1)                                   | Adopted.                                                                                                                                                                                         |
-| `verified` event shape `{by, at, check}`                                                                                     | OKF (T1), research-vault `check` extension | Adopted.                                                                                                                                                                                         |
-| Trust tier names: `unverified` → `machine-confirmed` → `human-reviewed` (cumulative)                                         | OKF (T1)                                   | Adopted.                                                                                                                                                                                         |
-| `accessed`                                                                                                                   | CSL (T2)                                   | Adopted.                                                                                                                                                                                         |
-| `supports` / `disputes` (field names)                                                                                        | CiTO (T3)                                  | Adopted for typed claim links. The structural choice to type the lineage at all — rather than OKF's untyped links — is tracked as a deviation below; only the field names are the adoption here. |
-| `unscreened` / `included` / `excluded`                                                                                       | PRISMA/Covidence (T4)                      | Adopted for literature screening; `superseded` remains the scholarly-succession state.                                                                                                           |
-| `synthesis/` and `type: synthesis`                                                                                           | Evidence-synthesis vocabulary (T4)         | Adopted.                                                                                                                                                                                         |
-| Synthesis-page lifecycle: `status: draft \| stable \| deprecated` + `generated.at`                                           | OKF (T1)                                   | Adopted; `generated.at` covers recency (no Appleton `growth`/`planted`/`last-tended` fields).                                                                                                    |
-| `draft` (shared project/synthesis value)                                                                                     | OKF (T1)                                   | Adopted where shared; the surrounding lifecycles (`parked/published/corrected/withdrawn`, `unscreened/included/excluded`) remain kind-specific.                                                  |
-| `inbox/`, `log/`, `projects/`                                                                                                | GTD/PARA and log convention (T6)           | Ruled current folder vocabulary.                                                                                                                                                                 |
-| `fixity-sha256`                                                                                                              | OAIS/NDSA (T3/T4)                          | Adopted archival term.                                                                                                                                                                           |
-| `failed-verification`                                                                                                        | Wikipedia template vocabulary (T6)         | Adopted exact inline-field name.                                                                                                                                                                 |
-| `item`, `issued`/`date-parts`, `author`, `locator`/`label`, CSL item types                                                   | CSL (T2)                                   | Base applications in the bibliographic layer.                                                                                                                                                    |
-
-### 3.2 Current documented deviations
-
-Two of the rows below are not OKF-forced — they deviate from a lower tier (Crossref, OpenAlex) that OKF is silent on. The "base term" column names whichever tier's vocabulary we decline.
-
-| Concept                                 | Base term (tier)                                                     | research-vault contract                                                                                                                                                                                                                                                                                  | Forcing class                                                                                                                                                |
-| --------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Per-claim attribution                   | Footnotes keyed to `sources[].id` (OKF, T1)                          | Pandoc `[@citekey, locator]`                                                                                                                                                                                                                                                                             | **1** — permanent CSL/BBT/Zotero/Pandoc surface mismatch                                                                                                     |
-| Source identity                         | `sources` / `resource` (OKF, T1)                                     | `citekey` / `doi` / `url`                                                                                                                                                                                                                                                                                | **1 + 2** — toolchain binding and richer registry identity                                                                                                   |
-| Untyped lineage                         | Untyped links (OKF, T1)                                              | Typed `supports` / `disputes` claim links                                                                                                                                                                                                                                                                | **2** — stance is trust substance; the field names themselves are CiTO-anchored (§3.1)                                                                       |
-| Literature lifecycle (screening states) | `draft`/`stable`/`deprecated` (OKF, T1)                              | `unscreened`/`included`/`excluded`/`superseded`                                                                                                                                                                                                                                                          | **2** — screening is not document maturity                                                                                                                   |
-| Project lifecycle                       | `draft`/`stable`/`deprecated` (OKF, T1)                              | `draft`/`parked`/`published`/`corrected`/`withdrawn`                                                                                                                                                                                                                                                     | **2** — publication/correction gate states would be lost                                                                                                     |
-| Source vs. venue                        | `source` = journal/repository/outlet (OpenAlex, T5)                  | `source` = the cited document (scholarly sense, T4); `venue` names the outlet                                                                                                                                                                                                                            | **4** — OpenAlex's term already means something else in our context                                                                                          |
-| Update-notice taxonomy                  | Flat `update-type` taxonomy, Crossref-DOI-scoped only (Crossref, T3) | Two-class blocking/warn split; DataCite-registered DOIs route through OpenAlex `is_retracted` (reusing Crossref's own `retraction` type name rather than inventing a new one) — any other non-Crossref, non-DataCite registration agency returns UNREACHABLE rather than being silently treated as clean | **1 + 2** — registry-scope mismatch (DataCite/arXiv items don't expose Crossref's taxonomy at all) plus the flat taxonomy carries no closure-class structure |
-| Replacement relation                    | Identity merge (OKF, T1)                                             | `superseded` / `superseded-by`                                                                                                                                                                                                                                                                           | **3** — also covers succession between distinct scholarly works                                                                                              |
-
-## 4. Standing rules and current inventory
-
-### Standing rules
-
-- The inverted T1–T8 precedence order remains the default source of names; deviation requires one of the four cost classes.
-- One canonical term represents each concept. No compatibility aliases are needed before the first vault.
-- Recorded API facts remain boundary-verbatim, with source field names, index, and access date.
-- Reserved basenames: root `index.md` carries `type: "index"` and `okf_version: "0.2"`; root `log.md` carries exactly `type: "log"` (machine-regenerated). Every *nested* `index.md` (e.g. `synthesis/index.md`) is permanently frontmatter-free — reserved and excluded from the OKF `type` requirement outright, not merely lacking one yet.
-- New terms walk the tiers; every term is A, S, or D.
+## 4. Governed spellings
 
 ### 4.1 Vault paths and note kinds
 
-Legend: **A** externally anchored · **S** ruled convention · **D** documented deviation.
+[CONTEXT.md](../CONTEXT.md#vault) owns the standard vault paths and note names.
+[ADR 0001](adr/0001-vault-outlives-its-tools.md) owns the OKF-required root files
+and frontmatter. This section adds only spellings not named there.
 
-| Current term                                                                                                      | Status                                                                                                                                                           |
-| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `inbox/`; `inbox/review-queue.md` (`type: "review-queue"`)                                                        | A/S — GTD inbox; typed append-only review queue                                                                                                                  |
-| `literatures/`; `type: literature`                                                                                | A/S — ZotLit/Ahrens projection vocabulary                                                                                                                        |
-| `synthesis/`; `synthesis/index.md`; `type: synthesis`                                                             | A — evidence-synthesis vocabulary; nested index is reserved                                                                                                      |
-| `log/`; `log/YYYY-MM-DD.md` (`type: "daily"`); root `log.md` (`type: "log"`, machine-regenerated, single writer)  | A/S — append-only daily directory plus distinct reserved root tail                                                                                               |
-| `projects/`; `type: project`                                                                                      | A/S — PARA/GTD project vocabulary                                                                                                                                |
-| `projects/<name>/search-log.md` (`type: "search-log"`)                                                            | S — project-scoped, append-only PRISMA-S search trail, same typed/append-only shape as `inbox/review-queue.md`; written only by the CLI `search-log` verb (§4.3) |
-| `system/`; `system/templates/`; `system/bases/`; `AGENTS.md` (`type: "guide"`); `.research-vault/`; `rv-` markers | S — ruled vault-tooling conventions; `system/` sorts last, out of the knowledge folders' way                                                                     |
-| root `index.md` (`type: "index"`, `okf_version: "0.2"`)                                                           | A — OKF bundle root, links to every vault folder                                                                                                                 |
+| Spelling                                              | Source or rule                                                  |
+| ----------------------------------------------------- | --------------------------------------------------------------- |
+| `projects/<name>/search-log.md`; `type: "search-log"` | PRISMA-S `search log`, scoped to a project                      |
+| `system/`; `system/templates/`; `system/bases/`       | Product-owned vault tooling, kept outside the knowledge folders |
 
 ### 4.2 Claim and metadata language
 
-| Current term                                                 | Status                                                   |
-| ------------------------------------------------------------ | -------------------------------------------------------- |
-| `[@citekey, locator]`, `^claim-id`, claim link               | A/D — Pandoc/CSL and Obsidian block-link surfaces        |
-| `[supports::]` / `[disputes::]`                              | A — CiTO names; typed lineage is a class-2 OKF deviation |
-| `[failed-verification::]`                                    | A/S — exact verifier-owned failure projection            |
-| `accessed`, `fixity-sha256`                                  | A — CSL and OAIS/NDSA                                    |
-| `generated: {by, at}`, optional `description`/`stale_after`  | A — OKF v0.2                                             |
-| literature `unscreened`/`included`/`excluded`/`superseded`   | D — PRISMA screening semantics                           |
-| synthesis `draft`/`stable`/`deprecated`                      | A — OKF lifecycle                                        |
-| project `draft`/`parked`/`published`/`corrected`/`withdrawn` | D — publication lifecycle                                |
-| `verified` events `{by, at, check}`; actor convention        | A — OKF with research-vault `check` extension            |
-| `managed-sha256`                                             | S — bridge/verifier-owned exact managed-region witness   |
+Use the claim and verification terms in [CONTEXT.md](../CONTEXT.md), the
+verification record defined by
+[ADR 0002](adr/0002-verification-records-tell-the-truth.md), the transition
+language in [ADR 0003](adr/0003-deprecate-never-delete.md), the identity rule in
+[ADR 0004](adr/0004-citekey-is-the-only-identity.md), and the bibliography
+authority in
+[ADR 0005](adr/0005-better-bibtex-owns-the-bibliography-export.md).
 
-### 4.3 Commands and process vocabulary
+| Spelling                                 | Source or rule                                       |
+| ---------------------------------------- | ---------------------------------------------------- |
+| `fixity-sha256`                          | OAIS/NDSA `fixity`, with the algorithm made explicit |
+| `managed-sha256`                         | Matching coined name for the managed-region witness  |
+| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                 |
+| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor     |
 
-| Current term                                                                                                                                                                                                                                                                                          | Status                                      |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| CLI `probe`, `import-note`, `staleness`, `backfill-selectors`, `verify`, `inbox`, `scaffold`, `doctor` (+ Plan D's `arm-publish`, `disarm-publish`, `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`, `ack`, `finding`, `factcheck`, `trust-tier`, `archive-source`, `search-log`) | A/S — named by the verb decision tree below |
+### 4.3 Commands and skill names
 
-**CLI verb naming rule (adopted 2026-08-22; a new verb walks this tree):** (1) only reads → bare noun of the report (`doctor`, `inbox`; git-status/brew-doctor anchors); (2) appends one record to a ledger → noun of the record (`finding`, `ack`; git-tag/git-stash anchor), ledger-name fallback when the record has no standalone noun (`search-log`); (3) flips a persistent switch → `arm-`/`disarm-<gate>`; (4) transitions a lifecycle status → `mark-<status>`, status verbatim from the ruled lifecycle; (5) otherwise (projects/derives state) → imperative verb-noun kebab (`import-note`). All branches: kebab-case, CONTEXT.md nouns exactly, no invented abbreviations, no aliases, one verb per act. Recorded flips: object-as-argument (`arm publish`) when a second gate exists; kubectl-style grouping at ~double the verb count. Verb names are living-surface only (they never persist into vault records) — renameable, unlike reason codes.
+A new CLI command takes the first matching branch:
 
-| Current term                                                                                                                                                             | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Verb contracts                                                                                                                                                           | S — `finding`: the review-record writer, general to every non-deterministic finding. `factcheck`, `trust-tier`: read-only reports (write nothing; same shape as `verify`). `archive-source`: **sole writer** of literature `archive-url` — writes only what the Wayback availability API confirms; SPN failure is UNREACHABLE, never an invented URL. `search-log`: **sole writer** of `projects/<name>/search-log.md`; two mutually exclusive record kinds per call (completed run; not-admitted candidate); reuses `inbox.REASON_CODES`/`validate_reason` |
-| CLI publish surface `arm-publish`, `disarm-publish`, `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`, `ack`                                          | S — spec §6's own words: the gate is *armed*, the day-one menu reads *mark-published*/*park*, the post-publish menu *corrected*/*withdrawn*; `ack` is the §3 acknowledgment's serialization spelling (§4.4); the day-one menu's *park* label stays §6's word for the human-facing surface, while the verb underneath is `mark-parked` (tree branch 4, status verbatim)                                                                                                                                                                                      |
-| skills `setup-vault`, `project-flow`, `find-sources`, `import-source`, `verify-citations`, `factcheck-draft`, `publish`, `evidence-conventions`, `synthesis-conventions` | S — ruled current names                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED`                                                                                                                            | S — trust distinction retained over developer-only pytest vocabulary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| evidence layer, synthesis layer, admission, information flow, project flow                                                                                               | A/S — current process vocabulary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Branch                         | Form                                                   | Current commands                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Read-only report               | Bare report noun                                       | `doctor`, `inbox`, `probe`, `staleness`, `trust-tier`; `verify` is the established verb-form exception; `factcheck` remains one word |
+| Ledger append                  | Record noun, or ledger name when no record noun exists | `finding`, `ack`, `search-log`                                                                                                       |
+| Persistent switch              | `arm-<gate>` / `disarm-<gate>`                         | `arm-publish`, `disarm-publish`                                                                                                      |
+| Lifecycle transition           | `mark-<status>`                                        | `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`                                                                  |
+| Other projection or derivation | Imperative verb-noun kebab                             | `import-note`, `backfill-selectors`, `archive-source`; `scaffold` is the established single-verb exception                           |
 
-### 4.4 Identifier inventory (adopted 2026-08-21, core naming audit)
+Use kebab-case and exact [CONTEXT.md](../CONTEXT.md) nouns. Do not invent
+abbreviations, compatibility aliases, or multiple verbs for one act. Command
+names do not persist in vault records and may be renamed outright.
 
-Check ids, doctor probe ids, and reason codes are governed coined identifiers (S) written verbatim
-to durable surfaces (`inbox/review-queue.md`, doctor output). Grammar: kebab-case slugs; per-claim
-checks use composite ids `check:{claim-link}:{target-kind}` (e.g. `quote:{claim-link}:managed-region`).
+Governed skill names are `setup-vault`, `project-flow`, `find-sources`,
+`import-source`, `verify-citations`, `factcheck-draft`, `publish`,
+`evidence-conventions`, and `synthesis-conventions`.
 
-| Group            | Members                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Status                                                                                                                                                                         |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish` (the project-level publication event, §5), `factcheck` (LLM-adjudicated — never mints a `verified` event, only findings via the `finding` verb), `autoexport` (shared slug with the probe id below — one observation, one name), `render` (the render-rejection class — the projection could not be produced, nothing was written), `integrate` (integrate-at-import holds: contradiction, low/absent confidence, schema violation) | S — spec §6 rows carry these slugs backticked; `factcheck`, `render`, and `integrate` are this document's own coinages for rows the spec names in prose but does not slug      |
-| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | S — doctor rows use the Outcome vocabulary (`check`/`result`/`reason`; `Probe` shape unified 2026-08-21); `autoexport` is the one member also registered as a check id (above) |
-| reason codes     | the full `REASON_CODES` registry at HEAD, enumerated (parity is asserted by `tests/test_config_validity.py`): `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note`, `warn-notice`.                                                                                                                                                                                                 | S — one registry, code is authoritative; additions require a reference row                                                                                                     |
+### 4.4 Identifier inventory
 
-Register split, ruled: **`surface`** (enforcement point — `--surface`, `CLOSING_BY_SURFACE`) is spec §6's
-anchored vocabulary; this document's "tool surface" (T2 prose) is a different register and never
-co-occurs with it on a vault/CLI surface. Both stand.
+Check ids, doctor probe ids, and reason codes are coined identifiers written to
+durable surfaces. Use kebab-case. Update the appropriate row in the same change
+that adds an identifier, and keep each registry on one physical Markdown table
+row for the parity checks. Per-claim check values use
+`<check>:<claim-link>:<target-kind>`, for example
+`quote:<claim-link>:managed-region`. The
+[foundation specification](superpowers/specs/2026-08-16-foundation-spec.md) owns
+their behavior; this table owns their spellings.
 
-Register split, ruled (Task 6): **`--source`/`source` on the `search-log` verb** names the database or
-API queried (`PubMed`, `Europe PMC`, `arXiv`, …) — CONTEXT.md's **venue** sense (defined inside the Source entry's `_Avoid_` line), not its **Source**
-sense (the cited document itself). The brief's own PRISMA-S grammar ("source searched") is the field's
-anchor, so the CLI flag name stands; it never co-occurs with CONTEXT.md's Source on the same surface,
-the same non-collision shape as the `surface`/"tool surface" split above.
+| Group            | Governed identifiers                                                                                                                                                                                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `autoexport`, `render`, `integrate`                                                                                                         |
+| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf`                                                                                                                                                                                                                  |
+| reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note`, `warn-notice` |
 
-Field/concept pairs, ruled: **`ack`** is the spec-§3 serialization spelling of the concept
-**Acknowledgment** (CONTEXT.md) — not an ungoverned abbreviation. **`rw`** = Retraction Watch
-(community's own shorthand) on CLI flags and internal names; registry recorded here.
-`rv-selector` spells its noun on the durable note surface; the `rv-` prefix itself is an abbreviation of the product name and renames with it (§4.5).
+Allowed register splits:
 
-Deferred with a home (not endorsed, not lost): module/function stutter (`checks.check_metadata` …)
-and noun-named functions — per-name judgment at the architecture deepening pass; module-name candidates there include `notes.py` → `literature_notes.py` (the module renders only literature notes — latent class-4 ambiguity against the vault's other note kinds; full-word spelling if adopted, and bundle with a re-baseline boundary) (the two findings
-collide: de-stuttering creates noun functions); `FileImage`/`CapturedOutput` naming vs git's `blob`
-vocabulary — same pass.
+- `surface` means an enforcement point in `--surface` and
+  `CLOSING_BY_SURFACE`; *tool surface* appears only in naming prose.
+- `source` on `search-log` means the database or API searched, following
+  PRISMA-S. It is distinct from [Source](../CONTEXT.md#evidence-and-claims), the
+  cited document.
+- `ack` is the foundation specification's serialization of
+  **Acknowledgment**; `rw` is Retraction Watch's shorthand; `rv-` is the
+  registered product prefix in §4.5.
 
-### 4.5 Product identity (adopted 2026-08-30, #87)
+### 4.5 Product identity
 
-The product's own name is a governed surface as of this section. §4.1–§4.4 inventory vault paths, claim
-language, CLI verbs, check ids, doctor probe ids, reason codes, and skill names; the naming authority had
-never governed itself, and that gap is why the collision recorded below went unexamined.
+Name a product or supporting repository for the durable artifact it stewards;
+if none exists, name the activity it serves. Qualify an ambiguous noun with its
+field. Keep kind words such as `plugin` and `bundle` in the description, not the
+name. Use kebab-case and no invented abbreviations.
 
-**Plugin naming rule (adopted 2026-08-30; a new plugin walks this):** name the plugin for the noun that
-bounds its work — **the durable artifact it stewards** where one exists, otherwise **the activity it
-serves**. Qualify with the field when the bare noun is ambiguous. The kind word (`plugin`, `bundle`) stays
-out of the name and lives in the description. Kebab-case, no invented abbreviations, same grammar as the
-§4.3 verb rule.
+`research-vault` follows the durable-artifact branch: `vault` is the artifact
+defined in [CONTEXT.md](../CONTEXT.md#vault) and protected by
+[ADR 0001](adr/0001-vault-outlives-its-tools.md); `research` disambiguates it.
+The name of a researcher's own vault or repository is outside this ruling.
 
-Walked here: this product stewards the vault, and the vault outlives it (ADR 0001), so the artifact branch
-applies and the name takes the form `<field>-vault`; the field qualifier is required because `vault` is
-ambiguous both in Obsidian's generic sense and in the public namespace. The sibling plugin stewards no durable
-artifact — codebases exist without it — so it takes the activity branch instead and is named for the
-activity it serves: `software-development` (#76, 2026-08-30). The two shapes differ because the rule is a
-tree, not a template: the asymmetry is the rule working, not a defect. A third repository, **`sensemaking`**
-(renamed 2026-08-31 from `shared-skills`, #77), holds the plugin components both plugins use and nothing
-else. It takes the **activity branch**, not the artifact branch its first name assumed: the set stewards no
-durable artifact — it produces handoff documents, questionnaires, maps and research files, no one of which
-outlives the others — so it is named for the activity it serves. That activity is the collective
-construction of shared understanding: of the ten components, nine move understanding across a boundary —
-agent to user, agent to agent, session to session, person to person, sources to record. `sensemaking` names
-it; `shared-skills` named the *consumers* rather than the work, which §4.5 excludes, and `skills` understated
-the contents once components other than skills were admitted. `thinking` and `reasoning` were declined under
-cost class 4: both are the agent runtime's own vocabulary for what the model does, the same register
-collision that retired `harness`. The name also carries its own admission test — does this move
-understanding between parties — where the old one invited the looser question of whether something is
-shared.
+| Surface                                        | Governed spelling                                                                            |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Repository slug; plugin and distribution names | `research-vault`                                                                             |
+| Python module and CLI program                  | `research_vault`                                                                             |
+| Process-written actor                          | `research_vault/<version>`                                                                   |
+| Vault markers and selector field               | `%%rv-managed%%`, `%%/rv-managed%%`, `rv-selector`                                           |
+| Vault tooling directory                        | `.research-vault/`                                                                           |
+| Environment-variable family                    | `RV_*`                                                                                       |
+| Internal scratch paths                         | `.research-vault-projection-`, `.research-vault-rollback`, `.research-vault-manifest-probe-` |
 
-Each of the three keeps **its own** `terminology.md` as needed. There is no shared naming authority, no
-shared glossary, and no mechanism holding them aligned: `CONTEXT.md`'s own format admits only terms specific
-to a single context, and the two products' vocabularies overlap only in words that never co-occur on one
-surface, because an agent reads the context of the repository it is working in. Keeping them from drifting
-is a developer responsibility, priced deliberately — a mechanism for documents that rarely disagree is
-overkill. This reverses #89's three-way split of this document, at churn cost and under §1: precedent is
-information, never constraint.
+`rv` is the registered exception to the no-abbreviation rule for durable
+markers and the environment-variable family. Keep a name family uniform. Use
+the full product name on other surfaces, including the tooling directory and
+scratch paths.
 
-**Scope of class 4 for product identity.** Everywhere else in this document class 4 is workspace-internal
-(§1: the base term "already means something else *in our context*"). A product name ships publicly, so for
-§4.5 rows only, class 4 is also evaluated against the public namespace the product ships into. The widening
-is confined to this section.
-
-**Not governed here.** The name a researcher gives their own vault directory and repository is theirs, not a product surface, and this document does not rule on it. Where our own documents cite a real vault path they follow whatever it is actually called.
-
-| Current term                                                                                                                                                                                                                                                                                                                                               | Authority                                                                                                    | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Product name `research-vault` (was `knowledge-harness`)                                                                                                                                                                                                                                                                                                    | `vault` — Obsidian (T2) and CONTEXT.md's canonical noun for the artifact; `research` — author's coinage (T8) | A/S — the naming rule above, walked. `research` replaces `knowledge` at **no cost class**: OKF's title word is not OKF vocabulary (§3.1's OKF adoptions name none), and ADR 0001 bounds conformance to structure, not words — so the product name never carried a T1 anchor to deviate from. Executing the rename is separate work.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Per-surface spellings — repo slug, `.claude-plugin/plugin.json` `name`, `pyproject.toml` `name`: `research-vault`; Python module: `research_vault`; actor string: `research_vault/<version>`; vault marker prefix: `rv-` (was `hk-`); vault tooling directory: `.research-vault/` (was `.harness/`); environment-variable prefix: `RV_*` (was `HARNESS_*`) | —                                                                                                            | S — one canonical name, per-surface grammar (the §4.4 field/concept-pair shape). **Two spellings persist into vault records**: the actor string (§3.1) and the marker prefix — `%%rv-managed%%`, `rv-selector` — which the bridge writes into every literature note. Ruled 2026-08-30: `hk-` was an abbreviation of the product name, so it renames with it; the two-letter form is a **registered** abbreviation, not an invented one, and is the standing exception to §4.3's no-invented-abbreviations rule. **Exception widened 2026-08-30:** `rv` is also used where the full spelling would stutter. **A name family is uniform**: every member takes the same form, and one stuttering member moves the whole family — not as a concession to that member, but because a split prefix is worse than either prefix. One family qualifies. All eight environment variables are `RV_*`, moved by `RESEARCH_VAULT_LIVE_AUTOEXPORT_VAULT` and `RESEARCH_VAULT_LIVE_SCAFFOLD_VAULT`, which say VAULT twice; the other six carry the short form for uniformity, not because they needed it. The remaining spellings are living surfaces and carry no churn. Pre-first-vault status confirmed 2026-08-29. Noted, not binding: `rv-` sits one letter from §4.4's registered `rw` (Retraction Watch — live on `--rw-csv`, `load_rw_csv`, `templates/ci/rw-batch.yml`) — a legibility hazard rather than a class-4 collision, since neither term means the other. `research-vault` is already registered on PyPI — a constraint on the distribution name alone, and only if the package is ever published there. |
-| `harness` — retired from the product name                                                                                                                                                                                                                                                                                                                  | —                                                                                                            | **D — class 4 (collision/ambiguity).** Three live senses in one workspace: the **agent runtime** (`harness-backup`, "cross-harness working rules", "software-dev harness"), the vault's **tooling layer** (`.harness/`, "ruled harness conventions", §4.1), and the product. §4.4's register split does not rescue it — that mechanism requires the senses never co-occur, and README.md's opening line uses the runtime sense to describe the product in one sentence. **Ruled 2026-08-30: the word leaves every surface that names this product, not only the product name.** Dropping it from the name alone would have left the runtime/`.harness/` collision standing. So the vault's tooling layer becomes `.research-vault/`, the eight `HARNESS_*` environment variables become `RV_*`, and `gitstate.py`'s `.harness-projection-` / `.harness-rollback` / `.harness-manifest-probe-` scratch prefixes follow (§4.1 flips at execution, #90). The tooling directory keeps the **full** spelling — it names the product's own machine-local state, the way `.git` names git's, and neither stutters nor falsifies there. After the sweep `harness` names the agent runtime and nothing else, which is the point of the finding.                                                                                                                                                                                                                                                                                                                                                                       |
+`knowledge-harness`, product uses of `harness`, `.harness/`, `HARNESS_*`, `hk-`,
+and `.harness-*` are stale names from the unfinished rename, not aliases.
+`harness` remains the name of the agent runtime only.
