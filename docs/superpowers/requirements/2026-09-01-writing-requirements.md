@@ -55,6 +55,16 @@ None of these is a sourcing decision. They generated requirements; they are not 
 
 **One requirement has no anchor here.** The phase's own success criterion is stated by no tradition surveyed — named rather than stretched onto a near-miss.
 
+## Competitive analysis
+
+Ran **after** the requirements were drafted, against six corpora, and edited the set. It is presented **before** them because the set shown below is the post-update one: several requirements exist only because this pass found them, so reading the requirements first would leave those unexplained. Full verdicts: `docs/research/2026-09-01-pre-spec-competitive-analysis.md`.
+
+**What it changed.** The largest correction was to the interview loop: the guess-attached question is backward-looking in both traditions that use it, and attaching a forward guess to an open question is a mutation with measured harm — acquiescence bias, worse with an interviewer present. Willis's multi-possibility probing replaced it as R5. Anchoring elicitation in specific past events entered as R6, the single most-agreed rule in the discovery corpus. R9 was recalibrated because confirmation is continuous in both traditions that use it, not concentrated into one terminal restatement. Verbatim-marked-as-verbatim entered as R13, and a declared risk tier as R3. R7's question-cap survived a null result in its favour — nobody caps question count.
+
+**Two disagreements were recorded rather than resolved.** Fitzpatrick argues verbal assent is precisely the data type that must not terminate elicitation; 12207 6.4.2.2(g) makes stakeholder agreement a process outcome. R10 takes the standards position with the dissent noted.
+
+**Status.** Two of six corpora were read in full. **Four were read as verdict headlines only and their findings are not applied** — LLM behaviour specifications, systems and safety engineering, procurement, and testable-at-scale formats. A second pass over those four is running. Two of its leads are already known to bite: R24 has no escape hatch where every engineering tradition states one inside the rule, and the sourcing screen is pass/fail with no tier to discriminate among survivors, which procurement forbids.
+
 ## Requirements
 
 Source vocabulary, defined by **origin** rather than by confirmation status: `elicited` — stated directly, quoted where short. `inferred` — derived from what was stated. `assumed` — brought from the agent's general knowledge rather than from anything said. Otherwise a named document. Any of the three may be confirmed or not; confirmation is tracked separately, because defining a class by confirmation status leaves agent-supplied-and-confirmed material with no label — which is what R12's three classes and R23 both need.
@@ -214,16 +224,6 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 - `writing-specs` is the only consumer, and it is not modified by this phase.
 - **Enumerability is a pipeline obligation, and it is not discharged here.** `writing-plans` never reads this artifact — its Self-Review walks the *spec* against the *plan*: "Can you point to a task that implements it? List any gaps." So each requirement must survive into the spec in a form that check can walk. **Nothing in this phase can guarantee that**, because the guarantee belongs to `writing-specs`' own design, which #60 and #62 own. Filed there as an obligation, not left here as an aside. (An earlier version claimed `writing-plans` consumes this artifact directly; it does not.)
 - MIT and Apache-2.0 attribution is owed wherever text is taken substantially, regardless of how the maintenance relationship is described.
-
-## Competitive analysis
-
-Ran after the requirements were drafted, against six corpora, and edited the set. Full verdicts: `docs/research/2026-09-01-pre-spec-competitive-analysis.md`.
-
-**What it changed.** The largest correction was to the interview loop: the guess-attached question is backward-looking in both traditions that use it, and attaching a forward guess to an open question is a mutation with measured harm — acquiescence bias, worse with an interviewer present. Willis's multi-possibility probing replaced it as R5. Anchoring elicitation in specific past events entered as R6, the single most-agreed rule in the discovery corpus. R9 was recalibrated because confirmation is continuous in both traditions that use it, not concentrated into one terminal restatement. Verbatim-marked-as-verbatim entered as R13, and a declared risk tier as R3. R7's question-cap survived a null result in its favour — nobody caps question count.
-
-**Two disagreements were recorded rather than resolved.** Fitzpatrick argues verbal assent is precisely the data type that must not terminate elicitation; 12207 6.4.2.2(g) makes stakeholder agreement a process outcome. R10 takes the standards position with the dissent noted.
-
-**Status.** Two of six corpora were read in full. **Four were read as verdict headlines only and their findings are not applied** — LLM behaviour specifications, systems and safety engineering, procurement, and testable-at-scale formats. A second pass over those four is running. Two of its leads are already known to bite: R24 has no escape hatch where every engineering tradition states one inside the rule, and the sourcing screen is pass/fail with no tier to discriminate among survivors, which procurement forbids.
 
 ## Sourcing decisions
 
