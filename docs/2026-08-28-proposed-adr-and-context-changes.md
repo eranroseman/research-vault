@@ -1,8 +1,11 @@
 # Proposed ADR and CONTEXT.md changes
 
-Status: **PROPOSAL — nothing in this document has landed.** ADR files are
-written only after a decision is approved. The accepted register contains ADRs
-0001–0004. Do not reserve ADR 0005 until a decision is approved.
+Status: **SUPERSEDED.** This is historical analysis from 2026-08-28, not
+current instruction. The approved [canonical vault glossary projection
+design](superpowers/specs/2026-09-01-canonical-vault-glossary-projection-design.md)
+supersedes its glossary recommendation. ADR files are written only after a
+decision is approved. The accepted register contains ADRs 0001–0004. Do not
+reserve ADR 0005 until a decision is approved.
 
 ## 1. Scope and review questions
 
@@ -25,10 +28,10 @@ accepted ADR.
 
 ### 2.1 One canonical glossary
 
-[CONTEXT.md](../CONTEXT.md) is the meaning layer, but the shipped
-[vault glossary](../research_vault/templates/vault/system/glossary.md) is a
-second, manually edited glossary. They already differ in both terms and
-meaning: each has terms absent from the other, and they define the bibliography
+[CONTEXT.md](../CONTEXT.md) was the meaning layer, but the then-shipped
+[vault glossary](https://github.com/eranroseman/knowledge-harness/blob/da637c9a0289ccf272bcf3a82db84bb2b54208ff/research_vault/templates/vault/system/glossary.md)
+was a second, manually edited glossary. They differed in both terms and
+meaning: each had terms absent from the other, and they defined the bibliography
 export, screening state, and update notice differently.
 
 **Recommendation:** `CONTEXT.md` owns each canonical definition. Render the
