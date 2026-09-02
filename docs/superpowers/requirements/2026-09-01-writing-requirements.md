@@ -217,10 +217,9 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 *Fit:* for each flow reaching a use-case class recorded under R41, the artifact states what the model must do and what it must refuse. A product with such a flow and no such statement fails this requirement. Does not apply where no model output reaches a third party, which exempts the research vault and personal tooling.
 *Source:* R27, survived verification. OpenAI Model Spec 2026-08-18 tags "Provide information without giving regulated advice" **Developer** and "Support users in mental health discussions" **User** — both below Root, so a developer may override them and silence accepts them. **What transfers is the structure**, not the provision list: published defaults exist, are overridable, and bind by silence. The list is OpenAI's and does not govern a product running on Claude; the binding instrument there is the Usage Policy, under R22.
 
-**R40** — The artifact's sections follow the order of the phases that produced them, and each carries or links the evidence that phase produced.
-*Ceremony test, 2026-09-02: DROP — and not applied.* Nothing in the set reads R40, which is the shape that retired R3. **But you instructed this structure directly** ("the docs sections should follow the process phases to reflect the work that was done"), so the test and an explicit ruling disagree and the ruling is yours to make. Held pending that.
-*Fit:* a reader can name which phase produced each section and reach that phase's evidence from inside it, without an index. A section for a phase that never ran does not appear. Where an output depends on a phase that ran after it — the requirement set is the post-competitive-analysis one — presentation order differs from run order and the section says so.
-*Source:* ECSS-E-ST-10-06C Annex A, **verified locally 2026-09-01** — a normative Document Requirements Definition mandating the table of contents, section by section, which is the same claim as "sections follow the phases" made by a standards body. No longer an unverified lead. The author's rulings of 2026-09-01 remain the origin: "the docs sections should follow the process phases to reflect the work that was done", and that prior art and competitive analysis precede the requirements "as some of the reqs are derived from the comp analysis".
+**R40** — The artifact is understandable without reading the skill that produced it.
+*Fit:* a reader who has never seen the skill can say what each section is for, and reach that section's evidence from inside it. Sections follow the order of the phases that produced them, and where presentation order differs from run order the section says so.
+*Source:* the author's ruling of 2026-09-02 — the artifact is consumed by humans and by agents managing the process, who must understand it without reading the skill. That is the consumer the ceremony test missed: it swept for in-document readers and for `writing-specs`, and found none, because the reader is outside both. ECSS-E-ST-10-06C Annex A mandates a table of contents for the same reason, verified locally 2026-09-01. This is R35's rule one level up — R35 makes a requirement readable lifted out alone, R40 makes the document readable opened cold.
 
 ### Pipeline
 
@@ -242,8 +241,8 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 
 ### Integration
 
-**R29** — Output lands at a stable path.
-*Fit:* a cold session hands the artifact to `writing-specs` without asking where it is, on either harness.
+**R29** — Output lands at a stable path, under a header naming what the artifact is for and what consumes it.
+*Fit:* a cold session hands the artifact to `writing-specs` without asking where it is, on either harness, and a reader who has never seen the skill learns from the header alone what the document is and what happens to it next.
 *Source:* ECSS-E-ST-10-06C Annex A (normative) A.2.1 \<1>, verified locally 2026-09-01 — "The TS shall contain a description of the purpose, objective, content and the reason prompting its preparation." The header carries four things there and one here. **The gap is "the reason prompting its preparation"**, which is precisely what an artifact archived and never maintained loses first. Previously the house convention alone, specified verbatim in `writing-plans`' plan header; that remains the format, now with a standard behind the obligation.
 *Note:* every candidate failed it, so it screened nothing — the same shape as R26–R28. An obligation on what we build, not a discriminator among what we might take.
 
