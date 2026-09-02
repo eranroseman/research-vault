@@ -70,7 +70,7 @@ def test_markdown_templates_have_expected_okf_frontmatter():
         assert data.get("type"), path
 
     root_data, _ = frontmatter.parse(asset("vault/index.md").read_text())
-    assert root_data == {"type": "index", "okf_version": "0.2"}
+    assert root_data == {"okf_version": "0.2"}
     for path in reserved:
         data, _ = frontmatter.parse(asset(path).read_text())
         assert data == {}, path
@@ -85,7 +85,7 @@ def test_markdown_templates_have_expected_okf_frontmatter():
 
 def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
-        '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+        '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
         "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
         "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"

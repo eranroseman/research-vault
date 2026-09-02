@@ -375,9 +375,9 @@ def _okf_probe(vault: Path) -> Probe:
     except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
         problems.append(f"index.md: unreadable ({error})")
     else:
-        index_type = index_data.get("type")
-        if index_type != "index":
-            problems.append('index.md: type must be "index"')
+        # Root index.md carries only okf_version (OKF §11 rule 3, structure
+        # .check_reserved) — no `type` key; doctor's probe matches that shape
+        # rather than requiring `type: "index"` (Task 4 retires this probe).
         okf_version = index_data.get("okf_version")
         if not isinstance(okf_version, str) or not okf_version.strip():
             problems.append("index.md: missing okf_version")

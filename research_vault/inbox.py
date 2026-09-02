@@ -76,6 +76,10 @@ CHECK_IDS = frozenset(
         "autoexport",
         "render",
         "integrate",
+        # OKF structure migration (2026-09-02 plan)
+        "okf-frontmatter",
+        "okf-structure",
+        "tree",
     }
 )
 _REASON = re.compile(

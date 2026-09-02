@@ -31,6 +31,11 @@ def tmp_vault(tmp_path):
 
 @pytest.fixture
 def fixture_vault(tmp_vault):
+    # structure.check_tree (verify's vault-wide tree attestation) expects the
+    # full scaffold.VAULT_DIRS shape, which the bare tmp_vault fixture doesn't
+    # provide (some tmp_vault-only tests need "system/" free of subdirs).
+    (tmp_vault / "system" / "templates").mkdir(exist_ok=True)
+    (tmp_vault / "system" / "bases").mkdir(exist_ok=True)
     (tmp_vault / "index.md").write_text(
         '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
     )

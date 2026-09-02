@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from research_vault import Result, structure
 
@@ -102,3 +101,28 @@ def test_tree_check(tmp_path):
 
     scaffold.scaffold_vault(tmp_path)
     assert structure.check_tree(tmp_path).result is Result.MATCHED
+
+
+def test_commit_surface_closes_on_structure_violation(tmp_path):
+    from research_vault import scaffold, verify
+
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "literatures" / "untyped.md").write_text("# no frontmatter\n")
+    _report, effective, _hashes, warning = verify.verify_state(
+        tmp_path, network=False, git_candidate="worktree"
+    )
+    decision, blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 1
+    assert any("okf-frontmatter" in blocker for blocker in blockers)
+
+
+def test_commit_surface_ignores_fleeting_notes(tmp_path):
+    from research_vault import scaffold, verify
+
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "inbox" / "half-thought.md").write_text("just an idea\n")
+    _report, effective, _hashes, warning = verify.verify_state(
+        tmp_path, network=False, git_candidate="worktree"
+    )
+    decision, _blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 0

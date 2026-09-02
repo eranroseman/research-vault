@@ -1895,9 +1895,20 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
         ).CLOSING_BY_SURFACE.items()
     } == {
         "audit": frozenset(),
-        "commit": frozenset({"citekey", "evidence-layer"}),
+        "commit": frozenset(
+            {"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
+        ),
         "publish": frozenset(
-            {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
+            {
+                "citekey",
+                "evidence-layer",
+                "quote",
+                "update-notice",
+                "doi",
+                "okf-frontmatter",
+                "okf-structure",
+                "tree",
+            }
         ),
     }
 
@@ -1961,6 +1972,11 @@ def test_invalid_publication_flags_or_inside_manifest_exit_two_before_mutation(
 
 
 def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault):
+    # A genuine (non-synthetic) structure.check_tree violation would write a
+    # finding of its own, confounding the synthetic-offline invariant this
+    # test isolates — round the bare tmp_vault out to scaffold.VAULT_DIRS.
+    (tmp_vault / "system" / "templates").mkdir()
+    (tmp_vault / "system" / "bases").mkdir()
     before = _vault_bytes(tmp_vault)
 
     report = run_verify(tmp_vault, network=False, detection_date="2026-08-16")

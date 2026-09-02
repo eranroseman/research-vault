@@ -5,7 +5,7 @@ def test_scaffold_ships_okf_artifacts(tmp_path):
     scaffold.scaffold_vault(tmp_path)
     idx, _ = frontmatter.parse((tmp_path / "index.md").read_text())
     assert idx["okf_version"] == "0.2"
-    assert idx["type"] == "index"
+    assert "type" not in idx
     rq, _ = frontmatter.parse((tmp_path / "inbox" / "review-queue.md").read_text())
     assert rq["type"] == "review-queue"
     ag, _ = frontmatter.parse((tmp_path / "AGENTS.md").read_text())
@@ -87,18 +87,10 @@ def test_okf_probe_ignores_fleeting_inbox_notes_but_flags_machine_owned_files(tm
 
 def test_okf_probe_root_index_missing_okf_version(tmp_path):
     scaffold.scaffold_vault(tmp_path)
-    (tmp_path / "index.md").write_text('---\ntype: "index"\n---\n# Vault index\n')
+    (tmp_path / "index.md").write_text('---\ntitle: "x"\n---\n# Vault index\n')
     probe = scaffold._okf_probe(tmp_path)
     assert probe.result == Result.UNMATCHED
     assert "index.md: missing okf_version" in probe.reason
-
-
-def test_okf_probe_root_index_missing_type(tmp_path):
-    scaffold.scaffold_vault(tmp_path)
-    (tmp_path / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Vault index\n')
-    probe = scaffold._okf_probe(tmp_path)
-    assert probe.result == Result.UNMATCHED
-    assert 'index.md: type must be "index"' in probe.reason
 
 
 def test_okf_probe_missing_log_md_with_a_day_file_present(tmp_path):

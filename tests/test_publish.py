@@ -96,7 +96,16 @@ def _status(vault: Path, project: str = "brief") -> str:
 def _build_vault(
     root: Path, claim: str, bibliography=None, name: str = "brief"
 ) -> Path:
-    for folder in ("inbox", "literatures", "synthesis", "log", "projects", "system"):
+    for folder in (
+        "inbox",
+        "literatures",
+        "synthesis",
+        "log",
+        "projects",
+        "system",
+        "system/templates",
+        "system/bases",
+    ):
         (root / folder).mkdir()
     (root / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Knowledge bundle\n')
     (root / "log.md").write_text("# Log\n")
@@ -338,12 +347,16 @@ def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(
 
 
 def test_mark_published_refuses_an_uncommitted_project_file(green_vault, capsys):
-    (green_vault / "projects" / "brief" / "appendix.md").write_text("# Appendix\n")
+    # Non-markdown: structure.check_note_frontmatter only sweeps *.md, and any
+    # *.md under projects/<name>/ must itself carry type: "project" (folder
+    # derivation) — a second one would instead trip project_note()'s
+    # exactly-one-project-note rule before this gate is ever reached.
+    (green_vault / "projects" / "brief" / "appendix.txt").write_text("Appendix\n")
     before = _head(green_vault)
 
     assert main(["mark-published", "brief", "--vault", str(green_vault)]) == 2
 
-    assert "projects/brief/appendix.md" in capsys.readouterr().err
+    assert "projects/brief/appendix.txt" in capsys.readouterr().err
     assert _status(green_vault) == "draft"
     assert _tags(green_vault) == []
     assert _head(green_vault) == before

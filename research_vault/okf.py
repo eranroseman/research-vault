@@ -31,7 +31,8 @@ def regenerate_log(vault_root, tail_entries: int = 20) -> str:
     body_lines.extend(tail)
     if tail:
         body_lines.append("")
-    body_lines.append("## Days")
+    # No "## Days" heading: OKF §11 rule 3 (structure.check_reserved) permits
+    # only "## YYYY-MM-DD" second-level headings in log.md.
     body_lines.extend(f"- [[log/{day_file.stem}]]" for day_file in day_files)
 
     text = frontmatter.serialize({"type": "log"}) + "\n".join(body_lines) + "\n"

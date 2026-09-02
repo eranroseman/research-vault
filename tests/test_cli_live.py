@@ -291,7 +291,7 @@ def test_import_source_runs_standalone_on_a_vault_with_zero_projects(
     note = vault / "literatures" / "smith2020.md"
     assert 'citekey: "smith2020"' in note.read_text(encoding="utf-8")
     index_data, _ = frontmatter.parse((vault / "index.md").read_text())
-    assert index_data["type"] == "index"
+    assert index_data["okf_version"] == "0.2"
     assert (vault / "synthesis" / "index.md").is_file()
     log_data, log_body = frontmatter.parse((vault / "log.md").read_text())
     assert log_data == {"type": "log"}

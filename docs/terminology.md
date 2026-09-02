@@ -9,11 +9,11 @@ choose names and records spellings or exceptions not owned by those sources.
 Use the term selected by §2 unless one of these costs binds:
 
 1. **Permanent surface mismatch** — with tool surfaces we don't control.
-2. **Information loss** — the base term carries less structure than the concept
+1. **Information loss** — the base term carries less structure than the concept
    needs.
-3. **Semantic falsification** — the base term would make our records state
+1. **Semantic falsification** — the base term would make our records state
    something false.
-4. **Collision/ambiguity** — the base term already means something else in our
+1. **Collision/ambiguity** — the base term already means something else in our
    context.
 
 For product names, class 4 also covers public-namespace collisions. Rename
@@ -47,8 +47,8 @@ surface. Among the remaining candidates within a tier, apply these tie-breakers
 in order:
 
 1. The vocabulary whose data we record beats one we merely resemble.
-2. Verbatim machine-readable identifiers beat prose labels.
-3. A versioned specification beats a living wiki, which beats a blog.
+1. Verbatim machine-readable identifiers beat prose labels.
+1. A versioned specification beats a living wiki, which beats a blog.
 
 Determine scope before walking the tiers. A domain-specific authority governs
 only its domain.
@@ -111,7 +111,7 @@ A new CLI command takes the first matching branch:
 | Ledger append                  | Record noun, or ledger name when no record noun exists | `finding`, `ack`, `search-log`                                                                                                       |
 | Persistent switch              | `arm-<gate>` / `disarm-<gate>`                         | `arm-publish`, `disarm-publish`                                                                                                      |
 | Lifecycle transition           | `mark-<status>`                                        | `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`                                                                  |
-| Other projection or derivation | Imperative verb-noun kebab                             | `import-note`, `backfill-selectors`, `archive-source`; `scaffold` is the established single-verb exception                           |
+| Other projection or derivation | Imperative verb-noun kebab                             | `import-note`, `backfill-selectors`, `archive-source`, `stamp-type`; `scaffold` is the established single-verb exception             |
 
 Use kebab-case and exact [CONTEXT.md](../CONTEXT.md) nouns. Do not invent
 abbreviations, compatibility aliases, or multiple verbs for one act. Command
@@ -134,7 +134,7 @@ their behavior; this table owns their spellings.
 
 | Group            | Governed identifiers                                                                                                                                                                                                                                                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `autoexport`, `render`, `integrate`                                                                                                         |
+| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `autoexport`, `render`, `integrate`, `okf-frontmatter`, `okf-structure`, `tree`                                                             |
 | doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf`                                                                                                                                                                                                                  |
 | reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note`, `warn-notice` |
 
