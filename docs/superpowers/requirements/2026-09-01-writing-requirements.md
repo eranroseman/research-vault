@@ -30,14 +30,6 @@ A phase before `writing-specs` that turns a need into a written, verified statem
 
 It runs as a loop, not a document generator — interview for the why and what, write the requirements, verify we understood the same thing, repeat until converged. It ends when I say the restated set is right.
 
-## Out of scope
-
-One item, and it is a choice rather than a definition.
-
-- **Deciding whether to build.** This phase assumes that decision is made. It is listed because a named framework puts it here — NIST places a go/no-go at the end of context establishment — so excluding it is a decision, not a tautology. A funnel with a kill gate is a different tool; for an already-decided need, spec-kit's `assess` cannot reach a `go` verdict at all.
-
-Four earlier items were removed on 2026-09-01 as definitional rather than chosen: producing a PRD (timelines, milestones and escalation matrices are project management, not requirements), prioritising or sequencing (12207 puts the down-select on *needs*, one step upstream), traceability past handoff, and running non-interactively. A requirements document does not contain these by definition, so listing them told a reader nothing.
-
 ## Assumptions
 
 Claims about the world this phase depends on and that **nobody is obliged to make true** — distinct from constraints, which bind what may be built. The distinction and the separate section are the FAA handbook's.
