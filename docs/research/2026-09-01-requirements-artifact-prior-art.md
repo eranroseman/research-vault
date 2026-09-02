@@ -293,6 +293,6 @@ Named rather than stretched onto a near-miss, per the method's own rule.
 
 Six corpora, read by isolated agents with adversarial verification on the load-bearing claims. 29148 and 12207 were subsequently read directly from the primary PDFs, which corrected four claims the secondary reproductions had compressed or dropped.
 
-**Not reached:** IEEE 830-1998 in full; INCOSE's Guide for Writing Requirements; RIBA Plan of Work; ISO 26262 and ARP4754A. Planguage was read through a mirror rather than the source publication.
+**Not reached:** IEEE 830-1998 in full; RIBA Plan of Work; ISO 26262 and ARP4754A; ISO/IEC 15026-3; IEC 62304; FDA's General Wellness guidance. Planguage was read through a mirror rather than the source publication, and so was INCOSE's Guide for Writing Requirements — **obtained 2026-09-01 and quote-verified locally, but from a university mirror rather than from INCOSE.** Also never read directly, though requirements rest on them: Fitzpatrick's *The Mom Test* (R6, R13), Willis and Pew (R5), Beyer and Holtzblatt (R9).
 
 **Contamination risk, disclosed:** the agents in the earlier sweeps were given a shared guard block naming the other candidates and, in one case, an explicit statement of which requirements were believed unmet. That is priming, and it is the failure `neuroarxiv` names — *"a read that has seen other papers' abstracts starts summarizing the SET"*. The findings above from those sweeps should be weighted accordingly; the two standards, read directly and last, are not affected.
