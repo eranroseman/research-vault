@@ -60,6 +60,16 @@ Its loop is **intent-confirmation written once at the end**; ours is write-as-yo
 
 ______________________________________________________________________
 
+## What each requirement discriminated
+
+Recorded here so the requirement set does not have to carry screening arithmetic.
+
+- **R24** screened. Four of twelve candidates claimed it — `interview-me`, `shape-spec`, spec-kit `/specify`, `framing-doc` — and eight failed. Verification then refuted at least one of the four, `framing-doc`, which survives on R11 and R13 only. An earlier note in the requirements document claimed R24 screened nothing, which was false against this table.
+- **R7** drove no rejection except jointly with R1.
+- **R29** was failed by every candidate, so it discriminated nothing — the same shape as R26–R28 below. An obligation on what gets built, not a filter on what might be taken.
+
+______________________________________________________________________
+
 ## A limit of the screen
 
 Every candidate failed **R26, R27 and R28** — the prior-art, competitive-analysis and sourcing steps. No skill in any roster contains three sub-steps that are themselves skills.
