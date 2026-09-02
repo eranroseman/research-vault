@@ -84,6 +84,8 @@ Ran **after** the requirements were drafted, against six corpora, and edited the
 
 ## Requirements
 
+**Field order:** statement, *Fit*, *Why* (R44), *Version* (R45), *Floor* (R43), *Source* (R11). **All 40 floors are unmarked** — that is the author's call and only the author's, since it asks whether he would abandon the need rather than give the requirement up. Sourcing cannot run its screen until they are marked (`sourcing` S17).
+
 **Retired numbers: R3, R10, R16, R17, R28.** All dropped on 2026-09-02 under the test *"if dropped, does it hurt functionality or remove needless ceremony?"* — none had a consumer — **except R10, and that claim was false when written**: old R32's source line named it, "R10 defines a gate whose outcome nothing currently records". R10's function is superseded by R42, which reaches the same end by asking for changes rather than by agreeing a token in advance. R16's measurement-method clause survives inside R14. R34 is now issued; R41 is a split from R22. **R28 is retired for a different reason** — not ceremony, but relocation: sourcing became a separate skill on 2026-09-02, so its requirement belongs to that skill rather than to this one. Identifiers are never reused (R19), so the gaps are deliberate.
 
 Source vocabulary, defined by **origin** rather than by confirmation status: `elicited` — stated directly, quoted where short. `inferred` — derived from what was stated. `assumed` — brought from the agent's general knowledge rather than from anything said. Otherwise a named document. Any of the three may be confirmed or not; confirmation is tracked separately, because defining a class by confirmation status leaves agent-supplied-and-confirmed material with no label — which is what R12's three classes and R23 both need.
@@ -92,55 +94,94 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R1** — Accepts a need arriving unframed in conversation.
 *Fit:* a bare sentence with no user, no success criterion and no constraint produces a **question**, not an error and not a decline. A run that declines every unframed need passes nothing here.
+*Why:* Requiring the need be framed before the phase starts would make the author do the phase's work before invoking it. Unframed arrival is the entry state this skill exists for.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* FAR 10.002(a), FAC 2026-01 — "Acquisitions begin with a description of the Government's needs stated in terms sufficient to allow conduct of market research." A rough description is the legitimate entry state, not a defect. Verified locally 2026-09-01. Previously `elicited` — "the usual route is chat → spec → plan" — which is still the origin, now with a primary behind it.
 
 **R2** — Declines when no real question remains, the work is small, or the approach is already chosen.
 *Fit:* the run checks three conditions — a real question remains open, the work exceeds a quick change, the approach is still undecided. Any condition that fails ends the run in one sentence naming how to invoke the skill deliberately.
+*Why:* An interview run when the answer is already known spends the attention this skill exists to conserve, and produces an artifact nobody reads.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* `neuroarxiv` and `adhd` pre-flight gates, both with an explicit-invocation bypass.
 
 **R4** — Asks questions in dependency order.
 *Fit:* no question is asked whose answer hinges on another still open in the same round. **A round is one agent turn carrying at least one question, plus my reply to it** — the definition R8 and R30 use.
+*Why:* A question whose answer depends on an open one gets answered speculatively, and the speculation is then recorded as settled.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* `mattpocock/skills` commit `a4b2009a` — "Same 13 questions land in ~3 rounds instead of 13."
 
 **R30** — Asks mutually independent questions in one round.
 *Fit:* in every round, each question whose answer does not hinge on another open question is asked in that round rather than held for the next. A run that asks one question per round, ever, fails.
+*Why:* Serialising independent questions multiplies round-trips without adding information, and the cost lands on the author's attention.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* as R4. Split out because the two were joined by a conjunction and only the first was tested — the sourcing screen failed `interview-me` on the second half while R4's written fit would have passed it.
 
 **R5** — Offers the plausible alternatives, never a single guess, when it proposes an answer before the user gives one.
 *Fit:* every question that proposes answers offers each possibility the run has reason to think plausible, marks none as expected, and leaves an answer outside the list available. Two options where five are plausible fails.
+*Why:* A single attached guess makes agreement cheaper than correction, and the failure is invisible: an agreeable answer looks identical to a correct one.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* Willis, *Cognitive Interviewing: A "How To" Guide* (1999, Research Triangle Institute / ASA short course) **and** *Cognitive Interviewing Training Guide* (2012), **both read directly 2026-09-01**, carrying the passage **identically thirteen years apart** — "rather than suggesting to the subject one possibility ('Did you think the question was asking just about physicians?'), it is preferable to list all reasonable possibilities… probes should be characterized by unbiased phrasing". **Correction:** the labels "single-possibility" and "multi-possibility probing" appear **nowhere** in either guide, nor in a published review of the 2005 book. Searched in three documents, zero hits. They were reported as quotation and are not. The substance is verbatim, the terminology is not from this source. Pew Research Center, *Writing Survey Questions* (methods section, `pewresearch.org/writing-survey-questions/`), **read directly 2026-09-01** — "This is sometimes called an 'acquiescence bias'… This behavior is even more pronounced **when there's an interviewer present**, rather than when the survey is self-administered. **A better practice is to offer respondents a choice between alternative statements.**" Pew independently supplies the *remedy*, not merely the harm, so R5 has two legs that converge.
 
 **R6** — Anchors questions about the problem in specific past events, not in opinions, generalities or predictions.
 *Fit:* every question about the need, its cost and the current workaround asks what happened. Only questions about the wanted outcome ask about the future, and the artifact records their answers as goals rather than as evidence.
+*Why:* What someone predicts they will do is not evidence about what they do. A requirement built on a prediction cannot be shown wrong until the software ships.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* Fitzpatrick, *The Mom Test*, **read directly 2026-09-01**, rule 2 of three: "Talk about their life instead of your idea. **Ask about specifics in the past instead of generics or opinions about the future.** Talk less and listen more." Verbatim, and the requirement is a restatement of it. The competitive analysis additionally claimed convergence across "three independent primaries"; **two were never named and remain unrecovered**, so the convergence claim stays unverified even though the requirement no longer depends on it.
 
 **R7** — Places no cap on the number of questions.
 *Fit:* no number anywhere in the skill limits how many questions it asks or how many open questions (R25) the artifact holds. Questioning ends at the review gate (R42), not at a count and not at a detected state.
+*Why:* Any cap stops the skill before understanding is reached. It optimises for the agent's convenience against the artifact's correctness.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* a **null result** from the competitive-analysis pass, which is evidence rather than an absence of it: no practice surveyed caps question count, and every one caps something adjacent instead — learning goals per person-type, session length, question density. Searching 29148 and 12207 for any cap on elicitation effort returned nothing, consistent with that. Competitive-analysis derived, not prior art; no prior art exists to derive it from. The author's position — "I prefer agents interviewing me all day long if that is what is needed to get the job right" — is the origin.
 *Note:* drove no rejection in the sourcing screen except jointly with R1. May be describing the field rather than screening it.
 
 **R8** — Writes each requirement in the round its answer settles.
 *Fit:* at the end of every round, the artifact holds a requirement for each answer that round settled. A run that reaches the terminal restate with requirements written after the last question fails.
+*Why:* Writing at the end records the agent's memory of the conversation rather than the conversation. Answers settle and then drift.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* FAA REMH DOT/FAA/AR-08/32 §2.11.7, verified locally 2026-09-01 — "Rationale should be collected along with the development of the requirement… This ensures that the justification is captured by the author while he or she is thinking about it… it is much simpler to record the rationale when the latency was being computed than to try to re-engineer the reasoning later." The reason given is the author's attention, which is this requirement's reason too. Origin: `elicited` — "interview user for why and what, write requirement, verify, repeat until done."
 
 **R9** — Restates each requirement to me when it is written, and records whether I confirmed it.
 *Fit:* every requirement in the artifact carries a confirmation status. A requirement I have not confirmed is marked as such and reaches the terminal restate (R31) still marked.
+*Why:* Confirmation gathered once at the end cannot say which part was agreed. A per-requirement status is what distinguishes a settled requirement from an unchallenged one.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* Beyer and Holtzblatt, *Contextual Design*, the **Interpretation** principle, **read directly 2026-09-01** — "If the data that matters is the interpretation, we must have a way to ensure it is correct, and we can only do that by **sharing it with the customer**. We fail in the entire purpose of working with customers if we do not share and validate our interpretations of their work." Sharing is continuous and per-interpretation, not terminal, which is what R9 requires and R31 completes. Qualitative research's *member checking* is the second tradition, still not read directly. The rendering into a per-requirement obligation remains mine.
 
 **R31** — Restates the accumulated set before terminating.
 *Fit:* the final restate covers every requirement written, not only those settled last.
+*Why:* A set can be wrong in ways no individual requirement is — omissions, ordering, and things that only look inconsistent side by side.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ECSS-E-ST-10-06C 5.2, verified locally 2026-09-01 — "The customer assesses the entire set of technical requirements for correctness, consistency and suitability for the intended use." The task appears **twice**, as F1.3 and again as F1.9, each immediately before a release task, so a whole-set assessment before terminating is a distinct process step rather than a by-product of per-item confirmation. INCOSE GtWR V3.1 places five characteristics at set level for the same reason — C10 Complete, C11 Consistent, C12 Feasible, C13 Comprehensible, C14 Able to be Validated — properties that cannot be checked one requirement at a time. Split from R9 because continuous confirmation and a terminal restate are two obligations and a skill could satisfy either alone; that split is now backed rather than asserted.
 
 **R37** — Before the terminal restate (R31), checks the accumulated requirements as a set.
 *Fit:* the sweep reports four results. (1) Conflicts: for each pair sharing a subject, whether their conditions can hold at once, and where they can, that their outcomes agree. (2) Duplicates: no obligation appears twice. (3) Terminology: each term carries one meaning throughout, and every term a requirement refers to is defined by a requirement in the set. (4) Non-singular statements: each requirement states one obligation, which R15 governs per item and only a whole-set pass reliably catches. A collision the sweep finds is resolved, or recorded under R25, before the restate.
+*Why:* Per-item review misses set-level defects. R4 and R9 each hid an untested half here until a sourcing screen caught one by accident.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* R27, survived verification. ECSS-E-ST-10-06C 7.2.3d — "The technical requirements shall be consistent (e.g. not in conflict with the other requirements within the specification)" — with FAA REMH 2.8.4 giving the operable form, "only one ideal value is assigned to each controlled variable and each internal variable for every possible system state", and INCOSE C11 adding terminology homogeneity. Every rule in the set to this point governs a requirement in isolation; nothing governed the set. The non-singular sweep is ISO/IEC/IEEE 24748-2:2024's — "The resulting set of technical requirements should be checked for non-singular requirements containing multiple parts, which should then be decomposed into individual (singular) requirements" — added because this document hit that defect **twice**: R4 and R9 were each a conjunction with an untested half, split into R30 and R31 only after the sourcing screen caught one by accident. A standard treats it as routine.
 
 **R34** — Runs on Claude Code and Codex.
 *Fit:* the skill body invokes only mechanisms both harnesses provide, and a fresh install on each harness produces one complete artifact from one run.
+*Why:* A skill that works on one harness fails silently on the other. #56 recorded 8,873 bytes of guidance arriving absent with no error.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* the author's ruling of 2026-09-02, promoting it from a constraint on the 29148 3.1.7 test — the harnesses are pre-existing, but supporting both could have been decided otherwise, so it is a requirement. The failure it prevents has already occurred here: #56 records Codex dropping a tracked symlink, so 8,873 bytes of plugin-level `AGENTS.md` guidance arrived silently absent. "From a fresh install" is what catches packaging failures that a body-only check misses.
 
 **R42** — Writes the artifact, then asks me what I want changed before handing off.
 *Fit:* the run stops after the artifact is written and committed, names its path, and asks **what I want changed** — not whether I approve. It does not invoke `writing-specs` until I answer, records my answer in the artifact, and treats any requested change as a return to the loop, re-running R37's sweep before asking again. Four runs fail: one that hands off without the pause; one that asks while the artifact is still only in the conversation; one that asks for approval rather than for changes; and one that proceeds on an answer requesting changes. On approval the run names both successors and asks which, recommending neither — the choice depends on the need, not on the artifact.
+*Why:* Agreement given in conversation is cheap; agreement given after reading a file is not. Without this the artifact is approved by someone who has not seen it.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* `brainstorming` v6.2.0's User Review Gate, verbatim — "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan." and "Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves."
 **The question's form is the mechanism.** A question about *changes* cannot be answered by "sounds good" in a way that carries information; a question about *approval* can. That is how `brainstorming` gets a non-assent answer without any pre-agreed token, and why the retired R10 was solving a problem this form dissolves. An earlier version of R42 gated only on a pause — "until I answer" — which a red-team pass broke on 2026-09-02, since every false yes satisfied it; a second version imported R10's token clause, which this replaces on the author's ruling that `brainstorming` is the source.
 
@@ -148,98 +189,170 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R11** — Each requirement names where it came from.
 *Fit:* every requirement carries an origin a reader can check — a passage of the transcript or a named document.
+*Why:* A requirement whose origin is unknown cannot be re-decided when circumstances change, and cannot be told apart from something the agent invented.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* Volere requirements shell, `Originator`; 12207:2017 6.4.2.2(i).
 
 **R12** — Distinguishes what I said, what the agent inferred from what I said, and what the agent brought from general knowledge.
 *Fit:* for each requirement, a reader can say which of the three it is.
+*Why:* Agent-supplied material is not wrong, but it is not the author's. A reader who cannot tell the difference cannot audit the set.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* `matter-intake-scoping`'s four-level provenance scheme. 12207 treats implicit needs from domain knowledge as a legitimate input, so this marks rather than forbids.
 
 **R13** — Marks quoted material as verbatim, distinct from paraphrase.
 *Fit:* quotation marks enclose only words the source used, whether the source is me or a document, and a reader can tell a quotation from the agent's summary of it.
+*Why:* A paraphrase presented as a quotation is how a false claim enters wearing the appearance of evidence. This project produced one — a Fitzpatrick sentence that does not exist in the book.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* Fitzpatrick, *The Mom Test*, **read directly 2026-09-01** — "When possible, **write down exact quotes. Wrap them in quotation marks so you know it's verbatim.** … Other times the exact quote isn't relevant and you just write down the big idea." That is this requirement, stated as practice. His reason: "**notes make it harder to lie to yourself**." **Correction:** the phrase previously attributed to him in quotation marks — "the artifact's job is to make self-deception harder" — **does not appear in the book**; "self-deception" occurs zero times. It was an agent's paraphrase presented as a quotation. The idea survives in his own words; the quotation is withdrawn.
 
 **R14** — Each requirement carries a fit criterion: one measurement that tests whether a solution matches it.
 *Fit:* each requirement carries exactly one measurement, naming what is measured and how it is measured, that a reader can run against a candidate solution to get a pass or a fail. Per requirement, never per goal and never per document.
+*Why:* A requirement with no measurement cannot be checked against a solution, so it can only be asserted, never satisfied or violated.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* Volere requirements shell — "A measurement of the requirement such that it is possible to test if the solution matches the original requirement." The "how it is measured" clause absorbs the dropped R16, whose source was Gilb, *Competitive Engineering* (2005): "**Meter:** A practical method for measuring and testing a scalar attribute level, on a defined Scale."
 
 **R15** — Each requirement states a single capability, characteristic, constraint or quality factor.
 *Fit:* no conjunction joins two.
+*Why:* A statement carrying two obligations gets tested on the first while the second passes unexamined. That happened twice here.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ISO/IEC/IEEE 29148:2018 5.2.5.
 
 **R18** — Each requirement avoids terms whose meaning a reader must guess.
 *Fit:* no requirement contains a superlative, a comparative, a subjective adjective, an ambiguous adverb or pronoun, a totality term (`all`, `always`, `never`), a loophole (`where feasible`, `as appropriate`, `if practical`), an open-ended term (`etc.`, `and so on`), or a reference to a document, section or term the artifact does not name.
+*Why:* A vague term moves the decision to whoever implements it, and the author never learns a decision was made.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ISO/IEC/IEEE 29148:2018 5.2.7 — "Vague and general terms shall be avoided."
 
 **R19** — Requirement identifiers are never changed and never reused.
 *Fit:* an R-number cited in a later round means what it meant in the first, or the entry records the date its meaning narrowed and what moved out. R22 and R4 both narrowed without retiring; any screen verdict scored against the earlier meaning is void rather than stale.
+*Why:* A citation of R*n* must mean later what it meant when written, or every artifact referring to it is silently wrong.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ISO/IEC/IEEE 29148:2018 5.2.8.2.
 
 **R20** — Records the problem and the intended outcome as I experience them.
 *Fit:* each names what I do today and what I would do instead — an experience, not a system property and not a product gap.
+*Why:* The design phase asks for purpose on every run and records none, so it is re-elicited each time and never audited.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* `to-spec`'s first half; `helm-brief`'s test — "Must describe a user experience, not a product gap."
 
 **R21** — Records the boundary of the need: what falls inside it and what falls outside.
 *Fit:* a reader can place a candidate feature on one side or the other without asking. A list of things not being built does **not** satisfy it.
+*Why:* Without a boundary a reader cannot tell an omission from an exclusion, and will either build something unasked or flag a deliberate gap.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* `interview-me`, `shape-spec` and `helm-brief` independently. Reframed from "records what is excluded" on 2026-09-01, on the author's ruling that a requirements document does not contain a list of non-goals — the four items removed from this document's own Out of scope section were definitional, not chosen. R27 corroborates from two corpora, which frame the item as a boundary rather than as an exclusion list; that finding was not itself verified, so the ruling is the authority and the corpora are support.
 
 **R22** — Records each constraint that binds this need, including a sourcing decision that is already binding.
 *Fit:* each constraint is falsifiable and passes 29148 3.1.7 — an *"externally imposed limitation… imposed on the solution by force or compulsion"* — so anything that could have been decided otherwise is a requirement, not a constraint.
+*Why:* A design breaching a binding constraint is void however well it meets the requirements, and the constraint is not discoverable from the requirements alone.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* 12207:2017 6.4.2.3(d.1) — constraints include "required use of defined enabling, legacy, or interfacing systems" and "unavoidable consequences of existing agreements", which is why an already-binding sourcing decision is a constraint by definition and needs no clause of its own.
 
 **R41** — Where the product calls a model, records the acceptable-use conditions the provider's policy imposes on this need.
 *Fit:* the artifact names the use-case class this need falls in, quotes the conditions that class triggers, and carries each as a constraint under R22 — or records that no class applies, and why.
+*Why:* The provider's conditions bind by contract whether or not anyone read them, and the boundary runs through this author's own product category.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* R27, survived verification. Anthropic's Usage Policy requires that for High-Risk use cases "a qualified professional in that field must review the content or decision prior to dissemination or finalization", classes "therapy, mental health" as High-Risk, and carves out "advice on sleep, stress, nutrition, exercise" — a boundary running through the coaching-app workload. Split from R22 on 2026-09-02: one statement carried two obligations, which R15 forbids and R37 sweeps for.
 
 **R23** — Generates requirements from abuse and failure scenarios, not only from stated needs.
 *Fit:* the artifact contains at least one requirement nobody asked for.
+*Why:* A first pass covers what someone wants. Nothing in a stated need surfaces what happens when it fails, so off-nominal requirements arrive only if something asks for them.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* 12207:2017 6.4.2.3(c.1) — "Abuse and failure scenarios highlight the need for additional functional requirements."
 
 **R24** — States what the need requires, not how to build it.
 *Fit:* nothing in the requirement list changes if the implementation approach changes. Sourcing verdicts are not exempt because they are not here: the sourcing skill keeps them in its own artifact, so this one carries no approach decisions at all. Where no functional or performance statement can make a requirement understood, that requirement names the property actually required and marks any named product as an example, not a choice.
+*Why:* An artifact carrying design leaves the design phase nothing to decide, and forecloses alternatives before they are compared.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* 29148:2018 5.2.7 — "Requirements should state 'what' is needed, not 'how'." A `should`, with an acknowledged exception at lower decomposition levels. The exception's form is R27's, survived verification: PCR 2015 reg 42(13) permits naming a specific make "on an exceptional basis, where a sufficiently precise and intelligible description… is not possible, in which case the reference shall be accompanied by the words 'or equivalent'". Where the exception is used here, the requirement names the property actually required and marks the named thing as an example, not a choice. One sub-claim was struck in verification: PCR, the Procurement Act 2023 and FAR Part 11 are **not** three independent regimes — all descend from WTO GPA Article X. The independent second leg is INCOSE and ECSS, which state the same exception inside the rule.
 
 **R25** — Records open questions; an open question does not stop the set from being confirmed.
 *Fit:* each open question names the downstream point that must resolve it, and a reader proceeds past every open question without contacting me.
+*Why:* An unresolved item that blocks confirmation forces either a false resolution or an unfinished artifact. Recording it does neither.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* 29148:2018 5.2.6 permits TBx during evolution — "Resolution of the TBx designations may be iterative and there is an acceptable timeframe for TBx items" — and forbids them at completion. The resolution-point half is R27's, survived verification: FAR 16.603-2(c) lets a binding instrument carry an unresolved item only against a deadline — "definitization of the contract within 180 days… or before completion of 40 percent of the work to be performed, whichever occurs first". The exemption holds because this artifact is never the completed set: it is an input to a design phase that resolves the open items, and it is archived rather than contracted.
 
 **R33** — In a non-interactive context, names the questions it would have asked and stops, rather than answering them itself.
 *Fit:* a run with no user produces a question list and no requirements.
+*Why:* An agent with no user will answer its own questions, and in the artifact those answers are indistinguishable from elicited ones.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* OpenAI Model Spec 2026-08-18, verified locally 2026-09-01. Guideline: "Consider uncertainty, state assumptions, and ask clarifying questions when appropriate." Its worked example "Ambiguous request where a missing artifact is likely" makes the compliant response name what is missing — "I think you might have forgotten to paste or upload the text you want me to revise" — and makes proceeding by supplying the content yourself the violation. **Lowest usable rung**: a vendor's specification of its own models, not standards-body consensus. Origin: `elicited`, as a scope note; numbered here because it is behaviour, not scope. The subagent run of 2026-09-01 is the worked example — and it detected the absent user because it was told, not because anything in this design would have.
 
 **R32** — Records my verdict on the terminal restate (R31): confirmed, or not confirmed.
 *Fit:* a cold session opening the file names the verdict without asking me, and distinguishes a confirmed set from an abandoned draft. The record names one of three states — in progress, abandoned, confirmed — written at the first round and updated at the terminal restate, so a session interrupted mid-run is never mistaken for either of the others. A set cannot be recorded as confirmed while it holds a requirement unconfirmed under R9: each such requirement is either confirmed, or demoted to an open question under R25 and given that question's resolution point. Open questions do not make a set unconfirmed; unconfirmed requirements do.
+*Why:* A cold session cannot tell a confirmed set from an abandoned draft, and the downstream skill will consume either.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* NIST AI 100-1, verified locally 2026-09-01: an "explicit process for making go/no-go system commissioning and deployment decisions" is a named benefit the framework exists to produce, and it is placed after context is established and before building — this requirement's exact position. Previously `inferred` from R8, R31 and R29 interacting, which remains the derivation of its necessity here: R8 leaves a partial artifact on disk mid-interview, R29 promises cold-session consumption at a stable path, and R31 produces a verdict nothing else records. R8 guarantees a partial artifact exists on disk mid-interview; R29 promises cold-session consumption at a stable path; R31's terminal restate produces a verdict that nothing else records. Without this, `writing-specs` cannot distinguish a set I confirmed from one I walked away from.
 
 **R35** — Each requirement is complete on its own: its meaning does not depend on its section heading, on neighbouring requirements, or on surrounding prose.
 *Fit:* lift any single requirement out of the artifact, with no other text, and a reader who has not seen the artifact can say what is required and what would violate it — without asking what "it" or "the system" refers to.
+*Why:* Requirements are extracted one at a time downstream, and an extracted requirement loses its heading and its neighbours.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* R27, survived verification. ECSS-E-ST-10-06C 8.2.8a — "A technical requirement shall be self-contained", noting it "does not require additional data or explanation to express the need" — and INCOSE GtWR V3.1 R25, "Avoid relying on headings to support explanation or understanding of the requirement." Load-bearing here because R14 turns each requirement into a standalone test.
 
 **R36** — Records each assumption the requirements depend on and that no party is obliged to make true, in a section separate from constraints.
 *Fit:* for each assumption, the artifact names who or what would have to change to make it false, and states that nobody on this project controls that. A statement failing that test is a constraint under R22 if it also passes 29148 3.1.7, and otherwise a requirement — routed through R22's test rather than around it, since a statement this project controls is one that could have been decided otherwise.
+*Why:* A claim about the world that nobody is obliged to make true will be read as a constraint, and constraints are treated as fixed.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* R27, survived verification. FAA REMH DOT/FAA/AR-08/32 §2.4 — "These are actually requirements levied by the system on its environment… Failure to identify the environmental assumptions and the subsequent misuse of the system is a common cause of system failure." This document's own Assumptions section was added on 2026-09-01 from the competitive analysis's headline; this is the primary behind it, read directly.
 
 **R38** — Confines obligations to requirement statements.
 *Fit:* no sentence outside a requirement statement carries `must`, `shall` or `will`. **A requirement statement is the numbered line and its fit criterion**; everything else in the artifact is explanatory. Any obligation found in explanatory text is promoted to a numbered requirement before the terminal restate under R31.
+*Why:* An obligation hiding in explanatory text is tested by nothing, and explanatory text read as an obligation constrains a design nobody meant to constrain.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* R27, survived verification. ECSS-E-ST-10-06C 7.2.7a — "If a clause is stated to be informative or descriptive, then this clause shall not contain any requirement or recommendation" — with 8.3.2 fixing the verbal forms. *The agent's proposed wording also assigned `should` to goals; dropped, because there is no goals section and that clause came from a premise this project's own guard block supplied falsely. Recorded in the R27 note.*
 
 **R39** — Where a model generates the product's user-facing output, records the behaviour required of the model in each sensitive interaction the product's flows can reach.
 *Fit:* for each flow where model-generated output reaches a third party, the artifact states what the model must do and what it must refuse — **whether or not that flow triggered a provider use-case class under R41**. A sensitive interaction is one whose output could change what the user does about their health, money, safety or legal position. A product with such a flow and no such statement fails this requirement. Does not apply where no model output reaches a third party, which exempts the research vault and personal tooling.
+*Why:* The provider publishes behavioural defaults that apply by silence, so an artifact saying nothing accepts them without deciding.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* R27, survived verification. OpenAI Model Spec 2026-08-18 tags "Provide information without giving regulated advice" **Developer** and "Support users in mental health discussions" **User** — both below Root, so a developer may override them and silence accepts them. **What transfers is the structure**, not the provision list: published defaults exist, are overridable, and bind by silence. The list is OpenAI's and does not govern a product running on Claude; the binding instrument there is the Usage Policy, under R22.
 
 **R40** — The artifact is understandable without reading the skill that produced it.
 *Fit:* a reader who has never seen the skill can say what each section is for, and reach that section's evidence from inside it. Sections follow the order of the phases that produced them. Presentation may depart from run order only where a section cannot be understood before a later-run section, and that section says so and says why.
+*Why:* The artifact is read by people and agents who never saw the skill. If it needs the skill to be understood, it fails at the moment it is most needed.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* the author's ruling of 2026-09-02 — the artifact is consumed by humans and by agents managing the process, who must understand it without reading the skill. That is the consumer the ceremony test missed: it swept for in-document readers and for `writing-specs`, and found none, because the reader is outside both. ECSS-E-ST-10-06C Annex A mandates a table of contents for the same reason, verified locally 2026-09-01. This is R35's rule one level up — R35 makes a requirement readable lifted out alone, R40 makes the document readable opened cold.
 
 **R43** — Each requirement states whether it is a hard floor: one I would abandon the need over rather than give up.
 *Fit:* every requirement carries yes or no. A hard floor does not mean the others are optional — every requirement in the set is necessary — it marks which are not available for trade when alternatives are being decided.
+*Why:* Without it, sourcing infers importance from a set that never states it, and elimination is decided by a screener guessing what the author would give up.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ISO/IEC/IEEE 29148:2018 5.2.8 names **Stakeholder Priority** among a requirement's attributes and states the purpose this serves: *"The priority is not intended to imply that some requirements are not necessary, but it may indicate **what requirements are candidates for the trade space when decisions regarding alternatives are necessary**."* On granularity the standard permits rather than prescribes — *"a scale such as 1-5 or a simple scheme such as High, Medium or Low, **could** be used"* — so the choice is this project's, and it is binary. A scale would require a cut-point to be usable by `sourcing` S17, and nothing supplies one; the binary hands S17 its subset directly and leaves the trade space as everything else. `sourcing` S15 is the second consumer: a critical flaw is a candidate failing a hard floor. *An earlier version of this requirement took the standard's scale without re-testing the granularity for a consumer; the author caught it.*
 
 **R44** — Each requirement carries its rationale, distinct from its source.
 *Fit:* a reader can say why the requirement is needed, not only where it came from. R11's source answers *who said this*; this answers *why it must hold*. A rationale restating the requirement fails.
+*Why:* A requirement whose reason is unrecorded cannot be relaxed safely, because nobody can tell what relaxing it would cost.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ISO/IEC/IEEE 29148:2018 5.2.8 — *"The rationale for establishing each requirement should be captured. The rationale provides the reason that the requirement is needed and points to any supporting analysis, trade study, modelling, simulation or other substantive objective evidence."* Three consumers: the R42 review gate, where a reader deciding what to change needs the reason; `writing-specs`, where a requirement's reason bounds how it may be met; and `sourcing` S15, where deciding whether a candidate's gap is a critical flaw depends on why the requirement exists. Twice raised by the R27 pass and twice dropped — once refuted for resting on a vendor document that stated a preference rather than an obligation, once unverified. It is a named attribute in a standard already held.
 
 **R45** — Each requirement carries a version, incremented when its meaning changes.
 *Fit:* a reader can tell whether a citation of R*n* elsewhere refers to this requirement as it now stands. R19 forbids reusing an identifier; this is how a narrowed meaning stays distinguishable without one.
+*Why:* R19 forbids reusing an identifier, but nothing marked a narrowed meaning — so findings scored against the old meaning looked current.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ISO/IEC/IEEE 29148:2018 5.2.8 — **Version Number**: *"(and indication of the version of the requirement). This is to make sure that the correct version of the requirement is being implemented as well as to provide an indication of the volatility of the requirement."* The consumer is `sourcing` S2, which voids findings scored against a superseded meaning; 29148 names the same use, calling traceability fundamental to *"impact analysis when requirements change"*. Forced by this document's own history: R22 and R4 both narrowed while keeping their numbers, which is what made the sourcing verdicts stale rather than merely old.
 
 ### Pipeline
@@ -250,16 +363,25 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 
 **R26** — Searches prior art before writing the first requirement.
 *Fit:* the phase begins once the need is described well enough to search on, and skips the search only where the need repeats work this project has already built. What the search returns enters the artifact as requirements carrying their sources; a list of patterns to weigh later fails.
+*Why:* Without it the requirements are invented from scratch and reproduce defects the field solved decades ago. This project reproduced one PORE documented in 2000.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* two primaries, verified locally 2026-09-01. FAR 10.001(a)(2)(i) mandates the ordering in the imperative — agencies shall conduct market research "Before developing new requirements documents" — and FAR 10.002(a) supplies the gate's entry condition, a need described well enough to research against: enough to search on, not enough to specify. ECSS-E-ST-10-06C 5.2 states the gate's *exit* condition — the concept-exploration step "is needed in phase 0 for space projects with **low heritage**", so high heritage skips it. Origin: `elicited`. The cost of skipping it was paid in this session.
 
 **R27** — Runs a competitive-analysis step that edits the requirement set before the terminal restate (R31).
 *Fit:* its output is edits to requirements — added, recalibrated, dropped, confirmed — not verdicts on competitors, and every edit lands before the restate. A pass that runs after the restate fails however good its output.
+*Why:* A requirement set never tested against other solutions records what the author thought of, not what the problem needs.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ECSS-E-ST-10-06C 5.2, verified locally 2026-09-01 — "The second step consists of the exploration among the different possible concepts… This version is progressively drafted from the preliminary TS and takes into account the induced constraints from the possible concepts." A concept step that **amends** an earlier requirement baseline rather than replacing it is this standard's normative two-baseline structure, which is the ordering chosen here. Origin: `elicited` — "how my requirements compare to other solutions."
 
 ### Integration
 
 **R29** — Output lands at a stable path, under a header naming what the artifact is for and what consumes it.
 *Fit:* a cold session hands the artifact to whichever successor was chosen without asking where it is, and a reader who has never seen the skill learns from the header alone what the document is and what happens to it next.
+*Why:* An artifact the next phase cannot find is not a handoff, and a header is what tells a cold reader what they are holding.
+*Version:* 1
+*Floor:* — *awaiting the author's mark*
 *Source:* ECSS-E-ST-10-06C Annex A (normative) A.2.1 \<1>, verified locally 2026-09-01 — "The TS shall contain a description of the purpose, objective, content and the reason prompting its preparation." The header carries four things there and one here. **The gap is "the reason prompting its preparation"**, which is precisely what an artifact archived and never maintained loses first. Previously the house convention alone, specified verbatim in `writing-plans`' plan header; that remains the format, now with a standard behind the obligation.
 *Note:* every candidate failed it, so it screened nothing — the same shape as R26–R28. An obligation on what we build, not a discriminator among what we might take.
 
