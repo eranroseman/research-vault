@@ -7,6 +7,7 @@ here; the stamp converges them at chokepoints.
 """
 
 import os
+import re
 from pathlib import Path
 
 from . import frontmatter
@@ -78,8 +79,90 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
                 f"schema-violation — type {okf_type!r} but folder derives {derived!r}",
             )
         ]
-    return [
-        Outcome(
-            "okf-frontmatter", _repo_path(relative), Result.MATCHED, "matched"
+    return [Outcome("okf-frontmatter", _repo_path(relative), Result.MATCHED, "matched")]
+
+
+_DATE_HEADING = re.compile(r"## (\d{4}-\d{2}-\d{2})\s*$")
+
+
+def _log_shape_problems(text: str) -> list[str]:
+    """§9 log shape: only ``## YYYY-MM-DD`` second-level headings, newest first."""
+    try:
+        _data, body = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        # frontmatter on log.md is legal but optional (§8 names index.md only)
+        body = text
+    dates = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            match = _DATE_HEADING.match(line)
+            if not match:
+                return [f"non-date second-level heading {line!r}"]
+            dates.append(match.group(1))
+    if dates != sorted(dates, reverse=True):
+        return ["day headings not newest first"]
+    return []
+
+
+def check_reserved(vault_root) -> list[Outcome]:
+    """§11 rule 3: index.md per §8/§12, log.md per §9, at any depth."""
+    vault = Path(vault_root)
+    problems: list[tuple[str, str]] = []
+    for path in sorted(vault.rglob("*.md")):
+        if ".git" in path.parts:
+            continue
+        relative = path.relative_to(vault).as_posix()
+        if path.name == "index.md":
+            try:
+                data, _body = frontmatter.parse(path.read_text())
+            except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
+                problems.append((relative, f"unreadable ({error})"))
+                continue
+            if relative == "index.md":
+                extra = sorted(set(data) - {"okf_version"})
+                if extra:
+                    problems.append(
+                        (
+                            relative,
+                            f"root index carries keys beyond okf_version: {extra}",
+                        )
+                    )
+                if not str(data.get("okf_version", "")).strip():
+                    problems.append((relative, "missing okf_version"))
+            elif data:
+                problems.append((relative, "nested index.md must be frontmatter-free"))
+        elif path.name == "log.md":
+            try:
+                text = path.read_text()
+            except (OSError, UnicodeError) as error:
+                problems.append((relative, f"unreadable ({error})"))
+                continue
+            problems.extend((relative, p) for p in _log_shape_problems(text))
+    if problems:
+        return [
+            Outcome(
+                "okf-structure",
+                _repo_path(relative),
+                Result.UNMATCHED,
+                f"schema-violation — {detail}",
+            )
+            for relative, detail in problems
+        ]
+    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]
+
+
+def check_tree(vault_root) -> Outcome:
+    """Vault-wide directory scaffolding attestation (verify-side; see scaffold.doctor).
+
+    Doctor keeps a separate `tree` probe for repair-at-setup; this is a
+    different job — verify-side attestation only, no repair.
+    """
+    from . import scaffold
+
+    vault = Path(vault_root)
+    missing = [d for d in scaffold.VAULT_DIRS if not (vault / d).is_dir()]
+    if missing:
+        return Outcome(
+            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"
         )
-    ]
+    return Outcome("tree", "vault", Result.MATCHED, "matched")

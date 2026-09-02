@@ -54,3 +54,51 @@ def test_check_passes_conformant_and_underived_notes(tmp_path):
 def test_check_skips_fleeting_notes(tmp_path):
     path = _write(tmp_path, "inbox/half-thought.md", "just an idea\n")
     assert structure.check_note_frontmatter(tmp_path, path) == []
+
+
+def _scaffold_min(tmp_path):
+    for d in ("literatures", "synthesis", "projects", "log", "inbox", "system"):
+        (tmp_path / d).mkdir(parents=True, exist_ok=True)
+    _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Vault index\n')
+
+
+def test_reserved_root_index_carries_only_okf_version(tmp_path):
+    _scaffold_min(tmp_path)
+    assert all(o.result is Result.MATCHED for o in structure.check_reserved(tmp_path))
+    _write(tmp_path, "index.md", '---\ntype: "index"\nokf_version: "0.2"\n---\n# V\n')
+    problems = [
+        o for o in structure.check_reserved(tmp_path) if o.result is Result.UNMATCHED
+    ]
+    assert problems
+    assert "okf_version" in problems[0].reason
+
+
+def test_reserved_nested_index_must_be_frontmatter_free(tmp_path):
+    _scaffold_min(tmp_path)
+    _write(tmp_path, "synthesis/index.md", '---\ntype: "index"\n---\n# S\n')
+    problems = [
+        o for o in structure.check_reserved(tmp_path) if o.result is Result.UNMATCHED
+    ]
+    assert problems
+    assert "synthesis/index.md" in problems[0].target
+
+
+def test_reserved_log_must_be_date_grouped_newest_first(tmp_path):
+    _scaffold_min(tmp_path)
+    _write(
+        tmp_path,
+        "log.md",
+        '---\ntype: "log"\n---\n# Log\n\n## 2026-08-20\n- x\n\n## 2026-08-21\n- y\n',
+    )
+    problems = [
+        o for o in structure.check_reserved(tmp_path) if o.result is Result.UNMATCHED
+    ]
+    assert problems
+    assert "newest first" in problems[0].reason
+
+
+def test_tree_check(tmp_path):
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    assert structure.check_tree(tmp_path).result is Result.MATCHED
