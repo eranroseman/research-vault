@@ -388,12 +388,12 @@ of a bundle.
 
 That leaves exactly one genuine residual: per-claim attribution renders as pandoc
 `[@citekey, locator]` rather than a `[^citekey]` footnote. Once `sources` is adopted with
-`id: <citekey>` (Tier 4), even this closes in substance, because §5.1 specifies the resolution
-path itself: "The footnote label is the join key into `sources`; consumers resolve attribution
-through the matching entry, not by parsing the footnote prose." A consumer following that
-instruction reaches the same entry from either rendering. The class-1 cost is real and stays
-recorded — it is a rendering mismatch with a toolchain the vault does not control — but it is
-not a semantic gap.
+`id: <citekey>` (Tier 4), the *source* half closes in substance, because §5.1 specifies the
+resolution path itself: "The footnote label is the join key into `sources`; consumers resolve
+attribution through the matching entry, not by parsing the footnote prose." A consumer
+following that instruction reaches the same entry from either rendering. The *pinpoint* half
+does not close, and cannot: OKF v0.2 has no locator concept anywhere. §9 decomposes the
+residual and gives the ways to close each half.
 
 ### 8.2 The proposed replacement text
 
@@ -503,3 +503,145 @@ structural rules start imposing real costs on the vault's own tools.
 
 The `Status` line keeps the original acceptance date: the decision is unchanged and only the
 mechanism's statement is corrected, which is the severability this ADR has always claimed.
+
+## 9. Closing the residual
+
+### 9.1 It is two gaps, not one, and they have different owners
+
+Per-claim attribution differs from §5.1 in two independent ways.
+
+**The marker gap is ours.** OKF joins a claim to a source with an inline `[^id]` footnote whose
+label is a `sources[].id`; the vault joins it with an inline `[@citekey]` whose label is the
+citekey. Same shape, same join, different token. This one is closeable by us.
+
+**The locator gap is OKF's.** `[@citekey, p. 12]` carries a pinpoint that parses losslessly to
+CSL `locator` + `label`. OKF v0.2 has no locator, pinpoint, or page concept anywhere — the
+strings do not appear in `SPEC.md`. Worse, §5.1's own resolution model forecloses the obvious
+workaround: putting the pinpoint in the footnote's prose (`[^smith2020]: Smith 2020, p. 12`)
+leaves it exactly where §5.1 tells consumers not to look, since they "resolve attribution
+through the matching entry, not by parsing the footnote prose". Moving it into the label
+(`[^smith2020-p12]`) would mint a per-pinpoint source id, which is the second identity
+[ADR 0004](../adr/0004-citekey-is-the-only-identity.md) exists to forbid. So a perfect §5.1
+projection still loses the pinpoint. Nothing the vault does closes this.
+
+One approach is ruled out empirically before the alternatives start. **Dual-emission in the
+living vault does not work**: `[@smith2020, p. 12][^smith2020]` renders through
+`pandoc --citeproc` as `[Smith (2020), p. 12][1]` with a matching footnote — reader-visible
+duplicate attribution in every rendered manuscript. A definitions-only block without inline
+markers fares no better: pandoc drops it and warns `Note with key 'smith2020' defined ... but
+not used`, and Obsidian shows an orphan.
+
+### 9.2 The one argument worth making first
+
+Before proposing to close the marker gap, it is worth being clear that the vault's form is not
+a weaker rendering of §5.1's — under the vault's own rules it is a stronger one.
+
+`skills/evidence-conventions/SKILL.md` states the constraint the claim grammar is built around:
+claims get copied between notes, and "whatever is not on the line does not travel with it, so
+attribution held in frontmatter survives exactly one hop". An OKF `sources[].id` is scoped to
+one document's frontmatter, so a claim carrying `[^rev-policy]` into a second document arrives
+pointing at nothing. A citekey resolves globally, in every document, forever.
+
+§5.1's own rationale is the same principle one step short: labels are keyed rather than
+positional "because agents constantly rewrite these documents: a positional index misattributes
+silently the moment the list is reordered, whereas a stable `id` survives reordering". The
+vault applied that reasoning to the next failure mode — agents *copy* as well as reorder — and
+reached a globally stable key. That is adherence to §5.1's principle past the point §5.1 itself
+takes it, which is the case any proposal below should make rather than apologize for.
+
+### 9.3 Alternative A — adopt `sources`, record the rendering (the floor)
+
+Already Tier 4. Machine-write `sources: [{id: <citekey>, resource: <doi-url>, title: …}]` on
+every note from data the importer already holds, leave prose untouched, and record the
+rendering difference as one class-1 row in `docs/terminology.md` §3.
+
+- **Closes:** the source half of the marker gap. A cold consumer resolving per §5.1 reaches
+  the right entry.
+- **Leaves open:** the literal `[^…]` token, and the locator.
+- **Cost:** near zero. No prose changes, no toolchain risk, no new machinery.
+- **Verdict:** do this regardless of what else is chosen. It is the precondition for B and the
+  evidence for G.
+
+### 9.4 Alternative B — project a conformant bundle at the publish boundary
+
+`mark-published` already runs a closed gate, commits, and tags. Add a projection step that
+renders the published project and the literature notes it cites into an OKF bundle: rewrite
+`[@citekey, locator]` to `[^citekey]`, emit the matching `sources` entries, convert wikilinks
+to relative markdown links, and drop Dataview fields into frontmatter or prose. The check id
+`render` is already reserved for exactly this seam
+(`research_vault/__main__.py:290`, `inbox.py:77`) and is unimplemented.
+
+**Pre-empting the obvious objection.** ADR 0001 already rejected an option by this name:
+"**Export-boundary-only projection** — emit a conformant bundle only when publishing (rejected:
+insures published output, not the living vault)." That rejection stands and this is not that
+proposal. It was rejected *as the survivability mechanism*, in place of conformance in the
+living vault. Here the living vault is already conformant by Tiers 0–4, and the projection adds
+a second, stricter rendering on the artifact that leaves the vault. The rejected option was a
+substitute; this is a superset.
+
+- **Closes:** the marker gap completely, on the artifact a stranger actually receives.
+- **Leaves open:** the locator, which no projection can carry (§9.1).
+- **Cost:** real. A renderer, a fidelity check that the projection preserves every claim's
+  attribution, and a decision about where the bundle lands (a `published/` tag payload, a
+  sibling directory, a release artifact). This is the largest single item in the report.
+- **Verdict:** the right answer once the `render` seam is built. Not worth building the seam
+  *for* this alone.
+
+### 9.5 Alternative G — close the locator gap upstream, in OKF
+
+The locator gap is a defect in a young spec, not a deviation by the vault, and OKF is actively
+maintained — `SPEC.md`'s only commit since adoption is a substantive normative change merged
+four days before this audit. Filing it is cheap, and it is the one path to a literal 100%.
+
+Draft issue text, lead with the demonstrable defect rather than an adoption claim:
+
+> **§5.1 has no way to attribute a claim to a *place* in a source.** A concept can say a claim
+> came from `sources[].id = rev-policy`, but not that it came from page 12 of it. For
+> scholarly and legal corpora the pinpoint is the attribution — "Smith 2020" and "Smith 2020,
+> p. 12" are different claims about where the evidence sits, and a reader cannot check the
+> second from the first. The workarounds §5.1 leaves open both fail: a pinpoint in the
+> footnote prose lands where the spec tells consumers not to look ("consumers resolve
+> attribution through the matching entry, not by parsing the footnote prose"), and a pinpoint
+> in the label mints a new `sources` id per citation, which defeats the stable-key rationale
+> the same paragraph gives. Suggested minimal addition, additive under §12: allow a footnote
+> label of the form `<sources-id>@<locator>`, or admit an optional per-reference
+> `{ id, locator, label }` form, with `label` drawn from the CSL locator vocabulary that
+> existing scholarly tooling already emits.
+
+- **Closes:** the locator gap — the only mechanism that can.
+- **Cost:** filing is minutes; acceptance is outside our control and unbounded in latency.
+- **Verdict:** file it and cite the issue in the deviation row. An open upstream issue is a
+  materially different record from an unexplained deviation: it says the gap is in the standard
+  and is being worked, which is what tracking a young spec is supposed to look like.
+
+### 9.6 Alternative D — switch to note-style citation (considered, rejected)
+
+CSL has note styles; with one, `pandoc --citeproc` puts every citation in a footnote by
+itself, and the claim line's citation would render as the footnote OKF asks for, locator
+included, with no dual-emission.
+
+Rejected: it forces a citation style on the researcher's manuscripts to satisfy a metadata
+format. This vault's field is health research — PRISMA, GRADE, Cochrane are its method
+vocabulary (`docs/terminology.md` §2 T4) — and that literature is author-date nearly without
+exception. Trading the output style of every manuscript for conformance in the vault inverts
+[ADR 0001](../adr/0001-vault-outlives-its-tools.md)'s premise that the vault serves the
+researcher and the tooling serves the vault. Worth naming so the option is visibly priced
+rather than unconsidered.
+
+### 9.7 Recommendation
+
+They compose; this is not a choice among three.
+
+| When | Do | Why |
+| --- | --- | --- |
+| Now | **A** — adopt `sources` | Already Tier 4. Closes the source half of the marker gap and is the precondition for everything else. |
+| Now, in parallel | **G** — file the locator issue upstream | Minutes of work, and it converts the residual from "we deviate" into "the standard has a gap, tracked". |
+| When `render` exists | **B** — project a conformant bundle at publish | Closes the marker gap on the artifact that leaves the vault. |
+| Never | **D** — note-style citation | Priced and declined. |
+
+With A and G done, the recorded deviation reads honestly and completely: the vault joins claims
+to sources by a globally stable key rather than a document-scoped one, which strengthens
+§5.1's stated rationale rather than declining it; the rendering difference is a class-1
+toolchain mismatch; and the pinpoint gap is upstream issue `<n>`, not a vault decision. That is
+the most a correct answer can claim before either B lands or OKF moves — and either one of
+those brings it to literal 100%.
