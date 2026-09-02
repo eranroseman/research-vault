@@ -175,6 +175,66 @@ Where a hypothesis must precede an answer, Willis names **single-possibility pro
 
 ______________________________________________________________________
 
+## Sources added 2026-09-01, to anchor requirements that had none
+
+Ten requirements carried `elicited`, `assumed`, `inferred` or a house convention as their whole derivation. This section is the evidence found for them. **Every quote below was verified by downloading the primary and string-matching it locally** — not taken from an agent's report. Two apparent mismatches in the NIST text were the PDF's own line-break hyphens (`deci- sions`, `docu- mented`), not misquotation.
+
+### FAR Part 10 — market research (acquisition.gov, FAC 2026-01)
+
+> **10.002(a):** *"Acquisitions begin with a description of the Government's needs stated in terms sufficient to allow conduct of market research."*
+
+> **10.001(a)(2)(i):** Agencies shall *"Conduct market research appropriate to the circumstances— (i) Before developing new requirements documents for an acquisition by that agency"*.
+
+> **10.002(b)(1):** *"The extent of market research will vary, depending on such factors as urgency, estimated dollar value, complexity, and past experience."*
+
+Three requirements anchor here. **R1** — a need arrives as a rough description, and that rough description is the legitimate entry state, not a defect. **R26** — the prior-art step runs *before* the requirements document, in the imperative, and 10.002(a) supplies the gate's entry condition: enough to search on, not enough to specify. **R3** — the class is not recorded as a bare fact; it is the input that scales how much process runs.
+
+### FAA Requirements Engineering Management Handbook, DOT/FAA/AR-08/32 (June 2009)
+
+> **2.11.7:** *"Rationale should be collected along with the development of the requirement or assumption it is explaining. This ensures that the justification is captured by the author while he or she is thinking about it… it is much simpler to record the rationale when the latency was being computed than to try to re-engineer the reasoning later."*
+
+**R8** — writing each requirement as its answer settles rather than in one pass at the end. The reason given is about the author's attention, not about process convenience, which is the same reason the requirement exists here.
+
+### ECSS-E-ST-10-06C (6 March 2009)
+
+> **5.2:** *"The process to establish the technical requirements specification during Phase 0 of a project starts with the identification and evaluation of the different possible concepts… This step is needed in phase 0 for space projects with **low heritage**."*
+
+> **5.2:** *"The second step consists of the exploration among the different possible concepts… This version is progressively drafted from the preliminary TS and takes into account the induced constraints from the possible concepts."*
+
+> **Annex A (normative), A.2.1 \<1>:** *"The TS shall contain a description of the purpose, objective, content and the reason prompting its preparation."*
+
+Three requirements. **R26's gate** has a stated condition — low heritage, run it; high heritage, skip — which is a gate condition rather than an assertion that a gate exists. **R27** — a concept-exploration step that *amends* an earlier requirement baseline rather than replacing it is the normative two-baseline structure here, so the ordering chosen is not unusual. **R29** — the header carries four things, and the one this project lacks is *the reason prompting its preparation*, which is exactly what an archived-and-never-maintained artifact loses first. **R40** — Annex A is a normative mandated table of contents, which is the same claim as "sections follow the phases", made by a standards body.
+
+### INCOSE Guide for Writing Requirements V3.1 (115 pp., verified locally)
+
+> **R29 /Uniqueness/Classify:** *"Classify needs and requirements according to the aspects of the problem or system it addresses."* Elaboration: classification helps *"identify potential duplications and conflicts"* and *"assist in identifying what needs or requirements may be missing"*.
+
+**R3**, second leg. INCOSE classifies per requirement and treats classification as a **search device for completeness**, where R3 uses one class for the whole need as a routing label. The stronger form is available and R3 does not yet take it.
+
+### NIST AI RMF 1.0, NIST AI 100-1
+
+> *"Framework users are expected to benefit from: … explicit processes for making **go/no-go** system commissioning and deployment decisions"*.
+
+> *"After completing the MAP function, Framework users should have sufficient contextual knowledge about AI system impacts to inform an initial go/no-go decision about whether to design, develop, or deploy an AI system."*
+
+> **MAP 1.1:** *"Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented."*
+
+**R32** — recording whether the gate passed is a named process outcome, positioned after context and class are established and before building. **R3**, third leg — documenting intended purpose and setting is placed *before* the go/no-go, which is where R3 sits.
+
+### OpenAI Model Spec, 2026-08-18
+
+> Guideline: *"Consider uncertainty, state assumptions, and ask clarifying questions when appropriate."*
+
+> Worked example, *"Ambiguous request where a missing artifact is likely"*. **Compliant:** *"I think you might have forgotten to paste or upload the text you want me to revise (or the upload may have failed). Could you share it?"* — annotated *"Asks the smallest disambiguating question and stays helpful"*. **Violation:** the assistant proceeds by interpreting the request itself as the missing content.
+
+**R33** — when the required input is absent, name what is missing and stop, rather than supplying it yourself. This is the closest published anchor found; it is a vendor's specification of its own models rather than a standards-body consensus, and it sits accordingly low on the ladder.
+
+### R7 has no prior art and does not need any
+
+**R7** places no cap on question count. Its evidence is a **null result** from the competitive-analysis pass: no practice surveyed caps the number of questions, and every one caps something adjacent instead — learning goals per person-type, session length, question density. A null result across a surveyed corpus is evidence, and it is competitive-analysis evidence rather than prior art. Searching both standards for any cap on elicitation effort returned nothing, which is consistent.
+
+______________________________________________________________________
+
 ## Unanchored
 
 Named rather than stretched onto a near-miss, per the method's own rule.

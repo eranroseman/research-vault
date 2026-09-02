@@ -77,7 +77,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R1** — Accepts a need arriving unframed in conversation.
 *Fit:* a bare sentence with no user, no success criterion and no constraint produces a first turn, not an error.
-*Source:* `elicited` — "the usual route is chat → spec → plan".
+*Source:* FAR 10.002(a), FAC 2026-01 — "Acquisitions begin with a description of the Government's needs stated in terms sufficient to allow conduct of market research." A rough description is the legitimate entry state, not a defect. Verified locally 2026-09-01. Previously `elicited` — "the usual route is chat → spec → plan" — which is still the origin, now with a primary behind it.
 
 **R2** — Declines when there is no real question, the effort is small, or the approach is already chosen.
 *Fit:* three questions, each answerable no; any no aborts with one sentence naming how to invoke it deliberately.
@@ -101,12 +101,12 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R7** — Places no cap on the number of questions or clarification markers.
 *Fit:* no number bounds questioning anywhere in the skill.
-*Source:* `elicited` — "I prefer agents interviewing me all day long if that is what is needed to get the job right." Null result: no practice surveyed caps question count.
+*Source:* a **null result** from the competitive-analysis pass, which is evidence rather than an absence of it: no practice surveyed caps question count, and every one caps something adjacent instead — learning goals per person-type, session length, question density. Searching 29148 and 12207 for any cap on elicitation effort returned nothing, consistent with that. Competitive-analysis derived, not prior art; no prior art exists to derive it from. The author's position — "I prefer agents interviewing me all day long if that is what is needed to get the job right" — is the origin.
 *Note:* drove no rejection in the sourcing screen except jointly with R1. May be describing the field rather than screening it.
 
 **R8** — Writes each requirement as its answer settles, not in one pass at the end.
 *Fit:* a requirement exists in the artifact before the interview ends.
-*Source:* `elicited` — "interview user for why and what, write requirement, verify, repeat until done."
+*Source:* FAA REMH DOT/FAA/AR-08/32 §2.11.7, verified locally 2026-09-01 — "Rationale should be collected along with the development of the requirement… This ensures that the justification is captured by the author while he or she is thinking about it… it is much simpler to record the rationale when the latency was being computed than to try to re-engineer the reasoning later." The reason given is the author's attention, which is this requirement's reason too. Origin: `elicited` — "interview user for why and what, write requirement, verify, repeat until done."
 
 **R9** — Confirms each requirement when it is written.
 *Fit:* no requirement enters the artifact unconfirmed.
@@ -114,7 +114,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R31** — Restates the accumulated set before terminating.
 *Fit:* the final restate covers every requirement written, not only those settled last.
-*Source:* as R9. Split out from it — continuous confirmation and a terminal restate are two obligations, and a skill could satisfy either alone.
+*Source:* ECSS-E-ST-10-06C 5.2, verified locally 2026-09-01 — "The customer assesses the entire set of technical requirements for correctness, consistency and suitability for the intended use." The task appears **twice**, as F1.3 and again as F1.9, each immediately before a release task, so a whole-set assessment before terminating is a distinct process step rather than a by-product of per-item confirmation. INCOSE GtWR V3.1 places five characteristics at set level for the same reason — C10 Complete, C11 Consistent, C12 Feasible, C13 Comprehensible, C14 Able to be Validated — properties that cannot be checked one requirement at a time. Split from R9 because continuous confirmation and a terminal restate are two obligations and a skill could satisfy either alone; that split is now backed rather than asserted.
 
 **R10** — Terminates on a confirmation signal I chose in advance and do not use conversationally.
 *Fit:* the signal is agreed before the phase runs and is distinguishable from assent — "sounds good", "sure", "looks right" and silence do not match it. No score and no count substitutes for it.
@@ -128,7 +128,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R3** — Records which workload and risk class the need belongs to, with the reason.
 *Fit:* the artifact states the class; a reader can tell a coaching-app feature from a tooling decision without reading further.
-*Source:* `assumed` — four regulatory regimes scale rigour by a declared tier and make the declaration a deliverable that never scales down. Not yet reviewed, and it drove no sourcing verdict.
+*Source:* three primaries, all verified locally 2026-09-01. NIST AI 100-1 MAP 1.1 documents "intended purposes… and prospective settings in which the AI system will be deployed" and places it before the go/no-go. FAR 10.002(b)(1) — "The extent of market research will vary, depending on such factors as urgency, estimated dollar value, complexity" — makes the class the input that scales the process, not a bare fact. INCOSE GtWR V3.1 R29 classifies *per requirement* as a completeness search device. **R3 takes the weakest of the three forms**: one class for the whole need, used as a routing label. Previously `assumed`, citing four regulatory regimes none of which was read; that claim is withdrawn and unreplaced — FDA, IEC 62304 and IMDRF were not reached.
 
 **R11** — Each requirement carries its source.
 *Fit:* no requirement traces to nothing.
@@ -193,11 +193,11 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R33** — In a non-interactive context, names the questions it would have asked and stops, rather than answering them itself.
 *Fit:* a run with no user produces a question list and no requirements.
-*Source:* `elicited`, as a scope note; numbered here because it is behaviour, not scope. The subagent run of 2026-09-01 is the worked example — and it detected the absent user because it was told, not because anything in this design would have.
+*Source:* OpenAI Model Spec 2026-08-18, verified locally 2026-09-01. Guideline: "Consider uncertainty, state assumptions, and ask clarifying questions when appropriate." Its worked example "Ambiguous request where a missing artifact is likely" makes the compliant response name what is missing — "I think you might have forgotten to paste or upload the text you want me to revise" — and makes proceeding by supplying the content yourself the violation. **Lowest usable rung**: a vendor's specification of its own models, not standards-body consensus. Origin: `elicited`, as a scope note; numbered here because it is behaviour, not scope. The subagent run of 2026-09-01 is the worked example — and it detected the absent user because it was told, not because anything in this design would have.
 
 **R32** — Records whether the confirmation gate has passed.
 *Fit:* a cold session opening the file can tell a confirmed artifact from an abandoned one without asking.
-*Source:* `inferred` — follows from R8, R10 and R29 interacting. R8 guarantees a partial artifact exists on disk mid-interview; R29 promises cold-session consumption at a stable path; R10 defines a gate whose outcome nothing currently records. Without this, `writing-specs` cannot distinguish a set I confirmed from one I walked away from.
+*Source:* NIST AI 100-1, verified locally 2026-09-01: an "explicit process for making go/no-go system commissioning and deployment decisions" is a named benefit the framework exists to produce, and it is placed after context is established and before building — this requirement's exact position. Previously `inferred` from R8, R10 and R29 interacting, which remains the derivation of its necessity here. R8 guarantees a partial artifact exists on disk mid-interview; R29 promises cold-session consumption at a stable path; R10 defines a gate whose outcome nothing currently records. Without this, `writing-specs` cannot distinguish a set I confirmed from one I walked away from.
 
 **R35** — Each requirement is complete on its own: its meaning does not depend on its section heading, on neighbouring requirements, or on surrounding prose.
 *Fit:* lift any single requirement out of the artifact, with no other text, and a reader who has not seen the artifact can say what is required and what would violate it — without asking what "it" or "the system" refers to.
@@ -217,7 +217,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R40** — The artifact's sections follow the order of the phases that produced them, and each carries or links the evidence that phase produced.
 *Fit:* a reader can name which phase produced each section and reach that phase's evidence from inside it, without an index. A section for a phase that never ran does not appear. Where an output depends on a phase that ran after it — the requirement set is the post-competitive-analysis one — presentation order differs from run order and the section says so.
-*Source:* the author's rulings of 2026-09-01: "the docs sections should follow the process phases to reflect the work that was done", and that prior art and competitive analysis precede the requirements "as some of the reqs are derived from the comp analysis". ECSS's normative Document Requirements Definition mandates a table of contents for the same reason, but that is an unverified R27 lead, so the ruling is the authority and ECSS is support.
+*Source:* ECSS-E-ST-10-06C Annex A, **verified locally 2026-09-01** — a normative Document Requirements Definition mandating the table of contents, section by section, which is the same claim as "sections follow the phases" made by a standards body. No longer an unverified lead. The author's rulings of 2026-09-01 remain the origin: "the docs sections should follow the process phases to reflect the work that was done", and that prior art and competitive analysis precede the requirements "as some of the reqs are derived from the comp analysis".
 
 ### Pipeline
 
@@ -227,11 +227,11 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 
 **R26** — Runs a prior-art step before writing requirements, behind a gate.
 *Fit:* patterns found arrive as requirements, not as candidates to weigh.
-*Source:* `elicited` — the sequence. The cost of skipping it was paid in this session.
+*Source:* two primaries, verified locally 2026-09-01. FAR 10.001(a)(2)(i) mandates the ordering in the imperative — agencies shall conduct market research "Before developing new requirements documents" — and FAR 10.002(a) supplies the gate's entry condition, a need described well enough to research against: enough to search on, not enough to specify. ECSS-E-ST-10-06C 5.2 states the gate's *exit* condition — the concept-exploration step "is needed in phase 0 for space projects with **low heritage**", so high heritage skips it. Origin: `elicited`. The cost of skipping it was paid in this session.
 
 **R27** — Runs a competitive-analysis step that edits the requirement set before the confirm gate.
 *Fit:* its output is edits to requirements — added, recalibrated, dropped, confirmed — not verdicts on competitors.
-*Source:* `elicited` — "how my requirements compare to other solutions."
+*Source:* ECSS-E-ST-10-06C 5.2, verified locally 2026-09-01 — "The second step consists of the exploration among the different possible concepts… This version is progressively drafted from the preliminary TS and takes into account the induced constraints from the possible concepts." A concept step that **amends** an earlier requirement baseline rather than replacing it is this standard's normative two-baseline structure, which is the ordering chosen here. Origin: `elicited` — "how my requirements compare to other solutions."
 
 **R28** — Runs a sourcing step after requirements settle, whose verdicts land in their own section rather than as requirements; where the verdict is that nothing available satisfies a requirement, the step re-opens that requirement.
 *Fit:* a reader can tell which came first, and no verdict of "nothing available" leaves the artifact without either a restatement of the named requirement or an explicit decision to build it bespoke, landing before the confirmation gate. Verdicts are about **components**, never whole skills: a component failing one requirement says nothing about the rest of a body.
@@ -241,7 +241,7 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 
 **R29** — Output lands at a stable path with a header naming its consumer.
 *Fit:* `/writing-specs @path` works from a cold session.
-*Source:* the house convention, specified verbatim in `writing-plans`' plan header.
+*Source:* ECSS-E-ST-10-06C Annex A (normative) A.2.1 \<1>, verified locally 2026-09-01 — "The TS shall contain a description of the purpose, objective, content and the reason prompting its preparation." The header carries four things there and one here. **The gap is "the reason prompting its preparation"**, which is precisely what an artifact archived and never maintained loses first. Previously the house convention alone, specified verbatim in `writing-plans`' plan header; that remains the format, now with a standard behind the obligation.
 *Note:* every candidate failed it, so it screened nothing — the same shape as R26–R28. An obligation on what we build, not a discriminator among what we might take.
 
 ## Constraints
