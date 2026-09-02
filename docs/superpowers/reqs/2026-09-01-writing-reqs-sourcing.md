@@ -2,6 +2,8 @@
 
 > **Appendix to** `docs/superpowers/reqs/2026-09-01-writing-reqs.md`. These are the build-or-buy decisions for constructing that skill — which existing components to adopt, adapt, credit or decline. They are **not** requirements of it, and they are not the `sourcing` skill's requirements either; those live in `2026-09-02-sourcing.md`.
 >
+> **The re-run is the `sourcing` skill's first real use.** Author's ruling, 2026-09-02: once that skill ships, it does the sourcing of `writing-reqs`. That settles a question the sibling document had been carrying — the exemplar. No compliant instance of a sourcing artifact exists, and rather than manufacture one against an invented need, the first run has a real need already framed and a set of verdicts to check itself against. If the skill reaches different conclusions than the suspended tables below, that difference is the finding.
+>
 > **Split out 2026-09-02.** Sourcing became its own skill, and its verdicts belong in their own artifact rather than inside a requirements document that was approved before they were made.
 
 > **Provisional, 2026-09-02. Every verdict below is suspended pending a re-run.** Sourcing was screened against the requirement set as it stood on 2026-09-01. That set is changing: R3 and R10 are dropped, R34 is issued, and every remaining requirement is being tested for whether it earns its place. A screen is only as good as the requirements it screened against, so these verdicts do not carry.
@@ -51,4 +53,3 @@ A rejection here is of a **component**, never of a skill. Failing a requirement 
 - **`requirements-clarity`'s 90/100 score gate** — LLM-judged, and 50 of its 100 rubric points are the how. The skill itself is an Adapt source.
 - **spec-kit `/specify` as the phase** — *"Make informed defaults for unspecified details"* is the inverse of R9 and R31, which require per-requirement confirmation and a terminal restate. **Two earlier grounds are withdrawn**: a hard error on empty input and a three-marker clarification cap are in neither current preset, re-read 2026-09-01 — both are 23 lines, and `NEEDS CLARIFICATION` survives uncapped in `templates/spec-template.md`. The rejection now rests on the defaults clause alone.
 - **`create-prd`, `alirezarezvani`'s PRD, `define-problem-statement`** — screened; nothing survives verification beyond R1 and one or two content slots. **Not re-read at component level.** These were rejected as skills, which is the error corrected above; the three lowest pass counts make a find unlikely, not impossible. Open.
-
