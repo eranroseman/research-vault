@@ -351,9 +351,21 @@ Not `Must` and `Plan`, which was asserted from a mirror. Gilb also orders them �
 
 Same principle as IMDRF §7.1 — the level is derived, not declared — reached from the general case rather than the medical one. **R3's open question is answerable now:** IMDRF supplies a taxonomy and 15026-3 supplies the obligation to derive one, so the two are complementary rather than alternatives.
 
-### ISO/IEC/IEEE 24748-2:2024 — not yet mined
+### ISO/IEC/IEEE 24748-2:2024 — scanned, and it adds nothing
 
-The 15288 application guidelines, supplied and extracted but **not yet read against the requirement set**. Recorded as available, not as evidence.
+Supplied and read against the set on 2026-09-01. **The scan is the finding: it corroborates and adds no requirement.** It is guidance on applying 15288 within an organisation, and refers out to ISO/IEC/IEEE 15288:2023 — not in hand — for everything normative, including its tailoring requirements at Annex A.
+
+Measured emptiness on this set's weak points: **zero** hits for any cap on elicitation effort (R7), **zero** for a need arriving unframed (R1), and **zero** on what to do when the stakeholder is absent (R33, still the set's lowest-rung source). Its 23 "tailoring" occurrences are about which of 15288's processes apply to a project, not about declining a request, so they do not reach R2.
+
+Two sentences are worth keeping, both corroboration:
+
+> *"upward and downward traceability (or completeness and consistency checks) between the stakeholder needs and stakeholder requirements should be performed to confirm that **no requirements have been omitted or added without accountability**."*
+
+That is R11 and R37 together — every requirement traceable to a need, checked across the set rather than per item.
+
+> *"The resulting set of technical requirements should be checked for **non-singular requirements containing multiple parts, which should then be decomposed** into individual (singular) requirements."*
+
+R15, and worth recording because it names the exact defect this session hit twice: R4 and R9 were each a conjunction whose second half nothing tested, and both had to be split — into R30 and R31 — after the sourcing screen caught one of them. A standard treats that as a routine set-level check. Here it was found by accident.
 
 ______________________________________________________________________
 
