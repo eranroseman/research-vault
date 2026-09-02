@@ -36,6 +36,25 @@ Claims about the world this phase depends on and that **nobody is obliged to mak
 
 - **One person holds the need, the decision and the cost.** This is why most of the field's apparatus does not transfer, and it is the assumption most likely to become wrong later. It was previously filed as an out-of-scope item ("aligning multiple stakeholders"), which read as a decision this phase made; it is not one, and 12207 6.4.2 outcome (g) contemplates multiple stakeholders throughout.
 
+## Prior art
+
+Read before the requirements were written, and the source of most of them. Full reading, including the traditions that declined to supply anything: `docs/research/2026-09-01-requirements-artifact-prior-art.md`.
+
+**The headline finding is an absence.** Ten agent frameworks were surveyed and none has this phase. Five independent implementations each compensate for the gap inside a downstream artifact instead. What the older traditions do have, they had early: the Volere shell carried Description, Rationale, Originator and Fit Criterion per requirement in the 1990s, which makes the modern six-field convergence a lossy rediscovery rather than a new result.
+
+| Source                      | What it gave                                                                             | Requirements  |
+| --------------------------- | ---------------------------------------------------------------------------------------- | ------------- |
+| ISO/IEC/IEEE 29148:2018     | 5.2.5 characteristics; 5.2.7 forbidden terms; 5.2.8 identifier rule                      | R15, R18, R19 |
+| ISO/IEC/IEEE 12207:2017     | Agreement as a process outcome; abuse-and-failure scenarios; the four constraint sources | R10, R22, R23 |
+| Volere requirements shell   | Description, Originator, Fit Criterion                                                   | R11, R14      |
+| Planguage — Gilb            | Scale and meter; `Must` versus `Plan`                                                    | R16, R17      |
+| Fitzpatrick, *The Mom Test* | Anchor in specific past events; verbatim marked as verbatim                              | R6, R13       |
+| Willis; Pew Research        | Multi-possibility probing over single-possibility                                        | R5            |
+
+None of these is a sourcing decision. They generated requirements; they are not components and nothing is bought from them. The sourcing section below holds only skills and skill components.
+
+**One requirement has no anchor here.** The phase's own success criterion is stated by no tradition surveyed — named rather than stretched onto a near-miss.
+
 ## Requirements
 
 Source vocabulary, defined by **origin** rather than by confirmation status: `elicited` — stated directly, quoted where short. `inferred` — derived from what was stated. `assumed` — brought from the agent's general knowledge rather than from anything said. Otherwise a named document. Any of the three may be confirmed or not; confirmation is tracked separately, because defining a class by confirmation status leaves agent-supplied-and-confirmed material with no label — which is what R12's three classes and R23 both need.
@@ -196,9 +215,21 @@ These three are requirements on the **phase**, not on any single skill. Every ca
 - **Enumerability is a pipeline obligation, and it is not discharged here.** `writing-plans` never reads this artifact — its Self-Review walks the *spec* against the *plan*: "Can you point to a task that implements it? List any gaps." So each requirement must survive into the spec in a form that check can walk. **Nothing in this phase can guarantee that**, because the guarantee belongs to `writing-specs`' own design, which #60 and #62 own. Filed there as an obligation, not left here as an aside. (An earlier version claimed `writing-plans` consumes this artifact directly; it does not.)
 - MIT and Apache-2.0 attribution is owed wherever text is taken substantially, regardless of how the maintenance relationship is described.
 
+## Competitive analysis
+
+Ran after the requirements were drafted, against six corpora, and edited the set. Full verdicts: `docs/research/2026-09-01-pre-spec-competitive-analysis.md`.
+
+**What it changed.** The largest correction was to the interview loop: the guess-attached question is backward-looking in both traditions that use it, and attaching a forward guess to an open question is a mutation with measured harm — acquiescence bias, worse with an interviewer present. Willis's multi-possibility probing replaced it as R5. Anchoring elicitation in specific past events entered as R6, the single most-agreed rule in the discovery corpus. R9 was recalibrated because confirmation is continuous in both traditions that use it, not concentrated into one terminal restatement. Verbatim-marked-as-verbatim entered as R13, and a declared risk tier as R3. R7's question-cap survived a null result in its favour — nobody caps question count.
+
+**Two disagreements were recorded rather than resolved.** Fitzpatrick argues verbal assent is precisely the data type that must not terminate elicitation; 12207 6.4.2.2(g) makes stakeholder agreement a process outcome. R10 takes the standards position with the dissent noted.
+
+**Status.** Two of six corpora were read in full. **Four were read as verdict headlines only and their findings are not applied** — LLM behaviour specifications, systems and safety engineering, procurement, and testable-at-scale formats. A second pass over those four is running. Two of its leads are already known to bite: R24 has no escape hatch where every engineering tradition states one inside the rule, and the sourcing screen is pass/fail with no tier to discriminate among survivors, which procurement forbids.
+
 ## Sourcing decisions
 
 Sourcing sits in this phase because `writing-specs` cannot hold it — its approach comparison is architectural alternatives inside your own tree, not build-or-buy. **Trigger to move: `writing-specs` gains build-or-buy comparison.**
+
+Full screen, method and per-candidate failures: `docs/research/2026-09-01-pre-spec-sourcing-screen.md`.
 
 **Screen result, 2026-09-01.** Twelve candidates screened pass/fail against the twenty-nine requirements that existed at the time, one isolated agent each, every result adversarially verified. **R30, R31 and R32 post-date the screen and no candidate has been tested against them.** R30 exists to preserve a measured failure: the screen failed `interview-me` on the batching half of the old R4, and the narrowed R4's fit would no longer record it. No candidate ever passed R4 — it appears in no pass column — so nothing was flipped by the split. Claimed passes ran three to eight; after verification **nothing exceeds three of twenty-nine**. `write-spec` is the only candidate passing **R14** after verification, which is the useful part of that result: it establishes the per-requirement fit criterion is achievable in a skill body, not just in a standard. It earns no adapt row. Its acceptance-criteria section is 29148 5.2.7 (forbidden terms), 29148 5.2.5 (independently testable), 12207 (negative and edge cases), Volere (the criterion itself) and BDD's Given/When/Then, each already sourced here from its origin rather than from an intermediary. What is genuinely its own is the P0/P1/P2 three-tier priority scheme, which this set declines.
 
@@ -264,11 +295,7 @@ A rejection here is of a **component**, never of a skill. Failing a requirement 
 
 ## Evidence
 
-- **Prior art** — `docs/research/2026-09-01-requirements-artifact-prior-art.md`
-- **Competitive analysis** — `docs/research/2026-09-01-pre-spec-competitive-analysis.md`. **Carries unapplied findings**: four of its six corpora were read as verdict headlines only, and their items are leads rather than findings.
-- **Sourcing screen** — `docs/research/2026-09-01-pre-spec-sourcing-screen.md`
-
-Bare relative paths, deliberately. An earlier version instructed pinning them to a commit against the coming reorganisation; that was wrong for this repo, whose practice is to rewrite links when things move — #90 did exactly that. (#92 is not a witness for it: it swept titles and a retired prefix, and its resolution states "URLs and repo-slug links untouched".) A pinned link survives the move by pointing at a superseded copy, which is worse than a path that breaks loudly and gets fixed.
+Each phase section above links its own research note. Those paths are bare relative paths, deliberately. An earlier version instructed pinning them to a commit against the coming reorganisation; that was wrong for this repo, whose practice is to rewrite links when things move — #90 did exactly that. (#92 is not a witness for it: it swept titles and a retired prefix, and its resolution states "URLs and repo-slug links untouched".) A pinned link survives the move by pointing at a superseded copy, which is worse than a path that breaks loudly and gets fixed.
 
 Primary sources read directly: ISO/IEC/IEEE 29148:2018 (`sources/29148-2018.pdf`, clauses 5.2.5–5.2.8); ISO/IEC/IEEE 12207:2017 (`sources/12207-2017.pdf`, clause 6.4.2); the Volere requirements shell; the bodies of `brainstorming`, `interview-me`, `shape-spec`, `write-spec`, `deliver-prd`, `define-problem-statement`, `requirements-clarity`, `helm-brief`, `framing-doc`, `matter-intake-scoping`, `incoming-request-advisor`, `neuroarxiv`, `adhd`, `to-spec`, `grilling`, `research`, `writing-plans`, `subagent-driven-development`, and spec-kit's `specify.md` and `spec-template.md`.
 
