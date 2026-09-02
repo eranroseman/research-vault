@@ -211,6 +211,22 @@ Three requirements. **R26's gate** has a stated condition — low heritage, run 
 
 **R3**, second leg. INCOSE classifies per requirement and treats classification as a **search device for completeness**, where R3 uses one class for the whole need as a routing label. The stronger form is available and R3 does not yet take it.
 
+### ISO/IEC/IEEE 12207:2017 already had the risk-tier principle — three clauses, all missed
+
+Checked 2026-09-01 after the author asked whether 12207 covers the ground IEC 62304 Ed. 2 does. It covers the principle; it does not carry a taxonomy.
+
+> **6.4.2.3(d.2):** *"Identify the stakeholder requirements and functions that relate to critical quality characteristics, such as assurance, safety, security, environment, or health."*
+
+> **6.4.3:** *"Identify requirements that relate to risks, criticality of the software system, or critical quality characteristics."*
+
+> **6.3:** *"The Technical Management processes are applied with a level of rigor and formality that depends on the risk and complexity of the project."*
+
+The first is task **2** under activity d), *"Transform stakeholder needs into stakeholder requirements"* — the task **immediately after** task 1, the constraint-sources task already cited for R22. R3's anchor sat one line below R22's and went unread through two passes.
+
+**What is genuinely absent:** any named classification scheme. Searching the full text returns **zero** hits for "safety class" and **zero** for "62304". 12207 delegates the taxonomy rather than supplying one — NOTE 1 on 6.4.2.3(d.2) points to ISO/IEC/IEEE 15026, and bibliography reference [22] is *ISO/IEC 15026-3:2011, System and software engineering — Systems and software assurance — Part 3: System integrity levels*.
+
+So IEC 62304's classes A/B/C are one health-specific instantiation of a tier scheme; 12207's own pointer for the general case is 15026-3. Neither is reachable from here.
+
 ### NIST AI RMF 1.0, NIST AI 100-1
 
 > *"Framework users are expected to benefit from: … explicit processes for making **go/no-go** system commissioning and deployment decisions"*.
