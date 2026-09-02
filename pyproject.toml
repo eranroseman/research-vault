@@ -28,7 +28,7 @@ dev = [
   # .pre-commit-config.yaml over a clean worktree and review its complete diff.
   # Also confirm every `%%rv-managed%%` / `%%/rv-managed%%` marker survives
   # byte-for-byte in research_vault/templates/vault/AGENTS.md,
-  # system/glossary.md, and system/templates/literature.md; block an upgrade if it
+  # CONTEXT.md, and system/templates/literature.md; block an upgrade if it
   # starts escaping `%%` sequences. vault/index.md remains excluded pending #70;
   # never feed that Obsidian-dialect template to mdformat during this review.
   "mdformat==1.0.0",

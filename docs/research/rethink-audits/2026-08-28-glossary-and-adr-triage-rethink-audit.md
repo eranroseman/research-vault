@@ -20,7 +20,7 @@ ADR register.
   authority ("this glossary is the meaning layer") — one canonical body, no
   second hand-edited body elsewhere.
 - R2 (`caller`: vault end-user; `adr` 0001)
-  [the vault glossary](../../../research_vault/templates/vault/system/glossary.md)
+  [the vault glossary](https://github.com/eranroseman/knowledge-harness/blob/da637c9a0289ccf272bcf3a82db84bb2b54208ff/research_vault/templates/vault/system/glossary.md)
   ships standalone into every scaffolded vault; per ADR 0001 a vault carries no
   runtime dependency on research-vault, so any projection mechanism has to run at
   build/dev time, never at vault-runtime.
@@ -141,7 +141,7 @@ parity test, in the shape API Extractor uses:
 2. A selection manifest — which terms project, plus the vault-specific title
    and intro overlay, resolving the proposal's §2.4 routing question — drives
    a generation script that renders
-   [the vault glossary](../../../research_vault/templates/vault/system/glossary.md)
+   [the vault glossary](https://github.com/eranroseman/knowledge-harness/blob/da637c9a0289ccf272bcf3a82db84bb2b54208ff/research_vault/templates/vault/system/glossary.md)
    from CONTEXT.md. This runs at repo dev-time only; the scaffold's existing
    static copy at vault-creation time is untouched (R2, R7).
 3. Replace `tests/test_templates.py`'s hand-typed literal with a
@@ -171,7 +171,7 @@ just a documented one:
 
 | Requirement                                        | Current state                                                                                                                                                                                                                           | Divergence                                                                                                                                                                                          |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1 — one canonical body                            | [CONTEXT.md](../../../CONTEXT.md), [the vault glossary](../../../research_vault/templates/vault/system/glossary.md), and [tests/test_templates.py:170](../../../tests/test_templates.py#L170) each hand-carry the shared subset's prose | Three-way duplication, not the two the proposal document counts — the test's inline literal is a third body copy the proposal never named                                                           |
+| R1 — one canonical body                            | [CONTEXT.md](../../../CONTEXT.md), [the vault glossary](https://github.com/eranroseman/knowledge-harness/blob/da637c9a0289ccf272bcf3a82db84bb2b54208ff/research_vault/templates/vault/system/glossary.md), and [tests/test_templates.py:170](../../../tests/test_templates.py#L170) each hand-carry the shared subset's prose | Three-way duplication, not the two the proposal document counts — the test's inline literal is a third body copy the proposal never named                                                           |
 | R2/R7 — build-time-only projection                 | No generator exists; the template is a hand-typed static file that `scaffold.py` copies verbatim                                                                                                                                        | No generator, no selection manifest                                                                                                                                                                 |
 | R3 — trim mechanism/rule detail out of definitions | CONTEXT.md's Bibliography export / Screening state / Update notice carry different amounts of mechanism detail than the template's versions of the same terms                                                                           | Live drift today, confirmed by direct file read and independently by the research agent                                                                                                             |
 | R4/R6 — no divergent wording between surfaces      | Synthesis note, System folder, and Venue exist as full entries in the vault glossary but are absent from CONTEXT.md entirely                                                                                                            | Live drift, already happened, uncaught until this audit                                                                                                                                             |
