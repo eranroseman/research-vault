@@ -110,8 +110,8 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 *Fit:* every question about the need, its cost and the current workaround asks what happened. Only questions about the wanted outcome ask about the future, and the artifact records their answers as goals rather than as evidence.
 *Source:* Fitzpatrick, *The Mom Test*, **read directly 2026-09-01**, rule 2 of three: "Talk about their life instead of your idea. **Ask about specifics in the past instead of generics or opinions about the future.** Talk less and listen more." Verbatim, and the requirement is a restatement of it. The competitive analysis additionally claimed convergence across "three independent primaries"; **two were never named and remain unrecovered**, so the convergence claim stays unverified even though the requirement no longer depends on it.
 
-**R7** — Stops questioning on convergence, never on a count.
-*Fit:* no number anywhere in the skill limits how many questions it asks or how many open questions (R25) the artifact holds.
+**R7** — Places no cap on the number of questions.
+*Fit:* no number anywhere in the skill limits how many questions it asks or how many open questions (R25) the artifact holds. Questioning ends at the review gate (R42), not at a count and not at a detected state.
 *Source:* a **null result** from the competitive-analysis pass, which is evidence rather than an absence of it: no practice surveyed caps question count, and every one caps something adjacent instead — learning goals per person-type, session length, question density. Searching 29148 and 12207 for any cap on elicitation effort returned nothing, consistent with that. Competitive-analysis derived, not prior art; no prior art exists to derive it from. The author's position — "I prefer agents interviewing me all day long if that is what is needed to get the job right" — is the origin.
 *Note:* drove no rejection in the sourcing screen except jointly with R1. May be describing the field rather than screening it.
 
@@ -134,6 +134,10 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 **R34** — Runs on Claude Code and Codex.
 *Fit:* the skill body invokes only mechanisms both harnesses provide, and a fresh install on each harness produces one complete artifact from one run.
 *Source:* the author's ruling of 2026-09-02, promoting it from a constraint on the 29148 3.1.7 test — the harnesses are pre-existing, but supporting both could have been decided otherwise, so it is a requirement. The failure it prevents has already occurred here: #56 records Codex dropping a tracked symlink, so 8,873 bytes of plugin-level `AGENTS.md` guidance arrived silently absent. "From a fresh install" is what catches packaging failures that a body-only check misses.
+
+**R42** — Writes the artifact, then asks me to read the file before handing off.
+*Fit:* the run stops after the artifact is written and names its path, and does not invoke `writing-specs` until I answer. A run that hands off without that pause fails, and so does one that asks while the artifact is still only in the conversation.
+*Source:* `brainstorming` v6.2.0's User Review Gate, read 2026-09-02 — "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan." It runs *after* the artifact exists, so the review is of a file rather than of a restatement in chat. This is the functionality R10's dropped token was reaching for and reached badly: R9 and R31 both confirm in dialogue, where agreeableness is cheapest, and nothing made me open the document. Fitzpatrick's objection is to verbal assent; reading a written file is not verbal assent.
 
 ### Artifact content
 
@@ -321,7 +325,7 @@ A rejection here is of a **component**, never of a skill. Failing a requirement 
 
 *Do R26–R28 belong in a skill screen?* No. They are pipeline requirements; a pipeline is composed rather than sourced, and the universal failure measured the screen's granularity. Moved into the Pipeline section as a statement.
 
-*Is R10 safe against acquiescence?* The disagreement is dissolved rather than adjudicated. Fitzpatrick's objection is to **verbal assent** as a termination signal — an utterance whose politeness meaning is indistinguishable from its agreement meaning. A token chosen in advance and never used conversationally is not that; it cannot be produced by politeness. 12207's process outcome is satisfied and Fitzpatrick's failure mode is closed, without needing his costly-commitment substitute.
+*Is the set safe against acquiescence?* **Reopened and re-answered 2026-09-02.** The earlier closure rested on R10's token, which is dropped. The answer is now R42: `brainstorming` does not solve this with a token either — it writes the artifact, commits it, and makes the human read the file. Fitzpatrick's objection is to **verbal assent**, and reading a committed document is not that. R9 and R31 remain dialogue acts and remain vulnerable; R42 is the one that is not.
 
 ## Evidence
 
