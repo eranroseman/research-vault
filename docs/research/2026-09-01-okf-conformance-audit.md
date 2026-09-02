@@ -359,8 +359,147 @@ missing deviation rows — claim-link syntax, the `check` extension and coverage
 derivation, `verified[].at` precision, and the §10 declination; add the frontmatter sentence
 to `synthesis-conventions` (D11).
 
-The deviations that survive all of this and remain correct are three: pandoc citations over
-§5.1 footnotes (class 1, and no export seam exists to escape it — §3.3), stance-typed claim
-links over §6.1's untyped relationships (class 2), and Obsidian block-link claim addressing
-(class 1, currently unrecorded). Everything else on the current deviation table either does
-not need to be a deviation or does not correspond to anything in the spec.
+Everything else on the current deviation table either does not need to be a deviation or does
+not correspond to anything in the spec. What survives Tier 4 is one deviation, not the three
+the current table implies — see §8.1.
+
+## 8. Proposed ADR 0001
+
+### 8.1 What "100% compliant, in rules and in spirit" can honestly claim
+
+**Rules.** All three §11 rules hold once Tier 0 lands, and Tier 1 makes them hold *mechanically*
+rather than by assertion — a probe written against §11's text, closing rather than warn-only,
+over a pinned spec hash. That is the whole of rule-level conformance; §11 requires nothing else
+of a bundle.
+
+**Spirit.** Three claims, each checkable:
+
+1. *No OKF-reserved key carries foreign values.* Tier 3 vacates `status`; Tier 2 makes the
+   `verified` reader accept the spec's own shapes; Tier 0 removes the `generated` placeholders.
+2. *Every optional family has a recorded disposition.* Tier 4 adopts the four that are free
+   (`resource`, `sources`, `title`, `description`); Tier 5 records the rest — `stale_after`,
+   `tags`, and §10 — as adoptions or priced declinations. Silence, which is the current state
+   for most of them, is not a disposition.
+3. *The two remaining "deviations" are supersets of OKF, not refusals of it.* §6.1 says the
+   kind of a relationship "is conveyed by the surrounding prose, not by the link itself" — the
+   vault conveys it in a Dataview field beside the link, which is more than OKF asks for and
+   contradicts nothing it says. And OKF has no sub-document addressing at all, so
+   `[[citekey#^claim-id]]` extends into empty space rather than declining a construct.
+
+That leaves exactly one genuine residual: per-claim attribution renders as pandoc
+`[@citekey, locator]` rather than a `[^citekey]` footnote. Once `sources` is adopted with
+`id: <citekey>` (Tier 4), even this closes in substance, because §5.1 specifies the resolution
+path itself: "The footnote label is the join key into `sources`; consumers resolve attribution
+through the matching entry, not by parsing the footnote prose." A consumer following that
+instruction reaches the same entry from either rendering. The class-1 cost is real and stays
+recorded — it is a rendering mismatch with a toolchain the vault does not control — but it is
+not a semantic gap.
+
+### 8.2 The proposed replacement text
+
+Adopt after Tiers 0–4 land, not before; the claim it makes is only true once the mechanism
+exists. Substitute the real values for `<sha>` and confirm the hash at adoption time. The
+deviation and adoption registers stay in `docs/terminology.md` §3/§4 — this ADR states the
+principle and points there, per that file's own "record it once" rule.
+
+```markdown
+# The vault outlives its tools
+
+Status: accepted (2026-08-20); mechanism restated (2026-09-01)
+
+The vault is the researcher's permanent record; research-vault is one tool that operates on
+it. The decision: **the vault must remain fully usable — readable, navigable, and adoptable by
+other tools — if research-vault disappears.** The vault is therefore plain markdown + YAML
+frontmatter in a git repository, with no runtime dependency on research-vault, and its
+survivability guarantee is carried by a named external mechanism rather than by
+research-vault-private convention.
+
+**Current mechanism: conformance with OKF** (Open Knowledge Format — spec:
+[GoogleCloudPlatform/open-knowledge-format `SPEC.md`](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)),
+which was growing an ecosystem of agent-facing knowledge tools at adoption. **Conformance is
+pinned, not merely versioned**: the vault targets OKF v0.2 as published at
+`open-knowledge-format@ad30107`, `SPEC.md` sha256
+`26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`. The pin exists because
+v0.2 has already been amended in place without a version bump, so a bare version number is not
+an anchor.
+
+§11's three rules are reproduced verbatim rather than paraphrased, because the paraphrase is
+what drifted:
+
+1. Every non-reserved `.md` file in the tree contains a parseable YAML frontmatter block.
+2. Every frontmatter block contains a non-empty `type` field.
+3. Every reserved filename (`index.md`, `log.md`) follows the structure in §8 and §9
+   respectively when present.
+
+§3.1 fixes reserved-ness to `index.md` and `log.md` alone, so authorship is not a criterion and
+fleeting `inbox/` captures carry a `type` like every other concept document. Rule 3 pulls in §8
+— a nested `index.md` carries no frontmatter, and the bundle root carries `okf_version` and
+nothing else — and §9 — root `log.md` is date-grouped under `## YYYY-MM-DD` headings, newest
+first. The doctor `okf` probe asserts all three against this text and re-checks the pinned
+hash, so neither a drifting vault nor a drifting spec passes unnoticed. **The probe is the
+mechanism; this ADR is only its rationale.**
+
+**Conformance is structural and semantic.** OKF's optional families define a consumer contract
+on top of §11's structure — §7's actor prefixes, §5.3's trust tiers, §5.4's lifecycle values —
+and the vault adopts each one wherever adoption is additive, because §4.1 admits producer keys
+and §11 forbids consumers rejecting them, so the vault's own schema rides alongside OKF's
+rather than inside its reserved names. An OKF-reserved key never carries a foreign value. Every
+family carries a disposition — adopted or declined with a cost class — recorded once in
+[docs/terminology.md](../terminology.md); silence is not a disposition.
+
+One deviation survives that rule. Per-claim attribution renders as pandoc `[@citekey, locator]`
+rather than §5.1's `[^id]` footnote, a permanent mismatch with a toolchain the vault does not
+control (cost class 1). It is a rendering difference, not a semantic one: `sources[].id` is the
+citekey, and §5.1 directs consumers to resolve attribution "through the matching entry, not by
+parsing the footnote prose."
+
+**Scope bound:** the vault preserves the *record*, not the evidence artifacts. PDFs and
+snapshots live in Zotero storage, outside the git boundary — git is not the blob store — so
+artifact recoverability is delegated to the user's Zotero sync/backup, with doctor's persistent
+warning as the only compensating control. At solo scope this is a stated boundary, not a
+compliance control.
+
+## Considered Options
+
+Mechanism alternatives, all rejected: **no named mechanism** — rely on markdown + git being
+inherently portable (rejected: portable bytes are not an adoptable structure; a successor tool
+would inherit files but no contract for navigating them). **Export-boundary-only projection** —
+emit a conformant bundle only when publishing (rejected: insures published output, not the
+living vault). **Structural conformance without OKF's vocabulary** (rejected on evidence: the
+vault had already adopted §5.3's tier names and §7's actor prefixes for their own sake, so the
+vocabulary was buying interop while the ADR claimed it could not; what the bound actually
+protected was two toolchain contracts, which the deviation register now names individually).
+**A bare version number as the anchor** (rejected: v0.2 was amended in place the day after
+adoption, and nothing noticed).
+
+## Consequences
+
+The decision and the mechanism are severable: if OKF stagnates or a stronger survivability
+standard emerges, the mechanism is replaced by amending this ADR — the decision itself is not
+reopened. While OKF is the mechanism, conformance tracks it as it evolves. That obligation is
+discharged by the pin and the probe, not by intention: a hash mismatch is a finding, and
+reconciling it is the work. Accepted knowingly for a young, currently one-vendor spec.
+
+The reserved files (`index.md`, `log.md`) are constraints on the vault scaffold, and their
+shapes are OKF's, not ours. Adopting an OKF family means the vault gains a second spelling of
+data it already holds; that redundancy is the price of a consumer needing no research-vault
+knowledge to read the bundle. Revisit the mechanism (not the decision) if a future OKF version's
+structural rules start imposing real costs on the vault's own tools.
+```
+
+### 8.3 What the proposed text changes, and why
+
+| Change                                                                                                                 | Closes                                |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| §11 quoted verbatim, with §3.1's reserved-ness definition spelled out                                                  | D1, and the license for §1.3          |
+| The "OKF instructs consumers to tolerate nonconforming files" clause deleted outright                                  | D2                                    |
+| §8/§9's actual requirements stated where the old text stated OKF's MAYs as rules                                       | D3, and the license for §1.1 and §1.2 |
+| "Structural and semantic", with the two toolchain contracts named individually instead of a blanket "no interop" claim | D4                                    |
+| Commit + hash pin, and reconciliation discharged by the probe rather than by intention                                 | D5, D6                                |
+| "An OKF-reserved key never carries a foreign value" stated as a rule of the mechanism                                  | §2.1, §2.2, §2.3                      |
+| "Every family carries a disposition; silence is not a disposition", pointing at the register                           | §3, D10                               |
+| The surviving deviation named and scoped to rendering                                                                  | The three-deviation overcount         |
+| A new rejected option recording why the old vocabulary bound was wrong                                                 | Keeps the reversal auditable          |
+
+The `Status` line keeps the original acceptance date: the decision is unchanged and only the
+mechanism's statement is corrected, which is the severability this ADR has always claimed.
