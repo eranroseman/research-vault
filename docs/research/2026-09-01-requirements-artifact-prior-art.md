@@ -305,6 +305,12 @@ with his reason: *"notes make it harder to lie to yourself."*
 
 > *"the use of probes may lead the respondent to particular types of responses… can be minimized through the careful selection of non-leading probing techniques… **rather than suggesting to the subject one possibility** ('Did you think the question was asking just about physicians?'), **it is preferable to list all reasonable possibilities**… probes should be characterized by unbiased phrasing."*
 
+**Pew Research Center, *Writing Survey Questions*, converges on the same remedy** — read directly 2026-09-01 at `pewresearch.org/writing-survey-questions/`:
+
+> *"This is sometimes called an 'acquiescence bias'… This behavior is even more pronounced when there's an interviewer present, rather than when the survey is self-administered. **A better practice is to offer respondents a choice between alternative statements.**"*
+
+The same page confirms order effects and that randomisation spreads rather than eliminates them. Pew supplies both halves of R5 — the measured harm and the remedy — so R5's two legs are genuinely independent. It had previously been cited as bare "Pew", with no document, author, date or URL; that was an organisation name, not a citation.
+
 **One claim refuted.** The labels *"single-possibility probing"* and *"multi-possibility probing"* appear **nowhere** in this document and were reported as quotation. They are presumably from Willis's Sage book, which this guide cites and which is not in hand. The substance is verbatim; the terminology is not.
 
 ### Beyer and Holtzblatt, *Contextual Design* — R9, and a third voice on R10
@@ -359,6 +365,6 @@ Named rather than stretched onto a near-miss, per the method's own rule.
 
 Six corpora, read by isolated agents with adversarial verification on the load-bearing claims. 29148 and 12207 were subsequently read directly from the primary PDFs, which corrected four claims the secondary reproductions had compressed or dropped.
 
-**Not reached:** IEEE 830-1998 in full; RIBA Plan of Work; ISO 26262 and ARP4754A; ISO/IEC 15026-3; IEC 62304; FDA's General Wellness guidance. Planguage was read through a mirror rather than the source publication, and so was INCOSE's Guide for Writing Requirements — **obtained 2026-09-01 and quote-verified locally, but from a university mirror rather than from INCOSE.** **Resolved 2026-09-01:** Fitzpatrick, Willis, Beyer and Holtzblatt, Gilb and ISO/IEC 15026-3 were all supplied by the author and read — see the section above. Still not read directly: the Pew source behind R5's acquiescence leg, and Willis's Sage book behind the probing terminology.
+**Not reached:** IEEE 830-1998 in full; RIBA Plan of Work; ISO 26262 and ARP4754A; ISO/IEC 15026-3; IEC 62304; FDA's General Wellness guidance. Planguage was read through a mirror rather than the source publication, and so was INCOSE's Guide for Writing Requirements — **obtained 2026-09-01 and quote-verified locally, but from a university mirror rather than from INCOSE.** **Resolved 2026-09-01:** Fitzpatrick, Willis, Beyer and Holtzblatt, Gilb and ISO/IEC 15026-3 were all supplied by the author and read — see the section above. Still not read directly: **Willis, G. (2005), *Cognitive Interviewing: A Tool for Improving Questionnaire Design*, Sage** — named by the 2012 guide's own opening note as the book it became. It is the likely home of the "single-possibility / multi-possibility" terminology, but that is a **guess**: all that is established is that the labels are absent from the guide. Nothing in the requirement set depends on it, since Willis 2012 and Pew both carry the substance.
 
 **Contamination risk, disclosed:** the agents in the earlier sweeps were given a shared guard block naming the other candidates and, in one case, an explicit statement of which requirements were believed unmet. That is priming, and it is the failure `neuroarxiv` names — *"a read that has seen other papers' abstracts starts summarizing the SET"*. The findings above from those sweeps should be weighted accordingly; the two standards, read directly and last, are not affected.

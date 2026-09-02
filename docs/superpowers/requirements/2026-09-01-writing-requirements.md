@@ -49,7 +49,7 @@ Read before the requirements were written, and the source of most of them. Full 
 | Volere requirements shell   | Description, Originator, Fit Criterion                                                   | R11, R14      |
 | Planguage — Gilb            | Scale and meter; `Must` versus `Plan`                                                    | R16, R17      |
 | Fitzpatrick, *The Mom Test* | Anchor in specific past events; verbatim marked as verbatim                              | R6, R13       |
-| Willis; Pew Research        | Multi-possibility probing over single-possibility                                        | R5            |
+| Willis; Pew Research Center | Offer the plausible alternatives rather than a single guess                              | R5            |
 
 None of these is a sourcing decision. They generated requirements; they are not components and nothing is bought from them. The sourcing section below holds only skills and skill components.
 
@@ -93,7 +93,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R5** — Where a hypothesis is offered before an answer exists, offers the plausible alternatives rather than a single guess.
 *Fit:* no question presents one guess as the expected answer.
-*Source:* Willis, *Cognitive Interviewing Training Guide* (2012), **read directly 2026-09-01** — "rather than suggesting to the subject one possibility ('Did you think the question was asking just about physicians?'), it is preferable to list all reasonable possibilities… probes should be characterized by unbiased phrasing". **Correction:** the labels "single-possibility" and "multi-possibility probing" appear **nowhere** in this document; they were reported as quotation and are not. The substance is verbatim, the terminology is not from this source. Pew — acquiescence is worse with an interviewer present; still not read directly.
+*Source:* Willis, *Cognitive Interviewing Training Guide* (2012), **read directly 2026-09-01** — "rather than suggesting to the subject one possibility ('Did you think the question was asking just about physicians?'), it is preferable to list all reasonable possibilities… probes should be characterized by unbiased phrasing". **Correction:** the labels "single-possibility" and "multi-possibility probing" appear **nowhere** in this document; they were reported as quotation and are not. The substance is verbatim, the terminology is not from this source. Pew Research Center, *Writing Survey Questions* (methods section, `pewresearch.org/writing-survey-questions/`), **read directly 2026-09-01** — "This is sometimes called an 'acquiescence bias'… This behavior is even more pronounced **when there's an interviewer present**, rather than when the survey is self-administered. **A better practice is to offer respondents a choice between alternative statements.**" Pew independently supplies the *remedy*, not merely the harm, so R5 has two legs that converge. Previously cited as "Pew" with no document named at all, which was not a citation.
 
 **R6** — Anchors questions in specific past events rather than opinions, generalities or predictions.
 *Fit:* each question asks what happened, not what would.
