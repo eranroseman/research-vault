@@ -8,14 +8,16 @@ then one adversarial verifier per finding required to re-derive both the spec qu
 are deduplicated across dimensions into the items below.
 
 Every item below carries a spec clause and a repo location. Nothing here is applied; this is
-a review. `docs/terminology.md` and the ADRs carry uncommitted working-tree changes and were
-not touched.
+a review. `docs/terminology.md` carries uncommitted working-tree changes from a parallel
+session and was not touched. Corrections applied 2026-09-01 after an independent review of this
+report; git history holds the superseded text.
 
 ## Verdict
 
 The vault is **not** a conformant OKF v0.2 bundle, and the gap is smaller than it looks. Three
-findings fail §11's numbered bundle-conformance rules; two more fail its enumerated consumer
-MUST — the tool reading a vault, not the vault's own files. All five are mechanical and none
+findings fail §11's numbered bundle-conformance rules; one more fails an enumerated consumer
+MUST and one a consumer SHOULD — the tool reading a vault, not the vault's own files. All five
+are mechanical and none
 costs the vault any semantics to fix. Everything else is either a reserved-key collision the repo's
 own naming rules already forbid, an optional family left unadopted, or documentation that
 misdescribes the spec.
@@ -27,17 +29,18 @@ paraphrase, so it reports `OKF artifacts conformant` over a vault that is not.
 
 | Bucket                    | Count | Meaning                                                      |
 | ------------------------- | ----- | ------------------------------------------------------------ |
-| Rule violation            | 5     | Fails OKF v0.2 §11 — three bundle rules, two consumer MUSTs. |
+| Rule violation            | 5     | Fails OKF v0.2 §11 — three bundle rules, one consumer MUST, one consumer SHOULD. |
 | Namespace collision       | 3     | An OKF-reserved key carries foreign values.                  |
 | Unadopted optional family | 6     | Conformant, but the spirit gap.                              |
-| Documentation defect      | 11    | The repo misdescribes the spec it conforms to.               |
-| Confirmed conformant      | 9     | Worth keeping and worth recording.                           |
+| Documentation defect      | 12    | The repo misdescribes the spec it conforms to.               |
+| Confirmed conformant      | 10    | Worth keeping and worth recording.                           |
 
 ## 1. Rule violations
 
 §1.1–§1.3 fail §11's numbered rules, which is what defeats ADR 0001's bundle-conformance claim.
-§1.4–§1.5 fail the consumer MUSTs §11 enumerates by name — the tool misreading a conformant
-vault rather than writing a nonconformant one.
+§1.4 fails a consumer MUST §11 enumerates by name; §1.5 fails the consumer SHOULD beside it
+("SHOULD derive trust tiers and staleness only from the fields specified here"). Both are the
+tool misreading a conformant vault rather than writing a nonconformant one.
 
 ### 1.1 Bundle-root `index.md` carries a `type` key the spec does not permit
 
@@ -127,9 +130,16 @@ handles the mapping fine (`frontmatter.py:33` `_INLINE_DICT`); the rejection is 
 OKF-shaped `{by, at}` entry — the exact shape §5.2 defines — is therefore invalid, and via
 `events.py:62-66` marks the *entire* `verified` collection malformed. `verify.py:800-820`
 wraps `record_pass` in a blanket `except ... ValueError: pass`, so every subsequent
-deterministic pass on that note is dropped with no event, no error, and no finding. Because
-ADR 0002's fail-closed publish gate rests on `verified` events (`publish.py:368`), the note
-degrades into an unexplained publish block.
+deterministic pass on that note is dropped with no event, no error, and no finding — the note
+silently stops accumulating trust.
+
+The governing clause is §11's consumer SHOULD, not a MUST: "SHOULD derive trust tiers and
+staleness only from the fields specified here." §5.2's `{by, at}` shape is what the vault
+refuses to derive from. The publish gate is *not* in the harm chain — `_publish` runs a fresh
+`verify_state` and reads `surface_decision`, never the stored events (`publish.py:352-364`) —
+so the failure is silent trust loss, not a mysterious gate hold. `record_pass` on the project
+note at `publish.py:368` would raise rather than block, which is a different and louder
+failure.
 
 **Fix (four parts, all additive on the write path).**
 
@@ -155,17 +165,21 @@ T1 anchor. Declining a family's *values* does not license squatting its *key*.
 §5.4 defines `status: draft | stable | deprecated`, with "Absent `status` ⇒ `stable`."
 
 The vault writes screening states (`unscreened`/`included`/`excluded`/`superseded`,
-`templates/vault/system/templates/literature.md:6`, `CONTEXT.md:74`) and project publication
+`templates/vault/system/templates/literature.md:7`, `CONTEXT.md:74`) and project publication
 states (`draft`/`parked`/`published`/`corrected`/`withdrawn`, `publish.py:206`) into that same
 key. `docs/terminology.md:69-70` frames both as declining "OKF document lifecycle" at cost
 class 2. That is the wrong frame: nothing is *lost* by carrying both, so class 2 does not
 bind; what is happening is class 4, and the table's own rule then requires the vault's field
 to be renamed.
 
-**Fix.** Rename to `screening-state` and `publication-status` (both already the CONTEXT.md
-names), freeing `status` to carry a real §5.4 value — `stable` for an included note,
-`deprecated` for a superseded one — projected additively. Both spellings coexist; §4.1
-guarantees the extension keys survive.
+**Fix, and it is not free.** Rename to `screening-state` (a CONTEXT.md name) and a governed
+publication-state spelling (`publication-status` is *not* yet one — terminology.md §4 would have
+to rule it), freeing `status` to carry a real §5.4 value. But this is a breaking migration, not
+an additive one: `lints.py:430` `lint_published_drift` keys on the project note's `status`
+through `_project_status` (`lints.py:340-375`) and compares the working tree against the
+published tag, so a rename either fires drift on every published project or silently removes the
+watch. Design the migration through the drift lint before touching the key — the collision is
+real and so is the cost of vacating it.
 
 ### 2.2 `verified[].at` is a calendar date, not an ISO 8601 datetime
 
@@ -189,8 +203,9 @@ was accepted — without a version bump.
 ### 2.3 Shipped templates put unsubstituted placeholders into `generated`
 
 `templates/vault/system/templates/project.md:5`, `synthesis.md:5`, and `literature.md:8` ship
-`generated: {by: "{{ACTOR}}", at: "{{NOW}}"}`. A repo-wide grep finds `{{ACTOR}}`/`{{NOW}}`
-only in those three files — no Python and no skill step substitutes them, and
+`generated: {by: "{{ACTOR}}", at: "{{NOW}}"}`. Outside the templates the strings appear only in
+two test assertions that pin them (`tests/test_templates.py:159,165`, which any fix must update)
+— no Python and no skill step substitutes them, and
 `scaffold.py:216` copies them verbatim into every scaffolded vault.
 
 `skills/project-flow/SKILL.md:48` makes this concrete: project notes are authored prose, "no
@@ -210,7 +225,7 @@ All conformant. Each needs a disposition — adoption or a recorded declination 
 
 | Family                        | Status                           | Recommendation                                                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `resource` (§4.1)             | Never written                    | **Adopt.** Free. Literature notes already carry `doi`/`url` (`notes.py:229-236`); `resource: https://doi.org/…` names the paper, not the note.                                                                                                                                                                                                                                                               |
+| `resource` (§4.1)             | Never written                    | **Adopt.** Literature notes already carry `doi`/`url` (`notes.py:229-236`); `resource: https://doi.org/…` names the paper, not the note. Not universally free: §5.1 makes `resource` REQUIRED within a `sources` entry, and a DOI-less source (a book, an ISO standard) needs a resolvable URL or one of §5.1's scope descriptors instead.                                                                                                                                                                                                                                                               |
 | `sources` (§5.1)              | Never written                    | **Adopt.** `sources: [{id: <citekey>, resource: <doi-url>, title: …}]` from data in hand. `resource` is REQUIRED within an entry, so the DOI must carry — the citekey alone is not enough.                                                                                                                                                                                                                   |
 | `title`, `description` (§4.1) | Never written                    | **Adopt.** Both values are already in hand at render time; `description` feeds §8 index entries and search snippets.                                                                                                                                                                                                                                                                                         |
 | `tags` (§4.1)                 | Never written                    | Assess. Obsidian tags exist; whether they belong in OKF `tags` is a modelling call.                                                                                                                                                                                                                                                                                                                          |
@@ -222,7 +237,8 @@ All conformant. Each needs a disposition — adoption or a recorded declination 
 `docs/terminology.md:67` declines `sources`/`resource` because "the citekey is source
 identity" ([ADR 0004](../adr/0004-citekey-is-the-only-identity.md)). ADR 0004's argument is
 about minting a second *identity*; neither field is one. §2 makes the Concept ID the file
-path — which in this vault already *is* the citekey (`notes.py:129`) — and §5.1's `id` is
+path with `.md` removed — here `literatures/<citekey>` (`notes.py:129`), so the citekey is the
+Concept ID's leaf, not the whole of it — and §5.1's `id` is
 "a stable key used to attribute individual claims", precisely the slot the citekey fills.
 §4.1's `resource` names the underlying asset, i.e. the paper.
 
@@ -256,13 +272,16 @@ class 1.
 `[@citekey, locator]`; `docs/terminology.md:66` prices it correctly at class 1. The usual
 escape — emit OKF footnotes at an export boundary while the living vault stays pandoc — is not
 available: `publish.py` publishes in place via git tags and status writes; there is no bundle
-projection and no pandoc render step (the `render` check id is registered but unimplemented).
-Building that seam is the only path to adopting §5.1 without touching the toolchain, and it is
-a larger piece of work than anything else in this report.
+projection and no pandoc render step anywhere in the codebase. (The `render` check id is *not*
+that seam and is not free to take: it is a live import-side hold class for render rejections,
+wired 2026-08-22 and test-pinned at `tests/test_cli_live.py:1502,1538`. Reusing it would be the
+same class-4 collision this report condemns in §2.1.) Building a projection seam is the only
+path to adopting §5.1 without touching the toolchain, and it is a larger piece of work than
+anything else in this report.
 
 ## 4. Documentation defects
 
-Nine of the eleven are in one paragraph. `docs/adr/0001-vault-outlives-its-tools.md:7`
+Five of the twelve are in one paragraph. `docs/adr/0001-vault-outlives-its-tools.md:7`
 restates §11 from memory, and each misstatement licensed a violation above.
 
 | #   | Defect                                                                                                                                                                                                                                                                                                                                                                                                                  | Consequence                                                                                                        |
@@ -300,8 +319,9 @@ Worth stating, and worth recording in `docs/terminology.md` §4 where D10 remove
 - **§12 `okf_version`** declared with the exact key, value form, and location.
 - **Nested `index.md`** correctly frontmatter-free, and test-pinned.
 - **Rule 2** holds on every non-reserved concept document, mechanically enforced.
-- **The citekey filename is the OKF Concept ID** (§2). The vault implements OKF identity
-  rather than declining it.
+- **The citekey is the leaf of the OKF Concept ID** — §2's "path of the concept's file within
+  the bundle, with the `.md` suffix removed" resolves to `literatures/<citekey>`. The vault
+  implements OKF identity rather than declining it.
 - **No §10 key or the `Attested Computation` type name is squatted.**
 - **Broken links never fail the probe**, matching §6.1's tolerance requirement.
 - Synthesis notes use §5.4's value set verbatim (`draft`).
@@ -312,8 +332,9 @@ Three finder agents reported ADR 0001's spec pointer
 (`github.com/GoogleCloudPlatform/knowledge-catalog`, `okf/SPEC.md`) as stale. **It is not.**
 Verified 2026-09-01: the URL returns HTTP 200, and the file is byte-identical to
 `open-knowledge-format/SPEC.md` (both 37748 bytes, `diff` clean). The spec now also has its
-own dedicated repository, and the ADR's pointer names a mirror inside a product repo — worth
-updating for clarity, but it resolves. The only real gap is the missing commit pin (D5).
+own dedicated repository, and the ADR's pointer named a mirror inside a product repo — worth
+updating for clarity, but it resolved. (Updated after this audit, in `c98372b`/`1e84b7c`; the
+paragraph above evaluates the pre-fix text.) The only real gap is the missing commit pin (D5).
 
 Also cleared: non-adoption of §10 is not a §11 violation; claim-link wikilinks are conformant;
 `references/` (§6.3) is explicitly "a naming convention, not a requirement".
@@ -343,8 +364,13 @@ then prose. Tiers 0–2 close every §11 violation.
 4. Decide whether `okf` stays in `DOCTOR_WARN_ONLY`. A conformance claim the ADR calls
    load-bearing, enforced only by a warning, is the state that let five violations ship.
 
-**Tier 2 — reader tolerance in `events.py`** (§1.4, §1.5). Write path unchanged; ADR 0002
-untouched.
+**Tier 2 — reader tolerance in `events.py`** (§1.4, §1.5). ADR 0002 untouched, but the write
+path is *not* untouched and the naive version corrupts notes: `_replace_frontmatter_list` finds
+its insertion point by matching a line equal to `verified:`
+(`events.py:_replace_frontmatter_list`), which a bare mapping's `verified: {by: …, at: …}` line
+does not match. Normalize the reader without teaching the writer to recognize the bare form and
+the next `record_pass` appends a second `verified:` block beside the first. The bare-mapping
+branch has to be handled in both directions or not at all.
 
 **Tier 3 — vacate the reserved key.** Rename to `screening-state` / `publication-status`,
 optionally dual-emitting a real §5.4 `status` (§2.1).
@@ -388,12 +414,11 @@ of a bundle.
 
 That leaves exactly one genuine residual: per-claim attribution renders as pandoc
 `[@citekey, locator]` rather than a `[^citekey]` footnote. Once `sources` is adopted with
-`id: <citekey>` (Tier 4), the *source* half closes in substance, because §5.1 specifies the
-resolution path itself: "The footnote label is the join key into `sources`; consumers resolve
-attribution through the matching entry, not by parsing the footnote prose." A consumer
-following that instruction reaches the same entry from either rendering. The *pinpoint* half
-does not close, and cannot: OKF v0.2 has no locator concept anywhere. §9 decomposes the
-residual and gives the ways to close each half.
+`id: <citekey>` (Tier 4), literature notes become self-describing — but that does *not* close
+the source half, because §5.1's join is document-scoped: the footnote label resolves into the
+same document's `sources` list, and the citations live in `synthesis/` and `projects/` notes
+that Tier 4 never touches. The *pinpoint* half does not close either, and cannot: OKF v0.2 has
+no locator concept anywhere. §9 decomposes the residual and gives the ways to close each half.
 
 ### 8.2 The proposed replacement text
 
@@ -405,7 +430,7 @@ principle and points there, per that file's own "record it once" rule.
 ```markdown
 # The vault outlives its tools
 
-Status: accepted (2026-08-20); mechanism restated (2026-09-01)
+Status: accepted (2026-08-20)
 
 The vault is the researcher's permanent record; research-vault is one tool that operates on
 it. The decision: **the vault must remain fully usable — readable, navigable, and adoptable by
@@ -432,10 +457,14 @@ what drifted:
    respectively when present.
 
 §3.1 fixes reserved-ness to `index.md` and `log.md` alone, so authorship is not a criterion and
-fleeting `inbox/` captures carry a `type` like every other concept document. Rule 3 pulls in §8
+fleeting `inbox/` captures are concept documents like any other. **[Open — see §1.3: this text
+assumes the "adopt" exit. The accepted bound holds that metadata syntax on quick capture fails in
+practice, and that rationale is untouched by this audit; if it stands, replace this clause with a
+declared, cost-classed exception for `inbox/` rather than deleting the bound silently.]** Rule 3
+pulls in §8
 — a nested `index.md` carries no frontmatter, and the bundle root carries `okf_version` and
-nothing else — and §9 — root `log.md` is date-grouped under `## YYYY-MM-DD` headings, newest
-first. The doctor `okf` probe asserts all three against this text and re-checks the pinned
+nothing else — and §9 — a `log.md`, at the root or any level below it, is date-grouped under
+`## YYYY-MM-DD` headings, newest first. The doctor `okf` probe asserts all three against this text and re-checks the pinned
 hash, so neither a drifting vault nor a drifting spec passes unnoticed. **The probe is the
 mechanism; this ADR is only its rationale.**
 
@@ -443,15 +472,16 @@ mechanism; this ADR is only its rationale.**
 on top of §11's structure — §7's actor prefixes, §5.3's trust tiers, §5.4's lifecycle values —
 and the vault adopts each one wherever adoption is additive, because §4.1 admits producer keys
 and §11 forbids consumers rejecting them, so the vault's own schema rides alongside OKF's
-rather than inside its reserved names. An OKF-reserved key never carries a foreign value. Every
-family carries a disposition — adopted or declined with a cost class — recorded once in
+rather than inside its reserved names. No OKF-reserved key carries a value OKF would misread.
+Every family carries a disposition — adopted or declined with a cost class — recorded once in
 [docs/terminology.md](../terminology.md); silence is not a disposition.
 
-One deviation survives that rule. Per-claim attribution renders as pandoc `[@citekey, locator]`
-rather than §5.1's `[^id]` footnote, a permanent mismatch with a toolchain the vault does not
-control (cost class 1). It is a rendering difference, not a semantic one: `sources[].id` is the
-citekey, and §5.1 directs consumers to resolve attribution "through the matching entry, not by
-parsing the footnote prose."
+The deviations that survive that rule are recorded there, not here. The load-bearing one is
+per-claim attribution: it renders as pandoc `[@citekey, locator]` rather than §5.1's `[^id]`
+footnote, a permanent mismatch with a toolchain the vault does not control (cost class 1). It is
+a rendering difference over the same join — `sources[].id` is the citekey, and §5.1 directs
+consumers to resolve attribution "through the matching entry, not by parsing the footnote prose"
+— except for the pinpoint, which OKF v0.2 has no way to carry at all.
 
 **Scope bound:** the vault preserves the *record*, not the evidence artifacts. PDFs and
 snapshots live in Zotero storage, outside the git boundary — git is not the blob store — so
@@ -496,9 +526,9 @@ structural rules start imposing real costs on the vault's own tools.
 | §8/§9's actual requirements stated where the old text stated OKF's MAYs as rules                                       | D3, and the license for §1.1 and §1.2 |
 | "Structural and semantic", with the two toolchain contracts named individually instead of a blanket "no interop" claim | D4                                    |
 | Commit + hash pin, and reconciliation discharged by the probe rather than by intention                                 | D5, D6                                |
-| "An OKF-reserved key never carries a foreign value" stated as a rule of the mechanism                                  | §2.1, §2.2, §2.3                      |
+| "No OKF-reserved key carries a value OKF would misread" stated as a rule of the mechanism                                  | §2.1, §2.2, §2.3                      |
 | "Every family carries a disposition; silence is not a disposition", pointing at the register                           | §3, D10                               |
-| The surviving deviation named and scoped to rendering                                                                  | The three-deviation overcount         |
+| The load-bearing surviving deviation named and scoped to rendering, with the rest delegated to the register            | Overcounting and undercounting alike  |
 | A new rejected option recording why the old vocabulary bound was wrong                                                 | Keeps the reversal auditable          |
 
 The `Status` line keeps the original acceptance date: the decision is unchanged and only the
@@ -515,8 +545,9 @@ label is a `sources[].id`; the vault joins it with an inline `[@citekey]` whose 
 citekey. Same shape, same join, different token. This one is closeable by us.
 
 **The locator gap is OKF's.** `[@citekey, p. 12]` carries a pinpoint that parses losslessly to
-CSL `locator` + `label`. OKF v0.2 has no locator, pinpoint, or page concept anywhere — the
-strings do not appear in `SPEC.md`. Worse, §5.1's own resolution model forecloses the obvious
+CSL `locator` + `label`. OKF v0.2 has no locator or pinpoint concept anywhere: neither string
+appears in `SPEC.md`, and its one use of "page" is `page reads` as a `usage_count` example
+(`SPEC.md:325`), not a citation pinpoint. Worse, §5.1's own resolution model forecloses the obvious
 workaround: putting the pinpoint in the footnote's prose (`[^smith2020]: Smith 2020, p. 12`)
 leaves it exactly where §5.1 tells consumers not to look, since they "resolve attribution
 through the matching entry, not by parsing the footnote prose". Moving it into the label
@@ -528,8 +559,7 @@ One approach is ruled out empirically before the alternatives start. **Dual-emis
 living vault does not work**: `[@smith2020, p. 12][^smith2020]` renders through
 `pandoc --citeproc` as `[Smith (2020), p. 12][1]` with a matching footnote — reader-visible
 duplicate attribution in every rendered manuscript. A definitions-only block without inline
-markers fares no better: pandoc drops it and warns `Note with key 'smith2020' defined ... but
-not used`, and Obsidian shows an orphan.
+markers fares no better: pandoc drops it and warns `Note with key 'smith2020' defined ... but not used`, and Obsidian shows an orphan.
 
 ### 9.2 The one argument worth making first
 
@@ -549,27 +579,52 @@ vault applied that reasoning to the next failure mode — agents *copy* as well 
 reached a globally stable key. That is adherence to §5.1's principle past the point §5.1 itself
 takes it, which is the case any proposal below should make rather than apologize for.
 
-### 9.3 Alternative A — adopt `sources`, record the rendering (the floor)
+### 9.3 Alternative A — adopt `sources` on literature notes (the floor)
 
 Already Tier 4. Machine-write `sources: [{id: <citekey>, resource: <doi-url>, title: …}]` on
-every note from data the importer already holds, leave prose untouched, and record the
-rendering difference as one class-1 row in `docs/terminology.md` §3.
+each literature note from data the importer already holds, leave prose untouched, and record
+the rendering difference as one class-1 row in `docs/terminology.md` §3.
 
-- **Closes:** the source half of the marker gap. A cold consumer resolving per §5.1 reaches
-  the right entry.
+- **Closes:** nothing in the marker gap, and the report's earlier claim that it closed "the
+  source half" was wrong. §5.1's join is document-scoped — a `[^id]` label resolves into *that
+  document's* `sources` list — and the citations that need resolving live in `synthesis/` and
+  `projects/` notes, which this never touches. What it does buy is real but different: each
+  literature note becomes self-describing, declaring the external material it derives from in
+  the field a cold consumer actually reads.
+- **Leaves open:** the whole marker gap, and the locator.
+- **Cost:** near zero on the import path. Not unconditionally free: §5.1 makes `resource`
+  REQUIRED per entry, so a DOI-less source needs a resolvable URL or a §5.1 scope descriptor.
+- **Verdict:** do it regardless. It is the precondition for A′ and B and the evidence for G.
+
+### 9.3a Alternative A′ — extend `sources` to the citing notes
+
+The thing that would actually close the source half. Derive a `sources` block on each
+`synthesis/` and `projects/` note from the citekeys its claim lines already carry, so a
+consumer reading the note where the citation lives can resolve it document-locally, exactly as
+§5.1 intends.
+
+- **Closes:** the source half of the marker gap, in the notes where it matters.
 - **Leaves open:** the literal `[^…]` token, and the locator.
-- **Cost:** near zero. No prose changes, no toolchain risk, no new machinery.
-- **Verdict:** do this regardless of what else is chosen. It is the precondition for B and the
-  evidence for G.
+- **Cost:** more than it looks. No machine writer owns synthesis or project frontmatter today
+  (§3.1), and the synthesis layer is defined as freely rewritable prose, so this introduces a
+  machine-maintained region into a human/LLM-owned surface — the same tension the literature
+  note's managed region already answers, but unanswered here. Needs a design pass, not a patch.
+- **Verdict:** the honest middle option between A and B. Cheaper than B, and unlike B it
+  improves the *living* vault rather than only the exported artifact.
 
 ### 9.4 Alternative B — project a conformant bundle at the publish boundary
 
 `mark-published` already runs a closed gate, commits, and tags. Add a projection step that
 renders the published project and the literature notes it cites into an OKF bundle: rewrite
 `[@citekey, locator]` to `[^citekey]`, emit the matching `sources` entries, convert wikilinks
-to relative markdown links, and drop Dataview fields into frontmatter or prose. The check id
-`render` is already reserved for exactly this seam
-(`research_vault/__main__.py:290`, `inbox.py:77`) and is unimplemented.
+to relative markdown links, and drop Dataview fields into frontmatter or prose.
+
+This needs a **new** check id and a new seam. The `render` id is taken: it is a live
+import-side hold class for render rejections (`research_vault/__main__.py:278-296`,
+`inbox.py:77`), wired 2026-08-22 and test-pinned at `tests/test_cli_live.py:1502,1538`.
+Repurposing it would be exactly the class-4 collision §2.1 condemns. Under terminology.md §4.3's
+"other projection or derivation" branch the new verb is an imperative verb-noun kebab —
+`project-bundle` or similar — with a matching check id, ruled at §4.4.
 
 **Pre-empting the obvious objection.** ADR 0001 already rejected an option by this name:
 "**Export-boundary-only projection** — emit a conformant bundle only when publishing (rejected:
@@ -591,7 +646,7 @@ substitute; this is a superset.
 
 The locator gap is a defect in a young spec, not a deviation by the vault, and OKF is actively
 maintained — `SPEC.md`'s only commit since adoption is a substantive normative change merged
-four days before this audit. Filing it is cheap, and it is the one path to a literal 100%.
+eleven days before this audit. Filing it is cheap, and it is the one path to a literal 100%.
 
 Draft issue text, lead with the demonstrable defect rather than an adoption claim:
 
@@ -632,16 +687,18 @@ rather than unconsidered.
 
 They compose; this is not a choice among three.
 
-| When | Do | Why |
-| --- | --- | --- |
-| Now | **A** — adopt `sources` | Already Tier 4. Closes the source half of the marker gap and is the precondition for everything else. |
-| Now, in parallel | **G** — file the locator issue upstream | Minutes of work, and it converts the residual from "we deviate" into "the standard has a gap, tracked". |
-| When `render` exists | **B** — project a conformant bundle at publish | Closes the marker gap on the artifact that leaves the vault. |
-| Never | **D** — note-style citation | Priced and declined. |
+| When                 | Do                                             | Why                                                                                                     |
+| -------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Now                  | **A** — adopt `sources` on literature notes    | Already Tier 4. Makes literature notes self-describing and is the precondition for A′ and B. Does not itself close the marker gap.                             |
+| Next, by design pass | **A′** — extend `sources` to citing notes      | Closes the source half where the citations actually are. Needs a ruling on machine-owned frontmatter in a freely-rewritable layer.                             |
+| Now, in parallel     | **G** — file the locator issue upstream        | Minutes of work, and it converts the residual from "we deviate" into "the standard has a gap, tracked". |
+| When `render` exists | **B** — project a conformant bundle at publish | Closes the marker gap on the artifact that leaves the vault.                                            |
+| Never                | **D** — note-style citation                    | Priced and declined.                                                                                    |
 
 With A and G done, the recorded deviation reads honestly and completely: the vault joins claims
 to sources by a globally stable key rather than a document-scoped one, which strengthens
 §5.1's stated rationale rather than declining it; the rendering difference is a class-1
-toolchain mismatch; and the pinpoint gap is upstream issue `<n>`, not a vault decision. That is
-the most a correct answer can claim before either B lands or OKF moves — and either one of
-those brings it to literal 100%.
+toolchain mismatch; and the pinpoint gap is upstream issue `<n>`, not a vault decision. The
+marker gap stays fully open until A′ or B lands — A alone does not narrow it — and the pinpoint
+gap stays open until OKF moves. Literal 100% needs B *and* G; everything short of that is an
+honest, completely recorded deviation, which is a different and achievable claim.
