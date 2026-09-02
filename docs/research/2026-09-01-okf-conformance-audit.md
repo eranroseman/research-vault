@@ -163,14 +163,14 @@ failure.
 **Fix (four parts, all additive on the write path).**
 
 1. `_verified_events`: normalize a bare mapping (item 1.4).
-1. `_valid_event`: accept `{"by", "at"} <= set(event)`, and accept either a calendar date or
+2. `_valid_event`: accept `{"by", "at"} <= set(event)`, and accept either a calendar date or
    an offset-bearing ISO 8601 datetime for `at`. Relaxing only the key set is not enough —
    `_calendar_date` at `events.py:26-32` still rejects `2026-06-25T09:00:00Z`.
-1. `trust_tier`: keep check-less foreign events in the list so `events.py:287`'s `human:`
+3. `trust_tier`: keep check-less foreign events in the list so `events.py:287`'s `human:`
    test sees them, but exclude them from the `checks` coverage set. ADR 0002's
    "emptiness is not a pass" and MATCHED-only minting are untouched — only the reader becomes
    tolerant; `record_pass` keeps writing `{by, at, check}`.
-1. Add the `docs/terminology.md` §3 row that records the `check` extension and the
+4. Add the `docs/terminology.md` §3 row that records the `check` extension and the
    coverage-based tier derivation as a deviation from §5.3, at cost class 3.
 
 ## 2. Namespace collisions
@@ -370,10 +370,10 @@ unstamped human capture in `inbox/` is nonconformant until the triage stamp land
 **Tier 0 — producer fixes, no semantics lost.**
 
 1. Delete `type: "index"` from the root index template (§1.1).
-1. Emit date-grouped, newest-first `log.md` (§1.2).
-1. Convert the two machine-written navigation surfaces to relative markdown links (§3.2).
-1. Substitute or delete the `{{ACTOR}}`/`{{NOW}}` placeholders (§2.3).
-1. Fleeting `inbox/` notes, per §1.3's ruling: `evidence-conventions` types agent-written
+2. Emit date-grouped, newest-first `log.md` (§1.2).
+3. Convert the two machine-written navigation surfaces to relative markdown links (§3.2).
+4. Substitute or delete the `{{ACTOR}}`/`{{NOW}}` placeholders (§2.3).
+5. Fleeting `inbox/` notes, per §1.3's ruling: `evidence-conventions` types agent-written
    captures at write; the triage stamp linter converges human captures; the register row and
    honest probe string record the residual exemption.
 
@@ -382,11 +382,11 @@ unstamped human capture in `inbox/` is nonconformant until the triage stamp land
 1. Rewrite `_okf_probe` against §11 verbatim: rule 1 as a check distinct from rule 2; rule 3
    asserting §8 (no frontmatter in a nested index, at most `okf_version` at the root) and §9
    (date-form headings, newest-first); reserved-name matching by `path.name in {"index.md", "log.md"}` at any depth.
-1. Narrow the success string to what was actually verified.
-1. Pin the spec: record `open-knowledge-format@<sha>` plus a `SPEC.md` checksum, and have the
+2. Narrow the success string to what was actually verified.
+3. Pin the spec: record `open-knowledge-format@<sha>` plus a `SPEC.md` checksum, and have the
    probe or a scheduled CI job re-fetch and diff, opening an issue on mismatch. This is the
    reconciliation obligation ADR 0001 already accepted (D6).
-1. Decide whether `okf` stays in `DOCTOR_WARN_ONLY`. A conformance claim the ADR calls
+4. Decide whether `okf` stays in `DOCTOR_WARN_ONLY`. A conformance claim the ADR calls
    load-bearing, enforced only by a warning, is the state that let five violations ship.
 
 **Tier 2 — reader tolerance in `events.py`** (§1.4, §1.5). ADR 0002 untouched, but the write
@@ -431,11 +431,11 @@ requires nothing else of a bundle.
    makes the `verified` reader accept the spec's own shapes; Tier 0 removes the `generated`
    placeholders. §2.2's `verified[].at` precision survives as a recorded deviation until the
    ADR 0002 reconciliation widens the predicate.
-1. *Every optional family has a recorded disposition.* Tier 4 adopts the four additive families
+2. *Every optional family has a recorded disposition.* Tier 4 adopts the four additive families
    (`resource`, `sources`, `title`, `description`); Tier 5 records the rest — `stale_after`,
    `tags`, and §10 — as adoptions or priced declinations. Silence, which is the current state
    for most of them, is not a disposition.
-1. *The two remaining "deviations" are supersets of OKF, not refusals of it.* §6.1 says the
+3. *The two remaining "deviations" are supersets of OKF, not refusals of it.* §6.1 says the
    kind of a relationship "is conveyed by the surrounding prose, not by the link itself" — the
    vault conveys it in a Dataview field beside the link, which is more than OKF asks for and
    contradicts nothing it says. And OKF has no sub-document addressing at all, so
