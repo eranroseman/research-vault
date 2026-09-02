@@ -27,13 +27,13 @@ restates OKF's conformance rules from memory rather than quoting §11, and every
 violation below traces to that paraphrase. The doctor `okf` probe then implements the
 paraphrase, so it reports `OKF artifacts conformant` over a vault that is not.
 
-| Bucket                    | Count | Meaning                                                      |
-| ------------------------- | ----- | ------------------------------------------------------------ |
+| Bucket                    | Count | Meaning                                                                          |
+| ------------------------- | ----- | -------------------------------------------------------------------------------- |
 | Rule violation            | 5     | Fails OKF v0.2 §11 — three bundle rules, one consumer MUST, one consumer SHOULD. |
-| Namespace collision       | 3     | An OKF-reserved key carries foreign values.                  |
-| Unadopted optional family | 6     | Conformant, but the spirit gap.                              |
-| Documentation defect      | 12    | The repo misdescribes the spec it conforms to.               |
-| Confirmed conformant      | 10    | Worth keeping and worth recording.                           |
+| Namespace collision       | 3     | An OKF-reserved key carries foreign values.                                      |
+| Unadopted optional family | 6     | Conformant, but the spirit gap.                                                  |
+| Documentation defect      | 12    | The repo misdescribes the spec it conforms to.                                   |
+| Confirmed conformant      | 10    | Worth keeping and worth recording.                                               |
 
 ## 1. Rule violations
 
@@ -105,11 +105,30 @@ concept documents." Authorship is not a criterion.
 `skills/evidence-conventions/SKILL.md:12` directs the *agent* to write these files and gives
 no frontmatter instruction.
 
-**Two honest exits.** (a) Adopt: have `evidence-conventions` open a fleeting note with
-`type: "fleeting"` and drop the exclusion — §4.1 explicitly does not register type values, so
-this costs one line per note. (b) Record it: amend ADR 0001 to declare `inbox/` an exception,
-give it a `docs/terminology.md` §1 cost class, and change the probe's success string to name
-what it did not check. What is not available is the current position, which is neither.
+**Ruled, 2026-09-02: split by author, with the exemption carried by rationale rather than
+silence.** Agent-written fleeting notes adopt `type: "fleeting"` at write — one line in
+`evidence-conventions`, free, closing the machine-written half of this finding. Human quick
+capture stays frontmatter-free at creation; the type arrives mechanically at triage, by a
+linter that stamps `type: "fleeting"` onto untyped `inbox/` notes. The stamp prepends only
+where no frontmatter exists — a note whose head is YAML-shaped junk gets reported, not edited,
+because converting a readable note into a parse error is the one way the stamp can do harm.
+`inbox/review-queue.md` is tool-managed, carries frontmatter, and conforms regardless; the
+exemption does not license it to degrade.
+
+What remains is honest nonconformance, recorded: while an unstamped capture exists, the bundle
+fails §11 rule 1. The rationale is scope plus workflow. `inbox/` holds knowledge *candidates* —
+by the vault's own Iron Law, prose ahead of its evidence is not yet knowledge — and `system/`
+holds machinery; both are part of the vault, neither is part of the knowledge record ADR 0001's
+guarantee protects. An OKF consumer that skips an untyped fleeting note loses no knowledge, so
+the exemption sits outside the guarantee rather than denting it (`system/` needs no exemption
+today — its files already carry frontmatter). The workflow half is the accepted bound's
+practical leg, untouched by D2's refutation of its spec leg: forcing metadata syntax on quick
+capture fails in practice. OKF has no way to mark a subtree as outside the bundle, which is why
+this must be an exemption rather than a boundary declaration — and why a bundle-scope marker is
+a second upstream filing candidate beside §9.5's locator issue: every real vault has an
+airlock, and a spec that binds the whole tree forces this same choice on all of them. Register:
+one `docs/terminology.md` §1 row carrying this rationale; probe: the success string names the
+exemption instead of claiming blanket conformance.
 
 ### 1.4 A bare `verified` mapping is treated as malformed
 
@@ -144,14 +163,14 @@ failure.
 **Fix (four parts, all additive on the write path).**
 
 1. `_verified_events`: normalize a bare mapping (item 1.4).
-2. `_valid_event`: accept `{"by", "at"} <= set(event)`, and accept either a calendar date or
+1. `_valid_event`: accept `{"by", "at"} <= set(event)`, and accept either a calendar date or
    an offset-bearing ISO 8601 datetime for `at`. Relaxing only the key set is not enough —
    `_calendar_date` at `events.py:26-32` still rejects `2026-06-25T09:00:00Z`.
-3. `trust_tier`: keep check-less foreign events in the list so `events.py:287`'s `human:`
+1. `trust_tier`: keep check-less foreign events in the list so `events.py:287`'s `human:`
    test sees them, but exclude them from the `checks` coverage set. ADR 0002's
    "emptiness is not a pass" and MATCHED-only minting are untouched — only the reader becomes
    tolerant; `record_pass` keeps writing `{by, at, check}`.
-4. Add the `docs/terminology.md` §3 row that records the `check` extension and the
+1. Add the `docs/terminology.md` §3 row that records the `check` extension and the
    coverage-based tier derivation as a deviation from §5.3, at cost class 3.
 
 ## 2. Namespace collisions
@@ -203,10 +222,11 @@ was accepted — without a version bump.
 ### 2.3 Shipped templates put unsubstituted placeholders into `generated`
 
 `templates/vault/system/templates/project.md:5`, `synthesis.md:5`, and `literature.md:8` ship
-`generated: {by: "{{ACTOR}}", at: "{{NOW}}"}`. Outside the templates the strings appear only in
-two test assertions that pin them (`tests/test_templates.py:159,165`, which any fix must update)
-— no Python and no skill step substitutes them, and
-`scaffold.py:216` copies them verbatim into every scaffolded vault.
+`generated: {by: "{{ACTOR}}", at: "{{NOW}}"}`. In the code and tests the strings appear
+elsewhere only in two assertions that pin them (`tests/test_templates.py:159,165`, which any
+fix must update); a research note under `docs/research/validation-slice/` quotes them
+incidentally. No Python and no skill step substitutes them, and `scaffold.py:216` copies them
+verbatim into every scaffolded vault.
 
 `skills/project-flow/SKILL.md:48` makes this concrete: project notes are authored prose, "no
 CLI verb is involved", so the agent either carries the literal placeholder into durable
@@ -225,7 +245,7 @@ All conformant. Each needs a disposition — adoption or a recorded declination 
 
 | Family                        | Status                           | Recommendation                                                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `resource` (§4.1)             | Never written                    | **Adopt.** Literature notes already carry `doi`/`url` (`notes.py:229-236`); `resource: https://doi.org/…` names the paper, not the note. Not universally free: §5.1 makes `resource` REQUIRED within a `sources` entry, and a DOI-less source (a book, an ISO standard) needs a resolvable URL or one of §5.1's scope descriptors instead.                                                                                                                                                                                                                                                               |
+| `resource` (§4.1)             | Never written                    | **Adopt.** Literature notes already carry `doi`/`url` (`notes.py:229-236`); `resource: https://doi.org/…` names the paper, not the note. Not universally free: §5.1 makes `resource` REQUIRED within a `sources` entry, and a DOI-less source (a book, an ISO standard) needs a resolvable URL or one of §5.1's scope descriptors instead.                                                                   |
 | `sources` (§5.1)              | Never written                    | **Adopt.** `sources: [{id: <citekey>, resource: <doi-url>, title: …}]` from data in hand. `resource` is REQUIRED within an entry, so the DOI must carry — the citekey alone is not enough.                                                                                                                                                                                                                   |
 | `title`, `description` (§4.1) | Never written                    | **Adopt.** Both values are already in hand at render time; `description` feeds §8 index entries and search snippets.                                                                                                                                                                                                                                                                                         |
 | `tags` (§4.1)                 | Never written                    | Assess. Obsidian tags exist; whether they belong in OKF `tags` is a modelling call.                                                                                                                                                                                                                                                                                                                          |
@@ -282,7 +302,9 @@ anything else in this report.
 ## 4. Documentation defects
 
 Five of the twelve are in one paragraph. `docs/adr/0001-vault-outlives-its-tools.md:7`
-restates §11 from memory, and each misstatement licensed a violation above.
+restates §11 from memory; three of its misstatements licensed the structural violations above
+(D1–D3), and the other two mislead without licensing anything (D4 overstates two sound
+deviations, D5 is the missed reconciliation).
 
 | #   | Defect                                                                                                                                                                                                                                                                                                                                                                                                                  | Consequence                                                                                                        |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -342,26 +364,29 @@ Also cleared: non-adoption of §10 is not a §11 violation; claim-link wikilinks
 ## 7. Path to 100%
 
 Ordered by the repo's own maxim — eliminate the problem, then add a mechanism, then a rule,
-then prose. Tiers 0–2 close every §11 violation.
+then prose. Tiers 0–2 close every §11 violation, rule 1 modulo §1.3's recorded exemption: an
+unstamped human capture in `inbox/` is nonconformant until the triage stamp lands on it.
 
 **Tier 0 — producer fixes, no semantics lost.**
 
 1. Delete `type: "index"` from the root index template (§1.1).
-2. Emit date-grouped, newest-first `log.md` (§1.2).
-3. Convert the two machine-written navigation surfaces to relative markdown links (§3.2).
-4. Substitute or delete the `{{ACTOR}}`/`{{NOW}}` placeholders (§2.3).
-5. Give fleeting `inbox/` notes a `type`, or declare the exception (§1.3).
+1. Emit date-grouped, newest-first `log.md` (§1.2).
+1. Convert the two machine-written navigation surfaces to relative markdown links (§3.2).
+1. Substitute or delete the `{{ACTOR}}`/`{{NOW}}` placeholders (§2.3).
+1. Fleeting `inbox/` notes, per §1.3's ruling: `evidence-conventions` types agent-written
+   captures at write; the triage stamp linter converges human captures; the register row and
+   honest probe string record the residual exemption.
 
 **Tier 1 — make the probe the mechanism, so this audit never has to run again by hand.**
 
 1. Rewrite `_okf_probe` against §11 verbatim: rule 1 as a check distinct from rule 2; rule 3
    asserting §8 (no frontmatter in a nested index, at most `okf_version` at the root) and §9
    (date-form headings, newest-first); reserved-name matching by `path.name in {"index.md", "log.md"}` at any depth.
-2. Narrow the success string to what was actually verified.
-3. Pin the spec: record `open-knowledge-format@<sha>` plus a `SPEC.md` checksum, and have the
+1. Narrow the success string to what was actually verified.
+1. Pin the spec: record `open-knowledge-format@<sha>` plus a `SPEC.md` checksum, and have the
    probe or a scheduled CI job re-fetch and diff, opening an issue on mismatch. This is the
    reconciliation obligation ADR 0001 already accepted (D6).
-4. Decide whether `okf` stays in `DOCTOR_WARN_ONLY`. A conformance claim the ADR calls
+1. Decide whether `okf` stays in `DOCTOR_WARN_ONLY`. A conformance claim the ADR calls
    load-bearing, enforced only by a warning, is the state that let five violations ship.
 
 **Tier 2 — reader tolerance in `events.py`** (§1.4, §1.5). ADR 0002 untouched, but the write
@@ -372,8 +397,9 @@ does not match. Normalize the reader without teaching the writer to recognize th
 the next `record_pass` appends a second `verified:` block beside the first. The bare-mapping
 branch has to be handled in both directions or not at all.
 
-**Tier 3 — vacate the reserved key.** Rename to `screening-state` / `publication-status`,
-optionally dual-emitting a real §5.4 `status` (§2.1).
+**Tier 3 — vacate the reserved key** (§2.1). A breaking migration, not an additive rename:
+design it through `lint_published_drift` first, and the publication-state spelling needs a
+terminology ruling before it exists. Optionally dual-emit a real §5.4 `status` once vacated.
 
 **Tier 4 — additive adoption**: `resource`, `sources`, `title`, `description` (§3).
 
@@ -386,27 +412,30 @@ derivation, `verified[].at` precision, and the §10 declination; add the frontma
 to `synthesis-conventions` (D11).
 
 Everything else on the current deviation table either does not need to be a deviation or does
-not correspond to anything in the spec. What survives Tier 4 is one deviation, not the three
-the current table implies — see §8.1.
+not correspond to anything in the spec. What survives Tier 4 is the register's to count —
+Tier 5's rows, with per-claim attribution the load-bearing one — see §8.1.
 
 ## 8. Proposed ADR 0001
 
 ### 8.1 What "100% compliant, in rules and in spirit" can honestly claim
 
-**Rules.** All three §11 rules hold once Tier 0 lands, and Tier 1 makes them hold *mechanically*
-rather than by assertion — a probe written against §11's text, closing rather than warn-only,
-over a pinned spec hash. That is the whole of rule-level conformance; §11 requires nothing else
-of a bundle.
+**Rules.** All three §11 rules hold once Tier 0 lands — rule 1 modulo §1.3's recorded
+exemption for untyped human captures awaiting the triage stamp — and Tier 1 makes them hold
+*mechanically* rather than by assertion: a probe written against §11's text, closing rather
+than warn-only, over a pinned spec hash. That is the whole of rule-level conformance; §11
+requires nothing else of a bundle.
 
 **Spirit.** Three claims, each checkable:
 
-1. *No OKF-reserved key carries foreign values.* Tier 3 vacates `status`; Tier 2 makes the
-   `verified` reader accept the spec's own shapes; Tier 0 removes the `generated` placeholders.
-2. *Every optional family has a recorded disposition.* Tier 4 adopts the four that are free
+1. *No OKF-reserved key carries a value OKF would misread.* Tier 3 vacates `status`; Tier 2
+   makes the `verified` reader accept the spec's own shapes; Tier 0 removes the `generated`
+   placeholders. §2.2's `verified[].at` precision survives as a recorded deviation until the
+   ADR 0002 reconciliation widens the predicate.
+1. *Every optional family has a recorded disposition.* Tier 4 adopts the four additive families
    (`resource`, `sources`, `title`, `description`); Tier 5 records the rest — `stale_after`,
    `tags`, and §10 — as adoptions or priced declinations. Silence, which is the current state
    for most of them, is not a disposition.
-3. *The two remaining "deviations" are supersets of OKF, not refusals of it.* §6.1 says the
+1. *The two remaining "deviations" are supersets of OKF, not refusals of it.* §6.1 says the
    kind of a relationship "is conveyed by the surrounding prose, not by the link itself" — the
    vault conveys it in a Dataview field beside the link, which is more than OKF asks for and
    contradicts nothing it says. And OKF has no sub-document addressing at all, so
@@ -422,8 +451,9 @@ no locator concept anywhere. §9 decomposes the residual and gives the ways to c
 
 ### 8.2 The proposed replacement text
 
-Adopt after Tiers 0–4 land, not before; the claim it makes is only true once the mechanism
-exists. Substitute the real values for `<sha>` and confirm the hash at adoption time. The
+Adopt after Tiers 0–5 land, not before; the claims it makes — the mechanism, and the register's
+dispositions — are only true once both exist. Substitute the real values for `<sha>` and
+confirm the hash at adoption time. The
 deviation and adoption registers stay in `docs/terminology.md` §3/§4 — this ADR states the
 principle and points there, per that file's own "record it once" rule.
 
@@ -456,12 +486,12 @@ what drifted:
 3. Every reserved filename (`index.md`, `log.md`) follows the structure in §8 and §9
    respectively when present.
 
-§3.1 fixes reserved-ness to `index.md` and `log.md` alone, so authorship is not a criterion and
-fleeting `inbox/` captures are concept documents like any other. **[Open — see §1.3: this text
-assumes the "adopt" exit. The accepted bound holds that metadata syntax on quick capture fails in
-practice, and that rationale is untouched by this audit; if it stands, replace this clause with a
-declared, cost-classed exception for `inbox/` rather than deleting the bound silently.]** Rule 3
-pulls in §8
+§3.1 fixes reserved-ness to `index.md` and `log.md` alone, so authorship is not a criterion.
+One exemption is recorded: `inbox/` holds knowledge candidates, not knowledge — human quick
+capture may sit untyped until the triage stamp adds `type: "fleeting"`, because the record this
+ADR protects does not include the airlock, and forcing metadata syntax on quick capture fails
+in practice. Agent-written captures are typed at write; the exemption's register row prices the
+residual. Rule 3 pulls in §8
 — a nested `index.md` carries no frontmatter, and the bundle root carries `okf_version` and
 nothing else — and §9 — a `log.md`, at the root or any level below it, is date-grouped under
 `## YYYY-MM-DD` headings, newest first. The doctor `okf` probe asserts all three against this text and re-checks the pinned
@@ -519,17 +549,18 @@ structural rules start imposing real costs on the vault's own tools.
 
 ### 8.3 What the proposed text changes, and why
 
-| Change                                                                                                                 | Closes                                |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| §11 quoted verbatim, with §3.1's reserved-ness definition spelled out                                                  | D1, and the license for §1.3          |
-| The "OKF instructs consumers to tolerate nonconforming files" clause deleted outright                                  | D2                                    |
-| §8/§9's actual requirements stated where the old text stated OKF's MAYs as rules                                       | D3, and the license for §1.1 and §1.2 |
-| "Structural and semantic", with the two toolchain contracts named individually instead of a blanket "no interop" claim | D4                                    |
-| Commit + hash pin, and reconciliation discharged by the probe rather than by intention                                 | D5, D6                                |
-| "No OKF-reserved key carries a value OKF would misread" stated as a rule of the mechanism                                  | §2.1, §2.2, §2.3                      |
-| "Every family carries a disposition; silence is not a disposition", pointing at the register                           | §3, D10                               |
-| The load-bearing surviving deviation named and scoped to rendering, with the rest delegated to the register            | Overcounting and undercounting alike  |
-| A new rejected option recording why the old vocabulary bound was wrong                                                 | Keeps the reversal auditable          |
+| Change                                                                                                                  | Closes                                |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| §11 quoted verbatim, with §3.1's reserved-ness definition spelled out                                                   | D1, and the license for §1.3          |
+| The "OKF instructs consumers to tolerate nonconforming files" clause deleted outright                                   | D2                                    |
+| §8/§9's actual requirements stated where the old text stated OKF's MAYs as rules                                        | D3, and the license for §1.1 and §1.2 |
+| "Structural and semantic", with the two toolchain contracts named individually instead of a blanket "no interop" claim  | D4                                    |
+| Commit + hash pin, and reconciliation discharged by the probe rather than by intention                                  | D5, D6                                |
+| "No OKF-reserved key carries a value OKF would misread" stated as a rule of the mechanism                               | §2.1, §2.2, §2.3                      |
+| "Every family carries a disposition; silence is not a disposition", pointing at the register                            | §3, D10                               |
+| The load-bearing surviving deviation named and scoped to rendering, with the rest delegated to the register             | Overcounting and undercounting alike  |
+| A new rejected option recording why the old vocabulary bound was wrong                                                  | Keeps the reversal auditable          |
+| The `inbox/` exemption stated with its scope-plus-workflow rationale instead of silently reversing or keeping the bound | §1.3's ruling                         |
 
 The `Status` line keeps the original acceptance date: the decision is unchanged and only the
 mechanism's statement is corrected, which is the severability this ADR has always claimed.
@@ -605,10 +636,12 @@ consumer reading the note where the citation lives can resolve it document-local
 
 - **Closes:** the source half of the marker gap, in the notes where it matters.
 - **Leaves open:** the literal `[^…]` token, and the locator.
-- **Cost:** more than it looks. No machine writer owns synthesis or project frontmatter today
-  (§3.1), and the synthesis layer is defined as freely rewritable prose, so this introduces a
-  machine-maintained region into a human/LLM-owned surface — the same tension the literature
-  note's managed region already answers, but unanswered here. Needs a design pass, not a patch.
+- **Cost:** more than it looks, though less than first priced. Project-note frontmatter
+  already has machine writers — `_set_status` rewrites `status` and `record_pass` appends
+  `verified` at publish (§1.5, §2.1) — so the precedent exists on that surface. Synthesis
+  frontmatter has none, and the synthesis layer is authored prose (§2.3), so there this
+  introduces a machine-maintained region into a human/LLM-owned surface — the tension the
+  literature note's managed region answers, unanswered here. Needs a design pass, not a patch.
 - **Verdict:** the honest middle option between A and B. Cheaper than B, and unlike B it
   improves the *living* vault rather than only the exported artifact.
 
@@ -639,8 +672,8 @@ substitute; this is a superset.
 - **Cost:** real. A renderer, a fidelity check that the projection preserves every claim's
   attribution, and a decision about where the bundle lands (a `published/` tag payload, a
   sibling directory, a release artifact). This is the largest single item in the report.
-- **Verdict:** the right answer once the `render` seam is built. Not worth building the seam
-  *for* this alone.
+- **Verdict:** the right answer once the projection seam (`project-bundle` or similar) is
+  built. Not worth building the seam *for* this alone.
 
 ### 9.5 Alternative G — close the locator gap upstream, in OKF
 
@@ -687,13 +720,13 @@ rather than unconsidered.
 
 They compose; this is not a choice among three.
 
-| When                 | Do                                             | Why                                                                                                     |
-| -------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Now                  | **A** — adopt `sources` on literature notes    | Already Tier 4. Makes literature notes self-describing and is the precondition for A′ and B. Does not itself close the marker gap.                             |
-| Next, by design pass | **A′** — extend `sources` to citing notes      | Closes the source half where the citations actually are. Needs a ruling on machine-owned frontmatter in a freely-rewritable layer.                             |
-| Now, in parallel     | **G** — file the locator issue upstream        | Minutes of work, and it converts the residual from "we deviate" into "the standard has a gap, tracked". |
-| When `render` exists | **B** — project a conformant bundle at publish | Closes the marker gap on the artifact that leaves the vault.                                            |
-| Never                | **D** — note-style citation                    | Priced and declined.                                                                                    |
+| When                            | Do                                             | Why                                                                                                                                |
+| ------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Now                             | **A** — adopt `sources` on literature notes    | Already Tier 4. Makes literature notes self-describing and is the precondition for A′ and B. Does not itself close the marker gap. |
+| Next, by design pass            | **A′** — extend `sources` to citing notes      | Closes the source half where the citations actually are. Needs a ruling on machine-owned frontmatter in a freely-rewritable layer. |
+| Now, in parallel                | **G** — file the locator issue upstream        | Minutes of work, and it converts the residual from "we deviate" into "the standard has a gap, tracked".                            |
+| When the projection seam exists | **B** — project a conformant bundle at publish | Closes the marker gap on the artifact that leaves the vault. Needs a new check id (`project-bundle` or similar), not `render`.     |
+| Never                           | **D** — note-style citation                    | Priced and declined.                                                                                                               |
 
 With A and G done, the recorded deviation reads honestly and completely: the vault joins claims
 to sources by a globally stable key rather than a document-scoped one, which strengthens
