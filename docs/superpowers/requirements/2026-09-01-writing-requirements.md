@@ -93,11 +93,11 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R5** — Where a hypothesis is offered before an answer exists, offers the plausible alternatives rather than a single guess.
 *Fit:* no question presents one guess as the expected answer.
-*Source:* Willis — single-possibility probing biases, multi-possibility probing is the remedy. Pew — acquiescence is worse with an interviewer present.
+*Source:* Willis, *Cognitive Interviewing Training Guide* (2012), **read directly 2026-09-01** — "rather than suggesting to the subject one possibility ('Did you think the question was asking just about physicians?'), it is preferable to list all reasonable possibilities… probes should be characterized by unbiased phrasing". **Correction:** the labels "single-possibility" and "multi-possibility probing" appear **nowhere** in this document; they were reported as quotation and are not. The substance is verbatim, the terminology is not from this source. Pew — acquiescence is worse with an interviewer present; still not read directly.
 
 **R6** — Anchors questions in specific past events rather than opinions, generalities or predictions.
 *Fit:* each question asks what happened, not what would.
-*Source:* Fitzpatrick, *The Mom Test* — recoverable. Reported by the competitive-analysis pass as the most-agreed rule in the discovery corpus, converged on by "three independent primaries"; **two of the three were never named and are unrecovered**. Treat the strength of the convergence claim as unverified.
+*Source:* Fitzpatrick, *The Mom Test*, **read directly 2026-09-01**, rule 2 of three: "Talk about their life instead of your idea. **Ask about specifics in the past instead of generics or opinions about the future.** Talk less and listen more." Verbatim, and the requirement is a restatement of it. The competitive analysis additionally claimed convergence across "three independent primaries"; **two were never named and remain unrecovered**, so the convergence claim stays unverified even though the requirement no longer depends on it.
 
 **R7** — Places no cap on the number of questions or clarification markers.
 *Fit:* no number bounds questioning anywhere in the skill.
@@ -110,7 +110,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R9** — Confirms each requirement when it is written.
 *Fit:* no requirement enters the artifact unconfirmed.
-*Source:* contextual inquiry's *Interpretation* principle; qualitative research's *member checking*. Both are continuous rather than terminal. `assumed` — the rendering is mine.
+*Source:* Beyer and Holtzblatt, *Contextual Design*, the **Interpretation** principle, **read directly 2026-09-01** — "If the data that matters is the interpretation, we must have a way to ensure it is correct, and we can only do that by **sharing it with the customer**. We fail in the entire purpose of working with customers if we do not share and validate our interpretations of their work." Sharing is continuous and per-interpretation, not terminal, which is what R9 requires and R31 completes. Qualitative research's *member checking* is the second tradition, still not read directly. The rendering into a per-requirement obligation remains mine.
 
 **R31** — Restates the accumulated set before terminating.
 *Fit:* the final restate covers every requirement written, not only those settled last.
@@ -143,7 +143,7 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R13** — Marks verbatim material as verbatim, distinct from paraphrase.
 *Fit:* a reader can tell my words from the agent's summary of them.
-*Source:* Fitzpatrick, *The Mom Test*, reported as imposing a provenance discipline of this shape. **Paraphrase, not verbatim** — the book is not in the read-directly list below, and the phrasing previously carried here in quotation marks came from an agent's report rather than from the text. Verify before quoting.
+*Source:* Fitzpatrick, *The Mom Test*, **read directly 2026-09-01** — "When possible, **write down exact quotes. Wrap them in quotation marks so you know it's verbatim.** … Other times the exact quote isn't relevant and you just write down the big idea." That is this requirement, stated as practice. His reason: "**notes make it harder to lie to yourself**." **Correction:** the phrase previously attributed to him in quotation marks — "the artifact's job is to make self-deception harder" — **does not appear in the book**; "self-deception" occurs zero times. It was an agent's paraphrase presented as a quotation. The idea survives in his own words; the quotation is withdrawn.
 
 **R14** — Each requirement carries a fit criterion: a measurement testing whether a solution matches it.
 *Fit:* Volere's own test. Per requirement, not per goal and not per document.
@@ -155,11 +155,11 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R16** — A quality requirement carries a scale and a meter.
 *Fit:* no quality stated without how it is measured.
-*Source:* Gilb, Planguage.
+*Source:* Gilb, *Competitive Engineering* (2005), **read directly 2026-09-01** — "**Meter: A practical method for measuring and testing a scalar attribute level, on a defined Scale.**" Scale and Meter are distinct parameters there: the Scale defines the units, the Meter is how you actually measure on it.
 
 **R17** — Where a floor exists, the threshold is two-level: the level below which it fails and the level aimed at.
 *Fit:* two numbers.
-*Source:* Planguage, `Must` and `Plan`.
+*Source:* Gilb, *Competitive Engineering* (2005), **read directly 2026-09-01**. **Correction — the parameter names cited here were wrong.** Planguage's two levels are **`Fail`**, "a level needed to avoid a system failure of some kind", classed as a *constraint*; and **`Goal`**, "a future required level under defined [time, place, event] conditions, which has to be achieved to claim success", classed as a *target*. Not `Must` and `Plan`, which this document asserted from a mirror. Gilb also ranks them: "Given the same set of qualifiers, **constraints are of higher priority than targets**" — which R17 does not yet encode.
 
 **R18** — Forbids the vague terms 29148 5.2.7 enumerates.
 *Fit:* no superlatives, subjective language, vague pronouns, ambiguous adverbs, ambiguous logical statements, open-ended non-verifiable terms, comparatives, loopholes, totality terms or incomplete references.

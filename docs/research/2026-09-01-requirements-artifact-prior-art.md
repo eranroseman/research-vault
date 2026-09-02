@@ -283,6 +283,72 @@ Supplied by the author 2026-09-01 after I reported them unreachable, and read fr
 
 ______________________________________________________________________
 
+## Six sources read directly 2026-09-01, after the author supplied them
+
+Every requirement resting on a reported-but-unread source now rests on the text. Two claims did not survive.
+
+### Fitzpatrick, *The Mom Test* — R6 and R13
+
+R6, verbatim, rule 2 of three:
+
+> *"Talk about their life instead of your idea. **Ask about specifics in the past instead of generics or opinions about the future.** Talk less and listen more."*
+
+R13, verbatim:
+
+> *"When possible, write down exact quotes. **Wrap them in quotation marks so you know it's verbatim.** … Other times the exact quote isn't relevant and you just write down the big idea."*
+
+with his reason: *"notes make it harder to lie to yourself."*
+
+**One claim refuted.** The competitive analysis attributed to him, in quotation marks, *"the artifact's job is to make self-deception harder."* The string "self-deception" occurs **zero** times in the book. It was an agent's paraphrase wearing quotation marks. The idea is his; the sentence is not.
+
+### Willis, *Cognitive Interviewing Training Guide* (2012) — R5
+
+> *"the use of probes may lead the respondent to particular types of responses… can be minimized through the careful selection of non-leading probing techniques… **rather than suggesting to the subject one possibility** ('Did you think the question was asking just about physicians?'), **it is preferable to list all reasonable possibilities**… probes should be characterized by unbiased phrasing."*
+
+**One claim refuted.** The labels *"single-possibility probing"* and *"multi-possibility probing"* appear **nowhere** in this document and were reported as quotation. They are presumably from Willis's Sage book, which this guide cites and which is not in hand. The substance is verbatim; the terminology is not.
+
+### Beyer and Holtzblatt, *Contextual Design* — R9, and a third voice on R10
+
+The **Interpretation** principle, one of four (context, partnership, interpretation, focus):
+
+> *"If the data that matters is the interpretation, we must have a way to ensure it is correct, and we can only do that by **sharing it with the customer**. We fail in the entire purpose of working with customers if we do not share and validate our interpretations of their work — the most important data we bring back would not be validated."*
+
+Confirmation is continuous and per-interpretation, which is R9, with R31 as the terminal half.
+
+**They also answer the acquiescence objection R10 records as an open disagreement**, and they answer it against Fitzpatrick:
+
+> *"Will customers be prone to agree with whatever you say? **In fact, it is quite hard to get people in the middle of doing work to agree with a wrong interpretation.** … The statement that doesn't fit is like an itch, and they poke and fidget with it until they've rephrased it so it represents their thought well: 'It's like a traveling office,' you say… 'Well — like a traveling desk,' he responds."*
+
+The condition is doing the work at the time. That is a real constraint on transfer here, where the author is reasoning about software not yet built rather than being observed mid-task — so this strengthens R9 more than it settles R10.
+
+### Gilb, *Competitive Engineering* (2005) — R16 and R17
+
+R16, verbatim:
+
+> *"**Meter:** A practical method for measuring and testing a scalar attribute level, on a defined Scale."*
+
+R17 — **and the parameter names this project had been citing were wrong.** Planguage's two levels are:
+
+> *"**Fail:** a level needed to avoid a system failure of some kind"* — classed as a **constraint**
+
+> *"**Goal:** A future required level under defined [time, place, event] conditions, which has to be achieved to claim success in meeting a performance attribute requirement."* — classed as a **target**
+
+Not `Must` and `Plan`, which was asserted from a mirror. Gilb also orders them — *"Given the same set of qualifiers, constraints are of higher priority than targets"* — which R17 does not yet encode.
+
+### IEEE adoption of ISO/IEC 15026-3 (2013) — corroborates R3
+
+12207's own delegation target for the taxonomy, obtained. It does not supply a category list the way IMDRF does; it requires the assignment be earned:
+
+> *"Risk analysis and/or evaluation shall be performed: a) Initially, **before the first assignment** of an agreed upon or approved system or product integrity level."*
+
+Same principle as IMDRF §7.1 — the level is derived, not declared — reached from the general case rather than the medical one. **R3's open question is answerable now:** IMDRF supplies a taxonomy and 15026-3 supplies the obligation to derive one, so the two are complementary rather than alternatives.
+
+### ISO/IEC/IEEE 24748-2:2024 — not yet mined
+
+The 15288 application guidelines, supplied and extracted but **not yet read against the requirement set**. Recorded as available, not as evidence.
+
+______________________________________________________________________
+
 ## Unanchored
 
 Named rather than stretched onto a near-miss, per the method's own rule.
@@ -293,6 +359,6 @@ Named rather than stretched onto a near-miss, per the method's own rule.
 
 Six corpora, read by isolated agents with adversarial verification on the load-bearing claims. 29148 and 12207 were subsequently read directly from the primary PDFs, which corrected four claims the secondary reproductions had compressed or dropped.
 
-**Not reached:** IEEE 830-1998 in full; RIBA Plan of Work; ISO 26262 and ARP4754A; ISO/IEC 15026-3; IEC 62304; FDA's General Wellness guidance. Planguage was read through a mirror rather than the source publication, and so was INCOSE's Guide for Writing Requirements — **obtained 2026-09-01 and quote-verified locally, but from a university mirror rather than from INCOSE.** Also never read directly, though requirements rest on them: Fitzpatrick's *The Mom Test* (R6, R13), Willis and Pew (R5), Beyer and Holtzblatt (R9).
+**Not reached:** IEEE 830-1998 in full; RIBA Plan of Work; ISO 26262 and ARP4754A; ISO/IEC 15026-3; IEC 62304; FDA's General Wellness guidance. Planguage was read through a mirror rather than the source publication, and so was INCOSE's Guide for Writing Requirements — **obtained 2026-09-01 and quote-verified locally, but from a university mirror rather than from INCOSE.** **Resolved 2026-09-01:** Fitzpatrick, Willis, Beyer and Holtzblatt, Gilb and ISO/IEC 15026-3 were all supplied by the author and read — see the section above. Still not read directly: the Pew source behind R5's acquiescence leg, and Willis's Sage book behind the probing terminology.
 
 **Contamination risk, disclosed:** the agents in the earlier sweeps were given a shared guard block naming the other candidates and, in one case, an explicit statement of which requirements were believed unmet. That is priming, and it is the failure `neuroarxiv` names — *"a read that has seen other papers' abstracts starts summarizing the SET"*. The findings above from those sweeps should be weighted accordingly; the two standards, read directly and last, are not affected.
