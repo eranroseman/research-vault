@@ -25,6 +25,7 @@ from . import (
     scaffold,
     searchlog,
     selectors,
+    stamp,
 )
 from .pathcodec import (
     PathCodecError,
@@ -298,6 +299,7 @@ def cmd_import_note(args):
         print("NOOP")
         return 0
     _write_note_text(path, candidate)
+    stamp.stamp_types(vault)
     okf.regenerate_log(vault)
     print(str(path))
     return 0
@@ -781,6 +783,19 @@ def cmd_scaffold(args):
     return 0
 
 
+def cmd_stamp_type(args):
+    """A fixer, not a gate: mechanically stamp what's fully determined, report
+    the rest, always exit 0."""
+    stamped, reported = stamp.stamp_types(args.vault)
+    for path in stamped:
+        print(f"stamped {path}")
+    for path in reported:
+        print(
+            f"skipped {path} — no type could be derived, or frontmatter is unparseable"
+        )
+    return 0
+
+
 def cmd_doctor(args):
     probes = doctor(args.vault, ZoteroClient(base=args.base))
     for check, result, reason in probes:
@@ -889,6 +904,8 @@ def main(argv=None):
     scaffold_vault.add_argument("--with-rw-ci", action="store_true")
     doctor_vault = sub.add_parser("doctor", parents=[common])
     doctor_vault.add_argument("--vault", required=True)
+    stamp_type = sub.add_parser("stamp-type", parents=[common])
+    stamp_type.add_argument("--vault", required=True)
     args = parser.parse_args(argv)
     if args.cmd == "verify" and args.commit_projected is not None:
         if not args.commit_projected.strip():
@@ -915,6 +932,7 @@ def main(argv=None):
         "inbox": cmd_inbox,
         "scaffold": cmd_scaffold,
         "doctor": cmd_doctor,
+        "stamp-type": cmd_stamp_type,
     }[args.cmd](args)
 
 

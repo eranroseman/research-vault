@@ -19,6 +19,11 @@ if ! git cat-file -e "$git_base^{tree}"; then
   exit 1
 fi
 
+stamped="$(python3 -m research_vault stamp-type --vault "$vault" | sed -n 's/^stamped //p')"
+if [ -n "$stamped" ]; then
+  printf '%s\n' "$stamped" | while IFS= read -r path; do git add -- "$path"; done
+fi
+
 python3 -m research_vault verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index
 code=$?
 case "$code" in
