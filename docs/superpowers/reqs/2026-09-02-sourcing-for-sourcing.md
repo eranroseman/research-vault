@@ -52,6 +52,18 @@ Every candidate's body was read (S8). Findings quote the body, not the descripti
 
 **Near-miss (S21):** none. Every gap is categorical, not marginal — there is no restatement of any requirement under which one of these would qualify.
 
+## Inherited requirements for `writing-specs`
+
+Five requirements retired from the sourcing set on 2026-09-03 because they are screening rules, and screening is the design phase's work. Offered to `writing-specs` rather than written into it: that skill has no requirement set, and inventing one for it would be the failure this project is still marked for.
+
+- **Eliminate a candidate only for a named critical flaw, never for incomplete coverage.** *"An alternative should not be considered 'non-viable' because it fails to close 100 percent of the shortfall"* — AoA Handbook §9.1.1. This is the rule whose absence produced this project's failed screen, and it is worth more downstream than it was here.
+- **Name which requirements form the screen before screening, and screen on those alone.** Every COTS method surveyed does this; the screen may be narrower than the must-haves and never wider.
+- **Bound the candidates examined by what can be evaluated, not by fit.** Where more survive than the bound allows, narrow the screen rather than selecting among survivors — ranking them requires a comparison the sourcing phase is forbidden to make.
+- **Record a candidate that narrowly missed, or that would qualify under a requirement stated differently, and return it rather than dropping it.** FAA NAS SEM §4.6.3.5; FAR 10.001(a)(3)(ii)(C) with 10.002(c)'s return path.
+- **Route a weak health signal to a treatment rather than to rejection.** Low maintenance argues for *copy frozen* over *install as-is and keep merging*. Marked a hypothesis when written and still one: the thresholds are published, the routing is not.
+
+**Take them or decline them.** The evidence for each is in the sourcing set's history and in `docs/research/`.
+
 ## What the run found about the requirements
 
 The screen ran this time, and produced one finding worth more than the verdict.
