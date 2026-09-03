@@ -44,7 +44,7 @@ Every candidate's body was read (S8). Findings quote the body, not the descripti
 
 **S1 is the flaw in every case: none takes a requirement set as input.** Two near-misses of the word rather than the thing — `skill-judge`'s "requirements" are SKILL.md *format* rules, and `dependency-updater`'s are `requirements.txt` files.
 
-**S5 additionally fails three.** `vendor-review` produces *"a 2-3 sentence recommendation"*; `skill-judge` scores on tables with *"instant score ≤5"* red flags; `claude-automation-recommender` recommends, thirty-five times over. Each decides where this skill is required to gather.
+**Three were wrongly eliminated on S5 in the first write-up, and that is withdrawn.** `vendor-review` produces *"a 2-3 sentence recommendation"*, `skill-judge` scores with *"instant score ≤5"* red flags, and `claude-automation-recommender` recommends. On the author's ruling of 2026-09-03 none of that violates S5: a per-candidate opinion is evidence the decider weighs, not a decision, and S23 already records signal *direction* on the same principle. S5 forbids **closing** the decision — naming one answer — which none of these does to a requirement set, because none has one to close over. **S1 is the sole ground for every elimination here.**
 
 **Excess capability (S22):** `vendor-review` carries a total-cost-of-ownership model, negotiation points and a renewal path; `dependency-updater` carries auto-patching. None is asked for, and for one developer each is surface area to read and keep straight, so the excess costs.
 
@@ -54,7 +54,7 @@ Every candidate's body was read (S8). Findings quote the body, not the descripti
 
 The screen ran this time, and produced one finding worth more than the verdict.
 
-**All nine were eliminated on a single floor, and the other five screened nothing.** S3, S8, S15 and S16 never got to act. That is not the total-coverage failure returning — S1 is a categorical property, not a coverage count, and a screen that eliminates on *"does not take a requirement set"* is eliminating on the right kind of thing. But it means **the screen added no information the search had not already produced.**
+**All nine were eliminated on a single floor, and the other five screened nothing.** S3, S5, S8, S15 and S16 never got to act — and S5's apparent three eliminations were my misreading, withdrawn above, which makes the concentration total rather than near-total. That is not the total-coverage failure returning — S1 is a categorical property, not a coverage count, and a screen that eliminates on *"does not take a requirement set"* is eliminating on the right kind of thing. But it means **the screen added no information the search had not already produced.**
 
 The cause is a duplication between two requirements written a day apart. **S24's candidate concept** — *"takes a set of requirements and reports which existing components cover them"* — and **S1's floor** are the same test, applied at the search stage and again at the screen. Anything the concept admits, S1 admits; anything the concept excludes never reaches S1. The nine candidates only reached the screen because the search filter was keyword-based and looser than its own stated concept.
 
