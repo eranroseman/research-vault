@@ -34,6 +34,8 @@ The ordering is the decision. The five names are how it is applied.
 
 **`defer` without a trigger silently becomes rejection.** Four skills parked in the standing recommendations register printed as `not-adopted` in four separate survey passes, because the axis then in use had no defer state and a parked skill was indistinguishable from a declined one. The trigger requirement exists to make that failure impossible rather than unlikely.
 
+**Rungs 1–2 are worded for plugins, and not every adopted component is one — gap recorded 2026-09-03.** #110 surfaced it: `archify` was adopted with no `.claude-plugin/`, no `plugin.json`, no marketplace entry and no Codex manifest. It is a skill installed into a skills directory, so *"plugin as-is"* and *"fork plugin"* do not name anything it could be, and the bucket vocabulary attached to those rungs has nothing to attach to. The ladder as drafted assumes the unit of adoption is a plugin. It is not always. Whether component-shape becomes a dimension orthogonal to rung, or a skill-only upstream is wrapped into a plugin before it can be carried, is a layout question and belongs to #59; this note exists so the rungs do not read as though the case does not arise.
+
 **Rungs 3–5 leave the bucket vocabulary behind, deliberately.** Asking whether an adapted component is "recommended" is a category error — there is no upstream artifact for a user to install instead. This is why bucket questions (#96) depend on roster decisions that could still land at rungs 1–2, and are unaffected by ones that cannot.
 
 ## Not in this decision
