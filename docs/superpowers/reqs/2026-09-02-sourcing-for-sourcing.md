@@ -4,6 +4,8 @@
 >
 > **What consumes it.** `writing-specs`, together with the requirement set, per S14. Nothing here is a decision: no verdict adopts, adapts or rejects anything (S5, S6).
 >
+> **No build decision is made here, and none is due.** The author's ruling of 2026-09-03: the build decision comes after sourcing is done, and sourcing is not done. S6 would in any case place it downstream, with `writing-specs` — which does not exist yet either.
+>
 > **Incomplete, and blocked for a stated reason.** The search ran to saturation. **The screen did not run at all**, because S17 draws it from the hard floors the requirement set marks and the sourcing set has no `*Floor:*` fields. See "Why the screen did not run".
 
 ## The search (S19, S20)
@@ -12,13 +14,13 @@
 
 **Sources, in order, with what each added** (S19):
 
-| # | Source | New candidates |
-| --- | --- | --- |
-| 1 | Installed skills, `~/.claude/skills` | `skill-judge` |
-| 2 | Installed plugin skills, all marketplaces on disk | `claude-automation-recommender`, `dependency-updater` |
-| 3 | `obra/superpowers`, `anthropics/skills`, `anthropics/knowledge-work-plugins`, `mattpocock/skills`, `addyosmani/agent-skills` | `vendor-review`, `vendor-check`, `source-management` |
-| 4 | GitHub repository search, three query forms | none |
-| 5 | `duthaho/claudekit`, `softaworks/agent-toolkit`, `product-on-purpose/pm-skills`, `tonone-ai/tonone` | `keel-vendor`, `score-compare`, `bench-compare` |
+| #   | Source                                                                                                                       | New candidates                                        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | Installed skills, `~/.claude/skills`                                                                                         | `skill-judge`                                         |
+| 2   | Installed plugin skills, all marketplaces on disk                                                                            | `claude-automation-recommender`, `dependency-updater` |
+| 3   | `obra/superpowers`, `anthropics/skills`, `anthropics/knowledge-work-plugins`, `mattpocock/skills`, `addyosmani/agent-skills` | `vendor-review`, `vendor-check`, `source-management`  |
+| 4   | GitHub repository search, three query forms                                                                                  | none                                                  |
+| 5   | `duthaho/claudekit`, `softaworks/agent-toolkit`, `product-on-purpose/pm-skills`, `tonone-ai/tonone`                          | `keel-vendor`, `score-compare`, `bench-compare`       |
 
 **Saturation reached at source 5**: its returns are the same two kinds already seen — vendor-relationship management, and statistical comparison of models or benchmarks. Neither is new in kind.
 
@@ -26,29 +28,29 @@
 
 Read at each repository's HEAD on 2026-09-02.
 
-| Candidate | Supplier / originator (S13) | Body read? (S8) |
-| --- | --- | --- |
-| `vendor-review` | Anthropic — `anthropics/knowledge-work-plugins` | **Yes**, 104 lines |
-| `vendor-check` | Anthropic — same repository | Yes, 159 lines |
-| `source-management` | Anthropic — same repository | Yes, 173 lines |
-| `keel-vendor` | `tonone-ai/tonone` | **No — description only** |
-| `skill-judge` | installed plugin, originator not established | **No — description only** |
-| `claude-automation-recommender` | installed plugin, originator not established | **No — description only** |
-| `dependency-updater` | installed plugin, originator not established | **No — description only** |
-| `score-compare`, `bench-compare` | `tonone-ai/tonone` | **No — description only** |
+| Candidate                        | Supplier / originator (S13)                     | Body read? (S8)           |
+| -------------------------------- | ----------------------------------------------- | ------------------------- |
+| `vendor-review`                  | Anthropic — `anthropics/knowledge-work-plugins` | **Yes**, 104 lines        |
+| `vendor-check`                   | Anthropic — same repository                     | Yes, 159 lines            |
+| `source-management`              | Anthropic — same repository                     | Yes, 173 lines            |
+| `keel-vendor`                    | `tonone-ai/tonone`                              | **No — description only** |
+| `skill-judge`                    | installed plugin, originator not established    | **No — description only** |
+| `claude-automation-recommender`  | installed plugin, originator not established    | **No — description only** |
+| `dependency-updater`             | installed plugin, originator not established    | **No — description only** |
+| `score-compare`, `bench-compare` | `tonone-ai/tonone`                              | **No — description only** |
 
-**Four of nine were judged from a description**, which S8 forbids. Their rows below are therefore **undetermined** under S16, not negative. Licences and IP rights (S13) were not read for any candidate, because the screen they would feed did not run.
+**Four of nine were found from a description and never read.** Under S8's two-step that is legitimate for discovery and disqualifying for judgement, so they are **not-examined under S18** — a statement about this run's budget — rather than **undetermined under S16**, which would be a claim about their coverage. My first write-up used the wrong label. Licences and IP rights (S13) were not read for any candidate, because the screen they would feed did not run.
 
 ## What each covers (S16)
 
-Three states: covers, does not cover, **could not be determined**. Absent an affirmative completeness claim, read this table as incomplete.
+Three states: covers, does not cover, **could not be determined**. Candidates never read are not in these states at all — they are not-examined under S18. Absent an affirmative completeness claim, read this table as incomplete.
 
-| Candidate | Consumes a requirement set (S1) | Findings not decisions (S5, S6) | Component-level (S4) | Coverage map (S16) |
-| --- | --- | --- | --- | --- |
-| `vendor-review` | does not cover | does not cover | does not cover | does not cover |
-| `vendor-check` | does not cover | does not cover | does not cover | does not cover |
-| `source-management` | does not cover | does not cover | does not cover | does not cover |
-| all others | undetermined | undetermined | undetermined | undetermined |
+| Candidate           | Consumes a requirement set (S1) | Findings not decisions (S5, S6) | Component-level (S4) | Coverage map (S16) |
+| ------------------- | ------------------------------- | ------------------------------- | -------------------- | ------------------ |
+| `vendor-review`     | does not cover                  | does not cover                  | does not cover       | does not cover     |
+| `vendor-check`      | does not cover                  | does not cover                  | does not cover       | does not cover     |
+| `source-management` | does not cover                  | does not cover                  | does not cover       | does not cover     |
+| all others          | undetermined                    | undetermined                    | undetermined         | undetermined       |
 
 `vendor-review` is the closest of the three read in full, and its shape is the reason it is far: it produces *"a 2-3 sentence recommendation"* and evaluates on **cost of ownership, vendor financial stability, SLA compliance and contract lock-in**. Those are properties of a commercial relationship. The candidates this skill screens are MIT-licensed markdown files with no vendor, no contract and no SLA.
 
@@ -64,12 +66,12 @@ S17: *"the artifact lists the screening requirements and why each was chosen… 
 
 So **no candidate is eliminated here**, and none should be read as rejected. That is S15 working: a candidate that covers little is recorded as covering little, not excluded.
 
-**What unblocks it:** the author marks floors across the 23, the same pass done for the 39 on 2026-09-02.
+**What unblocks it:** the author marks floors across the 23. S17 was generalised on 2026-09-03 — it now reads whatever floors a set marks, whatever produced that set, and where a set marks none it says so and screens on nothing. That makes this run's blocked state expressible, but it does not fill it.
 
 ## What this run found about the requirements themselves
 
 Doing it by hand was the point, and three requirements broke on contact.
 
-- **S17 and S15 are unrunnable against any set that is not a `writing-reqs` output.** Both reach for R43's marks. Every set this skill will ever screen against that was not produced by `writing-reqs` — including its own — has none.
-- **S8 has no partial state.** It requires judging the body, and four candidates were cheap to find and expensive to read. S8 as written makes them unjudgeable rather than provisionally judged, which is correct but means a real run stalls unless S18's budget explicitly covers reading time.
-- **S13 could not be attempted.** Supplier, licence and IP rights are per-candidate work that only pays off once a candidate is in contention, and nothing in the set says when it is due.
+- ~~**S17 and S15 are unrunnable against any set that is not a `writing-reqs` output.**~~ **Fixed 2026-09-03.** Both reached for R43's marks by name. The author's ruling: this skill cares about the *form* of a requirement set, never about what produced it. S17 now reads whatever floors a set marks and can report a set that marks none.
+- ~~**S8 has no partial state.**~~ **Not a defect; I misapplied it.** S8 now carries the two-step it always implied and that skills themselves use: a description may narrow the *search*, only a body may ground a *finding*. Discovery stays cheap. The four unread candidates were never undetermined — they were not-examined, which S18 already provided for.
+- ~~**S13 could not be attempted.**~~ **Fixed 2026-09-03:** due when a candidate enters the screen, not when it is found.
