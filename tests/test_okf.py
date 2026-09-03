@@ -22,8 +22,8 @@ def test_regenerate_log_tail(tmp_path):
     assert data["type"] == "log"
     assert "— b" in body
     assert "— a" not in body
-    assert "[[log/2026-08-19]]" in body
-    assert "[[log/2026-08-20]]" in body
+    assert "[2026-08-19](log/2026-08-19.md)" in body
+    assert "[2026-08-20](log/2026-08-20.md)" in body
 
 
 def test_inbox_load_tolerates_frontmatter(fixture_vault):
@@ -54,8 +54,24 @@ def test_regenerate_log_skips_a_malformed_day_file(tmp_path):
     data, body = frontmatter.parse(text)
     assert data["type"] == "log"
     assert "— a" in body
-    assert "[[log/2026-08-19]]" in body
-    assert "[[log/2026-08-20]]" in body
+    assert "[2026-08-19](log/2026-08-19.md)" in body
+    assert "[2026-08-20](log/2026-08-20.md)" in body
+
+
+def test_regenerated_log_is_date_grouped_newest_first(tmp_path):
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "log" / "2026-08-20.md").write_text(
+        '---\ntype: "daily"\n---\n- 09:00 imported a\n'
+    )
+    (tmp_path / "log" / "2026-08-21.md").write_text(
+        '---\ntype: "daily"\n---\n- 10:00 imported b\n'
+    )
+    text = okf.regenerate_log(tmp_path)
+    body = text.split("---\n", 2)[2]
+    assert "## Days" not in body
+    first, second = body.index("## 2026-08-21"), body.index("## 2026-08-20")
+    assert first < second
+    assert "[2026-08-21](log/2026-08-21.md)" in body
 
 
 def test_doctor_is_substrate_and_posture_only(tmp_path):

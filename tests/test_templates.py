@@ -87,12 +87,12 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
         '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
-        "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"
-        "- [[projects/]] — manuscripts and deliverables\n"
-        "- [[log/]] — daily activity log (summary: [[log]])\n"
-        "- [[inbox/]] — fleeting notes and the review queue\n"
-        "- [[system/]] — support artifacts: templates, bases, the bibliography export\n\n"
+        "- [literatures/](literatures/) — evidence layer: citekey-keyed literature notes\n"
+        "- [synthesis/](synthesis/) — synthesis notes (see [[synthesis/index]])\n"
+        "- [projects/](projects/) — manuscripts and deliverables\n"
+        "- [log/](log/) — daily activity log (summary: [[log]])\n"
+        "- [inbox/](inbox/) — fleeting notes and the review queue\n"
+        "- [system/](system/) — support artifacts: templates, bases, the bibliography export\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![[system/bases/trust-tier.base]]\n\n"
         "Synthesis notes, flagged where they contain an open-question:\n\n"
