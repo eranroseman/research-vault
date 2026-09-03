@@ -15,9 +15,12 @@ cannot parse. Two shapes are stamped:
   carries hand-written frontmatter keys but no `type` is ambiguous, not a
   bare capture) — insert `type` as the first key, otherwise byte-for-byte.
 
-Everything else (unparseable YAML-shaped frontmatter, or no derivation at
-all — `system/`, root files, non-canonical `projects/` files) is reported,
-never edited: a human decides those.
+Everything else (unparseable YAML-shaped frontmatter, frontmatter with a
+duplicate top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
+`{"type": derived, **data}` spread would silently collapse the repeats to
+last-write-wins, or no derivation at all — `system/`, root files,
+non-canonical `projects/` files) is reported, never edited: a human decides
+those.
 """
 
 from pathlib import Path
@@ -77,6 +80,12 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[str]]:
             continue
 
         if has_delimiter:
+            if isinstance(data, frontmatter._DuplicateKeyMapping):
+                # A plain-dict spread would collapse repeated keys to
+                # last-write-wins before serialize ever sees them — report,
+                # don't edit, same as unparseable YAML above.
+                reported.append(relative)
+                continue
             new_text = frontmatter.serialize({"type": derived, **data}) + body
         else:
             new_text = f'---\ntype: "{derived}"\n---\n' + text

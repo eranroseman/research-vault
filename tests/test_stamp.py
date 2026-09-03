@@ -37,6 +37,17 @@ def test_reports_unparseable_and_underived(tmp_path):
     assert bad.read_text().startswith("---\nnot: [closed")  # untouched
 
 
+def test_reports_duplicate_key_frontmatter_instead_of_collapsing(tmp_path):
+    (tmp_path / "literatures").mkdir(parents=True)
+    note = tmp_path / "literatures" / "x.md"
+    original = '---\ntags: "a"\ntags: "b"\n---\nbody\n'
+    note.write_text(original)
+    stamped, reported = stamp.stamp_types(tmp_path)
+    assert stamped == []
+    assert reported == ["literatures/x.md"]
+    assert note.read_text() == original  # untouched — no data loss
+
+
 def test_idempotent(tmp_path):
     (tmp_path / "inbox").mkdir(parents=True)
     (tmp_path / "inbox" / "idea.md").write_text("thought\n")
