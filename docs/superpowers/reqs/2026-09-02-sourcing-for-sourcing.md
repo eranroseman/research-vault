@@ -20,6 +20,8 @@
 | 4   | GitHub repository search                                                                                                     | `agent skill evaluate dependency adopt`; `claude skill build-or-buy`; `skill vendor selection COTS`; `agent-skills evaluate options`; `skill compare alternatives decision`; `claude skill procurement evaluation` | none                                                  |
 | 5   | `duthaho/claudekit`, `softaworks/agent-toolkit`, `product-on-purpose/pm-skills`, `tonone-ai/tonone`                          | same filter as source 3                                                                                                                                                                                            | `keel-vendor`, `score-compare`, `bench-compare`       |
 
+**Source 4's queries were added mid-search, and S19 v2 now requires that to be declared.** The first three ran, returned empty, and three more were written in response. That is adaptive stopping, not saturation, and the first write-up recorded the six terms without recording that three were additions. Declared here retrospectively; a compliant run would have declared the plan before starting.
+
 **The source-4 null was tested, not assumed** (S24). All six queries returned empty, which is a suspicious result for a search engine rather than a fact about the field, so `gh search repos "claude code skills"` was run as a control and returned three repositories. The tool worked; the field is empty of this.
 
 **Saturation at source 5**: its returns are the two kinds already seen — vendor-relationship management, and statistical comparison of models or benchmarks. Nothing new in kind.
