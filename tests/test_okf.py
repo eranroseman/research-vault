@@ -1,4 +1,4 @@
-from research_vault import Result, frontmatter, okf, scaffold
+from research_vault import frontmatter, okf, scaffold
 
 
 def test_scaffold_ships_okf_artifacts(tmp_path):
@@ -58,45 +58,16 @@ def test_regenerate_log_skips_a_malformed_day_file(tmp_path):
     assert "[[log/2026-08-20]]" in body
 
 
-def test_doctor_okf_probe(tmp_path):
+def test_doctor_is_substrate_and_posture_only(tmp_path):
     scaffold.scaffold_vault(tmp_path)
-    probes = {p[0] for p in scaffold.doctor(tmp_path, client=None, settle_seconds=0)}
-    assert "okf" in probes
-
-
-def test_okf_probe_matches_a_freshly_scaffolded_vault(tmp_path):
-    scaffold.scaffold_vault(tmp_path)
-    probe = scaffold._okf_probe(tmp_path)
-    assert probe.result == Result.MATCHED
-
-
-def test_okf_probe_ignores_fleeting_inbox_notes_but_flags_machine_owned_files(tmp_path):
-    scaffold.scaffold_vault(tmp_path)
-    # An untyped fleeting capture is exactly what inbox/ exists for (spec
-    # §2's "tolerated residual") — it must not flip the probe.
-    (tmp_path / "inbox" / "half-thought.md").write_text("just a fleeting idea\n")
-    probe = scaffold._okf_probe(tmp_path)
-    assert probe.result == Result.MATCHED
-
-    # A machine-owned surface (literatures/) missing `type` is a real defect.
-    (tmp_path / "literatures" / "untyped.md").write_text("# no frontmatter\n")
-    probe = scaffold._okf_probe(tmp_path)
-    assert probe.result == Result.UNMATCHED
-    assert "literatures/untyped.md: missing type" in probe.reason
-
-
-def test_okf_probe_root_index_missing_okf_version(tmp_path):
-    scaffold.scaffold_vault(tmp_path)
-    (tmp_path / "index.md").write_text('---\ntitle: "x"\n---\n# Vault index\n')
-    probe = scaffold._okf_probe(tmp_path)
-    assert probe.result == Result.UNMATCHED
-    assert "index.md: missing okf_version" in probe.reason
-
-
-def test_okf_probe_missing_log_md_with_a_day_file_present(tmp_path):
-    scaffold.scaffold_vault(tmp_path)
-    (tmp_path / "log.md").unlink()
-    (tmp_path / "log" / "2026-08-20.md").write_text('---\ntype: "daily"\n---\n')
-    probe = scaffold._okf_probe(tmp_path)
-    assert probe.result == Result.UNMATCHED
-    assert "log.md missing despite day files present" in probe.reason
+    names = [p[0] for p in scaffold.doctor(tmp_path, client=None, settle_seconds=0)]
+    assert names == [
+        "tree",
+        "machine-config",
+        "zotero",
+        "bbt",
+        "autoexport",
+        "staleness",
+        "remote",
+        "backup",
+    ]

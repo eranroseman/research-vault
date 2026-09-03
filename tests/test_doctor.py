@@ -16,12 +16,10 @@ PROBE_NAMES = [
     "staleness",
     "remote",
     "backup",
-    "inbox",
-    "okf",
 ]
 HARD_UNMATCHED = ["tree", "machine-config", "bbt", "autoexport"]
 HARD_UNREACHABLE = ["zotero", "bbt", "autoexport"]
-WARN_ONLY = ["staleness", "remote", "backup", "inbox", "okf"]
+WARN_ONLY = ["staleness", "remote", "backup"]
 
 
 def _probes(**states):
@@ -109,7 +107,9 @@ def _doctor_vault(tmp_vault, *, backup="/backup"):
     return tmp_vault
 
 
-def test_doctor_returns_exact_ten_tuple_probes_and_repairs_tree(tmp_vault, monkeypatch):
+def test_doctor_returns_exact_eight_tuple_probes_and_repairs_tree(
+    tmp_vault, monkeypatch
+):
     vault = _doctor_vault(tmp_vault)
     (vault / "projects").rmdir()
     observed = bibliography.AutoexportObservation(
@@ -152,11 +152,9 @@ def test_doctor_ready_failure_short_circuits_bbt_observation_but_keeps_all_probe
     for name in ("bbt", "autoexport", "staleness"):
         assert by_check[name].result is Result.UNREACHABLE
         assert by_check[name].reason == "zotero down"
-    assert [probe.check for probe in probes[-4:]] == [
+    assert [probe.check for probe in probes[-2:]] == [
         "remote",
         "backup",
-        "inbox",
-        "okf",
     ]
 
 
@@ -199,7 +197,7 @@ def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault, monkeypatch)
     assert {probe.check: probe.result for probe in probes}["bbt"] is Result.UNMATCHED
 
 
-def test_doctor_scaffold_failure_still_returns_all_ten_probes(tmp_path, monkeypatch):
+def test_doctor_scaffold_failure_still_returns_all_eight_probes(tmp_path, monkeypatch):
     vault = tmp_path / "missing-vault"
     monkeypatch.setattr(
         scaffold,
@@ -338,7 +336,7 @@ def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert code == 3
-    assert len(lines) == 10
+    assert len(lines) == 8
     assert [line.split()[1] for line in lines] == PROBE_NAMES
     assert any(
         line.startswith("UNREACHABLE autoexport") and "git unavailable" in line
@@ -375,7 +373,7 @@ def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert code == 3
-    assert len(lines) == 10
+    assert len(lines) == 8
     assert [line.split()[1] for line in lines] == PROBE_NAMES
     assert any(
         line.startswith("UNREACHABLE autoexport") and "target read denied" in line
@@ -384,19 +382,11 @@ def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
     assert captured.err == ""
 
 
-def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
-    tmp_vault, monkeypatch
-):
+def test_doctor_classifies_machine_remote_and_backup_conditions(tmp_vault, monkeypatch):
     vault = _doctor_vault(tmp_vault, backup="")
     subprocess.run(["git", "remote", "remove", "origin"], cwd=vault, check=True)
     (vault / ".research-vault" / "machine.json").write_text(
         '{"mailto":"you@example.edu","zotero_backup":""}'
-    )
-    (vault / "inbox" / "review-queue.md").write_text(
-        '---\ntype: "review-queue"\n---\n'
-        "- [id:: citekey/kind-10:identifier;target-1:x/2026-08-01] [check:: citekey] [target:: x] "
-        "[result:: UNMATCHED] [date:: 2026-08-01] [actor:: process:test] "
-        "[reason:: mismatch — test]\n"
     )
     monkeypatch.setattr(
         scaffold.bibliography,
@@ -420,9 +410,6 @@ def test_doctor_classifies_machine_remote_backup_and_inbox_conditions(
         Result.UNMATCHED,
         "no stated Zotero storage backup (§2 boundary)",
     )
-    assert by_check["inbox"].result is Result.UNMATCHED
-    assert "1" in by_check["inbox"].reason
-    assert "2026-08-01" in by_check["inbox"].reason
 
 
 @pytest.mark.parametrize(
@@ -448,4 +435,4 @@ def test_doctor_base_routes_before_and_after_subcommand(
 
     assert cli.main(argv) == 0
     assert bases == [expected]
-    assert len(capsys.readouterr().out.splitlines()) == 10
+    assert len(capsys.readouterr().out.splitlines()) == 8

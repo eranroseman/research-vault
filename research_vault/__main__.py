@@ -43,7 +43,7 @@ from .zotero import ZoteroClient, ZoteroError
 QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
 DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt", "autoexport"}
 DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "autoexport"}
-DOCTOR_WARN_ONLY = {"staleness", "remote", "backup", "inbox", "okf"}
+DOCTOR_WARN_ONLY = {"staleness", "remote", "backup"}
 
 
 def _text(value) -> str:
