@@ -13,19 +13,24 @@ cannot parse. Two shapes are stamped:
 - A parseable block missing `type`, with `structure.expected_type` deriving
   one (the fleeting fallback does *not* apply here — a file that already
   carries hand-written frontmatter keys but no `type` is ambiguous, not a
-  bare capture) — insert `type` as the first key, otherwise byte-for-byte.
+  bare capture) — insert `type` as the first key, otherwise byte-for-byte,
+  including the file's original line-ending style (CRLF is preserved, never
+  flattened to LF).
 
-Everything else (unparseable YAML-shaped frontmatter, frontmatter with a
-duplicate top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
+Everything else is reported, never edited: a human decides those. Each
+reported path carries a reason — `"symlink"` (the path itself is a symlink;
+writing through it could escape the vault boundary, the same hazard
+`bibliography.observe_autoexport` refuses for the same reason), `"unparseable"`
+(unparseable YAML-shaped frontmatter, or frontmatter with a duplicate
+top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
 `{"type": derived, **data}` spread would silently collapse the repeats to
-last-write-wins, or no derivation at all — `system/`, root files,
-non-canonical `projects/` files) is reported, never edited: a human decides
-those.
+last-write-wins), or `"no-type"` (no derivation at all — `system/`, root
+files, non-canonical `projects/` files).
 """
 
 from pathlib import Path
 
-from . import frontmatter, structure
+from . import events, frontmatter, structure
 
 _SKIP_NAMES = {"index.md"}
 
@@ -43,24 +48,46 @@ def _candidate_paths(vault: Path, paths):
     yield from sorted(vault.rglob("*.md"))
 
 
-def stamp_types(vault_root, paths=None) -> tuple[list[str], list[str]]:
-    """Stamp what's fully determined; report the rest. Never raises for content."""
+def _read_text(path: Path) -> str:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
+def _write_text(path: Path, text: str) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
+
+
+def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]]]:
+    """Stamp what's fully determined; report the rest. Never raises for content.
+
+    ``reported`` entries are ``(path, reason)`` pairs — see the module
+    docstring for the reason vocabulary.
+    """
     vault = Path(vault_root)
     stamped: list[str] = []
-    reported: list[str] = []
+    reported: list[tuple[str, str]] = []
     for path in _candidate_paths(vault, paths):
-        if ".git" in path.parts or path.name in _SKIP_NAMES or not path.is_file():
+        if ".git" in path.parts or path.name in _SKIP_NAMES:
+            continue
+        if path.is_symlink():
+            # Refuse to write through a symlink — the target could sit
+            # outside the vault boundary entirely. Report, don't edit, same
+            # posture bibliography.observe_autoexport takes.
+            reported.append((path.relative_to(vault).as_posix(), "symlink"))
+            continue
+        if not path.is_file():
             continue
         relative = path.relative_to(vault).as_posix()
         if relative == "log.md":
             continue
 
-        text = path.read_text()
+        text = _read_text(path)
         has_delimiter = _has_delimiter(text)
         try:
             data, body = frontmatter.parse(text)
         except frontmatter.FrontmatterError:
-            reported.append(relative)
+            reported.append((relative, "unparseable"))
             continue
 
         if "type" in data:
@@ -76,20 +103,25 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[str]]:
                 derived = "fleeting"
 
         if derived is None:
-            reported.append(relative)
+            reported.append((relative, "no-type"))
             continue
+
+        newline = events._first_line_ending(text)
 
         if has_delimiter:
             if isinstance(data, frontmatter._DuplicateKeyMapping):
                 # A plain-dict spread would collapse repeated keys to
                 # last-write-wins before serialize ever sees them — report,
                 # don't edit, same as unparseable YAML above.
-                reported.append(relative)
+                reported.append((relative, "unparseable"))
                 continue
-            new_text = frontmatter.serialize({"type": derived, **data}) + body
+            block = frontmatter.serialize({"type": derived, **data})
         else:
-            new_text = f'---\ntype: "{derived}"\n---\n' + text
-        path.write_text(new_text)
+            block = f'---\ntype: "{derived}"\n---\n'
+        if newline == "\r\n":
+            block = block.replace("\n", newline)
+        new_text = block + body
+        _write_text(path, new_text)
         stamped.append(relative)
 
     return sorted(stamped), sorted(reported)

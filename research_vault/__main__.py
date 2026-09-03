@@ -789,10 +789,13 @@ def cmd_stamp_type(args):
     stamped, reported = stamp.stamp_types(args.vault)
     for path in stamped:
         print(f"stamped {path}")
-    for path in reported:
-        print(
-            f"skipped {path} — no type could be derived, or frontmatter is unparseable"
-        )
+    for path, reason in reported:
+        if reason == "unparseable":
+            print(f"skipped {path} — frontmatter is unparseable")
+        elif reason == "symlink":
+            print(f"skipped {path} — path is a symlink, refusing to write through it")
+        else:
+            print(f"skipped {path} — no type could be derived")
     return 0
 
 
