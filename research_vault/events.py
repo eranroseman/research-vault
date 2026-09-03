@@ -192,7 +192,7 @@ def _replace_frontmatter_list(
     headers = [
         index
         for index, line in enumerate(lines[1:close], start=1)
-        if line.rstrip("\r\n").rstrip(" \t") == f"{field}:"
+        if line.rstrip("\r\n").rstrip(" \t").startswith(f"{field}:")
     ]
     if len(headers) > 1:
         raise ValueError(f"{field} frontmatter must have one list")

@@ -59,6 +59,17 @@ Free-region content remains untouched.
     ]
 
 
+def test_record_pass_on_bare_mapping_note_writes_one_verified_block():
+    text = (
+        '---\ntype: "literature"\n'
+        'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
+    )
+    updated = events.record_pass(text, "doi", Result.MATCHED, at="2026-09-02")
+    assert updated.count("verified:") == 1
+    data, _ = frontmatter.parse(updated)
+    assert len(data["verified"]) == 2
+
+
 def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
     crlf = BASE.replace("\n", "\r\n")
     out = events.record_pass(crlf, "doi", Result.MATCHED, at="2026-08-16")
