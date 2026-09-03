@@ -548,7 +548,10 @@ def test_import_note_rejects_unsafe_citekey_before_side_effects(
     # makes. Nothing else may move — no Zotero traffic, no note, no export.
     assert status_before == ""
     assert list((tmp_vault / "literatures").iterdir()) == []
-    assert list((tmp_vault / "system").iterdir()) == []
+    assert {p.name for p in (tmp_vault / "system").iterdir()} == {
+        "templates",
+        "bases",
+    }
 
     # Reading the queue must never raise: an unloadable row is permanent on an
     # append-only surface, so the corrupt-write class has to fail here loudly.

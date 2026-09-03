@@ -9,11 +9,11 @@ choose names and records spellings or exceptions not owned by those sources.
 Use the term selected by §2 unless one of these costs binds:
 
 1. **Permanent surface mismatch** — with tool surfaces we don't control.
-1. **Information loss** — the base term carries less structure than the concept
+2. **Information loss** — the base term carries less structure than the concept
    needs.
-1. **Semantic falsification** — the base term would make our records state
+3. **Semantic falsification** — the base term would make our records state
    something false.
-1. **Collision/ambiguity** — the base term already means something else in our
+4. **Collision/ambiguity** — the base term already means something else in our
    context.
 
 For product names, class 4 also covers public-namespace collisions. Rename
@@ -47,8 +47,8 @@ surface. Among the remaining candidates within a tier, apply these tie-breakers
 in order:
 
 1. The vocabulary whose data we record beats one we merely resemble.
-1. Verbatim machine-readable identifiers beat prose labels.
-1. A versioned specification beats a living wiki, which beats a blog.
+2. Verbatim machine-readable identifiers beat prose labels.
+3. A versioned specification beats a living wiki, which beats a blog.
 
 Determine scope before walking the tiers. A domain-specific authority governs
 only its domain.

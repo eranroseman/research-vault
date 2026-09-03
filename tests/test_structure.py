@@ -1,4 +1,3 @@
-
 from research_vault import Result, structure
 
 

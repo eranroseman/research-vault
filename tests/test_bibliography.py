@@ -1,4 +1,5 @@
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -1109,7 +1110,7 @@ def test_observe_rejects_symlinked_target_or_parent(tmp_vault, tmp_path, link_ki
     if link_kind == "target":
         target.symlink_to(outside_target)
     else:
-        target.parent.rmdir()
+        shutil.rmtree(target.parent)
         target.parent.symlink_to(outside, target_is_directory=True)
 
     client = StubClient(ITEMS)

@@ -173,6 +173,8 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/system/templates/daily.md").read_text() == (
         '---\ntype: "daily"\n---\n\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
     )
+
+
 def test_bases_and_machine_example_match_canonical_shapes():
     open_questions = asset("vault/system/bases/open-questions.base").read_text()
     trust_tier = asset("vault/system/bases/trust-tier.base").read_text()
