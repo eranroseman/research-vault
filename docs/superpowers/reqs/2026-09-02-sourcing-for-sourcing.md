@@ -70,7 +70,7 @@ S17: *"the artifact lists the screening requirements and why each was chosen… 
 
 So **no candidate is eliminated here**, and none should be read as rejected. That is S15 working: a candidate that covers little is recorded as covering little, not excluded.
 
-**What unblocks it:** the author marks floors across the 23. S17 was generalised on 2026-09-03 — it now reads whatever floors a set marks, whatever produced that set, and where a set marks none it says so and screens on nothing. That makes this run's blocked state expressible, but it does not fill it.
+**Unblocked 2026-09-03.** The author marked six hard floors across the set — S1, S3, S5, S8, S15, S16 — and versions were added alongside them, which makes this set screenable by S1's own new test. **This run predates that and was not re-run**; its screen is still empty and its candidate rows are still not-examined. S17 was generalised on 2026-09-03 — it now reads whatever floors a set marks, whatever produced that set, and where a set marks none it says so and screens on nothing. That makes this run's blocked state expressible, but it does not fill it.
 
 ## What this run found about the requirements themselves
 
