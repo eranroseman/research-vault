@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>research-vault distribution topology — hand-written Mermaid</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{background:#0b1020;color:#e6e9f2;font-family:ui-sans-serif,system-ui,sans-serif}</style>
+</head><body class="p-8">
+<h1 class="text-2xl font-semibold mb-1">research-vault distribution topology</h1>
+<p class="text-sm text-slate-400 mb-6">Hand-written Mermaid, rendered via CDN — the pattern <code>improve-codebase-architecture</code> already uses. Same content as the archify version.</p>
+<div class="rounded-xl bg-slate-900/60 p-6 mb-8"><pre class="mermaid">
+flowchart TB
+  CX[Codex]
+  CC[Claude Code]
+  HB[[harness-backup<br/>private repo<br/><i>not a package source</i>]]
+  MKT(eroseman marketplace<br/>hosts all four plugins)
+  subgraph public[Public repositories]
+    RV[(research-vault<br/>product repo)]
+    SD[software-development<br/>plugin repo]
+    SP[/superpowers fork<br/>merges upstream/]
+    SM{{sensemaking<br/>shared distributable}}
+  end
+  CC ==>|installs from| MKT
+  CX ==>|installs from| MKT
+  MKT --> RV
+  MKT --> SD
+  RV -->|installs| SM
+  SD -->|installs| SM
+  SD -->|depends on| SP
+  CC -.->|authored config| HB
+</pre></div>
+<div class="grid grid-cols-3 gap-4 text-sm">
+  <div class="rounded-lg bg-slate-900/60 p-4"><div class="font-semibold text-cyan-300 mb-2">Distribution</div><ul class="list-disc pl-4 space-y-1 text-slate-300"><li>One marketplace serves both harnesses</li><li>research-vault and software-development are separate public repos</li></ul></div>
+  <div class="rounded-lg bg-slate-900/60 p-4"><div class="font-semibold text-emerald-300 mb-2">Sharing</div><ul class="list-disc pl-4 space-y-1 text-slate-300"><li>sensemaking holds shared skills and nothing else</li><li>Installing either product installs it</li></ul></div>
+  <div class="rounded-lg bg-slate-900/60 p-4"><div class="font-semibold text-rose-300 mb-2">Boundaries</div><ul class="list-disc pl-4 space-y-1 text-slate-300"><li>superpowers is forked, not vendored, so it keeps receiving upstream</li><li>harness-backup stays private and is not a package source</li></ul></div>
+</div>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+mermaid.initialize({startOnLoad:true,theme:"dark"});
+</script>
+</body></html>

@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "research-vault distribution topology",
+    "output": "distribution-topology.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "install-path",
+        "label": "Install path",
+        "focus": [
+          "claude-code",
+          "codex",
+          "marketplace",
+          "research-vault",
+          "software-development"
+        ],
+        "note": "Both harnesses install the plugins from one marketplace."
+      },
+      {
+        "id": "shared-layer",
+        "label": "Shared distributable",
+        "focus": [
+          "research-vault",
+          "software-development",
+          "sensemaking"
+        ],
+        "note": "Installing either product installs sensemaking."
+      },
+      {
+        "id": "upstream-and-private",
+        "label": "Upstream and private",
+        "focus": [
+          "software-development",
+          "superpowers-fork",
+          "harness-backup"
+        ],
+        "note": "The fork keeps receiving upstream; harness-backup stays private and is not a package source."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "claude-code",
+      "type": "external",
+      "label": "Claude Code",
+      "sublabel": "harness",
+      "pos": [
+        280,
+        60
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "codex",
+      "type": "external",
+      "label": "Codex",
+      "sublabel": "harness",
+      "pos": [
+        60,
+        60
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "harness-backup",
+      "type": "security",
+      "label": "harness-backup",
+      "sublabel": "private repo",
+      "pos": [
+        560,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "not a package source"
+    },
+    {
+      "id": "marketplace",
+      "type": "cloud",
+      "label": "eroseman marketplace",
+      "sublabel": "hosts all four plugins",
+      "pos": [
+        160,
+        240
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "research-vault",
+      "type": "database",
+      "label": "research-vault",
+      "sublabel": "product repo",
+      "pos": [
+        60,
+        420
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "software-development",
+      "type": "backend",
+      "label": "software-development",
+      "sublabel": "plugin repo",
+      "pos": [
+        300,
+        420
+      ],
+      "size": [
+        190,
+        64
+      ]
+    },
+    {
+      "id": "superpowers-fork",
+      "type": "external",
+      "label": "superpowers",
+      "sublabel": "public fork",
+      "pos": [
+        560,
+        420
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "merges upstream"
+    },
+    {
+      "id": "sensemaking",
+      "type": "messagebus",
+      "label": "sensemaking",
+      "sublabel": "shared distributable",
+      "pos": [
+        160,
+        600
+      ],
+      "size": [
+        200,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Public repositories",
+      "wraps": [
+        "research-vault",
+        "software-development",
+        "superpowers-fork",
+        "sensemaking"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cc-installs",
+      "from": "claude-code",
+      "to": "marketplace",
+      "label": "installs from",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "cx-installs",
+      "from": "codex",
+      "to": "marketplace",
+      "label": "installs from",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "mkt-rv",
+      "from": "marketplace",
+      "to": "research-vault",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "mkt-sd",
+      "from": "marketplace",
+      "to": "software-development",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "rv-sense",
+      "from": "research-vault",
+      "to": "sensemaking",
+      "label": "installs",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sd-sense",
+      "from": "software-development",
+      "to": "sensemaking",
+      "label": "installs",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sd-sp",
+      "from": "software-development",
+      "to": "superpowers-fork",
+      "label": "depends on",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "cc-backup",
+      "from": "claude-code",
+      "to": "harness-backup",
+      "label": "authored config",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Distribution",
+      "items": [
+        "One marketplace serves both harnesses",
+        "research-vault and software-development are separate public repos"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Sharing",
+      "items": [
+        "sensemaking holds shared skills and nothing else",
+        "Installing either product installs it"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Boundaries",
+      "items": [
+        "superpowers is forked, not vendored, so it keeps receiving upstream",
+        "harness-backup stays private and is not a package source"
+      ]
+    }
+  ]
+}
