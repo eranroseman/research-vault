@@ -1,6 +1,6 @@
 # Better BibTeX owns the bibliography export
 
-Status: accepted (2026-08-30)
+Status: suspended (2026-09-03) — the import process is being redesigned from first principles and this decision is under re-derivation there; nothing new builds on it until it returns to accepted or is superseded.
 
 Better BibTeX is the sole content writer of `system/bibliography.json`: research-vault observes
 it, compares it against an on-demand export of the same scope, and commits only a byte-exact
