@@ -12,15 +12,19 @@
 
 **Budget, declared before searching** (S20): five sources, stopping when a new source returns only candidates already seen. No time limit was set and none was reached. **The short candidate list below is a fact about the field, not a limit of the search** — that distinction is the whole reason S20 exists.
 
-**Sources, in order, with what each added** (S19):
+**What a candidate had to be** (S24): a skill, plugin or documented method that takes a set of requirements and reports which existing components cover them — the build-or-buy screen itself, not a tool for evaluating one candidate on its own merits.
 
-| #   | Source                                                                                                                       | New candidates                                        |
-| --- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 1   | Installed skills, `~/.claude/skills`                                                                                         | `skill-judge`                                         |
-| 2   | Installed plugin skills, all marketplaces on disk                                                                            | `claude-automation-recommender`, `dependency-updater` |
-| 3   | `obra/superpowers`, `anthropics/skills`, `anthropics/knowledge-work-plugins`, `mattpocock/skills`, `addyosmani/agent-skills` | `vendor-review`, `vendor-check`, `source-management`  |
-| 4   | GitHub repository search, three query forms                                                                                  | none                                                  |
-| 5   | `duthaho/claudekit`, `softaworks/agent-toolkit`, `product-on-purpose/pm-skills`, `tonone-ai/tonone`                          | `keel-vendor`, `score-compare`, `bench-compare`       |
+**Sources, in order, with the terms used and what each added** (S19, S24):
+
+| #   | Source                                                                                                                                                                                                                                             | New candidates                                        |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | Installed skills, `~/.claude/skills`                                                                                                                                                                                                               | `skill-judge`                                         |
+| 2   | Installed plugin skills, all marketplaces on disk                                                                                                                                                                                                  | `claude-automation-recommender`, `dependency-updater` |
+| 3   | `obra/superpowers`, `anthropics/skills`, `anthropics/knowledge-work-plugins`, `mattpocock/skills`, `addyosmani/agent-skills`                                                                                                                       | `vendor-review`, `vendor-check`, `source-management`  |
+| 4   | GitHub repository search — `agent skill evaluate dependency adopt`, `claude skill build-or-buy`, `skill vendor selection COTS`, then `agent-skills evaluate options`, `skill compare alternatives decision`, `claude skill procurement evaluation` | none                                                  |
+| 5   | `duthaho/claudekit`, `softaworks/agent-toolkit`, `product-on-purpose/pm-skills`, `tonone-ai/tonone`                                                                                                                                                | `keel-vendor`, `score-compare`, `bench-compare`       |
+
+**The source-4 null was tested, not assumed.** All six queries returned empty, which is a suspicious result for a search engine rather than a fact about the field, so `gh search repos "claude code skills"` was run as a control and returned three repositories. The tool worked; the field is empty of this. Without that control the null would carry no weight, which is why S24 now requires it.
 
 **Saturation reached at source 5**: its returns are the same two kinds already seen — vendor-relationship management, and statistical comparison of models or benchmarks. Neither is new in kind.
 
@@ -74,4 +78,5 @@ Doing it by hand was the point, and three requirements broke on contact.
 
 - ~~**S17 and S15 are unrunnable against any set that is not a `writing-reqs` output.**~~ **Fixed 2026-09-03.** Both reached for R43's marks by name. The author's ruling: this skill cares about the *form* of a requirement set, never about what produced it. S17 now reads whatever floors a set marks and can report a set that marks none.
 - ~~**S8 has no partial state.**~~ **Not a defect; I misapplied it.** S8 now carries the two-step it always implied and that skills themselves use: a description may narrow the *search*, only a body may ground a *finding*. Discovery stays cheap. The four unread candidates were never undetermined — they were not-examined, which S18 already provided for.
+- **The search method was unrecorded.** The first write-up named sources and counts but no queries, and reported a null from source 4 whose terms were nowhere. Added as S24 on 2026-09-03 and back-filled above.
 - ~~**S13 could not be attempted.**~~ **Fixed 2026-09-03:** due when a candidate enters the screen, not when it is found.
