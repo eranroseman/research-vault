@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
 permissions:
   contents: read
 jobs:
@@ -63,3 +65,29 @@ jobs:
       - name: Mutation gate (no new survivors)
         run: python scripts/mutation_gate.py --lcov lcov.info --max-workers 1 --base
           "origin/${{ github.base_ref || 'main' }}"
+  okf-spec-drift:
+    name: OKF spec drift (pin vs upstream)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare upstream SPEC.md against the pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PINNED: 26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --output /tmp/SPEC.md \
+            https://raw.githubusercontent.com/GoogleCloudPlatform/open-knowledge-format/main/SPEC.md
+          actual="$(sha256sum /tmp/SPEC.md | cut -d' ' -f1)"
+          if [ "$actual" != "$PINNED" ]; then
+            title="OKF SPEC.md drifted from the ad30107 pin"
+            if ! gh issue list --state open --search "$title" --json title -q '.[].title' | grep -qF "$title"; then
+              gh issue create --title "$title" --label needs-triage --body "> *Opened automatically by the okf-spec-drift job.*
+
+          Upstream \`SPEC.md\` sha256 is \`$actual\`; the pin is \`$PINNED\` (\`open-knowledge-format@ad30107\`). Reconcile per ADR 0001: read the diff, decide adopt/deviate, move the pin deliberately."
+            fi
+          fi

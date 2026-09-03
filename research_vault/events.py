@@ -32,13 +32,26 @@ def _calendar_date(value) -> bool:
         return False
 
 
+def _iso_or_date(value) -> bool:
+    if _calendar_date(value):
+        return True
+    if not _single_line(value):
+        return False
+    try:
+        parsed = datetime.datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
+
+
 def _valid_event(event) -> bool:
     return (
         type(event) is dict
-        and set(event) == {"by", "at", "check"}
+        and {"by", "at"} <= set(event)
+        and set(event) <= {"by", "at", "check"}
         and _single_line(event["by"])
-        and _calendar_date(event["at"])
-        and _single_line(event["check"])
+        and _iso_or_date(event["at"])
+        and ("check" not in event or _single_line(event["check"]))
     )
 
 
@@ -59,6 +72,7 @@ def _verified_events(data: dict) -> tuple[list[dict], bool]:
     raw_events = data.get("verified")
     if raw_events is None:
         return [], False
+    raw_events = [raw_events] if type(raw_events) is dict else raw_events
     if not isinstance(raw_events, list) or not all(
         _valid_event(event) for event in raw_events
     ):
@@ -178,7 +192,7 @@ def _replace_frontmatter_list(
     headers = [
         index
         for index, line in enumerate(lines[1:close], start=1)
-        if line.rstrip("\r\n").rstrip(" \t") == f"{field}:"
+        if line.rstrip("\r\n").rstrip(" \t").startswith(f"{field}:")
     ]
     if len(headers) > 1:
         raise ValueError(f"{field} frontmatter must have one list")

@@ -1,5 +1,7 @@
 # OKF v0.2 conformance audit
 
+Tiers 0–2 + Tier 5 landed 2026-09-02, plan `docs/superpowers/plans/2026-09-02-okf-conformance.md`.
+
 Audited 2026-09-01 against the Open Knowledge Format v0.2 specification as published at
 `GoogleCloudPlatform/open-knowledge-format@ad30107` (`SPEC.md`, 37748 bytes, last amended
 2026-08-21). Method: eight per-section finder agents over the enumerated writer surfaces,

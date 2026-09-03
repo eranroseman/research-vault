@@ -146,10 +146,16 @@ def test_every_check_id_at_head_is_governed():
 def test_every_doctor_probe_id_at_head_is_governed():
     probes = _probe_ids()
     assert probes, "AST scan found no Probe ids — the scan itself is broken"
-    ungoverned = sorted(probes - _backticked(_governance_row("doctor probe ids")))
+    governed = _backticked(_governance_row("doctor probe ids"))
+    ungoverned = sorted(probes - governed)
     assert not ungoverned, (
         "doctor probe ids emitted by scaffold.py with no backticked entry in "
         f"terminology.md §4.4: {ungoverned}"
+    )
+    stale = sorted(governed - probes)
+    assert not stale, (
+        "doctor probe ids in terminology.md §4.4 with no matching Probe(...) in "
+        f"scaffold.py: {stale} — remove the row entry, the probe was deleted"
     )
 
 

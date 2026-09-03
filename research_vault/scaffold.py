@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, bibliography, frontmatter, inbox, okf
+from . import Result, bibliography, okf
 from .zotero import ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
@@ -319,86 +319,13 @@ def _backup_probe(config: dict) -> Probe:
     )
 
 
-def _inbox_probe(vault: Path) -> Probe:
-    try:
-        status = inbox.summary(vault)
-    except (OSError, UnicodeError, ValueError) as error:
-        return Probe("inbox", Result.UNREACHABLE, f"inbox unreadable: {error}")
-    count = status["unacknowledged"]
-    oldest = status["oldest"]
-    if count:
-        return Probe(
-            "inbox",
-            Result.UNMATCHED,
-            f"{count} unacknowledged findings; oldest {oldest}",
-        )
-    return Probe("inbox", Result.MATCHED, "0 unacknowledged findings")
-
-
-def _okf_typed_markdown(vault: Path):
-    """Every ``.md`` path the OKF probe expects to carry a non-empty ``type``.
-
-    Root ``index.md`` (checked separately for ``type``/``okf_version``) and
-    root ``log.md`` (checked separately for existence) are reserved and
-    excluded, as is any nested ``index.md`` (e.g. ``synthesis/index.md``).
-    ``inbox/`` is a fleeting-capture surface (spec §2: "fleeting human notes
-    are the tolerated residual; frontmatter arrives at triage") — only its
-    machine-owned ``review-queue.md`` is typed, so every other ``inbox/``
-    note is excluded too.
-    """
-    for path in sorted(vault.rglob("*.md")):
-        if ".git" in path.parts:
-            continue
-        relative = path.relative_to(vault).as_posix()
-        if path.name == "index.md" or relative == "log.md":
-            continue
-        if relative.startswith("inbox/") and relative != "inbox/review-queue.md":
-            continue
-        yield relative, path
-
-
-def _okf_probe(vault: Path) -> Probe:
-    problems = []
-    for relative, path in _okf_typed_markdown(vault):
-        try:
-            data, _body = frontmatter.parse(path.read_text())
-        except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
-            problems.append(f"{relative}: unreadable ({error})")
-            continue
-        okf_type = data.get("type")
-        if not isinstance(okf_type, str) or not okf_type.strip():
-            problems.append(f"{relative}: missing type")
-
-    index_path = vault / "index.md"
-    try:
-        index_data, _body = frontmatter.parse(index_path.read_text())
-    except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
-        problems.append(f"index.md: unreadable ({error})")
-    else:
-        index_type = index_data.get("type")
-        if index_type != "index":
-            problems.append('index.md: type must be "index"')
-        okf_version = index_data.get("okf_version")
-        if not isinstance(okf_version, str) or not okf_version.strip():
-            problems.append("index.md: missing okf_version")
-
-    log_dir = vault / "log"
-    has_day_files = log_dir.is_dir() and any(log_dir.glob("*.md"))
-    if has_day_files and not (vault / "log.md").exists():
-        problems.append("log.md missing despite day files present")
-
-    if problems:
-        return Probe("okf", Result.UNMATCHED, "; ".join(problems))
-    return Probe("okf", Result.MATCHED, "OKF artifacts conformant")
-
-
 def doctor(
     vault_root,
     client=None,
     settle_seconds=60,
     poll_interval=1,
 ) -> list[Probe]:
-    """Repair the scoped vault substrate and return its ten ordered probes."""
+    """Repair the scoped vault substrate and return its eight ordered probes."""
     vault = Path(vault_root)
     try:
         scaffold_vault(vault)
@@ -474,8 +401,6 @@ def doctor(
         [
             _remote_probe(vault),
             _backup_probe(config),
-            _inbox_probe(vault),
-            _okf_probe(vault),
         ]
     )
     return probes

@@ -61,15 +61,19 @@ below, naming the declined anchor and §1 cost class. Put architectural rational
 in an ADR and term meanings in [CONTEXT.md](../CONTEXT.md), then link to them
 instead of restating them here.
 
-| Governed spelling                                                              | Declined anchor                 | Cost                                                                                                   |
-| ------------------------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Pandoc `[@citekey, locator]`                                                   | OKF footnote attribution        | 1 — permanent toolchain mismatch; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                     |
-| `citekey` as source identity                                                   | OKF `sources`/`resource`        | 1 — Better BibTeX and prose use the same address; [ADR 0004](adr/0004-citekey-is-the-only-identity.md) |
-| `supports` / `disputes`                                                        | OKF untyped lineage             | 2 — stance would be lost; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                             |
-| Literature screening states in [CONTEXT.md](../CONTEXT.md#evidence-and-claims) | OKF document lifecycle          | 2 — screening is distinct from document maturity                                                       |
-| Project `draft` / `parked` / `published` / `corrected` / `withdrawn`           | OKF document lifecycle          | 2 — publication states would be lost                                                                   |
-| `source` for the cited document; `venue` for its outlet                        | OpenAlex `source` for an outlet | 4 — the senses collide; see [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                            |
-| `superseded` / `superseded-by`                                                 | OKF identity merge              | 3 — succession does not imply identity; [ADR 0003](adr/0003-deprecate-never-delete.md)                 |
+| Governed spelling                                                              | Declined anchor                                         | Cost                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pandoc `[@citekey, locator]`                                                   | OKF §5.1 footnote attribution                           | 1 — permanent toolchain mismatch; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                             |
+| `citekey` as source identity today; `sources`/`resource` adoption deferred     | OKF `sources`/`resource`                                | Deferred, not declined — the citekey already fills §5.1's `id` slot and no second identity is minted (audit §3.1); the open cost is ongoing double-bookkeeping maintenance, not one of §1's four classes; [ADR 0004](adr/0004-citekey-is-the-only-identity.md) |
+| `supports` / `disputes`                                                        | OKF untyped lineage                                     | 2 — stance would be lost; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                     |
+| Literature screening states in [CONTEXT.md](../CONTEXT.md#evidence-and-claims) | OKF document lifecycle                                  | 2 — screening is distinct from document maturity                                                                                                                                                                                                               |
+| Project `draft` / `parked` / `published` / `corrected` / `withdrawn`           | OKF document lifecycle                                  | 2 — publication states would be lost                                                                                                                                                                                                                           |
+| `source` for the cited document; `venue` for its outlet                        | OpenAlex `source` for an outlet                         | 4 — the senses collide; see [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                                                                                                                                                                                    |
+| Untyped `inbox/` fleeting captures at creation                                 | OKF §11 rule 1 (frontmatter on every non-reserved file) | 1 — permanent mismatch with the capture-time editor, the uncontrolled surface; `stamp-type` converges frontmatter at triage; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                  |
+| `verified[].check` field and coverage-derived trust tiers                      | OKF §5.2 `{by, at}` event shape                         | 3 — collapsing to `{by, at}` alone would lose which check passed, the tier-coverage derivation it drives                                                                                                                                                       |
+| `verified[].at` as a calendar date                                             | OKF §5 ISO 8601 datetime with UTC offset                | 3 — recorded pending an ADR 0002 reconciliation; [ADR 0002](adr/0002-verification-records-tell-the-truth.md)'s no-padded-precision rule vs the genuinely date-valued upstreams                                                                                 |
+| `[[citekey#^claim-id]]` claim and stance links                                 | OKF §6.1 markdown link form                             | 1 — the Dataview inline-field grammar requires the wikilink form; a markdown link's `]` would close the field early                                                                                                                                            |
+| No adoption of OKF §10 Attested Computation                                    | OKF §10 Attested Computation                            | Declined — `fixity-sha256` and the bibliography byte-comparison can't be attested consumer-side; `managed-sha256` and the quote check remain tool-only computations                                                                                            |
 
 ## 4. Governed spellings
 
@@ -111,7 +115,7 @@ A new CLI command takes the first matching branch:
 | Ledger append                  | Record noun, or ledger name when no record noun exists | `finding`, `ack`, `search-log`                                                                                                       |
 | Persistent switch              | `arm-<gate>` / `disarm-<gate>`                         | `arm-publish`, `disarm-publish`                                                                                                      |
 | Lifecycle transition           | `mark-<status>`                                        | `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`                                                                  |
-| Other projection or derivation | Imperative verb-noun kebab                             | `import-note`, `backfill-selectors`, `archive-source`; `scaffold` is the established single-verb exception                           |
+| Other projection or derivation | Imperative verb-noun kebab                             | `import-note`, `backfill-selectors`, `archive-source`, `stamp-type`; `scaffold` is the established single-verb exception             |
 
 Use kebab-case and exact [CONTEXT.md](../CONTEXT.md) nouns. Do not invent
 abbreviations, compatibility aliases, or multiple verbs for one act. Command
@@ -134,8 +138,8 @@ their behavior; this table owns their spellings.
 
 | Group            | Governed identifiers                                                                                                                                                                                                                                                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `autoexport`, `render`, `integrate`                                                                                                         |
-| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`, `inbox`, `okf`                                                                                                                                                                                                                  |
+| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `autoexport`, `render`, `integrate`, `okf-frontmatter`, `okf-structure`, `tree`                                                             |
+| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`                                                                                                                                                                                                                                  |
 | reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note`, `warn-notice` |
 
 Allowed register splits:
@@ -179,3 +183,14 @@ scratch paths.
 `knowledge-harness`, product uses of `harness`, `.harness/`, `HARNESS_*`, `hk-`,
 and `.harness-*` are stale names from the unfinished rename, not aliases.
 `harness` remains the name of the agent runtime only.
+
+### 4.6 OKF adoption
+
+Adoptions from OKF, recorded once per §3's rule (a deviation is priced in the §3
+table above; an adoption is named here, with its source):
+
+| Adopted spelling                                                       | OKF source                                                                                                                          |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `verified[].{by, at}`                                                  | OKF §5.2 event shape; `check` is the research-vault extension recording which check passed and driving coverage-derived trust tiers |
+| `unverified` / `machine-confirmed` / `human-reviewed` trust tier names | OKF §5.3, verbatim                                                                                                                  |
+| `human:<id>` / `<producer>/<version>` actor convention                 | OKF §7                                                                                                                              |

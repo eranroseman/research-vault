@@ -6,8 +6,11 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 ### Vault
 
-**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store.
+**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, packaged to survive its tools as a structurally conformant OKF bundle (ADR 0001) covering the knowledge bundle, minus the recorded `inbox/` fleeting exemption.
 _Avoid_: knowledge base, second brain
+
+**Type (OKF)**: Determined by a note's folder — the folder map lives in `research_vault/structure.py`. `literatures/**` derives `literature`; `synthesis/**` derives `synthesis`; only `projects/<name>/draft.md` derives `project` (every other `.md` under `projects/**` derives no type, like `system/**`); `log/*` derives `daily`; `inbox/*` derives `fleeting` (`inbox/review-queue.md` is the one exception, deriving `type: "review-queue"`); `system/**` and root-level concept files carry any non-empty type, freely chosen.
+_Avoid_: implying every file under a mapped folder inherits its type
 
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
 _Avoid_: sources folder, references layer

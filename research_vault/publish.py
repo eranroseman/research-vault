@@ -21,7 +21,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import AGENT_ACTOR, Result, frontmatter, gitstate, okf
+from . import AGENT_ACTOR, Result, frontmatter, gitstate, okf, stamp
 from .events import record_pass
 from .lints import PUBLISHED_TAG
 from .pathcodec import encode_repo_path
@@ -408,6 +408,7 @@ def _append_log(vault, message: str, *, date: str, now: datetime.datetime) -> Pa
         day.write_text(frontmatter.serialize({"type": "daily"}))
     with day.open("a", encoding="utf-8", newline="") as stream:
         stream.write(f"- {now:%H:%M} {AGENT_ACTOR} — {message}\n")
+    stamp.stamp_types(vault)
     okf.regenerate_log(vault)
     return day
 

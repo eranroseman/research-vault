@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-VAULT_DIRS = ["inbox", "literatures", "synthesis", "log", "projects", "system"]
+from research_vault import scaffold
 
 
 def _with_managed_witness(text):
@@ -23,8 +23,8 @@ def _with_managed_witness(text):
 
 @pytest.fixture
 def tmp_vault(tmp_path):
-    for d in VAULT_DIRS:
-        (tmp_path / d).mkdir()
+    for d in scaffold.VAULT_DIRS:
+        (tmp_path / d).mkdir(parents=True)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     return tmp_path
 

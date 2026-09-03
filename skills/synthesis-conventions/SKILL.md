@@ -21,6 +21,15 @@ The threshold *permits* a page; it never obligates one. Two sources on a topic m
 
 Every synthesis note carries at least two outgoing wikilinks. A synthesis page with fewer than two links isn't arranging anything yet — it's a stub.
 
+## Frontmatter
+
+A new synthesis note routes through `system/templates/synthesis.md`, substituting its
+`{{TITLE}}`/`{{ACTOR}}`/`{{NOW}}` placeholders rather than carrying them verbatim into durable
+frontmatter: `{{TITLE}}` is the page's title; `{{ACTOR}}` is the actor per §7 —
+`human:<id>` when a person authors the page, `<producer>/<version>` when a skill does; `{{NOW}}`
+comes from `python3 -c "from research_vault.notes import generated_at_now; print(generated_at_now())"`.
+Never leave a shipped placeholder literal in a written note.
+
 ## Index registration
 
 Creating a new synthesis note is not complete until it is registered: add one line for it in `synthesis/index.md`. An unregistered note is invisible to orientation and to anything that later checks the index before creating.

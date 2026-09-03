@@ -1895,9 +1895,20 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
         ).CLOSING_BY_SURFACE.items()
     } == {
         "audit": frozenset(),
-        "commit": frozenset({"citekey", "evidence-layer"}),
+        "commit": frozenset(
+            {"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
+        ),
         "publish": frozenset(
-            {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
+            {
+                "citekey",
+                "evidence-layer",
+                "quote",
+                "update-notice",
+                "doi",
+                "okf-frontmatter",
+                "okf-structure",
+                "tree",
+            }
         ),
     }
 

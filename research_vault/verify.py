@@ -26,6 +26,7 @@ from . import (
     lints,
     notes,
     quotes,
+    structure,
     webapi,
 )
 from .pathcodec import (
@@ -52,9 +53,20 @@ def _write_note_text(path, text):
 
 CLOSING_BY_SURFACE = {
     "audit": frozenset(),
-    "commit": frozenset({"citekey", "evidence-layer"}),
+    "commit": frozenset(
+        {"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
+    ),
     "publish": frozenset(
-        {"citekey", "evidence-layer", "quote", "update-notice", "doi"}
+        {
+            "citekey",
+            "evidence-layer",
+            "quote",
+            "update-notice",
+            "doi",
+            "okf-frontmatter",
+            "okf-structure",
+            "tree",
+        }
     ),
 }
 CLOSING_CHECKS = frozenset().union(*CLOSING_BY_SURFACE.values())
@@ -988,6 +1000,14 @@ def _plan_state(
     ]
     for path in note_files:
         raw.extend(file_outcomes(vault, path, bibliography_universe))
+    for path in sorted(vault.rglob("*.md")):
+        if ".git" in path.parts:
+            continue
+        if path.name == "index.md" or path.name == "log.md":
+            continue
+        raw.extend(structure.check_note_frontmatter(vault, path))
+    raw.extend(structure.check_reserved(vault))
+    raw.append(structure.check_tree(vault))
     # `cmd_verify` mirrors this same falsy-rw_csv predicate to print the
     # unarmed-RW-leg stdout line.
     notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None

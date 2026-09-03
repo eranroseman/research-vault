@@ -59,6 +59,17 @@ Free-region content remains untouched.
     ]
 
 
+def test_record_pass_on_bare_mapping_note_writes_one_verified_block():
+    text = (
+        '---\ntype: "literature"\n'
+        'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
+    )
+    updated = events.record_pass(text, "doi", Result.MATCHED, at="2026-09-02")
+    assert updated.count("verified:") == 1
+    data, _ = frontmatter.parse(updated)
+    assert len(data["verified"]) == 2
+
+
 def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
     crlf = BASE.replace("\n", "\r\n")
     out = events.record_pass(crlf, "doi", Result.MATCHED, at="2026-08-16")
@@ -340,13 +351,12 @@ def test_record_pass_rejects_malformed_verified_events(malformed):
 @pytest.mark.parametrize(
     "event",
     [
-        {"by": "human:eran", "at": "2026-08-16"},
         {"check": "doi"},
         {"by": 7, "at": "2026-08-16", "check": "doi"},
         {"by": "human:eran", "at": "2026-02-30", "check": "doi"},
         {"by": "", "at": "2026-08-16", "check": "doi"},
     ],
-    ids=["incomplete", "check-only", "wrong-type", "invalid-date", "empty"],
+    ids=["check-only", "wrong-type", "invalid-date", "empty"],
 )
 def test_invalid_event_rows_never_elevate_trust_or_survive_reads(event):
     data, body = frontmatter.parse(_machine_confirmed_text())
@@ -357,6 +367,19 @@ def test_invalid_event_rows_never_elevate_trust_or_survive_reads(event):
     assert events.trust_tier(malformed) == "unverified"
     with pytest.raises(ValueError, match="verified"):
         events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")
+
+
+def test_checkless_by_at_event_is_valid_and_elevates_to_human_reviewed():
+    """OKF's own `verified` shape (a `{by, at}` mapping with no `check`) is a
+    valid foreign event per the read-path contract, not a malformed row. On
+    top of an already machine-confirmed note it counts toward the human:
+    actor test and elevates the tier."""
+    data, body = frontmatter.parse(_machine_confirmed_text())
+    data["verified"].append({"by": "human:eran", "at": "2026-08-16"})
+    text = frontmatter.serialize(data) + body
+
+    assert len(events.verified_checks(text)) == len(data["verified"])
+    assert events.trust_tier(text) == "human-reviewed"
 
 
 def test_historical_pass_is_demoted_by_current_failure_and_recovers_on_match():
@@ -481,3 +504,40 @@ def test_duplicate_scalar_and_list_verifier_headers_fail_closed(field):
     assert events.trust_tier(malformed) == "unverified"
     with pytest.raises(ValueError, match=field):
         events.record_pass(malformed, "doi", Result.MATCHED, at="2026-08-17")
+
+
+def test_bare_verified_mapping_is_one_element_list():
+    text = (
+        '---\ntype: "literature"\n'
+        'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
+    )
+    data, _ = frontmatter.parse(text)
+    events_list, malformed = events._verified_events(data)
+    assert not malformed
+    assert len(events_list) == 1
+
+
+def test_foreign_by_at_event_does_not_poison_the_list():
+    data = {
+        "verified": [
+            {"by": "human:eran", "at": "2026-08-02T09:00:00Z"},
+            {"by": "research_vault/0.1.0", "at": "2026-09-01", "check": "doi"},
+        ]
+    }
+    events_list, malformed = events._verified_events(data)
+    assert not malformed
+    assert len(events_list) == 2
+
+
+def test_foreign_human_event_without_check_stays_unverified():
+    # Trust tiers are cumulative (unverified -> machine-confirmed ->
+    # human-reviewed): human-reviewed only applies on top of a
+    # machine-confirmed note. A note whose only verified event is a
+    # check-less foreign `human:` mapping has no deterministic check
+    # coverage at all, so it cannot be machine-confirmed, and therefore
+    # cannot be human-reviewed either -- it stays "unverified".
+    text = (
+        '---\ncitekey: "noid2020"\ntype: "literature"\n'
+        'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
+    )
+    assert events.trust_tier(text) == "unverified"

@@ -17,22 +17,20 @@ def _day_lines(day_file: Path) -> list[str]:
 
 
 def regenerate_log(vault_root, tail_entries: int = 20) -> str:
-    """Rewrite root ``log.md``: ``type: "log"`` frontmatter, a recent tail of
-    entries across ``log/*.md`` day files (chronological), then a link to
-    each day file."""
+    """Rewrite root ``log.md`` per OKF §9: date-grouped, newest first."""
     vault = Path(vault_root)
     log_dir = vault / "log"
-    day_files = sorted(log_dir.glob("*.md")) if log_dir.is_dir() else []
+    day_files = sorted(log_dir.glob("*.md"), reverse=True) if log_dir.is_dir() else []
 
-    lines = [line for day_file in day_files for line in _day_lines(day_file)]
-    tail = lines[-tail_entries:] if tail_entries > 0 else []
-
-    body_lines = ["# Log", ""]
-    body_lines.extend(tail)
-    if tail:
-        body_lines.append("")
-    body_lines.append("## Days")
-    body_lines.extend(f"- [[log/{day_file.stem}]]" for day_file in day_files)
+    body_lines = ["# Log"]
+    remaining = tail_entries
+    for day_file in day_files:
+        lines = _day_lines(day_file)
+        take = lines[:remaining] if remaining > 0 else []
+        body_lines.extend(["", f"## {day_file.stem}"])
+        body_lines.extend(take)
+        body_lines.append(f"- [{day_file.stem}](log/{day_file.stem}.md)")
+        remaining -= len(take)
 
     text = frontmatter.serialize({"type": "log"}) + "\n".join(body_lines) + "\n"
     (vault / "log.md").write_text(text)

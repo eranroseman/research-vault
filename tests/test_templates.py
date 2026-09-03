@@ -70,7 +70,7 @@ def test_markdown_templates_have_expected_okf_frontmatter():
         assert data.get("type"), path
 
     root_data, _ = frontmatter.parse(asset("vault/index.md").read_text())
-    assert root_data == {"type": "index", "okf_version": "0.2"}
+    assert root_data == {"okf_version": "0.2"}
     for path in reserved:
         data, _ = frontmatter.parse(asset(path).read_text())
         assert data == {}, path
@@ -85,14 +85,14 @@ def test_markdown_templates_have_expected_okf_frontmatter():
 
 def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
-        '---\ntype: "index"\nokf_version: "0.2"\n---\n'
+        '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [[literatures/]] — evidence layer: citekey-keyed literature notes\n"
-        "- [[synthesis/]] — synthesis notes (see [[synthesis/index]])\n"
-        "- [[projects/]] — manuscripts and deliverables\n"
-        "- [[log/]] — daily activity log (summary: [[log]])\n"
-        "- [[inbox/]] — fleeting notes and the review queue\n"
-        "- [[system/]] — support artifacts: templates, bases, the bibliography export\n\n"
+        "- [literatures/](literatures/) — evidence layer: citekey-keyed literature notes\n"
+        "- [synthesis/](synthesis/) — synthesis notes (see [[synthesis/index]])\n"
+        "- [projects/](projects/) — manuscripts and deliverables\n"
+        "- [log/](log/) — daily activity log (summary: [[log]])\n"
+        "- [inbox/](inbox/) — fleeting notes and the review queue\n"
+        "- [system/](system/) — support artifacts: templates, bases, the bibliography export\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![[system/bases/trust-tier.base]]\n\n"
         "Synthesis notes, flagged where they contain an open-question:\n\n"
@@ -173,6 +173,8 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/system/templates/daily.md").read_text() == (
         '---\ntype: "daily"\n---\n\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
     )
+
+
 def test_bases_and_machine_example_match_canonical_shapes():
     open_questions = asset("vault/system/bases/open-questions.base").read_text()
     trust_tier = asset("vault/system/bases/trust-tier.base").read_text()

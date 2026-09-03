@@ -9,7 +9,7 @@ description: Use when writing or editing claims, citing sources, or drafting in 
 
 No claim enters a draft without a verified source first.
 
-A claim line exists only after its literature note exists and its citekey resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — write the sentence as fleeting prose, not as a tagged claim, until the source is admitted and projected.
+A claim line exists only after its literature note exists and its citekey resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — write the sentence as fleeting prose, not as a tagged claim, until the source is admitted and projected. A fleeting note opens with `type: "fleeting"` frontmatter when the agent writes it; humans capture free-form and the stamp converges it at triage.
 
 ## Claim syntax (§5)
 
