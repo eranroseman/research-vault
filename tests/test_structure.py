@@ -11,11 +11,22 @@ def _write(tmp_path, relative, text):
 def test_expected_type_is_the_folder():
     assert structure.expected_type("literatures/smith2020.md") == "literature"
     assert structure.expected_type("synthesis/topic.md") == "synthesis"
-    assert structure.expected_type("projects/brief.md") == "project"
+    assert structure.expected_type("projects/brief/draft.md") == "project"
     assert structure.expected_type("log/2026-08-20.md") == "daily"
     assert structure.expected_type("inbox/review-queue.md") == "review-queue"
     assert structure.expected_type("system/templates/literature.md") is None
     assert structure.expected_type("scratch.md") is None
+
+
+def test_expected_type_project_note_is_narrow():
+    # Only the canonical draft.md, exactly one project-name level deep, derives.
+    assert structure.expected_type("projects/brief/draft.md") == "project"
+    # A second file in the same project directory derives nothing.
+    assert structure.expected_type("projects/brief/appendix.md") is None
+    # A flat projects/<name>.md with no subdirectory derives nothing.
+    assert structure.expected_type("projects/brief.md") is None
+    # Deeper nesting past the canonical file derives nothing either.
+    assert structure.expected_type("projects/brief/notes/appendix.md") is None
 
 
 def test_fleeting_paths_are_named_not_typed():
@@ -40,7 +51,17 @@ def test_check_flags_missing_frontmatter_and_wrong_folder_type(tmp_path):
 
 
 def test_check_passes_conformant_and_underived_notes(tmp_path):
-    path = _write(tmp_path, "projects/brief.md", '---\ntype: "project"\n---\nbody\n')
+    path = _write(
+        tmp_path, "projects/brief/draft.md", '---\ntype: "project"\n---\nbody\n'
+    )
+    (outcome,) = structure.check_note_frontmatter(tmp_path, path)
+    assert outcome.result is Result.MATCHED
+
+    # A second file alongside draft.md in the same project directory is
+    # underived — any non-empty type passes (knowledge-harness#105).
+    path = _write(
+        tmp_path, "projects/brief/appendix.md", '---\ntype: "appendix"\n---\nbody\n'
+    )
     (outcome,) = structure.check_note_frontmatter(tmp_path, path)
     assert outcome.result is Result.MATCHED
 

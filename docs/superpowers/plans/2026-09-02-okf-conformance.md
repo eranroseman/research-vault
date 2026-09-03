@@ -16,12 +16,12 @@
 - Every `Outcome.reason` must start with a code from `research_vault/inbox.py` `REASON_CODES` (line 25). Use `schema-violation` for structure violations. No new reason codes.
 - New check ids are governed coinages (terminology §4.4): this plan mints `okf-frontmatter`, `okf-structure`, `tree` (verify-side), and the verb `stamp-type`. **Naming cell:** the grill ruled `stamp-fleeting` before the folder-derives-type generalization; `stamp-type` is the generalized name. If the user objects at plan review, rename mechanically — nothing else changes.
 - The fleeting exemption (ruled 2026-09-02): human captures in `inbox/` (all `.md` except `inbox/review-queue.md`) are **out of scope for closing checks**. The stamp converges them at chokepoints; they are never a red build, never a blocking finding.
-- Vault rule (ruled 2026-09-02): **a note's `type` is determined by its folder.** Map: `literatures/**` → `literature`, `synthesis/**` → `synthesis`, `projects/**` → `project`, `log/*` → `daily`, `inbox/*` → `fleeting` (`inbox/review-queue.md` → `review-queue`). `system/**` and root-level concept files: any non-empty `type` (no derivation).
+- Vault rule (ruled 2026-09-02): **a note's `type` is determined by its folder.** Map: `literatures/**` → `literature`, `synthesis/**` → `synthesis`, `projects/<name>/draft.md` → `project` (narrowed 2026-09-02 per knowledge-harness#105: only the project's one canonical `type: "project"` note derives — every other `.md` under `projects/**`, including a flat `projects/<name>.md` and any sibling file beside `draft.md`, derives nothing), `log/*` → `daily`, `inbox/*` → `fleeting` (`inbox/review-queue.md` → `review-queue`). `system/**` and root-level concept files: any non-empty `type` (no derivation).
 - Doctor stays report-only and keeps its own `tree` probe (repair-at-setup via `scaffold_vault` is doctor's job; verify's `tree` check is attestation — different jobs, both stay).
 - OKF spec pin: `open-knowledge-format@ad30107`, `SPEC.md` sha256 `26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`.
 - Out of scope (ruled): Tier 4 adoption (`resource`/`sources`/`title`/`description`), Alternative A′/B, the §2.1 `status` rename, inbox adjudication machinery, #102 (rides #91).
 
----
+______________________________________________________________________
 
 ## File map
 
@@ -32,11 +32,14 @@
 ### Task 1: `structure.py` — folder-type map and the per-file `okf-frontmatter` check
 
 **Files:**
+
 - Create: `research_vault/structure.py`
 - Test: `tests/test_structure.py`
 
 **Interfaces:**
+
 - Consumes: `research_vault.frontmatter.parse`, `research_vault.outcome.Outcome`, `research_vault.Result`, `research_vault.pathcodec.RepoPath`.
+
 - Produces: `expected_type(relative: str) -> str | None` (None = no derivation, any non-empty type passes; also None for exempt fleeting paths — callers skip those via `is_fleeting`), `is_fleeting(relative: str) -> bool`, `check_note_frontmatter(vault_root, path) -> list[Outcome]` (check id `okf-frontmatter`, one Outcome per file: MATCHED, or UNMATCHED with reason starting `schema-violation`). Task 3 wires these into verify; Task 6 reuses `expected_type`/`is_fleeting`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -199,11 +202,14 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
 ### Task 2: `okf-structure` — reserved-file shapes (rule 3, §8, §12) and the tree check
 
 **Files:**
+
 - Modify: `research_vault/structure.py`
 - Test: `tests/test_structure.py`
 
 **Interfaces:**
+
 - Consumes: Task 1's module internals; `research_vault.scaffold.VAULT_DIRS` (import inside the function to avoid a cycle: `from . import scaffold`).
+
 - Produces: `check_reserved(vault_root) -> list[Outcome]` (check id `okf-structure`; one Outcome per problem, or a single MATCHED) and `check_tree(vault_root) -> Outcome` (check id `tree`, target `vault`, MATCHED iff every `VAULT_DIRS` entry is a directory). Log-shape rule used by Task 5's rewrite: root or nested `log.md`, when present, must contain only `## YYYY-MM-DD` second-level headings, newest first.
 
 - [ ] **Step 1: Write the failing tests** (append to `tests/test_structure.py`)
@@ -353,11 +359,14 @@ Adjust the two problem tuples so `target` is always a real value: use the file's
 ### Task 3: Wire structure checks into verify; closing sets; check-id registry
 
 **Files:**
+
 - Modify: `research_vault/verify.py:53-60` (CLOSING_BY_SURFACE), `research_vault/verify.py:986-991` (the `note_files` region of `_plan_state`), `research_vault/inbox.py:59-79` (CHECK_IDS), `docs/terminology.md` §4.4 (register the three ids + `stamp-type`).
 - Test: `tests/test_structure.py`
 
 **Interfaces:**
+
 - Consumes: Task 1–2's `check_note_frontmatter`, `check_reserved`, `check_tree`; `import structure` in verify.py's package import block (verify.py:17-29).
+
 - Produces: commit-surface verification that fails (exit 1) on structure violations; audit surface files them as non-closing findings. Task 4 relies on this coverage existing before doctor's probes are deleted.
 
 - [ ] **Step 1: Write the failing test** (append to `tests/test_structure.py`)
@@ -393,6 +402,7 @@ Note: read `surface_decision`'s actual return shape at `verify.py:1128-1160` bef
 - [ ] **Step 2: Run to verify failure** — `python -m pytest tests/test_structure.py -q`. Expected: FAIL (no structure outcomes produced; decision 0 in the first test).
 
 - [ ] **Step 3: Wire in.** In `verify.py`:
+
   - Add `structure` to the `from . import (...)` block.
   - In `CLOSING_BY_SURFACE`, add the ids to `commit` and `publish`: `frozenset({"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"})` and publish's set likewise extended. `audit` stays `frozenset()`.
   - In `_plan_state`, after the `note_files` loop (verify.py:986-991), add a structure sweep over every non-reserved `.md` (not just the three folders), plus the vault-wide checks:
@@ -409,24 +419,31 @@ Note: read `surface_decision`'s actual return shape at `verify.py:1128-1160` bef
     raw.append(structure.check_tree(vault))
 ```
 
-  - In `inbox.py` CHECK_IDS, append `"okf-frontmatter", "okf-structure", "tree",` with a comment `# OKF structure migration (2026-09-02 plan)`.
-  - In `docs/terminology.md` §4.4, add one line registering the three check ids and the `stamp-type` verb as §4.3 imperative-verb coinages.
+- In `inbox.py` CHECK_IDS, append `"okf-frontmatter", "okf-structure", "tree",` with a comment `# OKF structure migration (2026-09-02 plan)`.
+
+- In `docs/terminology.md` §4.4, add one line registering the three check ids and the `stamp-type` verb as §4.3 imperative-verb coinages.
 
 - [ ] **Step 4: Run the full suite** — `python -m pytest tests -q`. Expected: `tests/test_structure.py` passes. If pre-existing verify tests fail because scaffolded fixtures are now non-conformant (root `index.md` still ships `type: "index"` until Task 5), mark the *minimal* set of newly-failing assertions with the exact template fix they await and do Task 5's template change in this task instead — the two tasks may merge if the suite forces it; note it in the commit message.
+
 - [ ] **Step 5: Commit** — `git commit -m "feat: structure checks close on commit surface; doctor migration groundwork" -- research_vault/verify.py research_vault/inbox.py tests/test_structure.py docs/terminology.md`
 
 ### Task 4: The doctor split — delete the `okf` and `inbox` probes
 
 **Files:**
+
 - Modify: `research_vault/scaffold.py:322-392` (delete `_inbox_probe`, `_okf_typed_markdown`, `_okf_probe`), the `doctor()` body where those probes are appended (read `scaffold.py:395-475` and remove the two `probes.append(...)`/`probes.extend(...)` sites that reference them), `research_vault/__main__.py:46` (`DOCTOR_WARN_ONLY = {"staleness", "remote", "backup"}`).
 - Test: `tests/test_okf.py` (delete the probe tests at lines 60-110 shown below; keep any regenerate_log tests), `tests/test_scaffold.py`, `tests/test_cli_live.py` (grep for `"okf"`/`"inbox"` probe assertions and doctor probe-count assertions — doctor returns 8 probes after this task, not 10; the docstring at `scaffold.py:401` says "ten ordered probes" — update it).
 
 **Interfaces:**
+
 - Consumes: Task 3's verify coverage (structure checks must be closing on commit before this deletion lands — never leave the vault uncovered).
+
 - Produces: `doctor()` returning exactly: `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`.
 
 - [ ] **Step 1: Grep for consumers first** — `grep -rn "\"okf\"\|'okf'\|\"inbox\"\|'inbox'" research_vault/ tests/ skills/ docs/agents/` and list every hit that reads the *probe* (not the module). Update each.
+
 - [ ] **Step 2: Delete the three functions and their call sites; update `DOCTOR_WARN_ONLY`; update the doctor docstring.**
+
 - [ ] **Step 3: Delete/adjust the pinned tests** — in `tests/test_okf.py`: delete `test_doctor_okf_probe`, `test_okf_probe_matches_a_freshly_scaffolded_vault`, `test_okf_probe_ignores_fleeting_inbox_notes_but_flags_machine_owned_files`, `test_okf_probe_root_index_missing_okf_version`, `test_okf_probe_root_index_missing_type`, `test_okf_probe_missing_log_md_with_a_day_file_present`. Their coverage now lives in `tests/test_structure.py` (Tasks 1–3). Add one replacement:
 
 ```python
@@ -447,11 +464,14 @@ def test_doctor_is_substrate_and_posture_only(tmp_path):
 ### Task 5: Producer fixes — root index template, navigation links, log rewrite
 
 **Files:**
+
 - Modify: `research_vault/templates/vault/index.md` (drop `type: "index"`; convert the six `[[folder/]]` wikilinks to relative markdown links), `research_vault/okf.py` (rewrite `regenerate_log`), `research_vault/scaffold.py:360-365` region is already gone (Task 4) — nothing to do there.
 - Test: `tests/test_templates.py:73,86-88` (root index canonical assertions), `tests/test_okf.py` (regenerate_log tests), `tests/test_scaffold.py:87` if it asserts index content.
 
 **Interfaces:**
+
 - Consumes: Task 2's log-shape rule (`## YYYY-MM-DD`, newest first, no `## Days`).
+
 - Produces: a freshly scaffolded vault that passes `structure.check_reserved` and `check_note_frontmatter` end to end.
 
 - [ ] **Step 1: Write the failing tests.** Update `tests/test_templates.py`'s canonical root-index assertion to:
@@ -514,11 +534,14 @@ Every day file keeps a heading and link even past the tail budget (entries trunc
 ### Task 6: `stamp.py`, the `stamp-type` verb, hook and producer wiring
 
 **Files:**
+
 - Create: `research_vault/stamp.py`; Test: `tests/test_stamp.py`
 - Modify: `research_vault/__main__.py` (new subparser `stamp-type` + wiring dict at `__main__.py:890-920`; call `stamp.stamp_types(vault)` at the top of the import verb's handler and inside `publish` — locate `cmd_` handlers by reading `__main__.py`), `research_vault/templates/git/pre-commit` (stamp before verify).
 
 **Interfaces:**
+
 - Consumes: Task 1's `expected_type`, `is_fleeting`; `frontmatter.parse`/`frontmatter.serialize`.
+
 - Produces: `stamp_types(vault_root, paths=None) -> tuple[list[str], list[str]]` — `(stamped_relatives, reported_relatives)`. Stamps only when **purely additive and fully determined**: no frontmatter at all → prepend `---\ntype: "<derived>"\n---\n`; parseable block missing `type` and folder derives one → insert `type` as the first key. Reports (never edits): unparseable YAML-shaped head, or no derivation (`system/`, root). CLI verb prints one line per action: `stamped <path>` / `skipped <path> — <reason>`, exit 0 always (a fixer, not a gate).
 
 - [ ] **Step 1: Write the failing tests**
@@ -587,10 +610,12 @@ fi
 ### Task 7: Events reader tolerance (audit §1.4, §1.5)
 
 **Files:**
+
 - Modify: `research_vault/events.py:26-66` and the `trust_tier` region (read `events.py:250-300`).
 - Test: `tests/test_events.py` (locate the existing file; append).
 
 **Interfaces:**
+
 - Produces: `_verified_events` normalizes a bare mapping to a one-element list; `_valid_event` accepts `{"by","at"} <= set(event)` with `at` either a calendar date or an offset-bearing ISO 8601 datetime; `trust_tier` counts check-less foreign events for the `human:` test but excludes them from the checks-coverage set. `record_pass` still writes `{by, at, check}` with calendar dates — the write contract is untouched (ADR 0002 intact).
 
 - [ ] **Step 1: Failing tests** (spec's own example from audit §1.4):
@@ -652,10 +677,12 @@ def _valid_event(event) -> bool:
 ### Task 8: Events write path — no duplicate `verified` block
 
 **Files:**
+
 - Modify: `research_vault/events.py:153-190` (`_replace_frontmatter_list`).
 - Test: `tests/test_events.py`.
 
 **Interfaces:**
+
 - Consumes: Task 7's reader. Produces: `record_pass` on a note whose `verified` is a bare inline mapping rewrites that line into list form — never appends a second `verified:` block (the corruption the audit's Tier 2 correction named).
 
 - [ ] **Step 1: Failing test**
@@ -678,6 +705,7 @@ def test_record_pass_on_bare_mapping_note_writes_one_verified_block():
 ### Task 9: Spec pin and the weekly drift job
 
 **Files:**
+
 - Modify: `.github/workflows/quality.yml` (append a job), `docs/adr/0001-vault-outlives-its-tools.md` (Task 10 rewrites the full text; this task only needs the pin recorded — fold the pin into Task 10 if executing in order, or add a `<!-- okf-spec-pin: ad30107 sha256=26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101 -->` comment line the job greps).
 
 **Interfaces:** none downstream. Constraint from #101: repo-only, never in the vault templates; opens an issue on mismatch; doctor never fetches the spec.
@@ -721,6 +749,7 @@ and add to the workflow's top-level `on:` block: `schedule: [{cron: "17 4 * * 1"
 ### Task 10: Register and documentation corrections (audit Tier 5)
 
 **Files:**
+
 - Modify: `docs/terminology.md` (§3 deviation rows + §4 adoption block), `CONTEXT.md`, `docs/superpowers/specs/2026-08-16-foundation-spec.md:16,25,61-62`, `docs/adr/0001-vault-outlives-its-tools.md`, `skills/synthesis-conventions/SKILL.md`, `skills/project-flow/SKILL.md`, `skills/evidence-conventions/SKILL.md`.
 
 No code; each bullet is one edit, all reviewable in a single diff:

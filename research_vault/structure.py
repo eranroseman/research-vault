@@ -4,6 +4,18 @@ The vault rule: a note's ``type`` is determined by its folder. ``system/``
 and root-level concepts carry any non-empty type. ``inbox/`` captures other
 than the review queue are the recorded fleeting exemption — never checked
 here; the stamp converges them at chokepoints.
+
+``projects/`` is narrower than the other folders (ruled 2026-09-02,
+knowledge-harness#105): ``publish.project_note()`` requires exactly one
+``type: "project"`` note per project directory, found by scanning
+``projects/<name>/**/*.md`` for that type field — not by filename. The
+codebase's actual convention for that one file is
+``projects/<name>/draft.md`` (every test fixture across the suite builds
+it there). So only that exact shape derives ``"project"``; every other
+``.md`` under ``projects/`` — including a flat ``projects/<name>.md`` with
+no subdirectory, and any other file alongside ``draft.md`` in the same
+project directory — derives no type (``None``), so it is free to carry
+any non-empty ``type`` (an appendix, a supplementary note, ...).
 """
 
 import os
@@ -17,10 +29,11 @@ from .pathcodec import RepoPath
 _FOLDER_TYPES = {
     "literatures": "literature",
     "synthesis": "synthesis",
-    "projects": "project",
     "log": "daily",
     "inbox": "fleeting",
 }
+
+_PROJECT_NOTE_NAME = "draft.md"
 
 
 def is_fleeting(relative: str) -> bool:
@@ -32,7 +45,12 @@ def expected_type(relative: str) -> str | None:
         return "review-queue"
     if is_fleeting(relative):
         return None
-    top = relative.split("/", 1)[0]
+    parts = relative.split("/")
+    if parts[0] == "projects":
+        if len(parts) == 3 and parts[2] == _PROJECT_NOTE_NAME:
+            return "project"
+        return None
+    top = parts[0]
     if "/" in relative and top in _FOLDER_TYPES:
         return _FOLDER_TYPES[top]
     return None
