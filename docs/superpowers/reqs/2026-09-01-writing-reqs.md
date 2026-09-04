@@ -153,9 +153,9 @@ Source vocabulary, defined by **origin** rather than by confirmation status: `el
 
 **R34** — Runs on Claude Code and Codex.
 *Fit:* the skill body invokes only mechanisms both harnesses provide, and a fresh install on each harness produces one complete artifact from one run.
-*Why:* A skill that works on one harness fails silently on the other. #56 recorded 8,873 bytes of guidance arriving absent with no error.
+*Why:* A skill that works on one harness fails silently on the other. 8,873 bytes of guidance arrived absent with no error.
 *Floor:* no · *Version:* 1
-*Source:* the author's ruling of 2026-09-02, promoting it from a constraint on the 29148 3.1.7 test — the harnesses are pre-existing, but supporting both could have been decided otherwise, so it is a requirement. The failure it prevents has already occurred here: #56 records Codex dropping a tracked symlink, so 8,873 bytes of plugin-level `AGENTS.md` guidance arrived silently absent. "From a fresh install" is what catches packaging failures that a body-only check misses.
+*Source:* the author's ruling of 2026-09-02, promoting it from a constraint on the 29148 3.1.7 test — the harnesses are pre-existing, but supporting both could have been decided otherwise, so it is a requirement. The failure it prevents has already occurred here: `docs/research/harness-audits/2026-08-30-installed-asset-disposition-survey.md` measures Codex dropping the tracked symlink, so 8,873 bytes of plugin-level `AGENTS.md` guidance arrived silently absent. "From a fresh install" is what catches packaging failures that a body-only check misses.
 
 **R42** — Writes the artifact, then asks me what I want changed before handing off.
 *Fit:* the run stops after the artifact is written and committed, names its path, and asks **what I want changed** — not whether I approve. It does not invoke `writing-specs` until I answer, records my answer in the artifact, and treats any requested change as a return to the loop, re-running R37's sweep before asking again. Four runs fail: one that hands off without the pause; one that asks while the artifact is still only in the conversation; one that asks for approval rather than for changes; and one that proceeds on an answer requesting changes. On approval the run names both successors and asks which, recommending neither — the choice depends on the need, not on the artifact.
