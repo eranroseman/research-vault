@@ -12,7 +12,7 @@
 >
 > One row needs re-pointing rather than voiding. `interview-me` holds an Adapt row for "the explicit-yes gate with its enumerated false yeses", taken to serve R10. R10 is retired, but R42 now carries the same enumeration, so the take survives and its target moves. The whole section is re-run once the requirements are final.
 
-Sourcing sits in this phase because `writing-specs` cannot hold it — its approach comparison is architectural alternatives inside your own tree, not build-or-buy. **Trigger to move: `writing-specs` gains build-or-buy comparison.**
+*Superseded 2026-09-02: sourcing is a separate skill, so it does not sit in this phase and there is no trigger to move. The line below is the pre-split text, kept because the verdicts under it were made under it.* Sourcing sits in this phase because `writing-specs` cannot hold it — its approach comparison is architectural alternatives inside your own tree, not build-or-buy. **Trigger to move: `writing-specs` gains build-or-buy comparison.**
 
 Full screen, method and per-candidate failures: `docs/research/2026-09-01-pre-spec-sourcing-screen.md`.
 
