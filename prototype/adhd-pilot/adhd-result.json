@@ -1,0 +1,594 @@
+{
+  "poolSize": 30,
+  "frames": [
+    "3am-on-call",
+    "remove-load-bearing-assumption",
+    "logistics",
+    "inversion",
+    "biology"
+  ],
+  "clusters": [
+    {
+      "label": "Who owns which key: one file, two writers",
+      "ideas": [
+        "1 - ownership sidecar + three-way merge",
+        "6 - hash before clobbering a file-where-symlink-belongs",
+        "8 - ~60 owned assertions, settings.json is a render",
+        "25 - thymus quarantine, delete self-reactive candidates",
+        "15 - bonded storage, separate clearance pass"
+      ]
+    },
+    {
+      "label": "What can execute before any harness exists",
+      "ideas": [
+        "19 - dependency-free script, plugin/command are shims",
+        "12 - markdown procedure the agent interprets",
+        "7 - boot hook, launching the CLI is the repair",
+        "11 - live peer pushes the harness over agent-to-agent",
+        "23 - ship holes and topology, pull content from a user-pointed source"
+      ]
+    },
+    {
+      "label": "No half-applied state: transaction boundary and ordering",
+      "ideas": [
+        "3 - generation directory, flip by rename",
+        "10 - shadow HOME, cut over by symlink",
+        "18 - wave release, symlinks wait on skills",
+        "14 - backorder slips, ship 9 of 12",
+        "20 - nuke as first-class inverse and CI fixture",
+        "28 - plasmid with a selectable marker probe"
+      ]
+    },
+    {
+      "label": "The human is optional: unattended-first",
+      "ideas": [
+        "5 - headless engine driven by a committed answers file",
+        "22 - wizard is a skin that authors the answer file",
+        "2 - the command is its own acceptance test",
+        "13 - milk run, invariant route",
+        "21 - no first run, only repair-from-nothing"
+      ]
+    },
+    {
+      "label": "Collapse the two harnesses into one artifact",
+      "ideas": [
+        "9 - one conditional source compiles to both instruction files",
+        "26 - one morphogen gradient, content from tree position",
+        "24 - star topology, kill the middle hop",
+        "16 - customs broker absorbs per-regime differences"
+      ]
+    },
+    {
+      "label": "The machine as its own content source",
+      "ideas": [
+        "4 - content-addressed skill cache keyed by skillFolderHash",
+        "27 - materialize the niche, let native installers colonize",
+        "29 - blastema, regrow divergent files from intact neighbours",
+        "30 - materialize maximally, prune what never fires",
+        "17 - backhaul local edits upward as a PR"
+      ]
+    }
+  ],
+  "provocation": "Every idea here assumes the authored content is the thing that drifts and the vendor is stable. `.drift-state.json` says the opposite: five findings are `cli-behind` and `marketplace-behind`, one is `copy-drifted`. So the moment `claude` or `codex` renames a settings key, deprecates `skillOverrides`, or changes where skills are discovered, a materializer that pins content stops being a repair tool and becomes a downgrade tool that faithfully restores a schema the CLI no longer reads \u2014 and it will report success. Who owns that migration, the plugin or the vendor? And a sharper version: the 1-shared-line-in-60 diff proves cross-harness parity is not achievable, because Codex has no mechanism for `skillOverrides` at all and the AGENTS.md says so in prose. What if the shipped artifact is a capability map \u2014 for each of the ~60 assertions, which harness can actually enforce it, which can only be told about it in prose, and which will silently ignore it \u2014 and materialization is just that map filtered by the local harness's version? Then a vendor upgrade that adds an enforcement mechanism turns a prose rule into a real setting, and the \"one command\" is the only thing that would ever notice.",
+  "scored": [
+    {
+      "text": "Ownership sidecar per settings key plus three-way merge of current vs last-written vs seed; harness-owned keys never restored, real conflicts abort with both values printed.",
+      "frame": "3am-on-call",
+      "novelty": 7,
+      "viability": 7,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.5
+    },
+    {
+      "text": "The command is its own acceptance test: apply, apply again, boot both CLIs; anything but a byte-identical second pass and clean startup exits nonzero with the diff.",
+      "frame": "3am-on-call",
+      "novelty": 5,
+      "viability": 4,
+      "fit": 6,
+      "trap": true,
+      "trapReason": "Credentials are deliberately excluded from the backup, so a real CLI boot on a fresh machine fails on auth, not config, and the gate cries wolf on exactly the bootstrap it guards; keep the byte-identical second pass, drop the boot.",
+      "weighted": 4.85
+    },
+    {
+      "text": "Materialize into a fresh generation directory and flip the whole tree in with one rename, keeping the previous generation for a single-rename rollback.",
+      "frame": "3am-on-call",
+      "novelty": 6,
+      "viability": 4,
+      "fit": 5,
+      "trap": true,
+      "trapReason": "The owned surface is 5 files and 2 symlink dirs interleaved with 2.6 GB of live vendor sqlite and 160+ session dirs, so there is no tree to swap, and per-file rename is already atomic without generations.",
+      "weighted": 4.95
+    },
+    {
+      "text": "Content-addressed skill cache keyed by the lockfile's skillFolderHash values, restoring identical bytes with zero network during an outage.",
+      "frame": "3am-on-call",
+      "novelty": 7,
+      "viability": 5,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "A fresh machine has no cache, so it does nothing for the bootstrap case; it covers only 20 of 24 skills (4 come from the private repo, not the lockfile); and it re-vendors exactly what the stated scope calls deliberately absent because a package manager can rebuild it.",
+      "weighted": 5.45
+    },
+    {
+      "text": "Headless engine driven by a committed answers file where every prompt already has a recorded answer; the interactive flow is a thin front-end that only writes new answers into it.",
+      "frame": "3am-on-call",
+      "novelty": 6,
+      "viability": 8,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.55
+    },
+    {
+      "text": "When a regular file sits where a symlink belongs, hash it against both the repo copy and the live target: identical means relink silently, divergent means stop and hand back the diff, never clobber.",
+      "frame": "3am-on-call",
+      "novelty": 4,
+      "viability": 9,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.25
+    },
+    {
+      "text": "Kill the install command: ship one boot hook so the 'one command' is `claude` or `codex` itself and every launch is a repair pass.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 8,
+      "viability": 2,
+      "fit": 3,
+      "trap": true,
+      "trapReason": "A plugin hook cannot fire until settings.json and enabledPlugins already exist, so it is structurally unable to run on the fresh machine that is the whole point, and no equivalent Codex startup hook is established.",
+      "weighted": 4.35
+    },
+    {
+      "text": "Materialize assertions, not files: ~60 independently owned facts each applied and repaired alone, with settings.json a render nobody owns end to end.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 8,
+      "viability": 7,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.85
+    },
+    {
+      "text": "One source document with harness-conditional blocks compiles into both ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md so parity cannot drift.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 7,
+      "viability": 4,
+      "fit": 3,
+      "trap": true,
+      "trapReason": "The two live files share exactly one line out of 60 and 64: the divergence is authored, not accidental (Codex has no skillOverrides mechanism and says so), so the template would be almost entirely conditionals and would erase the harness-specific facts it claims to unify.",
+      "weighted": 4.8
+    },
+    {
+      "text": "Build into a shadow HOME beside the live one and cut over by flipping a single symlink, so approval is a reversible switch and two generations can coexist.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 8,
+      "viability": 2,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "HOME holds a 2.6 GB sqlite with live WAL files, 160+ session transcripts, and credentials, so the flip either duplicates gigabytes or orphans in-flight state that no config materializer should be touching.",
+      "weighted": 4.6
+    },
+    {
+      "text": "No package source at all: a live session on your working machine pushes the harness to the fresh one over the agent-to-agent channel.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 9,
+      "viability": 3,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "The constraint it claims to dissolve is already dissolved (the private repo is legitimately the content source, just not the package source), and it needs a running agent on a machine that by definition has no harness yet, while making the drifted machine an authoritative seed.",
+      "weighted": 5.35
+    },
+    {
+      "text": "No installer and no bash: the materializer is a markdown procedure both harnesses execute natively, the agent being the only guaranteed runtime.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 6,
+      "viability": 3,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "Nondeterministic execution cannot promise a byte-identical second pass, which is what idempotent drift repair means, and the repo's own precedence ranks prose as the last resort behind eliminating the problem or adding a mechanism.",
+      "weighted": 4.3
+    },
+    {
+      "text": "Run the harness as a milk run: one fixed route, same numbered stops in the same order every trip, so install and repair are the same trip.",
+      "frame": "logistics",
+      "novelty": 2,
+      "viability": 8,
+      "fit": 6,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 5.4
+    },
+    {
+      "text": "Let a run partially ship: unavailable artifacts become backorder slips, the command exits reporting 'shipped 9 of 12' with slips waiting for the next trip.",
+      "frame": "logistics",
+      "novelty": 6,
+      "viability": 7,
+      "fit": 7,
+      "trap": true,
+      "trapReason": "With no dependency notion it will happily ship settings.json while backordering the caveman plugin, and the statusLine globs into that plugin's cache directory, so every launch runs a broken statusline until the next trip; sound only if fused with the wave ordering of 18.",
+      "weighted": 6.65
+    },
+    {
+      "text": "Deliver every artifact into bonded storage first (written, hashed, visible, inert) and have a separate clearance pass put each one into force.",
+      "frame": "logistics",
+      "novelty": 4,
+      "viability": 5,
+      "fit": 5,
+      "trap": true,
+      "trapReason": "An approval queue you are meant to leave half-done across runs is a durable half-applied harness, which is the precise failure the transactional ideas exist to abolish; it also just renames the incumbent wizard's per-file consent step.",
+      "weighted": 4.65
+    },
+    {
+      "text": "Treat Claude Code and Codex as two ports with one customs broker between package and destination, declaring each artifact into the local regime.",
+      "frame": "logistics",
+      "novelty": 5,
+      "viability": 8,
+      "fit": 8,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 6.95
+    },
+    {
+      "text": "Use the empty return leg: after materializing, the same command backhauls local edits upward as a PR to the private repo.",
+      "frame": "logistics",
+      "novelty": 6,
+      "viability": 5,
+      "fit": 5,
+      "trap": true,
+      "trapReason": "Without the key ownership of idea 1 it opens PRs full of theme, model and effortLevel churn, and it overrides a recorded decision that the drift tooling detects and never applies because judgment belongs to a human.",
+      "weighted": 5.35
+    },
+    {
+      "text": "Release writes in waves: the symlink-topology wave cannot start until the ~/.agents/skills wave is complete and confirmed.",
+      "frame": "logistics",
+      "novelty": 4,
+      "viability": 8,
+      "fit": 7,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 6.35
+    },
+    {
+      "text": "Ship the materializer as a single dependency-free script that assumes neither harness exists; the Claude plugin and Codex command are three-line shims.",
+      "frame": "inversion",
+      "novelty": 5,
+      "viability": 9,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.6
+    },
+    {
+      "text": "Build the anti-installer first: a `nuke` that provably returns a box to bare metal, shipped in the product and used as the CI fixture for nuke-then-materialize.",
+      "frame": "inversion",
+      "novelty": 7,
+      "viability": 6,
+      "fit": 7,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 6.6
+    },
+    {
+      "text": "Delete the concept of a first run: only repair-from-nothing, one code path whose golden fixtures are symlink loops, real dirs where links belong, root-owned files, read-only FS.",
+      "frame": "inversion",
+      "novelty": 6,
+      "viability": 8,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.55
+    },
+    {
+      "text": "A headless core that completes with zero human input from an answer file; the interactive wizard is only a skin that authors that file.",
+      "frame": "inversion",
+      "novelty": 5,
+      "viability": 8,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.2
+    },
+    {
+      "text": "The public package ships only holes (topology, fence markers, schema, ownership rules) with content pulled from a user-pointed source, plus a release gate failing if any private byte appears in the tarball.",
+      "frame": "inversion",
+      "novelty": 8,
+      "viability": 7,
+      "fit": 10,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 8.1
+    },
+    {
+      "text": "Kill the two-hop chain: point every consumer directly at the one real skills directory instead of ~/.codex/skills -> ~/.claude/skills -> ~/.agents/skills.",
+      "frame": "inversion",
+      "novelty": 5,
+      "viability": 6,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "Its premise is false on this box: ~/.claude/skills is a real directory of 24 per-skill symlinks by design, ~/.codex/skills mirrors all 24 (not a fraction), and there is no single real source to star at because 20 skills come from ~/.agents and 4 from the private repo, so flattening trades one hub for a second manifest.",
+      "weighted": 5.15
+    },
+    {
+      "text": "Materialize into a thymus: write candidates to quarantine, test against the host's config, delete any that would clobber a hand-edit rather than graduating it.",
+      "frame": "biology",
+      "novelty": 4,
+      "viability": 6,
+      "fit": 6,
+      "trap": true,
+      "trapReason": "Silently deleting the self-reactive candidate leaves a machine that is neither repaired nor told it wasn't; idea 6's stop-and-print-the-diff is the same test with the outcome that is actually useful.",
+      "weighted": 5.3
+    },
+    {
+      "text": "Ship one versioned morphogen marker at the harness root and let each file compute its content from its position in the tree.",
+      "frame": "biology",
+      "novelty": 8,
+      "viability": 2,
+      "fit": 2,
+      "trap": true,
+      "trapReason": "Same one-shared-line evidence that kills 9, and worse: position in a tree cannot generate the harness-specific prose that is the entire content of these two files.",
+      "weighted": 4.1
+    },
+    {
+      "text": "Install nothing; materialize only the niche (symlink topology, lockfile shape, permission surface) and let each harness's native installer colonize it.",
+      "frame": "biology",
+      "novelty": 7,
+      "viability": 6,
+      "fit": 6,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 6.35
+    },
+    {
+      "text": "Package the harness as a conjugative plasmid: a mobile element carrying its own transfer machinery plus a selectable marker probe that passes only when symlinks, lockfile and settings all agree.",
+      "frame": "biology",
+      "novelty": 7,
+      "viability": 6,
+      "fit": 7,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 6.6
+    },
+    {
+      "text": "Repair drift by de-differentiation: move divergent files into a blastema with provenance stripped, then re-specify them from the surrounding intact harness files.",
+      "frame": "biology",
+      "novelty": 8,
+      "viability": 3,
+      "fit": 2,
+      "trap": true,
+      "trapReason": "The repair source is the drifted machine, so systemic drift regrows as itself, and the five copied files have no neighbouring tissue that encodes their content in the first place.",
+      "weighted": 4.5
+    },
+    {
+      "text": "Materialize maximally, then prune synapses that never fire: hooks record activation and unexercised config is culled next run.",
+      "frame": "biology",
+      "novelty": 8,
+      "viability": 4,
+      "fit": 2,
+      "trap": true,
+      "trapReason": "It would cull `grilling`, which is deliberately kept installed-but-rarely-fired via skillOverrides, and permissions and fallback rules are valuable precisely in proportion to how rarely they fire.",
+      "weighted": 4.9
+    }
+  ],
+  "traps": [
+    {
+      "text": "The command is its own acceptance test: apply, apply again, boot both CLIs; anything but a byte-identical second pass and clean startup exits nonzero with the diff.",
+      "frame": "3am-on-call",
+      "novelty": 5,
+      "viability": 4,
+      "fit": 6,
+      "trap": true,
+      "trapReason": "Credentials are deliberately excluded from the backup, so a real CLI boot on a fresh machine fails on auth, not config, and the gate cries wolf on exactly the bootstrap it guards; keep the byte-identical second pass, drop the boot."
+    },
+    {
+      "text": "Materialize into a fresh generation directory and flip the whole tree in with one rename, keeping the previous generation for a single-rename rollback.",
+      "frame": "3am-on-call",
+      "novelty": 6,
+      "viability": 4,
+      "fit": 5,
+      "trap": true,
+      "trapReason": "The owned surface is 5 files and 2 symlink dirs interleaved with 2.6 GB of live vendor sqlite and 160+ session dirs, so there is no tree to swap, and per-file rename is already atomic without generations."
+    },
+    {
+      "text": "Content-addressed skill cache keyed by the lockfile's skillFolderHash values, restoring identical bytes with zero network during an outage.",
+      "frame": "3am-on-call",
+      "novelty": 7,
+      "viability": 5,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "A fresh machine has no cache, so it does nothing for the bootstrap case; it covers only 20 of 24 skills (4 come from the private repo, not the lockfile); and it re-vendors exactly what the stated scope calls deliberately absent because a package manager can rebuild it."
+    },
+    {
+      "text": "Kill the install command: ship one boot hook so the 'one command' is `claude` or `codex` itself and every launch is a repair pass.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 8,
+      "viability": 2,
+      "fit": 3,
+      "trap": true,
+      "trapReason": "A plugin hook cannot fire until settings.json and enabledPlugins already exist, so it is structurally unable to run on the fresh machine that is the whole point, and no equivalent Codex startup hook is established."
+    },
+    {
+      "text": "One source document with harness-conditional blocks compiles into both ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md so parity cannot drift.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 7,
+      "viability": 4,
+      "fit": 3,
+      "trap": true,
+      "trapReason": "The two live files share exactly one line out of 60 and 64: the divergence is authored, not accidental (Codex has no skillOverrides mechanism and says so), so the template would be almost entirely conditionals and would erase the harness-specific facts it claims to unify."
+    },
+    {
+      "text": "Build into a shadow HOME beside the live one and cut over by flipping a single symlink, so approval is a reversible switch and two generations can coexist.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 8,
+      "viability": 2,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "HOME holds a 2.6 GB sqlite with live WAL files, 160+ session transcripts, and credentials, so the flip either duplicates gigabytes or orphans in-flight state that no config materializer should be touching."
+    },
+    {
+      "text": "No package source at all: a live session on your working machine pushes the harness to the fresh one over the agent-to-agent channel.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 9,
+      "viability": 3,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "The constraint it claims to dissolve is already dissolved (the private repo is legitimately the content source, just not the package source), and it needs a running agent on a machine that by definition has no harness yet, while making the drifted machine an authoritative seed."
+    },
+    {
+      "text": "No installer and no bash: the materializer is a markdown procedure both harnesses execute natively, the agent being the only guaranteed runtime.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 6,
+      "viability": 3,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "Nondeterministic execution cannot promise a byte-identical second pass, which is what idempotent drift repair means, and the repo's own precedence ranks prose as the last resort behind eliminating the problem or adding a mechanism."
+    },
+    {
+      "text": "Let a run partially ship: unavailable artifacts become backorder slips, the command exits reporting 'shipped 9 of 12' with slips waiting for the next trip.",
+      "frame": "logistics",
+      "novelty": 6,
+      "viability": 7,
+      "fit": 7,
+      "trap": true,
+      "trapReason": "With no dependency notion it will happily ship settings.json while backordering the caveman plugin, and the statusLine globs into that plugin's cache directory, so every launch runs a broken statusline until the next trip; sound only if fused with the wave ordering of 18."
+    },
+    {
+      "text": "Deliver every artifact into bonded storage first (written, hashed, visible, inert) and have a separate clearance pass put each one into force.",
+      "frame": "logistics",
+      "novelty": 4,
+      "viability": 5,
+      "fit": 5,
+      "trap": true,
+      "trapReason": "An approval queue you are meant to leave half-done across runs is a durable half-applied harness, which is the precise failure the transactional ideas exist to abolish; it also just renames the incumbent wizard's per-file consent step."
+    },
+    {
+      "text": "Use the empty return leg: after materializing, the same command backhauls local edits upward as a PR to the private repo.",
+      "frame": "logistics",
+      "novelty": 6,
+      "viability": 5,
+      "fit": 5,
+      "trap": true,
+      "trapReason": "Without the key ownership of idea 1 it opens PRs full of theme, model and effortLevel churn, and it overrides a recorded decision that the drift tooling detects and never applies because judgment belongs to a human."
+    },
+    {
+      "text": "Kill the two-hop chain: point every consumer directly at the one real skills directory instead of ~/.codex/skills -> ~/.claude/skills -> ~/.agents/skills.",
+      "frame": "inversion",
+      "novelty": 5,
+      "viability": 6,
+      "fit": 4,
+      "trap": true,
+      "trapReason": "Its premise is false on this box: ~/.claude/skills is a real directory of 24 per-skill symlinks by design, ~/.codex/skills mirrors all 24 (not a fraction), and there is no single real source to star at because 20 skills come from ~/.agents and 4 from the private repo, so flattening trades one hub for a second manifest."
+    },
+    {
+      "text": "Materialize into a thymus: write candidates to quarantine, test against the host's config, delete any that would clobber a hand-edit rather than graduating it.",
+      "frame": "biology",
+      "novelty": 4,
+      "viability": 6,
+      "fit": 6,
+      "trap": true,
+      "trapReason": "Silently deleting the self-reactive candidate leaves a machine that is neither repaired nor told it wasn't; idea 6's stop-and-print-the-diff is the same test with the outcome that is actually useful."
+    },
+    {
+      "text": "Ship one versioned morphogen marker at the harness root and let each file compute its content from its position in the tree.",
+      "frame": "biology",
+      "novelty": 8,
+      "viability": 2,
+      "fit": 2,
+      "trap": true,
+      "trapReason": "Same one-shared-line evidence that kills 9, and worse: position in a tree cannot generate the harness-specific prose that is the entire content of these two files."
+    },
+    {
+      "text": "Repair drift by de-differentiation: move divergent files into a blastema with provenance stripped, then re-specify them from the surrounding intact harness files.",
+      "frame": "biology",
+      "novelty": 8,
+      "viability": 3,
+      "fit": 2,
+      "trap": true,
+      "trapReason": "The repair source is the drifted machine, so systemic drift regrows as itself, and the five copied files have no neighbouring tissue that encodes their content in the first place."
+    },
+    {
+      "text": "Materialize maximally, then prune synapses that never fire: hooks record activation and unexercised config is culled next run.",
+      "frame": "biology",
+      "novelty": 8,
+      "viability": 4,
+      "fit": 2,
+      "trap": true,
+      "trapReason": "It would cull `grilling`, which is deliberately kept installed-but-rarely-fired via skillOverrides, and permissions and fallback rules are valuable precisely in proportion to how rarely they fire."
+    }
+  ],
+  "top3": [
+    {
+      "text": "The public package ships only holes (topology, fence markers, schema, ownership rules) with content pulled from a user-pointed source, plus a release gate failing if any private byte appears in the tarball.",
+      "frame": "inversion",
+      "novelty": 8,
+      "viability": 7,
+      "fit": 10,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 8.1
+    },
+    {
+      "text": "Materialize assertions, not files: ~60 independently owned facts each applied and repaired alone, with settings.json a render nobody owns end to end.",
+      "frame": "remove-load-bearing-assumption",
+      "novelty": 8,
+      "viability": 7,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.85
+    },
+    {
+      "text": "Ship the materializer as a single dependency-free script that assumes neither harness exists; the Claude plugin and Codex command are three-line shims.",
+      "frame": "inversion",
+      "novelty": 5,
+      "viability": 9,
+      "fit": 9,
+      "trap": false,
+      "trapReason": "",
+      "weighted": 7.6
+    }
+  ],
+  "deepened": [
+    {
+      "idea": "A content-free materializer on chezmoi's model \u2014 public binary, private source checkout, per-entry state \u2014 but with harness-aware hole kinds (JSON-pointer subtree, fence-delimited region, dir-symlink-into-source, lockfile install-set, marketplace install-set) so the unit of idempotency is the hole rather than the file, which is what lets drift repair be surgical on files the harness itself writes to.",
+      "sketch": "The public package ships `topology.json` and zero content: an ordered list of holes, each with an address (a path, a path plus JSON pointer, a path plus fence-marker name, or a symlink path plus target expression), a kind, and an owner (package / source / harness / user); `npx harness materialize <source>` clones the user-pointed source to a fixed path and reads values keyed by those same addresses, so no value ever lives in the package. Because the source checkout is persistent rather than a transient fetch, directory holes materialize as symlinks into it \u2014 authored skills stay live-editable, `git status` there stays the honest answer \u2014 while single files are copied, since an editor's write-temp-and-rename silently replaces a file symlink with a regular file. Fence markers carry the markdown and TOML holes (`CLAUDE.md`, `AGENTS.md`, `config.toml`), but `settings.json` has no comment syntax, so it is JSON-pointer holes plus a sidecar ownership map \u2014 and it is the file that most needs one, because the harness writes into it at runtime. Each hole is repaired by three-way merge: base is a per-hole receipt of what the tool last wrote (`~/.claude/.harness-receipt.json`), ours is live bytes, theirs is source bytes; identical is a no-op, live-equals-base writes, all-three-differ surfaces a conflict and never clobbers, and on a fresh machine with no receipt the owner column decides and a receipt is created. Skills and plugins are declarative install-set holes: the lockfile's content hashes and `extraKnownMarketplaces`/`enabledPlugins` are inputs to `npx skills add -g` and the plugin installer, with convergence defined as \"hash already on disk\", so a re-run installs nothing. The implementation is a plain CLI runnable with neither harness installed, which both solves the chicken-and-egg (a plugin cannot materialize `enabledPlugins` if it must first be an enabled plugin) and makes \"works on both\" cost only two thin skill wrappers over one binary. Release safety is class-level rather than a literal denylist \u2014 a committed list of your own private strings is itself the leak \u2014 so the gate rejects any absolute home-style path, bare email, or `github.com/<owner>` outside the package org anywhere in the built tarball, and positively requires that materializing the shipped fixture source into a scratch `$HOME` reproduces the fixture's expected tree. The prompt-driven wizard survives as an optional front end that renders the per-hole diff and takes the accept-in-one-word, but it is no longer the mechanism, so an unattended re-run is possible.",
+      "loadBearingRisk": "The receipt is the merge base, and it is the only thing separating \"repair\" from \"clobber\". Fresh-machine absence is designed for (owner decides, receipt written), so the residual risk is receipt loss or multi-machine staleness: I change `model` from `sonnet` to `opus` on the laptop and never run capture; the desktop's receipt still records `sonnet`, so on the laptop the next repair sees live != base with theirs == base and reverts my deliberate edit as drift, silently and with the same code path that legitimately repairs. Every dotfile manager that skipped per-entry state degraded to two-way comparison and had to choose between clobbering local edits and never converging. If the receipt cannot be made durable and per-machine-honest, the settled \"safely re-runnable drift repair\" constraint fails and this becomes a one-shot installer with extra ceremony.",
+      "firstStep": "Write `bin/harness-extract.py`, which walks the live `~/.claude`, `~/.codex`, and `~/.agents` and emits three artifacts: `topology.json` (addresses, kinds, owners \u2014 no values), a `values/` tree destined for the private source, and an ownership classification for every `settings.json` JSON pointer. Prove the split by materializing into a scratch `$HOME` and diffing \u2014 `diff -r` for trees, `jq -S` for JSON \u2014 which validates that the hole vocabulary is complete before any packaging or content work exists. Seed the ownership column with evidence already in hand: `diff <(jq -S . ~/.claude/settings.json) <(jq -S . ~/harness-backup/claude/settings.json)` returns exactly one key, `agentPushNotifEnabled`, a harness-written runtime toggle rather than an authored value \u2014 the first entry in the harness-owned set, and the concrete proof that whole-file copying is the wrong unit.",
+      "childIdeas": [
+        "`harness capture`, the inverse traversal: read live bytes at every hole address and write them back into the source checkout. This eliminates the copy-drift class that the README's manual `cp ... && git status` block exists to paper over \u2014 and that `.drift-state.json` currently reports against `claude/settings.json` \u2014 and it is what keeps the receipt honest on the machine you actually work on, which is the direct mitigation for the load-bearing risk. Per the repo's own ordering, eliminating the drift beats detecting it.",
+        "Fixture-as-seed: the `fixtures/example-source/` that exists for the round-trip release gate doubles as the documented source-repo format and as the seed a user with no source yet materializes from. One artifact serves test, documentation, and onboarding, and the private repo never has to be shown in order to explain what a source looks like.",
+        "Unify the drift vocabulary: make `harness-drift-check.py`'s finding kinds (`copy-drifted`, `marketplace-behind`, `cli-behind`) be hole kinds addressed the same way, so a drift report is literally an executable repair plan \u2014 `harness repair --only copy-drifted`. Detection stays a separate concern, as settled, but the two halves share one address space instead of two hand-synced inventories of what exists.",
+        "Layered sources plus an explicit target home: accept N sources merged in address order (org baseline, then team, then personal overlay, last writer wins per hole), which turns the same public package into team onboarding while keeping each layer's privacy independent. Because materialize already parameterizes the destination, `--home /tmp/scratch` then builds a disposable profile \u2014 for reproducing an agent bug without your real config, bisecting which harness setting changed a behavior, or provisioning a devcontainer or cloud sandbox with a byte-identical harness.",
+        "Schema lint as a scheduled test: derive the expected `settings.json` pointer set from `json.schemastore.org/claude-code-settings.json` (already referenced by the live file) and fail a nightly job when either vendor adds, renames, or removes a key the topology claims to own. This converts silent ownership-manifest staleness into a dated test failure \u2014 the same move as the README's Codex description-truncation finding, which turned an invisible degradation into a measured one."
+      ]
+    },
+    {
+      "idea": "Materialize assertions, not files: ~60 independently owned facts, each applied and repaired alone, with settings.json a render nobody owns end to end.",
+      "sketch": "The unit is an assertion \u2014 (address, desired value, policy) \u2014 where an address is a JSON pointer into ~/.claude/settings.json, a key path in ~/.codex/config.toml, a marker-delimited block inside CLAUDE.md/AGENTS.md, a symlink path, or a probe-and-install command for a marketplace plugin or a locked skill. Roughly 60 authored assertions instantiate into several hundred applied ones: the symlink topology is two rules expanded over ~/.agents/.skill-lock.json (26 links under ~/.claude/skills, 26 more under ~/.codex/skills), not 52 hand-written facts. Apply sets one address; verify reads that same address back; nothing ever copies a whole file, so keys the plugin ships no assertion for \u2014 theme, model, effortLevel, advisorModel \u2014 survive byte-identical, which is the whole point given that Claude Code writes no default settings.json to diff against. Each assertion carries a reconciliation policy: enforce (skillOverrides.grilling = name-only, the symlinks), enforce-superset (extraKnownMarketplaces and enabledPlugins \u2014 add mine, never remove yours), or seed-once (write if absent, then the user owns it). Every write records the value it wrote into ~/.claude/harness-state.json, which supplies the merge base for the next run: current == last-written means drift, repair it silently; current != last-written means the human changed their mind, report and offer to adopt, never revert. The two prose files are one template with a `harness` variable rendered into both targets, so the Codex description-truncation rule is a variable rather than a fork, and when markers are absent the block is appended under a fixed heading \u2014 that first-insertion rule is what makes replace-between-markers idempotent from run two onward. Cross-harness support falls out because the engine is a program the plugin ships (`bin/harness-apply --plan|--apply`), not a prompt: Claude Code invokes it from a slash command, Codex from a skill that runs the same binary, with the usual sandbox approval escalation for writes into ~/.claude/. The pre-apply read is convergence plumbing, not drift detection \u2014 the weekly cron keeps that job.",
+      "loadBearingRisk": "An assertion cannot, on its own, tell \"this drifted, repair it\" from \"the human deliberately changed it, adopt it\" \u2014 both look like current != desired. The only thing that separates them is the recorded last-applied value, so the state file is load-bearing and it is exactly the artifact most likely to be missing, stale, or wiped. The sharp edge is the fresh machine that is not actually fresh: no state file plus an existing hand-tuned settings.json means every seed-once assertion looks like drift, and a confident first run vandalizes the config it was invoked to protect. The rule that closes it is \"no merge base \u2192 treat every existing value as intent, apply only structural assertions (symlinks, installs, absent-marker blocks)\". The failure asymmetry is favorable and worth designing toward: a write that lands but fails to record its state degrades to under-repair, which is safe; only revert-without-base destroys work.",
+      "firstStep": "Implement the JSON-pointer assertion kind end to end \u2014 apply, verify, state-record \u2014 for exactly three enforce-policy keys in the live ~/.claude/settings.json: skillOverrides.grilling, one enabledPlugins entry, and one extraKnownMarketplaces entry. Then prove the two things that decide whether the whole design stands: that the ~40 unowned keys round-trip byte-identical through a write, and that a Claude Code session exiting after your write does not clobber it (the read-modify-write race against the harness's own rewrite-on-exit). Three assertions is enough to falsify the approach; the inventory of the other 57 is worthless if the round-trip loses a key.",
+      "childIdeas": [
+        "The wizard survives as the resolver, not the installer: it is invoked only for assertions whose value is marked from-user and is currently unresolved, so first run asks about six things and every subsequent drift repair asks zero \u2014 the human-in-the-loop step shrinks from 'review every file' to 'answer what nobody could know'.",
+        "Assertion contribution as a plugin protocol: any installed plugin ships assertions against the shared settings.json, so extraKnownMarketplaces and enabledPlugins become a computed union across plugins instead of one author's snapshot, and uninstall becomes 'retract my assertions' rather than a hand-edit that leaves orphaned marketplace entries behind.",
+        "Adopt mode: promote a recorded divergence back into the seed (or into the private answer cache), turning the three-way state file from a one-way safety brake into genuine two-way sync \u2014 and giving the existing drift-check cron a disposition it currently lacks, namely 'this is now intended, stop reporting it'.",
+        "The private repo collapses into a from-user answer cache: CLAUDE.md, AGENTS.md and config.toml stop being hand-maintained copies and become renders of (public seed assertions + private answers), which dissolves the copy-then-commit refresh ritual and the copy-drifted finding class entirely rather than continuing to repair them.",
+        "Assertion-level CI: because every assertion has an isolated apply/verify pair, the full set is runnable against a throwaway HOME on every commit, so fresh-machine materialization becomes a test rather than an annual gamble \u2014 and an upstream schema change (a renamed settings key, a moved skills directory) surfaces as a failing assertion in CI instead of a silent no-op on someone's new laptop."
+      ]
+    },
+    {
+      "idea": "Ship the materializer as one dependency-free `harness-apply` script driven by a profile directory that mirrors the target tree plus a small manifest of non-file verbs; the Claude plugin command and the Codex prompt are three-line shims that run `--plan` then `--apply`.",
+      "sketch": "Ship one file, `harness-apply` \u2014 `/bin/sh`-compatible, no jq and no python, Linux/WSL first (macOS means bash 3.2, so no associative arrays) \u2014 alongside a *profile*: a directory that mirrors the target tree (`home/.claude/settings.json`, `home/.codex/config.toml`, `home/.claude/CLAUDE.md`) plus a plain-text `manifest` carrying the verbs a file can't express: `link`, `marketplace`, `plugin`, `skill <source> <name>`. The private repo is just one profile the script is pointed at, and the package ships a seed profile, so private config stays an input and never the package source. Apply order is dependency-shaped \u2014 dirs, files, marketplaces/plugins, skills, links \u2014 because `skills add -g -a claude-code` creates `~/.claude/skills/<name>` itself and the `~/.codex/skills/<name> -> ~/.claude/skills/<name>` hub links cannot exist until the skill does. Every verb has one shape: read desired, read actual, `ok` if equal, `create` if absent, and on a difference consult a line-oriented ledger (`<sha>\\t<path>`, so nothing parses JSON at apply time) \u2014 ledger hash matches what we last wrote means upstream drift and gets repaired, ledger hash mismatched means a human edited it, so write `<target>.incoming` and report `conflict` rather than clobber. `.skill-lock.json` is deliberately not a file verb: `skills add` rewrites it on every install, so hashing it would report conflict forever; the manifest carries skill lines generated at capture time, and the skill verb's idempotence test is \"`~/.agents/skills/<name>` exists\", not re-running the installer, because re-running updates and an update is not a repair. Legs whose tool is missing \u2014 node for `skills`, git for marketplaces, the harness binary for plugin installs \u2014 report `deferred` instead of failing, so a machine with neither harness still gets every file and a later re-run finishes the rest. `--plan` is the default and prints the table of exactly what `--apply` would write while touching nothing; `--apply` acts; both exit non-zero if any line is a conflict. The Claude command and the Codex prompt are then literally the same three lines: run `--plan`, show the table, run `--apply` on one word from the user.",
+      "loadBearingRisk": "The plugin surface may not be file-materializable at all. `settings.json`'s `enabledPlugins` and `extraKnownMarketplaces` are only declarations; the real state lives in harness-owned files this machine already has \u2014 `~/.claude/plugins/installed_plugins.json` (absolute `installPath`s, versions, `gitCommitSha`, per-project scopes), `known_marketplaces.json`, and the `marketplaces/` and `cache/` git clones. If Claude Code does not reconcile those from `settings.json` on launch, the script must shell out to `claude plugin install`, which requires the harness the script is built to assume does not exist, and the single command degrades into \"run, launch Claude once, run again.\" Hand-writing `installed_plugins.json` is not an escape: its contents are machine facts (resolved paths, fetched SHAs) the script cannot invent. A second, quieter version of the same risk: if the harness rewrites `settings.json` itself on launch, the ledger's \"hash mismatch means a human edited it\" inference gains a third case and every run reports a false conflict.",
+      "firstStep": "Settle the reconciliation question empirically on a scratch HOME before writing any verb code: `mkdir -p /tmp/h/.claude`, write only a `settings.json` containing one `extraKnownMarketplaces` entry and one matching `enabledPlugins` entry, run `HOME=/tmp/h claude -p \"hi\"` once non-interactively, then inspect whether `/tmp/h/.claude/plugins/{known_marketplaces.json,installed_plugins.json,marketplaces/,cache/}` materialized. The same run answers the second question for free \u2014 `diff` the `settings.json` you wrote against the one left behind to see whether the harness self-edits it, which decides between whole-file hashing and key-level compare with a documented ignore list. The outcome picks the largest branch in the script: `plugin` is a file verb, or a shell-out verb that must be marked `deferred` on a bare machine.",
+      "childIdeas": [
+        "Make the shim a SKILL.md instead of a plugin command: one file installed through the same `skills add` path reaches both harnesses via the existing ~/.codex/skills -> ~/.claude/skills -> ~/.agents/skills topology, so materializing skills materializes the entry point \u2014 the tool self-hosts and day-N repair needs no plugin or marketplace at all.",
+        "Add `--capture`, the inverse run: walk the same manifest and copy the live tree back into the profile directory, regenerating the skill lines from the lockfile. Backup and restore collapse into one program run in two directions, which retires the hand-run `cp` refresh block and the five hand-maintained copies with it.",
+        "Layer profiles: a base profile plus a host overlay applied on top, so WSL-vs-macOS path translation, the statusline command path, and machine-local permissions live in the overlay while the authored content stays single-sourced. Overlay resolution is last-writer-wins per path, which needs no new syntax.",
+        "Lean on the exit-code contract as a gate elsewhere: the same `--plan` invocation becomes a container `RUN` line for headless agent images, a CI step that fails when a runner's harness is stale, and a `SessionStart` hook that says one line when the live tree has diverged from the profile.",
+        "Publish the ledger as the substrate the separate drift detector consumes: it already records, per path, the exact bytes this tool last wrote, which is precisely the baseline a detector needs to tell upstream movement apart from a deliberate local edit \u2014 and it lets the detector's issue body name the repairing command instead of describing the fix in prose."
+      ]
+    }
+  ]
+}
