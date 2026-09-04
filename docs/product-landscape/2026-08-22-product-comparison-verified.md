@@ -1463,7 +1463,7 @@ at all.
 ### 10.8 `project`
 
 **Ours.** The entry point for the project flow. Orient every time — read `synthesis/index.md`,
-recent `log/` entries, the project's own files — then drain the review inbox, reporting the
+recent `log/` entries, the project's own files — then drain the review queue, reporting the
 unacknowledged count and the *oldest* entry's date, leading with it when it has been sitting.
 Surface the trust tier of every cited citekey. For a new project, elicit exactly four elements
 inline — the question, scope bounds, expected source types, success criteria — and refuse to
@@ -1619,7 +1619,7 @@ re-verifies them.
 This one is worth reading as a defect rather than a missing feature. Our doctrine says UNREACHABLE
 is never a verdict, and the whole document treats that as a strength (§12). But saying an outage is
 not a failure only discharges half the obligation: something has to bring the check back. Today an
-UNREACHABLE files a warn-tier finding that ages in the review inbox alongside everything else, and
+UNREACHABLE files a warn-tier finding that ages in the review queue alongside everything else, and
 nothing marks the note as *re-verify this when the registry is up*. The publish gate does hold on
 UNREACHABLE, so the boundary is safe — but between imports, an outage is indistinguishable from a
 check that ran and passed unless a person reads the queue. research-hub's recheck marker is the
@@ -1632,7 +1632,7 @@ low-confidence pages by default (§6.5). Our trust tier is derived from check re
 
 ### 11.2 The write path — safety machinery
 
-**Staged transactions and approval binding.** Our writes land immediately; the review inbox records
+**Staged transactions and approval binding.** Our writes land immediately; the review queue records
 after the fact. claude-obsidian binds an approval hash to a reviewed plan (§6.4), swarmvault stages
 approval bundles and a candidate queue (§6.7), llmwiki holds pages in `candidates/` under a
 fail-closed policy (§6.5).
@@ -1728,7 +1728,7 @@ workers under an orchestrator; gbrain has `minion-orchestrator`. Our skills are 
 **Session continuity and context economy.** swarmvault chat transcripts, context packs and task
 ledgers; pedrohcgs `checkpoint`/`compress-session`/`promote-memory`; gbrain's zero-LLM
 `context_pack` verb; Pratiyush's hot cache, capped memory files and log auto-archive (§6.11). We
-have the log and the review inbox — no session artifact, no log rotation, and no token budget on
+have the log and the review queue — no session artifact, no log rotation, and no token budget on
 any orientation read.
 
 ### 11.5 Output — the submit end

@@ -401,7 +401,7 @@ new recording mechanism.
 **UNREACHABLE has no mechanism that brings the check back.** `verify-citations` and `import-source`
 both instruct: never describe an outage as a failure, never a verdict on the work. Correct as far as
 it goes, but "saying an outage is not a failure only discharges half the obligation: something has to
-bring the check back. Today an UNREACHABLE files a warn-tier finding that ages in the review inbox
+bring the check back. Today an UNREACHABLE files a warn-tier finding that ages in the review queue
 alongside everything else, and nothing marks the note as *re-verify this when the registry is up*...
 between imports, an outage is indistinguishable from a check that ran and passed unless a person
 reads the queue" (`docs/product-landscape/...:1619-1626`) — research-hub's recheck marker, on a

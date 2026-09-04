@@ -16,7 +16,7 @@ Before framing anything or touching a draft, orient — whether this is a brand-
 2. Read the recent `log/` entries — what happened lately, across every project.
 3. If `projects/NAME/` already exists, read the project's files — the framed question, the draft frame, whatever is there.
 
-### Drain the review inbox
+### Drain the review queue
 
 ```sh
 python3 -m research_vault inbox --vault PATH
@@ -77,7 +77,7 @@ Route the user's intent without silently broadening it. Hand the routed skill th
 
 ## Acknowledgments
 
-Any finding drained from the review inbox is acknowledged only through the `ack` verb, with the person's own consent and reason text:
+Any finding drained from the review queue is acknowledged only through the `ack` verb, with the person's own consent and reason text:
 
 ```sh
 python3 -m research_vault ack FINDING-ID --vault PATH --reason "CODE free text" --actor "human:NAME"

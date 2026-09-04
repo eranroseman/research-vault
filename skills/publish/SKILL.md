@@ -16,7 +16,7 @@ In every command, `PATH` is the vault and `NAME` is the project's name under `pr
 
 ## Orient
 
-Drain the review inbox before anything else:
+Drain the review queue before anything else:
 
 ```sh
 python3 -m research_vault inbox --vault PATH
@@ -39,7 +39,7 @@ The publish surface closes on `citekey`, `evidence-layer`, `quote`, `update-noti
 | MATCHED     | The check ran and agreed.                              | Passes. **Only `doi`, `metadata`, `update-notice`, and per-claim `quote` mint a `verified` event on MATCHED** — this surface's other two closing checks, `citekey` and `evidence-layer`, mint nothing, and leave no durable trace beyond the run's counts. The project-level `verified` event is separate and real: `mark-published` and `mark-corrected` mint one on the project note under the check id `publish`. |
 | UNMATCHED   | The check ran and disagreed.                           | Holds the gate until it is fixed or acknowledged.                                                                                                                                                                                                                                                                                                                                                                    |
 | UNREACHABLE | The check could not run — a network or service outage. | **Holds the gate: publishing waits.** Never a verdict on the work.                                                                                                                                                                                                                                                                                                                                                   |
-| SKIPPED     | The item lacks the field the check needs.              | Exempt, and recorded in the review inbox so it stays auditable.                                                                                                                                                                                                                                                                                                                                                      |
+| SKIPPED     | The item lacks the field the check needs.              | Exempt, and recorded in the review queue so it stays auditable.                                                                                                                                                                                                                                                                                                                                                      |
 
 An outage is never a failure and never a pass. Do not describe an UNREACHABLE result as "verified", "failed", or "probably fine" — say the check could not run and publishing waits until it can. Never claim a check ran that did not, and never claim a `verified` event exists for a check id that doesn't mint one — only the CLI mints events, only on a genuine MATCHED result, and only for the four check ids named above plus the project-level `publish` event the disposition verbs write.
 
@@ -123,7 +123,7 @@ The gate has one audited bypass, and it is the person's to ask for, never yours 
 python3 -m research_vault arm-publish NAME --vault PATH --bypass "why this one time"
 ```
 
-The Stop hook records that token in the review inbox as an open finding. Explain that it is recorded, not forgiven, before writing it.
+The Stop hook records that token in the review queue as an open finding. Explain that it is recorded, not forgiven, before writing it.
 
 ## Rationalizations, answered
 

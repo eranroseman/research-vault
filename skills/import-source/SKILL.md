@@ -106,7 +106,7 @@ Three more modes extend the core flow above; each is documented in full on its o
 | Result      | Meaning at import                                                                                                       |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
 | MATCHED     | The check ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
-| UNMATCHED   | The check ran and disagreed. Already in the review inbox — do not file it again.                                        |
+| UNMATCHED   | The check ran and disagreed. Already in the review queue — do not file it again.                                        |
 | UNREACHABLE | The check could not run — a network or service outage. **Never a verdict on the source.** Retry later.                  |
 | SKIPPED     | The item lacks the field the check needs. Automatic only, and never final before discovery has been attempted (§2).     |
 

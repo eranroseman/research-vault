@@ -12,4 +12,4 @@ Binary pass/fail (rejected: collapses "could not check" into one of the poles, s
 
 ## Consequences
 
-Verification events accumulate in git history and are never rewritten, so the honesty rule is retroactive by construction: every past record already means what this ADR says. Fail-closed publish gates inherit a real cost — an outage blocks publishing rather than being waved through — accepted because the alternative is records that certify less than they appear to. Trust tiers, the review inbox, and any future auditor may consume the four states but may not collapse them.
+Verification events accumulate in git history and are never rewritten, so the honesty rule is retroactive by construction: every past record already means what this ADR says. Fail-closed publish gates inherit a real cost — an outage blocks publishing rather than being waved through — accepted because the alternative is records that certify less than they appear to. Trust tiers, the review queue, and any future auditor may consume the four states but may not collapse them.

@@ -6,10 +6,10 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 ### Vault
 
-**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, packaged to survive its tools as a structurally conformant OKF bundle (ADR 0001) covering the knowledge bundle, minus the recorded `inbox/` fleeting exemption.
+**Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, built to outlive its tools (ADR 0001) as an OKF bundle.
 _Avoid_: knowledge base, second brain
 
-**Type (OKF)**: Determined by a note's folder — the folder map lives in `research_vault/structure.py`. `literatures/**` derives `literature`; `synthesis/**` derives `synthesis`; only `projects/<name>/draft.md` derives `project` (every other `.md` under `projects/**` derives no type, like `system/**`); `log/*` derives `daily`; `inbox/*` derives `fleeting` (`inbox/review-queue.md` is the one exception, deriving `type: "review-queue"`); `system/**` and root-level concept files carry any non-empty type, freely chosen.
+**Type (OKF)**: A note's kind, derived from its folder — `literatures/` → literature, `synthesis/` → synthesis, `log/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
 _Avoid_: implying every file under a mapped folder inherits its type
 
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
@@ -18,7 +18,7 @@ _Avoid_: sources folder, references layer
 **Synthesis layer**: The LLM-maintained pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
 _Avoid_: atlas, wiki, topic pages
 
-**Literature note**: The vault projection of one Zotero item, filename = citekey; a managed region above free prose.
+**Literature note**: The vault projection of one item, filename = citekey; a managed region above free prose.
 _Avoid_: source note, paper note, reference note
 
 **Synthesis note**: One page of the synthesis layer, carrying block-anchored claims with stance links.
@@ -42,19 +42,19 @@ _Avoid_: calendar, journal, daily notes folder
 **System folder**: The vault's support artifacts (`system/`): templates, bases, and the bibliography export.
 _Avoid_: x (old name), assets, meta
 
-**Managed region**: The bridge-regenerated span of a literature note between `%%rv-managed%%` markers; never hand-edited.
+**Managed region**: The machine-regenerated span of a literature note, marked in the note; never hand-edited.
 _Avoid_: generated section, machine block
 
-**Machine surface**: A path or durable field with a designated mechanical writer; it is a category, not a particular writer or enforcement mechanism.
+**Machine surface**: A path or durable field with a designated mechanical writer — a category, not a particular writer or enforcement mechanism.
 _Avoid_: generated file, protected path
 
 ### Evidence and claims
 
-**Item**: The thing a citekey names (CSL/Zotero vocabulary).
-_Avoid_: work (OpenAlex sense), paper (narrower than the corpus)
-
-**Source**: The cited document itself — never the journal, repository, or outlet.
+**Source**: The document itself, existing in the world before and independent of any library record — never the journal, repository, or outlet.
 _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex's "source" means and ours never does
+
+**Item**: A source's library record (CSL/Zotero vocabulary) — the citekey-bearing metadata object that admission creates.
+_Avoid_: work (OpenAlex sense), paper (narrower than the corpus)
 
 **Venue**: The journal, repository, or outlet an item appeared in.
 _Avoid_: OpenAlex's "source" sense in our prose
@@ -80,7 +80,7 @@ _Avoid_: supported-by/contested-by (old names), related links
 **Admission**: The human act of accepting a source into Zotero — the only way anything becomes citable.
 _Avoid_: import (that is the projection step that follows), ingestion
 
-**Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered from Zotero, never authored.
+**Import**: The machine projection of an admitted item into the evidence layer — a literature note rendered, never authored.
 _Avoid_: admission (that is the human act before), sync
 
 **Bibliography export**: The whole admitted library used to resolve a citekey, before any citability judgment.
@@ -97,7 +97,7 @@ _Avoid_: test, validation
 **Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply).
 _Avoid_: pass/fail, pytest vocabulary in vault prose
 
-**Verified event**: The dated, attributed record of which check passed, appended to a note; only MATCHED mints one.
+**Verified event**: The dated, attributed record that a named check passed on a note; only MATCHED mints one.
 _Avoid_: verification log entry, audit record
 
 **Closing check**: A check whose standing can hold a surface; closing is a property of the surface, not of the check.
@@ -106,10 +106,10 @@ _Avoid_: blocking check, hard check
 **Trust tier**: A note's derived standing: unverified → machine-confirmed → human-reviewed (cumulative).
 _Avoid_: confidence level (that is a per-claim field), quality score
 
-**Review inbox**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to; drained at project orientation.
-_Avoid_: issue list, warning log
+**Review queue**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to.
+_Avoid_: review inbox (borrows the capture folder's name for machinery), issue list, warning log
 
-**Acknowledgment**: A human's standing, hash-scoped acceptance of a finding — the recorded decision that lets a check stand down without the finding being erased.
+**Acknowledgment**: A human's standing acceptance of a finding, scoped to the target's content hash — if the target changes, the finding re-fires. An ack lets a check stand down; it never erases the finding.
 _Avoid_: dismissal, override (an ack keeps the record; it never deletes)
 
 **Publish gate**: The fail-closed verification boundary every publication crosses.
