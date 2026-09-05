@@ -22,42 +22,42 @@ Every requirement below was at version 1 throughout the run. Floors are marked.
 
 ### Digest lane
 
-| Id | Requirement | Floor | Version |
-| --- | --- | --- | --- |
-| D1 | Writes a per-source page carrying a summary and key points, derived from the source document (markdown or PDF). | **yes** | 1 |
-| D2 | Fills a charting template whose field list is supplied per project by the caller, for example population, concept, context, design, findings, page locator. | **yes** | 1 |
-| D3 | Maintains cross-source concept or synthesis pages with an index and an append-only log; contradictions are kept and flagged, never resolved by deleting one side. | **yes** | 1 |
-| D4 | Ingest is separable from integrate: the tool consumes a note another process wrote and does not own creation of the source file. | **yes** | 1 |
-| D5 | Re-ingest of an unchanged source is a no-op. | no | 1 |
-| D6 | Runs as a Claude Code skill or plugin, installable as-is. Codex compatibility is recorded separately rather than counted here. | **yes** | 1 |
-| D7 | Works on an existing vault with a caller-chosen layout, or states its layout requirements explicitly. | no | 1 |
-| D8 | References each source by a caller-supplied stable id in page links and provenance markers. | no | 1 |
-| D9 | The human review gate before integration is configurable, or at least documented as per-source versus batch. | no | 1 |
-| D10 | The licence permits use and modification. | **yes** | 1 |
+| Id  | Requirement                                                                                                                                                       | Floor   | Version |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------- |
+| D1  | Writes a per-source page carrying a summary and key points, derived from the source document (markdown or PDF).                                                   | **yes** | 1       |
+| D2  | Fills a charting template whose field list is supplied per project by the caller, for example population, concept, context, design, findings, page locator.       | **yes** | 1       |
+| D3  | Maintains cross-source concept or synthesis pages with an index and an append-only log; contradictions are kept and flagged, never resolved by deleting one side. | **yes** | 1       |
+| D4  | Ingest is separable from integrate: the tool consumes a note another process wrote and does not own creation of the source file.                                  | **yes** | 1       |
+| D5  | Re-ingest of an unchanged source is a no-op.                                                                                                                      | no      | 1       |
+| D6  | Runs as a Claude Code skill or plugin, installable as-is. Codex compatibility is recorded separately rather than counted here.                                    | **yes** | 1       |
+| D7  | Works on an existing vault with a caller-chosen layout, or states its layout requirements explicitly.                                                             | no      | 1       |
+| D8  | References each source by a caller-supplied stable id in page links and provenance markers.                                                                       | no      | 1       |
+| D9  | The human review gate before integration is configurable, or at least documented as per-source versus batch.                                                      | no      | 1       |
+| D10 | The licence permits use and modification.                                                                                                                         | **yes** | 1       |
 
 ### Capture lane
 
-| Id | Requirement | Floor | Version |
-| --- | --- | --- | --- |
-| C1 | Reads a local Zotero rather than the web API (the local API on localhost:23119, or Better BibTeX JSON-RPC): item metadata, attachments, annotations. | **yes** | 1 |
-| C2 | Emits a citekey-keyed markdown literature note with a machine-owned managed region and a preserved free region, or can be driven to. | **yes** | 1 |
-| C3 | Detects change after capture: drift, orphan, re-key. | no | 1 |
-| C4 | Extracts PDF text locally, with no cloud call. | no | 1 |
-| C5 | Runs headless from a CLI or an agent, with no Obsidian application running. | no | 1 |
-| C6 | The licence permits use. | **yes** | 1 |
-| C7 | Provides Zotero-side enrichment or lint that the vault would otherwise replicate: DOI verification, PMCID lookup, citation counts, arXiv version update, metadata format lint. | no | 1 |
+| Id  | Requirement                                                                                                                                                                    | Floor   | Version |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------- |
+| C1  | Reads a local Zotero rather than the web API (the local API on localhost:23119, or Better BibTeX JSON-RPC): item metadata, attachments, annotations.                           | **yes** | 1       |
+| C2  | Emits a citekey-keyed markdown literature note with a machine-owned managed region and a preserved free region, or can be driven to.                                           | **yes** | 1       |
+| C3  | Detects change after capture: drift, orphan, re-key.                                                                                                                           | no      | 1       |
+| C4  | Extracts PDF text locally, with no cloud call.                                                                                                                                 | no      | 1       |
+| C5  | Runs headless from a CLI or an agent, with no Obsidian application running.                                                                                                    | no      | 1       |
+| C6  | The licence permits use.                                                                                                                                                       | **yes** | 1       |
+| C7  | Provides Zotero-side enrichment or lint that the vault would otherwise replicate: DOI verification, PMCID lookup, citation counts, arXiv version update, metadata format lint. | no      | 1       |
 
 ### Zotero-fact register
 
-| Id | Fact to establish | Floor | Version |
-| --- | --- | --- | --- |
-| Z1 | Local API write support on Zotero 10: how a key is granted, the consent dialog, key lifetime, `Zotero-Write-Token`, and the `Zotero-Server-ID` precondition. | no | 1 |
-| Z2 | Version semantics: local versions against synced versions, `?since=`, `format=versions`, `Last-Modified-Version`, and partitioning cached state by server id. | no | 1 |
-| Z3 | Full-text endpoints: what `GET /items/<key>/fulltext` returns, how pages are separated inside `content`, and what a 404 means. | no | 1 |
-| Z4 | File endpoints: what `/file`, `/file/view` and `/file/view/url` return, the form of the URL, and the upload flow. | no | 1 |
-| Z5 | Saved-search execution and the collection endpoints. | no | 1 |
-| Z6 | The native `citationKey` item field, and the Zotero version from which it exists across item types. | no | 1 |
-| Z7 | Better BibTeX JSON-RPC at 9.0.6x: the method inventory, the auto-export API, the citekey pin store, and what `item.regenerate_key` returns. | no | 1 |
+| Id  | Fact to establish                                                                                                                                             | Floor | Version |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------- |
+| Z1  | Local API write support on Zotero 10: how a key is granted, the consent dialog, key lifetime, `Zotero-Write-Token`, and the `Zotero-Server-ID` precondition.  | no    | 1       |
+| Z2  | Version semantics: local versions against synced versions, `?since=`, `format=versions`, `Last-Modified-Version`, and partitioning cached state by server id. | no    | 1       |
+| Z3  | Full-text endpoints: what `GET /items/<key>/fulltext` returns, how pages are separated inside `content`, and what a 404 means.                                | no    | 1       |
+| Z4  | File endpoints: what `/file`, `/file/view` and `/file/view/url` return, the form of the URL, and the upload flow.                                             | no    | 1       |
+| Z5  | Saved-search execution and the collection endpoints.                                                                                                          | no    | 1       |
+| Z6  | The native `citationKey` item field, and the Zotero version from which it exists across item types.                                                           | no    | 1       |
+| Z7  | Better BibTeX JSON-RPC at 9.0.6x: the method inventory, the auto-export API, the citekey pin store, and what `item.regenerate_key` returns.                   | no    | 1       |
 
 ______________________________________________________________________
 
@@ -77,49 +77,49 @@ ______________________________________________________________________
 
 Hit counts are as the tool reported them at the time of the search. Where an API `total_count` is approximate, that is said.
 
-1. **GitHub repo search** (`gh search repos` / `search/repositories` API). Terms: `"llm wiki" --sort stars`. Hits: 4,897. API `total_count`; top 40 by stars reviewed.
-1. **GitHub repo search.** Terms: `"llm-wiki" --sort stars`. Hits: 5,089. API `total_count`; top 40 reviewed; heavy overlap with search 1.
-1. **GitHub repo search.** Terms: `topic:llm-wiki --sort stars`. Hits: 448. Top 40 reviewed.
-1. **GitHub repo search.** Terms: `topic:karpathy-wiki`. Hits: 15. All 15 reviewed.
-1. **GitHub repo search.** Terms: `topic:karpathy-llm-wiki`. Hits: 43. Top 30 reviewed.
-1. **GitHub repo search.** Terms: `topic:karpathy wiki`. Hits: 142. Top 30 reviewed.
-1. **GitHub repo search.** Terms: `obsidian claude wiki --sort stars`. Hits: 526. Top 40 reviewed.
-1. **GitHub repo search.** Terms: `"llm wiki" claude skill --sort stars`. Hits: 181. Top 40 reviewed.
-1. **GitHub repo search.** Terms: `"llm wiki" plugin --sort stars`. Hits: 133. Top 40 reviewed.
-1. **Anthropic official marketplaces** (`gh api contents`). Terms: `anthropics/claude-code .claude-plugin/marketplace.json`; `anthropics/claude-plugins-official .claude-plugin/marketplace.json` grepped for `wiki|obsidian|knowledge`. Hits: 0. The `claude-code` marketplace path gave an empty result, and absence is not distinguished from no-match there; `claude-plugins-official` lists 291 plugins, none an LLM-wiki implementation (the keyword matches were gitlab, notion, knowledge-catalog, netsuite, twilio).
-1. **GitHub code search** (`gh search code` / `search/code` API). Terms: `llm-wiki filename:marketplace.json`. Hits: 136. API `total_count`; 60 files listed, giving 61 community marketplace repositories, about 25 of them not seen in the repository searches. The first attempt used a `path:.claude-plugin/marketplace.json` qualifier and returned 0; that syntax is unsupported, and the re-run with `--filename` returning 136 is what establishes the tool and the query were working.
-1. **GitHub code search.** Terms: `karpathy wiki ingest filename:SKILL.md`. Hits: 2,456. The API `total_count` is approximate; the CLI returned only 4 results, 1 of them relevant (`bcmcpher/memex-vault`).
-1. **llmwikis.org.** Pages read: `/`, `/implementations/tooling-landscape/`, `/related-links/`, `/examples/`, `/content-license/`, `/downloads/llm-wiki-starter-bundle-v3.2.0.zip`. Hits: 5. The tooling-landscape page names no products (it carries a category taxonomy and a maturity ladder only); related-links lists four GitHub repositories, two of which are digest candidates; the examples page has no external links; the starter bundle is 108 files with no `SKILL.md`.
-1. **Community `marketplace.json` parse** across 20 aggregator repositories found by search 11. Terms: `plugins[]` entries matching `wiki|knowledge|karpathy|brain`. Hits: 12 wiki plugin entries, 6 of which led to sources not otherwise surfaced.
-1. **Stop condition.** Not saturated. See the next subsection.
-1. **GitHub repo search.** Terms: `topic:zotero-plugin --sort stars --limit 100`. Hits: 100. The densest single source: the Zotero 7+ plugin-template ecosystem.
-1. **GitHub repo search.** Terms: `topic:zotero --sort stars --limit 100`. Hits: 100. Non-plugin tooling.
-1. **Zotero plugin catalogue**, `zotero-chinese/zotero-plugins` `src/plugins.ts`. The URL `github.com/windingwind/zotero-plugins` named in the seed list is a 404; the catalogue lives at `zotero-chinese`, its maintenance is suspended, and submissions are redirected to `syt2/zotero-addons-scraper`. Terms: repository names grepped for `lint`, `format`, `doi`, `pmc`, `cit`, `scite`, `opencit`, `arxiv`, `ocr`, `tldr`, `fulltext`, `markdown`, `obsidian`, `scholar`, `pdf2`, `mineru`, `mcp`, `cli`, `meta`, `export`. Hits: 31 name matches out of 135 catalogued repositories.
-1. **Zotero plugin catalogue successor**, `syt2/zotero-addons-scraper` `addons/` (298 `owner@repo` files, feeding the Zotero Add-on Market and zotero-chinese.com/plugins). Terms: the same name grep, minus repositories already in the zotero-chinese list. Hits: 29 new name matches out of 298 catalogued.
-1. **zotero.org/support/plugins.** Terms: the page grepped for `lint`, `format`, `DOI`, `PMCID`, `citation`, `scite`, `arXiv`, `OCR`, `TL;DR`, `fulltext`, `markdown`, `Obsidian`, `MCP`, `CLI`. Hits: 0. The page was reached and read; it no longer carries a plugin list. Its own text is what establishes the null: "We don't currently provide a list of available plugins... An official plugin directory is planned." There were zero rows to grep.
-1. **Obsidian community plugin list**, raw `obsidianmd/obsidian-releases` `community-plugins.json` (7,270 plugins). Terms: id, name and description matched against the regex `zotero|citation|bibtex|bibliograph|pandoc|reference manager|citekey|better bibtex|literature note|csl`. Hits: 71 rows.
-1. **GitHub repo search.** Terms: `zotero obsidian --sort stars --limit 60`. Hits: 60.
-1. **GitHub repo search.** Terms: `zotero markdown export --sort stars --limit 50`. Hits: 24.
-1. **GitHub repo search.** Terms: `zotero mcp --sort stars --limit 50`. Hits: 50.
-1. **GitHub repo search.** Terms: `zotero cli --sort stars --limit 50`. Hits: 50.
-1. **GitHub repo search.** Terms: `zotero "semantic scholar" --sort stars --limit 40`. Hits: 37. Run to fill the TL;DR branch.
-1. **GitHub repo search plus code search.** Terms: `scinet zotero --limit 30`, then `scinet filename:manifest.json`. Hits: 1. The only hit is `a1ix2/zotero-scihub-scinet` (1 star, a single README), a Zotero PDF-resolver configuration for Sci-Hub and Sci-Net mirrors, which is full-text retrieval and not a citation-count source. No Zotero plugin named SciNet providing citation data exists on GitHub; the seed's "SciNet" most likely conflates scite (scitedotai) with Sci-Net.
-1. **GitHub repo search.** Terms: `zotero doi --sort stars --limit 40`. Hits: 40. Run to fill the DOI branch.
-1. **GitHub repo search.** Terms: `zotero fulltext pdf text --sort stars --limit 40`. Hits: 3. One new hit of value, `matthiaskloft/zotero-fulltext-mcp`.
-1. **Web search.** Terms: `"LLM wiki" Claude Code plugin`. Hits: 7.
-1. **Web search.** Terms: `"llm wiki" obsidian skill 2026`. Hits: 6.
-1. **Web search.** Terms: `scoping review data charting LLM tool`. Hits: 7. Only software-as-a-service with no readable body (Covidence, JBI SUMARI) and papers (arXiv 2507.06623, an LLM data-extraction protocol, not fetched). No installable charting tool surfaced. This is the search that bears directly on D2.
-1. **Web search.** Terms: `"literature note" zotero generator CLI markdown`. Hits: 8.
-1. **Web search.** Terms: `zotero "local API" markdown export tool`. Hits: 10.
-1. **Web search.** Terms: `zotero annotations to markdown CLI`. Hits: 10.
-1. **Web search.** Terms: `"Better BibTeX" "JSON-RPC" markdown notes`. Hits: 9.
-1. **Web search.** Terms: `zotero plugin "DOI" verify PMCID "citation count"`. Hits: 9.
-1. **Web search.** Terms: `zotero 10 local API write plugin`. Hits: 7.
-1. **Web search.** Terms: `"PRISMA-ScR" software charting`. Hits: 10. Guidance pages and library guides only; Covidence the sole software named; no charting tool with a readable body. The second search bearing on D2.
-1. **Web search.** Terms: `zotero local API "Zotero-Write-Token" OR "Always Allow" write key consent dialog`. Hits: 10.
-1. **Web search.** Terms: `zotero local API "format=versions" "since" "Last-Modified-Version" localhost:23119`. Hits: 8. One hit (forum 129225, a Zotero 8 `include=citation` bug) was irrelevant to Z2 and Z3 and was dropped.
-1. **Web search.** Terms: `zotero item JSON "citationKey" field native Zotero 7 API`. Hits: 9. The results claimed the field is not native; that claim was falsified against the `zotero-schema` git history, which shows the field on 37 of 40 item types.
-1. **Web search.** Terms: `"Better BibTeX" JSON-RPC "autoexport.add" "item.citationkey" "item.pandoc_filter"`. Hits: 9. Confirmed the `autoexport.add` signature and the `pandoc_filter` parameters.
+01. **GitHub repo search** (`gh search repos` / `search/repositories` API). Terms: `"llm wiki" --sort stars`. Hits: 4,897. API `total_count`; top 40 by stars reviewed.
+02. **GitHub repo search.** Terms: `"llm-wiki" --sort stars`. Hits: 5,089. API `total_count`; top 40 reviewed; heavy overlap with search 1.
+03. **GitHub repo search.** Terms: `topic:llm-wiki --sort stars`. Hits: 448. Top 40 reviewed.
+04. **GitHub repo search.** Terms: `topic:karpathy-wiki`. Hits: 15. All 15 reviewed.
+05. **GitHub repo search.** Terms: `topic:karpathy-llm-wiki`. Hits: 43. Top 30 reviewed.
+06. **GitHub repo search.** Terms: `topic:karpathy wiki`. Hits: 142. Top 30 reviewed.
+07. **GitHub repo search.** Terms: `obsidian claude wiki --sort stars`. Hits: 526. Top 40 reviewed.
+08. **GitHub repo search.** Terms: `"llm wiki" claude skill --sort stars`. Hits: 181. Top 40 reviewed.
+09. **GitHub repo search.** Terms: `"llm wiki" plugin --sort stars`. Hits: 133. Top 40 reviewed.
+10. **Anthropic official marketplaces** (`gh api contents`). Terms: `anthropics/claude-code .claude-plugin/marketplace.json`; `anthropics/claude-plugins-official .claude-plugin/marketplace.json` grepped for `wiki|obsidian|knowledge`. Hits: 0. The `claude-code` marketplace path gave an empty result, and absence is not distinguished from no-match there; `claude-plugins-official` lists 291 plugins, none an LLM-wiki implementation (the keyword matches were gitlab, notion, knowledge-catalog, netsuite, twilio).
+11. **GitHub code search** (`gh search code` / `search/code` API). Terms: `llm-wiki filename:marketplace.json`. Hits: 136. API `total_count`; 60 files listed, giving 61 community marketplace repositories, about 25 of them not seen in the repository searches. The first attempt used a `path:.claude-plugin/marketplace.json` qualifier and returned 0; that syntax is unsupported, and the re-run with `--filename` returning 136 is what establishes the tool and the query were working.
+12. **GitHub code search.** Terms: `karpathy wiki ingest filename:SKILL.md`. Hits: 2,456. The API `total_count` is approximate; the CLI returned only 4 results, 1 of them relevant (`bcmcpher/memex-vault`).
+13. **llmwikis.org.** Pages read: `/`, `/implementations/tooling-landscape/`, `/related-links/`, `/examples/`, `/content-license/`, `/downloads/llm-wiki-starter-bundle-v3.2.0.zip`. Hits: 5. The tooling-landscape page names no products (it carries a category taxonomy and a maturity ladder only); related-links lists four GitHub repositories, two of which are digest candidates; the examples page has no external links; the starter bundle is 108 files with no `SKILL.md`.
+14. **Community `marketplace.json` parse** across 20 aggregator repositories found by search 11. Terms: `plugins[]` entries matching `wiki|knowledge|karpathy|brain`. Hits: 12 wiki plugin entries, 6 of which led to sources not otherwise surfaced.
+15. **Stop condition.** Not saturated. See the next subsection.
+16. **GitHub repo search.** Terms: `topic:zotero-plugin --sort stars --limit 100`. Hits: 100. The densest single source: the Zotero 7+ plugin-template ecosystem.
+17. **GitHub repo search.** Terms: `topic:zotero --sort stars --limit 100`. Hits: 100. Non-plugin tooling.
+18. **Zotero plugin catalogue**, `zotero-chinese/zotero-plugins` `src/plugins.ts`. The URL `github.com/windingwind/zotero-plugins` named in the seed list is a 404; the catalogue lives at `zotero-chinese`, its maintenance is suspended, and submissions are redirected to `syt2/zotero-addons-scraper`. Terms: repository names grepped for `lint`, `format`, `doi`, `pmc`, `cit`, `scite`, `opencit`, `arxiv`, `ocr`, `tldr`, `fulltext`, `markdown`, `obsidian`, `scholar`, `pdf2`, `mineru`, `mcp`, `cli`, `meta`, `export`. Hits: 31 name matches out of 135 catalogued repositories.
+19. **Zotero plugin catalogue successor**, `syt2/zotero-addons-scraper` `addons/` (298 `owner@repo` files, feeding the Zotero Add-on Market and zotero-chinese.com/plugins). Terms: the same name grep, minus repositories already in the zotero-chinese list. Hits: 29 new name matches out of 298 catalogued.
+20. **zotero.org/support/plugins.** Terms: the page grepped for `lint`, `format`, `DOI`, `PMCID`, `citation`, `scite`, `arXiv`, `OCR`, `TL;DR`, `fulltext`, `markdown`, `Obsidian`, `MCP`, `CLI`. Hits: 0. The page was reached and read; it no longer carries a plugin list. Its own text is what establishes the null: "We don't currently provide a list of available plugins... An official plugin directory is planned." There were zero rows to grep.
+21. **Obsidian community plugin list**, raw `obsidianmd/obsidian-releases` `community-plugins.json` (7,270 plugins). Terms: id, name and description matched against the regex `zotero|citation|bibtex|bibliograph|pandoc|reference manager|citekey|better bibtex|literature note|csl`. Hits: 71 rows.
+22. **GitHub repo search.** Terms: `zotero obsidian --sort stars --limit 60`. Hits: 60.
+23. **GitHub repo search.** Terms: `zotero markdown export --sort stars --limit 50`. Hits: 24.
+24. **GitHub repo search.** Terms: `zotero mcp --sort stars --limit 50`. Hits: 50.
+25. **GitHub repo search.** Terms: `zotero cli --sort stars --limit 50`. Hits: 50.
+26. **GitHub repo search.** Terms: `zotero "semantic scholar" --sort stars --limit 40`. Hits: 37. Run to fill the TL;DR branch.
+27. **GitHub repo search plus code search.** Terms: `scinet zotero --limit 30`, then `scinet filename:manifest.json`. Hits: 1. The only hit is `a1ix2/zotero-scihub-scinet` (1 star, a single README), a Zotero PDF-resolver configuration for Sci-Hub and Sci-Net mirrors, which is full-text retrieval and not a citation-count source. No Zotero plugin named SciNet providing citation data exists on GitHub; the seed's "SciNet" most likely conflates scite (scitedotai) with Sci-Net.
+28. **GitHub repo search.** Terms: `zotero doi --sort stars --limit 40`. Hits: 40. Run to fill the DOI branch.
+29. **GitHub repo search.** Terms: `zotero fulltext pdf text --sort stars --limit 40`. Hits: 3. One new hit of value, `matthiaskloft/zotero-fulltext-mcp`.
+30. **Web search.** Terms: `"LLM wiki" Claude Code plugin`. Hits: 7.
+31. **Web search.** Terms: `"llm wiki" obsidian skill 2026`. Hits: 6.
+32. **Web search.** Terms: `scoping review data charting LLM tool`. Hits: 7. Only software-as-a-service with no readable body (Covidence, JBI SUMARI) and papers (arXiv 2507.06623, an LLM data-extraction protocol, not fetched). No installable charting tool surfaced. This is the search that bears directly on D2.
+33. **Web search.** Terms: `"literature note" zotero generator CLI markdown`. Hits: 8.
+34. **Web search.** Terms: `zotero "local API" markdown export tool`. Hits: 10.
+35. **Web search.** Terms: `zotero annotations to markdown CLI`. Hits: 10.
+36. **Web search.** Terms: `"Better BibTeX" "JSON-RPC" markdown notes`. Hits: 9.
+37. **Web search.** Terms: `zotero plugin "DOI" verify PMCID "citation count"`. Hits: 9.
+38. **Web search.** Terms: `zotero 10 local API write plugin`. Hits: 7.
+39. **Web search.** Terms: `"PRISMA-ScR" software charting`. Hits: 10. Guidance pages and library guides only; Covidence the sole software named; no charting tool with a readable body. The second search bearing on D2.
+40. **Web search.** Terms: `zotero local API "Zotero-Write-Token" OR "Always Allow" write key consent dialog`. Hits: 10.
+41. **Web search.** Terms: `zotero local API "format=versions" "since" "Last-Modified-Version" localhost:23119`. Hits: 8. One hit (forum 129225, a Zotero 8 `include=citation` bug) was irrelevant to Z2 and Z3 and was dropped.
+42. **Web search.** Terms: `zotero item JSON "citationKey" field native Zotero 7 API`. Hits: 9. The results claimed the field is not native; that claim was falsified against the `zotero-schema` git history, which shows the field on 37 of 40 item types.
+43. **Web search.** Terms: `"Better BibTeX" JSON-RPC "autoexport.add" "item.citationkey" "item.pandoc_filter"`. Hits: 9. Confirmed the `autoexport.add` signature and the `pandoc_filter` parameters.
 
 ### Sources and queries added mid-search, with their reasons
 
@@ -142,39 +142,39 @@ Twenty-one candidates were seeded rather than found, and are marked as seeded in
 
 Every discovery was placed in one of three buckets, and every drop carries a reason and a count. Nothing was capped silently.
 
-| Bucket | Count | What it means |
-| --- | --- | --- |
-| Keep, read as a candidate | 43 | Read at a pin, described against the set. |
-| Enrichment catalogue | 36 | Zotero-side enrichment and lint plugins, read for C7 as one catalogue record rather than one record each. |
-| Dropped | 206 | Five reasons, below. |
-| **Triaged total** | **285** | |
-| Added after the critic pass | 3 | Astro-Han/karpathy-llm-wiki, sdyckjq-lab/llm-wiki-skill, PiaoyangGuohai1/cli-anything-zotero. |
-| **Considered in total** | **288** | |
+| Bucket                      | Count   | What it means                                                                                             |
+| --------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| Keep, read as a candidate   | 43      | Read at a pin, described against the set.                                                                 |
+| Enrichment catalogue        | 36      | Zotero-side enrichment and lint plugins, read for C7 as one catalogue record rather than one record each. |
+| Dropped                     | 206     | Five reasons, below.                                                                                      |
+| **Triaged total**           | **285** |                                                                                                           |
+| Added after the critic pass | 3       | Astro-Han/karpathy-llm-wiki, sdyckjq-lab/llm-wiki-skill, PiaoyangGuohai1/cli-anything-zotero.             |
+| **Considered in total**     | **288** |                                                                                                           |
 
 Drops by reason:
 
 1. **Duplicate mechanism of a kept candidate: 134.** Ninety-one digest-lane Karpathy-style skills and plugins whose raw-to-wiki ingest, index and log bookkeeping, contradiction flagging or approval gate is already carried by a kept candidate, plus 40 capture-lane Zotero readers, MCP servers, command-line tools and note bridges covered by the kept capture set, plus 3 secondary Zotero forum threads superseded by the kept primaries. Examples: `Astro-Han/karpathy-llm-wiki` (2,151 stars, dropped here as a generic raw-plus-wiki skill; the critic pass reversed this drop and it was read, see its own section), `IssacW228/student-llm-wiki` (an md5 manifest hash that ar9av already covers), `zotero-cli-ai` (205 stars, sqlite reads and a dual AGPL/commercial licence; alex-roc/zotero-agent covers the local-API and Better BibTeX path).
-1. **Out of lane: 33.** Seventeen digest entries that are not Claude Code plugins or skills for document digest (Obsidian-plugin-only engines, pi/Copilot/Cursor-only hosts, project-memory or code-semantics wikis, todo and calendar companions, a NotebookLM cloud pipeline, a Docker application with no skill), and 16 capture entries that do not read a local Zotero or do not emit literature notes (web-API-only tools, cloud-gated services, cloud-LLM plugins, link-insertion or search-only tools, connector emulators, audit-only workflows). Examples: `ZotFlow` (183 stars, web API and WebDAV only), `Stratum` (stratumnotes.com account, Zotero OAuth, Sentry), `zosmaai/pi-llm-wiki` (555 stars, pi-extension tools, Claude Code unverified).
-1. **Personal starter template: 29.** `CLAUDE.md` and `AGENTS.md` vault templates, scaffold-only init commands, and setup walkthroughs with no adoptable ingest mechanism beyond what the seeded gist and handbook already state. Examples: `jason-effi-lab/karpathy-llm-wiki-vault` (701 stars, no licence), `shannhk/llm-wikid` (415 stars, no licence), `eleven-net-cn/llm-wiki-starter` (explicitly not for ingesting into an existing wiki).
-1. **No body reachable: 6.** Command or skill bodies that were never read (cajias, cosen1024, gal-Tab, songzhuozhu), a VS Code listing with no source repository, and the zotero.org JSON documentation page marked "FIXME work in progress". These are drops, not not-examined candidates: none was described against the set.
-1. **Fork or duplicate URL of a kept candidate: 4.** The two seeded redirects above, the hermes-agent blob URL that is the same `SKILL.md` as the seeded tree URL, and `Lambenthan/empiricalwiki`, an AutoSci derivative.
+2. **Out of lane: 33.** Seventeen digest entries that are not Claude Code plugins or skills for document digest (Obsidian-plugin-only engines, pi/Copilot/Cursor-only hosts, project-memory or code-semantics wikis, todo and calendar companions, a NotebookLM cloud pipeline, a Docker application with no skill), and 16 capture entries that do not read a local Zotero or do not emit literature notes (web-API-only tools, cloud-gated services, cloud-LLM plugins, link-insertion or search-only tools, connector emulators, audit-only workflows). Examples: `ZotFlow` (183 stars, web API and WebDAV only), `Stratum` (stratumnotes.com account, Zotero OAuth, Sentry), `zosmaai/pi-llm-wiki` (555 stars, pi-extension tools, Claude Code unverified).
+3. **Personal starter template: 29.** `CLAUDE.md` and `AGENTS.md` vault templates, scaffold-only init commands, and setup walkthroughs with no adoptable ingest mechanism beyond what the seeded gist and handbook already state. Examples: `jason-effi-lab/karpathy-llm-wiki-vault` (701 stars, no licence), `shannhk/llm-wikid` (415 stars, no licence), `eleven-net-cn/llm-wiki-starter` (explicitly not for ingesting into an existing wiki).
+4. **No body reachable: 6.** Command or skill bodies that were never read (cajias, cosen1024, gal-Tab, songzhuozhu), a VS Code listing with no source repository, and the zotero.org JSON documentation page marked "FIXME work in progress". These are drops, not not-examined candidates: none was described against the set.
+5. **Fork or duplicate URL of a kept candidate: 4.** The two seeded redirects above, the hermes-agent blob URL that is the same `SKILL.md` as the seeded tree URL, and `Lambenthan/empiricalwiki`, an AutoSci derivative.
 
 ### The verify pass
 
 A second, adversarial pass re-read candidates at their pins. Each pass re-fetched the licence file, re-resolved the pin, and re-checked up to three coverage rows, taken from the rows the record had scored `covers` on a floor. Every pass reported per row whether the row was refuted, and reported separately whether the licence and the pin still held.
 
-| Measure | Count |
-| --- | --- |
-| Read records in the run | 48 |
-| Read records carrying at least one verify pass | 42 |
-| Read records verified twice | 19 |
-| Read records with no verify pass | 6 |
-| Verify passes recorded | 61 |
-| Coverage rows re-checked | 146 |
-| Rows refuted | 4 |
-| Licence re-confirmed at the pin | 61 of 61 |
-| Pin re-confirmed | 61 of 61 |
-| Passes reporting a refuted fact | 0 of 61 |
+| Measure                                        | Count    |
+| ---------------------------------------------- | -------- |
+| Read records in the run                        | 48       |
+| Read records carrying at least one verify pass | 42       |
+| Read records verified twice                    | 19       |
+| Read records with no verify pass               | 6        |
+| Verify passes recorded                         | 61       |
+| Coverage rows re-checked                       | 146      |
+| Rows refuted                                   | 4        |
+| Licence re-confirmed at the pin                | 61 of 61 |
+| Pin re-confirmed                               | 61 of 61 |
+| Passes reporting a refuted fact                | 0 of 61  |
 
 The four refutations split two ways. One is a real refutation of a written quote: atomicstrata/llm-wiki-compiler's D4 evidence dropped a word from the source line, which the second pass on the same candidate then confirmed on the corrected line. The other three fall on the Zotero-fact record for the Web API Write Requests page, whose coverage array is empty; the verifier applied its default-refuted rule to three rows the record never asserted. No coverage row's finding was overturned in this run.
 
@@ -200,80 +200,80 @@ ______________________________________________________________________
 
 ### Digest lane
 
-| Candidate | **D1** | **D2** | **D3** | **D4** | D5 | **D6** | D7 | D8 | D9 | **D10** |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| nvk/llm-wiki | P | N* | Y* | Y | P* | Y | Y | P | P* | Y |
-| hermes-agent llm-wiki | N* | N* | Y | P* | Y* | P* | Y | P* | Y* | Y |
-| AgriciDaniel/claude-obsidian | Y | N | Y | Y | P | Y | Y | P | Y | Y |
-| atomicstrata/llm-wiki-compiler | N | N | Y | Y! | Y | N | Y | P | Y | Y |
-| garrytan/gbrain | P* | P* | P* | Y | Y | Y | Y | P | P* | Y |
-| swarmclawai/swarmvault | Y | N | Y | Y | Y | P | Y | P | Y | Y |
-| Pratiyush/llm-wiki | Y | P | P* | Y | P | P | Y | P | P | Y |
-| SamurAIGPT/llm-wiki-agent | Y | P | P | Y | N | P | Y | P* | N | Y |
-| kepano/obsidian-skills | N* | N* | N* | N* | N* | Y | Y | N* | N* | Y |
-| Karpathy llm-wiki gist | Y* | N* | P* | Y* | N* | N* | P* | N* | Y* | U* |
-| llmwikis.org handbook | P | N | P | Y | P* | N | Y | P | Y | P* |
-| llmwikis.org starter bundle v3.2.0 | N | N | P | P | P | N | Y | P | Y | U |
-| kfchou/wiki-skills | Y | N | P | Y* | N* | Y | Y | P* | P* | Y |
-| gaebalai/cc-llm-wiki | Y | N | P* | Y | N | Y | Y | P | Y | Y |
-| ussumant/llm-wiki-compiler | N | P | P* | Y | P | Y | Y | N | Y* | Y |
-| pumblus/okf-harness | Y | N | P | Y | P | Y | Y | N | P* | Y |
-| skyllwt/AutoSci | P* | Y | P | Y | P* | Y | Y | N | P* | Y |
-| AutoSci runtime schema, second read | Y | P | Y | Y | P* | Y | Y | N | N* | Y |
-| ar9av/obsidian-wiki | P | N | P* | Y | Y | Y | Y | N* | Y* | Y |
-| Astro-Han/karpathy-llm-wiki | P | N | Y | P | N* | Y | Y | P | N* | Y |
-| sdyckjq-lab/llm-wiki-skill | Y | N | Y | Y | Y | Y | Y | N | P* | P |
-| 917Dhj/DeepPaperNote | Y | N | N | P | P | Y | Y | N | N* | Y |
-| Mappedinfo/local-zotero-mirror | N | N | | | | | Y | P | | |
-| alex-roc/zotero-agent | P* | | | | | Y | | P | | Y |
-| PKM-er/obsidian-zotlit | | | | | | P | Y | P | | Y |
-| mgmeyers/obsidian-zotero-integration | | P | | | | | Y | Y | | |
-| 54yyyu/zotero-mcp | | | | | | P | | P | | Y |
-| daeh/zotero-markdb-connect | | | | P | | | P | P | | Y |
-| masaki39/simple-citations | | | | | | | Y | Y | | Y |
-| windingwind/zotero-better-notes | | P | | | P | | | | | Y |
-| UB-Mannheim/zotero-ocr | | | | | | | | | | Y |
-| cli-anything-zotero | | | | | | P | | | | Y |
+| Candidate                            | **D1** | **D2** | **D3** | **D4** | D5  | **D6** | D7  | D8  | D9  | **D10** |
+| ------------------------------------ | ------ | ------ | ------ | ------ | --- | ------ | --- | --- | --- | ------- |
+| nvk/llm-wiki                         | P      | N\*    | Y\*    | Y      | P\* | Y      | Y   | P   | P\* | Y       |
+| hermes-agent llm-wiki                | N\*    | N\*    | Y      | P\*    | Y\* | P\*    | Y   | P\* | Y\* | Y       |
+| AgriciDaniel/claude-obsidian         | Y      | N      | Y      | Y      | P   | Y      | Y   | P   | Y   | Y       |
+| atomicstrata/llm-wiki-compiler       | N      | N      | Y      | Y!     | Y   | N      | Y   | P   | Y   | Y       |
+| garrytan/gbrain                      | P\*    | P\*    | P\*    | Y      | Y   | Y      | Y   | P   | P\* | Y       |
+| swarmclawai/swarmvault               | Y      | N      | Y      | Y      | Y   | P      | Y   | P   | Y   | Y       |
+| Pratiyush/llm-wiki                   | Y      | P      | P\*    | Y      | P   | P      | Y   | P   | P   | Y       |
+| SamurAIGPT/llm-wiki-agent            | Y      | P      | P      | Y      | N   | P      | Y   | P\* | N   | Y       |
+| kepano/obsidian-skills               | N\*    | N\*    | N\*    | N\*    | N\* | Y      | Y   | N\* | N\* | Y       |
+| Karpathy llm-wiki gist               | Y\*    | N\*    | P\*    | Y\*    | N\* | N\*    | P\* | N\* | Y\* | U\*     |
+| llmwikis.org handbook                | P      | N      | P      | Y      | P\* | N      | Y   | P   | Y   | P\*     |
+| llmwikis.org starter bundle v3.2.0   | N      | N      | P      | P      | P   | N      | Y   | P   | Y   | U       |
+| kfchou/wiki-skills                   | Y      | N      | P      | Y\*    | N\* | Y      | Y   | P\* | P\* | Y       |
+| gaebalai/cc-llm-wiki                 | Y      | N      | P\*    | Y      | N   | Y      | Y   | P   | Y   | Y       |
+| ussumant/llm-wiki-compiler           | N      | P      | P\*    | Y      | P   | Y      | Y   | N   | Y\* | Y       |
+| pumblus/okf-harness                  | Y      | N      | P      | Y      | P   | Y      | Y   | N   | P\* | Y       |
+| skyllwt/AutoSci                      | P\*    | Y      | P      | Y      | P\* | Y      | Y   | N   | P\* | Y       |
+| AutoSci runtime schema, second read  | Y      | P      | Y      | Y      | P\* | Y      | Y   | N   | N\* | Y       |
+| ar9av/obsidian-wiki                  | P      | N      | P\*    | Y      | Y   | Y      | Y   | N\* | Y\* | Y       |
+| Astro-Han/karpathy-llm-wiki          | P      | N      | Y      | P      | N\* | Y      | Y   | P   | N\* | Y       |
+| sdyckjq-lab/llm-wiki-skill           | Y      | N      | Y      | Y      | Y   | Y      | Y   | N   | P\* | P       |
+| 917Dhj/DeepPaperNote                 | Y      | N      | N      | P      | P   | Y      | Y   | N   | N\* | Y       |
+| Mappedinfo/local-zotero-mirror       | N      | N      |        |        |     |        | Y   | P   |     |         |
+| alex-roc/zotero-agent                | P\*    |        |        |        |     | Y      |     | P   |     | Y       |
+| PKM-er/obsidian-zotlit               |        |        |        |        |     | P      | Y   | P   |     | Y       |
+| mgmeyers/obsidian-zotero-integration |        | P      |        |        |     |        | Y   | Y   |     |         |
+| 54yyyu/zotero-mcp                    |        |        |        |        |     | P      |     | P   |     | Y       |
+| daeh/zotero-markdb-connect           |        |        |        | P      |     |        | P   | P   |     | Y       |
+| masaki39/simple-citations            |        |        |        |        |     |        | Y   | Y   |     | Y       |
+| windingwind/zotero-better-notes      |        | P      |        |        | P   |        |     |     |     | Y       |
+| UB-Mannheim/zotero-ocr               |        |        |        |        |     |        |     |     |     | Y       |
+| cli-anything-zotero                  |        |        |        |        |     | P      |     |     |     | Y       |
 
 **AutoSci appears twice on purpose.** The first row is the original read; the second is the re-read the critic pass ordered, which is what settles D2. The D2 cell moves from `Y` to `P`, and with it the run's only D2 cover.
 
 ### Capture lane
 
-| Candidate | **C1** | **C2** | C3 | C4 | C5 | **C6** | C7 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| PKM-er/obsidian-zotlit | Y | Y | P | N | N | Y | N |
-| mgmeyers/obsidian-zotero-integration | Y | Y | P | N | N | Y | N |
-| 54yyyu/zotero-mcp | Y | N | P | P | Y | Y | P |
-| cookjohn/zotero-mcp | Y | N | N | Y | Y | Y | P |
-| alex-roc/zotero-agent | Y | N | N | P | Y | Y | Y |
-| cli-anything-zotero | Y | N | P | N | Y | Y | P |
-| retorquere/zotero-better-bibtex | Y | N | P | N | Y | Y | P |
-| windingwind/zotero-better-notes | Y | P | P | N | P | Y | N |
-| 917Dhj/DeepPaperNote | Y | N | N | Y | Y | Y | N |
-| urschrei/pyzotero | P | N | Y | P | Y | Y | P |
-| Mappedinfo/local-zotero-mirror | P | P | P | N | N | Y | N |
-| daeh/zotero-markdb-connect | P | N | N | N | N | Y | N |
-| dvanoni/notero | P | N | P | N | N | Y | N |
-| UB-Mannheim/zotero-ocr | P | N | N | Y | N | Y | P |
-| masaki39/simple-citations | N | Y | P | N | N | Y | N |
-| northword/zotero-format-metadata | N | N | N | N | N | Y | Y |
-| Zotero enrichment catalogue, 36 plugins | | | | | | | Y |
-| zotero-chinese/zotero-plugins catalogue | N | N | N | N | N | Y | P |
-| nvk/llm-wiki | N* | | | P* | P* | Y | |
-| AgriciDaniel/claude-obsidian | N | | | N | Y | | |
-| atomicstrata/llm-wiki-compiler | N | | | P | Y | Y | N |
-| garrytan/gbrain | | | | N | Y | | N* |
-| swarmclawai/swarmvault | | | | Y | Y | | |
-| Pratiyush/llm-wiki | | | | N | Y | | |
-| SamurAIGPT/llm-wiki-agent | | | | Y | Y | | |
-| kepano/obsidian-skills | | N* | | N* | P* | Y | |
-| Karpathy llm-wiki gist | | | | | P* | | |
-| kfchou/wiki-skills | | | | | Y | Y | |
-| skyllwt/AutoSci | N | | | P | Y | | |
-| AutoSci runtime schema, second read | N | P | N | P | Y | Y | P* |
-| ar9av/obsidian-wiki | | | | N* | Y | | |
-| Astro-Han/karpathy-llm-wiki | | | | | | Y | |
-| sdyckjq-lab/llm-wiki-skill | | | | N | Y | | |
+| Candidate                               | **C1** | **C2** | C3  | C4  | C5  | **C6** | C7  |
+| --------------------------------------- | ------ | ------ | --- | --- | --- | ------ | --- |
+| PKM-er/obsidian-zotlit                  | Y      | Y      | P   | N   | N   | Y      | N   |
+| mgmeyers/obsidian-zotero-integration    | Y      | Y      | P   | N   | N   | Y      | N   |
+| 54yyyu/zotero-mcp                       | Y      | N      | P   | P   | Y   | Y      | P   |
+| cookjohn/zotero-mcp                     | Y      | N      | N   | Y   | Y   | Y      | P   |
+| alex-roc/zotero-agent                   | Y      | N      | N   | P   | Y   | Y      | Y   |
+| cli-anything-zotero                     | Y      | N      | P   | N   | Y   | Y      | P   |
+| retorquere/zotero-better-bibtex         | Y      | N      | P   | N   | Y   | Y      | P   |
+| windingwind/zotero-better-notes         | Y      | P      | P   | N   | P   | Y      | N   |
+| 917Dhj/DeepPaperNote                    | Y      | N      | N   | Y   | Y   | Y      | N   |
+| urschrei/pyzotero                       | P      | N      | Y   | P   | Y   | Y      | P   |
+| Mappedinfo/local-zotero-mirror          | P      | P      | P   | N   | N   | Y      | N   |
+| daeh/zotero-markdb-connect              | P      | N      | N   | N   | N   | Y      | N   |
+| dvanoni/notero                          | P      | N      | P   | N   | N   | Y      | N   |
+| UB-Mannheim/zotero-ocr                  | P      | N      | N   | Y   | N   | Y      | P   |
+| masaki39/simple-citations               | N      | Y      | P   | N   | N   | Y      | N   |
+| northword/zotero-format-metadata        | N      | N      | N   | N   | N   | Y      | Y   |
+| Zotero enrichment catalogue, 36 plugins |        |        |     |     |     |        | Y   |
+| zotero-chinese/zotero-plugins catalogue | N      | N      | N   | N   | N   | Y      | P   |
+| nvk/llm-wiki                            | N\*    |        |     | P\* | P\* | Y      |     |
+| AgriciDaniel/claude-obsidian            | N      |        |     | N   | Y   |        |     |
+| atomicstrata/llm-wiki-compiler          | N      |        |     | P   | Y   | Y      | N   |
+| garrytan/gbrain                         |        |        |     | N   | Y   |        | N\* |
+| swarmclawai/swarmvault                  |        |        |     | Y   | Y   |        |     |
+| Pratiyush/llm-wiki                      |        |        |     | N   | Y   |        |     |
+| SamurAIGPT/llm-wiki-agent               |        |        |     | Y   | Y   |        |     |
+| kepano/obsidian-skills                  |        | N\*    |     | N\* | P\* | Y      |     |
+| Karpathy llm-wiki gist                  |        |        |     |     | P\* |        |     |
+| kfchou/wiki-skills                      |        |        |     |     | Y   | Y      |     |
+| skyllwt/AutoSci                         | N      |        |     | P   | Y   |        |     |
+| AutoSci runtime schema, second read     | N      | P      | N   | P   | Y   | Y      | P\* |
+| ar9av/obsidian-wiki                     |        |        |     | N\* | Y   |        |     |
+| Astro-Han/karpathy-llm-wiki             |        |        |     |     |     | Y      |     |
+| sdyckjq-lab/llm-wiki-skill              |        |        |     | N   | Y   |        |     |
 
 The enrichment catalogue is one record covering 36 plugins, scored as seven C7 rows by capability group rather than one row per plugin: DOI and PMCID `Y`, citation counts and citation lists `Y`, TL;DR `P`, arXiv version update and metadata refresh `Y`, metadata-format lint and pre-admission verification `P`, OCR and PDF-to-markdown `Y`, and a `N` row recording four plugins that provide no enrichment at all. The single cell above is the aggregate; the seven rows are in that candidate's section.
 
@@ -281,17 +281,17 @@ The enrichment catalogue is one record covering 36 plugins, scored as seven C7 r
 
 The fact lane is not coverage. Each record is a documentation page or a source file read for the facts in the register, and the cell says which fact identifiers that body answered. `partial` means the body answers part of the fact and names what it does not.
 
-| Body read | Z1 | Z2 | Z3 | Z4 | Z5 | Z6 | Z7 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Zotero Local API page, with linked write, full-text, basics, syncing pages | Y | Y | Y | Y | Y | P | Y |
-| Zotero Web API v3 Write Requests, with the same linked set | Y | Y | Y | Y | Y | P | Y |
-| Zotero Web API v3 Full-Text Content | Y | Y | Y | Y | Y | P | |
-| Zotero Web API v3 Basics | Y | Y | Y | Y | Y | P | Y |
-| Zotero 10 for Developers | Y | Y | Y | Y | Y | Y | Y |
-| zotero-schema commit 55a1312 | Y | Y | Y | Y | Y | Y | Y |
-| Better BibTeX docs, JSON-RPC page | | | | | | P | Y |
-| Better BibTeX `content/json-rpc.ts` at v9.0.63 | | | | | | P | Y |
-| Better BibTeX `content/key-manager.ts` at v9.0.63 | | | | | | P | Y |
+| Body read                                                                  | Z1  | Z2  | Z3  | Z4  | Z5  | Z6  | Z7  |
+| -------------------------------------------------------------------------- | --- | --- | --- | --- | --- | --- | --- |
+| Zotero Local API page, with linked write, full-text, basics, syncing pages | Y   | Y   | Y   | Y   | Y   | P   | Y   |
+| Zotero Web API v3 Write Requests, with the same linked set                 | Y   | Y   | Y   | Y   | Y   | P   | Y   |
+| Zotero Web API v3 Full-Text Content                                        | Y   | Y   | Y   | Y   | Y   | P   |     |
+| Zotero Web API v3 Basics                                                   | Y   | Y   | Y   | Y   | Y   | P   | Y   |
+| Zotero 10 for Developers                                                   | Y   | Y   | Y   | Y   | Y   | Y   | Y   |
+| zotero-schema commit 55a1312                                               | Y   | Y   | Y   | Y   | Y   | Y   | Y   |
+| Better BibTeX docs, JSON-RPC page                                          |     |     |     |     |     | P   | Y   |
+| Better BibTeX `content/json-rpc.ts` at v9.0.63                             |     |     |     |     |     | P   | Y   |
+| Better BibTeX `content/key-manager.ts` at v9.0.63                          |     |     |     |     |     | P   | Y   |
 
 Z3's page separator and Z6's introducing Zotero version are the two facts no documentation page states. Both are answered from source and from a live probe, and are marked as such in the facts section.
 
@@ -3268,11 +3268,13 @@ This bears on any page-locator field in a charting template.
 ```
 | Codex CLI | Copy to `.agents/skills/karpathy-llm-wiki/` |
 ```
+
 **F4.** The mechanical lint leg is report-only and its exit code is explicitly meaningless, so it cannot be wired into a gate without wrapping. `scripts/check_evidence.py` line 28.
 
 ```
 The exit code carries no information; the report is the interface.
 ```
+
 **F5.** Open Knowledge Format conformance is tracked and deferred. `README.md` line 137.
 
 ```
@@ -3285,6 +3287,7 @@ Sibling projects `lucasastorian/llmwiki` and `atomicmemory/llm-wiki-compiler` ar
 ```
 - **Automatic hooks and scheduled runs** — those belong to the agent harness, not a tool-agnostic skill.
 ```
+
 **F7.** An ecosystem observation rather than a body fact: a `karpathy-llm-wiki` name search on GitHub returns a `total_count` of 1,246 repositories, queried 2026-09-05, of which roughly a dozen on the first page are same-idea implementations. The digest-lane candidate space is crowded and largely unexamined by this run.
 
 ### 21. sdyckjq-lab/llm-wiki-skill
@@ -3414,7 +3417,7 @@ Recorded to head off a misreading. The schema template's "直接读取", read di
 **Facts carried from this body.** Eight, each with its own quote in the record.
 
 - **F1.** The implementation credits Karpathy's gist as the source of its methodology. `README.md` line 7, with an English equivalent and a credits list in the English README: "基于 [Andrej Karpathy](https://karpathy.ai/) 的 [llm-wiki 方法论](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)".
-- **F2.** The re-ingest no-op keys on a hash over the relative path, a null byte and the content, so a rename of an otherwise unchanged file is a cache miss and triggers a full re-digest. `scripts/cache.sh` line 128: "digest = hashlib.sha256(relative_path + b\"\\0\" + content).hexdigest()". Anything that renames source notes, including a citekey rename or a Zotero re-key, will re-run the model.
+- **F2.** The re-ingest no-op keys on a hash over the relative path, a null byte and the content, so a rename of an otherwise unchanged file is a cache miss and triggers a full re-digest. `scripts/cache.sh` line 128: "digest = hashlib.sha256(relative_path + b"\\0" + content).hexdigest()". Anything that renames source notes, including a citekey rename or a Zotero re-key, will re-run the model.
 - **F3.** The structured, schema-validated extraction that would be the natural home for charting fields is explicitly transient, generated, validated, then deleted, never persisted as fields on the page. `SKILL.md` line 377: "输出：JSON 格式的分析结果，不持久化，只在当前 ingest 流程里临时传递". Line 402 deletes the file.
 - **F4.** The only script that auto-repairs the vault is constrained by design to additive deterministic fixes and is forbidden from deleting pages or editing content, which is what makes the keep-both-sides property hold mechanically rather than by instruction. `scripts/lint-fix.sh` line 4: "# 修复范围：仅处理确定性修复（补 index 条目），不做高风险操作（删页面、改内容）".
 - **F5.** Wiki-root discovery uses a per-user singleton pointer as the fallback, so without changing directory into a vault holding the schema sentinel there is exactly one active knowledge base per user account. `SKILL.md` line 148: "回退到读取 `~/.llm-wiki-path`".
@@ -5486,44 +5489,44 @@ Recorded so the branches are not re-searched. One sends collections off-site and
 
 **Per-plugin table.** One row per repository, drawn from the record's 36 facts. The compatibility column reproduces the manifest range the reader found in the body, which is what decides loadability, together with the star count and push date at the read.
 
-| Repository (record id) | Provides | Writes into Zotero | Licence | Compatibility and activity |
-| --- | --- | --- | --- | --- |
-| zotero-pmcid-fetcher | PMID + PMCID resolution from an item's DOI via NCBI eutils esearch (lib.ts:326) and the PMC idconv service (lib.ts:366), throttled at one request per ... | to the PMID/PMCID item field when the item type has one, otherwise appends 'PMID: <n>' / 'PMCID: <n>' lines to Extra (lib.ts:249-253, 440); optional M ... | none, no LICENSE file in the tree, no license field in ... | no manifest in the repo (generated at build by 'zotero-plugin/make-manifest', esbuild.js:7); the only version range in t ... |
-| zotero-doi-manager | DOI verification and cleaning, resolves via doi.org handles API, converts short/long via shortdoi.org, strips URL/text prefixes, looks up Crossref Op ... | the DOI field in place (README.md:17); status tags with defaults '⚠️ Invalid DOI', '❓ Multiple DOI', '⛔ No DOI found' (prefs.js:4-6; doi-updater.js:16 ... | MPL-2.0 (LICENSE) | manifest.json:11-12 strict_min_version 8.0 / strict_max_version 10.0.*, loads on 9.0.6. Continuation of bwiernik/zotero ... |
-| zotero-shortdoi | the origin of the DOI validate/clean/shortDOI logic, Crossref auto-fetch of DOIs, shortdoi.org lookup, 'Verify and clean DOIs' that marks invalid DOI ... | DOI field in place; invalid/no-DOI/multiple tags from prefs. | MPL-2.0 (LICENSE) | manifest.json:15-16 6.999-7.0.*; install.rdf:21-22 6.0-7.*, will NOT load on Zotero 9. Idea source only; superseded by ... |
-| zotero-doi-fix | missing-DOI retrieval from Crossref OpenURL (doiManager.js:292) then Crossref REST works search by title/author/year with a title-similarity gate (doi ... | the DOI field, or an Extra line when the item type has no DOI field ('saved to Extra', doiManager.js:106-110, 230-234); status tags doi-fix:no-doi-fou ... | MIT (LICENSE) | manifest.json:13-14 7.0-10.*, loads on 9.0.6. 16 stars, pushed 2026-07-05, HEAD a3a3eca. |
-| zotero-metadata-hunter | missing-DOI lookup in the order CrossRef (index.ts:521) → DBLP (562-564) → Semantic Scholar (800) → arXiv (769); abstract lookup in parallel from Sema ... | DOI field (index.ts:1070, 2223), abstractNote (1100, 2184), other fields in place; status tags 'MetadataHunter: No DOI', 'MetadataHunter: No Published ... | EUPL-1.2 (LICENSE; package.json:14) | addon/manifest.json:10-11 6.999-10.0.*, loads on 9.0.6. 34 stars, pushed 2026-08-31, HEAD 017cc64. |
-| zotero-citation-tally | citation counts from Crossref 'is-referenced-by-count' (citationTally.ts:841-865), INSPIRE 'citation_count' (917-951) and Semantic Scholar (optional A ... | one Extra line per source of the form 'Citations: N (crossref) [YYYY-MM-DD]' (extraField.ts:14), inserted before the BBT 'Citation Key:' line (citatio ... | AGPL-3.0 (LICENSE; package.json:7) | HEAD addon/manifest.json:16-17 strict_min_version 9.999 / 10.*, Zotero 10 only at HEAD; README.md:38 'The last release ... |
-| zotero-citation-counts-tangzhao20 | citation counts from Crossref, INSPIRE-HEP and Semantic Scholar (zoterocitationcounts.js:43-63; README.md:14), Crossref title search when the item has ... | a single Extra line 'N citations (Source) [YYYY-MM-DD]' at the top of Extra, replacing prior 'N citations'/'Citations:' lines (zoterocitationcounts.js ... | MPL-2.0 (LICENSE) | manifest.json:11-12 6.999-9.*, loads on 9.0.6; README.md:15 'compatible with Zotero 8 and Zotero 9'. Fork lineage: esch ... |
-| zotero-open-citations | a sortable citation-count column (lib/open-citations.js:550-558) filled from OpenAlex works API by DOI or title search, no key (197-202, primary); Cro ... | Extra line 'ZSCC: 0000042' (zero-padded, the legacy Scholar Citations marker, lib/open-citations.js:10, 165-176; README.md:56) when writeExtra is on; ... | MPL-2.0 (LICENSE) | manifest.json:17-18 6.999-9.*, loads on 9.0.6. 0 stars, pushed 2026-06-24, HEAD d6304a1. |
-| zotero-google-scholar-citation-count | Google Scholar citation counts scraped from scholar.google.com (gscc.js:241 defaultGsApiEndpoint) with three columns gsccCount, gsccCountUpdated and g ... | an Extra line prefixed 'GSCC:' with a zero-padded count (gscc.js:195, 613-637, 861-868). | MPL-2.0 (LICENSE; package.json:7 'MPLv2') | HEAD src/manifest.json:16-17 9.999-10.* (v7.0.0, Zotero 10); README.md:16 pins v6.0.0 for Zotero 9. 421 stars, pushed 20 ... |
-| scite-zotero-plugin | five item-tree columns, Supporting, Contrasting, Mentioning, Total Smart Citations, Total Distinct Citing Publications (client/content/columns.jsx:19 ... | nothing on the item, tallies are held in memory (lib.ts:200 this.tallies) and served to columns; lib.ts contains no setField/addTag/setNote. Conseque ... | none, no LICENSE file, no license field in package.jso ... | client/manifest.json:10-11 6.999-8.0.*, may not load on 9.0.6; lib.ts:88 'only supports Zotero 7 and after'. 862 stars, ... |
-| zotero-cita | full citation LISTS (not just counts) fetched per item from Wikidata, Crossref, Semantic Scholar, OpenAlex and OpenCitations (README.md:7, 28; src/cit ... | identifiers DOI/QID/OMID/arXiv/PMID/PMCID/CorpusID/OpenAlex on the item (src/cita/PID.ts:27-42, sourceItemWrapper.ts:601); citation records serialised ... | GPL-3.0 (LICENSE.md; package.json:35 GPL-3.0-or-later) | static/manifest.json:17-18 6.999-10.0.*, loads on 9.0.6. 322 stars, pushed 2026-09-03, HEAD 5e577eb. |
-| zotero-openalex | OpenAlex work resolution by DOI/arXiv URL (openalex.ts:16, 528-541), citation count column (openalex.ts:402-414), citation/co-author graphs per collec ... | not recorded | not recorded | addon/manifest.json:16-17 6.999-10.*, loads on 9.0.6. 16 stars, pushed 2026-08-18, HEAD d7c08eb. |
-| zotero-citationcounts-eschnett | the origin of the counts-in-Extra design, Crossref, INSPIRE, (ADS commented out) and Semantic Scholar v1 API (chrome/content/scripts/zoterocitationco ... | Extra line 'N citations (Source) [YYYY-MM-DD]' unshifted to the top (zoterocitationcounts.js:39-58); README.md:31 'they are stored in the Extra field' ... | MPL-2.0 (LICENSE) | install.rdf:20-21 minVersion 6.0 / maxVersion 6.*, Zotero 6 only, overlay-era, dead. 932 stars, pushed 2023-11-09, HEAD ... |
-| ZoteroCitationCountsManager-FrLars21 | Crossref/INSPIRE-HEP/Semantic Scholar counts (zoterocitationcounts.js:42-62, 529-552) and a 'Citation Counts' column (README.md:16). | Extra line 'N citations (Source) [YYYY-MM-DD]' (zoterocitationcounts.js:391-400). | MPL-2.0 (LICENSE) | manifest.json:11-12 6.999-7.0.*, will not load on Zotero 9; update_url points at zotero's make-it-red sample (manifest. ... |
-| ZoteroCitationCountsAgent-flychen50 | FrLars21 fork adding NASA ADS with a bearer API key and title/author/year fallback (src/zoterocitationcounts.js:80-87, 599-601; README.md:15-16, 49-53 ... | Extra line via _setCitationCount (src/zoterocitationcounts.js:445-477). | MPL-2.0 (LICENSE; no license field in package.json) | manifest.json:11-12 6.999-7.0.*, will not load on Zotero 9. 6 stars, pushed 2025-11-06, HEAD 600519b. |
-| zotero-getcitation | a 'Citations' column (bootstrap.js:29-30, 118-120) filled through a fallback chain Semantic Scholar graph API → Crossref → INSPIRE-HEP (bootstrap.js:5 ... | a bare number as the first line of Extra (bootstrap.js:847-854; README.md:14 'Stores the result in Extra as a plain number such as 188'), stripping pr ... | none, no LICENSE file and no package.json in the tree | manifest.json:16-17 6.999-9.*, would load on 9.0.6. 0 stars, pushed 2026-04-03, HEAD 445f4fe. |
-| zTLDR | Semantic Scholar TL;DR summaries fetched from the graph API by DOI (tldrFetcher.ts:160) or title match (216), auto on item add (README.md:22), shown i ... | an Extra line 'TLDR: <text>' inserted at the top, other lines preserved (tldrFetcher.ts:11, 109-127). | AGPL-3.0 (LICENSE; package.json:22) | addon/manifest.json:16-17 6.999-8.*, will not load on 9.0.6. Negative finding for the group: no Zotero-9-loadable S2 TL ... |
-| Zotero-TLDR-syt2 | auto-fetched Semantic Scholar TL;DR for all items (README.md:6, 16) displayed in the item pane; uses the undocumented site endpoint https://www.semant ... | a child note '<p>TL;DR</p><p>…</p>' (tldrFetcher.ts:41-55) and a note-key map in plugin data storage (dataStorage.ts:122). | AGPL-3.0 (LICENSE; package.json:29) | repository ARCHIVED (GitHub API archived=true); addon/manifest.json:16-17 6.999-7.0.*, Zotero 7 only. 61 stars, pushed ... |
-| zoTLDR-menyoung | not recorded | chat transcripts as child notes tagged zs-chat and responses as standalone notes tagged zs-note (README.md:59-60; noteWriter.ts:24-35, 56-57). Cloud L ... | MIT (LICENSE; package.json:22) | addon/manifest.json:16-17 7.999-8.*, not loadable on 9.0.6. Recorded so the TL;DR search is not repeated. 2 stars, push ... |
-| zotero-arxiv-workflow | arXiv version update, merges a preprint with its published item while keeping the preprint's item ID so item-keyed plugin data survives (README.md:33 ... | item type and fields in place; new PDF attachment. | AGPL-3.0 (LICENSE; package.json:32) | addon/manifest.json:16-17 7.999-10.* (README.md:18 'alpha stage and only supports Zotero 8, 9, and 10'); update.json:10 ... |
-| ZotMeta | bulk metadata refresh, journalArticle from DOI via doi.org content negotiation (journal.js:91), book from ISBN via openlibrary.org books API (book.js ... | fields in place (DOI, archiveID 'arXiv:…', repository, url, utilities.js:553-565); 'skipped'/'failed' status tags (utilities.js:423-449). | MIT (LICENSE) | src/manifest.json:11-12 7.0-9.0.* (README.md:37 'supports Zotero 7.0 through 9.0.x'); install.rdf mirrors it. 201 stars, ... |
-| zotero-meta-refresh | batch metadata refresh from CrossRef by DOI or bibliographic query (sources.ts:88, 100), OpenAlex (186, 189), Semantic Scholar by DOI/arXiv/title (257 ... | whitelisted fields and author creators in place (editors/translators kept); when backupToExtra is on, one JSON line '[MetaRefresh <ISO stamp>] {"field ... | AGPL-3.0 (LICENSE; package.json:19) | addon/manifest.json:14-15 7.0-9.*, loads on 9.0.6. 0 stars, pushed 2026-06-19, HEAD b676c98. |
-| zotero-zotadata | attachment validation that moves broken file attachments to the trash while keeping valid PDFs and web links (AttachmentChecker.ts:156-168, 224-226; R ... | not recorded | not recorded | addon/manifest.json:10-11 8.0-9.*, loads on 9.0.6 (README.md:5). 90 stars, pushed 2026-08-21, HEAD 782c547. |
-| arxiv-marker | resolves the real venue of arXiv preprints via the Semantic Scholar batch API keyed on arXiv id (resolver.js:164-165, 223) and DBLP title search (237) ... | item type conversion and venue fields (arxiv-marker.js:111-125), tags 'venue:<canonical>' and 'CORE:<tier>' (resolver.js:358-360), Extra lines 'Citati ... | MIT (LICENSE) | plugin/manifest.json:12-13 6.999-99.99.99 (README.md:14 'Zotero 7/9 plugin'). 9 stars, pushed 2026-06-11, HEAD 56683f9. |
-| zotero-ner | not recorded | creator names and publisher/place/journal fields in place after review (item-processor.js:117-135; zotero-ner.js:835-839). | GPL-3.0 (LICENSE) | manifest.json:17-18 6.999-9.0.*, loads on 9.0.6 (README.md:20 'tested on Zotero 7/8'). 22 stars, pushed 2026-06-15, HEA ... |
-| scholar-sidekick-zotero | not recorded | creates NEW items from the resolved metadata in a chosen collection (import/zotero.ts:273), a 'Retracted' tag when flagged (280), and a child provenan ... | MIT (LICENSE; no license field in package.json) | addon/manifest.json:17-18 7.0-9.*, loads on 9.0.6 (README.md:37 'proven on Zotero 9'). 4 stars, pushed 2026-08-05, HEAD ... |
-| semantic-zotero | fetches the reference list of a selected paper from the Semantic Scholar graph API (chrome/content/semanticZotero.js:62, 126) and lets the user add ch ... | new items. | MIT (LICENSE) | install.rdf:14-15 6.0-6.*, Zotero 6 overlay plugin, dead; not loadable on 7+. Superseded by Cita for in-library citatio ... |
-| inciteful-zotero-plugin | not recorded | nothing to Zotero. | AGPL-3.0 (LICENSE; package.json:22) | addon/manifest.json:16-17 7.999-10.99.99 (README.md:3 'works with Zotero 10 and continues to support Zotero 8 and 9'). R ... |
-| rapidocr-for-zotero | not recorded | a new sibling PDF attachment carrying the text layer, imported via Zotero.Attachments.importFromFile and then indexed with Zotero.Fulltext.indexItems ... | no LICENSE file; README.md:96 'MPL-2.0。OCR 模型来自 PaddleO ... | addon/manifest.json:16-17 9.0-10.0.*, loads on 9.0.6; uses Zotero 10 APIs with shims (scripts/zotero10-*.js). 1 stars, ... |
-| zotero-docling | not recorded | the .md as a sibling attachment via Zotero.Attachments.importFromFile with contentType text/markdown when attachToItem is on (convert.ts:709, 732-735; ... | AGPL-3.0 (LICENSE; package.json:22) | addon/manifest.json:16-17 6.999-* (README.md:3 'Zotero 7 or later'), loads on 9.0.6. 12 stars, pushed 2026-09-03, HEAD ... |
-| mktero | not recorded | not an attachment by default, a Zotero 'snapshot' (HTML+Markdown+source maps) can be saved to a writable library (README.md:42-45, 58) and the correc ... | MIT (LICENSE; no license field in package.json) | manifest.json:15-16 7.0-10.0.*, loads on 9.0.6. 32 stars, pushed 2026-09-01, HEAD 3f5baaf. |
-| mineru-for-zotero | not recorded | parse results (Markdown, box data, images) into a result folder under the Zotero profile, not as attachments (README.md:73; parseManager.ts storage); ... | AGPL-3.0 (LICENSE; package.json:22) | addon/manifest.json:16-17 6.999-9.*, loads on 9.0.6. 4 stars, pushed 2026-09-02, HEAD 946cadb. |
-| MdBundle-for-Zotero | pairs PDF and .md attachments by identical base filename (README.md:16), exports pairs to a folder, diagnoses attachment health (README.md:34), and 'g ... | a .md file next to the PDF containing a title/authors/year header plus the cached text, linked as a child attachment via Zotero.Attachments.linkFromFi ... | no LICENSE file; README.md:6 shows an MIT badge only | src/manifest.json:16-17 6.999-9.*, loads on 9.0.6. 3 stars, pushed 2026-07-27, HEAD 1ec7473. |
-| ZotPDF2md | not recorded | .md files into a user-chosen export directory (pdf2markdown.js:265-283; README.md:38), NOT attached to the item. | none, no LICENSE file and no licence statement in READ ... | manifest.json:13-14 7.0-7.*, will not load on Zotero 9. 0 stars, pushed 2026-02-18, HEAD aabf248. |
-| zotero-AI-OCR | not recorded | the recognised Markdown converted to HTML as a child note titled by template '<engine> (Pages …)' on the parent item (context-menu.ts:1060-1072; READM ... | AGPL-3.0 (LICENSE; package.json:22) | addon/manifest.json:16-17 6.999-9.*, loads on 9.0.6 (README.md:22 'Zotero 7/8/9 插件'). 1 stars, pushed 2026-08-30, HEAD ... |
-| zotero-mas-metadata | metadata and estimated citation count (ECC) from the Microsoft Academic Search API at api.labs.cognitive.microsoft.com/academic/v1.0/ with a user key ... | the count into Extra (masmetadata.js:324-352). | MIT (LICENSE) | install.rdf:15-16 minVersion 5.0.79 / maxVersion 5.0.*, the body says Zotero 5 only, not 6.* as previously claimed. Rec ... |
+| Repository (record id)               | Provides                                                                                                                                                   | Writes into Zotero                                                                                                                                           | Licence                                                          | Compatibility and activity                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| zotero-pmcid-fetcher                 | PMID + PMCID resolution from an item's DOI via NCBI eutils esearch (lib.ts:326) and the PMC idconv service (lib.ts:366), throttled at one request per ...  | to the PMID/PMCID item field when the item type has one, otherwise appends 'PMID: <n>' / 'PMCID: <n>' lines to Extra (lib.ts:249-253, 440); optional M ...   | none, no LICENSE file in the tree, no license field in ...       | no manifest in the repo (generated at build by 'zotero-plugin/make-manifest', esbuild.js:7); the only version range in t ...  |
+| zotero-doi-manager                   | DOI verification and cleaning, resolves via doi.org handles API, converts short/long via shortdoi.org, strips URL/text prefixes, looks up Crossref Op ...  | the DOI field in place (README.md:17); status tags with defaults '⚠️ Invalid DOI', '❓ Multiple DOI', '⛔ No DOI found' (prefs.js:4-6; doi-updater.js:16 ... | MPL-2.0 (LICENSE)                                                | manifest.json:11-12 strict_min_version 8.0 / strict_max_version 10.0.\*, loads on 9.0.6. Continuation of bwiernik/zotero ...  |
+| zotero-shortdoi                      | the origin of the DOI validate/clean/shortDOI logic, Crossref auto-fetch of DOIs, shortdoi.org lookup, 'Verify and clean DOIs' that marks invalid DOI ...  | DOI field in place; invalid/no-DOI/multiple tags from prefs.                                                                                                 | MPL-2.0 (LICENSE)                                                | manifest.json:15-16 6.999-7.0.*; install.rdf:21-22 6.0-7.*, will NOT load on Zotero 9. Idea source only; superseded by ...    |
+| zotero-doi-fix                       | missing-DOI retrieval from Crossref OpenURL (doiManager.js:292) then Crossref REST works search by title/author/year with a title-similarity gate (doi ... | the DOI field, or an Extra line when the item type has no DOI field ('saved to Extra', doiManager.js:106-110, 230-234); status tags doi-fix:no-doi-fou ...   | MIT (LICENSE)                                                    | manifest.json:13-14 7.0-10.\*, loads on 9.0.6. 16 stars, pushed 2026-07-05, HEAD a3a3eca.                                     |
+| zotero-metadata-hunter               | missing-DOI lookup in the order CrossRef (index.ts:521) → DBLP (562-564) → Semantic Scholar (800) → arXiv (769); abstract lookup in parallel from Sema ... | DOI field (index.ts:1070, 2223), abstractNote (1100, 2184), other fields in place; status tags 'MetadataHunter: No DOI', 'MetadataHunter: No Published ...   | EUPL-1.2 (LICENSE; package.json:14)                              | addon/manifest.json:10-11 6.999-10.0.\*, loads on 9.0.6. 34 stars, pushed 2026-08-31, HEAD 017cc64.                           |
+| zotero-citation-tally                | citation counts from Crossref 'is-referenced-by-count' (citationTally.ts:841-865), INSPIRE 'citation_count' (917-951) and Semantic Scholar (optional A ... | one Extra line per source of the form 'Citations: N (crossref) [YYYY-MM-DD]' (extraField.ts:14), inserted before the BBT 'Citation Key:' line (citatio ...   | AGPL-3.0 (LICENSE; package.json:7)                               | HEAD addon/manifest.json:16-17 strict_min_version 9.999 / 10.\*, Zotero 10 only at HEAD; README.md:38 'The last release ...   |
+| zotero-citation-counts-tangzhao20    | citation counts from Crossref, INSPIRE-HEP and Semantic Scholar (zoterocitationcounts.js:43-63; README.md:14), Crossref title search when the item has ... | a single Extra line 'N citations (Source) [YYYY-MM-DD]' at the top of Extra, replacing prior 'N citations'/'Citations:' lines (zoterocitationcounts.js ...   | MPL-2.0 (LICENSE)                                                | manifest.json:11-12 6.999-9.\*, loads on 9.0.6; README.md:15 'compatible with Zotero 8 and Zotero 9'. Fork lineage: esch ...  |
+| zotero-open-citations                | a sortable citation-count column (lib/open-citations.js:550-558) filled from OpenAlex works API by DOI or title search, no key (197-202, primary); Cro ... | Extra line 'ZSCC: 0000042' (zero-padded, the legacy Scholar Citations marker, lib/open-citations.js:10, 165-176; README.md:56) when writeExtra is on; ...    | MPL-2.0 (LICENSE)                                                | manifest.json:17-18 6.999-9.\*, loads on 9.0.6. 0 stars, pushed 2026-06-24, HEAD d6304a1.                                     |
+| zotero-google-scholar-citation-count | Google Scholar citation counts scraped from scholar.google.com (gscc.js:241 defaultGsApiEndpoint) with three columns gsccCount, gsccCountUpdated and g ... | an Extra line prefixed 'GSCC:' with a zero-padded count (gscc.js:195, 613-637, 861-868).                                                                     | MPL-2.0 (LICENSE; package.json:7 'MPLv2')                        | HEAD src/manifest.json:16-17 9.999-10.\* (v7.0.0, Zotero 10); README.md:16 pins v6.0.0 for Zotero 9. 421 stars, pushed 20 ... |
+| scite-zotero-plugin                  | five item-tree columns, Supporting, Contrasting, Mentioning, Total Smart Citations, Total Distinct Citing Publications (client/content/columns.jsx:19 ...  | nothing on the item, tallies are held in memory (lib.ts:200 this.tallies) and served to columns; lib.ts contains no setField/addTag/setNote. Conseque ...    | none, no LICENSE file, no license field in package.jso ...       | client/manifest.json:10-11 6.999-8.0.\*, may not load on 9.0.6; lib.ts:88 'only supports Zotero 7 and after'. 862 stars, ...  |
+| zotero-cita                          | full citation LISTS (not just counts) fetched per item from Wikidata, Crossref, Semantic Scholar, OpenAlex and OpenCitations (README.md:7, 28; src/cit ... | identifiers DOI/QID/OMID/arXiv/PMID/PMCID/CorpusID/OpenAlex on the item (src/cita/PID.ts:27-42, sourceItemWrapper.ts:601); citation records serialised ...   | GPL-3.0 (LICENSE.md; package.json:35 GPL-3.0-or-later)           | static/manifest.json:17-18 6.999-10.0.\*, loads on 9.0.6. 322 stars, pushed 2026-09-03, HEAD 5e577eb.                         |
+| zotero-openalex                      | OpenAlex work resolution by DOI/arXiv URL (openalex.ts:16, 528-541), citation count column (openalex.ts:402-414), citation/co-author graphs per collec ... | not recorded                                                                                                                                                 | not recorded                                                     | addon/manifest.json:16-17 6.999-10.\*, loads on 9.0.6. 16 stars, pushed 2026-08-18, HEAD d7c08eb.                             |
+| zotero-citationcounts-eschnett       | the origin of the counts-in-Extra design, Crossref, INSPIRE, (ADS commented out) and Semantic Scholar v1 API (chrome/content/scripts/zoterocitationco ...  | Extra line 'N citations (Source) [YYYY-MM-DD]' unshifted to the top (zoterocitationcounts.js:39-58); README.md:31 'they are stored in the Extra field' ...   | MPL-2.0 (LICENSE)                                                | install.rdf:20-21 minVersion 6.0 / maxVersion 6.\*, Zotero 6 only, overlay-era, dead. 932 stars, pushed 2023-11-09, HEAD ...  |
+| ZoteroCitationCountsManager-FrLars21 | Crossref/INSPIRE-HEP/Semantic Scholar counts (zoterocitationcounts.js:42-62, 529-552) and a 'Citation Counts' column (README.md:16).                       | Extra line 'N citations (Source) [YYYY-MM-DD]' (zoterocitationcounts.js:391-400).                                                                            | MPL-2.0 (LICENSE)                                                | manifest.json:11-12 6.999-7.0.\*, will not load on Zotero 9; update_url points at zotero's make-it-red sample (manifest. ...  |
+| ZoteroCitationCountsAgent-flychen50  | FrLars21 fork adding NASA ADS with a bearer API key and title/author/year fallback (src/zoterocitationcounts.js:80-87, 599-601; README.md:15-16, 49-53 ... | Extra line via \_setCitationCount (src/zoterocitationcounts.js:445-477).                                                                                     | MPL-2.0 (LICENSE; no license field in package.json)              | manifest.json:11-12 6.999-7.0.\*, will not load on Zotero 9. 6 stars, pushed 2025-11-06, HEAD 600519b.                        |
+| zotero-getcitation                   | a 'Citations' column (bootstrap.js:29-30, 118-120) filled through a fallback chain Semantic Scholar graph API → Crossref → INSPIRE-HEP (bootstrap.js:5 ... | a bare number as the first line of Extra (bootstrap.js:847-854; README.md:14 'Stores the result in Extra as a plain number such as 188'), stripping pr ...   | none, no LICENSE file and no package.json in the tree            | manifest.json:16-17 6.999-9.\*, would load on 9.0.6. 0 stars, pushed 2026-04-03, HEAD 445f4fe.                                |
+| zTLDR                                | Semantic Scholar TL;DR summaries fetched from the graph API by DOI (tldrFetcher.ts:160) or title match (216), auto on item add (README.md:22), shown i ... | an Extra line 'TLDR: <text>' inserted at the top, other lines preserved (tldrFetcher.ts:11, 109-127).                                                        | AGPL-3.0 (LICENSE; package.json:22)                              | addon/manifest.json:16-17 6.999-8.\*, will not load on 9.0.6. Negative finding for the group: no Zotero-9-loadable S2 TL ...  |
+| Zotero-TLDR-syt2                     | auto-fetched Semantic Scholar TL;DR for all items (README.md:6, 16) displayed in the item pane; uses the undocumented site endpoint https://www.semant ... | a child note '<p>TL;DR</p><p>…</p>' (tldrFetcher.ts:41-55) and a note-key map in plugin data storage (dataStorage.ts:122).                                   | AGPL-3.0 (LICENSE; package.json:29)                              | repository ARCHIVED (GitHub API archived=true); addon/manifest.json:16-17 6.999-7.0.\*, Zotero 7 only. 61 stars, pushed ...   |
+| zoTLDR-menyoung                      | not recorded                                                                                                                                               | chat transcripts as child notes tagged zs-chat and responses as standalone notes tagged zs-note (README.md:59-60; noteWriter.ts:24-35, 56-57). Cloud L ...   | MIT (LICENSE; package.json:22)                                   | addon/manifest.json:16-17 7.999-8.\*, not loadable on 9.0.6. Recorded so the TL;DR search is not repeated. 2 stars, push ...  |
+| zotero-arxiv-workflow                | arXiv version update, merges a preprint with its published item while keeping the preprint's item ID so item-keyed plugin data survives (README.md:33 ...  | item type and fields in place; new PDF attachment.                                                                                                           | AGPL-3.0 (LICENSE; package.json:32)                              | addon/manifest.json:16-17 7.999-10.\* (README.md:18 'alpha stage and only supports Zotero 8, 9, and 10'); update.json:10 ...  |
+| ZotMeta                              | bulk metadata refresh, journalArticle from DOI via doi.org content negotiation (journal.js:91), book from ISBN via openlibrary.org books API (book.js ...  | fields in place (DOI, archiveID 'arXiv:…', repository, url, utilities.js:553-565); 'skipped'/'failed' status tags (utilities.js:423-449).                    | MIT (LICENSE)                                                    | src/manifest.json:11-12 7.0-9.0.\* (README.md:37 'supports Zotero 7.0 through 9.0.x'); install.rdf mirrors it. 201 stars, ... |
+| zotero-meta-refresh                  | batch metadata refresh from CrossRef by DOI or bibliographic query (sources.ts:88, 100), OpenAlex (186, 189), Semantic Scholar by DOI/arXiv/title (257 ... | whitelisted fields and author creators in place (editors/translators kept); when backupToExtra is on, one JSON line '\[MetaRefresh <ISO stamp>\] {"field ... | AGPL-3.0 (LICENSE; package.json:19)                              | addon/manifest.json:14-15 7.0-9.\*, loads on 9.0.6. 0 stars, pushed 2026-06-19, HEAD b676c98.                                 |
+| zotero-zotadata                      | attachment validation that moves broken file attachments to the trash while keeping valid PDFs and web links (AttachmentChecker.ts:156-168, 224-226; R ... | not recorded                                                                                                                                                 | not recorded                                                     | addon/manifest.json:10-11 8.0-9.\*, loads on 9.0.6 (README.md:5). 90 stars, pushed 2026-08-21, HEAD 782c547.                  |
+| arxiv-marker                         | resolves the real venue of arXiv preprints via the Semantic Scholar batch API keyed on arXiv id (resolver.js:164-165, 223) and DBLP title search (237) ... | item type conversion and venue fields (arxiv-marker.js:111-125), tags 'venue:<canonical>' and 'CORE:<tier>' (resolver.js:358-360), Extra lines 'Citati ...   | MIT (LICENSE)                                                    | plugin/manifest.json:12-13 6.999-99.99.99 (README.md:14 'Zotero 7/9 plugin'). 9 stars, pushed 2026-06-11, HEAD 56683f9.       |
+| zotero-ner                           | not recorded                                                                                                                                               | creator names and publisher/place/journal fields in place after review (item-processor.js:117-135; zotero-ner.js:835-839).                                   | GPL-3.0 (LICENSE)                                                | manifest.json:17-18 6.999-9.0.\*, loads on 9.0.6 (README.md:20 'tested on Zotero 7/8'). 22 stars, pushed 2026-06-15, HEA ...  |
+| scholar-sidekick-zotero              | not recorded                                                                                                                                               | creates NEW items from the resolved metadata in a chosen collection (import/zotero.ts:273), a 'Retracted' tag when flagged (280), and a child provenan ...   | MIT (LICENSE; no license field in package.json)                  | addon/manifest.json:17-18 7.0-9.\*, loads on 9.0.6 (README.md:37 'proven on Zotero 9'). 4 stars, pushed 2026-08-05, HEAD ...  |
+| semantic-zotero                      | fetches the reference list of a selected paper from the Semantic Scholar graph API (chrome/content/semanticZotero.js:62, 126) and lets the user add ch ... | new items.                                                                                                                                                   | MIT (LICENSE)                                                    | install.rdf:14-15 6.0-6.\*, Zotero 6 overlay plugin, dead; not loadable on 7+. Superseded by Cita for in-library citatio ...  |
+| inciteful-zotero-plugin              | not recorded                                                                                                                                               | nothing to Zotero.                                                                                                                                           | AGPL-3.0 (LICENSE; package.json:22)                              | addon/manifest.json:16-17 7.999-10.99.99 (README.md:3 'works with Zotero 10 and continues to support Zotero 8 and 9'). R ...  |
+| rapidocr-for-zotero                  | not recorded                                                                                                                                               | a new sibling PDF attachment carrying the text layer, imported via Zotero.Attachments.importFromFile and then indexed with Zotero.Fulltext.indexItems ...    | no LICENSE file; README.md:96 'MPL-2.0。OCR 模型来自 PaddleO ... | addon/manifest.json:16-17 9.0-10.0.*, loads on 9.0.6; uses Zotero 10 APIs with shims (scripts/zotero10-*.js). 1 stars, ...    |
+| zotero-docling                       | not recorded                                                                                                                                               | the .md as a sibling attachment via Zotero.Attachments.importFromFile with contentType text/markdown when attachToItem is on (convert.ts:709, 732-735; ...   | AGPL-3.0 (LICENSE; package.json:22)                              | addon/manifest.json:16-17 6.999-\* (README.md:3 'Zotero 7 or later'), loads on 9.0.6. 12 stars, pushed 2026-09-03, HEAD ...   |
+| mktero                               | not recorded                                                                                                                                               | not an attachment by default, a Zotero 'snapshot' (HTML+Markdown+source maps) can be saved to a writable library (README.md:42-45, 58) and the correc ...    | MIT (LICENSE; no license field in package.json)                  | manifest.json:15-16 7.0-10.0.\*, loads on 9.0.6. 32 stars, pushed 2026-09-01, HEAD 3f5baaf.                                   |
+| mineru-for-zotero                    | not recorded                                                                                                                                               | parse results (Markdown, box data, images) into a result folder under the Zotero profile, not as attachments (README.md:73; parseManager.ts storage); ...    | AGPL-3.0 (LICENSE; package.json:22)                              | addon/manifest.json:16-17 6.999-9.\*, loads on 9.0.6. 4 stars, pushed 2026-09-02, HEAD 946cadb.                               |
+| MdBundle-for-Zotero                  | pairs PDF and .md attachments by identical base filename (README.md:16), exports pairs to a folder, diagnoses attachment health (README.md:34), and 'g ... | a .md file next to the PDF containing a title/authors/year header plus the cached text, linked as a child attachment via Zotero.Attachments.linkFromFi ...   | no LICENSE file; README.md:6 shows an MIT badge only             | src/manifest.json:16-17 6.999-9.\*, loads on 9.0.6. 3 stars, pushed 2026-07-27, HEAD 1ec7473.                                 |
+| ZotPDF2md                            | not recorded                                                                                                                                               | .md files into a user-chosen export directory (pdf2markdown.js:265-283; README.md:38), NOT attached to the item.                                             | none, no LICENSE file and no licence statement in READ ...       | manifest.json:13-14 7.0-7.\*, will not load on Zotero 9. 0 stars, pushed 2026-02-18, HEAD aabf248.                            |
+| zotero-AI-OCR                        | not recorded                                                                                                                                               | the recognised Markdown converted to HTML as a child note titled by template '<engine> (Pages …)' on the parent item (context-menu.ts:1060-1072; READM ...   | AGPL-3.0 (LICENSE; package.json:22)                              | addon/manifest.json:16-17 6.999-9.\*, loads on 9.0.6 (README.md:22 'Zotero 7/8/9 插件'). 1 stars, pushed 2026-08-30, HEAD ... |
+| zotero-mas-metadata                  | metadata and estimated citation count (ECC) from the Microsoft Academic Search API at api.labs.cognitive.microsoft.com/academic/v1.0/ with a user key ...  | the count into Extra (masmetadata.js:324-352).                                                                                                               | MIT (LICENSE)                                                    | install.rdf:15-16 minVersion 5.0.79 / maxVersion 5.0.*, the body says Zotero 5 only, not 6.* as previously claimed. Rec ...   |
 
 **Discrepancies the record found between the bodies and what it had been told.** Eleven, recorded rather than smoothed. One plugin's declared maximum version is a full generation lower than claimed. Two repositories declare a different licence in their package metadata than in their licence file. One owner slug in the seed list had one character too many and returned a 404. One plugin has no manifest in its tree at all, since it is generated at build time, and no licence anywhere, so its only version evidence is an update template. One vendor plugin persists nothing on items, so its tallies are not readable from the database. One summary plugin calls an undocumented site endpoint rather than the documented graph API. One converter's unidentified engine turns out to be Zotero's own full-text cache, so no OCR is performed. One project's update manifest and its add-on manifest disagree about the minimum version. One unlicensed count plugin strips other plugins' count lines from the Extra field, so installing it alongside two others loses their data. And one star count was one higher than claimed.
 
@@ -5647,18 +5650,18 @@ The Z lane is not coverage. Its records are documentation pages and source files
 
 ### The bodies read
 
-| Body | Pin | Facts before dedup |
-| --- | --- | --- |
-| Zotero Local API page, with the linked write, full-text, basics, syncing and file-upload pages | Footer "Last updated 2026-07-29" | 92 |
-| Zotero 10 for Developers page, with the same linked set | Footer "Last updated 2026-08-20", source commit recorded | 96 |
-| zotero-schema commit 55a1312 | Commit `55a13120bab31e95d6dc88a82fbfa4bbb60e069c`, authored 2025-12-20 | 83 |
-| Zotero Web API v3 Write Requests page | Footer "Last updated 2026-07-29" | 71 |
-| Zotero Web API v3 Basics page | Footer "Last updated 2026-07-29" | 64 |
-| Better BibTeX `content/json-rpc.ts` at v9.0.63 | Read 2026-09-04 at commit `cfdba6ac`; the file carries no modification line | 53 |
-| Zotero Web API v3 Full-Text Content page | Footer "Last updated 2026-07-29" | 50 |
-| Better BibTeX documentation, JSON-RPC page, first read | Read 2026-09-04 | 43 |
-| Better BibTeX documentation, JSON-RPC page, second read | No modification line on the page, which the reader checked in the body, the footer and the metadata | 37 |
-| Better BibTeX `content/key-manager.ts` at v9.0.63 | Read 2026-09-04 at the same commit | 34 |
+| Body                                                                                           | Pin                                                                                                 | Facts before dedup |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------ |
+| Zotero Local API page, with the linked write, full-text, basics, syncing and file-upload pages | Footer "Last updated 2026-07-29"                                                                    | 92                 |
+| Zotero 10 for Developers page, with the same linked set                                        | Footer "Last updated 2026-08-20", source commit recorded                                            | 96                 |
+| zotero-schema commit 55a1312                                                                   | Commit `55a13120bab31e95d6dc88a82fbfa4bbb60e069c`, authored 2025-12-20                              | 83                 |
+| Zotero Web API v3 Write Requests page                                                          | Footer "Last updated 2026-07-29"                                                                    | 71                 |
+| Zotero Web API v3 Basics page                                                                  | Footer "Last updated 2026-07-29"                                                                    | 64                 |
+| Better BibTeX `content/json-rpc.ts` at v9.0.63                                                 | Read 2026-09-04 at commit `cfdba6ac`; the file carries no modification line                         | 53                 |
+| Zotero Web API v3 Full-Text Content page                                                       | Footer "Last updated 2026-07-29"                                                                    | 50                 |
+| Better BibTeX documentation, JSON-RPC page, first read                                         | Read 2026-09-04                                                                                     | 43                 |
+| Better BibTeX documentation, JSON-RPC page, second read                                        | No modification line on the page, which the reader checked in the body, the footer and the metadata | 37                 |
+| Better BibTeX `content/key-manager.ts` at v9.0.63                                              | Read 2026-09-04 at the same commit                                                                  | 34                 |
 
 Two of these are the same page read twice. Both reads are kept, and where they produced the same quote the entry names both.
 
@@ -5727,7 +5730,7 @@ Where: https://www.zotero.org/support/dev/web_api/v3/local_api#authorizing_write
 remember is true if the user chose “Always Allow”, in which case the key can be reused indefinitely. Otherwise the key is single-use: the first write request that successfully validates it consumes it, and a subsequent write needs a new key. Clients should always be prepared to handle a 401 from a write request by authorizing again.
 ```
 
-Where: https://www.zotero.org/support/dev/web_api/v3/local_api#authorizing_writes, 'Authorizing Writes' (response '{ "key": "<32-character key>", "remember": false }'). Read in: Full-Text Content page, Write Requests page, Basics page, zotero-schema commit 55a1312. Recorded under ids: `Z1-key-lifetime-always-allow`, `Z1-always-allow-key-lifetime`, `Z1-key-lifetime`, `Z1-key-lifetime-single-use-vs-always-allow`.
+Where: https://www.zotero.org/support/dev/web_api/v3/local_api#authorizing_writes, 'Authorizing Writes' (response '{ "key": "\<32-character key>", "remember": false }'). Read in: Full-Text Content page, Write Requests page, Basics page, zotero-schema commit 55a1312. Recorded under ids: `Z1-key-lifetime-always-allow`, `Z1-always-allow-key-lifetime`, `Z1-key-lifetime`, `Z1-key-lifetime-single-use-vs-always-allow`.
 
 **7.** Denial returns 403 with {"denied": true}; at most five dialog-producing requests per minute are accepted, after which 429 with Retry-After.
 
@@ -5839,7 +5842,7 @@ Where: https://www.zotero.org/support/dev/web_api/v3/local_api, H2 'Authorizing 
 return PathUtils.join(Zotero.Profile.dir, 'localAPIKeys.json');
 ```
 
-Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, function _localAPIKeysPath (line 136). Read in: Write Requests page. Record id `Z1-key-store-src`.
+Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, function \_localAPIKeysPath (line 136). Read in: Write Requests page. Record id `Z1-key-store-src`.
 
 **21.** The Zotero 10+ local API honours Zotero-Write-Token with the same 12-hour window but only in memory, so tokens are forgotten on restart.
 
@@ -5855,7 +5858,7 @@ Where: https://www.zotero.org/support/dev/web_api/v3/write_requests, H2 'Zotero-
 Validate the Zotero-Write-Token header (5-32 chars). If present, check that it
 ```
 
-Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, _checkWriteToken doc comment (line 685). Read in: Write Requests page. Record id `Z1-write-token-length-src`.
+Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, \_checkWriteToken doc comment (line 685). Read in: Write Requests page. Record id `Z1-write-token-length-src`.
 
 **23.** PUT and PATCH on a single item must carry the current item version (JSON version property or If-Unmodified-Since-Version); stale version yields 412 and the client must re-fetch.
 
@@ -6062,7 +6065,7 @@ Validate the Zotero-Write-Token header (5-32 chars). If present, check that it
 	 * return a 412 response.
 ```
 
-Where: https://raw.githubusercontent.com/zotero/zotero/main/chrome/content/zotero/xpcom/server/server_localAPI.js @ fc17dcd2, _checkWriteToken(). Read in: Local API page. Record id `Z1-write-token-length-SOURCE`.
+Where: https://raw.githubusercontent.com/zotero/zotero/main/chrome/content/zotero/xpcom/server/server_localAPI.js @ fc17dcd2, \_checkWriteToken(). Read in: Local API page. Record id `Z1-write-token-length-SOURCE`.
 
 **47.** PUT/PATCH must carry the current object version (JSON version or If-Unmodified-Since-Version); stale version gives 412.
 
@@ -6156,7 +6159,7 @@ Where: https://www.zotero.org/support/dev/web_api/v3/basics, heading "HTTP Statu
 async function consumeLocalAPIKey(key) {
 ```
 
-Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, lines 184-190 (addLocalAPIKey at 166-181 stores {key, appName, remember, createdAt} via _saveLocalAPIKeys to a JSON file). Read in: Basics page. Record id `Z1-source-single-use-key-consumption`.
+Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, lines 184-190 (addLocalAPIKey at 166-181 stores {key, appName, remember, createdAt} via \_saveLocalAPIKeys to a JSON file). Read in: Basics page. Record id `Z1-source-single-use-key-consumption`.
 
 **58.** Only the locally logged-in user's data is served; pass user ID 0 or the real numeric ID.
 
@@ -6336,7 +6339,6 @@ Zotero-Server-ID: 6LpvURP2E933
 ```
 
 Where: GET http://localhost:23119/api/, response headers, observed 2026-09-05 (docs/environment.md still says 9.0.6). Read in: zotero-schema commit 55a1312. Record id `Z1-live-local-headers-zotero-10`.
-
 
 ### Z2. Version semantics
 
@@ -6815,7 +6817,6 @@ HTTP 412
 
 Where: GET http://localhost:23119/api/users/0/items?format=versions&since=535 ; same with header If-Modified-Since-Version: 540 ; GET /api/ with header Zotero-Server-ID: WRONGIDXXXXX, observed 2026-09-05 on Zotero 10.0.1. Read in: zotero-schema commit 55a1312. Record id `Z2-live-versions-304-412`.
 
-
 ### Z3. Full-text endpoints
 
 46 facts, deduplicated by quote.
@@ -6924,7 +6925,7 @@ PUT <userOrGroupPrefix>/items/<itemKey>/fulltext sets an attachment’s full-tex
 
 Where: https://www.zotero.org/support/dev/web_api/v3/local_api, H2 'Full-Text Content'. Read in: Write Requests page. Record id `Z3-fulltext-local-bulk-post`.
 
-**147.** Page separator is NOT documented on any Zotero doc page; the PDF extractor (zotero/pdf-worker getFulltext, called by Zotero.Fulltext) ends each page with '\n\n' and inserts a form feed '\f' between pages (not after the last), then NFC-normalises.
+**147.** Page separator is NOT documented on any Zotero doc page; the PDF extractor (zotero/pdf-worker getFulltext, called by Zotero.Fulltext) ends each page with '\\n\\n' and inserts a form feed '\\f' between pages (not after the last), then NFC-normalises.
 
 ```
 text.push('\f');
@@ -7037,7 +7038,7 @@ Where: https://www.zotero.org/support/dev/web_api/v3/fulltext_content, intro. Re
 
 Where: https://www.zotero.org/support/dev/web_api/v3/fulltext_content, § Getting an item’s full-text content (absence of any separator statement verified by grep of both pages for 'separator', '\\f', '\\n'). Read in: Local API page. Record id `Z3-page-separator-DOC-SILENT`.
 
-**156.** SOURCE-DERIVED: pdf-worker joins pages with '\n\n' after each page and a form feed '\f' between pages (not after the last), then trims and NFC-normalizes; extractedPages/totalPages become indexedPages/totalPages.
+**156.** SOURCE-DERIVED: pdf-worker joins pages with '\\n\\n' after each page and a form feed '\\f' between pages (not after the last), then trims and NFC-normalizes; extractedPages/totalPages become indexedPages/totalPages.
 
 ```
 		text.push('\n\n');
@@ -7200,7 +7201,7 @@ let item = await Zotero.Items.getByLibraryAndKeyAsync(libraryID, pathParams.item
 
 Where: https://github.com/zotero/zotero/blob/fc17dcd24ad34686cb24e6b3ffb06a6a7a5e0e5d/chrome/content/zotero/xpcom/server/server_localAPI.js, lines 1423-1442 (ItemFullText.run); cache file name from fulltext.js line 27: this.__defineGetter__("fulltextCacheFile", function () { return '.zotero-ft-cache'; });. Read in: Basics page. Record id `Z3-local-404-source-and-raw-cache`.
 
-**165.** No doc page defines a page separator; the cache text comes from pdf-worker getFulltext, which appends '\n\n' after each page and a form feed '\f' between pages, then trims and NFC-normalizes.
+**165.** No doc page defines a page separator; the cache text comes from pdf-worker getFulltext, which appends '\\n\\n' after each page and a form feed '\\f' between pages, then trims and NFC-normalizes.
 
 ```
 		text.push('\n\n');
@@ -7330,7 +7331,7 @@ Where: fulltext_content, heading "Setting an item’s full-text content". Read i
 len 98966 ; form-feed count: 16 ; around first FF: 'ologies, are reserved.\n\n\n\x0cClaude M.\nSteele\nCopyrig'
 ```
 
-Where: GET http://localhost:23119/api/users/0/items/22AR2P7G/fulltext, response body analysed with Python (content.count('\f')), Zotero 10.0.1, observed 2026-09-05. Read in: zotero-schema commit 55a1312. Record id `Z3-live-page-separator-form-feed`.
+Where: GET http://localhost:23119/api/users/0/items/22AR2P7G/fulltext, response body analysed with Python (content.count('\\f')), Zotero 10.0.1, observed 2026-09-05. Read in: zotero-schema commit 55a1312. Record id `Z3-live-page-separator-form-feed`.
 
 **178.** Live discrepancy: the fulltext endpoint returned Last-Modified-Version 20694 for an attachment whose item version is 0 in a library at version 540, and 432 of 1350 ?since=0 entries are 0, inconsistent with the doc's 'local versions' claim; recorded as observation.
 
@@ -7357,7 +7358,6 @@ entries 1350 ; JWZ94GMK -> None
 ```
 
 Where: GET http://localhost:23119/api/users/0/items/JWZ94GMK/fulltext (attachment imported_url application/pdf), observed 2026-09-05. Read in: zotero-schema commit 55a1312. Record id `Z3-live-404-for-unindexed-pdf`.
-
 
 ### Z4. File endpoints
 
@@ -7568,7 +7568,6 @@ Uploads are only accepted for stored-file attachments (imported_file and importe
 ```
 
 Where: local_api, heading "File Uploads". Read in: zotero-schema commit 55a1312. Record id `Z4-local-upload-flow`.
-
 
 ### Z5. Saved searches and collections
 
@@ -7863,7 +7862,6 @@ saved searches: 0
 
 Where: GET http://localhost:23119/api/users/0/searches?format=json, observed 2026-09-05. Read in: zotero-schema commit 55a1312. Record id `Z5-live-gap-no-saved-searches`.
 
-
 ### Z6. The native `citationKey` field
 
 30 facts, deduplicated by quote.
@@ -8125,7 +8123,6 @@ Where: https://github.com/zotero/zotero-bits/issues/24, title "Citation Label", 
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/key-manager.ts line 42 (sql.missing). Z6's version question is NOT answered by this page, it must come from Zotero's own schema/API docs.. Read in: Better BibTeX `content/key-manager.ts`. Record id `Z6-partial-native-citationkey-field`.
 
-
 ### Z7. Better BibTeX JSON-RPC at 9.0.6x
 
 191 facts, deduplicated by quote.
@@ -8279,7 +8276,7 @@ const eligible = items.filter(item => !item.isFeedItem && item.isRegularItem())
 
 Where: https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/v9.0.63/content/json-rpc.ts#L504-L509. Read in: Better BibTeX docs, first read, Local API page, Better BibTeX `content/json-rpc.ts`. Recorded under ids: `Z7-regenerate-key-non-regular-items`, `Z7-regenerate-key-nonregular-SOURCE`, `Z7-regenerate_key-nonregular`.
 
-**274.** When library is omitted, regenerate_key searches only the user library; '*' searches all libraries.
+**274.** When library is omitted, regenerate_key searches only the user library; '\*' searches all libraries.
 
 ```
 if (typeof library === 'undefined') library = Zotero.Libraries.userLibraryID
@@ -8620,7 +8617,7 @@ To activate git support, first clone the repo that holds your article/thesis/wha
 
 Where: https://retorque.re/zotero-better-bibtex/exporting/auto/, heading "git support". Read in: Better BibTeX docs, second read. Record id `Z7-autoexport-git-push`.
 
-**309.** item.citationkey maps [libraryID]:[itemKey] strings (or the current selection) to citekeys; omitting libraryID means My Library.
+**309.** item.citationkey maps \[libraryID\]:[itemKey] strings (or the current selection) to citekeys; omitting libraryID means My Library.
 
 ```
 item.citationkey(item_keys: string[] | ‘selected’) returns: { [string]: string } item_keys: A list of [libraryID]:[itemKey] strings. If [libraryID] is omitted, assume ‘My Library’ Fetch citationkeys given item keys
@@ -8628,7 +8625,7 @@ item.citationkey(item_keys: string[] | ‘selected’) returns: { [string]: stri
 
 Where: https://retorque.re/zotero-better-bibtex/exporting/json-rpc/, sub-heading "item.citationkey(item_keys: string[] | ‘selected’)". Read in: Better BibTeX docs, second read. Record id `Z7-item-citationkey-lookup`.
 
-**310.** item.regenerate_key recomputes each input citekey's item key from current metadata using the configured citekeyFormat, optionally scoped to a library (* = all libraries).
+**310.** item.regenerate_key recomputes each input citekey's item key from current metadata using the configured citekeyFormat, optionally scoped to a library (\* = all libraries).
 
 ```
 item.regenerate_key(citekeys: string[], library?: string | number) returns: { [string]: string | null } citekeys: Array of citekeys whose items should be regenerated. library: The libraryID to search in (optional). Pass * to search across your library and all groups. Regenerate citekeys from current item metadata. For each input citekey, the underlying item’s key is recomputed using the configured citekeyFormat.
@@ -8660,7 +8657,7 @@ item.export(citekeys: string[], translator: string, libraryID?: string | number)
 
 Where: https://retorque.re/zotero-better-bibtex/exporting/json-rpc/, sub-heading "item.export(...)". Read in: Better BibTeX docs, second read. Record id `Z7-item-export`.
 
-**314.** item.attachments lists an item's attachments by citekey, optionally across all libraries with library='*'; the return type is untyped (any).
+**314.** item.attachments lists an item's attachments by citekey, optionally across all libraries with library='\*'; the return type is untyped (any).
 
 ```
 item.attachments(citekey: string, library?: string | number) returns: any citekey: The citekey to search for library: The libraryID to search in (optional). Pass * to search across your library and all groups. List attachments for an item with the given citekey
@@ -8754,7 +8751,7 @@ Where: https://retorque.re/zotero-better-bibtex/citing/formulas/, functions tabl
 ## Regenerate citation key when item changes default: `no` When true, BBT will overwrite existing keys with new keys after an item changes. ## Automatically fill citation key after default: `2` When &gt; 0, BBT will automatically fill the citation key for an item that does not currently have one after this many seconds. When 0, keys will only be generated on user request.
 ```
 
-Where: https://retorque.re/zotero-better-bibtex/preferences/ (source site/content/preferences/_index.md), headings "Regenerate citation key when item changes", "Automatically fill citation key after"; rename: https://retorque.re/zotero-better-bibtex/changelog/, "v9.0.8": "preference autoPinDelay has been renamed to fillKeyAfter / preference autoPinOverwrite has been renamed to resetKeyOnChange". Read in: Better BibTeX docs, second read. Record id `Z7-key-fill-and-reset-preferences`.
+Where: https://retorque.re/zotero-better-bibtex/preferences/ (source site/content/preferences/\_index.md), headings "Regenerate citation key when item changes", "Automatically fill citation key after"; rename: https://retorque.re/zotero-better-bibtex/changelog/, "v9.0.8": "preference autoPinDelay has been renamed to fillKeyAfter / preference autoPinOverwrite has been renamed to resetKeyOnChange". Read in: Better BibTeX docs, second read. Record id `Z7-key-fill-and-reset-preferences`.
 
 **326.** Changing the citekey formula never rewrites existing keys; regeneration requires an explicit Refresh (UI), which is what item.regenerate_key exposes programmatically.
 
@@ -8925,7 +8922,7 @@ To activate git support, first clone the repo that holds your article/thesis/wha
 
 Where: https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/master/site/content/exporting/auto.md, § git support. Read in: Local API page, Better BibTeX `content/json-rpc.ts`. Record id `Z7-autoexport-git-push`.
 
-**342.** item.citationkey maps '[libraryID]:[itemKey]' strings (or 'selected') to citekeys; libraryID omitted means My Library.
+**342.** item.citationkey maps '\[libraryID\]:[itemKey]' strings (or 'selected') to citekeys; libraryID omitted means My Library.
 
 ```
 **item.citationkey**(item_keys: string[] | ‘selected’)
@@ -8979,7 +8976,7 @@ Where: https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/v9.0.63
 Upside to all of this is that keys will sync.
 ```
 
-Where: https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/v9.0.63/site/content/changelog.md, § v8.0.0 (Major Release); same text in site/content/_index.md. Read in: Local API page. Record id `Z7-pin-store-native-field-v8`.
+Where: https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/v9.0.63/site/content/changelog.md, § v8.0.0 (Major Release); same text in site/content/\_index.md. Read in: Local API page. Record id `Z7-pin-store-native-field-v8`.
 
 **347.** SOURCE-DERIVED: at 9.0.63 KeyManager reads keys from itemData where fieldName='citationKey', writes via item.setField('citationKey', ...), respects an existing native key unless replace, and never writes keys for read-only libraries (cache-only).
 
@@ -9145,7 +9142,7 @@ export class NSAutoExport {
   public async add(collection: string, translator: string, path: string, displayOptions: Record<string, boolean> = {}, replace = false): Promise<{ libraryID: number; key: string; id: number }> {
 ```
 
-Where: https://github.com/retorquere/zotero-better-bibtex/blob/v9.0.63/content/json-rpc.ts, lines 71-82 (class body ends line 114 with no other public method; error text at line 92: 'Auto-export exists with incompatible parameters, but no \'replace\' was requested'). Read in: Basics page. Record id `Z7-autoexport-api-add-only`.
+Where: https://github.com/retorquere/zotero-better-bibtex/blob/v9.0.63/content/json-rpc.ts, lines 71-82 (class body ends line 114 with no other public method; error text at line 92: 'Auto-export exists with incompatible parameters, but no 'replace' was requested'). Read in: Basics page. Record id `Z7-autoexport-api-add-only`.
 
 **358.** item.regenerate_key recomputes keys from current metadata via KeyManager.fill(replace: true) and returns an old→new map where null means the input citekey resolved to no item and an unchanged value means the recomputed key was identical.
 
@@ -9165,7 +9162,7 @@ unchanged, or the new citekey if it changed.
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/v9.0.63/site/layouts/shortcodes/json-rpc.md, "**item.regenerate_key**(citekeys: string[], library?: string | number)" block (lines 107-124); source json-rpc.ts lines 483-520, including "Internally calls the same `KeyManager.fill(..., { replace: true })` path the `Regenerate BibTeX key` right-click menu item invokes." and `if (!eligibleIDs.has(r.itemID)) result[r.citekey] = r.oldKey` for non-regular/feed items. Read in: Basics page. Record id `Z7-regenerate-key-mapping`.
 
-**359.** item.citationkey maps Zotero item keys ([libraryID]:[itemKey] strings, or 'selected') to citekeys, the read-only counterpart of regenerate_key.
+**359.** item.citationkey maps Zotero item keys (\[libraryID\]:[itemKey] strings, or 'selected') to citekeys, the read-only counterpart of regenerate_key.
 
 ```
 **item.citationkey**(item_keys: string[] | 'selected')
@@ -9187,7 +9184,7 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/v9.0.63/site/layo
 * The Zotero-native citation keys are stored in another place than the BBT citation keys. If you have no Zotero-native citation keys yet, BBT will silently migrate them to there. If you do have Zotero-native citation keys, and a migration would overwrite them, you will be offered a windows with the choice on how to migrate your citation keys from the BBT storage to the Zotero storage.
 ```
 
-Where: https://github.com/retorquere/zotero-better-bibtex/blob/v9.0.63/site/content/changelog.md, heading "v8.0.0 (Major Release)" (also "Key Pinning Changes: The concept of pinning is technically gone; because Zotero lacks a specific "pinned" toggle, keys are now always pinned." under "### Changes"; same bullets repeated in site/content/_index.md). Read in: Basics page. Record id `Z7-pin-store-native-field-always-pinned`.
+Where: https://github.com/retorquere/zotero-better-bibtex/blob/v9.0.63/site/content/changelog.md, heading "v8.0.0 (Major Release)" (also "Key Pinning Changes: The concept of pinning is technically gone; because Zotero lacks a specific "pinned" toggle, keys are now always pinned." under "### Changes"; same bullets repeated in site/content/\_index.md). Read in: Basics page. Record id `Z7-pin-store-native-field-always-pinned`.
 
 **361.** Source: KeyManager.update leaves an existing native key untouched unless replace is requested, which is what makes every native key act as pinned.
 
@@ -9388,7 +9385,7 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/json-rpc.ts, class NSItem. Read in: Better BibTeX `content/json-rpc.ts`. Record id `Z7-method-item.bibliography`.
 
-**379.** item.citationkey(item_keys | 'selected') maps Zotero item keys ([libraryID]:[itemKey], libraryID defaulting to My Library) to citekeys, the itemKey-to-citekey bridge; 'selected' uses the current Zotero pane selection and resolves attachments to their parent's key.
+**379.** item.citationkey(item_keys | 'selected') maps Zotero item keys (\[libraryID\]:[itemKey], libraryID defaulting to My Library) to citekeys, the itemKey-to-citekey bridge; 'selected' uses the current Zotero pane selection and resolves attachments to their parent's key.
 
 ```
    * @param item_keys  A list of [libraryID]:[itemKey] strings. If [libraryID] is omitted, assume 'My Library'
@@ -9435,7 +9432,7 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a
       if (readonly(item)) continue // keys for read-only items are cached only, never written back
 ```
 
-Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/key-manager.ts, class _KeyManager, fill(). Read in: Better BibTeX `content/json-rpc.ts`, Better BibTeX `content/key-manager.ts`. Recorded under ids: `Z7-keymanager-readonly-cache-only`, `Z7-readonly-never-written-back`.
+Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/key-manager.ts, class \_KeyManager, fill(). Read in: Better BibTeX `content/json-rpc.ts`, Better BibTeX `content/key-manager.ts`. Recorded under ids: `Z7-keymanager-readonly-cache-only`, `Z7-readonly-never-written-back`.
 
 **384.** item.regenerate_key was added by commit 88c99bb18a (PR #3530, committer date 2026-06-10); the first tag containing that commit is v9.0.28 (v9.0.27 is behind it), and content/json-rpc.ts is unchanged between tag v9.0.63 (f3c9299e1f, 2026-08-26) and the pinned SHA.
 
@@ -9568,7 +9565,7 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a
         if (this.update(item, { replace: Preference.resetKeyOnChange })) {
 ```
 
-Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/key-manager.ts, class _KeyManager, start(), items-changed handler. Read in: Better BibTeX `content/json-rpc.ts`, Better BibTeX `content/key-manager.ts`. Recorded under ids: `Z7-resetKeyOnChange`, `Z7-resetkeyonchange`.
+Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/key-manager.ts, class \_KeyManager, start(), items-changed handler. Read in: Better BibTeX `content/json-rpc.ts`, Better BibTeX `content/key-manager.ts`. Recorded under ids: `Z7-resetKeyOnChange`, `Z7-resetkeyonchange`.
 
 **398.** Preferences doc: 'Regenerate citation key when item changes' defaults to no and overwrites existing keys after an item changes when on; 'Automatically fill citation key after' defaults to 2 seconds.
 
@@ -9578,7 +9575,7 @@ When true, BBT will overwrite existing keys with new keys after an item changes.
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/site/content/preferences/_index.md, heading 'Regenerate citation key when item changes'. Read in: Better BibTeX `content/json-rpc.ts`. Record id `Z7-resetKeyOnChange-doc`.
 
-**399.** The JSON-RPC docs page and the runtime parameter schema are both generated from the NS* classes' JSDoc in content/json-rpc.ts by setup/apis.js.
+**399.** The JSON-RPC docs page and the runtime parameter schema are both generated from the NS\* classes' JSDoc in content/json-rpc.ts by setup/apis.js.
 
 ```
   const jsonrpc = new APIReader('content/json-rpc.ts', /^NS/, /./)
@@ -9658,7 +9655,7 @@ if (!eligibleIDs.has(r.itemID)) result[r.citekey] = r.oldKey [...] await Zotero.
 
 Where: https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/v9.0.63/content/json-rpc.ts lines 483-520 (NSItem.regenerate_key). Read in: Zotero 10 for Developers page. Record id `Z7-regenerate-key-implementation-9.0.63`.
 
-**409.** item.citationkey maps '[libraryID]:[itemKey]' strings (or 'selected') to citekeys, defaulting to My Library; unresolved keys map to null in code.
+**409.** item.citationkey maps '\[libraryID\]:[itemKey]' strings (or 'selected') to citekeys, defaulting to My Library; unresolved keys map to null in code.
 
 ```
 item_keys: A list of [libraryID]:[itemKey] strings. If [libraryID] is omitted, assume ‘My Library’ Fetch citationkeys given item keys || keys[key] = Zotero.BetterBibTeX.KeyManager.any(_ => _.libraryID === libraryID && _.itemKey === itemKey)?.citationKey || null
@@ -9781,7 +9778,7 @@ Read-only library handling is deferred to #3430; until that lands, scope
 
 Where: content/json-rpc.ts at v9.0.63, doc comment on NSItem.regenerate_key. Read in: zotero-schema commit 55a1312. Record id `Z7-regenerate-key-readonly-caveat`.
 
-**421.** item.citationkey takes [libraryID]:[itemKey] strings (library defaults to My Library) or the literal 'selected', and returns key→citekey (null when none).
+**421.** item.citationkey takes \[libraryID\]:[itemKey] strings (library defaults to My Library) or the literal 'selected', and returns key→citekey (null when none).
 
 ```
 /**
@@ -9888,7 +9885,7 @@ Where: site/content/changelog.md at v9.0.63, headings "v8.0.20" and "v8.0.38". R
 
 Where: site/content/changelog.md at v9.0.63, heading "v9.0.8". Read in: zotero-schema commit 55a1312. Record id `Z7-native-field-hidden-in-item-pane`.
 
-**429.** BBT 9.0.63 declares minVersion 8.0.1 and maxVersion 10.* for Zotero.
+**429.** BBT 9.0.63 declares minVersion 8.0.1 and maxVersion 10.\* for Zotero.
 
 ```
 "minVersion": "8.0.1",
@@ -9914,7 +9911,7 @@ Where: POST http://localhost:23119/better-bibtex/json-rpc {"method":"api.ready"}
 Changing a pattern will only affect items created/changed after you changed the pattern; existing keys are not automatically regenerated when you change the pattern. If you want your keys to update after a pattern change you will have to select your items, right-click, and select `Refresh`.
 ```
 
-Where: site/content/citing/_index.md at v9.0.63, headings "Generating citekeys for your items" and "Configurable citekey generator" (renders at https://retorque.re/zotero-better-bibtex/citing/). Read in: zotero-schema commit 55a1312. Record id `Z7-citing-page-key-stability-and-refresh`.
+Where: site/content/citing/\_index.md at v9.0.63, headings "Generating citekeys for your items" and "Configurable citekey generator" (renders at https://retorque.re/zotero-better-bibtex/citing/). Read in: zotero-schema commit 55a1312. Record id `Z7-citing-page-key-stability-and-refresh`.
 
 **432.** The JSON-RPC surface at 9.0.63 is exactly seven namespaces, user, item, items, collection, autoexport, viewer, api, instantiated as fields on a single API singleton.
 
@@ -9949,7 +9946,7 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/json-rpc.ts line 95 (NSAutoExport.add); signature at line 82: `public async add(collection: string, translator: string, path: string, displayOptions: Record<string, boolean> = {}, replace = false)`. Read in: Better BibTeX `content/key-manager.ts`. Record id `Z7-autoexport-add-params`.
 
-**435.** item.regenerate_key(citekeys, library?) takes an array of citekeys and an optional library selector, where '*' searches the personal library and all groups and an omitted library defaults to the user library.
+**435.** item.regenerate_key(citekeys, library?) takes an array of citekeys and an optional library selector, where '\*' searches the personal library and all groups and an omitted library defaults to the user library.
 
 ```
    * @param citekeys  Array of citekeys whose items should be regenerated.
@@ -10082,24 +10079,23 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/json-rpc.ts line 714 (API.handle); code constants declared at lines 24-28. Read in: Better BibTeX `content/key-manager.ts`. Record id `Z7-rpc-error-codes`.
 
-
 ______________________________________________________________________
 
 ## Null report
 
 Nine requirements were treated as floors. For each, the table gives the coverage measured across all 48 read records, counting one status per record and taking the later read where the same URL was read twice. The two AutoSci reads have different URLs, so they count as two records here, exactly as the coverage matrix lists them as two rows. That is why the D2 covers count is one rather than zero: the first AutoSci read is the covers row, and the second read of the same body, at a narrower URL, is a separate record scoring partial. The verified column counts covers rows that an adversarial verify pass re-checked by name and did not refute.
 
-| Floor | Covers | Verified covers | Partial | Does not | Undetermined | No row |
-| --- | --- | --- | --- | --- | --- | --- |
-| **D1** | 11 | 9 | 8 | 5 | 0 | 24 |
-| **D2** | 1 | **0** | 7 | 17 | 0 | 23 |
-| **D3** | 8 | 5 | 12 | 2 | 0 | 26 |
-| **D4** | 16 | 13 | 6 | 1 | 0 | 25 |
-| **D6** | 15 | 12 | 7 | 4 | 0 | 22 |
-| **D10** | 26 | 16 | 2 | 1 | 1 | 18 |
-| **C1** | 8 | 6 | 6 | 9 | 0 | 25 |
-| **C2** | 3 | 3 | 4 | 12 | 0 | 29 |
-| **C6** | 24 | 16 | 0 | 0 | 0 | 24 |
+| Floor   | Covers | Verified covers | Partial | Does not | Undetermined | No row |
+| ------- | ------ | --------------- | ------- | -------- | ------------ | ------ |
+| **D1**  | 11     | 9               | 8       | 5        | 0            | 24     |
+| **D2**  | 1      | **0**           | 7       | 17       | 0            | 23     |
+| **D3**  | 8      | 5               | 12      | 2        | 0            | 26     |
+| **D4**  | 16     | 13              | 6       | 1        | 0            | 25     |
+| **D6**  | 15     | 12              | 7       | 4        | 0            | 22     |
+| **D10** | 26     | 16              | 2       | 1        | 1            | 18     |
+| **C1**  | 8      | 6               | 6       | 9        | 0            | 25     |
+| **C2**  | 3      | 3               | 4       | 12       | 0            | 29     |
+| **C6**  | 24     | 16              | 0       | 0        | 0            | 24     |
 
 Two notes on how to read the verified column. It counts only rows a verify pass named. For the two licence floors that undercounts, because every one of the 61 verify passes re-fetched the licence file at the pin and confirmed it, so a licence finding was checked for all 42 records that carry a verify pass whether or not the pass listed D10 or C6 among its three rows. And a blank row is not a negative: under the run's own convention a candidate with no row for a requirement is undetermined for it, which is usually because the requirement is out of that candidate's lane.
 
@@ -10274,4 +10270,3 @@ https://github.com/papis/papis and https://github.com/papis/papis-zotero — 1,7
 ```
 https://www.zotero.org/support/note_templates — the Zotero-side note-template documentation. Cited only second-hand in the run (notero's colour table quotes it), yet it is the primary source for the HTML/structure conventions any managed region written INTO a Zotero note must respect (C2's in-Zotero counterpart).
 ```
-
