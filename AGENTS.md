@@ -8,7 +8,7 @@ Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share
 
 Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/testing.md`.
 
-Environment facts — Zotero, Better BibTeX, WSL path translation: `docs/environment.md`.
+Environment facts are not written down. Live values come from `python3 -m research_vault probe`; facts a probe cannot answer are recorded where they are used, each with its method and date.
 
 ## Agent skills
 

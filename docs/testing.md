@@ -23,7 +23,7 @@ Preference order:
    Posture: local mode is read-only by default and stays that way — local writes sit behind Zotero's own GUI consent dialog (admission is a human act). Web API for tests: read-only key by default; a write-capable key only for a test that needs it, only against a scratch/group library, and no key is ever stored in this repo.
 3. **Raw JSON-RPC** (escape hatch when neither client covers a probe):
    `curl -s -X POST http://localhost:23119/better-bibtex/json-rpc -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"api.ready","id":1}'`
-   Record any newly discovered API fact in `docs/environment.md` with a date.
+   Record a newly discovered API fact where the design uses it, with its date and how it was established. There is no standing facts file: one went stale for three weeks while claiming to be live-verified.
 
 ## The stale-pyc trap
 
@@ -35,7 +35,7 @@ An editable install can resolve `research_vault` to the parent checkout instead 
 
 ## Exemplars
 
-Live test files (`tests/test_*_live.py`) are the copy-from source for new live tests: fixture shapes, settle windows, cleanup discipline. Environment facts (versions, API surfaces, path translation) live in `docs/environment.md` — check it before rediscovering; extend it when a live probe teaches something new.
+Live test files (`tests/test_*_live.py`) are the copy-from source for new live tests: fixture shapes, settle windows, cleanup discipline. Environment facts are not kept in a file. Run `python3 -m research_vault probe` for live values, and read the specs for facts a probe cannot answer.
 
 ## The WSL2 low-port trap
 
