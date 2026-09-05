@@ -3,7 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=68" ]
 
 [project]
-name = "knowledge-harness"
+name = "research-vault"
 version = "0.1.0"
 description = "Deterministic core for the research-vault plugin"
 # Floor matches mutate4py's own >=3.11; nothing tests or claims 3.10.

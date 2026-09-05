@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install research-vault
-        run: python -m pip install "knowledge-harness @ git+https://github.com/eranroseman/knowledge-harness.git"
+        run: python -m pip install "research-vault @ git+https://github.com/eranroseman/research-vault.git"
       - name: Download Retraction Watch CSV
         run: curl --fail --show-error --location --output "$RUNNER_TEMP/rw.csv" https://gitlab.com/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv
       - name: Configure snapshot identity

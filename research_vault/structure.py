@@ -6,7 +6,7 @@ than the review queue are the recorded fleeting exemption — never checked
 here; the stamp converges them at chokepoints.
 
 ``projects/`` is narrower than the other folders (ruled 2026-09-02,
-knowledge-harness#105): ``publish.project_note()`` requires exactly one
+research-vault#105): ``publish.project_note()`` requires exactly one
 ``type: "project"`` note per project directory, found by scanning
 ``projects/<name>/**/*.md`` for that type field — not by filename. The
 codebase's actual convention for that one file is

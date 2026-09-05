@@ -58,7 +58,7 @@ def test_check_passes_conformant_and_underived_notes(tmp_path):
     assert outcome.result is Result.MATCHED
 
     # A second file alongside draft.md in the same project directory is
-    # underived — any non-empty type passes (knowledge-harness#105).
+    # underived — any non-empty type passes (research-vault#105).
     path = _write(
         tmp_path, "projects/brief/appendix.md", '---\ntype: "appendix"\n---\nbody\n'
     )
