@@ -387,3 +387,91 @@ def test_apply_rows_rejects_a_superseded_target_that_does_not_resolve(
     ]
     with pytest.raises(dispositions.MarkerError, match="does not resolve"):
         dispositions.apply_rows(typo, root=tmp_path, date="2026-09-05")
+
+
+# Issue disposition tests
+
+
+def test_propose_issue_uses_the_spec_named_dispositions():
+    assert dispositions.propose_issue(96) == dispositions.Proposal(
+        "absorbed-by", "§6", False, "spec-named-absorbed"
+    )
+    assert dispositions.propose_issue(116).value == "still-open"
+    assert dispositions.propose_issue(94) == dispositions.Proposal(
+        "pending-map", "", False, "residual"
+    )
+
+
+def test_emit_appends_issue_rows_with_the_title_as_the_note():
+    issues = [
+        {"number": 96, "title": "Distribution model for the recommended plugin bucket"}
+    ]
+    rows = dispositions.parse_rows(dispositions.emit(ROOT, issues=issues))
+    issue_rows = [row for row in rows if row.key.startswith("issue:")]
+    assert len(issue_rows) == 1
+    assert issue_rows[0].key == "issue:96"
+    assert issue_rows[0].note == "Distribution model for the recommended plugin bucket"
+
+
+def test_render_and_read_the_issue_table_round_trip():
+    rows = [
+        dispositions.Row(
+            "issue:96",
+            "absorbed-by",
+            "§6",
+            False,
+            "spec-named-absorbed",
+            "Distribution model",
+        ),
+        dispositions.Row(
+            "issue:116",
+            "still-open",
+            "",
+            False,
+            "spec-named-open",
+            "Land the vocabulary",
+        ),
+    ]
+    text = dispositions.render_issue_table(rows)
+    assert text.startswith("# Issue dispositions\n")
+    assert dispositions.read_issue_table(text) == rows
+
+
+def test_read_issue_table_tolerates_mdformat_column_padding():
+    """mdformat pads table cells; render_issue_table does not. Measured 2026-09-05."""
+    text = (
+        "# Issue dispositions\n\n"
+        "| Issue | Disposition     | Title |\n"
+        "| ----- | --------------- | ----- |\n"
+        "| 96    | absorbed-by: §6 | X     |\n"
+    )
+    assert dispositions.read_issue_table(text) == [
+        dispositions.Row(
+            "issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "X"
+        )
+    ]
+
+
+def test_read_issue_table_rejects_an_off_vocabulary_disposition():
+    text = dispositions.render_issue_table(
+        [dispositions.Row("issue:96", "absorbed-by", "§6", False, "r", "t")]
+    ).replace("absorbed-by: §6", "retired")
+    with pytest.raises(dispositions.MarkerError):
+        dispositions.read_issue_table(text)
+
+
+def test_apply_rows_writes_the_issue_table_and_no_file_named_issue(tmp_path):
+    (tmp_path / "docs").mkdir()
+    rows = [
+        dispositions.Row(
+            "issue:96",
+            "absorbed-by",
+            "§6",
+            False,
+            "spec-named-absorbed",
+            "Distribution model",
+        )
+    ]
+    written = dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
+    assert written == [dispositions.ISSUE_TABLE]
+    assert "| 96 |" in (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")

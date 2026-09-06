@@ -7,6 +7,7 @@ verb would serve none of them.
 
 import argparse
 import datetime as _dt
+import json
 import re
 import subprocess
 import sys
@@ -231,8 +232,8 @@ def propose_or_existing(path: str, text: str) -> Proposal:
     return Proposal(marker.value, marker.argument, marker.flag, "existing")
 
 
-def emit(root: Path = ROOT) -> str:
-    """One reviewable row per in-scope document, header first."""
+def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
+    """One reviewable row per in-scope document, header first, then issues."""
     lines = [HEADER]
     for path in in_scope(root):
         proposal = propose_or_existing(path, (root / path).read_text(encoding="utf-8"))
@@ -245,6 +246,20 @@ def emit(root: Path = ROOT) -> str:
                     FLAG if proposal.flag else "",
                     proposal.rule,
                     "",
+                ]
+            )
+        )
+    for issue in issues or []:
+        proposal = propose_issue(int(issue["number"]))
+        lines.append(
+            "\t".join(
+                [
+                    f"issue:{issue['number']}",
+                    proposal.value,
+                    proposal.argument,
+                    "",
+                    proposal.rule,
+                    issue["title"],
                 ]
             )
         )
@@ -264,6 +279,84 @@ def parse_rows(text: str) -> list[Row]:
         if flag not in ("", FLAG):
             raise MarkerError(f"flag column is {flag!r}, expected '' or {FLAG!r}")
         rows.append(Row(key, value, argument, flag == FLAG, rule, note))
+    return rows
+
+
+ISSUE_VALUES = ("absorbed-by", "superseded", "still-open", "pending-map")
+ISSUE_TABLE = "docs/issue-dispositions.md"
+
+# §10 names these six as the first to close against the assembly spec, and
+# these three as staying open (§2, §4, §7.3). Sections are this plan's reading
+# of where each issue's subject now lives; the author's review is the authority.
+_ABSORBED = {96: "§6", 97: "§5.2", 62: "§9", 63: "§9", 78: "§9", 118: "§5"}
+_STILL_OPEN = frozenset({116, 117, 119})
+
+# mdformat's `tables` extension pads every cell to the column width (measured
+# 2026-09-05: `| 96    | absorbed-by: §6 | X     |`), so the reader tolerates
+# padding even though the renderer emits none.
+_TABLE_ROW = re.compile(
+    r"^\|\s*(?P<number>\d+)\s*\|\s*(?P<disposition>[^|]+?)\s*\|\s*(?P<title>[^|]*?)\s*\|$"
+)
+
+_TABLE_PREAMBLE = """# Issue dispositions
+
+Disposition: current (%(date)s)
+
+Written by the status-marking pass of `docs/superpowers/specs/2026-09-05-assembly-design.md`
+§10 and maintained by `scripts/dispositions.py`. One row per open issue.
+Vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map`.
+`tests/test_dispositions.py` refuses an off-vocabulary row and, where `gh` is
+usable, an open issue with no row.
+
+| Issue | Disposition | Title |
+| --- | --- | --- |
+"""
+
+
+def propose_issue(number: int) -> Proposal:
+    if number in _ABSORBED:
+        return Proposal("absorbed-by", _ABSORBED[number], False, "spec-named-absorbed")
+    if number in _STILL_OPEN:
+        return Proposal("still-open", "", False, "spec-named-open")
+    return Proposal("pending-map", "", False, "residual")
+
+
+def render_issue_table(rows: list[Row], date: str = "") -> str:
+    date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
+    lines = [_TABLE_PREAMBLE % {"date": date}]
+    for row in rows:
+        disposition = row.value + (f": {row.argument}" if row.argument else "")
+        lines.append(
+            f"| {row.key.removeprefix('issue:')} | {disposition} | {row.note} |\n"
+        )
+    return "".join(lines)
+
+
+def read_issue_table(text: str) -> list[Row]:
+    rows = []
+    for line in text.split("\n"):
+        match = _TABLE_ROW.match(line)
+        if match is None:  # the header and separator rows carry no digits
+            continue
+        disposition = match["disposition"].strip()
+        value, _, argument = disposition.partition(": ")
+        if value not in ISSUE_VALUES:
+            raise MarkerError(f"{value!r} is not one of {ISSUE_VALUES}")
+        rule = (
+            "spec-named-absorbed"
+            if value == "absorbed-by"
+            else ("spec-named-open" if value == "still-open" else "residual")
+        )
+        rows.append(
+            Row(
+                f"issue:{match['number']}",
+                value,
+                argument,
+                False,
+                rule,
+                match["title"].strip(),
+            )
+        )
     return rows
 
 
@@ -313,8 +406,13 @@ def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
     # path for a human-chosen one — this is only the unattended fallback.
     date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
     tracked = set(in_scope(root)) if root == ROOT else None
+
+    # Separate issue rows from document rows
+    issue_rows = [row for row in rows if row.key.startswith("issue:")]
+    document_rows = [row for row in rows if not row.key.startswith("issue:")]
+
     written = []
-    for row in rows:
+    for row in document_rows:
         line = marker_line(row.value, row.argument, row.flag, date)
         if (
             row.value == "superseded-by"
@@ -329,6 +427,13 @@ def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
             apply_marker(path.read_text(encoding="utf-8"), line), encoding="utf-8"
         )
         written.append(row.key)
+
+    if issue_rows:
+        (root / ISSUE_TABLE).write_text(
+            render_issue_table(issue_rows, date), encoding="utf-8"
+        )
+        written.append(ISSUE_TABLE)
+
     return written
 
 
@@ -337,12 +442,18 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     propose_cmd = sub.add_parser("propose", help="write the reviewable proposal")
     propose_cmd.add_argument("--out", default="disposition-proposal.tsv")
+    propose_cmd.add_argument("--issues-json", default="")
     apply_cmd = sub.add_parser("apply", help="write markers from a reviewed proposal")
     apply_cmd.add_argument("proposal")
     apply_cmd.add_argument("--date", default="")
     args = parser.parse_args(argv)
     if args.command == "propose":
-        text = emit()
+        issues = (
+            json.loads(Path(args.issues_json).read_text(encoding="utf-8"))
+            if args.issues_json
+            else None
+        )
+        text = emit(issues=issues)
         Path(args.out).write_text(text, encoding="utf-8")
         print(f"proposed {len(parse_rows(text))} rows to {args.out}")
         return 0
