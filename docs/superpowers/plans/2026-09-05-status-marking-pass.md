@@ -25,6 +25,7 @@
 - **Document vocabulary**, closed, in §10's precedence order: `sibling-project`, `superseded-by`, `pending-issue`, `historical`, `pending-map`, `current`. `superseded-by` and `pending-issue` require an argument; the other four forbid one.
 - **Issue vocabulary**, closed: `absorbed-by` (argument is a spec section, `§5.2`-shaped), `superseded`, `still-open`, `pending-map`.
 - **`should-be-scoping-review` is an orthogonal flag, not a status.** A document may be `historical` and flagged.
+- **Any count from a paginated CLI or API states its limit, or is not a count.** `gh issue list` defaults to `--limit 30`; the Zotero local API pages tags at 100. A truncated answer looks complete, and this repository has been bitten twice in one day. Every counting command in this plan carries an explicit limit, and any new one must.
 - **Outward-facing actions need explicit go-ahead.** Task 7 comments on and closes six GitHub issues. Do not run it until the user says so in that turn; a plan approval is not that go-ahead.
 
 ## Corrected premises
@@ -33,9 +34,9 @@ The spec's §10 numbers and its frontmatter rule do not reproduce. All five corr
 
 1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name — **202 files at the 2026-09-05 measurement, and still moving**: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is that measurement, not a contract; nothing in the code depends on one.
 2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all.
-3. **Route deviation — no frontmatter key; one uniform body anchor.** All 9 `SKILL.md` carry a `# ` heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). **Route cell:** if the author prefers the spec's frontmatter route at plan review, the change is confined to `anchor()` plus a frontmatter write branch in `apply_marker()`, and `tests/test_skill_files.py:20` must be re-cut against the new tail.
-4. **Anchor gap.** **25** in-scope files carry no `# ` heading at all — 21 `.superpowers/sdd/2026-08-22-post-q-batch/task-*-brief.md` and 4 `docs/research/**/README.md`. §10's rule ("within the five lines after the first `# ` heading") has no anchor for them, so this plan adds a second case: top of file. The three anchor classes partition the scope exactly — 9 files whose heading follows frontmatter, 25 headingless, 168 heading-first; 9 + 25 + 168 = 202.
-5. **Both counted quantities have decayed.** The spec's "25 carry some header status marker" reads **19** files with a status-shaped line in their first 12 lines, and its "66 open issues" reads **30** from `gh issue list`. All six issues §10 names as first to close (#96, #97, #62, #63, #78, #118) and all three it keeps open (#116, #117, #119) are open today.
+3. **No frontmatter route; one uniform body anchor.** All 9 `SKILL.md` carry a heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). Raised as a decision cell at plan review; **approved, and the spec now carries it** (§10, commit `1c3f3cb`).
+4. **The anchor is any-level, with a four-file fallback.** 25 in-scope files carry no `# ` heading, but 21 of those — the `.superpowers/sdd/…/task-*-brief.md` set — open at `###`. Only the 4 bare-prose `docs/research/**/README.md` files carry no heading of any level. So the rule is **the first heading matching `^#{1,6} `**, with top-of-file as the fallback for those four: two classes, not three, and the marker sits in the same relative position everywhere it can. **The spec now carries this** (§10, commit `1c3f3cb`), including the linter's positional definition. Measured: no in-scope file's first any-level heading sits inside a fenced block.
+5. **One counted quantity decayed; the other was my own truncation.** The spec's "25 carry some header status marker" reads **19** files with a status-shaped line in their first 12 lines. Its "66 open issues" is **correct** — an earlier reading of 30 here was `gh issue list`'s default `--limit 30` presented as a total, the same silent-truncation trap that turned a 100-item first page of 2,673 Zotero tags into "the three scanner tags". `gh issue list --state open --limit 200` returns **66**. All six issues §10 names as first to close (#96, #97, #62, #63, #78, #118) and all three it keeps open (#116, #117, #119) are open today.
 
 ## File map
 
@@ -68,17 +69,19 @@ The spec's counts have decayed once already. Run:
 
 ```bash
 python3 - <<'PY'
+import re
 import subprocess
 files = subprocess.run(["git", "ls-files", "--", "*.md"], capture_output=True, text=True).stdout.split()
 excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/")) or p == "CLAUDE.md"
 scope = [p for p in files if not excluded(p)]
 frontmatter = [p for p in scope if open(p, encoding="utf-8").read().startswith("---\n")]
-headless = [p for p in scope if p not in frontmatter and not any(l.startswith("# ") for l in open(p, encoding="utf-8"))]
+heading = re.compile(r"^#{1,6} ")
+headless = [p for p in scope if not any(heading.match(l) for l in open(p, encoding="utf-8"))]
 print("tracked", len(files), "scope", len(scope), "frontmatter", len(frontmatter), "headless", len(headless))
 PY
 ```
 
-Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 202 frontmatter 9 headless 25`. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
+Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 202 frontmatter 9 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -108,8 +111,14 @@ def test_anchor_is_the_line_after_the_first_heading():
     assert dispositions.anchor(["# Title", "", "Body"]) == 1
 
 
-def test_anchor_falls_back_to_the_top_when_there_is_no_heading():
-    assert dispositions.anchor(["Task 1 brief", "", "Body"]) == 0
+def test_anchor_takes_a_heading_of_any_level():
+    """21 in-scope files open at `###` — the sdd task briefs."""
+    assert dispositions.anchor(["### Task 1: Rename", "", "Body"]) == 1
+    assert dispositions.anchor(["## Section", "", "# Later", ""]) == 1
+
+
+def test_anchor_falls_back_to_the_top_for_the_four_headingless_files():
+    assert dispositions.anchor(["Raw transcripts live here.", "", "Body"]) == 0
 
 
 def test_anchor_ignores_a_hash_line_inside_a_fence():
@@ -134,8 +143,13 @@ def test_read_marker_reads_the_orthogonal_flag():
     assert (marker.value, marker.flag) == ("historical", True)
 
 
-def test_read_marker_reads_the_headless_anchor():
-    text = "Disposition: historical (2026-09-05)\n\nTask 1 brief\n"
+def test_read_marker_reads_the_third_level_anchor():
+    text = "### Task 1: Rename\n\nDisposition: historical (2026-09-05)\n\nRuled 2026-08-22.\n"
+    assert dispositions.read_marker(text).value == "historical"
+
+
+def test_read_marker_reads_the_headingless_fallback_anchor():
+    text = "Disposition: historical (2026-09-05)\n\nRaw transcripts live here.\n"
     assert dispositions.read_marker(text).value == "historical"
 
 
@@ -217,6 +231,8 @@ DOCUMENT_VALUES = (
 ARGUMENT_VALUES = frozenset({"superseded-by", "pending-issue"})
 FLAG = "should-be-scoping-review"
 
+_HEADING = re.compile(r"^#{1,6} ")
+
 _MARKER = re.compile(
     r"^Disposition: (?P<value>[a-z-]+)(?:: (?P<argument>\S+))?"
     r" \((?P<date>\d{4}-\d{2}-\d{2})\)(?P<flag> \[" + FLAG + r"\])?$"
@@ -252,17 +268,20 @@ def in_scope(root: Path = ROOT) -> list[str]:
 
 
 def anchor(lines: list[str]) -> int:
-    """The index the marker window opens at: after the first `# ` heading, else 0.
+    """The index the marker window opens at: after the first heading, else 0.
 
-    Fence-aware — a `# ` inside a fenced block is a shell comment, not a heading.
-    No file in scope trips that today; new documents arrive without asking.
+    Any level (spec §10): 21 in-scope files open at `###`, and only the four
+    bare-prose `docs/research/**/README.md` files carry no heading at all.
+    Fence-aware — a `# ` inside a fenced block is a shell comment, not a
+    heading. No file in scope trips that today; new documents arrive without
+    asking.
     """
     fenced = False
     for index, line in enumerate(lines):
         if line.startswith("```"):
             fenced = not fenced
             continue
-        if not fenced and line.startswith("# "):
+        if not fenced and _HEADING.match(line):
             return index + 1
     return 0
 
@@ -309,8 +328,9 @@ git add scripts/dispositions.py tests/test_dispositions.py
 git commit -m "$(cat <<'MSG'
 feat: scope and positional reader for the §10 disposition marker
 
-Three anchor classes partition the marking scope: 9 files whose heading
-follows frontmatter, 25 headingless, 168 heading-first. The reader looks only
+Two anchor classes partition the marking scope: the first heading of any
+level (198 files, 21 of them opening at ###), and top-of-file for the four
+bare-prose READMEs that carry none. The reader looks only
 inside the five-line window so a body `Status: **CONFIRMED.**` cannot be
 mistaken for a header marker.
 
@@ -373,7 +393,7 @@ def test_proposal_keeps_the_unsuspended_adrs_current():
 
 def test_proposal_marks_the_closed_sdd_workspace_historical():
     path = ".superpowers/sdd/2026-08-22-post-q-batch/task-1-brief.md"
-    assert dispositions.propose(path, "Task 1 brief\n").value == "historical"
+    assert dispositions.propose(path, "### Task 1: Rename\n").value == "historical"
 
 
 def test_proposal_marks_shipped_surfaces_current():
@@ -774,10 +794,18 @@ def test_apply_marker_inserts_a_paragraph_after_the_heading():
     assert dispositions.read_marker(out).value == "current"
 
 
-def test_apply_marker_inserts_at_the_top_of_a_headless_file():
-    text = "Task 1 brief\n\nBody.\n"
+def test_apply_marker_inserts_after_a_third_level_heading():
+    text = "### Task 1: Rename\n\nRuled 2026-08-22.\n"
     out = dispositions.apply_marker(text, "Disposition: historical (2026-09-05)")
-    assert out == "Disposition: historical (2026-09-05)\n\nTask 1 brief\n\nBody.\n"
+    assert out == (
+        "### Task 1: Rename\n\nDisposition: historical (2026-09-05)\n\nRuled 2026-08-22.\n"
+    )
+
+
+def test_apply_marker_inserts_at_the_top_of_a_headingless_file():
+    text = "Raw transcripts live here.\n\nBody.\n"
+    out = dispositions.apply_marker(text, "Disposition: historical (2026-09-05)")
+    assert out == "Disposition: historical (2026-09-05)\n\nRaw transcripts live here.\n\nBody.\n"
 
 
 def test_apply_marker_is_idempotent_and_replaces_in_place():
@@ -1314,13 +1342,13 @@ grep -c '^issue:' disposition-proposal.tsv
 grep '^issue:' disposition-proposal.tsv | cut -f2 | sort | uniq -c
 ```
 
-Expected: 30 open issues, measured 2026-09-05 — six `absorbed-by`, three `still-open`, the rest `pending-map`. A different count means the tracker moved; carry the new number.
+Expected: **66** open issues, measured 2026-09-05 with an explicit `--limit` — six `absorbed-by`, three `still-open`, the remaining 57 `pending-map`. `gh issue list` defaults to `--limit 30`, so a bare invocation would silently report a third of the tracker as the whole of it; that is why every count here names its limit. A different count means the tracker moved; carry the new number.
 
 - [ ] **Step 6: STOP — hand the issue rows to the author**
 
 **Second approval gate.** Show the 30 issue rows and say:
 
-> Nine rows carry a spec-named proposal; the other 21 default to `pending-map`. The six `absorbed-by` rows are the ones §10 says close against this spec, and the section each cites is this plan's reading of where the subject now lives — check §5.2 for #97 and §9 for #62, #63 and #78 in particular. Nothing is closed by applying this: the table is a file. Closing happens in the next task, and only when you say so.
+> Nine rows carry a spec-named proposal; the other 57 default to `pending-map`. The six `absorbed-by` rows are the ones §10 says close against this spec, and the section each cites is this plan's reading of where the subject now lives — check §5.2 for #97 and §9 for #62, #63 and #78 in particular. Nothing is closed by applying this: the table is a file. Closing happens in the next task, and only when you say so.
 
 - [ ] **Step 7: Apply, format, and verify**
 
