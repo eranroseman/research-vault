@@ -6,150 +6,172 @@ Status: draft for author review (2026-09-05) — nothing here is decided except 
 
 Four labels, used wherever a reader could not otherwise tell which applies. Unlabelled prose is **proposed**.
 
-- **measured** — established by a live read or command on this machine, with the date and the command in §14.
-- **read** — established by reading a source file, a shipped artifact, or vendor documentation, with the location in §14.
+- **measured** — established by a live read or command on this machine, with the date and the artefact or endpoint in §14.
+- **read** — established from a source file, a shipped artefact, or vendor documentation, with the file and line, the URL, or the artefact named in §14.
 - **chosen** — the author picked it in the 2026-09-05 brainstorm. Re-pickable, but not this document's to overturn.
 - **open** — not yet answered. Carried in §15.
 
-A fact with no method is not a fact here. Where this document contradicts working code or an earlier spec, it names the thing it contradicts.
+A fact with no method is not a fact here.
 
-**Facts have a shelf life.** A plugin-version fact on this machine expired inside one day: the sourcing catalogue's compatibility column was taken against Zotero 9.0.6 and the machine now runs 10.0.1 (§14). Every environment row in §14 carries its date, and a lane that relies on one older than its own start date re-measures it rather than citing it.
+**Facts have a shelf life, and inherited facts have none at all.** The sourcing catalogue judged plugin loadability against Zotero 9.0.6 — a value carried from a deleted standing-facts file — while this machine had run 10.0.1 since 2026-08-26, including on 2026-09-04, the catalogue's own date (§7.3, §14). That fact was wrong when written, not stale by elapse. The obligation stands either way: every environment row in §14 carries its date, a lane relying on one older than its own start date re-measures rather than cites, and a row with no probe of its own is not a dated fact at all.
+
+**This document has already demonstrated the failure it describes.** Between its first probe run and its first commit, the author enabled PMCID auto-fetch and re-enabled Zoplicate, and four §14 rows became false inside seventeen minutes. The rows below are re-measured as of 19:0x on 2026-09-05, and they will decay the same way.
 
 ## 2. What this spec is, and what binds
 
 This spec turns research-vault from a package that implements a research workflow into a **distribution**: a pinned set of third-party components, thin glue, and a setup/doctor/drift mechanism that keeps the set honest.
 
-It names no component winners. It fixes the **obligations** the components must answer to (§4), the **register** that records what was chosen and why (§5), the **classes** each component belongs to and how each class is pinned (§6), and the **lanes** that do the choosing (§7).
+It names no component winners. It fixes the **obligations** components answer to (§4), the **step map** and **register** that record what was chosen and why (§5), the **classes** each component belongs to and how each is pinned (§6), and the **lanes** that do the choosing (§7).
 
-What binds:
+What binds: the **measured environment** (§14) and the **author's choices** (§3).
 
-- The **measured environment** — §14.
-- The **author's choices** — §3.
+What does not bind, and why each is still useful:
 
-What does not bind, and why it is still useful:
-
-- `CONTEXT.md` and `docs/adr/` are non-binding. ADRs 0004 and 0005 read `suspended (2026-09-03) — under re-derivation`. Their disposition belongs to issue #116, not here; this spec hands it forward rather than settling it, because the vocabulary will not be stable until the lanes have run.
-- `docs/superpowers/specs/2026-09-04-import-redesign-design.md` is demoted from decision to **fact source**. Its §9 probes and the sourcing note behind it remain citable under §1's shelf-life rule. Its choices are re-opened.
-- Existing code enters as **cost** and as **evidence**, never as authority. "We already built it" is not an argument, and §11 states the audit that acts on that.
+- `CONTEXT.md` and `docs/adr/` are non-binding. ADRs 0004 and 0005 carry `Status: suspended (2026-09-03)` and say on their face that nothing new builds on them until they return to accepted or are superseded. Their disposition belongs to issue #116, not here; the vocabulary will not be stable until the lanes have run.
+- `docs/superpowers/specs/2026-09-04-import-redesign-design.md` is demoted from decision to **fact source**. Its probes remain citable under §1's shelf-life rule; its choices are re-opened.
+- `docs/superpowers/specs/2026-08-16-foundation-spec.md` is demoted on the same terms, and this spec re-opens three of its choices by name: **research-vault-owned note generation** (an unscreened `build` under §5.2), **MarkDB-Connect as the sole vault→Zotero write-back** (a Zotero plugin not among the 23 installed, which is why lane 2's scope reads "all 23 installed, plus the author's named not-installed candidates"), and **ZotLit as later-adoptable UI**. Its file conventions, including the daily log, remain **read**.
+- Existing code enters as **cost** and as **evidence**, never as authority. §11 states the audit that acts on that.
 
 ## 3. Decisions
 
 All **chosen** 2026-09-05 unless noted.
 
-1. **Distribution over implementation.** research-vault is a pinned component set plus glue. Existing code survives only where a named workflow step needs it and no component fills the gap.
-2. **Audit before deletion.** Every module in `research_vault/` receives a one-line disposition before anything is cut. The mutation suite and the linter work are preserved where their subject survives. §11.
-3. **Two runtime tiers, restated.** A human-driven step may require a GUI. A mechanical check requires **no human in a GUI**; its carriers are the Zotero profile filesystem and the Zotero local API. *This is a repair of the original wording, forced by evidence*: the local API exposes no plugin enumeration and itself needs the Zotero process running, while the profile files are readable with Zotero closed and are only fully current after it exits (§6.1, §14). The mechanical tier therefore prefers Zotero **closed**, which is the inverse of the assumption it started from.
-4. **One assembly spec, lanes executed inside and after it.** Not six lane specs up front, and not lane-local specs with the glue arriving last.
-5. **Lane order is 0 → 4 as in §7.** *This supersedes the earlier choice of Zotero plugin curation as the first lane*, which was the weakest of the six: curation produces a document, while a distribution's claim is install + pin + drift, and lanes 1 and 2 are mutually dependent until lane 0 breaks the cycle.
+1. **Distribution over implementation.** research-vault is a pinned component set plus glue. Existing code survives only where a named step (§5.0) needs it and no component fills the gap.
+2. **Audit before deletion.** Every CLI verb receives a one-line disposition, and so does every module and entry point no verb reaches — including the three files in `hooks/` (847 lines) and `hooks/hooks.json`. The verb is the decision unit; the module is the record unit. The mutation suite and the linter work are preserved where their subject survives. §11.
+3. **Two runtime tiers, and the mechanical tier splits in two.** A human-driven step may require a GUI. A mechanical check requires **no human in a GUI**, and its two carriers have opposite preconditions: **mechanical-live** uses the Zotero local API and needs Zotero up; **mechanical-cold** reads the Zotero profile filesystem and needs it down. *This is a repair of the original wording, forced by evidence*: the local API exposes no plugin enumeration (§14) and runs inside the Zotero process, while `extensions.json` and `prefs.js` are readable with Zotero closed. Whether they are *fully current* only after exit is **open** — both were observed rewritten with Zotero running (§15.13). The register's `tier` column carries which.
+4. **One assembly spec; lane 0 executed inside it, lanes 1–4 after it.** Not six lane specs up front, and not lane-local specs with the glue arriving last.
+5. **Lane order is the dependency order in §7**: 0, then 1, then 2 and 3a concurrently, then 3b, then 4. *This supersedes the earlier choice of Zotero plugin curation as first lane* — curation produces a document, while a distribution's claim is install + pin + drift, and lanes 1 and 2 are mutually dependent until lane 0 breaks the cycle.
 6. **A status-marking pass runs before this spec's lanes.** §10.
 7. **Requirements are indexed, not translated.** §4.
-8. **A `build` disposition must name the floor no candidate met and the candidate set screened.** Enforced as a register schema constraint, not as prose. §5.2.
+8. **The build bar scales with embedded knowledge.** §5.2.
 9. **Cold start is a spec requirement with a mechanical check.** §8.
-10. **The repository goes public**, after the cutover preconditions in §12 are met.
-11. **URL-only sources: the cut is cited versus consulted, not URL versus document.** Recorded as a lane 1 open item with its evidence, not settled here. §7.2.
+10. **The repository goes public**, after §12's preconditions are met.
+11. **URL-only sources: the cut is cited versus consulted.** Proposed with its evidence in §7.2; lane 1 confirms or overturns it. Not settled here.
 
 ## 4. Obligations index
 
-The five founding documents are indexed, never translated. An index row cites; it does not say what the system shall do. That keeps interpretation with the lane that has the evidence to interpret, and it keeps this spec from resolving conflicts it has not earned.
+The five founding documents are indexed, never translated. An index row cites; it does not say what the system shall do. That keeps interpretation with the lane that has the evidence, and keeps this spec from resolving conflicts it has not earned.
 
-| Source | What it carries | Answering lane |
-| --- | --- | --- |
-| PRISMA-S | reporting items for a literature search | search |
-| PRISMA-ScR | the scoping-review extension checklist | scoping review |
-| ACM submission guidelines | manuscript and reference-format obligations | long form |
-| Notetaking for Historians (Obsidian publish) | a prose-first, low-machinery vault workflow | vault layout, daily log |
-| Karpathy's llm-wiki gist | the LLM-maintained-wiki maintenance pattern | compile |
+| Source | What it carries | Step it binds | Who answers it |
+| --- | --- | --- | --- |
+| PRISMA-S | reporting items for a literature search | `search` | issue #117 — not a lane of this spec |
+| PRISMA-ScR | the scoping-review extension checklist | `scoping-review` | issue #119 — not a lane of this spec |
+| ACM submission guidelines | manuscript and reference-format obligations | `long-form` | unowned — §15.11 |
+| Notetaking for Historians | a prose-first, low-machinery vault workflow | `vault-setup`, `daily-log` | lane 3a for layout; daily log unowned — §15.12 |
+| Karpathy's llm-wiki gist | the LLM-maintained-wiki maintenance pattern | `compile` | lane 1 |
+
+A lane *answers* a step; it does not own one. The step column is the register's key (§5.0).
 
 Two properties the index must have:
 
-- **Conflicts are recorded as conflicts.** These five pull apart — history-notes is prose-first and low-machinery, PRISMA-ScR is protocol-driven and checklist-bound, ACM is a submission format. A row may read *"history-notes and PRISMA-ScR pull opposite ways here; lane N resolves"*. An implicit conflict where each lane silently picks a side is strictly worse.
-- **The sources live in the vault, not in a URL.** All five are admitted to Zotero and captured, making them the first sources the pipeline handles. The index then cites literature notes rather than links, the guidelines outlive their URLs, and lane 1's capture contract gets its first real test case from the documents that define the work.
+- **Conflicts are recorded as conflicts.** These five pull apart — history-notes is prose-first and low-machinery, PRISMA-ScR is protocol-driven and checklist-bound, ACM is a submission format. A row may read *"history-notes and PRISMA-ScR pull opposite ways here; the answering party resolves"*. An implicit conflict where each lane silently picks a side is strictly worse.
+- **The sources live in the vault, not in a URL.** All five are admitted to Zotero and captured, making them the first sources the pipeline handles. The index then cites literature notes rather than links, and lane 1's capture contract gets its first real test case from the documents that define the work.
 
-**Gap pass.** Per-lane at close, then once at the end. A gap found at lane close is a floor amendment; the same gap found after every lane has run is a re-run.
+**Definitions the rest of the spec leans on.** A **floor** is a numbered requirement a lane writes into its scoping review *before* it screens candidates; this index's rows are its sources. `floor_failed` cites a floor by lane and number, and the register's linter rejects a value that does not resolve to one. A **re-run** re-opens a named lane against a candidate set the gap defines, and needs the author's approval.
 
-## 5. The component register
+**Gap pass.** Mechanically: every obligation in this index with no register row citing it (§5.1's `obligations` column). Run per-lane at close, then once at the end. A gap found at lane close is a floor amendment; the same gap found after every lane has run is a re-run.
 
-### 5.1 Shape
+## 5. The step map and the component register
 
-One row per workflow step. The register is the artifact that outlives this spec; lanes append to it and nothing else may.
+### 5.0 The step map
+
+The steps are the register's key domain, closed for this spec's lanes and extended only by an author decision:
+
+`vault-setup`, `capture`, `compile`, `search`, `scoping-review`, `long-form`, `daily-log`, `publish`
+
+§4 seeds it. Each lane appends the components that serve a step and may not invent one. A verb serving a step no lane covers is dispositioned `deferred`, never `serves nothing` (§11).
+
+### 5.1 Register shape
+
+Keyed on `(step, component)`, with an empty `step` permitted for a component that serves none. Lanes append rows and may supersede their own; a named header block carries what is not a row.
 
 | Column | Meaning |
 | --- | --- |
-| `step` | the workflow step served |
+| `step` | the step served, from §5.0; may be empty |
 | `component` | what serves it, or empty |
 | `class` | one of §6's four |
-| `disposition` | `adopt` \| `adapt` \| `build` \| `gap` \| `open` |
+| `disposition` | `adopt` \| `adapt` \| `build` \| `gap` \| `reject` \| `open` |
 | `pin` | the pinned identifier, in the class's own vocabulary |
-| `pin_semantics` | `held` or `verified-against` — see §6 |
+| `pin_semantics` | `held` or `verified-against` — §6 |
 | `provisioning` | how it is installed |
-| `tier` | `gui` or `mechanical` |
-| `decided_by` | the lane that closed the row |
-| `decided_on` | the date |
+| `tier` | `gui` \| `mechanical-live` \| `mechanical-cold` |
+| `obligations` | the §4 rows this component answers; the gap pass reads this column |
+| `floor_failed` | required on `build` and `adapt` at the high bar; empty otherwise |
+| `candidates_screened` | required on `build` and `adapt` at the high bar; empty otherwise |
+| `superseded_by_row` | set when a later row replaces this one; rows are closed, never deleted |
+| `closed_on` | the date the row was closed |
+| `decided_by`, `decided_on` | the lane and the date |
 
-### 5.2 The build-disposition constraint
+**Header block**, written by this spec and amended only by an author decision: the cold-start reading list (§8), and each row's handoff condition where one exists (§6.3).
 
-A row with `disposition: build` must carry two further non-empty fields:
+### 5.2 The build bar scales with embedded knowledge
 
-- `floor_failed` — the requirement floor that no candidate met.
-- `candidates_screened` — the set measured against it.
+The adopt→build gap is not uniform. Writing and maintaining a skill is an art, and an adopted one keeps improving without us; a mature tool carries edge cases we have not hit yet; a glue script carries almost nothing, and adopting one imposes a pin, a drift check, an upgrade path and a licence review that can cost more than the code. **Adopt-first is not dogma, and the counterweight is stated here rather than discovered later.**
 
-`adopt`, `adapt` and `gap` require neither. The register's linter fails a `build` row missing either field.
+| Tier | Examples | Bar for `build` or `adapt` |
+| --- | --- | --- |
+| **Prompt-bearing** | skills, agents, the compile engine | **high** — `floor_failed` and `candidates_screened` required |
+| **Mature tool** | Better BibTeX, Zotero plugins, ZotLit | **high** — same |
+| **Glue** | a doctor probe, a tag map, a lint | **low** — one line of reason |
 
-The rule exists because a documented prior belief in this project — that writing our own Zotero connector is simpler and better than adopting one — may well be correct and cannot be evaluated, because no screening record was kept. The constraint does not forbid building. It makes a build verdict falsifiable.
+`adopt`, `gap`, `reject` and `open` carry no constraint at any tier. `adapt` carries the same constraint as `build` at the high bar, because otherwise a lane that wants to build without screening simply writes `adapt` — and `research_vault/zotero.py` already exists, which makes that evasion available for the very decision this rule was written for.
 
-This is a schema constraint and a lint, not an ADR. The ADR register records decisions about the vault and the product; this is a decision about how components are chosen, and that register is suspended under re-derivation regardless. The higher rung — the discipline living in the `software-development` brainstorming skill so no repository needs the rule — is filed upstream, not built here.
+The rule exists because a documented prior belief — that writing our own Zotero connector is simpler and better than adopting one — may well be correct and cannot be evaluated, because no screening record was kept. It does not forbid building. It makes a build verdict falsifiable. Capture sits in the **mature tool** tier, not the glue tier: its candidates carry years of edge-case handling this repository has already hit.
+
+This is a schema constraint and a lint, not an ADR. The ADR register records decisions about the vault and the product; this is about how components are chosen, and that register is suspended regardless. The higher rung — the discipline living in the `software-development` brainstorming skill so no repository needs the rule — is filed upstream, not built here.
 
 ## 6. Component classes
 
-Four classes, four different mechanisms. A distribution that says "pin" without saying which mechanism is saying nothing.
+Four classes, four mechanisms. A distribution that says "pin" without saying which mechanism is saying nothing.
 
 ### 6.1 Zotero plugin (XPI)
 
-All three legs are closed, and none requires a write from research-vault.
+Three legs, two closed and one machine-local.
 
 | Leg | Mechanism |
 | --- | --- |
 | install | human, Zotero UI — a setup wizard step |
-| pin (hold) | the author's global auto-update toggle, set once |
-| pin (verify) | doctor reads `prefs.js` for `extensions.update.autoUpdateDefault == false` **and** asserts no addon carries `applyBackgroundUpdates == 2` |
-| drift | `extensions.json`, read with Zotero closed |
+| pin (hold) | the author's global auto-update toggle, set once, in a GUI |
+| pin (verify) | doctor reads `prefs.js` for `extensions.update.autoUpdateDefault == false` **and** asserts no addon carries `applyBackgroundUpdates == 2` — mechanical-cold |
+| drift | `extensions.json`, mechanical-cold |
 
-`pin_semantics` for this class is **held**, and only because the toggle is off. Measured before the toggle: auto-update was on by default, no addon overrode it, and it fired during the probe window (§14). Had the toggle not existed, this class's pin would have been `verified-against` — a version you notice changing, not a version you hold.
+`pin_semantics` is **held on this machine only**. Nothing in setup establishes it elsewhere: the install leg installs whatever is current rather than a named version, the hold is a preference flipped by hand, and the one tracer that would have tested a mechanical route (`user.js`) was cancelled when the author's toggle answered T2 directly. Un-cancelling it, or specifying the wizard step that replaces it, is §15.14. Measured before the toggle, this class's pin would have been `verified-against`.
 
-`applyBackgroundUpdates == 2` is `AUTOUPDATE_ENABLE`, which overrides the global off for one addon. All 23 currently sit at `1` (`AUTOUPDATE_DEFAULT`). Doctor asserts the absence of a `2`, not merely the presence of the global `false`, because either alone is insufficient.
+`applyBackgroundUpdates == 2` is `AUTOUPDATE_ENABLE`, which overrides the global off for one addon. All 23 currently sit at `1`. Doctor asserts the absence of a `2`, not merely the presence of the global `false`, because either alone is insufficient.
 
-**The class carries a silent-failure mode, live on this machine.** `zoteroshortdoi@wiernik.org 1.6.0` is `appDisabled` — its manifest caps at `9.0.*` and Zotero refuses it. A plugin the vault relies on that Zotero will not load is a check that never runs and never says so. Doctor's per-plugin report is therefore a triple: present, loads on the running Zotero version, and automatic mode on.
+**The class carries a silent-failure mode, live on this machine.** `zoteroshortdoi@wiernik.org 1.6.0` is `appDisabled` — its manifest caps at `9.0.*` and Zotero refuses it. A plugin the vault relies on that Zotero will not load is a check that never runs and never says so. Doctor's per-plugin report is therefore a triple — present, loads on the running version, automatic mode on — **proposed, pending T3**.
 
-**The local API sees plugin effects even though it cannot enumerate plugins.** `/api/users/0/tags` returns `#broken`, `#duplicate`, `#nosource` (measured). A plugin is detectable by its library footprint. That is a second, independent detection channel and lane 0 uses both.
+**The local API sees plugin effects even though it cannot enumerate plugins.** A plugin is detectable by its library footprint, and that footprint carries per-item state the vault needs, not merely a presence signal (§14). That is a second, independent detection channel, mechanical-live, and lane 0 uses both.
 
 ### 6.2 Obsidian plugin
 
 | Leg | Mechanism |
 | --- | --- |
 | install | file drop into `<configDir>/plugins/<id>/` plus the id in `community-plugins.json`, or BRAT |
-| pin | BRAT's `pluginSubListFrozenVersion` — the only pinning route Obsidian's own documentation endorses |
-| verify / drift | `<configDir>/plugins/<id>/manifest.json` `version`, the only place an installed version is recorded |
+| pin | BRAT's `pluginSubListFrozenVersion` — the only route Obsidian's own documentation endorses — **proposed, pending T5** |
+| verify / drift | `<configDir>/plugins/<id>/manifest.json` `version` — **proposed, pending T5** |
 
-Two constraints, both **read**:
+`pin_semantics`: **held** on the BRAT route; **verified-against** on the file-drop route, which freezes nothing and only permits a comparison.
 
-- The config directory is user-overridable, so no path may be hardcoded.
-- Restricted mode is gated by a key in Obsidian's Chromium localStorage, **outside the vault**. A purely file-based installer silently no-ops on a fresh vault. Restricted mode is therefore a **setup precondition**, not a check — it needs a human in Settings or the official CLI.
+Two constraints, both **read**: the config directory is user-overridable, so no path may be hardcoded; and restricted mode is gated by a key in Obsidian's Chromium localStorage, **outside the vault**, so a purely file-based installer silently no-ops on a fresh vault. Restricted mode is a **setup precondition**, not a check.
 
-**There is no research-vault Obsidian vault on this machine** (measured). Every Obsidian fact gathered so far describes a sibling project's vault. `research_vault/templates/vault/` ships 15 files and **none under `.obsidian/`**, so the scaffold produces a vault Obsidian has never configured, while shipping two `.base` files whose minimum Obsidian version is recorded nowhere. Lane 3 opens by creating the vault this class is about.
+**There is no research-vault Obsidian vault on this machine** (measured). Every Obsidian fact gathered so far describes a sibling project's vault. `research_vault/templates/vault/` ships 15 files and **none under `.obsidian/`**, so the scaffold produces a vault Obsidian has never configured, while shipping two `.base` files whose minimum Obsidian version is recorded nowhere. Lane 3a opens by creating the vault this class is about, which is also what unblocks T5.
 
 ### 6.3 Claude Code plugin or skill
 
 `pin_semantics`: **held**, by sha.
 
-The mechanism this class should adopt is under construction in the sibling `agent-plugins` repository and does not yet exist: no `bin/`, no `upstream/skills.json`, no `upstream-watch.yml`, gates S1–S5 unverified, doctor's exit semantics unspecified, and no rollback story for a failed setup or update (read, §14). We are borrowing a **design**, and this spec says so rather than inheriting an unbuilt thing as though it were proven.
+The mechanism this class should adopt is under construction in the sibling `agent-plugins` repository and does not yet exist: no `bin/`, no `upstream/skills.json`, no `upstream-watch.yml`, gates S1–S5 unverified, doctor exit semantics unspecified, no rollback story (read, §14). We borrow a **design**, and this spec says so rather than inheriting an unbuilt thing as though it were proven.
 
-Three routes were weighed. Blocking stalls lane 1 on another project's schedule. Building our own violates the adopt-first order for a class about to have an owner. **Chosen: an interim** — a sha pin in the marketplace entry, which the ingest spec measured working, plus `git ls-remote` for drift. Two lines, not a build. The handoff condition is written into the register: when `agent-plugins` ships `bin/setup` and `bin/doctor` with gates S1–S5 verified, research-vault adopts them and deletes the interim.
+Blocking stalls lane 1 on another project's schedule; building our own violates the priority order for a class about to have an owner. **Chosen: an interim** — a sha pin in the marketplace entry, plus `git ls-remote` for drift. Two lines, not a build.
 
-Our two extra classes — Zotero profile-file pinning and Obsidian BRAT freezing — are requirements that sibling's spec never considered. They are filed upstream while it is still in design, following the pattern this repository already runs (#103, #104, #113–115), rather than discovered as a mismatch after it ships.
+**Handoff condition**, carried in the register's header block: when `agent-plugins` ships `bin/setup` and `bin/doctor` with gates S1–S5 verified, research-vault adopts them, and the interim row is closed with `superseded_by_row` — never deleted.
+
+Our two extra classes — Zotero profile-file pinning and Obsidian BRAT freezing — are requirements that sibling's spec never considered. They are filed upstream while it is still in design (#103, #104, #113–115 are the existing pattern), rather than discovered as a mismatch after it ships.
 
 ### 6.4 Python dependency
 
-`pyproject` plus a lock. Standard, and the only class with nothing open.
+`pyproject` plus a lock; `pin_semantics`: **held**, by the lock. The mechanism is standard; **the lock does not yet exist** — measured 2026-09-05, no lock file in the tree, and `pyproject.toml:18` pins `pypdf>=4` as an open range. Generating it and pinning the optional groups is §15.15.
 
 ### 6.5 An unpinned installer already ships
 
@@ -159,185 +181,200 @@ Our two extra classes — Zotero profile-file pinning and Obsidian BRAT freezing
 
 ### 7.0 Lane 0 — substrate audit
 
-Measurement, not selection, therefore no dependencies. It exists because lanes 1 and 2 are otherwise circular: capture must parse and preserve what plugins wrote, and which plugins to keep depends on what capture consumes.
+Executed **inside this spec**, by an agent under author review, before the register opens. Measurement, not selection, so it has no lane dependencies — but §8's cold-start contract depends on it, because a register with no rows is not a starting state.
 
-Output: what is installed, what is active, and **what grammar is already in the library**. Both detection channels from §6.1. The 23 installed addons are the unit, not the 12 the author named — a distribution with an undispositioned remainder has no drift semantics.
+It exists because lanes 1 and 2 are otherwise circular: capture must parse and preserve what plugins wrote, and which plugins to keep depends on what capture consumes.
+
+Output: what is installed, what is active, and **what grammar is already in the library**, using both detection channels from §6.1. The unit is the 23 installed addons, not the 12 the author named — a distribution with an undispositioned remainder has no drift semantics.
 
 Two grammar facts already measured, which are requirements rather than risks:
 
-- The library carries attachment-scanner's simple tag preset (`#nosource`, `#broken`, `#duplicate`) while `prefs.js` now configures its emoji preset (`❌ nosource`, `🚫 broken`, `❓ nonfile`, `‼️ duplicate`). One library, two generations of one signal. Capture reads both.
-- The PMCID fetcher is configured to add fetched identifiers as Zotero keywords, so PMCID and PMID may arrive as **tags** as well as Extra lines. Lane 0 measures which; §14 records the sourcing note's Extra-line reading and does not assume it is the only path.
+- **The library already carries both generations of attachment-scanner's signal**: `#nosource` (146 items), `#broken` (3) and `#duplicate` (2) from the simple preset, and `❌ nosource` (154), `🚫 broken` (4) and `❓ nonfile` (1) from the emoji preset configured at `prefs.js:32-35`; `‼️ duplicate` has not been written. **134 items carry both `#nosource` and `❌ nosource`** — the same fact told twice. Capture reads both generations and de-duplicates; it never recomputes the judgement, which is attachment-scanner's to make.
+- **PMCID and PMID arrive as Extra lines, not tags** — measured today: zero of 2,673 tags are identifier-shaped, while sampled top items carry `PMCID: …\nPMID: …` in Extra. Held provisionally: `extensions.zotero.pmcid.tags` was enabled in the same session, so this is lane 0's starting picture, not what the plugin will write going forward (§15.5).
+
+**Tag-vocabulary control is a lint obligation, not an idea.** 2,673 tags, of which 1,526 are manual and 1,147 automatic; a normalisation scan finds **280 near-duplicate clusters covering 627 tags** — 23% of the vocabulary — from case, number, separator and abbreviation variance. Two jobs, not one: **normalise at read** (a canonical map in capture; covers both kinds, survives re-import, zero writes, reversible) and **canonicalise at rest** (durable only for the 1,526 manual tags, since automatic ones regrow on refresh; irreversible, because a Zotero rename merges on collision and leaves no record of the original form — export the tag→item map first). Application at rest is `adopt`, not `build`: Zotero's native tag rename merges on collision, and Zutilo 4.2.2 is already installed with bulk tag operations. The agent's contribution is clustering and proposal, which needs no writes.
 
 ### 7.1 Lane 1 — capture and compile, together
 
-The author's original items 2 and 3 are one lane. They share the capture→compile seam, which is the seam the previous design broke, and deciding them apart is what forces a re-run.
+The author's original items 2 and 3 are one lane. They share the capture→compile seam, which is the seam the previous design broke, and deciding them apart forces a re-run.
 
-Lane 1 fixes the seam contract: capture preserves the Extra field byte-identical, reads a **declared** tag vocabulary, and writes the compile input in a format the chosen engine actually accepts.
+Lane 1 fixes the seam contract: capture preserves the Extra field byte-identical, reads a **declared** tag vocabulary, and writes the compile input in a format the engine it chooses accepts.
 
 ### 7.2 Lane 1 open item — URL-only sources
 
-Recorded with its evidence rather than settled.
+The claim that a URL-only entry gains nothing from Zotero is right about organisation and wrong about three things. **Identity**: a cited URL needs a bibliography entry with an accessed date, and only Zotero plus Better BibTeX mints one here. **Link rot**: this is the one source class that disappears, and `research_vault/archive.py` — sole writer of `archive-url`, Wayback-confirmed, four-state honest — already answers it and keys on the citekey, so skipping Zotero leaves it nothing to key on. **PRISMA**: PRISMA-S covers grey literature and web searching, and a scoping review citing a source whose provenance it cannot report fails its own checklist.
 
-The claim that a URL-only entry gains nothing from Zotero is right about organisation and wrong about three things. **Identity**: a cited URL needs a bibliography entry with an accessed date, and only Zotero plus Better BibTeX mints one here. **Link rot**: this is the one source class that disappears, and `research_vault/archive.py` — the sole writer of `archive-url`, Wayback-confirmed, four-state honest — already answers it and keys on the citekey, so skipping Zotero leaves it nothing to key on. **PRISMA**: PRISMA-S covers grey literature and web searching, and a scoping review citing a source whose provenance it cannot report fails its own checklist.
-
-The proposed cut is therefore **cited or plausibly cited** → Zotero, and **consulted only** → no item, never citable. A wrong save costs a junk item that attachment-scanner already cleans; a wrong skip costs an unrecoverable dead link. If consulted-not-cited volume becomes noise, the remedy is Zotero-side, never a second identity system.
-
-This row also decides whether `archive.py` survives §11's audit, which is why the audit follows the step map rather than preceding it.
+**Proposed cut**: cited or plausibly cited → Zotero; consulted only → no item, never citable. A wrong save costs a junk item attachment-scanner already cleans; a wrong skip costs an unrecoverable dead link. If consulted-not-cited volume becomes noise, the remedy is Zotero-side, never a second identity system. Lane 1 confirms or overturns it, and the row also decides whether `archive.py` survives §11's audit.
 
 ### 7.3 Lanes 2–4
 
 | Lane | Scope | Notes |
 | --- | --- | --- |
-| 2 | Zotero plugins | a choice *within* lane 1's contract, measured against 10.0.1, over all 23 installed |
-| 3 | Obsidian plugins | seam-free; opens by creating the vault that does not exist (§6.2) |
-| 4 | Skills curation — MedSci, K-Dense | consumers of the workflow steps, so it follows the search and scoping-review specs |
+| 2 | Zotero plugins | a choice *within* lane 1's contract, measured against 10.0.1, over all 23 installed plus the author's named not-installed candidates |
+| 3a | Obsidian vault creation and seam-free plugins | opens by creating the vault that does not exist (§6.2); unblocks T5 |
+| 3b | Obsidian plugins that read Zotero — ZotLit, `obsidian-reference-map` | decided inside lane 1's seam contract, after lane 2 pins Better BibTeX |
+| 4 | Skills curation — MedSci, K-Dense | consumers of the workflow steps; blocked on the search and scoping-review specs, which issues #117 and #119 own and this spec does not schedule |
 
-Lanes 2 and 3 are seam-free and may run concurrently. Lane 1 must not be split.
+Lanes 2 and 3a are seam-free and may run concurrently. Lane 1 must not be split. Lane 3b is **not** seam-free: `obsidian-reference-map` requires Better BibTeX's local server and is reported broken against BBT 9.0.57+, a hard dependency on a lane-2 component at a version lane 2 has not pinned.
 
-Each lane runs as a **scoping review**: a bounded question, a screened candidate set, recorded exclusions. That builds the scoping-review workflow by using it, and yields the well-formed evidence the repository's existing prior-art notes were reaching for without the terminology.
+Each lane runs as a **scoping review**: a bounded question, a screened candidate set, recorded exclusions. That builds the scoping-review method by using it, and yields the well-formed evidence this repository's prior-art notes were reaching for without the terminology. ("Scoping review" therefore names both a workflow step in §5.0 and the method a lane runs; where it matters, the step is written `scoping-review`.)
 
-**Lane 2's inherited evidence is stale in a specific way.** The 36-repository catalogue read **repository manifests**; the machine runs **shipped `.xpi` manifests**, and they differ — `zoterotldr` and `scite` are both active on 10.0.1 while the catalogue records ranges that would refuse them. Seventeen catalogue rows say "loads on 9.0.6"; none mentions 10.0.1. Lane 2 re-measures loadability from the installed `.xpi`, not from the catalogue.
+**Lane 2's inherited evidence is wrong in a specific way.** The 36-repository catalogue read **repository manifests**; the machine runs **shipped `.xpi` manifests**, and they differ — `zoterotldr` and `scite` are both active on 10.0.1 while the catalogue records ranges that would refuse them. Seventeen catalogue rows say "loads on 9.0.6"; none mentions 10.0.1. Lane 2 re-measures loadability from the installed `.xpi`.
 
 ## 8. Cold-start contract
 
-A session opening lane N reads exactly: the component register, this spec's §3 and §15, and the prior lane's scoping review. Nothing else.
+A session opening lane N reads exactly: the component register, this spec in full, and the closed scoping reviews of every lane this one depends on. Lane 0 has no prior lane. The spec is one file, and reading it whole is cheaper than adjudicating which section a column needs.
 
-That list is named in the register and budgeted in lines. The status linter (§10) fails if the list points at anything marked `historical` or `pending-map`.
+That list is named in the register's header block and budgeted in lines. **Doctor** (§9) fails if the list points at anything marked `historical` or `pending-map`; the status linter (§10) runs before the register exists and cannot see the list.
 
 The contract exists because the expensive part of entering this repository is not reading volume, it is inferring which material still binds. The register answers that in one screen.
 
-## 9. Setup, doctor, and drift
+## 9. Setup, doctor, drift, and the upgrade act
 
-**A doctor already exists.** `research_vault/scaffold.py:322` runs eight probes — tree, machine, zotero, bbt, autoexport, staleness, remote, backup — and **none concerns an installed component**. This spec extends it rather than starting a second one. Adopt-over-build applied to our own code.
+**A doctor already exists, and it repairs before it probes.** `research_vault/scaffold.py:322` calls `scaffold_vault(vault)` unconditionally, then returns eight probes — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup — and **none concerns an installed component**. This spec extends it rather than starting a second one, and separates the two acts: the component checks are read-only and run in a `--check-only` mode that skips the scaffold write, so §6.1's "no write from research-vault" survives and drift cannot be repaired away before it is reported. Adopt-over-build applied to our own code.
 
-Doctor gains, per §6:
+**Doctor runs in two phases and reports which it completed.** The live phase needs Zotero up — four of the eight existing probes already fail `zotero down` without it. The cold phase needs Zotero down. A cold check attempted with Zotero running reports `SKIPPED — zotero running`, never a stale `MATCHED`. Doctor gains, per §6:
 
-- the Zotero pin verification pair (`autoUpdateDefault == false`, no addon at `applyBackgroundUpdates == 2`);
-- the per-plugin triple (present, loads on the running version, automatic mode on);
-- the Obsidian manifest version read;
+- the Zotero pin verification pair — cold;
+- the per-plugin triple, **proposed, pending T3** — cold for presence and version, live for effects;
+- the Obsidian manifest version read, **proposed, pending T5** — cold;
 - the Claude Code sha comparison via `git ls-remote`;
-- a merge check for the Zoplicate path (§15).
+- a merge check for the Zoplicate path (§15.3).
 
-Doctor's exit semantics are **open** — the borrowed spec never states them, so any behaviour assumed here would be our own design wearing borrowed clothes. §15 carries it.
+Doctor's exit semantics are **open** — the borrowed spec never states them, so any behaviour assumed here would be our own design wearing borrowed clothes (§15.1). **Rollback is open too** (§15.2): the borrowed spec has no rollback story for a failed setup or update, its only rollback text covers a one-time marketplace cutover, and setup as designed is forward-converging with no inverse.
 
-**Rollback is open too.** The borrowed spec has no rollback story for a failed setup or update; its only rollback text covers a one-time marketplace cutover. Setup as designed is forward-converging with no inverse, and its nearest safety property is "never delete a squatting file or link — move it aside and report".
+### 9.1 The upgrade act
+
+A distribution that pins four classes must say how a pin is deliberately moved. Per class: **bump** the pinned identifier, **re-verify** by that class's verify leg, **revert** to the prior row if verification fails. The register records it as a new row with the old row closed via `superseded_by_row` — never an in-place edit, and never a deletion. Blocked on §15.2, because revert has no defined mechanism yet.
 
 ## 10. The status-marking pass
 
 Runs before this spec's lanes, as its own bounded task with its own approval. Nothing moves, nothing is deleted.
 
-Scope, measured: **201 markdown files** — `docs/` 103, `.superpowers/` 71, `skills/` 23, root 4 — of which **25** already carry a header status marker.
+Scope, measured: **202 markdown files** — `docs/` 104, `.superpowers/` 71, `skills/` 23, root 4 — of which 25 carry some header status marker.
 
-The convention already exists and is reused rather than invented: line 3 after the H1, `Status: <state> (<date>) — <reason>`, as the five ADRs and both specs write it.
+**The pass writes a second, distinct line and does not touch the existing `Status:` line.** That line's vocabulary (`accepted`, `suspended`, `draft`, `APPROVED`, `SUPERSEDED`) is a lifecycle axis this pass has no business overwriting — §2 depends on ADRs 0004 and 0005 still reading `suspended`. The new line is `Disposition: <value> (<date>)`, written immediately after the document's first `# ` heading, or as a `disposition:` frontmatter key in files that open with YAML (all 23 `skills/*/SKILL.md`). `CLAUDE.md` is out of scope by name: it is an 11-byte import directive, not a document.
 
-Closed vocabulary, every value decidable without the register:
+Closed vocabulary, with a precedence rule because more than one value can fit — **first match wins, in this order**:
 
 | Status | Test |
 | --- | --- |
 | `sibling-project` | belongs to another product's register |
 | `superseded-by: <path>` | an explicit supersession already exists |
+| `pending-issue: <number>` | disposition belongs to a tracked issue — ADRs 0004 and 0005 are `pending-issue: 116` |
 | `historical` | a dated pass that closed — evidence, never a live decision |
-| `current` | still binding |
 | `pending-map` | disposition needs the register |
+| `current` | still binding |
 
-`pending-map` is load-bearing. Without it the pass guesses the dispositions it was sequenced to avoid.
+`pending-map` and `pending-issue` are load-bearing. Without them the pass guesses the dispositions it was sequenced to avoid, and the two documents §2 singles out fit no other value.
 
 Orthogonal flag, not a status: `should-be-scoping-review`. A document may be `historical` **and** flagged as a scoping review the workflow should later replace. That flag produces the test-case set.
 
-Three premises the pass started with were false, and the pass is scoped to the corrected ones (all measured):
+**Issues are in scope too.** The 66 open issues get a parallel one-word disposition — `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map` — under the same linter. #96, #97, #62, #63, #78 and #118 are the first six to close against this spec; #116, #117 and #119 stay open and are named in §2, §4 and §7.3.
+
+Three premises the pass started with were false, and it is scoped to the corrected ones (all measured):
 
 - The named siblings — the coaching apps, the ADHD pilot, archify, Memoria — own **zero** files in the main tree. The sibling that does own files is `software-development`/`sensemaking`, whose two documents self-declare it.
-- `superseded` is a **domain term for source state** in this repository, not a status marker. Explicit document-to-document supersession is **3 pairs**, not the 44 a naive grep suggests.
+- `superseded` is a **domain term for source state** here, not a status marker. Explicit document-to-document supersession is **3 pairs**, not the 44 a naive grep suggests.
 - The `.superpowers/sdd/` workspace is retained-and-closed by deliberate commits, not abandoned.
 
-**Its own linter**, per this repository's rule that a mechanical process gets a mechanical check: every `.md` in scope carries one status from the closed vocabulary, every `superseded-by` target resolves, no file carries two.
+**Its own linter**, per this repository's rule that a mechanical process gets a mechanical check: every `.md` in scope carries exactly one `Disposition:` line, positionally defined as the first line matching `^Disposition: ` within the five lines after the first `# ` heading (or the frontmatter key); every `superseded-by` target resolves. `Status:` lines elsewhere in a body are out of scope, so the six sdd review files whose per-finding verdicts read `Status: **CONFIRMED.**` do not fail it.
 
-**Scope bound.** The pass marks documents. The material that most often goes stale here is **environment facts**, and `AGENTS.md` already carries the rule for those — recorded where they are used, each with its method and date. The pass does not duplicate that rule; §1's shelf-life clause is where environment staleness is handled.
+**Scope bound.** The pass marks documents. The material that most often goes stale here is **environment facts**, and `AGENTS.md` already carries the rule for those. §1's shelf-life clause is where environment staleness is handled; the pass does not duplicate it.
 
 ## 11. Code disposition audit
 
-Measured inputs: 29 modules, 10,597 lines, 21 CLI verbs, 45 test files, 24,571 lines, 25 mutation sidecars of which 18 are stale against their own declared source hash.
+Measured inputs: 29 modules and 10,597 lines in `research_vault/`, plus 847 lines in three `hooks/` files that no verb reaches; 21 CLI verbs; 45 test files and 24,571 lines; 25 mutation sidecars of which 18 are stale against their own declared source hash.
 
-**The audit unit is the verb, not the module.** Nine modules are named by no verb and are reachable only transitively, and `frontmatter` is imported by 12 modules while `pathcodec` is imported by 10 — so every module transitively "serves" something and a module-level criterion never cuts. The import graph is also blind to real coupling: `hooks/stop_publish_gate.py:15` matches `research_vault/publish.py:36` by filename, not by import.
+**The audit unit is the verb, not the module.** Only nine of the 29 modules are named by a verb; the other twenty serve only transitively, and nine of those are not imported by the CLI at all. `frontmatter` is imported by 12 modules and `pathcodec` by 10, so every module transitively "serves" something and a module-level criterion never cuts. The import graph is also blind to real coupling: `hooks/stop_publish_gate.py:15` matches `research_vault/publish.py:36` by filename, not by import.
 
-Each verb receives a one-line disposition against the step map: serves step X, serves nothing, or serves a deferred workflow. Deletion follows the disposition; the disposition is a recorded judgement, never a silence.
+Each verb receives a one-line disposition against §5.0's step map: **serves step X**, **serves the distribution mechanism** (setup / doctor / drift — `probe`, `doctor` and `scaffold` are known members), **serves a deferred step**, or **serves nothing**. The fourth value is required by this spec's own commitments: §9 keeps `doctor`, §6.5 makes `scaffold` register row zero, and `AGENTS.md` makes `probe` the sanctioned source of environment facts. Deletion follows the disposition; the disposition is a recorded judgement, never a silence.
 
 Two cautions:
 
 - **"Preserve the mutation suite where its subject survives" must not preserve rot.** 18 of 25 sidecars are already stale, and the plan that retires them (`docs/superpowers/plans/2026-08-24-plan-w-quality-tail.md`) has unchecked steps. The audit dispositions the sidecars alongside the code.
-- **Coverage data is unusable and must be regenerated.** The committed `.coverage` resolves against `/home/eranr/New folder/research_vault/`, a foreign checkout — the exact wrong-tree trap `docs/testing.md` warns about. "Does this verb actually run" has no data until a fresh run.
+- **Coverage data is unusable and must be regenerated.** The local `.coverage` resolves against `/home/eranr/New folder/research_vault/`, a foreign checkout — the wrong-tree trap `docs/testing.md` warns about. It is not committed, so the remedy is deleting a stale local file, not stripping the repository. "Does this verb actually run" has no data until a fresh run.
 
 ## 12. Cutover: going public
 
-Going public is **chosen**, and it closes the Claude Code class's last open item, since the marketplace bootstrap against a private repository was never tested.
+**Chosen.** It closes the marketplace-bootstrap item, since the bootstrap against a private repository was never tested. §15.1, §15.2 and §15.10, and §6.3's handoff, remain open against the Claude Code class.
 
-Two preconditions, both measured, neither blocking the decision and both blocking the flip:
+Three preconditions, all measured, none blocking the decision and all blocking the flip:
 
-1. **248.5 MB of raw Claude Code session transcripts sit in git history** — `docs/research/raw/knowledge-harness-transcripts/*.jsonl` and its post-rename twin, with single files at 32 MB, 23 MB and 19 MB. Untracked today; present in every clone forever. Publishing the repository publishes everything those sessions saw.
-2. **Eight PDFs were committed and later removed.** Four are 2026 copyrighted papers, one is a 2014 journal article, and the remainder are US-government ICD/ICS documents.
+1. **260.6 MB (248.5 MiB) of raw Claude Code session transcripts sit in git history** — 120 `.jsonl` blobs under `docs/research/raw/*transcripts*`, the largest at 32 MB, 32 MB and 23 MB. Untracked today; present in every clone forever. Publishing the repository publishes everything those sessions saw.
+2. **Eight PDFs were committed and later removed.** Four are 2026 copyrighted papers, one a 2014 journal article, the rest US-government ICD/ICS documents. All eight lived in `sources/`; commit `52bc0fb` (2026-08-27) removed them and gitignored the folder in one act, which fixes the working tree and not the history — those are the paths a rewrite must strip. The ISO standards the folder holds now were added afterwards and were never committed.
+3. **The current tree carries what neither route removes.** `docs/research/2026-09-04-import-sourcing.md` reproduces verbatim source text from candidate repositories, eight of which record no LICENSE file — all-rights-reserved by default — and 15 tracked files carry the author's absolute local paths. A history rewrite and a squashed tree both preserve HEAD. Reduce the unlicensed candidates to citation plus paraphrase, and sweep the paths.
 
-Clean by contrast: `sources/` is gitignored with zero tracked files, and the ISO standards it currently holds were **never** committed.
-
-Route: a history rewrite before the flip, or a fresh public repository from a squashed tree. This is its own task with its own approval, not work that rides along inside a lane.
+Route: a history rewrite before the flip, or a fresh public repository from a squashed tree. Its own task with its own approval, not work that rides along inside a lane.
 
 ## 13. Tracers
 
-A tracer is one cheap check that can falsify a decision, run before the decision is built on.
+A tracer is one cheap check that can falsify a decision, run before the decision is built on. Two of the four classes currently have mechanisms declared on tracers that have not run; those legs are marked **proposed** in §6 rather than asserted.
 
 | | Tracer | Result |
 | --- | --- | --- |
-| T1 | enumerate installed Zotero plugins, no GUI | **passed** — `extensions.json` is plain JSON and carries every field needed |
-| T2 | is plugin auto-update on | **passed after author action** — was on and firing; now `false` at `prefs.js:49` |
-| T3 | doctor's per-plugin triple on one plugin before screening many | open |
+| T1 | enumerate installed Zotero plugins with no GUI | **passed** — `extensions.json` is plain JSON and carries every field needed |
+| T2 | is plugin auto-update on | **answered by author action, not by tracer** — it was on; now `false` at `prefs.js:49`. §6.1 records what this leaves unestablished |
+| T3 | doctor's per-plugin triple on one plugin, before screening many | **open** — §6.1 and §9 depend on it |
 | T4 | status linter over a hand-marked sample | open |
-| T5 | Obsidian plugin version readable by file | open, and blocked on §6.2's missing vault |
-| T6 | cutover — scratch vault, setup from zero, doctor green | open, post-spec |
+| T5 | Obsidian plugin version readable by file | **open, blocked on §6.2's missing vault** — §6.2's pin and verify legs depend on it |
+| T6 | install from zero on a scratch vault: setup establishes the Zotero hold pin and the BRAT freeze on a machine that is not the author's, then doctor reports both | open, post-spec — falsifies §6.1's `held` and §6.2's pin leg |
 
-A tracer that would have required writing to the author's Zotero profile (`user.js`) was **cancelled**: the author's GUI toggle answered T2 directly, and the file remains absent.
+"Cutover" is reserved for §12. A tracer that would have written to the author's Zotero profile (`user.js`) was **cancelled** when the author's toggle answered T2; §15.14 carries what that leaves open.
 
 ## 14. Mechanism claims and their sources
 
-All probes 2026-09-05 unless noted, on this machine, read-only.
+Zotero runtime rows re-measured 2026-09-05 evening, after the author enabled PMCID auto-fetch and re-enabled Zoplicate. Read-only throughout.
 
 | Fact | Value | Established |
 | --- | --- | --- |
-| Zotero, Better BibTeX | 10.0.1 on Windows; BBT 9.0.63; local API reachable from WSL2 | live probe 2026-09-04 |
-| Zotero profile | `/mnt/c/Users/eranr/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default`, sole profile per `profiles.ini` | measured |
+| Zotero, Better BibTeX | 10.0.1 on Windows; BBT 9.0.63; local API reachable from WSL2 | live probe 2026-09-04, re-confirmed 2026-09-05 |
+| Zotero has run 10.0.1 since | `compatibility.ini` `LastVersion=10.0.1_20260824184713`, mtime 2026-08-26; `prefs.js:39` `extensions.lastAppVersion = "10.0.1"` | measured |
+| Zotero profile | `…/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default`, sole profile per `profiles.ini` | measured |
 | Zotero data directory | `D:\Zotero` per `extensions.zotero.dataDir`, not the Windows default | measured |
 | `extensions.json` | plain JSON, schemaVersion 37, 23 addons, each with id, version, `active`, `userDisabled`, `appDisabled`, `applyBackgroundUpdates`, `targetApplications` | measured |
-| addon states | 12 active, 10 user-disabled, 1 app-disabled | measured |
+| addon states | **13 active, 9 user-disabled, 1 app-disabled**; the app-disabled one is `zoteroshortdoi` 1.6.0 | measured, after the author's re-enable |
 | `zoteroshortdoi` 1.6.0 | `appDisabled=true`; manifest caps `9.0.*`. The ingest spec's "6.0 to 7" is stale; the conclusion is not | measured |
-| auto-update, before | both prefs absent; defaults `true` read from `omni.ja` `defaults/preferences/zotero.js`; `applyBackgroundUpdates=1` on all 23; fired 2026-09-05 17:33:54Z with 15 addons stamped in an 11-second window | measured / read |
-| auto-update, after | `prefs.js:49` `extensions.update.autoUpdateDefault = false`, file written 18:17:19; still no per-addon override | measured |
+| auto-update, before the toggle | both prefs absent; defaults `true` read from `omni.ja` `defaults/preferences/zotero.js`; `applyBackgroundUpdates=1` on all 23. A daily background check runs near 17:33:53Z, and 13 of 23 carry stamps in a ~11-second time-of-day band across dates from 2026-08-05 to **2026-09-03**, the most recent — corroborated by matching `.xpi` mtimes. It did **not** fire on 2026-09-05 | measured |
+| auto-update, after the toggle | `prefs.js:49` `extensions.update.autoUpdateDefault = false`; still no per-addon override — the value set across all 23 is `{1}` | measured |
 | `addonStartup.json.lz4` | mozLz4 container, no decoder available; unnecessary, `extensions.json` carries the same fields | measured |
-| plugin enumeration over the wire | none — local API `/api/` returns 404s, BBT JSON-RPC's 14 methods expose nothing | measured |
-| plugin **effects** over the wire | `/api/users/0/tags` returns `#broken`, `#duplicate`, `#nosource` | measured |
-| attachment-scanner | 0.5.1 active; `prefs.js:28-31` `monitor_attachments`, `remove_pubmed_entry`, `remove_snapshot`, `scan_nonfiles` all true; library holds the simple tag preset while `prefs.js:32-35` configures the emoji preset | measured |
-| PMCID fetcher | 1.0.3 loads; auto-fetch checkbox unchecked, gate pref absent; "add as keywords" checked | measured; author screenshot 2026-09-05 |
-| Zoplicate | 5.1.1, user-disabled by mistake, to be re-enabled; manifest `8.999–10.0.*`, AGPL-3.0 | measured; author 2026-09-05 |
+| plugin enumeration over the wire | none — `/api/` answers 200 with the stub body `Nothing to see here.` and every enumeration path under it 404s; BBT JSON-RPC's 14 methods expose nothing | measured |
+| plugin **effects** over the wire | `/api/users/0/tags` returns 2,673 tags (the endpoint pages at 100; this is a full walk). Both attachment-scanner generations are present: `#nosource` 146 items, `#broken` 3, `#duplicate` 2, `❌ nosource` 154, `🚫 broken` 4, `❓ nonfile` 1, `‼️ duplicate` 0. **134 items carry both `#nosource` and `❌ nosource`** | measured, two independent runs |
+| tag vocabulary | 2,673 tags: 1,526 manual (`type 0`), 1,147 automatic (`type 1`). A case/number/separator normalisation finds 280 near-duplicate clusters covering 627 tags | measured |
+| identifier tags | zero of 2,673 tags are identifier-shaped; sampled top items carry `PMCID:`/`PMID:` in Extra. Provisional — `pmcid.tags` was enabled in the same session | measured |
+| attachment-scanner | 0.5.1 active; `prefs.js:28-31` `monitor_attachments`, `remove_pubmed_entry`, `remove_snapshot`, `scan_nonfiles` all true; `prefs.js:32-35` configures the emoji preset. The author reports long use with no loss of needed files, only browser-plugin byproducts; the finding that survives is the two-generation grammar, not a data-loss risk | measured; author 2026-09-05 |
+| PMCID fetcher | 1.0.3 loads; `prefs.js:111` `extensions.zotero.pmcid.auto = true` — **auto-fetch is on**; `prefs.js:113` `extensions.zotero.pmcid.tags = true` | measured, after the author enabled it |
+| Zoplicate | 5.1.1, **active** (it had been user-disabled by mistake); manifest `8.999–10.0.*`, AGPL-3.0 | measured; author 2026-09-05 |
 | attachment-scanner manifest | `6.999`–`*`, MIT, read from the released `.xpi` | read |
-| catalogue staleness | compatibility column taken at Zotero 9.0.6; 17 of 36 rows say "loads on 9.0.6", none mentions 10.0.1; the catalogue read repository manifests while the machine runs shipped `.xpi` manifests, and `zoterotldr` and `scite` differ | measured |
-| existing doctor | `research_vault/scaffold.py:322`, eight probes, none about installed components | read |
+| Zotero 10 local API writes | POST/PUT/PATCH/DELETE for items, collections and saved searches, plus tag deletion, full-text writes and file uploads; reads unauthenticated, writes need a runtime key from `POST /api/local/authorize` behind a confirmation dialog. No key exists — `localAPIKeys.json` is absent | read (`docs/research/2026-09-05-zotero-api-reading.md:47-75`); absence measured |
+| catalogue staleness | compatibility judged against Zotero 9.0.6; 17 of 36 rows say "loads on 9.0.6", none mentions 10.0.1; the catalogue read repository manifests while the machine runs shipped `.xpi` manifests, and `zoterotldr` and `scite` differ | measured |
+| existing doctor | `research_vault/scaffold.py:322` calls `scaffold_vault(vault)` unconditionally before returning eight probes — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup — none about installed components; four of them fail `zotero down` | read |
 | unpinned installer | `scaffold.py:23` `PROVISION_COMPANIONS = ["kepano/obsidian-skills"]`; `skills/setup-vault/SKILL.md:42` | read |
 | borrowed mechanism | `agent-plugins` has no `bin/`, no `upstream/skills.json`, no `upstream-watch.yml`; gates S1–S5 unverified; doctor exit semantics unspecified; no rollback story | read |
-| Obsidian pinning | BRAT `pluginSubListFrozenVersion` is the only documentation-endorsed route; `manifest.json` `version` is the only installed-version record; restricted mode is gated in Chromium localStorage outside the vault | read |
-| `obsidian-reference-map` | unmaintained since 2024-01-01; GPL-3.0 LICENSE against an MIT `package.json`; needs Better BibTeX's local server; reported broken against BBT 9.0.57+ | read |
+| Obsidian pinning | BRAT `pluginSubListFrozenVersion` (`src/settings.ts`) is the only documentation-endorsed route; `manifest.json` `version` is the only installed-version record; restricted mode is gated in Chromium localStorage outside the vault | read, docs.obsidian.md and the BRAT source |
 | no research-vault vault | Obsidian knows only sibling vaults; `research_vault/templates/vault/` ships 15 files, none under `.obsidian/` | measured |
-| corpus | 201 `.md` in scope (docs 103, `.superpowers` 71, skills 23, root 4); 25 carry a status marker; 3 explicit supersession pairs; named siblings own zero main-tree files | measured |
-| issues | 66 open; none older than 2026-08-25 by `updatedAt`, an instrument that comment and label edits also bump | measured |
-| code | 29 modules / 10,597 lines; 21 verbs; 45 test files / 24,571 lines; 25 sidecars, 18 stale; 9 modules named by no verb | measured |
-| coverage data | resolves against `/home/eranr/New folder/research_vault/` — a foreign checkout, unusable | measured |
-| git history | 248.5 MB of session transcripts; 8 PDFs added then removed; `sources/` gitignored with 0 tracked and the ISO standards never committed | measured |
+| corpus | 202 `.md` in scope (`docs/` 104, `.superpowers/` 71, `skills/` 23, root 4); 25 carry a status marker; 3 explicit supersession pairs; named siblings own zero main-tree files | measured |
+| issues | 66 open; none older than 2026-08-25 by `updatedAt`, an instrument comment and label edits also bump | measured |
+| code | 29 modules / 10,597 lines in `research_vault/` (`hooks/` is a further 847 lines in 3 files, excluded from that count); 21 verbs; 9 modules named by a verb, 9 reachable only transitively; 45 test files / 24,571 lines; 25 sidecars, 18 stale | measured |
+| Python pin | no lock file in the tree; `pyproject.toml:18` `pypdf>=4` | measured |
+| coverage data | the local `.coverage` resolves against `/home/eranr/New folder/research_vault/` — a foreign checkout, unusable; not tracked in git | measured |
+| git history | 120 transcript blobs totalling 260.6 MB (248.5 MiB); 8 PDFs added in `3719086` and removed in `52bc0fb`, all under `sources/`; `sources/` gitignored with 0 tracked and the ISO standards never committed; 15 tracked files carry absolute local paths | measured |
 
 ## 15. Open items carried forward
 
 1. Doctor's exit semantics (§9).
-2. Rollback for a failed setup or update (§9).
-3. The Zoplicate merge path: Zotero trashes the losing item and records `dc:replaces`, and whether a pinned `Citation Key:` Extra line survives the merge is inferred in both directions and never observed. Since the citekey is the vault's identity, a merge is an identity event.
+2. Rollback for a failed setup or update, which also blocks §9.1's revert leg.
+3. The Zoplicate merge path: Zotero trashes the losing item and records `dc:replaces`, and whether a pinned `Citation Key:` Extra line survives is inferred in both directions and never observed. Since the citekey is the vault's identity, a merge is an identity event — and Zoplicate is now active.
 4. URL-only sources — cited versus consulted (§7.2).
-5. Whether PMCID and PMID arrive as tags, Extra lines, or both (§7.0).
+5. What the PMCID fetcher writes going forward, now that `pmcid.tags` is on: Extra lines, tags, or both (§7.0).
 6. The `.py.manifest.json` sidecars: retire with mutate4py, or keep (§11).
-7. Duplicate detection has no owner while Zoplicate is disabled; `zotero-format-metadata` detects and reports but does not merge (§7.0).
-8. The glossary and the two suspended ADRs — handed to issue #116, not settled here (§2).
+7. Zoplicate merge semantics (item 3) are the open part; duplicate detection itself now has an owner, while `zotero-format-metadata` detects and reports but does not merge.
+8. The glossary and the two suspended ADRs — handed to issue #116 (§2).
 9. The remaining 11 of 23 installed addons, undispositioned, including one that copies attachments to a OneDrive path (§7.0).
 10. The `upstream-watch` schedule: the borrowed spec names a scheduled workflow and gives no interval (§6.3).
+11. The ACM `long-form` step has no lane and no issue (§4).
+12. The `daily-log` step has no lane, no register row and no issue; `research_vault/appendlog.py` is its only carrier and enters §11's audit named by no verb (§4).
+13. Whether Zotero flushes `prefs.js` and `extensions.json` fully only on exit (§3.3, §6.1). Both were observed rewritten with Zotero running, so the "read with Zotero closed" precondition is provisional until measured.
+14. A mechanical route to establishing the Zotero pin on a machine that is not the author's — un-cancel the `user.js` tracer, or specify the wizard step that replaces it (§6.1, §13).
+15. The Python lock does not exist; `pypdf>=4` is an open range (§6.4).
+16. Vault-owned state inside Zotero. A Zotero item may belong to several collections at once, so a vault collection is **additive** and never disturbs the author's own structure. The requirement behind it is that a scoping review's item set be reachable as a set — which PRISMA-ScR needs for its flow counts, not merely for convenience. Cheapest implementation is a human-created collection the vault only reads; for items the agent adds, membership set at item-**create** time is a write the vault owns, while `PATCH`ing an existing item's collections is not. Proposed split: **scope** lives in Zotero, **screening state** stays in the vault, so one fact never gets two homes. A saved search over vault-written tags may make the collection unnecessary at zero item-write cost.
