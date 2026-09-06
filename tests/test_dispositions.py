@@ -434,7 +434,25 @@ def test_render_and_read_the_issue_table_round_trip():
     ]
     text = dispositions.render_issue_table(rows)
     assert text.startswith("# Issue dispositions\n")
-    assert dispositions.read_issue_table(text) == rows
+    # Highest number first, so regenerating the table never emits a diff that is
+    # only row movement. The reversal here IS the sort under test.
+    assert dispositions.read_issue_table(text) == [rows[1], rows[0]]
+
+
+def test_render_issue_table_rejects_a_pipe_in_a_cell():
+    """A `|` ends the cell, and the row would then vanish on read in silence."""
+    rows = [
+        dispositions.Row(
+            "issue:96",
+            "absorbed-by",
+            "§6",
+            False,
+            "spec-named-absorbed",
+            "Foo | Bar",
+        )
+    ]
+    with pytest.raises(dispositions.MarkerError, match="pipe"):
+        dispositions.render_issue_table(rows)
 
 
 def test_read_issue_table_tolerates_mdformat_column_padding():

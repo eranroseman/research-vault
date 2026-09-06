@@ -322,9 +322,24 @@ def propose_issue(number: int) -> Proposal:
 
 
 def render_issue_table(rows: list[Row], date: str = "") -> str:
+    """The committed table, highest issue number first.
+
+    The sort is not cosmetic: the table is a tracked file regenerated from
+    `gh issue list`, and without a fixed order every regeneration would produce
+    a diff that is only row movement.
+    """
     date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
     lines = [_TABLE_PREAMBLE % {"date": date}]
-    for row in rows:
+    for row in sorted(rows, key=lambda row: -int(row.key.removeprefix("issue:"))):
+        # A `|` ends the cell, so a pipe-bearing issue title would render a row
+        # `_TABLE_ROW` cannot match — and `read_issue_table` would drop it with
+        # no error at all. Refuse loudly instead, the way `parse_rows` refuses a
+        # tab. No open issue carries one today; the check is for the one that will.
+        for cell in (row.value, row.argument, row.note):
+            if "|" in cell:
+                raise MarkerError(
+                    f"{row.key}: a pipe in {cell!r} would end the table cell and drop the row"
+                )
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         lines.append(
             f"| {row.key.removeprefix('issue:')} | {disposition} | {row.note} |\n"
@@ -460,7 +475,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "apply":
         rows = parse_rows(Path(args.proposal).read_text(encoding="utf-8"))
         written = apply_rows(rows, date=args.date)
-        print(f"marked {len(written)} documents from {args.proposal}")
+        documents = [path for path in written if path != ISSUE_TABLE]
+        table = " and the issue table" if len(documents) != len(written) else ""
+        print(f"marked {len(documents)} documents{table} from {args.proposal}")
         return 0
     return 1
 
