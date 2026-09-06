@@ -51,7 +51,8 @@ The spec's §10 numbers and its frontmatter rule do not reproduce. All five corr
 - Create: `scripts/dispositions.py` — scope, anchor, marker reader, precedence classifier, proposal emitter, applier, CLI. One file: the four jobs share the anchor rule and the vocabulary, and splitting them would put the constants in a fifth place.
 - Create: `tests/test_dispositions.py` — unit tests for the module, then the standing repo-wide linter in the same file (the `tests/test_config_validity.py` pattern: a repo self-check lives in the suite, not in a separate runner).
 - Create: `docs/issue-dispositions.md` — the issue half of the pass, written by Task 6.
-- Modify: `.gitignore` — one line for the untracked proposal file.
+- Create: `docs/document-dispositions.tsv` — the reviewed proposal itself, committed as the document half's record of *why*. The markers carry a verdict and no reason; 72 of the 179 document rows carry the author's reasoning, ~20,000 characters, labelled `[clear]` on 51 and `[arguable]` on 21. Its `rule` column is the classifier's original guess and is STALE for every row the author edited — it is not a provenance record. A `.tsv` is not `*.md`, so `in_scope()` never sees it and it needs no `Disposition:` marker of its own.
+- Modify: `.gitignore` — one line for the untracked proposal file. The ignore is for the GENERATED file, which every `propose` overwrites; the approved copy above is a different path for that reason.
 - Modify: every in-scope tracked `.md` file — one added line each, Task 5.
 
 Not created, deliberately: no `research_vault/` module (§11 dispositions verbs against the step map; a maintenance verb would serve none), no CLI verb, no new pre-commit hook (CI already runs `pytest tests`, and a second mechanism for one check is the rule this repo's ladder rejects).
@@ -1614,7 +1615,7 @@ python -m pytest tests -q -n auto
 
 Expected: `docs/issue-dispositions.md` written; suite green, including `test_the_issue_table_covers_every_open_issue` (it runs, rather than skipping, wherever `gh` is authenticated).
 
-`apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass.
+Given the `--issues-json` listing above, `apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass. Without a listing there is no Title to compare a Note against, and the report is silent.
 
 **`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward, per key, for every issue the supplied listing does not name. A truncated listing therefore costs nothing: it fills what it covers and the table keeps the rest.
 
@@ -1741,10 +1742,30 @@ also lists every issue closed long before this pass — 53 of them at the
 2026-09-06 measurement, against 246 `existing` rows. Those were never
 dispositioned by §10 and do not belong in the table. Merge into
 `disposition-proposal.tsv` only the rows you actually decide: a genuinely new
-document, or a genuinely new issue. Then apply, re-run
+document, or a genuinely new issue. Then apply — handing `apply` the SAME
+`--state all` listing you gave `propose`, with `--issues-json` — re-run
 `python -m pytest tests/test_dispositions.py -q`, amend the merge commit, and
 push. A green linter on `main` is the gate on pushing, not a thing to fix
 afterwards.
+
+**Give `apply` the listing, not just `propose`.** `Title` is GitHub's, so a row
+for an issue the committed table does not yet cover has no Title to render
+without it: the row ships with a blank Title cell and its seed *title* sitting
+in `Note`, and the no-reason report below stays silent because there is no
+Title to compare that Note against. The flag costs nothing now that the
+carry-forward is per key — the listing fills what it covers and the committed
+table keeps every cell it does not name.
+
+Given the listing, `apply` prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub
+title — 53 of them at the 2026-09-06 top-up rehearsal, being the closed issues
+`--state all` adds. It is a report, not a failure: the write completes
+unattended, and the numbers are the queue for the next review pass.
+
+**Any row you decide belongs in `docs/document-dispositions.tsv`.** That is the
+committed copy of the reviewed proposal and the only home the document half's
+reasoning has — the marker records a verdict, this records why. The working
+`disposition-proposal.tsv` is gitignored and every `propose` overwrites it, so a
+reason left only there is lost with the worktree.
 
 ## What this plan does not do
 
