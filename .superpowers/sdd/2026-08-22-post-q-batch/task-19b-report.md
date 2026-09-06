@@ -1,5 +1,7 @@
 # Task 19b report: PreToolUse deny guards machine surfaces
 
+Disposition: historical (2026-09-06)
+
 ## Status
 
 Complete. Steps 1–3 implemented and committed, plus three fix rounds

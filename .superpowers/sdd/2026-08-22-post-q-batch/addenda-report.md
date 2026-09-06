@@ -1,5 +1,7 @@
 # Addenda report — Task 9 addendum + Task 4 addendum
 
+Disposition: historical (2026-09-06)
+
 Two independent, disjoint-file addenda to already-landed, reviewed tasks.
 Per branch precedent (Task 3: de1867d corrected forward rather than
 rebasing under a3db464), neither original commit (acd38b5, 8e7b136) was

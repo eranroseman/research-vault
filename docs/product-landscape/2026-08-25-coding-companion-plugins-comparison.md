@@ -1,5 +1,7 @@
 # Coding-companion plugins: obra/superpowers vs mattpocock/skills
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Comparison note, 2026-08-25. The author's question: which of the two works better as the coding
 companion for research-vault, and what would switching from superpowers to mattpocock cost —
 assuming in-flight work done and one-time churn free, so only steady state counts.

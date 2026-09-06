@@ -1,5 +1,7 @@
 # Task 17 re-review: fix round 1 (`213a826..7374ebd`)
 
+Disposition: historical (2026-09-06)
+
 Scope: commit `7374ebd` only. `213a826` is accepted and not re-reviewed.
 
 ## Method note — scratch-copy incident and repair

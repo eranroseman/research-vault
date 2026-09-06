@@ -1,5 +1,7 @@
 # mutate4py 0.1.4 — five defects, three on the worker path, plus an off-by-one
 
+Disposition: historical (2026-09-06)
+
 ## Summary
 
 Adopting mutate4py 0.1.4 as a pinned mutation-testing dependency surfaced

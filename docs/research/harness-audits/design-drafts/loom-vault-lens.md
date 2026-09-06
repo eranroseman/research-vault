@@ -1,5 +1,7 @@
 # Loom — a vault-first knowledge-work harness
 
+Disposition: historical (2026-09-06)
+
 The vault is the codebase: notes = modules, wikilinks = dependencies, git = history, frontmatter = types, Bases = databases. Every skill below operates on that substrate.
 
 ## Meta-skill: `using-loom` [U — ported near-unchanged from using-superpowers]

@@ -1,5 +1,7 @@
 # Task 2 report — C-7 routing index in the vault AGENTS.md template
 
+Disposition: historical (2026-09-06)
+
 ## What I implemented
 
 Added an index table to `research_vault/templates/vault/AGENTS.md`, right after the

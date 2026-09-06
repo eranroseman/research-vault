@@ -1,5 +1,7 @@
 # Rethink audit — the controller/orchestration-layer protocol
 
+Disposition: historical (2026-09-06)
+
 **Verified (2026-08-25):** the three load-bearing prior-art anchors independently spot-checked —
 MARCH's checker-in-isolation quote verbatim against the live arXiv abstract; Fowler's
 rule-of-three verbatim against the near-primary c2 quotation of Refactoring p.58; the

@@ -1,5 +1,7 @@
 # Seed-corpus classification ledger
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 2026-08-22 — per-URL evidence for the 166-item seed admission (agent-classified, every row cites its corpus occurrence). Verdict: 163 KEEP / 3 PRUNE. Companion to the slice findings log entries 9-11.
 
 | Class            | URL                                                                                                                                             | First occurrence                                                     |

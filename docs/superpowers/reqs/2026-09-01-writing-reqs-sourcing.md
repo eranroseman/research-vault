@@ -1,5 +1,7 @@
 # Sourcing appendix: building writing-reqs
 
+Disposition: sibling-project (2026-09-06) [should-be-scoping-review]
+
 > **Appendix to** `docs/superpowers/reqs/2026-09-01-writing-reqs.md`. These are the build-or-buy decisions for constructing that skill — which existing components to adopt, adapt, credit or decline. They are **not** requirements of it, and they are not the `sourcing` skill's requirements either; those live in `2026-09-02-sourcing.md`.
 >
 > **The re-run is the `sourcing` skill's first real use.** Author's ruling, 2026-09-02: once that skill ships, it does the sourcing of `writing-reqs`. That settles a question the sibling document had been carrying — the exemplar. No compliant instance of a sourcing artifact exists, and rather than manufacture one against an invented need, the first run has a real need already framed and a set of verdicts to check itself against. If the skill reaches different conclusions than the suspended tables below, that difference is the finding.

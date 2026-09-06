@@ -1,5 +1,7 @@
 # Task 4 report — find-sources corrections + cross-read wiring (items 5, 7, 11, 12)
 
+Disposition: historical (2026-09-06)
+
 Commit: `800c492` *fix: find-sources credential/vendoring corrections + cross-read wiring* (one commit, as required).
 Files changed: `skills/find-sources/SKILL.md`, `tests/test_find_sources_vendor.py`. **`references/` and `scripts/` untouched.**
 

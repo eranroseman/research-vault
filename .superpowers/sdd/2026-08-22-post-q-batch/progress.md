@@ -1,5 +1,7 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-08-22-post-q-batch.md
 
+Disposition: historical (2026-09-06)
+
 Worktree: /home/eranr/New folder/.claude/worktrees/fix+pre-slice-batch
 Branch: fix/pre-slice-batch
 Merge base: 002cb25

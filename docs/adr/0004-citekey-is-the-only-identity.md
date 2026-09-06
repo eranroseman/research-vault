@@ -1,5 +1,7 @@
 # The citekey is the vault's only identity
 
+Disposition: pending-issue: 116 (2026-09-06)
+
 Status: suspended (2026-09-03) — the import process is being redesigned from first principles and this decision is under re-derivation there; nothing new builds on it until it returns to accepted or is superseded.
 
 **A literature note's filename, every claim link (`citekey#^claim-id`), and every citation in prose are the same Better BibTeX citekey, and research-vault never mints a second identity for a source.** The key a human reads off the admitted item is the key the vault uses everywhere — no internal record id beside it, no alias table. Claim anchors are sub-addresses under that key, derived from the claim's own content; the machine hashes are witnesses to bytes, not identities.

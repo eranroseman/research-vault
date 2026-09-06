@@ -1,5 +1,7 @@
 # Prior art: what a requirement must carry, and what a requirements document needs
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-09-01. Feeds the requirements for `writing-reqs`, the pre-spec phase — see `docs/superpowers/reqs/2026-09-01-writing-reqs.md`.
 
 **Question asked:** how is this class of problem — turning a need into a written, verified statement of what and why — solved well elsewhere? Patterns, not vendors. A pattern costs nothing to take, so nothing here needs a disposition.

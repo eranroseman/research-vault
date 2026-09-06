@@ -1,5 +1,7 @@
 # Task 19 report: partial notice dates keep their precision
 
+Disposition: historical (2026-09-06)
+
 ## Status
 
 Complete. Task 19 Steps 1–5 implemented and committed. Task 19b (PreToolUse

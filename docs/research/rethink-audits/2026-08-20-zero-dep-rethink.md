@@ -1,5 +1,7 @@
 # Rethink audit: the zero-runtime-dependency constraint
 
+Disposition: historical (2026-09-06)
+
 Date: 2026-08-20. Method: `/rethink` (fresh-question pass of the rethink-audit rungs). Subject: the "core carries zero runtime dependencies" policy enshrined in spec §8 earlier the same day. Outcome: **policy corrected** — the first pass ratified its own author's fresh decision; two author challenges exposed the tailoring; the corrected rule replaces the absolute.
 
 ## First pass (recorded as the failure specimen)

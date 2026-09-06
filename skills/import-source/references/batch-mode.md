@@ -1,5 +1,7 @@
 # Batch mode
 
+Disposition: current (2026-09-06)
+
 For a backfill — refreshing every literature note in the vault:
 
 ```sh

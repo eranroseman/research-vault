@@ -1,5 +1,7 @@
 # Task 19b re-review, round 1
 
+Disposition: historical (2026-09-06)
+
 Scope: `a2b829d..6a62cab` (review only `6a62cab`; `3c73676` is a plan-doc
 amendment; `a2b829d` accepted, not re-reviewed). HEAD is ahead
 (`a42c7a1`, post-merge) — checked out nothing, read-only throughout.

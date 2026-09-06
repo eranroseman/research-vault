@@ -1,5 +1,7 @@
 # Sourcing screen: twelve candidates against twenty-nine musts
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-09-01. Evidence for the sourcing decisions in `docs/superpowers/reqs/2026-09-01-writing-reqs.md`.
 
 **Question asked:** is there anything we can use to fulfil these requirements? Pass/fail per requirement, no partial. A candidate failing any must is out, not weaker.

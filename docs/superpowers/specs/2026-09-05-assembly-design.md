@@ -1,5 +1,7 @@
 # research-vault as an assembly: obligations, component register, and lanes
 
+Disposition: current (2026-09-06)
+
 Status: draft for author review (2026-09-05) — nothing here is decided except the rows marked **chosen**.
 
 ## 1. Evidence standard

@@ -1,5 +1,7 @@
 # Task 3 report — verify-citations de-enumeration + the enumeration checker (audit items 3–4)
 
+Disposition: historical (2026-09-06)
+
 **Branch** `fix/pre-slice-batch` · **Commit** `12f29fe` *fix: verify-citations defers to CLI output; enumeration checker guards all skills* · base `45aa45d`
 
 ______________________________________________________________________

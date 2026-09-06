@@ -1,5 +1,7 @@
 # Task 2e report: form-gate coherence
 
+Disposition: historical (2026-09-06)
+
 ## 1. Step 2, re-proven from scratch (not taken on the controller's word)
 
 Extracted a clean copy of the tree via `git archive HEAD | tar -x` (never `cp

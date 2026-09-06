@@ -1,5 +1,7 @@
 ### Task 4: find-sources corrections + cross-read wiring (items 5, 7, 11, 12)
 
+Disposition: historical (2026-09-06)
+
 **Files:** Modify: `skills/find-sources/SKILL.md` (+ its `references/` where the cross-read says so); test pins.
 
 - [ ] **Step 1 (C-3 + item 11 fold):** Credential counts align to `redact_url` — the SKILL.md says "several" and defers to `redact_url` as the authority (3 query-string-auth APIs; 6 redacted params live in code, not prose). Mailto: SKILL.md states it is sourced from research-vault config and that vendored scripts don't read it.

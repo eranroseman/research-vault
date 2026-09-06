@@ -1,5 +1,7 @@
 # Terminology reference
 
+Disposition: current (2026-09-06)
+
 Use [CONTEXT.md](../CONTEXT.md) for domain terms and avoided synonyms, and
 [the ADRs](adr/) for architectural decisions. This file only defines how to
 choose names and records spellings or exceptions not owned by those sources.

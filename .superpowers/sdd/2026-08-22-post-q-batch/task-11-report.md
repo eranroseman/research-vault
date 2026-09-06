@@ -1,5 +1,7 @@
 # Task 11 report: Free-region destruction fix (item 18, audit defect 5)
 
+Disposition: historical (2026-09-06)
+
 ## Status
 
 Complete. All 4 steps (failing tests, implementation, spec edit, full suite)

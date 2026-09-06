@@ -1,5 +1,7 @@
 # Ingest redesign: design
 
+Disposition: pending-map (2026-09-06) [should-be-scoping-review]
+
 Status: draft for author review (2026-09-04). Nothing here is decided. Four labels are used: **chosen** (the author picked it in the 2026-09-04 brainstorm, and it can be re-picked), **measured** (probed live on the date given), **proposed** (the design's suggestion), and **open** (not yet answered). A label is written where a reader could not otherwise tell which one applies. Unlabelled prose is proposed. A fact read from source or from documentation rather than probed says which. This document supersedes foundation spec §4 (Zotero bridge).
 
 **What binds this spec.** Very little, and deliberately. `CONTEXT.md` and the ADR register are non-binding: the author set them aside because assumptions under them were disproved. The existing code and tests in `research_vault/` are not binding either, and for the same reason. They were written under those same assumptions, so their existence is not an argument for their survival, and the adversarial review that revised this document found working code implementing a contract §6 retires. "We already built it" is not a reason to keep something, and under the priority order in §0 it is not a reason to prefer building over adopting.

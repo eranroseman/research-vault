@@ -1,5 +1,7 @@
 # research-vault
 
+Disposition: current (2026-09-06)
+
 Merge back to main locally and push main to origin in the same motion. Fetch before claiming something is absent from origin.
 
 Eliminate the problem > add a mechanism > add a rule; prose is the last resort.

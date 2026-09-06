@@ -389,6 +389,49 @@ def test_apply_rows_rejects_a_superseded_target_that_does_not_resolve(
         dispositions.apply_rows(typo, root=tmp_path, date="2026-09-05")
 
 
+# ---------------------------------------------------------------------------
+# The standing linter. Everything above tests the module; everything below
+# tests the repository, per §10's rule that a mechanical process gets a
+# mechanical check.
+# ---------------------------------------------------------------------------
+
+
+def _markers() -> dict[str, dispositions.Marker | None]:
+    markers = {}
+    for path in dispositions.in_scope(ROOT):
+        try:
+            markers[path] = dispositions.read_marker((ROOT / path).read_text(encoding="utf-8"))
+        except dispositions.MarkerError as error:
+            # read_marker never sees a path; without this the linter's failure
+            # says what is wrong and not which of two hundred files it is wrong in.
+            raise dispositions.MarkerError(f"{path}: {error}") from error
+    return markers
+
+
+def test_every_in_scope_document_carries_exactly_one_marker():
+    unmarked = sorted(path for path, marker in _markers().items() if marker is None)
+    assert not unmarked, f"{len(unmarked)} document(s) carry no Disposition line: {unmarked[:10]}"
+
+
+def test_every_superseded_by_target_resolves():
+    tracked = set(dispositions.in_scope(ROOT))
+    broken = [
+        (path, marker.argument)
+        for path, marker in _markers().items()
+        if marker and marker.value == "superseded-by" and marker.argument not in tracked
+    ]
+    assert not broken, f"superseded-by targets that do not resolve: {broken}"
+
+
+def test_every_pending_issue_argument_is_an_issue_number():
+    bad = [
+        (path, marker.argument)
+        for path, marker in _markers().items()
+        if marker and marker.value == "pending-issue" and not marker.argument.isdigit()
+    ]
+    assert not bad, f"pending-issue arguments that are not issue numbers: {bad}"
+
+
 # Issue disposition tests
 
 

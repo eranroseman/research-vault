@@ -1,5 +1,7 @@
 # Installed asset disposition survey
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 **Status: approved by the author 2026-08-31.** No decisions remain open in this document.
 **Date:** 2026-08-30 · **Ticket:** [#75](https://github.com/eranroseman/knowledge-harness/issues/75), a `wayfinder:grilling` ticket on map [#53](https://github.com/eranroseman/knowledge-harness/issues/53)
 

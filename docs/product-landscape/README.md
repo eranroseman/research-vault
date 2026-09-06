@@ -1,5 +1,7 @@
 # Product landscape
 
+Disposition: historical (2026-09-06)
+
 Four notes from one pass, 2026-08-22, divided by **lifecycle** rather than by the order they were
 written. Each has a different update cadence, and that is why they are separate files.
 

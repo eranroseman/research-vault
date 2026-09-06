@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Import an admitted source
 
+Disposition: current (2026-09-06)
+
 Admission is the human act of accepting a source into Zotero, and it is the **only** way anything becomes citable. This skill is the step after: the machine projection of an admitted item into the evidence layer, plus the synthesis work that projection makes possible. If the item is not in Zotero yet, stop and say so — nothing in `inbox/` is citable, and no amount of importing changes that.
 
 **No project is required.** The information flow — admit, catalog, integrate — is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped, because its deliverable is one project's PRISMA-S search trail.

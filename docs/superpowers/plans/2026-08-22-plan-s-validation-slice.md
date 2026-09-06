@@ -1,5 +1,7 @@
 # Plan S: Validation Slice — Implementation Plan
 
+Disposition: pending-issue: 41 (2026-09-06) [should-be-scoping-review]
+
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans (this plan is largely author-in-the-loop research work, not fresh-subagent tasks). Steps use `- [ ]`.
 > This plan validates research-vault by USING it. It runs the shipped skills against a real corpus in a fresh vault — the falsification test of spec §9. It is not a build; almost nothing here is code.
 

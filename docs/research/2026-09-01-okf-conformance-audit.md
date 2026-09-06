@@ -1,5 +1,7 @@
 # OKF v0.2 conformance audit
 
+Disposition: historical (2026-09-06)
+
 Tiers 0–2 + Tier 5 landed 2026-09-02, plan `docs/superpowers/plans/2026-09-02-okf-conformance.md`.
 
 Audited 2026-09-01 against the Open Knowledge Format v0.2 specification as published at

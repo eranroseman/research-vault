@@ -1,5 +1,7 @@
 # Alteration inventory sweep
 
+Disposition: historical (2026-09-06)
+
 Resolves [#56](https://github.com/eranroseman/knowledge-harness/issues/56). Answers
 "what do we alter" across the installed harness by instrument, not memory: every
 enabled plugin diffed against its exact pinned commit **on both Claude Code and

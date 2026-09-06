@@ -1,5 +1,7 @@
 # Canonical vault glossary projection design
 
+Disposition: historical (2026-09-06)
+
 ## Decision
 
 `CONTEXT.md` is the sole owner of research-vault domain definitions. The

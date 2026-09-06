@@ -1,5 +1,7 @@
 # Part 1 / Part 2 boundary — SHA-walk re-run
 
+Disposition: historical (2026-09-06)
+
 Independent reviewer, read-only pass, 2026-08-24. Re-run of the coverage walk commissioned at
 `0ea7fc7`, now that the boundary merge has landed. Measured at `fix/pre-slice-batch` tip
 `32acfe2`, against `origin/main` at `0ea7fc7`. Baseline to beat: **22 commits / 4 uncovered**

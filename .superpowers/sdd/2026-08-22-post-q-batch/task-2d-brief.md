@@ -1,5 +1,7 @@
 ### Task 2d: Formatter ignore files + invocation-scope line (audit findings 1 and 12)
 
+Disposition: historical (2026-09-06)
+
 **Files:** Modify: `research_vault/scaffold.py` + vault templates (new `.prettierignore`, `.markdownlintignore`, `.editorconfig` covering `literatures/`, `log/`, `inbox/review-queue.md`, `system/bibliography.json`); `research_vault/templates/vault/AGENTS.md`; pins.
 
 - [ ] **Step 1:** Scaffold ships the three ignore files — formatters obey config, not paragraphs. The AGENTS.md formatter paragraph (which says of itself "it is not what enforces them") shrinks to one line naming the ignore files.

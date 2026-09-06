@@ -1,5 +1,7 @@
 # Controller-protocol material — banked from the post-q controller session
 
+Disposition: historical (2026-09-06)
+
 Raw material, 2026-08-25, not design. The pre-slice batch ran with a controller session
 (new-folder-c1) ruling for an implementer (new-folder-81), a boundary reviewer (new-folder-67),
 and two research-note authors (new-folder-64, new-folder-a5). No skill in any installed set

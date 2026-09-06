@@ -1,5 +1,7 @@
 # Memoria and research-vault: two answers to one thesis
 
+Disposition: historical (2026-09-06)
+
 Analysis note, 2026-08-22.
 
 ## Why this exists

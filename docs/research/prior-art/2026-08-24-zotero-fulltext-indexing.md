@@ -1,5 +1,7 @@
 # Zotero full-text indexing: mechanism
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 **Verified (2026-08-24):** A second session independently re-fetched all 60 claims raw at the pinned
 commits (plus GitHub API metadata and the live docs/forum pages): zero fabrications, verbatim quotes
 byte-exact, and both high-surprise findings hold — the FTS5 `fulltext.sqlite` schema, and

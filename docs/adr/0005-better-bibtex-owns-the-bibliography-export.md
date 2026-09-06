@@ -1,5 +1,7 @@
 # Better BibTeX owns the bibliography export
 
+Disposition: pending-issue: 116 (2026-09-06)
+
 Status: suspended (2026-09-03) — the import process is being redesigned from first principles and this decision is under re-derivation there; nothing new builds on it until it returns to accepted or is superseded.
 
 Better BibTeX is the sole content writer of `system/bibliography.json`: research-vault observes

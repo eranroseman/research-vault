@@ -1,5 +1,7 @@
 # Task 9 report: SKIPPED entries excluded from unacknowledged counts
 
+Disposition: historical (2026-09-06)
+
 ## RED evidence
 
 Command:

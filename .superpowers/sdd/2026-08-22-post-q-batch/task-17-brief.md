@@ -1,5 +1,7 @@
 ### Task 17: The "unresolved" placeholder never anchors acknowledgments (audit defects, fixity pair)
 
+Disposition: historical (2026-09-06)
+
 **Files:**
 
 - Modify: `research_vault/__main__.py` (attachment loop, ~line 234)

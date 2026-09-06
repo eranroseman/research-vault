@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Start or resume a project
 
+Disposition: current (2026-09-06)
+
 This is the real-life entry point — the project flow (question → literature → synthesis → draft → publish) starts and resumes here. In every command, `PATH` is the vault and `NAME` is the project's name under `projects/` — `brief`, not `projects/brief`.
 
 ## Orient, every time

@@ -1,5 +1,7 @@
 # Task 14 report: RW date parsing + arming honesty
 
+Disposition: historical (2026-09-06)
+
 Commit: `079c287` — `fix: RW date parsing accepts production formats; unarmed RW leg says so` (amended from `a53a48b` after fix round 1; no rebase, branch tip only)
 
 ## Surfaces (as verified before touching anything)

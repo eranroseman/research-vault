@@ -1,5 +1,7 @@
 # Research-Vault Foundation — Specification
 
+Disposition: pending-map (2026-09-06)
+
 **Status note:** This specification is the project's *current contract* — amendable in place with dated notes; each statement holds until a dated amendment or an absorbing artifact (code, a skill, an ADR, a plan) supersedes it, and the goal state is a spec fully absorbed into those artifacts. It is not a constitution: rationale and rulings for the research-vault plugin accrete here between passes and should not be over generalized. They are periodically absorbed outward — only ADRs carry constitutional weight (the domain-modeling three-test bar decides what becomes one). Nothing here outranks an accepted ADR; everything here outranks memory. New entries name their nature — decided, corrected, deferred, or measured — never "ruled"; a correction of a mistake is not a decision and does not harvest as one.
 
 Status: **APPROVED** by the author, 2026-08-16 (wayfinder ticket #15) — after two adversarial verification passes (44 findings resolved) and a seven-domain rethink audit (85 findings; three trust-boundary defects fixed).

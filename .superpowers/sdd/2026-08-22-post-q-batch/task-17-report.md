@@ -1,5 +1,7 @@
 # Task 17 report: the "unresolved" placeholder never anchors acknowledgments
 
+Disposition: historical (2026-09-06)
+
 Commit: `213a826 fix: unresolved attachments omit fixity entries; ack scope never anchors to a placeholder`
 
 ## Side (a) — `__main__.py` stops writing the placeholder

@@ -1,5 +1,7 @@
 # Task 15 review - b899883..3d65856
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 Verdict: **compliant**. No missed, extra, or misunderstood requirement.

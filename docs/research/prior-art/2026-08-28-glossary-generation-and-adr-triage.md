@@ -1,5 +1,7 @@
 # Glossary generation and ADR triage — prior art
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-28. Feeds the rethink-audit of the docs subsystem:
 (1) the three-way hand-maintained glossary (`CONTEXT.md`,
 `research_vault/templates/vault/system/glossary.md`,

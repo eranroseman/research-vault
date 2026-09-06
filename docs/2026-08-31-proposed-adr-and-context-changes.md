@@ -1,5 +1,7 @@
 # Proposed ADR and CONTEXT.md changes
 
+Disposition: historical (2026-09-06)
+
 **Date:** 2026-08-31 · **Source:** the [installed asset disposition survey](research/harness-audits/2026-08-30-installed-asset-disposition-survey.md) and [#75](https://github.com/eranroseman/knowledge-harness/issues/75)
 **Status:** proposal. Nothing here is adopted.
 

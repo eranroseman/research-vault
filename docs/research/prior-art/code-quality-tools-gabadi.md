@@ -1,5 +1,7 @@
 # Review: gabadi's three code-quality tools (pypi.org/user/gabadi)
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Date: 2026-08-20. All three installed into `core/.venv` and run live against `harness_core` at HEAD (452 passed, 5 skipped; branch-coverage LCOV from `pytest --cov --cov-branch --cov-report=lcov:lcov.info`). Common profile: single maintainer (gabadi), MIT, v0.1.x (releases Jun–Aug 2026), Sigstore/trusted-publishing attestations, ports/extensions of unclebob (Robert C. Martin) tool lineages.
 
 ## crap4py 0.1.1 — CRAP score per function

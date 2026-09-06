@@ -1,5 +1,7 @@
 # References cross-read — find-sources vendored surface
 
+Disposition: historical (2026-09-06)
+
 Date: 2026-08-22. Full adversarial method (4 lenses, independent refuters; 15 agents, 0 errors) — the follow-up slice the skills-layer audit proposed. 11 findings confirmed; refuted candidates live in the workflow journal.
 
 ## Confirmed findings

@@ -1,5 +1,7 @@
 # Task 2b report — vault index embeds the two Bases
 
+Disposition: historical (2026-09-06)
+
 ## Status: DONE
 
 Commit: `660f752 feat: vault index embeds the trust-tier and open-questions Bases`

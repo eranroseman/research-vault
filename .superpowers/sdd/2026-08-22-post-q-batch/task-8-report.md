@@ -1,5 +1,7 @@
 # Task 8 report — ecosystem-steal prose adoptions (audit items 13–14)
 
+Disposition: historical (2026-09-06)
+
 **Branch:** `fix/pre-slice-batch` · **Base:** `a2a5aad` · **Commit:** `e76805c`
 (one commit; `skills/` + `tests/` only — `.superpowers/` is git-excluded, so this report is
 untracked, matching tasks 1–7)

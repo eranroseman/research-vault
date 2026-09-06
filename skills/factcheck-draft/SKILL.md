@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Factcheck a draft
 
+Disposition: current (2026-09-06)
+
 This is **factored verification** (§6): an LLM decompose-and-check pass at draft→review. It is deliberately not deterministic and it **never blocks** — not a commit, not a publish attempt, nothing. Every result becomes an adjudicated finding, written through the `finding` verb, warn-tier, for a person to triage later. Never write a review-inbox entry, a `[failed-verification::]` marker, or a `verified` event yourself — this skill's job is judgment; the CLI's job is every write.
 
 ## Select claims mechanically, never by reading the draft yourself

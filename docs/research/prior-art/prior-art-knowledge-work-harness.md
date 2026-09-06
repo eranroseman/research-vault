@@ -1,5 +1,7 @@
 # Prior art: a Claude Code harness for knowledge work
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-16. Resolves wayfinder tickets #2–#6 (eranroseman/knowledge-harness). Scope: what already exists for the academic-research arc (question → literature → synthesis → draft → submit) on our substrate — fresh Obsidian vault under git, local Zotero as reference source of truth — and what we must build to hit the success criterion of zero fabricated citations. All API behavior in §5 was live-verified 2026-08-16; repo activity dates are from the GitHub API at research time.
 
 ## Summary: what exists vs. what we must build

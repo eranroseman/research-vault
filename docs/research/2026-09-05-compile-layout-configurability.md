@@ -1,5 +1,7 @@
 # Compile-step layout: what the two candidates let a caller name
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-09-05. A layout-configurability probe of the two compile-step candidates, run against scratch vaults rather than against their documentation.
 
 **What this artifact is.** A record of what `AgriciDaniel/claude-obsidian` and `nvk/llm-wiki` do to a directory tree they are pointed at. Five questions were asked of each: whether the caller can name the directories, what the tool writes per source, whether its pages carry a frontmatter `type`, whether its lint reaches folders it did not write, and what it does with `index.md`. Each candidate was cloned at its pin into `/tmp`, a scratch vault with the research-vault folder shape was built beside it, and the tool's deterministic parts were run against that vault: config load, path resolution, lint, transaction scope validation, and the page writers. The LLM legs (ingest drafting, compile) were not driven; where a fact could only come from prose or a template, that is marked.

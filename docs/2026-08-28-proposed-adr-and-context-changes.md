@@ -1,5 +1,7 @@
 # Proposed ADR and CONTEXT.md changes
 
+Disposition: superseded-by: docs/superpowers/specs/2026-09-01-canonical-vault-glossary-projection-design.md (2026-09-06)
+
 Status: **SUPERSEDED.** This is historical analysis from 2026-08-28, not
 current instruction. The approved [canonical vault glossary projection
 design](superpowers/specs/2026-09-01-canonical-vault-glossary-projection-design.md)

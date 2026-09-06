@@ -1,5 +1,7 @@
 # Task 7 report: prose sweeps — leading-word collapse + prohibition cuts (items 9–10)
 
+Disposition: historical (2026-09-06)
+
 ## Candidate enumeration and rulings
 
 ### Item 9 — never-hand-write refrain

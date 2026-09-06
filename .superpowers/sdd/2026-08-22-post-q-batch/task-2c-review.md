@@ -1,5 +1,7 @@
 # Task 2c review - 3d26a44..a5668d6
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: issues.**

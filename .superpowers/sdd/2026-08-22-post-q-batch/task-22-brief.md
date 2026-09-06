@@ -1,5 +1,7 @@
 ### Task 22: Rename `skipped_digest` → `skipped_sha256` (terminology ruling 2026-08-23)
 
+Disposition: historical (2026-09-06)
+
 **RULING (author, 2026-08-23; motivation revised same day) — name the value what it is.** The report field holds a SHA-256 hex string, so it takes the algorithm's own name, in the form `fixity-sha256` and `managed-sha256` already use where the value is durable.
 
 **This is a precision fix, not a collision fix.** It was first ruled to free the word *digest* for the authored per-source account; that account is now named **summary** (the walk above), so nothing collides and nothing downstream waits on this task. It stays in the batch because `skipped_digest` names the shape of the value less honestly than the codebase does everywhere else, and churn is priced at zero (`docs/terminology.md` §1). **If the implementer hits any friction in Step 4, drop the task rather than spend the instrument-freeze window on it** — that is the honest trade now that no collision forces it.

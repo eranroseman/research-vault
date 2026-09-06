@@ -1,5 +1,7 @@
 # Rethink audit — glossary duplication and ADR triage
 
+Disposition: historical (2026-09-06)
+
 Clean-slate design audit of the documentation subsystem behind
 [docs/2026-08-28-proposed-adr-and-context-changes.md](../../2026-08-28-proposed-adr-and-context-changes.md):
 the relationship between the root glossary, the shipped vault glossary, and

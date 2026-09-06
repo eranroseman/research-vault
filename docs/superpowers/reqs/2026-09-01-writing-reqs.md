@@ -1,5 +1,7 @@
 # Requirements: writing-reqs (the pre-spec phase)
 
+Disposition: sibling-project (2026-09-06)
+
 > **For agentic workers:** this document is the input to a design or a sourcing phase, not a design. On approval it offers two successors — `sourcing` (is there anything we can use?) or `writing-specs` (how do we build it?) — and neither is a default.
 >
 > **Status:** **feature-complete, 2026-09-02.** 39 requirements, six retired numbers (R3, R10, R16, R17, R28, R31). Eight are hard floors under R43. Every requirement derives from prior art or a screened competitor, every source has been read directly, and every requirement has a named consumer. A red-team pass confirmed three blockers and thirteen minor defects; all sixteen are fixed. Six independent attacks on the joint satisfiability of R15, R18, R24, R35, R37 and R38 were all refuted, which was the one question that could have blocked this.

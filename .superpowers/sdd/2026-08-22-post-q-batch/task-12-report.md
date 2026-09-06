@@ -1,5 +1,7 @@
 # Task 12 report: Duplicate-anchor render assert (item 19, claim-anchor audit)
 
+Disposition: historical (2026-09-06)
+
 ## Status
 
 Complete. Both failing tests (Step 1 identical-text, Step 1b keyless-empty-text)

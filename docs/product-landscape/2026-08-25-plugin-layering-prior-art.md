@@ -1,5 +1,7 @@
 # Prior art: layering a mandatory process engine over an opt-in skill pack
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-25. Feeds the prior-art section of the audit that follows
 `2026-08-25-coding-companion-plugins-comparison.md`'s layered verdict (superpowers'
 execution core owns planned-code machinery; mattpocock owns config, planning

@@ -1,5 +1,7 @@
 # Ask-matt / setup-matt-pocock-skills / using-superpowers / superpowers-hooks investigation (issue #85)
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-28. Answers the three concrete-fact requests blocking #72, #61, #62, as
 scoped by #85. Method: primary-source reads only — full `SKILL.md` files (not excerpts), the
 superpowers hook script and its config, byte/line measurement of the actual injected payload.

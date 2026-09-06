@@ -1,5 +1,7 @@
 # speckit-superpowers-bridge: pinned-commit read
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-26. Resolves
 [Companion: speckit-superpowers-bridge pinned-commit read](https://github.com/eranroseman/knowledge-harness/issues/57)
 and feeds the front-door decision in

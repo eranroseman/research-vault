@@ -1,5 +1,7 @@
 # Task 2 review - aef25c1..45aa45d
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

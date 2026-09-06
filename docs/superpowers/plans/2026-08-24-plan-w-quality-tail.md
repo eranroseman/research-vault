@@ -1,5 +1,7 @@
 # Plan W: Quality Tail — Implementation Plan
 
+Disposition: pending-issue: 42 (2026-09-06)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans. Steps use `- [ ]`. Split from the pre-slice batch 2026-08-24 (review finding: the batch's header promised a single gating dispatch; this tail is non-gating and runs on main AFTER the batch's Task 21 merge).
 
 **Goal:** The post-merge quality tail: mutmut adoption (author-ruled on the landed pilot), comment hygiene, suite hermeticity + speed, version currency, CI hardening, and the full 26-module mutation baseline.

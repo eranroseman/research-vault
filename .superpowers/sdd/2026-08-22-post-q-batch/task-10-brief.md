@@ -1,5 +1,7 @@
 ### Task 10: Two-tier citekey check (item 17, spec §4 as ruled 2026-08-22)
 
+Disposition: historical (2026-09-06)
+
 **Files:** Modify: `research_vault/checks.py` (`check_citekeys`, ~line 131); `research_vault/inbox.py` (REASON_CODES) or wherever the registry lives; `docs/terminology.md` §4.4 (new row); `skills/evidence-conventions/SKILL.md` reason-code table. Test: `tests/test_checks.py`.
 
 **Interfaces:** `check_citekeys` signature unchanged; new reason code `not-imported`.

@@ -1,5 +1,7 @@
 # Adoption plan
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Decision note, 2026-08-22. Updated as we act on it, unlike its two sources.
 
 This is the actionable half of the 2026-08-22 pass. It was previously split across two documents —

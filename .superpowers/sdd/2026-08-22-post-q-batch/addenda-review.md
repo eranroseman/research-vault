@@ -1,5 +1,7 @@
 # Addenda review — `eff8d67` and `ebea360`
 
+Disposition: historical (2026-09-06)
+
 Independent reviewer, 2026-08-24, commissioned by the author. Range `c418cf7..ebea360`: the
 two follow-up commits to completed Tasks 9 and 4 that landed after the ledger's last write
 (12:27) and so carry no dispatch, no completion line, and no review diff.

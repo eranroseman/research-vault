@@ -1,5 +1,7 @@
 ### Task 17b: Machine-owned frontmatter joins the closing guard (prose-vs-mechanism audit 2026-08-24, bucket-1 finding 2 — the biggest gap: literature frontmatter sits OUTSIDE %%rv-managed%%, so `lint_evidence_layer`'s managed-slice diff never sees it)
 
+Disposition: historical (2026-09-06)
+
 **Files:** Modify: `research_vault/lints.py` (`lint_evidence_layer`, ~line 618). Test: `tests/test_lints.py`.
 
 - [ ] **Step 1: Failing test** — a hand-edit to a literature note's `archive-url` (and parametrized: `managed-sha256`, `fixity-sha256`, `generated`, `citekey`) with the managed slice untouched currently passes `lint_evidence_layer`; after the fix it is UNMATCHED (`drift`), while edits to non-machine keys (`status`, free-region prose) still pass — screening is human-writable by design.

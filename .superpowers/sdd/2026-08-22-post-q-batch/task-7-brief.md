@@ -1,5 +1,7 @@
 ### Task 7: Prose sweeps — leading word + prohibition cuts (items 9–10)
 
+Disposition: historical (2026-09-06)
+
 **Files:** Modify: the SKILL.md files the greps hit; pins.
 
 - [ ] **Step 1 (item 9):** The never-hand-write refrain's five spellings collapse to the single inline token *the CLI writes* (grep for the variants — "never hand-write", "never write by hand", etc. — one token per site, meaning preserved).

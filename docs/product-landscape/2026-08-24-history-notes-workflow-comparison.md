@@ -1,5 +1,7 @@
 # Workflow comparison: History Notes (Zotero + Obsidian) vs research-vault
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Comparison note, 2026-08-24. Workflow only — process and information flow, not UI or plugin
 mechanics for their own sake.
 

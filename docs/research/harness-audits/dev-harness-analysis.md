@@ -1,5 +1,7 @@
 # Re-imagining the harness for knowledge work
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Analysis of the current software-development harness, followed by **Scriptorium** — the same architecture rebuilt for research, analysis, long-form writing, and personal knowledge management.
 
 ______________________________________________________________________

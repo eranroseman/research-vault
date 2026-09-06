@@ -1,5 +1,7 @@
 # Provenance schemas & evidence-boundary tags: prior art
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-16. Feeds decision ticket #9 (eranroseman/knowledge-harness) — "Provenance schema & evidence-boundary tags". Scope: WHAT gets recorded per claim and HOW it is anchored, in a git-tracked Obsidian vault with citekey-keyed literature notes. Out of scope (sibling tickets): Zotero data flow; verification/gate machinery. Builds on `docs/research/prior-art/prior-art-knowledge-work-harness.md` §5–§6 (Crossref/RW/OpenAlex fields, Elicit quote+locator, scite stance tags, AgriciDaniel claim ledger). All web sources fetched 2026-08-16 unless noted.
 
 **Requirements the schema must satisfy** (from ticket context): (a) every claim traceable to source + locator; (b) evidence-boundary tags — quote / paraphrase / inference / open-question — survive every relay; (c) rot-watching (retractions, dead links, changed sources) possible later without retrofit; (d) claims aggregable across sources by an LLM-owned synthesis layer; (e) queryable in-vault (Obsidian Bases).

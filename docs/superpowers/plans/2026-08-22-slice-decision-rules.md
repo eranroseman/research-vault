@@ -1,5 +1,7 @@
 # Slice decision rules — pre-registered
 
+Disposition: historical (2026-09-06)
+
 Registered 2026-08-22, before Phase 2 evidence exists. Shape adopted from Memoria's decision_rules discipline: every blocker written down before its evidence arrives — metric, window, threshold, recommendation — so a rule the author can read today cannot be quietly re-derived once the numbers are in. **A rule recommends; it never acts.** Assessment is deterministic (anyone may compute it); application is the author's, at the named moment. The registry CLOSES when Phase 2 starts: rules may be amended or added only before their evidence window opens.
 
 Why: §9's falsified-when ("the author routed around the vault") and validated-when ("the author judges the brief defensible") are self-assessments, in a single-run experiment, made by the builder. These rules make the first countable and give the second a floor it must clear.
