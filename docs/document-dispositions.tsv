@@ -244,3 +244,8 @@ issue:19	still-open			residual	concrete defect; no register decides it
 issue:18	pending-map			residual	component or scope question a lane settles
 issue:17	still-open			residual	concrete defect; no register decides it
 issue:16	still-open			residual	concrete defect; no register decides it
+issue:124	still-open			residual	four prose errata in the spec, one made false by this pass's own correct decision
+issue:123	still-open			residual	documentation-class; docs/testing.md names the wrong gate for a live leg
+issue:122	still-open			residual	documentation-class; the discarded value is silent, not destructive
+issue:121	still-open			residual	seam register S3 and S4 — both bounded, both currently linted or refused loudly
+issue:120	still-open			residual	the eliminate rung under the Note-as-title compensation; #121's seams sit on it
