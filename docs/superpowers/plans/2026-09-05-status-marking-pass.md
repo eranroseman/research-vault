@@ -31,10 +31,10 @@
 
 The spec's §10 numbers and its frontmatter rule do not reproduce. All five corrections below are measured 2026-09-05 in this checkout on `main`, and each is re-measured at execution time (§1: a fact older than the lane's start date is re-measured, not cited).
 
-1. **Corpus.** `git ls-files -- "*.md"` returns **213**, not 202. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1). Marking scope is **201** — the 202 minus `CLAUDE.md`, which §10 exempts by name.
+1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name — **202 files at the 2026-09-05 measurement, and still moving**: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is that measurement, not a contract; nothing in the code depends on one.
 2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all.
 3. **Route deviation — no frontmatter key; one uniform body anchor.** All 9 `SKILL.md` carry a `# ` heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). **Route cell:** if the author prefers the spec's frontmatter route at plan review, the change is confined to `anchor()` plus a frontmatter write branch in `apply_marker()`, and `tests/test_skill_files.py:20` must be re-cut against the new tail.
-4. **Anchor gap.** **25** in-scope files carry no `# ` heading at all — 21 `.superpowers/sdd/2026-08-22-post-q-batch/task-*-brief.md` and 4 `docs/research/**/README.md`. §10's rule ("within the five lines after the first `# ` heading") has no anchor for them, so this plan adds a second case: top of file. The three anchor classes partition the scope exactly — 9 files whose heading follows frontmatter, 25 headingless, 167 heading-first; 9 + 25 + 167 = 201.
+4. **Anchor gap.** **25** in-scope files carry no `# ` heading at all — 21 `.superpowers/sdd/2026-08-22-post-q-batch/task-*-brief.md` and 4 `docs/research/**/README.md`. §10's rule ("within the five lines after the first `# ` heading") has no anchor for them, so this plan adds a second case: top of file. The three anchor classes partition the scope exactly — 9 files whose heading follows frontmatter, 25 headingless, 168 heading-first; 9 + 25 + 168 = 202.
 5. **Both counted quantities have decayed.** The spec's "25 carry some header status marker" reads **19** files with a status-shaped line in their first 12 lines, and its "66 open issues" reads **30** from `gh issue list`. All six issues §10 names as first to close (#96, #97, #62, #63, #78, #118) and all three it keeps open (#116, #117, #119) are open today.
 
 ## File map
@@ -43,7 +43,7 @@ The spec's §10 numbers and its frontmatter rule do not reproduce. All five corr
 - Create: `tests/test_dispositions.py` — unit tests for the module, then the standing repo-wide linter in the same file (the `tests/test_config_validity.py` pattern: a repo self-check lives in the suite, not in a separate runner).
 - Create: `docs/issue-dispositions.md` — the issue half of the pass, written by Task 6.
 - Modify: `.gitignore` — one line for the untracked proposal file.
-- Modify: 201 tracked `.md` files — one added line each, Task 5.
+- Modify: every in-scope tracked `.md` file — one added line each, Task 5.
 
 Not created, deliberately: no `research_vault/` module (§11 dispositions verbs against the step map; a maintenance verb would serve none), no CLI verb, no new pre-commit hook (CI already runs `pytest tests`, and a second mechanism for one check is the rule this repo's ladder rejects).
 
@@ -78,7 +78,7 @@ print("tracked", len(files), "scope", len(scope), "frontmatter", len(frontmatter
 PY
 ```
 
-Expected, measured 2026-09-05: `tracked 213 scope 201 frontmatter 9 headless 25`. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on; nothing in the code depends on the count.
+Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 202 frontmatter 9 headless 25`. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -309,8 +309,8 @@ git add scripts/dispositions.py tests/test_dispositions.py
 git commit -m "$(cat <<'MSG'
 feat: scope and positional reader for the §10 disposition marker
 
-Three anchor classes partition the 201-file scope: 9 files whose heading
-follows frontmatter, 25 headingless, 167 heading-first. The reader looks only
+Three anchor classes partition the marking scope: 9 files whose heading
+follows frontmatter, 25 headingless, 168 heading-first. The reader looks only
 inside the five-line window so a body `Status: **CONFIRMED.**` cannot be
 mistaken for a header marker.
 
@@ -540,9 +540,9 @@ ______________________________________________________________________
 **Interfaces:**
 
 - Consumes: `in_scope`, `propose`, `FLAG` from Tasks 1–2.
-- Produces: `HEADER: str`, `class Row(NamedTuple)` with fields `key: str, value: str, argument: str, flag: bool, rule: str, note: str`, `emit(root: Path = ROOT) -> str`, `parse_rows(text: str) -> list[Row]`, `main(argv: list[str] | None = None) -> int`, and the CLI `python -m scripts.dispositions propose`. Task 4 consumes `parse_rows`; Task 6 adds issue rows to the same file.
+- Produces: `HEADER: str`, `class Row(NamedTuple)` with fields `key: str, value: str, argument: str, flag: bool, rule: str, note: str`, `propose_or_existing(path: str, text: str) -> Proposal`, `emit(root: Path = ROOT) -> str`, `parse_rows(text: str) -> list[Row]`, `main(argv: list[str] | None = None) -> int`, and the CLI `python -m scripts.dispositions propose`. Task 4 consumes `parse_rows`; Task 6 adds issue rows to the same file.
 
-**Why TSV and not a markdown table.** The author edits 201 rows by hand. TSV is column-stable in any editor, is not owned by mdformat, and parses with `str.split("\t")` — no dependency, no ambiguity about escaped pipes. The file is untracked scratch: the markers themselves are the durable record.
+**Why TSV and not a markdown table.** The author edits two hundred rows by hand. TSV is column-stable in any editor, is not owned by mdformat, and parses with `str.split("\t")` — no dependency, no ambiguity about escaped pipes. The file is untracked scratch: the markers themselves are the durable record.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -562,7 +562,18 @@ def test_emit_round_trips_through_parse_rows():
     rows = dispositions.parse_rows(dispositions.emit(ROOT))
     assert [row.key for row in rows] == dispositions.in_scope(ROOT)
     adr = next(row for row in rows if row.key.endswith("0004-citekey-is-the-only-identity.md"))
-    assert (adr.value, adr.argument, adr.rule) == ("pending-issue", "116", "spec-named-issue")
+    assert (adr.value, adr.argument) == ("pending-issue", "116")
+    # `spec-named-issue` before Task 5 marks the corpus, `existing` after it.
+    assert adr.rule in ("spec-named-issue", "existing")
+
+
+def test_emit_keeps_a_marker_the_author_already_approved():
+    """Re-running propose over a reviewed corpus must not undo the review."""
+    path, text = "docs/product-landscape/zotero.md", "# Zotero\n\nDisposition: current (2026-09-05)\n"
+    assert dispositions.propose(path, text).value == "pending-map"
+    assert dispositions.propose_or_existing(path, text) == dispositions.Proposal(
+        "current", "", False, "existing"
+    )
 
 
 def test_parse_rows_reads_the_flag_column_as_a_boolean():
@@ -610,11 +621,25 @@ class Row(NamedTuple):
     note: str
 
 
+def propose_or_existing(path: str, text: str) -> Proposal:
+    """A marker already in the file wins over the classifier.
+
+    `propose` is pure, so re-emitting over a corpus the author has already
+    reviewed would hand back the classifier's guesses and the next `apply`
+    would quietly undo the review. The file is the record; the classifier only
+    fills blanks. This is also what makes re-running `propose` mid-review safe.
+    """
+    marker = read_marker(text)
+    if marker is None:
+        return propose(path, text)
+    return Proposal(marker.value, marker.argument, marker.flag, "existing")
+
+
 def emit(root: Path = ROOT) -> str:
     """One reviewable row per in-scope document, header first."""
     lines = [HEADER]
     for path in in_scope(root):
-        proposal = propose(path, (root / path).read_text(encoding="utf-8"))
+        proposal = propose_or_existing(path, (root / path).read_text(encoding="utf-8"))
         lines.append(
             "\t".join(
                 [
@@ -899,14 +924,14 @@ ______________________________________________________________________
 **Files:**
 
 - Modify: `tests/test_dispositions.py`
-- Modify: 201 tracked `.md` files (one line each)
+- Modify: every in-scope tracked `.md` file (one line each — 202 at the 2026-09-05 measurement)
 
 **Interfaces:**
 
 - Consumes: everything Tasks 1–4 produce.
 - Produces: nothing new in code. Produces the marked corpus, and a linter that from here on refuses an unmarked or malformed document.
 
-This is the task with the human gate in it. The linter is written first and fails — 201 files carry no marker. The "implementation" that makes it pass is the corpus the author approved.
+This is the task with the human gate in it. The linter is written first and fails — no in-scope file carries a marker yet. The "implementation" that makes it pass is the corpus the author approved.
 
 - [ ] **Step 1: Write the failing linter**
 
@@ -921,10 +946,15 @@ This is the task with the human gate in it. The linter is written first and fail
 
 
 def _markers() -> dict[str, dispositions.Marker | None]:
-    return {
-        path: dispositions.read_marker((ROOT / path).read_text(encoding="utf-8"))
-        for path in dispositions.in_scope(ROOT)
-    }
+    markers = {}
+    for path in dispositions.in_scope(ROOT):
+        try:
+            markers[path] = dispositions.read_marker((ROOT / path).read_text(encoding="utf-8"))
+        except dispositions.MarkerError as error:
+            # read_marker never sees a path; without this the linter's failure
+            # says what is wrong and not which of two hundred files it is wrong in.
+            raise dispositions.MarkerError(f"{path}: {error}") from error
+    return markers
 
 
 def test_every_in_scope_document_carries_exactly_one_marker():
@@ -956,7 +986,7 @@ Malformed markers need no test of their own: `read_marker` raises `MarkerError`,
 - [ ] **Step 2: Run the linter to verify it fails**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: FAIL — `AssertionError: 201 document(s) carry no Disposition line`.
+Expected: FAIL — `AssertionError: 202 document(s) carry no Disposition line` (the count is whatever Step 1 measured).
 
 - [ ] **Step 3: Generate the proposal**
 
@@ -967,13 +997,21 @@ cut -f2 disposition-proposal.tsv | sort | uniq -c | sort -rn
 cut -f5 disposition-proposal.tsv | sort | uniq -c | sort -rn
 ```
 
-Expected: 202 lines (header + 201 rows), and a value histogram dominated by `historical` (the 71 `.superpowers/sdd/` files plus the dated research passes) and `pending-map` (the residual).
+Expected: one header line plus one row per in-scope file (203 lines at the 2026-09-05 measurement), and a value histogram dominated by `historical` (the 71 `.superpowers/sdd/` files plus the dated research passes) and `pending-map` (the residual).
+
+Learn mdformat's baseline in the same breath, because `.git/hooks/` holds only samples — no local hook has ever enforced the formatter, so some tracked files may already be unclean and Step 6's reflow gate would fire on that pre-existing debt rather than on this pass:
+
+```bash
+mdformat --check --number --wrap keep $(cut -f1 disposition-proposal.tsv | tail -n +2 | grep -v "^\.superpowers/") 2>&1 | tail -20
+```
+
+Record which files it names. Those, and only those, are permitted to reflow in Step 6.
 
 - [ ] **Step 4: STOP — hand the proposal to the author**
 
 **This is the approval gate. Do not proceed without it.** Post the value histogram and the rule histogram, then say:
 
-> `disposition-proposal.tsv` holds 201 rows, one per in-scope document. Columns: `key`, `value`, `argument`, `flag`, `rule`, `note`. Edit any of `value`, `argument`, `flag` — apply is mechanical from what you leave behind. Three things worth your eye: every row whose `rule` is `residual` is the classifier declining to guess between `pending-map` and `current`; every `superseded-by` row carries `?` as its target and will be rejected until you name the superseding path; and the `should-be-scoping-review` flag is a proposal from a filename hint, not a reading.
+> `disposition-proposal.tsv` holds one row per in-scope document (202 at the 2026-09-05 measurement). Columns: `key`, `value`, `argument`, `flag`, `rule`, `note`. Edit any of `value`, `argument`, `flag` — apply is mechanical from what you leave behind. Three things worth your eye: every row whose `rule` is `residual` is the classifier declining to guess between `pending-map` and `current`; every `superseded-by` row carries `?` as its target and will be rejected until you name the superseding path; and the `should-be-scoping-review` flag is a proposal from a filename hint, not a reading.
 
 Wait for the edited file. The asymmetry that makes this gate load-bearing: **mis-marking a current document as `historical` makes the §8 cold-start contract refuse it later, and nobody will know why** — doctor fails if the reading list points at anything `historical` or `pending-map`. A wrong `current` is visible; a wrong `historical` is silent.
 
@@ -985,13 +1023,14 @@ marked=$(cut -f1 disposition-proposal.tsv | tail -n +2)
 git status --porcelain -- $marked | wc -l
 ```
 
-Expected: `marked 201 documents from disposition-proposal.tsv`, and 201 modified files. The `$marked` pathspec is the proposal's own key column — never `git diff --name-only` over the whole tree, which in this shared checkout would sweep up another session's uncommitted work. If `apply` raises `MarkerError`, it names the offending row — fix that row in the TSV and re-run; the applier is idempotent.
+Expected: `marked <N> documents from disposition-proposal.tsv` for the N that Step 3 counted, and N modified files. The `$marked` pathspec is the proposal's own key column — never `git diff --name-only` over the whole tree, which in this shared checkout would sweep up another session's uncommitted work. If `apply` raises `MarkerError`, it names the offending row — fix that row in the TSV and re-run; the applier is idempotent.
 
 - [ ] **Step 6: Run the form owner over the mdformat-owned subset**
 
 `.superpowers/` is outside mdformat's scope (`.pre-commit-config.yaml`), so only the rest is reformatted:
 
 ```bash
+marked=$(cut -f1 disposition-proposal.tsv | tail -n +2)   # shell state does not survive between steps
 mdformat --number --wrap keep $(printf '%s\n' $marked | grep -v "^\.superpowers/")
 git diff --stat -- $marked | tail -1
 ```
@@ -1006,11 +1045,12 @@ Expected: green, including the three linter tests.
 - [ ] **Step 8: Commit**
 
 ```bash
+marked=$(cut -f1 disposition-proposal.tsv | tail -n +2)   # re-derived: each block is its own shell
 git add -- $marked tests/test_dispositions.py
 git commit -m "$(cat <<'MSG'
 feat: mark every in-scope document with its §10 disposition
 
-201 documents, one Disposition line each, from an author-reviewed proposal.
+Every in-scope document carries one Disposition line, from an author-reviewed proposal.
 The existing Status: line is untouched — it carries a lifecycle axis this pass
 has no business overwriting, and §2 depends on ADRs 0004 and 0005 still
 reading suspended.
@@ -1075,6 +1115,19 @@ def test_render_and_read_the_issue_table_round_trip():
     assert dispositions.read_issue_table(text) == rows
 
 
+def test_read_issue_table_tolerates_mdformat_column_padding():
+    """mdformat pads table cells; render_issue_table does not. Measured 2026-09-05."""
+    text = (
+        "# Issue dispositions\n\n"
+        "| Issue | Disposition     | Title |\n"
+        "| ----- | --------------- | ----- |\n"
+        "| 96    | absorbed-by: §6 | X     |\n"
+    )
+    assert dispositions.read_issue_table(text) == [
+        dispositions.Row("issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "X")
+    ]
+
+
 def test_read_issue_table_rejects_an_off_vocabulary_disposition():
     text = dispositions.render_issue_table(
         [dispositions.Row("issue:96", "absorbed-by", "§6", False, "r", "t")]
@@ -1105,6 +1158,7 @@ def test_the_issue_table_is_well_formed():
             assert row.argument.startswith("§"), row
 
 
+@pytest.mark.live_net
 @pytest.mark.skipif(shutil.which("gh") is None, reason="gh CLI absent")
 def test_the_issue_table_covers_every_open_issue():
     listed = subprocess.run(
@@ -1120,7 +1174,7 @@ def test_the_issue_table_covers_every_open_issue():
     assert not open_numbers - covered, f"open issues with no disposition: {sorted(open_numbers - covered)}"
 ```
 
-Add `import json`, `import shutil` and `import subprocess` to the test module's imports.
+Add `import json`, `import shutil` and `import subprocess` to the test module's imports. `tests/conftest.py:165` already skips anything marked `live_net` unless `RV_LIVE_NET=1`, so this leg stays out of the default offline run and out of CI — the repo's posture for anything that touches an external API.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -1141,7 +1195,12 @@ ISSUE_TABLE = "docs/issue-dispositions.md"
 _ABSORBED = {96: "§6", 97: "§5.2", 62: "§9", 63: "§9", 78: "§9", 118: "§5"}
 _STILL_OPEN = frozenset({116, 117, 119})
 
-_TABLE_ROW = re.compile(r"^\| (?P<number>\d+) \| (?P<disposition>[^|]+?) \| (?P<title>[^|]*?) \|$")
+# mdformat's `tables` extension pads every cell to the column width (measured
+# 2026-09-05: `| 96    | absorbed-by: §6 | X     |`), so the reader tolerates
+# padding even though the renderer emits none.
+_TABLE_ROW = re.compile(
+    r"^\|\s*(?P<number>\d+)\s*\|\s*(?P<disposition>[^|]+?)\s*\|\s*(?P<title>[^|]*?)\s*\|$"
+)
 
 _TABLE_PREAMBLE = """# Issue dispositions
 
@@ -1321,22 +1380,33 @@ Expected: six `OPEN` rows. If any is already closed, drop it from step 3 and say
 
 - [ ] **Step 3: Comment, then close, one issue at a time**
 
-```bash
-close_absorbed() {
-  number="$1"; section="$2"
-  gh issue comment "$number" --body "Absorbed by the assembly spec, ${section} (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`). Recorded in \`docs/issue-dispositions.md\` by the §10 status-marking pass. Reopen if ${section} turns out not to answer this."
-  gh issue close "$number" --comment "Closing against ${section} of the assembly spec."
-}
+`gh issue close --comment` posts the comment and closes in one call, which is the house idiom (`docs/agents/issue-tracker.md`) and leaves the reader landing on the reason. Run these as six separate calls, each in its own block — no shell function, because shell state does not survive between tool calls, and no loop, so a failure stops at a named issue.
 
-close_absorbed 96 "§6"
-close_absorbed 97 "§5.2"
-close_absorbed 62 "§9"
-close_absorbed 63 "§9"
-close_absorbed 78 "§9"
-close_absorbed 118 "§5"
+```bash
+gh issue close 96 --comment "Absorbed by the assembly spec §6 (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`), which fixes the component classes and how each is pinned. Recorded in \`docs/issue-dispositions.md\` by the §10 status-marking pass. Reopen if §6 turns out not to answer this."
 ```
 
-Run them one at a time, not as a loop over a list, so a failure stops at a known issue. If the author edited a section in Task 6's gate, use the edited value from `docs/issue-dispositions.md`, not the value above.
+```bash
+gh issue close 97 --comment "Absorbed by the assembly spec §5.2 (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`), which sets the adopt/adapt/build bar and what a build verdict must record. Recorded in \`docs/issue-dispositions.md\`. Reopen if §5.2 turns out not to answer this."
+```
+
+```bash
+gh issue close 62 --comment "Absorbed by the assembly spec §9 (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`), which fixes setup, doctor and drift as one mechanism over four component classes. Recorded in \`docs/issue-dispositions.md\`. Reopen if §9 turns out not to answer this."
+```
+
+```bash
+gh issue close 63 --comment "Absorbed by the assembly spec §9 (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`), which gives each class its own drift leg. Recorded in \`docs/issue-dispositions.md\`. Reopen if §9 turns out not to answer this."
+```
+
+```bash
+gh issue close 78 --comment "Absorbed by the assembly spec §9 (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`), which extends the existing doctor rather than starting a second one, in a read-only --check-only mode. Recorded in \`docs/issue-dispositions.md\`. Reopen if §9 turns out not to answer this."
+```
+
+```bash
+gh issue close 118 --comment "Absorbed by the assembly spec §5 (\`docs/superpowers/specs/2026-09-05-assembly-design.md\`), whose component register is where a component's disposition is now recorded. Recorded in \`docs/issue-dispositions.md\`. Reopen if §5 turns out not to answer this."
+```
+
+If the author edited a section in Task 6's gate, use the edited value from `docs/issue-dispositions.md`, not the value above.
 
 - [ ] **Step 4: Re-run the coverage linter**
 
