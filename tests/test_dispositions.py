@@ -116,3 +116,89 @@ def test_read_marker_rejects_a_missing_argument():
 def test_read_marker_rejects_an_argument_the_value_forbids():
     with pytest.raises(dispositions.MarkerError):
         dispositions.read_marker("# T\n\nDisposition: current: 116 (2026-09-05)\n")
+
+
+def test_proposal_prefers_sibling_project_over_every_later_rule():
+    """Double fit: this file also declares SUPERSEDED in its header window."""
+    path = "docs/2026-08-31-proposed-adr-software-development-component-seam.md"
+    proposal = dispositions.propose(path, "# Seam\n\nStatus: **SUPERSEDED.**\n")
+    assert proposal.value == "sibling-project"
+
+
+def test_proposal_prefers_superseded_over_historical():
+    """Double fit: a closed-workspace path that also declares supersession."""
+    path = ".superpowers/sdd/2026-08-22-post-q-batch/task-7-report.md"
+    proposal = dispositions.propose(path, "# Task 7\n\nStatus: **SUPERSEDED.**\n")
+    assert (proposal.value, proposal.argument) == ("superseded-by", "?")
+
+
+def test_proposal_prefers_the_named_issue_over_current():
+    """Double fit: ADR 0004 is a live decision record AND owned by issue #116."""
+    path = "docs/adr/0004-citekey-is-the-only-identity.md"
+    text = (
+        "# The citekey is the vault's only identity\n\nStatus: suspended (2026-09-03)\n"
+    )
+    proposal = dispositions.propose(path, text)
+    assert (proposal.value, proposal.argument) == ("pending-issue", "116")
+
+
+def test_proposal_keeps_the_unsuspended_adrs_current():
+    path = "docs/adr/0001-vault-outlives-its-tools.md"
+    text = "# The vault outlives its tools\n\nStatus: accepted (2026-08-20)\n"
+    assert dispositions.propose(path, text).value == "current"
+
+
+def test_proposal_marks_the_closed_sdd_workspace_historical():
+    path = ".superpowers/sdd/2026-08-22-post-q-batch/task-1-brief.md"
+    assert dispositions.propose(path, "### Task 1: Rename\n").value == "historical"
+
+
+def test_proposal_marks_shipped_surfaces_current():
+    skill = "---\nname: publish\n---\n\n# Publish a project\n"
+    assert dispositions.propose("skills/publish/SKILL.md", skill).value == "current"
+    assert (
+        dispositions.propose("docs/agents/issue-tracker.md", "# Issue tracker\n").value
+        == "current"
+    )
+    assert dispositions.propose("AGENTS.md", "# research-vault\n").value == "current"
+    assert (
+        dispositions.propose("docs/testing.md", "# Testing instruments\n").value
+        == "current"
+    )
+
+
+def test_proposal_keeps_this_spec_current_and_defaults_the_rest_to_pending_map():
+    spec = "docs/superpowers/specs/2026-09-05-assembly-design.md"
+    assert (
+        dispositions.propose(spec, "# research-vault as an assembly\n").value
+        == "current"
+    )
+    demoted = "docs/superpowers/specs/2026-08-16-foundation-spec.md"
+    proposal = dispositions.propose(demoted, "# Foundation spec\n")
+    assert (proposal.value, proposal.rule) == ("pending-map", "residual")
+
+
+def test_the_scoping_review_flag_is_orthogonal_to_the_value():
+    path = (
+        "docs/research/harness-audits/2026-08-30-installed-asset-disposition-survey.md"
+    )
+    proposal = dispositions.propose(path, "# Installed asset disposition survey\n")
+    assert (proposal.value, proposal.flag) == ("historical", True)
+
+
+def test_a_body_supersession_does_not_fire_the_header_rule():
+    """task-21-report says SUPERSEDED twice, both far below the window."""
+    path = ".superpowers/sdd/2026-08-22-post-q-batch/task-21-report.md"
+    text = (
+        "# Task 21 report\n\nStatus: **complete**\n"
+        + "\n" * 40
+        + "**SUPERSEDED by Fix Round 1**\n"
+    )
+    assert dispositions.propose(path, text).value == "historical"
+
+
+def test_every_proposal_value_is_in_the_closed_vocabulary():
+    for path in dispositions.in_scope(ROOT):
+        proposal = dispositions.propose(path, (ROOT / path).read_text(encoding="utf-8"))
+        assert proposal.value in dispositions.DOCUMENT_VALUES, path
+        assert proposal.rule, f"{path}: proposal carries no rule name"

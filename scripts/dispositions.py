@@ -120,3 +120,81 @@ def read_marker(text: str) -> Marker | None:
     if (value in ARGUMENT_VALUES) != bool(argument):
         raise MarkerError(f"{value!r} carries argument {argument!r}")
     return Marker(value, argument, match["date"], bool(match["flag"]))
+
+
+# The two documents that self-declare a sibling product, by filename.
+_SIBLING = re.compile(r"^docs/\d{4}-\d{2}-\d{2}-proposed-adr-software-development-")
+# §10 names these two: their disposition belongs to a tracked issue, not to us.
+_PENDING_ISSUE = {
+    "docs/adr/0004-citekey-is-the-only-identity.md": "116",
+    "docs/adr/0005-better-bibtex-owns-the-bibliography-export.md": "116",
+}
+# Dated passes that closed. Evidence, never a live decision.
+_HISTORICAL_PREFIXES = (
+    ".superpowers/sdd/",
+    "docs/research/rethink-audits/",
+    "docs/research/harness-audits/",
+    "docs/research/raw/",
+)
+# Surfaces that ship or that AGENTS.md points agents at — binding by construction.
+_CURRENT_PATHS = frozenset(
+    {
+        "AGENTS.md",
+        "CONTEXT.md",
+        "README.md",
+        "docs/testing.md",
+        "docs/terminology.md",
+        "docs/superpowers/specs/2026-09-05-assembly-design.md",
+    }
+)
+_CURRENT_PREFIXES = (
+    "skills/",
+    "docs/agents/",
+    "docs/adr/0001-",
+    "docs/adr/0002-",
+    "docs/adr/0003-",
+)
+_SCOPING_REVIEW_HINTS = (
+    "survey",
+    "analysis",
+    "landscape",
+    "catalogue",
+    "sourcing",
+    "prior-art",
+    "competitive",
+)
+
+
+class Proposal(NamedTuple):
+    value: str
+    argument: str
+    flag: bool
+    rule: str
+
+
+def _declares_superseded(text: str) -> bool:
+    """SUPERSEDED in the anchor window only — the sdd reports say it in their bodies."""
+    lines = text.split("\n")
+    start = anchor(lines)
+    return any("SUPERSEDED" in line for line in lines[start : start + WINDOW])
+
+
+def propose(path: str, text: str) -> Proposal:
+    """§10's precedence order, first match wins, with the rule that fired named.
+
+    `pending-map` and `current` are not mechanically separable, so `current` is
+    an allow-list and `pending-map` is the residual. Every residual row is what
+    the author's review is for.
+    """
+    flag = any(hint in path for hint in _SCOPING_REVIEW_HINTS)
+    if _SIBLING.match(path):
+        return Proposal("sibling-project", "", flag, "sibling-filename")
+    if _declares_superseded(text):
+        return Proposal("superseded-by", "?", flag, "header-superseded")
+    if path in _PENDING_ISSUE:
+        return Proposal("pending-issue", _PENDING_ISSUE[path], flag, "spec-named-issue")
+    if path.startswith(_HISTORICAL_PREFIXES):
+        return Proposal("historical", "", flag, "closed-pass-path")
+    if path in _CURRENT_PATHS or path.startswith(_CURRENT_PREFIXES):
+        return Proposal("current", "", flag, "shipped-surface")
+    return Proposal("pending-map", "", flag, "residual")
