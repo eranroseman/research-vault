@@ -307,7 +307,11 @@ def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
     tabs before this runs, so a tab becomes a loud MarkerError rather than a silent
     drop. Newlines in hand-edited cells are structurally impossible in TSV.
     """
-    date = date or _dt.datetime.now(tz=_dt.timezone.utc).date().isoformat()  # noqa: UP017
+    # `_dt.UTC`, not `_dt.timezone.utc`: ruff's UP017 wants the alias and DTZ
+    # wants an aware call, and eight call sites in `research_vault/` already use
+    # this exact form. The date on a marker is a record date, and `--date` is the
+    # path for a human-chosen one — this is only the unattended fallback.
+    date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
     tracked = set(in_scope(root)) if root == ROOT else None
     written = []
     for row in rows:

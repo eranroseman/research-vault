@@ -1,5 +1,6 @@
 """The §10 status-marking pass: the module's unit tests, then the standing linter."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -345,10 +346,44 @@ def test_apply_rows_writes_only_the_rows_it_is_given(tmp_path):
     )
 
 
-def test_apply_rows_rejects_an_unresolved_superseded_target(tmp_path):
+def test_apply_rows_rejects_an_unreviewed_superseded_placeholder(tmp_path):
+    """The `?` the classifier emits must never reach a file. Fails in marker_line."""
     (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
     rows = [
         dispositions.Row("a.md", "superseded-by", "?", False, "header-superseded", "")
     ]
     with pytest.raises(dispositions.MarkerError):
         dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
+
+
+def test_apply_rows_rejects_a_superseded_target_that_does_not_resolve(
+    tmp_path, monkeypatch
+):
+    """The tracked guard runs only when root is ROOT, so ROOT is the tmp repo here.
+
+    Without this, the guard protecting the live sweep from a typo'd target is
+    never executed by any test: every other test passes a tmp root, which sets
+    `tracked` to None and skips the branch entirely.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
+    (tmp_path / "b.md").write_text("# B\n", encoding="utf-8")
+    subprocess.run(["git", "add", "a.md", "b.md"], cwd=tmp_path, check=True)
+    monkeypatch.setattr(dispositions, "ROOT", tmp_path)
+
+    resolves = [
+        dispositions.Row(
+            "a.md", "superseded-by", "b.md", False, "header-superseded", ""
+        )
+    ]
+    assert dispositions.apply_rows(resolves, root=tmp_path, date="2026-09-05") == [
+        "a.md"
+    ]
+
+    typo = [
+        dispositions.Row(
+            "a.md", "superseded-by", "docs/typo.md", False, "header-superseded", ""
+        )
+    ]
+    with pytest.raises(dispositions.MarkerError, match="does not resolve"):
+        dispositions.apply_rows(typo, root=tmp_path, date="2026-09-05")
