@@ -1245,13 +1245,13 @@ def test_propose_issue_uses_the_spec_named_dispositions():
     )
 
 
-def test_emit_appends_issue_rows_with_the_title_as_the_note():
-    issues = [{"number": 96, "title": "Distribution model for the recommended plugin bucket"}]
-    rows = dispositions.parse_rows(dispositions.emit(ROOT, issues=issues))
-    issue_rows = [row for row in rows if row.key.startswith("issue:")]
-    assert len(issue_rows) == 1
-    assert issue_rows[0].key == "issue:96"
-    assert issue_rows[0].note == "Distribution model for the recommended plugin bucket"
+def test_issue_note_gives_a_spec_named_row_the_spec_s_own_reason():
+    note = dispositions.issue_note
+    assert note(dispositions.propose_issue(96), "Distribution model") == "§10 names this as absorbed by §6"
+    assert note(dispositions.propose_issue(116), "Land the vocabulary") == "§10 names this as staying open"
+    # The residual keeps the title: the TSV has no title column, so the note is
+    # the only place a reviewer sees which issue the row is about.
+    assert note(dispositions.propose_issue(94), "One-source glossary") == "One-source glossary"
 
 
 def test_render_and_read_the_issue_table_round_trip():
@@ -1382,14 +1382,19 @@ _TABLE_PREAMBLE = """# Issue dispositions
 Disposition: current (%(date)s)
 
 Written by the status-marking pass of `docs/superpowers/specs/2026-09-05-assembly-design.md`
-§10 and maintained by `scripts/dispositions.py`. One row per open issue.
-Vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map`.
+§10 and maintained by `scripts/dispositions.py`. One row per issue the pass
+dispositioned, closed issues included: closing an issue is one of the things a
+disposition decides, so the row outlives it as the record of why.
+Issue vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`,
+`pending-map` — a different axis from the `Disposition:` line above, which is
+this file's own marker in the *document* vocabulary.
 `tests/test_dispositions.py` refuses an off-vocabulary row and, where `gh` is
 usable, an open issue with no row.
 
-The `Title` column is read from GitHub at write time and is not round-tripped:
-the proposal's own last column carries the author's *reason*, which is what
-`Note` holds. A reader gets both without clicking through.
+The `Title` column is read from GitHub at write time and is not round-tripped
+into a proposal row; a re-render given no fresh listing carries the committed
+cells forward rather than blanking them. `Note` holds the author's *reason*,
+and never the title again. A reader gets both without clicking through.
 
 | Issue | Title | Disposition | Note |
 | --- | --- | --- | --- |
@@ -1402,6 +1407,22 @@ def propose_issue(number: int) -> Proposal:
     if number in _STILL_OPEN:
         return Proposal("still-open", "", False, "spec-named-open")
     return Proposal("pending-map", "", False, "residual")
+
+
+def issue_note(proposal: Proposal, title: str) -> str:
+    """The seed note for an issue no reviewed table covers yet.
+
+    `Note` promises a REASON. Writing the title into it for every row made nine
+    rows state the subject twice and no reason once. Where §10 decides the
+    disposition it also supplies the reason; where it does not, the title is
+    the seed and must stay — the TSV carries no title column, so the note is
+    the only place a reviewer sees which issue the row is about.
+    """
+    if proposal.rule == "spec-named-absorbed":
+        return f"§10 names this as absorbed by {proposal.argument}"
+    if proposal.rule == "spec-named-open":
+        return "§10 names this as staying open"
+    return title
 
 
 def render_issue_table(rows: list[Row], date: str = "", titles: dict | None = None) -> str:
@@ -1425,6 +1446,11 @@ def render_issue_table(rows: list[Row], date: str = "", titles: dict | None = No
                 raise MarkerError(
                     f"{row.key}: a pipe in {cell!r} would end the table cell and drop the row"
                 )
+        # The preamble promises Note carries a reason. A Note repeating Title
+        # states the subject twice and the reason never, while looking filled
+        # in. An EMPTY note still passes: a visibly absent reason is not false.
+        if title and row.note == title:
+            raise MarkerError(f"{row.key}: Note repeats Title, so it gives no reason")
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         number = row.key.removeprefix("issue:")
         lines.append(f"| {number} | {title} | {disposition} | {row.note} |\n")
@@ -1441,12 +1467,11 @@ def read_issue_table(text: str) -> list[Row]:
         value, _, argument = disposition.partition(": ")
         if value not in ISSUE_VALUES:
             raise MarkerError(f"{value!r} is not one of {ISSUE_VALUES}")
-        rule = "spec-named-absorbed" if value == "absorbed-by" else (
-            "spec-named-open" if value == "still-open" else "residual"
-        )
-        # The title is render-only — GitHub owns it and it is re-read on every
-        # write, so nothing is lost by not parsing it back.
-        rows.append(Row(f"issue:{match['number']}", value, argument, False, rule, match["note"].strip()))
+        # The rule names WHERE A VALUE CAME FROM, and the table records none.
+        # Deriving one from the value fabricated provenance: 31 of 66 rows read
+        # back claiming `spec-named-open` though §10 names exactly three (#116,
+        # #117, #119). The table is the source; say so.
+        rows.append(Row(f"issue:{match['number']}", value, argument, False, "read-from-table", match["note"].strip()))
     return rows
 ```
 
@@ -1534,7 +1559,7 @@ Expected: **66** open issues, measured 2026-09-05 with an explicit `--limit` —
 
 - [ ] **Step 6: STOP — hand the issue rows to the author**
 
-**Second approval gate.** Show the 30 issue rows and say:
+**Second approval gate.** Show all 66 issue rows and say:
 
 > Nine rows carry a spec-named proposal; the other 57 default to `pending-map`. The six `absorbed-by` rows are the ones §10 says close against this spec, and the section each cites is this plan's reading of where the subject now lives — check §5.2 for #97 and §9 for #62, #63 and #78 in particular. Nothing is closed by applying this: the table is a file. Closing happens in the next task, and only when you say so.
 

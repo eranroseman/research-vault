@@ -315,7 +315,11 @@ def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
         proposal = propose_issue_or_existing(int(issue["number"]), existing)
         # `Note` carries the author's *reason* once the table exists. The issue
         # title only ever seeds a row no reviewed table covers yet.
-        note = existing.note if existing is not None else issue["title"]
+        note = (
+            existing.note
+            if existing is not None
+            else issue_note(proposal, issue["title"])
+        )
         # The doubled tab is the flag column, always empty on an issue row: the
         # `should-be-scoping-review` hint reads a filename, and an issue has none.
         lines.append(
@@ -362,14 +366,19 @@ _TABLE_PREAMBLE = """# Issue dispositions
 Disposition: current (%(date)s)
 
 Written by the status-marking pass of `docs/superpowers/specs/2026-09-05-assembly-design.md`
-§10 and maintained by `scripts/dispositions.py`. One row per open issue.
-Vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map`.
+§10 and maintained by `scripts/dispositions.py`. One row per issue the pass
+dispositioned, closed issues included: closing an issue is one of the things a
+disposition decides, so the row outlives it as the record of why.
+Issue vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`,
+`pending-map` — a different axis from the `Disposition:` line above, which is
+this file's own marker in the *document* vocabulary.
 `tests/test_dispositions.py` refuses an off-vocabulary row and, where `gh` is
 usable, an open issue with no row.
 
-The `Title` column is read from GitHub at write time and is not round-tripped:
-the proposal's own last column carries the author's *reason*, which is what
-`Note` holds. A reader gets both without clicking through.
+The `Title` column is read from GitHub at write time and is not round-tripped
+into a proposal row; a re-render given no fresh listing carries the committed
+cells forward rather than blanking them. `Note` holds the author's *reason*,
+and never the title again. A reader gets both without clicking through.
 
 | Issue | Title | Disposition | Note |
 | --- | --- | --- | --- |
@@ -382,6 +391,23 @@ def propose_issue(number: int) -> Proposal:
     if number in _STILL_OPEN:
         return Proposal("still-open", "", False, "spec-named-open")
     return Proposal("pending-map", "", False, "residual")
+
+
+def issue_note(proposal: Proposal, title: str) -> str:
+    """The seed note for an issue no reviewed table covers yet.
+
+    `Note` promises a REASON. Writing the title into it for every row made nine
+    rows state the subject twice and no reason once — and `render_issue_table`
+    now refuses exactly that. Where §10 decides the disposition it also supplies
+    the reason, so say so. Where it does not, the title is the seed and must
+    stay: the TSV carries no title column, so the note is the only place a
+    reviewer sees which issue the row is about.
+    """
+    if proposal.rule == "spec-named-absorbed":
+        return f"§10 names this as absorbed by {proposal.argument}"
+    if proposal.rule == "spec-named-open":
+        return "§10 names this as staying open"
+    return title
 
 
 def existing_issue_rows(root: Path = ROOT) -> dict[str, Row]:
@@ -434,6 +460,12 @@ def render_issue_table(
                 raise MarkerError(
                     f"{row.key}: a pipe in {cell!r} would end the table cell and drop the row"
                 )
+        # The preamble promises Note carries a reason. A Note repeating Title
+        # states the subject twice and the reason never, while looking filled
+        # in. An EMPTY note still passes: a visibly absent reason is not a
+        # false one.
+        if title and row.note == title:
+            raise MarkerError(f"{row.key}: Note repeats Title, so it gives no reason")
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         number = row.key.removeprefix("issue:")
         lines.append(f"| {number} | {title} | {disposition} | {row.note} |\n")
@@ -465,20 +497,18 @@ def read_issue_table(text: str) -> list[Row]:
         value, _, argument = disposition.partition(": ")
         if value not in ISSUE_VALUES:
             raise MarkerError(f"{value!r} is not one of {ISSUE_VALUES}")
-        rule = (
-            "spec-named-absorbed"
-            if value == "absorbed-by"
-            else ("spec-named-open" if value == "still-open" else "residual")
-        )
-        # The title is render-only — GitHub owns it and it is re-read on every
-        # write, so nothing is lost by not parsing it back.
+        # The rule names WHERE A VALUE CAME FROM, and the table does not record
+        # it. Deriving one from the value fabricated provenance: 31 of 66 rows
+        # read back claiming `spec-named-open` though §10 names exactly three
+        # (#116, #117, #119) — every author-decided still-open row asserted a
+        # spec authority it does not have. The table is the source; say so.
         rows.append(
             Row(
                 f"issue:{match['number']}",
                 value,
                 argument,
                 False,
-                rule,
+                "read-from-table",
                 match["note"].strip(),
             )
         )

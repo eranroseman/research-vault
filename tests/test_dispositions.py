@@ -686,15 +686,59 @@ def test_propose_issue_uses_the_spec_named_dispositions():
     )
 
 
-def test_emit_appends_issue_rows_with_the_title_as_the_note():
-    issues = [
-        {"number": 96, "title": "Distribution model for the recommended plugin bucket"}
-    ]
-    rows = dispositions.parse_rows(dispositions.emit(ROOT, issues=issues))
-    issue_rows = [row for row in rows if row.key.startswith("issue:")]
-    assert len(issue_rows) == 1
-    assert issue_rows[0].key == "issue:96"
-    assert issue_rows[0].note == "Distribution model for the recommended plugin bucket"
+def test_issue_note_gives_a_spec_named_row_the_spec_s_own_reason():
+    """`Note` promises a reason. The title is the subject, not a reason.
+
+    Writing the title into `Note` for every row made nine rows in the committed
+    table state the subject twice and the reason never — and the render now
+    refuses exactly that shape.
+    """
+    note = dispositions.issue_note
+    assert note(dispositions.propose_issue(96), "Distribution model") == (
+        "§10 names this as absorbed by §6"
+    )
+    assert note(dispositions.propose_issue(116), "Land the vocabulary") == (
+        "§10 names this as staying open"
+    )
+    # The residual keeps the title: the TSV has no title column, so the note is
+    # the only place a reviewer sees which issue the row is about.
+    assert note(dispositions.propose_issue(94), "One-source glossary") == (
+        "One-source glossary"
+    )
+
+
+def test_emit_seeds_a_new_issue_row_with_the_generated_note(tmp_path):
+    """`emit` is where the title used to be written as the note for every row."""
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text(
+        "# A\n\nDisposition: current (2026-09-06)\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "--", "docs/a.md"], cwd=tmp_path, check=True)
+
+    rows = {
+        row.key: row
+        for row in dispositions.parse_rows(
+            dispositions.emit(
+                tmp_path, issues=[{"number": 96, "title": "Distribution model"}]
+            )
+        )
+    }
+
+    assert rows["issue:96"].rule == "spec-named-absorbed"
+    assert rows["issue:96"].note == "§10 names this as absorbed by §6"
+
+
+def test_render_issue_table_refuses_a_note_that_only_repeats_the_title():
+    """Nine committed rows looked filled in and carried no reason at all."""
+    row = dispositions.Row("issue:96", "still-open", "", False, "r", "A title")
+    with pytest.raises(dispositions.MarkerError, match="repeats Title"):
+        dispositions.render_issue_table([row], titles={"issue:96": "A title"})
+    # An empty note passes: a visibly absent reason is not a false one.
+    blank = row._replace(note="")
+    assert "| 96 | A title | still-open |  |" in dispositions.render_issue_table(
+        [blank], titles={"issue:96": "A title"}
+    )
 
 
 def test_render_and_read_the_issue_table_round_trip():
@@ -719,15 +763,40 @@ def test_render_and_read_the_issue_table_round_trip():
     titles = {"issue:96": "Distribution model for the recommended plugin bucket"}
     text = dispositions.render_issue_table(rows, titles=titles)
     assert text.startswith("# Issue dispositions\n")
-    # The title renders from GitHub and is deliberately not read back — the Row's
+    # The title renders from GitHub and is not read back into a Row — the Row's
     # own last field is the author's reason, which is what `Note` carries.
     assert "| 96 | Distribution model for the recommended plugin bucket |" in text
     assert "| 116 |  |" in text, (
         "a title GitHub does not supply renders empty, not absent"
     )
+    # The table records no provenance, so reading one back cannot invent one.
+    # The fixture rows here are BOTH spec-named, which is why the old
+    # derived-from-value rule round-tripped clean while contradicting 31 of the
+    # 66 committed rows.
+    read_back = dispositions.read_issue_table(text)
+    assert [row.rule for row in read_back] == ["read-from-table"] * 2
     # Highest number first, so regenerating the table never emits a diff that is
     # only row movement. The reversal here IS the sort under test.
-    assert dispositions.read_issue_table(text) == [rows[1], rows[0]]
+    assert read_back == [
+        rows[1]._replace(rule="read-from-table"),
+        rows[0]._replace(rule="read-from-table"),
+    ]
+
+
+def test_read_issue_table_never_claims_a_spec_authority_the_spec_does_not_give():
+    """§10 names exactly three issues as staying open: #116, #117, #119.
+
+    31 of the 66 committed rows read back claiming `spec-named-open`. The value
+    is the author's; the rule is provenance, and the table records none.
+    """
+    rows = [
+        dispositions.Row(
+            "issue:42", "still-open", "", False, "r", "the author ruled it"
+        )
+    ]
+    text = dispositions.render_issue_table(rows, titles={"issue:42": "Run Plan W"})
+    assert dispositions.read_issue_table(text)[0].rule == "read-from-table"
+    assert 42 not in dispositions._STILL_OPEN
 
 
 def test_render_issue_table_rejects_a_pipe_in_a_cell():
@@ -766,9 +835,7 @@ def test_read_issue_table_tolerates_mdformat_column_padding():
         "| 96    | A title | absorbed-by: §6 | X    |\n"
     )
     assert dispositions.read_issue_table(text) == [
-        dispositions.Row(
-            "issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "X"
-        )
+        dispositions.Row("issue:96", "absorbed-by", "§6", False, "read-from-table", "X")
     ]
 
 
@@ -841,7 +908,7 @@ def test_apply_rows_gives_the_issue_table_one_writer(tmp_path):
         [document_row, _ISSUE_96],
         root=tmp_path,
         date="2026-09-06",
-        titles={"issue:96": "Distribution model"},
+        titles={"issue:96": "Distribution model for the recommended plugin bucket"},
     )
 
     assert written == [dispositions.ISSUE_TABLE], "written once, not twice"
