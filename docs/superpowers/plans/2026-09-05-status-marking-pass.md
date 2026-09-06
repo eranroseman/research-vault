@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Commit with an explicit pathspec** (`git commit -- <files>`); parallel sessions share this checkout. Never revert or restore another session's uncommitted files — report the precondition as unmeetable instead.
+- **Commit with an explicit pathspec** (`git commit -m "..." -- <files>`; the message must precede `--`, or `-m` is read as a pathspec); parallel sessions share this checkout. Never revert or restore another session's uncommitted files — report the precondition as unmeetable instead.
 - Every commit message ends with `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
 - Run the offline suite before every commit: `python -m pytest tests -q -n auto`, from the repo root, inside `.venv`. Pass `-n` on the command line, never in addopts.
 - `scripts/` is stdlib-only. The package's one runtime dependency (`defusedxml`) is untouched, and no dependency is added anywhere.
@@ -306,7 +306,7 @@ Expected: ruff clean; suite green.
 
 ```bash
 git add scripts/dispositions.py tests/test_dispositions.py
-git commit -- scripts/dispositions.py tests/test_dispositions.py -m "$(cat <<'MSG'
+git commit -m "$(cat <<'MSG'
 feat: scope and positional reader for the §10 disposition marker
 
 Three anchor classes partition the 201-file scope: 9 files whose heading
@@ -316,7 +316,7 @@ mistaken for a header marker.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG
-)"
+)" -- scripts/dispositions.py tests/test_dispositions.py
 ```
 
 ______________________________________________________________________
@@ -514,7 +514,7 @@ Expected: ruff clean; suite green.
 
 ```bash
 git add scripts/dispositions.py tests/test_dispositions.py
-git commit -- scripts/dispositions.py tests/test_dispositions.py -m "$(cat <<'MSG'
+git commit -m "$(cat <<'MSG'
 feat: §10 precedence classifier, with T4's hand-marked double-fit sample
 
 Tracer T4. The sample includes every case where two values fit: a sibling
@@ -524,7 +524,7 @@ declares it, and ADR 0004, which is both a live decision record and issue
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG
-)"
+)" -- scripts/dispositions.py tests/test_dispositions.py
 ```
 
 ______________________________________________________________________
@@ -686,7 +686,7 @@ Expected: ruff clean; suite green.
 
 ```bash
 git add scripts/dispositions.py tests/test_dispositions.py .gitignore
-git commit -- scripts/dispositions.py tests/test_dispositions.py .gitignore -m "$(cat <<'MSG'
+git commit -m "$(cat <<'MSG'
 feat: emit the reviewable disposition proposal as TSV
 
 The proposal is the approval gate's surface: the author edits any cell and
@@ -695,7 +695,7 @@ classifier's alone. Untracked — the markers are the durable record.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG
-)"
+)" -- scripts/dispositions.py tests/test_dispositions.py .gitignore
 ```
 
 ______________________________________________________________________
@@ -880,7 +880,7 @@ Expected: ruff clean; suite green.
 
 ```bash
 git add scripts/dispositions.py tests/test_dispositions.py
-git commit -- scripts/dispositions.py tests/test_dispositions.py -m "$(cat <<'MSG'
+git commit -m "$(cat <<'MSG'
 feat: apply reviewed disposition rows, idempotently, without touching Status
 
 The applier writes one paragraph at the anchor and replaces an existing marker
@@ -889,7 +889,7 @@ An unreviewed '?' supersession target is rejected before any file is written.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG
-)"
+)" -- scripts/dispositions.py tests/test_dispositions.py
 ```
 
 ______________________________________________________________________
@@ -1007,7 +1007,7 @@ Expected: green, including the three linter tests.
 
 ```bash
 git add -- $marked tests/test_dispositions.py
-git commit -- $marked tests/test_dispositions.py -m "$(cat <<'MSG'
+git commit -m "$(cat <<'MSG'
 feat: mark every in-scope document with its §10 disposition
 
 201 documents, one Disposition line each, from an author-reviewed proposal.
@@ -1020,7 +1020,7 @@ superseded-by target, and a non-numeric pending-issue argument.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG
-)"
+)" -- $marked tests/test_dispositions.py
 ```
 
 ______________________________________________________________________
@@ -1277,7 +1277,7 @@ Expected: `docs/issue-dispositions.md` written; suite green, including `test_the
 
 ```bash
 git add scripts/dispositions.py tests/test_dispositions.py docs/issue-dispositions.md
-git commit -- scripts/dispositions.py tests/test_dispositions.py docs/issue-dispositions.md -m "$(cat <<'MSG'
+git commit -m "$(cat <<'MSG'
 feat: disposition every open issue in a linted table
 
 The linter runs offline and cannot call gh, so the dispositions live in a
@@ -1287,7 +1287,7 @@ a file, and closing is a separate, gated act.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG
-)"
+)" -- scripts/dispositions.py tests/test_dispositions.py docs/issue-dispositions.md
 ```
 
 ______________________________________________________________________
