@@ -1033,6 +1033,11 @@ Add `import datetime as _dt` to the module's import block, and extend `main`:
         documents = [path for path in written if path != ISSUE_TABLE]
         table = " and the issue table" if len(documents) != len(written) else ""
         print(f"marked {len(documents)} documents{table} from {args.proposal}")
+        # A row with no reason still ships — it is incomplete, not false. Say
+        # which ones: `N issue row(s) shipped with no reason: 42, 120`.
+        if ISSUE_TABLE in written:
+            numbers = rows_without_reason((ROOT / ISSUE_TABLE).read_text(encoding="utf-8"))
+            ...
         return 0
 ```
 
@@ -1416,7 +1421,9 @@ def issue_note(proposal: Proposal, title: str) -> str:
     rows state the subject twice and no reason once. Where §10 decides the
     disposition it also supplies the reason; where it does not, the title is
     the seed and must stay — the TSV carries no title column, so the note is
-    the only place a reviewer sees which issue the row is about.
+    the only place a reviewer sees which issue the row is about. A seed that
+    survives review unedited renders as an empty Note and is reported by
+    number; it is not refused.
     """
     if proposal.rule == "spec-named-absorbed":
         return f"§10 names this as absorbed by {proposal.argument}"
@@ -1448,13 +1455,25 @@ def render_issue_table(rows: list[Row], date: str = "", titles: dict | None = No
                 )
         # The preamble promises Note carries a reason. A Note repeating Title
         # states the subject twice and the reason never, while looking filled
-        # in. An EMPTY note still passes: a visibly absent reason is not false.
-        if title and row.note == title:
-            raise MarkerError(f"{row.key}: Note repeats Title, so it gives no reason")
+        # in — so render it EMPTY, which is what a missing reason looks like.
+        # Refusing it made the seed note `emit` writes unappliable: publishing
+        # something FALSE is an invariant violation, publishing something
+        # INCOMPLETE is a shortfall. The pipe check still raises.
+        note = "" if title and row.note == title else row.note
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         number = row.key.removeprefix("issue:")
-        lines.append(f"| {number} | {title} | {disposition} | {row.note} |\n")
+        lines.append(f"| {number} | {title} | {disposition} | {note} |\n")
     return "".join(lines)
+
+
+def rows_without_reason(text: str) -> list[str]:
+    """The issue numbers a rendered table ships with an empty Note, ascending.
+
+    `apply` prints this list rather than raising: the merge-time top-up runs
+    unattended, and an exception there abandons the whole write over a cell no
+    automation can fill.
+    """
+    ...  # implemented in scripts/dispositions.py
 
 
 def read_issue_table(text: str) -> list[Row]:
@@ -1486,8 +1505,13 @@ def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
         existing = reviewed.get(key)
         proposal = propose_issue_or_existing(int(issue["number"]), existing)
         # `Note` carries the author's *reason* once the table exists. The issue
-        # title only ever seeds a row no reviewed table covers yet.
-        note = existing.note if existing is not None else issue["title"]
+        # title only ever seeds a row no reviewed table covers yet, and
+        # `issue_note` gives a spec-named row the spec's own reason instead.
+        note = (
+            existing.note
+            if existing is not None
+            else issue_note(proposal, issue["title"])
+        )
         lines.append(
             "\t".join([key, proposal.value, proposal.argument, "", proposal.rule, note])
         )
@@ -1572,6 +1596,8 @@ python -m pytest tests -q -n auto
 ```
 
 Expected: `docs/issue-dispositions.md` written; suite green, including `test_the_issue_table_covers_every_open_issue` (it runs, rather than skipping, wherever `gh` is authenticated).
+
+`apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass.
 
 **`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward.
 

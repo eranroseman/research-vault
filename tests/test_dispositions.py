@@ -691,7 +691,7 @@ def test_issue_note_gives_a_spec_named_row_the_spec_s_own_reason():
 
     Writing the title into `Note` for every row made nine rows in the committed
     table state the subject twice and the reason never — and the render now
-    refuses exactly that shape.
+    blanks exactly that shape, reporting the row instead of refusing it.
     """
     note = dispositions.issue_note
     assert note(dispositions.propose_issue(96), "Distribution model") == (
@@ -729,16 +729,37 @@ def test_emit_seeds_a_new_issue_row_with_the_generated_note(tmp_path):
     assert rows["issue:96"].note == "§10 names this as absorbed by §6"
 
 
-def test_render_issue_table_refuses_a_note_that_only_repeats_the_title():
-    """Nine committed rows looked filled in and carried no reason at all."""
+def test_render_issue_table_blanks_a_note_that_only_repeats_the_title():
+    """Nine committed rows looked filled in and carried no reason at all.
+
+    Refusing that shape instead made `propose --issues-json` output unappliable
+    unedited — `issue_note` seeds a residual row with the title, so the very
+    first write and the unattended merge-time top-up both raised. Publishing
+    something FALSE is an invariant violation; publishing something INCOMPLETE
+    is a shortfall, and a shortfall is reported, not raised.
+    """
     row = dispositions.Row("issue:96", "still-open", "", False, "r", "A title")
-    with pytest.raises(dispositions.MarkerError, match="repeats Title"):
-        dispositions.render_issue_table([row], titles={"issue:96": "A title"})
-    # An empty note passes: a visibly absent reason is not a false one.
-    blank = row._replace(note="")
-    assert "| 96 | A title | still-open |  |" in dispositions.render_issue_table(
-        [blank], titles={"issue:96": "A title"}
+    text = dispositions.render_issue_table([row], titles={"issue:96": "A title"})
+    assert "| 96 | A title | still-open |  |" in text
+    assert dispositions.rows_without_reason(text) == ["96"]
+    # A note that is not the title is a reason, and survives untouched.
+    reason = row._replace(note="the author's reason")
+    kept = dispositions.render_issue_table([reason], titles={"issue:96": "A title"})
+    assert "| 96 | A title | still-open | the author's reason |" in kept
+    assert dispositions.rows_without_reason(kept) == []
+
+
+def test_rows_without_reason_reads_the_shipped_table_in_number_order():
+    """Ascending by number, not the table's own descending render order."""
+    rows = [
+        dispositions.Row("issue:120", "pending-map", "", False, "r", "B"),
+        dispositions.Row("issue:42", "pending-map", "", False, "r", "A"),
+        dispositions.Row("issue:7", "pending-map", "", False, "r", "kept"),
+    ]
+    text = dispositions.render_issue_table(
+        rows, titles={"issue:120": "B", "issue:42": "A", "issue:7": "another title"}
     )
+    assert dispositions.rows_without_reason(text) == ["42", "120"]
 
 
 def test_render_and_read_the_issue_table_round_trip():
@@ -989,6 +1010,60 @@ def test_main_apply_wires_the_titles_through_end_to_end(tmp_path, monkeypatch, c
     assert "| 96 | Distribution model |" in (
         tmp_path / dispositions.ISSUE_TABLE
     ).read_text(encoding="utf-8")
+    assert "no reason" not in capsys.readouterr().out, (
+        "every row here carries a reason; the report must stay quiet"
+    )
+
+
+def test_main_apply_reports_the_rows_that_shipped_with_no_reason(
+    tmp_path, monkeypatch, capsys
+):
+    """The unattended path, end to end: seeded rows apply and are reported.
+
+    `emit` seeds a residual issue row's note with the GitHub title, so an
+    unedited `propose --issues-json` hands `apply` exactly this shape. It used
+    to raise `MarkerError: issue:42` and write nothing — the merge-time top-up,
+    whose whole purpose is to run unattended, could not complete.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "docs").mkdir()
+    monkeypatch.setattr(dispositions, "ROOT", tmp_path)
+    titles = {42: "Run Plan W", 120: "Retire the shim", 7: "Land the vocabulary"}
+    proposal = tmp_path / "proposal.tsv"
+    proposal.write_text(
+        dispositions.HEADER
+        + "\nissue:42\tpending-map\t\t\tresidual\tRun Plan W"
+        + "\nissue:120\tpending-map\t\t\tresidual\tRetire the shim"
+        + "\nissue:7\tstill-open\t\t\tspec-named-open\t§10 names this as staying open\n",
+        encoding="utf-8",
+    )
+    issues = tmp_path / "issues.json"
+    issues.write_text(
+        json.dumps([{"number": n, "title": t} for n, t in titles.items()]),
+        encoding="utf-8",
+    )
+
+    assert (
+        dispositions.main(
+            [
+                "apply",
+                str(proposal),
+                "--date",
+                "2026-09-06",
+                "--issues-json",
+                str(issues),
+            ]
+        )
+        == 0
+    )
+
+    assert "2 issue row(s) shipped with no reason: 42, 120" in capsys.readouterr().out
+    text = (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    assert "| 120 | Retire the shim | pending-map |  |" in text
+    reasoned = (
+        "| 7 | Land the vocabulary | still-open | §10 names this as staying open |"
+    )
+    assert reasoned in text, "a row that carries a reason is untouched and unreported"
 
 
 # Linter section

@@ -397,11 +397,13 @@ def issue_note(proposal: Proposal, title: str) -> str:
     """The seed note for an issue no reviewed table covers yet.
 
     `Note` promises a REASON. Writing the title into it for every row made nine
-    rows state the subject twice and no reason once — and `render_issue_table`
-    now refuses exactly that. Where §10 decides the disposition it also supplies
-    the reason, so say so. Where it does not, the title is the seed and must
-    stay: the TSV carries no title column, so the note is the only place a
-    reviewer sees which issue the row is about.
+    rows state the subject twice and no reason once, so where §10 decides the
+    disposition it also supplies the reason and this says so. Where it does
+    not, the title is the seed and must stay: the TSV carries no title column,
+    so the note is the only place a reviewer sees which issue the row is about.
+    `render_issue_table` blanks a seed note that survives review unedited, and
+    `apply` reports the row by number — a reason nobody wrote is a shortfall,
+    and a shortfall must not stop the unattended write.
     """
     if proposal.rule == "spec-named-absorbed":
         return f"§10 names this as absorbed by {proposal.argument}"
@@ -462,14 +464,37 @@ def render_issue_table(
                 )
         # The preamble promises Note carries a reason. A Note repeating Title
         # states the subject twice and the reason never, while looking filled
-        # in. An EMPTY note still passes: a visibly absent reason is not a
-        # false one.
-        if title and row.note == title:
-            raise MarkerError(f"{row.key}: Note repeats Title, so it gives no reason")
+        # in — so render it EMPTY, which is what a missing reason looks like.
+        # Refusing it instead made the seed note `emit` writes unappliable and
+        # closed the unattended merge-time path: publishing something FALSE is
+        # an invariant violation, publishing something INCOMPLETE is a
+        # shortfall, and `rows_without_reason` is how the shortfall is reported.
+        # The pipe check above still raises — a pipe drops the row in silence,
+        # which is falsification, not absence.
+        note = "" if title and row.note == title else row.note
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         number = row.key.removeprefix("issue:")
-        lines.append(f"| {number} | {title} | {disposition} | {row.note} |\n")
+        lines.append(f"| {number} | {title} | {disposition} | {note} |\n")
     return "".join(lines)
+
+
+def rows_without_reason(text: str) -> list[str]:
+    """The issue numbers a rendered table ships with an empty Note, ascending.
+
+    `Note` promises a reason and the renderer blanks one that only repeats the
+    Title, so an empty cell is the visible form of a reason nobody has written
+    yet. `apply` prints this list rather than raising: the merge-time top-up
+    runs unattended, and an exception there abandons the whole write over a
+    cell no automation can fill.
+    """
+    return sorted(
+        (
+            row.key.removeprefix("issue:")
+            for row in read_issue_table(text)
+            if not row.note
+        ),
+        key=int,
+    )
 
 
 def read_issue_titles(text: str) -> dict[str, str]:
@@ -680,6 +705,18 @@ def main(argv: list[str] | None = None) -> int:
         documents = [path for path in written if path != ISSUE_TABLE]
         table = " and the issue table" if len(documents) != len(written) else ""
         print(f"marked {len(documents)} documents{table} from {args.proposal}")
+        # A row with no reason still ships — it is incomplete, not false. Say
+        # which ones, so the shortfall is visible to whoever reads the run
+        # rather than discovered later by reading 66 table rows.
+        if ISSUE_TABLE in written:
+            numbers = rows_without_reason(
+                (ROOT / ISSUE_TABLE).read_text(encoding="utf-8")
+            )
+            if numbers:
+                print(
+                    f"{len(numbers)} issue row(s) shipped with no reason: "
+                    + ", ".join(numbers)
+                )
         return 0
     return 1
 
