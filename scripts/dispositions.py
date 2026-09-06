@@ -147,12 +147,14 @@ _CURRENT_PATHS = frozenset(
         "docs/superpowers/specs/2026-09-05-assembly-design.md",
     }
 )
+# `docs/adr/` whole, not an enumeration of 0001-0003: an accepted decision
+# record is current by construction, and 0004/0005 are carved out by the
+# earlier `_PENDING_ISSUE` rule rather than by omission here. The enumeration
+# would also drop a future ADR 0006 into the pending-map residual.
 _CURRENT_PREFIXES = (
     "skills/",
     "docs/agents/",
-    "docs/adr/0001-",
-    "docs/adr/0002-",
-    "docs/adr/0003-",
+    "docs/adr/",
 )
 _SCOPING_REVIEW_HINTS = (
     "survey",

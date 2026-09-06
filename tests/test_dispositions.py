@@ -133,13 +133,20 @@ def test_proposal_prefers_superseded_over_historical():
 
 
 def test_proposal_prefers_the_named_issue_over_current():
-    """Double fit: ADR 0004 is a live decision record AND owned by issue #116."""
+    """Double fit: ADR 0004 matches `docs/adr/` AND is owned by issue #116.
+
+    Both rules genuinely fire on this path — drop the precedence order and the
+    answer flips to `current`, which is the discrimination this test exists for.
+    """
     path = "docs/adr/0004-citekey-is-the-only-identity.md"
     text = (
         "# The citekey is the vault's only identity\n\nStatus: suspended (2026-09-03)\n"
     )
     proposal = dispositions.propose(path, text)
     assert (proposal.value, proposal.argument) == ("pending-issue", "116")
+    # The `current` rule really is reachable for this path, so the assertion
+    # above is precedence deciding and not one rule matching alone.
+    assert path.startswith(dispositions._CURRENT_PREFIXES)
 
 
 def test_proposal_keeps_the_unsuspended_adrs_current():
