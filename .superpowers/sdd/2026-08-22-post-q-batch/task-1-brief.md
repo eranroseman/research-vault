@@ -1,5 +1,7 @@
 ### Task 1: Rename `project` → `project-flow` (item 1)
 
+Disposition: historical (2026-09-06)
+
 Ruled 2026-08-22: class-4 collision with CONTEXT.md's *Project* dissolved by the glossary's other governed noun, *Project flow*. Entry family becomes uniformly two-part.
 
 **Files:** Move: `skills/project/` → `skills/project-flow/`. Modify: `docs/terminology.md` §4.3 skills row; routing tables in `skills/find-sources/SKILL.md` and `skills/import-source/SKILL.md`; the skill's content test in `tests/`.

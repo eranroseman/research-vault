@@ -1,5 +1,7 @@
 ### Task 21: Spec gap closures + acceptance
 
+Disposition: historical (2026-09-06)
+
 **Files:**
 
 - Modify: `docs/superpowers/specs/2026-08-16-foundation-spec.md` (§6 gate rows: metadata, update-notice)

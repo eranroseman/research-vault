@@ -1,5 +1,7 @@
 # Vault knowledge-state records deprecate, never delete
 
+Disposition: current (2026-09-06)
+
 Status: accepted (2026-08-20)
 
 Records of what was known, decided, or found — admitted sources and their screening states, verification events, review-inbox findings and their acknowledgments, update notices — change state only by recorded transition (new state, actor, date); they are never silently removed or overwritten. An excluded source is marked `excluded`, not deleted; a superseded claim is deprecated with a `superseded-by` pointer to its successor; a contradiction between sources is preserved as two linked claims with stance links, never resolved by erasing one. The decision exists because the vault's value as a research record depends on negative and outdated knowledge staying inspectable: why a source was excluded, what a claim said before correction, that a finding was seen and acknowledged rather than never raised.

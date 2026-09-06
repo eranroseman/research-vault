@@ -1,5 +1,7 @@
 # Ideaverse Lite 1.5 — observed vault structure
 
+Disposition: historical (2026-09-06)
+
 Extracted 2026-08-16 from Nick Milo's Ideaverse Lite 1.5 zip (user-provided; archive kept locally at sources/, gitignored for size — 45MB). This is the ACCESS schema's owning artifact in practice, complementing the tweet-derived description in pkm-vault-schemas.md.
 
 ## Folder tree (files per folder)

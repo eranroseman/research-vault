@@ -1,5 +1,7 @@
 # Task 6 report: import-source references split
 
+Disposition: historical (2026-09-06)
+
 BASE: 97afad5. Commit: 8bc6294 `refactor: import-source §7-9 to references with pointer table`
 (amended once — see "Fix report" at the end).
 

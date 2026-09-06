@@ -1,5 +1,7 @@
 # Task 17b report: Machine-owned frontmatter joins the closing guard
 
+Disposition: historical (2026-09-06)
+
 ## Status
 
 Complete. All three steps (failing test, legality rule, `archive-source`

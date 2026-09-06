@@ -1,5 +1,7 @@
 # Product-landscape docs — review findings
 
+Disposition: historical (2026-09-06)
+
 Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tree, sourcing-discipline sample of 55 claims, assembled+memoria docs, adoption plan vs recorded doctrine, cross-doc consistency), 68 candidates, each adversarially verified by a fresh agent instructed to refute. **60 confirmed, 8 refuted.** Full per-agent evidence: workflow journal wf_ffc62986-0a8 (session record). Review only — nothing in the four docs was edited; disposition is the author's (and the writing session's).
 
 ## The eight clusters (read these, then the detail)

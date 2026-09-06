@@ -1,5 +1,7 @@
 # Pre-Slice Batch — Implementation Plan
 
+Disposition: historical (2026-09-06)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The single dispatch between Plan Q's merge and slice Phase 2 — instrument freeze for §9: the `project`→`project-flow` rename, the routing index, nine skill-prose corrections from the audits, and four code fixes (SKIPPED counting, tier-2 citekeys, free-region refusal, duplicate-anchor assert).

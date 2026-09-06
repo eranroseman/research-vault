@@ -1,5 +1,7 @@
 # Task 2b review - a808f09..660f752
 
+Disposition: historical (2026-09-06)
+
 All verification below ran with the worktree at `HEAD = 660f752f896cdbcc72971b5cbae7538dc7300934`, the reviewed commit, with `git status --short` clean.
 
 ## Spec Compliance

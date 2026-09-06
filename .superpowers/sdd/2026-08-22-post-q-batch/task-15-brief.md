@@ -1,5 +1,7 @@
 ### Task 15: Reduction must not round UNMATCHED to MATCHED (audit defect 2)
 
+Disposition: historical (2026-09-06)
+
 **Files:**
 
 - Modify: `research_vault/checks.py` (`reduce_update_notice_outcomes`, ~line 1024)

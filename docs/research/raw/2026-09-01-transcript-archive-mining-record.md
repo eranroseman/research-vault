@@ -1,5 +1,7 @@
 # Transcript-archive mining record — the 63-session export, mined then discarded
 
+Disposition: historical (2026-09-06)
+
 **Status (2026-09-01):** MINED — DISCARDED. The one-time transcript export tracked (post-sweep,
 2026-08-30) at `docs/research/raw/research-vault-transcripts/` was mined per
 [#68](https://github.com/eranroseman/knowledge-harness/issues/68) and deleted in the same commit

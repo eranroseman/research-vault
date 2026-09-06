@@ -1,5 +1,7 @@
 # Validation slice — findings log
 
+Disposition: pending-issue: 41 (2026-09-06)
+
 Plan: docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md. Vault: ~/kh-vault → github.com/eranroseman/kv-vault. Friction is the product: every entry names what research-vault did short of its prose.
 
 ## Phase 0

@@ -1,5 +1,7 @@
 ### Task 3: verify-citations de-enumeration + the enumeration checker (items 3–4)
 
+Disposition: historical (2026-09-06)
+
 **Files:** Modify: `skills/verify-citations/SKILL.md`; `tests/test_skill_contracts.py`.
 
 - [ ] **Step 1 (C-1):** Replace the check-id enumeration with the canonical obsidian-cli form — the replacement sentence: *"Run the CLI; its output is always up to date."* Teach the four states, not the fourteen ids (the four-state table stays; the id list goes).

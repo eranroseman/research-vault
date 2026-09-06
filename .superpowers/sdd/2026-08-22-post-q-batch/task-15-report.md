@@ -1,5 +1,7 @@
 # Task 15 report — reduction must not round UNMATCHED to MATCHED
 
+Disposition: historical (2026-09-06)
+
 BASE = b8998833cf6ab1d112bff6b7be3e86e881ab692a (`docs: tick Task 14`).
 
 ## Brief file did not exist

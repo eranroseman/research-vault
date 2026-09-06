@@ -1,5 +1,7 @@
 # Status-Marking Pass Implementation Plan
 
+Disposition: current (2026-09-06)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every in-scope repository document and every open issue exactly one machine-checked `Disposition:` line, drawn from §10's closed vocabulary, applied only through a proposal the author has reviewed.
@@ -32,18 +34,25 @@
 
 The spec's §10 numbers and its frontmatter rule do not reproduce. All five corrections below are measured 2026-09-05 in this checkout on `main`, and each is re-measured at execution time (§1: a fact older than the lane's start date is re-measured, not cited).
 
-1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name — **202 files at the 2026-09-05 measurement, and still moving**: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is that measurement, not a contract; nothing in the code depends on one.
-2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all.
-3. **No frontmatter route; one uniform body anchor.** All 9 `SKILL.md` carry a heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). Raised as a decision cell at plan review; **approved, and the spec now carries it** (§10, commit `1c3f3cb`).
+1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name, and minus all 23 files under `skills/` (premise 6) — **180 files, re-measured 2026-09-06 after the fix wave narrowed the scope predicate**, and still moving: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is a measurement, not a contract; nothing in the code depends on one. Counts printed earlier in this plan's history (191, 192) predate the `skills/` exclusion.
+
+2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all. Moot since the fix wave: `skills/` is excluded whole, so **no file in scope opens with frontmatter at all**, and `tests/test_dispositions.py` asserts it.
+
+3. **No frontmatter route; one uniform body anchor.** All 9 `SKILL.md` carry a heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). Raised as a decision cell at plan review; **approved, and the spec now carries it** (§10, commit `1c3f3cb`). **Corrected at the fix wave:** the reasoning was right and its conclusion was not. The body route ships the marker *more* prominently than a frontmatter key would — a skill is a prompt, so the marker landed as the first line of what an agent reads as instruction. The answer to "it must not ship" is to not mark it; see premise 6.
+
 4. **The anchor is any-level, with a four-file fallback.** 25 in-scope files carry no `# ` heading, but 21 of those — the `.superpowers/sdd/…/task-*-brief.md` set — open at `###`. Only the 4 bare-prose `docs/research/**/README.md` files carry no heading of any level. So the rule is **the first heading matching `^#{1,6} `**, with top-of-file as the fallback for those four: two classes, not three, and the marker sits in the same relative position everywhere it can. **The spec now carries this** (§10, commit `1c3f3cb`), including the linter's positional definition. Measured: no in-scope file's first any-level heading sits inside a fenced block.
+
 5. **One counted quantity decayed; the other was my own truncation.** The spec's "25 carry some header status marker" reads **19** files with a status-shaped line in their first 12 lines. Its "66 open issues" is **correct** — an earlier reading of 30 here was `gh issue list`'s default `--limit 30` presented as a total, the same silent-truncation trap that turned a 100-item first page of 2,673 Zotero tags into "the three scanner tags". `gh issue list --state open --limit 200` returns **66**. All six issues §10 names as first to close (#96, #97, #62, #63, #78, #118) and all three it keeps open (#116, #117, #119) are open today.
+
+6. **All 23 `skills/**.md` are excluded, and the spec did not consider them.** The pre-flight ruling excluded only the 11 vendored `skills/find-sources/references/*.md` — a frozen fork of K-Dense's `paper-lookup` skill (MIT, upstream `336c4f8`), each opening with *"Do not hand-edit this file; re-vendor from upstream to update it."* **Widened at the fix wave to `skills/` whole**, on the principle that now governs the whole exclusion list: **does this path ship to a consumer?** `research_vault/templates/**` ships into a user's vault, `skills/**` ships in the installed plugin, `.out-of-scope/**` declares itself by path. A `Disposition:` line is bookkeeping about *this repository*; a reader who installed the plugin cannot act on it. Cost if wrong: a reader of a shipped skill goes one hop to this repository to learn its status, and reversing it is narrowing one prefix. A repo-wide sweep found no other file in scope carrying a do-not-edit or generated-by header.
 
 ## File map
 
 - Create: `scripts/dispositions.py` — scope, anchor, marker reader, precedence classifier, proposal emitter, applier, CLI. One file: the four jobs share the anchor rule and the vocabulary, and splitting them would put the constants in a fifth place.
 - Create: `tests/test_dispositions.py` — unit tests for the module, then the standing repo-wide linter in the same file (the `tests/test_config_validity.py` pattern: a repo self-check lives in the suite, not in a separate runner).
 - Create: `docs/issue-dispositions.md` — the issue half of the pass, written by Task 6.
-- Modify: `.gitignore` — one line for the untracked proposal file.
+- Create: `docs/document-dispositions.tsv` — the reviewed proposal itself, committed as the document half's record of *why*. The markers carry a verdict and no reason; 72 of the 179 document rows carry the author's reasoning, ~20,000 characters, labelled `[clear]` on 51 and `[arguable]` on 21. Its `rule` column is the classifier's original guess and is STALE for every row the author edited — it is not a provenance record. A `.tsv` is not `*.md`, so `in_scope()` never sees it and it needs no `Disposition:` marker of its own.
+- Modify: `.gitignore` — one line for the untracked proposal file. The ignore is for the GENERATED file, which every `propose` overwrites; the approved copy above is a different path for that reason.
 - Modify: every in-scope tracked `.md` file — one added line each, Task 5.
 
 Not created, deliberately: no `research_vault/` module (§11 dispositions verbs against the step map; a maintenance verb would serve none), no CLI verb, no new pre-commit hook (CI already runs `pytest tests`, and a second mechanism for one check is the rule this repo's ladder rejects).
@@ -72,7 +81,7 @@ python3 - <<'PY'
 import re
 import subprocess
 files = subprocess.run(["git", "ls-files", "--", "*.md"], capture_output=True, text=True).stdout.split()
-excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/")) or p == "CLAUDE.md"
+excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/", "skills/")) or p == "CLAUDE.md"
 scope = [p for p in files if not excluded(p)]
 frontmatter = [p for p in scope if open(p, encoding="utf-8").read().startswith("---\n")]
 heading = re.compile(r"^#{1,6} ")
@@ -81,7 +90,7 @@ print("tracked", len(files), "scope", len(scope), "frontmatter", len(frontmatter
 PY
 ```
 
-Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 202 frontmatter 9 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
+Expected, re-measured 2026-09-06 after the fix wave: `tracked 215 scope 180 frontmatter 0 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level, and `frontmatter 0` because the only frontmatter-bearing documents were the 9 `SKILL.md` the `skills/` exclusion removed. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "191"/"201"/"202" printed elsewhere in this plan is an older measurement, not a contract.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -98,13 +107,25 @@ from scripts import dispositions
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_scope_excludes_the_three_named_surfaces():
+def test_nothing_that_ships_to_a_consumer_is_in_scope():
+    """One test governs the exclusion list: does this path ship to a consumer?"""
     scope = dispositions.in_scope(ROOT)
     assert "docs/testing.md" in scope
     assert ".superpowers/sdd/2026-08-22-post-q-batch/task-1-brief.md" in scope
     assert "CLAUDE.md" not in scope, "§10 exempts CLAUDE.md by name"
     assert not [p for p in scope if p.startswith("research_vault/templates/")]
+    assert not [p for p in scope if p.startswith("skills/")]
     assert not [p for p in scope if p.startswith(".out-of-scope/")]
+
+
+def test_every_vendored_file_stays_out_of_scope():
+    """Their own header says do not hand-edit; tests/test_find_sources_vendor.py:210."""
+    vendored = [
+        p
+        for p in dispositions.in_scope(ROOT)
+        if "Do not hand-edit" in (ROOT / p).read_text(encoding="utf-8")[:600]
+    ]
+    assert not vendored, f"marking would drift these against upstream: {vendored}"
 
 
 def test_anchor_is_the_line_after_the_first_heading():
@@ -210,12 +231,21 @@ from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Excluded from marking, each for its own reason:
-#   research_vault/templates/** ships into a user's vault — a repo-internal
-#     marker has no business travelling with the product;
-#   .out-of-scope/** declares its disposition by path;
-#   CLAUDE.md is an 11-byte import directive, not a document (spec §10).
-EXCLUDED_PREFIXES = ("research_vault/templates/", ".out-of-scope/")
+# One test governs this list: DOES THIS PATH SHIP TO A CONSUMER? A Disposition
+# line is repo bookkeeping, and bookkeeping that travels out of the repository
+# lands in front of a reader who cannot act on it.
+#   research_vault/templates/** ships into a user's vault;
+#   skills/** ships in the installed plugin — a SKILL.md body is a prompt, so a
+#     marker there is repo bookkeeping injected into what an agent reads as
+#     instruction, and their references/** are that prompt's own pages;
+#   .out-of-scope/** declares its disposition by path.
+# `CLAUDE.md` is excluded on a different ground: it is an 11-byte import
+# directive, not a document (spec §10).
+EXCLUDED_PREFIXES = (
+    "research_vault/templates/",
+    ".out-of-scope/",
+    "skills/",
+)
 EXCLUDED_PATHS = frozenset({"CLAUDE.md"})
 
 WINDOW = 5
@@ -267,6 +297,35 @@ def in_scope(root: Path = ROOT) -> list[str]:
     )
 
 
+_FENCE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})")
+
+
+def unfenced(lines: list[str]) -> list[bool]:
+    """One flag per line: True where the line is document text, not code.
+
+    The module's SINGLE fence scanner, serving all four matchers: `anchor`,
+    `read_marker`, `displaced_markers` and `apply_marker`'s window scan. The
+    first two of those kept a raw `startswith` until the second fix wave, which
+    left a fenced example inside the window readable as the document's own
+    marker, and overwritable. CommonMark §4.5: three or more backticks or
+    tildes indented at most three spaces open a block, and it closes on a fence
+    of the same character at least as long. The `startswith("```")` toggle this
+    replaced missed indented fences (five in-scope files) and mis-tracked
+    four-backtick blocks (this plan has them).
+
+    COMPLETE FOR COLUMN-0 CONSUMERS; revisit if a caller matches indented. That
+    is a property of the callers: all of them match at column 0, and a fence
+    indented four or more spaces sits inside a list item whose content cannot
+    begin at column 0. Lazy continuation applies to paragraphs, not to fences.
+    """
+    ...  # implemented in scripts/dispositions.py
+
+
+def displaced_markers(lines: list[str]) -> list[int]:
+    """Indices of `Disposition:` lines sitting OUTSIDE the anchor window."""
+    ...  # implemented in scripts/dispositions.py
+
+
 def anchor(lines: list[str]) -> int:
     """The index the marker window opens at: after the first heading, else 0.
 
@@ -276,24 +335,26 @@ def anchor(lines: list[str]) -> int:
     heading. No file in scope trips that today; new documents arrive without
     asking.
     """
-    fenced = False
-    for index, line in enumerate(lines):
-        if line.startswith("```"):
-            fenced = not fenced
-            continue
-        if not fenced and _HEADING.match(line):
+    for index, (line, outside) in enumerate(zip(lines, unfenced(lines), strict=True)):
+        if outside and _HEADING.match(line):
             return index + 1
     return 0
 
 
 def read_marker(text: str) -> Marker | None:
-    """The document's marker, or None when it carries none. Raises on malformed."""
+    """The document's marker, or None when it carries none. Raises on malformed.
+
+    Fence-aware: a `Disposition:` line quoted inside a fenced block that falls
+    in the window is an EXAMPLE, and reading it as the verdict lets `apply`
+    overwrite prose.
+    """
     lines = text.split("\n")
     start = anchor(lines)
+    window = slice(start, start + WINDOW)
     found = [
         line
-        for line in lines[start : start + WINDOW]
-        if line.startswith("Disposition: ")
+        for line, outside in zip(lines[window], unfenced(lines)[window], strict=True)
+        if outside and line.startswith("Disposition: ")
     ]
     if not found:
         return None
@@ -314,7 +375,7 @@ def read_marker(text: str) -> Marker | None:
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 13 tests.
+Expected: PASS — 16 tests in the file, all of them this task's.
 
 - [ ] **Step 6: Run the form owner and the full offline suite**
 
@@ -329,7 +390,7 @@ git commit -m "$(cat <<'MSG'
 feat: scope and positional reader for the §10 disposition marker
 
 Two anchor classes partition the marking scope: the first heading of any
-level (198 files, 21 of them opening at ###), and top-of-file for the four
+level (187 files, 21 of them opening at ###), and top-of-file for the four
 bare-prose READMEs that carry none. The reader looks only
 inside the five-line window so a body `Status: **CONFIRMED.**` cannot be
 mistaken for a header marker.
@@ -378,11 +439,18 @@ def test_proposal_prefers_superseded_over_historical():
 
 
 def test_proposal_prefers_the_named_issue_over_current():
-    """Double fit: ADR 0004 is a live decision record AND owned by issue #116."""
+    """Double fit: ADR 0004 matches `docs/adr/` AND is owned by issue #116.
+
+    Both rules genuinely fire on this path — drop the precedence order and the
+    answer flips to `current`, which is the discrimination this test exists for.
+    """
     path = "docs/adr/0004-citekey-is-the-only-identity.md"
     text = "# The citekey is the vault's only identity\n\nStatus: suspended (2026-09-03)\n"
     proposal = dispositions.propose(path, text)
     assert (proposal.value, proposal.argument) == ("pending-issue", "116")
+    # The `current` rule really is reachable for this path, so the assertion
+    # above is precedence deciding and not one rule matching alone.
+    assert path.startswith(dispositions._CURRENT_PREFIXES)
 
 
 def test_proposal_keeps_the_unsuspended_adrs_current():
@@ -396,9 +464,7 @@ def test_proposal_marks_the_closed_sdd_workspace_historical():
     assert dispositions.propose(path, "### Task 1: Rename\n").value == "historical"
 
 
-def test_proposal_marks_shipped_surfaces_current():
-    skill = "---\nname: publish\n---\n\n# Publish a project\n"
-    assert dispositions.propose("skills/publish/SKILL.md", skill).value == "current"
+def test_proposal_marks_the_binding_surfaces_current():
     assert dispositions.propose("docs/agents/issue-tracker.md", "# Issue tracker\n").value == "current"
     assert dispositions.propose("AGENTS.md", "# research-vault\n").value == "current"
     assert dispositions.propose("docs/testing.md", "# Testing instruments\n").value == "current"
@@ -456,7 +522,8 @@ _HISTORICAL_PREFIXES = (
     "docs/research/harness-audits/",
     "docs/research/raw/",
 )
-# Surfaces that ship or that AGENTS.md points agents at — binding by construction.
+# Surfaces a repository reader lands on first, or that AGENTS.md points agents
+# at — binding by construction.
 _CURRENT_PATHS = frozenset(
     {
         "AGENTS.md",
@@ -467,12 +534,13 @@ _CURRENT_PATHS = frozenset(
         "docs/superpowers/specs/2026-09-05-assembly-design.md",
     }
 )
+# `docs/adr/` whole, not an enumeration of 0001-0003: an accepted decision
+# record is current by construction, and 0004/0005 are carved out by the
+# earlier `_PENDING_ISSUE` rule rather than by omission here. The enumeration
+# would also drop a future ADR 0006 into the pending-map residual.
 _CURRENT_PREFIXES = (
-    "skills/",
     "docs/agents/",
-    "docs/adr/0001-",
-    "docs/adr/0002-",
-    "docs/adr/0003-",
+    "docs/adr/",
 )
 _SCOPING_REVIEW_HINTS = (
     "survey",
@@ -523,7 +591,7 @@ def propose(path: str, text: str) -> Proposal:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 23 tests. `?` is the deliberate placeholder for a `superseded-by` target: the classifier can see that a document declares supersession but not what superseded it, and Task 5's linter rejects a `?` that survives review.
+Expected: PASS — 26 tests cumulative (16 from Task 1 plus this task's 10). `?` is the deliberate placeholder for a `superseded-by` target: the classifier can see that a document declares supersession but not what superseded it, and Task 5's linter rejects a `?` that survives review.
 
 - [ ] **Step 5: Run the form owner and the full offline suite**
 
@@ -587,13 +655,19 @@ def test_emit_round_trips_through_parse_rows():
     assert adr.rule in ("spec-named-issue", "existing")
 
 
-def test_emit_keeps_a_marker_the_author_already_approved():
-    """Re-running propose over a reviewed corpus must not undo the review."""
+def test_propose_or_existing_lets_a_marker_beat_the_classifier():
     path, text = "docs/product-landscape/zotero.md", "# Zotero\n\nDisposition: current (2026-09-05)\n"
     assert dispositions.propose(path, text).value == "pending-map"
     assert dispositions.propose_or_existing(path, text) == dispositions.Proposal(
         "current", "", False, "existing"
     )
+
+
+# `test_emit_keeps_what_the_author_already_approved` (added at the fix wave)
+# is the one that guards the gate: it calls `emit` against a tmp repository
+# holding a marked document AND a committed issue table, and asserts both come
+# back `existing`. The version above never called `emit` at all, and the issue
+# half had no protection to call.
 
 
 def test_parse_rows_reads_the_flag_column_as_a_boolean():
@@ -714,7 +788,7 @@ Add `import argparse` and `import sys` to the module's import block.
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 28 tests.
+Expected: PASS — 32 tests cumulative (26 from Tasks 1-2 plus this task's 6).
 
 - [ ] **Step 5: Ignore the scratch proposal**
 
@@ -756,7 +830,7 @@ ______________________________________________________________________
 
 - Consumes: `anchor`, `read_marker`, `parse_rows`, `Row`, `WINDOW`, `FLAG`, `ARGUMENT_VALUES`, `DOCUMENT_VALUES`.
 
-- Produces: `marker_line(value: str, argument: str, flag: bool, date: str) -> str`, `apply_marker(text: str, line: str) -> str`, `apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]` (returns the repo-relative paths written), and the CLI `python -m scripts.dispositions apply <file> [--date YYYY-MM-DD]`. Task 5 runs the CLI; Task 6 extends `apply_rows` to route `issue:` keys.
+- Produces: `marker_line(value: str, argument: str, flag: bool, date: str) -> str`, `apply_marker(text: str, line: str) -> str`, `apply_rows(rows: list[Row], root: Path = ROOT, date: str = "", titles: dict | None = None) -> list[str]` (returns the repo-relative paths written), and the CLI `python -m scripts.dispositions apply <file> [--date YYYY-MM-DD] [--issues-json <file>]`. Task 5 runs the CLI; Task 6 extends `apply_rows` to route `issue:` keys.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -835,11 +909,33 @@ def test_apply_rows_writes_only_the_rows_it_is_given(tmp_path):
     assert "Disposition: " not in (tmp_path / "docs" / "b.md").read_text(encoding="utf-8")
 
 
-def test_apply_rows_rejects_an_unresolved_superseded_target(tmp_path):
+def test_apply_rows_rejects_an_unreviewed_superseded_placeholder(tmp_path):
+    """The `?` the classifier emits must never reach a file. Fails in marker_line."""
     (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
     rows = [dispositions.Row("a.md", "superseded-by", "?", False, "header-superseded", "")]
     with pytest.raises(dispositions.MarkerError):
         dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
+
+
+def test_apply_rows_rejects_a_superseded_target_that_does_not_resolve(tmp_path, monkeypatch):
+    """The tracked guard runs only when root is ROOT, so ROOT is the tmp repo here.
+
+    Without this, the guard protecting the live sweep from a typo'd target is
+    never executed by any test: every other test passes a tmp root, which sets
+    `tracked` to None and skips the branch entirely.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
+    (tmp_path / "b.md").write_text("# B\n", encoding="utf-8")
+    subprocess.run(["git", "add", "a.md", "b.md"], cwd=tmp_path, check=True)
+    monkeypatch.setattr(dispositions, "ROOT", tmp_path)
+
+    resolves = [dispositions.Row("a.md", "superseded-by", "b.md", False, "header-superseded", "")]
+    assert dispositions.apply_rows(resolves, root=tmp_path, date="2026-09-05") == ["a.md"]
+
+    typo = [dispositions.Row("a.md", "superseded-by", "docs/typo.md", False, "header-superseded", "")]
+    with pytest.raises(dispositions.MarkerError, match="does not resolve"):
+        dispositions.apply_rows(typo, root=tmp_path, date="2026-09-05")
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -867,12 +963,32 @@ def marker_line(value: str, argument: str, flag: bool, date: str) -> str:
     rendered += f" ({date})"
     if flag:
         rendered += f" [{FLAG}]"
+    # The value checks cover the vocabulary but not the SHAPE, which is where
+    # `--date 2026-9-6` got through: every document rewritten with a marker the
+    # reader then rejects, exit 0. Validate against the reader's own grammar.
+    if _MARKER.match(rendered) is None:
+        raise MarkerError(f"would write a marker read_marker rejects: {rendered!r}")
     return rendered
 
 
 def apply_marker(text: str, line: str) -> str:
-    """Write the marker at its anchor, replacing one already in the window."""
+    """Write the marker at its anchor, MOVING one that has drifted out of window.
+
+    A marker below the window reads as ABSENT, so inserting beside it would
+    leave two markers that can disagree while the linter — which also reads the
+    window — passes. Moving keeps exactly one, and is byte-identical on a
+    second run. A FENCED `Disposition:` line is an example quoted in prose and
+    is never moved; `unfenced` is what tells them apart.
+
+    The drop runs BEFORE the window scan, and that order is the guarantee: the
+    scan returns on its hit, so scanning first skipped the drop entirely in the
+    one case where the count was already two.
+    """
     lines = text.split("\n")
+    for index in reversed(displaced_markers(lines)):
+        lines = _drop_line(lines, index)
+    # Every index has moved, and a marker dropped from ABOVE the first heading
+    # moves the anchor itself.
     start = anchor(lines)
     for index in range(start, min(start + WINDOW, len(lines))):
         if lines[index].startswith("Disposition: "):
@@ -885,9 +1001,15 @@ def apply_marker(text: str, line: str) -> str:
     return "\n".join(prefix + block + rest)
 
 
-def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
+def apply_rows(
+    rows: list[Row], root: Path = ROOT, date: str = "", titles: dict | None = None
+) -> list[str]:
     """Write every document row. Returns the repo-relative paths touched."""
-    date = date or _dt.date.today().isoformat()
+    # `_dt.UTC`, not `_dt.timezone.utc`: ruff's UP017 wants the alias and DTZ
+    # wants an aware call, and eight call sites in `research_vault/` already use
+    # this exact form. The date on a marker is a record date, and `--date` is the
+    # path for a human-chosen one — this is only the unattended fallback.
+    date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
     tracked = set(in_scope(root)) if root == ROOT else None
     written = []
     for row in rows:
@@ -907,13 +1029,30 @@ Add `import datetime as _dt` to the module's import block, and extend `main`:
     apply_cmd = sub.add_parser("apply", help="write markers from a reviewed proposal")
     apply_cmd.add_argument("proposal")
     apply_cmd.add_argument("--date", default="")
+    # Same flag as `propose`, and the reason is the same: GitHub owns issue
+    # titles. Use `--state all` here — an issue Task 7 closes must still render
+    # its title on the next write.
+    apply_cmd.add_argument("--issues-json", default="")
 ```
 
 ```python
     if args.command == "apply":
         rows = parse_rows(Path(args.proposal).read_text(encoding="utf-8"))
-        written = apply_rows(rows, date=args.date)
-        print(f"marked {len(written)} documents from {args.proposal}")
+        titles = {}
+        if args.issues_json:
+            titles = {
+                f"issue:{issue['number']}": issue["title"]
+                for issue in json.loads(Path(args.issues_json).read_text(encoding="utf-8"))
+            }
+        written = apply_rows(rows, date=args.date, titles=titles)
+        documents = [path for path in written if path != ISSUE_TABLE]
+        table = " and the issue table" if len(documents) != len(written) else ""
+        print(f"marked {len(documents)} documents{table} from {args.proposal}")
+        # A row with no reason still ships — it is incomplete, not false. Say
+        # which ones: `N issue row(s) shipped with no reason: 42, 120`.
+        if ISSUE_TABLE in written:
+            numbers = rows_without_reason((ROOT / ISSUE_TABLE).read_text(encoding="utf-8"))
+            ...
         return 0
 ```
 
@@ -922,7 +1061,7 @@ Add `import datetime as _dt` to the module's import block, and extend `main`:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 36 tests.
+Expected: PASS — 42 tests cumulative (32 from Tasks 1-3 plus this task's 10). The test file gains `import subprocess` for the git fixture, matching `tests/conftest.py:28`.
 
 - [ ] **Step 5: Run the form owner and the full offline suite**
 
@@ -952,7 +1091,7 @@ ______________________________________________________________________
 **Files:**
 
 - Modify: `tests/test_dispositions.py`
-- Modify: every in-scope tracked `.md` file (one line each — 202 at the 2026-09-05 measurement)
+- Modify: every in-scope tracked `.md` file (one line each — 191 at the 2026-09-05 measurement)
 
 **Interfaces:**
 
@@ -1014,7 +1153,7 @@ Malformed markers need no test of their own: `read_marker` raises `MarkerError`,
 - [ ] **Step 2: Run the linter to verify it fails**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: FAIL — `AssertionError: 202 document(s) carry no Disposition line` (the count is whatever Step 1 measured).
+Expected: FAIL — `AssertionError: 191 document(s) carry no Disposition line` (the count is whatever Step 1 measured).
 
 - [ ] **Step 3: Generate the proposal**
 
@@ -1025,7 +1164,7 @@ cut -f2 disposition-proposal.tsv | sort | uniq -c | sort -rn
 cut -f5 disposition-proposal.tsv | sort | uniq -c | sort -rn
 ```
 
-Expected: one header line plus one row per in-scope file (203 lines at the 2026-09-05 measurement), and a value histogram dominated by `historical` (the 71 `.superpowers/sdd/` files plus the dated research passes) and `pending-map` (the residual).
+Expected: one header line plus one row per in-scope file (192 lines at the 2026-09-05 measurement), and a value histogram dominated by `historical` (the 71 `.superpowers/sdd/` files plus the dated research passes) and `pending-map` (the residual).
 
 Learn mdformat's baseline in the same breath, because `.git/hooks/` holds only samples — no local hook has ever enforced the formatter, so some tracked files may already be unclean and Step 6's reflow gate would fire on that pre-existing debt rather than on this pass:
 
@@ -1039,7 +1178,7 @@ Record which files it names. Those, and only those, are permitted to reflow in S
 
 **This is the approval gate. Do not proceed without it.** Post the value histogram and the rule histogram, then say:
 
-> `disposition-proposal.tsv` holds one row per in-scope document (202 at the 2026-09-05 measurement). Columns: `key`, `value`, `argument`, `flag`, `rule`, `note`. Edit any of `value`, `argument`, `flag` — apply is mechanical from what you leave behind. Three things worth your eye: every row whose `rule` is `residual` is the classifier declining to guess between `pending-map` and `current`; every `superseded-by` row carries `?` as its target and will be rejected until you name the superseding path; and the `should-be-scoping-review` flag is a proposal from a filename hint, not a reading.
+> `disposition-proposal.tsv` holds one row per in-scope document (191 at the 2026-09-05 measurement). Columns: `key`, `value`, `argument`, `flag`, `rule`, `note`. Edit any of `value`, `argument`, `flag` — apply is mechanical from what you leave behind. Three things worth your eye: every row whose `rule` is `residual` is the classifier declining to guess between `pending-map` and `current`; every `superseded-by` row carries `?` as its target and will be rejected until you name the superseding path; and the `should-be-scoping-review` flag is a proposal from a filename hint, not a reading.
 
 Wait for the edited file. The asymmetry that makes this gate load-bearing: **mis-marking a current document as `historical` makes the §8 cold-start contract refuse it later, and nobody will know why** — doctor fails if the reading list points at anything `historical` or `pending-map`. A wrong `current` is visible; a wrong `historical` is silent.
 
@@ -1104,7 +1243,9 @@ ______________________________________________________________________
 **Interfaces:**
 
 - Consumes: `Row`, `parse_rows`, `emit`, `main`, `MarkerError`.
-- Produces: `ISSUE_VALUES: tuple[str, ...]`, `ISSUE_TABLE: str = "docs/issue-dispositions.md"`, `propose_issue(number: int) -> Proposal`, `render_issue_table(rows: list[Row]) -> str`, `read_issue_table(text: str) -> list[Row]`, `emit(root, issues=None)` extended with an `issues` parameter, and `python -m scripts.dispositions propose --issues-json <file>`.
+- Produces: `ISSUE_VALUES: tuple[str, ...]`, `ISSUE_TABLE: str = "docs/issue-dispositions.md"`, `propose_issue(number: int) -> Proposal`, `existing_issue_rows(root: Path = ROOT) -> dict[str, Row]`, `propose_issue_or_existing(number: int, existing: Row | None) -> Proposal`, `render_issue_table(rows: list[Row], date: str = "", titles: dict | None = None) -> str`, `read_issue_table(text: str) -> list[Row]`, `emit(root, issues=None)` extended with an `issues` parameter, and `python -m scripts.dispositions propose --issues-json <file>`.
+
+**The issue half is `existing`-wins, exactly as the document half is.** Added at the fix wave, where its absence was the wave's worst defect: a bare `propose --issues-json` against the reviewed table reverted 42 of 66 values and overwrote 57 notes. `propose_issue_or_existing` mirrors `propose_or_existing` — the committed table is the record for an issue the way the file is for a document, and the classifier only fills blanks.
 
 **Why a file and not labels.** The linter runs offline in the suite; it cannot call `gh`. A committed table is a fact the linter can read, and it is also the durable record §10 asks for — the label surface is triage state, a different axis (`docs/agents/triage-labels.md`).
 
@@ -1124,13 +1265,13 @@ def test_propose_issue_uses_the_spec_named_dispositions():
     )
 
 
-def test_emit_appends_issue_rows_with_the_title_as_the_note():
-    issues = [{"number": 96, "title": "Distribution model for the recommended plugin bucket"}]
-    rows = dispositions.parse_rows(dispositions.emit(ROOT, issues=issues))
-    issue_rows = [row for row in rows if row.key.startswith("issue:")]
-    assert len(issue_rows) == 1
-    assert issue_rows[0].key == "issue:96"
-    assert issue_rows[0].note == "Distribution model for the recommended plugin bucket"
+def test_issue_note_gives_a_spec_named_row_the_spec_s_own_reason():
+    note = dispositions.issue_note
+    assert note(dispositions.propose_issue(96), "Distribution model") == "§10 names this as absorbed by §6"
+    assert note(dispositions.propose_issue(116), "Land the vocabulary") == "§10 names this as staying open"
+    # The residual keeps the title: the TSV has no title column, so the note is
+    # the only place a reviewer sees which issue the row is about.
+    assert note(dispositions.propose_issue(94), "One-source glossary") == "One-source glossary"
 
 
 def test_render_and_read_the_issue_table_round_trip():
@@ -1138,18 +1279,43 @@ def test_render_and_read_the_issue_table_round_trip():
         dispositions.Row("issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "Distribution model"),
         dispositions.Row("issue:116", "still-open", "", False, "spec-named-open", "Land the vocabulary"),
     ]
-    text = dispositions.render_issue_table(rows)
+    titles = {"issue:96": "Distribution model for the recommended plugin bucket"}
+    text = dispositions.render_issue_table(rows, titles=titles)
     assert text.startswith("# Issue dispositions\n")
-    assert dispositions.read_issue_table(text) == rows
+    # The title renders from GitHub and is deliberately not read back — the Row's
+    # own last field is the author's reason, which is what `Note` carries.
+    assert "| 96 | Distribution model for the recommended plugin bucket |" in text
+    assert "| 116 |  |" in text, "a title GitHub does not supply renders empty, not absent"
+    # Highest number first, so regenerating the table never emits a diff that is
+    # only row movement. The reversal here IS the sort under test.
+    assert dispositions.read_issue_table(text) == [rows[1], rows[0]]
+
+
+def test_render_issue_table_rejects_a_pipe_in_a_cell():
+    """A `|` ends the cell, and the row would then vanish on read in silence."""
+    rows = [
+        dispositions.Row("issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "Foo | Bar")
+    ]
+    with pytest.raises(dispositions.MarkerError, match="pipe"):
+        dispositions.render_issue_table(rows)
+
+
+def test_render_issue_table_rejects_a_pipe_in_a_github_title():
+    """Titles are GitHub's, not ours — nothing stops one carrying a pipe."""
+    rows = [
+        dispositions.Row("issue:96", "still-open", "", False, "spec-named-open", "a reason")
+    ]
+    with pytest.raises(dispositions.MarkerError, match="pipe"):
+        dispositions.render_issue_table(rows, titles={"issue:96": "Fix a | b"})
 
 
 def test_read_issue_table_tolerates_mdformat_column_padding():
     """mdformat pads table cells; render_issue_table does not. Measured 2026-09-05."""
     text = (
         "# Issue dispositions\n\n"
-        "| Issue | Disposition     | Title |\n"
-        "| ----- | --------------- | ----- |\n"
-        "| 96    | absorbed-by: §6 | X     |\n"
+        "| Issue | Title | Disposition     | Note |\n"
+        "| ----- | ----- | --------------- | ---- |\n"
+        "| 96    | A title | absorbed-by: §6 | X    |\n"
     )
     assert dispositions.read_issue_table(text) == [
         dispositions.Row("issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "X")
@@ -1227,7 +1393,8 @@ _STILL_OPEN = frozenset({116, 117, 119})
 # 2026-09-05: `| 96    | absorbed-by: §6 | X     |`), so the reader tolerates
 # padding even though the renderer emits none.
 _TABLE_ROW = re.compile(
-    r"^\|\s*(?P<number>\d+)\s*\|\s*(?P<disposition>[^|]+?)\s*\|\s*(?P<title>[^|]*?)\s*\|$"
+    r"^\|\s*(?P<number>\d+)\s*\|\s*(?P<title>[^|]*?)\s*\|"
+    r"\s*(?P<disposition>[^|]+?)\s*\|\s*(?P<note>[^|]*?)\s*\|$"
 )
 
 _TABLE_PREAMBLE = """# Issue dispositions
@@ -1235,13 +1402,22 @@ _TABLE_PREAMBLE = """# Issue dispositions
 Disposition: current (%(date)s)
 
 Written by the status-marking pass of `docs/superpowers/specs/2026-09-05-assembly-design.md`
-§10 and maintained by `scripts/dispositions.py`. One row per open issue.
-Vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map`.
+§10 and maintained by `scripts/dispositions.py`. One row per issue the pass
+dispositioned, closed issues included: closing an issue is one of the things a
+disposition decides, so the row outlives it as the record of why.
+Issue vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`,
+`pending-map` — a different axis from the `Disposition:` line above, which is
+this file's own marker in the *document* vocabulary.
 `tests/test_dispositions.py` refuses an off-vocabulary row and, where `gh` is
 usable, an open issue with no row.
 
-| Issue | Disposition | Title |
-| --- | --- | --- |
+The `Title` column is read from GitHub at write time and is not round-tripped
+into a proposal row; a re-render given no fresh listing carries the committed
+cells forward rather than blanking them. `Note` holds the author's *reason*,
+and never the title again. A reader gets both without clicking through.
+
+| Issue | Title | Disposition | Note |
+| --- | --- | --- | --- |
 """
 
 
@@ -1253,13 +1429,71 @@ def propose_issue(number: int) -> Proposal:
     return Proposal("pending-map", "", False, "residual")
 
 
-def render_issue_table(rows: list[Row], date: str = "") -> str:
-    date = date or _dt.date.today().isoformat()
+def issue_note(proposal: Proposal, title: str) -> str:
+    """The seed note for an issue no reviewed table covers yet.
+
+    `Note` promises a REASON. Writing the title into it for every row made nine
+    rows state the subject twice and no reason once. Where §10 decides the
+    disposition it also supplies the reason; where it does not, the title is
+    the seed and must stay — the TSV carries no title column, so the note is
+    the only place a reviewer sees which issue the row is about. A seed that
+    survives review unedited renders as an empty Note and is reported by
+    number; it is not refused.
+    """
+    if proposal.rule == "spec-named-absorbed":
+        return f"§10 names this as absorbed by {proposal.argument}"
+    if proposal.rule == "spec-named-open":
+        return "§10 names this as staying open"
+    return title
+
+
+def render_issue_table(rows: list[Row], date: str = "", titles: dict | None = None) -> str:
+    """The committed table, highest issue number first.
+
+    The sort is not cosmetic: the table is a tracked file regenerated from
+    `gh issue list`, and without a fixed order every regeneration would produce
+    a diff that is only row movement.
+    """
+    date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
+    titles = titles or {}
     lines = [_TABLE_PREAMBLE % {"date": date}]
     for row in sorted(rows, key=lambda row: -int(row.key.removeprefix("issue:"))):
+        title = titles.get(row.key, "")
+        # A `|` ends the cell, so a pipe-bearing issue title would render a row
+        # `_TABLE_ROW` cannot match — and `read_issue_table` would drop it with
+        # no error at all. Refuse loudly instead, the way `parse_rows` refuses a
+        # tab. No open issue carries one today; the check is for the one that will.
+        for cell in (row.value, row.argument, row.note, title):
+            if "|" in cell:
+                raise MarkerError(
+                    f"{row.key}: a pipe in {cell!r} would end the table cell and drop the row"
+                )
+        # The preamble promises Note carries a reason. A Note repeating Title
+        # states the subject twice and the reason never, while looking filled
+        # in — so render it EMPTY, which is what a missing reason looks like.
+        # Refusing it made the seed note `emit` writes unappliable: publishing
+        # something FALSE is an invariant violation, publishing something
+        # INCOMPLETE is a shortfall. The pipe check still raises.
+        #
+        # A Note publishes only when it can be VERIFIED not to be the seed, so
+        # an unknown title blanks it too: unverifiable is unverified. Truthiness
+        # rather than `row.key in titles`, because the blank Title such a row
+        # renders is carried forward as that key's title on the next apply.
+        note = row.note if title and row.note != title else ""
         disposition = row.value + (f": {row.argument}" if row.argument else "")
-        lines.append(f"| {row.key.removeprefix('issue:')} | {disposition} | {row.note} |\n")
+        number = row.key.removeprefix("issue:")
+        lines.append(f"| {number} | {title} | {disposition} | {note} |\n")
     return "".join(lines)
+
+
+def rows_without_reason(text: str) -> list[str]:
+    """The issue numbers a rendered table ships with an empty Note, ascending.
+
+    `apply` prints this list rather than raising: the merge-time top-up runs
+    unattended, and an exception there abandons the whole write over a cell no
+    automation can fill.
+    """
+    ...  # implemented in scripts/dispositions.py
 
 
 def read_issue_table(text: str) -> list[Row]:
@@ -1272,10 +1506,11 @@ def read_issue_table(text: str) -> list[Row]:
         value, _, argument = disposition.partition(": ")
         if value not in ISSUE_VALUES:
             raise MarkerError(f"{value!r} is not one of {ISSUE_VALUES}")
-        rule = "spec-named-absorbed" if value == "absorbed-by" else (
-            "spec-named-open" if value == "still-open" else "residual"
-        )
-        rows.append(Row(f"issue:{match['number']}", value, argument, False, rule, match["title"].strip()))
+        # The rule names WHERE A VALUE CAME FROM, and the table records none.
+        # Deriving one from the value fabricated provenance: 31 of 66 rows read
+        # back claiming `spec-named-open` though §10 names exactly three (#116,
+        # #117, #119). The table is the source; say so.
+        rows.append(Row(f"issue:{match['number']}", value, argument, False, "read-from-table", match["note"].strip()))
     return rows
 ```
 
@@ -1284,19 +1519,21 @@ Extend `emit` with the issue half:
 ```python
 def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
     ...  # documents exactly as before, then:
+    reviewed = existing_issue_rows(root)
     for issue in issues or []:
-        proposal = propose_issue(int(issue["number"]))
+        key = f"issue:{issue['number']}"
+        existing = reviewed.get(key)
+        proposal = propose_issue_or_existing(int(issue["number"]), existing)
+        # `Note` carries the author's *reason* once the table exists. The issue
+        # title only ever seeds a row no reviewed table covers yet, and
+        # `issue_note` gives a spec-named row the spec's own reason instead.
+        note = (
+            existing.note
+            if existing is not None
+            else issue_note(proposal, issue["title"])
+        )
         lines.append(
-            "\t".join(
-                [
-                    f"issue:{issue['number']}",
-                    proposal.value,
-                    proposal.argument,
-                    "",
-                    proposal.rule,
-                    issue["title"],
-                ]
-            )
+            "\t".join([key, proposal.value, proposal.argument, "", proposal.rule, note])
         )
     return "\n".join(lines) + "\n"
 ```
@@ -1304,11 +1541,29 @@ def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
 Route `issue:` keys in `apply_rows`, before the document loop:
 
 ```python
+    # The table render OWNS docs/issue-dispositions.md: it writes the whole
+    # file, marker preamble included, so the table's own document row is a
+    # no-op here. Applying both wrote the marker and then overwrote the file.
     issue_rows = [row for row in rows if row.key.startswith("issue:")]
-    document_rows = [row for row in rows if not row.key.startswith("issue:")]
+    document_rows = [
+        row
+        for row in rows
+        if not row.key.startswith("issue:") and row.key != ISSUE_TABLE
+    ]
     ...  # the document loop, over document_rows
     if issue_rows:
-        (root / ISSUE_TABLE).write_text(render_issue_table(issue_rows, date), encoding="utf-8")
+        table = root / ISSUE_TABLE
+        # A blanked Title is unrecoverable: read_issue_table does not read it
+        # back and no other file holds one. Carry the cells forward PER KEY —
+        # `if not titles` was all-or-nothing, so a listing that omitted one
+        # issue (a truncated `gh --limit`) blanked that row alone, in silence.
+        # The supplied listing wins where it speaks; the committed table fills
+        # every gap; nothing to carry and nothing supplied is refused.
+        committed = read_issue_titles(table.read_text(encoding="utf-8")) if table.is_file() else {}
+        if not committed and not titles:
+            raise MarkerError(...)
+        titles = committed | (titles or {})
+        table.write_text(render_issue_table(issue_rows, date, titles), encoding="utf-8")
         written.append(ISSUE_TABLE)
 ```
 
@@ -1320,12 +1575,17 @@ And add `--issues-json` to the `propose` subcommand:
 
 ```python
         issues = json.loads(Path(args.issues_json).read_text(encoding="utf-8")) if args.issues_json else None
-        text = emit(issues=issues)
+        # `root=ROOT` named rather than defaulted at both `main` call sites: a
+        # default binds at import, so only the explicit argument follows a test
+        # that points the module at a temporary repository. Before the fix wave
+        # the apply branch — the only path that mutates the repository — had no
+        # test, because no test could safely reach it.
+        text = emit(root=ROOT, issues=issues)
 ```
 
 Add `import json` to the module's import block.
 
-`ISSUE_TABLE` is itself an in-scope document, so it carries its own `Disposition: current` line inside the preamble, two lines under the heading — inside the window, and written by the same renderer that writes the table.
+`ISSUE_TABLE` is itself an in-scope document, so it carries its own `Disposition: current` line inside the preamble, two lines under the heading — inside the window, and written by the same renderer that writes the table. That renderer is its **sole** writer: `apply_rows` skips the table's document row rather than marking it and then overwriting the result.
 
 - [ ] **Step 4: Run the tests to verify the unit half passes**
 
@@ -1346,19 +1606,23 @@ Expected: **66** open issues, measured 2026-09-05 with an explicit `--limit` —
 
 - [ ] **Step 6: STOP — hand the issue rows to the author**
 
-**Second approval gate.** Show the 30 issue rows and say:
+**Second approval gate.** Show all 66 issue rows and say:
 
 > Nine rows carry a spec-named proposal; the other 57 default to `pending-map`. The six `absorbed-by` rows are the ones §10 says close against this spec, and the section each cites is this plan's reading of where the subject now lives — check §5.2 for #97 and §9 for #62, #63 and #78 in particular. Nothing is closed by applying this: the table is a file. Closing happens in the next task, and only when you say so.
 
 - [ ] **Step 7: Apply, format, and verify**
 
 ```bash
-python -m scripts.dispositions apply disposition-proposal.tsv
+python -m scripts.dispositions apply disposition-proposal.tsv --issues-json /tmp/open-issues.json
 mdformat --number --wrap keep docs/issue-dispositions.md
 python -m pytest tests -q -n auto
 ```
 
 Expected: `docs/issue-dispositions.md` written; suite green, including `test_the_issue_table_covers_every_open_issue` (it runs, rather than skipping, wherever `gh` is authenticated).
+
+Given the `--issues-json` listing above, `apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass. Without a Title there is nothing to compare a Note against, so that Note is withheld and reported too — a Note publishes only where it can be shown not to be the seed.
+
+**`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward, per key, for every issue the supplied listing does not name. A truncated listing therefore costs nothing: it fills what it covers and the table keeps the rest.
 
 - [ ] **Step 8: Commit**
 
@@ -1448,6 +1712,66 @@ Expected: green.
 There is nothing to commit — this task's whole footprint is on GitHub. Report which issues closed, which (if any) were already closed, and the remaining open count from `gh issue list --state open --json number --jq length`.
 
 ______________________________________________________________________
+
+## Merge-time top-up
+
+**The corpus moves while the pass runs.** It went 213 → 214 the moment this plan file landed. If a parallel session adds a document during execution, that file carries no `Disposition:` line and the standing linter goes red on `main` the instant the branch merges.
+
+So the merge is one motion, per `AGENTS.md` — merge, top up, verify, push — and the top-up rides inside it rather than arriving as a follow-up commit:
+
+```bash
+git switch main && git merge --no-ff status-marking-pass
+
+# Detection: which in-scope documents carry no marker. This is the set the
+# standing linter walks, so it is exactly the set that would turn `main` red.
+python3 -c 'from scripts import dispositions as d; print("\n".join(p for p in d.in_scope() if d.read_marker((d.ROOT / p).read_text(encoding="utf-8")) is None) or "none")'
+
+# --out to a SCRATCH path. `emit` writes an empty note for every document row,
+# and the document note has no committed home to be read back from, so pointing
+# --out at the reviewed file would blank all 72 of them. --state all, not open:
+# after Task 7 six issues are closed and a listing of open issues alone would
+# drop their rows from the proposal and then from the table.
+python -m scripts.dispositions propose --out /tmp/top-up.tsv \
+  --issues-json <(gh issue list --state all --limit 500 --json number,title)
+awk -F'\t' 'NR > 1 && $5 != "existing" { print $5 "\t" $1 }' /tmp/top-up.tsv
+```
+
+The first command names the documents that arrived during execution. The `awk`
+names the same set plus every issue with no row in the committed table, because
+`existing` is the rule for anything already marked or already dispositioned.
+(The earlier form of this step ran `git diff --stat -- disposition-proposal.tsv`,
+which could only ever print nothing: the file is gitignored.)
+
+**`--state all` is noisy on purpose, and the noise is not a work queue.** It
+also lists every issue closed long before this pass — 53 of them at the
+2026-09-06 measurement, against 246 `existing` rows. Those were never
+dispositioned by §10 and do not belong in the table. Merge into
+`disposition-proposal.tsv` only the rows you actually decide: a genuinely new
+document, or a genuinely new issue. Then apply — handing `apply` the SAME
+`--state all` listing you gave `propose`, with `--issues-json` — re-run
+`python -m pytest tests/test_dispositions.py -q`, amend the merge commit, and
+push. A green linter on `main` is the gate on pushing, not a thing to fix
+afterwards.
+
+**Give `apply` the listing, not just `propose`.** `Title` is GitHub's, so a row
+for an issue the committed table does not yet cover has no Title to render
+without it. The row then ships with a blank Title cell, and its `Note` is
+withheld with it: with no Title the seed-check cannot run, and a Note publishes
+only where it can be shown not to be the seed. So an authored reason is held
+back too — blanked and reported — until a listing supplies that row's Title.
+The flag costs nothing now that the carry-forward is per key: the listing fills
+what it covers and the committed table keeps every cell it does not name.
+
+Given the listing, `apply` prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub
+title — 53 of them at the 2026-09-06 top-up rehearsal, being the closed issues
+`--state all` adds. It is a report, not a failure: the write completes
+unattended, and the numbers are the queue for the next review pass.
+
+**Any row you decide belongs in `docs/document-dispositions.tsv`.** That is the
+committed copy of the reviewed proposal and the only home the document half's
+reasoning has — the marker records a verdict, this records why. The working
+`disposition-proposal.tsv` is gitignored and every `propose` overwrites it, so a
+reason left only there is lost with the worktree.
 
 ## What this plan does not do
 

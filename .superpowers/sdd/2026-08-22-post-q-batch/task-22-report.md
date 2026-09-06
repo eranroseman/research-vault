@@ -1,5 +1,7 @@
 # Task 22 report — `skipped_digest` → `skipped_sha256`
 
+Disposition: historical (2026-09-06)
+
 **Status:** Done. Pure rename, scope held to one function, one dict key, and their direct references (plus the two `test_finding_cli.py` sites the Step 4 judged grep identified as the same hash-sense, living-surface category).
 
 **Commits:** One commit, message `refactor: skipped_digest becomes skipped_sha256 (one sense per term)` (brief's exact wording). The report file rode the same commit.

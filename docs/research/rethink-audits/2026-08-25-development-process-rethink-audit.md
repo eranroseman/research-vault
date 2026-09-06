@@ -1,5 +1,7 @@
 # Rethink audit — the multi-agent development process (methods-template)
 
+Disposition: historical (2026-09-06)
+
 **Verified (2026-08-25):** first pass (design/gap/migrate/trade-offs) drafted, then adversarially reviewed
 through four independent lenses (invented-redesign, completeness, evidence-grounding, prior-art-fidelity).
 Three findings survived and are folded into this version, not the discarded draft: (1) a proposed

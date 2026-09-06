@@ -1,5 +1,7 @@
 # Sourcing findings: the import redesign
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 **What this artifact is.** An adopt-first sourcing run. It searches for existing components that might serve the import redesign's requirements, reads each candidate's own body, and reports what each one covers, what it does not, and what could not be determined. It follows the `sourcing` skill (`docs/superpowers/reqs/2026-09-02-sourcing.md`), whose own requirements govern this artifact: S27 for this header, S24 for the method, S16 for coverage, S5 for the per-candidate opinions, S6 for the null report, S14 for the handoff.
 
 **What consumes it.** The import redesign brainstorm of 2026-09-04 and the spec that came out of it, `docs/superpowers/specs/2026-09-04-import-redesign-design.md`. Sections 4.2 and 4.3 of that spec draw their candidate descriptions from this note.

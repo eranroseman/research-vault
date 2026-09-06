@@ -1,5 +1,7 @@
 # Task 4 review - 2150da9..800c492
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

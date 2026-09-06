@@ -1,5 +1,7 @@
 # Task 2d review - c8cac73..c418cf7
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

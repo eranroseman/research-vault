@@ -1,5 +1,7 @@
 # RED-phase baseline — experiment design
 
+Disposition: historical (2026-09-06)
+
 Date: 2026-08-22. Status: **designed, not run** (a launch was stopped on the author's instruction; materials and script are built, so the run is one command and partially cached). Purpose: the `writing-skills` Iron-Law gap — no skill in the corpus has a behavioral baseline — and the recorded gate on the four-state dedup (migrate steps 3–4): does an *invoked* guard hold compliance like *inlined* text?
 
 ## Question

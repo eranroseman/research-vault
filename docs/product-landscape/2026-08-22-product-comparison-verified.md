@@ -1,5 +1,7 @@
 # Product comparison: research-vault vs comparable products
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Comparison note, 2026-08-22.
 
 ## How to read this

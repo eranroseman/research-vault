@@ -1,5 +1,7 @@
 # Task 14 review - b1d5f17..a53a48b
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

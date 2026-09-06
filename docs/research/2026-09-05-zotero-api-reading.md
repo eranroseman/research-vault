@@ -1,5 +1,7 @@
 # Zotero and Better BibTeX API reading, 2026-09-04
 
+Disposition: historical (2026-09-06)
+
 **What this is.** A dated reading of Zotero and Better BibTeX documentation and source, taken on 2026-09-04 during the adopt-first sourcing run for the ingest redesign. The bodies read, listed below with their pins, are Zotero and Better BibTeX documentation pages and source files, read against a seven-fact register, Z1 through Z7. They produced 623 fact entries, which deduplicate by quote to 448 distinct facts, each carried below with its verbatim quote and the location it came from. Every quote is reproduced exactly as the run recorded it.
 
 **What this is not.** It is not a maintained fact base. Nothing here was re-read or re-verified after 2026-09-04, and what it describes moves: it reads Better BibTeX at 9.0.63 and Zotero at the 10 line as they stood on that date. The facts the ingest design depends on do not live here. They live in section 9 of `docs/superpowers/specs/2026-09-04-import-redesign-design.md`, each with the method that established it and the date it was established, and each is re-probed rather than read from this file. A reader who needs a current answer runs the probe. This file says what the documentation and the source said on one day, and it is useful for the reasoning and the wording behind a fact, not for the fact's current value.

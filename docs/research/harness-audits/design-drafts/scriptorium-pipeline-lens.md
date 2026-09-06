@@ -1,5 +1,7 @@
 # Scriptorium — a Claude Code Harness for Knowledge Work
 
+Disposition: historical (2026-09-06)
+
 ## The Pipeline (single-terminal-state chain, gates marked ⛔)
 
 `framing-the-question ⛔brief approved → gathering-evidence → outlining-the-argument ⛔outline approved → claim-driven-drafting (per-claim evidence gate) → fact-check ⛔dual verdict → editorial review ⛔Important issues resolved → filing-a-finished-piece ⛔human picks from fixed menu`

@@ -1,5 +1,7 @@
 # How this plugin was designed and built — process reconstruction from artifacts
 
+Disposition: historical (2026-09-06)
+
 **Verified (2026-08-25):** two independent passes. (1) Citation verification: every in-scope
 artifact claim re-derived fresh — scale numbers exact at the note's snapshot (658 commits at
 0abec75; drift since is the note's own commits), all eight commit spot-checks and all six

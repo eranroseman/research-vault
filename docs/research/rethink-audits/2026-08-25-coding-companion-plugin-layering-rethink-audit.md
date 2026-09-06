@@ -1,5 +1,7 @@
 # Rethink audit — coding-companion plugin layering
 
+Disposition: historical (2026-09-06)
+
 Clean-slate design audit of the tooling architecture behind [docs/product-landscape/2026-08-25-coding-companion-plugins-comparison.md](../../product-landscape/2026-08-25-coding-companion-plugins-comparison.md)'s layered verdict (superpowers' execution core owns planned-code machinery; mattpocock/skills owns config, planning surfaces, domain language, and the tracker). Method: rethink-audit (requires → prior-art → design → gap → migrate → trade-offs). Prior-art sourcing: [docs/product-landscape/2026-08-25-plugin-layering-prior-art.md](../../product-landscape/2026-08-25-plugin-layering-prior-art.md) (background research, advisor-corrected mid-run).
 
 ## requires:

@@ -1,5 +1,7 @@
 # Task 1 report: Rename `project` -> `project-flow`
 
+Disposition: historical (2026-09-06)
+
 ## Status: DONE
 
 ## What I implemented

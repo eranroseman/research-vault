@@ -1,5 +1,7 @@
 # OKF Conformance Implementation Plan
 
+Disposition: historical (2026-09-06)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close every OKF v0.2 §11 violation the 2026-09-01 audit confirmed, migrate the two structure probes out of doctor into verify (the doctor split), add the mechanical type-stamp fixer, and record what remains — per `docs/research/2026-09-01-okf-conformance-audit.md` §7 as ruled in the 2026-09-02 grill.

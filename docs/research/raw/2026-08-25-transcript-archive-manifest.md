@@ -1,5 +1,7 @@
 # Transcript-archive fixity manifest — snapshot 2026-08-25
 
+Disposition: historical (2026-09-06)
+
 The project's one-time session-transcript export (the process lab notebook) is intentionally
 tracked under `docs/research/raw/research-vault-transcripts/` while [#68](https://github.com/eranroseman/knowledge-harness/issues/68)
 mines it. The redundant external clone has been discarded. This manifest is the citable inventory:

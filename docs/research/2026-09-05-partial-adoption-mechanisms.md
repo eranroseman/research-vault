@@ -1,5 +1,7 @@
 # Partial adoption of a Claude Code plugin: every mechanism, tested
 
+Disposition: historical (2026-09-06)
+
 Research note, 2026-09-05. An enumeration of the ways a third-party plugin can be adopted in part rather than whole, run by installing the shapes rather than by reading the documentation.
 
 **What this artifact is.** A record of what the Claude Code plugin loader at 2.1.260 does when asked to take some of a plugin and not the rest. Every mechanism was tried against the two compile-step candidates at their pins, `AgriciDaniel/claude-obsidian` at `ad67087cad22ad84cc3288f915588ae42c0c2b44` and `nvk/llm-wiki` at `7c94c9bf2968f17deb496b285db0afdb610a01d9`, and against synthetic probe trees where a shape needed isolating. Scratch marketplaces were built under `/tmp`, installed, inventoried, and removed. Nothing in this repository was modified by the probes.

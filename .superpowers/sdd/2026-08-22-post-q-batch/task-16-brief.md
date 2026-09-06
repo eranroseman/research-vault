@@ -1,5 +1,7 @@
 ### Task 16: No vacuous machine-confirmed tier (audit defect 3 + spec §86 gap; also closes [issue #17](https://github.com/eranroseman/knowledge-harness/issues/17) — human-reviewed tier unreachable — read the issue and cover it in this task's tests; reference #17 in the commit)
 
+Disposition: historical (2026-09-06)
+
 **The reason, for the test name and the docstring:** an empty applicable-check set satisfies "every applicable check passed" vacuously, and vacuous truth is not evidence. A machine tier needs at least one check that ran and passed — otherwise a note with no identifiers, no quotes, and no verified events derives the top tier, which is what it does at HEAD.
 
 **Files:**

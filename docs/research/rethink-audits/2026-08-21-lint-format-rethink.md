@@ -1,5 +1,7 @@
 # Rethink audit: vault and repo lint and formatting
 
+Disposition: historical (2026-09-06)
+
 Date: 2026-08-21. Method: `/rethink-audit` rungs; prior art dispatched to a research agent against primary sources. Subject: the lint/format architecture accumulated across Plan Q's amendments (the one-form-owner matrix) plus the vault's canonical-form machinery. Verdict: **vault half already sound — keep, now with named precedent; repo half needs one structural change** (a single orchestration seam) that closes a requirement the accreted design silently violated.
 
 ## requires (evidence-tagged)

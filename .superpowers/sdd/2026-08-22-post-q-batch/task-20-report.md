@@ -1,5 +1,7 @@
 # Task 20 report — additive `relation.is-retracted-by` read
 
+Disposition: historical (2026-09-06)
+
 Status: **complete**, fix round 1 of 5 addressed. Commits:
 `39bf192` (`feat: read Crossref relation.is-retracted-by as an additive
 retraction signal`) plus a follow-up fix-forward commit for this round

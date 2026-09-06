@@ -1,5 +1,7 @@
 # Vale as a prose linter for the research-vault repo and the vault — declined
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 **Verdict (author-ruled 2026-08-24): declined.** The terminology guard is adopted instead as a pytest that parses `CONTEXT.md` at test time — no generated artifact, so registry drift is structurally impossible (the eliminate rung, per AGENTS.md). Vale would be mechanism-plus-guard. **Revisit triggers, and only these: a demand for editor integration (LSP squiggles for a human author), or a vault-side user request.** The user-side answer that never touches trust machinery is the [Obsidian Vale plugin](https://github.com/ChrisChinchilla/obsidian-vale) — a reader installs it in their own vault, and research-vault knows nothing about it. **A third surface, user-facing documentation, was measured the same day and adds a third trigger; see §8.**
 
 This note exists so nobody re-runs the evaluation from scratch. The measured yields are the decision; the configuration knowledge in §4 is the part a future evaluator would otherwise have to rediscover by experiment.

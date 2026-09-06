@@ -1,5 +1,7 @@
 # LLM-wiki integration prior art: the "new source arrives → wiki updates" moment
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-16. Feeds ticket #11 Q8 (import-source integrate step). Question: when a new source is cataloged, who/what integrates it into the LLM-owned synthesis layer (atlas/), and under what discipline? Method: actual files read — prompts, schemas, code — never READMEs alone. Repos pinned: karpathy gist @ `ac46de1` (its only revision), SamurAIGPT/llm-wiki-agent @ `df636ef`, AgriciDaniel/claude-obsidian @ `1c1bc49` (same commit as adoptable-skills-audit.md — this section covers only ingest mechanics that audit did not), NousResearch/hermes-agent @ `12b1f0f`, atomicstrata/llm-wiki-compiler @ `3e17bcf`, garrytan/gbrain @ `5ef85ac`, swarmclawai/swarmvault @ `815412d`, Pratiyush/llm-wiki @ `b108889`, nvk/llm-wiki @ `b513c70`. Web-only sources (llmwikis.org) are quoted from raw page text fetched 2026-08-16, marked as such. "Documented" = in the file; "inferred" = my reading of consequences.
 
 ______________________________________________________________________

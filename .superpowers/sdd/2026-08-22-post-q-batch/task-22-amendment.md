@@ -2,6 +2,8 @@ ______________________________________________________________________
 
 ## Part 3: One sense per term (ruled 2026-08-23)
 
+Disposition: historical (2026-09-06)
+
 ### Task 22: `skipped_digest` → `skipped_sha256`
 
 **The ruling, as written for the implementer:**

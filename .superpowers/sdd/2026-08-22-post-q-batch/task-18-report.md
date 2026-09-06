@@ -1,5 +1,7 @@
 # Task 18 report: supplied archive snapshots verified by shape and target URL
 
+Disposition: historical (2026-09-06)
+
 Commit: `fix: supplied archive snapshots verified by shape and target URL`
 
 ## What changed

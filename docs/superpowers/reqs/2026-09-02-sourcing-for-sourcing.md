@@ -1,5 +1,7 @@
 # Sourcing findings: the `sourcing` skill
 
+Disposition: sibling-project (2026-09-06) [should-be-scoping-review]
+
 > **What this is.** A sourcing run for the `sourcing` skill itself, against all 24 requirements in `docs/superpowers/reqs/2026-09-02-sourcing.md`. Run by hand on 2026-09-02, blocked at the screen, and **completed 2026-09-03** once the requirement set was marked screenable.
 >
 > **What consumes it.** `writing-specs`, with the requirement set, per S14. Nothing here decides: no finding adopts, adapts or rejects (S5, S6).

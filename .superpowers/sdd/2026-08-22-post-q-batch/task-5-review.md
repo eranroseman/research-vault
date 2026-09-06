@@ -1,5 +1,7 @@
 # Task 5 review - 8e7b136..97afad5
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

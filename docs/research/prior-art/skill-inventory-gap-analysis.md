@@ -1,5 +1,7 @@
 # Skill inventory gap analysis — scenario walkthroughs + design-draft capability diff
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-16. Feeds ticket #11 (Foundation skill inventory), Q2: which skills ship.
 Method: (A) six day-one user journeys simulated step-by-step against the candidate set, each step
 tagged `SERVED BY <x>` / `GAP` / `OVERLAP`; (B) every skill/capability in the three design-draft

@@ -1,5 +1,7 @@
 # Pre-slice batch — method retrospective
 
+Disposition: historical (2026-09-06)
+
 **What this is.** The pre-slice batch (`docs/superpowers/plans/2026-08-22-post-q-batch.md`) ran 26 tasks through a dispatch → review → fix loop. This note records what the *method* produced, not what the tasks did. The tasks are recorded in the plan and in git; the findings below are about how errors were made and caught, and they outlast the batch.
 
 Written at Task 21's close, 2026-08-25.

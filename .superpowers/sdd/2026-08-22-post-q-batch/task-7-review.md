@@ -1,5 +1,7 @@
 # Task 7 review - 8bc6294..eb54ab6
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant** — corrected from the spec lens's "issues".

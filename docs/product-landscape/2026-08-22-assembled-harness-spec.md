@@ -1,5 +1,7 @@
 # An assembled harness: the same thesis from third-party parts
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Design exploration, 2026-08-22. **Not approved, not planned, nothing built from it.** It answers
 one question: could the thing research-vault and Memoria are both building be assembled from
 components that already exist, rather than written?

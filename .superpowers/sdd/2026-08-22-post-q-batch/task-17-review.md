@@ -1,5 +1,7 @@
 # Task 17 review - 1fd3f8a..213a826
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 Verdict: **issues** — one issue, and it is collateral to the fixture migration rather than a

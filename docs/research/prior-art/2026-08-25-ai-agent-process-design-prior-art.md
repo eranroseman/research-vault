@@ -1,5 +1,7 @@
 # Prior art for an AI-agent-driven process: specs, decision economics, adversarial verification, and provenance
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 **Verdict (2026-08-25, primary sources only, one paragraph per item below):** All eight practices have real,
 named, dated prior art, but the fits are uneven once tested against this process's actual constraint — one
 human approving everything via short turns across many disposable LLM seats, not multiple humans and not

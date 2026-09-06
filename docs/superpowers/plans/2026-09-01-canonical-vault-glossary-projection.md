@@ -1,5 +1,7 @@
 # Canonical vault glossary projection — implementation plan
 
+Disposition: historical (2026-09-06)
+
 > **Execution:** use `superpowers:subagent-driven-development`. The work is one
 > cohesive, reviewable change: its content, packaged asset, renderer, and
 > preservation contract must land together.

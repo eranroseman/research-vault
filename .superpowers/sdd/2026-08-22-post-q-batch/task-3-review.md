@@ -1,5 +1,7 @@
 # Task 3 review - 45aa45d..d44452e
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: issues.**

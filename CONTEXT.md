@@ -1,5 +1,7 @@
 # research-vault
 
+Disposition: current (2026-09-06)
+
 Trust-first academic research on a personal knowledge vault: every claim traceable to a real source, verified by mechanical checks.
 
 ## Language

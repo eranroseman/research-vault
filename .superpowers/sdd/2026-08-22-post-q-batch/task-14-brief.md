@@ -1,5 +1,7 @@
 ### Task 14: RW date parsing + arming honesty (audit defect 1 + the arming ruling)
 
+Disposition: historical (2026-09-06)
+
 **Files:**
 
 - Modify: `research_vault/checks.py` (`_rw_date`, ~line 910)

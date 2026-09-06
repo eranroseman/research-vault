@@ -1,5 +1,7 @@
 # Task 2c report — vault AGENTS.md opens with the integrity preamble
 
+Disposition: historical (2026-09-06)
+
 ## Status: DONE_WITH_CONCERNS
 
 Commit: `514d12b feat: vault AGENTS.md opens with the integrity preamble`

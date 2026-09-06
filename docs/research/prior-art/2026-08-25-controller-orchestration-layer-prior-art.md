@@ -1,5 +1,7 @@
 # Prior art: a controller/orchestrator coordinating parallel AI coding-agent sessions in one shared checkout
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-25. Feeds a first-principles design audit of a proposed **controller** role that coordinates several autonomous coding-agent sessions that all operate against **one mutable git checkout** — not separate worktrees, not a single-plan SDD/agent loop. Five angles under investigation: (1) delegation-authority criteria vs. multi-agent LLM framework supervisor/worker patterns, (2) evidence-based dispute adjudication, (3) authority scoping (first-hand vs relayed consent, consent scoped to its granted text), (4) precedent formation thresholds, (5) shared-mutable-state hazards in git itself. Scope is **prior art and its fit/non-fit to this specific system** — not a recommendation. Primary sources only; paraphrase vs. verbatim quote is marked throughout; genuine negatives are reported as negatives rather than stretched into weak matches.
 
 ## Summary

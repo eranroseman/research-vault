@@ -1,5 +1,7 @@
 # Pre-slice batch — boundary review, run after the merge
 
+Disposition: historical (2026-09-06)
+
 Independent reviewer, read-only pass, 2026-08-25, over `d9b3acf..4b9f427` on `main`.
 
 **This review ran after the merge, not before it.** The batch was already fast-forwarded onto

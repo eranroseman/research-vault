@@ -1,5 +1,7 @@
 # Task 1 review - 002cb25..8dbf87f
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

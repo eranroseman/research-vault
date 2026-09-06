@@ -1,5 +1,7 @@
 # No-fabrication audit — specs, skills, implementation
 
+Disposition: historical (2026-09-06)
+
 Run 2026-08-22, author-directed ("review specs and implementation and ensure we never fabricate missing information"). Method: five finder lanes (render projection, verification layer, CLI writers, skills prose + templates, spec cross-check), 39 candidate findings, each adversarially verified by a fresh agent instructed to refute against the actual code. 21 confirmed, 18 refuted. Full per-agent evidence: the workflow journal (session record, run wf_e23da149-e35). READ-ONLY audit — nothing was changed; every fix routes through the normal plan chain.
 
 ## Distinct defects (deduplicated, 17)

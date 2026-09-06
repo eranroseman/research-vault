@@ -1,5 +1,7 @@
 # Import terminology: industry vocabulary for the K1-K8 concepts
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-09-04. Industry-terminology evidence for the import redesign glossary.
 
 **What this is.** A survey of the terms four bodies of practice use for eight concepts the vault needs to name during the import redesign. Every row quotes a primary source verbatim and records where the quote sits, which of the eight concepts it touches, and what the term means elsewhere.

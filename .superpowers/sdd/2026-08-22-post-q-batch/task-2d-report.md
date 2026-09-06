@@ -1,5 +1,7 @@
 # Task 2d report: formatter ignore files ship with the vault; AGENTS.md scope line corrected
 
+Disposition: historical (2026-09-06)
+
 ## 1. The three ignore files: contents and why each syntax is right
 
 All four machine surfaces named by the brief — `literatures/`, `log/`,

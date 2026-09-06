@@ -1,5 +1,7 @@
 # Post-Q batch — independent review of the plan and its SDD ledger
 
+Disposition: historical (2026-09-06)
+
 Independent reviewer, read-only pass, 2026-08-24. Reviewed: the plan at `origin/main` `ddc43a1` and the SDD ledger on `fix/pre-slice-batch` at tip `ebea360` — **22 commits ahead of `origin/main`, 74 behind**, merge-base `002cb25`. Method: programmatic claim-checking rather than reading and judging — `git rev-list --count` for divergence, `git merge-tree` for conflict prediction, a grep-derived state spine over the 159 KB ledger, artifact counts by `ls | wc -l`, and source reads at named line numbers. Nothing in the repository or the worktree was modified during the pass. Commissioned after the pass: this record, a review of the two unreviewed addenda, and a re-run of the ledger's SHA-walk after the boundary merge.
 
 Artifacts read: `.claude/worktrees/fix+pre-slice-batch/.superpowers/sdd/2026-08-22-post-q-batch/`

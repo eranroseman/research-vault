@@ -1,5 +1,7 @@
 # The vault outlives its tools
 
+Disposition: current (2026-09-06)
+
 Status: accepted (2026-08-20)
 
 The vault is the researcher's permanent record; research-vault is one tool that operates on

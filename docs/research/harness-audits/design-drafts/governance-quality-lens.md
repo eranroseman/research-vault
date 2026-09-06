@@ -1,5 +1,7 @@
 # Knowledge-Work Harness — Governance & Quality Lens
 
+Disposition: historical (2026-09-06)
+
 Scope: this lens ports only the verification, economy, and adversarial layers. The brainstorm→outline→draft pipeline belongs to the process lens and is assumed present.
 
 ## Skill inventory

@@ -1,5 +1,7 @@
 # Task 9 review - e76805c..acd38b5
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: compliant.**

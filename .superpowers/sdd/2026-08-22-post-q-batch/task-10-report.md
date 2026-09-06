@@ -1,5 +1,7 @@
 # Task 10 report: two-tier citekey check (audit item 17, spec §4)
 
+Disposition: historical (2026-09-06)
+
 ## RED evidence
 
 Command:

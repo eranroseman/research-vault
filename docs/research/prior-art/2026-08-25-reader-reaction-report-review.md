@@ -1,5 +1,7 @@
 # Reader-reaction methods for Report review
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 **Verdict (updated 2026-08-26).** Add no new review stage or gate. Inside the ordinary review of a frozen working Report, run one bounded **reader-use pass**: define one intended reader and one realistic decision, collect a location-specific plus/minus trace on the first read, then ask the reader to restate the Report's answer, make the decision, name the passages that drove it, and identify the remaining blocker. A response from an actual target reader is reader evidence. The same protocol run by an LLM—including Grammarly Reader Reactions—is only a **proxy hypothesis**; it must never be presented as what the audience thinks. Citation verification and claim fact-checking keep their existing scopes.
 
 This recommendation transfers methods developed for public-information and technical documents to analytical Reports. The transfer is an inference, not a directly validated result: the source studies did not test this repository's Report form.

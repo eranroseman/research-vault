@@ -1,5 +1,7 @@
 # Task 17b review — `a2d7942..f3f5a7f`
 
+Disposition: historical (2026-09-06)
+
 Reviewer: independent verification pass. Every claim below was re-run, not read.
 
 ## Verdicts

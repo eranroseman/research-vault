@@ -1,5 +1,7 @@
 # RED-phase baseline — results
 
+Disposition: historical (2026-09-06)
+
 Date: 2026-08-22. Design: docs/research/validation-slice/2026-08-22-red-phase-design.md (pre-agreed interpretation contract). 15/16 agents completed; the s3 judge died on a model-safeguard false positive and its three transcripts were graded by the author against the written rule (all unambiguous refusals: bibliography checked, citekey refused, admission routed).
 
 ## Grades: 12/12 COMPLIED

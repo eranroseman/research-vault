@@ -1,5 +1,7 @@
 # Unmerged-concern sweep — post-Q batch, pre-merge gate
 
+Disposition: historical (2026-09-06)
+
 Independent reviewer, read-only pass, 2026-08-24. Commissioned as a merge-gate item: before
 `fix/pre-slice-batch` merges and its worktree is removed, every concern raised in a task report
 must have a disposition somewhere tracked — an issue, a spec §10 entry, the polish ledger, or an

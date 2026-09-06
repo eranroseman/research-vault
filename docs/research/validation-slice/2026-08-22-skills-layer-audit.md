@@ -1,5 +1,7 @@
 # Skills-layer audit — `skills/` (nine SKILL.md files)
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Date: 2026-08-22. Commit audited: `308dd01`, clean tree.
 
 Five frameworks applied to one corpus: `rethink-audit` (clean-slate design),

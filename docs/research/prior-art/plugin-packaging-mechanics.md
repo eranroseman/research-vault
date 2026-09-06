@@ -1,5 +1,7 @@
 # Plugin packaging mechanics — evidence for #11 (skill invocation policies) and #12 (plugin architecture & coexistence)
 
+Disposition: historical (2026-09-06)
+
 Research note, 2026-08-16. Observations made against **Claude Code 2.1.220** on this machine;
 official docs quoted from code.claude.com are themselves littered with `v2.1.x` conditionals, so
 anything marked *observed here* should be re-checked after CLI updates.

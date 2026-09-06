@@ -1,5 +1,7 @@
 # Task 5 report: setup-vault C-6 (audit item 6)
 
+Disposition: historical (2026-09-06)
+
 Source card: `research/validation-slice/2026-08-22-skills-layer-audit.md:247-259` (read at its pre-move on-branch location, C-6; adjudication at line ~325-330).
 
 ## Probe (run first, per the card's State field)

@@ -1,5 +1,7 @@
 # Proposed ADR — `software-development` / `sensemaking`: which product holds a component
 
+Disposition: sibling-project (2026-09-06)
+
 **A draft for another product's register, held here because that register does not exist yet.**
 
 Same standing as [the component-adoption ladder draft](2026-08-31-proposed-adr-software-development-component-adoption.md): `docs/adr/` is `research-vault`'s register, structurally, because it is that product's repository. `docs/2026-08-31-proposed-adr-and-context-changes.md` §1 argues the same point, but it is a proposal and does not settle anything. This is `software-development`'s **ADR 0002**, sibling to that one and deliberately separate from it — conflating *how a component is taken* with *where it goes* is the error the original adopt-as-is / modify-import / unrelated axis made.

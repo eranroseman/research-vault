@@ -1,5 +1,7 @@
 # Task 8 review - a2a5aad..c0d0854
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: issues** (correcting the spec lens's "compliant" — reasoning below).

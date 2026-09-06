@@ -1,5 +1,7 @@
 # Non-paper acquisition and summary tooling
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-25, for issue #36. Scope: web pages, product documentation, and software repositories. Primary sources only.
 
 ## Verdict

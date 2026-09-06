@@ -1,5 +1,7 @@
 # Task 16 review - ded3cdf..0b8ec6c
 
+Disposition: historical (2026-09-06)
+
 ## Spec Compliance
 
 **Verdict: issues.**

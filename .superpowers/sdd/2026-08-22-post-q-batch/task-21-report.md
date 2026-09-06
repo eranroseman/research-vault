@@ -1,5 +1,7 @@
 # Task 21 report
 
+Disposition: historical (2026-09-06)
+
 **Status:** Steps 1, 2, and 4 complete, plus the Step 5 commit for this scope. Step 3
 (acceptance sweep, live suites, merge-and-push) is explicitly out of scope for this
 agent and was not run.

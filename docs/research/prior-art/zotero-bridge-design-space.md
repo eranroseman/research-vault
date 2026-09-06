@@ -1,5 +1,7 @@
 # Zotero bridge design space: Zotero↔vault data flow
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-16. Feeds decision ticket #8 "Zotero bridge design" (eranroseman/knowledge-harness). Scope: the Zotero↔vault **data-flow** design space only — export format, literature-note generation, annotation extraction, trigger/sync models, direction policy, multi-machine/WSL paths. Provenance/claim schemas and verification gates are owned by sibling notes and are out of scope here. Builds on `docs/research/prior-art/prior-art-knowledge-work-harness.md` §3/§4 (access primitives: local API for reads, BBT JSON-RPC for citekey→metadata+PDF path, BBT on-change auto-export for watching, citekey-keyed notes with managed regions) — those are treated as settled and not re-argued.
 
 All "live-verified" claims were tested 2026-08-16 against the running local stack: **Zotero 9.0.6 + Better BibTeX 9.0.55** on the Windows host, queried from WSL2 via `http://localhost:23119` (JSON-RPC `api.ready` returned `{"zotero":"9.0.6","betterbibtex":"9.0.55"}`). Probes were strictly read-only. One material limitation: **this library currently contains zero PDF annotations** (`/api/users/0/items?itemType=annotation` returns `[]`, live-verified), so §3 annotation-fidelity claims are source-verified from BBT/Zotero code, not live-verified.

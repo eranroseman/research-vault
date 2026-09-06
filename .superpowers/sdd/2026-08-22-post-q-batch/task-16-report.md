@@ -1,5 +1,7 @@
 # Task 16 report: no vacuous machine-confirmed tier
 
+Disposition: historical (2026-09-06)
+
 ## RED evidence
 
 Added the brief's two tests to `tests/test_events.py` (after `test_trust_tier_progression`,

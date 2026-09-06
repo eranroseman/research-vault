@@ -1,1 +1,3 @@
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Raw structured findings (pattern / usedWhere / owning source / specImpact verdict + dead ends) from the seven-domain wide prior-art sweep behind research/rethink-audits/2026-08-16-spec-rethink-audit.md.

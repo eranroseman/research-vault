@@ -1,5 +1,7 @@
 # Prior art: trust gates & the citation-check suite (enforcement machinery)
 
+Disposition: historical (2026-09-06) [should-be-scoping-review]
+
 Research note, 2026-08-16. Feeds decision ticket #10 (eranroseman/knowledge-harness): where each mechanical check runs (Claude Code hooks / skills / pre-commit / CI) and which fail open vs closed. Scope is the **checking/enforcement machinery only** — the provenance schema and the Zotero data flow are sibling notes. The checks under decision are the six from docs/research/prior-art/prior-art-knowledge-work-harness.md §5–6: citekey-exists lint, DOI existence, metadata match, retraction check, quote verification, factored verification. Pandoc behavior was live-verified 2026-08-16 on pandoc 3.1.3; Claude Code hook semantics were verified against the official raw docs the same day.
 
 ## Summary
