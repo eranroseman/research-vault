@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Verify citations
 
-Disposition: current (2026-09-06)
-
 This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of §6. Never carry an inventory of check ids in your head or in a report. Run the CLI; its output is always up to date. It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id — the CLI writes a result, a `verified` event, and a review-inbox entry, inside `verify` itself.
 
 ## Run the audit

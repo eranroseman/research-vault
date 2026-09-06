@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Publish a project
 
-Disposition: current (2026-09-06)
-
 Use this only when the person explicitly invokes it. "Publish" is this skill's action, not a branch merge.
 
 Say this before the first command: publishing here runs through an armed gate — `arm-publish` sets a state flag the Stop hook reads, and from the moment it is set the hook holds the session until the attempt lands, is acknowledged, or is disarmed. This is the most irreversible thing the vault does, so the person hears it at the start rather than meeting it at the first refusal.

@@ -16,20 +16,20 @@ from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Excluded from marking, each for its own reason:
-#   research_vault/templates/** ships into a user's vault — a repo-internal
-#     marker has no business travelling with the product;
-#   .out-of-scope/** declares its disposition by path;
-#   skills/find-sources/references/** are 11 vendored upstream files whose own
-#     header reads "Do not hand-edit this file; re-vendor from upstream"; their
-#     disposition belongs to the vendoring decision in find-sources/SKILL.md,
-#     which is repo-owned and marked. Same reasoning .pre-commit-config.yaml
-#     already applies to their sibling scripts/*.py;
-#   CLAUDE.md is an 11-byte import directive, not a document (spec §10).
+# One test governs this list: DOES THIS PATH SHIP TO A CONSUMER? A Disposition
+# line is repo bookkeeping, and bookkeeping that travels out of the repository
+# lands in front of a reader who cannot act on it.
+#   research_vault/templates/** ships into a user's vault;
+#   skills/** ships in the installed plugin — a SKILL.md body is a prompt, so a
+#     marker there is repo bookkeeping injected into what an agent reads as
+#     instruction, and their references/** are that prompt's own pages;
+#   .out-of-scope/** declares its disposition by path.
+# `CLAUDE.md` is excluded on a different ground: it is an 11-byte import
+# directive, not a document (spec §10).
 EXCLUDED_PREFIXES = (
     "research_vault/templates/",
     ".out-of-scope/",
-    "skills/find-sources/references/",
+    "skills/",
 )
 EXCLUDED_PATHS = frozenset({"CLAUDE.md"})
 
@@ -140,7 +140,8 @@ _HISTORICAL_PREFIXES = (
     "docs/research/harness-audits/",
     "docs/research/raw/",
 )
-# Surfaces that ship or that AGENTS.md points agents at — binding by construction.
+# Surfaces a repository reader lands on first, or that AGENTS.md points agents
+# at — binding by construction.
 _CURRENT_PATHS = frozenset(
     {
         "AGENTS.md",
@@ -156,7 +157,6 @@ _CURRENT_PATHS = frozenset(
 # earlier `_PENDING_ISSUE` rule rather than by omission here. The enumeration
 # would also drop a future ADR 0006 into the pending-map residual.
 _CURRENT_PREFIXES = (
-    "skills/",
     "docs/agents/",
     "docs/adr/",
 )

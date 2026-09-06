@@ -12,17 +12,35 @@ from scripts import dispositions
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_scope_excludes_the_four_named_surfaces():
+def test_nothing_that_ships_to_a_consumer_is_in_scope():
+    """One test governs the exclusion list: does this path ship to a consumer?"""
     scope = dispositions.in_scope(ROOT)
     assert "docs/testing.md" in scope
     assert ".superpowers/sdd/2026-08-22-post-q-batch/task-1-brief.md" in scope
-    assert "skills/find-sources/SKILL.md" in scope, (
-        "the vendoring decision is repo-owned"
-    )
+    assert dispositions.ISSUE_TABLE in scope, "the table the pass writes is a document"
     assert "CLAUDE.md" not in scope, "§10 exempts CLAUDE.md by name"
-    assert not [p for p in scope if p.startswith("research_vault/templates/")]
+    assert not [p for p in scope if p.startswith("research_vault/templates/")], (
+        "ships into a user's vault"
+    )
+    assert not [p for p in scope if p.startswith("skills/")], (
+        "ships in the installed plugin, where a SKILL.md body is read as instruction"
+    )
     assert not [p for p in scope if p.startswith(".out-of-scope/")]
-    assert not [p for p in scope if p.startswith("skills/find-sources/references/")]
+
+
+def test_no_skill_body_opens_with_repo_bookkeeping():
+    """A skill is a prompt. The marker would be its first instruction line."""
+    marked = [
+        path
+        for path in subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--", "skills/*.md"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+        if "\nDisposition: " in (ROOT / path).read_text(encoding="utf-8")
+    ]
+    assert not marked, f"repo bookkeeping shipped into the plugin surface: {marked}"
 
 
 def test_every_vendored_file_stays_out_of_scope():
@@ -33,6 +51,21 @@ def test_every_vendored_file_stays_out_of_scope():
         if "Do not hand-edit" in (ROOT / p).read_text(encoding="utf-8")[:600]
     ]
     assert not vendored, f"marking would drift these against upstream: {vendored}"
+
+
+def test_no_document_in_scope_opens_with_yaml_frontmatter():
+    """The frontmatter anchor class retired with `skills/`: it held only SKILL.md.
+
+    `anchor()` reaches a heading below a frontmatter block either way, so this
+    is not a capability the module lost — it is a class of document the corpus
+    no longer contains, asserted so the claim stays true rather than remembered.
+    """
+    with_frontmatter = [
+        path
+        for path in dispositions.in_scope(ROOT)
+        if (ROOT / path).read_text(encoding="utf-8").startswith("---\n")
+    ]
+    assert not with_frontmatter, with_frontmatter
 
 
 def test_anchor_is_the_line_after_the_first_heading():
@@ -163,9 +196,7 @@ def test_proposal_marks_the_closed_sdd_workspace_historical():
     assert dispositions.propose(path, "### Task 1: Rename\n").value == "historical"
 
 
-def test_proposal_marks_shipped_surfaces_current():
-    skill = "---\nname: publish\n---\n\n# Publish a project\n"
-    assert dispositions.propose("skills/publish/SKILL.md", skill).value == "current"
+def test_proposal_marks_the_binding_surfaces_current():
     assert (
         dispositions.propose("docs/agents/issue-tracker.md", "# Issue tracker\n").value
         == "current"

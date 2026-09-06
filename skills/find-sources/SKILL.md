@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Find sources
 
-Disposition: current (2026-09-06)
-
 Literature search upstream of Zotero admission — this skill answers "what is out there," never "what is now citable." Admission is the human act of accepting a source into Zotero, and it is the **only** way anything becomes citable; this skill never performs it and never writes the evidence layer.
 
 This is a vendored fork of K-Dense Inc.'s `paper-lookup` skill (`skills/paper-lookup/` at `https://github.com/K-Dense-AI/scientific-agent-skills` @ `336c4f838a6c21b54e1e1f58cbbeae143d151fe2`, license MIT, © 2025 K-Dense Inc.), renamed into this plugin's namespace. Its `references/` (11 per-database files) and `scripts/` (5 stdlib-only Python CLIs — no bundled credentials, though `paginate.py` reads `OPENALEX_EMAIL`, `OPENALEX_API_KEY`, and `CROSSREF_MAILTO` from the environment when they are set) live beside this file, unmodified except for a provenance header on each — re-vendor from upstream to update them, never hand-edit. Upstream prose describes upstream's corpus and upstream's behaviour, not necessarily this fork's; where a vendored file and this one disagree, this one governs. What upstream terminates at (a retrieval report) is where this skill adds two things: search-log provenance and an explicit admission boundary.

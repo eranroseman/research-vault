@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Set up a vault
 
-Disposition: current (2026-09-06)
-
 Use this only when the person explicitly invokes it. Keep the person in control of destination, CI, and every companion installation.
 
 ## Scaffold

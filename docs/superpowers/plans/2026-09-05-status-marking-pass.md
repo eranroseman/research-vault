@@ -34,17 +34,17 @@ Disposition: current (2026-09-06)
 
 The spec's §10 numbers and its frontmatter rule do not reproduce. All five corrections below are measured 2026-09-05 in this checkout on `main`, and each is re-measured at execution time (§1: a fact older than the lane's start date is re-measured, not cited).
 
-1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name, and minus the 11 vendored files of premise 6 — **191 files at the 2026-09-05 measurement, and still moving**: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is that measurement, not a contract; nothing in the code depends on one.
+1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name, and minus all 23 files under `skills/` (premise 6) — **180 files, re-measured 2026-09-06 after the fix wave narrowed the scope predicate**, and still moving: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is a measurement, not a contract; nothing in the code depends on one. Counts printed earlier in this plan's history (191, 192) predate the `skills/` exclusion.
 
-2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all.
+2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all. Moot since the fix wave: `skills/` is excluded whole, so **no file in scope opens with frontmatter at all**, and `tests/test_dispositions.py` asserts it.
 
-3. **No frontmatter route; one uniform body anchor.** All 9 `SKILL.md` carry a heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). Raised as a decision cell at plan review; **approved, and the spec now carries it** (§10, commit `1c3f3cb`).
+3. **No frontmatter route; one uniform body anchor.** All 9 `SKILL.md` carry a heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). Raised as a decision cell at plan review; **approved, and the spec now carries it** (§10, commit `1c3f3cb`). **Corrected at the fix wave:** the reasoning was right and its conclusion was not. The body route ships the marker *more* prominently than a frontmatter key would — a skill is a prompt, so the marker landed as the first line of what an agent reads as instruction. The answer to "it must not ship" is to not mark it; see premise 6.
 
 4. **The anchor is any-level, with a four-file fallback.** 25 in-scope files carry no `# ` heading, but 21 of those — the `.superpowers/sdd/…/task-*-brief.md` set — open at `###`. Only the 4 bare-prose `docs/research/**/README.md` files carry no heading of any level. So the rule is **the first heading matching `^#{1,6} `**, with top-of-file as the fallback for those four: two classes, not three, and the marker sits in the same relative position everywhere it can. **The spec now carries this** (§10, commit `1c3f3cb`), including the linter's positional definition. Measured: no in-scope file's first any-level heading sits inside a fenced block.
 
 5. **One counted quantity decayed; the other was my own truncation.** The spec's "25 carry some header status marker" reads **19** files with a status-shaped line in their first 12 lines. Its "66 open issues" is **correct** — an earlier reading of 30 here was `gh issue list`'s default `--limit 30` presented as a total, the same silent-truncation trap that turned a 100-item first page of 2,673 Zotero tags into "the three scanner tags". `gh issue list --state open --limit 200` returns **66**. All six issues §10 names as first to close (#96, #97, #62, #63, #78, #118) and all three it keeps open (#116, #117, #119) are open today.
 
-6. **Eleven vendored files are excluded, and the spec did not consider them.** `skills/find-sources/references/*.md` are a frozen fork of K-Dense's `paper-lookup` skill (MIT, upstream `336c4f8`), and each opens with a repo-added header reading *"Do not hand-edit this file; re-vendor from upstream to update it."* Writing a repo-internal marker into them is exactly the vendor drift `.pre-commit-config.yaml` already keeps their sibling `scripts/*.py` out of the formatter to avoid. The disposition of a vendored set belongs to the vendoring decision, which lives in the repo-owned `skills/find-sources/SKILL.md` — in scope and marked. **Ruling, mine, at pre-flight:** exclude the 11. Cost if wrong: a reader of one of those files goes one hop to `SKILL.md` to learn the set's status, and reversing it is deleting one prefix. A repo-wide sweep found no other file in scope carrying a do-not-edit or generated-by header.
+6. **All 23 `skills/**.md` are excluded, and the spec did not consider them.** The pre-flight ruling excluded only the 11 vendored `skills/find-sources/references/*.md` — a frozen fork of K-Dense's `paper-lookup` skill (MIT, upstream `336c4f8`), each opening with *"Do not hand-edit this file; re-vendor from upstream to update it."* **Widened at the fix wave to `skills/` whole**, on the principle that now governs the whole exclusion list: **does this path ship to a consumer?** `research_vault/templates/**` ships into a user's vault, `skills/**` ships in the installed plugin, `.out-of-scope/**` declares itself by path. A `Disposition:` line is bookkeeping about *this repository*; a reader who installed the plugin cannot act on it. Cost if wrong: a reader of a shipped skill goes one hop to this repository to learn its status, and reversing it is narrowing one prefix. A repo-wide sweep found no other file in scope carrying a do-not-edit or generated-by header.
 
 ## File map
 
@@ -80,7 +80,7 @@ python3 - <<'PY'
 import re
 import subprocess
 files = subprocess.run(["git", "ls-files", "--", "*.md"], capture_output=True, text=True).stdout.split()
-excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/", "skills/find-sources/references/")) or p == "CLAUDE.md"
+excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/", "skills/")) or p == "CLAUDE.md"
 scope = [p for p in files if not excluded(p)]
 frontmatter = [p for p in scope if open(p, encoding="utf-8").read().startswith("---\n")]
 heading = re.compile(r"^#{1,6} ")
@@ -89,7 +89,7 @@ print("tracked", len(files), "scope", len(scope), "frontmatter", len(frontmatter
 PY
 ```
 
-Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 191 frontmatter 9 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
+Expected, re-measured 2026-09-06 after the fix wave: `tracked 215 scope 180 frontmatter 0 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level, and `frontmatter 0` because the only frontmatter-bearing documents were the 9 `SKILL.md` the `skills/` exclusion removed. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "191"/"201"/"202" printed elsewhere in this plan is an older measurement, not a contract.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -106,15 +106,15 @@ from scripts import dispositions
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_scope_excludes_the_four_named_surfaces():
+def test_nothing_that_ships_to_a_consumer_is_in_scope():
+    """One test governs the exclusion list: does this path ship to a consumer?"""
     scope = dispositions.in_scope(ROOT)
     assert "docs/testing.md" in scope
     assert ".superpowers/sdd/2026-08-22-post-q-batch/task-1-brief.md" in scope
-    assert "skills/find-sources/SKILL.md" in scope, "the vendoring decision is repo-owned"
     assert "CLAUDE.md" not in scope, "§10 exempts CLAUDE.md by name"
     assert not [p for p in scope if p.startswith("research_vault/templates/")]
+    assert not [p for p in scope if p.startswith("skills/")]
     assert not [p for p in scope if p.startswith(".out-of-scope/")]
-    assert not [p for p in scope if p.startswith("skills/find-sources/references/")]
 
 
 def test_every_vendored_file_stays_out_of_scope():
@@ -230,20 +230,20 @@ from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Excluded from marking, each for its own reason:
-#   research_vault/templates/** ships into a user's vault — a repo-internal
-#     marker has no business travelling with the product;
-#   .out-of-scope/** declares its disposition by path;
-#   skills/find-sources/references/** are 11 vendored upstream files whose own
-#     header reads "Do not hand-edit this file; re-vendor from upstream"; their
-#     disposition belongs to the vendoring decision in find-sources/SKILL.md,
-#     which is repo-owned and marked. Same reasoning .pre-commit-config.yaml
-#     already applies to their sibling scripts/*.py;
-#   CLAUDE.md is an 11-byte import directive, not a document (spec §10).
+# One test governs this list: DOES THIS PATH SHIP TO A CONSUMER? A Disposition
+# line is repo bookkeeping, and bookkeeping that travels out of the repository
+# lands in front of a reader who cannot act on it.
+#   research_vault/templates/** ships into a user's vault;
+#   skills/** ships in the installed plugin — a SKILL.md body is a prompt, so a
+#     marker there is repo bookkeeping injected into what an agent reads as
+#     instruction, and their references/** are that prompt's own pages;
+#   .out-of-scope/** declares its disposition by path.
+# `CLAUDE.md` is excluded on a different ground: it is an 11-byte import
+# directive, not a document (spec §10).
 EXCLUDED_PREFIXES = (
     "research_vault/templates/",
     ".out-of-scope/",
-    "skills/find-sources/references/",
+    "skills/",
 )
 EXCLUDED_PATHS = frozenset({"CLAUDE.md"})
 
@@ -432,9 +432,7 @@ def test_proposal_marks_the_closed_sdd_workspace_historical():
     assert dispositions.propose(path, "### Task 1: Rename\n").value == "historical"
 
 
-def test_proposal_marks_shipped_surfaces_current():
-    skill = "---\nname: publish\n---\n\n# Publish a project\n"
-    assert dispositions.propose("skills/publish/SKILL.md", skill).value == "current"
+def test_proposal_marks_the_binding_surfaces_current():
     assert dispositions.propose("docs/agents/issue-tracker.md", "# Issue tracker\n").value == "current"
     assert dispositions.propose("AGENTS.md", "# research-vault\n").value == "current"
     assert dispositions.propose("docs/testing.md", "# Testing instruments\n").value == "current"
@@ -492,7 +490,8 @@ _HISTORICAL_PREFIXES = (
     "docs/research/harness-audits/",
     "docs/research/raw/",
 )
-# Surfaces that ship or that AGENTS.md points agents at — binding by construction.
+# Surfaces a repository reader lands on first, or that AGENTS.md points agents
+# at — binding by construction.
 _CURRENT_PATHS = frozenset(
     {
         "AGENTS.md",
@@ -508,7 +507,6 @@ _CURRENT_PATHS = frozenset(
 # earlier `_PENDING_ISSUE` rule rather than by omission here. The enumeration
 # would also drop a future ADR 0006 into the pending-map residual.
 _CURRENT_PREFIXES = (
-    "skills/",
     "docs/agents/",
     "docs/adr/",
 )

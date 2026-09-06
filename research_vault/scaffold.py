@@ -25,6 +25,7 @@ _EMPTY_ROOTS = ("literatures", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
 GLOSSARY_PATH = "system/glossary.md"
 GLOSSARY_ENVELOPE = b'---\ntype: "guide"\n---\n\n'
+GLOSSARY_MARKER_WINDOW = 8
 
 
 class Probe(NamedTuple):
@@ -85,15 +86,39 @@ def _copy_vault_templates(vault: Path, templates, created: list[str]) -> None:
         _copy_if_absent(source, vault / relative, relative, created)
 
 
+def _strip_disposition_marker(text: bytes) -> bytes:
+    """Drop the repository's own `Disposition:` marker paragraph, if present.
+
+    `templates/context.md` is a symlink to this repository's `CONTEXT.md`, which
+    the §10 status-marking pass (`scripts/dispositions.py`) marks. That pass
+    excludes `research_vault/templates/**` so its bookkeeping never ships, but
+    an exclusion cannot protect a consumer that reads through an alias — so the
+    transform belongs here, beside the frontmatter envelope this function
+    already adds on the way out. The marker is repo-internal: a scaffolded vault
+    is a different repository and nothing in it can act on the line.
+
+    Bounded to the head of the file because the pass only ever writes there —
+    a five-line window opening after the first heading, and every template
+    source opens with its heading. A glossary body that defines the word stays
+    untouched.
+    """
+    lines = text.split(b"\n")
+    for index, line in enumerate(lines[:GLOSSARY_MARKER_WINDOW]):
+        if line.startswith(b"Disposition: "):
+            end = index + 2 if lines[index + 1 : index + 2] == [b""] else index + 1
+            return b"\n".join(lines[:index] + lines[end:])
+    return text
+
+
 def _render_glossary_if_absent(vault: Path, templates, created: list[str]) -> None:
     target = vault / GLOSSARY_PATH
     if target.exists():
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     source = templates.joinpath("context.md")
-    with source.open("rb") as input_file, target.open("xb") as output_file:
+    with target.open("xb") as output_file:
         output_file.write(GLOSSARY_ENVELOPE)
-        shutil.copyfileobj(input_file, output_file)
+        output_file.write(_strip_disposition_marker(source.read_bytes()))
     created.append(GLOSSARY_PATH)
 
 

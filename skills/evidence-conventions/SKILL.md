@@ -5,8 +5,6 @@ description: Use when writing or editing claims, citing sources, or drafting in 
 
 # Evidence conventions
 
-Disposition: current (2026-09-06)
-
 ## The Iron Law
 
 No claim enters a draft without a verified source first.

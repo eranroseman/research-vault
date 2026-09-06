@@ -1,7 +1,5 @@
 # Refresh mode: fresh, stale, orphaned
 
-Disposition: current (2026-09-06)
-
 Refresh is note-level maintenance, and it is the same verb — re-running `import-note` for a citekey that already has a note. Three outcomes, and these are the words to use:
 
 | Word         | What it means                                                                                 | How the CLI says it                                                                                             |

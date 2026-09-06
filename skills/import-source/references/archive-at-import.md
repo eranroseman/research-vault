@@ -1,7 +1,5 @@
 # Archive at import (web sources)
 
-Disposition: current (2026-09-06)
-
 A source with a `url` and no `doi` is a web source, and web content rots. Rescue is impossible after the fact, so the snapshot has to exist **now**, at import — later detection cannot bring a dead page back. Run this for every web source you catalog, in the same session:
 
 ```sh
