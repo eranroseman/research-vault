@@ -264,8 +264,7 @@ def test_emit_round_trips_through_parse_rows():
     assert adr.rule in ("spec-named-issue", "existing")
 
 
-def test_emit_keeps_a_marker_the_author_already_approved():
-    """Re-running propose over a reviewed corpus must not undo the review."""
+def test_propose_or_existing_lets_a_marker_beat_the_classifier():
     path, text = (
         "docs/product-landscape/zotero.md",
         "# Zotero\n\nDisposition: current (2026-09-05)\n",
@@ -273,6 +272,55 @@ def test_emit_keeps_a_marker_the_author_already_approved():
     assert dispositions.propose(path, text).value == "pending-map"
     assert dispositions.propose_or_existing(path, text) == dispositions.Proposal(
         "current", "", False, "existing"
+    )
+
+
+def test_emit_keeps_what_the_author_already_approved(tmp_path):
+    """The human gate, exercised through `emit` — for BOTH halves.
+
+    The earlier version of this test never called `emit`: the one test guarding
+    the gate did not exercise the gate, and the issue half had no protection at
+    all. Re-running `propose --issues-json` against the reviewed table reverted
+    42 of 66 values and overwrote 57 notes (measured 2026-09-06).
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "docs").mkdir()
+    # A document the classifier calls `pending-map`, marked `current` by review.
+    (tmp_path / "docs" / "zotero.md").write_text(
+        "# Zotero\n\nDisposition: current (2026-09-05)\n", encoding="utf-8"
+    )
+    # An issue the classifier calls `pending-map`, ruled `still-open` by review.
+    assert dispositions.propose_issue(94).value == "pending-map"
+    (tmp_path / dispositions.ISSUE_TABLE).write_text(
+        dispositions.render_issue_table(
+            [
+                dispositions.Row(
+                    "issue:94", "still-open", "", False, "r", "the author's reason"
+                )
+            ],
+            date="2026-09-05",
+            titles={"issue:94": "Implement the one-source glossary"},
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", "--", "docs/zotero.md", dispositions.ISSUE_TABLE],
+        cwd=tmp_path,
+        check=True,
+    )
+
+    text = dispositions.emit(
+        tmp_path,
+        issues=[{"number": 94, "title": "Implement the one-source glossary"}],
+    )
+
+    rows = {row.key: row for row in dispositions.parse_rows(text)}
+    assert rows["docs/zotero.md"].value == "current"
+    assert rows["docs/zotero.md"].rule == "existing"
+    assert rows["issue:94"].value == "still-open"
+    assert rows["issue:94"].rule == "existing"
+    assert rows["issue:94"].note == "the author's reason", (
+        "the reviewed reason is the record; the GitHub title must not overwrite it"
     )
 
 

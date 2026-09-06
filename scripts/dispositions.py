@@ -233,7 +233,12 @@ def propose_or_existing(path: str, text: str) -> Proposal:
 
 
 def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
-    """One reviewable row per in-scope document, header first, then issues."""
+    """One reviewable row per in-scope document, header first, then issues.
+
+    Both halves are `existing`-wins: a marked document and a row already in the
+    committed table each beat the classifier. That symmetry is the human gate —
+    re-running `propose` at any time hands the review back untouched.
+    """
     lines = [HEADER]
     for path in in_scope(root):
         proposal = propose_or_existing(path, (root / path).read_text(encoding="utf-8"))
@@ -249,19 +254,18 @@ def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
                 ]
             )
         )
+    reviewed = existing_issue_rows(root)
     for issue in issues or []:
-        proposal = propose_issue(int(issue["number"]))
+        key = f"issue:{issue['number']}"
+        existing = reviewed.get(key)
+        proposal = propose_issue_or_existing(int(issue["number"]), existing)
+        # `Note` carries the author's *reason* once the table exists. The issue
+        # title only ever seeds a row no reviewed table covers yet.
+        note = existing.note if existing is not None else issue["title"]
+        # The doubled tab is the flag column, always empty on an issue row: the
+        # `should-be-scoping-review` hint reads a filename, and an issue has none.
         lines.append(
-            "\t".join(
-                [
-                    f"issue:{issue['number']}",
-                    proposal.value,
-                    proposal.argument,
-                    "",
-                    proposal.rule,
-                    issue["title"],
-                ]
-            )
+            f"{key}\t{proposal.value}\t{proposal.argument}\t\t{proposal.rule}\t{note}"
         )
     return "\n".join(lines) + "\n"
 
@@ -324,6 +328,33 @@ def propose_issue(number: int) -> Proposal:
     if number in _STILL_OPEN:
         return Proposal("still-open", "", False, "spec-named-open")
     return Proposal("pending-map", "", False, "residual")
+
+
+def existing_issue_rows(root: Path = ROOT) -> dict[str, Row]:
+    """The committed table's rows by key — empty before the table exists.
+
+    The issue half's equivalent of reading a marker out of a document: the
+    committed table IS the record, the same way the file is for a document.
+    """
+    table = root / ISSUE_TABLE
+    if not table.is_file():
+        return {}
+    return {row.key: row for row in read_issue_table(table.read_text(encoding="utf-8"))}
+
+
+def propose_issue_or_existing(number: int, existing: Row | None) -> Proposal:
+    """A row already in the committed table wins over the classifier.
+
+    The exact mirror of `propose_or_existing`, which the issue half never got.
+    Without it the plan's own merge-time top-up — a bare `propose
+    --issues-json` — hands back the classifier's guesses for every issue the
+    author decided, and the next `apply` writes them over the reviewed table.
+    Measured 2026-09-06 with the mirror missing: 42 of 66 values reverted and
+    57 notes overwritten in one command.
+    """
+    if existing is None:
+        return propose_issue(number)
+    return Proposal(existing.value, existing.argument, False, "existing")
 
 
 def render_issue_table(

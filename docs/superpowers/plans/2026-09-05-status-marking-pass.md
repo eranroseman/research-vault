@@ -623,13 +623,19 @@ def test_emit_round_trips_through_parse_rows():
     assert adr.rule in ("spec-named-issue", "existing")
 
 
-def test_emit_keeps_a_marker_the_author_already_approved():
-    """Re-running propose over a reviewed corpus must not undo the review."""
+def test_propose_or_existing_lets_a_marker_beat_the_classifier():
     path, text = "docs/product-landscape/zotero.md", "# Zotero\n\nDisposition: current (2026-09-05)\n"
     assert dispositions.propose(path, text).value == "pending-map"
     assert dispositions.propose_or_existing(path, text) == dispositions.Proposal(
         "current", "", False, "existing"
     )
+
+
+# `test_emit_keeps_what_the_author_already_approved` (added at the fix wave)
+# is the one that guards the gate: it calls `emit` against a tmp repository
+# holding a marked document AND a committed issue table, and asserts both come
+# back `existing`. The version above never called `emit` at all, and the issue
+# half had no protection to call.
 
 
 def test_parse_rows_reads_the_flag_column_as_a_boolean():
@@ -1180,7 +1186,9 @@ ______________________________________________________________________
 **Interfaces:**
 
 - Consumes: `Row`, `parse_rows`, `emit`, `main`, `MarkerError`.
-- Produces: `ISSUE_VALUES: tuple[str, ...]`, `ISSUE_TABLE: str = "docs/issue-dispositions.md"`, `propose_issue(number: int) -> Proposal`, `render_issue_table(rows: list[Row]) -> str`, `read_issue_table(text: str) -> list[Row]`, `emit(root, issues=None)` extended with an `issues` parameter, and `python -m scripts.dispositions propose --issues-json <file>`.
+- Produces: `ISSUE_VALUES: tuple[str, ...]`, `ISSUE_TABLE: str = "docs/issue-dispositions.md"`, `propose_issue(number: int) -> Proposal`, `existing_issue_rows(root: Path = ROOT) -> dict[str, Row]`, `propose_issue_or_existing(number: int, existing: Row | None) -> Proposal`, `render_issue_table(rows: list[Row], date: str = "", titles: dict | None = None) -> str`, `read_issue_table(text: str) -> list[Row]`, `emit(root, issues=None)` extended with an `issues` parameter, and `python -m scripts.dispositions propose --issues-json <file>`.
+
+**The issue half is `existing`-wins, exactly as the document half is.** Added at the fix wave, where its absence was the wave's worst defect: a bare `propose --issues-json` against the reviewed table reverted 42 of 66 values and overwrote 57 notes. `propose_issue_or_existing` mirrors `propose_or_existing` — the committed table is the record for an issue the way the file is for a document, and the classifier only fills blanks.
 
 **Why a file and not labels.** The linter runs offline in the suite; it cannot call `gh`. A committed table is a fact the linter can read, and it is also the durable record §10 asks for — the label surface is triage state, a different axis (`docs/agents/triage-labels.md`).
 
@@ -1410,19 +1418,16 @@ Extend `emit` with the issue half:
 ```python
 def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
     ...  # documents exactly as before, then:
+    reviewed = existing_issue_rows(root)
     for issue in issues or []:
-        proposal = propose_issue(int(issue["number"]))
+        key = f"issue:{issue['number']}"
+        existing = reviewed.get(key)
+        proposal = propose_issue_or_existing(int(issue["number"]), existing)
+        # `Note` carries the author's *reason* once the table exists. The issue
+        # title only ever seeds a row no reviewed table covers yet.
+        note = existing.note if existing is not None else issue["title"]
         lines.append(
-            "\t".join(
-                [
-                    f"issue:{issue['number']}",
-                    proposal.value,
-                    proposal.argument,
-                    "",
-                    proposal.rule,
-                    issue["title"],
-                ]
-            )
+            "\t".join([key, proposal.value, proposal.argument, "", proposal.rule, note])
         )
     return "\n".join(lines) + "\n"
 ```
