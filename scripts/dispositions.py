@@ -96,6 +96,11 @@ def unfenced(lines: list[str]) -> list[bool]:
     it mis-tracked four-backtick blocks, where the inner three-backtick fences
     (this plan has them) flipped the state off halfway through.
 
+    All four consumers go through it: `anchor`, `read_marker`,
+    `displaced_markers` and `apply_marker`'s window scan. Two of them used a
+    raw `startswith` until the second fix wave, which left a fenced example in
+    the window readable as the document's own marker — and overwritable.
+
     COMPLETE FOR COLUMN-0 CONSUMERS; revisit if a caller matches indented.
     That completeness is a property of the callers, not of the parser. Every
     caller here matches at column 0 — `anchor` matches `^#{1,6} ` and the
@@ -137,13 +142,21 @@ def anchor(lines: list[str]) -> int:
 
 
 def read_marker(text: str) -> Marker | None:
-    """The document's marker, or None when it carries none. Raises on malformed."""
+    """The document's marker, or None when it carries none. Raises on malformed.
+
+    Fence-aware, like every other marker scan: a `Disposition:` line quoted
+    inside a fenced block that happens to fall in the window is an EXAMPLE, and
+    reading it as the document's own verdict would let `apply` overwrite a
+    document's prose. No in-scope file trips it today; new documents arrive
+    without asking.
+    """
     lines = text.split("\n")
     start = anchor(lines)
+    window = slice(start, start + WINDOW)
     found = [
         line
-        for line in lines[start : start + WINDOW]
-        if line.startswith("Disposition: ")
+        for line, outside in zip(lines[window], unfenced(lines)[window], strict=True)
+        if outside and line.startswith("Disposition: ")
     ]
     if not found:
         return None
@@ -595,10 +608,12 @@ def apply_marker(text: str, line: str) -> str:
     for index in reversed(displaced_markers(lines)):
         lines = _drop_line(lines, index)
     # After the drops: every index has moved, and a marker dropped from ABOVE
-    # the first heading moves the anchor itself.
+    # the first heading moves the anchor itself. The flags are re-derived for
+    # the same reason.
     start = anchor(lines)
+    outside = unfenced(lines)
     for index in range(start, min(start + WINDOW, len(lines))):
-        if lines[index].startswith("Disposition: "):
+        if outside[index] and lines[index].startswith("Disposition: "):
             lines[index] = line
             return "\n".join(lines)
     prefix, rest = lines[:start], lines[start:]

@@ -302,8 +302,11 @@ _FENCE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})")
 def unfenced(lines: list[str]) -> list[bool]:
     """One flag per line: True where the line is document text, not code.
 
-    The module's SINGLE fence scanner, serving `anchor`, `apply_marker` and the
-    displaced-marker linter. CommonMark §4.5: three or more backticks or
+    The module's SINGLE fence scanner, serving all four matchers: `anchor`,
+    `read_marker`, `displaced_markers` and `apply_marker`'s window scan. The
+    first two of those kept a raw `startswith` until the second fix wave, which
+    left a fenced example inside the window readable as the document's own
+    marker, and overwritable. CommonMark §4.5: three or more backticks or
     tildes indented at most three spaces open a block, and it closes on a fence
     of the same character at least as long. The `startswith("```")` toggle this
     replaced missed indented fences (five in-scope files) and mis-tracked
@@ -338,13 +341,19 @@ def anchor(lines: list[str]) -> int:
 
 
 def read_marker(text: str) -> Marker | None:
-    """The document's marker, or None when it carries none. Raises on malformed."""
+    """The document's marker, or None when it carries none. Raises on malformed.
+
+    Fence-aware: a `Disposition:` line quoted inside a fenced block that falls
+    in the window is an EXAMPLE, and reading it as the verdict lets `apply`
+    overwrite prose.
+    """
     lines = text.split("\n")
     start = anchor(lines)
+    window = slice(start, start + WINDOW)
     found = [
         line
-        for line in lines[start : start + WINDOW]
-        if line.startswith("Disposition: ")
+        for line, outside in zip(lines[window], unfenced(lines)[window], strict=True)
+        if outside and line.startswith("Disposition: ")
     ]
     if not found:
         return None

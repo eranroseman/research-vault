@@ -184,6 +184,27 @@ def test_read_marker_ignores_a_status_line_and_a_body_disposition():
     assert dispositions.read_marker(text) is None
 
 
+def test_read_marker_ignores_a_fenced_example_inside_the_window():
+    """A quoted marker is an EXAMPLE, and reading it as the verdict edits prose.
+
+    `unfenced` serves all four matchers now. Two of them used a raw
+    `startswith`, so a fenced example in the five-line window was parsed as the
+    document's own marker and then overwritten in place.
+    """
+    text = "# T\n\n```\nDisposition: current (2026-09-06)\n```\n"
+    assert dispositions.read_marker(text) is None
+
+    out = dispositions.apply_marker(text, "Disposition: historical (2026-09-06)")
+
+    assert out == (
+        "# T\n\nDisposition: historical (2026-09-06)\n\n"
+        "```\nDisposition: current (2026-09-06)\n```\n"
+    )
+    assert dispositions.read_marker(out).value == "historical"
+    assert "Disposition: current (2026-09-06)" in out, "the example is untouched"
+    assert dispositions.apply_marker(out, "Disposition: historical (2026-09-06)") == out
+
+
 def test_read_marker_rejects_two_lines_in_the_window():
     text = (
         "# T\n\nDisposition: current (2026-09-05)\n"
