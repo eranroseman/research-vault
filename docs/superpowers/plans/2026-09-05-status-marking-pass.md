@@ -296,6 +296,32 @@ def in_scope(root: Path = ROOT) -> list[str]:
     )
 
 
+_FENCE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})")
+
+
+def unfenced(lines: list[str]) -> list[bool]:
+    """One flag per line: True where the line is document text, not code.
+
+    The module's SINGLE fence scanner, serving `anchor`, `apply_marker` and the
+    displaced-marker linter. CommonMark §4.5: three or more backticks or
+    tildes indented at most three spaces open a block, and it closes on a fence
+    of the same character at least as long. The `startswith("```")` toggle this
+    replaced missed indented fences (five in-scope files) and mis-tracked
+    four-backtick blocks (this plan has them).
+
+    COMPLETE FOR COLUMN-0 CONSUMERS; revisit if a caller matches indented. That
+    is a property of the callers: all of them match at column 0, and a fence
+    indented four or more spaces sits inside a list item whose content cannot
+    begin at column 0. Lazy continuation applies to paragraphs, not to fences.
+    """
+    ...  # implemented in scripts/dispositions.py
+
+
+def displaced_markers(lines: list[str]) -> list[int]:
+    """Indices of `Disposition:` lines sitting OUTSIDE the anchor window."""
+    ...  # implemented in scripts/dispositions.py
+
+
 def anchor(lines: list[str]) -> int:
     """The index the marker window opens at: after the first heading, else 0.
 
@@ -305,12 +331,8 @@ def anchor(lines: list[str]) -> int:
     heading. No file in scope trips that today; new documents arrive without
     asking.
     """
-    fenced = False
-    for index, line in enumerate(lines):
-        if line.startswith("```"):
-            fenced = not fenced
-            continue
-        if not fenced and _HEADING.match(line):
+    for index, (line, outside) in enumerate(zip(lines, unfenced(lines), strict=True)):
+        if outside and _HEADING.match(line):
             return index + 1
     return 0
 
@@ -931,17 +953,32 @@ def marker_line(value: str, argument: str, flag: bool, date: str) -> str:
     rendered += f" ({date})"
     if flag:
         rendered += f" [{FLAG}]"
+    # The value checks cover the vocabulary but not the SHAPE, which is where
+    # `--date 2026-9-6` got through: every document rewritten with a marker the
+    # reader then rejects, exit 0. Validate against the reader's own grammar.
+    if _MARKER.match(rendered) is None:
+        raise MarkerError(f"would write a marker read_marker rejects: {rendered!r}")
     return rendered
 
 
 def apply_marker(text: str, line: str) -> str:
-    """Write the marker at its anchor, replacing one already in the window."""
+    """Write the marker at its anchor, MOVING one that has drifted out of window.
+
+    A marker below the window reads as ABSENT, so inserting beside it would
+    leave two markers that can disagree while the linter — which also reads the
+    window — passes. Moving keeps exactly one, and is byte-identical on a
+    second run. A FENCED `Disposition:` line is an example quoted in prose and
+    is never moved; `unfenced` is what tells them apart.
+    """
     lines = text.split("\n")
     start = anchor(lines)
     for index in range(start, min(start + WINDOW, len(lines))):
         if lines[index].startswith("Disposition: "):
             lines[index] = line
             return "\n".join(lines)
+    for index in reversed(displaced_markers(lines)):
+        lines = _drop_line(lines, index)
+        start = anchor(lines)
     prefix, rest = lines[:start], lines[start:]
     if rest and rest[0] == "":
         rest = rest[1:]

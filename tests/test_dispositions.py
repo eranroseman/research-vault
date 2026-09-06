@@ -87,6 +87,60 @@ def test_anchor_ignores_a_hash_line_inside_a_fence():
     assert dispositions.anchor(lines) == 5
 
 
+def test_the_fence_scanner_reads_an_indented_fence():
+    """CommonMark allows up to three spaces; five in-scope files use them."""
+    lines = ["  ```bash", "# not a heading", "  ```", "", "# Title", ""]
+    assert dispositions.unfenced(lines) == [False, False, False, True, True, True]
+    assert dispositions.anchor(lines) == 5
+
+
+def test_the_fence_scanner_needs_a_closer_of_the_same_length_and_character():
+    """A four-backtick block survives the three-backtick fences inside it."""
+    lines = ["````python", "```", "# not a heading", "```", "````", "# Title"]
+    assert dispositions.unfenced(lines) == [False] * 5 + [True]
+    assert dispositions.anchor(lines) == 6
+    # Same length, wrong character: a tilde does not close a backtick fence.
+    assert dispositions.unfenced(["```", "~~~", "# no", "```", "# Title"]) == [
+        False,
+        False,
+        False,
+        False,
+        True,
+    ]
+
+
+def test_the_fence_scanner_closes_on_a_longer_fence():
+    """`>= opener`, not `== opener`: CommonMark lets the closer be longer."""
+    assert dispositions.unfenced(["```", "code", "`````", "# Title"]) == [
+        False,
+        False,
+        False,
+        True,
+    ]
+
+
+def test_displaced_markers_finds_the_one_the_window_hides():
+    """The linter's zero means something only if a non-zero is reachable."""
+    text = "# T\n\nBody.\n\n\n\n\nDisposition: current (2026-09-06)\n"
+    lines = text.split("\n")
+    assert dispositions.read_marker(text) is None
+    assert dispositions.displaced_markers(lines) == [7]
+    # In the window, and so not displaced.
+    assert (
+        dispositions.displaced_markers(
+            ["# T", "", "Disposition: current (2026-09-06)", ""]
+        )
+        == []
+    )
+    # Fenced: an example quoted in prose, not a marker.
+    assert (
+        dispositions.displaced_markers(
+            ["# T", "", "Body.", "", "```", "Disposition: current (2026-09-06)", "```"]
+        )
+        == []
+    )
+
+
 def test_read_marker_returns_none_when_unmarked():
     assert (
         dispositions.read_marker("# Title\n\nStatus: accepted (2026-08-20)\n") is None
@@ -368,6 +422,43 @@ def test_marker_line_rejects_a_row_the_reader_would_reject():
         dispositions.marker_line("retired", "", False, "2026-09-05")
 
 
+@pytest.mark.parametrize("date", ["2026-9-6", "26-09-06", "2026/09/06", "", "today"])
+def test_marker_line_rejects_a_date_the_reader_would_reject(date):
+    """`apply --date 2026-9-6` rewrote every document, exit 0, unreadable after.
+
+    The vocabulary checks never looked at SHAPE, so the one grammar the reader
+    uses is now the one the writer validates against.
+    """
+    with pytest.raises(dispositions.MarkerError, match="read_marker rejects"):
+        dispositions.marker_line("current", "", False, date)
+
+
+@pytest.mark.parametrize(
+    "argument", ["docs/a b.md", "116 ", "with\ttab", "trailing garbage"]
+)
+def test_marker_line_rejects_an_argument_that_would_not_read_back(argument):
+    """`\\S+` in the grammar: whitespace in the target ends the marker early."""
+    with pytest.raises(dispositions.MarkerError, match="read_marker rejects"):
+        dispositions.marker_line("superseded-by", argument, False, "2026-09-05")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Disposition: current (2026-9-6)",
+        "Disposition: current 2026-09-06",
+        "Disposition: current (2026-09-06) trailing garbage",
+        "Disposition: current (2026-09-06) [should-be-scoping-reveiw]",
+        "Disposition: current (2026-09-06) [SHOULD-BE-SCOPING-REVIEW]",
+        "Disposition: current",
+    ],
+)
+def test_read_marker_rejects_a_malformed_line(line):
+    """A marker that exists but does not parse is an error, never a None."""
+    with pytest.raises(dispositions.MarkerError, match="unparsable"):
+        dispositions.read_marker(f"# T\n\n{line}\n")
+
+
 def test_apply_marker_inserts_a_paragraph_after_the_heading():
     text = "# The vault outlives its tools\n\nStatus: accepted (2026-08-20)\n\nBody.\n"
     out = dispositions.apply_marker(text, "Disposition: current (2026-09-05)")
@@ -404,6 +495,52 @@ def test_apply_marker_is_idempotent_and_replaces_in_place():
     changed = dispositions.apply_marker(once, "Disposition: historical (2026-09-05)")
     assert dispositions.read_marker(changed).value == "historical"
     assert changed.count("Disposition: ") == 1
+
+
+def test_apply_marker_moves_a_displaced_marker_rather_than_adding_a_second():
+    """A marker below the window reads as ABSENT, so inserting would duplicate.
+
+    Two markers can then disagree while the linter — which also reads only the
+    window — passes. Moving keeps the count at one.
+    """
+    text = "# T\n\nStatus: accepted (2026-08-20)\n\nBody.\n\nDisposition: historical (2026-09-05)\n\nMore body.\n"
+    assert dispositions.read_marker(text) is None, "the premise: it reads as absent"
+
+    out = dispositions.apply_marker(text, "Disposition: current (2026-09-06)")
+
+    assert out.count("Disposition: ") == 1
+    assert dispositions.read_marker(out).value == "current"
+    assert out == (
+        "# T\n\nDisposition: current (2026-09-06)\n\n"
+        "Status: accepted (2026-08-20)\n\nBody.\n\nMore body.\n"
+    )
+    assert dispositions.apply_marker(out, "Disposition: current (2026-09-06)") == out
+
+
+def test_apply_marker_leaves_a_fenced_disposition_example_alone():
+    """This repository's own plan quotes the table preamble inside a fence."""
+    text = (
+        "# T\n\nBody.\n\n````python\n"
+        '_TABLE_PREAMBLE = """# Issue dispositions\n\n'
+        "Disposition: current (%(date)s)\n"
+        '"""\n````\n'
+    )
+    out = dispositions.apply_marker(text, "Disposition: current (2026-09-06)")
+    assert "Disposition: current (%(date)s)" in out
+    assert out == "# T\n\nDisposition: current (2026-09-06)\n\n" + text.removeprefix(
+        "# T\n\n"
+    )
+
+
+def test_applying_the_marker_the_plan_already_carries_changes_nothing():
+    """The live file, fenced example and all: a re-sweep must be a no-op."""
+    path = ROOT / "docs/superpowers/plans/2026-09-05-status-marking-pass.md"
+    text = path.read_text(encoding="utf-8")
+    marker = dispositions.read_marker(text)
+    line = dispositions.marker_line(
+        marker.value, marker.argument, marker.flag, marker.date
+    )
+    assert dispositions.apply_marker(text, line) == text
 
 
 def test_apply_marker_never_touches_the_status_line():
@@ -496,6 +633,25 @@ def test_every_in_scope_document_carries_exactly_one_marker():
     assert not unmarked, (
         f"{len(unmarked)} document(s) carry no Disposition line: {unmarked[:10]}"
     )
+
+
+def test_no_in_scope_document_carries_a_marker_outside_its_window():
+    """A second marker below the window is invisible to `read_marker` and here.
+
+    So the linter would pass while two markers disagreed. Fenced lines are
+    examples — this plan quotes the table preamble in a code block — and are
+    not counted. Zero hits at 2026-09-06.
+    """
+    displaced = {
+        path: [index + 1 for index in indices]
+        for path in dispositions.in_scope(ROOT)
+        if (
+            indices := dispositions.displaced_markers(
+                (ROOT / path).read_text(encoding="utf-8").split("\n")
+            )
+        )
+    }
+    assert not displaced, f"Disposition lines outside the anchor window: {displaced}"
 
 
 def test_every_superseded_by_target_resolves():
