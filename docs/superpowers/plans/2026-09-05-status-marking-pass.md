@@ -78,7 +78,7 @@ python3 - <<'PY'
 import re
 import subprocess
 files = subprocess.run(["git", "ls-files", "--", "*.md"], capture_output=True, text=True).stdout.split()
-excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/")) or p == "CLAUDE.md"
+excluded = lambda p: p.startswith(("research_vault/templates/", ".out-of-scope/", "skills/find-sources/references/")) or p == "CLAUDE.md"
 scope = [p for p in files if not excluded(p)]
 frontmatter = [p for p in scope if open(p, encoding="utf-8").read().startswith("---\n")]
 heading = re.compile(r"^#{1,6} ")
