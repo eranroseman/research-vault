@@ -209,3 +209,59 @@ def test_every_proposal_value_is_in_the_closed_vocabulary():
         proposal = dispositions.propose(path, (ROOT / path).read_text(encoding="utf-8"))
         assert proposal.value in dispositions.DOCUMENT_VALUES, path
         assert proposal.rule, f"{path}: proposal carries no rule name"
+
+
+def test_emit_writes_a_header_and_one_row_per_in_scope_file():
+    text = dispositions.emit(ROOT)
+    lines = text.rstrip("\n").split("\n")
+    assert lines[0] == dispositions.HEADER
+    assert len(lines) - 1 == len(dispositions.in_scope(ROOT))
+    assert all(line.count("\t") == 5 for line in lines)
+
+
+def test_emit_round_trips_through_parse_rows():
+    rows = dispositions.parse_rows(dispositions.emit(ROOT))
+    assert [row.key for row in rows] == dispositions.in_scope(ROOT)
+    adr = next(
+        row for row in rows if row.key.endswith("0004-citekey-is-the-only-identity.md")
+    )
+    assert (adr.value, adr.argument) == ("pending-issue", "116")
+    # `spec-named-issue` before Task 5 marks the corpus, `existing` after it.
+    assert adr.rule in ("spec-named-issue", "existing")
+
+
+def test_emit_keeps_a_marker_the_author_already_approved():
+    """Re-running propose over a reviewed corpus must not undo the review."""
+    path, text = (
+        "docs/product-landscape/zotero.md",
+        "# Zotero\n\nDisposition: current (2026-09-05)\n",
+    )
+    assert dispositions.propose(path, text).value == "pending-map"
+    assert dispositions.propose_or_existing(path, text) == dispositions.Proposal(
+        "current", "", False, "existing"
+    )
+
+
+def test_parse_rows_reads_the_flag_column_as_a_boolean():
+    text = (
+        dispositions.HEADER
+        + "\ndocs/a.md\thistorical\t\tshould-be-scoping-review\tclosed-pass-path\t"
+        + "\ndocs/b.md\tcurrent\t\t\tshipped-surface\t\n"
+    )
+    rows = dispositions.parse_rows(text)
+    assert [row.flag for row in rows] == [True, False]
+
+
+def test_parse_rows_rejects_an_off_vocabulary_flag_column():
+    text = (
+        dispositions.HEADER + "\ndocs/a.md\thistorical\t\tmaybe\tclosed-pass-path\t\n"
+    )
+    with pytest.raises(dispositions.MarkerError):
+        dispositions.parse_rows(text)
+
+
+def test_propose_subcommand_writes_the_file(tmp_path, capsys):
+    target = tmp_path / "proposal.tsv"
+    assert dispositions.main(["propose", "--out", str(target)]) == 0
+    assert target.read_text(encoding="utf-8").startswith(dispositions.HEADER)
+    assert "rows" in capsys.readouterr().out

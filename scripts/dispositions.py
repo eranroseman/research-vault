@@ -5,8 +5,10 @@ a CLI verb: §11 dispositions every verb against the step map, and a maintenance
 verb would serve none of them.
 """
 
+import argparse
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -200,3 +202,83 @@ def propose(path: str, text: str) -> Proposal:
     if path in _CURRENT_PATHS or path.startswith(_CURRENT_PREFIXES):
         return Proposal("current", "", flag, "shipped-surface")
     return Proposal("pending-map", "", flag, "residual")
+
+
+HEADER = "key\tvalue\targument\tflag\trule\tnote"
+
+
+class Row(NamedTuple):
+    key: str
+    value: str
+    argument: str
+    flag: bool
+    rule: str
+    note: str
+
+
+def propose_or_existing(path: str, text: str) -> Proposal:
+    """A marker already in the file wins over the classifier.
+
+    `propose` is pure, so re-emitting over a corpus the author has already
+    reviewed would hand back the classifier's guesses and the next `apply`
+    would quietly undo the review. The file is the record; the classifier only
+    fills blanks. This is also what makes re-running `propose` mid-review safe.
+    """
+    marker = read_marker(text)
+    if marker is None:
+        return propose(path, text)
+    return Proposal(marker.value, marker.argument, marker.flag, "existing")
+
+
+def emit(root: Path = ROOT) -> str:
+    """One reviewable row per in-scope document, header first."""
+    lines = [HEADER]
+    for path in in_scope(root):
+        proposal = propose_or_existing(path, (root / path).read_text(encoding="utf-8"))
+        lines.append(
+            "\t".join(
+                [
+                    path,
+                    proposal.value,
+                    proposal.argument,
+                    FLAG if proposal.flag else "",
+                    proposal.rule,
+                    "",
+                ]
+            )
+        )
+    return "\n".join(lines) + "\n"
+
+
+def parse_rows(text: str) -> list[Row]:
+    """The reviewed file back into rows. The author's edits are the authority."""
+    rows = []
+    for line in text.split("\n"):
+        if not line or line == HEADER:
+            continue
+        fields = line.split("\t")
+        if len(fields) != 6:
+            raise MarkerError(f"{len(fields)} columns, expected 6: {line!r}")
+        key, value, argument, flag, rule, note = fields
+        if flag not in ("", FLAG):
+            raise MarkerError(f"flag column is {flag!r}, expected '' or {FLAG!r}")
+        rows.append(Row(key, value, argument, flag == FLAG, rule, note))
+    return rows
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m scripts.dispositions")
+    sub = parser.add_subparsers(dest="command", required=True)
+    propose_cmd = sub.add_parser("propose", help="write the reviewable proposal")
+    propose_cmd.add_argument("--out", default="disposition-proposal.tsv")
+    args = parser.parse_args(argv)
+    if args.command == "propose":
+        text = emit()
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"proposed {len(parse_rows(text))} rows to {args.out}")
+        return 0
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
