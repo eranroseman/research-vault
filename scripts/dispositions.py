@@ -484,7 +484,19 @@ def render_issue_table(
         # shortfall, and `rows_without_reason` is how the shortfall is reported.
         # The pipe check above still raises — a pipe drops the row in silence,
         # which is falsification, not absence.
-        note = "" if title and row.note == title else row.note
+        #
+        # A Note publishes only when it can be VERIFIED not to be the seed, so
+        # an unknown title blanks it too. `emit` seeds a row no committed table
+        # covers with the GitHub title, and with no title to compare against
+        # that seed shipped as the row's reason — a blank Title beside the
+        # title itself sitting in Note, which the preamble says never happens.
+        # Unverifiable is unverified: blank, and reported.
+        #
+        # Truthiness, not `row.key in titles`: after one such write the key IS
+        # in the carried-forward titles, with the blank cell it just rendered.
+        # A membership test would read that blank as a known title, republish
+        # the seed, and undo itself on the second apply.
+        note = row.note if title and row.note != title else ""
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         number = row.key.removeprefix("issue:")
         lines.append(f"| {number} | {title} | {disposition} | {note} |\n")
@@ -494,11 +506,12 @@ def render_issue_table(
 def rows_without_reason(text: str) -> list[str]:
     """The issue numbers a rendered table ships with an empty Note, ascending.
 
-    `Note` promises a reason and the renderer blanks one that only repeats the
-    Title, so an empty cell is the visible form of a reason nobody has written
-    yet. `apply` prints this list rather than raising: the merge-time top-up
-    runs unattended, and an exception there abandons the whole write over a
-    cell no automation can fill.
+    `Note` promises a reason and the renderer blanks one it cannot verify to be
+    a reason — one that repeats the Title, and one whose Title is unknown — so
+    an empty cell is the visible form of a reason nobody has written yet, or
+    one the renderer could not confirm. `apply` prints this list rather than
+    raising: the merge-time top-up runs unattended, and an exception there
+    abandons the whole write over a cell no automation can fill.
     """
     return sorted(
         (

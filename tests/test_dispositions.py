@@ -809,6 +809,52 @@ def test_render_issue_table_blanks_a_note_that_only_repeats_the_title():
     assert dispositions.rows_without_reason(kept) == []
 
 
+def test_render_issue_table_withholds_a_note_it_cannot_check_against_a_title():
+    """A key in neither the supplied listing nor the committed table.
+
+    `emit` seeds such a row's Note with the GitHub title, and with no title
+    known the seed-check could not run — so the Note published as-is and the
+    row shipped with a blank Title beside the title itself sitting in Note,
+    the one thing the preamble promises Note never holds. A Note publishes
+    only when it can be verified not to be the seed; unverifiable is
+    unverified, which is blank and reported, never published as a reason.
+    """
+    row = dispositions.Row(
+        "issue:9999", "pending-map", "", False, "residual", "Some brand new issue title"
+    )
+
+    text = dispositions.render_issue_table([row], titles={"issue:42": "another"})
+
+    assert "| 9999 |  | pending-map |  |" in text
+    assert dispositions.rows_without_reason(text) == ["9999"]
+
+
+def test_render_issue_table_treats_a_blank_carried_title_as_no_title(tmp_path):
+    """The blank Title cell such a row leaves behind must not read as known.
+
+    `read_issue_titles` returns the cell it finds, blank included, so the key
+    IS in the carried-forward titles on the next apply. Keyed on membership the
+    renderer would take that blank for a known title, find the seed unequal to
+    it, and republish it — the defect returning on the second write of two.
+    """
+    (tmp_path / "docs").mkdir()
+    seeded = dispositions.Row(
+        "issue:9999", "pending-map", "", False, "residual", "Some brand new issue title"
+    )
+    dispositions.apply_rows(
+        [seeded, _ISSUE_96],
+        root=tmp_path,
+        date="2026-09-05",
+        titles={"issue:96": "Distribution model for the recommended plugin bucket"},
+    )
+
+    dispositions.apply_rows([seeded, _ISSUE_96], root=tmp_path, date="2026-09-05")
+
+    text = (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    assert "| 9999 |  | pending-map |  |" in text
+    assert dispositions.rows_without_reason(text) == ["9999"]
+
+
 def test_rows_without_reason_reads_the_shipped_table_in_number_order():
     """Ascending by number, not the table's own descending render order."""
     rows = [
@@ -841,15 +887,19 @@ def test_render_and_read_the_issue_table_round_trip():
             "Land the vocabulary",
         ),
     ]
-    titles = {"issue:96": "Distribution model for the recommended plugin bucket"}
+    # Both keys carry a title, because a Note the renderer cannot check against
+    # one is withheld — the no-title test above owns that case, empty Title
+    # cell included. A round trip needs the Notes to survive, so this fixture
+    # supplies what makes them checkable.
+    titles = {
+        "issue:96": "Distribution model for the recommended plugin bucket",
+        "issue:116": "Land the ingest redesign's vocabulary",
+    }
     text = dispositions.render_issue_table(rows, titles=titles)
     assert text.startswith("# Issue dispositions\n")
     # The title renders from GitHub and is not read back into a Row — the Row's
     # own last field is the author's reason, which is what `Note` carries.
     assert "| 96 | Distribution model for the recommended plugin bucket |" in text
-    assert "| 116 |  |" in text, (
-        "a title GitHub does not supply renders empty, not absent"
-    )
     # The table records no provenance, so reading one back cannot invent one.
     # The fixture rows here are BOTH spec-named, which is why the old
     # derived-from-value rule round-tripped clean while contradicting 31 of the

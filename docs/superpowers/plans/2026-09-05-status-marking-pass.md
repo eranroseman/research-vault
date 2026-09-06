@@ -1474,7 +1474,12 @@ def render_issue_table(rows: list[Row], date: str = "", titles: dict | None = No
         # Refusing it made the seed note `emit` writes unappliable: publishing
         # something FALSE is an invariant violation, publishing something
         # INCOMPLETE is a shortfall. The pipe check still raises.
-        note = "" if title and row.note == title else row.note
+        #
+        # A Note publishes only when it can be VERIFIED not to be the seed, so
+        # an unknown title blanks it too: unverifiable is unverified. Truthiness
+        # rather than `row.key in titles`, because the blank Title such a row
+        # renders is carried forward as that key's title on the next apply.
+        note = row.note if title and row.note != title else ""
         disposition = row.value + (f": {row.argument}" if row.argument else "")
         number = row.key.removeprefix("issue:")
         lines.append(f"| {number} | {title} | {disposition} | {note} |\n")
@@ -1615,7 +1620,7 @@ python -m pytest tests -q -n auto
 
 Expected: `docs/issue-dispositions.md` written; suite green, including `test_the_issue_table_covers_every_open_issue` (it runs, rather than skipping, wherever `gh` is authenticated).
 
-Given the `--issues-json` listing above, `apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass. Without a listing there is no Title to compare a Note against, and the report is silent.
+Given the `--issues-json` listing above, `apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass. Without a Title there is nothing to compare a Note against, so that Note is withheld and reported too — a Note publishes only where it can be shown not to be the seed.
 
 **`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward, per key, for every issue the supplied listing does not name. A truncated listing therefore costs nothing: it fills what it covers and the table keeps the rest.
 
@@ -1750,11 +1755,12 @@ afterwards.
 
 **Give `apply` the listing, not just `propose`.** `Title` is GitHub's, so a row
 for an issue the committed table does not yet cover has no Title to render
-without it: the row ships with a blank Title cell and its seed *title* sitting
-in `Note`, and the no-reason report below stays silent because there is no
-Title to compare that Note against. The flag costs nothing now that the
-carry-forward is per key — the listing fills what it covers and the committed
-table keeps every cell it does not name.
+without it. The row then ships with a blank Title cell, and its `Note` is
+withheld with it: with no Title the seed-check cannot run, and a Note publishes
+only where it can be shown not to be the seed. So an authored reason is held
+back too — blanked and reported — until a listing supplies that row's Title.
+The flag costs nothing now that the carry-forward is per key: the listing fills
+what it covers and the committed table keeps every cell it does not name.
 
 Given the listing, `apply` prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub
 title — 53 of them at the 2026-09-06 top-up rehearsal, being the closed issues
