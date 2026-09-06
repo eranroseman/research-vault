@@ -1672,11 +1672,36 @@ So the merge is one motion, per `AGENTS.md` — merge, top up, verify, push — 
 
 ```bash
 git switch main && git merge --no-ff status-marking-pass
-python -m scripts.dispositions propose --issues-json <(gh issue list --state open --limit 200 --json number,title)
-git diff --stat -- disposition-proposal.tsv   # rows whose rule is `residual` are new arrivals
+
+# Detection: which in-scope documents carry no marker. This is the set the
+# standing linter walks, so it is exactly the set that would turn `main` red.
+python3 -c 'from scripts import dispositions as d; print("\n".join(p for p in d.in_scope() if d.read_marker((d.ROOT / p).read_text(encoding="utf-8")) is None) or "none")'
+
+# --out to a SCRATCH path. `emit` writes an empty note for every document row,
+# and the document note has no committed home to be read back from, so pointing
+# --out at the reviewed file would blank all 72 of them. --state all, not open:
+# after Task 7 six issues are closed and a listing of open issues alone would
+# drop their rows from the proposal and then from the table.
+python -m scripts.dispositions propose --out /tmp/top-up.tsv \
+  --issues-json <(gh issue list --state all --limit 500 --json number,title)
+awk -F'\t' 'NR > 1 && $5 != "existing" { print $5 "\t" $1 }' /tmp/top-up.tsv
 ```
 
-Any row whose `rule` is not `existing` is a document that appeared during execution: disposition it, apply, re-run `python -m pytest tests/test_dispositions.py -q`, amend the merge commit, then push. A green linter on `main` is the gate on pushing, not a thing to fix afterwards.
+The first command names the documents that arrived during execution. The `awk`
+names the same set plus every issue with no row in the committed table, because
+`existing` is the rule for anything already marked or already dispositioned.
+(The earlier form of this step ran `git diff --stat -- disposition-proposal.tsv`,
+which could only ever print nothing: the file is gitignored.)
+
+**`--state all` is noisy on purpose, and the noise is not a work queue.** It
+also lists every issue closed long before this pass — 53 of them at the
+2026-09-06 measurement, against 246 `existing` rows. Those were never
+dispositioned by §10 and do not belong in the table. Merge into
+`disposition-proposal.tsv` only the rows you actually decide: a genuinely new
+document, or a genuinely new issue. Then apply, re-run
+`python -m pytest tests/test_dispositions.py -q`, amend the merge commit, and
+push. A green linter on `main` is the gate on pushing, not a thing to fix
+afterwards.
 
 ## What this plan does not do
 

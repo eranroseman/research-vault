@@ -44,4 +44,8 @@ venv/
 # Tool caches
 .mypy_cache/
 .ruff_cache/
-disposition-proposal.tsv
+
+# The status-marking pass's reviewable proposal, and every split or scratch
+# variant of it. Glob, not the one name: the bare name let
+# disposition-proposal-documents.tsv sit untracked and unignored.
+disposition-proposal*.tsv

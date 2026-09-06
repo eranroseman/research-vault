@@ -12,7 +12,7 @@ Offline (default): `python -m pytest tests -q -n auto` from the repo root, insid
 RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q
 ```
 
-`RV_LIVE` unlocks the local-Zotero legs; `RV_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`RV_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
+`RV_LIVE` unlocks the local-Zotero legs; `RV_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Remaining skips after both flags are the deferred end-to-end autoexport drill (`RV_LIVE_AUTOEXPORT_VAULT`, needs a real vault and a human BBT step) and the issue-disposition coverage leg (`tests/test_dispositions.py::test_the_issue_table_covers_every_open_issue`, which asks GitHub whether any open issue has no row in `docs/issue-dispositions.md`; it needs `gh` installed *and* authenticated, and skips rather than fails when it is not). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 
 ## Poking Zotero
 
