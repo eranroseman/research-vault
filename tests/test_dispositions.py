@@ -906,6 +906,41 @@ def test_apply_rows_carries_the_titles_forward_when_none_are_supplied(tmp_path):
     assert dispositions.read_issue_titles(text) == {"issue:96": title}
 
 
+def test_apply_rows_fills_the_gaps_a_supplied_listing_leaves(tmp_path):
+    """The carry-forward is per KEY, not all-or-nothing.
+
+    `if not titles` carried the committed cells forward only when the flag was
+    absent entirely, so a listing that omits one issue — a truncated `gh
+    --limit`, which this plan warns about twice — blanked that row's Title
+    silently and unrecoverably: the same class as the Critical the guard was
+    built to close, through the door it did not cover.
+    """
+    (tmp_path / "docs").mkdir()
+    kept = dispositions.Row("issue:42", "still-open", "", False, "r", "a reason")
+    dispositions.apply_rows(
+        [_ISSUE_96, kept],
+        root=tmp_path,
+        date="2026-09-05",
+        titles={"issue:96": "Distribution model", "issue:42": "Run Plan W"},
+    )
+
+    # A second listing that covers #96 only, and renames it.
+    dispositions.apply_rows(
+        [_ISSUE_96, kept],
+        root=tmp_path,
+        date="2026-09-06",
+        titles={"issue:96": "Distribution model, renamed upstream"},
+    )
+
+    titles = dispositions.read_issue_titles(
+        (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    )
+    assert titles["issue:42"] == "Run Plan W", "the committed cell fills the gap"
+    assert titles["issue:96"] == "Distribution model, renamed upstream", (
+        "the supplied listing wins where it speaks"
+    )
+
+
 def test_apply_rows_refuses_to_write_a_table_it_would_blank(tmp_path):
     """No table to carry forward and no titles given: refuse, never blank."""
     (tmp_path / "docs").mkdir()

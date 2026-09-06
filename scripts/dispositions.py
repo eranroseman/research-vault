@@ -651,18 +651,29 @@ def apply_rows(
 
     if issue_rows:
         table = root / ISSUE_TABLE
-        if not titles:
-            # A blanked Title is unrecoverable: `read_issue_table` does not read
-            # it back and no other file holds one. Both operational commands in
-            # the plan omit `--issues-json`, so the loss is on the ordinary path
-            # rather than the exotic one. Carry the cells forward, and refuse
-            # outright when there are none to carry.
-            if not table.is_file():
-                raise MarkerError(
-                    f"{ISSUE_TABLE} does not exist and no titles were supplied: "
-                    "every Title cell would be written blank and nothing reads it back"
-                )
-            titles = read_issue_titles(table.read_text(encoding="utf-8"))
+        # A blanked Title is unrecoverable: `read_issue_table` does not read it
+        # back and no other file holds one. Both operational commands in the
+        # plan omit `--issues-json`, so the loss is on the ordinary path rather
+        # than the exotic one.
+        #
+        # PER KEY, not all-or-nothing. The earlier `if not titles` carried the
+        # committed cells forward only when the flag was absent entirely, so a
+        # supplied listing that omitted one issue — a truncated `gh --limit` is
+        # the reachable case, and this plan warns about it twice — blanked that
+        # row's Title in silence. The supplied listing wins where it speaks;
+        # the committed table fills every gap.
+        committed = (
+            read_issue_titles(table.read_text(encoding="utf-8"))
+            if table.is_file()
+            else {}
+        )
+        if not committed and not titles:
+            raise MarkerError(
+                f"{ISSUE_TABLE} offers no Title cell to carry forward and none "
+                "were supplied: "
+                "every Title cell would be written blank and nothing reads it back"
+            )
+        titles = committed | (titles or {})
         table.write_text(render_issue_table(issue_rows, date, titles), encoding="utf-8")
         written.append(ISSUE_TABLE)
 

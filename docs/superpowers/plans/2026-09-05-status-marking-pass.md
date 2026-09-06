@@ -1533,13 +1533,16 @@ Route `issue:` keys in `apply_rows`, before the document loop:
     ...  # the document loop, over document_rows
     if issue_rows:
         table = root / ISSUE_TABLE
-        if not titles:
-            # A blanked Title is unrecoverable: read_issue_table does not read
-            # it back and no other file holds one. Carry the cells forward, and
-            # refuse outright when there are none to carry.
-            if not table.is_file():
-                raise MarkerError(...)
-            titles = read_issue_titles(table.read_text(encoding="utf-8"))
+        # A blanked Title is unrecoverable: read_issue_table does not read it
+        # back and no other file holds one. Carry the cells forward PER KEY —
+        # `if not titles` was all-or-nothing, so a listing that omitted one
+        # issue (a truncated `gh --limit`) blanked that row alone, in silence.
+        # The supplied listing wins where it speaks; the committed table fills
+        # every gap; nothing to carry and nothing supplied is refused.
+        committed = read_issue_titles(table.read_text(encoding="utf-8")) if table.is_file() else {}
+        if not committed and not titles:
+            raise MarkerError(...)
+        titles = committed | (titles or {})
         table.write_text(render_issue_table(issue_rows, date, titles), encoding="utf-8")
         written.append(ISSUE_TABLE)
 ```
@@ -1599,7 +1602,7 @@ Expected: `docs/issue-dispositions.md` written; suite green, including `test_the
 
 `apply` also prints `N issue row(s) shipped with no reason: <numbers>` for every row whose `Note` is empty or only repeats the GitHub title — the seed shape `emit` writes for an issue the reviewed table does not cover yet. It is a report, not a failure: a row with no reason is incomplete, and the write must still complete unattended. Those numbers are the work queue for the next review pass.
 
-**`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward.
+**`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward, per key, for every issue the supplied listing does not name. A truncated listing therefore costs nothing: it fills what it covers and the table keeps the rest.
 
 - [ ] **Step 8: Commit**
 
