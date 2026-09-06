@@ -134,9 +134,10 @@ durable surfaces. Use kebab-case. Update the appropriate row in the same change
 that adds an identifier, and keep each registry on one physical Markdown table
 row for the parity checks. Per-claim check values use
 `<check>:<claim-link>:<target-kind>`, for example
-`quote:<claim-link>:managed-region`. The
-[foundation specification](superpowers/specs/2026-08-16-foundation-spec.md) owns
-their behavior; this table owns their spellings.
+`quote:<claim-link>:managed-region`. Their behavior was specified by the
+[foundation specification](superpowers/specs/2026-08-16-foundation-spec.md), which the
+[assembly design](superpowers/specs/2026-09-05-assembly-design.md) §2 demotes to a fact
+source; this table owns their spellings regardless.
 
 | Group            | Governed identifiers                                                                                                                                                                                                                                                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
