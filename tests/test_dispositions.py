@@ -1,5 +1,7 @@
 """The §10 status-marking pass: the module's unit tests, then the standing linter."""
 
+import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -400,7 +402,9 @@ def _markers() -> dict[str, dispositions.Marker | None]:
     markers = {}
     for path in dispositions.in_scope(ROOT):
         try:
-            markers[path] = dispositions.read_marker((ROOT / path).read_text(encoding="utf-8"))
+            markers[path] = dispositions.read_marker(
+                (ROOT / path).read_text(encoding="utf-8")
+            )
         except dispositions.MarkerError as error:
             # read_marker never sees a path; without this the linter's failure
             # says what is wrong and not which of two hundred files it is wrong in.
@@ -410,7 +414,9 @@ def _markers() -> dict[str, dispositions.Marker | None]:
 
 def test_every_in_scope_document_carries_exactly_one_marker():
     unmarked = sorted(path for path, marker in _markers().items() if marker is None)
-    assert not unmarked, f"{len(unmarked)} document(s) carry no Disposition line: {unmarked[:10]}"
+    assert not unmarked, (
+        f"{len(unmarked)} document(s) carry no Disposition line: {unmarked[:10]}"
+    )
 
 
 def test_every_superseded_by_target_resolves():
@@ -475,8 +481,15 @@ def test_render_and_read_the_issue_table_round_trip():
             "Land the vocabulary",
         ),
     ]
-    text = dispositions.render_issue_table(rows)
+    titles = {"issue:96": "Distribution model for the recommended plugin bucket"}
+    text = dispositions.render_issue_table(rows, titles=titles)
     assert text.startswith("# Issue dispositions\n")
+    # The title renders from GitHub and is deliberately not read back — the Row's
+    # own last field is the author's reason, which is what `Note` carries.
+    assert "| 96 | Distribution model for the recommended plugin bucket |" in text
+    assert "| 116 |  |" in text, (
+        "a title GitHub does not supply renders empty, not absent"
+    )
     # Highest number first, so regenerating the table never emits a diff that is
     # only row movement. The reversal here IS the sort under test.
     assert dispositions.read_issue_table(text) == [rows[1], rows[0]]
@@ -498,13 +511,24 @@ def test_render_issue_table_rejects_a_pipe_in_a_cell():
         dispositions.render_issue_table(rows)
 
 
+def test_render_issue_table_rejects_a_pipe_in_a_github_title():
+    """Titles are GitHub's, not ours — nothing stops one carrying a pipe."""
+    rows = [
+        dispositions.Row(
+            "issue:96", "still-open", "", False, "spec-named-open", "a reason"
+        )
+    ]
+    with pytest.raises(dispositions.MarkerError, match="pipe"):
+        dispositions.render_issue_table(rows, titles={"issue:96": "Fix a | b"})
+
+
 def test_read_issue_table_tolerates_mdformat_column_padding():
     """mdformat pads table cells; render_issue_table does not. Measured 2026-09-05."""
     text = (
         "# Issue dispositions\n\n"
-        "| Issue | Disposition     | Title |\n"
-        "| ----- | --------------- | ----- |\n"
-        "| 96    | absorbed-by: §6 | X     |\n"
+        "| Issue | Title | Disposition     | Note |\n"
+        "| ----- | ----- | --------------- | ---- |\n"
+        "| 96    | A title | absorbed-by: §6 | X    |\n"
     )
     assert dispositions.read_issue_table(text) == [
         dispositions.Row(
@@ -536,3 +560,53 @@ def test_apply_rows_writes_the_issue_table_and_no_file_named_issue(tmp_path):
     written = dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
     assert written == [dispositions.ISSUE_TABLE]
     assert "| 96 |" in (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+
+
+# Linter section
+
+
+def test_the_issue_table_is_well_formed():
+    rows = dispositions.read_issue_table(
+        (ROOT / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    )
+    numbers = [row.key for row in rows]
+    assert len(numbers) == len(set(numbers)), "duplicate issue rows"
+    for row in rows:
+        assert row.value in dispositions.ISSUE_VALUES, row
+        assert bool(row.argument) == (row.value == "absorbed-by"), row
+        if row.value == "absorbed-by":
+            assert row.argument.startswith("§"), row
+
+
+@pytest.mark.live_net
+@pytest.mark.skipif(shutil.which("gh") is None, reason="gh CLI absent")
+def test_the_issue_table_covers_every_open_issue():
+    listed = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "300",
+            "--json",
+            "number",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if listed.returncode != 0:
+        pytest.skip(f"gh unusable: {listed.stderr.strip()[:120]}")
+    open_numbers = {f"issue:{item['number']}" for item in json.loads(listed.stdout)}
+    covered = {
+        row.key
+        for row in dispositions.read_issue_table(
+            (ROOT / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+        )
+    }
+    assert not open_numbers - covered, (
+        f"open issues with no disposition: {sorted(open_numbers - covered)}"
+    )

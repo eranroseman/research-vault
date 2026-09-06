@@ -295,7 +295,8 @@ _STILL_OPEN = frozenset({116, 117, 119})
 # 2026-09-05: `| 96    | absorbed-by: §6 | X     |`), so the reader tolerates
 # padding even though the renderer emits none.
 _TABLE_ROW = re.compile(
-    r"^\|\s*(?P<number>\d+)\s*\|\s*(?P<disposition>[^|]+?)\s*\|\s*(?P<title>[^|]*?)\s*\|$"
+    r"^\|\s*(?P<number>\d+)\s*\|\s*(?P<title>[^|]*?)\s*\|"
+    r"\s*(?P<disposition>[^|]+?)\s*\|\s*(?P<note>[^|]*?)\s*\|$"
 )
 
 _TABLE_PREAMBLE = """# Issue dispositions
@@ -308,8 +309,12 @@ Vocabulary: `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map`.
 `tests/test_dispositions.py` refuses an off-vocabulary row and, where `gh` is
 usable, an open issue with no row.
 
-| Issue | Disposition | Title |
-| --- | --- | --- |
+The `Title` column is read from GitHub at write time and is not round-tripped:
+the proposal's own last column carries the author's *reason*, which is what
+`Note` holds. A reader gets both without clicking through.
+
+| Issue | Title | Disposition | Note |
+| --- | --- | --- | --- |
 """
 
 
@@ -321,7 +326,9 @@ def propose_issue(number: int) -> Proposal:
     return Proposal("pending-map", "", False, "residual")
 
 
-def render_issue_table(rows: list[Row], date: str = "") -> str:
+def render_issue_table(
+    rows: list[Row], date: str = "", titles: dict | None = None
+) -> str:
     """The committed table, highest issue number first.
 
     The sort is not cosmetic: the table is a tracked file regenerated from
@@ -329,21 +336,22 @@ def render_issue_table(rows: list[Row], date: str = "") -> str:
     a diff that is only row movement.
     """
     date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
+    titles = titles or {}
     lines = [_TABLE_PREAMBLE % {"date": date}]
     for row in sorted(rows, key=lambda row: -int(row.key.removeprefix("issue:"))):
+        title = titles.get(row.key, "")
         # A `|` ends the cell, so a pipe-bearing issue title would render a row
         # `_TABLE_ROW` cannot match — and `read_issue_table` would drop it with
         # no error at all. Refuse loudly instead, the way `parse_rows` refuses a
         # tab. No open issue carries one today; the check is for the one that will.
-        for cell in (row.value, row.argument, row.note):
+        for cell in (row.value, row.argument, row.note, title):
             if "|" in cell:
                 raise MarkerError(
                     f"{row.key}: a pipe in {cell!r} would end the table cell and drop the row"
                 )
         disposition = row.value + (f": {row.argument}" if row.argument else "")
-        lines.append(
-            f"| {row.key.removeprefix('issue:')} | {disposition} | {row.note} |\n"
-        )
+        number = row.key.removeprefix("issue:")
+        lines.append(f"| {number} | {title} | {disposition} | {row.note} |\n")
     return "".join(lines)
 
 
@@ -362,6 +370,8 @@ def read_issue_table(text: str) -> list[Row]:
             if value == "absorbed-by"
             else ("spec-named-open" if value == "still-open" else "residual")
         )
+        # The title is render-only — GitHub owns it and it is re-read on every
+        # write, so nothing is lost by not parsing it back.
         rows.append(
             Row(
                 f"issue:{match['number']}",
@@ -369,7 +379,7 @@ def read_issue_table(text: str) -> list[Row]:
                 argument,
                 False,
                 rule,
-                match["title"].strip(),
+                match["note"].strip(),
             )
         )
     return rows
@@ -407,7 +417,9 @@ def apply_marker(text: str, line: str) -> str:
     return "\n".join(prefix + block + rest)
 
 
-def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
+def apply_rows(
+    rows: list[Row], root: Path = ROOT, date: str = "", titles: dict | None = None
+) -> list[str]:
     """Write every document row. Returns the repo-relative paths touched.
 
     Hand-edited cells in the proposal are trusted: tabs or newlines in `note` or
@@ -445,7 +457,7 @@ def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
 
     if issue_rows:
         (root / ISSUE_TABLE).write_text(
-            render_issue_table(issue_rows, date), encoding="utf-8"
+            render_issue_table(issue_rows, date, titles), encoding="utf-8"
         )
         written.append(ISSUE_TABLE)
 
@@ -461,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     apply_cmd = sub.add_parser("apply", help="write markers from a reviewed proposal")
     apply_cmd.add_argument("proposal")
     apply_cmd.add_argument("--date", default="")
+    apply_cmd.add_argument("--issues-json", default="")
     args = parser.parse_args(argv)
     if args.command == "propose":
         issues = (
@@ -474,7 +487,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "apply":
         rows = parse_rows(Path(args.proposal).read_text(encoding="utf-8"))
-        written = apply_rows(rows, date=args.date)
+        titles_dict = None
+        if args.issues_json:
+            issues_list = json.loads(Path(args.issues_json).read_text(encoding="utf-8"))
+            titles_dict = {
+                f"issue:{issue['number']}": issue["title"] for issue in issues_list
+            }
+        written = apply_rows(rows, date=args.date, titles=titles_dict)
         documents = [path for path in written if path != ISSUE_TABLE]
         table = " and the issue table" if len(documents) != len(written) else ""
         print(f"marked {len(documents)} documents{table} from {args.proposal}")
