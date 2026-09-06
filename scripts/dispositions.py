@@ -6,6 +6,7 @@ verb would serve none of them.
 """
 
 import argparse
+import datetime as _dt
 import re
 import subprocess
 import sys
@@ -266,16 +267,85 @@ def parse_rows(text: str) -> list[Row]:
     return rows
 
 
+def marker_line(value: str, argument: str, flag: bool, date: str) -> str:
+    """Render one marker, rejecting anything read_marker would reject."""
+    if value not in DOCUMENT_VALUES:
+        raise MarkerError(f"{value!r} is not one of {DOCUMENT_VALUES}")
+    if (value in ARGUMENT_VALUES) != bool(argument):
+        raise MarkerError(f"{value!r} carries argument {argument!r}")
+    if argument == "?":
+        raise MarkerError(f"{value!r} still carries the unreviewed '?' target")
+    rendered = f"Disposition: {value}"
+    if argument:
+        rendered += f": {argument}"
+    rendered += f" ({date})"
+    if flag:
+        rendered += f" [{FLAG}]"
+    return rendered
+
+
+def apply_marker(text: str, line: str) -> str:
+    """Write the marker at its anchor, replacing one already in the window."""
+    lines = text.split("\n")
+    start = anchor(lines)
+    for index in range(start, min(start + WINDOW, len(lines))):
+        if lines[index].startswith("Disposition: "):
+            lines[index] = line
+            return "\n".join(lines)
+    prefix, rest = lines[:start], lines[start:]
+    if rest and rest[0] == "":
+        rest = rest[1:]
+    block = ([""] if prefix else []) + [line, ""]
+    return "\n".join(prefix + block + rest)
+
+
+def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
+    """Write every document row. Returns the repo-relative paths touched.
+
+    Hand-edited cells in the proposal are trusted: tabs or newlines in `note` or
+    `argument` are not validated here, but parse_rows' six-column check catches
+    tabs before this runs, so a tab becomes a loud MarkerError rather than a silent
+    drop. Newlines in hand-edited cells are structurally impossible in TSV.
+    """
+    date = date or _dt.datetime.now(tz=_dt.timezone.utc).date().isoformat()  # noqa: UP017
+    tracked = set(in_scope(root)) if root == ROOT else None
+    written = []
+    for row in rows:
+        line = marker_line(row.value, row.argument, row.flag, date)
+        if (
+            row.value == "superseded-by"
+            and tracked is not None
+            and row.argument not in tracked
+        ):
+            raise MarkerError(
+                f"{row.key}: superseded-by target {row.argument!r} does not resolve"
+            )
+        path = root / row.key
+        path.write_text(
+            apply_marker(path.read_text(encoding="utf-8"), line), encoding="utf-8"
+        )
+        written.append(row.key)
+    return written
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m scripts.dispositions")
     sub = parser.add_subparsers(dest="command", required=True)
     propose_cmd = sub.add_parser("propose", help="write the reviewable proposal")
     propose_cmd.add_argument("--out", default="disposition-proposal.tsv")
+    apply_cmd = sub.add_parser("apply", help="write markers from a reviewed proposal")
+    apply_cmd.add_argument("proposal")
+    apply_cmd.add_argument("--date", default="")
     args = parser.parse_args(argv)
     if args.command == "propose":
         text = emit()
         Path(args.out).write_text(text, encoding="utf-8")
         print(f"proposed {len(parse_rows(text))} rows to {args.out}")
+        return 0
+    if args.command == "apply":
+        rows = parse_rows(Path(args.proposal).read_text(encoding="utf-8"))
+        written = apply_rows(rows, date=args.date)
+        print(f"marked {len(written)} documents from {args.proposal}")
         return 0
     return 1
 

@@ -265,3 +265,90 @@ def test_propose_subcommand_writes_the_file(tmp_path, capsys):
     assert dispositions.main(["propose", "--out", str(target)]) == 0
     assert target.read_text(encoding="utf-8").startswith(dispositions.HEADER)
     assert "rows" in capsys.readouterr().out
+
+
+def test_marker_line_renders_every_shape():
+    assert dispositions.marker_line("current", "", False, "2026-09-05") == (
+        "Disposition: current (2026-09-05)"
+    )
+    assert dispositions.marker_line("pending-issue", "116", False, "2026-09-05") == (
+        "Disposition: pending-issue: 116 (2026-09-05)"
+    )
+    assert dispositions.marker_line("historical", "", True, "2026-09-05") == (
+        "Disposition: historical (2026-09-05) [should-be-scoping-review]"
+    )
+
+
+def test_marker_line_rejects_a_row_the_reader_would_reject():
+    with pytest.raises(dispositions.MarkerError):
+        dispositions.marker_line("pending-issue", "", False, "2026-09-05")
+    with pytest.raises(dispositions.MarkerError):
+        dispositions.marker_line("retired", "", False, "2026-09-05")
+
+
+def test_apply_marker_inserts_a_paragraph_after_the_heading():
+    text = "# The vault outlives its tools\n\nStatus: accepted (2026-08-20)\n\nBody.\n"
+    out = dispositions.apply_marker(text, "Disposition: current (2026-09-05)")
+    assert out == (
+        "# The vault outlives its tools\n\n"
+        "Disposition: current (2026-09-05)\n\n"
+        "Status: accepted (2026-08-20)\n\nBody.\n"
+    )
+    assert dispositions.read_marker(out).value == "current"
+
+
+def test_apply_marker_inserts_after_a_third_level_heading():
+    text = "### Task 1: Rename\n\nRuled 2026-08-22.\n"
+    out = dispositions.apply_marker(text, "Disposition: historical (2026-09-05)")
+    assert out == (
+        "### Task 1: Rename\n\nDisposition: historical (2026-09-05)\n\nRuled 2026-08-22.\n"
+    )
+
+
+def test_apply_marker_inserts_at_the_top_of_a_headingless_file():
+    text = "Raw transcripts live here.\n\nBody.\n"
+    out = dispositions.apply_marker(text, "Disposition: historical (2026-09-05)")
+    assert (
+        out
+        == "Disposition: historical (2026-09-05)\n\nRaw transcripts live here.\n\nBody.\n"
+    )
+
+
+def test_apply_marker_is_idempotent_and_replaces_in_place():
+    text = "# T\n\nStatus: accepted (2026-08-20)\n"
+    once = dispositions.apply_marker(text, "Disposition: current (2026-09-05)")
+    twice = dispositions.apply_marker(once, "Disposition: current (2026-09-05)")
+    assert once == twice
+    changed = dispositions.apply_marker(once, "Disposition: historical (2026-09-05)")
+    assert dispositions.read_marker(changed).value == "historical"
+    assert changed.count("Disposition: ") == 1
+
+
+def test_apply_marker_never_touches_the_status_line():
+    text = "# The citekey\n\nStatus: suspended (2026-09-03) — under re-derivation.\n"
+    out = dispositions.apply_marker(
+        text, "Disposition: pending-issue: 116 (2026-09-05)"
+    )
+    assert "Status: suspended (2026-09-03) — under re-derivation." in out
+
+
+def test_apply_rows_writes_only_the_rows_it_is_given(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("# A\n\nBody.\n", encoding="utf-8")
+    (tmp_path / "docs" / "b.md").write_text("# B\n\nBody.\n", encoding="utf-8")
+    rows = [dispositions.Row("docs/a.md", "current", "", False, "shipped-surface", "")]
+    written = dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
+    assert written == ["docs/a.md"]
+    assert "Disposition: " in (tmp_path / "docs" / "a.md").read_text(encoding="utf-8")
+    assert "Disposition: " not in (tmp_path / "docs" / "b.md").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_apply_rows_rejects_an_unresolved_superseded_target(tmp_path):
+    (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
+    rows = [
+        dispositions.Row("a.md", "superseded-by", "?", False, "header-superseded", "")
+    ]
+    with pytest.raises(dispositions.MarkerError):
+        dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
