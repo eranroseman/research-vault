@@ -32,11 +32,17 @@
 
 The spec's §10 numbers and its frontmatter rule do not reproduce. All five corrections below are measured 2026-09-05 in this checkout on `main`, and each is re-measured at execution time (§1: a fact older than the lane's start date is re-measured, not cited).
 
-1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name — **202 files at the 2026-09-05 measurement, and still moving**: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is that measurement, not a contract; nothing in the code depends on one.
+1. **Corpus.** `git ls-files -- "*.md"` returned **213** while this plan was being written and **214** once the plan itself was committed. The spec's 202 is the corpus minus `research_vault/templates/**` (10 files) and `.out-of-scope/**` (1); marking scope is that set minus `CLAUDE.md`, which §10 exempts by name, and minus the 11 vendored files of premise 6 — **191 files at the 2026-09-05 measurement, and still moving**: this plan file is in scope, and so is the `docs/issue-dispositions.md` Task 6 creates. Every count below is that measurement, not a contract; nothing in the code depends on one.
+
 2. **`skills/` frontmatter.** The spec says "all 23 `skills/*/SKILL.md`" open with YAML. `skills/` holds 23 `.md` files of which **9** are `SKILL.md` with frontmatter; the other 14 are `find-sources/references/*.md` and `import-source/references/*.md`, with no frontmatter at all.
+
 3. **No frontmatter route; one uniform body anchor.** All 9 `SKILL.md` carry a heading immediately after their frontmatter block, so the body anchor reaches every in-scope file. Writing a `disposition:` key would ship a repo-internal marker into the plugin surface a user installs, and would break `tests/test_skill_files.py:20` (`assert "disable-model-invocation: true\n---\n" in text`). Raised as a decision cell at plan review; **approved, and the spec now carries it** (§10, commit `1c3f3cb`).
+
 4. **The anchor is any-level, with a four-file fallback.** 25 in-scope files carry no `# ` heading, but 21 of those — the `.superpowers/sdd/…/task-*-brief.md` set — open at `###`. Only the 4 bare-prose `docs/research/**/README.md` files carry no heading of any level. So the rule is **the first heading matching `^#{1,6} `**, with top-of-file as the fallback for those four: two classes, not three, and the marker sits in the same relative position everywhere it can. **The spec now carries this** (§10, commit `1c3f3cb`), including the linter's positional definition. Measured: no in-scope file's first any-level heading sits inside a fenced block.
+
 5. **One counted quantity decayed; the other was my own truncation.** The spec's "25 carry some header status marker" reads **19** files with a status-shaped line in their first 12 lines. Its "66 open issues" is **correct** — an earlier reading of 30 here was `gh issue list`'s default `--limit 30` presented as a total, the same silent-truncation trap that turned a 100-item first page of 2,673 Zotero tags into "the three scanner tags". `gh issue list --state open --limit 200` returns **66**. All six issues §10 names as first to close (#96, #97, #62, #63, #78, #118) and all three it keeps open (#116, #117, #119) are open today.
+
+6. **Eleven vendored files are excluded, and the spec did not consider them.** `skills/find-sources/references/*.md` are a frozen fork of K-Dense's `paper-lookup` skill (MIT, upstream `336c4f8`), and each opens with a repo-added header reading *"Do not hand-edit this file; re-vendor from upstream to update it."* Writing a repo-internal marker into them is exactly the vendor drift `.pre-commit-config.yaml` already keeps their sibling `scripts/*.py` out of the formatter to avoid. The disposition of a vendored set belongs to the vendoring decision, which lives in the repo-owned `skills/find-sources/SKILL.md` — in scope and marked. **Ruling, mine, at pre-flight:** exclude the 11. Cost if wrong: a reader of one of those files goes one hop to `SKILL.md` to learn the set's status, and reversing it is deleting one prefix. A repo-wide sweep found no other file in scope carrying a do-not-edit or generated-by header.
 
 ## File map
 
@@ -81,7 +87,7 @@ print("tracked", len(files), "scope", len(scope), "frontmatter", len(frontmatter
 PY
 ```
 
-Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 202 frontmatter 9 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
+Expected, measured 2026-09-05 with this plan committed: `tracked 214 scope 191 frontmatter 9 headless 4` — the 4 being the bare-prose `docs/research/**/README.md` files, the only ones with no heading of any level. If any number differs, the corpus moved — record the new numbers in the commit message for this task and carry on. Nothing in the code depends on the count, and every "201"/"202" printed later in this plan is that same measurement, not a contract.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -98,13 +104,25 @@ from scripts import dispositions
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_scope_excludes_the_three_named_surfaces():
+def test_scope_excludes_the_four_named_surfaces():
     scope = dispositions.in_scope(ROOT)
     assert "docs/testing.md" in scope
     assert ".superpowers/sdd/2026-08-22-post-q-batch/task-1-brief.md" in scope
+    assert "skills/find-sources/SKILL.md" in scope, "the vendoring decision is repo-owned"
     assert "CLAUDE.md" not in scope, "§10 exempts CLAUDE.md by name"
     assert not [p for p in scope if p.startswith("research_vault/templates/")]
     assert not [p for p in scope if p.startswith(".out-of-scope/")]
+    assert not [p for p in scope if p.startswith("skills/find-sources/references/")]
+
+
+def test_every_vendored_file_stays_out_of_scope():
+    """Their own header says do not hand-edit; tests/test_find_sources_vendor.py:210."""
+    vendored = [
+        p
+        for p in dispositions.in_scope(ROOT)
+        if "Do not hand-edit" in (ROOT / p).read_text(encoding="utf-8")[:600]
+    ]
+    assert not vendored, f"marking would drift these against upstream: {vendored}"
 
 
 def test_anchor_is_the_line_after_the_first_heading():
@@ -214,8 +232,17 @@ ROOT = Path(__file__).resolve().parents[1]
 #   research_vault/templates/** ships into a user's vault — a repo-internal
 #     marker has no business travelling with the product;
 #   .out-of-scope/** declares its disposition by path;
+#   skills/find-sources/references/** are 11 vendored upstream files whose own
+#     header reads "Do not hand-edit this file; re-vendor from upstream"; their
+#     disposition belongs to the vendoring decision in find-sources/SKILL.md,
+#     which is repo-owned and marked. Same reasoning .pre-commit-config.yaml
+#     already applies to their sibling scripts/*.py;
 #   CLAUDE.md is an 11-byte import directive, not a document (spec §10).
-EXCLUDED_PREFIXES = ("research_vault/templates/", ".out-of-scope/")
+EXCLUDED_PREFIXES = (
+    "research_vault/templates/",
+    ".out-of-scope/",
+    "skills/find-sources/references/",
+)
 EXCLUDED_PATHS = frozenset({"CLAUDE.md"})
 
 WINDOW = 5
@@ -329,7 +356,7 @@ git commit -m "$(cat <<'MSG'
 feat: scope and positional reader for the §10 disposition marker
 
 Two anchor classes partition the marking scope: the first heading of any
-level (198 files, 21 of them opening at ###), and top-of-file for the four
+level (187 files, 21 of them opening at ###), and top-of-file for the four
 bare-prose READMEs that carry none. The reader looks only
 inside the five-line window so a body `Status: **CONFIRMED.**` cannot be
 mistaken for a header marker.
@@ -952,7 +979,7 @@ ______________________________________________________________________
 **Files:**
 
 - Modify: `tests/test_dispositions.py`
-- Modify: every in-scope tracked `.md` file (one line each — 202 at the 2026-09-05 measurement)
+- Modify: every in-scope tracked `.md` file (one line each — 191 at the 2026-09-05 measurement)
 
 **Interfaces:**
 
@@ -1014,7 +1041,7 @@ Malformed markers need no test of their own: `read_marker` raises `MarkerError`,
 - [ ] **Step 2: Run the linter to verify it fails**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: FAIL — `AssertionError: 202 document(s) carry no Disposition line` (the count is whatever Step 1 measured).
+Expected: FAIL — `AssertionError: 191 document(s) carry no Disposition line` (the count is whatever Step 1 measured).
 
 - [ ] **Step 3: Generate the proposal**
 
@@ -1025,7 +1052,7 @@ cut -f2 disposition-proposal.tsv | sort | uniq -c | sort -rn
 cut -f5 disposition-proposal.tsv | sort | uniq -c | sort -rn
 ```
 
-Expected: one header line plus one row per in-scope file (203 lines at the 2026-09-05 measurement), and a value histogram dominated by `historical` (the 71 `.superpowers/sdd/` files plus the dated research passes) and `pending-map` (the residual).
+Expected: one header line plus one row per in-scope file (192 lines at the 2026-09-05 measurement), and a value histogram dominated by `historical` (the 71 `.superpowers/sdd/` files plus the dated research passes) and `pending-map` (the residual).
 
 Learn mdformat's baseline in the same breath, because `.git/hooks/` holds only samples — no local hook has ever enforced the formatter, so some tracked files may already be unclean and Step 6's reflow gate would fire on that pre-existing debt rather than on this pass:
 
@@ -1039,7 +1066,7 @@ Record which files it names. Those, and only those, are permitted to reflow in S
 
 **This is the approval gate. Do not proceed without it.** Post the value histogram and the rule histogram, then say:
 
-> `disposition-proposal.tsv` holds one row per in-scope document (202 at the 2026-09-05 measurement). Columns: `key`, `value`, `argument`, `flag`, `rule`, `note`. Edit any of `value`, `argument`, `flag` — apply is mechanical from what you leave behind. Three things worth your eye: every row whose `rule` is `residual` is the classifier declining to guess between `pending-map` and `current`; every `superseded-by` row carries `?` as its target and will be rejected until you name the superseding path; and the `should-be-scoping-review` flag is a proposal from a filename hint, not a reading.
+> `disposition-proposal.tsv` holds one row per in-scope document (191 at the 2026-09-05 measurement). Columns: `key`, `value`, `argument`, `flag`, `rule`, `note`. Edit any of `value`, `argument`, `flag` — apply is mechanical from what you leave behind. Three things worth your eye: every row whose `rule` is `residual` is the classifier declining to guess between `pending-map` and `current`; every `superseded-by` row carries `?` as its target and will be rejected until you name the superseding path; and the `should-be-scoping-review` flag is a proposal from a filename hint, not a reading.
 
 Wait for the edited file. The asymmetry that makes this gate load-bearing: **mis-marking a current document as `historical` makes the §8 cold-start contract refuse it later, and nobody will know why** — doctor fails if the reading list points at anything `historical` or `pending-map`. A wrong `current` is visible; a wrong `historical` is silent.
 
