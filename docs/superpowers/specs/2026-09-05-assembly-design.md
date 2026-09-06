@@ -38,7 +38,14 @@ All **chosen** 2026-09-05 unless noted.
 
 1. **Distribution over implementation.** research-vault is a pinned component set plus glue. Existing code survives only where a named step (§5.0) needs it and no component fills the gap.
 2. **Audit before deletion.** Every CLI verb receives a one-line disposition, and so does every module and entry point no verb reaches — including the three files in `hooks/` (847 lines) and `hooks/hooks.json`. The verb is the decision unit; the module is the record unit. The mutation suite and the linter work are preserved where their subject survives. §11.
-3. **Two runtime tiers, and the mechanical tier splits in two.** A human-driven step may require a GUI. A mechanical check requires **no human in a GUI**, and its two carriers have opposite preconditions: **mechanical-live** uses the Zotero local API and needs Zotero up; **mechanical-cold** reads the Zotero profile filesystem and needs it down. *This is a repair of the original wording, forced by evidence*: the local API exposes no plugin enumeration (§14) and runs inside the Zotero process, while `extensions.json` and `prefs.js` are readable with Zotero closed. Whether they are *fully current* only after exit is **open** — both were observed rewritten with Zotero running (§15.13). The register's `tier` column carries which.
+3. **Two runtime tiers, and the mechanical tier splits in two — for both substrate apps.** A human-driven step may require a GUI. A mechanical check requires **no human in a GUI**, and its two carriers have opposite preconditions: **mechanical-live** talks to a running app; **mechanical-cold** reads that app's files on disk and wants it closed. *This is a repair of the original wording, forced by evidence.*
+
+   | Substrate | mechanical-live | mechanical-cold |
+   | --- | --- | --- |
+   | Zotero | the local API — which exposes no plugin enumeration (§14) and runs inside the Zotero process | `extensions.json`, `prefs.js` — readable with Zotero closed |
+   | Obsidian | the official CLI, which requires the desktop app running and takes no version parameter | `<configDir>/plugins/<id>/manifest.json`, `community-plugins.json` |
+
+   Obsidian carries the sharper version of the same hazard: its restricted-mode gate lives in Chromium localStorage, whose LevelDB is only reliably read with the app closed — presence is evidence there, absence is not (§6.2). Whether either app's files are *fully current* only after exit is **open**: Zotero's two were observed rewritten while it was running (§15.13). The register's `tier` column carries which carrier a check uses.
 4. **One assembly spec; lane 0 executed inside it, lanes 1–4 after it.** Not six lane specs up front, and not lane-local specs with the glue arriving last.
 5. **Lane order is the dependency order in §7**: 0, then 1, then 2 and 3a concurrently, then 3b, then 4. *This supersedes the earlier choice of Zotero plugin curation as first lane* — curation produces a document, while a distribution's claim is install + pin + drift, and lanes 1 and 2 are mutually dependent until lane 0 breaks the cycle.
 6. **A status-marking pass runs before this spec's lanes.** §10.
@@ -52,15 +59,17 @@ All **chosen** 2026-09-05 unless noted.
 
 The five founding documents are indexed, never translated. An index row cites; it does not say what the system shall do. That keeps interpretation with the lane that has the evidence, and keeps this spec from resolving conflicts it has not earned.
 
-| Source | What it carries | Step it binds | Who answers it |
+| Source | What it carries | Step it binds | Lane that screens against it |
 | --- | --- | --- | --- |
-| PRISMA-S | reporting items for a literature search | `search` | issue #117 — not a lane of this spec |
-| PRISMA-ScR | the scoping-review extension checklist | `scoping-review` | issue #119 — not a lane of this spec |
-| ACM submission guidelines | manuscript and reference-format obligations | `long-form` | unowned — §15.11 |
-| Notetaking for Historians | a prose-first, low-machinery vault workflow | `vault-setup`, `daily-log` | lane 3a for layout; daily log unowned — §15.12 |
+| PRISMA-S | reporting items for a literature search | `search` | **lane 4** |
+| PRISMA-ScR | the scoping-review extension checklist | `scoping-review` | **lane 4** |
+| ACM submission guidelines | manuscript and reference-format obligations | `long-form` | **lane 4** |
+| Notetaking for Historians | a prose-first, low-machinery vault workflow | `vault-setup`, `daily-log` | lane 3a |
 | Karpathy's llm-wiki gist | the LLM-maintained-wiki maintenance pattern | `compile` | lane 1 |
 
-A lane *answers* a step; it does not own one. The step column is the register's key (§5.0).
+**These are screening criteria, not work items.** PRISMA-S, PRISMA-ScR and the ACM guidelines are the **floors lane 4 screens candidate skills against** — a MedSci or K-Dense skill earns adoption by satisfying checklist items, and fails on the ones it does not reach. That is exactly the floor definition below, so the index rows are lane 4's floor sources rather than specs somebody must write first.
+
+The distinction that keeps this honest: **screening a component against an obligation is not the same as specifying the step.** Issues #117 and #119 own specifying the `search` and `scoping-review` steps, and their output would refine lane 4's floors — but lane 4 does not wait on them, because a checklist is a screening instrument whether or not a step spec exists yet. A lane *screens against* an obligation; it does not own the step. The step column is the register's key (§5.0).
 
 Two properties the index must have:
 
@@ -213,7 +222,7 @@ The claim that a URL-only entry gains nothing from Zotero is right about organis
 | 2 | Zotero plugins | a choice *within* lane 1's contract, measured against 10.0.1, over all 23 installed plus the author's named not-installed candidates |
 | 3a | Obsidian vault creation and seam-free plugins | opens by creating the vault that does not exist (§6.2); unblocks T5 |
 | 3b | Obsidian plugins that read Zotero — ZotLit, `obsidian-reference-map` | decided inside lane 1's seam contract, after lane 2 pins Better BibTeX |
-| 4 | Skills curation — MedSci, K-Dense | consumers of the workflow steps; blocked on the search and scoping-review specs, which issues #117 and #119 own and this spec does not schedule |
+| 4 | Skills curation — MedSci, K-Dense | screens candidates against §4's floors: PRISMA-S, PRISMA-ScR and the ACM guidelines. **Not blocked** on issues #117 and #119 — a checklist screens components whether or not the step spec exists — though their output would refine the floors |
 
 Lanes 2 and 3a are seam-free and may run concurrently. Lane 1 must not be split. Lane 3b is **not** seam-free: `obsidian-reference-map` requires Better BibTeX's local server and is reported broken against BBT 9.0.57+, a hard dependency on a lane-2 component at a version lane 2 has not pinned.
 
@@ -233,7 +242,7 @@ The contract exists because the expensive part of entering this repository is no
 
 **A doctor already exists, and it repairs before it probes.** `research_vault/scaffold.py:322` calls `scaffold_vault(vault)` unconditionally, then returns eight probes — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup — and **none concerns an installed component**. This spec extends it rather than starting a second one, and separates the two acts: the component checks are read-only and run in a `--check-only` mode that skips the scaffold write, so §6.1's "no write from research-vault" survives and drift cannot be repaired away before it is reported. Adopt-over-build applied to our own code.
 
-**Doctor runs in two phases and reports which it completed.** The live phase needs Zotero up — four of the eight existing probes already fail `zotero down` without it. The cold phase needs Zotero down. A cold check attempted with Zotero running reports `SKIPPED — zotero running`, never a stale `MATCHED`. Doctor gains, per §6:
+**Doctor runs in two phases and reports which it completed, per substrate app.** The live phase needs the relevant app up — four of the eight existing probes already fail `zotero down` without it, and the Obsidian CLI needs the desktop app running. The cold phase needs that app down. A cold check attempted while its app is running reports `SKIPPED — <app> running`, never a stale `MATCHED`, and doctor states which apps it found running so a partial run is never mistaken for a clean one. Doctor gains, per §6:
 
 - the Zotero pin verification pair — cold;
 - the per-plugin triple, **proposed, pending T3** — cold for presence and version, live for effects;
@@ -377,9 +386,9 @@ Zotero runtime rows re-measured 2026-09-05 evening, after the author enabled PMC
 8. The glossary and the two suspended ADRs — handed to issue #116 (§2).
 9. The remaining 11 of 23 installed addons, undispositioned, including one that copies attachments to a OneDrive path (§7.0).
 10. The `upstream-watch` schedule: the borrowed spec names a scheduled workflow and gives no interval (§6.3).
-11. The ACM `long-form` step has no lane and no issue (§4).
+11. The `long-form` **step** has no lane and no issue. The ACM guidelines themselves are owned — they are one of lane 4's screening floors (§4) — but nothing schedules the step they bind.
 12. The `daily-log` step has no lane, no register row and no issue; `research_vault/appendlog.py` is its only carrier and enters §11's audit named by no verb (§4).
-13. Whether Zotero flushes `prefs.js` and `extensions.json` fully only on exit (§3.3, §6.1). Both were observed rewritten with Zotero running, so the "read with Zotero closed" precondition is provisional until measured.
+13. Whether either substrate app flushes its files fully only on exit (§3.3). Zotero's `prefs.js` and `extensions.json` were both observed rewritten while it was running, so the cold-read precondition is provisional there. The Obsidian half is unmeasured entirely — `manifest.json` and `community-plugins.json` write cadence is unknown, and its localStorage LevelDB gives evidence on presence but never on absence while the app is live.
 14. A mechanical route to establishing the Zotero pin on a machine that is not the author's — un-cancel the `user.js` tracer, or specify the wizard step that replaces it (§6.1, §13).
 15. The Python lock does not exist; `pypdf>=4` is an open range (§6.4).
 16. **Vault-owned state inside Zotero — answered: strict one-way now, no collection subtree.** The requirement is real and is a PRISMA-ScR obligation, not a convenience: a scoping review's item set must be reachable as a set, because the flow counts depend on it. The collection route is nonetheless rejected, on a measured write surface.
