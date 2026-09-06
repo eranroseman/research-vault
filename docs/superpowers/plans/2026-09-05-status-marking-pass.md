@@ -405,11 +405,18 @@ def test_proposal_prefers_superseded_over_historical():
 
 
 def test_proposal_prefers_the_named_issue_over_current():
-    """Double fit: ADR 0004 is a live decision record AND owned by issue #116."""
+    """Double fit: ADR 0004 matches `docs/adr/` AND is owned by issue #116.
+
+    Both rules genuinely fire on this path — drop the precedence order and the
+    answer flips to `current`, which is the discrimination this test exists for.
+    """
     path = "docs/adr/0004-citekey-is-the-only-identity.md"
     text = "# The citekey is the vault's only identity\n\nStatus: suspended (2026-09-03)\n"
     proposal = dispositions.propose(path, text)
     assert (proposal.value, proposal.argument) == ("pending-issue", "116")
+    # The `current` rule really is reachable for this path, so the assertion
+    # above is precedence deciding and not one rule matching alone.
+    assert path.startswith(dispositions._CURRENT_PREFIXES)
 
 
 def test_proposal_keeps_the_unsuspended_adrs_current():
@@ -494,12 +501,14 @@ _CURRENT_PATHS = frozenset(
         "docs/superpowers/specs/2026-09-05-assembly-design.md",
     }
 )
+# `docs/adr/` whole, not an enumeration of 0001-0003: an accepted decision
+# record is current by construction, and 0004/0005 are carved out by the
+# earlier `_PENDING_ISSUE` rule rather than by omission here. The enumeration
+# would also drop a future ADR 0006 into the pending-map residual.
 _CURRENT_PREFIXES = (
     "skills/",
     "docs/agents/",
-    "docs/adr/0001-",
-    "docs/adr/0002-",
-    "docs/adr/0003-",
+    "docs/adr/",
 )
 _SCOPING_REVIEW_HINTS = (
     "survey",
@@ -550,7 +559,7 @@ def propose(path: str, text: str) -> Proposal:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 23 tests. `?` is the deliberate placeholder for a `superseded-by` target: the classifier can see that a document declares supersession but not what superseded it, and Task 5's linter rejects a `?` that survives review.
+Expected: PASS, 26 tests (16 from Task 1 plus this task's 10). `?` is the deliberate placeholder for a `superseded-by` target: the classifier can see that a document declares supersession but not what superseded it, and Task 5's linter rejects a `?` that survives review.
 
 - [ ] **Step 5: Run the form owner and the full offline suite**
 
