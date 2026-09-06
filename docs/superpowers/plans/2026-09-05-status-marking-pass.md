@@ -798,7 +798,7 @@ ______________________________________________________________________
 
 - Consumes: `anchor`, `read_marker`, `parse_rows`, `Row`, `WINDOW`, `FLAG`, `ARGUMENT_VALUES`, `DOCUMENT_VALUES`.
 
-- Produces: `marker_line(value: str, argument: str, flag: bool, date: str) -> str`, `apply_marker(text: str, line: str) -> str`, `apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]` (returns the repo-relative paths written), and the CLI `python -m scripts.dispositions apply <file> [--date YYYY-MM-DD]`. Task 5 runs the CLI; Task 6 extends `apply_rows` to route `issue:` keys.
+- Produces: `marker_line(value: str, argument: str, flag: bool, date: str) -> str`, `apply_marker(text: str, line: str) -> str`, `apply_rows(rows: list[Row], root: Path = ROOT, date: str = "", titles: dict | None = None) -> list[str]` (returns the repo-relative paths written), and the CLI `python -m scripts.dispositions apply <file> [--date YYYY-MM-DD] [--issues-json <file>]`. Task 5 runs the CLI; Task 6 extends `apply_rows` to route `issue:` keys.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1435,13 +1435,26 @@ def emit(root: Path = ROOT, issues: list[dict] | None = None) -> str:
 Route `issue:` keys in `apply_rows`, before the document loop:
 
 ```python
+    # The table render OWNS docs/issue-dispositions.md: it writes the whole
+    # file, marker preamble included, so the table's own document row is a
+    # no-op here. Applying both wrote the marker and then overwrote the file.
     issue_rows = [row for row in rows if row.key.startswith("issue:")]
-    document_rows = [row for row in rows if not row.key.startswith("issue:")]
+    document_rows = [
+        row
+        for row in rows
+        if not row.key.startswith("issue:") and row.key != ISSUE_TABLE
+    ]
     ...  # the document loop, over document_rows
     if issue_rows:
-        (root / ISSUE_TABLE).write_text(
-            render_issue_table(issue_rows, date, titles), encoding="utf-8"
-        )
+        table = root / ISSUE_TABLE
+        if not titles:
+            # A blanked Title is unrecoverable: read_issue_table does not read
+            # it back and no other file holds one. Carry the cells forward, and
+            # refuse outright when there are none to carry.
+            if not table.is_file():
+                raise MarkerError(...)
+            titles = read_issue_titles(table.read_text(encoding="utf-8"))
+        table.write_text(render_issue_table(issue_rows, date, titles), encoding="utf-8")
         written.append(ISSUE_TABLE)
 ```
 
@@ -1453,12 +1466,17 @@ And add `--issues-json` to the `propose` subcommand:
 
 ```python
         issues = json.loads(Path(args.issues_json).read_text(encoding="utf-8")) if args.issues_json else None
-        text = emit(issues=issues)
+        # `root=ROOT` named rather than defaulted at both `main` call sites: a
+        # default binds at import, so only the explicit argument follows a test
+        # that points the module at a temporary repository. Before the fix wave
+        # the apply branch — the only path that mutates the repository — had no
+        # test, because no test could safely reach it.
+        text = emit(root=ROOT, issues=issues)
 ```
 
 Add `import json` to the module's import block.
 
-`ISSUE_TABLE` is itself an in-scope document, so it carries its own `Disposition: current` line inside the preamble, two lines under the heading — inside the window, and written by the same renderer that writes the table.
+`ISSUE_TABLE` is itself an in-scope document, so it carries its own `Disposition: current` line inside the preamble, two lines under the heading — inside the window, and written by the same renderer that writes the table. That renderer is its **sole** writer: `apply_rows` skips the table's document row rather than marking it and then overwriting the result.
 
 - [ ] **Step 4: Run the tests to verify the unit half passes**
 
@@ -1486,12 +1504,14 @@ Expected: **66** open issues, measured 2026-09-05 with an explicit `--limit` —
 - [ ] **Step 7: Apply, format, and verify**
 
 ```bash
-python -m scripts.dispositions apply disposition-proposal.tsv
+python -m scripts.dispositions apply disposition-proposal.tsv --issues-json /tmp/open-issues.json
 mdformat --number --wrap keep docs/issue-dispositions.md
 python -m pytest tests -q -n auto
 ```
 
 Expected: `docs/issue-dispositions.md` written; suite green, including `test_the_issue_table_covers_every_open_issue` (it runs, rather than skipping, wherever `gh` is authenticated).
+
+**`--issues-json` is not optional on the first write.** `Title` is GitHub's and is not round-tripped, so the first render has nowhere to read it from: without the flag `apply` raises rather than writing 66 blank cells. On every later run the flag is optional — the committed table's own Title cells are carried forward.
 
 - [ ] **Step 8: Commit**
 

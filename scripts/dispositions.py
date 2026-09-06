@@ -386,6 +386,21 @@ def render_issue_table(
     return "".join(lines)
 
 
+def read_issue_titles(text: str) -> dict[str, str]:
+    """The Title cells the table already carries, by key.
+
+    `read_issue_table` deliberately drops Title, which makes the committed
+    table the ONLY copy of it: nothing else in the repository holds a rendered
+    issue title. So a re-render with no fresh `--issues-json` has to carry them
+    forward here or write 66 blank cells that nothing can recover.
+    """
+    return {
+        f"issue:{match['number']}": match["title"].strip()
+        for line in text.split("\n")
+        if (match := _TABLE_ROW.match(line))
+    }
+
+
 def read_issue_table(text: str) -> list[Row]:
     rows = []
     for line in text.split("\n"):
@@ -465,9 +480,18 @@ def apply_rows(
     date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
     tracked = set(in_scope(root)) if root == ROOT else None
 
-    # Separate issue rows from document rows
+    # Separate issue rows from document rows. The table render below OWNS
+    # `docs/issue-dispositions.md`: it writes the whole file, marker preamble
+    # included, so its own in-scope document row is a no-op here. Applying both
+    # in one call would write the document row's marker and then overwrite the
+    # entire file with the render, silently discarding the reviewed row — two
+    # writers, one file, last one wins.
     issue_rows = [row for row in rows if row.key.startswith("issue:")]
-    document_rows = [row for row in rows if not row.key.startswith("issue:")]
+    document_rows = [
+        row
+        for row in rows
+        if not row.key.startswith("issue:") and row.key != ISSUE_TABLE
+    ]
 
     written = []
     for row in document_rows:
@@ -487,9 +511,20 @@ def apply_rows(
         written.append(row.key)
 
     if issue_rows:
-        (root / ISSUE_TABLE).write_text(
-            render_issue_table(issue_rows, date, titles), encoding="utf-8"
-        )
+        table = root / ISSUE_TABLE
+        if not titles:
+            # A blanked Title is unrecoverable: `read_issue_table` does not read
+            # it back and no other file holds one. Both operational commands in
+            # the plan omit `--issues-json`, so the loss is on the ordinary path
+            # rather than the exotic one. Carry the cells forward, and refuse
+            # outright when there are none to carry.
+            if not table.is_file():
+                raise MarkerError(
+                    f"{ISSUE_TABLE} does not exist and no titles were supplied: "
+                    "every Title cell would be written blank and nothing reads it back"
+                )
+            titles = read_issue_titles(table.read_text(encoding="utf-8"))
+        table.write_text(render_issue_table(issue_rows, date, titles), encoding="utf-8")
         written.append(ISSUE_TABLE)
 
     return written
@@ -512,7 +547,10 @@ def main(argv: list[str] | None = None) -> int:
             if args.issues_json
             else None
         )
-        text = emit(issues=issues)
+        # `root=ROOT` named rather than defaulted: a default binds at import,
+        # so only the explicit argument follows a test that points the module
+        # at a temporary repository.
+        text = emit(root=ROOT, issues=issues)
         Path(args.out).write_text(text, encoding="utf-8")
         print(f"proposed {len(parse_rows(text))} rows to {args.out}")
         return 0
@@ -524,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
             titles_dict = {
                 f"issue:{issue['number']}": issue["title"] for issue in issues_list
             }
-        written = apply_rows(rows, date=args.date, titles=titles_dict)
+        written = apply_rows(rows, root=ROOT, date=args.date, titles=titles_dict)
         documents = [path for path in written if path != ISSUE_TABLE]
         table = " and the issue table" if len(documents) != len(written) else ""
         print(f"marked {len(documents)} documents{table} from {args.proposal}")

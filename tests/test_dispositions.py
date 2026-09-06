@@ -624,21 +624,148 @@ def test_read_issue_table_rejects_an_off_vocabulary_disposition():
         dispositions.read_issue_table(text)
 
 
+_ISSUE_96 = dispositions.Row(
+    "issue:96", "absorbed-by", "§6", False, "spec-named-absorbed", "Distribution model"
+)
+
+
 def test_apply_rows_writes_the_issue_table_and_no_file_named_issue(tmp_path):
     (tmp_path / "docs").mkdir()
-    rows = [
-        dispositions.Row(
-            "issue:96",
-            "absorbed-by",
-            "§6",
-            False,
-            "spec-named-absorbed",
-            "Distribution model",
-        )
-    ]
-    written = dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
+    written = dispositions.apply_rows(
+        [_ISSUE_96],
+        root=tmp_path,
+        date="2026-09-05",
+        titles={"issue:96": "Distribution model for the recommended plugin bucket"},
+    )
     assert written == [dispositions.ISSUE_TABLE]
     assert "| 96 |" in (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+
+
+def test_apply_rows_carries_the_titles_forward_when_none_are_supplied(tmp_path):
+    """`apply` without `--issues-json` blanked all 66 Title cells, unrecoverably.
+
+    `read_issue_table` never reads Title back and no other file holds one, so
+    the committed table is the only copy. Both operational commands in the plan
+    omit the flag. Reproduced 2026-09-06 against the committed table: 66
+    populated cells in, 0 out.
+    """
+    (tmp_path / "docs").mkdir()
+    title = "Distribution model for the recommended plugin bucket"
+    dispositions.apply_rows(
+        [_ISSUE_96], root=tmp_path, date="2026-09-05", titles={"issue:96": title}
+    )
+
+    dispositions.apply_rows([_ISSUE_96], root=tmp_path, date="2026-09-06")
+
+    text = (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    assert f"| 96 | {title} |" in text
+    assert dispositions.read_issue_titles(text) == {"issue:96": title}
+
+
+def test_apply_rows_refuses_to_write_a_table_it_would_blank(tmp_path):
+    """No table to carry forward and no titles given: refuse, never blank."""
+    (tmp_path / "docs").mkdir()
+    with pytest.raises(dispositions.MarkerError, match="Title"):
+        dispositions.apply_rows([_ISSUE_96], root=tmp_path, date="2026-09-05")
+    assert not (tmp_path / dispositions.ISSUE_TABLE).exists()
+
+
+def test_apply_rows_gives_the_issue_table_one_writer(tmp_path):
+    """The table is in scope, so a full proposal carries a document row for it.
+
+    Applying both wrote the document row's marker and then overwrote the whole
+    file with the render, discarding the reviewed row. The render owns the
+    file; the document row is the no-op.
+    """
+    (tmp_path / "docs").mkdir()
+    document_row = dispositions.Row(
+        dispositions.ISSUE_TABLE, "historical", "", False, "residual", ""
+    )
+    written = dispositions.apply_rows(
+        [document_row, _ISSUE_96],
+        root=tmp_path,
+        date="2026-09-06",
+        titles={"issue:96": "Distribution model"},
+    )
+
+    assert written == [dispositions.ISSUE_TABLE], "written once, not twice"
+    text = (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    assert text.count("Disposition: ") == 1
+    assert dispositions.read_marker(text).value == "current", (
+        "the render's preamble is the table's own marker"
+    )
+
+
+def test_apply_rows_leaves_the_table_alone_when_no_issue_rows_are_applied(tmp_path):
+    """The no-op is total: with no render to own the file, nothing writes it."""
+    (tmp_path / "docs").mkdir()
+    table = tmp_path / dispositions.ISSUE_TABLE
+    table.write_text("# Issue dispositions\n\nhand-written\n", encoding="utf-8")
+    document_row = dispositions.Row(
+        dispositions.ISSUE_TABLE, "current", "", False, "residual", ""
+    )
+
+    assert (
+        dispositions.apply_rows([document_row], root=tmp_path, date="2026-09-06") == []
+    )
+    assert table.read_text(encoding="utf-8") == "# Issue dispositions\n\nhand-written\n"
+
+
+def test_main_apply_wires_the_titles_through_end_to_end(tmp_path, monkeypatch, capsys):
+    """`main`'s apply branch is the only path that mutates the repository.
+
+    It had no test at all. `root=ROOT` is named at both call sites precisely so
+    this one can point the module at a temporary repository.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("# A\n\nBody.\n", encoding="utf-8")
+    subprocess.run(["git", "add", "--", "docs/a.md"], cwd=tmp_path, check=True)
+    monkeypatch.setattr(dispositions, "ROOT", tmp_path)
+    proposal = tmp_path / "proposal.tsv"
+    proposal.write_text(
+        dispositions.HEADER
+        + "\ndocs/a.md\tcurrent\t\t\tshipped-surface\t"
+        + "\nissue:96\tabsorbed-by\t§6\t\tspec-named-absorbed\tthe author's reason\n",
+        encoding="utf-8",
+    )
+    issues = tmp_path / "issues.json"
+    issues.write_text(
+        json.dumps([{"number": 96, "title": "Distribution model"}]), encoding="utf-8"
+    )
+
+    assert (
+        dispositions.main(
+            [
+                "apply",
+                str(proposal),
+                "--date",
+                "2026-09-06",
+                "--issues-json",
+                str(issues),
+            ]
+        )
+        == 0
+    )
+
+    assert "marked 1 documents and the issue table" in capsys.readouterr().out
+    table = (tmp_path / dispositions.ISSUE_TABLE).read_text(encoding="utf-8")
+    assert (
+        "| 96 | Distribution model | absorbed-by: §6 | the author's reason |" in table
+    )
+    assert (
+        dispositions.read_marker(
+            (tmp_path / "docs" / "a.md").read_text(encoding="utf-8")
+        ).value
+        == "current"
+    )
+
+    # Re-run with the flag dropped, which is what both operational commands in
+    # the plan actually do: the titles must survive.
+    assert dispositions.main(["apply", str(proposal), "--date", "2026-09-07"]) == 0
+    assert "| 96 | Distribution model |" in (
+        tmp_path / dispositions.ISSUE_TABLE
+    ).read_text(encoding="utf-8")
 
 
 # Linter section
