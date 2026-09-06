@@ -341,7 +341,7 @@ def read_marker(text: str) -> Marker | None:
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 13 tests.
+Expected: PASS — 16 tests in the file, all of them this task's.
 
 - [ ] **Step 6: Run the form owner and the full offline suite**
 
@@ -559,7 +559,7 @@ def propose(path: str, text: str) -> Proposal:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 26 tests (16 from Task 1 plus this task's 10). `?` is the deliberate placeholder for a `superseded-by` target: the classifier can see that a document declares supersession but not what superseded it, and Task 5's linter rejects a `?` that survives review.
+Expected: PASS — 26 tests cumulative (16 from Task 1 plus this task's 10). `?` is the deliberate placeholder for a `superseded-by` target: the classifier can see that a document declares supersession but not what superseded it, and Task 5's linter rejects a `?` that survives review.
 
 - [ ] **Step 5: Run the form owner and the full offline suite**
 
@@ -750,7 +750,7 @@ Add `import argparse` and `import sys` to the module's import block.
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 28 tests.
+Expected: PASS — 32 tests cumulative (26 from Tasks 1-2 plus this task's 6).
 
 - [ ] **Step 5: Ignore the scratch proposal**
 
@@ -958,7 +958,7 @@ Add `import datetime as _dt` to the module's import block, and extend `main`:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS, 36 tests.
+Expected: PASS — 40 tests cumulative (32 from Tasks 1-3 plus this task's 8).
 
 - [ ] **Step 5: Run the form owner and the full offline suite**
 
