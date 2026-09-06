@@ -1449,6 +1449,20 @@ There is nothing to commit — this task's whole footprint is on GitHub. Report 
 
 ______________________________________________________________________
 
+## Merge-time top-up
+
+**The corpus moves while the pass runs.** It went 213 → 214 the moment this plan file landed. If a parallel session adds a document during execution, that file carries no `Disposition:` line and the standing linter goes red on `main` the instant the branch merges.
+
+So the merge is one motion, per `AGENTS.md` — merge, top up, verify, push — and the top-up rides inside it rather than arriving as a follow-up commit:
+
+```bash
+git switch main && git merge --no-ff status-marking-pass
+python -m scripts.dispositions propose --issues-json <(gh issue list --state open --limit 200 --json number,title)
+git diff --stat -- disposition-proposal.tsv   # rows whose rule is `residual` are new arrivals
+```
+
+Any row whose `rule` is not `existing` is a document that appeared during execution: disposition it, apply, re-run `python -m pytest tests/test_dispositions.py -q`, amend the merge commit, then push. A green linter on `main` is the gate on pushing, not a thing to fix afterwards.
+
 ## What this plan does not do
 
 Named so the next session does not go looking:
