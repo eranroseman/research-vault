@@ -871,11 +871,33 @@ def test_apply_rows_writes_only_the_rows_it_is_given(tmp_path):
     assert "Disposition: " not in (tmp_path / "docs" / "b.md").read_text(encoding="utf-8")
 
 
-def test_apply_rows_rejects_an_unresolved_superseded_target(tmp_path):
+def test_apply_rows_rejects_an_unreviewed_superseded_placeholder(tmp_path):
+    """The `?` the classifier emits must never reach a file. Fails in marker_line."""
     (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
     rows = [dispositions.Row("a.md", "superseded-by", "?", False, "header-superseded", "")]
     with pytest.raises(dispositions.MarkerError):
         dispositions.apply_rows(rows, root=tmp_path, date="2026-09-05")
+
+
+def test_apply_rows_rejects_a_superseded_target_that_does_not_resolve(tmp_path, monkeypatch):
+    """The tracked guard runs only when root is ROOT, so ROOT is the tmp repo here.
+
+    Without this, the guard protecting the live sweep from a typo'd target is
+    never executed by any test: every other test passes a tmp root, which sets
+    `tracked` to None and skips the branch entirely.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
+    (tmp_path / "b.md").write_text("# B\n", encoding="utf-8")
+    subprocess.run(["git", "add", "a.md", "b.md"], cwd=tmp_path, check=True)
+    monkeypatch.setattr(dispositions, "ROOT", tmp_path)
+
+    resolves = [dispositions.Row("a.md", "superseded-by", "b.md", False, "header-superseded", "")]
+    assert dispositions.apply_rows(resolves, root=tmp_path, date="2026-09-05") == ["a.md"]
+
+    typo = [dispositions.Row("a.md", "superseded-by", "docs/typo.md", False, "header-superseded", "")]
+    with pytest.raises(dispositions.MarkerError, match="does not resolve"):
+        dispositions.apply_rows(typo, root=tmp_path, date="2026-09-05")
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -923,7 +945,11 @@ def apply_marker(text: str, line: str) -> str:
 
 def apply_rows(rows: list[Row], root: Path = ROOT, date: str = "") -> list[str]:
     """Write every document row. Returns the repo-relative paths touched."""
-    date = date or _dt.date.today().isoformat()
+    # `_dt.UTC`, not `_dt.timezone.utc`: ruff's UP017 wants the alias and DTZ
+    # wants an aware call, and eight call sites in `research_vault/` already use
+    # this exact form. The date on a marker is a record date, and `--date` is the
+    # path for a human-chosen one — this is only the unattended fallback.
+    date = date or _dt.datetime.now(_dt.UTC).date().isoformat()
     tracked = set(in_scope(root)) if root == ROOT else None
     written = []
     for row in rows:
@@ -958,7 +984,7 @@ Add `import datetime as _dt` to the module's import block, and extend `main`:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_dispositions.py -q`
-Expected: PASS — 40 tests cumulative (32 from Tasks 1-3 plus this task's 8).
+Expected: PASS — 42 tests cumulative (32 from Tasks 1-3 plus this task's 10). The test file gains `import subprocess` for the git fixture, matching `tests/conftest.py:28`.
 
 - [ ] **Step 5: Run the form owner and the full offline suite**
 
