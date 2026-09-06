@@ -517,6 +517,45 @@ def test_apply_marker_moves_a_displaced_marker_rather_than_adding_a_second():
     assert dispositions.apply_marker(out, "Disposition: current (2026-09-06)") == out
 
 
+def test_apply_marker_drops_the_displaced_one_when_a_marker_is_also_in_window():
+    """Both present is the only case where the count is ALREADY two.
+
+    The window scan used to run first and return on its hit, so
+    `displaced_markers` never ran and both markers survived — the docstring's
+    "moving is what keeps the count at one" was false in exactly the case it
+    was written for. The fix is an order swap: drop, then scan.
+    """
+    text = (
+        "# T\n\nDisposition: historical (2026-09-05)\n\nBody.\n\n"
+        "Disposition: current (2026-09-04)\n\nMore body.\n"
+    )
+    assert dispositions.read_marker(text).value == "historical", "one in the window"
+    assert dispositions.displaced_markers(text.split("\n")) == [6], "one below it"
+
+    out = dispositions.apply_marker(text, "Disposition: current (2026-09-06)")
+
+    assert out.count("Disposition: ") == 1
+    assert out == "# T\n\nDisposition: current (2026-09-06)\n\nBody.\n\nMore body.\n"
+    assert dispositions.displaced_markers(out.split("\n")) == []
+    assert dispositions.apply_marker(out, "Disposition: current (2026-09-06)") == out
+
+
+def test_apply_marker_drops_a_marker_displaced_above_the_anchor():
+    """A drop above the first heading moves the anchor, so it is recomputed.
+
+    With the anchor left stale the insert lands five lines too low — outside
+    the window, which is a marker that reads as absent all over again.
+    """
+    text = "Preamble.\n\nDisposition: historical (2026-09-05)\n\n# T\n\nBody.\n"
+    assert dispositions.displaced_markers(text.split("\n")) == [2]
+
+    out = dispositions.apply_marker(text, "Disposition: current (2026-09-06)")
+
+    assert out == "Preamble.\n\n# T\n\nDisposition: current (2026-09-06)\n\nBody.\n"
+    assert dispositions.read_marker(out).value == "current"
+    assert dispositions.apply_marker(out, "Disposition: current (2026-09-06)") == out
+
+
 def test_apply_marker_leaves_a_fenced_disposition_example_alone():
     """This repository's own plan quotes the table preamble inside a fence."""
     text = (

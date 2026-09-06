@@ -969,16 +969,21 @@ def apply_marker(text: str, line: str) -> str:
     window — passes. Moving keeps exactly one, and is byte-identical on a
     second run. A FENCED `Disposition:` line is an example quoted in prose and
     is never moved; `unfenced` is what tells them apart.
+
+    The drop runs BEFORE the window scan, and that order is the guarantee: the
+    scan returns on its hit, so scanning first skipped the drop entirely in the
+    one case where the count was already two.
     """
     lines = text.split("\n")
+    for index in reversed(displaced_markers(lines)):
+        lines = _drop_line(lines, index)
+    # Every index has moved, and a marker dropped from ABOVE the first heading
+    # moves the anchor itself.
     start = anchor(lines)
     for index in range(start, min(start + WINDOW, len(lines))):
         if lines[index].startswith("Disposition: "):
             lines[index] = line
             return "\n".join(lines)
-    for index in reversed(displaced_markers(lines)):
-        lines = _drop_line(lines, index)
-        start = anchor(lines)
     prefix, rest = lines[:start], lines[start:]
     if rest and rest[0] == "":
         rest = rest[1:]

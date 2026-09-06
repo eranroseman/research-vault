@@ -585,16 +585,22 @@ def apply_marker(text: str, line: str) -> str:
     A fenced `Disposition:` line is an EXAMPLE, not a marker: this repository's
     own plan quotes the table preamble inside a code block, and moving that
     would edit a document's prose. `unfenced` is what tells them apart.
+
+    The drop runs BEFORE the window scan, and that order is the whole guarantee.
+    Scanning first returned on the in-window hit, so a file carrying BOTH an
+    in-window and a displaced marker kept both — the one case where the count
+    was already two, and the only case the docstring's promise was for.
     """
     lines = text.split("\n")
+    for index in reversed(displaced_markers(lines)):
+        lines = _drop_line(lines, index)
+    # After the drops: every index has moved, and a marker dropped from ABOVE
+    # the first heading moves the anchor itself.
     start = anchor(lines)
     for index in range(start, min(start + WINDOW, len(lines))):
         if lines[index].startswith("Disposition: "):
             lines[index] = line
             return "\n".join(lines)
-    for index in reversed(displaced_markers(lines)):
-        lines = _drop_line(lines, index)
-        start = anchor(lines)
     prefix, rest = lines[:start], lines[start:]
     if rest and rest[0] == "":
         rest = rest[1:]
