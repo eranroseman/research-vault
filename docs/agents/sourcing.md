@@ -1,7 +1,5 @@
 # Sourcing
 
-Disposition: current (2026-09-06)
-
 A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, and a handoff. That definition lives here.
 
 This file carries one rule.

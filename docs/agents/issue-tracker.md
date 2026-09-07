@@ -1,7 +1,5 @@
 # Issue tracker: GitHub
 
-Disposition: current (2026-09-06)
-
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
 ## Conventions

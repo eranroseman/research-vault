@@ -1,7 +1,5 @@
 # Ingest redesign: design
 
-Disposition: current (2026-09-07)
-
 Status: **the active spec** (2026-09-07), amended from the 2026-09-04 draft. This is lane 1 of `2026-09-05-assembly-design.md`, promoted into the one active-spec slot decision 22 allows beside the open decomposition. Its scope is wider than lane 1's capture→compile seam and deliberately so: ingest is one cohesive theme and it contains the seam.
 
 Status of the 2026-09-04 draft: nothing there was decided. Five labels are used: **chosen** (the author picked it, and it can be re-picked), **ratified** (a heading the author confirmed after review — *adopted* and *confirmed* are the same label where they appear), **measured** (probed live on the date given), **proposed** (the design's suggestion, not yet put to the author), and **open** (not yet answered). §1.1 is *chosen* as vocabulary and *proposed* as the individual terms, which is why its table's column reads Proposed. A label is written where a reader could not otherwise tell which one applies. Unlabelled prose is proposed. A fact read from source or from documentation rather than probed says which. This document supersedes foundation spec §4 (Zotero bridge).

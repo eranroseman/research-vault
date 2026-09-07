@@ -1,7 +1,5 @@
 # Domain Docs
 
-Disposition: current (2026-09-06)
-
 How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
 ## Before exploring, read these

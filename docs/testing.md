@@ -1,7 +1,5 @@
 # Testing instruments
 
-Disposition: current (2026-09-06)
-
 ## The suite
 
 Offline (default): `python -m pytest tests -q -n auto` from the repo root, inside `.venv` (xdist pinned; pass `-n` on the command line, never in addopts). Env-gated live legs are skipped unless flagged; live runs stay serial (polite pools, settle windows).

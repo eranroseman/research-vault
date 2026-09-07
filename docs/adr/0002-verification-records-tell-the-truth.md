@@ -1,7 +1,5 @@
 # Verification records tell the truth: four states, MATCHED-only minting
 
-Disposition: current (2026-09-06)
-
 Status: accepted (2026-08-20)
 
 Every mechanical check reports one of four states, and the distinctions are load-bearing: **MATCHED** (the check ran and the claim held), **UNMATCHED** (the check ran and the claim did not hold), **UNREACHABLE** (the check could not run — network down, service absent, file missing), **SKIPPED** (the check does not apply, determined automatically, never by choice). The decision: **an outage is never an accusation** — UNREACHABLE is not UNMATCHED and is never presented as failure — and **only a genuine pass mints a verification record**: a `verified` event `{by, at, check}` is appended only on MATCHED, never on SKIPPED, UNREACHABLE, or any aggregate that merely contains no failures. Verification records are therefore positive evidence that a specific check ran and held, and their absence means exactly "not verified" — never "failed".

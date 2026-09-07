@@ -1,7 +1,5 @@
 # research-vault as an assembly: obligations, component register, and lanes
 
-Disposition: current (2026-09-06)
-
 Status: open decomposition — stays open until everything in it is done (decision 22). Drafted 2026-09-05, **amended 2026-09-06 and 2026-09-07** — nothing here is decided except the rows marked **chosen**.
 
 The amendment adds decisions 12–18 to §3 and rewrites §4, §5, §6, §7.3, §8, §9, §13, §14 and §15 under them. **§3's 2026-09-05 rows are not edited**: a decision reversed on a later day is recorded as a later decision naming what it supersedes, never as a rewrite of the earlier one. That is the `superseded_by_row` rule §5.1 applies to the register, applied to this document's own decisions.
