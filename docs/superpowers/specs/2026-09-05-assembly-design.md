@@ -77,7 +77,9 @@ All **chosen** 2026-09-05 unless noted.
 
 14. **The register carries facts and pointers, not justification.** Eight columns in `docs/component-register.md`. `pin`, `pin_semantics`, `provisioning`, `class` and `tier` leave because each class's own registry holds them — and for two classes there is nothing to hold. `candidates_screened` leaves because nothing in this document ever defined its contents. *Supersedes §5.1's fourteen-column table.*
 
-15. **Lanes run sourcing screens, not scoping reviews.** A scoping review is a research method over literature — a question, a search, eligibility screening, charting, a flow diagram. Choosing software against acceptance criteria is not that, and §7.3 previously admitted the collision (*"names both a workflow step and the method a lane runs"*) without fixing it. The repository's own prior art already uses the right word: `docs/research/2026-09-01-pre-spec-sourcing-screen.md`. `scoping-review` in §5.0 returns to meaning only the research method, owned by #119. *Supersedes §7.3's naming.*
+15. **Lanes run sourcing screens, not scoping reviews.** A scoping review is a research method over literature — a question, a search, eligibility screening, charting, a flow diagram. Choosing software against acceptance criteria is not that, and §7.3 previously admitted the collision (*"names both a workflow step and the method a lane runs"*) without fixing it. The repository's own prior art already uses the right word: `docs/research/2026-09-01-pre-spec-sourcing-screen.md`. `scoping-review` in §5.0 returns to meaning only the research method, owned by #119. *Supersedes §7.3's naming **and §10's `should-be-scoping-review` flag**.*
+
+The flag is the wider half. It is set on **42 documents** in `docs/document-dispositions.tsv`, and they are not one kind of thing: some are literature comparisons, but others — `docs/research/2026-09-01-pre-spec-sourcing-screen.md` most plainly — are sourcing screens, so the flag currently promises to replace them with a research method they were never an instance of. **The TSV is a reviewed artifact and this spec does not touch it**; §15.19 carries the split.
 
 16. **No second setup mechanism.** research-vault extends `research_vault/scaffold.py`'s existing `doctor()` with a read-only `--check-only` mode. The sibling's `bin/setup` shape — declarations in-repo never read from the machine, one script with check as its second mode, a scratch `HOME` as a complete test fixture — is adopted as *principles*; the script is not copied, because this repository already has the thing it would duplicate. *Confirms §9 against a contrary proposal.*
 
@@ -137,7 +139,9 @@ Keyed on `(step, component)`, with an empty `step` permitted for a component tha
 
 **Five columns left the table** (decision 14), each because something else already holds it or because there was nothing to hold: `class`, `pin`, `pin_semantics` and `provisioning` belong to the class's own registry (§6), and for Zotero and Obsidian no pin exists to record at all. `candidates_screened` left because nothing in this document ever defined its contents — the screen's own candidate table is that record. `tier` left with the pin legs it described. `decided_by` and `decided_on` are subsumed by `decided_in`, which names a dated screen.
 
-The register's linter checks three things: every `decided_in` resolves; every `floor_failed` resolves to a numbered must inside its `decided_in`; and every `component` resolves to an entry in its class's registry. That last one is what replaces holding a copy — the register and the pin registries are proved to agree rather than one restating the other.
+The register's linter checks three things: every `decided_in` resolves; every `floor_failed` resolves to a numbered must inside its `decided_in`; and every `component` resolves to an entry in one of the four class registries (§6). That third check is what replaces holding a copy — the register and the registries are proved to agree rather than one restating the other.
+
+**Resolution is by union, because dropping `class` left the linter no discriminator.** With no `class` column there is nothing in the row that says which registry to open, so the linter tries all four and requires exactly one hit: zero hits is an unregistered component, and **two or more is itself a lint error**, because a name that means two things in two registries is a defect whichever one the row intended. That rule needs no new convention — an addon id, an Obsidian plugin folder, a marketplace entry name and a PyPI name do not collide in practice, and the linter fails loudly on the day they do.
 
 **Header block**, written by this spec and amended only by an author decision: the cold-start reading list (§8), and each row's handoff condition where one exists (§6.3).
 
@@ -184,7 +188,7 @@ The two unpinned classes are not thereby unmanaged. What we owe them is a **decl
 | provision | scaffold copies it into a new vault — plugins present and configured on first open |
 | observe   | doctor reads `<configDir>/plugins/<id>/manifest.json` `version` — mechanical-cold  |
 
-**The BRAT pin leg is gone** (decision 12, superseding the earlier `pluginSubListFrozenVersion` route). BRAT freezes a version for plugins installed *through BRAT*, which is the beta-distribution channel; it is not a pin over community plugins installed normally, and adopting it would have added a dependency to buy a guarantee it does not give for the plugins we actually want. What replaces it is what the author specified: **a `.obsidian/` folder finely tuned for research-vault**, shipped with the plugins installed and their settings set. That provisions a working vault on first open — the outcome the pin was reaching for — without pretending the versions are held afterwards. Obsidian updates community plugins on its own schedule and we observe the result.
+**The BRAT pin leg is gone** (decision 12, superseding the earlier `pluginSubListFrozenVersion` route). BRAT freezes a version for plugins installed *through BRAT*, which is the beta-distribution channel; it is not a pin over community plugins installed normally, and adopting it would have added a dependency to buy a guarantee it does not give for the plugins we actually want. What replaces it is what the author specified: **a `.obsidian/` folder finely tuned for research-vault**, shipped with the plugins installed and their settings set. That provisions a working vault on first open — the outcome the pin was reaching for — without pretending the versions are held afterwards. What we know, and the limit of it: **the seeded tree carries no lock**, and updates are applied by the user from Obsidian's own settings, at a time we neither choose nor see. Whether Obsidian ever updates a community plugin without being asked is unmeasured and does not change the design — either way we observe the installed version rather than hold it.
 
 The seeded folder is a **vendored artifact**: it carries third-party plugin code, so it records provenance and the version seeded, exactly as any vendored source in this repo does. **§15 carries the open item** — what proves the seeded tree still matches what was seeded, since a folder of copied plugin code has no lock and drifts silently once Obsidian updates it in place.
 
@@ -194,11 +198,13 @@ Two constraints, both **read**: the config directory is user-overridable, so no 
 
 ### 6.3 Claude Code plugin or skill
 
-`pin_semantics`: **held**, by sha.
+**Held, by sha** — the first of the two classes we can actually pin.
 
 **The handoff condition has fired.** This section previously said the mechanism was "under construction in the sibling `agent-plugins` repository and does not yet exist: no `bin/`, no `upstream/skills.json`". Measured 2026-09-06, all of it now exists: `bin/setup` (614 lines, with a `--check` mode), `bin/doctor`, `bin/upstream-watch`, `bin/bump-superpowers`, `upstream/skills.json`, `.claude-plugin/marketplace.json` whose curated entries carry `git-subdir`, `url`, `path`, `ref`, **`sha`** and `version`, and 20 test files. The interim was designed against an absence that lasted one day.
 
 So the interim is not needed, and **what we adopt is the shape, not the script**. Two pinning surfaces, both already proven in the sibling: a `sha` in the marketplace entry, and a `ref` per source in `upstream/skills.json`. Drift is `git ls-remote` against each. We adopt those file shapes as-is — the first rung of the priority order, and the first place in this spec where adopt actually wins.
+
+**Both surfaces have to be created here; neither is present** (measured 2026-09-06). This repository has `.claude-plugin/marketplace.json`, but it publishes *research-vault itself* — one entry, `"source": "./"`, no third-party rows and nowhere to put a `sha`. There is no `upstream/` directory at all. Adopting a file shape from the sibling means writing two files, and this spec says so rather than implying they are sitting there waiting for a field.
 
 **We do not adopt `bin/setup` itself.** It is not vendored here, nothing in research-vault runs it, and it handles none of Zotero, Obsidian or Python — the three classes that make this repo's setup problem different from the sibling's. Its 614 lines solve the Claude Code class, which is the one class we can pin with two file fields. Copying a script to reuse two fields inverts the ladder.
 
@@ -206,13 +212,13 @@ Our two extra classes — Zotero and Obsidian — are requirements that sibling'
 
 ### 6.4 Python dependency
 
-`pyproject` plus a lock; `pin_semantics`: **held**, by the lock. The mechanism is standard; **the lock does not yet exist** — measured 2026-09-05, no lock file in the tree, and `pyproject.toml:18` pins `pypdf>=4` as an open range. Generating it and pinning the optional groups is §15.15.
+`pyproject` plus a lock; **held**, by the lock. The mechanism is standard; **the lock does not yet exist** — measured 2026-09-05, no lock file in the tree, and `pyproject.toml:18` pins `pypdf>=4` as an open range. Generating it and pinning the optional groups is §15.15.
 
 ### 6.5 An unpinned installer already ships
 
 `research_vault/scaffold.py:23` declares `PROVISION_COMPANIONS = ["kepano/obsidian-skills"]`, and `skills/setup-vault/SKILL.md:42` instructs `claude plugin install kepano/obsidian-skills`. No version, no pin, no drift check. The problem this spec exists to solve is live in the package, and it is register row zero.
 
-**Row zero's pin now has a home.** It is a Claude Code plugin — the class that *can* be pinned (§6.3) — so the fix is not new machinery: give it a marketplace entry carrying a `sha`, and let the hardcoded list in `scaffold.py` read from that entry rather than restate it. Two constants become one declaration. Decision 12 narrows this repo's pin problem to the two classes where a pin exists, and row zero is in one of them.
+**Row zero's pin now has a home.** It is a Claude Code plugin — the class that *can* be pinned (§6.3) — so the fix is not new machinery: add a third-party entry carrying a `sha` to `.claude-plugin/marketplace.json`, which today publishes only this repository, and let the hardcoded list in `scaffold.py` read from that entry rather than restate it. Two constants become one declaration. Decision 12 narrows this repo's pin problem to the two classes where a pin exists, and row zero is in one of them.
 
 ## 7. Lanes
 
@@ -249,10 +255,10 @@ The claim that a URL-only entry gains nothing from Zotero is right about organis
 | ---- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2    | Zotero plugins                                                       | a choice *within* lane 1's contract, measured against 10.0.1, over all 23 installed plus the author's named not-installed candidates                                                                                                            |
 | 3a   | Obsidian vault creation and seam-free plugins                        | opens by creating the vault that does not exist (§6.2); unblocks T5                                                                                                                                                                             |
-| 3b   | Obsidian plugins that read Zotero — ZotLit, `obsidian-reference-map` | decided inside lane 1's seam contract, after lane 2 pins Better BibTeX                                                                                                                                                                          |
+| 3b   | Obsidian plugins that read Zotero — ZotLit, `obsidian-reference-map` | decided inside lane 1's seam contract, after lane 2 dispositions Better BibTeX and records the version observed                                                                                                                                 |
 | 4    | Skills curation — MedSci, K-Dense                                    | screens candidates against §4's floors: PRISMA-S, PRISMA-ScR and the ACM guidelines. **Not blocked** on issues #117 and #119 — a checklist screens components whether or not the step spec exists — though their output would refine the floors |
 
-Lanes 2 and 3a are seam-free and may run concurrently. Lane 1 must not be split. Lane 3b is **not** seam-free: `obsidian-reference-map` requires Better BibTeX's local server and is reported broken against BBT 9.0.57+, a hard dependency on a lane-2 component at a version lane 2 has not pinned.
+Lanes 2 and 3a are seam-free and may run concurrently. Lane 1 must not be split. Lane 3b is **not** seam-free: `obsidian-reference-map` requires Better BibTeX's local server and is reported broken against BBT 9.0.57+, a hard dependency on a lane-2 component at a version nobody pins (decision 12) — so the constraint lane 3b inherits is an observed version that can change under it, not a held one.
 
 Each lane runs a **sourcing screen**: a bounded question, a screened candidate set, recorded exclusions, and a handoff (decision 15).
 
@@ -274,11 +280,11 @@ The contract exists because the expensive part of entering this repository is no
 
 ## 9. Setup, doctor, drift, and the upgrade act
 
-**A doctor already exists, and it repairs before it probes.** `research_vault/scaffold.py:322` calls `scaffold_vault(vault)` unconditionally, then returns eight probes — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup — and **none concerns an installed component**. This spec extends it rather than starting a second one, and separates the two acts: the component checks are read-only and run in a `--check-only` mode that skips the scaffold write, so §6.1's "no write from research-vault" survives and drift cannot be repaired away before it is reported. Adopt-over-build applied to our own code.
+**A doctor already exists, and it repairs before it probes.** `research_vault/scaffold.py:322` calls `scaffold_vault(vault)` unconditionally, then returns eight probes — tree, machine-config, zotero, bbt, autoexport, staleness, remote, backup — and **none concerns an installed component**. This spec extends it rather than starting a second one, and separates the two acts: the component checks are read-only and run in a `--check-only` mode that skips the scaffold write, so the observe legs of §6.1 and §6.2 stay read-only and drift cannot be repaired away before it is reported. Adopt-over-build applied to our own code.
 
 **Doctor runs in two phases and reports which it completed, per substrate app.** The live phase needs the relevant app up — four of the eight existing probes already fail `zotero down` without it, and the Obsidian CLI needs the desktop app running. The cold phase needs that app down. A cold check attempted while its app is running reports `SKIPPED — <app> running`, never a stale `MATCHED`, and doctor states which apps it found running so a partial run is never mistaken for a clean one. Doctor gains, per §6:
 
-- the Zotero pin verification pair — cold;
+- the Zotero per-plugin read — presence, `appDisabled`, version, from `extensions.json`, cold. **Not a pin check**: the pair this bullet used to name (`autoUpdateDefault == false` plus no `applyBackgroundUpdates == 2`) went with decision 12;
 - the per-plugin observe leg — presence, `appDisabled` and version read from `extensions.json`, cold; effects over the local API, live (§6.1);
 - the Obsidian manifest version read, **proposed, pending T5** — cold, and it reports a version without asserting a pin (§6.2);
 - the Claude Code sha comparison via `git ls-remote`;
@@ -472,3 +478,5 @@ Zotero runtime rows re-measured 2026-09-05 evening, after the author enabled PMC
 17. **What proves the seeded `.obsidian/` still matches what was seeded** (§6.2). The folder ships third-party plugin code with no lock; Obsidian updates plugins in place, so the tree drifts from the seeded state silently and the observe leg reads only `manifest.json` `version` — which tells us what is installed, never whether it is what we shipped. A per-plugin hash recorded at seed time is the obvious mechanism and is unspecified. This is the gap that decision 12 opened by trading a pin for provisioning, and naming it is the price of that trade.
 
 18. **Where the new mechanisms live if research-vault moves into `agent-plugins`.** The register linter, the `README.md` Zotero-table parser, and doctor's `--check-only` mode are being built inside `research_vault/` because that is where the doctor is today (decision 16). If this repository becomes one plugin in the suite, `scaffold.doctor()` sits beside the suite's `bin/doctor` and the boundary has to be redrawn — one of them owns the entry point, or the suite doctor delegates per plugin. **The move itself is undecided and is the author's**, so the trigger is recorded rather than the answer: if research-vault moves, this item opens. Building inside `research_vault/` now costs nothing if it never moves and is a known, bounded merge if it does.
+
+19. **`should-be-scoping-review` is set on 42 documents and means two different things** (§10, decision 15). Some carry it because they are informal literature comparisons a real scoping review should replace; others are **sourcing screens**, where the flag names the wrong successor entirely — `docs/research/2026-09-01-pre-spec-sourcing-screen.md` is the clearest case, since decision 15 cites it as the repository's own correct use of the word. Splitting the flag means re-reading 42 rows of a human-reviewed artifact, so it is scheduled rather than done here, and `docs/document-dispositions.tsv` is untouched by this amendment.

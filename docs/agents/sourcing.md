@@ -30,4 +30,4 @@ The rule exists because a prior belief of this repository — that writing our o
 
 ## The higher rung
 
-The rung above this rule is the discipline living in the `software-development` brainstorming skill, so that no repository needs to carry it. That is filed upstream rather than built here: it is a separate project, and this repository cannot wait on it.
+The rung above this rule is the discipline living in the `software-development` brainstorming skill, so that no repository needs to carry it. **It is not filed — no such issue exists as of 2026-09-06** (checked). Filing it upstream is the right move and this repository cannot wait on it either way, since that is a separate project on its own schedule.
