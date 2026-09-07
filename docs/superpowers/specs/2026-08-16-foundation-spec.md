@@ -50,44 +50,15 @@ Superseded in full by `2026-09-04-import-redesign-design.md`, which names this s
 
 The deletion was checked bullet by bullet before it was made. Four of five are carried by the successor or retired in its §6. Four items were **not** carried and are recorded at that document's **§8.1** rather than lost here: the BibLaTeX projection over tier 2, the ZotLit-convention hedge, the MarkDB-Connect presence marker, and the two-way-sync deferral — whose gate has since opened, Zotero having shipped local API writes on 2026-07-27.
 
-## 5. Provenance schema ([#9](https://github.com/eranroseman/knowledge-harness/issues/9))
+## 5. Provenance schema — deleted 2026-09-07
 
-The vault adopts OKF's structural conventions while retaining the research-domain deviations that make its evidence boundary explicit: citekey/Pandoc attribution; `citekey`/`doi`/`url` rather than OKF `sources`/`resource`; typed `supports`/`disputes`; PRISMA screening states; and the richer project publication lifecycle.
+Checked element by element before deletion, as §4 was. **88 elements**: 52 carried by a successor, 6 retired with a reason, 7 frozen pending the workflow-component audit, 3 already open items, and **20 with no home**.
 
-| Kind                            | Required and optional frontmatter                                                                                                                                                                                                 |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Common concept                  | non-empty `type`; optional `description`; optional ISO-8601 `stale_after`; machine-written mutable concepts carry top-level `generated: {by: <actor>, at: <ISO-8601 datetime>}`, where `at` is the last meaningful content change |
-| Literature (`type: literature`) | `citekey`; optional `doi`/`url`, `pmid`, `version`, `archive-url`, `authority`; day-one `accessed`; list `fixity-sha256`; `status: unscreened \| included \| excluded \| superseded`; `superseded-by` when superseded             |
-| Synthesis (`type: synthesis`)   | `status: draft \| stable \| deprecated`; generation metadata (skill-substituted `{{ACTOR}}`/`{{NOW}}` at instantiation, never a shipped literal); no Appleton `growth`, `planted`, or `last-tended` fields                        |
-| Project (`type: project`)       | `status: draft \| parked \| published \| corrected \| withdrawn`; generation metadata (skill-substituted `{{ACTOR}}`/`{{NOW}}` at instantiation, never a shipped literal); publication appends a verified event                   |
-| Verification                    | `verified` is a list of `{by, at, check}` pass events; only genuine MATCHED checks append events                                                                                                                                  |
+The seven of those that are rules rather than rationale are carried into `2026-09-04-import-redesign-design.md` **§8.2** as open points 14–20: the acknowledgment scope's missing hash, `[retraction-ack::]`'s single-definition-site rule, the reason-code vocabulary's four-surface span, the human-ack clearing of `[failed-verification::]` (which turned out to be an **unimplemented** rule, not a lost one), Web-Annotation context capture, the re-anchoring cascade's lost trigger, and one claim in §5 that was **false** — no build-time validation against Dataview or Bases parsers exists.
 
-`managed-sha256` is bridge/verifier-owned metadata over the exact managed-region bytes. It is compared with the current managed region, with HEAD during pre-commit, or with an explicit fetched/passed CI base for committed edits, deletes, and renames. It remains part of canonical content.
+That document's **§2.2** also gained the enumeration this check showed was missing: the seven vault-owned frontmatter fields the Zotero snapshot does not cover, each with a disposition, because `notes.py` writes fields the successor did not describe.
 
-Literature `fixity-sha256` values are OAIS whole-object fixity anchors and ack-scope triggers, never re-import change detectors; render-first managed-projection comparison governs no-op detection. `accessed` is preserved from day one. Optional `description` and `stale_after` pass through unchanged when present and remain absent when omitted; this adoption does not create a new staleness subsystem. `generated` participates in canonical content, while a byte-identical rerender preserves the earlier `generated.at` even when a later timestamp is supplied.
-
-**Claims, inline, per claim** (never frontmatter-only — tags must survive per-claim relays). **Quotes are blockquotes** — the tag, citation, and anchor ride the claim line; the verbatim text sits in a blockquote under it:
-
-```markdown
-- (quote) [@smith2020, p. 12] ^c1
-  > Mortality fell 12% (95% CI 8–16).
-- (inference) The effect likely generalizes. [@smith2020] [confidence:: moderate] ^c2
-```
-
-Per-claim `status`: `live | deprecated` — deprecation is a **transition record** carrying `[deprecated-at:: <date>] [deprecated-by:: <actor>] [reason:: <code> …]` and, where a successor exists, `[superseded-by:: <claim link>]` (bi-temporal precedent: state changes get actor + date, matching the `verified`-event discipline). **Retraction acknowledgment** is an inline field on the citing claim — `[retraction-ack:: <code> …]` — defined here once; the update-notice gate, `publish`, and `evidence-conventions` all key on this single syntax. **Machine-written verification markers travel with the claim** (the relay principle applies to failures too): an UNMATCHED result stamps `[failed-verification:: <check>/<date>]` on the failing claim, cleared on a later MATCHED or human acknowledgment.
-
-**Reason codes**: one small controlled vocabulary (defined in evidence-conventions; free-text elaboration allowed after the code) shared by import-source holds, deprecations, acknowledgments, and not-admitted records — so reasons are countable and Bases-queryable, never free text alone.
-
-**Anchor durability (invariant)**: `^claim-id` values in managed regions derive from stable content (Zotero annotation key, else quote hash) — **never from render order** — so full re-render preserves every claim link. Quote claims capture Web-Annotation-shaped context at extraction time (`exact` + 32-char `prefix`/`suffix`) — nearly free at capture, unreconstructable later; the re-anchoring *cascade* stays deferred (§10).
-
-- Evidence-boundary tag: `quote | paraphrase | inference | open-question` (open-question = a claim with no derivation edge — itself lintable).
-- `[@citekey, locator]` carries pinpoints (parses losslessly to CSL `locator`+`label`).
-- `^block-id` anchors claims; **`citekey#^claim-id` is the global claim link** (no adoptable donor among surveyed products as of 2026-08-16; the *model* has precedent — micropublications' Support/Challenge graphs, Wikidata's per-statement references — first implementation on this substrate, not first idea; qualified 2026-08-22).
-- Synthesis claims add: `confidence` (inference-only), per-claim `status`+reason, generating agent + date, and typed `supports`/`disputes` stance links to claim links (the two CiTO senses are the whole stance vocabulary; corrected 2026-08-22).
-
-**Event integrity**: actor convention (`human:<name>` / `research_vault/<version>`, per the code's `AGENT_ACTOR`) applies to every generating/verifying identity. Note-level checks (DOI, metadata, update-notice) append verified events to literature frontmatter; claim-level quote events include the claim link and comparison target (`managed-region` or `source-text`) in `check`; publish events attach to the project. Machine-confirmed trust requires all applicable note-level checks and quote claims to match; human-reviewed additionally requires a `human:` event. Deterministic gate surfaces alone write these events, and CI recomputes their passes.
-
-**Invariants**: deprecate-with-reason, never delete; contradictions preserved, never silently resolved. Never-delete also covers the human-owned free region below the managed close marker: a render over an existing note that has lost or never had that marker refuses rather than reseed the region. **Upgrade path (deferred)**: per-quote prefix/suffix re-anchoring + a machine-owned claim ledger (Option C), gated on a consistency check, only if the slice shows prose-parsing bottlenecks. Exact inline-field syntax is validated against Dataview/Bases parsers at build time.
+The thirteen rationale orphans — why the five OKF deviations are kept as a set, "nearly free at capture", "countable and Bases-queryable", "canonical content" — are left to git history. They explain rules that survive elsewhere; none is a rule itself.
 
 ## 6. Trust gates ([#10](https://github.com/eranroseman/knowledge-harness/issues/10))
 
