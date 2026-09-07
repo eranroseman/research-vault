@@ -16,7 +16,7 @@ Consumers: the implementation plan for this iteration; the later specs for searc
 
 ## Amendments, 2026-09-07
 
-Eight changes, all additive except three corrections. The 2026-09-04 draft survives intact everywhere else, and that is the point: re-deriving §9's forty live-probe rows because the document was three days old would be the reflex this project exists to correct.
+All additive except three corrections, each marked as one. The 2026-09-04 draft survives intact everywhere else, and that is the point: re-deriving §9's forty live-probe rows because the document was three days old would be the reflex this project exists to correct.
 
 1. **§2.8 is new: the sourcing screen for capture.** The draft screened the *compile* step against 43 candidates (§4.1) and never screened capture at all — it went straight to building. `docs/agents/sourcing.md` requires a `build` verdict to name the numbered must no candidate met, and that record did not exist. It does now.
 2. **Annotations defer to lane 4** (decomposition decision 28), on a measurement: 2,844 objects in the library, **one** annotation. This narrows §2.2's provenance tuple, §2.3 step 2 and §2.4's per-object comparison for this iteration. Nothing is retired.
