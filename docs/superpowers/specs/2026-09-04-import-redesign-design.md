@@ -163,11 +163,22 @@ This costs a running Zotero at every commit, which follows from the scope in §0
 
 Reason codes, proposed: `drift`, `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed`, `outage`. `drift` already exists in the registry. `superseded-note` is retired with the note status. `not-admitted` stays in service, because `find-sources` still files it (§6).
 
-### 2.5 Re-key propagation (proposed)
+### 2.5 Re-key detection — propagation moved to its own spec
 
-A re-key is detected by the linter alone: the item's live `citationKey` differs from the recorded one under an unchanged item key. Better BibTeX's `item.regenerate_key` is a **mutating** call that assigns new keys, so it is never a detection source; if it is ever used deliberately, it is the person's act and its returned old-to-new mapping feeds the same propagation pass. Propagation is one mechanical pass driven by the recorded mapping: rename the file, rewrite the CSL entry id, rewrite `[@old]` citations, rewrite `[[old]]` wikilinks, rewrite the frontmatter `citationKey`. The mapping is appended to a rename log so a later reader can follow any key backwards. The identity never changes, which is what makes the pass safe to repeat.
+**Detection stays here. The vault-wide rewrite does not.**
 
-Propagation is a mechanical step and so carries its own linter, per invariant 6: after a pass, no citation-key-bearing surface may still name a key the rename log maps away, and no note's filename may differ from its recorded `citationKey`. That check runs in the same code path as the lifecycle linter and files a finding rather than repairing silently.
+A re-key is detected by the lifecycle linter alone: the item's live `citationKey` differs from the recorded one under an unchanged item key. Better BibTeX's `item.regenerate_key` is a **mutating** call that assigns new keys, so it is never a detection source; if it is ever used deliberately, it is the person's act and its returned old-to-new mapping feeds the propagation pass. §2.4 classifies the note `re-keyed`, files a finding with that reason code, and blocks nothing. The item key is unchanged throughout, so the identity is never in doubt and the finding is a rename report rather than a loss.
+
+**Why propagation is not in this spec.** Everything else here is a one-directional projection *into* `literatures/`: capture writes literature notes and the CSL file, and touches nothing a person wrote. Propagation is the opposite — a vault-wide mutation over human content, rewriting `[@old]` citations in drafts, `[[old]]` wikilinks anywhere, the CSL entry id, and the review-queue and acknowledgment targets that name a key. Different blast radius, different risk class, and a design question this document is the wrong home for: the rename log has no site, its own linter must read it, and where it lives is a vault-structure decision (§8.3, open point 21).
+
+> [!WARNING]
+> **The propagation spec must be written and implemented immediately after this one, before anything else in lane 1.**
+>
+> §2.1 chooses `literatures/<citation key>.md` — the filename is the source's *name*, and the name changes. That choice is sound **only** because a re-key propagates. Until it does, every re-key leaves a note whose filename contradicts its own recorded `citationKey`, and every `[@key]` and `[[key]]` naming it dangles. §2.4 reports each one and repairs none, so the findings accumulate and the vault degrades quietly while still passing every check it has.
+>
+> This is not a deferral with a soft trigger. It is a debt the moment capture writes its first note, and it grows with every metadata edit Better BibTeX regenerates a key from. Shipping capture without propagation is shipping a known decay.
+
+Detection's own obligation is discharged here: `re-keyed` is a lifecycle state (§1), it has a reason code (§2.4), and the linter that finds it runs at capture, at verify and at pre-commit through one code path (invariant 5).
 
 ### 2.6 Paths and the text cache (proposed)
 
