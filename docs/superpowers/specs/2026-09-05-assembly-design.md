@@ -114,7 +114,9 @@ All **chosen** 2026-09-05 unless noted.
 
     **Five surfaces, one act**: code and its tests (§11), **documents**, **issues**, **ADRs**, and **`CONTEXT.md` entries**. Anything belonging to a sibling project leaves outright and is not recorded on the way out — a departure note about work that was never ours is itself the junk it describes; git history and the sibling's own tracker are the record.
 
-    **The burden of proof flips at lane 5.** Through lanes 0–4 a purge takes only what it *knows* is unneeded: deletion needs a positive reason, and "nothing currently reaches it" is not one. After lane 5 the default inverts — anything not needed by then can be assumed unneeded, because five lanes and a gap pass have had the chance to want it. *Supersedes §11's implied single-pass timing and its code-only scope.*
+    **Light after each lane, heavy after lane 5.** The per-lane purge is not a hunt: it takes what is **in the way** — what the lane tripped over while doing its actual work. That is the whole criterion, and it keeps the purge a side effect of building rather than an errand. "Nothing currently reaches it" is not in the way and is not a reason.
+
+    **After lane 5 the default inverts** and the purge is heavy: five lanes and a gap pass have had their chance to want a thing, so what none of them needed can go. *Supersedes §11's implied single-pass timing and its code-only scope.*
 
 25. **Lane 5 exists: the gap pass.** The route's last two items — compare against the founding guidelines, then source components for the gaps — had been absorbed into §5.1's `obligations` column and never given an owner, leaving a column that named a reader who did not exist. §7.4 defines it. *Supersedes §7's lane list, which stopped at 4.*
 
