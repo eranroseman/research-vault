@@ -110,7 +110,9 @@ All **chosen** 2026-09-05 unless noted.
 
 23. **Lane 1 runs first**, per §7.3's own text — lane 2 is "a choice *within* lane 1's contract" — and per the author's original route, which opens with the engine and the integration. The circularity that made lane 2 look primary was real and is already broken: lane 0 measured the tag grammar, both attachment-scanner generations and the Extra-field facts, so lane 1 has what it needed from lane 2 without running it. Lane 1's URL-only cut also decides `archive.py`, which is what unblocks decision 21's carried debt.
 
-24. **The code disposition audit (§11) runs after each lane, including lane 0.** Not one sweep at the end: a verb's disposition depends on which steps survive, so the lane that decides a step dispositions the code serving it while the reasoning is still in hand. **Lane 0 is complete, so its audit is now due** — that is this document's own tail, not a future lane's, which makes it **the decomposition's own plan** under decision 22. It occupies the plan slot; it does not gate the active spec. *Supersedes §11's implied single-pass timing.*
+24. **A purge runs after each lane, including lane 0 — and it covers everything, not just code.** Not one sweep at the end: a disposition depends on which steps survive, so the lane that decides a step disposes of what served it while the reasoning is still in hand. **Lane 0 is complete, so its purge is now due** — this document's own tail, not a future lane's, which makes it **the decomposition's own plan** under decision 22. It occupies the plan slot; it does not gate the active spec.
+
+    **Five surfaces, one act**: code and its tests (§11), **documents**, **issues**, **ADRs**, and **`CONTEXT.md` entries**. Anything belonging to a sibling project leaves outright and is not recorded on the way out — a departure note about work that was never ours is itself the junk it describes; git history and the sibling's own tracker are the record. *Supersedes §11's implied single-pass timing and its code-only scope.*
 
 25. **Lane 5 exists: the gap pass.** The route's last two items — compare against the founding guidelines, then source components for the gaps — had been absorbed into §5.1's `obligations` column and never given an owner, leaving a column that named a reader who did not exist. §7.4 defines it. *Supersedes §7's lane list, which stopped at 4.*
 
@@ -299,7 +301,7 @@ Each lane runs a **sourcing screen**: a bounded question, a screened candidate s
 
 The earlier text called this a scoping review and then admitted the collision instead of fixing it. A scoping review is a **research method over literature**, with a protocol, a PRISMA-ScR flow and reportable counts. Picking software shares its bookkeeping — you screen candidates and record why you dropped them — and none of its subject matter. Reusing the name would have made §5.0's `scoping-review` step and lane 4's method the same word for two unrelated things, in a repository whose `CONTEXT.md` exists to stop exactly that. `scoping-review` now names only the workflow step; a lane runs a sourcing screen.
 
-`docs/agents/sourcing.md` carries the definition, because nothing else did: `docs/superpowers/reqs/2026-09-02-sourcing.md` describes only searching and reporting and puts *"screening, ranking, rejecting"* outside its boundary, and it is a `sibling-project` document self-declared "Not confirmed". An earlier draft of this section cited it as the definition; it is a neighbour, not a source.
+`docs/agents/sourcing.md` carries the definition.
 
 **Lane 2's inherited evidence is wrong in a specific way.** The 36-repository catalogue read **repository manifests**; the machine runs **shipped `.xpi` manifests**, and they differ — `zoterotldr` and `scite` are both active on 10.0.1 while the catalogue records ranges that would refuse them. Seventeen catalogue rows say "loads on 9.0.6"; none mentions 10.0.1. Lane 2 re-measures loadability from the installed `.xpi`.
 

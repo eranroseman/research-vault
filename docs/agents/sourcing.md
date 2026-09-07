@@ -2,7 +2,7 @@
 
 Disposition: current (2026-09-06)
 
-A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, and a handoff. That definition lives here, because nothing else in the repository carries it — `docs/superpowers/reqs/2026-09-02-sourcing.md` covers only the search-and-report half and puts *"screening, ranking, rejecting"* explicitly outside its boundary, besides being a `sibling-project` artifact that self-declares "Not confirmed".
+A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, and a handoff. That definition lives here.
 
 This file carries one rule.
 
