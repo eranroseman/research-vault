@@ -6,7 +6,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "17 4 * * 1"
+    - cron: 17 4 * * 1
 permissions:
   contents: read
 jobs:
@@ -78,7 +78,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PINNED: 26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101
-        run: |
+        run: |-
           set -euo pipefail
           curl --fail --silent --show-error --location --output /tmp/SPEC.md \
             https://raw.githubusercontent.com/GoogleCloudPlatform/open-knowledge-format/main/SPEC.md
@@ -86,8 +86,16 @@ jobs:
           if [ "$actual" != "$PINNED" ]; then
             title="OKF SPEC.md drifted from the ad30107 pin"
             if ! gh issue list --state open --search "$title" --json title -q '.[].title' | grep -qF "$title"; then
-              gh issue create --title "$title" --label needs-triage --body "> *Opened automatically by the okf-spec-drift job.*
-
-          Upstream \`SPEC.md\` sha256 is \`$actual\`; the pin is \`$PINNED\` (\`open-knowledge-format@ad30107\`). Reconcile per ADR 0001: read the diff, decide adopt/deviate, move the pin deliberately."
+              # The body is built with printf, never written as a multi-line YAML
+              # string. yamlfix rewrites blank lines inside a block scalar to match
+              # its `whitelines` setting -- measured: default deletes them, `2` invents
+              # one -- so a literal blank line here is data it will corrupt, turning
+              # the blockquote into a paragraph-swallowing quote. Config cannot fix it:
+              # the setting is global and no single value is right for every scalar.
+              # With no blank line in the YAML there is nothing left to rewrite.
+              body=$(printf '%s\n\n%s\n' \
+                "> *Opened automatically by the okf-spec-drift job.*" \
+                "Upstream \`SPEC.md\` sha256 is \`$actual\`; the pin is \`$PINNED\` (\`open-knowledge-format@ad30107\`). Reconcile per ADR 0001: read the diff, decide adopt/deviate, move the pin deliberately.")
+              gh issue create --title "$title" --label needs-triage --body "$body"
             fi
           fi
