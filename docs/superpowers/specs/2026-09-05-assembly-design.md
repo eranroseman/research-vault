@@ -112,7 +112,9 @@ All **chosen** 2026-09-05 unless noted.
 
 24. **A purge runs after each lane, including lane 0 — and it covers everything, not just code.** Not one sweep at the end: a disposition depends on which steps survive, so the lane that decides a step disposes of what served it while the reasoning is still in hand. **Lane 0 is complete, so its purge is now due** — this document's own tail, not a future lane's, which makes it **the decomposition's own plan** under decision 22. It occupies the plan slot; it does not gate the active spec.
 
-    **Five surfaces, one act**: code and its tests (§11), **documents**, **issues**, **ADRs**, and **`CONTEXT.md` entries**. Anything belonging to a sibling project leaves outright and is not recorded on the way out — a departure note about work that was never ours is itself the junk it describes; git history and the sibling's own tracker are the record. *Supersedes §11's implied single-pass timing and its code-only scope.*
+    **Five surfaces, one act**: code and its tests (§11), **documents**, **issues**, **ADRs**, and **`CONTEXT.md` entries**. Anything belonging to a sibling project leaves outright and is not recorded on the way out — a departure note about work that was never ours is itself the junk it describes; git history and the sibling's own tracker are the record.
+
+    **The burden of proof flips at lane 5.** Through lanes 0–4 a purge takes only what it *knows* is unneeded: deletion needs a positive reason, and "nothing currently reaches it" is not one. After lane 5 the default inverts — anything not needed by then can be assumed unneeded, because five lanes and a gap pass have had the chance to want it. *Supersedes §11's implied single-pass timing and its code-only scope.*
 
 25. **Lane 5 exists: the gap pass.** The route's last two items — compare against the founding guidelines, then source components for the gaps — had been absorbed into §5.1's `obligations` column and never given an owner, leaving a column that named a reader who did not exist. §7.4 defines it. *Supersedes §7's lane list, which stopped at 4.*
 
