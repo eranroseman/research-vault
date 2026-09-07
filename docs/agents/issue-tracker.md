@@ -15,6 +15,12 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
+## What belongs here
+
+**The tracker is for findings with no home. An open spec is a better home.** A defect that a spec already owns — or that a spec about to be written will own — belongs in that spec, where the reasoning around it lives and where the reader who must act on it is already looking. Filing it here instead splits the record: the spec says what to build and the tracker says what is wrong with it, and neither reader sees both.
+
+So before opening an issue, name the spec that would carry it. If one exists or is coming, put it there and do not file. File only what no spec will claim.
+
 A fix that converts one failure mode into another does not close the issue describing the first: comment with the new mode's shape and keep it open (or open a successor and cross-link) — the record tracks the position, not just the outcome.
 
 ## Pull requests as a triage surface
