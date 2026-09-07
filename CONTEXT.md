@@ -16,8 +16,6 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 
-**Report**: A bounded, shareable project deliverable that presents an analysis and its traceable evidence; length does not define it.
-
 **Inbox**: Fleeting captures and the review queue (`inbox/`); never an admission path for citable sources.
 
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
