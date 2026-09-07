@@ -5208,7 +5208,7 @@ When the item is not in Zotero yet and the person has asked you to add it, write
 
 ```sh
 python3 -m research_vault add --vault PATH --item ITEM.json [--collection COLLECTION_KEY]
-````
+```
 
 The first run on a machine opens Zotero's own consent dialog (**Allow**, **Always Allow**, **Deny**); tell the person to answer it in Zotero. Never retry `add` in a loop: the dialog is rate-limited to five a minute. Better BibTeX fills the citation key a few seconds after creation; `add` waits up to ten seconds and then captures the new item. `unkeyed` means the key never arrived: report it, do not write a note by hand.
 
@@ -5221,16 +5221,16 @@ python3 -m research_vault capture --all --vault PATH      # refresh every captur
 
 Capture runs the lifecycle linter first, then for each item reads the item, its children and the indexed text, writes `literatures/<citation key>.md` (frontmatter: Zotero's own fields verbatim, the provenance tuple, a body carrying only the attachment list and the item's Zotero child notes), writes `fulltext/<attachment key>.md` for every attachment with usable text, and regenerates `system/bibliography.json` whole. One line per outcome:
 
-| Line                                     | What happened                                                                                                                                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `MATCHED KEY — matched`                  | The note was written or rewritten.                                                                                                                                                         |
-| `MATCHED KEY — matched — NOOP`           | The projection is identical. Nothing was written. Report it as "already current", never as an error and never as a capture you performed.                                                  |
-| `UNMATCHED KEY — not-admitted — …`       | The key is not in the library.                                                                                                                                                             |
-| `UNMATCHED KEY — no-fulltext — …`        | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
-| `UNMATCHED KEY — re-keyed — old → new`   | The citation key changed. Run `propagate` (§4).                                                                                                                                            |
-| \`UNMATCHED KEY — merged                 | trashed                                                                                                                                                                                    |
-| `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record.                                                                      |
-| `UNREACHABLE … — outage — …`             | Zotero did not answer. **Never a verdict on the source.** Retry later.                                                                                                                     |
+| Line | What happened |
+| --- | --- |
+| `MATCHED KEY — matched` | The note was written or rewritten. |
+| `MATCHED KEY — matched — NOOP` | The projection is identical. Nothing was written. Report it as "already current", never as an error and never as a capture you performed. |
+| `UNMATCHED KEY — not-admitted — …` | The key is not in the library. |
+| `UNMATCHED KEY — no-fulltext — …` | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
+| `UNMATCHED KEY — re-keyed — old → new` | The citation key changed. Run `propagate` (§4). |
+| `UNMATCHED KEY — merged|trashed|deleted — …` | The item left the library. Nothing was written; the note is kept. |
+| `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record. |
+| `UNREACHABLE … — outage — …` | Zotero did not answer. **Never a verdict on the source.** Retry later. |
 
 Every non-MATCHED line already filed its own review record under check id `capture`; never file one for a failed capture yourself. If stderr carries `warning: review record refused:`, say so out loud.
 
@@ -5262,30 +5262,29 @@ Show the person the plan before applying; the approval hash is the tool's own hu
 
 ## Four-state honesty
 
-| Result      | Meaning at capture                                                                                                     |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------- |
-| MATCHED     | The step ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
-| UNMATCHED   | The step ran and disagreed. Already in the review queue — do not file it again.                                        |
-| UNREACHABLE | The step could not run — Zotero or the network is down. Never a verdict on the source. Retry later.                    |
-| SKIPPED     | The step does not apply. Automatic only.                                                                               |
+| Result | Meaning at capture |
+| --- | --- |
+| MATCHED | The step ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
+| UNMATCHED | The step ran and disagreed. Already in the review queue — do not file it again. |
+| UNREACHABLE | The step could not run — Zotero or the network is down. Never a verdict on the source. Retry later. |
+| SKIPPED | The step does not apply. Automatic only. |
 
 The same honesty covers your own reading. A source you read only in part is reported **partial**, with the range you did not read named — pages the text layer stops at, sections you never reached. That is SKIPPED applied to reading: an unread stretch must never read as read.
 
 ## Routing
 
-| Need                                       | Route to                                     |
-| ------------------------------------------ | -------------------------------------------- |
-| Find sources to add                        | `find-sources`                               |
-| Rules for the compiled layer               | `synthesis-conventions`                      |
-| Run the deterministic checks               | `verify-citations`                           |
-| Acknowledge a finding capture filed        | `project-flow` or `publish` (the `ack` verb) |
-| Install Zotero add-ons or the compile tool | `setup-vault`                                |
-
+| Need | Route to |
+| --- | --- |
+| Find sources to add | `find-sources` |
+| Rules for the compiled layer | `synthesis-conventions` |
+| Run the deterministic checks | `verify-citations` |
+| Acknowledge a finding capture filed | `project-flow` or `publish` (the `ack` verb) |
+| Install Zotero add-ons or the compile tool | `setup-vault` |
 ````
 
 `skills/setup-vault/SKILL.md`: keep `## Scaffold` and `## Diagnose` as they are except the doctor sentence, which becomes "Report every doctor probe, not only failures — thirteen rows — plus the inbox count and oldest age." Replace `## Provision companions` from its fourth paragraph on with:
 
-```markdown
+````markdown
 Zotero .xpi installs are human-only wizard steps. The add-ons the vault asks for are declared once, in the table `README.md` embeds from `research_vault/templates/zotero-addons.md` (required, recommended, optional, each with its add-on id and, where one exists, the preference that switches its automatic mode on). Walk the person through installing each *required* row in Zotero's Add-ons window and enabling the automatic-mode preferences; never download, never install, never click, and never close Zotero for the user. Doctor's `plugins` probe reads the same table and reports each add-on's `active`/`appDisabled` state and whether its automatic mode is on.
 
 Doctor can only read those facts when `.research-vault/machine.json` names the Zotero profile directory under `zotero_profile` (on this class of machine: `/mnt/c/Users/<user>/AppData/Roaming/Zotero/Zotero/Profiles/<id>.default`). Ask the person for it once; without it doctor reports `fulltext-sync`, `bbt-git` and `plugins` as SKIPPED, never as passed.
@@ -5295,7 +5294,7 @@ The compile tool is a Claude Code plugin and installs from its own marketplace, 
 ```sh
 claude plugin marketplace add AgriciDaniel/claude-obsidian
 claude plugin install claude-obsidian@agricidaniel-claude-obsidian
-````
+```
 
 Doctor's `compile-tool` probe reports the installed commit against the pin `ad67087`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool refuses to overwrite the vault's `.gitignore`; append its four rules by hand.
 
@@ -5317,7 +5316,6 @@ PY
 ```
 
 Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
-
 ````
 
 `skills/synthesis-conventions/SKILL.md`:
@@ -5359,7 +5357,7 @@ Every canonical page create or removal includes an update to `wiki/index.md` in 
 ## What is frozen
 
 Claim lines, stance links (`supports`/`disputes`) and claim links (`[[key#^claim-id]]`) are no longer the arrangement's currency; the checks that read them are frozen pending the workflow-component audit. Do not write new ones into `wiki/`.
-````
+```
 
 `research_vault/templates/vault/AGENTS.md`: the table row becomes `| \`capture-source\` | add, capture, refresh, propagate a re-key, or compile a source |`; `docs/terminology.md`§4.3 skill names list swaps`import-source`for`capture-source`; `scaffold.PROVISION_COMPANIONS\` gains the plugin id.
 
@@ -5429,10 +5427,9 @@ Offline (default): `python -m pytest tests -q -n auto` from the repo root, insid
 RV_LIVE=1 python -m pytest tests -q                                   # read-only local-Zotero legs
 RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k live   # plus the add/trash/delete leg (one consent dialog the first time)
 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q     # external-registry legs
-````
+```
 
 The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
-
 ````
 
 and under "## Poking Zotero" item 1 add: "`python -m research_vault probe --base http://localhost:23129` names the test instance." Remove the `RV_LIVE_AUTOEXPORT_VAULT` and `test_dispositions` sentence if Task 2 left any of it.
@@ -5445,7 +5442,7 @@ and under "## Poking Zotero" item 1 add: "`python -m research_vault probe --base
       # (checks.py) — were deleted by the ingest redesign (2026-09), so the
       # dated deferral decision 21 carried is closed and this step fails the
       # lane again on any new breach.
-````
+```
 
 Confirm locally before committing: `.venv/bin/python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info && .venv/bin/crap4py research_vault --lcov lcov.info --max-crap 30` — expected: no function above 30. If one is, split it in the same commit rather than restoring the deferral.
 
