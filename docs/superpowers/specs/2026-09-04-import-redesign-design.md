@@ -71,9 +71,17 @@ Invariant 6 is a reframing of the 2026-09-04 draft's *"a mechanical step without
 
 The reframing has a consequence worth naming. Under the original, §2.5's propagation linter existed because the invariant demanded one. Under invariant 6 it must earn itself by naming what would otherwise be unfalsifiable, which for a vault-wide rewrite of human-authored content it can: after a pass, no citation-key-bearing surface may still name a key the rename log maps away, and nothing else in the vault can attest that.
 
+**The full-map read is a requirement, not a cost.** The 2026-09-04 draft framed three reads as a price worth paying; measurement makes them the only correct route. `?since=` cannot substitute, because a window returns only what changed and a key that vanished appears in neither the window nor the trash. The full-text map is worse still: measured 2026-09-07, **449 of 1,367 entries sit at version 0**, and `?since=1` returns 918 of them with none at version 0 — so a third of this library's indexed attachments are unreachable by any incremental sweep. Zotero's local API charges nothing for the full read: it *"does not impose a default or maximum limit"* and *"does not currently apply rate limiting"*, and `/fulltext?since=0` returned all 1,367 entries in one 29 KB response.
+
 Cost: a whole-vault classification is three reads, not two, and §9 records each. The two versions maps answer current, drifted, trashed and deleted: `/items?since=0&format=versions` for every key including children and annotations, and `items/trash?format=versions` for the trashed set. `/items/top` would hide every child, so the first read is `/items`. Those two maps cannot answer re-keyed or merged, because a key-to-version map carries neither the live citation key nor `dc:replaces`, so a third read of `/items/top?format=json` supplies both fields. Top-level scope is right there, since only top-level items carry either. Refresh fetches are needed only for a note that classified as drifted.
 
-### 1.1 Glossary (proposed)
+### 1.1 Glossary (**vocabulary chosen 2026-09-07; the rename is task 0**)
+
+The vocabulary below is ratified. **Executing it is the implementation plan's task 0**, not part of this ratification, and it runs in one order: **retire, then rename.** §6 retires the auto-export machinery, parts of `bibliography.py`, claim lines as an ingest output and the managed region — renaming identifiers in code about to be deleted is waste, and deleting first shrinks the surface.
+
+Measured cost 2026-09-07: **200 `citekey` identifiers** across `research_vault/*.py`, the `CONTEXT.md` term, **10 skill files**, and the frontmatter key in every existing note. The last is a migration rather than a substitution and is the only part carrying real risk, so it is testable on its own.
+
+The rename tracks reality rather than taste, and today strengthened that: Better BibTeX's own documentation records that `citationKey` is now **Zotero's native field** — *"With the advent of Zotero 8, items have a Zotero-native citation key field. This has replaced the BBT citation key field"* — so the schema spelling names the authoritative store, and `citekey` names a Better BibTeX synonym for a field Better BibTeX no longer owns.
 
 The glossary in `CONTEXT.md` is rewritten around eight concepts (proposed). Each term is traced to `docs/research/2026-09-04-import-terminology.md`: to the primary source it was read from, or, where the note records that no field names the concept, to that gap. Where two fields use one word for different things, the collision is named so the glossary can say which sense applies.
 
@@ -141,18 +149,28 @@ The capture verb writes both from the same version-checked read pass (§2.3), wh
 One verb, per item or batch, keyed by citation key or item key. For each item it:
 
 1. reads the item JSON from the local API (`/api/users/0/items/<key>?format=json`);
+
 2. reads the children (`/items/<key>/children`): attachments with `md5`, `mtime`, `contentType`, `filename`, and the file URL from `/items/<attachment>/file/view/url`; notes. **A plain `/children` call omits annotations** (measured, §9): it returns none from the item key and none from the attachment key, even though an annotation's `parentItem` is the attachment. `/children?itemType=annotation` does return them, from either key, and that is the route capture uses. Two alternates stand if it disappoints: `/items?itemType=annotation` filtered on the attachment key, and Better BibTeX's `item.attachments`, which returns them nested per attachment with key, type, page label and text. `md5` exists only for stored-file attachments, so a linked attachment carries no fixity and the tuple says so rather than omitting the field. Zotero child notes are read here too, and unlike today they are rendered (step 5);
+
 3. reads the attachment's indexed full text (`/items/<attachment>/fulltext`) into the gitignored cache. PDFs report `indexedPages` and `totalPages`; other content types report `indexedChars` and `totalChars`; the cache entry records whichever pair it received. A 404 means Zotero has no indexed text. **A 200 is not by itself a usable text**, and two separate tests are needed. The page test: Zotero truncates PDF indexing at `extensions.zotero.fulltext.pdfMaxPages`, default 100 in the installed 10.0.1 (source read), and reports the truncation as success, so `indexedPages < totalPages` marks the cache entry partial. The content test: a scanned PDF with no text layer returns 200 with `indexedPages` equal to `totalPages` and a near-empty body, so the page test alone would pass it as complete. A content floor is therefore also required, and §8 point 3 carries what that floor should be. Capture never treats a partial, empty, or absent index as full text;
-4. asks Better BibTeX for the item's CSL entry (`item.export([citation key], "Better CSL JSON")`). This one call is keyed by the name rather than the identity, because that is the only key the method takes; the citation key used is the one just read from the item JSON in step 1, so it cannot be a stale one. The method takes a list and fails the whole batch on one unknown key, so a batch capture calls it per item, or chunks and retries the failing chunk singly, and reports which key was rejected;
+
+4. contributes to the CSL file. **Chosen 2026-09-07: one whole-library read, not a call per item.** `GET /better-bibtex/library?/<library name>.json` returns the entire library as Better CSL JSON in a single request — measured 2026-09-07 at **0.46 s, 2.3 MB, 1,452 items, every `id` equal to its `citation-key`**, which matches the independently counted 1,452 bibliographic items exactly. Capture filters that to the captured set. This removes the draft's batch-failure mode outright: `item.export` *"takes a list and fails the whole batch on one unknown key"*, so a batch capture had to call per item or chunk-and-retry.
+
+   **The route is undocumented, and the spec says so rather than discovering it later.** It appears in no Better BibTeX documentation page; it was found by reading how `obsidian-reference-map` reaches Better BibTeX. An undocumented endpoint is an unpinnable dependency of exactly the class §2.8 prices, so the fallback is named here: `item.export([citation key], "Better CSL JSON")` per item, which is the documented call and what the 2026-09-04 draft specified. If the library route breaks, capture degrades to it and reports which route it used.
+
+   Original reasoning, retained: `item.export`'s single call is keyed by the name rather than the identity, because that is the only key the method takes. This one call is keyed by the name rather than the identity, because that is the only key the method takes; the citation key used is the one just read from the item JSON in step 1, so it cannot be a stale one. The method takes a list and fails the whole batch on one unknown key, so a batch capture calls it per item, or chunks and retries the failing chunk singly, and reports which key was rejected;
+
 5. renders the note whole: frontmatter, then title, creators, venue, identifiers, attachments, annotations as a list with page labels and verbatim highlight text, and the item's Zotero child notes. Rendering the child notes is new, and it is what gives a person's own prose about a source a home now that the free region retires: they write it in Zotero, where they already annotate, and capture projects it like everything else;
+
 6. writes the cache, and contributes its entry to the CSL file, which is regenerated whole at the end of the run;
+
 7. compares the rendered projection with what is on disk and reports NOOP when nothing changed.
 
 Steps 1 to 4 are four reads through two subsystems, not one atomic read, so an edit made between them would be captured half-old. Capture therefore re-reads the item's version after step 4 and, where it moved, starts the item again. The tuple records the version that was current across the whole read.
 
 Every mechanical outcome is four-state. UNREACHABLE (Zotero not answering) writes nothing and files an outage finding. A malformed response writes nothing.
 
-### 2.4 The lifecycle linter (proposed)
+### 2.4 The lifecycle linter (**chosen 2026-09-07**)
 
 One check, one code path, run at capture (before rendering), at verify, and at pre-commit. It:
 
@@ -284,7 +302,13 @@ Zotero 10 offers two write paths, and the plan picks between them with one atten
 - For a DOI, the body comes from content negotiation on doi.org (`Accept: application/x-research-info-systems` or `application/x-bibtex`). For an identifier-less document, the agent composes a minimal RIS from the metadata it holds. In both cases Zotero parses the record and the vault never builds Zotero item JSON, which is the whole attraction of this path.
 - Its costs are real and were found by review, not assumed. **No consent dialog guards it**, so anything running on the machine can write to the library; that is a fact about Zotero, not a property this design adds, but it means Path B gives up the audit trail Path A's authorization provides. A session id is minted by the import call and cannot be reused, so attaching a file afterwards is constrained by that session's lifetime and by the numeric item id the attachment endpoint expects, which is not the item key the rest of this design uses. And the save target is whatever collection is selected in the Zotero window.
 
-**Proposed**: Path A for creating the record, because the authorization dialog is the audit trail this vault wants and the item JSON for a fresh record is small. Path B stays available for the case where a translator does the work no mapping of ours could. The plan settles it with one attended trial of each, and records which endpoints each needs.
+**Chosen 2026-09-07: Path A**, and Zotero's own documentation settles it rather than the balance of costs. `POST /api/local/authorize` is the documented mechanism for local writes — a dialog naming the application with *"Allow"*, *"Always Allow"* and *"Deny"*, returning `{"key": "<32-character key>", "remember": false}`, with keys that *"can't be created in advance"*. Path B is what browser **connectors** use, and Zotero 10 now drops requests that look browser-like *"without a response"*, which says who that path is for.
+
+Three mechanics the attended trial must carry, all read 2026-09-07. `Zotero-Server-ID` is **required** on writes — 428 without it, 412 on mismatch — where on reads it is optional. `Zotero-Write-Token` is supported but *"cached in memory, so they're forgotten when Zotero restarts"*. And the authorize endpoint is rate-limited to five dialog-producing requests per minute.
+
+**The undo question is new and belongs in the trial.** Zotero 10 supports undo *"for modifications to existing objects — creating or permanently deleting an object isn't undoable (trashing is, since it just sets the object's `deleted` flag)"*, and the `undoAction` label that makes a change undoable is a **plugin API** parameter on `saveTx`, unavailable to an HTTP caller. So an item created over the local API is not undoable by construction. That is not an argument for Path B, which has no consent gate at all — but the trial should see it rather than discover it.
+
+Original reasoning, retained: Path A for creating the record, because the authorization dialog is the audit trail this vault wants and the item JSON for a fresh record is small. Path B stays available for the case where a translator does the work no mapping of ours could. The plan settles it with one attended trial of each, and records which endpoints each needs.
 
 Capture runs on the returned keys at once, so adding and capture are one conversation.
 
