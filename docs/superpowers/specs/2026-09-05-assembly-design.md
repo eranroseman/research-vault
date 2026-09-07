@@ -2,7 +2,7 @@
 
 Disposition: current (2026-09-06)
 
-Status: draft for author review (2026-09-05), **amended 2026-09-06** — nothing here is decided except the rows marked **chosen**.
+Status: open decomposition — stays open until everything in it is done (decision 22). Drafted 2026-09-05, **amended 2026-09-06 and 2026-09-07** — nothing here is decided except the rows marked **chosen**.
 
 The amendment adds decisions 12–18 to §3 and rewrites §4, §5, §6, §7.3, §8, §9, §13, §14 and §15 under them. **§3's 2026-09-05 rows are not edited**: a decision reversed on a later day is recorded as a later decision naming what it supersedes, never as a rewrite of the earlier one. That is the `superseded_by_row` rule §5.1 applies to the register, applied to this document's own decisions.
 
@@ -104,11 +104,13 @@ All **chosen** 2026-09-05 unless noted.
 
     What changes is the wiring, because a hard-failing step made the debt indistinguishable from breakage: it failed 189 consecutive runs and **skipped every step below it**, so drywall and the mutation gate had not run since 2026-08-25, and a genuinely broken test read exactly like the standing debt — which is how a red suite shipped on 2026-09-06 unnoticed. The step is now `continue-on-error`, a dated deferral naming its own exit condition. Branch protection follows **after lane 4**, not before. *Supersedes §15.22's filing of the CRAP failure as an issue to open.*
 
-22. **One spec and one plan open at a time, and every lane gets its own.** This document is the **decomposition plus lane 0**, and nothing more. Each lane then gets a spec of its own — through the full brainstorming cycle, not a section here — and each spec gets a plan of its own. The work-in-progress limit is **at most one open spec and one open plan at any moment**, which is what stops a second lane's design from being written against a first lane's unfinished contract. *Supersedes the reading of §7 in which the lanes are stages of this spec; they are successors to it.*
+22. **Two specs open: this decomposition, and one active spec.** This document is the **decomposition plus lane 0**, and it **stays open until everything in it is done** — it is not closed to make room, because it is not competing for the slot. Beside it, exactly **one active spec** at a time, written through the full brainstorming cycle rather than as a section here, and **one open plan** at a time beneath it.
+
+    **A spec is themed by cohesion, not by lane.** Its test is that it tackles one big issue and reads as one argument. A lane may therefore need more than one spec, and one spec may serve more than one lane; §7's lanes are a decomposition of the *work*, not a table of contents for the specs. *Supersedes the reading of §7 in which the lanes are stages of this document — they are successors to it — and supersedes this row's own first draft, which set the limit at one spec and made it one spec per lane.*
 
 23. **Lane 1 runs first**, per §7.3's own text — lane 2 is "a choice *within* lane 1's contract" — and per the author's original route, which opens with the engine and the integration. The circularity that made lane 2 look primary was real and is already broken: lane 0 measured the tag grammar, both attachment-scanner generations and the Extra-field facts, so lane 1 has what it needed from lane 2 without running it. Lane 1's URL-only cut also decides `archive.py`, which is what unblocks decision 21's carried debt.
 
-24. **The code disposition audit (§11) runs after each lane, including lane 0.** Not one sweep at the end: a verb's disposition depends on which steps survive, so the lane that decides a step dispositions the code serving it while the reasoning is still in hand. **Lane 0 is complete, so its audit is now due** — that is this document's own tail, not a future lane's. *Supersedes §11's implied single-pass timing.*
+24. **The code disposition audit (§11) runs after each lane, including lane 0.** Not one sweep at the end: a verb's disposition depends on which steps survive, so the lane that decides a step dispositions the code serving it while the reasoning is still in hand. **Lane 0 is complete, so its audit is now due** — that is this document's own tail, not a future lane's, which makes it **the decomposition's own plan** under decision 22. It occupies the plan slot; it does not gate the active spec. *Supersedes §11's implied single-pass timing.*
 
 ## 4. Obligations index
 
