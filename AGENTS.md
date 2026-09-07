@@ -24,6 +24,10 @@ GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
 
 Default five canonical labels (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
 
+### Sourcing
+
+The build bar: a `build` or `adapt` verdict names the must no candidate met. See `docs/agents/sourcing.md`.
+
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
