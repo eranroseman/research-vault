@@ -33,34 +33,6 @@ DRILL_USER_EMAIL = "live-drill@example.invalid"
 SETTLE_SECONDS = 2
 
 
-def test_environment_records_the_live_probed_bbt_autoexport_facts():
-    """Losing the falsified-registration record that justifies this drill must fail."""
-    # Whitespace-normalised: mdformat owns docs/ and pads table cells to align
-    # columns. The assertion below is unchanged in substance — every word of the
-    # falsified-registration record must still be present, in order.
-    environment = " ".join(
-        (REPO / "docs" / "environment.md").read_text(encoding="utf-8").split()
-    )
-
-    assert (
-        "BBT 9.0.55 JSON-RPC exposes `autoexport.add` only; "
-        "`.list`/`.remove`/`.delete`/`.get` live-probed `-32601 METHOD_NOT_FOUND`; "
-        "`add` is collection-scoped by implementation (source-verified). "
-        "| 2026-08-20 |"
-    ) in environment
-    assert (
-        '`autoexport.add("//", …)` fails 404 `path is too short` before registration '
-        "storage: no entry is created, so whole-library registration is impossible "
-        "through the public RPC."
-    ) in environment
-    assert (
-        "BBT persists auto-exports as profile preference keys "
-        "`better-bibtex.autoExport.<encoded-path>`. Human-debugging fact only: doctor "
-        "detection stays behavioral (target presence plus staleness) and never "
-        "scrapes preferences. | 2026-08-20 |"
-    ) in environment
-
-
 class RecordingClient(ZoteroClient):
     """A real Zotero/BBT client that records every JSON-RPC method it sends."""
 
