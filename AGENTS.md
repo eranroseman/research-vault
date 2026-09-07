@@ -26,7 +26,7 @@ Default five canonical labels (needs-triage, needs-info, ready-for-agent, ready-
 
 ### Sourcing
 
-The build bar: a `build` or `adapt` verdict names the must no candidate met. See `docs/agents/sourcing.md`.
+Components are chosen by a sourcing screen; the build bar is tiered. See `docs/agents/sourcing.md`.
 
 ### Domain docs
 

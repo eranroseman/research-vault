@@ -1,12 +1,18 @@
 # Sourcing
 
-A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, and a handoff. `docs/superpowers/reqs/2026-09-02-sourcing.md` defines its shape. This file carries one rule.
+Disposition: current (2026-09-06)
+
+A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, and a handoff. That definition lives here, because nothing else in the repository carries it — `docs/superpowers/reqs/2026-09-02-sourcing.md` covers only the search-and-report half and puts *"screening, ranking, rejecting"* explicitly outside its boundary, besides being a `sibling-project` artifact that self-declares "Not confirmed".
+
+This file carries one rule.
 
 ## The build bar
 
 **When it applies:** at the moment a sourcing screen records a `build` or `adapt` verdict for a component. Not while screening, not afterwards — the verdict is what triggers it, and a screen that reaches no such verdict never meets this rule.
 
 **What it requires:** the verdict names the numbered *must* that no candidate met, and points at the screen that recorded the candidates. In the component register those are the `floor_failed` and `decided_in` columns, and the register's linter rejects a `build` or `adapt` row at the high bar whose `floor_failed` is empty or does not resolve to a numbered must inside its `decided_in`.
+
+**Which tier a component is in, the screen decides and records.** The register does not carry it: a register row holds facts and pointers, and the tier is part of the reasoning (assembly spec, decisions 14 and 18). So a screen concluding `build` or `adapt` names the tier it judged the component to be in, and the linter reads it through the row's `decided_in`.
 
 **Where the bar is high:**
 
@@ -19,6 +25,8 @@ A **sourcing screen** is how a component gets chosen: a bounded question, a scre
 `adopt`, `gap`, `reject` and `open` carry no constraint at any tier.
 
 `adapt` carries the same constraint as `build` at the high bar. Without that, a lane that wants to build without screening writes `adapt` instead — and in this repository the evasion is already available, because `research_vault/zotero.py` exists to adapt.
+
+**Capture is a mature tool, not glue**, and saying so is the point of the tiers. Its candidates carry years of edge-case handling this repository has already hit. A Python connector reads as "a doctor probe, a tag map, a lint" if nobody names its tier, and glue owes only one line of reason — which would exempt the exact decision the rule was written for.
 
 ## Why the bar exists
 
