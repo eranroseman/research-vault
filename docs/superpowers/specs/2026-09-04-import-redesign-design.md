@@ -376,6 +376,18 @@ What already exists (source read 2026-09-05): `tests/conftest.py` builds the `tm
 8. Whether the compiled layer's pages carry a `type` the vault's own structure check accepts: the adopted tool writes its own page shape and its lint requires a `type` on every wiki page, while `research_vault/structure.py` requires a non-empty `type` on every non-fleeting note and derives no expected value for `wiki/`, so the open part is whether the vault takes the tool's vocabulary as it stands or adds `wiki/` to `_FOLDER_TYPES` and then demands one derived value.
 9. How a compiled page is prevented from citing a source the vault never captured: no linter in this spec ties a `[[citation key]]` or `[@citation key]` under `wiki/` back to a `literatures/<citation key>.md` that capture wrote, and the adopted tool's own dangling-link check resolves against every file in the vault rather than against the captured set.
 
+### 8.1 Carried in from foundation spec §4 on its deletion (2026-09-07)
+
+Foundation spec §4 was deleted as a controlled demolition, this document being its named successor. Four of its five bullets are carried above or retired in §6. These four were not, and are recorded here rather than lost with the section.
+
+10. **The BibLaTeX projection.** §4 ruled that when LaTeX drafting starts, the BibLaTeX file is a research-vault-regenerated projection over tier 2 — `bibliography.json` filtered by `literatures/` membership, converted CSL→BibLaTeX — of the `log.md` artifact class, machine-projected and regenerated whole. Better BibTeX stays sole writer of the one universe file and no second auto-export exists. **Out of scope here**: it belongs to the `long-form` step, which the decomposition's §15.11 records as having no lane and no issue. Recorded so the ruling survives the step's homelessness.
+
+11. **ZotLit-convention notes.** §4 required capture to emit them, on a stated hedge: *"so ZotLit remains adoptable later as an interactive UI, never a dependency."* This document drops the hedge without arguing against it, and the 2026-09-07 screen (§2.8) makes that pointed — ZotLit clears C1, C2 and C4, keys its notes on `zotero-key`, which is this design's identity, and co-owns through `%%zt-managed%%` markers. **Open**: whether §2.2's note shape keeps the hedge or spends it. Spending it is defensible; doing so silently is not.
+
+12. **The presence marker.** §4 allowed exactly one write-back, a MarkDB-Connect `has-vault-note` tag, and banned content write-back. The obligation — making vault presence visible in Zotero — is answered "nothing for now" by the decomposition's §15.16, and §2.8 finds MarkDB-Connect writes one tag and no files, so it composes with this design rather than competing. **Deferred, with an owner.**
+
+13. **Two-way sync: the gate has opened.** §4 deferred it *"behind the Zotero 10 local-writes gate,"* re-ruled 2026-08-23 as a deferral rather than a permanent ban, to be *"revisited when local writes exist and the per-event approval path is proven."* **Both conditions are now met**: Zotero shipped local API writes on 2026-07-27, and §3 specifies Path A's per-application authorization dialog. This document uses that path to *add* items and stays one-way for content. That remains the right scope for this iteration — but the deferral's trigger has fired, so it is an open question now rather than a dormant one, and deleting §4 without recording that would have discarded it silently.
+
 ## 9. Facts and how each was established (this machine)
 
 Each row records how it was established. Counts are readings on the date given, not constants: the library is live, and a read later on 2026-09-05 returned 2,844 objects at `Last-Modified-Version: 565` against the 2,846 at 540 below.
