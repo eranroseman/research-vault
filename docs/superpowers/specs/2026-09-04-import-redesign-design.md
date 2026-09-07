@@ -1,8 +1,10 @@
 # Ingest redesign: design
 
-Disposition: pending-map (2026-09-06) [should-be-scoping-review]
+Disposition: current (2026-09-07)
 
-Status: draft for author review (2026-09-04). Nothing here is decided. Four labels are used: **chosen** (the author picked it in the 2026-09-04 brainstorm, and it can be re-picked), **measured** (probed live on the date given), **proposed** (the design's suggestion), and **open** (not yet answered). A label is written where a reader could not otherwise tell which one applies. Unlabelled prose is proposed. A fact read from source or from documentation rather than probed says which. This document supersedes foundation spec §4 (Zotero bridge).
+Status: **the active spec** (2026-09-07), amended from the 2026-09-04 draft. This is lane 1 of `2026-09-05-assembly-design.md`, promoted into the one active-spec slot decision 22 allows beside the open decomposition. Its scope is wider than lane 1's capture→compile seam and deliberately so: ingest is one cohesive theme and it contains the seam.
+
+Status of the 2026-09-04 draft: nothing there was decided. Four labels are used: **chosen** (the author picked it in the 2026-09-04 brainstorm, and it can be re-picked), **measured** (probed live on the date given), **proposed** (the design's suggestion), and **open** (not yet answered). A label is written where a reader could not otherwise tell which one applies. Unlabelled prose is proposed. A fact read from source or from documentation rather than probed says which. This document supersedes foundation spec §4 (Zotero bridge).
 
 **What binds this spec.** Very little, and deliberately. `CONTEXT.md` and the ADR register are non-binding: the author set them aside because assumptions under them were disproved. The existing code and tests in `research_vault/` are not binding either, and for the same reason. They were written under those same assumptions, so their existence is not an argument for their survival, and the adversarial review that revised this document found working code implementing a contract §6 retires. "We already built it" is not a reason to keep something, and under the priority order in §0 it is not a reason to prefer building over adopting.
 
@@ -11,6 +13,16 @@ Two things do bind. The **measured environment**: what Zotero, Better BibTeX, an
 Existing code enters here in two other roles, neither of them authority. As **cost**, because naming what a change would touch prices the proposal, which is why §6 counts dependents. And as **evidence**, because code records what was tried, and a mechanism that failed in practice is worth knowing about. Where this spec contradicts working code, it names the code and says what changes.
 
 Consumers: the implementation plan for this iteration; the later specs for search (PRISMA-S), scoping review (PRISMA-ScR), and the workflow-component audit.
+
+## Amendments, 2026-09-07
+
+Five changes, all additive except two corrections. The 2026-09-04 draft survives intact everywhere else, and that is the point: re-deriving §9's forty live-probe rows because the document was three days old would be the reflex this project exists to correct.
+
+1. **§2.8 is new: the sourcing screen for capture.** The draft screened the *compile* step against 43 candidates (§4.1) and never screened capture at all — it went straight to building. `docs/agents/sourcing.md` requires a `build` verdict to name the numbered must no candidate met, and that record did not exist. It does now.
+2. **Annotations defer to lane 4** (decomposition decision 28), on a measurement: 2,844 objects in the library, **one** annotation. This narrows §2.2's provenance tuple, §2.3 step 2 and §2.4's per-object comparison for this iteration. Nothing is retired.
+3. **§2.7's "The Zotero web API is not used" gains its reason.** It was asserted in a list of measured facts, with no argument anywhere in a document that otherwise gives one for every retirement.
+4. **Correction — `Extra` is not byte-faithful in the CSL file.** Better BibTeX's CSL translator destructures recognised `Key: value` lines out of `Extra` into CSL fields, unconditionally. §2.2's "no field is renamed and no mapping is ours" holds for the note, whose snapshot comes from the local API, and fails for `bibliography.json`.
+5. **Correction — a shipped code path is dead on this stack.** `research_vault/zotero.py`'s `export_csl(None)` pages `/api/users/0/items/top?format=csljson`, and §2.7 measures every translator format returning HTTP 500 on 10.0.1. The per-citekey branch goes through Better BibTeX `item.export` and works.
 
 ## 0. Purpose and boundary
 
@@ -93,14 +105,18 @@ Two files carry bibliographic data, and the capture verb is the sole writer of b
 **The literature note's frontmatter** carries:
 
 - a metadata snapshot: a fixed subset of the Zotero item's data fields, copied verbatim under Zotero's own field names (`itemType`, `title`, `creators`, `date`, `DOI`, `url`, `publicationTitle`, `volume`, `issue`, `pages`, `publisher`, `ISBN`, `language`, `abstractNote`, and **`tags`**), so no field is renamed and no mapping is ours. `tags` is in that list for a specific reason: the Zotero plugins §6 adopts the DOI and metadata checks away to report their verdicts by tagging the item, with strings like `⚠️ Invalid DOI`, `⛔ No DOI found` and `MetadataHunter: No DOI`, removed again when a later run succeeds. Snapshotting tags is what keeps that verdict visible to the vault after the check itself leaves;
-- a provenance tuple: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (a list of `{key, version, md5, contentType, filename}`), `annotations` (a list of `{key, version}`), `fulltext` (a list of `{attachment-key, sha256}` over the cached text; the sha256 is the comparison, because the endpoint's response body carries no version), the compile input's `sha256`, and `generated: {by, at}` (OKF §5.2 shape, already adopted). Every object the note depends on contributes its own key and version, because Zotero versions objects independently: an attachment or annotation change never moves the item's version (§9). A single `annotations-version` would name nothing Zotero serves;
+- a provenance tuple: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (a list of `{key, version, md5, contentType, filename}`), `annotations` (a list of `{key, version}`) — **deferred to lane 4 for this iteration**, see below, `fulltext` (a list of `{attachment-key, sha256}` over the cached text; the sha256 is the comparison, because the endpoint's response body carries no version), the compile input's `sha256`, and `generated: {by, at}` (OKF §5.2 shape, already adopted). Every object the note depends on contributes its own key and version, because Zotero versions objects independently: an attachment or annotation change never moves the item's version (§9). A single `annotations-version` would name nothing Zotero serves;
 - `title` and `aliases` for Obsidian; `type: literature` for OKF.
+
+**Annotations are deferred to lane 4** (decomposition decision 28). Measured 2026-09-07: the library holds **2,844 objects and one annotation**. The tuple's `annotations` list, §2.3 step 2's `?itemType=annotation` route and its two fallbacks, and §2.4's per-annotation comparison all serve that single highlight. Nothing is retired — the `history-notes` guideline's method is built on annotations and the workflow implies them — but a renderer shaped now would be shaped against an unobserved usage pattern. Fetching them is one call whenever lane 4 wants it.
 
 The literature note becomes wholly machine-written, and the `%%rv-managed%%` markers retire with the free region they delimited (§6). The whole body below the frontmatter is capture's, compared byte for byte on every run.
 
 Frontmatter is not wholly capture's, and the spec says so rather than implying it: `archive-url`, the `verified` event list, and any human-set field are written by other verbs above where the marker used to sit. What retires is the two-owner split inside the body, not the idea of machine ownership.
 
-**The CSL JSON file** (`system/bibliography.json` today; name follows the glossary) holds one entry per captured item, rendered by Better BibTeX's `item.export` with the Better CSL JSON translator, sorted by citation key. It exists for pandoc. Its scope is the captured set, not the library. It is regenerated whole by the capture verb at the end of a run, batch or single, rather than entry by entry, so the file is never left in a partial state. A source that leaves Zotero keeps its note under invariant 3 but loses its CSL entry, because the file's contract is that every entry resolves; the note's lifecycle state is what records the departure. No auto-export, no observation, no byte-compare against a third-party writer.
+**The CSL JSON file** (`system/bibliography.json` today; name follows the glossary) holds one entry per captured item, rendered by Better BibTeX's `item.export` with the Better CSL JSON translator, sorted by citation key. It exists for pandoc. Its scope is the captured set, not the library.
+
+**`Extra` does not survive this file byte-faithfully, and §2.2's "no mapping is ours" does not extend to it** (read 2026-09-07, `retorquere/zotero-better-bibtex translators/csl/csl.ts`). The CSL translator runs `Object.assign(item, getExtra(item.extra, 'csl'))` unconditionally, destructuring recognised `Key: value` lines out of `Extra` into CSL fields and leaving only the residue in `csl.note`. This library carries PMCID and PMID as `Extra` lines, so they are destructured here. The literature note is unaffected — its snapshot comes from the local API, which serves the field as typed — so the two files disagree about `Extra` by construction, and the note is the faithful one. It is regenerated whole by the capture verb at the end of a run, batch or single, rather than entry by entry, so the file is never left in a partial state. A source that leaves Zotero keeps its note under invariant 3 but loses its CSL entry, because the file's contract is that every entry resolves; the note's lifecycle state is what records the departure. No auto-export, no observation, no byte-compare against a third-party writer.
 
 The capture verb writes both from the same version-checked read pass (§2.3), which restarts if the item moves mid-read, so the two files cannot disagree with each other. The linter diffs both against live Zotero.
 
@@ -151,8 +167,47 @@ Zotero's index is the source of truth for extracted text. The cache is a copy of
 
 - Zotero 10.0.1 local API, version 3, serves item JSON with `key`, `version`, `citationKey`, `dateModified`, `relations`; children with `md5` and `mtime`; `/file/view/url`; per-attachment `fulltext`; `fulltext?since=`; `?since=&format=versions`; `items/trash`; a `Zotero-Server-ID` header on every response. It has no `/deleted` endpoint.
 - Every translator-based format on the local API (`format=csljson`, `format=bibtex`, `include=csljson`) returns HTTP 500 on 10.0.1. Better BibTeX 9.0.63 `item.export` is the working CSL renderer.
+- **A shipped path is dead on this stack.** `research_vault/zotero.py`'s `export_csl(None)` — the whole-library branch — pages `/api/users/0/items/top?format=csljson`, which is a translator format, so it raises `local API HTTP 500`. The per-citekey branch goes through Better BibTeX `item.export` and works. §2.2 regenerates the file from the captured set rather than the library, so the branch has no caller in this design; it is recorded because it is live in the tree today.
 - Better BibTeX JSON-RPC is used for one thing: rendering the CSL entry. Its auto-export is not used, and `item.regenerate_key` is never called, because it mutates (§2.5). `item.attachments` is the named fallback for reading annotations.
-- The Zotero web API is not used. The bib-file export is not used.
+- The Zotero web API is not used, **and the reason is a property of this library rather than of the API** (measured 2026-09-07). The local API and the web API are the same API at two base URLs — the local one serves `?format=versions`, `items/trash`, `/fulltext?since=` and `/items/<key>/fulltext` in the Web API v3 shapes. What differs is the data behind each. `extensions.zotero.sync.fulltext.enabled` is **false** and `sync.storage.protocol` is **webdav**, so no extracted text was ever uploaded and the web endpoint returns nothing for the one input capture most needs. Flipping that preference reopens the choice, which is why this is recorded here rather than assumed.
+- The bib-file export is not used.
+
+### 2.8 The sourcing screen for capture (2026-09-07)
+
+The 2026-09-04 draft screened compile against 43 candidates and built capture without screening it. `docs/agents/sourcing.md` puts capture in the **mature tool** tier, where a `build` verdict must name the numbered must no candidate met. This is that record.
+
+**The bounded question.** What can project a Zotero item into a vault markdown note, supplying everything §2.2's record home needs?
+
+**Floors.** Three, after the author cut four from a first draft that had encoded the incumbent's shape as the requirement:
+
+- **C1** — reads the library programmatically, no human export step.
+- **C2** — yields the **Zotero item key** and the citation key distinguishably. Without both, §2.5's re-key is indistinguishable from a new source.
+- **C4** — yields all item metadata byte-faithful, `Extra` included.
+
+Scored, not floors: **C3** attachment full text; **C5** tags; **C6** whether the tool's own note could be adopted wholesale, which scores *highest* — adopting their note is more adoption, not less.
+
+**Candidates screened: 17**, from the Obsidian community registry (7,367 plugins, 60 matching), the GitHub API, and four community workflow guides. Zotero-side plugins, Obsidian-side plugins, Zotero translators, standalone CLIs and a starter vault. Every floor failure was adversarially verified; 11 of 12 survived.
+
+**Four clear C1, C2 and C4:** `obsidian-zotero-integration` (Better BibTeX JSON-RPC), `aidenlx/zotlit` (SQLite direct), `vanakat/zotero-bridge` (local API, but a 526-line library that writes no note), `wenzhi-ding/zotero-direct` (raw file read with a WAL overlay).
+
+**None clears C3. That is the verdict's whole basis.**
+
+| Candidate                     | Full text                                                      |
+| ----------------------------- | -------------------------------------------------------------- |
+| `obsidian-zotero-integration` | zero hits for `fulltext`, `pdftotext`, `extractText` in `src/` |
+| `aidenlx/zotlit`              | never reads `.zotero-ft-cache`, where the extracted text lives |
+| `vanakat/zotero-bridge`       | excludes attachments outright — `itemType: '-attachment'`      |
+| `wenzhi-ding/zotero-direct`   | no full text, and no annotations either                        |
+
+**Verdict: `build`, on floor C3.** Capture must hand the compile step extracted text, because the adopted engine has one implemented adapter and cannot read a PDF (§4.3). No candidate supplies it. Zotero's own index does, and **tracer T7 measured that it beats the alternative rather than merely substituting for it**: against independent PyMuPDF extraction of five random papers, character parity 0.99–1.00, and the entire word-recall gap is PyMuPDF's hyphenation fragments against Zotero's correctly rejoined words. Zotero resolves soft hyphens across line breaks; the library does not.
+
+Once that client exists, the rest is the same round trip. `/items/<key>`, `/children`, `/fulltext`, `?format=versions` and `items/trash` are one version-checked read pass, so metadata and the provenance tuple cost almost nothing beyond the text that had to be fetched anyway.
+
+**Recorded so they are not re-screened.** `argenos/zotero-mdnotes` is archived, frozen at 2022, and its maintainer declined Zotero 7. `hans/obsidian-citation-plugin` has not shipped since 2022. `anoopkcn/obsidian-reference-map` is within-note and stale. `mgmeyers/pdfannots2json` is **Zotero-orthogonal** — it parses the PDF's own `/Annots` arrays, and Zotero 7+ keeps annotations in `zotero.sqlite`. `daeh/zotero-markdb-connect` flows Obsidian→Zotero, writes one tag and no files, and is a **complement to any generator including this one** rather than a candidate. Two repositories in this ecosystem carry a recent `pushed_at` over frozen code and were silently archived, so activity was judged on the last commit touching source.
+
+**What building costs, priced rather than left implicit.** The maintenance of a client against a versioned REST API, which is the low-churn surface — ZotLit needs daily maintenance precisely because it reads a private SQLite schema instead. No user-editable template, which this vault does not want, having one shape. No annotation image extraction, deferred with annotations. And no offline read: §0 defers substrate absence, and ZotLit's ability to read with Zotero closed is the capability that deferral postpones.
+
+**What no longer counts against building.** The local API and the Zotero Web API are one API at two base URLs, so device independence is a configuration change rather than an architecture. `zotero-api-client` already exposes `apiScheme` and `apiAuthorityPart`; ZotFlow simply never passes them.
 
 ## 3. Selection and adding to Zotero
 
