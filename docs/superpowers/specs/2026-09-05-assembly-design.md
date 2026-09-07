@@ -112,6 +112,12 @@ All **chosen** 2026-09-05 unless noted.
 
 24. **The code disposition audit (§11) runs after each lane, including lane 0.** Not one sweep at the end: a verb's disposition depends on which steps survive, so the lane that decides a step dispositions the code serving it while the reasoning is still in hand. **Lane 0 is complete, so its audit is now due** — that is this document's own tail, not a future lane's, which makes it **the decomposition's own plan** under decision 22. It occupies the plan slot; it does not gate the active spec. *Supersedes §11's implied single-pass timing.*
 
+25. **Lane 5 exists: the gap pass.** The route's last two items — compare against the founding guidelines, then source components for the gaps — had been absorbed into §5.1's `obligations` column and never given an owner, leaving a column that named a reader who did not exist. §7.4 defines it. *Supersedes §7's lane list, which stopped at 4.*
+
+26. **Lane 0's audit is scoped to what lane 0 alone can settle**: the 847 `hooks/` lines no verb reaches, the 18 mutation sidecars stale against their own declared source hash, and regenerating the coverage data — the committed `.coverage` resolves against a foreign checkout, so "does this verb run" has no data until a fresh run. **The 21 verb dispositions wait for the lanes that decide their steps.** Judging them now would mean guessing at steps four unrun lanes will settle, and deletion is the one act that cannot be reviewed afterwards.
+
+27. **The first active spec is the capture→compile seam** (lane 1). Not "choose an engine" and not "choose an integration" — §7.1's argument is that those two share the seam and deciding them apart forces a re-run, which makes the seam the cohesive theme and both choices its consequences. It carries the URL-only cut, because that keys on the citekey and is therefore about identity across the same seam, and normalise-at-read, because that *is* capture. Canonicalise-at-rest goes to lane 2.
+
 ## 4. Obligations index
 
 The five founding documents are indexed, never translated. An index row cites; it does not say what the system shall do. That keeps interpretation with the lane that has the evidence, and keeps this spec from resolving conflicts it has not earned.
@@ -158,7 +164,7 @@ Keyed on `(step, component)`, with an empty `step` permitted for a component tha
 | `step`              | the step served, from §5.0; may be empty                                            |
 | `component`         | what serves it, or empty                                                            |
 | `disposition`       | `adopt` \| `adapt` \| `build` \| `gap` \| `reject` \| `open`                        |
-| `obligations`       | the §4 rows this component answers; the gap pass reads this column                  |
+| `obligations`       | the §4 rows this component answers; lane 5's gap pass (§7.4) reads this column      |
 | `decided_in`        | the sourcing screen that decided it                                                 |
 | `floor_failed`      | on `build` and `adapt`, the numbered must no candidate met, cited into `decided_in` |
 | `superseded_by_row` | set when a later row replaces this one; rows are closed, never deleted              |
@@ -268,7 +274,7 @@ Two grammar facts already measured, which are requirements rather than risks:
 
 ### 7.1 Lane 1 — capture and compile, together
 
-The author's original items 2 and 3 are one lane. They share the capture→compile seam, which is the seam the previous design broke, and deciding them apart forces a re-run.
+The author's original items 2 and 3 are one lane — counting the **process flow** (`Zotero-vault integration → LLM-wiki source digest`), not the nine-item route, where the same two are items 1 and 2. They share the capture→compile seam, which is the seam the previous design broke, and deciding them apart forces a re-run.
 
 Lane 1 fixes the seam contract: capture preserves the Extra field byte-identical, reads a **declared** tag vocabulary, and writes the compile input in a format the engine it chooses accepts.
 
@@ -296,6 +302,17 @@ The earlier text called this a scoping review and then admitted the collision in
 `docs/agents/sourcing.md` carries the definition, because nothing else did: `docs/superpowers/reqs/2026-09-02-sourcing.md` describes only searching and reporting and puts *"screening, ranking, rejecting"* outside its boundary, and it is a `sibling-project` document self-declared "Not confirmed". An earlier draft of this section cited it as the definition; it is a neighbour, not a source.
 
 **Lane 2's inherited evidence is wrong in a specific way.** The 36-repository catalogue read **repository manifests**; the machine runs **shipped `.xpi` manifests**, and they differ — `zoterotldr` and `scite` are both active on 10.0.1 while the catalogue records ranges that would refuse them. Seventeen catalogue rows say "loads on 9.0.6"; none mentions 10.0.1. Lane 2 re-measures loadability from the installed `.xpi`.
+
+### 7.4 Lane 5 — the gap pass
+
+**Runs after lanes 1–4, and it is what separates "we adopted things" from "we adopted things that serve the workflow."** Two halves, in order:
+
+1. **Compare.** Walk §4's obligations index and require that every row is answered — by a component the register names, or by a recorded gap. The register's `obligations` column is the input; this is the pass §5.1 refers to, which until now was a column with no reader.
+2. **Source.** Run a sourcing screen over whatever half 1 leaves unanswered, under the same build bar as any other lane (`docs/agents/sourcing.md`).
+
+The founding guidelines are already this pass's yardstick without needing to be re-listed: history-notes, Karpathy's llm-wiki gist, PRISMA-S, PRISMA-ScR and the ACM guidelines are what §4 is *made of*, so comparing the register against §4 is comparing it against them.
+
+Lane 5 will need its own spec (decision 22); this section is its decomposition, not its design.
 
 ## 8. Cold-start contract
 
