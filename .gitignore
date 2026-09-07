@@ -49,3 +49,9 @@ venv/
 # variant of it. Glob, not the one name: the bare name let
 # disposition-proposal-documents.tsv sit untracked and unignored.
 disposition-proposal*.tsv
+
+# SDD workspaces. AGENTS.md rules these are never a durable home: the skill's
+# Finish step deletes them, and a Concern's disposition belongs in an issue or a
+# spec. 71 files of a merged plan's scratch were tracked anyway, which made the
+# repo's largest documentation surface a completed workspace nobody reads.
+.superpowers/

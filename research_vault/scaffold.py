@@ -90,12 +90,14 @@ def _strip_disposition_marker(text: bytes) -> bytes:
     """Drop the repository's own `Disposition:` marker paragraph, if present.
 
     `templates/context.md` is a symlink to this repository's `CONTEXT.md`, which
-    the §10 status-marking pass (`scripts/dispositions.py`) marks. That pass
-    excludes `research_vault/templates/**` so its bookkeeping never ships, but
-    an exclusion cannot protect a consumer that reads through an alias — so the
-    transform belongs here, beside the frontmatter envelope this function
-    already adds on the way out. The marker is repo-internal: a scaffolded vault
-    is a different repository and nothing in it can act on the line.
+    still carries a `Disposition:` line from the status-marking pass. The tooling
+    that wrote those markers is gone (AGENTS.md now rules that a document which
+    no longer holds is deleted rather than marked), but the lines it left behind
+    are still in the files, and this one reaches a consumer through an alias. The
+    transform therefore belongs here, beside the frontmatter envelope this
+    function already adds on the way out. The marker is repo-internal: a
+    scaffolded vault is a different repository and nothing in it can act on the
+    line.
 
     Bounded to the head of the file because the pass only ever writes there —
     a five-line window opening after the first heading, and every template
