@@ -1,7 +1,5 @@
 # research-vault
 
-Disposition: current (2026-09-06)
-
 Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout — never revert or restore another session's uncommitted files, report the precondition as unmeetable instead. (Index-only changes like `git rm --cached` can't ride a pathspec commit — verify a clean `git status --porcelain`, then commit through the index.)
 
 Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/testing.md`.
