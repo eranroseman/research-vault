@@ -203,11 +203,26 @@ So the live vectors are three, all deliberate: an explicit right-click **Refresh
 
 **This lowers the rate and leaves the design unchanged.** §2.1's item-key identity still holds, because a key that changes rarely still changes. §2.4's detection still holds. And the ordering in the decomposition's decision 29 still holds, on the argument that a rare divergence with no repair is permanent rather than tolerable.
 
-### 2.6 Paths and the text cache (proposed)
+### 2.6 Paths and the full-text layer (**chosen 2026-09-07**)
 
-No absolute paths in the repository. The file URL from Zotero is a Windows `file://` path, percent-encoded; the existing `wslpath` shim resolves it at use time. The shim works because this host runs WSL2 with `networkingMode=mirrored`, which is also why a Windows-side Zotero answers on localhost at all. The cache folder is not a dot-folder, because Obsidian treats those as invisible and neither indexes nor opens them, which is the same reason the vault's support folder is `system/`. The text cache lives beside the notes under a gitignored folder, one file per attachment, named by attachment key, with its sha256 recorded in the note. The cache is regenerable from Zotero and never committed.
+No absolute paths in the repository. The file URL from Zotero is a Windows `file://` path, percent-encoded; the existing `wslpath` shim resolves it at use time. The shim works because this host runs WSL2 with `networkingMode=mirrored`, which is also why a Windows-side Zotero answers on localhost at all.
 
-Zotero's index is the source of truth for extracted text. The cache is a copy of it, and the compile input is a copy of the cache; both are derived and both are regenerable, so a disagreement is always resolved by re-reading Zotero, never by preferring a local copy. The note's recorded sha256 is what makes a disagreement visible.
+**The extracted text becomes a vault layer, `fulltext/<attachment key>.md`, gitignored and OKF-conformant.** One file per indexed attachment, carrying frontmatter with a `fulltext` type, its `sha256` recorded in the literature note's provenance tuple.
+
+Four properties decide it, and the 2026-09-04 draft's "gitignored cache folder" had only the last:
+
+- **Obsidian indexes it.** Gitignored is a git concept, not an Obsidian one, so the text of every paper is searchable in Obsidian's own search box. Nothing else on the table delivers that: `qmode=everything` answers a *Zotero* query, and reading Zotero's cache at use time is invisible to the vault.
+- **The path is vault-relative**, so it does not depend on where Zotero's data directory happens to live on a given machine.
+- **Frontmatter earns it a walk.** Because the files are OKF-conformant they need no exclusion from `verify`'s rglob, unlike `.raw/captured/`, which §4.3 has to gitignore *and* exclude.
+- **Derived, so never committed.** 1,335 files, 103.6 MB, mean 79 KB — measured 2026-09-07. Regenerable in one pass, so git carries none of it, and §12's cutover does not inherit another 100 MB the way it inherited 260 MB of transcripts.
+
+**Named by attachment key, not item key.** Measured 2026-09-07: 1,306 parent items each carry exactly one indexed attachment and none carries two, so item-key naming would work today — but Zotero does not guarantee it, an item with two PDFs would collide, and the failure mode is a silently overwritten file. The attachment key is collision-proof by construction, it is already the key the tuple records, and it gives the 5 indexed attachments that have no parent a home.
+
+**A second machine derives it rather than receiving it.** Full-text sync is off and attachment storage is WebDAV (measured 2026-09-07), so Zotero syncs the *items* and the *files* but never the extracted text — the cache belongs to the machine that indexed. Another machine therefore syncs, downloads, indexes, and regenerates this layer locally, at a first-run cost. That is a property of the configuration, not of the design: turning full-text sync on would change it.
+
+Zotero's index is the source of truth for extracted text and `.zotero-ft-cache` is its store; **verified 2026-09-07, byte-identical to `GET /items/<key>/fulltext` in 4 of 4 sampled attachments**, so either route yields the same bytes and the choice between them is about convenience, not fidelity. This layer is a projection of that, and the note's recorded `sha256` is what makes a disagreement visible. A disagreement is always resolved by re-reading Zotero, never by preferring the local copy.
+
+**Page boundaries survive.** The served text carries form feeds at page breaks — verified 2026-09-07, `content.split('\f')` yields exactly `indexedPages` segments in order. Page attribution therefore needs no second extraction pass and no PDF library, which is what §5's quote-provenance machinery had assumed.
 
 ### 2.7 API use (measured 2026-09-04)
 
