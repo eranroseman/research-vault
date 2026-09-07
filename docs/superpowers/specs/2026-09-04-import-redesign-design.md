@@ -176,9 +176,28 @@ A re-key is detected by the lifecycle linter alone: the item's live `citationKey
 >
 > §2.1 chooses `literatures/<citation key>.md` — the filename is the source's *name*, and the name changes. That choice is sound **only** because a re-key propagates. Until it does, every re-key leaves a note whose filename contradicts its own recorded `citationKey`, and every `[@key]` and `[[key]]` naming it dangles. §2.4 reports each one and repairs none, so the findings accumulate and the vault degrades quietly while still passing every check it has.
 >
-> This is not a deferral with a soft trigger. It is a debt the moment capture writes its first note, and it grows with every metadata edit Better BibTeX regenerates a key from. Shipping capture without propagation is shipping a known decay.
+> **Corrected 2026-09-07 on the measured trigger set.** An earlier draft of this warning said the debt "grows with every metadata edit Better BibTeX regenerates a key from". That mechanism does not exist under this configuration: `resetKeyOnChange` defaults to **false** and is unset on this machine, so editing metadata does *not* re-key. The real vectors are all deliberate — an explicit right-click Refresh, `item.regenerate_key` (which §2.5 never calls), and cloning an item, which clears the key before `fillKeyAfter` mints a new one.
+>
+> That makes re-keys **rare, not absent**, and it changes the urgency rather than the order. A rare event with no repair is still a permanent divergence: the first one leaves a note whose filename contradicts its own recorded `citationKey`, and nothing ever fixes it. Propagation still runs next.
 
 Detection's own obligation is discharged here: `re-keyed` is a lifecycle state (§1), it has a reason code (§2.4), and the linter that finds it runs at capture, at verify and at pre-commit through one code path (invariant 5).
+
+### 2.5.1 What Better BibTeX's own documentation says about keys (read 2026-09-07)
+
+Read at the **v9.0.63 tag**, matching the measured build, rather than from `master`.
+
+**Pinning no longer exists, and the key is Zotero's own field.** BBT's front page: *"With the advent of Zotero 8, items have a Zotero-native citation key field. This has replaced the BBT citation key field… Zotero will have moved all pinned keys out of the `extra` field into the native field… The concept of pinning keys is gone; keys are always pinned now… Upside to all of this is that keys will sync."* Measured here: `autoPinMigrated` is true, every sampled item carries a populated native `citationKey`, and `extra` is empty. The `pinned()` formula function is documented as a no-op kept only for legacy formulas.
+
+Two consequences for this design, both favourable and neither planned:
+
+- **`zotero.py` reads the authoritative store.** §2.3 step 1 takes `citationKey` from the local API's item JSON, which is now Zotero's own synced field rather than a Better BibTeX projection. The vault's detection route survived the largest architectural change in BBT's history by accident, and nothing needs to parse `Extra` for a pinned key.
+- **§2.1's stated objection has weakened.** It answers the worry that *"a third party can change it"* by moving identity to the item key. That answer is still right, but the worry is smaller than it was: keys now sync, so a change made on one machine propagates rather than diverging silently.
+
+**The regeneration triggers, measured rather than assumed.** `resetKeyOnChange` (*"Regenerate citation key when item changes"*) defaults to **false** and is unset on this machine, so a metadata edit does not re-key. `fillKeyAfter` defaults to **2** seconds and only fills a key for an item that has none — it mints, it does not change. BBT's own summary is *"BBT is conservative about citation key changes"*, and editing the key formula explicitly does not retro-apply: *"A new formula takes effect for items changed from that point forward."*
+
+So the live vectors are three, all deliberate: an explicit right-click **Refresh**, **`item.regenerate_key`** over JSON-RPC (which this design never calls, per §2.7), and **cloning** an item, which clears the key before it is re-filled.
+
+**This lowers the rate and leaves the design unchanged.** §2.1's item-key identity still holds, because a key that changes rarely still changes. §2.4's detection still holds. And the ordering in the decomposition's decision 29 still holds, on the argument that a rare divergence with no repair is permanent rather than tolerable.
 
 ### 2.6 Paths and the text cache (proposed)
 
