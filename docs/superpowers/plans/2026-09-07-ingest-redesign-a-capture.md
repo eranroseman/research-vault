@@ -1,14 +1,16 @@
-# Ingest Redesign Implementation Plan
+# Ingest Redesign Implementation Plan — Part A: retire, rename, capture, add, doctor
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the vault's import path with the ingest design: retire the auto-export, archive, screening-state and managed-region machinery; rename `citekey` to `citationKey`; build the capture verb, the gitignored `fulltext/` layer, the lifecycle linter, re-key propagation and the captured-set lint; rewrite doctor; add the Path A `add` verb; and drive the adopted compile tool (`AgriciDaniel/claude-obsidian` at `ad67087`) through a glue wrapper.
+**Goal:** Replace the vault's import path with the capture side of the ingest design: retire the auto-export, archive, screening-state and managed-region machinery; rename `citekey` to `citationKey`; build the capture verb, the gitignored `fulltext/` layer, the lifecycle linter, re-key propagation and the captured-set lint; rewrite doctor; add the Path A `add` verb; close open points 07–09; rewrite the capture-source and setup-vault skills. The compile wrapper, its tracers, the write-capable live legs and the closing docs are Part B (`docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md`), which starts after this part merges to `main`.
 
-**Architecture:** Zotero is the source of truth and capture is the sole writer of the literature note (`literatures/<citationKey>.md`), the text layer (`fulltext/<attachment key>.md`) and the CSL file (`system/bibliography.json`). Identity is the Zotero item key qualified by the server id; the citation key is the name. One lifecycle linter (`research_vault/lifecycle.py`) classifies every note from three local-API reads and runs at capture and at verify through one code path; the pre-commit leg is held. Propagation (`research_vault/propagate.py`) is the one vault-wide mutation and ships in the same plan. Compile is adopted unmodified: `research_vault/compile.py` selects captured sources, registers ledger records through the tool's own `transaction inspect`/`apply`, and never writes under `wiki/`.
+**Architecture:** Zotero is the source of truth and capture is the sole writer of the literature note (`literatures/<citationKey>.md`), the text layer (`fulltext/<attachment key>.md`) and the CSL file (`system/bibliography.json`). Identity is the Zotero item key qualified by the server id; the citation key is the name. One lifecycle linter (`research_vault/lifecycle.py`) classifies every note from three local-API reads and runs at capture and at verify through one code path; the pre-commit leg is held. Propagation (`research_vault/propagate.py`) is the one vault-wide mutation and ships in the same plan. Compile is adopted unmodified and wrapped in Part B; this part leaves `wiki/` a guarded machine surface that nothing writes into yet.
 
 **Tech Stack:** Python 3.11+ stdlib only (`urllib`, `json`, `hashlib`, `html.parser`, `subprocess`, `pathlib`). pytest with `monkeypatch` fakes; two live Zotero 10.0.1 instances (production `localhost:23119`, test `localhost:23129`). No new dependency.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-import-redesign-design.md` (the active spec; §9 is its fact register). Also binding: `docs/superpowers/specs/2026-09-05-assembly-design.md` decisions 12, 17, 22, 28, 29 and §9; ADR 0001–0003.
+
+**Split:** two parts, one executable stretch each. Part A needs no human attendance. Part B's tracers (Obsidian open, one sitting), its consent dialog on the test instance and its upstream issue do. Every decision below binds both parts; Part B carries no decisions of its own.
 
 ## Global Constraints
 
@@ -24,7 +26,7 @@
 - **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`.
 - **Deleting a module** deletes its `research_vault/<module>.py.manifest.json` sidecar (mutate4py sidecars; nothing enforces them) and prunes its rows from `mutation-baseline.txt` (`grep -v '^research_vault/<module>.py::'`). New modules need no sidecar; the gate writes one on its first run.
 - **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
-- **Outward-facing actions need explicit go-ahead in that turn**: Task 24's upstream Zotero issue is not run on plan approval alone.
+- **Outward-facing actions need explicit go-ahead in that turn**: Part B's upstream Zotero issue (its Task 6) is not run on plan approval alone; nothing in this part is outward-facing.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
 
 ______________________________________________________________________
@@ -50,18 +52,20 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 15. **Doctor's profile-only facts** (§5: `extensions.zotero.sync.fulltext.enabled`, `sync.storage.protocol`, the Better BibTeX `git` preference, `extensions.json`, the two auto-enrichment preferences) are read from the profile directory named by `machine.json` key `zotero_profile` (measured on this machine: `/mnt/c/Users/eranr/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default`). Absent key → those probes report `SKIPPED — zotero_profile not configured`, never `MATCHED`.
 16. **The add-on declaration** (decision 17) is one packaged file, `research_vault/templates/zotero-addons.md`, embedded verbatim in `README.md` (a test asserts the two tables agree). Doctor parses the packaged copy. Rows, ids read from `extensions.json` on 2026-09-07: Better BibTeX `better-bibtex@iris-advies.com` (required), Attachment Scanner `attachmentscanner@changlab.um.edu.mo` (recommended), DOI Manager `zoteroshortdoi@wiernik.org` (recommended, pref `extensions.shortdoi.autoretrieve`; **`appDisabled` today**), PMCID fetcher `zotero-pmcid-fetcher@iris-advies.com` (recommended, pref `extensions.zotero.pmcid.auto`), MarkDB-Connect `daeda@mit.edu` (optional).
 17. **Compile tool location and pin**: `claude plugin marketplace add AgriciDaniel/claude-obsidian` then `claude plugin install claude-obsidian@agricidaniel-claude-obsidian`. Doctor reads `~/.claude/plugins/installed_plugins.json` → `plugins["claude-obsidian@agricidaniel-claude-obsidian"][0].gitCommitSha` and compares its prefix to the pin `ad67087` (warn-only). The wrapper finds the CLI at that record's `installPath` + `scripts/claude-obsidian.py`, overridable by `machine.json` key `claude_obsidian_root`.
-18. **`wiki/` joins the pre-tool-use guard's machine surfaces.** The tool's engine is the only writer under `wiki/` (its skills forbid host `Write`/`Edit` there: "Do not use host Write/Edit"), so an agent `Write` into `wiki/` is exactly the bypass the guard exists to refuse. Tracer T1 (Task 18) confirms the tool's own session still completes with the guard active.
+18. **`wiki/` joins the pre-tool-use guard's machine surfaces.** The tool's engine is the only writer under `wiki/` (its skills forbid host `Write`/`Edit` there: "Do not use host Write/Edit"), so an agent `Write` into `wiki/` is exactly the bypass the guard exists to refuse. Tracer T1 (Part B Task 1) confirms the tool's own session still completes with the guard active.
 19. **`fulltext/` is walked by verify's worktree snapshot** (`gitstate.snapshot_worktree` walks the live tree, `.git` excluded), so `okf-frontmatter` attests it as §3.6 intends; the index snapshot used at pre-commit (`git ls-files --stage`) never sees it, so the held leg costs nothing. `stamp.stamp_types` and `structure.check_reserved` skip `fulltext/`, `.raw/` and `.vault-meta/` (a 1,335-file parse per commit buys nothing: the layer carries its type by construction).
 20. **`selectors.py` stays** (unused after `backfill-selectors` retires): it is the Web-Annotation context machinery open point 10 defers with annotations, and lane 5 is its consumer. `backfill-selectors` goes because its only input (claim lines in the managed region) retires.
 21. **Open point 07**: the acknowledgment scope hash is the sha256 of the note bytes with the verifier-owned `verified` list removed (`verify._note_bytes`), truncated to 16 hex characters — what `_citekey_hash` already computes when no `fixity-sha256` is present. The `fixity-sha256` branch is deleted. **Open point 08**: `skills/evidence-conventions/SKILL.md` is the single definition site of `[retraction-ack:: <code>]`; `publish.py` parses it through one module constant `RETRACTION_ACK_FIELD = "retraction-ack"` and a test asserts the skill's fenced example uses that spelling. **Open point 09**: `ack` clears the target's `[failed-verification:: <check>/<date>]` marker.
-22. **Tracer results land in this plan** under "Tracer results" (Task 18) and as one dated sentence in the spec's §4.3 tracer paragraph.
-23. **Invariant 5 / decomposition §15.20** (no branch protection, no dev pre-commit hook): reported in Task 24's final message to the author, unchanged by this plan.
-24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Task 19) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Task 18) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
+22. **Tracer results land in Part B** under "Tracer results" (Part B Task 1) and as one dated sentence in the spec's §4.3 tracer paragraph.
+23. **Invariant 5 / decomposition §15.20** (no branch protection, no dev pre-commit hook): reported in Task 20's final message to the author, unchanged by this plan.
+24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Part B Task 2) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Part B Task 1) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
 25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
 
 ______________________________________________________________________
 
 ## File map
+
+Both parts share this map; items marked (Part B) are created or modified there.
 
 Create:
 
@@ -70,15 +74,15 @@ Create:
 - `research_vault/lifecycle.py` — the lifecycle linter: three reads, per-object classification, ordered reason codes.
 - `research_vault/propagate.py` — the rename log, surface rewrite, residue lint.
 - `research_vault/captured.py` — the captured set and the captured-set lint (textual + structural + recompile-needed).
-- `research_vault/compile.py` — the compile wrapper: selection, `stable_source_id`, ledger records, bundle, tool invocation.
+- (Part B) `research_vault/compile.py` — the compile wrapper: selection, `stable_source_id`, ledger records, bundle, tool invocation.
 - `research_vault/addons.py` — the add-on declaration parser doctor reads.
 - `research_vault/templates/zotero-addons.md` — the declaration (decision 16).
 - `tests/fakes.py` — `FakeZotero`, the canned local-API/JSON-RPC double every offline test shares.
 - `tests/fixtures/lifecycle/*.json` — trimmed versions maps from the 2026-09-07 sitting.
-- `tests/test_fulltext.py`, `tests/test_capture.py`, `tests/test_lifecycle.py`, `tests/test_propagate.py`, `tests/test_captured.py`, `tests/test_compile.py`, `tests/test_addons.py`, `tests/test_add.py`, `tests/test_capture_live.py`, `tests/test_capture_source_skill.py`.
+- `tests/test_fulltext.py`, `tests/test_capture.py`, `tests/test_lifecycle.py`, `tests/test_propagate.py`, `tests/test_captured.py`, `tests/test_compile.py` (Part B), `tests/test_addons.py`, `tests/test_add.py`, `tests/test_capture_live.py` (Part B), `tests/test_capture_source_skill.py`.
 - `skills/capture-source/SKILL.md` (replaces `skills/import-source/`).
 
-Modify: `research_vault/zotero.py` (rewrite), `notes.py` (shrink, then new record), `bibliography.py` (shrink + `write`), `verify.py`, `lints.py`, `checks.py`, `events.py`, `inbox.py`, `structure.py`, `stamp.py`, `scaffold.py`, `claims.py`, `publish.py`, `__main__.py`, `paths.py`, `gitstate.py:644`, `hooks/pretooluse_guard.py`, `hooks/posttooluse_lint.py`, `research_vault/templates/vault/{AGENTS.md,index.md,gitignore,editorconfig,markdownlintignore,prettierignore,system/bases/open-questions.base}`, `research_vault/templates/research-vault/machine.json.example`, `CONTEXT.md` (and its symlink `research_vault/templates/context.md`), `docs/terminology.md`, `docs/testing.md`, `README.md`, `.github/workflows/quality.yml`, `skills/setup-vault/SKILL.md`, `skills/synthesis-conventions/SKILL.md`, `skills/evidence-conventions/SKILL.md`, `tests/conftest.py`, `tests/test_skill_files.py`, `tests/test_skill_contracts.py`, `tests/test_doctor.py`, `tests/test_notes.py`, `tests/test_lints.py`, `tests/test_verify_cli.py`, `tests/test_checks.py`, `tests/test_events.py`, `tests/test_templates.py`, `tests/test_structure.py`, `tests/test_scaffold.py`, `tests/test_hooks.py`, `tests/test_cli_live.py`, `tests/test_zotero.py`, `tests/test_bibliography.py`, `mutation-baseline.txt`.
+Modify: `research_vault/zotero.py` (rewrite), `notes.py` (shrink, then new record), `bibliography.py` (shrink + `write`), `verify.py`, `lints.py`, `checks.py`, `events.py`, `inbox.py`, `structure.py`, `stamp.py`, `scaffold.py`, `claims.py`, `publish.py`, `__main__.py`, `paths.py`, `gitstate.py:644`, `hooks/pretooluse_guard.py`, `hooks/posttooluse_lint.py`, `research_vault/templates/vault/{AGENTS.md,index.md,gitignore,editorconfig,markdownlintignore,prettierignore,system/bases/open-questions.base}`, `research_vault/templates/research-vault/machine.json.example`, `CONTEXT.md` (and its symlink `research_vault/templates/context.md`), `docs/terminology.md`, `docs/testing.md` (Part B), `README.md`, `.github/workflows/quality.yml` (Part B), `skills/setup-vault/SKILL.md`, `skills/synthesis-conventions/SKILL.md` (Part B), `skills/evidence-conventions/SKILL.md`, `tests/conftest.py`, `tests/test_skill_files.py`, `tests/test_skill_contracts.py`, `tests/test_doctor.py`, `tests/test_notes.py`, `tests/test_lints.py`, `tests/test_verify_cli.py`, `tests/test_checks.py`, `tests/test_events.py`, `tests/test_templates.py`, `tests/test_structure.py`, `tests/test_scaffold.py`, `tests/test_hooks.py`, `tests/test_cli_live.py`, `tests/test_zotero.py`, `tests/test_bibliography.py`, `mutation-baseline.txt`.
 
 Delete: `research_vault/archive.py` (+ sidecar), `tests/test_archive.py`, `research_vault/templates/vault/synthesis/index.md`, `research_vault/templates/vault/system/templates/synthesis.md`, `research_vault/templates/vault/system/templates/literature.md`, `skills/import-source/` (whole directory), `tests/test_import_source_skill.py`.
 
@@ -176,7 +180,7 @@ CHECK = "captured-set"
 def captured_set(vault_root) -> dict[str, str]            # citation key -> item key
 def lint_captured_set(vault_root) -> list[Outcome]
 
-# research_vault/compile.py                                   (Task 19)
+# research_vault/compile.py                                   (Part B Task 2)
 LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"; PIN = "ad67087"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"; CHECK = "compile"
 def stable_source_id(kind, locator, content_sha256) -> str
@@ -546,7 +550,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `research_vault/checks.py` (delete `check_doi_exists` :186-237, `registry_agency` :239-264, `_metadata_text` :266, `_metadata_authors` :271, `metadata_year` :294, `_crossref_csl` :313, `_metadata_extra` :328, `check_metadata` :335-506; keep `_doi_path` if `check_update_notice` uses it), `research_vault/verify.py` (`_network_outcomes` :657-702 and `_offline_network_outcomes` :704-722, `CLOSING_BY_SURFACE["publish"]` drops `doi`), `research_vault/events.py` (`_applicable_note_checks` :248-253), `research_vault/inbox.py` (`CHECK_IDS` drop `doi`, `metadata`), `skills/import-source/SKILL.md` §2 (its sentence naming the `doi`, `metadata`, and `update-notice` checks becomes "would make the `update-notice` check SKIPPED"), `docs/terminology.md` §4.4, `.github/workflows/quality.yml:48-65` (the `check_metadata` CRAP note is now moot — see Task 21 for the removal of `continue-on-error`)
+- Modify: `research_vault/checks.py` (delete `check_doi_exists` :186-237, `registry_agency` :239-264, `_metadata_text` :266, `_metadata_authors` :271, `metadata_year` :294, `_crossref_csl` :313, `_metadata_extra` :328, `check_metadata` :335-506; keep `_doi_path` if `check_update_notice` uses it), `research_vault/verify.py` (`_network_outcomes` :657-702 and `_offline_network_outcomes` :704-722, `CLOSING_BY_SURFACE["publish"]` drops `doi`), `research_vault/events.py` (`_applicable_note_checks` :248-253), `research_vault/inbox.py` (`CHECK_IDS` drop `doi`, `metadata`), `skills/import-source/SKILL.md` §2 (its sentence naming the `doi`, `metadata`, and `update-notice` checks becomes "would make the `update-notice` check SKIPPED"), `docs/terminology.md` §4.4, `.github/workflows/quality.yml:48-65` (the `check_metadata` CRAP note is now moot — see Part B Task 4 for the removal of `continue-on-error`)
 - Tests: delete every `test_doi_exists_*`, `test_registry_agency_*`, `test_doi_paths_*`, `test_metadata_*` in `tests/test_checks.py` (:340-:2367, 40 tests; keep `test_update_notice_*`); in `tests/test_verify_cli.py` delete `::test_discovery_partial_identifiers_survive_outage_and_run_recovered_doi` (:58) and rewrite `::test_no_doi_distinguishes_healthy_no_hit_from_discovery_outage` (:99) and `::test_discovery_outage_with_only_pmid_keeps_live_update_unreachable` (:125) to assert on `update-notice` only; `tests/test_events.py` trust-tier tests that list `doi`/`metadata` as applicable checks (grep `applicable`) assert `{"update-notice"}`.
 
 **Interfaces:**
@@ -758,7 +762,7 @@ The literature note becomes wholly machine-written. `managed-sha256` narrows to 
 
 **Files:**
 
-- Modify: `research_vault/notes.py` (delete `MANAGED_*`, `SEED_FREE`, `ManagedRegionError`, `RenderIntegrityError`, `_raw_lines`, `managed_slice_bytes`, `managed_sha256`, `_managed_body`, `_split_free`, `MANAGED_FIELDS`, `_prior_managed_body`, `_managed_projection`, `render_note`, `_assert_managed_body_parses`, `_norm`, `claim_id`, `_escape_selector`, `render_claim`, `_SELECTOR_CONTROL`; keep `display_text`, `InvalidCitekeyError`, `note_path`, `_valid_generated`, `generated_at_now`, `sha256_file`, `content_changed`, `canonical_content` and its helpers; add `note_body`, `body_sha256`, rewrite `validate_managed_witness`), `research_vault/claims.py` (drop the `MANAGED_OPEN`/`MANAGED_CLOSE` import, the `in_managed` field and the region tracking in `parse_claims`), `research_vault/quotes.py:41` and `research_vault/events.py:283` (drop the `claim.in_managed` conjunct), `research_vault/lints.py` (`_managed_bytes` → `_body_bytes`; the `lint_evidence_layer` reason strings; `_MACHINE_OWNED_FRONTMATTER_KEYS = frozenset({"managed-sha256", "fixity-sha256", "citekey"})` unchanged), `research_vault/__main__.py` (delete `QUOTE_ANNOTATION_TYPES`, `normalize_annotation`, `_attachment_annotations`, `_attachment_hash`, `_QUOTE_SELECTOR`, `_prior_contexts`, `_retain_prior_contexts`, `_selector_warning`, `cmd_import_note`, `cmd_backfill_selectors`, their parsers and dispatch entries, and the now-unused imports `selectors`, `paths`, `re`, `datetime`, `okf`, `stamp` as ruff reports them; keep `_hold` and `_hold_reason`), `hooks/pretooluse_guard.py:24-27` (`DENY_REASON` names `capture` in place of `import-note`) and `tests/test_hooks.py:26`, `research_vault/inbox.py` (`CHECK_IDS` drop `render` and `integrate` — both were `import-note`'s; keep `citekey`), `research_vault/templates/vault/AGENTS.md:25` (the markers sentence becomes: "Literature notes are wholly machine-written: `capture` regenerates the whole note from Zotero on every run, so per-source prose belongs in a Zotero child note, which capture renders."), `tests/conftest.py` (`_with_managed_witness` → `_with_body_witness`; the two literature notes lose their marker lines and the `## Notes` seed), `docs/terminology.md` (every `%%rv-managed%%` mention; §4.2's `managed-sha256` definition becomes "sha256 over the note body below the frontmatter"), `skills/import-source/SKILL.md` (delete the `## 4. Integrate at import` section, the `render`/`integrate` rows and the §7 table — the file is rewritten whole in Task 20; these deletions keep `tests/test_skill_contracts.py:123-154` and `:338-363` green now. That test requires at least one `python3 -m research_vault finding ...` invocation corpus-wide: move one to `skills/project-flow/SKILL.md` if none survives: `python3 -m research_vault finding disputed-claim CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH`), `skills/evidence-conventions/SKILL.md` (`contradiction` and `low-confidence` stay in `REASON_CODES`: `disputed-claim` and `factcheck` still file them)
+- Modify: `research_vault/notes.py` (delete `MANAGED_*`, `SEED_FREE`, `ManagedRegionError`, `RenderIntegrityError`, `_raw_lines`, `managed_slice_bytes`, `managed_sha256`, `_managed_body`, `_split_free`, `MANAGED_FIELDS`, `_prior_managed_body`, `_managed_projection`, `render_note`, `_assert_managed_body_parses`, `_norm`, `claim_id`, `_escape_selector`, `render_claim`, `_SELECTOR_CONTROL`; keep `display_text`, `InvalidCitekeyError`, `note_path`, `_valid_generated`, `generated_at_now`, `sha256_file`, `content_changed`, `canonical_content` and its helpers; add `note_body`, `body_sha256`, rewrite `validate_managed_witness`), `research_vault/claims.py` (drop the `MANAGED_OPEN`/`MANAGED_CLOSE` import, the `in_managed` field and the region tracking in `parse_claims`), `research_vault/quotes.py:41` and `research_vault/events.py:283` (drop the `claim.in_managed` conjunct), `research_vault/lints.py` (`_managed_bytes` → `_body_bytes`; the `lint_evidence_layer` reason strings; `_MACHINE_OWNED_FRONTMATTER_KEYS = frozenset({"managed-sha256", "fixity-sha256", "citekey"})` unchanged), `research_vault/__main__.py` (delete `QUOTE_ANNOTATION_TYPES`, `normalize_annotation`, `_attachment_annotations`, `_attachment_hash`, `_QUOTE_SELECTOR`, `_prior_contexts`, `_retain_prior_contexts`, `_selector_warning`, `cmd_import_note`, `cmd_backfill_selectors`, their parsers and dispatch entries, and the now-unused imports `selectors`, `paths`, `re`, `datetime`, `okf`, `stamp` as ruff reports them; keep `_hold` and `_hold_reason`), `hooks/pretooluse_guard.py:24-27` (`DENY_REASON` names `capture` in place of `import-note`) and `tests/test_hooks.py:26`, `research_vault/inbox.py` (`CHECK_IDS` drop `render` and `integrate` — both were `import-note`'s; keep `citekey`), `research_vault/templates/vault/AGENTS.md:25` (the markers sentence becomes: "Literature notes are wholly machine-written: `capture` regenerates the whole note from Zotero on every run, so per-source prose belongs in a Zotero child note, which capture renders."), `tests/conftest.py` (`_with_managed_witness` → `_with_body_witness`; the two literature notes lose their marker lines and the `## Notes` seed), `docs/terminology.md` (every `%%rv-managed%%` mention; §4.2's `managed-sha256` definition becomes "sha256 over the note body below the frontmatter"), `skills/import-source/SKILL.md` (delete the `## 4. Integrate at import` section, the `render`/`integrate` rows and the §7 table — the file is rewritten whole in Task 19; these deletions keep `tests/test_skill_contracts.py:123-154` and `:338-363` green now. That test requires at least one `python3 -m research_vault finding ...` invocation corpus-wide: move one to `skills/project-flow/SKILL.md` if none survives: `python3 -m research_vault finding disputed-claim CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH`), `skills/evidence-conventions/SKILL.md` (`contradiction` and `low-confidence` stay in `REASON_CODES`: `disputed-claim` and `factcheck` still file them)
 - Delete: `research_vault/templates/vault/system/templates/literature.md`
 - Tests to delete: in `tests/test_notes.py` every test except `test_note_path_rejects_unsafe_citekeys` (:160) and the `generated_at_now`/`_valid_generated`/`canonical_content`/`content_changed` tests (grep those names); `tests/test_cli_live.py` :100, :261, :302, :366, :394, :425, :453, :511, :579, :1077, :1130, :1166, :1213, :1257, :1387, :1405, :1422, :1486, :1511, :1550, :1567, :1604, :1637 (every `import_note`/`import_source`/`backfill` test) and the `provisioned_vault` fixture if nothing else uses it; `tests/test_render_neutralization.py` :310, :339 and every test whose subject is `render_note`/`render_claim`/selectors (keep the `display_text` tests); `tests/test_lints.py::test_claim_immutability_rejects_marker_change_when_a_selector_continuation_changes` (:359); `tests/test_verify_cli.py::test_managed_note_add_is_collected_and_projected_as_evidence_finding` (:1916) is rewritten as `test_literature_note_add_is_collected_and_projected_as_evidence_finding` over a marker-less note; `tests/test_templates.py:19,161-166` and `tests/test_scaffold.py:40,131,209` (the literature template); `tests/test_selectors.py` stays (the module stays, decision 20).
 - Tests to rewrite: every fixture note in `tests/*.py` that carries `%%rv-managed%%` (`grep -ln 'rv-managed' tests/*.py`: conftest, test_checks, test_claims, test_events, test_factcheck, test_lints, test_notes, test_render_neutralization, test_skill_contracts, test_templates, test_trust_tier_cli, test_verify_cli, test_cli_live) drops the two marker lines and, where it carried one, the `## Notes` seed; witnesses are recomputed with `_with_body_witness`.
@@ -1260,7 +1264,7 @@ for path in sorted(Path("literatures").glob("*.md")):
 PY
 ```
 
-is run once against the author's vault by Task 20's setup-vault skill instructions (it is a person's vault, not this repository).
+is run once against the author's vault by Task 19's setup-vault skill instructions (it is a person's vault, not this repository).
 
 - [ ] **Step 4: Run the suite and form owners**
 
@@ -1283,7 +1287,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Task 21, §4.4 rows), `skills/evidence-conventions/SKILL.md` (only if a term it defines changed spelling)
+- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows), `skills/evidence-conventions/SKILL.md` (only if a term it defines changed spelling)
 - Test: `tests/test_templates.py` (the glossary render test, if it asserts content), `tests/test_skill_contracts.py` (the backticked-token rule at `:157-170` over templates)
 
 **Interfaces:**
@@ -2698,7 +2702,7 @@ keeps only the keys the tests name. Shapes are the observed shapes: flat
 - `items-after-delete.json` — `ALKT2NF7` moved 0 → 1708 by a human edit (drifted).
 - `trash-trashed.json` — `II7E6CVR` present at 1712 (trashed); **non-replayable
   as a transition**: no snapshot holds the item while it was live, so the pair
-  shows a key entering the trash map without leaving the items map. Task 22
+  shows a key entering the trash map without leaving the items map. Part B Task 5
   takes the missing snapshot.
 - `trash-after-delete.json` — `II7E6CVR` gone from both maps (deleted; replays).
 ```
@@ -4497,7 +4501,7 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads thi
 - [ ] **Step 4: Run the suite and form owners; run doctor live; commit**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
-Expected: PASS, clean. Live, on a scratch vault whose `machine.json` names this machine's profile (`/mnt/c/Users/eranr/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default`): `.venv/bin/python -m research_vault doctor --vault "$scratch"` prints thirteen rows; expected today: `write-guard` MATCHED, `plugins` MATCHED with `zoteroshortdoi@wiernik.org appDisabled` in the reason, `translator-formats` MATCHED, `compile-tool` SKIPPED until Task 18 installs the tool.
+Expected: PASS, clean. Live, on a scratch vault whose `machine.json` names this machine's profile (`/mnt/c/Users/eranr/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default`): `.venv/bin/python -m research_vault doctor --vault "$scratch"` prints thirteen rows; expected today: `write-guard` MATCHED, `plugins` MATCHED with `zoteroshortdoi@wiernik.org appDisabled` in the reason, `translator-formats` MATCHED, `compile-tool` SKIPPED until Part B Task 1 installs the tool.
 
 ```bash
 git commit -m "rewrite doctor as setup's linter (ingest spec §5)
@@ -4692,7 +4696,7 @@ CLI: `cmd_add` reads `--item FILE` (JSON list or object), calls `capture.add`, p
 - [ ] **Step 4: Run the suite and form owners; commit**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
-Expected: PASS, clean. (The attended live leg is Task 22.)
+Expected: PASS, clean. (The attended live leg is Part B Task 5.)
 
 ```bash
 git commit -m "add the add verb: Path A create, then capture (ingest spec §2)
@@ -4706,931 +4710,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 ______________________________________________________________________
 
-## Phase 3 — compile: the adopted tool and its wrapper
+## Phase 3 — open points, the two skills, verification
 
-If any tracer in Task 18 fails, stop this phase: ship Phases 0–2 and 4 without Task 19, and record the failure in "Tracer results" below (spec §4.3: "the fallback is to defer compile to its own spec").
-
-### Task 18: Tracers before any compile task (spec §3.1 alias probe, §4.3 "Tracers, before any compile task is written")
-
-Manual, one sitting, on a scratch vault. Record each result as a dated line under "Tracer results" at the end of this task and one dated sentence in the spec's §4.3 tracer paragraph.
-
-**Files:**
-
-- Modify: `docs/superpowers/plans/2026-09-07-ingest-redesign.md` (this section's results), `docs/superpowers/specs/2026-09-04-import-redesign-design.md` §4.3 (one sentence: "Tracers run 2026-MM-DD: \<pass|fail> — see the plan.")
-
-- [ ] **Step 1: Install the tool at the pin and confirm doctor sees it**
-
-```bash
-claude plugin marketplace add AgriciDaniel/claude-obsidian
-claude plugin install claude-obsidian@agricidaniel-claude-obsidian
-python3 -c "import json,pathlib;p=json.load(open(pathlib.Path.home()/'.claude/plugins/installed_plugins.json'))['plugins']['claude-obsidian@agricidaniel-claude-obsidian'][0];print(p['gitCommitSha'],p['installPath'])"
-```
-
-Expected: a sha starting `ad67087`. If the marketplace has moved past the pin, pin locally: `git -C "$installPath" checkout ad67087` is **not** available (the cache is not a git checkout) — record the sha found, and treat `compile-tool` UNMATCHED as the tracer's finding; Task 19 still targets the documented `ad67087` surface (agent-read 2026-09-07) and the author decides whether to move the pin.
-
-- [ ] **Step 2: T1 — the plugin loads whole and an ordinary capture run still completes**
-
-Start a Claude Code session in a scratch vault (`scratch=$(mktemp -d); python -m research_vault scaffold --vault "$scratch"`), with the research-vault plugin and claude-obsidian both loaded. In that session run `python -m research_vault capture jakesch.etal2023a --vault "$scratch" --base http://localhost:23129` and then `python -m research_vault doctor --vault "$scratch"`. Expected: both complete; no context compaction is forced during the run; `compile-tool` MATCHED. Record `/context` (or the session's reported token cost) so the "context cost" claim is a number.
-
-- [ ] **Step 3: T2 — `mode set` writes the folder names and `mode get` reads them back**
-
-```bash
-CORE="$installPath/scripts/claude-obsidian.py"
-python3 "$CORE" adopt "$scratch" | tee /tmp/adopt.json     # dry run: read changed_paths and approved_plan_sha256
-python3 "$CORE" adopt "$scratch" --apply --approved-plan-sha256 "$(jq -r .approved_plan_sha256 /tmp/adopt.json)" --operation-id "$(jq -r .operation.operation_id /tmp/adopt.json)" --generated-at "$(jq -r .generated_at /tmp/adopt.json)"
-python3 "$CORE" mode set generic --vault "$scratch" | tee /tmp/mode.json
-python3 "$CORE" mode set generic --vault "$scratch" --apply --approved-plan-sha256 "$(jq -r .approved_plan_sha256 /tmp/mode.json)" --operation-id "$(jq -r .operation.operation_id /tmp/mode.json)" --generated-at "$(jq -r .generated_at /tmp/mode.json)"
-python3 "$CORE" mode get --vault "$scratch"
-```
-
-Expected: `mode get` reports `sources_folder: wiki/sources/`, `concepts_folder: wiki/concepts/`; `.vault-meta/mode.json` exists; `adopt` created `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, `wiki/overview.md`, `.raw/.manifest.json`, `wiki/meta/ledgers/*.json`, `.claude-obsidian.json`, `.obsidian/*`, and **did not overwrite** the vault's `.gitignore` (it refuses without `--force`; append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`). (If the exact flag names differ from the ones above, read `python3 "$CORE" adopt --help`; the approve-then-apply shape is `_require_approved_plan` in `claude_obsidian/cli.py:86-104`.)
-
-- [ ] **Step 4: T3 — a compile run over three captured sources writes only under `wiki/`**
-
-Capture three sources into the scratch vault (`capture A B C --base http://localhost:23129`), snapshot `literatures/` and `fulltext/` (`find "$scratch/literatures" "$scratch/fulltext" -type f -exec sha256sum {} + | sort > /tmp/before.txt`). In the session, invoke the tool's `wiki-ingest` skill on the three `fulltext/<key>.md` files (hand it the paths; Task 19's wrapper is not built yet). Approve its bundle by hash, apply. Then:
-
-```bash
-find "$scratch/literatures" "$scratch/fulltext" -type f -exec sha256sum {} + | sort | diff - /tmp/before.txt && echo "literatures and fulltext byte-identical"
-git -C "$scratch" status --porcelain | grep -v '^?? wiki/\|^ M wiki/\|^?? \.raw/\|^?? \.claude-obsidian\.json\|^?? \.obsidian/' ; echo "(nothing above this line means only wiki/ changed)"
-```
-
-Expected: byte-identical evidence and text layers; every changed path under `wiki/` (plus the tool's own dotfiles). Record what `wiki/log.md` looks like after the run: if it carries a `## ` heading that is not `## YYYY-MM-DD`, `okf-structure` will fail on it — record that as a fourth conflict and decide with the author whether `wiki/log.md` joins the `wiki/index.md` exemption (a one-line addition to `structure._EXEMPT_INDEXES`' sibling set and to ADR 0001).
-
-- [ ] **Step 5: T4 — the tool's pages pass `verify --surface commit`**
-
-```bash
-python -m research_vault verify --vault "$scratch" --offline --surface commit --git-base "$(git -C "$scratch" rev-parse HEAD)" --git-candidate worktree; echo "exit $?"
-```
-
-Expected: exit 0; no `okf-frontmatter` finding on `wiki/**`; `wiki/index.md` exempt; `captured-set` MATCHED (the pages cite only captured keys); `.raw/`, `.vault-meta/` unwalked. Record the counts line.
-
-- [ ] **Step 6: T5 — Obsidian's `[[Title]]` resolution (spec §3.1)**
-
-Open the scratch vault in Obsidian. In a scratch note type `[[<the title of one captured source>]]` and follow the link; then `[[<its citation key>]]`. Expected per the documentation: the title link opens the tool's `wiki/sources/<Title>.md` (exact filename beats alias) and the key link opens the literature note. Record which file each opened. Either result is acceptable; the record is what §3.1 asks for, and the captured-set lint's resolution order (Task 15) already treats a page filename as a page.
-
-- [ ] **Step 7: Record and commit**
-
-Append under this heading:
-
-```markdown
-#### Tracer results
-
-- 2026-MM-DD T1: <pass|fail> — <one line>
-- 2026-MM-DD T2: ...
-- 2026-MM-DD T3: ...
-- 2026-MM-DD T4: ...
-- 2026-MM-DD T5: title link opened <file>; key link opened <file>
-```
-
-and the one sentence in the spec. Commit:
-
-```bash
-git commit -m "record the compile tracers (ingest spec §4.3)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/superpowers/plans/2026-09-07-ingest-redesign.md docs/superpowers/specs/2026-09-04-import-redesign-design.md
-```
-
-### Task 19: The compile wrapper (spec §4.3, §4.4, §4.5)
-
-Glue tier: it selects, fills a ledger record, calls the tool's CLI. It carries no prompt. The tool's own LLM skill writes the pages afterwards from the records the wrapper registered.
-
-**Files:**
-
-- Create: `research_vault/compile.py`, `tests/test_compile.py`
-- Modify: `research_vault/__main__.py` (`compile KEY... --vault PATH [--approved-plan-sha256 SHA] [--all]`), `research_vault/inbox.py` (`CHECK_IDS` add `compile`), `docs/terminology.md` §4.4
-
-**Interfaces:**
-
-- Consumes: `captured.captured_set`, `notes.read_provenance`, `frontmatter.parse`, `fulltext.path_for`, `scaffold._installed_plugins`, `paths.load_machine_config`, `subprocess.run` on `python3 <root>/scripts/claude-obsidian.py transaction inspect|apply BUNDLE --vault V [--approved-plan-sha256 SHA]`.
-- Produces: the Interface index `research_vault/compile.py` block. `stable_source_id("file", "fulltext/ABCD1234.md", "a"*64) == "src-2a09635ec6bad4de1b13"` (measured against the tool's own function, 2026-09-07). A ledger record:
-
-```json
-{
-  "origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"},
-  "content_kind": "document",
-  "authority": "unknown",
-  "review_status": "unreviewed",
-  "title": "<the note's title>",
-  "content_sha256": "<the note's compile-input-sha256>",
-  "ingested_at": "<today>",
-  "retrieved_at": "<the note's accessed>",
-  "refresh_due": null,
-  "independence_key": "<citation key>",
-  "supersedes": null,
-  "pages": []
-}
-```
-
-The bundle: `{"schema": "claude-obsidian.transaction.v1", "operation_id": "research-vault-compile-<YYYYMMDDTHHMMSSZ>", "operation_type": "ingest", "expected_hashes": {"wiki/meta/ledgers/source-ledger.json": "<sha256 of the current file or null>"}, "writes": [{"path": "wiki/meta/ledgers/source-ledger.json", "mode": "replace"|"create", "content": "<merged ledger JSON>", "sha256": "<sha256 of content>"}]}` written to `.research-vault/compile/<operation_id>.json`. `plan()` runs `transaction inspect` and returns `(bundle_path, inspect_json)`; `apply()` runs `transaction apply --approved-plan-sha256` and returns `Outcome("compile", "<operation id>", MATCHED, "matched — <changed paths>")`, `UNMATCHED "mismatch — <ERR code>"` on exit 2/75, `UNREACHABLE "outage — tool not installed"` when no root resolves.
-
-- [ ] **Step 1: Write the failing tests**
-
-`tests/test_compile.py`:
-
-```python
-import hashlib
-import json
-import subprocess
-
-import pytest
-
-from research_vault import Result, compile as compile_mod
-
-
-def test_stable_source_id_matches_the_tools_own_function():
-    assert compile_mod.stable_source_id("file", "fulltext/ABCD1234.md", "a" * 64) == "src-2a09635ec6bad4de1b13"
-    assert compile_mod.stable_source_id("FILE", "fulltext/ABCD1234.md", "A" * 64) == "src-2a09635ec6bad4de1b13"
-
-
-def _note(vault, key="jakesch.etal2023a", sha="f" * 64):
-    (vault / "literatures" / f"{key}.md").write_text(
-        f'---\ntype: "literature"\ntitle: "Co-writing"\naliases:\n  - "Co-writing"\n'
-        f'zotero-server-id: "S"\nzotero-item-key: "E352DFS8"\nzotero-item-version: 544\ncitationKey: "{key}"\n'
-        f'attachments:\n  - {{key: "D7EJ9FTG", version: 551, md5: "m", contentType: "application/pdf", filename: "a.pdf"}}\n'
-        f'fulltext:\n  - {{attachment-key: "D7EJ9FTG", sha256: "{sha}"}}\ncompile-input-sha256: "{sha}"\n'
-        f'accessed: "2026-09-07"\ngenerated: {{by: "research_vault/0.1.0", at: "2026-09-07T00:00:00Z"}}\n---\n'
-    )
-    (vault / "fulltext").mkdir(exist_ok=True)
-    (vault / "fulltext" / "D7EJ9FTG.md").write_text('---\ntype: "fulltext"\n---\ntext\n')
-
-
-def test_ledger_record_and_bundle_shape(tmp_vault, monkeypatch):
-    _note(tmp_vault)
-    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
-    with pytest.raises(compile_mod.ToolMissingError):
-        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
-    records = compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
-    source_id, record = next(iter(records.items()))
-    assert source_id == compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "f" * 64)
-    assert record["origin"] == {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}
-    assert record["content_sha256"] == "f" * 64 and record["title"] == "Co-writing"
-    assert record["review_status"] == "unreviewed" and record["pages"] == []
-    assert record["retrieved_at"] == "2026-09-07" and record["ingested_at"] == "2026-09-07"
-
-
-def test_records_skip_notes_without_a_compile_input(tmp_vault):
-    _note(tmp_vault)
-    text = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text().replace('compile-input-sha256: "' + "f" * 64 + '"\n', "")
-    (tmp_vault / "literatures" / "jakesch.etal2023a.md").write_text(text)
-    assert compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07") == {}
-
-
-def _fake_tool(tmp_path, monkeypatch, *, inspect_ok=True, apply_code=0):
-    root = tmp_path / "tool"
-    (root / "scripts").mkdir(parents=True)
-    script = root / "scripts" / "claude-obsidian.py"
-    script.write_text(
-        "import json,sys\n"
-        "args=sys.argv[1:]\n"
-        "if args[:2]==['transaction','inspect']:\n"
-        f"    print(json.dumps({{'schema':'claude-obsidian.transaction-plan.v1','valid':{str(inspect_ok)},'approval_sha256':'abc123','changed_paths':['wiki/meta/ledgers/source-ledger.json']}}))\n"
-        "elif args[:2]==['transaction','apply']:\n"
-        "    assert '--approved-plan-sha256' in args\n"
-        f"    print(json.dumps({{'schema':'claude-obsidian.transaction-result.v1','operation_id':'op','changed_paths':['wiki/meta/ledgers/source-ledger.json']}})); sys.exit({apply_code})\n"
-    )
-    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: root)
-    return root
-
-
-def test_plan_writes_the_bundle_and_apply_reports_four_state(tmp_vault, tmp_path, monkeypatch):
-    _note(tmp_vault)
-    _fake_tool(tmp_path, monkeypatch)
-    bundle_path, inspected = compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
-    assert bundle_path.parent == tmp_vault / ".research-vault" / "compile"
-    bundle = json.loads(bundle_path.read_text())
-    assert bundle["operation_type"] == "ingest"
-    (write,) = bundle["writes"]
-    assert write["path"] == "wiki/meta/ledgers/source-ledger.json" and write["mode"] == "create"
-    assert write["sha256"] == hashlib.sha256(write["content"].encode()).hexdigest()
-    assert bundle["expected_hashes"] == {"wiki/meta/ledgers/source-ledger.json": None}
-    assert json.loads(write["content"])["schema"] == "claude-obsidian.source-ledger.v1"
-    assert inspected["approval_sha256"] == "abc123"
-
-    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
-    assert outcome.result is Result.MATCHED and "source-ledger.json" in outcome.reason
-
-
-def test_plan_merges_into_an_existing_ledger_and_pins_its_hash(tmp_vault, tmp_path, monkeypatch):
-    _note(tmp_vault)
-    _fake_tool(tmp_path, monkeypatch)
-    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
-    ledger.parent.mkdir(parents=True)
-    existing = {"schema": "claude-obsidian.source-ledger.v1", "generated_at": "2026-09-01T00:00:00Z", "sources": {"src-keep": {"origin": {"kind": "url", "locator": "https://x/"}}}}
-    ledger.write_text(json.dumps(existing))
-    bundle_path, _ = compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
-    bundle = json.loads(bundle_path.read_text())
-    assert bundle["expected_hashes"]["wiki/meta/ledgers/source-ledger.json"] == hashlib.sha256(ledger.read_bytes()).hexdigest()
-    merged = json.loads(bundle["writes"][0]["content"])["sources"]
-    assert "src-keep" in merged and len(merged) == 2
-    assert bundle["writes"][0]["mode"] == "replace"
-
-
-def test_apply_maps_tool_exit_codes(tmp_vault, tmp_path, monkeypatch):
-    _note(tmp_vault)
-    _fake_tool(tmp_path, monkeypatch, apply_code=2)
-    bundle_path, _ = compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
-    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
-    assert outcome.result is Result.UNMATCHED and outcome.reason.startswith("mismatch")
-    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
-    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
-    assert outcome.result is Result.UNREACHABLE
-```
-
-- [ ] **Step 2: Run to verify failure**
-
-Run: `.venv/bin/python -m pytest tests/test_compile.py -q`
-Expected: FAIL — `ModuleNotFoundError`.
-
-- [ ] **Step 3: Register `compile`; implement `research_vault/compile.py`; wire the verb**
-
-```python
-"""The compile wrapper: selection, locators, ledger records, invocation (spec §4.5).
-
-Glue. It names ``fulltext/<attachment key>.md`` as each source's locator,
-fills the tool's source-ledger record from the captured metadata, and drives
-the tool's own ``transaction inspect`` / ``transaction apply``. It never
-writes under ``wiki/`` itself and carries no prompt.
-"""
-
-import datetime
-import hashlib
-import json
-import subprocess
-from pathlib import Path, PurePosixPath
-
-from . import captured, frontmatter, notes, paths
-from .outcome import Outcome, Result
-
-LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"
-LEDGER_SCHEMA = "claude-obsidian.source-ledger.v1"
-BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
-PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
-PIN = "ad67087"
-CHECK = "compile"
-BUNDLE_DIR = ".research-vault/compile"
-
-
-class ToolMissingError(RuntimeError):
-    """The compile tool is not installed and machine.json names no root."""
-
-
-def stable_source_id(kind: str, locator: str, content_sha256: str | None) -> str:
-    """Byte-for-byte the tool's ``ledgers.stable_source_id`` (read at ad67087)."""
-    normalized = PurePosixPath(locator).as_posix() if kind.casefold() == "file" else locator
-    digest = hashlib.sha256(
-        f"{kind.casefold()}\0{normalized}\0{(content_sha256 or '').casefold()}".encode("utf-8", errors="surrogatepass")
-    ).hexdigest()
-    return f"src-{digest[:20]}"
-
-
-def tool_root(vault_root) -> Path | None:
-    config = paths.load_machine_config(Path(vault_root))
-    override = config.get("claude_obsidian_root")
-    if isinstance(override, str) and override.strip():
-        return Path(override)
-    from .scaffold import _installed_plugins
-
-    records = _installed_plugins().get(PLUGIN_ID) or []
-    install_path = records[0].get("installPath") if records else None
-    return Path(install_path) if isinstance(install_path, str) else None
-
-
-def _selected_notes(vault: Path, keys):
-    wanted = set(keys)
-    for path in sorted((vault / "literatures").glob("*.md")):
-        text = path.read_text(encoding="utf-8")
-        provenance = notes.read_provenance(text)
-        if provenance is None or provenance.citation_key not in wanted:
-            continue
-        data, _ = frontmatter.parse(text)
-        yield provenance, data
-
-
-def ledger_record(citation_key, provenance, data, today) -> tuple[str, dict] | None:
-    if not provenance.compile_input_sha256:
-        return None
-    key = next((f["attachment-key"] for f in provenance.fulltext if f.get("sha256") == provenance.compile_input_sha256), None)
-    if key is None:
-        return None
-    locator = f"fulltext/{key}.md"
-    record = {
-        "origin": {"kind": "file", "locator": locator},
-        "content_kind": "document",
-        "authority": "unknown",
-        "review_status": "unreviewed",
-        "title": str(data.get("title") or citation_key),
-        "content_sha256": provenance.compile_input_sha256,
-        "ingested_at": today,
-        "retrieved_at": str(data.get("accessed") or today),
-        "refresh_due": None,
-        "independence_key": citation_key,
-        "supersedes": None,
-        "pages": [],
-    }
-    return stable_source_id("file", locator, provenance.compile_input_sha256), record
-
-
-def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
-    vault = Path(vault_root)
-    today = today or datetime.datetime.now(datetime.UTC).date().isoformat()
-    records = {}
-    for provenance, data in _selected_notes(vault, keys):
-        entry = ledger_record(provenance.citation_key, provenance, data, today)
-        if entry:
-            records[entry[0]] = entry[1]
-    return records
-
-
-def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["python3", str(root / "scripts" / "claude-obsidian.py"), *args, "--vault", str(vault)],
-        capture_output=True, text=True, check=False,
-    )
-
-
-def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
-    vault = Path(vault_root)
-    root = tool_root(vault)
-    if root is None:
-        raise ToolMissingError("claude-obsidian is not installed; see setup-vault")
-    today = today or datetime.datetime.now(datetime.UTC).date().isoformat()
-    ledger = vault / LEDGER_PATH
-    if ledger.is_file():
-        raw = ledger.read_bytes()
-        current = json.loads(raw)
-        expected = hashlib.sha256(raw).hexdigest()
-        mode = "replace"
-    else:
-        current = {"schema": LEDGER_SCHEMA, "generated_at": f"{today}T00:00:00Z", "sources": {}}
-        expected = None
-        mode = "create"
-    sources = dict(current.get("sources", {}))
-    sources.update(records_for(vault, keys, today=today))
-    merged = {**current, "schema": LEDGER_SCHEMA, "generated_at": f"{today}T00:00:00Z", "sources": sources}
-    content = json.dumps(merged, indent=2, sort_keys=True) + "\n"
-    operation_id = "research-vault-compile-" + datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
-    bundle = {
-        "schema": BUNDLE_SCHEMA,
-        "operation_id": operation_id,
-        "operation_type": "ingest",
-        "expected_hashes": {LEDGER_PATH: expected},
-        "writes": [{"path": LEDGER_PATH, "mode": mode, "content": content, "sha256": hashlib.sha256(content.encode()).hexdigest()}],
-    }
-    bundle_dir = vault / BUNDLE_DIR
-    bundle_dir.mkdir(parents=True, exist_ok=True)
-    bundle_path = bundle_dir / f"{operation_id}.json"
-    bundle_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
-    completed = _run(root, vault, "transaction", "inspect", str(bundle_path))
-    try:
-        inspected = json.loads(completed.stdout or "{}")
-    except ValueError:
-        inspected = {}
-    inspected.setdefault("exit", completed.returncode)
-    inspected.setdefault("stderr", completed.stderr.strip())
-    return bundle_path, inspected
-
-
-def apply(vault_root, bundle_path, approved_sha256) -> Outcome:
-    vault = Path(vault_root)
-    root = tool_root(vault)
-    operation = Path(bundle_path).stem
-    if root is None:
-        return Outcome(CHECK, operation, Result.UNREACHABLE, "outage — claude-obsidian is not installed")
-    completed = _run(root, vault, "transaction", "apply", str(bundle_path), "--approved-plan-sha256", approved_sha256)
-    if completed.returncode == 0:
-        try:
-            changed = json.loads(completed.stdout).get("changed_paths", [])
-        except ValueError:
-            changed = []
-        return Outcome(CHECK, operation, Result.MATCHED, "matched — " + (", ".join(changed) or "no paths reported"))
-    detail = (completed.stderr or completed.stdout).strip().splitlines()[-1:] or [f"exit {completed.returncode}"]
-    return Outcome(CHECK, operation, Result.UNMATCHED, f"mismatch — {detail[0]}")
-```
-
-CLI:
-
-```python
-def cmd_compile(args):
-    keys = list(args.keys) or (sorted(captured.captured_set(args.vault)) if args.all else [])
-    if args.approved_plan_sha256:
-        outcome = compile_mod.apply(args.vault, args.bundle, args.approved_plan_sha256)
-        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if outcome.result is not Result.MATCHED:
-            _hold(args.vault, compile_mod.CHECK, outcome.target, outcome.result, outcome.reason)
-        return {Result.MATCHED: 0, Result.UNMATCHED: 1, Result.UNREACHABLE: 3, Result.SKIPPED: 0}[outcome.result]
-    try:
-        bundle_path, inspected = compile_mod.plan(args.vault, keys)
-    except compile_mod.ToolMissingError as error:
-        print(f"UNREACHABLE compile — outage — {error}", file=sys.stderr)
-        return 3
-    print(json.dumps({"bundle": str(bundle_path), **inspected}, indent=2))
-    print(f"apply with: python3 -m research_vault compile --vault {args.vault} --bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}")
-    return 0 if inspected.get("valid") else 1
-```
-
-parser: `compile_cmd = sub.add_parser("compile", parents=[common]); compile_cmd.add_argument("keys", nargs="*"); compile_cmd.add_argument("--vault", required=True); compile_cmd.add_argument("--all", action="store_true"); compile_cmd.add_argument("--bundle"); compile_cmd.add_argument("--approved-plan-sha256")`; `main()` errors when `--approved-plan-sha256` is given without `--bundle`. Import as `from . import compile as compile_mod` (the module shadows a builtin name only inside the package namespace; ruff `A005` may object — if it does, name the module `research_vault/compiler.py` and update the Interface index and this task consistently).
-
-- [ ] **Step 4: Run the suite and form owners; one live plan against the tracer vault; commit**
-
-Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
-Expected: PASS, clean. Live: `python -m research_vault compile jakesch.etal2023a --vault "$scratch"` prints a `valid: true` plan naming `wiki/meta/ledgers/source-ledger.json`; applying it with the printed hash returns MATCHED; `python -m research_vault verify --vault "$scratch" --offline` reports `captured-set` MATCHED with no `not-captured` ledger finding.
-
-```bash
-git commit -m "add the compile wrapper (ingest spec §4.5)
-
-Selection from the captured set, fulltext/<attachment key>.md as the
-locator, the ledger record filled from the tuple, and the tool's own
-inspect-then-apply gate driven with its approval hash.
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests docs
-```
-
-______________________________________________________________________
-
-## Phase 4 — skills, docs, live legs, open points
-
-### Task 20: Rewrite the three skills (spec §6 "Rewritten skills: import-source, setup-vault and synthesis-conventions")
-
-**Files:**
-
-- Create: `skills/capture-source/SKILL.md`, `tests/test_capture_source_skill.py`
-- Delete: `skills/import-source/` (whole directory), `tests/test_import_source_skill.py`
-- Modify: `skills/setup-vault/SKILL.md`, `skills/synthesis-conventions/SKILL.md`, `research_vault/scaffold.py:23` (`PROVISION_COMPANIONS = ["kepano/obsidian-skills", "claude-obsidian@agricidaniel-claude-obsidian"]`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
-
-**Interfaces:**
-
-- Consumes: the verbs `capture`, `add`, `propagate`, `compile`, `doctor`, `probe`; check ids and reason codes as registered; `scaffold.PROVISION_COMPANIONS`.
-
-- Produces: three skills whose frontmatter passes `tests/test_skill_contracts.py` (name equals directory, description begins `Use when `, entry skills carry `disable-model-invocation: true`, every backticked check id names one the code files).
-
-- [ ] **Step 1: Write the failing tests**
-
-`tests/test_capture_source_skill.py`:
-
-```python
-from pathlib import Path
-
-REPOSITORY = Path(__file__).resolve().parents[1]
-SKILL = REPOSITORY / "skills" / "capture-source" / "SKILL.md"
-
-
-def test_capture_source_replaces_import_source():
-    assert SKILL.is_file()
-    assert not (REPOSITORY / "skills" / "import-source").exists()
-    text = SKILL.read_text()
-    assert text.startswith("---\nname: capture-source\ndescription: Use when ")
-    assert "disable-model-invocation: true\n---\n" in text
-
-
-def test_capture_source_keeps_the_kept_rules():
-    text = SKILL.read_text()
-    for needle in (
-        "No project is required", "project-independent", "zero projects",
-        "Citation Key", "Better BibTeX",
-        "SKIPPED applied to reading", "the range you did not read named",
-        "python3 -m research_vault capture", "python3 -m research_vault add",
-        "python3 -m research_vault propagate", "python3 -m research_vault compile",
-        "`NOOP`", "re-keyed", "no-fulltext", "database-changed",
-    ):
-        assert needle in text, needle
-    assert "import-note" not in text and "managed region" not in text and "auto-export" not in text
-```
-
-In `tests/test_skill_files.py`: replace the four auto-export assertions (`"exact target path doctor reported"`, `"whole-library scope"`, `"Better CSL JSON translator"`, `"keep updated"`, `"re-run doctor to verify"`, `"Never register an auto-export for them"`, the `autoexport` MATCHED sentence) and the decision-17 strings (`"BBT required"`, `"MarkDB-Connect optional"`) with:
-
-```python
-    assert "Zotero .xpi installs are human-only wizard steps" in companions
-    assert "research_vault/templates/zotero-addons.md" in companions
-    assert "README" in companions
-    assert "zotero_profile" in companions
-    assert "claude plugin marketplace add AgriciDaniel/claude-obsidian" in companions
-    assert "claude plugin install claude-obsidian@agricidaniel-claude-obsidian" in companions
-    assert "rename_frontmatter_key" in text  # the one-shot citekey migration, §1.1
-```
-
-and change the `PROVISION_COMPANIONS` assertion to the two-element list. In `tests/test_skill_contracts.py` `ENTRY_SKILLS`, replace `"import-source"` with `"capture-source"`.
-
-- [ ] **Step 2: Run to verify failure**
-
-Run: `.venv/bin/python -m pytest tests/test_capture_source_skill.py tests/test_skill_files.py tests/test_skill_contracts.py -q`
-Expected: FAIL — no `capture-source` directory.
-
-- [ ] **Step 3: Write the skills**
-
-`git mv skills/import-source skills/capture-source && git rm -q skills/capture-source/references/*.md tests/test_import_source_skill.py`. Then `skills/capture-source/SKILL.md`:
-
-````markdown
----
-name: capture-source
-description: Use when a person asks to capture, refresh, add, or compile a source in a research-vault vault, or to propagate a citation-key change
-disable-model-invocation: true
----
-
-# Capture a source
-
-Ingest is the process that gets a source from outside the vault into the vault: **selection** (the person's decision), **add** (the Zotero item), **capture** (the deterministic copy into the vault), **compile** (the adopted tool's pages). This skill runs the three mechanical steps; the decision is never yours. If the person has not decided, stop and ask; nothing in `inbox/` is citable, and no amount of capturing changes that.
-
-**No project is required.** The flow is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped.
-
-In every command, `PATH` is the vault and `KEY` is either the Zotero item key (eight upper-case characters, shown in Zotero's item pane) or the citation key — Zotero's own **Citation Key** field, which Better BibTeX fills and which shows in the item list's Citation Key column. Never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. `literatures/`, `fulltext/`, `system/bibliography.json`, `system/renames.md` and `wiki/` are machine surfaces; never `Write` or `Edit` them.
-
-## 1. Add: `add`
-
-When the item is not in Zotero yet and the person has asked you to add it, write a Zotero item JSON file — `itemType` plus any of the snapshot fields (`title`, `creators`, `date`, `DOI`, `url`, `publicationTitle`, `volume`, `issue`, `pages`, `publisher`, `ISBN`, `language`, `abstractNote`, `extra`, `accessDate`, `tags`) — and run:
-
-```sh
-python3 -m research_vault add --vault PATH --item ITEM.json [--collection COLLECTION_KEY]
-```
-
-The first run on a machine opens Zotero's own consent dialog (**Allow**, **Always Allow**, **Deny**); tell the person to answer it in Zotero. Never retry `add` in a loop: the dialog is rate-limited to five a minute. Better BibTeX fills the citation key a few seconds after creation; `add` waits up to ten seconds and then captures the new item. `unkeyed` means the key never arrived: report it, do not write a note by hand.
-
-## 2. Capture: `capture`
-
-```sh
-python3 -m research_vault capture KEY [KEY ...] --vault PATH
-python3 -m research_vault capture --all --vault PATH      # refresh every captured note
-```
-
-Capture runs the lifecycle linter first, then for each item reads the item, its children and the indexed text, writes `literatures/<citation key>.md` (frontmatter: Zotero's own fields verbatim, the provenance tuple, a body carrying only the attachment list and the item's Zotero child notes), writes `fulltext/<attachment key>.md` for every attachment with usable text, and regenerates `system/bibliography.json` whole. One line per outcome:
-
-| Line | What happened |
-| --- | --- |
-| `MATCHED KEY — matched` | The note was written or rewritten. |
-| `MATCHED KEY — matched — NOOP` | The projection is identical. Nothing was written. Report it as "already current", never as an error and never as a capture you performed. |
-| `UNMATCHED KEY — not-admitted — …` | The key is not in the library. |
-| `UNMATCHED KEY — no-fulltext — …` | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
-| `UNMATCHED KEY — re-keyed — old → new` | The citation key changed. Run `propagate` (§4). |
-| `UNMATCHED KEY — merged|trashed|deleted — …` | The item left the library. Nothing was written; the note is kept. |
-| `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record. |
-| `UNREACHABLE … — outage — …` | Zotero did not answer. **Never a verdict on the source.** Retry later. |
-
-Every non-MATCHED line already filed its own review record under check id `capture`; never file one for a failed capture yourself. If stderr carries `warning: review record refused:`, say so out loud.
-
-## 3. Verify what capture cannot see
-
-Run `python3 -m research_vault verify --vault PATH` with the network on after a capture: it runs the lifecycle linter over every note (check id `lifecycle`), the captured-set lint at the compile seam (`captured-set`) and the update-notice check. Route reading of that run to `verify-citations`.
-
-## 4. Propagate a citation-key change: `propagate`
-
-A `re-keyed` finding means the source's *name* changed while its identity (the item key) did not. Until propagation runs, the note's filename contradicts its recorded key and every `[@old]` and `[[old]]` dangles.
-
-```sh
-python3 -m research_vault propagate --vault PATH                    # every re-keyed note the linter reports
-python3 -m research_vault propagate --vault PATH --map OLD=NEW      # an explicit mapping, e.g. from a deliberate regenerate
-```
-
-It appends `system/renames.md`, renames the note, rewrites `[@key]` and `[[key]]` in drafts and wiki pages, and re-captures the item. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a mapped-away key.
-
-## 5. Compile: `compile`
-
-Compile is the adopted tool's job (claude-obsidian; see `setup-vault`). The wrapper registers the captured sources in the tool's ledger and never writes under `wiki/`:
-
-```sh
-python3 -m research_vault compile KEY [KEY ...] --vault PATH        # prints the tool's plan and approval hash
-python3 -m research_vault compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA
-```
-
-Show the person the plan before applying; the approval hash is the tool's own human gate, and there is no second one. Then run the tool's `wiki-ingest` skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. A note whose text changed after compile is reported `recompile-needed` by `verify`.
-
-## Four-state honesty
-
-| Result | Meaning at capture |
-| --- | --- |
-| MATCHED | The step ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
-| UNMATCHED | The step ran and disagreed. Already in the review queue — do not file it again. |
-| UNREACHABLE | The step could not run — Zotero or the network is down. Never a verdict on the source. Retry later. |
-| SKIPPED | The step does not apply. Automatic only. |
-
-The same honesty covers your own reading. A source you read only in part is reported **partial**, with the range you did not read named — pages the text layer stops at, sections you never reached. That is SKIPPED applied to reading: an unread stretch must never read as read.
-
-## Routing
-
-| Need | Route to |
-| --- | --- |
-| Find sources to add | `find-sources` |
-| Rules for the compiled layer | `synthesis-conventions` |
-| Run the deterministic checks | `verify-citations` |
-| Acknowledge a finding capture filed | `project-flow` or `publish` (the `ack` verb) |
-| Install Zotero add-ons or the compile tool | `setup-vault` |
-````
-
-`skills/setup-vault/SKILL.md`: keep `## Scaffold` and `## Diagnose` as they are except the doctor sentence, which becomes "Report every doctor probe, not only failures — thirteen rows — plus the inbox count and oldest age." Replace `## Provision companions` from its fourth paragraph on with:
-
-````markdown
-Zotero .xpi installs are human-only wizard steps. The add-ons the vault asks for are declared once, in the table `README.md` embeds from `research_vault/templates/zotero-addons.md` (required, recommended, optional, each with its add-on id and, where one exists, the preference that switches its automatic mode on). Walk the person through installing each *required* row in Zotero's Add-ons window and enabling the automatic-mode preferences; never download, never install, never click, and never close Zotero for the user. Doctor's `plugins` probe reads the same table and reports each add-on's `active`/`appDisabled` state and whether its automatic mode is on.
-
-Doctor can only read those facts when `.research-vault/machine.json` names the Zotero profile directory under `zotero_profile` (on this class of machine: `/mnt/c/Users/<user>/AppData/Roaming/Zotero/Zotero/Profiles/<id>.default`). Ask the person for it once; without it doctor reports `fulltext-sync`, `bbt-git` and `plugins` as SKIPPED, never as passed.
-
-The compile tool is a Claude Code plugin and installs from its own marketplace, after per-item consent, with two commands the person runs (restart-to-activate):
-
-```sh
-claude plugin marketplace add AgriciDaniel/claude-obsidian
-claude plugin install claude-obsidian@agricidaniel-claude-obsidian
-```
-
-Doctor's `compile-tool` probe reports the installed commit against the pin `ad67087`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool refuses to overwrite the vault's `.gitignore`; append its four rules by hand.
-
-## Migrate an older vault
-
-A vault whose literature notes carry the old `citekey:` frontmatter key runs the one-shot migration before its first capture:
-
-```sh
-python3 - <<'PY'
-from pathlib import Path
-from research_vault import notes
-for path in sorted(Path("literatures").glob("*.md")):
-    text = path.read_text(encoding="utf-8", newline="")
-    renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
-    if renamed != text:
-        path.write_text(renamed, encoding="utf-8", newline="")
-        print("migrated", path)
-PY
-```
-
-Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
-````
-
-`skills/synthesis-conventions/SKILL.md`:
-
-```markdown
----
-name: synthesis-conventions
-description: Use when creating or editing pages of the compiled layer under wiki/ in a research-vault vault, arranging sources into concept pages, or asking about the rules of that layer
----
-
-# Conventions for the compiled layer
-
-The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/`, cross-source pages under `wiki/concepts/` — and is written by the adopted compile tool (claude-obsidian) through its transaction engine. It asserts arrangement, not evidence: nothing under `wiki/` passes an evidence gate, which is why the folder is the boundary. The evidence underneath it never moves: every page cites its source as `[[<citation key>]]`, which resolves to `literatures/<citation key>.md`, and a page may cite only a source capture wrote — the `captured-set` check fails a commit otherwise.
-
-## Never write the layer by hand
-
-`wiki/` is a machine surface: pages are created and replaced only through the tool's `wiki-ingest` skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`; the pre-tool-use guard refuses it. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`).
-
-## Orientation first
-
-Before proposing any page, read `wiki/index.md`, `wiki/hot.md` and the recent `log/` entries. Arrive knowing which concept pages exist and what happened recently — never propose a page that duplicates one already indexed.
-
-## The 2+-source threshold, and the tool's compilation-value gate
-
-A concept page earns its existence at two or more captured sources on the same topic — the vault's one threshold. The tool adds its own gate, which is compatible and stricter: create or expand a canonical page only when the source adds durable synthesis, navigation, a decision, or a reusable connection beyond the source page itself. Two sources set side by side with nothing said about how they relate are a compilation, and a compilation earns no page: say plainly that there was nothing to arrange yet.
-
-## Minimum-link discipline
-
-Every concept page carries at least two outgoing wikilinks, at least one of them a `[[<citation key>]]`. The tool's lint reports orphans (no incoming link) and dead links; both block its checkpoint.
-
-## Frontmatter
-
-The tool's lint requires six keys on every page under `wiki/`: `title`, `type`, `status`, `created`, `updated`, `tags`. `type` is one of the tool's own values (`source`, `concept`, `entity`, `meta`); the vault derives none for `wiki/`. No `{{TITLE}}`-style template exists for this layer any more.
-
-## Index registration
-
-Every canonical page create or removal includes an update to `wiki/index.md` in the same transaction — the tool's rule, and the tool performs it. Never edit `wiki/index.md` by hand; it is the one nested index that legitimately carries frontmatter (ADR 0001, second exemption).
-
-## What is frozen
-
-Claim lines, stance links (`supports`/`disputes`) and claim links (`[[key#^claim-id]]`) are no longer the arrangement's currency; the checks that read them are frozen pending the workflow-component audit. Do not write new ones into `wiki/`.
-```
-
-`research_vault/templates/vault/AGENTS.md`: the table row becomes `| \`capture-source\` | add, capture, refresh, propagate a re-key, or compile a source |`; `docs/terminology.md`§4.3 skill names list swaps`import-source`for`capture-source`; `scaffold.PROVISION_COMPANIONS\` gains the plugin id.
-
-- [ ] **Step 4: Run the suite and form owners; commit**
-
-Run: `.venv/bin/python -m pytest tests -q -n auto && mdformat --number --wrap keep skills/capture-source/SKILL.md skills/setup-vault/SKILL.md skills/synthesis-conventions/SKILL.md research_vault/templates/vault/AGENTS.md docs/terminology.md`
-Expected: PASS.
-
-```bash
-git commit -m "rewrite capture-source, setup-vault and synthesis-conventions (ingest spec §6)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests research_vault docs
-```
-
-### Task 21: Docs, registries and CI (spec §5 "the standing facts file", §7, decision 21's dated deferral)
-
-**Files:**
-
-- Modify: `docs/testing.md`, `docs/terminology.md` §4.4 (final registries), `.github/workflows/quality.yml:48-65`, `research_vault/templates/git/pre-commit` (comment, if Task 12 did not add it)
-
-**Interfaces:**
-
-- Produces: the final §4.4 rows, verbatim:
-
-  - check ids: `citation-key`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `disputed-claim`, `publish`, `factcheck`, `okf-frontmatter`, `okf-structure`, `tree`, `lifecycle`, `capture`, `propagation`, `captured-set`, `compile`
-  - doctor probe ids: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`
-  - reason codes: `budget-cap`, `contradiction`, `database-changed`, `deleted`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `merged`, `mismatch`, `no-fulltext`, `no-identifier`, `not-admitted`, `not-captured`, `outage`, `re-keyed`, `recompile-needed`, `retracted`, `schema-violation`, `stale-key`, `trashed`, `unkeyed`, `warn-notice`
-
-- [ ] **Step 1: Write the failing test**
-
-Append to `tests/test_skill_contracts.py`:
-
-```python
-def test_terminology_registries_match_the_code():
-    import re
-
-    from research_vault import __main__ as cli
-    from research_vault import inbox
-
-    text = (ROOT / "docs" / "terminology.md").read_text()
-    rows = {m.group(1): set(re.findall(r"`([a-z-]+)`", m.group(2)))
-            for m in re.finditer(r"^\| (check ids|doctor probe ids|reason codes) +\| (.+) \|$", text, re.MULTILINE)}
-    assert rows["check ids"] == set(inbox.CHECK_IDS)
-    assert rows["reason codes"] == set(inbox.REASON_CODES)
-    assert rows["doctor probe ids"] == cli.DOCTOR_HARD_UNMATCHED | cli.DOCTOR_HARD_UNREACHABLE | cli.DOCTOR_WARN_ONLY | {"tree", "machine-config"}
-```
-
-(`ROOT` is that file's repository-root constant.) The reason-code row must be **one physical table row** (terminology §4.4).
-
-- [ ] **Step 2: Run to verify failure**
-
-Run: `.venv/bin/python -m pytest tests/test_skill_contracts.py -q -k registries`
-Expected: FAIL on whichever row drifted.
-
-- [ ] **Step 3: Write the docs and the CI change**
-
-`docs/terminology.md` §4.4: the three rows exactly as in Interfaces. `docs/testing.md`, replace "## The suite" through the end of its second paragraph with:
-
-````markdown
-## The suite
-
-Offline (default): `python -m pytest tests -q -n auto` from the repo root, inside `.venv` (xdist pinned; pass `-n` on the command line, never in addopts). Env-gated live legs are skipped unless flagged; live runs stay serial.
-
-**Live invocation.** Two Zotero 10.0.1 instances run on this machine: production on `localhost:23119` (server id from `python -m research_vault probe`) and an unsynced test instance on `localhost:23129` (profile `~/.zotero/zotero/rfnse7tz.default`, data `~/Zotero/`, one add-on: Better BibTeX 9.0.63 with the library's citekey pattern). Read-only legs run against whichever `--base` they are given; **write-capable legs run only against the test instance** and refuse `zotero.DEFAULT_BASE`:
-
-```bash
-RV_LIVE=1 python -m pytest tests -q                                   # read-only local-Zotero legs
-RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k live   # plus the add/trash/delete leg (one consent dialog the first time)
-RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q     # external-registry legs
-```
-
-The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. If a later run re-opens the dialog, export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
-````
-
-and under "## Poking Zotero" item 1 add: "`python -m research_vault probe --base http://localhost:23129` names the test instance." Remove the `RV_LIVE_AUTOEXPORT_VAULT` and `test_dispositions` sentence if Task 2 left any of it.
-
-`.github/workflows/quality.yml`: delete `continue-on-error: true` from the CRAP step and replace the comment block above it with:
-
-```yaml
-      # The ceiling is 30 and stays 30 (986086e). The two functions that sat
-      # above it — `_bump_generated` (archive.py) and `check_metadata`
-      # (checks.py) — were deleted by the ingest redesign (2026-09), so the
-      # dated deferral decision 21 carried is closed and this step fails the
-      # lane again on any new breach.
-```
-
-Confirm locally before committing: `.venv/bin/python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info && .venv/bin/crap4py research_vault --lcov lcov.info --max-crap 30` — expected: no function above 30. If one is, split it in the same commit rather than restoring the deferral.
-
-- [ ] **Step 4: Run everything; commit**
-
-Run: `.venv/bin/python -m pytest tests -q -n auto && mdformat --number --wrap keep docs/testing.md docs/terminology.md && yamlfix .github/workflows`
-Expected: PASS.
-
-```bash
-git commit -m "docs and registries for ingest; close the CRAP deferral
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs tests .github/workflows/quality.yml
-```
-
-### Task 22: Live legs on the test instance, and the missing trashed snapshot (spec §7)
-
-**Files:**
-
-- Create: `tests/test_capture_live.py`, `tests/fixtures/lifecycle/items-trashed.json`
-- Modify: `research_vault/zotero.py` (`trash_item(key, version)`, `delete_item(key, version)` — PATCH `{"deleted": true}` and DELETE with `If-Unmodified-Since-Version`; both need the API key), `tests/fixtures/lifecycle/README.md` (the trashed fixture becomes replayable), `tests/test_lifecycle.py` (a replay test for the observed trashed transition), `tests/conftest.py` (`pytest_collection_modifyitems` also skips `live_write` without `RV_LIVE_WRITE_BASE`; `pyproject.toml` registers the marker `live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE)`)
-
-**Interfaces:**
-
-- Produces: `ZoteroClient.trash_item(key: str, version: int) -> int` and `delete_item(key: str, version: int) -> int` (both return the HTTP status, 204 expected; 412 raises `ZoteroError(UNMATCHED)` "version moved").
-
-- [ ] **Step 1: Write the live tests**
-
-`tests/test_capture_live.py`:
-
-```python
-"""Live legs against Zotero 10 (spec §7). Read legs need RV_LIVE=1; the write
-leg needs RV_LIVE_WRITE_BASE too and refuses the production instance."""
-
-import json
-import os
-import time
-
-import pytest
-
-from research_vault import Result, capture, lifecycle, notes, zotero
-
-READ_BASE = os.environ.get("RV_LIVE_WRITE_BASE") or zotero.DEFAULT_BASE
-
-
-@pytest.mark.live
-def test_capture_round_trip_on_a_live_item(tmp_vault):
-    client = zotero.ZoteroClient(base=READ_BASE)
-    items, _ = client.top_items()
-    keyed = next(i for i in items if i["data"].get("citationKey") and i.get("meta", {}).get("numChildren"))
-    key = keyed["data"]["citationKey"]
-    outcomes = capture.capture(tmp_vault, client, [key])
-    assert outcomes[0].result is Result.MATCHED
-    text = (tmp_vault / "literatures" / f"{key}.md").read_text()
-    provenance = notes.read_provenance(text)
-    assert provenance.server_id == client.server_info()["server_id"]
-    assert provenance.item_version == keyed["version"]
-    again = capture.capture(tmp_vault, client, [key])
-    assert again[0].reason == "matched — NOOP"
-    (row,) = [o for o in lifecycle.lint_lifecycle(tmp_vault, client) if o.target == key]
-    assert row.result is Result.MATCHED
-
-
-@pytest.mark.live
-@pytest.mark.live_write
-def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_vault):
-    base = os.environ["RV_LIVE_WRITE_BASE"]
-    assert base.rstrip("/") != zotero.DEFAULT_BASE, "write legs never touch production"
-    client = zotero.ZoteroClient(base=base, api_key=os.environ.get("RV_LIVE_WRITE_KEY") or None)
-    stamp = time.strftime("%Y%m%d%H%M%S")
-    outcomes = capture.add(tmp_vault, client, [{"itemType": "journalArticle", "title": f"research-vault live leg {stamp}",
-                                                 "creators": [{"creatorType": "author", "lastName": "Sitting", "firstName": "Live"}], "date": "2026"}])
-    assert outcomes[0].reason.startswith("matched — created "), outcomes
-    item_key = outcomes[0].reason.split("created ")[1].split(",")[0]
-    note = next((tmp_vault / "literatures").glob("*.md"))
-    provenance = notes.read_provenance(note.read_text())
-    assert provenance.item_key == item_key
-
-    # the snapshot the sitting missed: the scratch item live in the items map
-    versions, _ = client.versions()
-    assert item_key in versions
-    live_snapshot = {k: v for k, v in versions.items() if k == item_key}
-
-    envelope = client.item(item_key)
-    status = client.trash_item(item_key, envelope["version"])
-    assert status == 204
-    trashed_versions, _ = client.versions()
-    trash = client.trash_versions()
-    assert item_key not in trashed_versions and item_key in trash
-    (row,) = lifecycle.lint_lifecycle(tmp_vault, client)
-    assert row.reason.startswith("trashed — ")
-    fixture = {"live": live_snapshot, "trashed_items": {k: v for k, v in trashed_versions.items() if k == item_key},
-               "trashed_trash": {k: v for k, v in trash.items() if k == item_key}}
-    (tmp_vault / "items-trashed.json").write_text(json.dumps(fixture, indent=2, sort_keys=True) + "\n")
-
-    status = client.delete_item(item_key, trash[item_key])
-    assert status == 204
-    (row,) = lifecycle.lint_lifecycle(tmp_vault, client)
-    assert row.reason.startswith("deleted — ")
-```
-
-- [ ] **Step 2: Run the read leg; then the write leg once, attended**
-
-```bash
-RV_LIVE=1 .venv/bin/python -m pytest tests/test_capture_live.py -q -k round_trip
-RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest tests/test_capture_live.py -q -k transitions -s
-```
-
-Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Unmeasured:** whether a second `authorize` for the same `appName` after **Always Allow** returns the remembered key silently or re-opens the dialog — the sitting authorized once, and `tmp_vault` is fresh per run so the key store never carries over. If the dialog reappears, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
-
-- [ ] **Step 3: Implement the two write helpers and the replay test**
-
-```python
-    def trash_item(self, key: str, version: int) -> int:
-        return self._mutate(key, version, method="PATCH", data=json.dumps({"deleted": True}).encode())
-
-    def delete_item(self, key: str, version: int) -> int:
-        return self._mutate(key, version, method="DELETE")
-
-    def _mutate(self, key, version, *, method, data=None) -> int:
-        if not self.api_key:
-            raise ZoteroError(f"{method} needs an API key from authorize", Result.UNMATCHED)
-        headers = self._headers({"If-Unmodified-Since-Version": str(version), "Content-Type": "application/json"})
-        response = self._http(f"{self.base}{_USER}/items/{key}", data=data, headers=headers, method=method)
-        if response.status == 412:
-            raise ZoteroError(f"{method} {key}: version moved (412)", Result.UNMATCHED)
-        if response.status not in (200, 204):
-            raise ZoteroError(f"{method} {key}: HTTP {response.status}")
-        return response.status
-```
-
-Add to `tests/test_lifecycle.py`:
-
-```python
-def test_trashed_transition_replays_from_the_live_snapshot():
-    fixture = json.loads((FIXTURES / "items-trashed.json").read_text())
-    (item_key,) = fixture["live"]
-    prov = _prov(item_key=item_key, version=fixture["live"][item_key], citation_key="live2026")
-    assert lifecycle.classify(prov, _live(fixture["live"], {}, {}))[0] == "current"
-    assert lifecycle.classify(prov, _live(fixture["trashed_items"], fixture["trashed_trash"], {})) == ("trashed", item_key)
-```
-
-Update the fixture README's `trash-trashed.json` bullet: "superseded by `items-trashed.json`, recorded live on 2026-MM-DD by `tests/test_capture_live.py`; the transition now replays." Register the `live_write` marker and its skip.
-
-- [ ] **Step 4: Run everything; commit**
-
-Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
-Expected: PASS (the live legs skip offline).
-
-```bash
-git add tests/fixtures/lifecycle/items-trashed.json
-git commit -m "live legs on the test instance; the trashed transition now replays (ingest spec §7)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests pyproject.toml
-```
-
-### Task 23: Close the three plan-level open points (spec §8, items 07, 08, 09)
+### Task 18: Close the three plan-level open points (spec §8, items 07, 08, 09)
 
 **Files:**
 
@@ -5755,11 +4837,205 @@ site; a human acknowledgment clears the failed-verification marker.
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests
 ```
 
-### Task 24: Reports to the author, the upstream issue, final verification
+### Task 19: Rewrite the capture-source and setup-vault skills (spec §6 "Rewritten skills: import-source, setup-vault and synthesis-conventions")
+
+`compile` does not exist until Part B Task 2, so the compile sections of both skills and the `synthesis-conventions` rewrite follow in Part B Task 3. This task ships the two skills without them.
 
 **Files:**
 
-- Modify: nothing in the tree except what the live run touches; this task's deliverable is a message and, on go-ahead, one GitHub issue on `zotero/zotero`.
+- Create: `skills/capture-source/SKILL.md`, `tests/test_capture_source_skill.py`
+- Delete: `skills/import-source/` (whole directory), `tests/test_import_source_skill.py`
+- Modify: `skills/setup-vault/SKILL.md`, `research_vault/templates/vault/AGENTS.md` (the skills table row), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
+
+**Interfaces:**
+
+- Consumes: the verbs `capture`, `add`, `propagate`, `doctor`, `probe`; check ids and reason codes as registered.
+
+- Produces: two skills whose frontmatter passes `tests/test_skill_contracts.py` (name equals directory, description begins `Use when `, entry skills carry `disable-model-invocation: true`, every backticked check id names one the code files).
+
+- [ ] **Step 1: Write the failing tests**
+
+`tests/test_capture_source_skill.py`:
+
+```python
+from pathlib import Path
+
+REPOSITORY = Path(__file__).resolve().parents[1]
+SKILL = REPOSITORY / "skills" / "capture-source" / "SKILL.md"
+
+
+def test_capture_source_replaces_import_source():
+    assert SKILL.is_file()
+    assert not (REPOSITORY / "skills" / "import-source").exists()
+    text = SKILL.read_text()
+    assert text.startswith("---\nname: capture-source\ndescription: Use when ")
+    assert "disable-model-invocation: true\n---\n" in text
+
+
+def test_capture_source_keeps_the_kept_rules():
+    text = SKILL.read_text()
+    for needle in (
+        "No project is required", "project-independent", "zero projects",
+        "Citation Key", "Better BibTeX",
+        "SKIPPED applied to reading", "the range you did not read named",
+        "python3 -m research_vault capture", "python3 -m research_vault add",
+        "python3 -m research_vault propagate",
+        "`NOOP`", "re-keyed", "no-fulltext", "database-changed",
+    ):
+        assert needle in text, needle
+    assert "import-note" not in text and "managed region" not in text and "auto-export" not in text
+```
+
+In `tests/test_skill_files.py`: replace the four auto-export assertions (`"exact target path doctor reported"`, `"whole-library scope"`, `"Better CSL JSON translator"`, `"keep updated"`, `"re-run doctor to verify"`, `"Never register an auto-export for them"`, the `autoexport` MATCHED sentence) and the decision-17 strings (`"BBT required"`, `"MarkDB-Connect optional"`) with:
+
+```python
+    assert "Zotero .xpi installs are human-only wizard steps" in companions
+    assert "research_vault/templates/zotero-addons.md" in companions
+    assert "README" in companions
+    assert "zotero_profile" in companions
+    assert "rename_frontmatter_key" in text  # the one-shot citekey migration, §1.1
+```
+
+In `tests/test_skill_contracts.py` `ENTRY_SKILLS`, replace `"import-source"` with `"capture-source"`.
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `.venv/bin/python -m pytest tests/test_capture_source_skill.py tests/test_skill_files.py tests/test_skill_contracts.py -q`
+Expected: FAIL — no `capture-source` directory.
+
+- [ ] **Step 3: Write the skills**
+
+`git mv skills/import-source skills/capture-source && git rm -q skills/capture-source/references/*.md tests/test_import_source_skill.py`. Then `skills/capture-source/SKILL.md`:
+
+````markdown
+---
+name: capture-source
+description: Use when a person asks to capture, refresh, or add a source in a research-vault vault, or to propagate a citation-key change
+disable-model-invocation: true
+---
+
+# Capture a source
+
+Ingest is the process that gets a source from outside the vault into the vault: **selection** (the person's decision), **add** (the Zotero item), **capture** (the deterministic copy into the vault), **compile** (the adopted tool's pages). This skill runs the mechanical steps; the decision is never yours. If the person has not decided, stop and ask; nothing in `inbox/` is citable, and no amount of capturing changes that.
+
+**No project is required.** The flow is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped.
+
+In every command, `PATH` is the vault and `KEY` is either the Zotero item key (eight upper-case characters, shown in Zotero's item pane) or the citation key — Zotero's own **Citation Key** field, which Better BibTeX fills and which shows in the item list's Citation Key column. Never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. `literatures/`, `fulltext/`, `system/bibliography.json`, `system/renames.md` and `wiki/` are machine surfaces; never `Write` or `Edit` them.
+
+## 1. Add: `add`
+
+When the item is not in Zotero yet and the person has asked you to add it, write a Zotero item JSON file — `itemType` plus any of the snapshot fields (`title`, `creators`, `date`, `DOI`, `url`, `publicationTitle`, `volume`, `issue`, `pages`, `publisher`, `ISBN`, `language`, `abstractNote`, `extra`, `accessDate`, `tags`) — and run:
+
+```sh
+python3 -m research_vault add --vault PATH --item ITEM.json [--collection COLLECTION_KEY]
+```
+
+The first run on a machine opens Zotero's own consent dialog (**Allow**, **Always Allow**, **Deny**); tell the person to answer it in Zotero. Never retry `add` in a loop: the dialog is rate-limited to five a minute. Better BibTeX fills the citation key a few seconds after creation; `add` waits up to ten seconds and then captures the new item. `unkeyed` means the key never arrived: report it, do not write a note by hand.
+
+## 2. Capture: `capture`
+
+```sh
+python3 -m research_vault capture KEY [KEY ...] --vault PATH
+python3 -m research_vault capture --all --vault PATH      # refresh every captured note
+```
+
+Capture runs the lifecycle linter first, then for each item reads the item, its children and the indexed text, writes `literatures/<citation key>.md` (frontmatter: Zotero's own fields verbatim, the provenance tuple, a body carrying only the attachment list and the item's Zotero child notes), writes `fulltext/<attachment key>.md` for every attachment with usable text, and regenerates `system/bibliography.json` whole. One line per outcome:
+
+| Line | What happened |
+| --- | --- |
+| `MATCHED KEY — matched` | The note was written or rewritten. |
+| `MATCHED KEY — matched — NOOP` | The projection is identical. Nothing was written. Report it as "already current", never as an error and never as a capture you performed. |
+| `UNMATCHED KEY — not-admitted — …` | The key is not in the library. |
+| `UNMATCHED KEY — no-fulltext — …` | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
+| `UNMATCHED KEY — re-keyed — old → new` | The citation key changed. Run `propagate` (§4). |
+| `UNMATCHED KEY — merged|trashed|deleted — …` | The item left the library. Nothing was written; the note is kept. |
+| `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record. |
+| `UNREACHABLE … — outage — …` | Zotero did not answer. **Never a verdict on the source.** Retry later. |
+
+Every non-MATCHED line already filed its own review record under check id `capture`; never file one for a failed capture yourself. If stderr carries `warning: review record refused:`, say so out loud.
+
+## 3. Verify what capture cannot see
+
+Run `python3 -m research_vault verify --vault PATH` with the network on after a capture: it runs the lifecycle linter over every note (check id `lifecycle`), the captured-set lint at the compile seam (`captured-set`) and the update-notice check. Route reading of that run to `verify-citations`.
+
+## 4. Propagate a citation-key change: `propagate`
+
+A `re-keyed` finding means the source's *name* changed while its identity (the item key) did not. Until propagation runs, the note's filename contradicts its recorded key and every `[@old]` and `[[old]]` dangles.
+
+```sh
+python3 -m research_vault propagate --vault PATH                    # every re-keyed note the linter reports
+python3 -m research_vault propagate --vault PATH --map OLD=NEW      # an explicit mapping, e.g. from a deliberate regenerate
+```
+
+It appends `system/renames.md`, renames the note, rewrites `[@key]` and `[[key]]` in drafts and wiki pages, and re-captures the item. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a mapped-away key.
+
+## Four-state honesty
+
+| Result | Meaning at capture |
+| --- | --- |
+| MATCHED | The step ran and agreed. Only the CLI's deterministic checks mint a `verified` event; nothing in this skill ever does. |
+| UNMATCHED | The step ran and disagreed. Already in the review queue — do not file it again. |
+| UNREACHABLE | The step could not run — Zotero or the network is down. Never a verdict on the source. Retry later. |
+| SKIPPED | The step does not apply. Automatic only. |
+
+The same honesty covers your own reading. A source you read only in part is reported **partial**, with the range you did not read named — pages the text layer stops at, sections you never reached. That is SKIPPED applied to reading: an unread stretch must never read as read.
+
+## Routing
+
+| Need | Route to |
+| --- | --- |
+| Find sources to add | `find-sources` |
+| Rules for the compiled layer | `synthesis-conventions` |
+| Run the deterministic checks | `verify-citations` |
+| Acknowledge a finding capture filed | `project-flow` or `publish` (the `ack` verb) |
+| Install Zotero add-ons | `setup-vault` |
+````
+
+`skills/setup-vault/SKILL.md`: keep `## Scaffold` and `## Diagnose` as they are except the doctor sentence, which becomes "Report every doctor probe, not only failures — thirteen rows — plus the inbox count and oldest age." Replace `## Provision companions` from its fourth paragraph on with:
+
+````markdown
+Zotero .xpi installs are human-only wizard steps. The add-ons the vault asks for are declared once, in the table `README.md` embeds from `research_vault/templates/zotero-addons.md` (required, recommended, optional, each with its add-on id and, where one exists, the preference that switches its automatic mode on). Walk the person through installing each *required* row in Zotero's Add-ons window and enabling the automatic-mode preferences; never download, never install, never click, and never close Zotero for the user. Doctor's `plugins` probe reads the same table and reports each add-on's `active`/`appDisabled` state and whether its automatic mode is on.
+
+Doctor can only read those facts when `.research-vault/machine.json` names the Zotero profile directory under `zotero_profile` (on this class of machine: `/mnt/c/Users/<user>/AppData/Roaming/Zotero/Zotero/Profiles/<id>.default`). Ask the person for it once; without it doctor reports `fulltext-sync`, `bbt-git` and `plugins` as SKIPPED, never as passed.
+
+## Migrate an older vault
+
+A vault whose literature notes carry the old `citekey:` frontmatter key runs the one-shot migration before its first capture:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+from research_vault import notes
+for path in sorted(Path("literatures").glob("*.md")):
+    text = path.read_text(encoding="utf-8", newline="")
+    renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
+    if renamed != text:
+        path.write_text(renamed, encoding="utf-8", newline="")
+        print("migrated", path)
+PY
+```
+
+Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
+````
+
+`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`.
+
+- [ ] **Step 4: Run the suite and form owners; commit**
+
+Run: `.venv/bin/python -m pytest tests -q -n auto && mdformat --number --wrap keep skills/capture-source/SKILL.md skills/setup-vault/SKILL.md research_vault/templates/vault/AGENTS.md docs/terminology.md`
+Expected: PASS.
+
+```bash
+git commit -m "rewrite capture-source and setup-vault (ingest spec §6)
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests research_vault docs
+```
+
+### Task 20: Final verification, the merge, the report to the author
+
+**Files:**
+
+- Modify: nothing; this task's deliverable is a green tree on `main` and a message.
 
 - [ ] **Step 1: Full verification**
 
@@ -5772,33 +5048,19 @@ python3 scripts/mutation_gate.py --lcov lcov.info --max-workers 1 --base main
 git status --porcelain   # must be empty
 ```
 
-Expected: every command exits 0; report the pytest counts and the mutation-gate summary line verbatim.
+Expected: every command exits 0; report the pytest counts and the mutation-gate summary line verbatim. The CRAP command must already pass: the two functions the dated deferral covered (`_bump_generated`, `check_metadata`) were deleted in Tasks 1 and 3. The workflow's `continue-on-error` itself is removed in Part B Task 4.
 
-- [ ] **Step 2: Report invariant 5 to the author (no action)**
+- [ ] **Step 2: Merge to `main`**
+
+Per `AGENTS.md`: fetch first, merge back to `main` locally and push `main` to origin in the same motion. If this part ran on `main` directly, push. Part B does not start before this lands.
+
+- [ ] **Step 3: Report invariant 5 to the author (no action)**
 
 In the completion message, state: the lifecycle linter's pre-commit leg is held (spec invariant 5); `verify --offline` reports it `UNREACHABLE` and never blocks; the write-side gate the leg waits on is unchanged — measured 2026-09-06 (decomposition §15.20), `main` has no branch protection and no rulesets, and this checkout has no `.git/hooks/pre-commit`. Settling the gate is the author's call; the plan changes nothing there.
 
-- [ ] **Step 3: Draft the upstream issue and wait for go-ahead**
-
-Spec §6 keeps verify's update-notice check because Zotero exposes its Retraction Watch verdict nowhere a client can read, "and asking them to is worth an issue." Draft, do not post:
-
-```
-Title: Local API: expose the retraction flag on item JSON
-
-Zotero 10.0.1 flags retracted items natively (retractions.js, the
-retractedItems table) and warns at cite time, but the local API exposes
-that verdict nowhere: no field in item JSON or meta, and /retractions and
-/retracted both return 404 (measured 2026-09-05). A client that keeps its
-own retraction check therefore duplicates work Zotero has already done.
-Request: a boolean (or the notice's date and type) on item JSON, or an
-endpoint listing retracted item keys, on the local API.
-```
-
-Post only when the user says so in that turn: `gh issue create --repo zotero/zotero --title "..." --body "..."`. Record the issue number in the completion message.
-
 - [ ] **Step 4: Completion message**
 
-Report: the tasks landed (with commit shas), the tracer results, the live-leg results, the two reports above, and anything skipped with its reason.
+Report: the tasks landed (with commit shas), the read-only live-leg results, the invariant-5 report, anything skipped with its reason, and what Part B needs from the author before it starts: presence for the tracers (Part B Task 1, Obsidian open) and for one consent dialog on the test instance (Part B Task 5).
 
 ______________________________________________________________________
 
@@ -5806,32 +5068,34 @@ ______________________________________________________________________
 
 ### Spec coverage
 
+Task numbers are this part's; `B n` names a Part B task. Part B's own self-review covers its sections again from its side.
+
 | Spec section                         | Requirement                                                                                                                                                                          | Task                         |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
 | §0                                   | Scope: scholarly documents; capture on demand; greenfield; derived text as gitignored cache; screening belongs to the review                                                         | 4, 10, 13                    |
-| §1 table                             | States and owners: captured, compiled, current, drifted, re-keyed, merged, trashed, deleted, database changed                                                                        | 12, 13, 14, 19               |
-| §1 invariants 1–6                    | identity once; server id in every tuple; no deletion; every transition visible; one linter code path with the pre-commit leg held; falsifiability                                    | 11, 12, 13, 24               |
+| §1 table                             | States and owners: captured, compiled, current, drifted, re-keyed, merged, trashed, deleted, database changed                                                                        | 12, 13, 14, B2               |
+| §1 invariants 1–6                    | identity once; server id in every tuple; no deletion; every transition visible; one linter code path with the pre-commit leg held; falsifiability                                    | 11, 12, 13, 20; B6           |
 | §1 "full-map read"                   | `?since=0` full maps, three reads                                                                                                                                                    | 9, 12                        |
-| §1.1                                 | retire then rename; 200 identifiers; ten skill files; frontmatter migration; glossary; `import`/`authority` collisions; captured set defined                                         | 1–8, 15, 20                  |
+| §1.1                                 | retire then rename; 200 identifiers; ten skill files; frontmatter migration; glossary; `import`/`authority` collisions; captured set defined                                         | 1–8, 15, 19                  |
 | §2                                   | Path A authorize/write; `Zotero-Server-ID` recorded not echoed; key poll to 10 s; Path B dropped; tags verbatim; no pinning; URL-only cut; archive retired                           | 1, 9, 11, 17                 |
-| §3.1                                 | item key + server id identity; filename `literatures/<citation key>.md`; alias probe; rename by propagation                                                                          | 11, 14, 18 (T5)              |
-| §3.2                                 | snapshot fields; provenance tuple; `annotations` deferred; wholly machine-written note; vault-owned fields dispositioned; CSL file scope = captured set; `Extra` note                | 5, 11, 13, 23                |
+| §3.1                                 | item key + server id identity; filename `literatures/<citation key>.md`; alias probe; rename by propagation                                                                          | 11, 14, B1 (T5)              |
+| §3.2                                 | snapshot fields; provenance tuple; `annotations` deferred; wholly machine-written note; vault-owned fields dispositioned; CSL file scope = captured set; `Extra` note                | 5, 11, 13, 18                |
 | §3.3 steps 1–7                       | reads; annotations route measured/unwired; fulltext usability; whole-library CSL read + fallback; body renders only what frontmatter cannot; NOOP; per-item restart; library re-read | 9, 10, 11, 13                |
 | §3.4                                 | linter at capture and verify; 412 stop; three reads; per-object classification; drift cause; reason order; outage at pre-commit never a classification                               | 12, 13                       |
 | §3.5, 3.5.1                          | detection only in the linter; propagation task set; rename log site; regenerate_key never called                                                                                     | 12, 14                       |
 | §3.6                                 | no absolute paths; `fulltext/` layer, gitignored, OKF-conformant, walked; not in `VAULT_DIRS`; named by attachment key; compile input = best attachment; hash machine-local          | 10, 11, 13                   |
 | §3.7                                 | local API only; translator formats 500; base URL configurable                                                                                                                        | 9, 16                        |
 | §3.8                                 | build verdict recorded; nothing to implement                                                                                                                                         | —                            |
-| §4.1–4.3                             | adoption at `ad67087`; tracers T1–T4; `wiki/` layout; `.raw/`, `.vault-meta/` gitignored and unwalked; `capture` unused; modes                                                       | 6, 18, 19                    |
+| §4.1–4.3                             | adoption at `ad67087`; tracers T1–T4; `wiki/` layout; `.raw/`, `.vault-meta/` gitignored and unwalked; `capture` unused; modes                                                       | 6, B1, B2                    |
 | §4.3.1                               | `wiki/index.md` exemption in `structure.py`                                                                                                                                          | 6                            |
 | §4.4                                 | captured-set lint (textual + structural); no second copy of text; `wiki/concepts/`; recompile-needed; no forward link                                                                | 6, 15                        |
-| §4.5                                 | wrapper owns selection, locators, ledger records, invocation; no prompt                                                                                                              | 19                           |
-| §5                                   | doctor probes incl. write guard, 403, profile facts, plugins via `appDisabled`/`active`, path shim, translator-format warning; facts file gone; auto-export retired from setup       | 16, 20                       |
+| §4.5                                 | wrapper owns selection, locators, ledger records, invocation; no prompt                                                                                                              | B2                           |
+| §5                                   | doctor probes incl. write guard, 403, profile facts, plugins via `appDisabled`/`active`, path shim, translator-format warning; facts file gone; auto-export retired from setup       | 16, 19, B3                   |
 | §6 retire                            | auto-export; base constant; screening state; claim lines; managed region; doi/metadata; `archive-source`; synthesis under `wiki/`; frozen checks untouched; kept items               | 1–6                          |
 | §6 reason codes                      | five new; three plan-assigned (`stale-key`, `no-fulltext`, `recompile-needed`)                                                                                                       | 12, 13, 14, 15               |
-| §6 skills                            | import-source, setup-vault, synthesis-conventions rewritten                                                                                                                          | 20                           |
-| §7                                   | offline fixtures from the sitting; no recorder; live legs; the missing trashed snapshot                                                                                              | 12, 22                       |
-| §8 open points 04, 07, 08, 09, 12    | names; ack scope; retraction-ack site; ack clears marker; rename log                                                                                                                 | Decisions 1, 3–7, 21; 14, 23 |
+| §6 skills                            | import-source, setup-vault, synthesis-conventions rewritten                                                                                                                          | 19, B3                       |
+| §7                                   | offline fixtures from the sitting; no recorder; live legs; the missing trashed snapshot                                                                                              | 12, B5                       |
+| §8 open points 04, 07, 08, 09, 12    | names; ack scope; retraction-ack site; ack clears marker; rename log                                                                                                                 | Decisions 1, 3–7, 21; 14, 18 |
 | §8 open points 05, 06, 10, 11, 13–16 | recorded deferrals; nothing to build                                                                                                                                                 | —                            |
 | Decision 17 / §6.1                   | add-on declaration with ids; `active` + `appDisabled`                                                                                                                                | 16                           |
 | Decision 28                          | annotations deferred, specified not run                                                                                                                                              | 9 (`annotations()` unwired)  |
@@ -5843,7 +5107,7 @@ Every `...` in a code block names the existing lines it stands for (`# unchanged
 
 ### Type consistency
 
-- `notes.Provenance` fields and `notes.read_provenance` (Task 11) are what `lifecycle.classify` (12), `capture._capture_one` (13), `propagate.propagate` (14), `captured._notes` (15) and `compile.ledger_record` (19) consume.
-- `ZoteroClient.versions()` returns `(map, version)`; `trash_versions()` returns the map alone; `top_items()` returns `(list, version)` — used that way in 12, 13, 16, 22.
+- `notes.Provenance` fields and `notes.read_provenance` (Task 11) are what `lifecycle.classify` (12), `capture._capture_one` (13), `propagate.propagate` (14), `captured._notes` (15) and `compile.ledger_record` (Part B Task 2) consume.
+- `ZoteroClient.versions()` returns `(map, version)`; `trash_versions()` returns the map alone; `top_items()` returns `(list, version)` — used that way in 12, 13, 16 and Part B Task 5.
 - `fulltext.write` returns `(path, sha256)`; `capture._write_texts` records the sha256 as the `fulltext` entry and `compile-input-sha256`; `captured._structural` compares the ledger's `content_sha256` against that same value; `compile.ledger_record` writes it as `content_sha256`.
-- Check ids and reason codes used in code blocks are exactly the registries Task 21 fixes.
+- Check ids and reason codes used in code blocks are exactly the registries Part B Task 4 fixes.
