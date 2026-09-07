@@ -58,14 +58,18 @@ The design object is the source's relationship with the vault over time, not the
 | retracted or corrected         | A registry notice names the source.                                                                                                                                                                           | Existing update-notice check                                                  | Standing recorded on the note                                                          |
 | database changed               | The Zotero server id differs from the recorded one; Zotero's documentation: a different id means a different database.                                                                                        | Linter                                                                        | Linter stops and reports; every recorded version is void                               |
 
-Invariants (proposed):
+Invariants (**chosen 2026-09-07**):
 
 1. Identity is assigned exactly once, at capture, and never reused.
 2. Every provenance tuple carries the Zotero server id. Versions and keys are meaningful only within one server id.
 3. No transition deletes a note. Records deprecate; they do not vanish.
 4. Every transition is visible: a finding in the review queue or a line in the log. `added` is the one exemption, and §1's table says so.
-5. The linter runs at capture, at verify, and at pre-commit, through one code path.
-6. A mechanical step without a named linter is incomplete.
+5. The linter runs at capture, at verify, and at pre-commit, through one code path. **The pre-commit leg is held**, and the hold has a stated trigger rather than being an omission: the hook runs `verify --offline` today and this linter needs a live Zotero, so §6 prices the hook going online. Measured 2026-09-07, the quality lane had been red for twelve days unread and `main` carries no branch protection — adding a non-blocking signal to a channel with a demonstrated history of being ignored buys nothing. **Capture and verify bind now; pre-commit binds when the write-side gate is settled.**
+6. Every mechanical step must be **falsifiable** — by a linter, by a test, by four-state honesty, or by a design in which the failure cannot occur. A linter is one instrument, not the requirement.
+
+Invariant 6 is a reframing of the 2026-09-04 draft's *"a mechanical step without a named linter is incomplete"*, and the change is deliberate. Read literally, the original requires a checker for every step, which is a rule that manufactures mechanisms — the opposite direction from this repository's own ladder. The evidence is local and recent: the disposition system was 2,033 lines of exactly that instinct, a linter guarding a marker, and deleting it lost nothing because the purge eliminated the problem the marker managed. What survives is the part worth keeping — no mechanical step gets to be unverifiable — without prescribing the instrument.
+
+The reframing has a consequence worth naming. Under the original, §2.5's propagation linter existed because the invariant demanded one. Under invariant 6 it must earn itself by naming what would otherwise be unfalsifiable, which for a vault-wide rewrite of human-authored content it can: after a pass, no citation-key-bearing surface may still name a key the rename log maps away, and nothing else in the vault can attest that.
 
 Cost: a whole-vault classification is three reads, not two, and §9 records each. The two versions maps answer current, drifted, trashed and deleted: `/items?since=0&format=versions` for every key including children and annotations, and `items/trash?format=versions` for the trashed set. `/items/top` would hide every child, so the first read is `/items`. Those two maps cannot answer re-keyed or merged, because a key-to-version map carries neither the live citation key nor `dc:replaces`, so a third read of `/items/top?format=json` supplies both fields. Top-level scope is right there, since only top-level items carry either. Refresh fetches are needed only for a note that classified as drifted.
 
