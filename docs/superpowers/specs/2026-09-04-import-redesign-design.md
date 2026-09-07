@@ -412,10 +412,16 @@ Every mechanical step in this spec names its linter: setup has doctor; capture, 
 
 ## 6. What changes in the existing machinery
 
-Retired by this spec (proposed):
+Retired by this spec (**confirmed 2026-09-07**):
 
-- the Better BibTeX auto-export contract: observation, byte-compare, the `staleness` verb, the `autoexport` doctor probe, and the `bibliography.py` machinery around them;
+- the Better BibTeX auto-export contract: observation, byte-compare, the `staleness` verb, the `autoexport` doctor probe, and the `bibliography.py` machinery around them.
+
+  **This is the one retirement where the spec and shipped code disagree, so the cost is stated rather than implied.** Measured 2026-09-07, the contract is live and load-bearing: `scaffold.py:383` has doctor call `observe_autoexport`; `autoexport` sits in **both** `DOCTOR_HARD_UNMATCHED` and `DOCTOR_HARD_UNREACHABLE` (`__main__.py:45-46`), so a persistent mismatch is a hard failure today; `staleness` is a shipped CLI verb; and `bibliography.py` is 763 lines. Retiring means deleting a doctor probe that currently hard-fails, a verb, and most of a module.
+
+  **What makes it right is that the artifact is now obtainable on demand.** §2.3 step 4 regenerates the whole CSL file from one 0.46-second read, so the observe-and-wait machinery guards something we can simply produce. Better BibTeX's documentation also confirms the retirement's premise exactly: `//` is *"a library-name prefix on a collection path"*, not library scope, so `autoexport.add("//")` was never going to register a whole-library export and no RPC route exists. The human-repair text at `bibliography.py:598` — *"a person must create or fix the whole-library Better CSL JSON auto-export in BBT Preferences"* — retires with it, which removes the design's last instruction-to-a-human rung.
+
 - the note-level screening status, `lint_screening_state`, and the `superseded-note` reason code;
+
 - claim lines as an ingest output, and anchors derived from annotations.
 
 Replaced rather than superseded: the ADR register is non-binding while it is re-derived, so this spec does not negotiate with ADR 0004 or 0005. It states the two positions directly, and whether either becomes a record again is the register's business: identity is the Zotero item key qualified by the server id, and the citation key is the name; capture is the sole writer of the vault's bibliographic record. The text cache is a new derived artifact outside the git boundary, the same class of thing as Zotero's own attachment store. The glossary is rewritten per §1.1, as a fresh derivation rather than an amendment. The supersession of foundation spec §4 is stated once, in the header.
@@ -511,6 +517,20 @@ Foundation spec §4 was deleted as a controlled demolition, this document being 
 12. **The presence marker.** §4 allowed exactly one write-back, a MarkDB-Connect `has-vault-note` tag, and banned content write-back. The obligation — making vault presence visible in Zotero — is answered "nothing for now" by the decomposition's §15.16, and §2.8 finds MarkDB-Connect writes one tag and no files, so it composes with this design rather than competing. **Deferred, with an owner.**
 
 13. **Two-way sync: the gate has opened.** §4 deferred it *"behind the Zotero 10 local-writes gate,"* re-ruled 2026-08-23 as a deferral rather than a permanent ban, to be *"revisited when local writes exist and the per-event approval path is proven."* **Both conditions are now met**: Zotero shipped local API writes on 2026-07-27, and §3 specifies Path A's per-application authorization dialog. This document uses that path to *add* items and stays one-way for content. That remains the right scope for this iteration — but the deferral's trigger has fired, so it is an open question now rather than a dormant one, and deleting §4 without recording that would have discarded it silently.
+
+### 8.4 Better BibTeX findings that outlive this iteration (2026-09-07)
+
+Read from BBT's documentation at the **v9.0.63 tag**, matching the measured build, and probed live.
+
+23. **Export configuration is pinnable, even though the version is not.** BBT supports `preferencesOverride` and `postscriptOverride`: a `preferences.json` or `postscript.js` placed **in the export directory** overrides the global preference for that export alone — committable, reviewable, and immune to another project's global setting. The decomposition's **decision 12** says Zotero-side components are declared and observed, never pinned; that is right about the *version* and too pessimistic about export *behaviour*. **Not taken now, because the auto-export retirement removes the export directory it would live in.** Recorded so that if a configured export ever returns, the pin is known to exist rather than rediscovered.
+
+24. **BBT can run git in an auto-export target, and that collides with this repository's commit rule.** The hidden `git` preference (`off` / `config` / `always`) plus `git config zotero.betterbibtex.push true` makes BBT run `pull`, `add`, `commit` and `push` in the target repo itself. `AGENTS.md` requires commits by explicit pathspec and forbids touching another session's uncommitted files; BBT would commit whatever any concurrent session had staged. **Forbidden here**, and doctor checks for it — the retirement removes our own target, but the preference is machine-local and a human could point an unrelated export at this tree.
+
+25. **A deprecated `Extra` syntax exists that our snapshot would not make legible.** BBT still honours `{:pmid: 123456}` alongside `PMID: 123456`, describing it as *"supported but considered deprecated"* and still showing it in its docs. BBT destructures both into CSL; §2.2 copies `Extra` verbatim and parses neither, so an item in the brace form would carry a value in `bibliography.json` and an opaque string in the note. **Measured 2026-09-07: zero of 440 items with a non-empty `Extra` use the brace form**, so this is a watch-item rather than a case to build for.
+
+26. **Two pull-export aliases in BBT's own documentation are wrong on 9.0.63.** `pull.md` lists `csljson`, `yaml`, `yml` and `cslyaml` as valid `format` values; measured, several return HTTP 500. The working spelling is `json`. Recorded because `csljson` is the intuitive choice and the documentation invites it — and because §2.3 step 4's route is undocumented, so its neighbours' documentation is the only guide a later reader has.
+
+27. **BBT's export worker is self-described as experimental and self-disabling.** *"a wild departure from how translation works in Zotero"*, and a single error silently flips the whole instance to foreground exports until a human intervenes. Every pull-export request defaults to the worker path. Not a blocker — but if capture's CSL read becomes slow rather than failing, this is the first thing to check.
 
 ## 9. Facts and how each was established (this machine)
 
