@@ -1,7 +1,5 @@
 # Status-Marking Pass Implementation Plan
 
-Disposition: current (2026-09-06)
-
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every in-scope repository document and every open issue exactly one machine-checked `Disposition:` line, drawn from §10's closed vocabulary, applied only through a proposal the author has reviewed.
