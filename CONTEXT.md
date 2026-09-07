@@ -12,7 +12,12 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 **Evidence layer**: The vault's machine-projected record of admitted sources (`literatures/`); never free-written.
 
+**Synthesis layer**: The LLM-maintained pages (`synthesis/`) that arrange claims across sources; freely rewritable because it asserts arrangement, not evidence.
+
 **Literature note**: The vault projection of one item, filename = citekey; a managed region above free prose.
+
+**Synthesis note**: One page of the synthesis layer, carrying block-anchored claims with stance links.
+_Avoid_: topic page (collides with OpenAlex topics)
 
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 
@@ -39,7 +44,11 @@ _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex'
 
 **Claim**: One assertion carried by a note line, tagged with its evidence boundary and anchored for linking.
 
+**Evidence-boundary tag**: The per-claim marker of epistemic status — quote, paraphrase, inference, or open-question.
+
 **Claim link**: The global address of a claim: `citekey#^claim-id` (an Obsidian block link).
+
+**Stance link**: A typed claim-to-claim relation — `supports` or `disputes` (CiTO senses).
 
 **Admission**: The human act of accepting a source into Zotero — the only way anything becomes citable.
 
@@ -49,11 +58,15 @@ _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex'
 
 ### Verification
 
+**Screening state**: A literature note's PRISMA-style status: unscreened, included, excluded, or superseded — note-level only (a superseded *claim* is a deprecation carrying a superseded-by pointer, not a status).
+
 **Check**: One named verification a note or claim is put through; most are mechanical, some are LLM judgment.
 
 **Four-state result**: A check's outcome: MATCHED, UNMATCHED, UNREACHABLE (could not run — never guilt), or SKIPPED (does not apply).
 
 **Verified event**: The dated, attributed record that a named check passed on a note; only MATCHED mints one.
+
+**Closing check**: A check whose standing can hold a surface; closing is a property of the surface, not of the check.
 
 **Trust tier**: A note's derived standing: unverified → machine-confirmed → human-reviewed (cumulative).
 
