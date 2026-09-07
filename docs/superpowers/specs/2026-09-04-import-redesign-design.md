@@ -388,6 +388,16 @@ What already exists (source read 2026-09-05): `tests/conftest.py` builds the `tm
 8. Whether the compiled layer's pages carry a `type` the vault's own structure check accepts: the adopted tool writes its own page shape and its lint requires a `type` on every wiki page, while `research_vault/structure.py` requires a non-empty `type` on every non-fleeting note and derives no expected value for `wiki/`, so the open part is whether the vault takes the tool's vocabulary as it stands or adds `wiki/` to `_FOLDER_TYPES` and then demands one derived value.
 9. How a compiled page is prevented from citing a source the vault never captured: no linter in this spec ties a `[[citation key]]` or `[@citation key]` under `wiki/` back to a `literatures/<citation key>.md` that capture wrote, and the adopted tool's own dangling-link check resolves against every file in the vault rather than against the captured set.
 
+### 8.3 Open points on the filename rule (2026-09-07)
+
+§2.1 chooses `literatures/<citation key>.md`, so the filename is the source's **name** while its identity is the item key. That is safe only because §2.5 propagates a re-key, and §2.5 is `proposed` — measured 2026-09-07, `research_vault/` contains zero occurrences of `propagat`, `re-key`, `rekey` or `rename log`. Until it is built, a re-key forks the vault the same way `obsidian-history-vault` forks notes under Zotero Integration, which §2.8 records as a hazard this design avoids. It avoids it on paper.
+
+21. **The rename log has no site.** §2.5 requires the old→new mapping to be *"appended to a rename log so a later reader can follow any key backwards"*, and never says where it lives. A file under `system/`, a frontmatter field, or the review queue are all consistent with the text. Its own linter depends on reading it, so the propagation pass cannot be built without this answered.
+
+22. **Seven items have no citation key, and therefore no filename.** §9 measured 1,452 distinct citation keys across 1,459 top-level items: **7 carry none**. Under §2.1's rule those sources cannot be captured at all, and neither §2.1 nor §2.3 says what happens — capture presumably files a finding, but nothing states it. The item key would name them, which is the one place the rejected alternative is strictly better.
+
+    *Recorded for the next reader who reconsiders the filename*: the immutable-filename case rests on the observation that a person reads titles rather than filenames, which holds inside Obsidian. It fails outside it. `[[citation key]]` resolves by basename for every reader; an item-key filename resolves only through Obsidian's alias index, which no other consumer has — including this repository, whose `notes.note_path` is a string join used at **eight call sites**. Choosing the item key would mean maintaining a citekey→item-key index, a second home for a fact §2.2 keeps in one place.
+
 ### 8.2 Carried in from foundation spec §5 on its deletion (2026-09-07)
 
 Eighty-eight elements were checked against successors, code, `CONTEXT.md`, skills and the decomposition. Fifty-two are carried, six retired, seven frozen, three already open items. **Twenty had no home.** The seven that are rules rather than rationale are carried here; the rationale is recorded in the commit and left to git.
