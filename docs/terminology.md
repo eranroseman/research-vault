@@ -96,10 +96,11 @@ and frontmatter. This section adds only spellings not named there.
 Use the claim and verification terms in [CONTEXT.md](../CONTEXT.md), the
 verification record defined by
 [ADR 0002](adr/0002-verification-records-tell-the-truth.md), the transition
-language in [ADR 0003](adr/0003-deprecate-never-delete.md), the identity rule in
-[ADR 0004](adr/0004-citekey-is-the-only-identity.md), and the bibliography
-authority in
-[ADR 0005](adr/0005-better-bibtex-owns-the-bibliography-export.md).
+language in [ADR 0003](adr/0003-deprecate-never-delete.md), the identity rule and the
+bibliography authority in
+[the ingest redesign spec](superpowers/specs/2026-09-04-import-redesign-design.md)
+(§3.1 and §3.2), which supersede the two suspended decision records that
+previously held them.
 
 | Spelling                                 | Source or rule                                       |
 | ---------------------------------------- | ---------------------------------------------------- |
