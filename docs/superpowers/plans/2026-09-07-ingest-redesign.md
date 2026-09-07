@@ -23,7 +23,7 @@
 - **No `Disposition:` line** on new Markdown: the marker system was deleted on 2026-09-07 (`7ec2c95`, `8e2721b`).
 - **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`.
 - **Deleting a module** deletes its `research_vault/<module>.py.manifest.json` sidecar (mutate4py sidecars; nothing enforces them) and prunes its rows from `mutation-baseline.txt` (`grep -v '^research_vault/<module>.py::'`). New modules need no sidecar; the gate writes one on its first run.
-- **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`. Nothing in the suite ever writes to the production instance.
+- **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
 - **Outward-facing actions need explicit go-ahead in that turn**: Task 24's upstream Zotero issue is not run on plan approval alone.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
 
@@ -35,7 +35,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 
 01. **Rename log site (open point 12, decision 29 — settled first).** `system/renames.md`, append-only, machine-written, frontmatter `type: "rename-log"`, one line per rename in the review queue's own field grammar: `- [date:: 2026-09-07] [item:: E352DFS8] [from:: jakesch.etal2023] [to:: jakesch.etal2023a] [actor:: research_vault/0.1.0]`. Why a system file: a frontmatter field would give propagation a write into a record capture alone owns (§3.2); the review queue holds findings and acknowledgments, and a mapping is neither; `system/` already holds the one other machine-projected artifact (`bibliography.json`). It joins `lints._is_append_only_path`, the pre-tool-use guard's machine surfaces, and the three formatter-ignore templates.
 02. **The review queue is not rewritten on a re-key.** §3.5 lists "review-queue and acknowledgment targets" among propagation's surfaces, but `inbox/review-queue.md` is append-only (`lint_append_only`) and ADR 0003 forbids rewriting records. A re-key re-renders the note, so the note's content hash changes and every acknowledgment scoped to it lapses by scope mismatch — the behaviour `CONTEXT.md` already defines for an acknowledgment. The rename log is what lets a reader follow an old target forward. Findings written after the rename carry the new key.
-03. **Verbs** (open point 04, terminology §4.3): `capture` (replaces `import-note`), `add` (Path A create, then capture), `propagate` (the re-key pass), `compile` (the wrapper; `compile` prints the tool's approval hash, `compile --approved-plan-sha256 <sha>` applies, mirroring `transaction apply`). Retired verbs: `import-note`, `archive-source`, `staleness`, `backfill-selectors`.
+03. **Verbs** (open point 04, terminology §4.3): `capture` (replaces `import-note`), `add` (Path A create, then capture), `propagate` (the re-key pass), `compile` (the wrapper; `compile` prints the tool's approval hash, `compile --bundle <path> --approved-plan-sha256 <sha>` applies, mirroring `transaction apply`). Retired verbs: `import-note`, `archive-source`, `staleness`, `backfill-selectors`.
 04. **Check ids** (§4.4 coinages): `capture` (capture's own holds), `lifecycle` (the linter; non-closing on every surface — capture aborts on `database-changed`, nothing else blocks), `propagation` (the residue check; closing on `commit` and `publish`), `captured-set` (§4.4's seam lint; closing on `commit` and `publish`), `compile` (the wrapper's outcome). `citekey` becomes `citation-key`. Retired: `doi`, `metadata`, `web-archive`, `screening-state`, `autoexport`.
 05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key the rename log maps away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the note's compile-input hash differs from the ledger's). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
 06. **Doctor probe ids**: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`. Retired: `autoexport`, `staleness`.
@@ -56,6 +56,8 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 21. **Open point 07**: the acknowledgment scope hash is the sha256 of the note bytes with the verifier-owned `verified` list removed (`verify._note_bytes`), truncated to 16 hex characters — what `_citekey_hash` already computes when no `fixity-sha256` is present. The `fixity-sha256` branch is deleted. **Open point 08**: `skills/evidence-conventions/SKILL.md` is the single definition site of `[retraction-ack:: <code>]`; `publish.py` parses it through one module constant `RETRACTION_ACK_FIELD = "retraction-ack"` and a test asserts the skill's fenced example uses that spelling. **Open point 09**: `ack` clears the target's `[failed-verification:: <check>/<date>]` marker.
 22. **Tracer results land in this plan** under "Tracer results" (Task 18) and as one dated sentence in the spec's §4.3 tracer paragraph.
 23. **Invariant 5 / decomposition §15.20** (no branch protection, no dev pre-commit hook): reported in Task 24's final message to the author, unchanged by this plan.
+24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Task 19) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Task 18) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
+25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
 
 ______________________________________________________________________
 
@@ -149,7 +151,8 @@ CHECK = "capture"; MAX_READ_RESTARTS = 3; KEY_WAIT_SECONDS = 10
 class ItemRead(NamedTuple): item: dict; children: list[dict]; texts: dict[str, dict | None]; version: int
 def resolve_keys(client, keys: list[str]) -> dict[str, str | None]
 def read_item(client, item_key) -> ItemRead              # restarts on version movement
-def capture(vault_root, client, keys, *, now=None, refresh_all=False) -> list[Outcome]
+def capture(vault_root, client, keys, *, now=None, refresh_all=False, key_wait_seconds=KEY_WAIT_SECONDS) -> list[Outcome]
+def add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]   # Task 17
 
 # research_vault/lifecycle.py                                 (Task 12)
 CHECK = "lifecycle"; ORDER = ("database-changed", "merged", "deleted", "trashed", "re-keyed", "drift")
@@ -1544,7 +1547,7 @@ ITEM = {
         "url": "https://doi.org/10.1145/3544548.3581196",
         "publicationTitle": "CHI 2023",
         "language": "en",
-        "abstractNote": "Line one.\nLine two.",
+        "abstractNote": "Line one.\n\tLine  two.",
         "extra": "PMID: 28503678\nPMCID: PMC5428074",
         "accessDate": "2026-06-06T10:00:00Z",
         "tags": [{"tag": "ai", "type": 1}],
@@ -2324,7 +2327,7 @@ def test_render_note_carries_snapshot_tuple_and_witness_in_order():
     assert data["type"] == "literature"
     assert data["aliases"] == [ITEM["data"]["title"]]
     assert data["creators"] == [{"creatorType": "author", "firstName": "Maurice", "lastName": "Jakesch"}]
-    assert data["abstractNote"] == ["Line one.", "Line two."]
+    assert data["abstractNote"] == ["Line one.", "Line two."]  # ITEM's second line carries a tab and a double space; display_text collapses both
     assert data["extra"] == ["PMID: 28503678", "PMCID: PMC5428074"]
     assert data["tags"] == [{"tag": "ai", "type": 1}]
     assert data["DOI"] == "10.1145/3544548.3581196"
@@ -2473,7 +2476,9 @@ class Provenance:
 def frontmatter_value(value):
     """Decision 9: a string with line breaks becomes a list of its lines."""
     if isinstance(value, str):
-        lines = value.splitlines()
+        # Each line goes through display_text: the codec rejects every C0 control, and a tab
+        # inside an abstract must not hold the whole capture.
+        lines = [display_text(line) for line in value.splitlines()]
         return lines if len(lines) > 1 else display_text(value)
     if isinstance(value, list):
         return [
@@ -3414,6 +3419,9 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=0)
     try:
         info = client.server_info()
+    except DatabaseChangedError as error:
+        # A client that still carries an earlier run's server id is refused with 412 before any read.
+        return [Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")]
     except ZoteroError as error:
         return [Outcome(CHECK, "vault", Result.UNREACHABLE, f"outage — {error}")]
     existing = lifecycle._provenances(vault)
@@ -3423,7 +3431,9 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     linted = lifecycle.lint_lifecycle(vault, client)
     if any(o.target == "vault" for o in linted):
         return [o for o in linted if o.target == "vault"]
-    standing = {o.target: o for o in linted}
+    # The linter targets citation keys; capture resolves item keys. Join the two through the provenance tuples.
+    item_key_of = {p.citation_key: p.item_key for _, p in existing}
+    standing = {item_key_of.get(o.target, o.target): o for o in linted}
     run_version = _top_version(client)
     outcomes: list[Outcome] = []
     library_name = None
@@ -3435,7 +3445,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
         if item_key is None:
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"not-admitted — {requested_key} is not in the library"))
             continue
-        prior = standing.get(requested_key)
+        prior = standing.get(item_key)
         if prior is not None and prior.result is Result.UNMATCHED and prior.reason.split(" — ")[0] in {"merged", "trashed", "deleted"}:
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, prior.reason))
             continue
@@ -3580,7 +3590,7 @@ def test_propagate_renames_the_note_appends_the_log_and_recaptures(tmp_vault, mo
     _seed(tmp_vault)
     calls = []
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: calls.append(list(keys)) or [])
-    outcomes = propagate.propagate(tmp_vault, client=None, mapping={"old2020": "new2020"})
+    outcomes = propagate.propagate(tmp_vault, client=object(), mapping={"old2020": "new2020"})
     assert (tmp_vault / "literatures" / "new2020.md").is_file()
     assert not (tmp_vault / "literatures" / "old2020.md").exists()
     assert calls == [["E352DFS8"]]
@@ -3760,7 +3770,7 @@ def propagate(vault_root, client, mapping: dict[str, str] | None, *, now=None) -
     return outcomes
 ```
 
-(The `client=None` test path monkeypatches `capture.capture`; in production `cmd_propagate` always passes a client.) CLI:
+(The rename test passes a stub client, `object()`, and monkeypatches `capture.capture`, so the recapture call is observed without a Zotero. `client=None` with an explicit mapping is allowed and skips the recapture; `cmd_propagate` always passes a real client.) CLI:
 
 ```python
 def cmd_propagate(args):
@@ -4047,20 +4057,20 @@ ______________________________________________________________________
 - Consumes: `ZoteroClient.server_info/ready/file_view_url/_local`, `paths.to_local`, `paths.load_machine_config`.
 - Produces: `addons.declared() -> list[Addon]`; `addons.observe(profile_dir) -> dict[str, dict]`; `addons.read_prefs(profile_dir) -> dict[str, str | bool | int]` (parses `user_pref("name", value);` lines of `prefs.js`); `scaffold.doctor(vault_root, client=None) -> list[Probe]` with probes in this order and these semantics:
 
-| Probe                | MATCHED                                                                                                              | UNMATCHED                                                                                  | UNREACHABLE                                | SKIPPED             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- |
-| `tree`               | unchanged                                                                                                            | unchanged                                                                                  | —                                          | —                   |
-| `machine-config`     | unchanged                                                                                                            | unchanged                                                                                  | —                                          | —                   |
-| `zotero`             | `server_info()` answered; reason `zotero=10.0.1 api=3 schema=44 server_id=…`                                         | 403: `local API preference is off — enable it in Settings, Advanced`                       | any other failure                          | —                   |
-| `write-guard`        | a `POST /api/users/0/items` with body `[]` and header `Zotero-Server-ID: research-vault-wrong-id` answered 412       | 428 or any other status (guard not armed)                                                  | transport failure                          | zotero unreachable  |
-| `fulltext-sync`      | prefs readable; reason `sync.fulltext.enabled=false storage.protocol=webdav` (report, never a failure)               | —                                                                                          | —                                          | no `zotero_profile` |
-| `bbt`                | `ready()` answered                                                                                                   | version missing                                                                            | zotero down                                | —                   |
-| `bbt-git`            | pref `extensions.zotero.translators.better-bibtex.git` is `off` or unset                                             | `config` or `always` (warn-only)                                                           | —                                          | no `zotero_profile` |
-| `plugins`            | every `required` add-on is `active` and not `appDisabled`, and every declared auto pref is `true`                    | a required add-on missing/inactive/`appDisabled`, or an auto pref false; reason names each | —                                          | no `zotero_profile` |
-| `path-shim`          | one stored attachment's `/file/view/url` resolved through `paths.to_local` to an existing file                       | resolved path does not exist                                                               | zotero unreachable or no stored attachment | not running in WSL  |
-| `translator-formats` | `GET /api/users/0/items/top?format=csljson&limit=1` returns 500 (the closed route stays closed)                      | it returns 200 — "a route this design closed has reopened" (warn-only)                     | transport failure                          | zotero unreachable  |
-| `compile-tool`       | `installed_plugins.json` names `claude-obsidian@agricidaniel-claude-obsidian` with `gitCommitSha` starting `ad67087` | installed at another sha (warn-only, reason carries both)                                  | —                                          | not installed       |
-| `remote`, `backup`   | unchanged                                                                                                            | unchanged                                                                                  | —                                          | —                   |
+| Probe                | MATCHED                                                                                                                                                                     | UNMATCHED                                                                                  | UNREACHABLE                                                   | SKIPPED             |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | ------------------- |
+| `tree`               | unchanged                                                                                                                                                                   | unchanged                                                                                  | —                                                             | —                   |
+| `machine-config`     | unchanged                                                                                                                                                                   | unchanged                                                                                  | —                                                             | —                   |
+| `zotero`             | `server_info()` answered; reason `zotero=10.0.1 api=3 schema=44 server_id=…`                                                                                                | 403: `local API preference is off — enable it in Settings, Advanced`                       | any other failure                                             | —                   |
+| `write-guard`        | a `POST /api/users/0/items` with body `[]` and header `Zotero-Server-ID: research-vault-wrong-id` answered 412                                                              | 428 or any other status (guard not armed)                                                  | transport failure                                             | zotero unreachable  |
+| `fulltext-sync`      | prefs readable; reason `sync.fulltext.enabled=false storage.protocol=webdav` (report, never a failure)                                                                      | —                                                                                          | —                                                             | no `zotero_profile` |
+| `bbt`                | `ready()` answered (asked regardless of the `zotero` probe: the json-rpc route ignores the local-API preference, §9)                                                        | version missing                                                                            | json-rpc transport failure                                    | —                   |
+| `bbt-git`            | pref `extensions.zotero.translators.better-bibtex.git` is `off` or unset                                                                                                    | `config` or `always` (warn-only)                                                           | —                                                             | no `zotero_profile` |
+| `plugins`            | every `required` add-on is `active` and not `appDisabled`, and every declared auto pref is `true`                                                                           | a required add-on missing/inactive/`appDisabled`, or an auto pref false; reason names each | —                                                             | no `zotero_profile` |
+| `path-shim`          | the first `imported_file` row of `items?itemType=attachment&limit=50` (filtered client-side) has its `/file/view/url` resolved through `paths.to_local` to an existing file | resolved path does not exist                                                               | zotero unreachable or no stored attachment among the first 50 | not running in WSL  |
+| `translator-formats` | `GET /api/users/0/items/top?format=csljson&limit=1` returns 500 (the closed route stays closed)                                                                             | it returns 200 — "a route this design closed has reopened" (warn-only)                     | transport failure                                             | zotero unreachable  |
+| `compile-tool`       | `installed_plugins.json` names `claude-obsidian@agricidaniel-claude-obsidian` with `gitCommitSha` starting `ad67087`                                                        | installed at another sha (warn-only, reason carries both)                                  | —                                                             | not installed       |
+| `remote`, `backup`   | unchanged                                                                                                                                                                   | unchanged                                                                                  | —                                                             | —                   |
 
 `__main__.DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "zotero", "bbt", "write-guard", "plugins"}`, `DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt"}`, `DOCTOR_WARN_ONLY = {"remote", "backup", "bbt-git", "translator-formats", "compile-tool", "fulltext-sync", "path-shim"}`.
 
@@ -4159,8 +4169,9 @@ def _doctor_fake(monkeypatch, tmp_path):
     fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
     fake.post("/api/users/0/items", status=401, body=b"")  # wrong id is intercepted before this
     fake.get("/api/users/0/items/top?format=csljson&limit=1", status=500, body=b"")
-    fake.get("/api/users/0/items?itemType=attachment&linkMode=imported_file&limit=1&format=json",
-             body=[{"key": "D7EJ9FTG", "data": {"linkMode": "imported_file"}}])
+    fake.get("/api/users/0/items?itemType=attachment&limit=50&format=json",
+             body=[{"key": "Q1W2E3R4", "data": {"linkMode": "imported_url"}},   # skipped: not a stored file
+                   {"key": "D7EJ9FTG", "data": {"linkMode": "imported_file"}}])
     fake.get("/api/users/0/items/D7EJ9FTG/file/view/url", body=b"file:///D:/Zotero/storage/D7EJ9FTG/a.pdf")
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     return fake, client
@@ -4199,10 +4210,12 @@ def test_doctor_distinguishes_local_api_off_from_zotero_down(tmp_vault, monkeypa
     vault = _doctor_vault(tmp_vault)
     fake = FakeZotero()
     fake.get("/api/", status=403, body=b"")
+    fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     by = {p.check: p for p in scaffold.doctor(vault, client=client)}
     assert by["zotero"].result is Result.UNMATCHED and "preference" in by["zotero"].reason
     assert by["write-guard"].result is Result.SKIPPED
+    assert by["bbt"].result is Result.MATCHED  # the json-rpc route answers with the preference off
 
 
 def test_doctor_write_guard_fails_when_the_wrong_id_is_not_refused(tmp_vault, tmp_path, monkeypatch):
@@ -4393,8 +4406,11 @@ def _path_shim_probe(client, info, vault) -> Probe:
     if info is None:
         return Probe("path-shim", Result.SKIPPED, "zotero unreachable")
     try:
-        payload, _ = client._local_json("/api/users/0/items?itemType=attachment&linkMode=imported_file&limit=1&format=json")
-        key = payload[0]["key"] if payload else None
+        # Measured 2026-09-07: the local API ignores a `linkMode` query filter (it answered `imported_url`
+        # rows for `linkMode=imported_file`), so fetch attachments and filter client-side.
+        payload, _ = client._local_json("/api/users/0/items?itemType=attachment&limit=50&format=json")
+        stored = [row for row in payload if isinstance(row, dict) and row.get("data", {}).get("linkMode") == "imported_file"]
+        key = stored[0]["key"] if stored else None
         url = client.file_view_url(key) if key else None
     except (ZoteroError, KeyError, IndexError, TypeError) as error:
         return Probe("path-shim", Result.UNREACHABLE, f"no stored attachment to resolve: {error}")
@@ -4430,6 +4446,20 @@ def _compile_tool_probe() -> Probe:
     return Probe("compile-tool", Result.UNMATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}")
 
 
+def _bbt_probe(client) -> Probe:
+    """Independent of the local-API preference: `/better-bibtex/json-rpc` answers with it off (§9)."""
+    try:
+        versions = client.ready()
+        if not isinstance(versions, dict):
+            raise ZoteroError("malformed api.ready result: expected an object")
+    except (ZoteroError, OSError, UnicodeError, ValueError) as error:
+        return Probe("bbt", Result.UNREACHABLE, f"zotero down: {error}")
+    bbt_version = versions.get("betterbibtex")
+    if not isinstance(bbt_version, str) or not bbt_version.strip():
+        return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")
+    return Probe("bbt", Result.MATCHED, bbt_version.strip())
+
+
 def doctor(vault_root, client=None) -> list[Probe]:
     """Repair the scoped vault substrate and return its thirteen ordered probes (§5)."""
     vault = Path(vault_root)
@@ -4444,7 +4474,7 @@ def doctor(vault_root, client=None) -> list[Probe]:
             prefs = addons.read_prefs(profile)
         except (OSError, UnicodeError, ValueError):
             prefs = None
-    bbt = _bbt_probe(client, info)  # the existing ready() logic; SKIPPED-free: UNREACHABLE when info is None
+    bbt = _bbt_probe(client)  # never gated on `info`: the json-rpc route ignores the local-API preference
     return [
         tree, machine, zotero_probe, _write_guard_probe(client, info), _fulltext_sync_probe(prefs),
         bbt, _bbt_git_probe(prefs), _plugins_probe(profile, prefs), _path_shim_probe(client, info, vault),
@@ -4484,13 +4514,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `tests/test_add.py`
-- Modify: `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, key_store=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`)
+- Modify: `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`)
 
 **Interfaces:**
 
 - Consumes: `ZoteroClient.authorize/create_items/server_info`, `capture.capture`, `notes.SNAPSHOT_FIELDS`.
 
-- Produces: `capture.add(...)`: validates each item (object; `itemType` a non-empty string; every other key in `SNAPSHOT_FIELDS` or `collections`; `creators`/`tags` lists), sets `client.server_id` to the recorded id when any note exists (so a wrong instance is refused with 412 before any write) else the live one, loads the key for that server id from `.research-vault/zotero-keys.json` (`{"<server id>": "<key>"}`, mode `0600`), authorizes **once** when absent (never in a loop: five dialogs a minute), POSTs, on 401 authorizes once more and retries once, then runs `capture(...)` on the returned keys with `key_wait_seconds=KEY_WAIT_SECONDS`. Outcomes: the create as `Outcome("capture", "add", MATCHED, "matched — created <keys>")`, then capture's. Failures: `schema-violation — item 0: unknown field foo`, `outage — authorize rate-limited ...`, `not-admitted — authorization denied` (UNMATCHED), `mismatch — create failed: <Zotero's failed map>` (UNMATCHED).
+- Produces: `capture.add(...)`: validates each item (object; `itemType` a non-empty string; every other key in `SNAPSHOT_FIELDS` or `collections`; `creators`/`tags` lists), sets `client.server_id` to the recorded id when any note exists (so a wrong instance is refused with 412 before any write) else the live one, uses a preset `client.api_key` when one is set (the live leg sets it from `RV_LIVE_WRITE_KEY`), else loads the key for that server id from `.research-vault/zotero-keys.json` (`{"<server id>": "<key>"}`, mode `0600`), authorizes **once** when absent (never in a loop: five dialogs a minute), POSTs, on 401 authorizes once more and retries once, then runs `capture(...)` on the returned keys with `key_wait_seconds=KEY_WAIT_SECONDS`. Outcomes: the create as `Outcome("capture", "add", MATCHED, "matched — created <keys>")`, then capture's. Failures: `schema-violation — item 0: unknown field foo`, `outage — authorize rate-limited ...`, `not-admitted — authorization denied` (UNMATCHED), `mismatch — create failed: <Zotero's failed map>` (UNMATCHED).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4619,6 +4649,8 @@ def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -
         return [Outcome(CHECK, "add", Result.UNMATCHED, f"schema-violation — {problem}")]
     try:
         info = client.server_info()
+    except DatabaseChangedError as error:
+        return [Outcome(CHECK, "add", Result.UNMATCHED, f"database-changed — {error}")]
     except ZoteroError as error:
         return [Outcome(CHECK, "add", Result.UNREACHABLE, f"outage — {error}")]
     existing = lifecycle._provenances(vault)
@@ -4627,7 +4659,7 @@ def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -
         return [Outcome(CHECK, "add", Result.UNMATCHED,
                         f"database-changed — notes record {client.server_id}, Zotero answers {info['server_id']}")]
     payload = [dict(item, **({"collections": [collection]} if collection else {})) for item in items]
-    key = _load_key(vault, client.server_id)
+    key = client.api_key or _load_key(vault, client.server_id)  # a preset key (RV_LIVE_WRITE_KEY) wins over the store
     for attempt in (1, 2):
         if key is None:
             try:
@@ -5429,7 +5461,7 @@ RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k
 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q     # external-registry legs
 ```
 
-The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
+The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. If a later run re-opens the dialog, export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 ````
 
 and under "## Poking Zotero" item 1 add: "`python -m research_vault probe --base http://localhost:23129` names the test instance." Remove the `RV_LIVE_AUTOEXPORT_VAULT` and `test_dispositions` sentence if Task 2 left any of it.
@@ -5510,7 +5542,7 @@ def test_capture_round_trip_on_a_live_item(tmp_vault):
 def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_vault):
     base = os.environ["RV_LIVE_WRITE_BASE"]
     assert base.rstrip("/") != zotero.DEFAULT_BASE, "write legs never touch production"
-    client = zotero.ZoteroClient(base=base)
+    client = zotero.ZoteroClient(base=base, api_key=os.environ.get("RV_LIVE_WRITE_KEY") or None)
     stamp = time.strftime("%Y%m%d%H%M%S")
     outcomes = capture.add(tmp_vault, client, [{"itemType": "journalArticle", "title": f"research-vault live leg {stamp}",
                                                  "creators": [{"creatorType": "author", "lastName": "Sitting", "firstName": "Live"}], "date": "2026"}])
@@ -5550,7 +5582,7 @@ RV_LIVE=1 .venv/bin/python -m pytest tests/test_capture_live.py -q -k round_trip
 RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest tests/test_capture_live.py -q -k transitions -s
 ```
 
-Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
+Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Unmeasured:** whether a second `authorize` for the same `appName` after **Always Allow** returns the remembered key silently or re-opens the dialog — the sitting authorized once, and `tmp_vault` is fresh per run so the key store never carries over. If the dialog reappears, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
 
 - [ ] **Step 3: Implement the two write helpers and the replay test**
 
