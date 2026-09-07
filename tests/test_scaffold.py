@@ -90,11 +90,8 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     )
     assert glossary_data == {"type": "guide"}
     # The parser retains the blank line that separates the fixed frontmatter
-    # envelope from the canonical body, which travels unchanged but for the
-    # repo-internal Disposition marker the next test covers.
-    assert glossary_body.removeprefix(
-        "\n"
-    ).encode() == scaffold._strip_disposition_marker(canonical_context.read_bytes())
+    # envelope from the canonical body, which travels unchanged.
+    assert glossary_body.removeprefix("\n").encode() == canonical_context.read_bytes()
     assert glossary.is_file()
     assert not glossary.is_symlink()
     assert (vault / "index.md").read_text() == (
@@ -141,34 +138,6 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert data == {}
     log_data, _ = frontmatter.parse((vault / "log.md").read_text())
     assert log_data == {"type": "log"}
-
-
-def test_the_scaffolded_glossary_carries_no_repo_internal_disposition(tmp_path):
-    """`templates/context.md` is a symlink to the marked CONTEXT.md.
-
-    The marking pass excludes `research_vault/templates/**`, but an exclusion
-    cannot protect a consumer reading through an alias, so the transform is at
-    the consumer. Reproduced 2026-09-06: before the fix a freshly scaffolded
-    vault's `system/glossary.md` carried `Disposition: current (2026-09-06)`.
-    """
-    vault = tmp_path / "vault"
-
-    scaffold.scaffold_vault(vault)
-
-    body = (vault / "system" / "glossary.md").read_text(encoding="utf-8")
-    assert "Disposition:" not in body
-    # The marker went, and only the marker: the heading it sat under and the
-    # paragraph it displaced both survive.
-    assert body.startswith('---\ntype: "guide"\n---\n\n# research-vault\n\n')
-    assert "Trust-first academic research" in body
-
-
-def test_stripping_the_marker_leaves_a_body_that_merely_names_it():
-    """The strip is bounded to the head, where the pass is the only writer."""
-    prose = b"# Glossary\n\n" + b"filler\n\n" * 6 + b"Disposition: what a doc is for\n"
-    assert scaffold._strip_disposition_marker(prose) == prose
-    marked = b"# Glossary\n\nDisposition: current (2026-09-06)\n\nBody.\n"
-    assert scaffold._strip_disposition_marker(marked) == b"# Glossary\n\nBody.\n"
 
 
 def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
