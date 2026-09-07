@@ -33,7 +33,21 @@ One exemption is recorded: `inbox/` holds knowledge candidates, not knowledge �
 capture may sit untyped until the triage stamp adds `type: "fleeting"`, because the record this
 ADR protects does not include the airlock, and forcing metadata syntax on quick capture fails
 in practice. Agent-written captures are typed at write; the exemption's register row prices the
-residual. Rule 3 pulls in §8 — a nested `index.md` carries no frontmatter, and the bundle root
+residual. **A second exemption is recorded, 2026-09-07: `wiki/index.md`.** The compiled layer is
+produced by an adopted tool (see the ingest redesign spec §4.3) which writes that file with
+frontmatter, at a path hard-coded in three places, and whose own lint requires on every page
+under `wiki/` exactly the frontmatter OKF §8 forbids on an index. The two specs cannot both be
+satisfied by configuration; measured 2026-09-07, no override mechanism exists in the tool. The
+alternative was a one-line patch to the tool's lint engine, rejected because the tool is
+distributed as a whole-tree release promotion — every one of its 49 prose files changed in 90
+days and none survived a release unchanged — so a fork's delta is re-derived every cycle. The
+vault therefore adopts the tool unmodified and drives it through a wrapper, and carries this
+deviation instead. **The cost is bounded and stated**: one file, in a machine-owned tree, whose
+frontmatter an OKF consumer ignores under §4.1's producer-key rule; nothing the vault authors
+deviates. If it proves to bite a real consumer, the patch is still available and this exemption
+is what makes revisiting it a decision rather than a discovery. The register row prices it.
+
+Rule 3 pulls in §8 — a nested `index.md` carries no frontmatter, and the bundle root
 carries `okf_version` and nothing else — and §9 — a `log.md`, at the root or any level below
 it, is date-grouped under `## YYYY-MM-DD` headings, newest first. The doctor's structure probes
 are gone; verify's `okf-frontmatter`/`okf-structure` checks assert all three rules on the
