@@ -144,13 +144,18 @@ def _provenances(vault: Path) -> list[tuple[Path, notes.Provenance]]:
 def blocked(check: str, target, error: ZoteroError) -> Outcome:
     """A typed refusal is a verdict, an outage is not (ADR 0002).
 
-    ``LocalApiDisabledError`` (403: the local-API preference is off) carries
+    ``DatabaseChangedError`` (412: another database is answering) is the one
+    refusal with a code of its own, ``database-changed``, and it is named here
+    so that no caller has to catch it ahead of the split (Tasks 13 and 17 do
+    not). ``LocalApiDisabledError`` (403: the local-API preference is off) carries
     ``result=UNMATCHED`` and names a condition a person can fix; reporting it
     as an outage would tell them to wait for something that will not change.
     Only ``error.result is UNREACHABLE`` — a refused connection, a 500, a
     malformed body — is the outage the four-state rule says never reads as a
     pass. Every verb's vault-level Zotero read routes its ``ZoteroError`` here.
     """
+    if isinstance(error, DatabaseChangedError):
+        return Outcome(check, target, Result.UNMATCHED, f"database-changed — {error}")
     if error.result is Result.UNREACHABLE:
         return Outcome(check, target, Result.UNREACHABLE, f"outage — {error}")
     return Outcome(check, target, Result.UNMATCHED, f"not-admitted — {error}")

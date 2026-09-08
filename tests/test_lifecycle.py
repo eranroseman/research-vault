@@ -1,10 +1,17 @@
 import json
 from pathlib import Path
 
-from research_vault import Result, lifecycle, notes, zotero
+from research_vault import Result, fulltext, lifecycle, notes, zotero
 from tests.fakes import FakeZotero
 
 FIXTURES = Path(__file__).parent / "fixtures" / "lifecycle"
+_ATTACHMENT = {
+    "key": "ATT00001",
+    "version": 4,
+    "md5": "aa11",
+    "contentType": "application/pdf",
+    "filename": "a.pdf",
+}
 
 
 def _map(name):
@@ -31,13 +38,28 @@ def _live(items, trash, top):
 
 def _write_note(vault, provenance):
     """A literature note carrying exactly the tuple ``provenance`` records."""
+    lines = [
+        "---",
+        'type: "literature"',
+        f'zotero-server-id: "{provenance.server_id}"',
+        f'zotero-item-key: "{provenance.item_key}"',
+        f"zotero-item-version: {provenance.item_version}",
+        f'citationKey: "{provenance.citation_key}"',
+        "attachments:",
+        *(
+            f'  - {{key: "{a["key"]}", version: {a["version"]}, md5: "{a["md5"]}", '
+            f'contentType: "{a["contentType"]}", filename: "{a["filename"]}"}}'
+            for a in provenance.attachments
+        ),
+        "fulltext:",
+        *(
+            f'  - {{attachment-key: "{f["attachment-key"]}", sha256: "{f["sha256"]}"}}'
+            for f in provenance.fulltext
+        ),
+        "---",
+    ]
     (vault / "literatures" / f"{provenance.citation_key}.md").write_text(
-        '---\ntype: "literature"\n'
-        f'zotero-server-id: "{provenance.server_id}"\n'
-        f'zotero-item-key: "{provenance.item_key}"\n'
-        f"zotero-item-version: {provenance.item_version}\n"
-        f'citationKey: "{provenance.citation_key}"\n'
-        "attachments:\nfulltext:\n---\n"
+        "\n".join(lines) + "\n"
     )
 
 
@@ -262,15 +284,18 @@ def test_verify_online_runs_the_linter_against_the_configured_base(
     classified."""
     from research_vault import verify
 
-    # The fixture's other note records `SMITH2020`, nine characters, which
-    # `notes.read_provenance` declines as an item key: it carries no tuple, so
-    # the linter has nothing to say about it and only `gone2019` is classified.
     fake = FakeZotero()  # the production id the fixture notes record
-    fake.get("/api/users/0/items?since=0&format=versions", body={"GONE2019": 7})
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"SMITH020": 12, "ATT00001": 13, "GONE2019": 7},
+    )
     fake.get("/api/users/0/items/trash?format=versions", body={})
     fake.get(
         "/api/users/0/items/top?format=json",
-        body=[{"key": "GONE2019", "data": {"citationKey": "gone2019"}}],
+        body=[
+            {"key": "SMITH020", "data": {"citationKey": "smith2020"}},
+            {"key": "GONE2019", "data": {"citationKey": "gone2019"}},
+        ],
     )
     bases = []
 
@@ -284,6 +309,106 @@ def test_verify_online_runs_the_linter_against_the_configured_base(
         fixture_vault, network=True, base="http://zotero.invalid:1"
     )
     rows = {o.target: o.result for o in report["outcomes"] if o.check == "lifecycle"}
-    assert rows == {"gone2019": Result.MATCHED}
+    assert rows == {"smith2020": Result.MATCHED, "gone2019": Result.MATCHED}
     assert bases == ["http://zotero.invalid:1"]
     assert all(o.extra.get("synthetic_offline") is None for o in effective)
+
+
+def test_a_purged_attachment_is_drift_not_trashed():
+    """Absent from the versions map and not in the trash: the child was purged
+    while the item stayed, which is a content change on a live item."""
+    top = {"ALKT2NF7": {"citationKey": "alkt2026", "replaces": set()}}
+    prov = _prov(attachments=(_ATTACHMENT,))
+    assert lifecycle.classify(prov, _live({"ALKT2NF7": 0}, {}, top)) == (
+        "drifted",
+        "attachment ATT00001 absent",
+    )
+
+
+def _drift_fake(children):
+    """The three reads with ATT00001 moved 4 → 5, plus the item's children route
+    (``None`` leaves it unregistered, so the fake answers 404)."""
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"ALKT2NF7": 0, "ATT00001": 5},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[{"key": "ALKT2NF7", "data": {"citationKey": "alkt2026"}}],
+    )
+    if children is not None:
+        fake.get("/api/users/0/items/ALKT2NF7/children", body=children)
+    return fake
+
+
+def _drift_reason(tmp_vault, monkeypatch, fake, cached=()):
+    _write_note(tmp_vault, _prov(attachments=(_ATTACHMENT,), fulltext=cached))
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert outcome.result is Result.UNMATCHED
+    return outcome.reason
+
+
+def test_drift_detail_names_a_changed_file_and_a_stale_cache(tmp_vault, monkeypatch):
+    """§3.4 step 5: the md5 moved with the version, and the cached text is gone."""
+    fake = _drift_fake([{"key": "ATT00001", "data": {"md5": "bb22"}}])
+    cached = ({"attachment-key": "ATT00001", "sha256": "0" * 64},)
+    assert _drift_reason(tmp_vault, monkeypatch, fake, cached) == (
+        "drift — attachment ATT00001 4 → 5; ATT00001: file changed, cached text stale"
+    )
+
+
+def test_drift_detail_names_a_metadata_only_move_with_a_current_cache(
+    tmp_vault, monkeypatch
+):
+    fake = _drift_fake([{"key": "ATT00001", "data": {"md5": "aa11"}}])
+    path = fulltext.path_for(tmp_vault, "ATT00001")
+    path.parent.mkdir()
+    path.write_bytes(b"cached text")
+    cached = ({"attachment-key": "ATT00001", "sha256": fulltext.sha256_of(path)},)
+    assert _drift_reason(tmp_vault, monkeypatch, fake, cached) == (
+        "drift — attachment ATT00001 4 → 5; ATT00001: metadata only"
+    )
+
+
+def test_drift_detail_says_when_the_children_read_failed(tmp_vault, monkeypatch):
+    """The verdict is already drift from the three reads; an unreadable children
+    route withholds the refinement and says so, rather than guessing."""
+    assert _drift_reason(tmp_vault, monkeypatch, _drift_fake(None)) == (
+        "drift — attachment ATT00001 4 → 5; children unreadable"
+    )
+
+
+def test_drift_detail_is_silent_on_an_attachment_the_children_read_lacks(
+    tmp_vault, monkeypatch
+):
+    assert _drift_reason(tmp_vault, monkeypatch, _drift_fake([])) == (
+        "drift — attachment ATT00001 4 → 5"
+    )
+
+
+def test_an_item_only_drift_never_reads_the_children(tmp_vault, monkeypatch):
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get("/api/users/0/items?since=0&format=versions", body={"ALKT2NF7": 1708})
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[{"key": "ALKT2NF7", "data": {"citationKey": "alkt2026"}}],
+    )
+    _write_note(tmp_vault, _prov())
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert outcome.reason == "drift — item ALKT2NF7 0 → 1708"
+    assert not [call for call in fake.calls if call[1].endswith("/children")]
+
+
+def test_blocked_names_a_database_change_by_its_own_code():
+    """A 412 is a typed refusal with a code of its own; `not-admitted` would hide
+    it, and Tasks 13 and 17 route through here with no catch of their own."""
+    outcome = lifecycle.blocked("capture", "vault", zotero.DatabaseChangedError())
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == (
+        "database-changed — Zotero-Server-ID does not match this server"
+    )

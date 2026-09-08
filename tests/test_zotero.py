@@ -8,6 +8,11 @@ import pytest
 from research_vault import Result, zotero
 from tests.fakes import FULLTEXT, ITEM, FakeZotero, canned_item
 
+# Captured at import, before any fixture runs: `tests/conftest.py::_no_zotero_socket`
+# replaces `_http` on the class for every offline test, and the two dead-port tests
+# below exist to exercise the real transport's OSError mapping, so they put it back.
+_REAL_HTTP = zotero.ZoteroClient._http
+
 
 @pytest.fixture
 def fake(monkeypatch):
@@ -99,11 +104,15 @@ def test_file_view_url_returns_none_only_for_the_two_definite_negatives(fake):
     assert error.value.result is Result.UNREACHABLE
 
 
-def test_file_view_url_on_a_dead_port_is_an_outage():
+def test_file_view_url_on_a_dead_port_is_an_outage(monkeypatch):
+    monkeypatch.setattr(zotero.ZoteroClient, "_http", _REAL_HTTP)
     client = zotero.ZoteroClient(base=_dead_port_base())
     with pytest.raises(zotero.ZoteroError) as error:
         client.file_view_url("D7EJ9FTG")
     assert error.value.result is Result.UNREACHABLE
+    # Only the real transport words it this way; the suite's guard says
+    # "in the offline suite", so this pins that `_http` actually ran.
+    assert "Zotero unreachable at" in str(error.value)
 
 
 def test_versions_trash_and_top_carry_the_version_header(fake):
@@ -326,11 +335,13 @@ def _transport_answering(body, status=200):
     return lambda *args, **kwargs: zotero.Response(status, body, {})
 
 
-def test_network_failure_is_unreachable():
+def test_network_failure_is_unreachable(monkeypatch):
+    monkeypatch.setattr(zotero.ZoteroClient, "_http", _REAL_HTTP)
     zotero_client = zotero.ZoteroClient(base=_dead_port_base())
     with pytest.raises(zotero.ZoteroError) as error:
         zotero_client.ready()
     assert error.value.result is Result.UNREACHABLE
+    assert "Zotero unreachable at" in str(error.value)
 
 
 def test_rpc_malformed_json_is_unreachable(monkeypatch):

@@ -41,7 +41,7 @@ aliases:
 itemType: "journalArticle"
 DOI: "10.1000/xyz"
 zotero-server-id: "6LpvURP2E933"
-zotero-item-key: "SMITH2020"
+zotero-item-key: "SMITH020"
 zotero-item-version: 12
 citationKey: "smith2020"
 attachments:
