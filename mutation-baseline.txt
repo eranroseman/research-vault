@@ -97,6 +97,8 @@ research_vault/verify.py::func/_apply_state_transitions::True -> False
 research_vault/verify.py::func/_apply_state_transitions::note and note.is_file() -> note or note.is_file()
 research_vault/verify.py::func/_apply_state_transitions::outcome.result is Result.MATCHED -> outcome.result is not Result.MATCHED
 research_vault/verify.py::func/_candidate_destinations_match_live::snapshots.candidate_name == "worktree" -> snapshots.candidate_name != "worktree"
+research_vault/verify.py::func/_citation_key_hash::isinstance(attachment_hashes, list) and attachment_hashes -> isinstance(attachment_hashes, list) or attachment_hashes
+research_vault/verify.py::func/_citation_key_hash::isinstance(first, str) and first -> isinstance(first, str) or first
 research_vault/verify.py::func/_claim_anchor_hash::candidate_snapshot is None -> candidate_snapshot is not None
 research_vault/verify.py::func/_claim_anchor_hash::data is None -> data is not None
 research_vault/verify.py::func/_claim_anchor_hash::data is None and candidate_snapshot is None -> data is None or candidate_snapshot is None

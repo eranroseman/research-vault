@@ -14,10 +14,16 @@ class FakeTransport:
         self.rpc_calls = []
         self.canned_rpc = {
             "api.ready": {"zotero": "9.0.6", "betterbibtex": "9.0.55"},
+            # `citekey`, not `citationKey`: Better BibTeX's own wire key for an
+            # `item.search` hit, quoted from `content/json-rpc.ts` L247-251 at
+            # v9.0.63 in docs/research/2026-09-05-zotero-api-reading.md record
+            # 291 (`Z7-item-search-shape`). `citationKey` is the internal
+            # KeyManager property BBT reads it *from*, and Zotero's own item
+            # field; neither is what this response carries.
             "item.search": [
                 {
                     "id": "smith2020",
-                    "citationKey": "smith2020",
+                    "citekey": "smith2020",
                     "title": "Mortality decline",
                     "type": "article-journal",
                 }
@@ -68,8 +74,10 @@ def test_ready_malformed_result_is_unreachable(client):
 
 
 def test_search_carries_citation_key(client):
+    """The wire key stays `citekey` — Better BibTeX's, not the vault's (see the
+    fixture's citation of research record 291)."""
     items = client.search("mortality")
-    assert items[0]["citationKey"] == "smith2020"
+    assert items[0]["citekey"] == "smith2020"
     assert client._fake.rpc_calls[0] == ("item.search", ["mortality"])
 
 
