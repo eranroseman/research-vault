@@ -23,6 +23,7 @@ from . import (
     gitstate,
     identify,
     inbox,
+    lifecycle,
     lints,
     notes,
     quotes,
@@ -34,7 +35,7 @@ from .pathcodec import (
     decode_repo_path,
     encode_repo_path,
 )
-from .zotero import DEFAULT_BASE  # re-exported for the CLI
+from .zotero import DEFAULT_BASE, ZoteroClient  # DEFAULT_BASE re-exported for the CLI
 
 _OMITTED_BIBLIOGRAPHY = object()
 
@@ -875,17 +876,15 @@ def _plan_state(
     network=True,
     detection_date=None,
     rw_csv=None,
-    _base=DEFAULT_BASE,
+    base=DEFAULT_BASE,
     *,
     repository_root=None,
     snapshots,
 ):
     """Compute one complete projection inside a materialized candidate.
 
-    ``_base`` is unread now that the staleness leg (its only consumer) is
-    retired; kept on the signature and underscore-prefixed rather than
-    dropped, since ``verify_state`` still forwards it positionally and a
-    later task's network checks are expected to read it again.
+    ``base`` is the Zotero base URL the lifecycle leg reads (ingest spec
+    §3.4); ``verify_state`` forwards it positionally.
     """
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
@@ -925,6 +924,18 @@ def _plan_state(
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
     raw.append(structure.check_tree(vault))
+    if network:
+        raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))
+    else:
+        raw.append(
+            checks.Outcome(
+                "lifecycle",
+                "vault",
+                Result.UNREACHABLE,
+                "outage — network disabled",
+                {"synthetic_offline": True},
+            )
+        )
     # `cmd_verify` mirrors this same falsy-rw_csv predicate to print the
     # unarmed-RW-leg stdout line.
     notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None

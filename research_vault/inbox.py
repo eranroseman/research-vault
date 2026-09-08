@@ -40,6 +40,12 @@ REASON_CODES = frozenset(
         "matched",
         "manual",
         "budget-cap",
+        # The lifecycle linter's transitions (ingest spec §3.4, decision 05).
+        "re-keyed",
+        "merged",
+        "trashed",
+        "deleted",
+        "database-changed",
     }
 )
 # The governed check-id registry (terminology §4.4). ``append_entry`` itself
@@ -64,6 +70,8 @@ CHECK_IDS = frozenset(
         "okf-frontmatter",
         "okf-structure",
         "tree",
+        # The lifecycle linter (ingest spec §3.4, decision 04).
+        "lifecycle",
     }
 )
 _REASON = re.compile(

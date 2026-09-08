@@ -163,3 +163,22 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_live)
         if "live_net" in item.keywords and os.environ.get("RV_LIVE_NET") != "1":
             item.add_marker(skip_net)
+
+
+@pytest.fixture(autouse=True)
+def _no_zotero_socket(request, monkeypatch):
+    """The offline suite never reaches a Zotero: an unpatched read is an outage.
+
+    Both instances run on the author's machine, so an unguarded read would pass
+    or fail with whatever happens to be live — and verify's lifecycle leg opens
+    a client on every network-capable run. Fakes install at instance level and
+    shadow this; live legs (``RV_LIVE=1``) keep the real transport.
+    """
+    if request.node.get_closest_marker("live"):
+        return
+    from research_vault import zotero
+
+    def refused(self, url, *_args, **_kwargs):
+        raise zotero.ZoteroError(f"Zotero unreachable in the offline suite: {url}")
+
+    monkeypatch.setattr(zotero.ZoteroClient, "_http", refused)
