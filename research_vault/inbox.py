@@ -52,6 +52,8 @@ REASON_CODES = frozenset(
         # The residue of a re-key an applied propagation plan mapped away
         # (ingest spec §3.5, decision 05).
         "stale-key",
+        # The captured-set lint's ledger verdict (ingest spec §4.4, decision 05).
+        "recompile-needed",
     }
 )
 # The governed check-id registry (terminology §4.4). ``append_entry`` itself
@@ -82,6 +84,8 @@ CHECK_IDS = frozenset(
         "capture",
         # Propagation's own holds and its residue lint (ingest spec §3.5, decision 04).
         "propagation",
+        # The capture-to-compile seam lint (ingest spec §4.4, decision 04).
+        "captured-set",
     }
 )
 _REASON = re.compile(

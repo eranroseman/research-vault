@@ -10,7 +10,16 @@ import time
 from pathlib import Path
 from typing import NamedTuple
 
-from . import bibliography, frontmatter, fulltext, lifecycle, notes, okf, stamp
+from . import (
+    bibliography,
+    captured,
+    frontmatter,
+    fulltext,
+    lifecycle,
+    notes,
+    okf,
+    stamp,
+)
 from .outcome import Outcome, Result
 from .zotero import (
     ITEM_KEY,
@@ -27,7 +36,9 @@ CSL_TARGET = bibliography.BIB_PATH
 # The linter transitions capture will not write over (spec §3.4 step 6): the
 # item's identity has moved or gone, and a fresh render would paper over it.
 # ``re-keyed`` and ``drift`` are what a refresh repairs, so they proceed.
-_REFUSED = frozenset({"merged", "trashed", "deleted"})
+# ``database-changed`` joins them: capturing a note the linter says records
+# another database would re-home it to this database's item of the same key.
+_REFUSED = frozenset({"merged", "trashed", "deleted", "database-changed"})
 
 
 class ItemRead(NamedTuple):
@@ -37,23 +48,29 @@ class ItemRead(NamedTuple):
     version: int
 
 
-def resolve_keys(client: ZoteroClient, keys: list[str]) -> dict[str, str | None]:
-    """An 8-character upper-case key is an item key; anything else is a citation key."""
+def resolve_keys(
+    client: ZoteroClient, keys: list[str], known: dict[str, str] | None = None
+) -> dict[str, str | None]:
+    """An item key is itself; a captured citation key resolves through its tuple; anything else through /items/top."""
+    known = known or {}
     resolved: dict[str, str | None] = {}
     by_citation: dict[str, str] | None = None
     for key in keys:
         if ITEM_KEY.match(key):
             resolved[key] = key
-            continue
-        if by_citation is None:
-            items, _ = client.top_items()
-            by_citation = {
-                item["data"]["citationKey"]: item["key"]
-                for item in items
-                if isinstance(item.get("data"), dict)
-                and item["data"].get("citationKey")
-            }
-        resolved[key] = by_citation.get(key)
+        elif key in known:
+            # the linter's trashed/merged/deleted verdict reaches a captured source this way
+            resolved[key] = known[key]
+        else:
+            if by_citation is None:
+                items, _ = client.top_items()
+                by_citation = {
+                    item["data"]["citationKey"]: item["key"]
+                    for item in items
+                    if isinstance(item.get("data"), dict)
+                    and item["data"].get("citationKey")
+                }
+            resolved[key] = by_citation.get(key)
     return resolved
 
 
@@ -214,26 +231,40 @@ def _capture_one(
 
 
 def _regenerate_csl(
-    vault: Path, client: ZoteroClient, library_name: str, run_version: int | None
+    vault: Path,
+    client: ZoteroClient,
+    library_name: str | None,
+    run_version: int | None,
 ) -> Outcome:
-    """§3.3 step 4: one whole-library read, re-read once if Zotero moved, item.export fallback."""
+    """§3.3 step 4: one whole-library read, re-read once if Zotero moved, item.export fallback.
+
+    The library route needs a name, and decision 13 forbids hardcoding one: it is
+    read from the item envelope this run, so a run that read no item (a refusal,
+    a 404) goes straight to ``item.export`` over the captured keys, which needs none.
+    """
     captured = sorted(_captured_keys(vault))
-    try:
-        items = client.library_csl(library_name)
-        after = _top_version(client)
-        if run_version is not None and after is not None and after != run_version:
+    items = None
+    route = "matched"
+    if library_name is not None:
+        try:
             items = client.library_csl(library_name)
-        route = "matched"
-    except DatabaseChangedError as error:
-        # Never fall into item.export here: neither Better BibTeX call carries
-        # Zotero-Server-ID, so the fallback would write the CSL file from
-        # whichever database now answers and call it matched. The row targets
-        # the vault, not the file: `database-changed` means every recorded
-        # version is void, and the CSL file records no server id, so a finding
-        # on it would name a condition the file cannot have. What is void is
-        # every note this run wrote from the database that answered.
-        return Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")
-    except ZoteroError:
+            after = _top_version(client)
+            if run_version is not None and after is not None and after != run_version:
+                items = client.library_csl(library_name)
+        except DatabaseChangedError as error:
+            # Never fall into item.export here: neither Better BibTeX call carries
+            # Zotero-Server-ID, so the fallback would write the CSL file from
+            # whichever database now answers and call it matched. The row targets
+            # the vault, not the file: `database-changed` means every recorded
+            # version is void, and the CSL file records no server id, so a finding
+            # on it would name a condition the file cannot have. What is void is
+            # every note this run wrote from the database that answered.
+            return Outcome(
+                CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}"
+            )
+        except ZoteroError:
+            items = None
+    if items is None:
         try:
             items = client.export_csl(captured) if captured else []
             route = "matched — item.export fallback"
@@ -259,9 +290,7 @@ def _top_version(client: ZoteroClient) -> int | None:
 
 
 def _captured_keys(vault: Path) -> set[str]:
-    # Task 15 rewires this to captured.captured_set; research_vault/captured.py
-    # does not exist yet.
-    return {p.citation_key for _, p in lifecycle._provenances(vault)}
+    return set(captured.captured_set(vault))
 
 
 def capture(
@@ -308,9 +337,10 @@ def capture(
     server_id = client.server_id or info["server_id"]
     outcomes: list[Outcome] = []
     library_name = None
+    aborted: Outcome | None = None
     try:
         run_version = _top_version(client)
-        resolved = resolve_keys(client, requested)
+        resolved = resolve_keys(client, requested, item_key_of)
     except ZoteroError as error:
         return [lifecycle.blocked(CHECK, "vault", error)]
     for requested_key, item_key in resolved.items():
@@ -352,17 +382,15 @@ def capture(
                 # 2026-09-07: II7E6CVR 1710 -> 1711 once keyed), so the whole pass
                 # is re-read rather than the item swapped under a stale version.
                 read = read_item(client, item_key)
-            library_name = (
-                library_name or read.item.get("library", {}).get("name") or "My Library"
-            )
+            library_name = library_name or read.item.get("library", {}).get("name")
             outcomes.extend(_capture_one(vault, read, server_id, now))
         except DatabaseChangedError as error:
-            return [
-                *outcomes,
-                Outcome(
-                    CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}"
-                ),
-            ]
+            # The database moved mid-run: stop reading, but let the notes already
+            # written be stamped and logged before the vault row ends the list.
+            aborted = Outcome(
+                CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}"
+            )
+            break
         except NotFoundError:
             outcomes.append(
                 Outcome(
@@ -394,8 +422,9 @@ def capture(
     if any(o.reason == "matched" for o in outcomes):
         stamp.stamp_types(vault)
         okf.regenerate_log(vault)
+    if aborted is not None:
+        # No CSL file from the database that answered after the move.
+        return [*outcomes, aborted]
     if library_name is not None or existing:
-        outcomes.append(
-            _regenerate_csl(vault, client, library_name or "My Library", run_version)
-        )
+        outcomes.append(_regenerate_csl(vault, client, library_name, run_version))
     return outcomes

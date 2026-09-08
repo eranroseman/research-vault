@@ -17,6 +17,7 @@ from typing import Any
 from . import (
     Result,
     bibliography,
+    captured,
     checks,
     events,
     frontmatter,
@@ -61,6 +62,7 @@ CLOSING_BY_SURFACE = {
             "okf-structure",
             "tree",
             "propagation",
+            "captured-set",
         }
     ),
     "publish": frozenset(
@@ -73,6 +75,7 @@ CLOSING_BY_SURFACE = {
             "okf-structure",
             "tree",
             "propagation",
+            "captured-set",
         }
     ),
 }
@@ -975,6 +978,7 @@ def _plan_state(
     )
     raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
     raw.extend(propagate.lint_propagation(vault))
+    raw.extend(captured.lint_captured_set(vault, as_of=detection_date))
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]

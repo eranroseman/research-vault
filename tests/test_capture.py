@@ -461,3 +461,106 @@ def test_a_refused_item_export_is_unmatched_not_an_outage(tmp_vault, monkeypatch
     )
     assert outcomes[-1].reason.startswith("not-admitted — JSON-RPC error")
     assert not (tmp_vault / "system" / "bibliography.json").exists()
+
+
+def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admitted(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"D7EJ9FTG": 551},
+        headers={"Last-Modified-Version": "566"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+    by_key = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert by_key[0].reason.startswith(
+        "trashed — "
+    )  # resolved through the tuple, not through /items/top
+    refreshed = capture.capture(tmp_vault, client, [], refresh_all=True)
+    assert refreshed[0].reason.startswith("trashed — ")
+
+
+def test_csl_regeneration_needs_no_library_name_when_nothing_was_read(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.rpc("item.export", LIBRARY)
+    client = _client(monkeypatch, fake)
+    capture.capture(
+        tmp_vault, client, ["E352DFS8"]
+    )  # this run reads a name and takes the library route
+    fake.calls.clear()
+    outcomes = capture.capture(
+        tmp_vault, client, ["GHOST001"]
+    )  # 404: nothing read this run
+    assert outcomes[0].reason.startswith("not-admitted")
+    assert outcomes[-1].reason == "matched — item.export fallback"
+    assert not [
+        c for c in fake.calls if "better-bibtex/library" in c[1]
+    ]  # no library route without a name
+
+
+def test_a_note_recording_another_database_is_refused_not_read(tmp_vault, monkeypatch):
+    """A mixed-id vault: the linter reports `database-changed` on that note alone
+    (not on `vault`, so the run continues). Capturing it would re-home the note to
+    this database's item of the same key, so the refuse set holds it — and the row
+    is the linter's typed refusal, not a `not-admitted` from a read that should
+    never have happened."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.rpc("item.export", LIBRARY)
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    other = tmp_vault / "literatures" / "other2020.md"
+    other.write_text(
+        '---\ntype: "literature"\ntitle: "Other"\n'
+        'zotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "OTHER001"\n'
+        'zotero-item-version: 1\ncitationKey: "other2020"\n'
+        "attachments:\nfulltext:\n---\n"
+    )
+    before = other.read_text()
+    outcomes = capture.capture(tmp_vault, client, ["other2020"])
+    assert (outcomes[0].target, outcomes[0].result) == ("other2020", Result.UNMATCHED)
+    assert outcomes[0].reason == "database-changed — note records Tdoqsn2J4q4h"
+    assert other.read_text() == before
+    assert not [c for c in fake.calls if c[1].endswith("/items/OTHER001?format=json")]
+
+
+def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
+    tmp_vault, monkeypatch
+):
+    """The database moves between two items. The notes written before it moved are
+    stamped and their log regenerated — the run's record of what it did — and the
+    `vault` row ends the list. No CSL file: it would be written from the database
+    that answered after the move."""
+    second = json.loads(json.dumps(ITEM))
+    second["key"] = second["data"]["key"] = "F441KKD2"
+    second["data"]["citationKey"] = "second2023"
+    second["links"] = {}
+    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, second))
+    canned_item(fake, item=second, children=())
+    client = _client(monkeypatch, fake)
+    real_item = client.item
+    reads = []
+
+    def flipping_item(key):
+        reads.append(key)
+        if len(reads) == 3:  # read_item reads twice per item: this is the second item's
+            fake.server_id = "Tdoqsn2J4q4h"
+        return real_item(key)
+
+    monkeypatch.setattr(client, "item", flipping_item)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
+    assert [(o.target, o.result) for o in outcomes] == [
+        ("jakesch.etal2023a", Result.MATCHED),
+        ("vault", Result.UNMATCHED),
+    ]
+    assert outcomes[-1].reason.startswith("database-changed")
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["type"] == "literature"
+    assert (tmp_vault / "log.md").is_file()  # the witness: the post-loop block ran
+    assert not (tmp_vault / "system" / "bibliography.json").exists()

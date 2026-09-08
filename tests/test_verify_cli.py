@@ -1745,6 +1745,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "okf-structure",
                 "tree",
                 "propagation",
+                "captured-set",
             }
         ),
         "publish": frozenset(
@@ -1757,6 +1758,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "okf-structure",
                 "tree",
                 "propagation",
+                "captured-set",
             }
         ),
     }
@@ -1837,13 +1839,15 @@ def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault)
     assert all(item.result is Result.UNREACHABLE for item in synthetic)
     # The pipeline files every genuine non-MATCHED row, SKIPPED included
     # (lifecycle's decision-26 row is filed the same way, measured 2026-09-08),
-    # so the propagation lint's SKIPPED row moves the queue and nothing else;
-    # no synthetic row reaches it.
+    # so the two lints that report "this vault holds nothing of mine yet" — the
+    # propagation residue lint with no applied plan, and the captured-set lint
+    # with no source ledger — move the queue and nothing else; no synthetic row
+    # reaches it.
     after = _vault_bytes(tmp_vault)
     moved = {key for key in before | after if before.get(key) != after.get(key)}
     assert moved == {b"inbox/review-queue.md"}
     filed = {entry.check for entry in inbox.load(tmp_vault)}
-    assert filed == {"propagation"}
+    assert filed == {"propagation", "captured-set"}
     assert filed.isdisjoint({item.check for item in synthetic})
 
 
