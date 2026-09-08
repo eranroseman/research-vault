@@ -191,6 +191,8 @@ def test_bases_and_machine_example_match_canonical_shapes():
     assert machine == {
         "mailto": "you@example.edu",
         "path_map": {"D:\\Zotero\\": "/mnt/d/Zotero/"},
+        "zotero_base": "http://localhost:23119",
+        "zotero_profile": "",
     }
     gitignore = asset("vault/gitignore").read_text()
     assert ".research-vault/\n" in gitignore

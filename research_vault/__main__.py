@@ -20,6 +20,7 @@ from . import (
     scaffold,
     searchlog,
     stamp,
+    zotero,
 )
 from .pathcodec import (
     PathCodecError,
@@ -41,12 +42,16 @@ DOCTOR_WARN_ONLY = {"remote", "backup"}
 
 def cmd_probe(args):
     client = ZoteroClient(base=args.base)
+    report: dict[str, object] = {}
     try:
-        info = client.ready()
-    except ZoteroError:
-        print(json.dumps({"result": Result.UNREACHABLE.value}))
+        report["server"] = client.server_info()
+        report["bbt"] = client.ready()
+    except ZoteroError as error:
+        report["result"] = Result.UNREACHABLE.value
+        report["detail"] = str(error)
+        print(json.dumps(report))
         return 3
-    print(json.dumps(info))
+    print(json.dumps(report))
     return 0
 
 
@@ -595,8 +600,9 @@ def main(argv=None):
             parser.error("--commit-projected requires a non-empty message")
         if args.changed_paths_file is None:
             parser.error("--commit-projected requires --changed-paths-file")
-    if not hasattr(args, "base"):
-        args.base = DEFAULT_BASE
+    args.base = zotero.base_for(
+        getattr(args, "vault", None), getattr(args, "base", None)
+    )
     return {
         "probe": cmd_probe,
         "verify": cmd_verify,

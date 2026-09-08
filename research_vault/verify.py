@@ -34,8 +34,8 @@ from .pathcodec import (
     decode_repo_path,
     encode_repo_path,
 )
+from .zotero import DEFAULT_BASE  # re-exported for the CLI
 
-DEFAULT_BASE = "http://localhost:23119"
 _OMITTED_BIBLIOGRAPHY = object()
 
 

@@ -1,50 +1,8 @@
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
-
-PROVISIONED_VAULT_ENV = "RV_LIVE_AUTOEXPORT_VAULT"
-
-DEFERRAL_REASON = (
-    "deferred: research-vault never registers an auto-export, so no BBT output "
-    "reaches a throwaway vault. Set "
-    f"{PROVISIONED_VAULT_ENV} to the absolute path of a vault after a person "
-    "creates the whole-library Better CSL JSON auto-export in BBT Preferences "
-    "targeting that vault's system/bibliography.json."
-)
-
-
-def _provisioned_vault_or_defer(environ):
-    """Return the human-provisioned vault, or defer aloud naming the human step."""
-    configured = environ.get(PROVISIONED_VAULT_ENV, "").strip()
-    if not configured:
-        pytest.skip(DEFERRAL_REASON)
-    vault = Path(configured)
-    if not vault.is_absolute() or not vault.is_dir():
-        pytest.fail(
-            f"{PROVISIONED_VAULT_ENV} must name an existing vault by absolute "
-            f"path; got {configured!r}"
-        )
-    return vault
-
-
-def test_end_to_end_legs_defer_aloud_until_a_person_provisions_a_vault():
-    """Deferring the falsified-contract legs silently must fail."""
-    with pytest.raises(pytest.skip.Exception) as deferred:
-        _provisioned_vault_or_defer({})
-
-    reason = str(deferred.value)
-    assert PROVISIONED_VAULT_ENV in reason
-    assert "whole-library Better CSL JSON auto-export in BBT Preferences" in reason
-    assert "system/bibliography.json" in reason
-
-
-def test_provisioned_vault_opt_in_rejects_a_path_that_is_not_a_vault(tmp_path):
-    """Letting a mistyped opt-in quietly skip the end-to-end legs must fail."""
-    with pytest.raises(pytest.fail.Exception, match=PROVISIONED_VAULT_ENV):
-        _provisioned_vault_or_defer({PROVISIONED_VAULT_ENV: str(tmp_path / "absent")})
 
 
 def run_cli(*args):
@@ -62,14 +20,20 @@ def run_cli(*args):
 def test_probe():
     proc = run_cli("probe")
     assert proc.returncode == 0
-    info = json.loads(proc.stdout)
-    assert "betterbibtex" in info
+    report = json.loads(proc.stdout)
+    assert set(report) == {"server", "bbt"}
+    assert set(report["server"]) == {"zotero", "api", "schema", "server_id"}
+    assert len(report["server"]["server_id"]) == 12
+    assert "betterbibtex" in report["bbt"]
 
 
 def test_probe_unreachable():
     proc = run_cli("probe", "--base", "http://127.0.0.1:1")
     assert proc.returncode == 3
-    assert json.loads(proc.stdout)["result"] == "UNREACHABLE"
+    report = json.loads(proc.stdout)
+    assert report["result"] == "UNREACHABLE"
+    assert "server" not in report
+    assert report["detail"]
 
 
 def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
@@ -81,8 +45,16 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
         def __init__(self, base):
             bases.append(base)
 
+        def server_info(self):
+            return {
+                "zotero": "10.0.1",
+                "api": "3",
+                "schema": "44",
+                "server_id": "6LpvURP2E933",
+            }
+
         def ready(self):
-            return {"zotero": "9.0.6", "betterbibtex": "9.0.55"}
+            return {"zotero": "10.0.1", "betterbibtex": "9.0.63"}
 
     monkeypatch.setattr(cli, "ZoteroClient", FakeClient)
 
@@ -90,4 +62,9 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
     assert cli.main(["probe", "--base", "http://after.invalid"]) == 0
 
     assert bases == ["http://before.invalid", "http://after.invalid"]
-    assert len(capsys.readouterr().out.splitlines()) == 2
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0]) == {
+        "server": FakeClient("unused").server_info(),
+        "bbt": {"zotero": "10.0.1", "betterbibtex": "9.0.63"},
+    }

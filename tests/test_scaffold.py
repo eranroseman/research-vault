@@ -119,7 +119,9 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         '  "mailto": "you@example.edu",\n'
         '  "path_map": {\n'
         '    "D:\\\\Zotero\\\\": "/mnt/d/Zotero/"\n'
-        "  }\n"
+        "  },\n"
+        '  "zotero_base": "http://localhost:23119",\n'
+        '  "zotero_profile": ""\n'
         "}\n"
     )
     for path in (

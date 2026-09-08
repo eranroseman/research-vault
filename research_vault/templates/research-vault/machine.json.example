@@ -2,5 +2,7 @@
   "mailto": "you@example.edu",
   "path_map": {
     "D:\\Zotero\\": "/mnt/d/Zotero/"
-  }
+  },
+  "zotero_base": "http://localhost:23119",
+  "zotero_profile": ""
 }
