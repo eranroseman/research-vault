@@ -1,6 +1,8 @@
 import json
+import os
 
 from research_vault import Result, captured
+from research_vault.pathcodec import decode_repo_path
 
 
 def _note(vault, key, item_key, *, title=None, text_key=None, sha=None):
@@ -110,6 +112,90 @@ def test_a_wikilink_resolves_by_a_note_alias_when_no_page_carries_the_name(tmp_v
     assert bad == [
         "not-captured — wiki/sources/A.md links [[Nobody at all]], not a page and not in the captured set"
     ]
+
+
+def test_an_unreadable_page_is_an_outage_row_and_the_walk_goes_on(
+    tmp_vault, monkeypatch
+):
+    """One page nobody can read must not end the walk. cmd_verify catches OSError, so
+    without this leg a single chmod-000 page is exit 2 'verification unavailable' for
+    the whole run instead of one UNREACHABLE row against that page."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text("---\ntype: source\n---\n[@ghost2021]\n")
+    (pages / "B.md").write_text("---\ntype: source\n---\n[@ghost2022]\n")
+    real = captured.Path.read_text
+
+    def refuse(self, *args, **kwargs):
+        if self.name == "A.md":
+            raise PermissionError(13, "Permission denied")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(captured.Path, "read_text", refuse)
+    rows = [
+        (o.result, o.reason.split(" — ")[0])
+        for o in captured.lint_captured_set(tmp_vault)
+        if "wiki/sources" in str(o.target)
+    ]
+    assert rows == [(Result.UNREACHABLE, "outage"), (Result.UNMATCHED, "not-captured")]
+
+
+def test_a_finding_names_the_link_as_written_and_can_be_written_to_the_queue(tmp_vault):
+    """Two faults in one row. [[Ghost.md]] must be reported as written, or grepping
+    the vault for the finding's text fails. And a byte surrogateescape kept alive as a
+    lone surrogate must not reach inbox.append_entry's utf-8 stream, where it raises
+    UnicodeEncodeError — a ValueError cmd_verify deliberately does not catch, so the
+    run would die at the moment the finding was filed. lint_captured_set returns a
+    fine-looking Outcome either way, which is why the pin is on the reason's *bytes*."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_bytes(b"---\ntype: source\n---\n[[Ghost.md]] [[Fo\xffo]]\n")
+    reasons = [
+        o.reason
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ]
+    for reason in reasons:
+        reason.encode("utf-8")  # exactly what append_entry's stream does
+    assert reasons == [
+        "not-captured — wiki/sources/A.md links [[Ghost.md]], not a page and not in the captured set",
+        "not-captured — wiki/sources/A.md links [[Fo\ufffdo]], not a page and not in the captured set",
+    ]
+
+
+def test_a_page_whose_own_name_is_not_utf8_still_yields_a_writable_reason(tmp_vault):
+    """The same UnicodeEncodeError, reached by the other route: the path is
+    interpolated into the reason too, and a byte in a *filename* survives
+    os.fsdecode as a lone surrogate exactly as one in the body does. The target
+    keeps the exact bytes through RepoPath; only the human-readable reason is
+    replaced, because body-or-path text in a reason has no codec of its own."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / os.fsdecode(b"A\xff.md")).write_text("---\ntype: source\n---\n[[Ghost]]\n")
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    for row in rows:
+        row.reason.encode("utf-8")  # exactly what append_entry's stream does
+    assert [r.reason for r in rows] == [
+        "not-captured — wiki/sources/A\ufffd.md links [[Ghost]], not a page and not in the captured set"
+    ]
+    assert decode_repo_path(rows[0].target) == b"wiki/sources/A\xff.md"
+
+
+def test_a_root_file_named_literatures_is_still_a_page(tmp_vault):
+    """The evidence-folder guard reads the unstripped parts: with_suffix("") turns a
+    root-level `literatures.md` into `literatures`, and the guard would drop its name,
+    making [[literatures]] a blocking finding."""
+    (tmp_vault / "literatures.md").write_text("---\ntype: concept\n---\n")
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text("---\ntype: source\n---\n[[literatures]]\n")
+    assert [
+        o.reason
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ] == []
 
 
 def test_structural_half_checks_locators_and_hashes(tmp_vault):

@@ -98,11 +98,28 @@ def _page_names(vault: Path) -> set[str]:
     for path in vault.rglob("*.md"):
         if structure.is_excluded(path, vault):
             continue
-        parts = path.relative_to(vault).with_suffix("").parts
-        if parts[0] == "literatures":
+        relative = path.relative_to(vault)
+        # The directory check reads the unstripped parts: with_suffix("") turns a
+        # root-level `literatures.md` into `literatures`, and the guard would take
+        # a page for the evidence folder and drop its name.
+        if relative.parts[0] == "literatures":
             continue
+        parts = relative.with_suffix("").parts
         names.update("/".join(parts[k:]) for k in range(len(parts)))
     return names
+
+
+def _reportable(text: str) -> str:
+    """Decoded body text, made safe to write to the review queue.
+
+    ``surrogateescape`` keeps an undecodable byte alive as a lone surrogate. A reason
+    carrying one passes ``inbox.validate_reason`` and then raises ``UnicodeEncodeError``
+    inside ``append_entry``'s utf-8 stream — a ``ValueError``, which ``cmd_verify``
+    deliberately does not catch, so the finding would kill the run at the moment it was
+    filed. ``RepoPath`` is this repo's codec for a non-UTF-8 *path* and the target uses
+    it; body content has no such codec, so the byte is replaced rather than encoded.
+    """
+    return text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
 
 
 def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
@@ -115,10 +132,25 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
         if structure.is_excluded(path, vault):
             continue
         relative = path.relative_to(vault).as_posix()
-        # frontmatter scanned with the body (§4.4). surrogateescape, as the sibling
-        # residue lint reads its surfaces (propagate.py): a stray byte in one page
-        # must not end verify with a UnicodeDecodeError the CLI does not catch.
-        text = path.read_text(encoding="utf-8", errors="surrogateescape")
+        reported = _reportable(relative)
+        try:
+            # frontmatter scanned with the body (§4.4). surrogateescape, as the sibling
+            # residue lint reads its surfaces (propagate.py): a stray byte in one page
+            # must not end verify with a UnicodeDecodeError the CLI does not catch.
+            text = path.read_text(encoding="utf-8", errors="surrogateescape")
+        except OSError as error:
+            # One page nobody could read is an outage against that page, not the end
+            # of the walk. _read_notes and _structural type the same fault the same
+            # way; this was the third read in the file and the last one that did not.
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    RepoPath(os.fsencode(relative)),
+                    Result.UNREACHABLE,
+                    f"outage — {error}",
+                )
+            )
+            continue
         for match in _CITATION.finditer(text):
             key = match.group("key")
             if key not in keys:
@@ -127,14 +159,15 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                         CHECK,
                         RepoPath(os.fsencode(relative)),
                         Result.UNMATCHED,
-                        f"not-captured — {relative} cites [@{key}], not in the captured set",
+                        f"not-captured — {reported} cites [@{key}], not in the captured set",
                     )
                 )
         for match in _WIKILINK.finditer(text):
-            target = match.group("target").strip()
-            target = target.removesuffix(
-                ".md"
-            )  # Obsidian resolves [[Foo.md]] as [[Foo]]
+            written = match.group("target").strip()
+            # Resolved on the stripped form (Obsidian reads [[Foo.md]] as [[Foo]]),
+            # reported as written, so the finding's text is what the file says and
+            # grepping the vault for it succeeds.
+            target = written.removesuffix(".md")
             if target in keys or target in pages or target in aliases:
                 continue
             outcomes.append(
@@ -142,7 +175,8 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                     CHECK,
                     RepoPath(os.fsencode(relative)),
                     Result.UNMATCHED,
-                    f"not-captured — {relative} links [[{target}]], not a page and not in the captured set",
+                    f"not-captured — {reported} links [[{_reportable(written)}]], "
+                    "not a page and not in the captured set",
                 )
             )
     return outcomes
