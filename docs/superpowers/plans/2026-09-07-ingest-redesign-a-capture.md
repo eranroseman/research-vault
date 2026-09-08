@@ -3871,7 +3871,7 @@ Propagation is the one mutation in this design that touches human content, so it
 
 **Interfaces:**
 
-- Consumes: `lifecycle.lint_lifecycle`, `capture.capture`, `notes.note_path`, `notes.read_provenance`, `structure.is_excluded` (Task 6).
+- Consumes: `lifecycle.lint_lifecycle`, `lifecycle.blocked`, `capture.capture`, `notes.note_path`, `notes.read_provenance`, `structure.is_excluded` (Task 6), `ZoteroClient.item` (the verification read below).
 
 - Produces: the Interface index `research_vault/propagate.py` block. The plan file (`.research-vault/propagate/<operation id>.json`, canonical JSON: sorted keys, two-space indent, trailing newline): `{"schema": "research-vault.propagation.v1", "operation_id": "propagate-20260907T101500Z", "date": "2026-09-07", "mapping": {"old2020": "new2020"}, "item_keys": {"old2020": "E352DFS8"}, "surfaces": [{"path": "projects/brief/draft.md", "sha256": "…"}, …]}`; `plan_sha256` is the sha256 of exactly those bytes. The applied record (`system/propagations/<operation id>.json`) is the same object plus `"applied_at"` and `"approved_plan_sha256"`. Surfaces: every `*.md` under the vault except `literatures/` (renamed, then re-captured), `fulltext/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/propagations/` and `structure.EXCLUDED_DIRS`, that names an old key; patterns `[@old` → `[@new` (followed by `]`, `,` or space), `[[old]]`/`[[old#`/`[[old|` → the same with `new`. `apply` recomputes the plan from the vault as it stands, with the approved plan's `operation_id` and `date`, and refuses with `Outcome("propagation", <operation id>, UNMATCHED, "mismatch — plan changed: …")` when the recomputed hash differs from `--approved-plan-sha256`; nothing is written on refusal. The residue lint reports `Outcome("propagation", <repo path>, UNMATCHED, "stale-key — names <old>, mapped to <new> by <operation id>")` per surface still naming a key an applied record mapped away, or one `MATCHED "matched"` on target `system/propagations` (SKIPPED `no-identifier — no applied propagation plan` when the directory is empty or absent; UNMATCHED `schema-violation — …` on an unreadable record).
 
@@ -3883,8 +3883,9 @@ Propagation is the one mutation in this design that touches human content, so it
 import hashlib
 import json
 
-from research_vault import Result, propagate
+from research_vault import Result, propagate, zotero
 from research_vault.outcome import Outcome
+from tests.fakes import ITEM, FakeZotero, canned_item
 
 
 def _seed(vault):
@@ -3901,15 +3902,40 @@ def _seed(vault):
     (vault / "wiki" / "sources" / "B.md").write_text("---\ntype: source\n---\nnames nothing\n")
 
 
-def _planned(vault, mapping={"old2020": "new2020"}):
-    planned, outcomes = propagate.plan(vault, None, dict(mapping))
+def _zotero(monkeypatch, citation_key="new2020"):
+    """A fake whose item E352DFS8 carries ``citation_key`` live — what every mapping is verified against."""
+    fake = FakeZotero(server_id="S")
+    canned_item(fake, item={**ITEM, "data": {**ITEM["data"], "citationKey": citation_key}})
+    return fake.install(zotero.ZoteroClient(), monkeypatch)
+
+
+def _planned(vault, client, mapping={"old2020": "new2020"}):
+    planned, outcomes = propagate.plan(vault, client, dict(mapping))
     assert planned is not None, outcomes
     return planned, propagate.write_plan(vault, planned), propagate.plan_sha256(planned)
 
 
-def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(tmp_vault):
+def test_plan_refuses_a_mapping_zotero_does_not_carry(tmp_vault, monkeypatch):
+    """A typo in --map never becomes a rename: the note's item must carry the new name live."""
     _seed(tmp_vault)
-    planned, path, digest = _planned(tmp_vault)
+    planned, outcomes = propagate.plan(tmp_vault, _zotero(monkeypatch, "jakesch.etal2023a"), {"old2020": "wrong2020"})
+    assert planned is None
+    assert outcomes[0].reason == "mismatch — item E352DFS8 carries citation key 'jakesch.etal2023a', not 'wrong2020'"
+    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+
+
+def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkeypatch):
+    _seed(tmp_vault)
+    planned, path, digest = _planned(tmp_vault, _zotero(monkeypatch))
+    (refused,) = propagate.apply(tmp_vault, zotero.ZoteroClient(), path, digest)  # the socket guard: an outage
+    assert refused.result is Result.UNREACHABLE
+    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert "[@old2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
+
+
+def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(tmp_vault, monkeypatch):
+    _seed(tmp_vault)
+    planned, path, digest = _planned(tmp_vault, _zotero(monkeypatch))
     assert planned.mapping == {"old2020": "new2020"} and planned.item_keys == {"old2020": "E352DFS8"}
     assert [s.path for s in planned.surfaces] == ["projects/brief/draft.md", "wiki/sources/A.md"]
     draft = (tmp_vault / "projects" / "brief" / "draft.md").read_bytes()
@@ -3921,7 +3947,7 @@ def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(tmp_vault):
 
 
 def test_plan_refuses_a_missing_note_and_never_reads_an_outage_as_nothing_to_do(tmp_vault, monkeypatch):
-    planned, outcomes = propagate.plan(tmp_vault, None, {"ghost2020": "new2020"})
+    planned, outcomes = propagate.plan(tmp_vault, _zotero(monkeypatch), {"ghost2020": "new2020"})
     assert planned is None and outcomes[0].result is Result.UNMATCHED
     assert outcomes[0].reason.startswith("schema-violation")
     monkeypatch.setattr(propagate.lifecycle, "lint_lifecycle",
@@ -3939,24 +3965,27 @@ def test_rewrite_surfaces_touches_every_citation_and_wikilink_shape(tmp_vault):
     assert "[[older2020]]" in (tmp_vault / "wiki" / "sources" / "A.md").read_text()
 
 
-def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault):
+def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault, monkeypatch):
     _seed(tmp_vault)
-    _planned_, path, digest = _planned(tmp_vault)
+    client = _zotero(monkeypatch)
+    monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: [])
+    _planned_, path, digest = _planned(tmp_vault, client)
     (tmp_vault / "wiki" / "sources" / "B.md").write_text("---\ntype: source\n---\n[[old2020]] now\n")
-    (refused,) = propagate.apply(tmp_vault, None, path, digest)
+    (refused,) = propagate.apply(tmp_vault, client, path, digest)
     assert refused.result is Result.UNMATCHED and refused.reason.startswith("mismatch — plan changed")
     assert (tmp_vault / "literatures" / "old2020.md").is_file()
     assert not (tmp_vault / "system" / "propagations").exists()
-    (wrong,) = propagate.apply(tmp_vault, None, path, "0" * 64)
+    (wrong,) = propagate.apply(tmp_vault, client, path, "0" * 64)
     assert wrong.result is Result.UNMATCHED and wrong.reason.startswith("mismatch — approved hash")
 
 
 def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monkeypatch):
     _seed(tmp_vault)
-    planned, path, digest = _planned(tmp_vault)
+    client = _zotero(monkeypatch)
+    planned, path, digest = _planned(tmp_vault, client)
     calls = []
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: calls.append(list(keys)) or [])
-    outcomes = propagate.apply(tmp_vault, object(), path, digest)
+    outcomes = propagate.apply(tmp_vault, client, path, digest)
     assert outcomes[0].check == "propagation" and outcomes[0].result is Result.MATCHED
     assert "projects/brief/draft.md" in outcomes[0].reason
     assert (tmp_vault / "literatures" / "new2020.md").is_file()
@@ -3968,12 +3997,14 @@ def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monke
     assert propagate.read_records(tmp_vault)[0].operation_id == planned.operation_id
 
 
-def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault):
+def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault, monkeypatch):
     _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: [])
     (skipped,) = propagate.lint_propagation(tmp_vault)
     assert skipped.result is Result.SKIPPED
-    _planned_, path, digest = _planned(tmp_vault)
-    propagate.apply(tmp_vault, None, path, digest)
+    _planned_, path, digest = _planned(tmp_vault, client)
+    propagate.apply(tmp_vault, client, path, digest)
     (clean,) = propagate.lint_propagation(tmp_vault)
     assert clean.result is Result.MATCHED
     (tmp_vault / "projects" / "brief" / "late.md").write_text("---\ntype: \"project\"\n---\n[@old2020]\n")
@@ -3987,6 +4018,7 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(tmp_vault, monkeyp
     import research_vault.__main__ as cli
 
     _seed(tmp_vault)
+    _zotero(monkeypatch)  # installs on the class: the CLI builds its own client
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: [])
     assert cli.main(["propagate", "--vault", str(tmp_vault), "--map", "old2020=new2020"]) == 0
     line = [l for l in capsys.readouterr().out.splitlines() if l.startswith("apply with:")][0]
@@ -4092,9 +4124,9 @@ def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tup
     """Compute one re-key pass without touching anything (spec §3.5, decision 01)."""
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC)
+    if client is None:
+        return None, [Outcome(CHECK, RECORD_DIR, Result.UNMATCHED, "schema-violation — no Zotero client to verify the mapping against")]
     if mapping is None:
-        if client is None:
-            return None, [Outcome(CHECK, RECORD_DIR, Result.UNMATCHED, "schema-violation — no mapping and no Zotero client")]
         mapping, blocking = _mapping_from_linter(vault, client)
         if blocking:
             return None, blocking
@@ -4112,9 +4144,26 @@ def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tup
             outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, "schema-violation — note carries no provenance tuple"))
             continue
         try:
-            notes.note_path(vault, new)
+            target = notes.note_path(vault, new)
         except notes.InvalidCitationKeyError as error:
             outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {error}"))
+            continue
+        if target.exists():
+            # ADR 0003: no transition deletes a literature note, and a POSIX rename
+            # over an existing file replaces it silently.
+            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — literatures/{new}.md already exists; nothing is renamed over it"))
+            continue
+        # The mapping is verified against Zotero whatever its source: the note's
+        # item must carry the new name live. A name nobody in the library holds
+        # (a --map typo) is refused here, before it can become a rename; the
+        # read sends the tuple's server id, so the wrong database is a 412.
+        client.server_id = provenance.server_id
+        try:
+            live = client.item(provenance.item_key)["data"].get("citationKey")
+        except ZoteroError as error:
+            return None, [lifecycle.blocked(CHECK, old, error)]
+        if live != new:
+            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"mismatch — item {provenance.item_key} carries citation key {live!r}, not {new!r}"))
             continue
         item_keys[old] = provenance.item_key
     if outcomes:
@@ -4190,7 +4239,7 @@ def apply(vault_root, client, plan_path, approved_sha256: str, *, now=None) -> l
         return [Outcome(CHECK, str(plan_path), Result.UNMATCHED, f"schema-violation — unreadable plan: {error}")]
     if plan_sha256(approved) != approved_sha256:
         return [Outcome(CHECK, approved.operation_id, Result.UNMATCHED, "mismatch — approved hash does not name this plan")]
-    current, outcomes = plan(vault, None, approved.mapping, now=now)
+    current, outcomes = plan(vault, client, approved.mapping, now=now)  # verified again, before anything is renamed
     if current is None:
         return outcomes
     current = current._replace(operation_id=approved.operation_id, date=approved.date)
@@ -4201,7 +4250,7 @@ def apply(vault_root, client, plan_path, approved_sha256: str, *, now=None) -> l
     for old, new in approved.mapping.items():
         (vault / "literatures" / f"{old}.md").rename(notes.note_path(vault, new))
         changed = rewrite_surfaces(vault, old, new)
-        recapture = capture.capture(vault, client, [approved.item_keys[old]]) if client is not None else []
+        recapture = capture.capture(vault, client, [approved.item_keys[old]])
         outcomes.append(Outcome(CHECK, new, Result.MATCHED, "matched — rewrote " + (", ".join(changed) or "nothing")))
         outcomes.extend(o for o in recapture if o.result is not Result.MATCHED)
     record = vault / RECORD_DIR / f"{approved.operation_id}.json"
@@ -4246,7 +4295,7 @@ def lint_propagation(vault_root) -> list[Outcome]:
     return outcomes or [Outcome(CHECK, RECORD_DIR, Result.MATCHED, "matched")]
 ```
 
-(`plan(vault, None, mapping)` never touches Zotero: an explicit mapping needs no client, and `apply` recomputes with `client=None` for the same reason; the recapture inside `apply` is the only client use. The tests pass `object()` where a client is required and monkeypatch `capture.capture`, so the recapture call is observed without a Zotero. `_mapping_from_linter` returns the linter's `UNREACHABLE` and `database-changed` outcomes as blocking, so an outage is never reported as "nothing to propagate".) CLI:
+**Every mapping is verified against Zotero, whatever its source** (`ZoteroError` joins the module's imports from `.zotero`). The first draft of this task let `plan(vault, None, mapping)` run without a client — "an explicit mapping needs no client" — and Task 14's review found the trap that opens: `propagate --map old=wrong`, a plain typo, renamed `literatures/old.md` to `wrong.md`, rewrote every citation to `[@wrong]`, and the recapture then wrote `literatures/<live key>.md` beside it. The orphan carries `citationKey: old`, so lifecycle reports it `re-keyed` forever (non-closing), the residue lint is silent because nothing names `old` any more, and no verb retires it. The review asked whether ADR 0003 protects such a duplicate. **Ruling: it does — and the question is moot for every path the tool owns.** A file under `literatures/` carrying a provenance tuple is a captured source's record by shape and location; the ADR's protection does not turn on how the file got there, and a verb that retired one on an inference ("the same item as that other note") would be deletion by heuristic — the same class of fault as the silent rename-over the target-exists guard refuses. The design-discipline climb stops at the first rung: the problem is eliminated. A citation key is a name Zotero assigns (spec §3.5: a re-key is detected by the lifecycle linter alone), so an operator's `--map` asserts nothing — it selects which re-key to propagate, and `plan` confirms the note's item carries the new name live before the plan exists; `apply` recomputes with the client, so the check runs again before the first rename, and an outage or a 412 at apply time holds with nothing touched (no partial state to recover from). With the target-exists guard, no tool path can leave two notes for one item: a linter mapping comes from Zotero, an explicit one is checked against it, and a collision is refused. A duplicate can then only be a person's hand-made copy, outside every transition; lifecycle's standing `re-keyed` row on it is the correct signal, and the person who made it removes it. The tests install `FakeZotero` (`_zotero` above) wherever a client is needed and monkeypatch `capture.capture`, so no test opens a socket and the recapture is asserted by its call, not its effect — which is why Task 20 Step 1 runs one attended `propagate` round on the test instance.
 
 ```python
 def cmd_propagate(args):
@@ -5831,6 +5880,22 @@ git status --porcelain   # must be empty
 ```
 
 Expected: every command exits 0; report the pytest counts and the mutation-gate summary line verbatim. If the mutation gate reports survivors in `factcheck.py`, `lints.py` or `verify.py` whose only difference from a baseline row is Task 7's rename or the `ruff format` reflow of the same expression, refresh those rows from the run's output and say so rather than judging them new (row 15 of `2026-09-07-ingest-redesign-a-deferred.md` records the one pre-existing row that never matched). The CRAP command must already pass: the two functions the dated deferral covered (`_bump_generated`, `check_metadata`) were deleted in Tasks 1 and 3. The workflow's `continue-on-error` itself is removed in Part B Task 4.
+
+**Attended propagate round on the test instance.** Task 14's review found that every `apply` test monkeypatches `capture.capture`, so the recapture — the one step of the vault's only vault-wide mutation that talks to Zotero — has never run against a real instance. This is a write-capable leg on the test instance (`RV_LIVE_WRITE_BASE`, `http://localhost:23129`), attended rather than automated: Part B Task 5 owns an automated leg once a way to re-key an item over the local API is measured. Run it before the merge:
+
+```bash
+V=$(mktemp -d)/vault && python3 -m research_vault scaffold --vault "$V"
+B=http://localhost:23129
+python3 -m research_vault capture KEY --vault "$V" --base "$B"          # one item of the test instance, by item key
+printf -- '---\ntype: "project"\n---\nSee [@OLD, p. 3] and [[OLD]].\n' > "$V/projects/leg.md"   # OLD = the captured citation key
+# Now change that item's citation key on the test instance (in Zotero; how is your choice — the leg needs only that the linter sees it).
+python3 -m research_vault inbox --vault "$V" --base "$B"                # expect: UNMATCHED OLD — re-keyed — OLD → NEW
+python3 -m research_vault propagate --vault "$V" --base "$B"            # prints the plan path and its sha256
+python3 -m research_vault propagate --vault "$V" --base "$B" --plan PLAN --approved-plan-sha256 SHA
+python3 -m research_vault inbox --vault "$V" --base "$B"                # expect: clean
+```
+
+Expected after apply: `literatures/NEW.md` exists and carries `citationKey: NEW`, `literatures/OLD.md` is gone, `projects/leg.md` reads `[@NEW, p. 3]` and `[[NEW]]`, `system/propagations/<operation id>.json` records the applied plan, and `inbox` reports nothing. Report the three `inbox` outputs and the record's path verbatim in Step 5. If the recapture fails (the partial state Task 14's fix round made recoverable), report exactly what the vault holds and stop — that outcome is the leg's finding, not a reason to fix by hand.
 
 - [ ] **Step 2: Merge to `main`**
 
