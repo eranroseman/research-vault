@@ -55,8 +55,6 @@ REASON_CODES = frozenset(
 CHECK_IDS = frozenset(
     {
         "citekey",
-        "doi",
-        "metadata",
         "quote",
         "update-notice",
         "evidence-layer",

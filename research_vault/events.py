@@ -245,12 +245,21 @@ def current_failures(note_text: str) -> list[dict]:
     return [] if _duplicate_header(note_text, FAILURES_FIELD) else failures
 
 
+def _extra_lines(value) -> list[str]:
+    if isinstance(value, str):
+        return value.splitlines()
+    if isinstance(value, list):
+        return [line for line in value if isinstance(line, str)]
+    return []
+
+
 def _applicable_note_checks(data: dict) -> set[str]:
-    if data.get("doi"):
-        return {"doi", "metadata", "update-notice"}
-    if data.get("pmid"):
-        return {"update-notice"}
-    return set()
+    has_doi = bool(data.get("DOI") or data.get("doi"))
+    has_pmid = bool(data.get("pmid")) or any(
+        line.strip().upper().startswith("PMID:")
+        for line in _extra_lines(data.get("extra"))
+    )
+    return {"update-notice"} if has_doi or has_pmid else set()
 
 
 def trust_tier(note_text: str) -> str:

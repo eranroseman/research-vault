@@ -383,15 +383,22 @@ def test_checkless_by_at_event_is_valid_and_elevates_to_human_reviewed():
 
 
 def test_historical_pass_is_demoted_by_current_failure_and_recovers_on_match():
+    """``update-notice`` is applicable (BASE carries a DOI), so a current
+    failure on it demotes trust — unlike the retired ``doi``/``metadata``
+    checks, which no longer sit in the applicable set at all."""
     confirmed = _machine_confirmed_text()
 
-    failed = events.record_failure(confirmed, "doi", Result.UNMATCHED)
+    failed = events.record_failure(confirmed, "update-notice", Result.UNMATCHED)
 
     assert events.trust_tier(failed) == "unverified"
-    assert events.current_failures(failed) == [{"check": "doi", "result": "UNMATCHED"}]
+    assert events.current_failures(failed) == [
+        {"check": "update-notice", "result": "UNMATCHED"}
+    ]
     assert events.verified_checks(failed) == events.verified_checks(confirmed)
 
-    recovered = events.record_pass(failed, "doi", Result.MATCHED, at="2026-08-17")
+    recovered = events.record_pass(
+        failed, "update-notice", Result.MATCHED, at="2026-08-17"
+    )
 
     assert events.current_failures(recovered) == []
     assert events.trust_tier(recovered) == "machine-confirmed"
@@ -541,3 +548,17 @@ def test_foreign_human_event_without_check_stays_unverified():
         'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
     )
     assert events.trust_tier(text) == "unverified"
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ({"DOI": "10.1000/xyz"}, {"update-notice"}),
+        ({"doi": "10.1000/xyz"}, {"update-notice"}),
+        ({"extra": ["PMID: 28503678", "PMCID: PMC5428074"]}, {"update-notice"}),
+        ({"extra": "PMID: 28503678"}, {"update-notice"}),
+        ({"title": "no identifiers"}, set()),
+    ],
+)
+def test_applicable_note_checks_is_update_notice_or_nothing(data, expected):
+    assert events._applicable_note_checks(data) == expected

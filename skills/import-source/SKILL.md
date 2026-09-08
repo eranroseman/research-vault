@@ -40,7 +40,7 @@ Read the stderr message back verbatim; do not summarize it as "the import failed
 
 ## 2. Identifier discovery before any SKIPPED sticks
 
-An item with no DOI and no PMID would make the `doi`, `metadata`, and `update-notice` checks SKIPPED — and a DOI-less retracted paper must never be structurally exempt from the update-notice gate. So no SKIPPED identifier result is final until discovery has been attempted:
+An item with no DOI and no PMID would make the `update-notice` check SKIPPED — and a DOI-less retracted paper must never be structurally exempt from the update-notice gate. So no SKIPPED identifier result is final until discovery has been attempted:
 
 ```sh
 python3 -m research_vault verify --vault PATH

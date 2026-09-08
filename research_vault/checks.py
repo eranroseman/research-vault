@@ -11,11 +11,11 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 from . import bibliography, claims, webapi
-from .outcome import (  # re-exported vocabulary
+from .outcome import (
     Outcome,
     Result,
     _detached_extra,
-    normalize_text,
+    normalize_text,  # noqa: F401  (re-exported vocabulary)
 )
 from .pathcodec import RepoPath, decode_repo_path
 
@@ -183,59 +183,6 @@ def _doi_path(doi: str) -> str:
     return quote(doi, safe="/")
 
 
-def check_doi_exists(vault_root, doi: str, citekey: str | None = None) -> Outcome:
-    """Return the four-state result of the DOI handle API lookup."""
-    target = citekey or doi
-    try:
-        status, data = webapi.get_json(
-            f"https://doi.org/api/handles/{_doi_path(doi)}", vault_root
-        )
-    except webapi.ApiError:
-        return Outcome(
-            "doi",
-            target,
-            Result.UNREACHABLE,
-            "outage — DOI handle API unavailable",
-            extra={"doi": doi},
-        )
-
-    if status == 404:
-        return Outcome(
-            "doi",
-            target,
-            Result.UNMATCHED,
-            "mismatch — DOI does not resolve",
-            extra={"doi": doi},
-        )
-    if status != 200:
-        return Outcome(
-            "doi",
-            target,
-            Result.UNREACHABLE,
-            "outage — DOI handle API unavailable",
-            extra={"doi": doi},
-        )
-
-    response_code = data.get("responseCode") if isinstance(data, dict) else None
-    if type(response_code) is int and response_code == 100:
-        return Outcome(
-            "doi",
-            target,
-            Result.UNMATCHED,
-            "mismatch — DOI does not resolve",
-            extra={"doi": doi},
-        )
-    if type(response_code) is int and response_code == 1:
-        return Outcome("doi", target, Result.MATCHED, "matched", extra={"doi": doi})
-    return Outcome(
-        "doi",
-        target,
-        Result.UNREACHABLE,
-        "outage — unexpected DOI handle response",
-        extra={"doi": doi},
-    )
-
-
 def registry_agency(vault_root, doi: str) -> str | None:
     """Return a validated DOI registration agency, or no route on any uncertainty."""
     try:
@@ -263,34 +210,6 @@ def registry_agency(vault_root, doi: str) -> str | None:
     return agency
 
 
-def _metadata_text(value: str) -> str:
-    """Metadata comparisons are case-insensitive; quote matching is not."""
-    return normalize_text(value).casefold()
-
-
-def _metadata_authors(value) -> list[tuple[str, str]] | None:
-    """Return comparable CSL authors, or reject an invalid author shape."""
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        return None
-
-    authors = []
-    for author in value:
-        if not isinstance(author, dict):
-            return None
-        family = author.get("family")
-        if not isinstance(family, str) or not family.strip():
-            family = author.get("literal")
-        if not isinstance(family, str) or not family.strip():
-            return None
-        given = author.get("given")
-        if given is not None and not isinstance(given, str):
-            return None
-        authors.append((_metadata_text(family), _metadata_text(given or "")[:1]))
-    return authors
-
-
 def metadata_year(value) -> tuple[bool, int | None]:
     """Return (well_formed, optional_year) for CSL's optional issued date."""
     if value is None:
@@ -308,201 +227,6 @@ def metadata_year(value) -> tuple[bool, int | None]:
     if type(year) is not int:
         return False, None
     return True, year
-
-
-def _crossref_csl(payload) -> dict | None:
-    """Convert the typed Crossref works envelope into the comparable CSL subset."""
-    if not isinstance(payload, dict):
-        return None
-    message = payload.get("message")
-    if not isinstance(message, dict):
-        return None
-    titles = message.get("title")
-    if not isinstance(titles, list) or not titles or not isinstance(titles[0], str):
-        return None
-    remote = dict(message)
-    remote["title"] = titles[0]
-    return remote
-
-
-def _metadata_extra(doi: str, agency: str | None = None) -> dict:
-    extra = {"doi": doi}
-    if agency is not None:
-        extra["agency"] = agency
-    return extra
-
-
-def check_metadata(vault_root, entry: dict) -> Outcome:
-    """Compare a bibliography entry with metadata from its registered DOI agency."""
-    target = entry.get("id", "?")
-    doi = entry.get("DOI") or entry.get("doi")
-    if not isinstance(doi, str) or not doi.strip():
-        return Outcome(
-            "metadata", target, Result.SKIPPED, "no-identifier — item has no DOI"
-        )
-    doi = doi.strip()
-    local_extra = _metadata_extra(doi)
-    local_title = entry.get("title")
-    local_authors = _metadata_authors(entry.get("author"))
-    local_year_ok, local_year = metadata_year(entry.get("issued"))
-    # Malformed is decided before absent, on both sides (round 3): a present-but-
-    # wrong-typed field is not "the item lacks the field" and must not be reported
-    # as one, even when another field in the same record is genuinely absent.
-    if (
-        (local_title is not None and not isinstance(local_title, str))
-        or local_authors is None
-        or not local_year_ok
-    ):
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — malformed bibliography metadata",
-            extra=local_extra,
-        )
-    if local_title is None or not local_title.strip():
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — item has no title",
-            extra=local_extra,
-        )
-    if local_authors == []:
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — item has no author",
-            extra=local_extra,
-        )
-    if local_year_ok and local_year is None:
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — item has no year",
-            extra=local_extra,
-        )
-
-    agency = registry_agency(vault_root, doi)
-    if agency is None:
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — registry routing unavailable",
-            extra=local_extra,
-        )
-
-    try:
-        if agency.casefold() == "crossref":
-            status, payload = webapi.get_json(
-                f"https://api.crossref.org/works/{_doi_path(doi)}", vault_root
-            )
-            remote = _crossref_csl(payload) if status == 200 else None
-        else:
-            status, remote = webapi.get_json(
-                f"https://doi.org/{_doi_path(doi)}",
-                vault_root,
-                headers={"Accept": "application/vnd.citationstyles.csl+json"},
-            )
-    except webapi.ApiError:
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — registry metadata unavailable",
-            extra=_metadata_extra(doi, agency),
-        )
-
-    extra = _metadata_extra(doi, agency)
-    if status != 200 or not isinstance(remote, dict):
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — registry record unavailable",
-            extra=extra,
-        )
-    remote_title = remote.get("title")
-    remote_authors = _metadata_authors(remote.get("author"))
-    remote_year_ok, remote_year = metadata_year(remote.get("issued"))
-    # Malformed before absent (round 3), same as the local side above. A registry
-    # record with no title at all is a malformed response — real registries
-    # essentially always populate title — while a work with no recorded author or
-    # publication year is an ordinary record; that is why title has no absence
-    # branch here while author/year do.
-    if (
-        not isinstance(remote_title, str)
-        or not remote_title.strip()
-        or remote_authors is None
-        or not remote_year_ok
-    ):
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNREACHABLE,
-            "outage — malformed registry metadata",
-            extra=extra,
-        )
-    if remote_authors == []:
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — registry record has no author",
-            extra=extra,
-        )
-    if remote_year_ok and remote_year is None:
-        return Outcome(
-            "metadata",
-            target,
-            Result.SKIPPED,
-            "no-identifier — registry record has no year",
-            extra=extra,
-        )
-
-    if _metadata_text(local_title) != _metadata_text(remote_title):
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNMATCHED,
-            "mismatch — title differs from registry",
-            extra=extra,
-        )
-    if [family for family, _ in local_authors] != [
-        family for family, _ in remote_authors
-    ]:
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNMATCHED,
-            "mismatch — author family names differ",
-            extra=extra,
-        )
-    if any(
-        local_given and remote_given and local_given != remote_given
-        for (_, local_given), (_, remote_given) in zip(
-            local_authors, remote_authors, strict=True
-        )
-    ):
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNMATCHED,
-            "mismatch — author given-name initials differ",
-            extra=extra,
-        )
-    if local_year is not None and remote_year is not None and local_year != remote_year:
-        return Outcome(
-            "metadata",
-            target,
-            Result.UNMATCHED,
-            "mismatch — year differs",
-            extra=extra,
-        )
-    return Outcome("metadata", target, Result.MATCHED, "matched", extra=extra)
 
 
 BLOCKING_TYPES = {"retraction", "partial_retraction", "removal", "withdrawal"}

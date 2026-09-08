@@ -861,7 +861,7 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
         line for line in text.splitlines() if re.match(r"\|\s*MATCHED\s*\|", line)
     )
 
-    assert _minting_check_ids() == {"doi", "metadata", "update-notice", "quote"}
+    assert _minting_check_ids() == {"update-notice", "quote"}
     for check in sorted(_minting_check_ids()):
         assert f"`{check}`" in row, f"the MATCHED row never names minting id {check!r}"
     # The publish surface's other two closing checks mint nothing, and the row

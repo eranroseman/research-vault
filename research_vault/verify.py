@@ -60,7 +60,6 @@ CLOSING_BY_SURFACE = {
             "evidence-layer",
             "quote",
             "update-notice",
-            "doi",
             "okf-frontmatter",
             "okf-structure",
             "tree",
@@ -637,30 +636,7 @@ def _bibliography_entries(bib):
 
 
 def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
-    """Produce DOI/metadata and one reduced update-notice outcome."""
-    outcomes = []
-    doi = entry.get("DOI") or entry.get("doi")
-    if doi:
-        outcomes.extend(
-            [
-                checks.check_doi_exists(vault_root, doi, entry.get("id")),
-                checks.check_metadata(vault_root, entry),
-            ]
-        )
-    else:
-        unavailable = entry.get("_discovery_unreachable") is True
-        result = Result.UNREACHABLE if unavailable else Result.SKIPPED
-        reason = (
-            "outage — identifier discovery unavailable"
-            if unavailable
-            else "no-identifier — discovery found nothing"
-        )
-        outcomes.extend(
-            [
-                checks.Outcome("doi", entry["id"], result, reason),
-                checks.Outcome("metadata", entry["id"], result, reason),
-            ]
-        )
+    """Produce one reduced update-notice outcome for a bibliography entry."""
     if entry.get("_discovery_unreachable") and not (
         entry.get("DOI") or entry.get("doi")
     ):
@@ -678,9 +654,7 @@ def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
         else None
     )
     reduced = checks.reduce_update_notice_outcomes(live, rw_leg)
-    if reduced is not None:
-        outcomes.append(reduced)
-    return outcomes
+    return [reduced] if reduced is not None else []
 
 
 def _offline_network_outcomes(entry, detection_date, notice_lookup):
@@ -693,13 +667,12 @@ def _offline_network_outcomes(entry, detection_date, notice_lookup):
         return [rw_leg]
     return [
         checks.Outcome(
-            check,
+            "update-notice",
             entry["id"],
             Result.UNREACHABLE,
             "outage — network disabled",
             {"synthetic_offline": True},
         )
-        for check in ("doi", "metadata", "update-notice")
     ]
 
 
@@ -734,7 +707,7 @@ def _effective(outcomes, hashes, vault_root):
 
 
 def _projection_identity(outcome):
-    if outcome.check in {"doi", "metadata", "update-notice"}:
+    if outcome.check == "update-notice":
         return outcome.target, outcome.check
     if outcome.check == "quote" and isinstance(outcome.target, str):
         comparison_target = outcome.extra.get("target", "managed-region")

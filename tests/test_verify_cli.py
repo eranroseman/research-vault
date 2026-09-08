@@ -51,43 +51,6 @@ def _git_bytes(vault, *args, stdin=None):
     ).stdout
 
 
-def test_discovery_partial_identifiers_survive_outage_and_run_recovered_doi(
-    net_vault, monkeypatch
-):
-    entry = {"id": "new", "title": "New"}
-    monkeypatch.setattr(
-        "research_vault.identify.discover",
-        lambda *_: _outcome(
-            "identifier-discovery",
-            "new",
-            Result.UNREACHABLE,
-            "outage — PubMed unavailable",
-            identifiers={"DOI": "10.1/recovered", "PMID": "12"},
-        ),
-    )
-    monkeypatch.setattr(
-        "research_vault.verify._bibliography_entries", lambda _: [entry]
-    )
-    monkeypatch.setattr(
-        "research_vault.verify._network_outcomes",
-        lambda _v, item, _d, _rw: [
-            _outcome("doi", item["id"], Result.MATCHED, "matched"),
-            _outcome("metadata", item["id"], Result.MATCHED, "matched"),
-            _outcome("update-notice", item["id"], Result.MATCHED, "matched"),
-        ],
-    )
-    report = run_verify(net_vault, network=True, detection_date="2026-08-16")
-    assert any(
-        o.check == "identifier-discovery" and o.result is Result.UNREACHABLE
-        for o in report["outcomes"]
-    )
-    assert {o.check for o in report["outcomes"] if o.target == "new"} >= {
-        "doi",
-        "metadata",
-        "update-notice",
-    }
-
-
 @pytest.mark.parametrize(
     ("discovery_result", "want"),
     [(Result.SKIPPED, Result.SKIPPED), (Result.UNREACHABLE, Result.UNREACHABLE)],
@@ -113,8 +76,6 @@ def test_no_doi_distinguishes_healthy_no_hit_from_discovery_outage(
     )
     report = run_verify(net_vault, network=True, detection_date="2026-08-16")
     got = {o.check: o.result for o in report["outcomes"] if o.target == "empty"}
-    assert got["doi"] is want
-    assert got["metadata"] is want
     assert got["update-notice"] is want
 
 
@@ -423,7 +384,7 @@ def test_unanchored_claim_marker_uses_its_exact_line_origin(net_vault):
 def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monkeypatch):
     entry = inbox.append_entry(
         net_vault,
-        "doi",
+        "update-notice",
         "smith2020",
         Result.UNMATCHED,
         "mismatch — old result",
@@ -436,11 +397,11 @@ def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monke
     )
     monkeypatch.setattr(
         "research_vault.verify._network_outcomes",
-        lambda *_: [_outcome("doi", "smith2020", Result.MATCHED, "matched")],
+        lambda *_: [_outcome("update-notice", "smith2020", Result.MATCHED, "matched")],
     )
     run_verify(net_vault, network=True, detection_date="2026-08-16")
     assert any(
-        event["check"] == "doi"
+        event["check"] == "update-notice"
         for event in events.verified_checks(
             (net_vault / "literatures" / "smith2020.md").read_text()
         )
@@ -1330,7 +1291,7 @@ def _projecting_failure(check):
 @pytest.mark.parametrize(
     "reverse", [False, True], ids=["primary-first", "primary-last"]
 )
-@pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+@pytest.mark.parametrize("check", ["update-notice", "quote"])
 def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
     net_vault, monkeypatch, check, reverse
 ):
@@ -1349,9 +1310,7 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
         ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
-    companion = _outcome(
-        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
-    )
+    companion = _outcome("citekey", "smith2020", Result.UNREACHABLE, "outage — citekey")
     current = [primary, companion]
     if reverse:
         current.reverse()
@@ -1373,7 +1332,7 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
     assert finding.target_hash == candidate_hash
 
 
-@pytest.mark.parametrize("check", ["doi", "update-notice", "quote"])
+@pytest.mark.parametrize("check", ["update-notice", "quote"])
 def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
     net_vault, monkeypatch, check
 ):
@@ -1392,9 +1351,7 @@ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
         ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
-    companion = _outcome(
-        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
-    )
+    companion = _outcome("citekey", "smith2020", Result.UNREACHABLE, "outage — citekey")
     _isolate_network_verify(monkeypatch, [companion, primary])
     candidate_hash = _target_hash(net_vault, primary)
     notice_class, notice_type, notice_date = (
@@ -1443,42 +1400,57 @@ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
 def test_current_failure_projection_keeps_exact_recovery_behavior(
     net_vault, monkeypatch
 ):
+    """The two surviving projecting check kinds — the bare ``update-notice``
+    identity and the per-claim ``quote`` identity — recover independently,
+    same as the retired ``doi``/``metadata`` pair once did."""
     source = net_vault / "literatures" / "smith2020.md"
     text = source.read_text()
     for verified_check in (
-        "doi",
-        "metadata",
         "update-notice",
         "quote:smith2020#^c-11111111:managed-region",
     ):
         text = events.record_pass(text, verified_check, Result.MATCHED, at="2026-08-15")
     source.write_text(text)
-    doi_failure = _projecting_failure("doi")
-    metadata_failure = _outcome(
-        "metadata", "smith2020", Result.UNREACHABLE, "outage — metadata"
-    )
-    current = [doi_failure, metadata_failure]
+    update_notice_failure = _projecting_failure("update-notice")
+    quote_failure = _projecting_failure("quote")
+    current = [update_notice_failure, quote_failure]
     _isolate_network_verify(monkeypatch, current)
 
     run_verify(net_vault, network=True, detection_date="2026-08-16")
     assert events.current_failures(source.read_text()) == [
-        {"check": "doi", "result": "UNMATCHED"},
-        {"check": "metadata", "result": "UNREACHABLE"},
+        {
+            "check": "quote:smith2020#^c-11111111:managed-region",
+            "result": "UNMATCHED",
+        },
+        {"check": "update-notice", "result": "UNMATCHED"},
     ]
     assert events.trust_tier(source.read_text()) == "unverified"
 
     current[:] = [
-        _outcome("doi", "smith2020", Result.MATCHED, "matched"),
-        metadata_failure,
+        _outcome("update-notice", "smith2020", Result.MATCHED, "matched"),
+        quote_failure,
     ]
     run_verify(net_vault, network=True, detection_date="2026-08-18")
     assert events.current_failures(source.read_text()) == [
-        {"check": "metadata", "result": "UNREACHABLE"}
+        {
+            "check": "quote:smith2020#^c-11111111:managed-region",
+            "result": "UNMATCHED",
+        }
     ]
 
     current[:] = [
-        _outcome("doi", "smith2020", Result.MATCHED, "matched"),
-        _outcome("metadata", "smith2020", Result.MATCHED, "matched"),
+        _outcome("update-notice", "smith2020", Result.MATCHED, "matched"),
+        checks.Outcome(
+            "quote",
+            "smith2020#^c-11111111",
+            Result.MATCHED,
+            "matched",
+            {
+                "note_path": RepoPath(b"literatures/smith2020.md"),
+                "claim_id": "c-11111111",
+                "target": "managed-region",
+            },
+        ),
     ]
     run_verify(net_vault, network=True, detection_date="2026-08-19")
     assert events.current_failures(source.read_text()) == []
@@ -1678,10 +1650,6 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
     assert outcome.result is Result.UNMATCHED
     # Crossref is authoritative; deposits may be re-issued within the month.
     assert outcome.extra["notice_date"].startswith("2010-02")
-    fabricated = checks.check_doi_exists(
-        net_vault_real_mailto, "10.1000/completely-fabricated-2026"
-    )
-    assert fabricated.result is Result.UNMATCHED
     assert (
         checks.registry_agency(net_vault_real_mailto, "10.5281/zenodo.3678326")
         == "DataCite"
@@ -1729,7 +1697,6 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "evidence-layer",
                 "quote",
                 "update-notice",
-                "doi",
                 "okf-frontmatter",
                 "okf-structure",
                 "tree",
@@ -1969,3 +1936,23 @@ def test_archive_source_verb_and_web_archive_check_are_retired(tmp_vault):
     assert "web-archive" not in inbox.CHECK_IDS
     assert "missing-archive" not in inbox.REASON_CODES
     assert not hasattr(cli, "cmd_archive_source")
+
+
+def test_network_outcomes_carry_only_update_notice(net_vault, monkeypatch):
+    from research_vault import checks, verify
+
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.MATCHED, "matched"
+        ),
+    )
+    entry = {"id": "smith2020", "DOI": "10.1000/xyz"}
+    outcomes = verify._network_outcomes(net_vault, entry, "2026-09-07", None)
+    assert [outcome.check for outcome in outcomes] == ["update-notice"]
+
+    offline = verify._offline_network_outcomes(entry, "2026-09-07", None)
+    assert [outcome.check for outcome in offline] == ["update-notice"]
+    assert offline[0].extra["synthetic_offline"] is True
+    assert "doi" not in verify.CLOSING_BY_SURFACE["publish"]

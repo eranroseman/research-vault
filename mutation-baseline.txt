@@ -22,7 +22,6 @@ research_vault/checks.py::func/_notice_date_from_updated::len(date_parts) != 1 o
 research_vault/checks.py::func/_notice_target::isinstance(entry, dict) and isinstance(entry.get("id"), str) and entry["id"] -> isinstance(entry, dict) or isinstance(entry.get("id"), str) and entry["id"]
 research_vault/checks.py::func/_rw_date::value is None or (isinstance(value, str) and not value.strip()) -> value is None and (isinstance(value, str) and not value.strip())
 research_vault/checks.py::func/_rw_hits::identifier is None or not isinstance(index, dict) -> identifier is None and not isinstance(index, dict)
-research_vault/checks.py::func/check_metadata::not isinstance(local_title, str) or local_authors is None or not local_year_ok -> not isinstance(local_title, str) and local_authors is None or not local_year_ok
 research_vault/checks.py::func/check_update_notice::status != 200 or not isinstance(payload, dict) -> status != 200 and not isinstance(payload, dict)
 research_vault/checks.py::func/load_rw_csv::doi is not None -> doi is None
 research_vault/checks.py::func/metadata_year::False -> True
