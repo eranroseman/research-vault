@@ -346,13 +346,16 @@ def test_cli_capture_exit_codes_and_holds(tmp_vault, monkeypatch, capsys):
     assert "not-admitted" in queue
 
 
-def test_a_database_change_during_the_csl_read_is_refused_not_exported(
+def test_a_database_change_during_the_csl_read_voids_the_run_not_the_file(
     tmp_vault, monkeypatch
 ):
-    """A 412 on the version read that brackets the library route is refused as
-    database-changed on the CSL target: the item.export fallback is JSON-RPC,
-    which carries no server id, so falling through would write the CSL file
-    from whichever database now answers and call it a matched fallback."""
+    """A 412 on the version read that brackets the library route is
+    database-changed on the vault — every recorded version is void, and the
+    CSL file records no server id, so it cannot carry that condition. The
+    item.export fallback is JSON-RPC, which carries no server id either, so
+    falling through would write the CSL file from whichever database now
+    answers and call it a matched fallback. The per-item outcomes stay: they
+    are the record of what was written before the database moved."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     original = fake._http
@@ -367,7 +370,7 @@ def test_a_database_change_during_the_csl_read_is_refused_not_exported(
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert [(o.target, o.result) for o in outcomes] == [
         ("jakesch.etal2023a", Result.MATCHED),
-        ("system/bibliography.json", Result.UNMATCHED),
+        ("vault", Result.UNMATCHED),
     ]
     assert outcomes[-1].reason.startswith("database-changed")
     assert not (tmp_vault / "system" / "bibliography.json").exists()
@@ -415,6 +418,8 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
     note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    csl = tmp_vault / "system" / "bibliography.json"
+    assert [e["id"] for e in json.loads(csl.read_text())] == ["jakesch.etal2023a"]
     corrupt = '---\ntype: "literature"\nno closing delimiter\n'
     note.write_text(corrupt)
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
@@ -424,6 +429,11 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
     ]
     assert outcomes[0].reason.startswith("schema-violation — ")
     assert note.read_text() == corrupt  # not rewritten over a note it could not read
+    # The CSL file is regenerated from the captured set, which decision 08 defines
+    # as the parseable notes: the corrupt note's entry is gone, and this run says
+    # so only through the per-item finding. Task 15's captured-set lint is the
+    # mechanism that names the gap between the two files.
+    assert json.loads(csl.read_text()) == []
 
 
 def test_a_refused_item_export_is_unmatched_not_an_outage(tmp_vault, monkeypatch):
