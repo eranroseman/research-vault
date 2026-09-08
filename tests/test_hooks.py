@@ -513,6 +513,7 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
         Path("system") / "bibliography.json",
         Path("wiki") / "concepts" / "new.md",
         Path("fulltext") / "D7EJ9FTG.md",
+        Path("system") / "propagations" / "x.json",
     ],
 )
 def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relative):

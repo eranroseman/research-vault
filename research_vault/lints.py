@@ -107,10 +107,15 @@ def _schema_outcome(check: str, target, extra: dict | None = None) -> Outcome:
 
 
 def _is_append_only_path(rel: bytes) -> bool:
-    """The three durable-append surfaces this lint protects (terminology §4.1)."""
+    """The durable-append surfaces this lint protects (terminology §4.1).
+
+    An applied propagation plan (``system/propagations/``, decision 01) is a
+    write-once record: an append-only file that never grows, so the same
+    prefix check refuses any rewrite of it.
+    """
     return (
         rel == b"inbox/review-queue.md"
-        or rel.startswith(b"log/")
+        or rel.startswith((b"log/", b"system/propagations/"))
         or (rel.startswith(b"projects/") and rel.endswith(b"/search-log.md"))
     )
 

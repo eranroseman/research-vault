@@ -26,6 +26,7 @@ from . import (
     lifecycle,
     lints,
     notes,
+    propagate,
     quotes,
     structure,
 )
@@ -53,7 +54,14 @@ def _write_note_text(path, text):
 CLOSING_BY_SURFACE = {
     "audit": frozenset(),
     "commit": frozenset(
-        {"citation-key", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
+        {
+            "citation-key",
+            "evidence-layer",
+            "okf-frontmatter",
+            "okf-structure",
+            "tree",
+            "propagation",
+        }
     ),
     "publish": frozenset(
         {
@@ -64,6 +72,7 @@ CLOSING_BY_SURFACE = {
             "okf-frontmatter",
             "okf-structure",
             "tree",
+            "propagation",
         }
     ),
 }
@@ -965,6 +974,7 @@ def _plan_state(
         lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
     )
     raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
+    raw.extend(propagate.lint_propagation(vault))
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]

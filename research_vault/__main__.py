@@ -17,6 +17,7 @@ from . import (
     gitstate,
     inbox,
     notes,
+    propagate,
     publish,
     scaffold,
     searchlog,
@@ -104,6 +105,74 @@ def _hold_reason(code: str, detail: str) -> str:
     """Compose a reason-coded line from a code and free-text detail."""
     detail = notes.display_text(detail)
     return f"{code} — {detail}" if detail else code
+
+
+def cmd_propagate(args):
+    """The re-key pass, plan-and-apply (ingest spec §3.5, decision 01).
+
+    Without ``--plan``, computes a plan from ``--map OLD=NEW`` pairs or from the
+    lifecycle linter, writes it under ``.research-vault/propagate/`` and prints
+    the apply line with the plan's own sha256; nothing is rewritten. With
+    ``--plan`` and ``--approved-plan-sha256``, recomputes the plan from the
+    vault as it stands and applies only when the hash still matches. Every
+    outcome prints as one line; ``UNMATCHED`` files a hold under the check
+    that produced it (``propagate.apply`` returns the recapture's own rows,
+    with their own check id). Exit 0, 1 on any UNMATCHED, 3 on an UNREACHABLE
+    with no UNMATCHED.
+    """
+    if bool(args.plan) != bool(args.approved_plan_sha256):
+        print(
+            "propagate: --plan and --approved-plan-sha256 go together",
+            file=sys.stderr,
+        )
+        return 2
+    if args.plan and args.map:
+        print("propagate: --map plans; it is not read by an apply", file=sys.stderr)
+        return 2
+    mapping = None
+    if args.map:
+        malformed = [
+            pair for pair in args.map if "=" not in pair or not all(pair.split("=", 1))
+        ]
+        if malformed:
+            print(
+                f"propagate: --map takes OLD=NEW, not {malformed[0]!r}", file=sys.stderr
+            )
+            return 2
+        mapping = dict(pair.split("=", 1) for pair in args.map)
+    client = ZoteroClient(base=args.base)
+    if args.plan:
+        outcomes = propagate.apply(
+            args.vault, client, args.plan, args.approved_plan_sha256
+        )
+    else:
+        planned, outcomes = propagate.plan(args.vault, client, mapping)
+        if planned is not None:
+            path = propagate.write_plan(args.vault, planned)
+            for old, new in planned.mapping.items():
+                print(f"rename {old} → {new} (item {planned.item_keys[old]})")
+            for surface in planned.surfaces:
+                print(f"rewrite {surface.path}")
+            print(
+                f"apply with: python3 -m research_vault propagate --vault {args.vault} "
+                f"--plan {path} --approved-plan-sha256 {propagate.plan_sha256(planned)}"
+            )
+            return 0
+    worst = 0
+    for outcome in outcomes:
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result is Result.UNMATCHED:
+            _hold(
+                args.vault,
+                outcome.check,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+            )
+            worst = 1
+        elif outcome.result is Result.UNREACHABLE and worst == 0:
+            worst = 3
+    return worst
 
 
 def cmd_verify(args):
@@ -560,6 +629,11 @@ def main(argv=None):
     capture_cmd.add_argument("keys", nargs="*")
     capture_cmd.add_argument("--vault", required=True)
     capture_cmd.add_argument("--all", action="store_true")
+    propagate_cmd = sub.add_parser("propagate", parents=[common])
+    propagate_cmd.add_argument("--vault", required=True)
+    propagate_cmd.add_argument("--map", action="append", metavar="OLD=NEW")
+    propagate_cmd.add_argument("--plan")
+    propagate_cmd.add_argument("--approved-plan-sha256")
     verify = sub.add_parser("verify", parents=[common])
     verify.add_argument("--vault", required=True)
     verify.add_argument("--offline", action="store_true")
@@ -650,6 +724,7 @@ def main(argv=None):
     return {
         "probe": cmd_probe,
         "capture": cmd_capture,
+        "propagate": cmd_propagate,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
         "trust-tier": cmd_trust_tier,

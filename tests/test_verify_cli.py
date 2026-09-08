@@ -949,7 +949,9 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
         net_vault, network=True, detection_date="2026-08-17"
     )
 
-    assert first["outcomes"][-1] is warning
+    # Identity, not position: the propagation lint's row now follows the
+    # network outcomes, so the warning is no longer the last raw outcome.
+    assert any(outcome is warning for outcome in first["outcomes"])
     assert warning in effective
     assert warning_effective[id(warning)] is False
     assert second_warning_effective[id(warning)] is False
@@ -1742,6 +1744,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "okf-frontmatter",
                 "okf-structure",
                 "tree",
+                "propagation",
             }
         ),
         "publish": frozenset(
@@ -1753,6 +1756,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "okf-frontmatter",
                 "okf-structure",
                 "tree",
+                "propagation",
             }
         ),
     }
@@ -1831,8 +1835,16 @@ def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault)
     ]
     assert synthetic
     assert all(item.result is Result.UNREACHABLE for item in synthetic)
-    assert _vault_bytes(tmp_vault) == before
-    assert inbox.load(tmp_vault) == []
+    # The pipeline files every genuine non-MATCHED row, SKIPPED included
+    # (lifecycle's decision-26 row is filed the same way, measured 2026-09-08),
+    # so the propagation lint's SKIPPED row moves the queue and nothing else;
+    # no synthetic row reaches it.
+    after = _vault_bytes(tmp_vault)
+    moved = {key for key in before | after if before.get(key) != after.get(key)}
+    assert moved == {b"inbox/review-queue.md"}
+    filed = {entry.check for entry in inbox.load(tmp_vault)}
+    assert filed == {"propagation"}
+    assert filed.isdisjoint({item.check for item in synthetic})
 
 
 def test_invalid_utf8_path_has_one_typed_token_across_outcome_record_and_inbox(

@@ -49,6 +49,9 @@ REASON_CODES = frozenset(
         # The capture verb's own conditions (ingest spec §3.3, decision 05).
         "no-fulltext",
         "unkeyed",
+        # The residue of a re-key an applied propagation plan mapped away
+        # (ingest spec §3.5, decision 05).
+        "stale-key",
     }
 )
 # The governed check-id registry (terminology §4.4). ``append_entry`` itself
@@ -77,6 +80,8 @@ CHECK_IDS = frozenset(
         "lifecycle",
         # The capture verb (ingest spec §3.3, decision 04).
         "capture",
+        # Propagation's own holds and its residue lint (ingest spec §3.5, decision 04).
+        "propagation",
     }
 )
 _REASON = re.compile(

@@ -121,8 +121,8 @@ def test_markdown_templates_match_canonical_content():
         '---\ntype: "guide"\n---\n\n'
         "# Vault agents guide\n\n"
         "This is a research-vault vault. `literatures/`, `log/`, `log.md`, "
-        "`inbox/review-queue.md`, and `fulltext/` are machine-written — the "
-        "CLI writes them; don't edit them by hand.\n\n"
+        "`inbox/review-queue.md`, `fulltext/`, and `system/propagations/` are "
+        "machine-written — the CLI writes them; don't edit them by hand.\n\n"
         "Evidence is admitted through Zotero and projected into `literatures/` — "
         "evidence notes exist only by projection, never by hand. Read "
         "`wiki/index.md` and recent `log/` entries before editing; review "
@@ -213,12 +213,13 @@ _MACHINE_SURFACES = (
     "/system/bibliography.json",
     "/projects/*/search-log.md",
     "/fulltext/",
+    "/system/propagations/",
 )
 
 
 def test_formatter_ignores_cover_every_machine_surface():
     # prettier and markdownlint both read gitignore-style patterns, so their
-    # ignore files list the six machine surfaces as plain, anchored
+    # ignore files list the seven machine surfaces as plain, anchored
     # gitignore lines.
     for name in ("vault/prettierignore", "vault/markdownlintignore"):
         text = asset(name).read_text()
@@ -226,7 +227,7 @@ def test_formatter_ignores_cover_every_machine_surface():
             assert surface in text, (name, surface)
 
     # .editorconfig has no gitignore-style ignore mechanism, and ships no
-    # [*] section -- it defends only the six machine surfaces and makes
+    # [*] section -- it defends only the seven machine surfaces and makes
     # no claim about any other vault file. `false` is the active override
     # for the two boolean properties: it wins even against a user's own
     # editor-wide setting, unlike `unset` or omission, either of which
