@@ -2385,7 +2385,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `frontmatter.serialize/parse`, `notes.display_text`, `notes.body_sha256`, `notes._valid_generated`, `AGENT_ACTOR`.
 
-- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing ledger yields `[]` (a true empty: no compile has run), an unreadable one raises `notes.LedgerUnreadableError` (an outage: capture, Task 13, holds that item and does not rewrite its note — rendering without the embed would strip `## Compiled` and bump `generated` for a transient fault, and decision 27's third-run NOOP would break in a way the NOOP test cannot see).
+- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing ledger yields `[]` (a true empty: no compile has run), an unreadable one — bad bytes, bad JSON, or a document without a `sources` object, `{}` and a top-level array alike, since the tool's schema always writes the key and `{"sources": {}}` is the only true empty — raises `notes.LedgerUnreadableError` (an outage: capture, Task 13, holds that item and does not rewrite its note — rendering without the embed would strip `## Compiled` and bump `generated` for a transient fault, and decision 27's third-run NOOP would break in a way the NOOP test cannot see).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2475,13 +2475,16 @@ def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
         "src-2": {"origin": {"kind": "file", "locator": "fulltext/OTHER001.md"}, "pages": ["wiki/sources/C.md"]},
     }}))
     assert notes.compiled_pages(tmp_path, PROVENANCE) == ["wiki/sources/A.md", "wiki/sources/B.md"]
-    ledger.write_text("not json")
-    try:
-        notes.compiled_pages(tmp_path, PROVENANCE)
-    except notes.LedgerUnreadableError as error:
-        assert "source-ledger.json unreadable" in str(error)
-    else:
-        raise AssertionError("an unreadable ledger is an outage, never an empty view")
+    for malformed in ("not json", "{}", "[]", '{"sources": null}'):
+        ledger.write_text(malformed)
+        try:
+            notes.compiled_pages(tmp_path, PROVENANCE)
+        except notes.LedgerUnreadableError as error:
+            assert "source-ledger.json unreadable" in str(error)
+        else:
+            raise AssertionError(f"{malformed!r} must be an outage, never an empty view")
+    ledger.write_text('{"schema": "claude-obsidian.source-ledger.v1", "sources": {}}')
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == []  # the one true empty
 
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
@@ -2695,12 +2698,17 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     if not ledger.is_file():
         return []
     try:
-        sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError) as error:
+        document = json.loads(ledger.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
         raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: {error}") from error
+    sources = document.get("sources") if isinstance(document, dict) else None
+    if not isinstance(sources, dict):
+        # The tool's schema always writes `sources`; {"sources": {}} is the only true empty.
+        # A document without it — {} or a top-level array alike — is malformed, not "no compile yet".
+        raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: no sources object")
     locators = {f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext}
     pages: set[str] = set()
-    for record in sources.values() if isinstance(sources, dict) else ():
+    for record in sources.values():
         origin = record.get("origin", {}) if isinstance(record, dict) else {}
         if isinstance(origin, dict) and origin.get("locator") in locators:
             pages.update(page for page in record.get("pages", []) if isinstance(page, str))
