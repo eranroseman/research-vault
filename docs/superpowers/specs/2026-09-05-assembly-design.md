@@ -302,6 +302,16 @@ The claim that a URL-only entry gains nothing from Zotero is right about organis
 
 **Proposed cut**: cited or plausibly cited → Zotero; consulted only → no item, never citable. A wrong save costs a junk item attachment-scanner already cleans; a wrong skip costs an unrecoverable dead link. If consulted-not-cited volume becomes noise, the remedy is Zotero-side, never a second identity system. Lane 1 confirms or overturns it, and the row also decides whether `archive.py` survives §11's audit.
 
+### 7.2.1 Lane 2 inherits URL-source acquisition, with one candidate already measured
+
+Lane 1 defers the URL-only classes and makes the deferral mechanical (ingest spec §0). What lane 2 inherits is the acquisition question, and it is **two questions wearing one label**: 111 of the 138 URL-shaped items are `computerProgram`, where the useful text is a repository README, and the rest are pages.
+
+**The pipeline needs no new machinery — it needs an input.** Capture already lands extracted text at `fulltext/<key>.md` and the ledger already points there; a URL source differs only in where the bytes come from. Whatever wins must write that file, so the text lands in the *gated* evidence layer rather than in a compiled page under `wiki/`, which is ungated by §7.2's boundary. That also restores the link-rot protection retired with `archive.py`: the `fulltext/` copy is the snapshot.
+
+**One candidate is already installed and measured 2026-09-07.** `defuddle` CLI 0.19.3 is on this machine and `obsidian:defuddle` is an installed skill; `defuddle parse <url> --md -o content.md` writes markdown to a file directly. Run against `github.com/retorquere/zotero-better-bibtex` it returned **991 words of clean README**, so it covers the repository class rather than only article pages. That is an **adopt** on `docs/agents/sourcing.md`'s ladder — installed, no adaptation, and its output shape is the one capture already consumes.
+
+Screened against it: a **Zotero snapshot** (also adopt, and it would reach the existing `/fulltext` path with no fetch at all, but 130 items have no attachment to snapshot and backfilling is a human act), and the compile tool's own `capture external-plan url`, which is `external-runner-required` and ships no runner. Lane 2 picks; nothing here pre-empts it.
+
 ### 7.3 Lanes 2–4
 
 | Lane | Scope                                                                             | Notes                                                                                                                                                                                                                                                                        |
