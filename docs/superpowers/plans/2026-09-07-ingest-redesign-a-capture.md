@@ -162,7 +162,7 @@ class ZoteroClient:
 # research_vault/notes.py                                     (Tasks 5, 7, 11)
 SNAPSHOT_FIELDS: tuple[str, ...]; TUPLE_FIELDS: tuple[str, ...]; CAPTURE_FIELDS: frozenset[str]
 class InvalidCitationKeyError(ValueError)
-class UnreadableLedgerError(RuntimeError)                # the ledger exists but cannot be read: an outage, never an empty view
+class LedgerUnreadableError(Exception)                   # the ledger exists but cannot be read: an outage, never an empty view; not OSError/ValueError so a broad except cannot re-collapse it
 @dataclass(frozen=True) class Provenance:
     server_id: str; item_key: str; item_version: int; citation_key: str
     attachments: tuple[dict, ...]; fulltext: tuple[dict, ...]; compile_input_sha256: str | None
@@ -171,7 +171,7 @@ def display_text(value) -> str
 def frontmatter_value(value) -> object                    # decision 9
 def note_body(text: str) -> str                          # Task 5: the body below the frontmatter
 LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"      # the one definition site; captured.py and compile.py import it
-def compiled_pages(vault_root, provenance: Provenance) -> list[str]   # the ledger's pages[] for this note's text files, by locator; [] when no ledger exists; raises UnreadableLedgerError
+def compiled_pages(vault_root, provenance: Provenance) -> list[str]   # the ledger's pages[] for this note's text files, by locator; [] when no ledger exists; raises LedgerUnreadableError
 def render_body(provenance: Provenance, children, child_notes, pages=()) -> str   # ## Compiled (embeds, if any), ## Item, ## Attachments, ## Zotero notes
 def body_sha256(text: str) -> str
 def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]
@@ -2384,7 +2384,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `frontmatter.serialize/parse`, `notes.display_text`, `notes.body_sha256`, `notes._valid_generated`, `AGENT_ACTOR`.
 
-- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing ledger yields `[]` (a true empty: no compile has run), an unreadable one raises `notes.UnreadableLedgerError` (an outage: capture, Task 13, holds that item and does not rewrite its note — rendering without the embed would strip `## Compiled` and bump `generated` for a transient fault, and decision 27's third-run NOOP would break in a way the NOOP test cannot see).
+- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing ledger yields `[]` (a true empty: no compile has run), an unreadable one raises `notes.LedgerUnreadableError` (an outage: capture, Task 13, holds that item and does not rewrite its note — rendering without the embed would strip `## Compiled` and bump `generated` for a transient fault, and decision 27's third-run NOOP would break in a way the NOOP test cannot see).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2477,7 +2477,7 @@ def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
     ledger.write_text("not json")
     try:
         notes.compiled_pages(tmp_path, PROVENANCE)
-    except notes.UnreadableLedgerError as error:
+    except notes.LedgerUnreadableError as error:
         assert "source-ledger.json unreadable" in str(error)
     else:
         raise AssertionError("an unreadable ledger is an outage, never an empty view")
@@ -2669,12 +2669,15 @@ def _attachment_line(child) -> str:
     return line
 
 
-class UnreadableLedgerError(RuntimeError):
+class LedgerUnreadableError(Exception):
     """The compile tool's ledger exists but cannot be read.
 
     A missing ledger is a true empty (no compile has run); an unreadable one is
     an outage, and the four-state rule forbids reading an outage as a value.
-    Not a ZoteroError: notes.py stays transport-free.
+    Deliberately not an OSError or a ValueError: an upstream ``except OSError``
+    or ``except ValueError`` written by habit must not fold it back into the
+    empty view this class exists to refuse. Not a ZoteroError either: notes.py
+    stays transport-free.
     """
 
 
@@ -2682,7 +2685,7 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     """The ledger's pages[] for this note's text files, matched by locator (§3.3 step 5).
 
     Empty when no ledger exists (before the first compile). An unreadable ledger
-    raises UnreadableLedgerError; capture holds the item instead of rendering a
+    raises LedgerUnreadableError; capture holds the item instead of rendering a
     note without its embed. Only records the wrapper wrote match (their locator
     is fulltext/<key>.md, spec §4.5); a record from any other route embeds
     nothing and the captured-set lint reports it not-captured.
@@ -2693,7 +2696,7 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     try:
         sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
     except (OSError, UnicodeError, ValueError, AttributeError) as error:
-        raise UnreadableLedgerError(f"{LEDGER_PATH} unreadable: {error}") from error
+        raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: {error}") from error
     locators = {f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext}
     pages: set[str] = set()
     for record in sources.values() if isinstance(sources, dict) else ():
@@ -3659,7 +3662,7 @@ def _capture_one(vault: Path, client: ZoteroClient, read: ItemRead, server_id: s
     child_notes = [c for c in read.children if c.get("data", {}).get("itemType") == "note"]
     try:
         pages = notes.compiled_pages(vault, provenance)  # absent until the first compile; the refresh after it completes the note
-    except notes.UnreadableLedgerError as error:
+    except notes.LedgerUnreadableError as error:
         # An outage for this item, not an empty view: rendering without the embed would strip
         # ## Compiled and bump generated for a transient fault, and the note is left as it stands.
         return [Outcome(CHECK, citation_key, Result.UNREACHABLE, f"outage — {error}")]
