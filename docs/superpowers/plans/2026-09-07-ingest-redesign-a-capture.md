@@ -3550,7 +3550,7 @@ import time
 from pathlib import Path
 from typing import NamedTuple
 
-from . import bibliography, fulltext, lifecycle, notes, okf, stamp
+from . import bibliography, frontmatter, fulltext, lifecycle, notes, okf, stamp
 from .outcome import Outcome, Result
 from .zotero import (
     ITEM_KEY,
@@ -3705,16 +3705,22 @@ def _regenerate_csl(vault: Path, client: ZoteroClient, library_name: str, run_ve
     captured = sorted(_captured_keys(vault))
     try:
         items = client.library_csl(library_name)
-        _versions, after = client.top_items_version() if hasattr(client, "top_items_version") else (None, _top_version(client))
+        after = _top_version(client)
         if run_version is not None and after is not None and after != run_version:
             items = client.library_csl(library_name)
         route = "matched"
+    except DatabaseChangedError as error:
+        # Never fall into item.export here: neither Better BibTeX call carries Zotero-Server-ID, so the
+        # fallback would write the CSL file from whichever database now answers and call it matched.
+        return Outcome(CHECK, CSL_TARGET, Result.UNMATCHED, f"database-changed — {error}")
     except ZoteroError:
         try:
             items = client.export_csl(captured) if captured else []
             route = "matched — item.export fallback"
         except ZoteroError as error:
-            return Outcome(CHECK, CSL_TARGET, Result.UNREACHABLE, f"outage — CSL export unavailable: {error}")
+            # A JSON-RPC error (a stale captured key after a re-key) is UNMATCHED; only a transport
+            # failure is the outage — the four-state split lifecycle.blocked already makes.
+            return lifecycle.blocked(CHECK, CSL_TARGET, error)
     selected = [item for item in items if item.get("id") in captured]
     try:
         bibliography.write(vault, selected)
@@ -3748,12 +3754,16 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     requested = list(keys) + ([p.citation_key for _, p in existing] if refresh_all else [])
     # The linter runs first, through its one code path (§3.4).
     linted = lifecycle.lint_lifecycle(vault, client)
-    if any(o.target == "vault" for o in linted):
-        return [o for o in linted if o.target == "vault"]
+    blocking = [o for o in linted if o.target == "vault" and o.result is not Result.SKIPPED]
+    if blocking:
+        return blocking  # database-changed or an outage; decision 26's SKIPPED row (empty vault) blocks nothing
     # The linter targets citation keys; capture resolves item keys. Join the two through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
     standing = {item_key_of.get(o.target, o.target): o for o in linted}
-    run_version = _top_version(client)
+    try:
+        run_version = _top_version(client)
+    except ZoteroError as error:
+        return [lifecycle.blocked(CHECK, "vault", error)]
     outcomes: list[Outcome] = []
     library_name = None
     try:
@@ -3771,7 +3781,10 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
         try:
             read = read_item(client, item_key)
             if not read.item["data"].get("citationKey"):
-                read = read._replace(item=_wait_for_key(client, item_key, key_wait_seconds))
+                if _wait_for_key(client, item_key, key_wait_seconds)["data"].get("citationKey"):
+                    # The fill saves the item (1710 → 1711 on the sitting): re-read the whole pass so the
+                    # tuple records the keyed version, or the next verify reports drift on every added item.
+                    read = read_item(client, item_key)
             if not read.item["data"].get("citationKey"):
                 outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"unkeyed — item {item_key} has no citation key"))
                 continue
@@ -3783,7 +3796,10 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"not-admitted — {item_key} is not in the library"))
         except ZoteroError as error:
             outcomes.append(lifecycle.blocked(CHECK, requested_key, error))
-        except (notes.InvalidCitationKeyError, OSError) as error:
+        except (notes.InvalidCitationKeyError, frontmatter.FrontmatterError, OSError) as error:
+            # A corrupt existing note reaches render_note as FrontmatterError; the linter cannot see it
+            # (read_provenance declines it), so this is the only place it becomes a finding. The OSError
+            # branch is the whole-branch review's to reclassify as an outage (deferred).
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"schema-violation — {error}"))
     if any(o.reason == "matched" for o in outcomes):
         stamp.stamp_types(vault)
@@ -3793,7 +3809,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     return outcomes
 ```
 
-(Drop the `hasattr(client, "top_items_version")` guard: call `_top_version(client)` directly. `_captured_keys` is the inline provenance walk above until Task 15 rewires it to `captured.captured_set`.) In `research_vault/__main__.py`:
+(`_captured_keys` is the inline provenance walk above until Task 15 rewires it to `captured.captured_set`.) In `research_vault/__main__.py`:
 
 ```python
 def cmd_capture(args):
@@ -5066,7 +5082,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `tests/test_add.py`
-- Modify: `research_vault/zotero.py` (`_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` records `self._last_post_body = data` on every POST)
+- Modify: `research_vault/zotero.py` (the export timeout — decision 13's measurement: the Better BibTeX library route takes 4.78 s cold against the 5.0 s default, and Task 13's first live run filed a false outage while the `item.export` fallback queued behind the still-running export and timed out too, so a retry repeats the failure: `_http(url, data=None, headers=None, method=None, *, timeout=None)` defaulting to `self.timeout`; a module constant `EXPORT_TIMEOUT = 30.0` (about six times the cold measurement, so a library three times larger still clears); `library_csl` passes it; `_rpc(method, params, *, timeout=None)` with **only** `export_csl` passing it — never `_rpc` globally, because `ready()` is doctor's `bbt` probe and per-item reads keep the short timeout or a busy Zotero hangs the loop; `_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` gains `timeout=None` in its signature and records `self._last_post_body = data` on every POST), `tests/test_capture.py` (the two test-local `_http` shims, `moving` and `changing`, gain `timeout=None` — they have fixed four-parameter signatures and break the moment `_http` is called with the keyword), `tests/test_zotero.py` (one test asserts `library_csl` and `export_csl` open their sockets with `EXPORT_TIMEOUT` and `ready()`/`item()` with the default, by patching `_http` to record the keyword)
 
 **Interfaces:**
 
