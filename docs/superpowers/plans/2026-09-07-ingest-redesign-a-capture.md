@@ -3948,6 +3948,7 @@ def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_record
     (matched,) = propagate.apply(tmp_vault, client, path, digest)
     assert matched.result is Result.MATCHED
     assert calls == [["E352DFS8"]]  # the recapture is what rewrites the note's recorded key; it is asserted by its call
+    assert (tmp_vault / "literatures" / "new2020.md").is_file()
     assert not (tmp_vault / "literatures" / "old2020.md").exists()
     assert "[@new2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
     assert propagate.read_records(tmp_vault)[0].mapping == {"old2020": "new2020"}
