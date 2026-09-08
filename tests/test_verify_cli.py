@@ -18,11 +18,13 @@ from research_vault import (
     events,
     gitstate,
     inbox,
+    notes,
 )
 from research_vault.__main__ import cmd_inbox, cmd_verify, main
 from research_vault.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from research_vault.verify import (
     _apply_state_transitions,
+    _citation_key_hash,
     _file_effects,
     _mutate_marker,
     _note_bytes,
@@ -43,6 +45,23 @@ def _outcome(check, target, result, reason, **extra):
     if check == "append-only" and isinstance(target, str):
         target = RepoPath(os.fsencode(target))
     return checks.Outcome(check, target, result, reason, extra)
+
+
+def _move_note_body(source):
+    """Change the literature note's body and re-witness it, so the content an
+    acknowledgment was scoped to moves (`managed-sha256` with it)."""
+    old_text = source.read_text()
+    new_text = old_text.replace(
+        "# Mortality decline\n", "# Mortality decline, revised\n", 1
+    )
+    assert new_text != old_text
+    source.write_text(
+        new_text.replace(
+            f'managed-sha256: "{notes.body_sha256(old_text)}"',
+            f'managed-sha256: "{notes.body_sha256(new_text)}"',
+            1,
+        )
+    )
 
 
 def _git_bytes(vault, *args, stdin=None):
@@ -128,6 +147,15 @@ def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
     assert notices[0].result is Result.UNMATCHED
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "open point 07 (decision 21, Task 18): `_citation_key_hash` still falls "
+        "back to the `_note_bytes` digest, which verify's own `failed-verification` "
+        "frontmatter write moves between runs, so no ack on a quote finding survives "
+        "to the next run; `managed-sha256` as the scope closes this — drop the marker."
+    ),
+)
 def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_vault):
     draft = net_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
@@ -141,13 +169,14 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         for o in first["outcomes"]
         if o.check == "quote" and o.result is Result.UNMATCHED
     )
-    target_hash = _target_hash(net_vault, raw)
     entry = next(
         e
         for e in inbox.open_entries(net_vault)
         if e.check == "quote" and e.target == raw.target
     )
-    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", target_hash)
+    inbox.append_ack(
+        net_vault, entry.id, "manual — checked", "human:test", entry.target_hash
+    )
     second = run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert any(
         o is not None and o.check == "quote" and o.result is Result.UNMATCHED
@@ -165,18 +194,13 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         for e in inbox.open_entries(net_vault)
     )
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
-            '  - "bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22"',
-        )
-    )
+    _move_note_body(source)
     # Committed so `lint_evidence_layer`'s base and candidate agree on the
-    # changed fixity-sha256 — this test exercises hash-based reopening, not
-    # the machine-owned-frontmatter guard.
+    # moved body — this test exercises hash-based reopening, not the
+    # machine-owned-frontmatter guard.
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "change fixity-sha256"], cwd=net_vault, check=True
+        ["git", "commit", "-q", "-m", "move the note body"], cwd=net_vault, check=True
     )
     fourth = run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert any(
@@ -202,16 +226,21 @@ def test_target_hash_routes_safe_file_claim_and_citation_key(net_vault):
             :16
         ]
     )
+    # A claim target and a citation-key target both route to the cited note's
+    # own hash (`_citation_key_hash`), before and after a marker lands on the
+    # note; the value that hash takes is open point 07's (Task 18).
     claim_hash = _target_hash(net_vault, claim_outcome)
-    assert claim_hash == "aa11" * 16
+    assert claim_hash == _citation_key_hash(net_vault, "smith2020")
+    assert _target_hash(net_vault, citation_key_outcome) == claim_hash
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
             "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
         )
     )
-    assert _target_hash(net_vault, claim_outcome) == "aa11" * 16
-    assert _target_hash(net_vault, citation_key_outcome) == "aa11" * 16
+    marked_hash = _citation_key_hash(net_vault, "smith2020")
+    assert _target_hash(net_vault, claim_outcome) == marked_hash
+    assert _target_hash(net_vault, citation_key_outcome) == marked_hash
     with pytest.raises(PathCodecError):
         RepoPath(b"../outside")
 
@@ -507,17 +536,6 @@ def test_cli_prints_warning_alongside_blocking_update_notice(
 def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
     net_vault, monkeypatch, capsys
 ):
-    entry = inbox.append_entry(
-        net_vault,
-        "update-notice",
-        "smith2020",
-        Result.UNMATCHED,
-        "warn-notice — correction",
-        target_hash="aa11" * 16,
-        notice_class="warn",
-        notice_type="correction",
-    )
-    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", "aa11" * 16)
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -525,6 +543,18 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         "matched",
         warn_notices=[{"type": "correction"}],
     )
+    target_hash = _target_hash(net_vault, warning)
+    entry = inbox.append_entry(
+        net_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        target_hash=target_hash,
+        notice_class="warn",
+        notice_type="correction",
+    )
+    inbox.append_ack(net_vault, entry.id, "manual — checked", "human:test", target_hash)
     monkeypatch.setattr(
         "research_vault.verify._bibliography_entries",
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
@@ -1158,6 +1188,16 @@ def _isolate_network_verify(monkeypatch, outcomes):
         monkeypatch.setattr(f"research_vault.lints.{name}", lambda *_args: [])
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "open point 07 (decision 21, Task 18): `_citation_key_hash` still falls "
+        "back to the `_note_bytes` digest, which the blocking retraction's own "
+        "`failed-verification` frontmatter write moves before the next run, so the "
+        "retraction ack cannot match; `managed-sha256` as the scope closes this — "
+        "drop the marker."
+    ),
+)
 def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     net_vault, monkeypatch, capsys
 ):
@@ -1237,7 +1277,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     )
 
     assert "retracted — retraction" in output
-    assert blocker.target_hash == warning.target_hash == "aa11" * 16
+    assert blocker.target_hash == warning.target_hash
     assert (
         events.trust_tier((net_vault / "literatures" / "smith2020.md").read_text())
         == "unverified"

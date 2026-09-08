@@ -1,9 +1,12 @@
+import dataclasses
 import datetime
 import hashlib
+import json
 
 import pytest
 
 from research_vault import AGENT_ACTOR, Result, frontmatter, notes
+from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM
 
 LITERATURE = '---\ncitationKey: "smith2020"\ntype: "literature"\n'
 BODY = "# Mortality decline\n"
@@ -74,7 +77,7 @@ def test_body_witness_validation_is_four_state():
 
 
 def test_managed_region_surface_is_gone():
-    for name in ("MANAGED_OPEN", "managed_slice_bytes", "render_note", "render_claim"):
+    for name in ("MANAGED_OPEN", "managed_slice_bytes", "render_claim"):
         assert not hasattr(notes, name)
 
 
@@ -361,3 +364,212 @@ def test_rename_frontmatter_key_is_byte_surgical():
 def test_invalid_citation_key_error_is_the_spelling():
     with pytest.raises(notes.InvalidCitationKeyError):
         notes.note_path("/tmp", "a/b")  # noqa: S108
+
+
+# --- the literature note record: snapshot, provenance tuple, body (ingest spec §3.2) ---
+
+PROVENANCE = notes.Provenance(
+    server_id="6LpvURP2E933",
+    item_key="E352DFS8",
+    item_version=544,
+    citation_key="jakesch.etal2023a",
+    attachments=(
+        {
+            "key": "D7EJ9FTG",
+            "version": 551,
+            "md5": "aa59569ae4f4b3a7c546158d4771c738",
+            "contentType": "application/pdf",
+            "filename": "Jakesch et al. - 2023.pdf",
+        },
+    ),
+    fulltext=({"attachment-key": "D7EJ9FTG", "sha256": "f" * 64},),
+    compile_input_sha256="f" * 64,
+)
+
+
+def _render(existing=None, generated_at="2026-09-07T10:00:00Z", pages=()):
+    return notes.render_note(
+        ITEM["data"],
+        PROVENANCE,
+        [ATTACHMENT],
+        [CHILD_NOTE],
+        existing,
+        accessed="2026-09-07",
+        generated_at=generated_at,
+        pages=pages,
+    )
+
+
+def test_render_note_carries_snapshot_tuple_and_witness_in_order():
+    text = _render()
+    data, _body = frontmatter.parse(text)
+    keys = list(data)
+    assert keys[:3] == ["type", "title", "aliases"]
+    assert data["type"] == "literature"
+    assert data["aliases"] == [ITEM["data"]["title"]]
+    assert data["creators"] == [
+        {"creatorType": "author", "firstName": "Maurice", "lastName": "Jakesch"}
+    ]
+    assert (
+        data["abstractNote"] == ["Line one.", "Line two."]
+    )  # ITEM's second line carries a tab and a double space; display_text collapses both
+    assert data["extra"] == ["PMID: 28503678", "PMCID: PMC5428074"]
+    assert data["tags"] == [{"tag": "ai", "type": 1}]
+    assert data["DOI"] == "10.1145/3544548.3581196"
+    assert "relations" not in data
+    assert "dateModified" not in data
+    assert data["zotero-server-id"] == "6LpvURP2E933"
+    assert data["zotero-item-key"] == "E352DFS8"
+    assert data["zotero-item-version"] == 544
+    assert data["citationKey"] == "jakesch.etal2023a"
+    assert data["attachments"][0]["md5"] == "aa59569ae4f4b3a7c546158d4771c738"
+    assert data["fulltext"] == [{"attachment-key": "D7EJ9FTG", "sha256": "f" * 64}]
+    assert data["compile-input-sha256"] == "f" * 64
+    assert data["accessed"] == "2026-09-07"
+    assert data["managed-sha256"] == notes.body_sha256(text)
+    assert data["generated"] == {"by": AGENT_ACTOR, "at": "2026-09-07T10:00:00Z"}
+    assert keys.index("generated") == len(keys) - 1
+
+
+def test_body_renders_only_what_frontmatter_cannot_carry():
+    _data, body = frontmatter.parse(_render())
+    assert body == (
+        "## Item\n\n"
+        "- [Open in Zotero](zotero://select/library/items/E352DFS8)\n\n"
+        "## Attachments\n\n"
+        "- [Jakesch et al. - 2023.pdf](zotero://open-pdf/library/items/D7EJ9FTG) "
+        "— application/pdf, md5 aa59569ae4f4b3a7c546158d4771c738, text layer [[fulltext/D7EJ9FTG]]\n\n"
+        "## Zotero notes\n\n"
+        "Read for the method.\n\nSecond paragraph.\n"
+    )
+    assert "Co-writing" not in body  # title lives in frontmatter only
+    assert "## Compiled" not in body  # absent until the first compile (§3.3 step 5)
+
+
+def test_body_embeds_the_compiled_page_by_ledger_path_when_one_exists():
+    _data, body = frontmatter.parse(
+        _render(pages=["wiki/sources/Co-Writing with Opinionated Language Models.md"])
+    )
+    assert body.startswith(
+        "## Compiled\n\n![[wiki/sources/Co-Writing with Opinionated Language Models.md]]\n\n## Item\n\n"
+    )
+
+
+def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+    ledger = tmp_path / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(
+        json.dumps(
+            {
+                "schema": "claude-obsidian.source-ledger.v1",
+                "sources": {
+                    "src-1": {
+                        "origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"},
+                        "pages": ["wiki/sources/B.md", "wiki/sources/A.md"],
+                    },
+                    "src-2": {
+                        "origin": {"kind": "file", "locator": "fulltext/OTHER001.md"},
+                        "pages": ["wiki/sources/C.md"],
+                    },
+                },
+            }
+        )
+    )
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == [
+        "wiki/sources/A.md",
+        "wiki/sources/B.md",
+    ]
+    ledger.write_text("not json")
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+
+
+def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
+    first = _render()
+    with_events = first.replace(
+        "---\n## Item",
+        'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-07", check: "update-notice"}\n---\n## Item',
+        1,
+    )
+    second = notes.render_note(
+        ITEM["data"],
+        PROVENANCE,
+        [ATTACHMENT],
+        [CHILD_NOTE],
+        with_events,
+        accessed="2026-09-08",
+        generated_at="2026-09-08T00:00:00Z",
+    )
+    data, _ = frontmatter.parse(second)
+    assert data["accessed"] == "2026-09-07"
+    assert data["generated"]["at"] == "2026-09-07T10:00:00Z"
+    assert data["verified"][0]["check"] == "update-notice"
+    assert not notes.content_changed(with_events, second)
+
+
+def test_rerender_bumps_generated_when_the_projection_moved():
+    first = _render()
+    moved = dataclasses.replace(PROVENANCE, item_version=545)
+    second = notes.render_note(
+        ITEM["data"],
+        moved,
+        [ATTACHMENT],
+        [CHILD_NOTE],
+        first,
+        accessed="2026-09-08",
+        generated_at="2026-09-08T00:00:00Z",
+    )
+    data, _ = frontmatter.parse(second)
+    assert data["zotero-item-version"] == 545
+    assert data["generated"]["at"] == "2026-09-08T00:00:00Z"
+    assert data["accessed"] == "2026-09-07"
+
+
+def test_read_provenance_round_trips_and_rejects_partial_tuples():
+    text = _render()
+    assert notes.read_provenance(text) == PROVENANCE
+    assert (
+        notes.read_provenance('---\ntype: "literature"\ncitationKey: "x"\n---\n')
+        is None
+    )
+    assert notes.read_provenance("no frontmatter") is None
+
+
+def test_linked_attachment_says_it_has_no_fixity():
+    linked = {
+        "key": "LINK0001",
+        "version": 3,
+        "data": {
+            "key": "LINK0001",
+            "version": 3,
+            "itemType": "attachment",
+            "linkMode": "linked_url",
+            "url": "https://x",
+        },
+    }
+    text = notes.render_note(
+        ITEM["data"],
+        dataclasses.replace(
+            PROVENANCE,
+            attachments=(
+                {
+                    "key": "LINK0001",
+                    "version": 3,
+                    "md5": "absent",
+                    "contentType": "",
+                    "filename": "",
+                },
+            ),
+            fulltext=(),
+            compile_input_sha256=None,
+        ),
+        [linked],
+        [],
+        None,
+        accessed="2026-09-07",
+        generated_at="2026-09-07T10:00:00Z",
+    )
+    data, body = frontmatter.parse(text)
+    assert data["attachments"][0]["md5"] == "absent"
+    assert "compile-input-sha256" not in data
+    assert "- LINK0001 — linked, no fixity" in body

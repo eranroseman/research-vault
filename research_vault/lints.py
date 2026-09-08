@@ -552,12 +552,10 @@ def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
         return None
 
 
-# Machine-owned frontmatter fields: capture owns citationKey/managed-sha256/
-# fixity-sha256. Legality rides on the `generated` writer attestation, not on
-# where in the note the field sits.
-_MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
-    {"managed-sha256", "fixity-sha256", "citationKey"}
-)
+# Machine-owned frontmatter fields: every field capture writes; a change to any
+# without a `generated` bump by the machine actor is drift. Legality rides on
+# the `generated` writer attestation, not on where in the note the field sits.
+_MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS
 # docs/terminology.md's actor convention: process-written records carry
 # `research_vault/<version>`, so this class test — not an exact-version
 # match — survives a `__version__` bump without flagging every prior note.
@@ -603,12 +601,12 @@ def _machine_attested(generated) -> bool:
 def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     """Flag a machine-owned frontmatter change with no matching writer attestation.
 
-    Legality rule: a change to any of the four machine-owned keys is legal iff
-    `generated` also changed in the same diff with `by` the machine actor
-    class. `generated` guards itself the same way, so it cannot legalize its
-    own unattested change. Attestation is per-file-per-diff: one legitimate
-    `generated` bump also legalizes any other machine-owned key riding along
-    unattested in the same diff.
+    Legality rule: a change to any machine-owned key is legal iff `generated`
+    also changed in the same diff with `by` the machine actor class.
+    `generated` is itself a capture field, so the same loop guards it and it
+    cannot legalize its own unattested change. Attestation is
+    per-file-per-diff: one legitimate `generated` bump also legalizes any
+    other machine-owned key riding along unattested in the same diff.
 
     Stated boundary, not a compliance control: this catches accidents and
     oblivious agents. Forging the attestation — hand-writing a machine-class
@@ -628,7 +626,7 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
         and generated_changed
         and _machine_attested(candidate_generated)
     )
-    outcomes = [
+    return [
         Outcome(
             "evidence-layer",
             RepoPath(raw_path),
@@ -638,16 +636,6 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
         for key in sorted(_MACHINE_OWNED_FRONTMATTER_KEYS)
         if _field(base_data, key) != _field(candidate_data, key) and not attested
     ]
-    if generated_changed and not _machine_attested(candidate_generated):
-        outcomes.append(
-            Outcome(
-                "evidence-layer",
-                RepoPath(raw_path),
-                Result.UNMATCHED,
-                "drift — generated changed without writer attestation",
-            )
-        )
-    return outcomes
 
 
 def lint_evidence_layer(

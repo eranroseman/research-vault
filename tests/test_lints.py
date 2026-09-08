@@ -697,9 +697,8 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
     if key == "managed-sha256":
         digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
         return text.replace(digest, "b" * 64, 1)
-    if key == "fixity-sha256":
-        digest = re.search(r'fixity-sha256:\n  - "([0-9a-f]+)"', text).group(1)
-        return text.replace(digest, "c" * 64, 1)
+    if key == "zotero-item-version":
+        return text.replace("zotero-item-version: 12", "zotero-item-version: 13", 1)
     if key == "generated":
         return text.replace(
             'generated: {by: "research_vault/0.1.0"',
@@ -713,7 +712,7 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
 
 @pytest.mark.parametrize(
     "key",
-    ["managed-sha256", "fixity-sha256", "generated", "citationKey"],
+    ["managed-sha256", "zotero-item-version", "generated", "citationKey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     """Machine-owned frontmatter sits above the body, so a hand-edit to it —
@@ -928,13 +927,31 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         and item.target == "path-bytes:literatures/smith2020.md"
     }
     # Pinned, not presence-only: a truthiness check survives the loss of any
-    # single reason below, because the remaining two keep the set non-empty.
-    # Measured — dropping only the citationKey outcome leaves a presence-only
-    # assertion green.
+    # single reason below, because the rest keep the set non-empty. Measured —
+    # dropping only the citationKey outcome leaves a presence-only assertion
+    # green. Every capture field the fixture carries fires, `generated`
+    # included: an unparseable base attests nothing, so a machine-shaped
+    # candidate `generated` is itself an unattested change.
     assert findings == {
-        "drift — citationKey changed without writer attestation",
-        "drift — fixity-sha256 changed without writer attestation",
-        "drift — managed-sha256 changed without writer attestation",
+        f"drift — {key} changed without writer attestation"
+        for key in (
+            "DOI",
+            "accessed",
+            "aliases",
+            "attachments",
+            "citationKey",
+            "compile-input-sha256",
+            "fulltext",
+            "generated",
+            "itemType",
+            "managed-sha256",
+            "title",
+            "type",
+            "zotero-item-key",
+            "zotero-item-version",
+            "zotero-server-id",
+        )
+    } | {
         # `_body_bytes` fails closed on the unparseable side too, so the body
         # comparison cannot be silenced by the frontmatter that hid it.
         "drift — literature note body changed",

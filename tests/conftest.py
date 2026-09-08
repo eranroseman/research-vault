@@ -34,14 +34,22 @@ def fixture_vault(tmp_vault):
     literature = tmp_vault / "literatures"
     (literature / "smith2020.md").write_text(
         _with_body_witness("""---
-citationKey: "smith2020"
 type: "literature"
-doi: "10.1000/xyz"
-accessed: "2026-08-16"
-fixity-sha256:
-  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
+title: "Mortality decline"
 aliases:
   - "Mortality decline"
+itemType: "journalArticle"
+DOI: "10.1000/xyz"
+zotero-server-id: "6LpvURP2E933"
+zotero-item-key: "SMITH2020"
+zotero-item-version: 12
+citationKey: "smith2020"
+attachments:
+  - {key: "ATT00001", version: 13, md5: "aa11aa11aa11aa11aa11aa11aa11aa11", contentType: "application/pdf", filename: "smith2020.pdf"}
+fulltext:
+  - {attachment-key: "ATT00001", sha256: "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"}
+compile-input-sha256: "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
+accessed: "2026-08-16"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 # Mortality decline
@@ -53,9 +61,18 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
     )
     (literature / "gone2019.md").write_text(
         _with_body_witness("""---
-citationKey: "gone2019"
 type: "literature"
-doi: "10.1000/old"
+title: "Old result"
+aliases:
+  - "Old result"
+itemType: "journalArticle"
+DOI: "10.1000/old"
+zotero-server-id: "6LpvURP2E933"
+zotero-item-key: "GONE2019"
+zotero-item-version: 7
+citationKey: "gone2019"
+attachments:
+fulltext:
 accessed: "2026-08-16"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
