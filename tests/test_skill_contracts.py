@@ -66,7 +66,9 @@ def _shipped_template_files() -> list[Path]:
     # being one. AGENTS.md's routing table is the surface this scan actually
     # guards, and it is unaffected by the exclusion.
     return sorted(
-        p for p in TEMPLATES_DIR.rglob("*") if p.is_file() and p.name != "context.md"
+        p
+        for p in TEMPLATES_DIR.rglob("*")
+        if p.is_file() and p != TEMPLATES_DIR / "context.md"
     )
 
 
