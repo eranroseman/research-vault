@@ -52,6 +52,8 @@ PY
 ```
 
 - **Deletion lists are claims, not orders.** Every name a Files block says to delete carries the line number it had when the plan was written; before deleting it, grep for callers across `research_vault/`, `tests/`, `hooks/` and `scripts/`, and if kept code still uses it, keep it and report the call site as a deviation instead of deleting it or working around it (Task 3's `registry_agency`, called by the kept `check_update_notice`, and `metadata_year`, imported by `identify.py`, are the measured cases). Deleting an exception class also means removing it from every `except (...)` tuple that names it — `cmd_verify` and `_run_disposition` in `__main__.py` name `notes.ManagedRegionError` and `notes.RenderIntegrityError` — because Python evaluates that tuple only when an exception reaches it, so the suite may stay green while a real error is masked by `AttributeError` at runtime. Line numbers in Files blocks are navigation hints to verify by name.
+- **A pathspec commit ignores untracked files.** `git commit -- <paths>` picks up only files git already tracks; a file the task created stays behind silently. Every task that creates a file runs `git add -- <each created file>` before its commit and then checks that `git show --stat HEAD` lists every file it created (Task 10's first attempt missed both of its new files).
+- **A new machine surface names itself where agents read.** A task that adds a directory to `hooks/pretooluse_guard.py`'s `MACHINE_SURFACE_DIR_NAMES` or `MACHINE_SURFACE_PREFIXES` also adds it to `research_vault/templates/vault/AGENTS.md`'s machine-written enumeration (the line-7 group: surfaces the CLI writes) and updates the byte-pin in `tests/test_templates.py`. A surface written by something other than the CLI gets its own sentence instead, as `wiki/` has — follow a precedent's reason, not its shape (Task 10 guarded `fulltext/` and left the enumeration unchanged).
 - **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
 - **Outward-facing actions need explicit go-ahead in that turn**: Part B's upstream Zotero issue (its Task 6) is not run on plan approval alone; nothing in this part is outward-facing.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
@@ -3213,7 +3215,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `research_vault/capture.py`, `tests/test_capture.py`
-- Modify: `research_vault/__main__.py` (`cmd_capture`, parser `capture KEY... --vault PATH [--all]`, dispatch), `research_vault/inbox.py` (`REASON_CODES` add `no-fulltext`, `unkeyed`; `CHECK_IDS` add `capture`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
+- Modify: `research_vault/zotero.py` (`base_for(vault_root, override=None, *, strict=True)`: as built in Task 9 it swallows an unreadable or malformed `machine.json` and answers `DEFAULT_BASE` — the production instance — so a typo in the file that says "use 23129" would route every verb at production; with `strict=True` it raises `ZoteroError(f"machine.json unreadable: {error}", result=Result.UNMATCHED)` instead, and only `doctor` resolves with `strict=False`, because its `machine-config` probe is what reports the file), `research_vault/__main__.py` (`main()`'s `--base` resolution from Task 9 passes `strict=args.command != "doctor"` and turns the error into `print(error, file=sys.stderr); return 2`; `cmd_capture`, parser `capture KEY... --vault PATH [--all]`, dispatch), `research_vault/inbox.py` (`REASON_CODES` add `no-fulltext`, `unkeyed`; `CHECK_IDS` add `capture`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
 
 **Interfaces:**
 
@@ -3364,6 +3366,22 @@ def test_url_only_item_without_attachment_is_skipped_not_a_finding(tmp_vault, mo
     assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 0
     assert "SKIPPED jakesch.etal2023a — no-fulltext" in capsys.readouterr().out
     assert not [f for f in inbox.load(tmp_vault) if f.check == "capture"]  # nothing to clear, so nothing filed
+
+
+def test_an_unreadable_machine_json_is_a_refusal_not_the_production_default(tmp_vault, monkeypatch, capsys):
+    import research_vault.__main__ as cli
+
+    (tmp_vault / ".research-vault").mkdir(exist_ok=True)
+    (tmp_vault / ".research-vault" / "machine.json").write_text("{not json")
+    assert zotero.base_for(tmp_vault, None, strict=False) == zotero.DEFAULT_BASE  # doctor's tolerant read
+    try:
+        zotero.base_for(tmp_vault, None)
+    except zotero.ZoteroError as error:
+        assert error.result is Result.UNMATCHED and "machine.json unreadable" in str(error)
+    else:
+        raise AssertionError("a malformed machine.json must not resolve to the production instance")
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 2
+    assert "machine.json unreadable" in capsys.readouterr().err
 
 
 def test_unkeyed_item_is_reported_not_written(tmp_vault, monkeypatch):
@@ -3748,7 +3766,7 @@ Propagation is the one mutation in this design that touches human content, so it
 **Files:**
 
 - Create: `research_vault/propagate.py`, `tests/test_propagate.py`
-- Modify: `research_vault/__main__.py` (`propagate --vault PATH [--map OLD=NEW ...]` plans; `propagate --vault PATH --plan FILE --approved-plan-sha256 SHA` applies), `research_vault/inbox.py` (`REASON_CODES` add `stale-key`; `CHECK_IDS` add `propagation`), `research_vault/verify.py` (`_plan_state` adds `propagate.lint_propagation(vault)` beside the lints; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"propagation"`), `research_vault/lints.py:109-116` (`_is_append_only_path` adds `rel.startswith(b"system/propagations/")` — a write-once record is an append-only file that never grows), `hooks/pretooluse_guard.py` (`MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)` and `_is_machine_surface` also answers `any(relative.is_relative_to(prefix) for prefix in MACHINE_SURFACE_PREFIXES)`), `research_vault/templates/vault/{markdownlintignore,prettierignore,editorconfig}` (add `/system/propagations/`; `.research-vault/` is already gitignored, so the unapplied plan is machine-local), `research_vault/templates/vault/index.md` (the `system/` bullet says "the applied propagation plans" if Task 6 left "the rename log"), `skills/evidence-conventions/SKILL.md` (the `stale-key` row), `docs/terminology.md` §4.4, `tests/test_templates.py`, `tests/test_hooks.py` (`Path("system") / "propagations" / "x.json"` joins the deny list)
+- Modify: `research_vault/__main__.py` (`propagate --vault PATH [--map OLD=NEW ...]` plans; `propagate --vault PATH --plan FILE --approved-plan-sha256 SHA` applies), `research_vault/inbox.py` (`REASON_CODES` add `stale-key`; `CHECK_IDS` add `propagation`), `research_vault/verify.py` (`_plan_state` adds `propagate.lint_propagation(vault)` beside the lints; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"propagation"`), `research_vault/lints.py:109-116` (`_is_append_only_path` adds `rel.startswith(b"system/propagations/")` — a write-once record is an append-only file that never grows), `hooks/pretooluse_guard.py` (`MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)` and `_is_machine_surface` also answers `any(relative.is_relative_to(prefix) for prefix in MACHINE_SURFACE_PREFIXES)`), `research_vault/templates/vault/AGENTS.md` (`system/propagations/` joins the line-7 enumeration of surfaces the CLI writes) with `tests/test_templates.py` (its byte-pin), `research_vault/templates/vault/{markdownlintignore,prettierignore,editorconfig}` (add `/system/propagations/`; `.research-vault/` is already gitignored, so the unapplied plan is machine-local), `research_vault/templates/vault/index.md` (the `system/` bullet says "the applied propagation plans" if Task 6 left "the rename log"), `skills/evidence-conventions/SKILL.md` (the `stale-key` row), `docs/terminology.md` §4.4, `tests/test_templates.py`, `tests/test_hooks.py` (`Path("system") / "propagations" / "x.json"` joins the deny list)
 
 **Interfaces:**
 
@@ -4970,7 +4988,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `tests/test_add.py`
-- Modify: `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` records `self._last_post_body = data` on every POST)
+- Modify: `research_vault/zotero.py` (`_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` records `self._last_post_body = data` on every POST)
 
 **Interfaces:**
 
@@ -5050,6 +5068,22 @@ def test_add_reports_a_denied_dialog_and_a_failed_create(tmp_vault, monkeypatch)
 ```
 
 Extend `tests/fakes.py::FakeZotero._http` to record `self._last_post_body = data` on every POST.
+
+Also in `tests/test_add.py`:
+
+```python
+def test_a_400_from_the_local_api_is_a_mismatch_not_an_outage(tmp_vault, monkeypatch):
+    fake = FakeZotero()
+    fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
+    fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": True})
+    fake.post("/api/users/0/items", status=400, body=b"Invalid item type 'bogus'")
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("mismatch — local API 400 for /api/users/0/items")
+```
+
+(`_validate_items` accepts an unknown `itemType` — it checks the field is a non-empty string, not that Zotero knows it — so the refusal comes back from the server, which is the case this test pins.)
 
 - [ ] **Step 2: Run to verify failure**
 
