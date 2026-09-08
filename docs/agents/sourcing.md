@@ -1,6 +1,8 @@
 # Sourcing
 
-A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, and a handoff. That definition lives here.
+A **sourcing screen** is how a component gets chosen: a bounded question, a screened candidate set, recorded exclusions, **the exit**, and a handoff. That definition lives here.
+
+**The exit** is what remains if the component goes away — one line, on every verdict including `adopt`. It is not a rule and carries no linter; it is part of what a screen *is*, because a screen that never asked it has not finished. Adoption is where it bites hardest: a `build` is ours to delete, while an adopted component can leave artifacts nobody can read without it. The good answer is usually short — stop invoking it and what it wrote is ordinary vault content — and an answer that cannot be written in a line is the finding.
 
 This file carries one rule.
 
