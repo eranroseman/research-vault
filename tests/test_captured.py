@@ -1,7 +1,7 @@
 import json
 import os
 
-from research_vault import Result, captured, inbox
+from research_vault import Result, captured
 from research_vault.pathcodec import decode_repo_path
 
 
@@ -156,9 +156,9 @@ def test_a_finding_names_the_link_as_written_and_can_be_written_to_the_queue(tmp
         if o.result is Result.UNMATCHED
     ]
     for reason in reasons:
-        # The queue enforces the row twice: Outcome/validate_reason at construction
-        # (single line, code prefix) and append_entry's utf-8 stream on the way out.
-        inbox.validate_reason(reason)
+        # append_entry's stream. Outcome.__post_init__ already ran validate_reason,
+        # so asserting that again here could not fail; the call to lint_captured_set
+        # above is the pin for the single-line half.
         reason.encode("utf-8")
     assert reasons == [
         "not-captured — wiki/sources/A.md links [[Ghost.md]], not a page and not in the captured set",
@@ -179,7 +179,6 @@ def test_a_page_whose_own_name_is_not_utf8_still_yields_a_writable_reason(tmp_va
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
     ]
     for row in rows:
-        inbox.validate_reason(row.reason)  # single line, code prefix
         row.reason.encode("utf-8")  # exactly what append_entry's stream does
     assert [r.reason for r in rows] == [
         "not-captured — wiki/sources/A\ufffd.md links [[Ghost]], not a page and not in the captured set"
@@ -205,7 +204,6 @@ def test_a_line_break_in_a_link_or_a_filename_stays_one_writable_row(tmp_vault):
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
     ]
     for row in rows:
-        inbox.validate_reason(row.reason)
         row.reason.encode("utf-8")
     assert [r.reason for r in rows] == [
         "not-captured — wiki/sources/A B.md links [[Gh ost]], not a page and not in the captured set",
