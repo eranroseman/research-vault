@@ -504,8 +504,12 @@ def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
     ledger = tmp_path / notes.LEDGER_PATH
     ledger.parent.mkdir(parents=True)
     ledger.write_bytes(payload)
-    with pytest.raises(notes.LedgerUnreadableError):
+    with pytest.raises(notes.LedgerUnreadableError) as caught:
         notes.compiled_pages(tmp_path, PROVENANCE)
+    # Subject first, the plan's shape: capture's hold reason and Task 13's test
+    # both start with "<ledger path> unreadable".
+    assert str(caught.value).startswith(f"{notes.LEDGER_PATH} unreadable: ")
+    assert "source-ledger.json unreadable" in str(caught.value)
     # Not a ValueError or OSError: a caller's broad `except` around the JSON
     # read cannot fold the outage back into the empty it is not.
     assert not issubclass(notes.LedgerUnreadableError, (ValueError, OSError))

@@ -360,8 +360,8 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
         return []
     try:
         sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError) as exc:
-        raise LedgerUnreadableError(f"unreadable ledger {LEDGER_PATH}: {exc}") from exc
+    except (OSError, UnicodeError, ValueError, AttributeError) as error:
+        raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: {error}") from error
     locators = {
         f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext
     }
