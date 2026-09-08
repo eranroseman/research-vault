@@ -85,17 +85,17 @@ here because a committed file is the only home that survives the workspace delet
    finding it contradicted the repository — that verification is now a standing instruction in
    every dispatch.
 
-2. **A verification grep run during a live implementation must read a committed ref, not the
+1. **A verification grep run during a live implementation must read a committed ref, not the
    working tree.** Checking a hazard's call sites with `grep` over the worktree while Task 4's
    implementer was editing `lints.py` returned a line number belonging to neither the before nor
    the after state. `git show HEAD:<path>` is the only stable view while a subagent holds the
    tree.
 
-3. **Diff from the merge base, never from the branch tip, to decide whether a merge is safe.**
+1. **Diff from the merge base, never from the branch tip, to decide whether a merge is safe.**
    `git diff --stat <branch-tip> main` counts the branch's own commits as reversals and can report
    dozens of files where the real incoming set is three. `git diff --stat $(git merge-base HEAD main) main` is the question actually being asked.
 
-4. **Grep `docs/research/` before deferring a fact to a live probe.** Task 7's brief asserted that
+1. **Grep `docs/research/` before deferring a fact to a live probe.** Task 7's brief asserted that
    Better BibTeX's `item.search` returns `citationKey`. It returns `citekey`, and this repository
    already held the answer: `docs/research/2026-09-05-zotero-api-reading.md` record 291 quotes
    `content/json-rpc.ts` L247-251 at v9.0.63. The implementer flagged the uncertainty but
@@ -104,13 +104,13 @@ here because a committed file is the only home that survives the workspace delet
    "environment facts come from a probe" reads as *go measure it* and quietly discourages
    searching for a measurement someone already took and dated. Search the corpus first.
 
-5. **A coordinating peer's sequencing label is a claim about the plan, not the plan.** The author
+1. **A coordinating peer's sequencing label is a claim about the plan, not the plan.** The author
    called Task 8 "next" from the moment its glossary edits landed, and the controller adopted that
    twice without checking. Task 8's own brief states its dependency on Task 7 in its text, one
    grep away. This is "deletion lists are claims, not orders" one level up: an assertion about
    what the plan says is checkable against the plan, and should be checked before it is acted on.
 
-6. **"Converge at the next touch of X" is not a schedule unless a later Files block claims X.**
+1. **"Converge at the next touch of X" is not a schedule unless a later Files block claims X.**
    The `LedgerUnreadableError` message string was left to converge "at the next touch of
    `notes.py` (Task 13 if the implementer is in that file, otherwise Task 20)". Task 13 does not
    touch `notes.py` — its Files block names `zotero.py`, `__main__.py`, `inbox.py`, the skill and
@@ -124,7 +124,7 @@ here because a committed file is the only home that survives the workspace delet
    scheduled it nor the controller who re-extracted the brief twice checked the assertion against
    the committed string; it surfaced from reading the Files block for an unrelated reason.
 
-7. **A fold-in commit is diffed against the shape the review approved, before it lands.** Folding a
+1. **A fold-in commit is diffed against the shape the review approved, before it lands.** Folding a
    review's rulings back into a plan's printed code has twice introduced a change no review saw. At
    Task 8 a fold-in carried a date that was false when written and a Status-line form that broke
    `docs/agents/domain.md`'s "ADRs carry no history" rule. At Task 13 a fold-in moved a reviewed
@@ -135,3 +135,20 @@ here because a committed file is the only home that survives the workspace delet
    have caught it had already run. The reviews emit outcome tables and per-case enumerations
    precisely because they are diffable artefacts, and until this point nobody was diffing against
    them. The check costs one pass over something that already exists.
+
+1. **When a fold's printed code predates a review-approved refactor, reasoning about the printed
+   construction says nothing about the tree.** Task 14's round-2 fold printed a plain
+   `if target.exists():` where the branch had
+   `if source.name != target.name and (target.exists() or target.is_symlink()):`. Reading only the
+   printed code, the extra condition looks redundant: `source` is `literatures/<old>.md` and
+   `target` is `literatures/<new>.md`, so the names differ exactly when the keys do, and the
+   controller ledgered a ruling to drop it. The branch builds `source` a different way. Round 1's
+   review had replaced the filename lookup with `_sources`, which finds each note by its recorded
+   `citationKey` — so after a partial apply the note sits at `literatures/<new>.md` still recording
+   `<old>`, and the self-heal re-run has different keys and the *same* filename. The condition the
+   controller called redundant was the entire self-heal escape, and dropping it would have
+   re-stuck the vault that round 1 unstuck. The plan had never absorbed `_sources`: it named the
+   helper zero times. Note 7 says to diff a fold against the shape the review approved; this is
+   the case where the plan's printed shape is not that shape at all, and the diff must be against
+   the committed tree. The rule that generalises: a claim about what code does is checked against
+   the ref that will run it.
