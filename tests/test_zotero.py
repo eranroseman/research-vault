@@ -72,6 +72,40 @@ def test_item_children_fulltext_and_file_url(fake):
     )
 
 
+def test_file_view_url_returns_none_only_for_the_two_definite_negatives(fake):
+    """404 (no such item) and 400 (not a file attachment; records 182/187/192)
+    are "no file". Everything else is what it is: a 500 or a refused
+    connection is an outage, 403 is the API off, an empty 200 is malformed."""
+    fake.get(
+        "/api/users/0/items/NOTFILE1/file/view/url",
+        status=400,
+        body=b"Not a file attachment: NOTFILE1",
+    )
+    assert fake.client.file_view_url("NOTFILE1") is None
+    assert fake.client.file_view_url("MISSING1") is None
+
+    fake.get("/api/users/0/items/BROKEN00/file/view/url", status=500, body=b"")
+    with pytest.raises(zotero.ZoteroError) as error:
+        fake.client.file_view_url("BROKEN00")
+    assert error.value.result is Result.UNREACHABLE
+
+    fake.get("/api/users/0/items/OFF00000/file/view/url", status=403, body=b"")
+    with pytest.raises(zotero.LocalApiDisabledError):
+        fake.client.file_view_url("OFF00000")
+
+    fake.get("/api/users/0/items/EMPTY000/file/view/url", body=b"  \n")
+    with pytest.raises(zotero.ZoteroError, match="malformed") as error:
+        fake.client.file_view_url("EMPTY000")
+    assert error.value.result is Result.UNREACHABLE
+
+
+def test_file_view_url_on_a_dead_port_is_an_outage():
+    client = zotero.ZoteroClient(base=_dead_port_base())
+    with pytest.raises(zotero.ZoteroError) as error:
+        client.file_view_url("D7EJ9FTG")
+    assert error.value.result is Result.UNREACHABLE
+
+
 def test_versions_trash_and_top_carry_the_version_header(fake):
     fake.get(
         "/api/users/0/items?since=0&format=versions",
@@ -126,6 +160,30 @@ def test_authorize_requires_a_server_id_and_returns_the_key(fake):
     assert fake.client.authorize() == {"key": "k" * 32, "remember": True}
     verb, path, _headers = fake.calls[-1]
     assert (verb, path) == ("POST", "/api/local/authorize")
+
+
+@pytest.mark.parametrize("body", [b"", b"Forbidden", b"{}", b"[]"])
+def test_authorize_types_the_api_off_403(fake, body):
+    """A 403 without ``{"denied": true}`` is the preference-off answer every
+    request gets (record 32), not a person clicking Deny (record 19)."""
+    fake.client.server_id = "6LpvURP2E933"
+    fake.post("/api/local/authorize", status=403, body=body)
+
+    with pytest.raises(zotero.LocalApiDisabledError) as error:
+        fake.client.authorize()
+
+    assert error.value.result is Result.UNMATCHED
+
+
+def test_authorize_denial_stays_a_denial(fake):
+    fake.client.server_id = "6LpvURP2E933"
+    fake.post("/api/local/authorize", status=403, body={"denied": True})
+
+    with pytest.raises(zotero.ZoteroError, match="authorization denied") as error:
+        fake.client.authorize()
+
+    assert error.value.result is Result.UNMATCHED
+    assert not isinstance(error.value, zotero.LocalApiDisabledError)
 
 
 def test_create_items_sends_key_and_id_and_returns_the_envelope(fake):

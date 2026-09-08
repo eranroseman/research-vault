@@ -222,14 +222,25 @@ class ZoteroClient:
         return dict(payload)
 
     def file_view_url(self, attachment_key) -> str | None:
+        """The attachment's ``file://`` URL as plain text, or ``None``.
+
+        ``None`` means exactly the two definite negatives the server source
+        gives (research records 182/187/192): 404, no such item, and 400, not
+        a file attachment. Anything else propagates — a 500 or a refused
+        connection is an outage, never "no file".
+        """
         try:
-            response = self._local(f"{_USER}/items/{attachment_key}/file/view/url")
-        except (NotFoundError, ZoteroError) as error:
-            if isinstance(error, (DatabaseChangedError, LocalApiDisabledError)):
-                raise
+            response = self._local(
+                f"{_USER}/items/{attachment_key}/file/view/url", expect=(200, 400)
+            )
+        except NotFoundError:
+            return None
+        if response.status == 400:
             return None
         text = response.body.decode("utf-8", errors="replace").strip()
-        return text or None
+        if not text:
+            raise ZoteroError("malformed file URL response: expected a file:// URL")
+        return text
 
     def versions(self) -> tuple[dict[str, int], int | None]:
         payload, headers = self._local_json(f"{_USER}/items?since=0&format=versions")
@@ -284,17 +295,33 @@ class ZoteroClient:
         if response.status == 429:
             retry = response.headers.get("Retry-After", "60")
             raise ZoteroError(f"authorize rate-limited; retry after {retry} s")
+        if response.status == 403:
+            # A denial answers {"denied": true} (record 19); the preference-off
+            # 403 every request gets has no specified body (record 32), so the
+            # status is branched on first and the body read leniently.
+            try:
+                verdict = json.loads(response.body)
+            except ValueError:
+                verdict = None
+            if isinstance(verdict, Mapping) and verdict.get("denied"):
+                raise ZoteroError("authorization denied", Result.UNMATCHED)
+            raise LocalApiDisabledError()
         payload = self._decode_json(response.body, "authorize response")
-        if response.status == 403 or (
-            isinstance(payload, Mapping) and payload.get("denied")
-        ):
+        if isinstance(payload, Mapping) and payload.get("denied"):
             raise ZoteroError("authorization denied", Result.UNMATCHED)
         if not isinstance(payload, Mapping) or not isinstance(payload.get("key"), str):
             raise ZoteroError("malformed authorize response: expected a key")
         return {"key": payload["key"], "remember": bool(payload.get("remember"))}
 
     def create_items(self, items: list[dict]) -> dict:
-        """POST up to 50 items; returns Zotero's successful/unchanged/failed envelope."""
+        """POST up to 50 items; returns Zotero's successful/unchanged/failed envelope.
+
+        No ``If-Unmodified-Since-Version`` and no ``Zotero-Write-Token`` ride
+        the request: research records 24/69 scope the 428 to writes that
+        modify existing objects, and the 2026-09-07 sitting's bare
+        ``POST /items`` (server id and API key only) was accepted with
+        ``successful`` carrying the new key.
+        """
         if not self.server_id:
             raise ZoteroError(
                 "create_items needs the live server id (428 without it)",
