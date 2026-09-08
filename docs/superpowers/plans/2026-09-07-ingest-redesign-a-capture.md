@@ -26,7 +26,7 @@
 - **A test never substitutes into fixture text with bare `str.replace`.** When a fixture edit removes the literal, the substitution becomes a no-op and the test stays green while asserting nothing — Tasks 4, 5 and 11 each met it, and Task 11's review found seven at once. Use `tests/conftest.py::must_replace(text, old, new)`, which fails when `old` is absent (Task 18 adds it, converts the seven, and adds a scan over the fixture-heavy test files).
 - **A deferral names the task whose Files block claims the file.** "The next touch of X" is not a schedule: if no later Files block names X, the deferral lands on the final task, after every task it was meant to protect, and reaches an implementer as a failing test it did not cause and cannot fix in scope (Task 13's ledger-message assertion against a string only Task 11 could change). Before deferring, grep the Files blocks for the file; if none claims it, name the task that will, or fix it now.
 - **Dates an implementer writes are today's.** A literal date inside a printed test or fixture is a pinned value and stays as printed. A date written into a repository record — a supersession in the deviation register, an ADR exemption, a tracer result, a fixture README — is the day the work happens: the plan says "today's date" for those and the executor supplies it. The plan was written across a midnight, so any literal it printed for that purpose was stale by at least a day.
-- **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`. A fixture's canned server id is a test value, not a machine-local fact: `tests/fakes.py`'s `6LpvURP2E933` and Task 13's test's `Tdoqsn2J4q4h` are real ids used as fixtures, recorded here so the rule is not read as broken by them; the socket guard is what keeps a fixture id from ever matching a live answer. Before measuring anything, search `docs/research/`: its dated primary-source records settle facts a probe would only re-measure (record 291 of `2026-09-05-zotero-api-reading.md` held Better BibTeX's `item.search` wire key while this plan asserted the wrong one), and a brief that states an API shape without citing a record is a claim to check, not a fact.
+- **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`. A fixture's canned server id is a test value, not a machine-local fact: `tests/fakes.py`'s `6LpvURP2E933` and Task 13's test's `Tdoqsn2J4q4h` are test values; whether either matches any machine is irrelevant, and the socket guard is what keeps a fixture id from ever meeting a live answer. Before measuring anything, search `docs/research/`: its dated primary-source records settle facts a probe would only re-measure (record 291 of `2026-09-05-zotero-api-reading.md` held Better BibTeX's `item.search` wire key while this plan asserted the wrong one), and a brief that states an API shape without citing a record is a claim to check, not a fact.
 - **Deleting a module or a function prunes its `mutation-baseline.txt` rows** in the same commit, by mechanism, not by a hand-written `grep -v`: run the baseline prune below before committing and put `mutation-baseline.txt` on the pathspec. It drops every row whose module file or function definition no longer exists (a method row `func/Class.method` matches on the method name) and prints each row it drops; a deleted module's `research_vault/<module>.py.manifest.json` sidecar (mutate4py's, unenforced) is deleted by hand. The gate computes `found - baseline` (`scripts/mutation_gate.py::new_survivors`), so a stale row never fails a run; the prune keeps the file honest until the next `--update-baseline`. Measured 2026-09-07: the tree already carries one stale row, `research_vault/scaffold.py::func/_okf_probe`, which the first task to run the prune removes (say so in that commit). New modules need no sidecar; the gate writes one on its first run.
 
 ```bash
@@ -203,7 +203,7 @@ def expected_type(relative: str) -> str | None           # None under wiki/ (exi
 # research_vault/capture.py                                   (Task 13)
 CHECK = "capture"; MAX_READ_RESTARTS = 3; KEY_WAIT_SECONDS = 10
 class ItemRead(NamedTuple): item: dict; children: list[dict]; texts: dict[str, dict | None]; version: int
-def resolve_keys(client, keys: list[str]) -> dict[str, str | None]
+def resolve_keys(client, keys: list[str], known: dict[str, str] | None = None) -> dict[str, str | None]   # known: citation key → item key of the captured notes; Task 15 adds it
 def read_item(client, item_key) -> ItemRead              # restarts on version movement
 def capture(vault_root, client, keys, *, now=None, refresh_all=False, key_wait_seconds=KEY_WAIT_SECONDS) -> list[Outcome]
 def add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]   # Task 17
@@ -4302,7 +4302,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `research_vault/captured.py`, `tests/test_captured.py`, `research_vault/clock.py` (the one clock a check reads — decision 28; Task 18 threads the CLI flag to it)
-- Modify: `research_vault/capture.py` (`_captured_keys` reads `captured.captured_set`; and the four capture follow-ups from Task 13's review, printed under Step 3 — `resolve_keys` consults the captured notes first and `--all` enumerates item keys, `database-changed` joins the refused set, no hardcoded library name, a mid-run 412 still stamps what was written), `tests/test_capture.py` (the follow-ups' tests), `research_vault/verify.py` (`_plan_state` adds `captured.lint_captured_set(vault, as_of=detection_date)`; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"captured-set"`), `research_vault/inbox.py` (`REASON_CODES` add `recompile-needed`; `CHECK_IDS` add `captured-set`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
+- Modify: `research_vault/capture.py` (`_captured_keys` reads `captured.captured_set`; and the four capture follow-ups from Task 13's review, printed under Step 3 — `resolve_keys` consults the captured notes first, `database-changed` joins the refused set, no hardcoded library name, a mid-run 412 still stamps what was written), `tests/test_capture.py` (the follow-ups' tests), `research_vault/verify.py` (`_plan_state` adds `captured.lint_captured_set(vault, as_of=detection_date)`; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"captured-set"`), `research_vault/inbox.py` (`REASON_CODES` add `recompile-needed`; `CHECK_IDS` add `captured-set`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
 
 **Interfaces:**
 
@@ -4593,7 +4593,7 @@ def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
 
 **Capture follow-ups from Task 13's review** (deferred rows 36, 37, 38 and Task 13's concern 9; `capture.py` is this task's file, so they land here rather than reopening Task 13):
 
-1. **`resolve_keys` consults the captured notes first, and `--all` enumerates item keys.** `/items/top` excludes trashed items, so a trashed source requested by its citation key resolved to nothing and reported `not-admitted — … is not in the library` while the linter said `trashed`; and `refresh_all` enumerated citation keys, so an `--all` refresh after a re-key resolved the old name through the live route and got the same false answer. A requested key that is a captured note's citation key now resolves through its tuple, and the linter's verdict reaches it:
+1. **`resolve_keys` consults the captured notes first.** `/items/top` excludes trashed items, so a trashed source requested by its citation key resolved to nothing and reported `not-admitted — … is not in the library` while the linter said `trashed`, and an `--all` refresh (which requests every captured citation key) got the same false answer for it. A requested key that is a captured note's citation key now resolves through its tuple — `standing` is already keyed by item key, so the linter's verdict reaches it — and `requested` stays as built (citation keys), so a row's target does not change:
 
 ```python
 def resolve_keys(client: ZoteroClient, keys: list[str], known: dict[str, str] | None = None) -> dict[str, str | None]:
@@ -4618,7 +4618,7 @@ def resolve_keys(client: ZoteroClient, keys: list[str], known: dict[str, str] | 
     return resolved
 ```
 
-In `capture()`: `requested = list(keys) + ([p.item_key for _, p in existing] if refresh_all else [])` and `resolved = resolve_keys(client, requested, item_key_of)`.
+In `capture()`, the one call changes: `resolved = resolve_keys(client, requested, item_key_of)` (`item_key_of` is built before the call today; nothing moves).
 
 2. **`_REFUSED` (Task 13's frozenset, the constant the refuse check reads) gains `"database-changed"`:** a note the linter reports `database-changed — note records <id>` (a mixed-id vault) is refused too — capturing it would re-home the note to the other database's item of the same key.
 
@@ -4668,7 +4668,8 @@ def test_csl_regeneration_needs_no_library_name_when_nothing_was_read(tmp_vault,
     fake = _canned_run(canned_item(FakeZotero()))
     fake.rpc("item.export", LIBRARY)
     client = _client(monkeypatch, fake)
-    capture.capture(tmp_vault, client, ["E352DFS8"])
+    capture.capture(tmp_vault, client, ["E352DFS8"])  # this run reads a name and takes the library route
+    fake.calls.clear()
     outcomes = capture.capture(tmp_vault, client, ["GHOST001"])  # 404: nothing read this run
     assert outcomes[0].reason.startswith("not-admitted")
     assert outcomes[-1].reason == "matched — item.export fallback"
@@ -5799,7 +5800,7 @@ PY
 Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
 ````
 
-`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literatures/ and fulltext/, propagate a citation-key change |` (with `capture-source`, `literatures/` and `fulltext/` in backticks in the file — the plan cannot print a backtick inside a code span); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
+`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literatures/ and fulltext/, propagate a citation-key change |` (the file's row wraps `capture-source`, `literatures/` and `fulltext/` in backticks); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
