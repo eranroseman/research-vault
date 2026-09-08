@@ -1,6 +1,6 @@
 # Vault knowledge-state records deprecate, never delete
 
-Status: accepted (2026-08-20); amended 2026-09-07 — examples and the acknowledgment-scope sentence follow the ingest redesign, decision unchanged
+Status: accepted (2026-08-20)
 
 Records of what was known, decided, or found — captured sources and their lifecycle transitions, verification events, review-inbox findings and their acknowledgments, update notices — change state only by recorded transition (new state, actor, date); they are never silently removed or overwritten. A source that leaves the library is reported (`trashed`, `deleted`, `merged`) and its note is kept, not deleted; a superseded claim is deprecated with a `superseded-by` pointer to its successor; a contradiction between sources is preserved as two linked claims with stance links, never resolved by erasing one. The decision exists because the vault's value as a research record depends on negative and outdated knowledge staying inspectable: what a source's note said when the source left the library, what a claim said before correction, that a finding was seen and acknowledged rather than never raised.
 
