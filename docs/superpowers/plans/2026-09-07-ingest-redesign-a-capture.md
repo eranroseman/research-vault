@@ -16,7 +16,7 @@
 
 - **Commit with an explicit pathspec** (`git commit -m "..." -- <files>`; the message precedes `--`). Parallel sessions share this checkout: never revert or restore another session's uncommitted files; report the precondition as unmeetable instead. Every commit message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - **Offline suite before every commit:** `.venv/bin/python -m pytest tests -q -n auto` from the repo root. Baseline on 2026-09-07: 1838 passed, 7 skipped, 28 s. Pass `-n` on the command line, never in addopts.
-- **Form owners, run directly on touched files, never `pre-commit run`** (it stashes onto a stack every worktree shares): `ruff format research_vault tests scripts hooks`, `ruff check research_vault tests scripts hooks`, `mypy research_vault`, `mdformat --number --wrap keep <touched .md files>`, `python -m json.tool --indent 2 --no-ensure-ascii <file> <file>` for JSON manifests.
+- **Form owners, run directly on touched files, never `pre-commit run`** (it stashes onto a stack every worktree shares): `ruff format research_vault tests scripts hooks`, `ruff check research_vault tests scripts hooks`, `mypy research_vault`, `mdformat --number --wrap keep <touched .md files>`, `python -m json.tool --indent 2 --no-ensure-ascii <file> <file>` for JSON manifests. `mdformat` runs only on mdformat-owned files: `research_vault/templates/vault/index.md` is excluded (`tests/test_config_validity.py::_MDFORMAT_EXCLUDED_FILES`, issue #70) because mdformat escapes Obsidian wikilinks in prose; do not feed it that file, and keep wikilinks in skill prose inside code spans, which mdformat leaves alone.
 - **Ruff rules that bite new code:** `T20` (no `print` outside `research_vault/__main__.py` and `scripts/`), `C90` (`max-complexity = 28`), `PTH` (use `pathlib`), `S` (no `shell=True`), `DTZ` (timezone-aware `datetime`). mypy rung 1: annotated functions are checked; no `cast()` laundering.
 - **Stdlib only.** The package's one runtime dependency (`defusedxml`) is untouched. `pytest-recording`/`vcrpy` are not adopted (spec §7: no recorder).
 - **Four-state everywhere.** Every mechanical step returns `Outcome`s in `MATCHED`/`UNMATCHED`/`UNREACHABLE`/`SKIPPED`. An outage never reads as a pass; a skipped check never reads as clean (ADR 0002).
@@ -1356,7 +1356,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type`, `trust-tier`, `mark-published`), `skills/evidence-conventions/SKILL.md` (`:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero)
+- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type`, `trust-tier`, `mark-published`), `skills/evidence-conventions/SKILL.md` (`:37` "Claims in `synthesis/` add:" names the folder Task 6 moved — say the compiled layer under `wiki/`; `:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero)
 - Test: `tests/test_templates.py` (the glossary render test, if it asserts content), `tests/test_skill_contracts.py` (the backticked-token rule at `:157-170` over templates)
 
 **Interfaces:**
@@ -1524,7 +1524,7 @@ ______________________________________________________________________
 
 - Modify: `research_vault/zotero.py` (rewrite whole), `research_vault/verify.py:40` (`DEFAULT_BASE` becomes `from .zotero import DEFAULT_BASE`), `research_vault/__main__.py` (`--base` resolution through `zotero.base_for`; `cmd_probe` prints `server_info()` and `ready()`), `research_vault/paths.py` (nothing — `load_machine_config` is reused), `research_vault/templates/research-vault/machine.json.example` (add `"zotero_base": "http://localhost:23119"` and `"zotero_profile": ""` keys; keep canonical JSON form), `tests/test_config_validity.py` (no change: the example is already listed)
 - Create: `tests/fakes.py`
-- Test: `tests/test_zotero.py` (rewrite whole)
+- Test: `tests/test_zotero.py` (rewrite whole), `tests/test_cli_live.py` (the `probe` legs assert `server_info()`/`ready()` output; delete `_provisioned_vault_or_defer`, its two self-tests, `PROVISIONED_VAULT_ENV = "RV_LIVE_AUTOEXPORT_VAULT"` and `DEFERRAL_REASON` — the Better BibTeX auto-export drill Task 2 retired, whose last consumer Task 5 deleted)
 
 **Interfaces:**
 
@@ -3174,7 +3174,7 @@ def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[O
         )
 ```
 
-(add `lifecycle` to the package import block and `from .zotero import DEFAULT_BASE, ZoteroClient`). `lifecycle` is not added to any `CLOSING_BY_SURFACE` set (decision 4).
+(add `lifecycle` to the package import block and `from .zotero import DEFAULT_BASE, ZoteroClient`; Task 2 renamed `_plan_state`'s then-unread `base` parameter to `_base` — rename it back to `base`, it is read again here). `lifecycle` is not added to any `CLOSING_BY_SURFACE` set (decision 4).
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -5347,7 +5347,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Create: `skills/capture-source/SKILL.md`, `tests/test_capture_source_skill.py`
 - Delete: `skills/import-source/` (whole directory), `tests/test_import_source_skill.py`
-- Modify: `skills/setup-vault/SKILL.md`, `research_vault/templates/vault/AGENTS.md` (the skills table row), `README.md` (the skills table rows at `:83-84` — `find-sources` "terminates at the admission boundary" and the `import-source` row — and the routing sentence at `:89`, "Import this paper"), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
+- Modify: `skills/setup-vault/SKILL.md`, `skills/project-flow/SKILL.md` (`:15` "Read `synthesis/index.md`" and `:52` "`synthesis/` pages" become `wiki/index.md` and "`wiki/` pages" — the folder Task 6 moved) with `tests/test_project_flow_skill.py:54` (the `sequence` list's `"synthesis/index.md"` becomes `"wiki/index.md"`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `README.md` (the skills table rows at `:83-84` — `find-sources` "terminates at the admission boundary" and the `import-source` row — and the routing sentence at `:89`, "Import this paper"), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
 
 **Interfaces:**
 
