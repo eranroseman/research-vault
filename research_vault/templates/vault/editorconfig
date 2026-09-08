@@ -1,16 +1,19 @@
 # Defends the machine-owned surfaces (literatures/, log/,
-# inbox/review-queue.md, system/bibliography.json, projects/*/search-log.md)
-# against ANY editor's defaults, including the user's own -- not against
-# this file's, which imposes none. An editor that trims trailing
+# inbox/review-queue.md, system/bibliography.json, projects/*/search-log.md,
+# fulltext/) against ANY editor's defaults, including the user's own -- not
+# against this file's, which imposes none. An editor that trims trailing
 # whitespace or appends a final newline on save would corrupt an
-# append-only file's byte-exact contract or desync bibliography.json from
-# what Better BibTeX wrote. `false` is an active override, so it wins even
-# where the user's own editor is configured to do this globally; omitting
-# the property instead would yield to that global config, which is the
-# threat this file exists to stop. Every other vault file is left to the
-# user's own editor and conventions -- this file makes no claim about them.
+# append-only file's byte-exact contract, desync bibliography.json from
+# what Better BibTeX wrote, or desync a fulltext/ file from the sha256 the
+# literature note recorded for it. `false` is an active override, so it
+# wins even where the user's own editor is configured to do this globally;
+# omitting the property instead would yield to that global config, which is
+# the threat this file exists to stop. Every other vault file is left to
+# the user's own editor and conventions -- this file makes no claim about
+# them.
 # Source of truth for this list: research_vault/lints.py's
-# _is_append_only_path, plus system/bibliography.json (Better BibTeX's export).
+# _is_append_only_path, plus system/bibliography.json (Better BibTeX's export),
+# plus fulltext/ (capture's derived text layer).
 #
 # `root = true` is kept even with no [*] section to protect: it still
 # blocks ancestor-sourced charset/end_of_line values from reaching these
@@ -23,7 +26,7 @@
 # they are not set here: with no [*] section, there is nothing in this
 # file's own scope for `unset` to undo, so it would be inert. This is a
 # real, accepted residual gap: an editor's own charset/line-ending default
-# (not sourced from EditorConfig) can still touch these five surfaces.
+# (not sourced from EditorConfig) can still touch these six surfaces.
 root = true
 
 [literatures/**]
@@ -43,5 +46,9 @@ insert_final_newline = false
 trim_trailing_whitespace = false
 
 [projects/*/search-log.md]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+[fulltext/**]
 insert_final_newline = false
 trim_trailing_whitespace = false

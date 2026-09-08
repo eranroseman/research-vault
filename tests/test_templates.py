@@ -202,21 +202,23 @@ def test_bases_and_machine_example_match_canonical_shapes():
 # Anchored (leading "/") gitignore-style form, as research_vault/lints.py's
 # _is_append_only_path names the append-only three (log/, inbox/review-queue.md,
 # projects/*/search-log.md) plus system/bibliography.json (Better BibTeX's
-# export) and literatures/ (the evidence layer). Anchoring matters: an
-# unanchored "log/" also matches a nested projects/<name>/log/, silently
-# widening what a formatter skips.
+# export), literatures/ (the evidence layer), and fulltext/ (capture's
+# derived text layer, hash-tracked by the literature note it belongs to).
+# Anchoring matters: an unanchored "log/" also matches a nested
+# projects/<name>/log/, silently widening what a formatter skips.
 _MACHINE_SURFACES = (
     "/literatures/",
     "/log/",
     "/inbox/review-queue.md",
     "/system/bibliography.json",
     "/projects/*/search-log.md",
+    "/fulltext/",
 )
 
 
 def test_formatter_ignores_cover_every_machine_surface():
     # prettier and markdownlint both read gitignore-style patterns, so their
-    # ignore files list the five machine surfaces as plain, anchored
+    # ignore files list the six machine surfaces as plain, anchored
     # gitignore lines.
     for name in ("vault/prettierignore", "vault/markdownlintignore"):
         text = asset(name).read_text()
@@ -224,7 +226,7 @@ def test_formatter_ignores_cover_every_machine_surface():
             assert surface in text, (name, surface)
 
     # .editorconfig has no gitignore-style ignore mechanism, and ships no
-    # [*] section -- it defends only the five machine surfaces and makes
+    # [*] section -- it defends only the six machine surfaces and makes
     # no claim about any other vault file. `false` is the active override
     # for the two boolean properties: it wins even against a user's own
     # editor-wide setting, unlike `unset` or omission, either of which

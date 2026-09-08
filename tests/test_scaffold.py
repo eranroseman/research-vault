@@ -108,9 +108,9 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         "![[system/bases/open-questions.base]]\n"
     )
     assert (vault / "log.md").read_text() == ('---\ntype: "log"\n---\n# Log\n')
-    assert (
-        vault / ".gitignore"
-    ).read_text() == ".research-vault/\n.obsidian/workspace*\n.raw/\n.vault-meta/\n"
+    assert (vault / ".gitignore").read_text() == (
+        ".research-vault/\n.obsidian/workspace*\n.raw/\n.vault-meta/\nfulltext/\n"
+    )
     # Byte-pinned against the CANONICAL json.tool form the JSON owner produces
     # (tests/test_config_validity.py asserts the template itself equals it). Same
     # object, expanded nesting; the one-time canonicalization is its own commit.

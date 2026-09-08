@@ -512,6 +512,7 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
         Path("inbox") / "review-queue.md",
         Path("system") / "bibliography.json",
         Path("wiki") / "concepts" / "new.md",
+        Path("fulltext") / "D7EJ9FTG.md",
     ],
 )
 def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relative):
@@ -530,9 +531,10 @@ def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relati
         Path("wiki") / "concepts" / "new.md",
         Path("wiki") / "index.md",
         Path("wiki") / "sources" / "a.md",
+        Path("fulltext") / "D7EJ9FTG.md",
     ],
 )
-def test_pretooluse_denies_write_under_wiki(fixture_vault, relative):
+def test_pretooluse_denies_write_under_machine_layers(fixture_vault, relative):
     _make_hook_vault(fixture_vault)
     target = fixture_vault / relative
     payload = _pretooluse_payload(
