@@ -346,13 +346,13 @@ def test_cli_capture_exit_codes_and_holds(tmp_vault, monkeypatch, capsys):
     assert "not-admitted" in queue
 
 
-def test_a_database_change_during_the_csl_read_aborts_the_run_not_the_route(
+def test_a_database_change_during_the_csl_read_is_refused_not_exported(
     tmp_vault, monkeypatch
 ):
-    """A 412 on the version read that brackets the library route must abort as
-    database-changed: the item.export fallback is JSON-RPC, which carries no
-    server id, so falling through would write the CSL file from whichever
-    database now answers and call it a matched fallback."""
+    """A 412 on the version read that brackets the library route is refused as
+    database-changed on the CSL target: the item.export fallback is JSON-RPC,
+    which carries no server id, so falling through would write the CSL file
+    from whichever database now answers and call it a matched fallback."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     original = fake._http
@@ -367,7 +367,7 @@ def test_a_database_change_during_the_csl_read_aborts_the_run_not_the_route(
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert [(o.target, o.result) for o in outcomes] == [
         ("jakesch.etal2023a", Result.MATCHED),
-        ("vault", Result.UNMATCHED),
+        ("system/bibliography.json", Result.UNMATCHED),
     ]
     assert outcomes[-1].reason.startswith("database-changed")
     assert not (tmp_vault / "system" / "bibliography.json").exists()
@@ -402,3 +402,52 @@ def test_a_key_filled_during_the_wait_is_captured_at_its_post_fill_version(
     )
     assert data["citationKey"] == "jakesch.etal2023a"
     assert data["zotero-item-version"] == 545
+
+
+def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
+    tmp_vault, monkeypatch
+):
+    """An existing note with unterminated frontmatter reaches render_note as a
+    FrontmatterError. The linter cannot see that note (read_provenance declines
+    it), so capture is the one place it becomes a finding — and it must be a
+    finding on that item, not a traceback that ends the run."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    corrupt = '---\ntype: "literature"\nno closing delimiter\n'
+    note.write_text(corrupt)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result) for o in outcomes] == [
+        ("E352DFS8", Result.UNMATCHED),
+        ("system/bibliography.json", Result.MATCHED),
+    ]
+    assert outcomes[0].reason.startswith("schema-violation — ")
+    assert note.read_text() == corrupt  # not rewritten over a note it could not read
+
+
+def test_a_refused_item_export_is_unmatched_not_an_outage(tmp_vault, monkeypatch):
+    """Better BibTeX answers a JSON-RPC error envelope for a key list it will
+    not export (a stale captured key after a re-key); the client types that
+    UNMATCHED. The CSL step must keep that split rather than tell the operator
+    to wait out an outage that will not end. The real _rpc parser runs over the
+    fake transport so the envelope is typed the way the client types it."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.get("/better-bibtex/library?/My%20Library.json", status=500, body=b"")
+    fake.post(
+        "/better-bibtex/json-rpc",
+        body={
+            "jsonrpc": "2.0",
+            "error": {"code": -32000, "message": "no item with citation key"},
+            "id": 1,
+        },
+    )
+    client = _client(monkeypatch, fake)
+    monkeypatch.delattr(client, "_rpc")  # the class's real parser, over fake._http
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[-1].target, outcomes[-1].result) == (
+        "system/bibliography.json",
+        Result.UNMATCHED,
+    )
+    assert outcomes[-1].reason.startswith("not-admitted — JSON-RPC error")
+    assert not (tmp_vault / "system" / "bibliography.json").exists()

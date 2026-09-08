@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import NamedTuple
 
-from . import bibliography, fulltext, lifecycle, notes, okf, stamp
+from . import bibliography, frontmatter, fulltext, lifecycle, notes, okf, stamp
 from .outcome import Outcome, Result
 from .zotero import (
     ITEM_KEY,
@@ -216,12 +216,7 @@ def _capture_one(
 def _regenerate_csl(
     vault: Path, client: ZoteroClient, library_name: str, run_version: int | None
 ) -> Outcome:
-    """§3.3 step 4: one whole-library read, re-read once if Zotero moved, item.export fallback.
-
-    A 412 on the version read propagates: the database changed under the run,
-    and the fallback route (Better BibTeX JSON-RPC carries no server id) would
-    otherwise write the CSL file from whichever database now answers.
-    """
+    """§3.3 step 4: one whole-library read, re-read once if Zotero moved, item.export fallback."""
     captured = sorted(_captured_keys(vault))
     try:
         items = client.library_csl(library_name)
@@ -229,19 +224,22 @@ def _regenerate_csl(
         if run_version is not None and after is not None and after != run_version:
             items = client.library_csl(library_name)
         route = "matched"
-    except DatabaseChangedError:
-        raise
+    except DatabaseChangedError as error:
+        # Never fall into item.export here: neither Better BibTeX call carries
+        # Zotero-Server-ID, so the fallback would write the CSL file from
+        # whichever database now answers and call it matched.
+        return Outcome(
+            CHECK, CSL_TARGET, Result.UNMATCHED, f"database-changed — {error}"
+        )
     except ZoteroError:
         try:
             items = client.export_csl(captured) if captured else []
             route = "matched — item.export fallback"
         except ZoteroError as error:
-            return Outcome(
-                CHECK,
-                CSL_TARGET,
-                Result.UNREACHABLE,
-                f"outage — CSL export unavailable: {error}",
-            )
+            # A JSON-RPC error (a stale captured key after a re-key) is UNMATCHED;
+            # only a transport failure is the outage — the four-state split
+            # lifecycle.blocked already makes.
+            return lifecycle.blocked(CHECK, CSL_TARGET, error)
     selected = [item for item in items if item.get("id") in captured]
     try:
         bibliography.write(vault, selected)
@@ -290,11 +288,11 @@ def capture(
     # refusal or outage stops the run; its decision-26 SKIPPED — no note carries
     # a tuple yet — is the first capture into a fresh vault, not a reason to stop.
     linted = lifecycle.lint_lifecycle(vault, client)
-    stopping = [
+    blocking = [
         o for o in linted if o.target == "vault" and o.result is not Result.SKIPPED
     ]
-    if stopping:
-        return stopping
+    if blocking:
+        return blocking
     # The linter targets citation keys; capture resolves item keys. Join the two
     # through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
@@ -374,7 +372,15 @@ def capture(
             )
         except ZoteroError as error:
             outcomes.append(lifecycle.blocked(CHECK, requested_key, error))
-        except (notes.InvalidCitationKeyError, OSError) as error:
+        except (
+            notes.InvalidCitationKeyError,
+            frontmatter.FrontmatterError,
+            OSError,
+        ) as error:
+            # A corrupt existing note reaches render_note as FrontmatterError; the
+            # linter cannot see it (read_provenance declines it), so this is the
+            # only place it becomes a finding. The OSError branch is the
+            # whole-branch review's to reclassify as an outage (deferred).
             outcomes.append(
                 Outcome(
                     CHECK,
@@ -387,14 +393,7 @@ def capture(
         stamp.stamp_types(vault)
         okf.regenerate_log(vault)
     if library_name is not None or existing:
-        try:
-            outcomes.append(
-                _regenerate_csl(
-                    vault, client, library_name or "My Library", run_version
-                )
-            )
-        except DatabaseChangedError as error:
-            outcomes.append(
-                Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")
-            )
+        outcomes.append(
+            _regenerate_csl(vault, client, library_name or "My Library", run_version)
+        )
     return outcomes
