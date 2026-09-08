@@ -4018,7 +4018,8 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(tmp_vault, monkeyp
     import research_vault.__main__ as cli
 
     _seed(tmp_vault)
-    _zotero(monkeypatch)  # installs on the class: the CLI builds its own client
+    client = _zotero(monkeypatch)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)  # the fake installs per instance; the CLI builds its own
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: [])
     assert cli.main(["propagate", "--vault", str(tmp_vault), "--map", "old2020=new2020"]) == 0
     line = [l for l in capsys.readouterr().out.splitlines() if l.startswith("apply with:")][0]
