@@ -40,7 +40,7 @@ Signatures this part adds, then the Part A signatures its tasks call (copied fro
 
 ```python
 # research_vault/compile.py                                   (Task 2) 
-LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"; PIN = "ad67087"
+LEDGER_PATH = notes.LEDGER_PATH; PIN = "ad67087"   # one definition site (Part A Task 11)
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"; CHECK = "compile"
 def stable_source_id(kind, locator, content_sha256) -> str
 def tool_root(vault_root) -> Path | None
@@ -120,6 +120,8 @@ git -C "$scratch" status --porcelain | grep -v '^?? wiki/\|^ M wiki/\|^?? \.raw/
 ```
 
 Expected: byte-identical evidence and text layers; every changed path under `wiki/` (plus the tool's own dotfiles). Record what `wiki/log.md` looks like after the run: if it carries a `## ` heading that is not `## YYYY-MM-DD`, `okf-structure` will fail on it — record that as a fourth conflict and decide with the author whether `wiki/log.md` joins the `wiki/index.md` exemption (a one-line addition to `structure._EXEMPT_INDEXES`' sibling set and to ADR 0001).
+
+Then the refresh that completes the notes (spec §3.3 step 5): `capture A B C --base http://localhost:23129` again. Expected: each of the three notes now opens with `## Compiled` and one `![[<page path>]]` per path in the ledger's `pages[]` for its text file; `fulltext/` is byte-identical to `/tmp/before.txt`; a third `capture A B C` reports `matched — NOOP` for all three. Record the page paths the ledger held (they are the tool's titles) and whether Obsidian renders the embed inline.
 
 - [ ] **Step 5: T4 — the tool's pages pass `verify --surface commit`**
 
@@ -326,7 +328,7 @@ from pathlib import Path, PurePosixPath
 from . import captured, frontmatter, notes, paths
 from .outcome import Outcome, Result
 
-LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"
+LEDGER_PATH = notes.LEDGER_PATH
 LEDGER_SCHEMA = "claude-obsidian.source-ledger.v1"
 BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
@@ -533,7 +535,7 @@ Part A Task 19 shipped `capture-source` and `setup-vault` without their compile 
 In `tests/test_capture_source_skill.py::test_capture_source_keeps_the_kept_rules`, add to the needle tuple:
 
 ```python
-        "python3 -m research_vault compile", "--approved-plan-sha256", "wiki-ingest", "recompile-needed",
+        "python3 -m research_vault compile", "--approved-plan-sha256", "wiki-ingest", "recompile-needed", "![[<page path>]]",
 ```
 
 Append to `tests/test_capture_source_skill.py`:
@@ -578,7 +580,7 @@ python3 -m research_vault compile KEY [KEY ...] --vault PATH        # prints the
 python3 -m research_vault compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA
 ```
 
-Show the person the plan before applying; the approval hash is the tool's own human gate, and there is no second one. Then run the tool's `wiki-ingest` skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. A note whose text changed after compile is reported `recompile-needed` by `verify`.
+Show the person the plan before applying; the approval hash is the tool's own human gate, and there is no second one. Then run the tool's `wiki-ingest` skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. Then run `capture KEY` again (or `capture --all`): the note now embeds the compiled page, `![[<page path>]]`, from the ledger's `pages[]`. Until that second capture the embed is absent — expected, not an error. A note whose text changed after compile is reported `recompile-needed` by `verify`.
 ````
 
 `skills/setup-vault/SKILL.md`: insert before `## Migrate an older vault`:
