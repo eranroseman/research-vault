@@ -359,14 +359,20 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     if not ledger.is_file():
         return []
     try:
-        sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError) as error:
+        document = json.loads(ledger.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
         raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: {error}") from error
+    sources = document.get("sources") if isinstance(document, dict) else None
+    if not isinstance(sources, dict):
+        # The tool's schema always writes `sources`; {"sources": {}} is the only
+        # true empty. A document without it — {} or a top-level array alike — is
+        # malformed, not "no compile yet".
+        raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: no sources object")
     locators = {
         f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext
     }
     pages: set[str] = set()
-    for record in sources.values() if isinstance(sources, dict) else ():
+    for record in sources.values():
         origin = record.get("origin", {}) if isinstance(record, dict) else {}
         if isinstance(origin, dict) and origin.get("locator") in locators:
             pages.update(

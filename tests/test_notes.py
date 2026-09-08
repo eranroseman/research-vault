@@ -489,8 +489,22 @@ def test_compiled_pages_missing_ledger_is_a_true_empty(tmp_path):
 
 @pytest.mark.parametrize(
     "payload",
-    [b"not json", b"\xff\xfe", b"[]"],
-    ids=["not-json", "not-utf8", "json-but-not-an-object"],
+    [
+        b"not json",
+        b"\xff\xfe",
+        b"[]",
+        b"{}",
+        b'{"sources": null}',
+        b'{"sources": []}',
+    ],
+    ids=[
+        "not-json",
+        "not-utf8",
+        "top-level-array",
+        "no-sources-key",
+        "sources-null",
+        "sources-not-an-object",
+    ],
 )
 def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
     tmp_path, payload
@@ -499,7 +513,9 @@ def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
 
     Capture writes the note from this value, so an unreadable ledger reading as
     `[]` would strip `## Compiled`, bump `generated`, and break decision 27's
-    third-run NOOP — silently, since the next readable run re-adds it.
+    third-run NOOP — silently, since the next readable run re-adds it. A
+    document the tool's schema would never write (no `sources` object) is
+    malformed, not "no compile yet", and lands here too.
     """
     ledger = tmp_path / notes.LEDGER_PATH
     ledger.parent.mkdir(parents=True)
@@ -510,9 +526,25 @@ def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
     # both start with "<ledger path> unreadable".
     assert str(caught.value).startswith(f"{notes.LEDGER_PATH} unreadable: ")
     assert "source-ledger.json unreadable" in str(caught.value)
+    # Only the decode branch has an underlying error to report; the schema
+    # branch must not invent one.
+    assert "None" not in str(caught.value)
     # Not a ValueError or OSError: a caller's broad `except` around the JSON
     # read cannot fold the outage back into the empty it is not.
     assert not issubclass(notes.LedgerUnreadableError, (ValueError, OSError))
+
+
+def test_compiled_pages_schema_conformant_empty_ledger_is_the_one_true_empty(
+    tmp_path,
+):
+    """`{"sources": {}}` is what the tool writes before any source is registered:
+    the one present-and-empty shape that must still yield `[]`."""
+    ledger = tmp_path / notes.LEDGER_PATH
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(
+        json.dumps({"schema": "claude-obsidian.source-ledger.v1", "sources": {}})
+    )
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
 
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
