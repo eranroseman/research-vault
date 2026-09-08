@@ -1260,8 +1260,6 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
 
 
 def _projecting_failure(check):
-    if check == "doi":
-        return _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — DOI")
     if check == "update-notice":
         return _outcome(
             "update-notice",
