@@ -3933,6 +3933,26 @@ def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkey
     assert "[@old2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
 
 
+def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_recorded_key(tmp_vault, monkeypatch):
+    """After an outage during the recapture the note sits at literatures/new2020.md
+    still recording citationKey: old2020. The captured set is the recorded key, not
+    the filename (decision 08), so a re-run plans, treats the note as already at its
+    target, and still rewrites, recaptures and records."""
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    (tmp_vault / "literatures" / "old2020.md").rename(tmp_vault / "literatures" / "new2020.md")
+    calls = []
+    monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: calls.append(list(keys)) or [])
+    planned, path, digest = _planned(tmp_vault, client)
+    assert planned.item_keys == {"old2020": "E352DFS8"}
+    (matched,) = propagate.apply(tmp_vault, client, path, digest)
+    assert matched.result is Result.MATCHED
+    assert calls == [["E352DFS8"]]  # the recapture is what rewrites the note's recorded key; it is asserted by its call
+    assert not (tmp_vault / "literatures" / "old2020.md").exists()
+    assert "[@new2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
+    assert propagate.read_records(tmp_vault)[0].mapping == {"old2020": "new2020"}
+
+
 def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(tmp_vault, monkeypatch):
     _seed(tmp_vault)
     planned, path, digest = _planned(tmp_vault, _zotero(monkeypatch))
@@ -4121,6 +4141,43 @@ def _mapping_from_linter(vault: Path, client) -> tuple[dict[str, str], list[Outc
     return mapping, blocking
 
 
+def _refusal(old: str, detail: str) -> Outcome:
+    return Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {detail}")
+
+
+def _sources(vault: Path, mapping: dict[str, str]) -> tuple[dict[str, tuple[Path, notes.Provenance]], list[Outcome]]:
+    """The note behind each old key, found by its recorded ``citationKey``.
+
+    Decision 08's identity, not the filename: after a partial apply — an outage
+    during the recapture is the realistic route — the note sits at
+    ``literatures/<new>.md`` still recording ``<old>``, and a plan that opened
+    ``literatures/<old>.md`` would refuse the very state it produced. Found by
+    the recorded key, a re-run treats that note as already at its target.
+    """
+    by_key: dict[str, list[tuple[Path, notes.Provenance]]] = {}
+    by_name: dict[str, notes.Provenance] = {}
+    for path, provenance in lifecycle._provenances(vault):
+        by_key.setdefault(provenance.citation_key, []).append((path, provenance))
+        by_name[path.name] = provenance
+    found: dict[str, tuple[Path, notes.Provenance]] = {}
+    outcomes: list[Outcome] = []
+    for old in mapping:
+        candidates = by_key.get(old, [])
+        named = f"{old}.md"
+        if len(candidates) == 1:
+            found[old] = candidates[0]
+        elif candidates:
+            names = ", ".join(sorted(path.name for path, _ in candidates))
+            outcomes.append(_refusal(old, f"{len(candidates)} notes record citationKey {old}: {names}"))
+        elif named in by_name:
+            outcomes.append(_refusal(old, f"literatures/{named} records citationKey {by_name[named].citation_key}, not {old}"))
+        elif (vault / "literatures" / named).is_file():
+            outcomes.append(_refusal(old, "note carries no provenance tuple"))
+        else:
+            outcomes.append(_refusal(old, f"no note under literatures/ records citationKey {old}"))
+    return found, outcomes
+
+
 def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tuple[Plan | None, list[Outcome]]:
     """Compute one re-key pass without touching anything (spec §3.5, decision 01)."""
     vault = Path(vault_root)
@@ -4133,26 +4190,23 @@ def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tup
             return None, blocking
     if not mapping:
         return None, [Outcome(CHECK, RECORD_DIR, Result.SKIPPED, "no-identifier — nothing to propagate")]
-    outcomes: list[Outcome] = []
+    sources, outcomes = _sources(vault, mapping)
     item_keys: dict[str, str] = {}
     for old, new in mapping.items():
-        source = vault / "literatures" / f"{old}.md"
-        if not source.is_file():
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — no note literatures/{old}.md to rename"))
+        if old not in sources:
             continue
-        provenance = notes.read_provenance(source.read_text(encoding="utf-8"))
-        if provenance is None:
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, "schema-violation — note carries no provenance tuple"))
-            continue
+        source, provenance = sources[old]
         try:
             target = notes.note_path(vault, new)
         except notes.InvalidCitationKeyError as error:
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {error}"))
+            outcomes.append(_refusal(old, str(error)))
             continue
-        if target.exists():
+        if source.name != target.name and (target.exists() or target.is_symlink()):
             # ADR 0003: no transition deletes a literature note, and a POSIX rename
-            # over an existing file replaces it silently.
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — literatures/{new}.md already exists; nothing is renamed over it"))
+            # over an existing file replaces it silently — a dangling symlink too,
+            # which exists() would not see. The note already sitting at its target
+            # (a re-run after a partial apply) is the one exception: no rename.
+            outcomes.append(_refusal(old, f"literatures/{new}.md already exists; nothing is renamed over it"))
             continue
         # The mapping is verified against Zotero whatever its source: the note's
         # item must carry the new name live. A name nobody in the library holds
@@ -4164,7 +4218,7 @@ def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tup
         except ZoteroError as error:
             return None, [lifecycle.blocked(CHECK, old, error)]
         if live != new:
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"mismatch — item {provenance.item_key} carries citation key {live!r}, not {new!r}"))
+            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"mismatch — item {provenance.item_key} carries citation key {live!r}, not {new!r}"))  # not _refusal: the code is mismatch
             continue
         item_keys[old] = provenance.item_key
     if outcomes:
@@ -4247,9 +4301,17 @@ def apply(vault_root, client, plan_path, approved_sha256: str, *, now=None) -> l
     if plan_sha256(current) != approved_sha256:
         return [Outcome(CHECK, approved.operation_id, Result.UNMATCHED,
                         "mismatch — plan changed: the vault moved since this plan was computed; run propagate again")]
+    # Resolved again, by recorded key, for the rename itself; the recompute
+    # above already proved each note's item key against the approved plan.
+    sources, refused = _sources(vault, approved.mapping)
+    if refused:
+        return refused
     outcomes = []
     for old, new in approved.mapping.items():
-        (vault / "literatures" / f"{old}.md").rename(notes.note_path(vault, new))
+        source, _provenance = sources[old]
+        target = notes.note_path(vault, new)
+        if source.name != target.name:
+            source.rename(target)
         changed = rewrite_surfaces(vault, old, new)
         recapture = capture.capture(vault, client, [approved.item_keys[old]])
         outcomes.append(Outcome(CHECK, new, Result.MATCHED, "matched — rewrote " + (", ".join(changed) or "nothing")))
