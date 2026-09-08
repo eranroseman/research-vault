@@ -23,6 +23,7 @@
 - **Reason codes and check ids are registries.** `Outcome.__post_init__` validates `reason` against `inbox.REASON_CODES` at construction, so a task adds its codes to `REASON_CODES` **before** any `Outcome` uses them. Every change to `REASON_CODES` must also update the `## Reason-code vocabulary` table in `skills/evidence-conventions/SKILL.md` (`tests/test_skill_contracts.py:440-494` requires every code exactly once) and the `reason codes` row of `docs/terminology.md` §4.4. Every change to `inbox.CHECK_IDS` or a doctor probe id updates the matching §4.4 row in the same commit.
 - **Deprecate, never delete, for vault records** (ADR 0003): no transition deletes a literature note. Repository artifacts (plans, docs, code) are outside that rule; deleting them is hygiene.
 - **No `Disposition:` line** on new Markdown: the marker system was deleted on 2026-09-07 (`7ec2c95`, `8e2721b`).
+- **A test never substitutes into fixture text with bare `str.replace`.** When a fixture edit removes the literal, the substitution becomes a no-op and the test stays green while asserting nothing — Tasks 4, 5 and 11 each met it, and Task 11's review found seven at once. Use `tests/conftest.py::must_replace(text, old, new)`, which fails when `old` is absent (Task 18 adds it, converts the seven, and adds a scan over the fixture-heavy test files).
 - **Dates an implementer writes are today's.** A literal date inside a printed test or fixture is a pinned value and stays as printed. A date written into a repository record — a supersession in the deviation register, an ADR exemption, a tracer result, a fixture README — is the day the work happens: the plan says "today's date" for those and the executor supplies it. The plan was written across a midnight, so any literal it printed for that purpose was stale by at least a day.
 - **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`. Before measuring anything, search `docs/research/`: its dated primary-source records settle facts a probe would only re-measure (record 291 of `2026-09-05-zotero-api-reading.md` held Better BibTeX's `item.search` wire key while this plan asserted the wrong one), and a brief that states an API shape without citing a record is a claim to check, not a fact.
 - **Deleting a module or a function prunes its `mutation-baseline.txt` rows** in the same commit, by mechanism, not by a hand-written `grep -v`: run the baseline prune below before committing and put `mutation-baseline.txt` on the pathspec. It drops every row whose module file or function definition no longer exists (a method row `func/Class.method` matches on the method name) and prints each row it drops; a deleted module's `research_vault/<module>.py.manifest.json` sidecar (mutate4py's, unenforced) is deleted by hand. The gate computes `found - baseline` (`scripts/mutation_gate.py::new_survivors`), so a stale row never fails a run; the prune keeps the file honest until the next `--update-baseline`. Measured 2026-09-07: the tree already carries one stale row, `research_vault/scaffold.py::func/_okf_probe`, which the first task to run the prune removes (say so in that commit). New modules need no sidecar; the gate writes one on its first run.
@@ -161,6 +162,7 @@ class ZoteroClient:
 # research_vault/notes.py                                     (Tasks 5, 7, 11)
 SNAPSHOT_FIELDS: tuple[str, ...]; TUPLE_FIELDS: tuple[str, ...]; CAPTURE_FIELDS: frozenset[str]
 class InvalidCitationKeyError(ValueError)
+class UnreadableLedgerError(RuntimeError)                # the ledger exists but cannot be read: an outage, never an empty view
 @dataclass(frozen=True) class Provenance:
     server_id: str; item_key: str; item_version: int; citation_key: str
     attachments: tuple[dict, ...]; fulltext: tuple[dict, ...]; compile_input_sha256: str | None
@@ -169,7 +171,7 @@ def display_text(value) -> str
 def frontmatter_value(value) -> object                    # decision 9
 def note_body(text: str) -> str                          # Task 5: the body below the frontmatter
 LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"      # the one definition site; captured.py and compile.py import it
-def compiled_pages(vault_root, provenance: Provenance) -> list[str]   # the ledger's pages[] for this note's text files, by locator; [] before the first compile
+def compiled_pages(vault_root, provenance: Provenance) -> list[str]   # the ledger's pages[] for this note's text files, by locator; [] when no ledger exists; raises UnreadableLedgerError
 def render_body(provenance: Provenance, children, child_notes, pages=()) -> str   # ## Compiled (embeds, if any), ## Item, ## Attachments, ## Zotero notes
 def body_sha256(text: str) -> str
 def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]
@@ -2382,7 +2384,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `frontmatter.serialize/parse`, `notes.display_text`, `notes.body_sha256`, `notes._valid_generated`, `AGENT_ACTOR`.
 
-- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing or unreadable ledger yields `[]` (the captured-set lint owns that finding).
+- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing ledger yields `[]` (a true empty: no compile has run), an unreadable one raises `notes.UnreadableLedgerError` (an outage: capture, Task 13, holds that item and does not rewrite its note — rendering without the embed would strip `## Compiled` and bump `generated` for a transient fault, and decision 27's third-run NOOP would break in a way the NOOP test cannot see).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2473,7 +2475,12 @@ def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
     }}))
     assert notes.compiled_pages(tmp_path, PROVENANCE) == ["wiki/sources/A.md", "wiki/sources/B.md"]
     ledger.write_text("not json")
-    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+    try:
+        notes.compiled_pages(tmp_path, PROVENANCE)
+    except notes.UnreadableLedgerError as error:
+        assert "source-ledger.json unreadable" in str(error)
+    else:
+        raise AssertionError("an unreadable ledger is an outage, never an empty view")
 
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
@@ -2662,21 +2669,31 @@ def _attachment_line(child) -> str:
     return line
 
 
+class UnreadableLedgerError(RuntimeError):
+    """The compile tool's ledger exists but cannot be read.
+
+    A missing ledger is a true empty (no compile has run); an unreadable one is
+    an outage, and the four-state rule forbids reading an outage as a value.
+    Not a ZoteroError: notes.py stays transport-free.
+    """
+
+
 def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     """The ledger's pages[] for this note's text files, matched by locator (§3.3 step 5).
 
-    Empty before the first compile. An unreadable ledger renders no embed here;
-    reporting it is the captured-set lint's job, not capture's. Only records the
-    wrapper wrote match (their locator is fulltext/<key>.md, spec §4.5); a record
-    from any other route embeds nothing and the same lint reports it not-captured.
+    Empty when no ledger exists (before the first compile). An unreadable ledger
+    raises UnreadableLedgerError; capture holds the item instead of rendering a
+    note without its embed. Only records the wrapper wrote match (their locator
+    is fulltext/<key>.md, spec §4.5); a record from any other route embeds
+    nothing and the captured-set lint reports it not-captured.
     """
     ledger = Path(vault_root) / LEDGER_PATH
     if not ledger.is_file():
         return []
     try:
         sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError):
-        return []
+    except (OSError, UnicodeError, ValueError, AttributeError) as error:
+        raise UnreadableLedgerError(f"{LEDGER_PATH} unreadable: {error}") from error
     locators = {f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext}
     pages: set[str] = set()
     for record in sources.values() if isinstance(sources, dict) else ():
@@ -3341,6 +3358,21 @@ def test_refresh_after_compile_embeds_the_page_and_completes_the_note(tmp_vault,
     assert capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched — NOOP"
 
 
+def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    before = note.read_text()
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text("{not json")
+    held = [o for o in capture.capture(tmp_vault, client, ["E352DFS8"]) if o.target == "jakesch.etal2023a"]
+    assert [o.result for o in held] == [Result.UNREACHABLE]
+    assert held[0].reason.startswith("outage — wiki/meta/ledgers/source-ledger.json unreadable")
+    assert note.read_text() == before  # not rewritten from a view that could not be read
+
+
 def test_read_restarts_when_the_item_moves_mid_read(tmp_vault, monkeypatch):
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
@@ -3625,10 +3657,15 @@ def _capture_one(vault: Path, client: ZoteroClient, read: ItemRead, server_id: s
     path = notes.note_path(vault, citation_key)
     existing = path.read_text(encoding="utf-8", newline="") if path.is_file() else None
     child_notes = [c for c in read.children if c.get("data", {}).get("itemType") == "note"]
+    try:
+        pages = notes.compiled_pages(vault, provenance)  # absent until the first compile; the refresh after it completes the note
+    except notes.UnreadableLedgerError as error:
+        # An outage for this item, not an empty view: rendering without the embed would strip
+        # ## Compiled and bump generated for a transient fault, and the note is left as it stands.
+        return [Outcome(CHECK, citation_key, Result.UNREACHABLE, f"outage — {error}")]
     candidate = notes.render_note(
         item["data"], provenance, read.children, child_notes, existing,
-        accessed=now.date().isoformat(), generated_at=notes.generated_at_now(now),
-        pages=notes.compiled_pages(vault, provenance),  # absent until the first compile; the refresh after it completes the note
+        accessed=now.date().isoformat(), generated_at=notes.generated_at_now(now), pages=pages,
     )
     outcomes = []
     if existing is not None and not notes.content_changed(existing, candidate):
@@ -5229,7 +5266,7 @@ ______________________________________________________________________
 **Files:**
 
 - Modify: `research_vault/verify.py` (`_citation_key_hash` returns the note's `managed-sha256` and loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/inbox.py` (`scope_id(check, target, target_hash)`; `_scope_acknowledged`'s standing-scope branch compares derived scope ids; `append_entry`'s date default and `summary(vault, as_of=None)` resolve through `clock.today`), `research_vault/searchlog.py` (`_resolved_date` through `clock.today`), `research_vault/__main__.py` (`verify --as-of`, `inbox --as-of`, `_as_of(args)`; `record_finding`'s date default through `clock.today`; `cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
-- Test: `tests/test_verify_cli.py`, `tests/test_publish.py`, `tests/test_config_validity.py` (the one-clock scan)
+- Test: `tests/test_verify_cli.py` (the six new tests below, plus the inheritance from Task 11's fixture change — see "Inherited from Task 11" under Step 3), `tests/test_publish.py`, `tests/test_config_validity.py` (the one-clock scan and the fixture-substitution scan), `tests/conftest.py` (`must_replace`)
 
 **Interfaces:**
 
@@ -5399,6 +5436,47 @@ def cmd_ack(args):
 
 `publish.py`: add `RETRACTION_ACK_FIELD = "retraction-ack"` beside its other module constants, with a one-line comment naming `skills/evidence-conventions/SKILL.md` as the definition site. No literal exists to hoist (see Files); the constant is where any future parser keys on the field.
 
+**Inherited from Task 11.** Task 11's `fixture_vault` notes carry `managed-sha256` and no `fixity-sha256`, so seven functions in `tests/test_verify_cli.py` (at Task 11's HEAD: `:249`, `:273`, `:299`, `:721`, `:906`, `:1338`, `:1381`) now run `.replace('fixity-sha256:\n  - "aa11…"', …)` against text that no longer contains the literal — a no-op, so each passes while asserting nothing about fixity, and its name still promises it (`test_ack_hash_rejects_placeholder_fixity_live_file` asserts only `result != "unresolved"`). Task 11's review measured that six of the seven fail under this task's `_citation_key_hash` change, and two tests carry `xfail(strict=True)` markers (`:150`, `:1191`) waiting on it. This task, therefore:
+
+- removes both `xfail` markers and shows both tests passing unmarked, not merely not-XPASSing;
+- rewrites or deletes the seven fallback-pinning functions rather than keeping them green by leaving a fixity path alive — a test that pins the `_note_bytes` fallback now needs a note capture never wrote (no `managed-sha256`), and a test that pinned fixity is deleted with its subject;
+- adds a test that a note with a well-formed `managed-sha256` never reaches the `_note_bytes` fallback (monkeypatch `verify._note_bytes` to raise and assert `_citation_key_hash` returns the frontmatter value);
+- gives `test_target_hash_routes_safe_file_claim_and_citation_key` back the marker-insensitivity pin it lost when the `"aa11" * 16` literal went (substitute on a line the fixture still carries);
+- and closes the class by mechanism: `tests/conftest.py` gains
+
+```python
+def must_replace(text: str, old: str, new: str, count: int = 1) -> str:
+    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly."""
+    assert old in text, f"substitution target no longer in the fixture: {old!r}"
+    return text.replace(old, new, count)
+```
+
+every surviving test in `tests/test_verify_cli.py`, `tests/test_lints.py`, `tests/test_events.py` and `tests/test_notes.py` that substitutes into fixture text uses it, and `tests/test_config_validity.py` gains a scan:
+
+```python
+def test_fixture_substitutions_cannot_become_no_ops():
+    """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
+    import ast
+
+    offenders = []
+    for name in ("test_verify_cli.py", "test_lints.py", "test_events.py", "test_notes.py"):
+        tree = ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "replace"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+                and ("\n" in node.args[0].value or ": " in node.args[0].value or "::" in node.args[0].value)
+            ):
+                offenders.append(f"{name}:{node.lineno}")
+    assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
+```
+
+(The literal shapes it flags — a line break, a `key: value`, an inline field — are the fixture-text shapes; a plain-word `.replace` in a test is not its business.)
+
 - [ ] **Step 4: Run everything; commit**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
@@ -5410,7 +5488,8 @@ git commit -m "close open points 07, 08 and 09; verify and inbox take --as-of (i
 The ack scope is derived from check, target and the note's managed-sha256;
 retraction-ack has one definition site; a human acknowledgment clears the
 failed-verification marker; every date default resolves through clock.today,
-the one reader of today's date.
+the one reader of today's date; fixture substitutions fail loudly instead of
+passing as no-ops.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests
 ```
