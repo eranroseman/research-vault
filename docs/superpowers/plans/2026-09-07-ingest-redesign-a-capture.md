@@ -4520,7 +4520,7 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads thi
 | doctor probe ids | `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`
 ```
 
-(keep the row's remaining cells as they are; `autoexport` and `staleness` leave the row here — Task 2 removed the probes, and the governance test only checks the row against the probes `scaffold.py` emits at head, so the stale entries would fail it now.)
+(keep the row's remaining cells as they are. Task 2 already dropped `autoexport` and `staleness` from this row when it deleted the probes; this task replaces the six-id row with the thirteen-id one. `tests/test_config_validity.py::test_every_doctor_probe_id_at_head_is_governed` checks the row against the probes `scaffold.py` emits at head in both directions — the check-id and reason-code tests check one direction only, registry entry without a row — so this is the one task where the suite itself fails without the row edit.)
 
 - [ ] **Step 4: Run the suite and form owners; run doctor live; commit**
 
