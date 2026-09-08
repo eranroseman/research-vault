@@ -4424,7 +4424,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `notes.read_provenance`, `frontmatter.parse`, `structure.is_excluded` (Task 6), `pathcodec.RepoPath`, `Outcome`/`Result`, the compile tool's ledger at `wiki/meta/ledgers/source-ledger.json` (`{"schema": "claude-obsidian.source-ledger.v1", "sources": {"src-…": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "content_sha256": "…", ...}}}`).
 
-- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record is also `recompile-needed — ledger <id> stale: observed <retrieved_at or ingested_at>, refresh due <refresh_due>, as of <as_of>` when the tool's own staleness predicate holds — `due is None or observed is None or observed > as_of or due < as_of`, with `observed = retrieved_at or ingested_at` and ISO instants compared by their first ten characters (spec §7 at `ac0cfd2`: the tool defines `source_is_stale` but its lint never calls it, so the vault is the only reporter, and it uses the tool's predicate so the two can never disagree about what stale means). Only `active` records are judged: the wrapper writes `unreviewed` with `refresh_due: null`, which the predicate would otherwise call stale. The vault writes no freshness field of its own (`stale_after` reconciled with `refresh_due` at `692b134`); `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
+- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key — matched by stem or by any trailing run of path segments, as Obsidian resolves `[[concepts/Foo]]`, and a trailing `.md` on the target is dropped first (this closes the implementer's Concern 7 here, since no later task owns `captured.py`); (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record is also `recompile-needed — ledger <id> stale: observed <retrieved_at or ingested_at>, refresh due <refresh_due>, as of <as_of>` when the tool's own staleness predicate holds — `due is None or observed is None or observed > as_of or due < as_of`, with `observed = retrieved_at or ingested_at` and ISO instants compared by their first ten characters (spec §7 at `ac0cfd2`: the tool defines `source_is_stale` but its lint never calls it, so the vault is the only reporter, and it uses the tool's predicate so the two can never disagree about what stale means). Only `active` records are judged: the wrapper writes `unreviewed` with `refresh_due: null`, which the predicate would otherwise call stale. The vault writes no freshness field of its own (`stale_after` reconciled with `refresh_due` at `692b134`); `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4444,7 +4444,7 @@ def _note(vault, key, item_key, *, title=None, text_key=None, sha=None):
     ]
     if text_key:
         lines.append(f'  - {{attachment-key: "{text_key}", sha256: "{sha}"}}')
-        lines.append(f'compile-input-sha256: "{sha}"')
+        lines.append('compile-input-sha256: "' + "f" * 64 + '"')  # a decoy: the structural leg compares per attachment, never this
     lines += ['---', '']
     (vault / "literatures" / f"{key}.md").write_text("\n".join(lines))
 
@@ -4482,7 +4482,7 @@ def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_v
     _note(tmp_vault, "smith2020", "SMITH001", title="Mortality decline")
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
-    (pages / "Mortality decline.md").write_text("---\ntype: source\nsources:\n  - \"[[Mortality decline]]\"\n---\n[[smith2020]] [@smith2020] [[Other page]] [[ghost2020]] [@ghost2021]\n")
+    (pages / "Mortality decline.md").write_text("---\ntype: source\nsources:\n  - \"[[Mortality decline]]\"\n---\n[[smith2020]] [@smith2020] [[Other page]] [[wiki/Other page]] [[Other page.md]] [[ghost2020]] [@ghost2021]\n")
     (tmp_vault / "wiki" / "Other page.md").write_text("---\ntype: concept\n---\n")
     outcomes = captured.lint_captured_set(tmp_vault)
     bad = sorted(o.reason for o in outcomes if o.result is Result.UNMATCHED)
@@ -4490,6 +4490,15 @@ def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_v
         "not-captured — wiki/sources/Mortality decline.md cites [@ghost2021], not in the captured set",
         "not-captured — wiki/sources/Mortality decline.md links [[ghost2020]], not a page and not in the captured set",
     ]
+
+
+def test_a_wikilink_resolves_by_a_note_alias_when_no_page_carries_the_name(tmp_vault):
+    _note(tmp_vault, "smith2020", "SMITH001", title="Mortality decline")  # aliases: ["Mortality decline"]; no page has that stem
+    page = tmp_vault / "wiki" / "sources" / "A.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("---\ntype: source\n---\n[[Mortality decline]] [[Nobody at all]]\n")
+    bad = [o.reason for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED]
+    assert bad == ["not-captured — wiki/sources/A.md links [[Nobody at all]], not a page and not in the captured set"]
 
 
 def test_structural_half_checks_locators_and_hashes(tmp_vault):
@@ -4656,13 +4665,16 @@ def _aliases(vault: Path) -> set[str]:
 
 
 def _page_names(vault: Path) -> set[str]:
+    """Every name a wikilink resolves to as a page: the stem, and each trailing path form Obsidian accepts
+    (`concepts/Foo`, `wiki/concepts/Foo` for `wiki/concepts/Foo.md`)."""
     names = set()
     for path in vault.rglob("*.md"):
         if structure.is_excluded(path, vault):
             continue
-        if path.relative_to(vault).parts[0] == "literatures":
+        parts = path.relative_to(vault).with_suffix("").parts
+        if parts[0] == "literatures":
             continue
-        names.add(path.stem)
+        names.update("/".join(parts[k:]) for k in range(len(parts)))
     return names
 
 
@@ -4684,6 +4696,8 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                                         f"not-captured — {relative} cites [@{key}], not in the captured set"))
         for match in _WIKILINK.finditer(text):
             target = match.group("target").strip()
+            if target.endswith(".md"):
+                target = target[:-3]  # Obsidian resolves [[Foo.md]] as [[Foo]]
             if target in keys or target in pages or target in aliases:
                 continue
             outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(relative)), Result.UNMATCHED,
@@ -4696,8 +4710,15 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
     if not ledger.is_file():
         return [Outcome(CHECK, LEDGER_PATH, Result.SKIPPED, "no-identifier — no source ledger")]
     try:
-        records = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError):
+        text = ledger.read_text(encoding="utf-8")
+    except OSError as error:
+        # Could not read: no verdict on content nobody saw (the same split _read_notes makes).
+        return [Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNREACHABLE, f"outage — source ledger unreadable: {error}")]
+    except UnicodeError:
+        return [Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED, "schema-violation — source ledger unreadable")]
+    try:
+        records = json.loads(text).get("sources", {})
+    except (ValueError, AttributeError):
         return [Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED, "schema-violation — source ledger unreadable")]
     written = {}
     for _data, provenance in _notes(vault):
@@ -4740,10 +4761,12 @@ def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
     entries, outcomes = _read_notes(vault)
     keys = {p.citation_key for _data, p in entries}
     outcomes += _textual(vault, keys)
-    structural = _structural(vault, as_of)
-    if not outcomes:
-        outcomes.append(Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
-    return outcomes + structural
+    outcomes += _structural(vault, as_of)
+    if all(o.result is Result.SKIPPED for o in outcomes):
+        # One verdict per run: the summary row exists only when nothing failed or was unreachable
+        # in either half, so a report never says matched and unmatched about one check at once.
+        outcomes.insert(0, Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
+    return outcomes
 ```
 
 **Capture follow-ups from Task 13's review** (deferred rows 36, 37, 38 and Task 13's concern 9; `capture.py` is this task's file, so they land here rather than reopening Task 13):
@@ -4813,6 +4836,7 @@ def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admi
     capture.capture(tmp_vault, client, ["E352DFS8"])
     fake.get("/api/users/0/items?since=0&format=versions", body={"D7EJ9FTG": 551}, headers={"Last-Modified-Version": "566"})
     fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+    fake.get("/api/users/0/items/top?format=json", body=[], headers={"Last-Modified-Version": "566"})  # /items/top excludes trashed items: the exclusion this follow-up exists for
     by_key = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
     assert by_key[0].reason.startswith("trashed — ")  # resolved through the tuple, not through /items/top
     refreshed = capture.capture(tmp_vault, client, [], refresh_all=True)
