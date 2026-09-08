@@ -6,7 +6,9 @@ surface's hash as it stands — applies only against that plan's hash, and keeps
 the applied plan under system/propagations/: the record a reader follows a key
 through and the residue lint's input (open point 12: the applied plan is the
 log). A draft edited between plan and apply changes the hash, and the apply
-refuses.
+refuses. Every mapping, whatever its source, is verified against Zotero
+before the plan exists and again before the first rename: the note's item
+must carry the new name live.
 """
 
 import datetime
@@ -21,6 +23,7 @@ from typing import NamedTuple
 from . import capture, lifecycle, notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
+from .zotero import ZoteroError
 
 PLAN_DIR = ".research-vault/propagate"
 RECORD_DIR = "system/propagations"
@@ -145,16 +148,16 @@ def plan(
     """Compute one re-key pass without touching anything (spec §3.5, decision 01)."""
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC)
+    if client is None:
+        return None, [
+            Outcome(
+                CHECK,
+                RECORD_DIR,
+                Result.UNMATCHED,
+                "schema-violation — no Zotero client to verify the mapping against",
+            )
+        ]
     if mapping is None:
-        if client is None:
-            return None, [
-                Outcome(
-                    CHECK,
-                    RECORD_DIR,
-                    Result.UNMATCHED,
-                    "schema-violation — no mapping and no Zotero client",
-                )
-            ]
         mapping, blocking = _mapping_from_linter(vault, client)
         if blocking:
             return None, blocking
@@ -186,6 +189,26 @@ def plan(
                 _refusal(
                     old,
                     f"literatures/{new}.md already exists; nothing is renamed over it",
+                )
+            )
+            continue
+        # The mapping is verified against Zotero whatever its source: the note's
+        # item must carry the new name live. A name nobody in the library holds
+        # (a --map typo) is refused here, before it can become a rename; the
+        # read sends the tuple's server id, so the wrong database is a 412.
+        client.server_id = provenance.server_id
+        try:
+            live = client.item(provenance.item_key)["data"].get("citationKey")
+        except ZoteroError as error:
+            return None, [lifecycle.blocked(CHECK, old, error)]
+        if live != new:
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    old,
+                    Result.UNMATCHED,
+                    f"mismatch — item {provenance.item_key} carries citation key "
+                    f"{live!r}, not {new!r}",
                 )
             )
             continue
@@ -306,7 +329,8 @@ def apply(
                 "mismatch — approved hash does not name this plan",
             )
         ]
-    current, outcomes = plan(vault, None, approved.mapping, now=now)
+    # Verified again, against Zotero, before anything is renamed.
+    current, outcomes = plan(vault, client, approved.mapping, now=now)
     if current is None:
         return outcomes
     current = current._replace(operation_id=approved.operation_id, date=approved.date)
@@ -332,11 +356,7 @@ def apply(
         if source.name != target.name:
             source.rename(target)
         changed = rewrite_surfaces(vault, old, new)
-        recapture = (
-            capture.capture(vault, client, [approved.item_keys[old]])
-            if client is not None
-            else []
-        )
+        recapture = capture.capture(vault, client, [approved.item_keys[old]])
         outcomes.append(
             Outcome(
                 CHECK,
