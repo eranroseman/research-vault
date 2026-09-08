@@ -17,7 +17,7 @@ from .pathcodec import RepoPath
 CHECK = "captured-set"
 LEDGER_PATH = notes.LEDGER_PATH
 _CITATION = re.compile(r"\[@(?P<key>[A-Za-z0-9_.:-]+)")
-_WIKILINK = re.compile(r"\[\[(?P<target>[^\]#|]+)")
+_WIKILINK = re.compile(r"\[\[(?P<target>[^\]\n#|]+)")
 _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 
 
@@ -110,16 +110,24 @@ def _page_names(vault: Path) -> set[str]:
 
 
 def _reportable(text: str) -> str:
-    """Decoded body text, made safe to write to the review queue.
+    """Decoded body text or path, made safe to write to the review queue.
 
-    ``surrogateescape`` keeps an undecodable byte alive as a lone surrogate. A reason
-    carrying one passes ``inbox.validate_reason`` and then raises ``UnicodeEncodeError``
-    inside ``append_entry``'s utf-8 stream — a ``ValueError``, which ``cmd_verify``
-    deliberately does not catch, so the finding would kill the run at the moment it was
-    filed. ``RepoPath`` is this repo's codec for a non-UTF-8 *path* and the target uses
-    it; body content has no such codec, so the byte is replaced rather than encoded.
+    Two faults, both of which end ``verify`` with a bare ``ValueError`` that
+    ``cmd_verify``'s except tuple deliberately excludes — a traceback, not exit 2.
+
+    ``surrogateescape`` keeps an undecodable byte alive as a lone surrogate, and a
+    reason carrying one passes ``inbox.validate_reason`` and then raises
+    ``UnicodeEncodeError`` inside ``append_entry``'s utf-8 stream. ``RepoPath`` is this
+    repo's codec for a non-UTF-8 *path* and the target uses it; body content has no such
+    codec, so the byte is replaced rather than encoded.
+
+    A line break fails earlier still: ``Outcome.__post_init__`` validates the reason at
+    construction, so an unterminated ``[[`` or a page named ``A\nB.md`` raises inside the
+    lint itself. ``notes.display_text``'s idiom is used rather than a newline strip
+    because it is total for every separator ``str.splitlines()`` honours.
     """
-    return text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+    decoded = text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+    return " ".join(decoded.split())
 
 
 def _textual(vault: Path, keys: set[str]) -> list[Outcome]:

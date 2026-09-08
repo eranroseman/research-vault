@@ -1,7 +1,7 @@
 import json
 import os
 
-from research_vault import Result, captured
+from research_vault import Result, captured, inbox
 from research_vault.pathcodec import decode_repo_path
 
 
@@ -156,7 +156,10 @@ def test_a_finding_names_the_link_as_written_and_can_be_written_to_the_queue(tmp
         if o.result is Result.UNMATCHED
     ]
     for reason in reasons:
-        reason.encode("utf-8")  # exactly what append_entry's stream does
+        # The queue enforces the row twice: Outcome/validate_reason at construction
+        # (single line, code prefix) and append_entry's utf-8 stream on the way out.
+        inbox.validate_reason(reason)
+        reason.encode("utf-8")
     assert reasons == [
         "not-captured — wiki/sources/A.md links [[Ghost.md]], not a page and not in the captured set",
         "not-captured — wiki/sources/A.md links [[Fo\ufffdo]], not a page and not in the captured set",
@@ -176,11 +179,39 @@ def test_a_page_whose_own_name_is_not_utf8_still_yields_a_writable_reason(tmp_va
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
     ]
     for row in rows:
+        inbox.validate_reason(row.reason)  # single line, code prefix
         row.reason.encode("utf-8")  # exactly what append_entry's stream does
     assert [r.reason for r in rows] == [
         "not-captured — wiki/sources/A\ufffd.md links [[Ghost]], not a page and not in the captured set"
     ]
     assert decode_repo_path(rows[0].target) == b"wiki/sources/A\xff.md"
+
+
+def test_a_line_break_in_a_link_or_a_filename_stays_one_writable_row(tmp_vault):
+    """The earlier of the two queue faults: Outcome validates the reason at
+    construction, so an unsanitised break raises out of lint_captured_set itself —
+    a bare ValueError, which cmd_verify's except tuple excludes, so it is a
+    traceback rather than exit 2. Both routes are covered: the page's own filename,
+    and a target. `\x0c` is a separator splitlines() honours that narrowing the
+    regex to `\n` would not catch, which is why _reportable collapses rather than
+    strips; the unterminated `[[` is the typo an operator actually makes, and the
+    narrowed regex keeps it from swallowing the next line as one garbage target."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A\nB.md").write_text(
+        "---\ntype: source\n---\n[[Gh\x0cost]] [[oops\nsee ]] done\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    for row in rows:
+        inbox.validate_reason(row.reason)
+        row.reason.encode("utf-8")
+    assert [r.reason for r in rows] == [
+        "not-captured — wiki/sources/A B.md links [[Gh ost]], not a page and not in the captured set",
+        "not-captured — wiki/sources/A B.md links [[oops]], not a page and not in the captured set",
+    ]
+    assert decode_repo_path(rows[0].target) == b"wiki/sources/A\nB.md"
 
 
 def test_a_root_file_named_literatures_is_still_a_page(tmp_vault):
