@@ -22,22 +22,19 @@ The catalog comes first and answers to no judgment of yours: nothing downstream 
 
 Every outcome is an answer, including the two that write nothing:
 
-| Exit | stdout        | What happened                                                                                              |
-| ---- | ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `0`  | the note path | The projection changed; the managed region was rewritten.                                                  |
-| `0`  | `NOOP`        | The projection is identical. Nothing was written. See §6 below.                                            |
-| `1`  | *(nothing)*   | Invalid citekey, citekey not in Zotero, the auto-export disagrees with Zotero, or the render was rejected. |
-| `3`  | *(nothing)*   | The auto-export could not be observed at all — an outage. Retry later.                                     |
+| Exit | stdout        | What happened                                                       |
+| ---- | ------------- | ------------------------------------------------------------------- |
+| `0`  | the note path | The projection changed; the managed region was rewritten.           |
+| `0`  | `NOOP`        | The projection is identical. Nothing was written. See §6 below.     |
+| `1`  | *(nothing)*   | Invalid citekey, citekey not in Zotero, or the render was rejected. |
 
 **Every nonzero exit files its own review record.** The CLI writes it through the same writer the `finding` verb uses, in addition to the message it prints on stderr — you never file one for a failed import yourself, and you never need to:
 
-| Failure                                   | Check id     | Result      | Reason code        |
-| ----------------------------------------- | ------------ | ----------- | ------------------ |
-| Citekey cannot name a literature note     | `citekey`    | UNMATCHED   | `schema-violation` |
-| Citekey is absent from the Zotero library | `citekey`    | UNMATCHED   | `not-admitted`     |
-| Auto-export disagrees with the library    | `autoexport` | UNMATCHED   | `mismatch`         |
-| Auto-export could not be observed         | `autoexport` | UNREACHABLE | `outage`           |
-| Render rejected (nothing was written)     | `render`     | UNMATCHED   | `schema-violation` |
+| Failure                                   | Check id  | Result    | Reason code        |
+| ----------------------------------------- | --------- | --------- | ------------------ |
+| Citekey cannot name a literature note     | `citekey` | UNMATCHED | `schema-violation` |
+| Citekey is absent from the Zotero library | `citekey` | UNMATCHED | `not-admitted`     |
+| Render rejected (nothing was written)     | `render`  | UNMATCHED | `schema-violation` |
 
 Read the stderr message back verbatim; do not summarize it as "the import failed". If stderr also carries `warning: review record refused:`, say so out loud — that means the failure has **no** durable record, and the person needs to know the queue is not carrying it.
 

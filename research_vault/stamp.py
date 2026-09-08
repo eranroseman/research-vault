@@ -19,8 +19,7 @@ cannot parse. Two shapes are stamped:
 
 Everything else is reported, never edited: a human decides those. Each
 reported path carries a reason — `"symlink"` (the path itself is a symlink;
-writing through it could escape the vault boundary, the same hazard
-`bibliography.observe_autoexport` refuses for the same reason), `"unparseable"`
+writing through it could escape the vault boundary), `"unparseable"`
 (unparseable YAML-shaped frontmatter, or frontmatter with a duplicate
 top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
 `{"type": derived, **data}` spread would silently collapse the repeats to
@@ -72,8 +71,7 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
             continue
         if path.is_symlink():
             # Refuse to write through a symlink — the target could sit
-            # outside the vault boundary entirely. Report, don't edit, same
-            # posture bibliography.observe_autoexport takes.
+            # outside the vault boundary entirely. Report, don't edit.
             reported.append((path.relative_to(vault).as_posix(), "symlink"))
             continue
         if not path.is_file():

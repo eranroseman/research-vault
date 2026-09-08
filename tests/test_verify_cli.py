@@ -40,7 +40,7 @@ def run_verify(vault_root, **kwargs):
 def _outcome(check, target, result, reason, **extra):
     if isinstance(extra.get("note_path"), str):
         extra["note_path"] = RepoPath(os.fsencode(extra["note_path"]))
-    if check in {"append-only", "staleness"} and isinstance(target, str):
+    if check == "append-only" and isinstance(target, str):
         target = RepoPath(os.fsencode(target))
     return checks.Outcome(check, target, result, reason, extra)
 
@@ -225,7 +225,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
     assert fourth["counts"]["UNMATCHED"] >= 1
 
 
-def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
+def test_target_hash_routes_safe_file_claim_and_citekey(net_vault):
     file_outcome = _outcome(
         "append-only", "log/2026-08-16.md", Result.UNMATCHED, "drift — file"
     )
@@ -233,9 +233,6 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
     )
     citekey_outcome = _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — doi")
-    stale = _outcome(
-        "staleness", "system/bibliography.json", Result.UNMATCHED, "stale — old"
-    )
     assert (
         _target_hash(net_vault, file_outcome)
         == hashlib.sha256((net_vault / "log/2026-08-16.md").read_bytes()).hexdigest()[
@@ -252,12 +249,6 @@ def test_target_hash_routes_safe_file_claim_citekey_and_staleness(net_vault):
     )
     assert _target_hash(net_vault, claim_outcome) == "aa11" * 16
     assert _target_hash(net_vault, citekey_outcome) == "aa11" * 16
-    assert (
-        _target_hash(net_vault, stale)
-        == hashlib.sha256(
-            (net_vault / "system/bibliography.json").read_bytes()
-        ).hexdigest()[:16]
-    )
     with pytest.raises(PathCodecError):
         RepoPath(b"../outside")
 
@@ -576,12 +567,6 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
     )
     monkeypatch.setattr("research_vault.verify._network_outcomes", lambda *_: [warning])
-    monkeypatch.setattr(
-        "research_vault.verify._staleness_outcome",
-        lambda *_: _outcome(
-            "staleness", "system/bibliography.json", Result.MATCHED, "matched"
-        ),
-    )
     cmd_verify(
         type("Args", (), {"vault": net_vault, "offline": False, "rw_csv": None})()
     )
@@ -654,26 +639,6 @@ def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
             ),
         )
         assert cmd_verify(args) == expected
-
-
-@pytest.mark.parametrize(
-    ("result", "reason"),
-    [
-        (Result.MATCHED, "matched"),
-        (Result.SKIPPED, "no-identifier — bibliography absent"),
-        (Result.UNMATCHED, "stale — bibliography differs or is invalid"),
-        (Result.UNREACHABLE, "outage — bibliography comparison unavailable"),
-    ],
-)
-def test_staleness_reason_reflects_its_actual_result(
-    net_vault, monkeypatch, result, reason
-):
-    monkeypatch.setattr("research_vault.bibliography.staleness", lambda *_: result)
-    monkeypatch.setattr("research_vault.verify._bibliography_entries", lambda _: [])
-    report = run_verify(net_vault, network=True, detection_date="2026-08-16")
-    staleness = next(o for o in report["outcomes"] if o.check == "staleness")
-    assert staleness.result is result
-    assert staleness.reason == reason
 
 
 def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
@@ -1219,12 +1184,6 @@ def _isolate_network_verify(monkeypatch, outcomes):
     monkeypatch.setattr(
         "research_vault.verify._network_outcomes", lambda *_args: list(outcomes)
     )
-    monkeypatch.setattr(
-        "research_vault.verify._staleness_outcome",
-        lambda *_args: _outcome(
-            "staleness", "system/bibliography.json", Result.MATCHED, "matched"
-        ),
-    )
     for name in (
         "lint_append_only",
         "lint_claim_immutability",
@@ -1545,7 +1504,7 @@ def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNMATCHED staleness path-bytes:system/bibliography.json" in output
+    assert "UNMATCHED citekey path-bytes:system/bibliography.json" in output
     assert "schema-violation" in output
     assert "Traceback" not in output
 
@@ -1559,7 +1518,7 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNREACHABLE staleness path-bytes:system/bibliography.json" in output
+    assert "UNREACHABLE citekey path-bytes:system/bibliography.json" in output
 
 
 def test_real_verify_cli_states_rw_leg_absence_without_rw_csv(net_vault, capsys):
@@ -1838,6 +1797,9 @@ def test_invalid_publication_flags_or_inside_manifest_exit_two_before_mutation(
 
 
 def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault):
+    # A DOI-less entry is what still exercises the offline synthetic path
+    # (`_offline_network_outcomes`) now that the staleness leg is retired.
+    bibliography.write(tmp_vault, [{"id": "smith2020", "title": "Mortality decline"}])
     before = _vault_bytes(tmp_vault)
 
     report = run_verify(tmp_vault, network=False, detection_date="2026-08-16")

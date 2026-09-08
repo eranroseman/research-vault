@@ -7,7 +7,6 @@ neutralization rules and the emitter's round-trip self-check.
 """
 
 import argparse
-import types
 
 import pytest
 
@@ -31,24 +30,6 @@ def _item(**overrides):
     base = {"id": "smith2020", "title": "Mortality decline"}
     base.update(overrides)
     return base
-
-
-@pytest.fixture(autouse=True)
-def matched_autoexport_observer(monkeypatch):
-    """Import-level tests exercise rendering, not the auto-export observer."""
-    import research_vault.__main__ as cli
-
-    monkeypatch.setattr(
-        cli.bibliography,
-        "observe_autoexport",
-        lambda *args, **kwargs: types.SimpleNamespace(
-            result=Result.MATCHED,
-            detail="genuine BBT output",
-            staleness=Result.MATCHED,
-            staleness_detail="current",
-        ),
-        raising=False,
-    )
 
 
 # --- Display class: collapse, never reject -------------------------------

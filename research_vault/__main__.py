@@ -41,9 +41,9 @@ from .verify import (
 from .zotero import ZoteroClient, ZoteroError
 
 QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
-DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt", "autoexport"}
-DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "autoexport"}
-DOCTOR_WARN_ONLY = {"staleness", "remote", "backup"}
+DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt"}
+DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt"}
+DOCTOR_WARN_ONLY = {"remote", "backup"}
 
 
 def _text(value) -> str:
@@ -207,19 +207,6 @@ def cmd_import_note(args):
     item = matches[0]
     item["id"] = args.citekey
 
-    observed = bibliography.observe_autoexport(vault, client)
-    if observed.result is not Result.MATCHED:
-        print(observed.detail, file=sys.stderr)
-        unmatched = observed.result is Result.UNMATCHED
-        _hold(
-            vault,
-            "autoexport",
-            args.citekey,
-            observed.result,
-            _hold_reason("mismatch" if unmatched else "outage", observed.detail),
-        )
-        return 1 if unmatched else 3
-
     existing = _read_note_text(path) if path.is_file() else None
     hashes = []
     annotations = []
@@ -337,17 +324,6 @@ def cmd_backfill_selectors(args):
             != 0
         )
     return int(bool(failures))
-
-
-def cmd_staleness(args):
-    result = bibliography.staleness(args.vault, ZoteroClient(base=args.base))
-    print(result.value)
-    return {
-        Result.MATCHED: 0,
-        Result.SKIPPED: 0,
-        Result.UNMATCHED: 1,
-        Result.UNREACHABLE: 3,
-    }[result]
 
 
 def cmd_verify(args):
@@ -807,8 +783,6 @@ def main(argv=None):
     import_note = sub.add_parser("import-note", parents=[common])
     import_note.add_argument("citekey")
     import_note.add_argument("--vault", required=True)
-    staleness = sub.add_parser("staleness", parents=[common])
-    staleness.add_argument("--vault", required=True)
     backfill = sub.add_parser("backfill-selectors", parents=[common])
     backfill.add_argument("--vault", required=True)
     verify = sub.add_parser("verify", parents=[common])
@@ -891,7 +865,6 @@ def main(argv=None):
     return {
         "probe": cmd_probe,
         "import-note": cmd_import_note,
-        "staleness": cmd_staleness,
         "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,

@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from research_vault import Result, bibliography, scaffold
+from research_vault import Result, scaffold
 from research_vault.zotero import ZoteroError
 
 PROBE_NAMES = [
@@ -12,14 +12,12 @@ PROBE_NAMES = [
     "machine-config",
     "zotero",
     "bbt",
-    "autoexport",
-    "staleness",
     "remote",
     "backup",
 ]
-HARD_UNMATCHED = ["tree", "machine-config", "bbt", "autoexport"]
-HARD_UNREACHABLE = ["zotero", "bbt", "autoexport"]
-WARN_ONLY = ["staleness", "remote", "backup"]
+HARD_UNMATCHED = ["tree", "machine-config", "bbt"]
+HARD_UNREACHABLE = ["zotero", "bbt"]
+WARN_ONLY = ["remote", "backup"]
 
 
 def _probes(**states):
@@ -107,19 +105,11 @@ def _doctor_vault(tmp_vault, *, backup="/backup"):
     return tmp_vault
 
 
-def test_doctor_returns_exact_eight_tuple_probes_and_repairs_tree(
-    tmp_vault, monkeypatch
-):
+def test_doctor_returns_exact_six_tuple_probes_and_repairs_tree(tmp_vault):
     vault = _doctor_vault(tmp_vault)
     (vault / "projects").rmdir()
-    observed = bibliography.AutoexportObservation(
-        Result.MATCHED, "genuine BBT output", Result.MATCHED, "current"
-    )
-    monkeypatch.setattr(
-        scaffold.bibliography, "observe_autoexport", lambda *a, **k: observed
-    )
 
-    probes = scaffold.doctor(vault, client=ReadyClient(), settle_seconds=0)
+    probes = scaffold.doctor(vault, client=ReadyClient())
 
     assert [probe.check for probe in probes] == PROBE_NAMES
     assert all(isinstance(probe, tuple) and len(probe) == 3 for probe in probes)
@@ -129,75 +119,47 @@ def test_doctor_returns_exact_eight_tuple_probes_and_repairs_tree(
     assert "9.0.55" in probes[2].reason
 
 
-def test_doctor_ready_failure_short_circuits_bbt_observation_but_keeps_all_probes(
-    tmp_vault, monkeypatch
-):
+def test_doctor_ready_failure_short_circuits_bbt_but_keeps_all_probes(tmp_vault):
     vault = _doctor_vault(tmp_vault)
 
     class DownClient:
         def ready(self):
             raise ZoteroError("connection refused")
 
-    monkeypatch.setattr(
-        scaffold.bibliography,
-        "observe_autoexport",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not observe")),
-    )
-
-    probes = scaffold.doctor(vault, client=DownClient(), settle_seconds=0)
+    probes = scaffold.doctor(vault, client=DownClient())
     by_check = {probe.check: probe for probe in probes}
 
     assert [probe.check for probe in probes] == PROBE_NAMES
     assert by_check["zotero"].result is Result.UNREACHABLE
-    for name in ("bbt", "autoexport", "staleness"):
-        assert by_check[name].result is Result.UNREACHABLE
-        assert by_check[name].reason == "zotero down"
+    assert by_check["bbt"].result is Result.UNREACHABLE
+    assert by_check["bbt"].reason == "zotero down"
     assert [probe.check for probe in probes[-2:]] == [
         "remote",
         "backup",
     ]
 
 
-def test_doctor_missing_bbt_skips_observation_with_prerequisite_detail(
-    tmp_vault, monkeypatch
-):
+def test_doctor_missing_bbt_reports_unmatched(tmp_vault):
     vault = _doctor_vault(tmp_vault)
-    monkeypatch.setattr(
-        scaffold.bibliography,
-        "observe_autoexport",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not observe")),
-    )
 
-    probes = scaffold.doctor(
-        vault, client=ReadyClient({"zotero": "9.0.6"}), settle_seconds=0
-    )
+    probes = scaffold.doctor(vault, client=ReadyClient({"zotero": "9.0.6"}))
     by_check = {probe.check: probe for probe in probes}
 
     assert by_check["bbt"].result is Result.UNMATCHED
-    for name in ("autoexport", "staleness"):
-        assert by_check[name].result is Result.SKIPPED
-        assert "Better BibTeX" in by_check[name].reason
-        assert "prerequisite" in by_check[name].reason
 
 
-def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault, monkeypatch):
+def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault):
     vault = _doctor_vault(tmp_vault)
-    monkeypatch.setattr(
-        scaffold.bibliography,
-        "observe_autoexport",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not observe")),
-    )
 
     probes = scaffold.doctor(
         vault,
         client=ReadyClient({"zotero": "9.0.6", "betterbibtex": "  "}),
-        settle_seconds=0,
     )
 
     assert {probe.check: probe.result for probe in probes}["bbt"] is Result.UNMATCHED
 
 
-def test_doctor_scaffold_failure_still_returns_all_eight_probes(tmp_path, monkeypatch):
+def test_doctor_scaffold_failure_still_returns_all_six_probes(tmp_path, monkeypatch):
     vault = tmp_path / "missing-vault"
     monkeypatch.setattr(
         scaffold,
@@ -205,198 +167,20 @@ def test_doctor_scaffold_failure_still_returns_all_eight_probes(tmp_path, monkey
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError("cannot create")),
     )
 
-    probes = scaffold.doctor(
-        vault, client=ReadyClient({"zotero": "9.0.6"}), settle_seconds=0
-    )
+    probes = scaffold.doctor(vault, client=ReadyClient({"zotero": "9.0.6"}))
 
     assert [probe.check for probe in probes] == PROBE_NAMES
     assert probes[0].result is Result.UNMATCHED
 
 
-def _observed_probes(vault, monkeypatch, result, detail):
-    calls = []
-    observed = bibliography.AutoexportObservation(
-        result, detail, Result.UNMATCHED, "cached stale detail"
-    )
-
-    def observe(*args, **kwargs):
-        calls.append((args, kwargs))
-        return observed
-
-    monkeypatch.setattr(scaffold.bibliography, "observe_autoexport", observe)
-    probes = scaffold.doctor(vault, client=ReadyClient(), settle_seconds=0)
-    assert len(calls) == 1
-    return {probe.check: probe for probe in probes}
-
-
-def test_doctor_reports_an_unreachable_observation_verbatim_with_cached_staleness(
-    tmp_vault, monkeypatch
-):
-    """Dressing a Zotero outage up as repair guidance must fail."""
-    vault = _doctor_vault(tmp_vault)
-
-    by_check = _observed_probes(
-        vault, monkeypatch, Result.UNREACHABLE, "raw BBT detail"
-    )
-
-    assert (by_check["autoexport"].result, by_check["autoexport"].reason) == (
-        Result.UNREACHABLE,
-        "raw BBT detail",
-    )
-    assert (by_check["staleness"].result, by_check["staleness"].reason) == (
-        Result.UNMATCHED,
-        "cached stale detail",
-    )
-
-
-def test_doctor_reports_an_unmatched_observation_verbatim_with_cached_staleness(
-    tmp_vault, monkeypatch
-):
-    """Re-composing or dropping the observer's repair guidance must fail."""
-    vault = _doctor_vault(tmp_vault)
-    detail = (
-        "bibliography auto-export absent; a person must create or fix the "
-        "whole-library Better CSL JSON auto-export in BBT Preferences with "
-        "target C:\\live\\x\\bibliography.json"
-    )
-
-    by_check = _observed_probes(vault, monkeypatch, Result.UNMATCHED, detail)
-
-    assert (by_check["autoexport"].result, by_check["autoexport"].reason) == (
-        Result.UNMATCHED,
-        detail,
-    )
-    assert (by_check["staleness"].result, by_check["staleness"].reason) == (
-        Result.UNMATCHED,
-        "cached stale detail",
-    )
-    assert by_check["tree"].result is Result.MATCHED
-    assert (by_check["remote"].result, by_check["remote"].reason) == (
-        Result.MATCHED,
-        "origin",
-    )
-
-
-def test_doctor_probe_five_carries_the_observer_repair_guidance(tmp_vault, monkeypatch):
-    """Leaving doctor's autoexport probe without the BBT Preferences repair fails."""
-    vault = _doctor_vault(tmp_vault)
-    monkeypatch.setattr(bibliography.paths, "_running_in_wsl", lambda: False)
-
-    class ExportingClient(ReadyClient):
-        def export_csl(self, citekeys):
-            assert citekeys is None
-            return [{"id": "smith2020", "title": "Mortality decline"}]
-
-    probes = {
-        probe.check: probe
-        for probe in scaffold.doctor(vault, ExportingClient(), settle_seconds=0)
-    }
-
-    assert probes["tree"].result is Result.MATCHED
-    assert probes["autoexport"].result is Result.UNMATCHED
-    assert probes["autoexport"].reason == (
-        "bibliography auto-export absent; a person must create or fix the "
-        "whole-library Better CSL JSON auto-export in BBT Preferences with "
-        f"target {vault / bibliography.BIB_PATH}"
-    )
-    assert (probes["staleness"].result, probes["staleness"].reason) == (
-        Result.UNMATCHED,
-        "bibliography auto-export absent",
-    )
-    assert not (vault / bibliography.BIB_PATH).exists()
-
-
-def test_cmd_doctor_post_commit_git_read_oserror_exits_three_without_traceback(
-    tmp_vault, monkeypatch, capsys
-):
-    import research_vault.__main__ as cli
-
-    vault = _doctor_vault(tmp_vault)
-    items = [{"id": "smith2020", "title": "Mortality decline"}]
-    (vault / bibliography.BIB_PATH).write_text(json.dumps(items))
-
-    class ObservedClient(ReadyClient):
-        def export_csl(self, citekeys):
-            assert citekeys is None
-            return items
-
-    real_run = bibliography.subprocess.run
-
-    def fail_post_commit_read(command, *args, **kwargs):
-        if command == ["git", "show", f"HEAD:{bibliography.BIB_PATH}"]:
-            raise OSError("git unavailable")
-        return real_run(command, *args, **kwargs)
-
-    client = ObservedClient()
-    monkeypatch.setattr(cli, "ZoteroClient", lambda base: client)
-    monkeypatch.setattr(bibliography.subprocess, "run", fail_post_commit_read)
-
-    code = cli.cmd_doctor(argparse.Namespace(vault=str(vault), base="http://unused"))
-
-    captured = capsys.readouterr()
-    lines = captured.out.splitlines()
-    assert code == 3
-    assert len(lines) == 8
-    assert [line.split()[1] for line in lines] == PROBE_NAMES
-    assert any(
-        line.startswith("UNREACHABLE autoexport") and "git unavailable" in line
-        for line in lines
-    )
-    assert any(line.startswith("MATCHED staleness") for line in lines)
-    assert captured.err == ""
-
-
-def test_cmd_doctor_target_read_oserror_exits_three_without_traceback(
-    tmp_vault, monkeypatch, capsys
-):
-    import research_vault.__main__ as cli
-
-    vault = _doctor_vault(tmp_vault)
-    items = [{"id": "smith2020", "title": "Mortality decline"}]
-    (vault / bibliography.BIB_PATH).write_text(json.dumps(items))
-
-    class ObservedClient(ReadyClient):
-        def export_csl(self, citekeys):
-            assert citekeys is None
-            return items
-
-    client = ObservedClient()
-    monkeypatch.setattr(cli, "ZoteroClient", lambda base: client)
-    monkeypatch.setattr(
-        bibliography.os,
-        "fdopen",
-        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("target read denied")),
-    )
-
-    code = cli.cmd_doctor(argparse.Namespace(vault=str(vault), base="http://unused"))
-
-    captured = capsys.readouterr()
-    lines = captured.out.splitlines()
-    assert code == 3
-    assert len(lines) == 8
-    assert [line.split()[1] for line in lines] == PROBE_NAMES
-    assert any(
-        line.startswith("UNREACHABLE autoexport") and "target read denied" in line
-        for line in lines
-    )
-    assert captured.err == ""
-
-
-def test_doctor_classifies_machine_remote_and_backup_conditions(tmp_vault, monkeypatch):
+def test_doctor_classifies_machine_remote_and_backup_conditions(tmp_vault):
     vault = _doctor_vault(tmp_vault, backup="")
     subprocess.run(["git", "remote", "remove", "origin"], cwd=vault, check=True)
     (vault / ".research-vault" / "machine.json").write_text(
         '{"mailto":"you@example.edu","zotero_backup":""}'
     )
-    monkeypatch.setattr(
-        scaffold.bibliography,
-        "observe_autoexport",
-        lambda *a, **k: bibliography.AutoexportObservation(
-            Result.MATCHED, "ok", Result.MATCHED, "ok"
-        ),
-    )
 
-    probes = scaffold.doctor(vault, client=ReadyClient(), settle_seconds=0)
+    probes = scaffold.doctor(vault, client=ReadyClient())
     by_check = {probe.check: probe for probe in probes}
 
     assert by_check["machine-config"].result is Result.UNMATCHED
@@ -435,4 +219,4 @@ def test_doctor_base_routes_before_and_after_subcommand(
 
     assert cli.main(argv) == 0
     assert bases == [expected]
-    assert len(capsys.readouterr().out.splitlines()) == 8
+    assert len(capsys.readouterr().out.splitlines()) == 6

@@ -1,48 +1,19 @@
-"""The live observation drill: doctor against real Zotero/BBT, registration-free.
+"""The live drill's shared vault-provisioning helper.
 
-research-vault never registers an auto-export; a person creates the whole-library
-Better CSL JSON auto-export in BBT Preferences. The drill therefore observes an
-absent auto-export against a throwaway vault. The MATCHED end-to-end leg —
-genuine BBT output observed, one real item imported, rerun to NOOP — is
-deferred by author decision 2026-08-20 because no human-created auto-export
-points at a throwaway vault.
-
-`RV_LIVE=1` alone means "run everything that can honestly run on this
-machine". The end-to-end legs that need genuine BBT output — the import and
-staleness legs in `test_cli_live.py` — additionally read
-`RV_LIVE_AUTOEXPORT_VAULT`, the absolute path of a vault a person has
-already pointed a whole-library Better CSL JSON auto-export at in BBT
-Preferences. Unset, those legs skip aloud naming that human step; they never
-fabricate the export, and research-vault still writes nothing to it.
+`research_vault` never registers a Better BibTeX auto-export; that was the
+now-retired doctor probe's whole point, and no replacement watches for one.
+This module keeps the throwaway-vault-under-a-synthetic-Git-identity helper
+that other live drills build on.
 """
 
-import argparse
 import json
 import subprocess
 from pathlib import Path
 
-import pytest
+from research_vault import scaffold
 
-import research_vault.__main__ as cli
-from research_vault import Result, bibliography, paths, scaffold
-from research_vault.zotero import ZoteroClient
-
-REPO = Path(__file__).resolve().parents[1]
 DRILL_USER_NAME = "research-vault-live-drill"
 DRILL_USER_EMAIL = "live-drill@example.invalid"
-SETTLE_SECONDS = 2
-
-
-class RecordingClient(ZoteroClient):
-    """A real Zotero/BBT client that records every JSON-RPC method it sends."""
-
-    def __init__(self):
-        super().__init__()
-        self.rpc_methods: list[str] = []
-
-    def _rpc(self, method, params):
-        self.rpc_methods.append(method)
-        return super()._rpc(method, params)
 
 
 def _drill_vault(tmp_path: Path) -> Path:
@@ -92,56 +63,3 @@ def test_drill_vault_commits_under_the_synthetic_local_identity(tmp_path):
 
     assert author == f"{DRILL_USER_NAME} <{DRILL_USER_EMAIL}>"
     assert DRILL_USER_EMAIL not in global_identity
-
-
-@pytest.mark.live
-def test_live_doctor_reports_the_absent_human_created_auto_export(
-    tmp_path, monkeypatch, capsys
-):
-    """Silently passing, registering, or writing the target must fail."""
-    vault = _drill_vault(tmp_path)
-    target = vault / bibliography.BIB_PATH
-    host_target = paths.to_bbt_host(target)
-    client = RecordingClient()
-
-    probes = {
-        probe.check: probe
-        for probe in scaffold.doctor(vault, client, settle_seconds=SETTLE_SECONDS)
-    }
-
-    assert probes["tree"].result is Result.MATCHED
-    assert probes["machine-config"].result is Result.MATCHED
-    assert probes["zotero"].result is Result.MATCHED
-    assert "zotero=" in probes["zotero"].reason
-    assert probes["bbt"].result is Result.MATCHED
-    assert f"betterbibtex={probes['bbt'].reason}" in probes["zotero"].reason
-    assert probes["autoexport"].result is Result.UNMATCHED
-    assert host_target in probes["autoexport"].reason
-    assert (
-        "create or fix the whole-library Better CSL JSON auto-export in BBT Preferences"
-        in probes["autoexport"].reason
-    )
-    assert not target.exists()
-    assert [method for method in client.rpc_methods if "autoexport" in method] == []
-
-    monkeypatch.setattr(cli, "ZoteroClient", lambda base: client)
-    code = cli.cmd_doctor(
-        argparse.Namespace(vault=str(vault), base="http://localhost:23119")
-    )
-    printed = capsys.readouterr()
-
-    assert code == 1
-    assert printed.err == ""
-    lines = printed.out.splitlines()
-    assert [
-        line
-        for line in lines
-        if line.startswith("UNMATCHED autoexport")
-        and host_target in line
-        and "BBT Preferences" in line
-    ]
-    assert [
-        line for line in lines if line.startswith("warn:") and " staleness " in line
-    ]
-    assert not target.exists()
-    assert [method for method in client.rpc_methods if "autoexport" in method] == []

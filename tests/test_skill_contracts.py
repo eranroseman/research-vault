@@ -207,8 +207,8 @@ def _emitted_check_ids() -> set[str]:
     constant. ``inbox.CHECK_IDS`` is the *registry* — the boundary the
     `finding` verb enforces — and ``inbox.py``'s own comment records that the
     deterministic pipeline legitimately files ids that registry does not
-    carry (``staleness``, ``append-only``, ``claim-immutability``,
-    ``published-drift``). So the registry alone would flag correct prose, and
+    carry (``append-only``, ``claim-immutability``, ``published-drift``). So
+    the registry alone would flag correct prose, and
     the AST is the only honest source for what a `verify` run can emit. Same
     technique and same reason as ``_probe_ids`` in ``test_config_validity``.
 
@@ -249,10 +249,10 @@ def _known_check_ids() -> set[str]:
     """Every check id the code knows, from all three of its code-side sources.
 
     The emitted set and the registry overlap but neither contains the other:
-    the pipeline emits four ids the registry does not carry, and the registry
-    carries five (``publish``, ``factcheck``, ``autoexport``, ``render``,
-    ``integrate``) that only the `finding` verb ever files — skills name
-    those in prose too, so an emitted-only universe would fail correct prose.
+    the pipeline emits three ids the registry does not carry, and the registry
+    carries four (``publish``, ``factcheck``, ``render``, ``integrate``) that
+    only the `finding` verb ever files — skills name those in prose too, so
+    an emitted-only universe would fail correct prose.
     ``REPEATABLE_ACT_CHECKS`` adds ``publish-gate``, filed by the Stop hook.
     """
     return (
@@ -371,7 +371,6 @@ def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
     # The four the registry does not carry are the whole reason this is an AST
     # scan rather than `inbox.CHECK_IDS`; losing them is losing the point.
     assert {
-        "staleness",
         "append-only",
         "claim-immutability",
         "published-drift",

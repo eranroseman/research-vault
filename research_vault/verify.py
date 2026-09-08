@@ -34,7 +34,6 @@ from .pathcodec import (
     decode_repo_path,
     encode_repo_path,
 )
-from .zotero import ZoteroClient
 
 DEFAULT_BASE = "http://localhost:23119"
 _OMITTED_BIBLIOGRAPHY = object()
@@ -637,22 +636,6 @@ def _bibliography_entries(bib):
     return [bib[citekey] for citekey in sorted(bib)]
 
 
-def _staleness_outcome(vault_root, base=DEFAULT_BASE):
-    result = bibliography.staleness(vault_root, ZoteroClient(base=base))
-    reasons = {
-        Result.MATCHED: "matched",
-        Result.SKIPPED: "no-identifier — bibliography absent",
-        Result.UNMATCHED: "stale — bibliography differs or is invalid",
-        Result.UNREACHABLE: "outage — bibliography comparison unavailable",
-    }
-    return checks.Outcome(
-        "staleness",
-        RepoPath(os.fsencode(bibliography.BIB_PATH)),
-        result,
-        reasons[result],
-    )
-
-
 def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
     """Produce DOI/metadata and one reduced update-notice outcome."""
     outcomes = []
@@ -916,12 +899,18 @@ def _plan_state(
     network=True,
     detection_date=None,
     rw_csv=None,
-    base=DEFAULT_BASE,
+    _base=DEFAULT_BASE,
     *,
     repository_root=None,
     snapshots,
 ):
-    """Compute one complete projection inside a materialized candidate."""
+    """Compute one complete projection inside a materialized candidate.
+
+    ``_base`` is unread now that the staleness leg (its only consumer) is
+    retired; kept on the signature and underscore-prefixed rather than
+    dropped, since ``verify_state`` still forwards it positionally and a
+    later task's network checks are expected to read it again.
+    """
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
     detection_date = (
@@ -939,25 +928,12 @@ def _plan_state(
         )
         raw.append(
             checks.Outcome(
-                "staleness",
+                "citekey",
                 RepoPath(os.fsencode(bibliography.BIB_PATH)),
                 error.result,
                 reason,
             )
         )
-    else:
-        if network:
-            raw.append(_staleness_outcome(vault, base))
-        else:
-            raw.append(
-                checks.Outcome(
-                    "staleness",
-                    RepoPath(os.fsencode(bibliography.BIB_PATH)),
-                    Result.UNREACHABLE,
-                    "outage — network disabled",
-                    {"synthetic_offline": True},
-                )
-            )
     note_files = [
         path
         for folder in ("literatures", "synthesis", "projects")

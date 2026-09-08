@@ -1,12 +1,11 @@
 """The publish surface: gate-flag verbs, dispositions, and the ack verb (spec §6).
 
-Every vault built here is deliberately bibliography-free (or points its
-Zotero base at a dead port), so the publish gate runs its real
-network-capable transaction without ever leaving the machine: absent
-`system/bibliography.json` means no staleness probe and no bibliography
-entries to route through Crossref. The disposition verbs therefore need no
-``--offline`` escape hatch — spec §6 forbids synthetic offline outcomes from
-minting trust, and one does not exist to be misused.
+Every vault built here is deliberately bibliography-free, so the publish gate
+runs its real network-capable transaction without ever leaving the machine:
+absent `system/bibliography.json` means no bibliography entries to route
+through Crossref. The disposition verbs therefore need no ``--offline``
+escape hatch — spec §6 forbids synthetic offline outcomes from minting
+trust, and one does not exist to be misused.
 """
 
 import datetime as datetime_lib
@@ -133,15 +132,6 @@ def green_vault(tmp_path):
 def blocked_vault(tmp_path):
     """A vault blocked by a closing check: a citekey outside the bibliography."""
     return _build_vault(tmp_path, GHOST_CLAIM)
-
-
-@pytest.fixture
-def unreachable_vault(tmp_path):
-    """A vault whose only non-MATCHED result is an outage — publishing waits."""
-    return _build_vault(tmp_path, UNCITED_CLAIM, bibliography=[])
-
-
-DEAD_BASE = "http://127.0.0.1:1/"
 
 
 # --- gate flag -------------------------------------------------------------
@@ -293,24 +283,6 @@ def test_mark_published_refuses_a_blocked_gate_and_leaves_the_gate_armed(
     assert _tags(blocked_vault) == []
     assert _head(blocked_vault) == before
     assert (blocked_vault / FLAG).exists()
-
-
-def test_mark_published_waits_when_the_gate_is_unreachable(unreachable_vault, capsys):
-    code = main(
-        [
-            "mark-published",
-            "brief",
-            "--vault",
-            str(unreachable_vault),
-            "--base",
-            DEAD_BASE,
-        ]
-    )
-
-    assert code == 3
-    assert "UNREACHABLE staleness" in capsys.readouterr().out
-    assert _status(unreachable_vault) == "draft"
-    assert _tags(unreachable_vault) == []
 
 
 def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(

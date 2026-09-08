@@ -10,17 +10,6 @@ research_vault/__main__.py::func/cmd_search_log::args.source is None or args.hit
 research_vault/__main__.py::func/cmd_verify::True -> False
 research_vault/__main__.py::func/main::True -> False
 research_vault/appendlog.py::func/_sync_directory::0 -> 1
-research_vault/bibliography.py::func/_open_parent_chain::0 -> 1
-research_vault/bibliography.py::func/_open_parent_chain::1 -> 0
-research_vault/bibliography.py::func/_poll_window::clock() >= deadline -> clock() > deadline
-research_vault/bibliography.py::func/_poll_window::deadline - clock() -> deadline + clock()
-research_vault/bibliography.py::func/_poll_window::remaining <= 0 -> remaining < 0
-research_vault/bibliography.py::func/_refresh_live_index_lock::0 -> 1
-research_vault/bibliography.py::func/_repair_guidance::state.result is not Result.UNMATCHED or not state.contained -> state.result is not Result.UNMATCHED and not state.contained
-research_vault/bibliography.py::func/_rollback_head::True -> False
-research_vault/bibliography.py::func/_target_state::0 -> 1
-research_vault/bibliography.py::func/_target_state::not stat.S_ISREG(opened_stat.st_mode) or ( path_stat.st_dev, path_stat.st_ino, ) != (opened_stat.st_dev, opened_stat.st_ino) -> not stat.S_ISREG(opened_stat.st_mode) and ( path_stat.st_dev, path_stat.st_ino, ) != (opened_stat.st_dev, opened_stat.st_ino)
-research_vault/bibliography.py::func/observe_autoexport::boundary is None or not captured.contained -> boundary is None and not captured.contained
 research_vault/checks.py::func/_arxiv_identifier::not identifier or re.fullmatch(r"[a-z0-9./-]+", identifier) is None -> not identifier and re.fullmatch(r"[a-z0-9./-]+", identifier) is None
 research_vault/checks.py::func/_arxiv_identity::parts.scheme not in {"http", "https"} or parts.netloc.casefold() != "arxiv.org" -> parts.scheme not in {"http", "https"} and parts.netloc.casefold() != "arxiv.org"
 research_vault/checks.py::func/_arxiv_version_outcome::local_version is None or re.fullmatch(r"v[1-9]\d*", local_version) is None -> local_version is None and re.fullmatch(r"v[1-9]\d*", local_version) is None
@@ -106,8 +95,6 @@ research_vault/quotes.py::func/levenshtein_ratio::1 -> 0
 research_vault/quotes.py::func/levenshtein_ratio::not a and not b -> not a or not b
 research_vault/scaffold.py::func/_add_empty_root_sentinels::False -> True
 research_vault/scaffold.py::func/_git::True -> False
-research_vault/scaffold.py::func/_okf_probe::has_day_files and not (vault / "log.md").exists() -> has_day_files or not (vault / "log.md").exists()
-research_vault/scaffold.py::func/_okf_probe::log_dir.is_dir() and any(log_dir.glob("*.md")) -> log_dir.is_dir() or any(log_dir.glob("*.md"))
 research_vault/scaffold.py::func/_preflight_conflicts::with_ci and not (vault / ".github" / "workflows" / "verify.yml").exists() -> with_ci or not (vault / ".github" / "workflows" / "verify.yml").exists()
 research_vault/scaffold.py::func/_preflight_conflicts::with_rw_ci and not (vault / ".github" / "workflows" / "rw-batch.yml").exists() -> with_rw_ci or not (vault / ".github" / "workflows" / "rw-batch.yml").exists()
 research_vault/scaffold.py::func/_prepare_repository::0 -> 1

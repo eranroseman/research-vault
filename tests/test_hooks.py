@@ -1913,11 +1913,6 @@ def test_stop_gate_matches_direct_publish_state_and_effects(
     root = tmp_path_factory.mktemp("stop-publish-integration")
     direct_vault = shutil.copytree(fixture_vault, root / "direct")
     hook_vault = shutil.copytree(fixture_vault, root / "hook")
-    monkeypatch.setattr(
-        verify.bibliography,
-        "staleness",
-        lambda *_args, **_kwargs: Result.MATCHED,
-    )
     monkeypatch.setattr(verify, "_network_outcomes", lambda *_args: [])
 
     _report, effective, _hashes, warning_effective = verify.verify_state(

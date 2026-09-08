@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, bibliography, okf
+from . import Result, okf
 from .zotero import ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
@@ -319,13 +319,8 @@ def _backup_probe(config: dict) -> Probe:
     )
 
 
-def doctor(
-    vault_root,
-    client=None,
-    settle_seconds=60,
-    poll_interval=1,
-) -> list[Probe]:
-    """Repair the scoped vault substrate and return its eight ordered probes."""
+def doctor(vault_root, client=None) -> list[Probe]:
+    """Repair the scoped vault substrate and return its six ordered probes."""
     vault = Path(vault_root)
     try:
         scaffold_vault(vault)
@@ -352,8 +347,6 @@ def doctor(
             [
                 Probe("zotero", Result.UNREACHABLE, str(error)),
                 Probe("bbt", Result.UNREACHABLE, "zotero down"),
-                Probe("autoexport", Result.UNREACHABLE, "zotero down"),
-                Probe("staleness", Result.UNREACHABLE, "zotero down"),
             ]
         )
     else:
@@ -363,44 +356,10 @@ def doctor(
         probes.append(Probe("zotero", Result.MATCHED, version_detail))
         bbt_version = versions.get("betterbibtex")
         if not isinstance(bbt_version, str) or not bbt_version.strip():
-            probes.extend(
-                [
-                    Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing"),
-                    Probe(
-                        "autoexport",
-                        Result.SKIPPED,
-                        "missing Better BibTeX prerequisite",
-                    ),
-                    Probe(
-                        "staleness",
-                        Result.SKIPPED,
-                        "missing Better BibTeX prerequisite",
-                    ),
-                ]
+            probes.append(
+                Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")
             )
         else:
             probes.append(Probe("bbt", Result.MATCHED, bbt_version.strip()))
-            observed = bibliography.observe_autoexport(
-                vault,
-                client,
-                settle_seconds=settle_seconds,
-                poll_interval=poll_interval,
-            )
-            probes.extend(
-                [
-                    Probe("autoexport", observed.result, observed.detail),
-                    Probe(
-                        "staleness",
-                        observed.staleness,
-                        observed.staleness_detail,
-                    ),
-                ]
-            )
-
-    probes.extend(
-        [
-            _remote_probe(vault),
-            _backup_probe(config),
-        ]
-    )
+    probes.extend([_remote_probe(vault), _backup_probe(config)])
     return probes

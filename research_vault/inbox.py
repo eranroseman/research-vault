@@ -31,7 +31,6 @@ REASON_CODES = frozenset(
         "not-admitted",
         "not-imported",
         "outage",
-        "stale",
         "drift",
         "disputed-claim",
         "superseded-note",
@@ -46,13 +45,13 @@ REASON_CODES = frozenset(
 )
 # The governed check-id registry (terminology §4.4). ``append_entry`` itself
 # stays silent on check ids — the deterministic pipeline (verify.py, lints.py)
-# legitimately files ids this registry does not carry (``staleness``,
-# ``append-only``, ``claim-immutability``, ``published-drift``,
-# ``publish-gate``), so validating here would break it. The `finding` CLI
-# verb is the boundary where this registry is actually enforced: it is the
-# only writer that takes a check id from outside the process, so it is the
-# only place a typo or an unregistered id can enter — including
-# ``import-note``'s own hold wiring, which writes through that same verb.
+# legitimately files ids this registry does not carry (``append-only``,
+# ``claim-immutability``, ``published-drift``, ``publish-gate``), so
+# validating here would break it. The `finding` CLI verb is the boundary
+# where this registry is actually enforced: it is the only writer that takes
+# a check id from outside the process, so it is the only place a typo or an
+# unregistered id can enter — including ``import-note``'s own hold wiring,
+# which writes through that same verb.
 CHECK_IDS = frozenset(
     {
         "citekey",
@@ -66,12 +65,9 @@ CHECK_IDS = frozenset(
         "disputed-claim",
         "publish",
         "factcheck",
-        # Task 5. ``autoexport`` is cross-registered from the doctor probe-id
-        # group: an import held on the bibliography auto-export names the same
-        # observation doctor reports. ``render`` covers the render-rejection
-        # class (§4.4 coinage); ``integrate`` covers `import-source`'s surgical
-        # integrate-at-import holds (spec §7's own word).
-        "autoexport",
+        # ``render`` covers the render-rejection class (§4.4 coinage);
+        # ``integrate`` covers `import-source`'s surgical integrate-at-import
+        # holds (spec §7's own word).
         "render",
         "integrate",
         # OKF structure migration (2026-09-02 plan)
