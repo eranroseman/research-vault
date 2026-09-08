@@ -3714,7 +3714,10 @@ def _regenerate_csl(vault: Path, client: ZoteroClient, library_name: str, run_ve
     except DatabaseChangedError as error:
         # Never fall into item.export here: neither Better BibTeX call carries Zotero-Server-ID, so the
         # fallback would write the CSL file from whichever database now answers and call it matched.
-        return Outcome(CHECK, CSL_TARGET, Result.UNMATCHED, f"database-changed — {error}")
+        # The row targets the vault, not the file: `database-changed` means every recorded version is
+        # void, and the CSL file records no server id, so a finding on it would name a condition the
+        # file cannot have. What is void is every note this run wrote from the database that answered.
+        return Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")
     except ZoteroError:
         try:
             items = client.export_csl(captured) if captured else []
