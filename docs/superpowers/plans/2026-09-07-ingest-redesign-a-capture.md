@@ -88,6 +88,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
 26. **A vault with no captured notes does not wait on Zotero at verify or publish time** (raised by Task 2's review, 2026-09-07). `verify._staleness_outcome`, retired with the auto-export contract, ran on every network pass and turned a Zotero outage into exit 3 even for a vault with an empty bibliography and no cited claim; `tests/test_publish.py::test_mark_published_waits_when_the_gate_is_unreachable` pinned that and Task 2 deletes it. The behaviour is not carried forward, on purpose: the lifecycle linter is the one Zotero-facing check at verify (invariant 5), it classifies captured notes, and with none there is nothing whose evidence depends on Zotero — blocking publish on an unrelated service being down was a side effect of the retired contract, and no invariant in §1 names it. Kept: with one or more captured notes a genuine `UNREACHABLE` from `lifecycle` still returns exit 3 (decision 04), and with none `lint_lifecycle` returns one `SKIPPED` outcome, `no-identifier — no note carries a provenance tuple`, so the report shows a check that ran with nothing to check rather than a silent absence (ADR 0002). Zotero liveness on its own is doctor's `zotero` probe. Recorded here so the whole-branch review reads it as settled, not open.
 27. **The note body carries three mechanical pointers** (spec §3.3 step 5 and §4.4 as revised at `5ba814c`, 2026-09-07; the §4.4 "no forward link" sentence is reversed for an embed). Rendered by `notes.render_body`, in this order: `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` — the path is read, never guessed, by `notes.compiled_pages`, which matches ledger records on `origin.locator == fulltext/<attachment key>.md` for this note's text files; `## Item` with `zotero://select/library/items/<item key>`; the existing `## Attachments` list, whose `zotero://open-pdf/library/items/<attachment key>` links are the third pointer (decision 10); `## Zotero notes`. Consequence the tasks encode: capture writes the note twice in the normal flow — the first capture has no ledger entry and renders no `## Compiled`, the refresh after compile renders it, and the third run is NOOP (Task 13's test). No Part A task asserts a note is complete after one capture. `LEDGER_PATH` has one definition site, `notes.py`; `captured.py` and `compile.py` import it. Better BibTeX's `zotero://select/items/@<citation key>` is not emitted (a name-keyed link would be a fifth propagation surface). Matching on the `fulltext/` locator is deliberate, not incidental: §4.5 makes the wrapper the ledger's only writer and it registers every source as `fulltext/<attachment key>.md`, so a file record that reaches the ledger by another route (the tool's own `capture`, a hand-authored bundle) describes nothing capture wrote, embeds nothing, and is reported by the captured-set lint's structural leg as `not-captured` (Task 15). `pages[]` entries keep their `.md`: Obsidian resolves `[[path.md]]` and `[[path]]` alike (spec `a066604`), and the tool validates the entries as canonical `wiki/`-relative paths, so nothing is normalised.
+28. **A check takes its instant as an argument** (spec §7 `verify --as-of`, `692b134`). `research_vault/clock.py::today(as_of=None)` is the one place the package reads today's date — Task 15 creates it, and a test scans the package for any other `now(datetime.UTC).date()` reader. `verify --as-of` and `inbox --as-of` feed it (Task 18), and `verify_state`'s `detection_date`, the date defaults of `record_finding`, `append_entry` and `searchlog`, and `inbox.summary`'s age arithmetic all resolve through it. Stamps that record when something happened — capture's `accessed` and `generated`, a propagation's `operation_id` and `applied_at` — keep reading the wall clock through their `now=` parameters; they are stamps, not checks. The ledger's `refresh_due` is the third dated surface: the captured-set structural leg (Task 15) compares an `active` record's `refresh_due` against the same instant and reports `recompile-needed`, the vault writing no freshness field of its own (`stale_after` retired and reconciled with `refresh_due`) — this is the plan's reading of the spec's summary sentence, recorded so it can be corrected rather than rediscovered. Part A carries no fixture time bomb: the lifecycle fixtures are version maps without dates, capture's tests pin `now=`, and the update-notice tests already pass `detection_date`.
 
 ______________________________________________________________________
 
@@ -225,7 +226,10 @@ def lint_propagation(vault_root) -> list[Outcome]
 # research_vault/captured.py                                  (Task 15)
 CHECK = "captured-set"; LEDGER_PATH = notes.LEDGER_PATH   # one definition site (Task 11)
 def captured_set(vault_root) -> dict[str, str]            # citation key -> item key
-def lint_captured_set(vault_root) -> list[Outcome]
+def lint_captured_set(vault_root, as_of=None) -> list[Outcome]   # as_of: the instant refresh_due is compared against
+
+# research_vault/clock.py                                     (Task 15)
+def today(as_of: str | None = None) -> str                # the one reader of today's date; validates as_of as YYYY-MM-DD, ValueError otherwise
 
 # research_vault/compile.py                                   (Part B Task 2)
 LEDGER_PATH = notes.LEDGER_PATH; PIN = "ad67087"
@@ -3695,25 +3699,31 @@ the lifecycle linter run first.
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests skills docs
 ```
 
-### Task 14: Propagation — the rename log, the vault-wide rewrite, the residue lint (spec §3.5, decision 29, open point 12)
+### Task 14: Propagation — the plan, the hash-gated apply, the applied-plan record, the residue lint (spec §3.5, decision 29, open point 12 as closed at `692b134`)
+
+Propagation is the one mutation in this design that touches human content, so it runs the way the compile wrapper runs: compute a plan, print it, apply only against that plan's hash. The applied plan is the log (decision 01); there is no rename log.
 
 **Files:**
 
 - Create: `research_vault/propagate.py`, `tests/test_propagate.py`
-- Modify: `research_vault/__main__.py` (`propagate --vault PATH [--map OLD=NEW ...]`), `research_vault/inbox.py` (`REASON_CODES` add `stale-key`; `CHECK_IDS` add `propagation`), `research_vault/verify.py` (`_plan_state` adds `propagate.lint_propagation(vault)` beside the lints; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"propagation"`), `research_vault/lints.py:109-116` (`_is_append_only_path` adds `b"system/renames.md"`), `hooks/pretooluse_guard.py` (`MACHINE_SURFACE_FILES` adds `Path("system/renames.md")`), `research_vault/templates/vault/{markdownlintignore,prettierignore,editorconfig}` (add `/system/renames.md`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4, `tests/test_templates.py`
+- Modify: `research_vault/__main__.py` (`propagate --vault PATH [--map OLD=NEW ...]` plans; `propagate --vault PATH --plan FILE --approved-plan-sha256 SHA` applies), `research_vault/inbox.py` (`REASON_CODES` add `stale-key`; `CHECK_IDS` add `propagation`), `research_vault/verify.py` (`_plan_state` adds `propagate.lint_propagation(vault)` beside the lints; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"propagation"`), `research_vault/lints.py:109-116` (`_is_append_only_path` adds `rel.startswith(b"system/propagations/")` — a write-once record is an append-only file that never grows), `hooks/pretooluse_guard.py` (`MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)` and `_is_machine_surface` also answers `any(relative.is_relative_to(prefix) for prefix in MACHINE_SURFACE_PREFIXES)`), `research_vault/templates/vault/{markdownlintignore,prettierignore,editorconfig}` (add `/system/propagations/`; `.research-vault/` is already gitignored, so the unapplied plan is machine-local), `research_vault/templates/vault/index.md` (the `system/` bullet says "the applied propagation plans" if Task 6 left "the rename log"), `skills/evidence-conventions/SKILL.md` (the `stale-key` row), `docs/terminology.md` §4.4, `tests/test_templates.py`, `tests/test_hooks.py` (`Path("system") / "propagations" / "x.json"` joins the deny list)
 
 **Interfaces:**
 
-- Consumes: `appendlog._serialize`, `appendlog._FIELD` (the review queue's line codec), `lifecycle.lint_lifecycle`, `capture.capture`, `notes.note_path`, `structure.is_excluded` (Task 6).
+- Consumes: `lifecycle.lint_lifecycle`, `capture.capture`, `notes.note_path`, `notes.read_provenance`, `structure.is_excluded` (Task 6).
 
-- Produces: the Interface index `research_vault/propagate.py` block. The rename-log file: frontmatter `type: "rename-log"` then one line per rename, e.g. `- [date:: 2026-09-07] [item:: E352DFS8] [from:: jakesch.etal2023] [to:: jakesch.etal2023a] [actor:: research_vault/0.1.0]`. Surfaces rewritten: every `*.md` under the vault except `literatures/` (renamed, then re-captured), `fulltext/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/renames.md`, and `structure.EXCLUDED_DIRS`; patterns `[@old` → `[@new` (followed by `]`, `,` or space), `[[old]]`/`[[old#`/`[[old|` → the same with `new`. The residue lint reports `Outcome("propagation", <repo path>, UNMATCHED, "stale-key — names <old>, renamed to <new> on <date>")` per surface still naming a mapped-away key, or one `MATCHED "matched"` on target `system/renames.md` (SKIPPED `no-identifier — no rename log` when the log is absent).
+- Produces: the Interface index `research_vault/propagate.py` block. The plan file (`.research-vault/propagate/<operation id>.json`, canonical JSON: sorted keys, two-space indent, trailing newline): `{"schema": "research-vault.propagation.v1", "operation_id": "propagate-20260907T101500Z", "date": "2026-09-07", "mapping": {"old2020": "new2020"}, "item_keys": {"old2020": "E352DFS8"}, "surfaces": [{"path": "projects/brief/draft.md", "sha256": "…"}, …]}`; `plan_sha256` is the sha256 of exactly those bytes. The applied record (`system/propagations/<operation id>.json`) is the same object plus `"applied_at"` and `"approved_plan_sha256"`. Surfaces: every `*.md` under the vault except `literatures/` (renamed, then re-captured), `fulltext/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/propagations/` and `structure.EXCLUDED_DIRS`, that names an old key; patterns `[@old` → `[@new` (followed by `]`, `,` or space), `[[old]]`/`[[old#`/`[[old|` → the same with `new`. `apply` recomputes the plan from the vault as it stands, with the approved plan's `operation_id` and `date`, and refuses with `Outcome("propagation", <operation id>, UNMATCHED, "mismatch — plan changed: …")` when the recomputed hash differs from `--approved-plan-sha256`; nothing is written on refusal. The residue lint reports `Outcome("propagation", <repo path>, UNMATCHED, "stale-key — names <old>, mapped to <new> by <operation id>")` per surface still naming a key an applied record mapped away, or one `MATCHED "matched"` on target `system/propagations` (SKIPPED `no-identifier — no applied propagation plan` when the directory is empty or absent; UNMATCHED `schema-violation — …` on an unreadable record).
 
 - [ ] **Step 1: Write the failing tests**
 
 `tests/test_propagate.py`:
 
 ```python
-from research_vault import Result, frontmatter, propagate
+import hashlib
+import json
+
+from research_vault import Result, propagate
+from research_vault.outcome import Outcome
 
 
 def _seed(vault):
@@ -3727,18 +3737,36 @@ def _seed(vault):
     )
     (vault / "wiki" / "sources").mkdir(parents=True)
     (vault / "wiki" / "sources" / "A.md").write_text("---\ntype: source\n---\n[[old2020]] and [[older2020]]\n")
+    (vault / "wiki" / "sources" / "B.md").write_text("---\ntype: source\n---\nnames nothing\n")
 
 
-def test_append_and_read_renames_round_trip(tmp_vault):
-    rename = propagate.Rename("2026-09-07", "E352DFS8", "old2020", "new2020")
-    propagate.append_rename(tmp_vault, rename)
-    propagate.append_rename(tmp_vault, propagate.Rename("2026-09-08", "E352DFS8", "new2020", "newer2020"))
-    text = (tmp_vault / "system" / "renames.md").read_text()
-    assert text.startswith('---\ntype: "rename-log"\n---\n')
-    assert "[from:: old2020] [to:: new2020] [actor:: research_vault/0.1.0]" in text
-    assert propagate.read_renames(tmp_vault) == [
-        rename, propagate.Rename("2026-09-08", "E352DFS8", "new2020", "newer2020"),
-    ]
+def _planned(vault, mapping={"old2020": "new2020"}):
+    planned, outcomes = propagate.plan(vault, None, dict(mapping))
+    assert planned is not None, outcomes
+    return planned, propagate.write_plan(vault, planned), propagate.plan_sha256(planned)
+
+
+def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(tmp_vault):
+    _seed(tmp_vault)
+    planned, path, digest = _planned(tmp_vault)
+    assert planned.mapping == {"old2020": "new2020"} and planned.item_keys == {"old2020": "E352DFS8"}
+    assert [s.path for s in planned.surfaces] == ["projects/brief/draft.md", "wiki/sources/A.md"]
+    draft = (tmp_vault / "projects" / "brief" / "draft.md").read_bytes()
+    assert planned.surfaces[0].sha256 == hashlib.sha256(draft).hexdigest()
+    assert path == tmp_vault / ".research-vault" / "propagate" / f"{planned.operation_id}.json"
+    assert propagate.read_plan(path) == planned
+    assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
+    assert json.loads(path.read_text())["schema"] == "research-vault.propagation.v1"
+
+
+def test_plan_refuses_a_missing_note_and_never_reads_an_outage_as_nothing_to_do(tmp_vault, monkeypatch):
+    planned, outcomes = propagate.plan(tmp_vault, None, {"ghost2020": "new2020"})
+    assert planned is None and outcomes[0].result is Result.UNMATCHED
+    assert outcomes[0].reason.startswith("schema-violation")
+    monkeypatch.setattr(propagate.lifecycle, "lint_lifecycle",
+                        lambda vault, client: [Outcome("lifecycle", "vault", Result.UNREACHABLE, "outage — down")])
+    planned, outcomes = propagate.plan(tmp_vault, object(), None)
+    assert planned is None and outcomes[0].result is Result.UNREACHABLE  # an outage is not "nothing to propagate"
 
 
 def test_rewrite_surfaces_touches_every_citation_and_wikilink_shape(tmp_vault):
@@ -3750,36 +3778,63 @@ def test_rewrite_surfaces_touches_every_citation_and_wikilink_shape(tmp_vault):
     assert "[[older2020]]" in (tmp_vault / "wiki" / "sources" / "A.md").read_text()
 
 
-def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault):
+def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault):
     _seed(tmp_vault)
-    assert propagate.lint_propagation(tmp_vault)[0].result is Result.SKIPPED
-    propagate.append_rename(tmp_vault, propagate.Rename("2026-09-07", "E352DFS8", "old2020", "new2020"))
-    stale = propagate.lint_propagation(tmp_vault)
-    assert {o.target for o in stale} >= {"path-bytes:projects/brief/draft.md", "path-bytes:wiki/sources/A.md", "path-bytes:literatures/old2020.md"}
-    assert all(o.reason.startswith("stale-key — names old2020") for o in stale)
-    propagate.rewrite_surfaces(tmp_vault, "old2020", "new2020")
-    (tmp_vault / "literatures" / "old2020.md").rename(tmp_vault / "literatures" / "new2020.md")
-    (clean,) = propagate.lint_propagation(tmp_vault)
-    assert clean.result is Result.MATCHED
+    _planned_, path, digest = _planned(tmp_vault)
+    (tmp_vault / "wiki" / "sources" / "B.md").write_text("---\ntype: source\n---\n[[old2020]] now\n")
+    (refused,) = propagate.apply(tmp_vault, None, path, digest)
+    assert refused.result is Result.UNMATCHED and refused.reason.startswith("mismatch — plan changed")
+    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert not (tmp_vault / "system" / "propagations").exists()
+    (wrong,) = propagate.apply(tmp_vault, None, path, "0" * 64)
+    assert wrong.result is Result.UNMATCHED and wrong.reason.startswith("mismatch — approved hash")
 
 
-def test_propagate_renames_the_note_appends_the_log_and_recaptures(tmp_vault, monkeypatch):
+def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monkeypatch):
     _seed(tmp_vault)
+    planned, path, digest = _planned(tmp_vault)
     calls = []
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: calls.append(list(keys)) or [])
-    outcomes = propagate.propagate(tmp_vault, client=object(), mapping={"old2020": "new2020"})
+    outcomes = propagate.apply(tmp_vault, object(), path, digest)
+    assert outcomes[0].check == "propagation" and outcomes[0].result is Result.MATCHED
+    assert "projects/brief/draft.md" in outcomes[0].reason
     assert (tmp_vault / "literatures" / "new2020.md").is_file()
     assert not (tmp_vault / "literatures" / "old2020.md").exists()
     assert calls == [["E352DFS8"]]
-    assert propagate.read_renames(tmp_vault)[0].new == "new2020"
-    assert outcomes[0].check == "propagation" and outcomes[0].result is Result.MATCHED
-    assert "projects/brief/draft.md" in outcomes[0].reason
+    record = json.loads((tmp_vault / "system" / "propagations" / f"{planned.operation_id}.json").read_text())
+    assert record["mapping"] == {"old2020": "new2020"} and record["approved_plan_sha256"] == digest
+    assert record["applied_at"] and record["surfaces"][0]["path"] == "projects/brief/draft.md"
+    assert propagate.read_records(tmp_vault)[0].operation_id == planned.operation_id
 
 
-def test_propagate_refuses_a_mapping_whose_source_note_is_missing(tmp_vault):
-    outcomes = propagate.propagate(tmp_vault, client=None, mapping={"ghost2020": "new2020"})
-    assert outcomes[0].result is Result.UNMATCHED and outcomes[0].reason.startswith("schema-violation")
-    assert not (tmp_vault / "system" / "renames.md").exists()
+def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault):
+    _seed(tmp_vault)
+    (skipped,) = propagate.lint_propagation(tmp_vault)
+    assert skipped.result is Result.SKIPPED
+    _planned_, path, digest = _planned(tmp_vault)
+    propagate.apply(tmp_vault, None, path, digest)
+    (clean,) = propagate.lint_propagation(tmp_vault)
+    assert clean.result is Result.MATCHED
+    (tmp_vault / "projects" / "brief" / "late.md").write_text("---\ntype: \"project\"\n---\n[@old2020]\n")
+    (tmp_vault / "literatures" / "old2020.md").write_text("---\ntype: \"literature\"\n---\n")
+    stale = propagate.lint_propagation(tmp_vault)
+    assert {o.target for o in stale} == {"path-bytes:projects/brief/late.md", "path-bytes:literatures/old2020.md"}
+    assert all(o.reason.startswith("stale-key — names old2020, mapped to new2020 by propagate-") for o in stale)
+
+
+def test_cli_plans_then_applies_only_against_the_printed_hash(tmp_vault, monkeypatch, capsys):
+    import research_vault.__main__ as cli
+
+    _seed(tmp_vault)
+    monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: [])
+    assert cli.main(["propagate", "--vault", str(tmp_vault), "--map", "old2020=new2020"]) == 0
+    line = [l for l in capsys.readouterr().out.splitlines() if l.startswith("apply with:")][0]
+    words = line.split()
+    path, digest = words[words.index("--plan") + 1], words[words.index("--approved-plan-sha256") + 1]
+    assert cli.main(["propagate", "--vault", str(tmp_vault), "--plan", path, "--approved-plan-sha256", "0" * 64]) == 1
+    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert cli.main(["propagate", "--vault", str(tmp_vault), "--plan", path, "--approved-plan-sha256", digest]) == 0
+    assert (tmp_vault / "literatures" / "new2020.md").is_file()
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -3792,61 +3847,46 @@ Expected: FAIL — `ModuleNotFoundError`.
 ```python
 """Re-key propagation: the one vault-wide mutation over human content (spec §3.5).
 
-Detection belongs to the lifecycle linter. This module appends the rename
-log, renames the note, rewrites every citation-key-bearing surface, and
-re-captures the item so the tuple and the CSL file carry the new name. Its
-residue lint is what makes a half-done pass falsifiable.
+Detection belongs to the lifecycle linter. This module computes a plan — the
+mapping, the item keys behind it, every surface it will rewrite with that
+surface's hash as it stands — applies only against that plan's hash, and keeps
+the applied plan under system/propagations/: the record a reader follows a key
+through and the residue lint's input (open point 12: the applied plan is the
+log). A draft edited between plan and apply changes the hash, and the apply
+refuses.
 """
 
 import datetime
+import hashlib
+import json
 import os
 import re
 from pathlib import Path
 from typing import NamedTuple
 
-from . import AGENT_ACTOR, capture, frontmatter, lifecycle, notes, structure
-from .appendlog import _FIELD, _serialize
+from . import capture, lifecycle, notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
-RENAME_LOG = "system/renames.md"
+PLAN_DIR = ".research-vault/propagate"
+RECORD_DIR = "system/propagations"
 CHECK = "propagation"
-_LOG_HEADER = '---\ntype: "rename-log"\n---\n'
-_SKIP_FILES = {"log.md", "inbox/review-queue.md", RENAME_LOG}
+SCHEMA = "research-vault.propagation.v1"
+_SKIP_FILES = {"log.md", "inbox/review-queue.md"}
 _SKIP_DIRS = {"literatures", "fulltext", "log"}
 
 
-class Rename(NamedTuple):
+class Surface(NamedTuple):
+    path: str
+    sha256: str
+
+
+class Plan(NamedTuple):
+    operation_id: str
     date: str
-    item_key: str
-    old: str
-    new: str
-
-
-def append_rename(vault_root, rename: Rename, actor: str = AGENT_ACTOR) -> None:
-    path = Path(vault_root) / RENAME_LOG
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.is_file():
-        path.write_text(_LOG_HEADER, encoding="utf-8")
-    line = _serialize(
-        [("date", rename.date), ("item", rename.item_key), ("from", rename.old), ("to", rename.new), ("actor", actor)]
-    )
-    with path.open("a", encoding="utf-8", newline="") as handle:
-        handle.write(line)
-
-
-def read_renames(vault_root) -> list[Rename]:
-    path = Path(vault_root) / RENAME_LOG
-    if not path.is_file():
-        return []
-    renames = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("- "):
-            continue
-        fields = {m.group("key"): m.group("value") for m in _FIELD.finditer(line)}
-        if {"date", "item", "from", "to"} <= set(fields):
-            renames.append(Rename(fields["date"], fields["item"], fields["from"], fields["to"]))
-    return renames
+    mapping: dict[str, str]
+    item_keys: dict[str, str]
+    surfaces: tuple[Surface, ...]
 
 
 def _patterns(old: str) -> list[tuple[re.Pattern[str], str]]:
@@ -3857,13 +3897,111 @@ def _patterns(old: str) -> list[tuple[re.Pattern[str], str]]:
     ]
 
 
+def _names(text: str, old: str) -> bool:
+    return any(pattern.search(text) for pattern, _ in _patterns(old))
+
+
 def _surfaces(vault: Path):
     for path in sorted(vault.rglob("*.md")):
         relative = path.relative_to(vault).as_posix()
         parts = relative.split("/")
-        if structure.is_excluded(path, vault) or parts[0] in _SKIP_DIRS or relative in _SKIP_FILES:
+        if (
+            structure.is_excluded(path, vault)
+            or parts[0] in _SKIP_DIRS
+            or relative in _SKIP_FILES
+            or relative.startswith(RECORD_DIR + "/")
+        ):
             continue
         yield path, relative
+
+
+def _mapping_from_linter(vault: Path, client) -> tuple[dict[str, str], list[Outcome]]:
+    mapping: dict[str, str] = {}
+    blocking = []
+    for outcome in lifecycle.lint_lifecycle(vault, client):
+        if outcome.result is Result.UNREACHABLE or (outcome.target == "vault" and outcome.result is Result.UNMATCHED):
+            blocking.append(outcome)
+        elif outcome.result is Result.UNMATCHED and outcome.reason.startswith("re-keyed — "):
+            old, new = outcome.reason[len("re-keyed — "):].split(" → ", 1)
+            mapping[old] = new
+    return mapping, blocking
+
+
+def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tuple[Plan | None, list[Outcome]]:
+    """Compute one re-key pass without touching anything (spec §3.5, decision 01)."""
+    vault = Path(vault_root)
+    now = now or datetime.datetime.now(datetime.UTC)
+    if mapping is None:
+        if client is None:
+            return None, [Outcome(CHECK, RECORD_DIR, Result.UNMATCHED, "schema-violation — no mapping and no Zotero client")]
+        mapping, blocking = _mapping_from_linter(vault, client)
+        if blocking:
+            return None, blocking
+    if not mapping:
+        return None, [Outcome(CHECK, RECORD_DIR, Result.SKIPPED, "no-identifier — nothing to propagate")]
+    outcomes: list[Outcome] = []
+    item_keys: dict[str, str] = {}
+    for old, new in mapping.items():
+        source = vault / "literatures" / f"{old}.md"
+        if not source.is_file():
+            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — no note literatures/{old}.md to rename"))
+            continue
+        provenance = notes.read_provenance(source.read_text(encoding="utf-8"))
+        if provenance is None:
+            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, "schema-violation — note carries no provenance tuple"))
+            continue
+        try:
+            notes.note_path(vault, new)
+        except notes.InvalidCitationKeyError as error:
+            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {error}"))
+            continue
+        item_keys[old] = provenance.item_key
+    if outcomes:
+        return None, outcomes
+    surfaces = []
+    for path, relative in _surfaces(vault):
+        data = path.read_bytes()
+        text = data.decode("utf-8", errors="surrogateescape")
+        if any(_names(text, old) for old in mapping):
+            surfaces.append(Surface(relative, hashlib.sha256(data).hexdigest()))
+    operation_id = "propagate-" + now.strftime("%Y%m%dT%H%M%SZ")
+    return Plan(operation_id, now.date().isoformat(), dict(mapping), item_keys, tuple(surfaces)), []
+
+
+def _document(plan: Plan) -> dict:
+    return {
+        "schema": SCHEMA,
+        "operation_id": plan.operation_id,
+        "date": plan.date,
+        "mapping": dict(plan.mapping),
+        "item_keys": dict(plan.item_keys),
+        "surfaces": [surface._asdict() for surface in plan.surfaces],
+    }
+
+
+def _canonical(document: dict) -> str:
+    return json.dumps(document, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+
+
+def plan_sha256(plan: Plan) -> str:
+    return hashlib.sha256(_canonical(_document(plan)).encode("utf-8")).hexdigest()
+
+
+def write_plan(vault_root, plan: Plan) -> Path:
+    path = Path(vault_root) / PLAN_DIR / f"{plan.operation_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_canonical(_document(plan)), encoding="utf-8")
+    return path
+
+
+def read_plan(path) -> Plan:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if data.get("schema") != SCHEMA:
+        raise ValueError(f"not a propagation plan: {path}")
+    return Plan(
+        str(data["operation_id"]), str(data["date"]), dict(data["mapping"]), dict(data["item_keys"]),
+        tuple(Surface(str(s["path"]), str(s["sha256"])) for s in data["surfaces"]),
+    )
 
 
 def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
@@ -3881,78 +4019,93 @@ def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
     return changed
 
 
-def lint_propagation(vault_root) -> list[Outcome]:
+def apply(vault_root, client, plan_path, approved_sha256: str, *, now=None) -> list[Outcome]:
+    """Apply a plan only if the vault still computes to the approved hash (decision 01)."""
     vault = Path(vault_root)
-    renames = read_renames(vault)
-    if not renames:
-        return [Outcome(CHECK, RENAME_LOG, Result.SKIPPED, "no-identifier — no rename log")]
+    now = now or datetime.datetime.now(datetime.UTC)
+    try:
+        approved = read_plan(plan_path)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return [Outcome(CHECK, str(plan_path), Result.UNMATCHED, f"schema-violation — unreadable plan: {error}")]
+    if plan_sha256(approved) != approved_sha256:
+        return [Outcome(CHECK, approved.operation_id, Result.UNMATCHED, "mismatch — approved hash does not name this plan")]
+    current, outcomes = plan(vault, None, approved.mapping, now=now)
+    if current is None:
+        return outcomes
+    current = current._replace(operation_id=approved.operation_id, date=approved.date)
+    if plan_sha256(current) != approved_sha256:
+        return [Outcome(CHECK, approved.operation_id, Result.UNMATCHED,
+                        "mismatch — plan changed: the vault moved since this plan was computed; run propagate again")]
     outcomes = []
-    for rename in renames:
-        stale_note = vault / "literatures" / f"{rename.old}.md"
-        if stale_note.is_file():
-            outcomes.append(_stale(f"literatures/{rename.old}.md", rename))
-        for path, relative in _surfaces(vault):
-            text = path.read_text(encoding="utf-8")
-            if any(pattern.search(text) for pattern, _ in _patterns(rename.old)):
-                outcomes.append(_stale(relative, rename))
-    return outcomes or [Outcome(CHECK, RENAME_LOG, Result.MATCHED, "matched")]
+    for old, new in approved.mapping.items():
+        (vault / "literatures" / f"{old}.md").rename(notes.note_path(vault, new))
+        changed = rewrite_surfaces(vault, old, new)
+        recapture = capture.capture(vault, client, [approved.item_keys[old]]) if client is not None else []
+        outcomes.append(Outcome(CHECK, new, Result.MATCHED, "matched — rewrote " + (", ".join(changed) or "nothing")))
+        outcomes.extend(o for o in recapture if o.result is not Result.MATCHED)
+    record = vault / RECORD_DIR / f"{approved.operation_id}.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    document = _document(approved)
+    document["applied_at"] = now.replace(microsecond=0).isoformat()
+    document["approved_plan_sha256"] = approved_sha256
+    record.write_text(_canonical(document), encoding="utf-8")
+    return outcomes
 
 
-def _stale(relative: str, rename: Rename) -> Outcome:
+def read_records(vault_root) -> list[Plan]:
+    directory = Path(vault_root) / RECORD_DIR
+    if not directory.is_dir():
+        return []
+    return [read_plan(path) for path in sorted(directory.glob("*.json"))]
+
+
+def _stale(relative: str, old: str, new: str, operation_id: str) -> Outcome:
     return Outcome(
         CHECK, RepoPath(os.fsencode(relative)), Result.UNMATCHED,
-        f"stale-key — names {rename.old}, renamed to {rename.new} on {rename.date}",
+        f"stale-key — names {old}, mapped to {new} by {operation_id}",
     )
 
 
-def _mapping_from_linter(vault: Path, client) -> dict[str, str]:
-    mapping = {}
-    for outcome in lifecycle.lint_lifecycle(vault, client):
-        if outcome.result is Result.UNMATCHED and outcome.reason.startswith("re-keyed — "):
-            old, new = outcome.reason[len("re-keyed — "):].split(" → ", 1)
-            mapping[old] = new
-    return mapping
-
-
-def propagate(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> list[Outcome]:
+def lint_propagation(vault_root) -> list[Outcome]:
     vault = Path(vault_root)
-    now = now or datetime.datetime.now(datetime.UTC)
-    if mapping is None:
-        if client is None:
-            return [Outcome(CHECK, RENAME_LOG, Result.UNMATCHED, "schema-violation — no mapping and no Zotero client")]
-        mapping = _mapping_from_linter(vault, client)
-    if not mapping:
-        return [Outcome(CHECK, RENAME_LOG, Result.SKIPPED, "no-identifier — nothing to propagate")]
+    try:
+        records = read_records(vault)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return [Outcome(CHECK, RepoPath(os.fsencode(RECORD_DIR)), Result.UNMATCHED, f"schema-violation — unreadable propagation record: {error}")]
+    if not records:
+        return [Outcome(CHECK, RECORD_DIR, Result.SKIPPED, "no-identifier — no applied propagation plan")]
     outcomes = []
-    for old, new in mapping.items():
-        source = vault / "literatures" / f"{old}.md"
-        if not source.is_file():
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — no note literatures/{old}.md to rename"))
-            continue
-        provenance = notes.read_provenance(source.read_text(encoding="utf-8"))
-        if provenance is None:
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, "schema-violation — note carries no provenance tuple"))
-            continue
-        try:
-            target = notes.note_path(vault, new)
-        except notes.InvalidCitationKeyError as error:
-            outcomes.append(Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {error}"))
-            continue
-        append_rename(vault, Rename(now.date().isoformat(), provenance.item_key, old, new))
-        source.rename(target)
-        changed = rewrite_surfaces(vault, old, new)
-        recapture = capture.capture(vault, client, [provenance.item_key]) if client is not None else []
-        outcomes.append(Outcome(CHECK, new, Result.MATCHED, "matched — rewrote " + (", ".join(changed) or "nothing")))
-        outcomes.extend(o for o in recapture if o.result is not Result.MATCHED)
-    return outcomes
+    for record in records:
+        for old, new in record.mapping.items():
+            if (vault / "literatures" / f"{old}.md").is_file():
+                outcomes.append(_stale(f"literatures/{old}.md", old, new, record.operation_id))
+            for path, relative in _surfaces(vault):
+                if _names(path.read_text(encoding="utf-8", errors="surrogateescape"), old):
+                    outcomes.append(_stale(relative, old, new, record.operation_id))
+    return outcomes or [Outcome(CHECK, RECORD_DIR, Result.MATCHED, "matched")]
 ```
 
-(The rename test passes a stub client, `object()`, and monkeypatches `capture.capture`, so the recapture call is observed without a Zotero. `client=None` with an explicit mapping is allowed and skips the recapture; `cmd_propagate` always passes a real client.) CLI:
+(`plan(vault, None, mapping)` never touches Zotero: an explicit mapping needs no client, and `apply` recomputes with `client=None` for the same reason; the recapture inside `apply` is the only client use. The tests pass `object()` where a client is required and monkeypatch `capture.capture`, so the recapture call is observed without a Zotero. `_mapping_from_linter` returns the linter's `UNREACHABLE` and `database-changed` outcomes as blocking, so an outage is never reported as "nothing to propagate".) CLI:
 
 ```python
 def cmd_propagate(args):
-    mapping = dict(pair.split("=", 1) for pair in args.map) if args.map else None
-    outcomes = propagate.propagate(args.vault, ZoteroClient(base=args.base), mapping)
+    if bool(args.plan) != bool(args.approved_plan_sha256):
+        print("propagate: --plan and --approved-plan-sha256 go together", file=sys.stderr)
+        return 2
+    client = ZoteroClient(base=args.base)
+    if args.plan:
+        outcomes = propagate.apply(args.vault, client, args.plan, args.approved_plan_sha256)
+    else:
+        mapping = dict(pair.split("=", 1) for pair in args.map) if args.map else None
+        planned, outcomes = propagate.plan(args.vault, client, mapping)
+        if planned is not None:
+            path = propagate.write_plan(args.vault, planned)
+            for old, new in planned.mapping.items():
+                print(f"rename {old} → {new} (item {planned.item_keys[old]})")
+            for surface in planned.surfaces:
+                print(f"rewrite {surface.path}")
+            print(f"apply with: python3 -m research_vault propagate --vault {args.vault} --plan {path} --approved-plan-sha256 {propagate.plan_sha256(planned)}")
+            return 0
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
@@ -3964,7 +4117,7 @@ def cmd_propagate(args):
     return worst
 ```
 
-parser: `propagate_cmd = sub.add_parser("propagate", parents=[common]); propagate_cmd.add_argument("--vault", required=True); propagate_cmd.add_argument("--map", action="append", metavar="OLD=NEW")`. Verify: add `raw.extend(propagate.lint_propagation(vault))` after the other lints; add `"propagation"` to the `commit` and `publish` closing sets. Lints: `_is_append_only_path` returns True for `b"system/renames.md"`. Guard and formatter templates as listed.
+parser: `propagate_cmd = sub.add_parser("propagate", parents=[common]); propagate_cmd.add_argument("--vault", required=True); propagate_cmd.add_argument("--map", action="append", metavar="OLD=NEW"); propagate_cmd.add_argument("--plan"); propagate_cmd.add_argument("--approved-plan-sha256")`. Verify: add `raw.extend(propagate.lint_propagation(vault))` after the other lints; add `"propagation"` to the `commit` and `publish` closing sets. Lints, guard and formatter templates as listed in Files.
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -3972,10 +4125,12 @@ Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault 
 Expected: PASS, clean.
 
 ```bash
-git commit -m "add re-key propagation with its rename log and residue lint (ingest spec §3.5)
+git commit -m "add re-key propagation as plan-and-apply with its residue lint (ingest spec §3.5)
 
-system/renames.md is the append-only site; the pass renames the note,
-rewrites [@key] and [[key]] surfaces, re-captures the item, and its lint
+propagate computes a plan and prints its hash; apply recomputes against
+the vault as it stands and refuses if the hash moved, then renames the
+note, rewrites [@key] and [[key]] surfaces, re-captures the item and
+records the applied plan under system/propagations/ — the log. The lint
 fails a commit while any surface still names a mapped-away key.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests hooks skills docs
@@ -3985,14 +4140,14 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Create: `research_vault/captured.py`, `tests/test_captured.py`
-- Modify: `research_vault/capture.py` (`_captured_keys` reads `captured.captured_set`), `research_vault/verify.py` (`_plan_state` adds `captured.lint_captured_set(vault)`; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"captured-set"`), `research_vault/inbox.py` (`REASON_CODES` add `recompile-needed`; `CHECK_IDS` add `captured-set`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
+- Create: `research_vault/captured.py`, `tests/test_captured.py`, `research_vault/clock.py` (the one clock a check reads — decision 28; Task 18 threads the CLI flag to it)
+- Modify: `research_vault/capture.py` (`_captured_keys` reads `captured.captured_set`), `research_vault/verify.py` (`_plan_state` adds `captured.lint_captured_set(vault, as_of=detection_date)`; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"captured-set"`), `research_vault/inbox.py` (`REASON_CODES` add `recompile-needed`; `CHECK_IDS` add `captured-set`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
 
 **Interfaces:**
 
 - Consumes: `notes.read_provenance`, `frontmatter.parse`, `structure.is_excluded` (Task 6), `pathcodec.RepoPath`, `Outcome`/`Result`, the compile tool's ledger at `wiki/meta/ledgers/source-ledger.json` (`{"schema": "claude-obsidian.source-ledger.v1", "sources": {"src-…": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "content_sha256": "…", ...}}}`).
 
-- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment).
+- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record whose `refresh_due` (an ISO instant; its first ten characters are the date) is earlier than `as_of` is also `recompile-needed — ledger <id> refresh due <refresh_due>`: the vault writes no freshness field of its own (spec §3.2, `stale_after` reconciled with `refresh_due` at `692b134`), and `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4062,6 +4217,32 @@ def test_structural_half_checks_locators_and_hashes(tmp_vault):
     ]
 
 
+def test_structural_half_reads_refresh_due_against_as_of(tmp_vault):
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
+    _ledger(tmp_vault, {
+        "src-1": {"origin": {"kind": "file", "locator": "fulltext/ATT00001.md"}, "content_sha256": "a" * 64,
+                  "review_status": "active", "refresh_due": "2026-03-01T00:00:00Z"},
+    })
+    due = [o for o in captured.lint_captured_set(tmp_vault, as_of="2026-09-07") if o.result is Result.UNMATCHED]
+    assert [o.reason for o in due] == ["recompile-needed — ledger src-1 refresh due 2026-03-01T00:00:00Z"]
+    assert not [o for o in captured.lint_captured_set(tmp_vault, as_of="2026-02-01") if o.result is Result.UNMATCHED]
+
+
+def test_clock_today_takes_the_instant_or_reads_utc():
+    import re
+
+    from research_vault import clock
+
+    assert clock.today("2026-01-02") == "2026-01-02"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", clock.today())
+    try:
+        clock.today("2026-13-01")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an invalid as_of must be refused, never read as today")
+
+
 def test_quiet_vault_is_matched_and_a_missing_ledger_is_skipped(tmp_vault):
     outcomes = captured.lint_captured_set(tmp_vault)
     assert [(o.target, o.result) for o in outcomes] == [("captured-set", Result.MATCHED), ("wiki/meta/ledgers/source-ledger.json", Result.SKIPPED)]
@@ -4073,6 +4254,32 @@ Run: `.venv/bin/python -m pytest tests/test_captured.py -q`
 Expected: FAIL — `ModuleNotFoundError`.
 
 - [ ] **Step 3: Register `recompile-needed` and `captured-set`; implement**
+
+`research_vault/clock.py`, new and whole:
+
+```python
+"""The one clock a check reads (ingest spec §7, `verify --as-of`; decision 28).
+
+A stamp records when something happened and may read the wall clock through a
+`now=` parameter. A check decides whether something is stale and must take the
+instant as an argument, or its verdict is not reproducible: a fixture recorded
+in September would fail in December for no reason present in the fixture.
+Every date default in the package resolves through today(); a test scans for
+any other reader of today's date.
+"""
+
+import datetime
+
+
+def today(as_of: str | None = None) -> str:
+    """Return ``as_of`` validated as YYYY-MM-DD, else today's UTC date."""
+    if as_of is None:
+        return datetime.datetime.now(datetime.UTC).date().isoformat()
+    try:
+        return datetime.date.fromisoformat(as_of).isoformat()
+    except ValueError as error:
+        raise ValueError(f"--as-of must be YYYY-MM-DD, got {as_of!r}") from error
+```
 
 ```python
 """The captured set, and the one lint at the capture-to-compile seam (spec §4.4).
@@ -4160,7 +4367,7 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
     return outcomes
 
 
-def _structural(vault: Path) -> list[Outcome]:
+def _structural(vault: Path, as_of=None) -> list[Outcome]:
     ledger = vault / LEDGER_PATH
     if not ledger.is_file():
         return [Outcome(CHECK, LEDGER_PATH, Result.SKIPPED, "no-identifier — no source ledger")]
@@ -4188,20 +4395,24 @@ def _structural(vault: Path) -> list[Outcome]:
         if recorded and text_sha and recorded != text_sha:
             outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED,
                                     f"recompile-needed — ledger {source_id} holds {recorded} for {locator}; the note records {text_sha}"))
+        due = record.get("refresh_due")
+        if record.get("review_status") == "active" and isinstance(due, str) and due[:10] < clock.today(as_of):
+            outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED,
+                                    f"recompile-needed — ledger {source_id} refresh due {due}"))
     return outcomes
 
 
-def lint_captured_set(vault_root) -> list[Outcome]:
+def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
     vault = Path(vault_root)
     keys = set(captured_set(vault))
     outcomes = _textual(vault, keys)
-    structural = _structural(vault)
+    structural = _structural(vault, as_of)
     if not outcomes:
         outcomes.append(Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
     return outcomes + structural
 ```
 
-Wire verify (`raw.extend(captured.lint_captured_set(vault))`; closing on `commit` and `publish`), and `capture._captured_keys` → `set(captured.captured_set(vault))`.
+Add `clock` to `captured.py`'s `from . import …` line. Wire verify (`raw.extend(captured.lint_captured_set(vault, as_of=detection_date))`; closing on `commit` and `publish`), and `capture._captured_keys` → `set(captured.captured_set(vault))`.
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -4893,28 +5104,58 @@ ______________________________________________________________________
 
 ## Phase 3 — open points, the two skills, verification
 
-### Task 18: Close the three plan-level open points (spec §8, items 07, 08, 09)
+### Task 18: Close open points 07, 08 and 09, and thread `--as-of` (spec §8; §7 `verify --as-of`; decisions 21 and 28)
 
 **Files:**
 
-- Modify: `research_vault/verify.py` (`_citation_key_hash` loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/__main__.py` (`cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
-- Test: `tests/test_verify_cli.py`, `tests/test_publish.py`
+- Modify: `research_vault/verify.py` (`_citation_key_hash` returns the note's `managed-sha256` and loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/inbox.py` (`scope_id(check, target, target_hash)`; `_scope_acknowledged`'s standing-scope branch compares derived scope ids; `append_entry`'s date default and `summary(vault, as_of=None)` resolve through `clock.today`), `research_vault/searchlog.py` (`_resolved_date` through `clock.today`), `research_vault/__main__.py` (`verify --as-of`, `inbox --as-of`, `_as_of(args)`; `record_finding`'s date default through `clock.today`; `cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
+- Test: `tests/test_verify_cli.py`, `tests/test_publish.py`, `tests/test_config_validity.py` (the one-clock scan)
 
 **Interfaces:**
 
-- Produces: `verify.clear_marker_for(vault_root, check, target) -> bool` — for a target of the form `<citation key>#^<claim id>` finds `literatures/<citation key>.md` (or, when absent, every `*.md` under `projects/` carrying that anchor) and removes `[failed-verification:: <check>/<date>]` from the anchored line; for a `path-bytes:` target, the file it names; returns whether a marker was removed. `publish.RETRACTION_ACK_FIELD`.
+- Produces: `verify.clear_marker_for(vault_root, check, target) -> bool` — for a target of the form `<citation key>#^<claim id>` finds `literatures/<citation key>.md` (or, when absent, every `*.md` under `projects/` carrying that anchor) and removes `[failed-verification:: <check>/<date>]` from the anchored line; for a `path-bytes:` target, the file it names; returns whether a marker was removed. `publish.RETRACTION_ACK_FIELD`. `inbox.scope_id(check, target, target_hash) -> str` = `sha256(check \0 target \0 (target_hash or ""))` hex; `inbox.summary(vault, as_of=None)`; `verify --as-of YYYY-MM-DD` and `inbox --as-of YYYY-MM-DD`, both resolved by `clock.today` before any work and refused with exit 2 when malformed.
 
 - [ ] **Step 1: Write the failing tests**
 
 Append to `tests/test_verify_cli.py`:
 
 ```python
-def test_ack_scope_hash_is_the_note_body_hash_not_fixity(fixture_vault):
-    from research_vault import verify
+def test_ack_scope_hash_is_the_notes_managed_sha256(fixture_vault):
+    from research_vault import frontmatter, verify
 
     digest = verify._citation_key_hash(fixture_vault, "smith2020")
-    raw = (fixture_vault / "literatures" / "smith2020.md").read_bytes()
-    assert digest == hashlib.sha256(verify._note_bytes(raw)).hexdigest()[:16]
+    data, _ = frontmatter.parse((fixture_vault / "literatures" / "smith2020.md").read_text())
+    assert digest == data["managed-sha256"]  # open point 07: the body hash capture writes, never a hash passed by hand
+
+
+def test_ack_scope_is_derived_and_lapses_when_the_body_moves(fixture_vault, capsys):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    target = "fabricated2020#^c-77777777"
+    expected = hashlib.sha256(b"citation-key\x00" + target.encode() + b"\x00" + b"a" * 64).hexdigest()
+    assert inbox.scope_id("citation-key", target, "a" * 64) == expected
+    assert inbox.scope_id("citation-key", target, "b" * 64) != expected
+    assert cli.main(["finding", "citation-key", target, "UNMATCHED", "mismatch — not in bibliography",
+                     "--vault", str(fixture_vault), "--date", "2026-09-07", "--target-hash", "a" * 64]) == 0
+    finding_id = capsys.readouterr().out.strip()
+    assert cli.main(["ack", finding_id, "--vault", str(fixture_vault), "--reason", "manual — known", "--actor", "human:eran"]) == 0
+    assert inbox.is_acknowledged(fixture_vault, "citation-key", target, "a" * 64)
+    assert not inbox.is_acknowledged(fixture_vault, "citation-key", target, "b" * 64)  # the body moved: the finding re-fires
+
+
+def test_as_of_pins_the_instant_a_check_compares_against(fixture_vault, capsys):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    assert cli.main(["finding", "citation-key", "fabricated2020#^c-77777777", "UNMATCHED", "mismatch — not in bibliography",
+                     "--vault", str(fixture_vault), "--date", "2026-09-07"]) == 0
+    capsys.readouterr()
+    assert inbox.summary(fixture_vault, as_of="2026-09-10")["oldest_age_days"] == 3
+    assert cli.main(["inbox", "--vault", str(fixture_vault), "--as-of", "2026-09-10"]) == 0
+    assert '"oldest_age_days": 3' in capsys.readouterr().out
+    assert cli.main(["verify", "--vault", str(fixture_vault), "--offline", "--as-of", "2026-13-01"]) == 2
+    assert "--as-of must be YYYY-MM-DD" in capsys.readouterr().err
 
 
 def test_ack_clears_the_failed_verification_marker(fixture_vault, monkeypatch, capsys):
@@ -4933,6 +5174,19 @@ def test_ack_clears_the_failed_verification_marker(fixture_vault, monkeypatch, c
     assert "[failed-verification::" not in draft.read_text()
 ```
 
+Append to `tests/test_config_validity.py` (use the repository-root constant that file already defines):
+
+```python
+def test_the_package_reads_one_date_clock():
+    """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
+    offenders = sorted(
+        path.name
+        for path in (ROOT / "research_vault").glob("*.py")
+        if "now(datetime.UTC).date()" in path.read_text(encoding="utf-8") and path.name != "clock.py"
+    )
+    assert offenders == [], offenders
+```
+
 Append to `tests/test_publish.py`:
 
 ```python
@@ -4946,12 +5200,33 @@ def test_retraction_ack_field_has_one_definition_site():
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `.venv/bin/python -m pytest tests/test_verify_cli.py tests/test_publish.py -q -k "ack_scope or clears or definition_site"`
-Expected: FAIL — fixity branch still consulted; marker survives; constant missing.
+Run: `.venv/bin/python -m pytest tests/test_verify_cli.py tests/test_publish.py tests/test_config_validity.py -q -k "ack_scope or clears or definition_site or as_of or one_date_clock"`
+Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` unknown; four `now(...).date()` readers outside `clock.py`; marker survives; constant missing.
 
 - [ ] **Step 3: Implement**
 
-In `_citation_key_hash`, delete both `attachment_hashes = data.get("fixity-sha256") ... return first` blocks (leaving the `_note_bytes` hash in each branch) and the now-unused `frontmatter.parse` calls. Add:
+In `_citation_key_hash`, delete both `attachment_hashes = data.get("fixity-sha256") ... return first` blocks and in their place return the note's `managed-sha256` when the frontmatter carries one (`value = data.get("managed-sha256")`; `if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value): return value`), keeping the `_note_bytes` digest only as the fallback for a note capture has not written. `research_vault/inbox.py`:
+
+```python
+def scope_id(check: str, target: str, target_hash: str | None) -> str:
+    """Open point 07: an acknowledgment's identity is derived, never passed."""
+    parts = (check, str(target), target_hash or "")
+    return hashlib.sha256(b"\x00".join(part.encode("utf-8") for part in parts)).hexdigest()
+```
+
+In `_scope_acknowledged`'s last branch (the standing scope; leave the legacy update-notice and repeatable-act branches as they are), compute `wanted = scope_id(finding.check, finding.target, finding.target_hash)` and replace the four-field comparison: `scope_ids` collects entries with `entry.ack_of is None and entry.target_kind == finding.target_kind and scope_id(entry.check, entry.target, entry.target_hash) == wanted` (plus the existing update-notice fingerprint condition), and an ack matches when `ack.ack_of in scope_ids and ack.actor.startswith("human:") and scope_id(finding.check, finding.target, ack.target_hash) == wanted` (plus the same fingerprint condition). `append_entry`: `date = _validate_date("date", clock.today(date))`. `summary(vault, as_of=None)`: the age arithmetic uses `datetime.date.fromisoformat(clock.today(as_of))` in place of `datetime.datetime.now(datetime.UTC).date()`. `research_vault/searchlog.py`: `_resolved_date(date)` returns `_validate_date("date", clock.today(date))`. `research_vault/__main__.py`: `record_finding`'s `resolved_date = clock.today(date)`; parser lines `verify.add_argument("--as-of", metavar="YYYY-MM-DD")` and `review_inbox.add_argument("--as-of", metavar="YYYY-MM-DD")`; and:
+
+```python
+def _as_of(args) -> str | None:
+    """Resolve --as-of once, before any work; a malformed value is exit 2, never today."""
+    try:
+        return clock.today(getattr(args, "as_of", None))
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return None
+```
+
+`cmd_verify` starts with `as_of = _as_of(args)` / `if as_of is None: return 2` and passes `detection_date=as_of` to `verify_state`; `cmd_inbox` does the same and calls `inbox.summary(args.vault, as_of=as_of)`. Then add:
 
 ```python
 def clear_marker_for(vault_root, check: str, target: str) -> bool:
@@ -5010,10 +5285,12 @@ Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault 
 Expected: PASS, clean.
 
 ```bash
-git commit -m "close open points 07, 08 and 09 (ingest spec §8)
+git commit -m "close open points 07, 08 and 09; verify and inbox take --as-of (ingest spec §8, §7)
 
-The ack scope is the note-body hash; retraction-ack has one definition
-site; a human acknowledgment clears the failed-verification marker.
+The ack scope is derived from check, target and the note's managed-sha256;
+retraction-ack has one definition site; a human acknowledgment clears the
+failed-verification marker; every date default resolves through clock.today,
+the one reader of today's date.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests
 ```
@@ -5101,7 +5378,7 @@ Ingest is the process that gets a source from outside the vault into the vault: 
 
 **No project is required.** The flow is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped.
 
-In every command, `PATH` is the vault and `KEY` is either the Zotero item key (eight upper-case characters, shown in Zotero's item pane) or the citation key — Zotero's own **Citation Key** field, which Better BibTeX fills and which shows in the item list's Citation Key column. Never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. `literatures/`, `fulltext/`, `system/bibliography.json`, `system/renames.md` and `wiki/` are machine surfaces; never `Write` or `Edit` them.
+In every command, `PATH` is the vault and `KEY` is either the Zotero item key (eight upper-case characters, shown in Zotero's item pane) or the citation key — Zotero's own **Citation Key** field, which Better BibTeX fills and which shows in the item list's Citation Key column. Never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. `literatures/`, `fulltext/`, `system/bibliography.json`, `system/propagations/` and `wiki/` are machine surfaces; never `Write` or `Edit` them.
 
 ## 1. Add: `add`
 
@@ -5141,14 +5418,15 @@ Run `python3 -m research_vault verify --vault PATH` with the network on after a 
 
 ## 4. Propagate a citation-key change: `propagate`
 
-A `re-keyed` finding means the source's *name* changed while its identity (the item key) did not. Until propagation runs, the note's filename contradicts its recorded key and every `[@old]` and `[[old]]` dangles.
+A `re-keyed` finding means the source's *name* changed while its identity (the item key) did not. Until propagation runs, the note's filename contradicts its recorded key and every `[@old]` and `[[old]]` dangles. Propagation is the one command here that rewrites what a person wrote, so it is planned, shown, and applied only against the plan you showed:
 
 ```sh
-python3 -m research_vault propagate --vault PATH                    # every re-keyed note the linter reports
-python3 -m research_vault propagate --vault PATH --map OLD=NEW      # an explicit mapping, e.g. from a deliberate regenerate
+python3 -m research_vault propagate --vault PATH                    # plan: every re-keyed note the linter reports
+python3 -m research_vault propagate --vault PATH --map OLD=NEW      # plan from an explicit mapping, e.g. after a deliberate regenerate
+python3 -m research_vault propagate --vault PATH --plan FILE --approved-plan-sha256 SHA   # apply, exactly as printed
 ```
 
-It appends `system/renames.md`, renames the note, rewrites `[@key]` and `[[key]]` in drafts and wiki pages, and re-captures the item. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a mapped-away key.
+The plan lists the rename, the item key and every file it will rewrite, and ends with the apply line carrying the plan's hash; show it to the person and run that line unchanged. If anything the plan named moved in between, apply refuses with `mismatch — plan changed`: plan again. Apply renames the note, rewrites `[@key]` and `[[key]]` in drafts and wiki pages, re-captures the item, and keeps the applied plan under `system/propagations/` — the record a reader follows an old key forward through. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a key an applied plan mapped away.
 
 ## Four-state honesty
 
@@ -5263,7 +5541,7 @@ Task numbers are this part's; `B n` names a Part B task. Part B's own self-revie
 | §3.2                                 | snapshot fields; provenance tuple; `annotations` deferred; wholly machine-written note; vault-owned fields dispositioned; CSL file scope = captured set; `Extra` note                | 5, 11, 13, 18                |
 | §3.3 steps 1–7                       | reads; annotations route measured/unwired; fulltext usability; whole-library CSL read + fallback; body renders only what frontmatter cannot; NOOP; per-item restart; library re-read | 9, 10, 11, 13                |
 | §3.4                                 | linter at capture and verify; 412 stop; three reads; per-object classification; drift cause; reason order; outage at pre-commit never a classification                               | 12, 13                       |
-| §3.5, 3.5.1                          | detection only in the linter; propagation task set; rename log site; regenerate_key never called                                                                                     | 12, 14                       |
+| §3.5, 3.5.1                          | detection only in the linter; propagation task set; the applied plan is the log (open point 12 closed); regenerate_key never called                                                  | 12, 14                       |
 | §3.6                                 | no absolute paths; `fulltext/` layer, gitignored, OKF-conformant, walked; not in `VAULT_DIRS`; named by attachment key; compile input = best attachment; hash machine-local          | 10, 11, 13                   |
 | §3.7                                 | local API only; translator formats 500; base URL configurable                                                                                                                        | 9, 16                        |
 | §3.8                                 | build verdict recorded; nothing to implement                                                                                                                                         | —                            |
@@ -5275,8 +5553,8 @@ Task numbers are this part's; `B n` names a Part B task. Part B's own self-revie
 | §6 retire                            | auto-export; base constant; screening state; claim lines; managed region; doi/metadata; `archive-source`; synthesis under `wiki/`; frozen checks untouched; kept items               | 1–6                          |
 | §6 reason codes                      | five new; three plan-assigned (`stale-key`, `no-fulltext`, `recompile-needed`)                                                                                                       | 12, 13, 14, 15               |
 | §6 skills                            | import-source, setup-vault, synthesis-conventions rewritten                                                                                                                          | 19, B3                       |
-| §7                                   | offline fixtures from the sitting; no recorder; live legs; the missing trashed snapshot                                                                                              | 12, B5                       |
-| §8 open points 04, 07, 08, 09, 12    | names; ack scope; retraction-ack site; ack clears marker; rename log                                                                                                                 | Decisions 1, 3–7, 21; 14, 18 |
+| §7                                   | offline fixtures from the sitting; no recorder; live legs; the missing trashed snapshot; `--as-of` replay                                                                            | 12, 15, 18, B5               |
+| §8 open points 04, 07, 08, 09, 12    | names; derived ack scope; retraction-ack site; ack clears marker; the applied plan is the log                                                                                        | Decisions 1, 3–7, 21; 14, 18 |
 | §8 open points 05, 06, 10, 11, 13–16 | recorded deferrals; nothing to build                                                                                                                                                 | —                            |
 | Decision 17 / §6.1                   | add-on declaration with ids; `active` + `appDisabled`                                                                                                                                | 16                           |
 | Decision 28                          | annotations deferred, specified not run                                                                                                                                              | 9 (`annotations()` unwired)  |
