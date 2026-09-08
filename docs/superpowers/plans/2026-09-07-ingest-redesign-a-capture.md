@@ -56,6 +56,7 @@ PY
 - **Deletion lists are claims, not orders.** Every name a Files block says to delete carries the line number it had when the plan was written; before deleting it, grep for callers across `research_vault/`, `tests/`, `hooks/` and `scripts/`, and if kept code still uses it, keep it and report the call site as a deviation instead of deleting it or working around it (Task 3's `registry_agency`, called by the kept `check_update_notice`, and `metadata_year`, imported by `identify.py`, are the measured cases). Deleting an exception class also means removing it from every `except (...)` tuple that names it — `cmd_verify` and `_run_disposition` in `__main__.py` name `notes.ManagedRegionError` and `notes.RenderIntegrityError` — because Python evaluates that tuple only when an exception reaches it, so the suite may stay green while a real error is masked by `AttributeError` at runtime. Line numbers in Files blocks are navigation hints to verify by name.
 - **A pathspec commit ignores untracked files.** `git commit -- <paths>` picks up only files git already tracks; a file the task created stays behind silently. Every task that creates a file runs `git add -- <each created file>` before its commit and then checks that `git show --stat HEAD` lists every file it created (Task 10's first attempt missed both of its new files).
 - **A new machine surface names itself where agents read.** A task that adds a directory to `hooks/pretooluse_guard.py`'s `MACHINE_SURFACE_DIR_NAMES` or `MACHINE_SURFACE_PREFIXES` also adds it to `research_vault/templates/vault/AGENTS.md`'s machine-written enumeration (the line-7 group: surfaces the CLI writes) and updates the byte-pin in `tests/test_templates.py`. A surface written by something other than the CLI gets its own sentence instead, as `wiki/` has — follow a precedent's reason, not its shape (Task 10 guarded `fulltext/` and left the enumeration unchanged).
+- **No non-`live` test opens a socket to Zotero.** The offline suite must be green on a machine with no Zotero and give the same answer on one where a production instance is running; a test that reads a live instance is nondeterministic and green only by accident of someone's library. `tests/conftest.py::_no_zotero_socket` (autouse, Task 12) makes every `ZoteroClient` outside the `live` markers read an outage, and a test that needs a Zotero answer registers it on `FakeZotero`. Reads count as much as writes here: the write ban keeps production intact, this keeps the suite honest.
 - **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
 - **Outward-facing actions need explicit go-ahead in that turn**: Part B's upstream Zotero issue (its Task 6) is not run on plan approval alone; nothing in this part is outward-facing.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
@@ -2549,7 +2550,7 @@ aliases:
 itemType: "journalArticle"
 DOI: "10.1000/xyz"
 zotero-server-id: "6LpvURP2E933"
-zotero-item-key: "SMITH2020"
+zotero-item-key: "SMITH020"
 zotero-item-version: 12
 citationKey: "smith2020"
 attachments:
@@ -2853,7 +2854,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `research_vault/lifecycle.py`, `tests/test_lifecycle.py`, `tests/fixtures/lifecycle/README.md`, `tests/fixtures/lifecycle/{items-before,items-after-delete,trash-before,trash-trashed,trash-after-delete}.json`
-- Modify: `research_vault/inbox.py` (`REASON_CODES` add `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed`; `CHECK_IDS` add `lifecycle`), `skills/evidence-conventions/SKILL.md` (five rows), `docs/terminology.md` §4.4, `research_vault/verify.py` (`_plan_state`: online → `lifecycle.lint_lifecycle(vault, ZoteroClient(base=base))`; offline → one synthetic-offline `lifecycle` UNREACHABLE outcome on target `vault`), `research_vault/templates/git/pre-commit` (comment only: "the lifecycle leg is held — verify --offline reports it UNREACHABLE and never blocks; ingest spec invariant 5")
+- Modify: `tests/conftest.py` (an autouse fixture `_no_zotero_socket` that makes every non-`live` `ZoteroClient` read an outage — wiring the linter into `verify_state(network=True)` is what makes the offline suite reach a running local Zotero, and Task 12 measured it doing so against the production instance), `research_vault/inbox.py` (`REASON_CODES` add `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed`; `CHECK_IDS` add `lifecycle`), `skills/evidence-conventions/SKILL.md` (five rows), `docs/terminology.md` §4.4, `research_vault/verify.py` (`_plan_state`: online → `lifecycle.lint_lifecycle(vault, ZoteroClient(base=base))`; offline → one synthetic-offline `lifecycle` UNREACHABLE outcome on target `vault`), `research_vault/templates/git/pre-commit` (comment only: "the lifecycle leg is held — verify --offline reports it UNREACHABLE and never blocks; ingest spec invariant 5")
 
 **Interfaces:**
 
@@ -3125,6 +3126,10 @@ def classify(provenance: notes.Provenance, live: Live) -> tuple[str, str]:
         return "merged", successor
     if key not in live.versions:
         return ("trashed", key) if key in live.trash else ("deleted", key)
+    for attachment in provenance.attachments:
+        if attachment.get("key") in live.trash:
+            # ORDER: trashed outranks re-keyed (§3.4 step 6), for an attachment as for the item.
+            return "trashed", str(attachment.get("key"))
     live_key = live.top.get(key, {}).get("citationKey")
     if live_key and live_key != provenance.citation_key:
         return "re-keyed", f"{provenance.citation_key} → {live_key}"
@@ -3134,8 +3139,6 @@ def classify(provenance: notes.Provenance, live: Live) -> tuple[str, str]:
     for attachment in provenance.attachments:
         att_key = attachment.get("key")
         recorded = attachment.get("version")
-        if att_key in live.trash:
-            return "trashed", str(att_key)
         current = live.versions.get(att_key)
         if current is None:
             moved.append(f"attachment {att_key} absent")
