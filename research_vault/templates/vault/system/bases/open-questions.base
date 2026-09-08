@@ -3,6 +3,6 @@ views:
     name: Open questions
 filters:
   and:
-    - 'type == "synthesis"'
+    - 'type == "concept"'
 formulas:
   open_q: 'file.content.contains("(open-question)")'

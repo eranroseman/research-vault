@@ -98,7 +98,7 @@ def _build_vault(
     for folder in (
         "inbox",
         "literatures",
-        "synthesis",
+        "wiki",
         "log",
         "projects",
         "system",
@@ -108,7 +108,7 @@ def _build_vault(
         (root / folder).mkdir()
     (root / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Knowledge bundle\n')
     (root / "log.md").write_text("# Log\n")
-    (root / "synthesis" / "index.md").write_text("# Synthesis index\n")
+    (root / "wiki" / "index.md").write_text("# Wiki index\n")
     (root / "inbox" / "review-queue.md").write_text('---\ntype: "review-queue"\n---\n')
     if bibliography is not None:
         (root / "system" / "bibliography.json").write_text(json.dumps(bibliography))

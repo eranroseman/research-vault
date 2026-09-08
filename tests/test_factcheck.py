@@ -173,8 +173,8 @@ def test_select_claims_rejects_a_negative_cap(tmp_vault):
 def test_contested_adjacent_links_reuses_the_disputed_claim_lint(tmp_vault):
     (tmp_vault / "literatures" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
     (tmp_vault / "literatures" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
-    (tmp_vault / "synthesis" / "mortality.md").write_text(
-        '---\ntitle: "Mortality"\ntype: "synthesis"\nstatus: "draft"\n'
+    (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
+        '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
         "- (inference) Contested [supports:: [[smith2020#^c-11111111]]] "
         "[disputes:: [[gone2019#^c-22222222]]] ^c-99999999\n"
@@ -237,8 +237,8 @@ def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):
     (tmp_vault / "literatures" / "gone2019.md").write_text(
         _note("gone2019", "# Note\n")
     )
-    (tmp_vault / "synthesis" / "mortality.md").write_text(
-        '---\ntitle: "Mortality"\ntype: "synthesis"\nstatus: "draft"\n'
+    (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
+        '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
         "- (inference) Disputing [supports:: [[smith2020#^c-11111111]]] "
         "[disputes:: [[gone2019#^c-99999999]]] ^c-syn00001\n"

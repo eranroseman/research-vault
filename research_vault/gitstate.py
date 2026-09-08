@@ -640,8 +640,7 @@ def _allowed_manifest_path(raw_path: bytes, image: FileImage | None) -> bool:
     if raw_path == b"inbox/review-queue.md":
         return True
     return any(
-        raw_path.startswith(prefix)
-        for prefix in (b"literatures/", b"synthesis/", b"projects/")
+        raw_path.startswith(prefix) for prefix in (b"literatures/", b"projects/")
     )
 
 

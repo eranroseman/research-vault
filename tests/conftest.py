@@ -20,6 +20,7 @@ def _with_body_witness(text):
 def tmp_vault(tmp_path):
     for d in scaffold.VAULT_DIRS:
         (tmp_path / d).mkdir(parents=True)
+    (tmp_path / "wiki" / "concepts").mkdir(parents=True)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     return tmp_path
 
@@ -61,13 +62,10 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 # Old result
 """)
     )
-    (tmp_vault / "synthesis" / "index.md").write_text(
-        "# Synthesis index\n\n- [[mortality-trends]] — mortality synthesis\n"
-    )
-    (tmp_vault / "synthesis" / "mortality-trends.md").write_text(
+    (tmp_vault / "wiki" / "concepts" / "mortality-trends.md").write_text(
         """---
 title: "Mortality trends"
-type: "synthesis"
+type: "concept"
 status: "draft"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---

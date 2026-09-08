@@ -8,7 +8,7 @@ import stat
 import sys
 from pathlib import Path
 
-MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log"})
+MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki"})
 # Root-only exact match: a deeper `log.md` (e.g. inside a project) or
 # `search-log.md` (searchlog.py writes `projects/<name>/search-log.md`) is
 # a different file and is not on this list.

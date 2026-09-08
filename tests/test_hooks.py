@@ -209,10 +209,10 @@ def test_posttooluse_is_silent_outside_a_vault(tmp_path):
     assert result.stderr == ""
 
 
-def test_posttooluse_is_silent_for_clean_synthesis_edit(fixture_vault):
+def test_posttooluse_is_silent_for_clean_wiki_edit(fixture_vault):
     _make_hook_vault(fixture_vault)
-    note = fixture_vault / "synthesis" / "clean.md"
-    note.write_text("# Clean synthesis\n")
+    note = fixture_vault / "wiki" / "concepts" / "clean.md"
+    note.write_text("# Clean concept\n")
 
     result = _run_hook(fixture_vault, _payload(note, fixture_vault))
 
@@ -292,9 +292,9 @@ def test_posttooluse_runs_read_only_checks_without_vault_mutation(fixture_vault)
 
 def test_posttooluse_handles_paths_with_spaces_and_non_ascii(fixture_vault):
     _make_hook_vault(fixture_vault)
-    note = fixture_vault / "synthesis" / "space é" / "clean file.md"
+    note = fixture_vault / "wiki" / "concepts" / "space é" / "clean file.md"
     note.parent.mkdir()
-    note.write_text("# Clean synthesis\n")
+    note.write_text("# Clean concept\n")
 
     result = _run_hook(fixture_vault, _payload(note, fixture_vault))
 
@@ -383,7 +383,7 @@ def test_posttooluse_silences_outside_symlink_and_symlinked_vault_marker(
     _make_hook_vault(fixture_vault)
     outside = tmp_path / "outside.md"
     outside.write_text("# Outside\n")
-    escaped = fixture_vault / "synthesis" / "escaped.md"
+    escaped = fixture_vault / "wiki" / "concepts" / "escaped.md"
     escaped.symlink_to(outside)
 
     result = _run_hook(fixture_vault, _payload(escaped, fixture_vault))
@@ -394,7 +394,7 @@ def test_posttooluse_silences_outside_symlink_and_symlinked_vault_marker(
     outside_dir = tmp_path / "outside-dir"
     outside_dir.mkdir()
     (outside_dir / "component.md").write_text("# Outside component\n")
-    escaped_dir = fixture_vault / "synthesis" / "escaped-dir"
+    escaped_dir = fixture_vault / "wiki" / "concepts" / "escaped-dir"
     escaped_dir.symlink_to(outside_dir, target_is_directory=True)
 
     result = _run_hook(
@@ -427,8 +427,8 @@ def test_posttooluse_silences_dependency_import_failure(tmp_path):
     vault = tmp_path / "vault"
     vault.mkdir()
     _make_hook_vault(vault)
-    note = vault / "synthesis" / "note.md"
-    note.parent.mkdir()
+    note = vault / "wiki" / "concepts" / "note.md"
+    note.parent.mkdir(parents=True)
     note.write_text("# Note\n")
 
     result = subprocess.run(
@@ -448,8 +448,8 @@ def test_posttooluse_silences_dependency_import_failure(tmp_path):
 
 def test_posttooluse_silences_checker_exceptions(fixture_vault, monkeypatch, capsys):
     _make_hook_vault(fixture_vault)
-    note = fixture_vault / "synthesis" / "clean.md"
-    note.write_text("# Clean synthesis\n")
+    note = fixture_vault / "wiki" / "concepts" / "clean.md"
+    note.write_text("# Clean concept\n")
     hook = _load_hook()
 
     def explode(*_args, **_kwargs):
@@ -511,6 +511,7 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
         Path("log.md"),
         Path("inbox") / "review-queue.md",
         Path("system") / "bibliography.json",
+        Path("wiki") / "concepts" / "new.md",
     ],
 )
 def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relative):
@@ -526,7 +527,27 @@ def test_pretooluse_denies_edit_into_every_machine_surface(fixture_vault, relati
 @pytest.mark.parametrize(
     "relative",
     [
-        Path("synthesis") / "note.md",
+        Path("wiki") / "concepts" / "new.md",
+        Path("wiki") / "index.md",
+        Path("wiki") / "sources" / "a.md",
+    ],
+)
+def test_pretooluse_denies_write_under_wiki(fixture_vault, relative):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / relative
+    payload = _pretooluse_payload(
+        fixture_vault, "Write", file_path=str(target), content="x\n"
+    )
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        Path("inbox") / "fleeting.md",
         Path("inbox") / "note.md",
         Path("projects") / "brief" / "draft.md",
         Path("projects") / "brief" / "search-log.md",
@@ -575,7 +596,7 @@ def test_pretooluse_denies_notebookedit_into_literatures(fixture_vault):
 
 def test_pretooluse_allows_notebookedit_outside_machine_surfaces(fixture_vault):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "synthesis" / "notebook.ipynb"
+    target = fixture_vault / "inbox" / "notebook.ipynb"
     payload = _pretooluse_payload(
         fixture_vault,
         "NotebookEdit",
@@ -601,7 +622,7 @@ def test_pretooluse_resolves_relative_file_path_against_cwd(fixture_vault):
 
 def test_pretooluse_denies_dotdot_traversal_into_machine_surface(fixture_vault):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "synthesis" / ".." / "literatures" / "clean.md"
+    target = fixture_vault / "inbox" / ".." / "literatures" / "clean.md"
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
 
     result = _run_pretooluse(fixture_vault, payload)
@@ -809,7 +830,7 @@ def test_pretooluse_fails_closed_on_unexpected_exception(
     fixture_vault, monkeypatch, capsys
 ):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "synthesis" / "clean.md"
+    target = fixture_vault / "wiki" / "concepts" / "clean.md"
     hook = _load_pretooluse_hook()
 
     def explode(*_args, **_kwargs):

@@ -275,7 +275,7 @@ def lint_claim_immutability(
     """Require committed claims to stay byte-identical absent a real transition."""
     vault = Path(vault_root)
     outcomes = []
-    roots = (b"literatures/", b"synthesis/", b"projects/")
+    roots = (b"literatures/", b"projects/")
     if base_snapshot is None:
         try:
             base_snapshot = gitstate.snapshot_tree(vault, "HEAD")
@@ -490,8 +490,8 @@ def _origin(
 def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
     disputed, outcomes = set(), []
     for path in (
-        sorted((vault_root / "synthesis").rglob("*.md"))
-        if (vault_root / "synthesis").is_dir()
+        sorted((vault_root / "wiki").rglob("*.md"))
+        if (vault_root / "wiki").is_dir()
         else []
     ):
         rel = _relative(vault_root, path)

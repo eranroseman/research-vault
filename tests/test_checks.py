@@ -22,12 +22,13 @@ def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_
 
 def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
     """A citation-free note must not produce an empty or fabricated finding."""
-    note = fixture_vault / "synthesis" / "index.md"
+    note = fixture_vault / "wiki" / "concepts" / "clean.md"
+    note.write_text("# Clean\n")
 
     outs = checks.check_citekeys(fixture_vault, note)
 
     assert len(outs) == 1
-    assert outs[0].target == "path-bytes:synthesis/index.md"
+    assert outs[0].target == "path-bytes:wiki/concepts/clean.md"
     assert outs[0].target_kind == "repo-path"
     assert outs[0].result is Result.SKIPPED
     assert outs[0].reason == "no-identifier — note cites nothing"
@@ -35,7 +36,7 @@ def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
 
 def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
     """A checker restricted to parsed claims would miss prose citations."""
-    note = fixture_vault / "synthesis" / "prose.md"
+    note = fixture_vault / "wiki" / "concepts" / "prose.md"
     note.write_text("See the background evidence [@prose-only2024].\n")
 
     outs = checks.check_citekeys(fixture_vault, note)
@@ -43,7 +44,7 @@ def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
     assert len(outs) == 1
     assert outs[0].target == "prose-only2024"
     assert outs[0].result is Result.UNMATCHED
-    assert outs[0].extra["note_path"] == "path-bytes:synthesis/prose.md"
+    assert outs[0].extra["note_path"] == "path-bytes:wiki/concepts/prose.md"
     assert checks.outcome_to_record(outs[0])["extra"]["claims"] == []
 
 
@@ -144,7 +145,7 @@ def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
 def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
     outcome = checks.Outcome(
         "quote",
-        RepoPath(b"synthesis/no-slash-needed.md"),
+        RepoPath(b"wiki/concepts/no-slash-needed.md"),
         Result.UNMATCHED,
         "mismatch — quote",
         extra={
@@ -154,7 +155,7 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
         },
     )
 
-    assert outcome.target == "path-bytes:synthesis/no-slash-needed.md"
+    assert outcome.target == "path-bytes:wiki/concepts/no-slash-needed.md"
     assert outcome.target_kind == "repo-path"
     assert outcome.path_extra_fields == ("note_path", "origin")
     assert outcome.extra["note_path"] == "path-bytes:projects/a%20b.md"
@@ -168,11 +169,11 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
 
     replaced = dataclasses.replace(
         outcome,
-        target=RepoPath(b"synthesis/new.md"),
+        target=RepoPath(b"wiki/concepts/new.md"),
         extra={"identifier": "plain"},
     )
     assert replaced.target_kind == "repo-path"
-    assert replaced.target == "path-bytes:synthesis/new.md"
+    assert replaced.target == "path-bytes:wiki/concepts/new.md"
     assert replaced.path_extra_fields == ()
 
 
@@ -196,7 +197,7 @@ def test_outcome_rejects_non_json_or_nested_typed_path_values(extra):
 def test_record_round_trip_returns_fresh_typed_values():
     source = checks.Outcome(
         "quote",
-        RepoPath(b"synthesis/\xff.md"),
+        RepoPath(b"wiki/concepts/\xff.md"),
         Result.UNMATCHED,
         "mismatch — quote",
         {
@@ -207,7 +208,7 @@ def test_record_round_trip_returns_fresh_typed_values():
     record = checks.outcome_to_record(source)
     assert record == {
         "check": "quote",
-        "target": "path-bytes:synthesis/%FF.md",
+        "target": "path-bytes:wiki/concepts/%FF.md",
         "target_kind": "repo-path",
         "result": "UNMATCHED",
         "reason": "mismatch — quote",

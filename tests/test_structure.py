@@ -10,12 +10,17 @@ def _write(tmp_path, relative, text):
 
 def test_expected_type_is_the_folder():
     assert structure.expected_type("literatures/smith2020.md") == "literature"
-    assert structure.expected_type("synthesis/topic.md") == "synthesis"
     assert structure.expected_type("projects/brief/draft.md") == "project"
     assert structure.expected_type("log/2026-08-20.md") == "daily"
     assert structure.expected_type("inbox/review-queue.md") == "review-queue"
     assert structure.expected_type("system/templates/literature.md") is None
     assert structure.expected_type("scratch.md") is None
+
+
+def test_wiki_derives_no_type_and_synthesis_is_gone():
+    assert structure.expected_type("wiki/concepts/topic.md") is None
+    assert structure.expected_type("wiki/sources/A paper.md") is None
+    assert "synthesis" not in structure._FOLDER_TYPES
 
 
 def test_expected_type_project_note_is_narrow():
@@ -42,12 +47,10 @@ def test_check_flags_missing_frontmatter_and_wrong_folder_type(tmp_path):
     assert outcome.result is Result.UNMATCHED
     assert outcome.reason.startswith("schema-violation")
 
-    path = _write(
-        tmp_path, "synthesis/mislabeled.md", '---\ntype: "literature"\n---\nbody\n'
-    )
+    path = _write(tmp_path, "log/mislabeled.md", '---\ntype: "literature"\n---\nbody\n')
     (outcome,) = structure.check_note_frontmatter(tmp_path, path)
     assert outcome.result is Result.UNMATCHED
-    assert "synthesis" in outcome.reason
+    assert "daily" in outcome.reason
 
 
 def test_check_passes_conformant_and_underived_notes(tmp_path):
@@ -76,7 +79,7 @@ def test_check_skips_fleeting_notes(tmp_path):
 
 
 def _scaffold_min(tmp_path):
-    for d in ("literatures", "synthesis", "projects", "log", "inbox", "system"):
+    for d in ("literatures", "wiki", "projects", "log", "inbox", "system"):
         (tmp_path / d).mkdir(parents=True, exist_ok=True)
     _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Vault index\n')
 
@@ -92,14 +95,29 @@ def test_reserved_root_index_carries_only_okf_version(tmp_path):
     assert "okf_version" in problems[0].reason
 
 
-def test_reserved_nested_index_must_be_frontmatter_free(tmp_path):
-    _scaffold_min(tmp_path)
-    _write(tmp_path, "synthesis/index.md", '---\ntype: "index"\n---\n# S\n')
-    problems = [
-        o for o in structure.check_reserved(tmp_path) if o.result is Result.UNMATCHED
-    ]
-    assert problems
-    assert "synthesis/index.md" in problems[0].target
+def test_reserved_check_exempts_wiki_index_only(tmp_path):
+    _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Root\n')
+    _write(
+        tmp_path,
+        "wiki/index.md",
+        "---\ntype: meta\ntitle: Wiki Index\nstatus: evergreen\n"
+        "created: 2026-09-07\nupdated: 2026-09-07\ntags:\n  - meta\n---\n# Wiki Index\n",
+    )
+    (outcome,) = structure.check_reserved(tmp_path)
+    assert outcome.result is Result.MATCHED
+
+    _write(tmp_path, "wiki/concepts/index.md", '---\ntype: "index"\n---\n# S\n')
+    problems = structure.check_reserved(tmp_path)
+    assert problems[0].result is Result.UNMATCHED
+    assert "wiki/concepts/index.md" in problems[0].target
+
+
+def test_reserved_check_skips_the_tool_stores(tmp_path):
+    _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Root\n')
+    _write(tmp_path, ".raw/captured/index.md", '---\ntype: "x"\n---\n')
+    _write(tmp_path, ".vault-meta/index.md", '---\ntype: "x"\n---\n')
+    (outcome,) = structure.check_reserved(tmp_path)
+    assert outcome.result is Result.MATCHED
 
 
 def test_reserved_log_must_be_date_grouped_newest_first(tmp_path):

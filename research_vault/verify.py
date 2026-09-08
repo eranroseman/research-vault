@@ -555,6 +555,10 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
         path = _safe_relative(vault_root, relative, "repo-path")
         if path is None or not path.is_file():
             continue
+        if path.relative_to(Path(vault_root)).parts[0] == "wiki":
+            # The compiled layer is the tool's write scope (ingest spec §4.4):
+            # verify reads it and never writes into it.
+            continue
         lines = _read_note_text(path).splitlines(keepends=True)
         for index, line in enumerate(lines):
             content, ending = _split_line_ending(line)
@@ -907,13 +911,13 @@ def _plan_state(
         )
     note_files = [
         path
-        for folder in ("literatures", "synthesis", "projects")
+        for folder in ("literatures", "wiki", "projects")
         for path in sorted((vault / folder).rglob("*.md"))
     ]
     for path in note_files:
         raw.extend(file_outcomes(vault, path, bibliography_universe))
     for path in sorted(vault.rglob("*.md")):
-        if ".git" in path.parts:
+        if structure.is_excluded(path, vault):
             continue
         if path.name == "index.md" or path.name == "log.md":
             continue

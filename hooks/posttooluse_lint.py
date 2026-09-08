@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CONCEPT_ROOTS = frozenset({"synthesis", "projects"})
+CONCEPT_ROOTS = frozenset({"wiki", "projects"})
 
 
 def _core_path() -> None:

@@ -624,7 +624,7 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
 
 
 def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
-    note = net_vault / "synthesis" / "invalid-utf8.md"
+    note = net_vault / "projects" / "brief" / "invalid-utf8.md"
     claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
     note.write_bytes(claim_bytes)
     subprocess.run(["git", "add", note], cwd=net_vault, check=True)
@@ -636,10 +636,10 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
     note.unlink()
     outcome = _outcome(
         "claim-immutability",
-        "synthesis/invalid-utf8.md#^c-invalid",
+        "projects/brief/invalid-utf8.md#^c-invalid",
         Result.UNMATCHED,
         "drift — deleted claim",
-        note_path="synthesis/invalid-utf8.md",
+        note_path="projects/brief/invalid-utf8.md",
         claim_id="c-invalid",
     )
 
@@ -650,7 +650,7 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
 
 
 def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
-    other = net_vault / "synthesis" / "other.md"
+    other = net_vault / "projects" / "brief" / "other.md"
     other.write_text(
         "- (quote) [@smith2020] [failed-verification:: quote/2026-08-16] ^c-66666666\n"
     )
@@ -743,7 +743,7 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
 
 
 def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
-    note = net_vault / "synthesis" / "crlf markers.md"
+    note = net_vault / "projects" / "brief" / "crlf markers.md"
     original = (
         b"- (quote) anchored [@missing]   ^c-1\r\n- (quote) line only [@missing]\r\n"
     )
@@ -753,7 +753,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         "missing",
         Result.UNMATCHED,
         "mismatch — citekey not in bibliography",
-        note_path="synthesis/crlf markers.md",
+        note_path="projects/brief/crlf markers.md",
         claims=[{"claim_id": "c-1"}],
     )
     anchored_hash = _target_hash(net_vault, anchored)
@@ -773,7 +773,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         "missing",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="synthesis/crlf markers.md",
+        note_path="projects/brief/crlf markers.md",
         line_no=2,
     )
     line_hash = _target_hash(net_vault, line_only)
@@ -790,7 +790,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
 
 
 def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
-    note = net_vault / "synthesis" / "trailing anchor.md"
+    note = net_vault / "projects" / "brief" / "trailing anchor.md"
     original = b"- (quote) trailing [@missing] ^c-1  \r\n"
     note.write_bytes(original)
     outcome = _outcome(
@@ -798,7 +798,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
         "missing#^c-1",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="synthesis/trailing anchor.md",
+        note_path="projects/brief/trailing anchor.md",
         claim_id="c-1",
         line_no=1,
     )
@@ -849,7 +849,7 @@ def test_body_only_literature_ack_survives_verifier_event_envelope(net_vault):
 def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
     net_vault,
 ):
-    note = net_vault / "synthesis" / "marker prose.md"
+    note = net_vault / "projects" / "brief" / "marker prose.md"
     original = "- (quote) prose [failed-verification:: quote/2026-08-16] remains human text ^c-1\n"
     note.write_text(original)
     outcome = _outcome(
@@ -857,7 +857,7 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
         "missing#^c-1",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="synthesis/marker prose.md",
+        note_path="projects/brief/marker prose.md",
         claim_id="c-1",
     )
 
@@ -940,14 +940,14 @@ def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
 
 
 def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_path):
-    note = net_vault / "synthesis" / "synthèse space.md"
+    note = net_vault / "projects" / "brief" / "synthèse space.md"
     note.write_text("- (quote) local [@missing] ^c-local\n")
     outcome = _outcome(
         "quote",
         "missing#^c-local",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="synthesis/synthèse space.md",
+        note_path="projects/brief/synthèse space.md",
         claim_id="c-local",
     )
 
@@ -961,14 +961,17 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     outside_root.mkdir()
     outside = outside_root / "outside.md"
     outside.write_text("outside remains private\n")
-    direct_link = net_vault / "synthesis" / "outside-link.md"
+    direct_link = net_vault / "projects" / "brief" / "outside-link.md"
     direct_link.symlink_to(outside)
-    assert _safe_relative(net_vault, "synthesis/outside-link.md") is None
+    assert _safe_relative(net_vault, "projects/brief/outside-link.md") is None
     assert (
         _target_hash(
             net_vault,
             _outcome(
-                "append-only", "synthesis/outside-link.md", Result.UNMATCHED, "drift"
+                "append-only",
+                "projects/brief/outside-link.md",
+                Result.UNMATCHED,
+                "drift",
             ),
         )
         is None
@@ -1783,7 +1786,7 @@ def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault)
 def test_invalid_utf8_path_has_one_typed_token_across_outcome_record_and_inbox(
     fixture_vault,
 ):
-    raw = b"synthesis/bad-\xff.md"
+    raw = b"projects/brief/bad-\xff.md"
     absolute = os.path.join(os.fsencode(fixture_vault), raw)
     with open(absolute, "wb") as stream:
         stream.write(b"plain text\n")
@@ -1811,7 +1814,7 @@ def test_invalid_utf8_path_has_one_typed_token_across_outcome_record_and_inbox(
 def test_hash_and_marker_filesystem_routing_requires_explicit_repo_path_kind(
     fixture_vault,
 ):
-    raw = b"synthesis/path-bytes:looks-like-id.md"
+    raw = b"projects/brief/path-bytes:looks-like-id.md"
     path = os.path.join(os.fsencode(fixture_vault), raw)
     with open(path, "wb") as stream:
         stream.write(b"- (quote) body ^c-1\n")

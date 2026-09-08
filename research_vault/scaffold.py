@@ -14,7 +14,6 @@ from .zotero import ZoteroClient, ZoteroError
 VAULT_DIRS = [
     "inbox",
     "literatures",
-    "synthesis",
     "log",
     "projects",
     "system/templates",

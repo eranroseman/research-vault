@@ -14,9 +14,7 @@ EXPECTED_PATHS = {
     "vault/log.md",
     "vault/AGENTS.md",
     "vault/inbox/review-queue.md",
-    "vault/synthesis/index.md",
     "context.md",
-    "vault/system/templates/synthesis.md",
     "vault/system/templates/project.md",
     "vault/system/templates/daily.md",
     "vault/system/bases/open-questions.base",
@@ -86,15 +84,18 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
         '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [literatures/](literatures/) — evidence layer: citekey-keyed literature notes\n"
-        "- [synthesis/](synthesis/) — synthesis notes (see [[synthesis/index]])\n"
+        "- [literatures/](literatures/) — evidence layer: literature notes, one per "
+        "captured source, named by citation key\n"
+        "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
+        "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
         "- [projects/](projects/) — manuscripts and deliverables\n"
         "- [log/](log/) — daily activity log (summary: [[log]])\n"
         "- [inbox/](inbox/) — fleeting notes and the review queue\n"
-        "- [system/](system/) — support artifacts: templates, bases, the bibliography export\n\n"
+        "- [system/](system/) — support artifacts: templates, bases, the CSL file, "
+        "the applied propagation plans\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![[system/bases/trust-tier.base]]\n\n"
-        "Synthesis notes, flagged where they contain an open-question:\n\n"
+        "Concept pages, flagged where they contain an open-question:\n\n"
         "![[system/bases/open-questions.base]]\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
@@ -124,11 +125,12 @@ def test_markdown_templates_match_canonical_content():
         "them; don't edit them by hand.\n\n"
         "Evidence is admitted through Zotero and projected into `literatures/` — "
         "evidence notes exist only by projection, never by hand. Read "
-        "`synthesis/index.md` and recent `log/` entries before editing; review "
+        "`wiki/index.md` and recent `log/` entries before editing; review "
         "findings live in `inbox/review-queue.md`.\n\n"
         "Prefer the two model-invocable research-vault skills over generic "
         "drafting, even for free-form requests: run `evidence-conventions` for "
-        "claim syntax and `synthesis-conventions` for synthesis-note rules.\n\n"
+        "claim syntax and `synthesis-conventions` for the rules of the compiled "
+        "layer.\n\n"
         "These seven are the user-invoked entry points — type the name to run "
         "one; an agent cannot reach them on its own:\n\n"
         "| Skill              | Use it to                                                |\n"
@@ -146,6 +148,8 @@ def test_markdown_templates_match_canonical_content():
         "in a Zotero child note, which capture renders.\n\n"
         "Machine surfaces are owner-written: hand or tool edits are "
         "regenerated away or raise a finding.\n\n"
+        "`wiki/` is written only by the adopted compile tool's transaction "
+        "engine; never `Write` or `Edit` under it.\n\n"
         "Better BibTeX is the sole writer of `system/bibliography.json`; users "
         "and other tools must not write it.\n\n"
         "Formatters are writers too: `.prettierignore` and `.markdownlintignore` "
@@ -156,12 +160,10 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/inbox/review-queue.md").read_text() == (
         '---\ntype: "review-queue"\n---\n'
     )
-    assert asset("vault/synthesis/index.md").read_text() == "# Synthesis index\n"
-    for kind in ("synthesis", "project"):
-        assert asset(f"vault/system/templates/{kind}.md").read_text() == (
-            f'---\ntitle: "{{{{TITLE}}}}"\ntype: "{kind}"\n'
-            'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
-        )
+    assert asset("vault/system/templates/project.md").read_text() == (
+        '---\ntitle: "{{TITLE}}"\ntype: "project"\n'
+        'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
+    )
     assert asset("vault/system/templates/daily.md").read_text() == (
         '---\ntype: "daily"\n---\n\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
     )
@@ -171,7 +173,7 @@ def test_bases_and_machine_example_match_canonical_shapes():
     open_questions = asset("vault/system/bases/open-questions.base").read_text()
     trust_tier = asset("vault/system/bases/trust-tier.base").read_text()
     assert re.search(
-        r"name: Open questions\nfilters:\n  and:\n    - 'type == \"synthesis\"'",
+        r"name: Open questions\nfilters:\n  and:\n    - 'type == \"concept\"'",
         open_questions,
     )
     assert (

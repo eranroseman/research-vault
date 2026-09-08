@@ -6,9 +6,9 @@ type: "guide"
 
 This is a research-vault vault. `literatures/`, `log/`, `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; don't edit them by hand.
 
-Evidence is admitted through Zotero and projected into `literatures/` — evidence notes exist only by projection, never by hand. Read `synthesis/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
+Evidence is admitted through Zotero and projected into `literatures/` — evidence notes exist only by projection, never by hand. Read `wiki/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
 
-Prefer the two model-invocable research-vault skills over generic drafting, even for free-form requests: run `evidence-conventions` for claim syntax and `synthesis-conventions` for synthesis-note rules.
+Prefer the two model-invocable research-vault skills over generic drafting, even for free-form requests: run `evidence-conventions` for claim syntax and `synthesis-conventions` for the rules of the compiled layer.
 
 These seven are the user-invoked entry points — type the name to run one; an agent cannot reach them on its own:
 
@@ -25,6 +25,8 @@ These seven are the user-invoked entry points — type the name to run one; an a
 Literature notes are wholly machine-written: `capture` regenerates the whole note from Zotero on every run, so per-source prose belongs in a Zotero child note, which capture renders.
 
 Machine surfaces are owner-written: hand or tool edits are regenerated away or raise a finding.
+
+`wiki/` is written only by the adopted compile tool's transaction engine; never `Write` or `Edit` under it.
 
 Better BibTeX is the sole writer of `system/bibliography.json`; users and other tools must not write it.
 

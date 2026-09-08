@@ -373,7 +373,7 @@ def test_ack_requires_human_and_valid_reason(fixture_vault):
 def test_target_kind_round_trips_and_participates_in_identity_and_ack_scope(
     fixture_vault,
 ):
-    token = encode_repo_path(b"synthesis/a.md")
+    token = encode_repo_path(b"wiki/concepts/a.md")
     identifier = inbox.append_entry(
         fixture_vault,
         "quote",

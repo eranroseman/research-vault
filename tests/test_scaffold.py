@@ -12,7 +12,6 @@ from research_vault import frontmatter, scaffold
 VAULT_DIRS = [
     "inbox",
     "literatures",
-    "synthesis",
     "log",
     "projects",
     "system/templates",
@@ -32,13 +31,11 @@ EXPECTED_CREATED = [
     "log.md",
     "log/.gitkeep",
     "projects/.gitkeep",
-    "synthesis/index.md",
     "system/bases/open-questions.base",
     "system/bases/trust-tier.base",
     "system/glossary.md",
     "system/templates/daily.md",
     "system/templates/project.md",
-    "system/templates/synthesis.md",
 ]
 TRACKABLE_CREATED = [
     path
@@ -96,21 +93,24 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert (vault / "index.md").read_text() == (
         '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [literatures/](literatures/) — evidence layer: citekey-keyed literature notes\n"
-        "- [synthesis/](synthesis/) — synthesis notes (see [[synthesis/index]])\n"
+        "- [literatures/](literatures/) — evidence layer: literature notes, one per "
+        "captured source, named by citation key\n"
+        "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
+        "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
         "- [projects/](projects/) — manuscripts and deliverables\n"
         "- [log/](log/) — daily activity log (summary: [[log]])\n"
         "- [inbox/](inbox/) — fleeting notes and the review queue\n"
-        "- [system/](system/) — support artifacts: templates, bases, the bibliography export\n\n"
+        "- [system/](system/) — support artifacts: templates, bases, the CSL file, "
+        "the applied propagation plans\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![[system/bases/trust-tier.base]]\n\n"
-        "Synthesis notes, flagged where they contain an open-question:\n\n"
+        "Concept pages, flagged where they contain an open-question:\n\n"
         "![[system/bases/open-questions.base]]\n"
     )
     assert (vault / "log.md").read_text() == ('---\ntype: "log"\n---\n# Log\n')
     assert (
         vault / ".gitignore"
-    ).read_text() == ".research-vault/\n.obsidian/workspace*\n"
+    ).read_text() == ".research-vault/\n.obsidian/workspace*\n.raw/\n.vault-meta/\n"
     # Byte-pinned against the CANONICAL json.tool form the JSON owner produces
     # (tests/test_config_validity.py asserts the template itself equals it). Same
     # object, expanded nesting; the one-time canonicalization is its own commit.
@@ -128,12 +128,9 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         "system/glossary.md",
         "system/templates/daily.md",
         "system/templates/project.md",
-        "system/templates/synthesis.md",
     ):
         data, _ = frontmatter.parse((vault / path).read_text())
         assert data["type"]
-    data, _ = frontmatter.parse((vault / "synthesis/index.md").read_text())
-    assert data == {}
     log_data, _ = frontmatter.parse((vault / "log.md").read_text())
     assert log_data == {"type": "log"}
 
@@ -204,8 +201,8 @@ def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path)
         ".git/hooks/pre-commit": packaged.joinpath("git", "pre-commit"),
         ".github/workflows/verify.yml": packaged.joinpath("ci", "verify.yml"),
         ".github/workflows/rw-batch.yml": packaged.joinpath("ci", "rw-batch.yml"),
-        "system/templates/synthesis.md": packaged.joinpath(
-            "vault", "system", "templates", "synthesis.md"
+        "system/templates/project.md": packaged.joinpath(
+            "vault", "system", "templates", "project.md"
         ),
     }
 

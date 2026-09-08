@@ -55,7 +55,9 @@ def test_claim_link():
 
 def test_fixture_vault_parses_wikilink_fields(fixture_vault):
     literature = (fixture_vault / "literatures" / "smith2020.md").read_text()
-    inference = (fixture_vault / "synthesis" / "mortality-trends.md").read_text()
+    inference = (
+        fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
+    ).read_text()
     parsed_inference = claims.parse_claims(inference)[0]
 
     assert len(claims.parse_claims(literature)) >= 2
