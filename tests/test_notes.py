@@ -5,7 +5,7 @@ import pytest
 
 from research_vault import AGENT_ACTOR, Result, frontmatter, notes
 
-LITERATURE = '---\ncitekey: "smith2020"\ntype: "literature"\n'
+LITERATURE = '---\ncitationKey: "smith2020"\ntype: "literature"\n'
 BODY = "# Mortality decline\n"
 
 
@@ -25,14 +25,14 @@ def test_note_path(tmp_vault):
 
 
 @pytest.mark.parametrize(
-    "citekey",
-    # An absolute-path ESCAPE fixture: the value is a citekey that note_path must
+    "citation_key",
+    # An absolute-path ESCAPE fixture: the value is a citation key that note_path must
     # reject, never a temporary file this test writes to.
     ["", "../escape", "/tmp/escape", "..\\escape", "nested/escape"],  # noqa: S108
 )
-def test_note_path_rejects_unsafe_citekeys(tmp_vault, citekey):
-    with pytest.raises(notes.InvalidCitekeyError):
-        notes.note_path(tmp_vault, citekey)
+def test_note_path_rejects_unsafe_citation_keys(tmp_vault, citation_key):
+    with pytest.raises(notes.InvalidCitationKeyError):
+        notes.note_path(tmp_vault, citation_key)
 
 
 def test_sha256_file(tmp_path):
@@ -136,7 +136,7 @@ def test_content_changed_compares_only_the_verifier_owned_surface():
 
 def test_canonical_content_excludes_only_valid_verifier_owned_surfaces():
     base = """---
-citekey: "x"
+citationKey: "x"
 verified:
   - {by: "bot", at: "2026-08-16", check: "doi"}
 status: "included"
@@ -182,7 +182,7 @@ verified:
 
 def test_deprecation_transition_fields_are_all_substantive():
     base = """---
-citekey: "x"
+citationKey: "x"
 status: "included"
 deprecated-at: ""
 deprecated-by: ""
@@ -255,9 +255,9 @@ def test_canonical_content_preserves_short_fence_lookalike_outside_a_fence():
 def test_canonical_content_keeps_multiple_terminal_markers_substantive():
     text = (
         "- (quote) anchored [failed-verification:: quote/2026-08-16] "
-        "[failed-verification:: citekey/2026-08-17] ^c-1\n"
+        "[failed-verification:: citation-key/2026-08-17] ^c-1\n"
         "- (paraphrase) unanchored [failed-verification:: quote/2026-08-16] "
-        "[failed-verification:: citekey/2026-08-17]\n"
+        "[failed-verification:: citation-key/2026-08-17]\n"
     )
 
     assert notes.canonical_content(text) == text
@@ -339,3 +339,25 @@ def test_generated_at_now_truncates_microseconds_and_formats_utc_offset_as_z():
     moment = datetime.datetime(2026, 8, 24, 15, 4, 5, 123456, tzinfo=datetime.UTC)
 
     assert notes.generated_at_now(moment) == "2026-08-24T15:04:05Z"
+
+
+# --- the citekey -> citationKey migration (ingest spec §1.1) ----------------
+
+
+def test_rename_frontmatter_key_is_byte_surgical():
+    text = '---\ncitekey: "smith2020"\ntype: "literature"\n---\n# T\ncitekey: in body\n'
+    renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
+    assert (
+        renamed
+        == '---\ncitationKey: "smith2020"\ntype: "literature"\n---\n# T\ncitekey: in body\n'
+    )
+    assert notes.rename_frontmatter_key(renamed, "citekey", "citationKey") == renamed
+    assert (
+        notes.rename_frontmatter_key("no frontmatter\n", "citekey", "citationKey")
+        == "no frontmatter\n"
+    )
+
+
+def test_invalid_citation_key_error_is_the_spelling():
+    with pytest.raises(notes.InvalidCitationKeyError):
+        notes.note_path("/tmp", "a/b")  # noqa: S108

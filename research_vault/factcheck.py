@@ -55,12 +55,12 @@ def _claim_source_text(lines: list[str], claim: claims_mod.Claim) -> str:
 
 
 def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
-    """Return quote/paraphrase/inference claims with a resolvable citekey.
+    """Return quote/paraphrase/inference claims with a resolvable citation key.
 
     Excludes `open-question` claims (no derivation edge — nothing to check
-    against) and any claim whose citekey does not resolve to an existing
+    against) and any claim whose citation key does not resolve to an existing
     literature note (the Iron Law's job, not this one, to catch — a claim
-    that reaches a draft with a dangling citekey is a different gate's
+    that reaches a draft with a dangling citation key is a different gate's
     defect). Returned in document order.
     """
     vault = Path(vault_root)
@@ -68,15 +68,19 @@ def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
     lines = text.splitlines()
     refs = []
     for claim in claims_mod.parse_claims(text):
-        if claim.tag not in _ELIGIBLE_TAGS or not claim.citekey or not claim.claim_id:
+        if (
+            claim.tag not in _ELIGIBLE_TAGS
+            or not claim.citation_key
+            or not claim.claim_id
+        ):
             continue
-        note = vault / "literatures" / f"{claim.citekey}.md"
+        note = vault / "literatures" / f"{claim.citation_key}.md"
         if not note.is_file():
             continue
         source = _claim_source_text(lines, claim)
         refs.append(
             ClaimRef(
-                claim_link=claims_mod.claim_link(claim.citekey, claim.claim_id),
+                claim_link=claims_mod.claim_link(claim.citation_key, claim.claim_id),
                 tag=claim.tag,
                 line_no=claim.line_no,
                 text_hash=claim_text_hash(source),
@@ -85,9 +89,9 @@ def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
     return refs
 
 
-def _has_verified_event(vault_root, citekey: str) -> bool:
+def _has_verified_event(vault_root, citation_key: str) -> bool:
     """Verified-evidence-only counting: never assume a note is backed."""
-    note = Path(vault_root) / "literatures" / f"{citekey}.md"
+    note = Path(vault_root) / "literatures" / f"{citation_key}.md"
     if not note.is_file():
         return False
     return bool(events.verified_checks(note.read_text(encoding="utf-8")))
@@ -108,11 +112,11 @@ def contested_adjacent_links(vault_root, draft_path) -> set[str]:
     text = Path(draft_path).read_text(encoding="utf-8")
     contested = set()
     for claim in claims_mod.parse_claims(text):
-        if not claim.citekey or not claim.claim_id:
+        if not claim.citation_key or not claim.claim_id:
             continue
         supports = lints.CLAIM_LINK.findall(claim.fields.get("supports", ""))
         if any(link in disputed for link in supports):
-            contested.add(claims_mod.claim_link(claim.citekey, claim.claim_id))
+            contested.add(claims_mod.claim_link(claim.citation_key, claim.claim_id))
     return contested
 
 
@@ -146,10 +150,10 @@ def select_claims(
     verified_cache: dict[str, bool] = {}
 
     def has_verified_event(claim_link: str) -> bool:
-        citekey = claim_link.split("#^", 1)[0]
-        if citekey not in verified_cache:
-            verified_cache[citekey] = _has_verified_event(vault_root, citekey)
-        return verified_cache[citekey]
+        citation_key = claim_link.split("#^", 1)[0]
+        if citation_key not in verified_cache:
+            verified_cache[citation_key] = _has_verified_event(vault_root, citation_key)
+        return verified_cache[citation_key]
 
     ordered = sorted(
         enumerate(refs),

@@ -1,7 +1,7 @@
 from research_vault import claims
 
 NOTE = """---
-citekey: "smith2020"
+citationKey: "smith2020"
 ---
 # Mortality decline
 
@@ -30,7 +30,7 @@ def test_quote_aggregates_its_blockquote_continuations():
     quote = claims.parse_claims(NOTE)[0]
 
     assert quote.quote_text == "Mortality fell 12% across all strata."
-    assert quote.citekey == "smith2020"
+    assert quote.citation_key == "smith2020"
     assert quote.locator == "p. 12"
     assert quote.claim_id == "c-11111111"
 
@@ -45,7 +45,7 @@ def test_inline_fields():
 def test_open_question_may_lack_citation():
     open_question = claims.parse_claims(NOTE)[3]
 
-    assert open_question.citekey is None
+    assert open_question.citation_key is None
     assert open_question.claim_id == "c-44444444"
 
 

@@ -129,7 +129,7 @@ def _claim_origins(note_text: str) -> dict[str, list[dict]]:
     return origins
 
 
-def check_citekeys(
+def check_citation_keys(
     vault_root, note_path: Path, bibliography_universe=None
 ) -> list[Outcome]:
     """Check every citation in a note against the local bibliography universe."""
@@ -141,7 +141,7 @@ def check_citekeys(
     if not cited:
         return [
             Outcome(
-                "citekey",
+                "citation-key",
                 RepoPath(relative_raw),
                 Result.SKIPPED,
                 "no-identifier — note cites nothing",
@@ -153,26 +153,26 @@ def check_citekeys(
     origins = _claim_origins(note_text)
     typed_note_path = RepoPath(relative_raw)
     outcomes = []
-    for citekey in cited:
-        if citekey not in bibliography_universe:
+    for citation_key in cited:
+        if citation_key not in bibliography_universe:
             result = Result.UNMATCHED
-            reason = "mismatch — citekey not in bibliography"
-        elif not (vault / "literatures" / f"{citekey}.md").is_file():
+            reason = "mismatch — citation key not in bibliography"
+        elif not (vault / "literatures" / f"{citation_key}.md").is_file():
             # Tier 2: bibliography membership alone is not citability — the
             # cited source needs an imported literature note to verify a
             # quote or paraphrase against.
             result = Result.UNMATCHED
-            reason = "not-imported — cited citekey has no literature note"
+            reason = "not-captured — cited citation key has no literature note"
         else:
             result = Result.MATCHED
             reason = "matched"
         outcomes.append(
             Outcome(
-                "citekey",
-                citekey,
+                "citation-key",
+                citation_key,
                 result,
                 reason,
-                extra={"note_path": typed_note_path, "claims": origins[citekey]},
+                extra={"note_path": typed_note_path, "claims": origins[citation_key]},
             )
         )
     return outcomes

@@ -110,7 +110,7 @@ Report results the way the retrieval can be repeated — per candidate: title, a
 
 That report is the entire deliverable. This skill **terminates at the admission step**:
 
-- It never writes `literatures/`, never creates a literature note, and never invents a citekey — that projection exists only after `import-source` runs against an item already admitted.
+- It never writes `literatures/`, never creates a literature note, and never invents a citation key — that projection exists only after `import-source` runs against an item already admitted.
 - It never decides admission on the person's behalf. Present candidates; the person chooses what goes into Zotero.
 - Once something is admitted, route to `import-source` to catalog it — this skill's job ends at the search log and the report.
 

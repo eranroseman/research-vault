@@ -261,9 +261,9 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
 
 def _claim_target(rel: bytes, text: str, claim_id: str):
     data, parsed = _parse_frontmatter(text)
-    citekey = data.get("citekey") if parsed else None
-    if isinstance(citekey, str) and citekey:
-        return claims_mod.claim_link(citekey, claim_id)
+    citation_key = data.get("citationKey") if parsed else None
+    if isinstance(citation_key, str) and citation_key:
+        return claims_mod.claim_link(citation_key, claim_id)
     return RepoPath(rel)
 
 
@@ -475,10 +475,10 @@ def _origin(
     note = Path(note_file)
     rel = _relative(vault, note)
     data, parsed = _parse_frontmatter(note.read_text())
-    citekey = data.get("citekey") if parsed else None
+    citation_key = data.get("citationKey") if parsed else None
     target: str | RepoPath
-    if claim.claim_id and isinstance(citekey, str) and citekey:
-        target = claims_mod.claim_link(citekey, claim.claim_id)
+    if claim.claim_id and isinstance(citation_key, str) and citation_key:
+        target = claims_mod.claim_link(citation_key, claim.claim_id)
     else:
         target = fallback or RepoPath(rel)
     return target, {
@@ -499,7 +499,7 @@ def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
         data, parsed = _parse_frontmatter(text)
         if not parsed:
             outcomes.append(_schema_outcome("disputed-claim", RepoPath(rel)))
-        page_key = data.get("citekey") if parsed else None
+        page_key = data.get("citationKey") if parsed else None
         if not isinstance(page_key, str) or not page_key:
             page_key = path.stem
         for claim in claims_mod.parse_claims(text):
@@ -552,11 +552,11 @@ def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
         return None
 
 
-# Machine-owned frontmatter fields: capture owns citekey/managed-sha256/
+# Machine-owned frontmatter fields: capture owns citationKey/managed-sha256/
 # fixity-sha256. Legality rides on the `generated` writer attestation, not on
 # where in the note the field sits.
 _MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
-    {"managed-sha256", "fixity-sha256", "citekey"}
+    {"managed-sha256", "fixity-sha256", "citationKey"}
 )
 # docs/terminology.md's actor convention: process-written records carry
 # `research_vault/<version>`, so this class test — not an exact-version

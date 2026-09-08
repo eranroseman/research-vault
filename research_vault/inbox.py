@@ -29,7 +29,7 @@ REASON_CODES = frozenset(
         "schema-violation",
         "mismatch",
         "not-admitted",
-        "not-imported",
+        "not-captured",
         "outage",
         "drift",
         "disputed-claim",
@@ -52,7 +52,7 @@ REASON_CODES = frozenset(
 # unregistered id can enter.
 CHECK_IDS = frozenset(
     {
-        "citekey",
+        "citation-key",
         "quote",
         "update-notice",
         "evidence-layer",

@@ -10,7 +10,7 @@ research-vault is an Obsidian vault, a Python CLI (`research_vault`), and a set 
 
 > No claim enters a draft without a verified source first.
 
-A claim line exists only after its literature note exists and its citekey resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — it stays fleeting prose, not a tagged claim, until the source is admitted.
+A claim line exists only after its literature note exists and its citation key resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — it stays fleeting prose, not a tagged claim, until the source is admitted.
 
 **Admission is a human act.** Accepting a source into Zotero is the only way anything becomes citable, and no import, search, or agent step can substitute for it.
 
@@ -19,14 +19,14 @@ A claim line exists only after its literature note exists and its citekey resolv
 Claims get copied — from a literature note into a synthesis page, from synthesis into a draft — and whatever is not on the line does not travel with it. So everything rides the line:
 
 ```
-- (quote|paraphrase|inference|open-question) <text> [@citekey, locator] [field:: value ...] ^claim-id
+- (quote|paraphrase|inference|open-question) <text> [@citation-key, locator] [field:: value ...] ^claim-id
 ```
 
 - The **evidence-boundary tag** states what kind of claim this is. `open-question` marks a claim with no derivation edge — itself lintable, not an escape hatch.
-- The **citekey and locator** parse losslessly to CSL `locator` + `label`.
+- The **citation key and locator** parse losslessly to CSL `locator` + `label`.
 - The **anchor** derives from stable content (a Zotero annotation key, else a quote hash), never from render order, so re-rendering never breaks an existing claim link.
 
-Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it. Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citekey#^claim-id]]`) rather than creating a second, unverified copy.
+Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it. Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citation-key#^claim-id]]`) rather than creating a second, unverified copy.
 
 **Claims are deprecated, never deleted.** Retirement is a transition record written on the same line — status, date, actor, reason, and a `superseded-by` link where a successor exists. The anchor survives the transition.
 
@@ -104,7 +104,7 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 
 | The temptation                               | The rule that forbids it                                                                                                             |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| "I'll cite it later."                        | The Iron Law — no claim line before its citekey resolves.                                                                            |
+| "I'll cite it later."                        | The Iron Law — no claim line before its citation key resolves.                                                                       |
 | "It's common knowledge."                     | Common knowledge is not an evidence-boundary tag.                                                                                    |
 | "The abstract said so."                      | An abstract cannot supply the methods, conditions, and magnitudes a claim states. Read the source or say no full text was available. |
 | "It's paywalled, I can't check the wording." | Use `paraphrase` or `inference`. A `quote` tag commits to text a checker can byte-compare.                                           |

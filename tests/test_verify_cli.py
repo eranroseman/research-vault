@@ -186,14 +186,16 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
     assert fourth["counts"]["UNMATCHED"] >= 1
 
 
-def test_target_hash_routes_safe_file_claim_and_citekey(net_vault):
+def test_target_hash_routes_safe_file_claim_and_citation_key(net_vault):
     file_outcome = _outcome(
         "append-only", "log/2026-08-16.md", Result.UNMATCHED, "drift — file"
     )
     claim_outcome = _outcome(
         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
     )
-    citekey_outcome = _outcome("doi", "smith2020", Result.UNMATCHED, "mismatch — doi")
+    citation_key_outcome = _outcome(
+        "doi", "smith2020", Result.UNMATCHED, "mismatch — doi"
+    )
     assert (
         _target_hash(net_vault, file_outcome)
         == hashlib.sha256((net_vault / "log/2026-08-16.md").read_bytes()).hexdigest()[
@@ -209,14 +211,14 @@ def test_target_hash_routes_safe_file_claim_and_citekey(net_vault):
         )
     )
     assert _target_hash(net_vault, claim_outcome) == "aa11" * 16
-    assert _target_hash(net_vault, citekey_outcome) == "aa11" * 16
+    assert _target_hash(net_vault, citation_key_outcome) == "aa11" * 16
     with pytest.raises(PathCodecError):
         RepoPath(b"../outside")
 
 
 @pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
 def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault, placeholder):
-    """Live-file branch of ``_citekey_hash`` (no ``candidate_snapshot``).
+    """Live-file branch of ``_citation_key_hash`` (no ``candidate_snapshot``).
 
     Two shapes, not one: "unresolved" is non-hex (fails the character
     class), "aa11" is valid hex but short (fails the length bound) — so
@@ -240,7 +242,7 @@ def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault, placeholder):
 
 @pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
 def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault, placeholder):
-    """Snapshot branch of ``_citekey_hash`` (explicit ``candidate_snapshot``).
+    """Snapshot branch of ``_citation_key_hash`` (explicit ``candidate_snapshot``).
 
     Two shapes, not one: "unresolved" is non-hex (fails the character
     class), "aa11" is valid hex but short (fails the length bound) — so
@@ -268,7 +270,7 @@ def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault, place
 def test_ack_hash_falls_through_when_fixity_is_empty_list(net_vault):
     """A present-but-empty ``fixity-sha256`` list — the shape Task 17's side
     (a) now writes when every attachment fails to resolve — falls through to
-    the managed-bytes hash on both ``_citekey_hash`` branches, same as an
+    the managed-bytes hash on both ``_citation_key_hash`` branches, same as an
     absent key.
     """
     source = net_vault / "literatures" / "smith2020.md"
@@ -332,13 +334,13 @@ def test_preclose_blank_event_keeps_no_attachment_ack_hash(
     )
 
 
-def test_missing_citekey_hash_uses_exact_checked_origins_and_reopens(net_vault):
+def test_missing_citation_key_hash_uses_exact_checked_origins_and_reopens(net_vault):
     draft = net_vault / "projects" / "brief" / "draft.md"
     outcome = _outcome(
-        "citekey",
+        "citation-key",
         "fabricated2020",
         Result.UNMATCHED,
-        "mismatch — citekey not in bibliography",
+        "mismatch — citation key not in bibliography",
         note_path="projects/brief/draft.md",
         claims=[{"claim_id": "c-77777777"}],
     )
@@ -411,7 +413,7 @@ def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monke
 def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
     report = run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert any(
-        outcome.check == "citekey"
+        outcome.check == "citation-key"
         and outcome.target == "fabricated2020"
         and outcome.result is Result.UNMATCHED
         for outcome in report["outcomes"]
@@ -429,19 +431,19 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
     first_entries = [
         entry
         for entry in inbox.open_entries(net_vault)
-        if entry.check == "citekey" and entry.target == "fabricated2020"
+        if entry.check == "citation-key" and entry.target == "fabricated2020"
     ]
     run_verify(net_vault, network=False, detection_date="2026-08-16")
     second_entries = [
         entry
         for entry in inbox.open_entries(net_vault)
-        if entry.check == "citekey" and entry.target == "fabricated2020"
+        if entry.check == "citation-key" and entry.target == "fabricated2020"
     ]
     run_verify(net_vault, network=False, detection_date="2026-08-16")
     third_entries = [
         entry
         for entry in inbox.open_entries(net_vault)
-        if entry.check == "citekey" and entry.target == "fabricated2020"
+        if entry.check == "citation-key" and entry.target == "fabricated2020"
     ]
     assert len(first_entries) == 1
     assert len(second_entries) == len(third_entries) == 2
@@ -649,7 +651,7 @@ def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
     assert _target_hash(net_vault, outcome) == first
 
 
-def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
+def test_marker_clear_uses_exact_origin_and_citation_key_claim_collection(net_vault):
     other = net_vault / "projects" / "brief" / "other.md"
     other.write_text(
         "- (quote) [@smith2020] [failed-verification:: quote/2026-08-16] ^c-66666666\n"
@@ -667,21 +669,21 @@ def test_marker_clear_uses_exact_origin_and_citekey_claim_collection(net_vault):
         "failed-verification" not in (net_vault / "projects/brief/draft.md").read_text()
     )
     assert "failed-verification" in other.read_text()
-    citekey = _outcome(
-        "citekey",
+    citation_key = _outcome(
+        "citation-key",
         "fabricated2020",
         Result.UNMATCHED,
-        "mismatch — citekey not in bibliography",
+        "mismatch — citation key not in bibliography",
         note_path="projects/brief/draft.md",
         claims=[{"claim_id": "c-66666666"}, {"claim_id": "c-77777777"}],
     )
-    _mutate_marker(net_vault, citekey, "2026-08-16")
+    _mutate_marker(net_vault, citation_key, "2026-08-16")
     marked = (net_vault / "projects/brief/draft.md").read_text()
-    assert marked.count("failed-verification:: citekey/2026-08-16") == 2
+    assert marked.count("failed-verification:: citation-key/2026-08-16") == 2
     assert "failed-verification:: quote/2026-08-16" in other.read_text()
-    _mutate_marker(net_vault, citekey, "2026-08-16", clear=True)
+    _mutate_marker(net_vault, citation_key, "2026-08-16", clear=True)
     assert (
-        "failed-verification:: citekey/2026-08-16"
+        "failed-verification:: citation-key/2026-08-16"
         not in (net_vault / "projects/brief/draft.md").read_text()
     )
 
@@ -749,10 +751,10 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     )
     note.write_bytes(original)
     anchored = _outcome(
-        "citekey",
+        "citation-key",
         "missing",
         Result.UNMATCHED,
-        "mismatch — citekey not in bibliography",
+        "mismatch — citation key not in bibliography",
         note_path="projects/brief/crlf markers.md",
         claims=[{"claim_id": "c-1"}],
     )
@@ -761,7 +763,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     _mutate_marker(net_vault, anchored, "2026-08-16")
     stamped = note.read_bytes()
 
-    assert b"   [failed-verification:: citekey/2026-08-16] ^c-1\r\n" in stamped
+    assert b"   [failed-verification:: citation-key/2026-08-16] ^c-1\r\n" in stamped
     assert b"\r [failed-verification" not in stamped
     assert _target_hash(net_vault, anchored) != anchored_hash
     _mutate_marker(net_vault, anchored, "2026-08-16", clear=True)
@@ -976,8 +978,8 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
         )
         is None
     )
-    citekey_link = net_vault / "literatures" / "escaped.md"
-    citekey_link.symlink_to(outside)
+    citation_key_link = net_vault / "literatures" / "escaped.md"
+    citation_key_link.symlink_to(outside)
     assert (
         _target_hash(
             net_vault,
@@ -1311,7 +1313,9 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
         ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
-    companion = _outcome("citekey", "smith2020", Result.UNREACHABLE, "outage — citekey")
+    companion = _outcome(
+        "citation-key", "smith2020", Result.UNREACHABLE, "outage — citation key"
+    )
     current = [primary, companion]
     if reverse:
         current.reverse()
@@ -1352,7 +1356,9 @@ def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
         ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
-    companion = _outcome("citekey", "smith2020", Result.UNREACHABLE, "outage — citekey")
+    companion = _outcome(
+        "citation-key", "smith2020", Result.UNREACHABLE, "outage — citation key"
+    )
     _isolate_network_verify(monkeypatch, [companion, primary])
     candidate_hash = _target_hash(net_vault, primary)
     notice_class, notice_type, notice_date = (
@@ -1477,7 +1483,7 @@ def test_real_verify_cli_reports_invalid_bibliography_without_traceback(
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNMATCHED citekey path-bytes:system/bibliography.json" in output
+    assert "UNMATCHED citation-key path-bytes:system/bibliography.json" in output
     assert "schema-violation" in output
     assert "Traceback" not in output
 
@@ -1491,7 +1497,7 @@ def test_real_verify_cli_reports_undecodable_bibliography_unreachable(
     output = capsys.readouterr().out
 
     assert code == 0
-    assert "UNREACHABLE citekey path-bytes:system/bibliography.json" in output
+    assert "UNREACHABLE citation-key path-bytes:system/bibliography.json" in output
 
 
 def test_real_verify_cli_states_rw_leg_absence_without_rw_csv(net_vault, capsys):
@@ -1690,11 +1696,17 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
     } == {
         "audit": frozenset(),
         "commit": frozenset(
-            {"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
+            {
+                "citation-key",
+                "evidence-layer",
+                "okf-frontmatter",
+                "okf-structure",
+                "tree",
+            }
         ),
         "publish": frozenset(
             {
-                "citekey",
+                "citation-key",
                 "evidence-layer",
                 "quote",
                 "update-notice",

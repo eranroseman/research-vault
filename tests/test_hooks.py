@@ -248,7 +248,7 @@ def test_posttooluse_reports_non_evidence_file_findings(fixture_vault):
     result = _run_hook(fixture_vault, _payload(note, fixture_vault))
 
     context = _warning(result)
-    assert "citekey" in context
+    assert "citation-key" in context
     assert "fabricated2020" in context
 
 

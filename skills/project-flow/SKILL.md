@@ -28,10 +28,10 @@ Every finding in that queue is another check's non-MATCHED result — UNMATCHED,
 
 ### Surface trust tiers
 
-For every citekey the project's files cite, look up its tier:
+For every citation key the project's files cite, look up its tier:
 
 ```sh
-python3 -m research_vault trust-tier CITEKEY --vault PATH
+python3 -m research_vault trust-tier CITATION_KEY --vault PATH
 ```
 
 Report each cited note next to its tier — `unverified`, `machine-confirmed`, or `human-reviewed` (cumulative: human-reviewed implies machine-confirmed). This is a read-only report; it writes nothing. `unverified` is the normal starting tier, not a verdict of failure — it just means `verify-citations` has not yet run, or has not yet matched, for that note. This skill never claims a check ran that it did not; it only reads what the CLI already computed.

@@ -52,11 +52,11 @@ def _write_note_text(path, text):
 CLOSING_BY_SURFACE = {
     "audit": frozenset(),
     "commit": frozenset(
-        {"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
+        {"citation-key", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
     ),
     "publish": frozenset(
         {
-            "citekey",
+            "citation-key",
             "evidence-layer",
             "quote",
             "update-notice",
@@ -189,24 +189,24 @@ def _snapshot_directory_bytes(snapshot, raw_path):
     return b"\0".join(chunks)
 
 
-def _note_for_citekey(vault_root, citekey):
+def _note_for_citation_key(vault_root, citation_key):
     try:
         vault = Path(vault_root)
-        candidate = notes.note_path(vault, citekey)
+        candidate = notes.note_path(vault, citation_key)
         raw_path = os.fsencode(candidate.relative_to(vault))
-    except notes.InvalidCitekeyError:
+    except notes.InvalidCitationKeyError:
         return None
     except ValueError:
         return None
     return _safe_relative(vault, encode_repo_path(raw_path), "repo-path")
 
 
-def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
+def _citation_key_hash(vault_root, citation_key, candidate_snapshot=None):
     if candidate_snapshot is not None:
         try:
-            candidate = notes.note_path(Path(vault_root), citekey)
+            candidate = notes.note_path(Path(vault_root), citation_key)
             raw_path = os.fsencode(candidate.relative_to(vault_root))
-        except (notes.InvalidCitekeyError, ValueError):
+        except (notes.InvalidCitationKeyError, ValueError):
             return None
         image = candidate_snapshot.image(raw_path)
         if image is None or image.kind != "file":
@@ -222,7 +222,7 @@ def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
             if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
                 return first
         return hashlib.sha256(_note_bytes(raw)).hexdigest()[:16]
-    note = _note_for_citekey(vault_root, citekey)
+    note = _note_for_citation_key(vault_root, citation_key)
     if note and note.is_file():
         try:
             data, _ = frontmatter.parse(_read_note_text(note))
@@ -247,23 +247,23 @@ def _claim_anchor_hash(
     base_snapshot,
     candidate_snapshot,
 ):
-    """The identity of a ``citekey#^claim`` target, or None if its bytes are gone.
+    """The identity of a ``citation-key#^claim`` target, or None if its bytes are gone.
 
-    The citekey's own recorded fixity wins where the note declares a
+    The citation key's own recorded fixity wins where the note declares a
     validly-shaped digest; a note with no fixity, an empty list, or a value
     that doesn't look like a digest is treated as not declaring one at all.
     Failing that, the claim's bytes are read from whichever plane still
     holds them — candidate image, worktree note, base image or HEAD, then
-    the citekey's note. None is not an error here: it means no plane holds
+    the citation key's note. None is not an error here: it means no plane holds
     the claim any more, and the caller falls back to the coarser identities
     below.
     """
-    citekey, claim_id = target.split("#^", 1)
-    known_citekey_hash = _citekey_hash(
-        vault_root, citekey, candidate_snapshot=candidate_snapshot
+    citation_key, claim_id = target.split("#^", 1)
+    known_citation_key_hash = _citation_key_hash(
+        vault_root, citation_key, candidate_snapshot=candidate_snapshot
     )
-    if known_citekey_hash is not None:
-        return known_citekey_hash
+    if known_citation_key_hash is not None:
+        return known_citation_key_hash
     data = (
         _claim_bytes_from_text(
             (origin_image.data or b"").decode(errors="surrogateescape"), claim_id
@@ -289,7 +289,7 @@ def _claim_anchor_hash(
                 head.decode(errors="surrogateescape"), claim_id
             )
     if data is None and candidate_snapshot is None:
-        note = _note_for_citekey(vault_root, citekey)
+        note = _note_for_citation_key(vault_root, citation_key)
         data = _claim_bytes(note, claim_id) if note else None
     if data is not None:
         return hashlib.sha256(data).hexdigest()[:16]
@@ -416,11 +416,11 @@ def _identifier_hash(
     one with none recorded. Only an identifier with no note at all falls
     through to the canonical bibliography record.
     """
-    known_citekey_hash = _citekey_hash(
+    known_citation_key_hash = _citation_key_hash(
         vault_root, target, candidate_snapshot=candidate_snapshot
     )
-    if known_citekey_hash is not None:
-        return known_citekey_hash
+    if known_citation_key_hash is not None:
+        return known_citation_key_hash
     if origin_image is not None and origin_image.kind == "file":
         data = _note_bytes(origin_image.data or b"")
         return hashlib.sha256(data).hexdigest()[:16]
@@ -532,7 +532,7 @@ def _origins(outcome):
         if "note_path" in outcome.path_extra_fields
         else None
     )
-    if outcome.check == "citekey":
+    if outcome.check == "citation-key":
         for claim in outcome.extra.get("claims", []):
             if isinstance(claim, Mapping):
                 claim_id = claim.get("claim_id")
@@ -628,13 +628,14 @@ def file_outcomes(vault_root, path, bibliography_universe=None):
     )
     if bibliography_universe is not None:
         outcomes = (
-            checks.check_citekeys(vault_root, path, bibliography_universe) + outcomes
+            checks.check_citation_keys(vault_root, path, bibliography_universe)
+            + outcomes
         )
     return outcomes
 
 
 def _bibliography_entries(bib):
-    return [bib[citekey] for citekey in sorted(bib)]
+    return [bib[citation_key] for citation_key in sorted(bib)]
 
 
 def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
@@ -718,8 +719,8 @@ def _projection_identity(outcome):
             and isinstance(comparison_target, str)
             and comparison_target
         ):
-            citekey = outcome.target.split("#^", 1)[0]
-            return citekey, f"quote:{outcome.target}:{comparison_target}"
+            citation_key = outcome.target.split("#^", 1)[0]
+            return citation_key, f"quote:{outcome.target}:{comparison_target}"
     return None
 
 
@@ -728,8 +729,8 @@ def _apply_state_transitions(vault_root, raw, detection_date):
     for outcome in raw:
         projection = _projection_identity(outcome)
         if projection is not None:
-            citekey, check = projection
-            note = _note_for_citekey(vault_root, citekey)
+            citation_key, check = projection
+            note = _note_for_citation_key(vault_root, citation_key)
             if note and note.is_file():
                 try:
                     text = _read_note_text(note)
@@ -903,7 +904,7 @@ def _plan_state(
         )
         raw.append(
             checks.Outcome(
-                "citekey",
+                "citation-key",
                 RepoPath(os.fsencode(bibliography.BIB_PATH)),
                 error.result,
                 reason,

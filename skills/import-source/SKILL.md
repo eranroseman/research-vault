@@ -10,30 +10,30 @@ Admission is the human act of accepting a source into Zotero, and it is the **on
 
 **No project is required.** The information flow — admit, catalog, integrate — is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped, because its deliverable is one project's PRISMA-S search trail.
 
-In every command, `PATH` is the vault and `CITEKEY` is the Better BibTeX key — read it off the admitted item in Zotero, where Better BibTeX shows it in the item list's **Citation Key** column and in the item pane's own `Citation Key` row; never invent or guess one. Every mechanical act below — a literature note, a managed region, a `verified` event, a review-inbox entry — is a CLI verb call: you compose and explain, the CLI writes.
+In every command, `PATH` is the vault and `CITATION_KEY` is the Better BibTeX key — read it off the admitted item in Zotero, where Better BibTeX shows it in the item list's **Citation Key** column and in the item pane's own `Citation Key` row; never invent or guess one. Every mechanical act below — a literature note, a managed region, a `verified` event, a review-inbox entry — is a CLI verb call: you compose and explain, the CLI writes.
 
 ## 1. Catalog: `import-note`
 
 ```sh
-python3 -m research_vault import-note CITEKEY --vault PATH
+python3 -m research_vault import-note CITATION_KEY --vault PATH
 ```
 
-The catalog comes first and answers to no judgment of yours: nothing downstream — no dedup question, no synthesis decision, no hold — can stop the literature note from landing or hold it back until you have made up your mind. When the projection changed, this renders `literatures/CITEKEY.md` from Zotero (managed region above the free region, which survives untouched) and regenerates root `log.md`.
+The catalog comes first and answers to no judgment of yours: nothing downstream — no dedup question, no synthesis decision, no hold — can stop the literature note from landing or hold it back until you have made up your mind. When the projection changed, this renders `literatures/CITATION_KEY.md` from Zotero (managed region above the free region, which survives untouched) and regenerates root `log.md`.
 
 Every outcome is an answer, including the two that write nothing:
 
-| Exit | stdout        | What happened                                                       |
-| ---- | ------------- | ------------------------------------------------------------------- |
-| `0`  | the note path | The projection changed; the managed region was rewritten.           |
-| `0`  | `NOOP`        | The projection is identical. Nothing was written. See §6 below.     |
-| `1`  | *(nothing)*   | Invalid citekey, citekey not in Zotero, or the render was rejected. |
+| Exit | stdout        | What happened                                                                 |
+| ---- | ------------- | ----------------------------------------------------------------------------- |
+| `0`  | the note path | The projection changed; the managed region was rewritten.                     |
+| `0`  | `NOOP`        | The projection is identical. Nothing was written. See §6 below.               |
+| `1`  | *(nothing)*   | Invalid citation key, citation key not in Zotero, or the render was rejected. |
 
 **Every nonzero exit files its own review record.** The CLI writes it through the same writer the `finding` verb uses, in addition to the message it prints on stderr — you never file one for a failed import yourself, and you never need to:
 
-| Failure                                   | Check id  | Result    | Reason code        |
-| ----------------------------------------- | --------- | --------- | ------------------ |
-| Citekey cannot name a literature note     | `citekey` | UNMATCHED | `schema-violation` |
-| Citekey is absent from the Zotero library | `citekey` | UNMATCHED | `not-admitted`     |
+| Failure                                        | Check id       | Result    | Reason code        |
+| ---------------------------------------------- | -------------- | --------- | ------------------ |
+| Citation key cannot name a literature note     | `citation-key` | UNMATCHED | `schema-violation` |
+| Citation key is absent from the Zotero library | `citation-key` | UNMATCHED | `not-admitted`     |
 
 Read the stderr message back verbatim; do not summarize it as "the import failed". If stderr also carries `warning: review record refused:`, say so out loud — that means the failure has **no** durable record, and the person needs to know the queue is not carrying it.
 

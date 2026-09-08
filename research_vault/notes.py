@@ -8,8 +8,8 @@ from pathlib import Path
 from . import Result, frontmatter
 
 
-class InvalidCitekeyError(ValueError):
-    """A citekey that cannot safely name one file in ``literatures``."""
+class InvalidCitationKeyError(ValueError):
+    """A citation key that cannot safely name one file in ``literatures``."""
 
 
 _UNSAFE_IDENTIFIER = re.compile(r"[\s\x00-\x1f\x7f]")
@@ -62,18 +62,37 @@ def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]:
     return Result.MATCHED, "matched"
 
 
-def note_path(vault_root, citekey) -> Path:
+def note_path(vault_root, citation_key) -> Path:
     if (
-        not isinstance(citekey, str)
-        or not citekey
-        or citekey in {".", ".."}
-        or "/" in citekey
-        or "\\" in citekey
-        or _UNSAFE_IDENTIFIER.search(citekey) is not None
-        or Path(citekey).is_absolute()
+        not isinstance(citation_key, str)
+        or not citation_key
+        or citation_key in {".", ".."}
+        or "/" in citation_key
+        or "\\" in citation_key
+        or _UNSAFE_IDENTIFIER.search(citation_key) is not None
+        or Path(citation_key).is_absolute()
     ):
-        raise InvalidCitekeyError(f"unsafe citekey: {citekey!r}")
-    return Path(vault_root) / "literatures" / f"{citekey}.md"
+        raise InvalidCitationKeyError(f"unsafe citation key: {citation_key!r}")
+    return Path(vault_root) / "literatures" / f"{citation_key}.md"
+
+
+def rename_frontmatter_key(text: str, old: str, new: str) -> str:
+    """Rename one top-level frontmatter key without touching anything else.
+
+    The one migration §1.1 prices as carrying real risk: byte-surgical on the
+    key's own line, inside the frontmatter block only, idempotent.
+    """
+    opening = frontmatter._FRONTMATTER_OPEN.match(text)
+    if opening is None:
+        return text
+    closing = frontmatter._FRONTMATTER_CLOSE.search(text, opening.end())
+    if closing is None:
+        return text
+    block = text[opening.end() : closing.start()]
+    renamed = re.sub(
+        rf"^{re.escape(old)}:(?=\s)", f"{new}:", block, count=1, flags=re.MULTILINE
+    )
+    return text[: opening.end()] + renamed + text[closing.start() :]
 
 
 def _valid_generated(value) -> bool:

@@ -332,7 +332,7 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vau
     note.write_text(
         note.read_text().replace(
             "[failed-verification:: quote/2026-08-16]",
-            "[failed-verification:: citekey/2026-08-17]",
+            "[failed-verification:: citation-key/2026-08-17]",
         )
     )
 
@@ -706,14 +706,14 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
             'generated: {by: "human:hand-edit"',
             1,
         )
-    if key == "citekey":
-        return text.replace('citekey: "smith2020"', 'citekey: "smith2020x"', 1)
+    if key == "citationKey":
+        return text.replace('citationKey: "smith2020"', 'citationKey: "smith2020x"', 1)
     raise ValueError(key)
 
 
 @pytest.mark.parametrize(
     "key",
-    ["managed-sha256", "fixity-sha256", "generated", "citekey"],
+    ["managed-sha256", "fixity-sha256", "generated", "citationKey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     """Machine-owned frontmatter sits above the body, so a hand-edit to it —
@@ -771,7 +771,7 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
     edited = source.read_text().replace(
-        'citekey: "smith2020"', 'citekey: "smith2020x"', 1
+        'citationKey: "smith2020"', 'citationKey: "smith2020x"', 1
     )
     edited = edited.replace(
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
@@ -786,7 +786,7 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
     )
 
     assert any(
-        item.reason == "drift — citekey changed without writer attestation"
+        item.reason == "drift — citationKey changed without writer attestation"
         for item in outcomes
     ), outcomes
 
@@ -929,10 +929,10 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
     }
     # Pinned, not presence-only: a truthiness check survives the loss of any
     # single reason below, because the remaining two keep the set non-empty.
-    # Measured — dropping only the citekey outcome leaves a presence-only
+    # Measured — dropping only the citationKey outcome leaves a presence-only
     # assertion green.
     assert findings == {
-        "drift — citekey changed without writer attestation",
+        "drift — citationKey changed without writer attestation",
         "drift — fixity-sha256 changed without writer attestation",
         "drift — managed-sha256 changed without writer attestation",
         # `_body_bytes` fails closed on the unparseable side too, so the body

@@ -130,7 +130,7 @@ def green_vault(tmp_path):
 
 @pytest.fixture
 def blocked_vault(tmp_path):
-    """A vault blocked by a closing check: a citekey outside the bibliography."""
+    """A vault blocked by a closing check: a citation key outside the bibliography."""
     return _build_vault(tmp_path, GHOST_CLAIM)
 
 
@@ -278,7 +278,7 @@ def test_mark_published_refuses_a_blocked_gate_and_leaves_the_gate_armed(
 
     assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 1
 
-    assert "UNMATCHED citekey ghost2020" in capsys.readouterr().out
+    assert "UNMATCHED citation-key ghost2020" in capsys.readouterr().out
     assert _status(blocked_vault) == "draft"
     assert _tags(blocked_vault) == []
     assert _head(blocked_vault) == before
@@ -296,7 +296,7 @@ def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(
     standing = [
         entry
         for entry in inbox.open_entries(blocked_vault)
-        if entry.check == "citekey" and entry.result == "UNMATCHED"
+        if entry.check == "citation-key" and entry.result == "UNMATCHED"
     ][-1]
 
     assert (
@@ -701,7 +701,7 @@ def test_ack_closes_an_open_finding(blocked_vault):
     standing = [
         entry
         for entry in inbox.open_entries(blocked_vault)
-        if entry.check == "citekey" and entry.result == "UNMATCHED"
+        if entry.check == "citation-key" and entry.result == "UNMATCHED"
     ][-1]
 
     code = main(
@@ -847,7 +847,7 @@ def _minting_check_ids() -> set[str]:
 def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
     """The MATCHED row promised a `verified` event for every check that passes.
 
-    False for two of this surface's own closing checks: `citekey` and
+    False for two of this surface's own closing checks: `citation-key` and
     `evidence-layer` mint nothing, so a person told "the CLI appends a
     `verified` event" would go looking for durable proof that was never
     written — the "no skill promises verification it didn't run" constraint,
@@ -866,7 +866,7 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
         assert f"`{check}`" in row, f"the MATCHED row never names minting id {check!r}"
     # The publish surface's other two closing checks mint nothing, and the row
     # has to say so rather than leaving a blanket promise standing.
-    for check in ("citekey", "evidence-layer"):
+    for check in ("citation-key", "evidence-layer"):
         assert f"`{check}`" in row, f"the MATCHED row never names {check!r}"
     assert "mint nothing" in row
     assert "Passes; the CLI appends a `verified` event." not in text
@@ -911,10 +911,10 @@ def test_inbox_prints_the_finding_id_the_ack_verb_needs(blocked_vault, capsys):
     assert main(["inbox", "--vault", str(blocked_vault)]) == 0
 
     lines = capsys.readouterr().out.splitlines()
-    citekey_lines = [line for line in lines[1:] if "ghost2020" in line]
-    assert len(citekey_lines) == 1
-    finding_id = citekey_lines[0].split()[0]
-    assert finding_id.startswith("citekey/")
+    citation_key_lines = [line for line in lines[1:] if "ghost2020" in line]
+    assert len(citation_key_lines) == 1
+    finding_id = citation_key_lines[0].split()[0]
+    assert finding_id.startswith("citation-key/")
 
     code = main(
         [

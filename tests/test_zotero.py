@@ -17,7 +17,7 @@ class FakeTransport:
             "item.search": [
                 {
                     "id": "smith2020",
-                    "citekey": "smith2020",
+                    "citationKey": "smith2020",
                     "title": "Mortality decline",
                     "type": "article-journal",
                 }
@@ -67,9 +67,9 @@ def test_ready_malformed_result_is_unreachable(client):
     assert error.value.result is Result.UNREACHABLE
 
 
-def test_search_carries_citekey(client):
+def test_search_carries_citation_key(client):
     items = client.search("mortality")
-    assert items[0]["citekey"] == "smith2020"
+    assert items[0]["citationKey"] == "smith2020"
     assert client._fake.rpc_calls[0] == ("item.search", ["mortality"])
 
 
@@ -79,14 +79,14 @@ def test_method_results_accept_valid_empty_collections(client):
     client._fake.canned_rpc["item.attachments"] = []
 
     assert client.search("missing") == []
-    assert client.citekey_of([]) == {}
+    assert client.citation_key_of([]) == {}
     assert client.attachments("noAttachments2026") == []
 
 
-def test_citekey_result_filters_live_null_absences(client):
+def test_citation_key_result_filters_live_null_absences(client):
     client._fake.canned_rpc["item.citationkey"] = {"UNMAPPED": None}
 
-    assert client.citekey_of(["UNMAPPED"]) == {}
+    assert client.citation_key_of(["UNMAPPED"]) == {}
 
 
 @pytest.mark.parametrize(
@@ -109,7 +109,7 @@ def test_method_results_reject_malformed_shapes(client, method, result):
     client._fake.canned_rpc[method] = result
     invoke = {
         "item.search": lambda: client.search("smith2020"),
-        "item.citationkey": lambda: client.citekey_of(["ITEMKEY"]),
+        "item.citationkey": lambda: client.citation_key_of(["ITEMKEY"]),
         "item.attachments": lambda: client.attachments("smith2020"),
     }[method]
 

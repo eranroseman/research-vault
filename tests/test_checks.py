@@ -6,9 +6,11 @@ from research_vault import Result, checks, webapi
 from research_vault.pathcodec import RepoPath
 
 
-def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_vault):
+def test_citation_key_check_matches_and_reports_missing_bibliography_entries(
+    fixture_vault,
+):
     """A bibliography omission must make only its cited key unmatched."""
-    outs = checks.check_citekeys(
+    outs = checks.check_citation_keys(
         fixture_vault, fixture_vault / "projects" / "brief" / "draft.md"
     )
 
@@ -16,16 +18,17 @@ def test_citekey_check_matches_and_reports_missing_bibliography_entries(fixture_
 
     assert by_target["smith2020"].result is Result.MATCHED
     assert by_target["fabricated2020"].result is Result.UNMATCHED
+    assert by_target["smith2020"].check == "citation-key"
     reason = by_target["fabricated2020"].reason
-    assert reason == "mismatch — citekey not in bibliography"
+    assert reason == "mismatch — citation key not in bibliography"
 
 
-def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
+def test_citation_key_check_skips_a_note_with_no_citations(fixture_vault):
     """A citation-free note must not produce an empty or fabricated finding."""
     note = fixture_vault / "wiki" / "concepts" / "clean.md"
     note.write_text("# Clean\n")
 
-    outs = checks.check_citekeys(fixture_vault, note)
+    outs = checks.check_citation_keys(fixture_vault, note)
 
     assert len(outs) == 1
     assert outs[0].target == "path-bytes:wiki/concepts/clean.md"
@@ -34,12 +37,12 @@ def test_citekey_check_skips_a_note_with_no_citations(fixture_vault):
     assert outs[0].reason == "no-identifier — note cites nothing"
 
 
-def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
+def test_citation_key_check_scans_citations_in_non_claim_prose(fixture_vault):
     """A checker restricted to parsed claims would miss prose citations."""
     note = fixture_vault / "wiki" / "concepts" / "prose.md"
     note.write_text("See the background evidence [@prose-only2024].\n")
 
-    outs = checks.check_citekeys(fixture_vault, note)
+    outs = checks.check_citation_keys(fixture_vault, note)
 
     assert len(outs) == 1
     assert outs[0].target == "prose-only2024"
@@ -48,7 +51,7 @@ def test_citekey_check_scans_citations_in_non_claim_prose(fixture_vault):
     assert checks.outcome_to_record(outs[0])["extra"]["claims"] == []
 
 
-def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
+def test_citation_key_check_deduplicates_repeated_citations(fixture_vault):
     """Repeated citations to one key must stay one public outcome."""
     note = fixture_vault / "projects" / "brief" / "draft.md"
     note.write_text(
@@ -56,7 +59,7 @@ def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
         + "\n- (inference) A second use [@smith2020, p. 13] ^c-88888888\n"
     )
 
-    outs = checks.check_citekeys(fixture_vault, note)
+    outs = checks.check_citation_keys(fixture_vault, note)
 
     assert [out.target for out in outs] == ["fabricated2020", "smith2020"]
     smith = next(out for out in outs if out.target == "smith2020")
@@ -66,11 +69,11 @@ def test_citekey_check_deduplicates_repeated_citations(fixture_vault):
     ]
 
 
-def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
+def test_citation_key_outcome_carries_claim_line_origins(fixture_vault):
     """Later marker stamping needs the exact checked note and claim line."""
     note = fixture_vault / "projects" / "brief" / "draft.md"
 
-    outs = checks.check_citekeys(fixture_vault, note)
+    outs = checks.check_citation_keys(fixture_vault, note)
 
     smith = next(out for out in outs if out.target == "smith2020")
     assert checks.outcome_to_record(smith)["extra"] == {
@@ -79,43 +82,45 @@ def test_citekey_outcome_carries_claim_line_origins(fixture_vault):
     }
 
 
-def test_cited_citekey_requires_literature_note(tmp_vault):
+def test_cited_citation_key_requires_literature_note(tmp_vault):
     """Bibliography membership alone must not satisfy citability."""
     note = tmp_vault / "projects" / "draft.md"
     note.write_text("See the evidence [@smith2020].\n")
 
-    outs = checks.check_citekeys(tmp_vault, note, {"smith2020": {}})
+    outs = checks.check_citation_keys(tmp_vault, note, {"smith2020": {}})
 
     assert len(outs) == 1
     assert outs[0].result is Result.UNMATCHED
-    assert outs[0].reason == "not-imported — cited citekey has no literature note"
+    assert outs[0].check == "citation-key"
+    assert outs[0].reason.startswith("not-captured")
+    assert outs[0].reason == "not-captured — cited citation key has no literature note"
 
 
-def test_cited_citekey_with_note_passes(tmp_vault):
+def test_cited_citation_key_with_note_passes(tmp_vault):
     """A bibliography entry backed by a literature note still MATCHES."""
     (tmp_vault / "literatures" / "smith2020.md").write_text(
-        '---\ncitekey: "smith2020"\n---\n'
+        '---\ncitationKey: "smith2020"\n---\n'
     )
     note = tmp_vault / "projects" / "draft.md"
     note.write_text("See the evidence [@smith2020].\n")
 
-    outs = checks.check_citekeys(tmp_vault, note, {"smith2020": {}})
+    outs = checks.check_citation_keys(tmp_vault, note, {"smith2020": {}})
 
     assert len(outs) == 1
     assert outs[0].result is Result.MATCHED
     assert outs[0].reason == "matched"
 
 
-def test_cited_citekey_absent_everywhere(tmp_vault):
-    """A citekey outside the bibliography keeps the existing mismatch reason."""
+def test_cited_citation_key_absent_everywhere(tmp_vault):
+    """A citation key outside the bibliography keeps the existing mismatch reason."""
     note = tmp_vault / "projects" / "draft.md"
     note.write_text("See the evidence [@fabricated2020].\n")
 
-    outs = checks.check_citekeys(tmp_vault, note, {})
+    outs = checks.check_citation_keys(tmp_vault, note, {})
 
     assert len(outs) == 1
     assert outs[0].result is Result.UNMATCHED
-    assert outs[0].reason == "mismatch — citekey not in bibliography"
+    assert outs[0].reason == "mismatch — citation key not in bibliography"
 
 
 def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
@@ -123,20 +128,20 @@ def test_outcome_rejects_invalid_reasons_and_detaches_caller_graphs():
     first_input = {"nested": {"items": ["one"]}}
     second_input = {"nested": {"items": ["two"]}}
     first = checks.Outcome(
-        "citekey", "smith2020", Result.MATCHED, "matched", first_input
+        "citation-key", "smith2020", Result.MATCHED, "matched", first_input
     )
     second = checks.Outcome(
-        "citekey", "gone2019", Result.MATCHED, "matched", second_input
+        "citation-key", "gone2019", Result.MATCHED, "matched", second_input
     )
     first_input["nested"]["items"].append("caller mutation")
     second_input["nested"] = {"items": []}
 
     with pytest.raises(ValueError, match="reason"):
-        checks.Outcome("citekey", "bad", Result.MATCHED, "")
+        checks.Outcome("citation-key", "bad", Result.MATCHED, "")
     with pytest.raises(ValueError, match="reason"):
-        checks.Outcome("citekey", "bad", Result.MATCHED, "invalid reason")
+        checks.Outcome("citation-key", "bad", Result.MATCHED, "invalid reason")
     with pytest.raises(TypeError):
-        checks.Outcome("citekey", "bad", Result.MATCHED)
+        checks.Outcome("citation-key", "bad", Result.MATCHED)
 
     assert first.extra["nested"]["items"] == ["one"]
     assert second.extra["nested"]["items"] == ["two"]

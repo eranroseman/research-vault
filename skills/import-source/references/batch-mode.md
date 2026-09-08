@@ -6,7 +6,7 @@ For a backfill — refreshing every literature note in the vault:
 python3 -m research_vault backfill-selectors --vault PATH
 ```
 
-This re-imports every note in `literatures/`, in citekey order, with the same per-note contract as above: each note comes back fresh, stale, or orphaned, and every failure files its own record. Exit `0` means every note succeeded; exit `1` means at least one did not — read the printed warnings, then run `inbox` to see the records they filed:
+This re-imports every note in `literatures/`, in citation key order, with the same per-note contract as above: each note comes back fresh, stale, or orphaned, and every failure files its own record. Exit `0` means every note succeeded; exit `1` means at least one did not — read the printed warnings, then run `inbox` to see the records they filed:
 
 ```sh
 python3 -m research_vault inbox --vault PATH

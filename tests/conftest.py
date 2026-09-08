@@ -34,7 +34,7 @@ def fixture_vault(tmp_vault):
     literature = tmp_vault / "literatures"
     (literature / "smith2020.md").write_text(
         _with_body_witness("""---
-citekey: "smith2020"
+citationKey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
 accessed: "2026-08-16"
@@ -53,7 +53,7 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
     )
     (literature / "gone2019.md").write_text(
         _with_body_witness("""---
-citekey: "gone2019"
+citationKey: "gone2019"
 type: "literature"
 doi: "10.1000/old"
 accessed: "2026-08-16"

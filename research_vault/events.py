@@ -277,13 +277,14 @@ def trust_tier(note_text: str) -> str:
     checks = {str(event.get("check", "")) for event in events}
     applicable = _applicable_note_checks(data)
     machine_confirmed = applicable <= checks
-    citekey = data.get("citekey", "")
+    citation_key = data.get("citationKey", "")
 
     for row in failures:
         check = row["check"]
         quote = _QUOTE_CHECK.fullmatch(check)
         if check in applicable or (
-            quote is not None and quote.group("claim_link").split("#^", 1)[0] == citekey
+            quote is not None
+            and quote.group("claim_link").split("#^", 1)[0] == citation_key
         ):
             machine_confirmed = False
 
@@ -292,7 +293,7 @@ def trust_tier(note_text: str) -> str:
         if claim.tag != "quote" or not claim.claim_id:
             continue
         has_quote_claims = True
-        claim_link = claims_mod.claim_link(citekey, claim.claim_id)
+        claim_link = claims_mod.claim_link(citation_key, claim.claim_id)
         quote_checks = {
             f"quote:{claim_link}:managed-region",
             f"quote:{claim_link}:source-text",

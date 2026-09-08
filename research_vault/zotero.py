@@ -111,13 +111,13 @@ class ZoteroClient:
         result = self._rpc("item.search", [terms])
         return self._validate_object_list(result, "item.search result")
 
-    def citekey_of(self, item_keys: list[str]) -> dict[str, str]:
+    def citation_key_of(self, item_keys: list[str]) -> dict[str, str]:
         result = self._rpc("item.citationkey", [item_keys])
         if not isinstance(result, Mapping):
             raise ZoteroError(
                 "malformed item.citationkey result: expected string mapping"
             )
-        citekeys = {}
+        citation_keys = {}
         for key, value in result.items():
             if not isinstance(key, str) or (
                 value is not None and not isinstance(value, str)
@@ -126,16 +126,16 @@ class ZoteroClient:
                     "malformed item.citationkey result: expected string mapping"
                 )
             if value is not None:
-                citekeys[key] = value
-        return citekeys
+                citation_keys[key] = value
+        return citation_keys
 
-    def attachments(self, citekey: str) -> list[dict]:
-        result = self._rpc("item.attachments", [citekey])
+    def attachments(self, citation_key: str) -> list[dict]:
+        result = self._rpc("item.attachments", [citation_key])
         return self._validate_object_list(result, "item.attachments result")
 
-    def export_csl(self, citekeys: list[str] | None) -> list[dict]:
-        if citekeys is not None:
-            exported = self._rpc("item.export", [citekeys, CSL_TRANSLATOR])
+    def export_csl(self, citation_keys: list[str] | None) -> list[dict]:
+        if citation_keys is not None:
+            exported = self._rpc("item.export", [citation_keys, CSL_TRANSLATOR])
             if not isinstance(exported, list):
                 exported = self._decode_json(exported, "item.export result")
             return self._validate_csl_items(exported, "item.export result")
@@ -168,14 +168,14 @@ class ZoteroClient:
         if not uri_keys:
             return items
 
-        citekeys = self.citekey_of(uri_keys)
+        citation_keys = self.citation_key_of(uri_keys)
         normalized = []
         for item in items:
             item_id = item.get("id")
             if not isinstance(item_id, str) or "/items/" not in item_id:
                 normalized.append(item)
                 continue
-            citekey = citekeys.get(item_id.rsplit("/", 1)[1])
-            if citekey:
-                normalized.append({**item, "id": citekey})
+            citation_key = citation_keys.get(item_id.rsplit("/", 1)[1])
+            if citation_key:
+                normalized.append({**item, "id": citation_key})
         return normalized

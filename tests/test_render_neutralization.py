@@ -36,8 +36,8 @@ def test_display_text_collapse_keeps_ugly_but_real_metadata():
     "hostile",
     ["smith\n2020", "smith\r2020", "smith 2020", "smith\t2020", "smith\x0b2020"],
 )
-def test_citekey_carrying_whitespace_is_rejected_not_repaired(tmp_path, hostile):
-    with pytest.raises(notes.InvalidCitekeyError):
+def test_citation_key_carrying_whitespace_is_rejected_not_repaired(tmp_path, hostile):
+    with pytest.raises(notes.InvalidCitationKeyError):
         notes.note_path(tmp_path, hostile)
 
 

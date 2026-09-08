@@ -168,7 +168,7 @@ def test_uncited_quote_is_schema_violation_with_its_note_origin(fixture_vault):
 
     assert out.target == "path-bytes:projects/brief/draft.md"
     assert out.result is Result.UNMATCHED
-    assert out.reason == "schema-violation — quote claim has no citekey"
+    assert out.reason == "schema-violation — quote claim has no citation key"
     assert out.extra == {
         "note_path": "path-bytes:projects/brief/draft.md",
         "claim_id": "c-66666666",

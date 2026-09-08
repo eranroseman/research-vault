@@ -6,7 +6,7 @@ says the same in one line), and the 2026-08-22 ruling fixes where it enters:
 at admission, not at search. `find-sources` alone stays project-scoped,
 because its deliverable is a per-review PRISMA-S trail. These tests hold the
 skill text to that ruling, and to the one fact a first real import cannot
-start without: where to read the citekey after admission.
+start without: where to read the citation key after admission.
 """
 
 from pathlib import Path
@@ -28,8 +28,8 @@ def test_import_source_says_it_needs_no_project():
     assert "zero projects" in text
 
 
-def test_import_source_says_where_to_read_the_citekey_after_admission():
-    """First real import hits this: the skill takes CITEKEY as an argument and
+def test_import_source_says_where_to_read_the_citation_key_after_admission():
+    """First real import hits this: the skill takes CITATION_KEY as an argument and
     never said where a person finds it."""
     text = _skill_text()
 

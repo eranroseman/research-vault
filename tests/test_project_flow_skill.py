@@ -78,7 +78,7 @@ def test_project_documents_trust_tier_surface_read_only():
     retained for."""
     text = _skill_text()
 
-    assert "python3 -m research_vault trust-tier CITEKEY --vault PATH" in text
+    assert "python3 -m research_vault trust-tier CITATION_KEY --vault PATH" in text
     for tier in ("unverified", "machine-confirmed", "human-reviewed"):
         assert tier in text
     assert "read-only report; it writes nothing" in text

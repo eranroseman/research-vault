@@ -55,7 +55,7 @@ def _hold(vault, check, target, result: Result, reason: str) -> None:
 
     Additive to the failure exit that calls it: stderr and the exit code stay
     exactly as they were, and a landed hold prints nothing. A *refused* hold is
-    the one thing this says out loud — an unrepresentable citekey or an id
+    the one thing this says out loud — an unrepresentable citation key or an id
     already carrying a different finding leaves the queue without the record,
     and a silently missing review record is the failure this reports.
     """
@@ -91,7 +91,7 @@ def cmd_verify(args):
         bibliography.BibliographyError,
         inbox.InboxError,
         frontmatter.FrontmatterError,
-        notes.InvalidCitekeyError,
+        notes.InvalidCitationKeyError,
         OSError,
     ) as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
@@ -152,16 +152,16 @@ def cmd_trust_tier(args):
     and `verify`. It writes nothing — no event, status, tag, hold, or ack.
 
     Every way this verb can fail is the verb failing to run — an unsafe
-    citekey, no such note, unreadable frontmatter — so all of them exit 2,
+    citation key, no such note, unreadable frontmatter — so all of them exit 2,
     the exit-code contract's "could not run", never a four-state verdict.
     """
     try:
-        path = notes.note_path(args.vault, args.citekey)
-    except notes.InvalidCitekeyError:
-        print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
+        path = notes.note_path(args.vault, args.citation_key)
+    except notes.InvalidCitationKeyError:
+        print(f"invalid citation key: {args.citation_key!r}", file=sys.stderr)
         return 2
     if not path.is_file():
-        print(f"literature note not found: {args.citekey}", file=sys.stderr)
+        print(f"literature note not found: {args.citation_key}", file=sys.stderr)
         return 2
     try:
         tier = events.trust_tier(_read_note_text(path))
@@ -203,7 +203,7 @@ def _run_disposition(action):
         bibliography.BibliographyError,
         inbox.InboxError,
         frontmatter.FrontmatterError,
-        notes.InvalidCitekeyError,
+        notes.InvalidCitationKeyError,
         OSError,
     ) as error:
         print(f"cannot complete this disposition: {error}", file=sys.stderr)
@@ -536,7 +536,7 @@ def main(argv=None):
     factcheck_cmd.add_argument("--draft", required=True)
     factcheck_cmd.add_argument("--cap", type=int, default=factcheck.DEFAULT_CAP)
     trust_tier_cmd = sub.add_parser("trust-tier", parents=[common])
-    trust_tier_cmd.add_argument("citekey")
+    trust_tier_cmd.add_argument("citation_key")
     trust_tier_cmd.add_argument("--vault", required=True)
     arm_publish = sub.add_parser("arm-publish", parents=[common])
     arm_publish.add_argument("project")

@@ -307,7 +307,7 @@ def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
     renames — so a phrase-less run's visibility tracks how many valid ids
     remain beside a drifted one, not how many drifted. The two-member run
     shipped at ``skills/publish/SKILL.md:37`` ("this surface's other two
-    closing checks, `citekey` and `evidence-layer`", which sits before that
+    closing checks, `citation-key` and `evidence-layer`", which sits before that
     line's "check id" phrase and so has only this anchor) goes unread the
     moment *either* single member drifts, carrying the drifted token out of
     view with it. A longer run stays readable while two valid members
@@ -387,21 +387,23 @@ def test_the_documented_bound_on_the_co_occurrence_anchor_holds():
     "check id" phrase introduces.
     """
     pair = "— this surface's other two closing checks, `{a}` and `{b}`, mint nothing."
-    assert _enumerated_check_ids(pair.format(a="citekey", b="evidence-layer")) == [
-        (1, "citekey"),
+    assert _enumerated_check_ids(pair.format(a="citation-key", b="evidence-layer")) == [
+        (1, "citation-key"),
         (1, "evidence-layer"),
     ]
     # ONE rename leaves one survivor, below the anchor, and the whole run goes
     # unread — the drifted token with it. Single-id drift, not wholesale.
-    assert _enumerated_check_ids(pair.format(a="citekeys", b="evidence-layer")) == []
-    assert _enumerated_check_ids(pair.format(a="citekey", b="evidence-tier")) == []
+    assert (
+        _enumerated_check_ids(pair.format(a="citation-keys", b="evidence-layer")) == []
+    )
+    assert _enumerated_check_ids(pair.format(a="citation-key", b="evidence-tier")) == []
 
     # Longer runs track survivors too: two survivors keep the run readable and
     # the drifted member is reported; one survivor takes it out of view.
     triple = "This surface closes on `{a}`, `{b}`, and `{c}`."
     assert _enumerated_check_ids(
-        triple.format(a="citekey", b="evidence-layer", c="bogus-one")
-    ) == [(1, "citekey"), (1, "evidence-layer"), (1, "bogus-one")]
+        triple.format(a="citation-key", b="evidence-layer", c="bogus-one")
+    ) == [(1, "citation-key"), (1, "evidence-layer"), (1, "bogus-one")]
     assert (
         _enumerated_check_ids(triple.format(a="bogus-one", b="bogus-two", c="doi"))
         == []
@@ -417,7 +419,7 @@ def test_the_check_id_extractor_anchors_on_the_phrase_and_on_co_occurrence():
         "Every other outcome is a finding, filed by check id `source-status`, "
         "carrying that claim's `text_hash` as `--target-hash`.\n"
         # Co-occurrence anchor: an enumeration that never says "check id".
-        "This surface closes on `citekey`, `evidence-layer`, and `contested`.\n"
+        "This surface closes on `citation-key`, `evidence-layer`, and `contested`.\n"
         # One known id is not a list — the evidence-boundary-tag trap.
         "Tag it `quote`, `paraphrase`, `inference`, or `open-question`.\n"
         # No known id is not a list either.
@@ -429,7 +431,7 @@ def test_the_check_id_extractor_anchors_on_the_phrase_and_on_co_occurrence():
     )
     assert _enumerated_check_ids(sample) == [
         (1, "source-status"),
-        (2, "citekey"),
+        (2, "citation-key"),
         (2, "evidence-layer"),
         (2, "contested"),
         (5, "quote"),

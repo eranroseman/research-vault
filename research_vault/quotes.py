@@ -30,9 +30,9 @@ def levenshtein_ratio(a: str, b: str) -> float:
     return 1.0 - previous[-1] / max(len(a), len(b))
 
 
-def _source_quotes(vault_root, citekey: str) -> dict[str | None, str]:
+def _source_quotes(vault_root, citation_key: str) -> dict[str | None, str]:
     """Return the source note's quote claims keyed by their claim IDs."""
-    source = note_path(vault_root, citekey)
+    source = note_path(vault_root, citation_key)
     if not source.is_file():
         return {}
     return {
@@ -57,7 +57,7 @@ def _extra(claim, checked_note_path: RepoPath | None) -> dict:
 def check_quote(
     vault_root,
     claim,
-    source_citekey: str,
+    source_citation_key: str,
     checked_note_path: RepoPath | None = None,
 ) -> Outcome:
     """Compare one quote claim with its linked managed-region source text."""
@@ -65,7 +65,7 @@ def check_quote(
     if not claim.claim_id:
         return Outcome(
             "quote",
-            source_citekey,
+            source_citation_key,
             Result.UNMATCHED,
             "schema-violation — quote claim has no anchor",
             extra=extra,
@@ -73,14 +73,14 @@ def check_quote(
     if not claim.quote_text:
         return Outcome(
             "quote",
-            claims_mod.claim_link(source_citekey, claim.claim_id),
+            claims_mod.claim_link(source_citation_key, claim.claim_id),
             Result.UNMATCHED,
             "schema-violation — quote claim has no text",
             extra=extra,
         )
 
-    claim_link = claims_mod.claim_link(source_citekey, claim.claim_id)
-    source_quotes = _source_quotes(vault_root, source_citekey)
+    claim_link = claims_mod.claim_link(source_citation_key, claim.claim_id)
+    source_quotes = _source_quotes(vault_root, source_citation_key)
     if claim.claim_id in source_quotes:
         candidates = [source_quotes[claim.claim_id]]
     else:
@@ -142,18 +142,18 @@ def check_all_quotes(vault_root, note_file: Path) -> list[Outcome]:
         ]
     outcomes = []
     for claim in quote_claims:
-        if not claim.citekey:
+        if not claim.citation_key:
             outcomes.append(
                 Outcome(
                     "quote",
                     relative_note_path,
                     Result.UNMATCHED,
-                    "schema-violation — quote claim has no citekey",
+                    "schema-violation — quote claim has no citation key",
                     extra=_extra(claim, relative_note_path),
                 )
             )
         else:
             outcomes.append(
-                check_quote(vault, claim, claim.citekey, relative_note_path)
+                check_quote(vault, claim, claim.citation_key, relative_note_path)
             )
     return outcomes

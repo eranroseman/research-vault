@@ -19,8 +19,8 @@ from research_vault.__main__ import main
 from research_vault.factcheck import ClaimRef
 
 
-def _note(citekey, body, verified=None):
-    header = f'---\ncitekey: "{citekey}"\ntype: "literature"\n---\n'
+def _note(citation_key, body, verified=None):
+    header = f'---\ncitationKey: "{citation_key}"\ntype: "literature"\n---\n'
     text = f"{header}{body}\n"
     if verified is not None:
         for event in verified:
@@ -40,8 +40,8 @@ def _draft(claims_text):
 
 def _write_vault(tmp_vault, notes: dict[str, str], draft_claims: str):
     literatures = tmp_vault / "literatures"
-    for citekey, text in notes.items():
-        (literatures / f"{citekey}.md").write_text(text)
+    for citation_key, text in notes.items():
+        (literatures / f"{citation_key}.md").write_text(text)
     project = tmp_vault / "projects" / "brief"
     project.mkdir(parents=True, exist_ok=True)
     draft_path = project / "draft.md"
@@ -68,7 +68,7 @@ def test_claim_text_hash_changes_with_content():
 # --- eligible_claims -------------------------------------------------------
 
 
-def test_eligible_claims_excludes_open_question_and_unresolved_citekey(tmp_vault):
+def test_eligible_claims_excludes_open_question_and_unresolved_citation_key(tmp_vault):
     draft_path = _write_vault(
         tmp_vault,
         {"smith2020": _note("smith2020", "# Note\n")},

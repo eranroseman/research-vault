@@ -3,7 +3,7 @@ import pytest
 from research_vault import Result, events, frontmatter
 
 BASE = """---
-citekey: "smith2020"
+citationKey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
 ---
@@ -12,14 +12,14 @@ doi: "10.1000/xyz"
 """
 
 PMID_ONLY = """---
-citekey: "pmid2020"
+citationKey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
 """
 
 NO_ID_QUOTE = """---
-citekey: "noid2020"
+citationKey: "noid2020"
 type: "literature"
 ---
 - (quote) [@noid2020, p. 1] ^c-11111111
@@ -32,7 +32,7 @@ def test_record_pass_appends_event_and_preserves_note_contents():
 
     data, body = frontmatter.parse(out)
 
-    assert data["citekey"] == "smith2020"
+    assert data["citationKey"] == "smith2020"
     assert data["doi"] == "10.1000/xyz"
     assert (
         body
@@ -68,7 +68,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
 
     text = (
         "---\r\n"
-        "citekey: smith2020\r\n"
+        "citationKey: smith2020\r\n"
         "status: included\r\n"
         "deprecated-at: 2026-08-16\r\n"
         "---\r\n"
@@ -78,7 +78,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
 
     assert "\r\r\n" not in out
-    assert "citekey: smith2020\r\nstatus: included\r\n" in out
+    assert "citationKey: smith2020\r\nstatus: included\r\n" in out
     assert out.endswith("- (quote) body ^c-11111111\r\n")
     assert notes.canonical_content(out) == notes.canonical_content(text)
 
@@ -170,7 +170,7 @@ def test_trust_tier_progression():
 
 def test_no_identifier_no_claims_note_is_unverified():
     """An empty applicable-check set must not vacuously satisfy machine-confirmed."""
-    text = "---\ntype: literature\ncitekey: url2024only\nurl: https://example.org\n---\nbody\n"
+    text = "---\ntype: literature\ncitationKey: url2024only\nurl: https://example.org\n---\nbody\n"
     assert events.trust_tier(text) == "unverified"
 
 
@@ -214,7 +214,7 @@ def test_identifier_less_note_with_human_event_and_no_quotes_is_unverified():
     """A human: event alone no longer derives human-reviewed when the note
     has neither an applicable check nor a managed quote claim — the floor
     applies before the human-actor check runs."""
-    text = '---\ncitekey: "noid2020"\ntype: "literature"\n---\nbody\n'
+    text = '---\ncitationKey: "noid2020"\ntype: "literature"\n---\nbody\n'
     text = events.record_pass(
         text, "doi", Result.MATCHED, by="human:eran", at="2026-08-16"
     )
@@ -527,7 +527,7 @@ def test_foreign_human_event_without_check_stays_unverified():
     # coverage at all, so it cannot be machine-confirmed, and therefore
     # cannot be human-reviewed either -- it stays "unverified".
     text = (
-        '---\ncitekey: "noid2020"\ntype: "literature"\n'
+        '---\ncitationKey: "noid2020"\ntype: "literature"\n'
         'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
     )
     assert events.trust_tier(text) == "unverified"

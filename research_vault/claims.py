@@ -15,7 +15,7 @@ FIELD_RE = re.compile(r"\[(?P<k>[A-Za-z-]+):: (?P<v>(?:[^\[\]]|\[\[[^\]]*\]\])*)
 @dataclass
 class Claim:
     tag: str
-    citekey: str | None
+    citation_key: str | None
     locator: str | None
     claim_id: str | None
     line_no: int
@@ -23,8 +23,8 @@ class Claim:
     fields: dict[str, str] = field(default_factory=dict)
 
 
-def claim_link(citekey: str, claim_id: str) -> str:
-    return f"{citekey}#^{claim_id}"
+def claim_link(citation_key: str, claim_id: str) -> str:
+    return f"{citation_key}#^{claim_id}"
 
 
 def parse_claims(text: str) -> list[Claim]:
@@ -44,7 +44,7 @@ def parse_claims(text: str) -> list[Claim]:
             }
             current_quote = Claim(
                 tag=match.group(1),
-                citekey=citation.group("key") if citation else None,
+                citation_key=citation.group("key") if citation else None,
                 locator=citation.group("loc") if citation else None,
                 claim_id=anchor.group("id") if anchor else None,
                 line_no=line_no,

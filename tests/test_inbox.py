@@ -1120,7 +1120,7 @@ def test_append_refuses_any_field_carrying_a_line_break(
 
     with pytest.raises(ValueError, match="single-line"):
         inbox.append_entry(
-            fixture_vault, "citekey", hostile, Result.UNMATCHED, "schema-violation"
+            fixture_vault, "citation-key", hostile, Result.UNMATCHED, "schema-violation"
         )
 
     assert queue.read_bytes() == before
@@ -1132,7 +1132,7 @@ def test_append_refuses_any_field_carrying_a_line_break(
 # `validate_reason`, not `_validate_text` — still bricked the queue.
 def _finding_kwargs(field, hostile):
     kwargs = {
-        "check": "citekey",
+        "check": "citation-key",
         "target": "goodkey",
         "result": Result.UNMATCHED,
         "reason": "mismatch",
@@ -1197,7 +1197,7 @@ def test_every_ack_row_the_writer_accepts_stays_loadable(
 ):
     """Acknowledgments serialize to the same grammar and need the same bound."""
     seed = inbox.append_entry(
-        fixture_vault, "citekey", "goodkey", Result.UNMATCHED, "mismatch"
+        fixture_vault, "citation-key", "goodkey", Result.UNMATCHED, "mismatch"
     )
     kwargs = {
         "finding_id": seed.id,
@@ -1207,7 +1207,7 @@ def test_every_ack_row_the_writer_accepts_stays_loadable(
     kwargs[field] = {
         "reason": f"manual a{separator}b",
         "actor": f"human:e{separator}ran",
-        "finding_id": f"citekey/x{separator}/2026-08-16",
+        "finding_id": f"citation_key/x{separator}/2026-08-16",
         "target_hash": f"aa{separator}11",
     }[field]
 

@@ -25,8 +25,8 @@ research_vault/checks.py::func/metadata_year::parts is None or parts == [] -> pa
 research_vault/claims.py::module::False -> True
 research_vault/factcheck.py::func/_bucket::0 -> 1
 research_vault/factcheck.py::func/_bucket::1 -> 0
-research_vault/factcheck.py::func/contested_adjacent_links::not claim.citekey or not claim.claim_id -> not claim.citekey and not claim.claim_id
-research_vault/factcheck.py::func/eligible_claims::claim.tag not in _ELIGIBLE_TAGS or not claim.citekey or not claim.claim_id -> claim.tag not in _ELIGIBLE_TAGS and not claim.citekey or not claim.claim_id
+research_vault/factcheck.py::func/contested_adjacent_links::not claim.citation_key or not claim.claim_id -> not claim.citation_key and not claim.claim_id
+research_vault/factcheck.py::func/eligible_claims::claim.tag not in _ELIGIBLE_TAGS or not claim.citation_key or not claim.claim_id -> claim.tag not in _ELIGIBLE_TAGS and not claim.citation_key or not claim.claim_id
 research_vault/factcheck.py::func/select_claims::0 -> 1
 research_vault/factcheck.py::func/select_claims::cap < 0 -> cap <= 0
 research_vault/factcheck.py::module::True -> False
@@ -44,7 +44,7 @@ research_vault/inbox.py::func/_validate_notice_fingerprint::notice_date is not N
 research_vault/inbox.py::func/append_ack::notice_class is None and notice_type is None and notice_date is None -> notice_class is None or notice_type is None and notice_date is None
 research_vault/inbox.py::func/finding_id::notice_date or 'unknown' -> notice_date and 'unknown'
 research_vault/inbox.py::module::True -> False
-research_vault/lints.py::func/_claim_target::isinstance(citekey, str) and citekey -> isinstance(citekey, str) or citekey
+research_vault/lints.py::func/_claim_target::isinstance(citation_key, str) and citation_key -> isinstance(citation_key, str) or citation_key
 research_vault/lints.py::func/_is_complete_deprecation_transition::"[status:: deprecated]" in old_line -> "[status:: deprecated]" not in old_line
 research_vault/lints.py::func/_is_complete_deprecation_transition::TRANSITION_FIELD.search(old_line) and "[status:: deprecated]" in old_line -> TRANSITION_FIELD.search(old_line) or "[status:: deprecated]" in old_line
 research_vault/lints.py::func/_line_content_and_ending::match is None -> match is not None
@@ -97,8 +97,6 @@ research_vault/verify.py::func/_apply_state_transitions::True -> False
 research_vault/verify.py::func/_apply_state_transitions::note and note.is_file() -> note or note.is_file()
 research_vault/verify.py::func/_apply_state_transitions::outcome.result is Result.MATCHED -> outcome.result is not Result.MATCHED
 research_vault/verify.py::func/_candidate_destinations_match_live::snapshots.candidate_name == "worktree" -> snapshots.candidate_name != "worktree"
-research_vault/verify.py::func/_citekey_hash::isinstance(attachment_hashes, list) and attachment_hashes -> isinstance(attachment_hashes, list) or attachment_hashes
-research_vault/verify.py::func/_citekey_hash::isinstance(first, str) and first -> isinstance(first, str) or first
 research_vault/verify.py::func/_claim_anchor_hash::candidate_snapshot is None -> candidate_snapshot is not None
 research_vault/verify.py::func/_claim_anchor_hash::data is None -> data is not None
 research_vault/verify.py::func/_claim_anchor_hash::data is None and candidate_snapshot is None -> data is None or candidate_snapshot is None

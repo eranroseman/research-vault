@@ -19,15 +19,15 @@ from research_vault import Result, events
 from research_vault.__main__ import main
 
 PMID_ONLY = """---
-citekey: "pmid2020"
+citationKey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
 """
 
 
-def _write_note(vault, citekey, text):
-    (vault / "literatures" / f"{citekey}.md").write_text(text)
+def _write_note(vault, citation_key, text):
+    (vault / "literatures" / f"{citation_key}.md").write_text(text)
 
 
 def test_trust_tier_prints_unverified_for_an_unverified_note(tmp_vault, capsys):
@@ -68,13 +68,13 @@ def test_trust_tier_prints_human_reviewed_after_a_human_event(tmp_vault, capsys)
     assert capsys.readouterr().out == "human-reviewed\n"
 
 
-def test_trust_tier_refuses_an_invalid_citekey(tmp_vault, capsys):
-    """Exit 2, not 1: an unsafe citekey is the verb failing to run, and the
+def test_trust_tier_refuses_an_invalid_citation_key(tmp_vault, capsys):
+    """Exit 2, not 1: an unsafe citation key is the verb failing to run, and the
     exit-code contract reserves 1 for a check that ran and disagreed."""
     code = main(["trust-tier", "../escape", "--vault", str(tmp_vault)])
 
     assert code == 2
-    assert "invalid citekey" in capsys.readouterr().err
+    assert "invalid citation key" in capsys.readouterr().err
 
 
 def test_trust_tier_refuses_a_missing_note(tmp_vault, capsys):
