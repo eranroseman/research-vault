@@ -1703,7 +1703,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
     }
 
 
-def test_managed_note_add_is_collected_and_projected_as_evidence_finding(
+def test_literature_note_add_is_collected_and_projected_as_evidence_finding(
     fixture_vault,
 ):
     added = fixture_vault / "literatures" / "added.md"
@@ -1718,7 +1718,7 @@ def test_managed_note_add_is_collected_and_projected_as_evidence_finding(
         for outcome in report["outcomes"]
         if outcome.check == "evidence-layer"
         and outcome.target == "path-bytes:literatures/added.md"
-        and outcome.reason == "drift — managed literature note added"
+        and outcome.reason == "drift — literature note added"
     )
     assert finding in effective
     assert hashes[id(finding)] is not None

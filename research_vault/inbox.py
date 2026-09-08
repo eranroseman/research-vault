@@ -49,8 +49,7 @@ REASON_CODES = frozenset(
 # validating here would break it. The `finding` CLI verb is the boundary
 # where this registry is actually enforced: it is the only writer that takes
 # a check id from outside the process, so it is the only place a typo or an
-# unregistered id can enter — including ``import-note``'s own hold wiring,
-# which writes through that same verb.
+# unregistered id can enter.
 CHECK_IDS = frozenset(
     {
         "citekey",
@@ -61,11 +60,6 @@ CHECK_IDS = frozenset(
         "disputed-claim",
         "publish",
         "factcheck",
-        # ``render`` covers the render-rejection class (§4.4 coinage);
-        # ``integrate`` covers `import-source`'s surgical integrate-at-import
-        # holds (spec §7's own word).
-        "render",
-        "integrate",
         # OKF structure migration (2026-09-02 plan)
         "okf-frontmatter",
         "okf-structure",

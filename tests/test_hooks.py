@@ -23,7 +23,7 @@ HOOKS_MANIFEST = REPO / "hooks" / "hooks.json"
 
 MACHINE_SURFACE_DENY_REASON = (
     "machine surface; the CLI writes this — use the matching verb "
-    "(`finding`, `ack`, `import-note`, …)"
+    "(`finding`, `ack`, `capture`, …)"
 )
 GUARD_FAIL_CLOSED_REASON = (
     "Machine-surface guard failed closed; resolve the fault before retrying this edit."

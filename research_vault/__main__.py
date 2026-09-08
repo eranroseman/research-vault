@@ -3,9 +3,7 @@
 import argparse
 import datetime
 import json
-import re
 import sys
-from collections.abc import Mapping
 from pathlib import Path
 
 from . import (
@@ -18,12 +16,9 @@ from . import (
     gitstate,
     inbox,
     notes,
-    okf,
-    paths,
     publish,
     scaffold,
     searchlog,
-    selectors,
     stamp,
 )
 from .pathcodec import (
@@ -34,49 +29,14 @@ from .verify import (
     CLOSING_BY_SURFACE,
     DEFAULT_BASE,
     _read_note_text,
-    _write_note_text,
     surface_decision,
     verify_state,
 )
 from .zotero import ZoteroClient, ZoteroError
 
-QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
 DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt"}
 DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt"}
 DOCTOR_WARN_ONLY = {"remote", "backup"}
-
-
-def _text(value) -> str:
-    """Keep only strings that are safe for claim IDs and Markdown rendering."""
-    return value if isinstance(value, str) else ""
-
-
-def normalize_annotation(annotation, citekey: str) -> dict:
-    """Adapt a raw BBT item-JSON annotation to ``notes``' input contract."""
-    raw = annotation if isinstance(annotation, Mapping) else {}
-    annotation_type = _text(raw.get("annotationType"))
-    annotation_text = _text(raw.get("annotationText"))
-    comment = _text(raw.get("annotationComment"))
-
-    # Unknown or non-quoting annotation types cannot safely assert that their
-    # payload is a verbatim quote. Preserve usable text as a paraphrase instead.
-    if annotation_type not in QUOTE_ANNOTATION_TYPES:
-        comment = comment or annotation_text
-        annotation_text = ""
-
-    normalized = {
-        "type": annotation_type,
-        "comment": comment,
-        "pageLabel": notes.display_text(_text(raw.get("annotationPageLabel"))),
-        "key": _text(raw.get("key")),
-        "annotationText": annotation_text,
-        "citekey": _text(citekey),
-    }
-    for field in ("context_prefix", "context_suffix"):
-        value = raw.get(field)
-        if isinstance(value, str):
-            normalized[field] = value
-    return normalized
 
 
 def cmd_probe(args):
@@ -88,69 +48,6 @@ def cmd_probe(args):
         return 3
     print(json.dumps(info))
     return 0
-
-
-def _attachment_annotations(attachment):
-    if not isinstance(attachment, Mapping):
-        return []
-    annotations = attachment.get("annotations")
-    return annotations if isinstance(annotations, list) else []
-
-
-def _attachment_hash(attachment, vault) -> tuple[str, Path]:
-    raw_path = attachment.get("path") if isinstance(attachment, Mapping) else None
-    if not isinstance(raw_path, str) or not raw_path:
-        raise paths.PathError(f"invalid attachment path: {raw_path!r}")
-    local_path = paths.to_local(raw_path, vault)
-    return notes.sha256_file(local_path), local_path
-
-
-_QUOTE_SELECTOR = re.compile(
-    r"^- \(quote\)[^\r\n]*\^(?P<claim_id>c-[0-9a-f]{8})\r?\n"
-    r"(?:  >[^\r\n]*(?:\r\n|\n|$))*"
-    r'  <!-- rv-selector prefix="(?P<prefix>.*?)" suffix="(?P<suffix>.*?)" -->',
-    re.MULTILINE | re.DOTALL,
-)
-
-
-def _prior_contexts(existing: str | None) -> dict[str, tuple[str, str]]:
-    if not existing:
-        return {}
-    return {
-        match["claim_id"]: (
-            selectors.unescape_selector(match["prefix"]),
-            selectors.unescape_selector(match["suffix"]),
-        )
-        for match in _QUOTE_SELECTOR.finditer(existing)
-    }
-
-
-def _retain_prior_contexts(annotations: list[dict], existing: str | None) -> int:
-    prior = _prior_contexts(existing)
-    retained = 0
-    for annotation in annotations:
-        if not annotation.get("annotationText"):
-            continue
-        context = prior.get(notes.claim_id(annotation))
-        if context and not (
-            annotation.get("context_prefix") or annotation.get("context_suffix")
-        ):
-            annotation["context_prefix"], annotation["context_suffix"] = context
-            retained += 1
-    return retained
-
-
-def _selector_warning(reasons: list[str], *, retained: int) -> None:
-    if not reasons:
-        return
-    reason = "; ".join(dict.fromkeys(reasons))
-    if retained:
-        print(
-            f"warning: selectors degraded ({reason}; existing selector contexts retained)",
-            file=sys.stderr,
-        )
-    else:
-        print(f"warning: selectors skipped ({reason})", file=sys.stderr)
 
 
 def _hold(vault, check, target, result: Result, reason: str) -> None:
@@ -171,159 +68,6 @@ def _hold_reason(code: str, detail: str) -> str:
     """Compose a reason-coded line from a code and free-text detail."""
     detail = notes.display_text(detail)
     return f"{code} — {detail}" if detail else code
-
-
-def cmd_import_note(args):
-    try:
-        path = notes.note_path(args.vault, args.citekey)
-    except notes.InvalidCitekeyError:
-        print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
-        _hold(
-            args.vault,
-            "citekey",
-            args.citekey,
-            Result.UNMATCHED,
-            "schema-violation — citekey cannot name a literature note",
-        )
-        return 1
-
-    client = ZoteroClient(base=args.base)
-    vault = args.vault
-    matches = [
-        item
-        for item in client.search(args.citekey)
-        if item.get("citekey") == args.citekey
-    ]
-    if not matches:
-        print(f"citekey not found: {args.citekey}", file=sys.stderr)
-        _hold(
-            vault,
-            "citekey",
-            args.citekey,
-            Result.UNMATCHED,
-            "not-admitted — citekey is absent from the Zotero library",
-        )
-        return 1
-    item = matches[0]
-    item["id"] = args.citekey
-
-    existing = _read_note_text(path) if path.is_file() else None
-    hashes = []
-    annotations = []
-    attachment_pairs = []
-    for attachment in client.attachments(args.citekey):
-        local_path = None
-        try:
-            attachment_hash, local_path = _attachment_hash(attachment, vault)
-            hashes.append(attachment_hash)
-        except (paths.PathError, OSError) as error:
-            print(f"warning: attachment unresolved: {error}", file=sys.stderr)
-        attachment_annotations = [
-            normalize_annotation(annotation, args.citekey)
-            for annotation in _attachment_annotations(attachment)
-        ]
-        annotations.extend(attachment_annotations)
-        attachment_pairs.append((local_path, attachment_annotations))
-
-    degradation_reasons = []
-    for local_path, attachment_annotations in attachment_pairs:
-        needed = [
-            annotation
-            for annotation in attachment_annotations
-            if annotation["annotationText"]
-            and not (
-                annotation.get("context_prefix") or annotation.get("context_suffix")
-            )
-        ]
-        if not needed:
-            continue
-        if local_path is None:
-            degradation_reasons.append("attachment unresolved")
-            continue
-        text = selectors.pdf_text(local_path)
-        if not text:
-            degradation_reasons.append("no extractable PDF text")
-            continue
-        if selectors.attach_contexts(needed, text) != len(needed):
-            degradation_reasons.append(
-                "some annotation quotes were not found in extracted text"
-            )
-    retained = _retain_prior_contexts(annotations, existing)
-    _selector_warning(degradation_reasons, retained=retained)
-
-    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
-    generated_at = notes.generated_at_now(now)
-    try:
-        candidate = notes.render_note(
-            item,
-            hashes,
-            annotations,
-            existing,
-            accessed=now.date().isoformat(),
-            generated_at=generated_at,
-        )
-    except (
-        notes.RenderIntegrityError,
-        notes.InvalidCitekeyError,
-        frontmatter.FrontmatterError,
-    ) as error:
-        # Ruled 2026-08-21, wired 2026-08-22 with integrate-at-import: this
-        # class stays loud and fail-closed — nothing is written and stderr and
-        # the exit code are unchanged — and it now also files its reason-coded
-        # hold, like every other failure exit here.
-        print(f"render rejected for {args.citekey}: {error}", file=sys.stderr)
-        _hold(
-            vault,
-            "render",
-            args.citekey,
-            Result.UNMATCHED,
-            _hold_reason("schema-violation", str(error) or "render rejected"),
-        )
-        return 1
-
-    if not notes.content_changed(existing, candidate):
-        print("NOOP")
-        return 0
-    _write_note_text(path, candidate)
-    stamp.stamp_types(vault)
-    okf.regenerate_log(vault)
-    print(str(path))
-    return 0
-
-
-def cmd_backfill_selectors(args):
-    literature_dir = notes.note_path(args.vault, "placeholder").parent
-    failures = 0
-    for path in sorted(literature_dir.glob("*.md")):
-        try:
-            data, _ = frontmatter.parse(_read_note_text(path))
-        except (OSError, frontmatter.FrontmatterError) as error:
-            print(
-                f"warning: malformed literature note {path}: {error}", file=sys.stderr
-            )
-            failures += 1
-            continue
-        citekey = data.get("citekey")
-        if not isinstance(citekey, str) or not citekey:
-            print(
-                f"warning: malformed literature note {path}: missing citekey",
-                file=sys.stderr,
-            )
-            failures += 1
-            continue
-        try:
-            notes.note_path(args.vault, citekey)
-        except notes.InvalidCitekeyError:
-            print(f"invalid citekey: {citekey!r}", file=sys.stderr)
-            failures += 1
-            continue
-        failures += (
-            cmd_import_note(
-                argparse.Namespace(citekey=citekey, vault=args.vault, base=args.base)
-            )
-            != 0
-        )
-    return int(bool(failures))
 
 
 def cmd_verify(args):
@@ -347,9 +91,7 @@ def cmd_verify(args):
         bibliography.BibliographyError,
         inbox.InboxError,
         frontmatter.FrontmatterError,
-        notes.ManagedRegionError,
         notes.InvalidCitekeyError,
-        notes.RenderIntegrityError,
         OSError,
     ) as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
@@ -461,9 +203,7 @@ def _run_disposition(action):
         bibliography.BibliographyError,
         inbox.InboxError,
         frontmatter.FrontmatterError,
-        notes.ManagedRegionError,
         notes.InvalidCitekeyError,
-        notes.RenderIntegrityError,
         OSError,
     ) as error:
         print(f"cannot complete this disposition: {error}", file=sys.stderr)
@@ -780,11 +520,6 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="research_vault", parents=[common])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("probe", parents=[common])
-    import_note = sub.add_parser("import-note", parents=[common])
-    import_note.add_argument("citekey")
-    import_note.add_argument("--vault", required=True)
-    backfill = sub.add_parser("backfill-selectors", parents=[common])
-    backfill.add_argument("--vault", required=True)
     verify = sub.add_parser("verify", parents=[common])
     verify.add_argument("--vault", required=True)
     verify.add_argument("--offline", action="store_true")
@@ -864,8 +599,6 @@ def main(argv=None):
         args.base = DEFAULT_BASE
     return {
         "probe": cmd_probe,
-        "import-note": cmd_import_note,
-        "backfill-selectors": cmd_backfill_selectors,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
         "trust-tier": cmd_trust_tier,

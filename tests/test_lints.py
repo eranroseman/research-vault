@@ -356,24 +356,6 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement_with_mutati
     ]
 
 
-def test_claim_immutability_rejects_marker_change_when_a_selector_continuation_changes(
-    fixture_vault,
-):
-    note = fixture_vault / "literatures" / "smith2020.md"
-    note.write_text(
-        note.read_text()
-        .replace(
-            "  > Mortality fell 12% across all strata.",
-            "  > Mortality rose 12% across all strata.",
-        )
-        .replace("^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111")
-    )
-
-    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
-        "smith2020#^c-11111111"
-    ]
-
-
 def test_claim_immutability_does_not_mask_a_continuation_newline_change(
     fixture_vault,
 ):
@@ -605,15 +587,15 @@ def test_citing_the_counterevidence_address_is_clean(fixture_vault):
     assert lints.lint_disputed_claim(fixture_vault, draft) == []
 
 
-def _refresh_managed_witness(path):
+def _refresh_body_witness(path):
     text = path.read_text()
     data, body = frontmatter.parse(text)
-    data["managed-sha256"] = notes.managed_sha256(text.encode())
+    data["managed-sha256"] = notes.body_sha256(text)
     path.write_text(frontmatter.serialize(data) + body)
 
 
 @pytest.mark.parametrize("change", ["add", "edit", "delete", "rename"])
-def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
+def test_body_change_always_yields_typed_evidence_finding_with_fresh_witness(
     fixture_vault, change
 ):
     base = subprocess.run(
@@ -625,10 +607,10 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
     expected_reason = {
-        "add": "drift — managed literature note added",
-        "edit": "drift — managed literature region changed",
-        "delete": "drift — managed literature note deleted",
-        "rename": "drift — managed literature note renamed",
+        "add": "drift — literature note added",
+        "edit": "drift — literature note body changed",
+        "delete": "drift — literature note deleted",
+        "rename": "drift — literature note renamed",
     }[change]
     if change == "add":
         added = fixture_vault / "literatures" / "added.md"
@@ -638,7 +620,7 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
         source.write_text(
             source.read_text().replace("# Mortality decline", "# Changed")
         )
-        _refresh_managed_witness(source)
+        _refresh_body_witness(source)
         expected = "path-bytes:literatures/smith2020.md"
     elif change == "delete":
         source.unlink()
@@ -670,7 +652,9 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
     assert any(finding.reason == expected_reason for finding in findings), findings
 
 
-def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
+def test_prose_appended_below_the_note_is_a_body_change(fixture_vault):
+    """The free region is retired: the whole body is capture's, so hand-added
+    prose is drift rather than the one edit the linter used to wave through."""
     base = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],
         cwd=fixture_vault,
@@ -679,17 +663,16 @@ def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
         capture_output=True,
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
-    source.write_text(source.read_text() + "human free prose\n")
+    source.write_text(source.read_text() + "hand-written prose\n")
 
     outcomes = lints.lint_evidence_layer(
         gitstate.snapshot_tree(fixture_vault, base),
         gitstate.snapshot_worktree(fixture_vault),
     )
 
-    assert not any(
-        item.result is Result.UNMATCHED and item.reason.startswith("drift")
-        for item in outcomes
-    )
+    assert "drift — literature note body changed" in {
+        item.reason for item in outcomes if item.result is Result.UNMATCHED
+    }
 
 
 def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
@@ -710,7 +693,7 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
 
 
 def _hand_edit_machine_owned_key(text: str, key: str) -> str:
-    """Mutate exactly one machine-owned frontmatter field, managed slice untouched."""
+    """Mutate exactly one machine-owned frontmatter field, the body untouched."""
     if key == "managed-sha256":
         digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
         return text.replace(digest, "b" * 64, 1)
@@ -733,10 +716,10 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
     ["managed-sha256", "fixity-sha256", "generated", "citekey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
-    """Machine-owned frontmatter sits outside %%rv-managed%%, so a hand-edit
-    to it — with the managed slice untouched and no writer attestation (a
-    `generated` bump by the machine actor in the same diff) — must surface as
-    drift, the same as a managed-region change would.
+    """Machine-owned frontmatter sits above the body, so a hand-edit to it —
+    with the body untouched and no writer attestation (a `generated` bump by
+    the machine actor in the same diff) — must surface as drift, the same as a
+    body change would.
     """
     base = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],
@@ -952,6 +935,9 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         "drift — citekey changed without writer attestation",
         "drift — fixity-sha256 changed without writer attestation",
         "drift — managed-sha256 changed without writer attestation",
+        # `_body_bytes` fails closed on the unparseable side too, so the body
+        # comparison cannot be silenced by the frontmatter that hid it.
+        "drift — literature note body changed",
     }
 
 

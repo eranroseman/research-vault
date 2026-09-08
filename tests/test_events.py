@@ -7,13 +7,8 @@ citekey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
 ---
-%%rv-managed%%
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
-%%/rv-managed%%
-
-## Notes
-Free-region content remains untouched.
 """
 
 PMID_ONLY = """---
@@ -21,18 +16,14 @@ citekey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
-%%rv-managed%%
-%%/rv-managed%%
 """
 
 NO_ID_QUOTE = """---
 citekey: "noid2020"
 type: "literature"
 ---
-%%rv-managed%%
 - (quote) [@noid2020, p. 1] ^c-11111111
   > A quoted sentence.
-%%/rv-managed%%
 """
 
 
@@ -45,13 +36,8 @@ def test_record_pass_appends_event_and_preserves_note_contents():
     assert data["doi"] == "10.1000/xyz"
     assert (
         body
-        == """%%rv-managed%%
-- (quote) [@smith2020, p. 12] ^c-11111111
+        == """- (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
-%%/rv-managed%%
-
-## Notes
-Free-region content remains untouched.
 """
     )
     assert events.verified_checks(out) == [
@@ -74,7 +60,7 @@ def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
     crlf = BASE.replace("\n", "\r\n")
     out = events.record_pass(crlf, "doi", Result.MATCHED, at="2026-08-16")
     assert "\r\r\n" not in out
-    assert out.endswith("Free-region content remains untouched.\r\n")
+    assert out.endswith("  > Mortality fell 12% across all strata.\r\n")
 
 
 def test_record_pass_lexically_changes_only_verified_events_with_crlf():
@@ -253,12 +239,9 @@ def test_pmid_only_requires_update_notice_coverage():
     assert events.trust_tier(text) == "machine-confirmed"
 
 
-def test_each_managed_quote_requires_its_own_address():
-    text = BASE.replace(
-        "%%/rv-managed%%",
-        "- (quote) [@smith2020, p. 13] ^c-22222222\n"
-        "  > The decline was sustained.\n"
-        "%%/rv-managed%%",
+def test_each_quote_claim_requires_its_own_address():
+    text = BASE + (
+        "- (quote) [@smith2020, p. 13] ^c-22222222\n  > The decline was sustained.\n"
     )
     for check in ("doi", "metadata", "update-notice"):
         text = events.record_pass(text, check, Result.MATCHED, at="2026-08-16")

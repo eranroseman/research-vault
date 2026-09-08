@@ -23,7 +23,7 @@ TOOL_PATH_KEYS = ("file_path", "notebook_path")
 
 DENY_REASON = (
     "machine surface; the CLI writes this — use the matching verb "
-    "(`finding`, `ack`, `import-note`, …)"
+    "(`finding`, `ack`, `capture`, …)"
 )
 FAIL_CLOSED_REASON = (
     "Machine-surface guard failed closed; resolve the fault before retrying this edit."

@@ -1,4 +1,3 @@
-import hashlib as _hashlib
 import json as _json
 import os
 import subprocess
@@ -8,14 +7,10 @@ import pytest
 from research_vault import scaffold
 
 
-def _with_managed_witness(text):
-    opening = text.index("%%rv-managed%%")
-    closing = text.index("%%/rv-managed%%", opening) + len("%%/rv-managed%%")
-    if text[closing : closing + 2] == "\r\n":
-        closing += 2
-    elif text[closing : closing + 1] == "\n":
-        closing += 1
-    digest = _hashlib.sha256(text[opening:closing].encode()).hexdigest()
+def _with_body_witness(text):
+    from research_vault import notes
+
+    digest = notes.body_sha256(text)
     return text.replace(
         'type: "literature"\n', f'type: "literature"\nmanaged-sha256: "{digest}"\n', 1
     )
@@ -37,7 +32,7 @@ def fixture_vault(tmp_vault):
     (tmp_vault / "log.md").write_text("# Log\n")
     literature = tmp_vault / "literatures"
     (literature / "smith2020.md").write_text(
-        _with_managed_witness("""---
+        _with_body_witness("""---
 citekey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
@@ -48,30 +43,22 @@ aliases:
   - "Mortality decline"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-%%rv-managed%%
 # Mortality decline
 
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
 - (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222
-%%/rv-managed%%
-
-## Notes
 """)
     )
     (literature / "gone2019.md").write_text(
-        _with_managed_witness("""---
+        _with_body_witness("""---
 citekey: "gone2019"
 type: "literature"
 doi: "10.1000/old"
 accessed: "2026-08-16"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-%%rv-managed%%
 # Old result
-%%/rv-managed%%
-
-## Notes
 """)
     )
     (tmp_vault / "synthesis" / "index.md").write_text(

@@ -541,18 +541,20 @@ def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileI
     }
 
 
-def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
+def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
+    """The note body below the frontmatter, or None when it cannot be read."""
     if image is None or image.kind != "file":
         return None
     try:
-        return notes.managed_slice_bytes(image.data or b"")
-    except notes.ManagedRegionError:
+        text = (image.data or b"").decode("utf-8")
+        return notes.note_body(text).encode("utf-8")
+    except (UnicodeDecodeError, frontmatter.FrontmatterError):
         return None
 
 
-# Machine-owned fields that live outside %%rv-managed%%: `notes.render_note`
-# owns citekey/managed-sha256/fixity-sha256. Legality rides on the `generated`
-# writer attestation, not on slice membership.
+# Machine-owned frontmatter fields: capture owns citekey/managed-sha256/
+# fixity-sha256. Legality rides on the `generated` writer attestation, not on
+# where in the note the field sits.
 _MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
     {"managed-sha256", "fixity-sha256", "citekey"}
 )
@@ -581,7 +583,7 @@ def _field(data: dict | None, key: str):
 
     An unparseable side (`data is None`) must not be able to hide a change —
     it has to compare unequal to whatever the other, parseable side holds, the
-    same fail-closed shape `_managed_bytes` already uses for the managed slice.
+    same fail-closed shape `_body_bytes` already uses for the note body.
     """
     return data.get(key) if data is not None else None
 
@@ -652,7 +654,7 @@ def lint_evidence_layer(
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
 ) -> list[Outcome]:
-    """Validate witnesses and expose every base-to-candidate managed change."""
+    """Validate witnesses and expose every base-to-candidate body change."""
     outcomes = []
     base_files = _literature_files(base_snapshot)
     candidate_files = _literature_files(candidate_snapshot)
@@ -673,14 +675,14 @@ def lint_evidence_layer(
     added = set(candidate_files) - set(base_files)
     paired_removed = set()
     paired_added = set()
-    removed_by_managed: dict[bytes, list[bytes]] = {}
+    removed_by_body: dict[bytes, list[bytes]] = {}
     for raw_path in removed:
-        managed = _managed_bytes(base_files[raw_path])
-        if managed is not None:
-            removed_by_managed.setdefault(managed, []).append(raw_path)
+        body = _body_bytes(base_files[raw_path])
+        if body is not None:
+            removed_by_body.setdefault(body, []).append(raw_path)
     for raw_path in sorted(added):
-        managed = _managed_bytes(candidate_files[raw_path])
-        candidates = removed_by_managed.get(managed, []) if managed is not None else []
+        body = _body_bytes(candidate_files[raw_path])
+        candidates = removed_by_body.get(body, []) if body is not None else []
         if candidates:
             old_path = sorted(candidates)[0]
             candidates.remove(old_path)
@@ -691,7 +693,7 @@ def lint_evidence_layer(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    "drift — managed literature note renamed",
+                    "drift — literature note renamed",
                     extra={"prior_path": RepoPath(old_path)},
                 )
             )
@@ -700,7 +702,7 @@ def lint_evidence_layer(
             "evidence-layer",
             RepoPath(raw_path),
             Result.UNMATCHED,
-            "drift — managed literature note added",
+            "drift — literature note added",
         )
         for raw_path in sorted(added - paired_added)
     )
@@ -709,20 +711,20 @@ def lint_evidence_layer(
             "evidence-layer",
             RepoPath(raw_path),
             Result.UNMATCHED,
-            "drift — managed literature note deleted",
+            "drift — literature note deleted",
         )
         for raw_path in sorted(removed - paired_removed)
     )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
-        old = _managed_bytes(base_files[raw_path])
-        new = _managed_bytes(candidate_files[raw_path])
+        old = _body_bytes(base_files[raw_path])
+        new = _body_bytes(candidate_files[raw_path])
         if old != new:
             outcomes.append(
                 Outcome(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    "drift — managed literature region changed",
+                    "drift — literature note body changed",
                 )
             )
         outcomes.extend(

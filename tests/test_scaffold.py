@@ -37,7 +37,6 @@ EXPECTED_CREATED = [
     "system/bases/trust-tier.base",
     "system/glossary.md",
     "system/templates/daily.md",
-    "system/templates/literature.md",
     "system/templates/project.md",
     "system/templates/synthesis.md",
 ]
@@ -128,7 +127,6 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         "inbox/review-queue.md",
         "system/glossary.md",
         "system/templates/daily.md",
-        "system/templates/literature.md",
         "system/templates/project.md",
         "system/templates/synthesis.md",
     ):
@@ -206,8 +204,8 @@ def test_scaffold_copies_exact_authority_assets_with_consent_and_modes(tmp_path)
         ".git/hooks/pre-commit": packaged.joinpath("git", "pre-commit"),
         ".github/workflows/verify.yml": packaged.joinpath("ci", "verify.yml"),
         ".github/workflows/rw-batch.yml": packaged.joinpath("ci", "rw-batch.yml"),
-        "system/templates/literature.md": packaged.joinpath(
-            "vault", "system", "templates", "literature.md"
+        "system/templates/synthesis.md": packaged.joinpath(
+            "vault", "system", "templates", "synthesis.md"
         ),
     }
 

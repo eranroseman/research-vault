@@ -103,7 +103,7 @@ previously held them.
 | Spelling                                 | Source or rule                                       |
 | ---------------------------------------- | ---------------------------------------------------- |
 | `fixity-sha256`                          | OAIS/NDSA `fixity`, with the algorithm made explicit |
-| `managed-sha256`                         | Matching coined name for the managed-region witness  |
+| `managed-sha256`                         | sha256 over the note body below the frontmatter      |
 | `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                 |
 | `human:<identity>`                       | Human actor form; §4.5 defines the machine actor     |
 
@@ -141,7 +141,7 @@ source; this table owns their spellings regardless.
 
 | Group            | Governed identifiers                                                                                                                                                                                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| check ids        | `citekey`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `disputed-claim`, `publish`, `factcheck`, `render`, `integrate`, `okf-frontmatter`, `okf-structure`, `tree`                                                                                 |
+| check ids        | `citekey`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `disputed-claim`, `publish`, `factcheck`, `okf-frontmatter`, `okf-structure`, `tree`                                                                                                        |
 | doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `remote`, `backup`                                                                                                                                                                                                              |
 | reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `warn-notice` |
 
@@ -173,7 +173,7 @@ The name of a researcher's own vault or repository is outside this ruling.
 | Repository slug; plugin and distribution names | `research-vault`                                                                             |
 | Python module and CLI program                  | `research_vault`                                                                             |
 | Process-written actor                          | `research_vault/<version>`                                                                   |
-| Vault markers and selector field               | `%%rv-managed%%`, `%%/rv-managed%%`, `rv-selector`                                           |
+| Selector field                                 | `rv-selector`                                                                                |
 | Vault tooling directory                        | `.research-vault/`                                                                           |
 | Environment-variable family                    | `RV_*`                                                                                       |
 | Internal scratch paths                         | `.research-vault-projection-`, `.research-vault-rollback`, `.research-vault-manifest-probe-` |

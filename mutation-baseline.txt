@@ -1,9 +1,4 @@
 # mutation-baseline.txt -- 6 module(s) excluded (see mutation-exclusions.txt), not represented below: research_vault/events.py, research_vault/frontmatter.py, research_vault/gitstate.py, research_vault/outcome.py, research_vault/pathcodec.py, research_vault/selectors.py
-research_vault/__main__.py::func/_attachment_hash::not isinstance(raw_path, str) or not raw_path -> not isinstance(raw_path, str) and not raw_path
-research_vault/__main__.py::func/_retain_prior_contexts::0 -> 1
-research_vault/__main__.py::func/cmd_backfill_selectors::0 -> 1
-research_vault/__main__.py::func/cmd_backfill_selectors::1 -> 0
-research_vault/__main__.py::func/cmd_backfill_selectors::not isinstance(citekey, str) or not citekey -> not isinstance(citekey, str) and not citekey
 research_vault/__main__.py::func/cmd_factcheck::True -> False
 research_vault/__main__.py::func/cmd_inbox::True -> False
 research_vault/__main__.py::func/cmd_search_log::args.source is None or args.hits is None -> args.source is None and args.hits is None
@@ -53,7 +48,6 @@ research_vault/lints.py::func/_claim_target::isinstance(citekey, str) and citeke
 research_vault/lints.py::func/_is_complete_deprecation_transition::"[status:: deprecated]" in old_line -> "[status:: deprecated]" not in old_line
 research_vault/lints.py::func/_is_complete_deprecation_transition::TRANSITION_FIELD.search(old_line) and "[status:: deprecated]" in old_line -> TRANSITION_FIELD.search(old_line) or "[status:: deprecated]" in old_line
 research_vault/lints.py::func/_line_content_and_ending::match is None -> match is not None
-research_vault/lints.py::func/_managed_bytes::image is None or image.kind != "file" -> image is None and image.kind != "file"
 research_vault/lints.py::func/_normalize_marker_transition::len(old_lines) != len(new_lines) or old_lines[1:] != new_lines[1:] -> len(old_lines) != len(new_lines) and old_lines[1:] != new_lines[1:]
 research_vault/lints.py::func/_project_status::image.data or b"" -> image.data and b""
 research_vault/lints.py::func/_remove_single_marker::1 -> 0
@@ -64,18 +58,12 @@ research_vault/lints.py::func/lint_claim_immutability::candidate_image is not No
 research_vault/lints.py::func/lint_evidence_layer::managed is not None -> managed is None
 research_vault/notes.py::func/_frontmatter_close::1 -> 0
 research_vault/notes.py::func/_frontmatter_close::not lines or lines[0] not in {"---\n", "---\r\n"} -> not lines and lines[0] not in {"---\n", "---\r\n"}
-research_vault/notes.py::func/_raw_lines::0 -> 1
-research_vault/notes.py::func/_raw_lines::newline < 0 -> newline <= 0
-research_vault/notes.py::func/_raw_lines::offset < len(data) -> offset <= len(data)
 research_vault/notes.py::func/_valid_generated::at.endswith("Z") and parsed.tzinfo is not None -> at.endswith("Z") or parsed.tzinfo is not None
 research_vault/notes.py::func/_valid_generated::len(items) != 2 or {key for key, _ in items} != {"by", "at"} -> len(items) != 2 and {key for key, _ in items} != {"by", "at"}
 research_vault/notes.py::func/_valid_generated::not isinstance(actor, str) or not actor or not isinstance(at, str) -> not isinstance(actor, str) and not actor or not isinstance(at, str)
 research_vault/notes.py::func/canonical_content::0 -> 1
 research_vault/notes.py::func/canonical_content::close < 0 -> close <= 0
 research_vault/notes.py::func/canonical_content::index < close -> index <= close
-research_vault/notes.py::func/managed_slice_bytes::opening_start >= closing_start -> opening_start > closing_start
-research_vault/notes.py::func/render_claim::not isinstance(citekey, str) or _UNSAFE_IDENTIFIER.search(citekey) is not None -> not isinstance(citekey, str) and _UNSAFE_IDENTIFIER.search(citekey) is not None
-research_vault/notes.py::func/render_claim::pre or suf -> pre and suf
 research_vault/okf.py::func/regenerate_log::tail_entries > 0 -> tail_entries >= 0
 research_vault/paths.py::func/to_local::proc.returncode == 0 and proc.stdout.strip() -> proc.returncode == 0 or proc.stdout.strip()
 research_vault/publish.py::func/_append_log::True -> False

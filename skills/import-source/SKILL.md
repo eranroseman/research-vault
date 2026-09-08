@@ -34,7 +34,6 @@ Every outcome is an answer, including the two that write nothing:
 | ----------------------------------------- | --------- | --------- | ------------------ |
 | Citekey cannot name a literature note     | `citekey` | UNMATCHED | `schema-violation` |
 | Citekey is absent from the Zotero library | `citekey` | UNMATCHED | `not-admitted`     |
-| Render rejected (nothing was written)     | `render`  | UNMATCHED | `schema-violation` |
 
 Read the stderr message back verbatim; do not summarize it as "the import failed". If stderr also carries `warning: review record refused:`, say so out loud — that means the failure has **no** durable record, and the person needs to know the queue is not carrying it.
 
@@ -56,28 +55,6 @@ Before creating or editing anything in `synthesis/`, read `synthesis/index.md` a
 
 If an indexed page already covers the topic, add to it. Never create a second page for a topic the index already names.
 
-## 4. Integrate at import
-
-Integration is not a separate later chore. Once the catalog has landed, the source's claims join the synthesis layer in the same session: update the covering synthesis page, and add `[supports:: [[citekey#^claim-id]]]` / `[disputes:: [[citekey#^claim-id]]]` stance links against the claims already there. Stance links target another *claim link*, never a bare note.
-
-These land immediately, without asking. Exactly three conditions hold a single claim back — surgically, one claim at a time, never the whole import:
-
-- **Contradiction** — the new claim contradicts a claim already in the synthesis layer. Preserve both and link them with `disputes`; never resolve a contradiction by rewording or dropping either side.
-- **Low or absent confidence** — an inference claim whose `[confidence:: ...]` is low, or missing entirely.
-- **Schema violation** — the claim cannot be written to §5's shape: no resolvable anchor, no citekey, a stance link with no claim-link target.
-
-Each held claim gets a review record, and the `finding` verb is the only way you may write one:
-
-```sh
-python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "contradiction — ONE-LINE REASON" --vault PATH
-python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "low-confidence — ONE-LINE REASON" --vault PATH
-python3 -m research_vault finding integrate CLAIM_LINK UNMATCHED "schema-violation — ONE-LINE REASON" --vault PATH
-```
-
-The target is the source claim link (`citekey#^claim-id`) — surgical means the record names the one claim, not the import. If one claim needs two of these on the same day, the verb refuses the second rather than quietly overwriting the first: give each a distinct `--target-hash` so both stay separately identifiable and acknowledgeable. Read the refusal back; never work around it by editing the queue.
-
-A hold is a hold on *integration only*. The literature note is already written, the source is already citable, and the person can act on the finding whenever they get to it.
-
 ## 5. The 2+-source threshold
 
 A synthesis page earns its existence at two or more sources on the same topic — `synthesis-conventions` owns that threshold and it is the only one. Importing the first source on a topic creates no page: its claims stay in the literature note until a second source gives them something to arrange against. Say that plainly rather than presenting it as a shortfall.
@@ -87,16 +64,6 @@ A synthesis page earns its existence at two or more sources on the same topic �
 `import-note` decides re-imports by **render-first comparison**: it re-renders the managed projection from Zotero and compares it with what is on disk. Identical means `NOOP` and exit `0`, and it means the vault is already correct.
 
 Report it as the outcome it is — "already current, nothing to write" — never as an error, and never as an import you performed. Attachment hashes (`fixity-sha256`) play no part in this: annotations and metadata live in Zotero's database, so an unchanged PDF says nothing about whether the projection changed. Those hashes are fixity and acknowledgment-scope anchors, nothing more.
-
-## 7. Extended modes
-
-Three more modes extend the core flow above; each is documented in full on its own so this file stays focused on the catalog → integrate path:
-
-| Need                                                 | Verb                 | Reference file                    |
-| ---------------------------------------------------- | -------------------- | --------------------------------- |
-| Refresh an existing note — fresh, stale, or orphaned | `import-note`        | `references/refresh-mode.md`      |
-| Backfill: refresh every literature note in the vault | `backfill-selectors` | `references/batch-mode.md`        |
-| Archive a web source (`url`, no `doi`) at import     | `archive-source`     | `references/archive-at-import.md` |
 
 ## Four-state honesty
 

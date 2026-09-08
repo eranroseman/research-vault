@@ -235,7 +235,7 @@ def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> lis
     if "log.md" in created:
         # Ship a freshly-scaffolded vault's log.md already OKF-conformant
         # (type: "log") rather than leaving the inert packaged placeholder
-        # until the first import-note/verify call regenerates it.
+        # until a later verb regenerates it.
         okf.regenerate_log(vault)
     _add_empty_root_sentinels(vault, created)
     _copy_if_absent(

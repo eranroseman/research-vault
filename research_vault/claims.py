@@ -3,8 +3,6 @@
 import re
 from dataclasses import dataclass, field
 
-from .notes import MANAGED_CLOSE, MANAGED_OPEN
-
 CLAIM_RE = re.compile(
     r"^- \((quote|paraphrase|inference|open-question)\) (?P<rest>.*)$"
 )
@@ -23,7 +21,6 @@ class Claim:
     line_no: int
     quote_text: str | None = None
     fields: dict[str, str] = field(default_factory=dict)
-    in_managed: bool = False
 
 
 def claim_link(citekey: str, claim_id: str) -> str:
@@ -33,19 +30,9 @@ def claim_link(citekey: str, claim_id: str) -> str:
 def parse_claims(text: str) -> list[Claim]:
     """Return claims found in any note body, retaining their source metadata."""
     parsed_claims: list[Claim] = []
-    in_managed = False
     current_quote: Claim | None = None
 
     for line_no, line in enumerate(text.splitlines(), start=1):
-        if line == MANAGED_OPEN:
-            in_managed = True
-            current_quote = None
-            continue
-        if line == MANAGED_CLOSE:
-            in_managed = False
-            current_quote = None
-            continue
-
         match = CLAIM_RE.match(line)
         if match:
             rest = match.group("rest")
@@ -62,7 +49,6 @@ def parse_claims(text: str) -> list[Claim]:
                 claim_id=anchor.group("id") if anchor else None,
                 line_no=line_no,
                 fields=fields,
-                in_managed=in_managed,
             )
             parsed_claims.append(current_quote)
             if current_quote.tag != "quote":

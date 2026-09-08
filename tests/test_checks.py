@@ -93,7 +93,7 @@ def test_cited_citekey_requires_literature_note(tmp_vault):
 def test_cited_citekey_with_note_passes(tmp_vault):
     """A bibliography entry backed by a literature note still MATCHES."""
     (tmp_vault / "literatures" / "smith2020.md").write_text(
-        '---\ncitekey: "smith2020"\n---\n%%rv-managed%%\n%%/rv-managed%%\n'
+        '---\ncitekey: "smith2020"\n---\n'
     )
     note = tmp_vault / "projects" / "draft.md"
     note.write_text("See the evidence [@smith2020].\n")

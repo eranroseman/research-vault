@@ -44,7 +44,7 @@ ENTRY_SKILLS = {
 # the shape a skill name takes when a template cites one in prose. Requires
 # at least one hyphen so ordinary single words never match, and excludes
 # slashes/dots/percents so path fragments (`` `synthesis/index.md` ``),
-# managed markers (`` `%%rv-managed%%` ``), and similar template furniture
+# comment markers (`` `%%rv-anything%%` ``), and similar template furniture
 # never false-positive.
 _BACKTICKED_KEBAB_TOKEN = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
 

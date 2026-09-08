@@ -18,12 +18,10 @@ from research_vault import Result, events, factcheck
 from research_vault.__main__ import main
 from research_vault.factcheck import ClaimRef
 
-MANAGED = "%%rv-managed%%\n{body}\n%%/rv-managed%%\n"
-
 
 def _note(citekey, body, verified=None):
     header = f'---\ncitekey: "{citekey}"\ntype: "literature"\n---\n'
-    text = header + MANAGED.format(body=body)
+    text = f"{header}{body}\n"
     if verified is not None:
         for event in verified:
             text = events.record_pass(

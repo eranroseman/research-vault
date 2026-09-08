@@ -287,11 +287,11 @@ def trust_tier(note_text: str) -> str:
         ):
             machine_confirmed = False
 
-    has_managed_quotes = False
+    has_quote_claims = False
     for claim in claims_mod.parse_claims(note_text):
-        if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:
+        if claim.tag != "quote" or not claim.claim_id:
             continue
-        has_managed_quotes = True
+        has_quote_claims = True
         claim_link = claims_mod.claim_link(citekey, claim.claim_id)
         quote_checks = {
             f"quote:{claim_link}:managed-region",
@@ -300,7 +300,7 @@ def trust_tier(note_text: str) -> str:
         if checks.isdisjoint(quote_checks):
             machine_confirmed = False
 
-    if not applicable and not has_managed_quotes:
+    if not applicable and not has_quote_claims:
         # A subset test over an empty applicable set is vacuously true; require
         # at least one deterministic check to have run and matched instead.
         machine_confirmed = False

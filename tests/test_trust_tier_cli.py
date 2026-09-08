@@ -23,8 +23,6 @@ citekey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
-%%rv-managed%%
-%%/rv-managed%%
 """
 
 
