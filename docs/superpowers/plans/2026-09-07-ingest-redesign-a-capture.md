@@ -24,7 +24,7 @@
 - **Deprecate, never delete, for vault records** (ADR 0003): no transition deletes a literature note. Repository artifacts (plans, docs, code) are outside that rule; deleting them is hygiene.
 - **No `Disposition:` line** on new Markdown: the marker system was deleted on 2026-09-07 (`7ec2c95`, `8e2721b`).
 - **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`.
-- **Deleting a module** deletes its `research_vault/<module>.py.manifest.json` sidecar (mutate4py sidecars; nothing enforces them) and prunes its rows from `mutation-baseline.txt` (`grep -v '^research_vault/<module>.py::'`). New modules need no sidecar; the gate writes one on its first run.
+- **Deleting a module** deletes its `research_vault/<module>.py.manifest.json` sidecar (mutate4py sidecars; nothing enforces them) and prunes its rows from `mutation-baseline.txt` (`grep -v '^research_vault/<module>.py::'`). **Deleting a function** inside a surviving module prunes that function's rows the same way (`grep -v '::func/<name>::'`), in the same commit. The gate computes `found - baseline` (`scripts/mutation_gate.py::new_survivors`), so a stale row for a function that no longer exists never fails a run; pruning is hygiene, not a blocker, and it keeps the file honest until the next `--update-baseline`. New modules need no sidecar; the gate writes one on its first run.
 - **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
 - **Outward-facing actions need explicit go-ahead in that turn**: Part B's upstream Zotero issue (its Task 6) is not run on plan approval alone; nothing in this part is outward-facing.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
@@ -270,7 +270,7 @@ Expected: FAIL — `main` dispatches `archive-source` and returns normally (no `
 
 ```bash
 git rm -q research_vault/archive.py research_vault/archive.py.manifest.json tests/test_archive.py
-grep -v '^research_vault/archive.py::' mutation-baseline.txt > /tmp/baseline && mv /tmp/baseline mutation-baseline.txt
+grep -v '^research_vault/archive.py::\|::func/_archive_outcomes::\|::func/lint_web_archive::' mutation-baseline.txt > /tmp/baseline && mv /tmp/baseline mutation-baseline.txt
 ```
 
 In `research_vault/__main__.py`: remove `archive,` from the `from . import (...)` block; delete `cmd_archive_source`; delete the four `archive_source_cmd` parser lines; delete `"archive-source": cmd_archive_source,` from the dispatch dict.
@@ -1268,6 +1268,14 @@ grep -rl 'not-imported' research_vault tests skills docs | xargs sed -i 's/not-i
 ```
 
 Then read every hunk: a `citation_key` inside prose or an f-string message becomes `citation key`; a frontmatter fixture line `citation_key:` becomes `citationKey:`. The `CITE_RE` group name `key` and the `[@...]` syntax are untouched. In `research_vault/inbox.py` the registries now read `"citation-key"` and `"not-captured"`.
+
+**Classification rule for pass 1.** `s/"citekey"/"citation-key"/g` rewrites every double-quoted literal, and only some of them are check ids; pass 2 repairs three shapes (`get(...)` reads, line-initial fixture keys, the `\n` escape inside a Python string) and no others. After pass 2, run `grep -rn '"citation-key"' research_vault tests hooks` and classify every hit:
+
+- a **check id** keeps `citation-key`: an `Outcome(...)` first argument, a `_hold(...)` check argument, a member of `inbox.CHECK_IDS` or of verify's check-id sets, an `outcome.check == ...` comparison, an `_applicable_note_checks` return;
+- a **frontmatter field name** becomes `citationKey`: a member of a frontmatter-keys set or tuple, a dict-literal key that is written out as frontmatter, an indexed read of parsed frontmatter;
+- an **internal record field** that is neither (a key both produced and consumed inside the package, such as the annotation dict `__main__.py` builds and `notes.py` reads) keeps `citation-key` on both sides.
+
+Sites of the second kind at HEAD that pass 2 does not reach, with their line numbers at plan-writing time (Tasks 1–5 delete several; classify whatever survives): `research_vault/lints.py:625` the `_MACHINE_OWNED_FRONTMATTER_KEYS` member (Task 1 narrowed the set; Task 11 replaces it with `notes.CAPTURE_FIELDS`); `research_vault/notes.py:160` the `MANAGED_FIELDS` member and `:229` `fm = {"citekey": item["id"], "type": "literature"}`, which writes the note's actual frontmatter key, so a wrong spelling there changes what the CLI emits; `research_vault/__main__.py:74` the annotation dict key (third kind, paired with `notes.py:318`); `research_vault/__main__.py:196` `item.get("citekey")` on a Better BibTeX search hit (pass 2 turns it into `get("citationKey")`, which is Zotero's own field name and correct). Do not rely on the suite to find a wrong spelling at `notes.py:229`; read the grep.
 
 Skills and docs (prose, not code): in the ten skill files and `docs/terminology.md`, `docs/testing.md`, `README.md`: the frontmatter key `citekey` → `citationKey`; the check id `` `citekey` `` → `` `citation-key` ``; the word "citekey" in prose → "citation key"; the placeholder `CITEKEY` → `CITATION_KEY`; `[[citekey#^claim-id]]` → `[[citation-key#^claim-id]]`. `docs/terminology.md` §4.4: replace `citekey` with `citation-key` in the check-id row and `not-imported` with `not-captured` in the reason-code row; the deviation register's `citekey` row already reads "Superseded 2026-09-07 by the ingest redesign spec §3.1" — leave it.
 
