@@ -117,3 +117,15 @@ here because a committed file is the only home that survives the workspace delet
    ownership is knowable, so a deferral names the task that claims the file. Neither the author who
    scheduled it nor the controller who re-extracted the brief twice checked the assertion against
    the committed string; it surfaced from reading the Files block for an unrelated reason.
+
+7. **A fold-in commit is diffed against the shape the review approved, before it lands.** Folding a
+   review's rulings back into a plan's printed code has twice introduced a change no review saw. At
+   Task 8 a fold-in carried a date that was false when written and a Status-line form that broke
+   `docs/agents/domain.md`'s "ADRs carry no history" rule. At Task 13 a fold-in moved a reviewed
+   outcome's target from `vault` to the CSL file — a `raise` turned into a `return` inside a
+   function whose signature returns one CSL outcome, transcribed without re-reading the approved
+   outcome table. Both were caught, but the second only because an implementer flagged a
+   brief-versus-message disagreement it was under no obligation to explain; the review that would
+   have caught it had already run. The reviews emit outcome tables and per-case enumerations
+   precisely because they are diffable artefacts, and until this point nobody was diffing against
+   them. The check costs one pass over something that already exists.
