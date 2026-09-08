@@ -26,7 +26,7 @@
 - **A test never substitutes into fixture text with bare `str.replace`.** When a fixture edit removes the literal, the substitution becomes a no-op and the test stays green while asserting nothing — Tasks 4, 5 and 11 each met it, and Task 11's review found seven at once. Use `tests/conftest.py::must_replace(text, old, new)`, which fails when `old` is absent (Task 18 adds it, converts the seven, and adds a scan over the fixture-heavy test files).
 - **A deferral names the task whose Files block claims the file.** "The next touch of X" is not a schedule: if no later Files block names X, the deferral lands on the final task, after every task it was meant to protect, and reaches an implementer as a failing test it did not cause and cannot fix in scope (Task 13's ledger-message assertion against a string only Task 11 could change). Before deferring, grep the Files blocks for the file; if none claims it, name the task that will, or fix it now.
 - **Dates an implementer writes are today's.** A literal date inside a printed test or fixture is a pinned value and stays as printed. A date written into a repository record — a supersession in the deviation register, an ADR exemption, a tracer result, a fixture README — is the day the work happens: the plan says "today's date" for those and the executor supplies it. The plan was written across a midnight, so any literal it printed for that purpose was stale by at least a day.
-- **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`. Before measuring anything, search `docs/research/`: its dated primary-source records settle facts a probe would only re-measure (record 291 of `2026-09-05-zotero-api-reading.md` held Better BibTeX's `item.search` wire key while this plan asserted the wrong one), and a brief that states an API shape without citing a record is a claim to check, not a fact.
+- **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`. A fixture's canned server id is a test value, not a machine-local fact: `tests/fakes.py`'s `6LpvURP2E933` and Task 13's test's `Tdoqsn2J4q4h` are real ids used as fixtures, recorded here so the rule is not read as broken by them; the socket guard is what keeps a fixture id from ever matching a live answer. Before measuring anything, search `docs/research/`: its dated primary-source records settle facts a probe would only re-measure (record 291 of `2026-09-05-zotero-api-reading.md` held Better BibTeX's `item.search` wire key while this plan asserted the wrong one), and a brief that states an API shape without citing a record is a claim to check, not a fact.
 - **Deleting a module or a function prunes its `mutation-baseline.txt` rows** in the same commit, by mechanism, not by a hand-written `grep -v`: run the baseline prune below before committing and put `mutation-baseline.txt` on the pathspec. It drops every row whose module file or function definition no longer exists (a method row `func/Class.method` matches on the method name) and prints each row it drops; a deleted module's `research_vault/<module>.py.manifest.json` sidecar (mutate4py's, unenforced) is deleted by hand. The gate computes `found - baseline` (`scripts/mutation_gate.py::new_survivors`), so a stale row never fails a run; the prune keeps the file honest until the next `--update-baseline`. Measured 2026-09-07: the tree already carries one stale row, `research_vault/scaffold.py::func/_okf_probe`, which the first task to run the prune removes (say so in that commit). New modules need no sidecar; the gate writes one on its first run.
 
 ```bash
@@ -137,7 +137,7 @@ class DatabaseChangedError(ZoteroError)                  # HTTP 412; result UNMA
 class LocalApiDisabledError(ZoteroError)                 # HTTP 403; result UNMATCHED
 class NotFoundError(ZoteroError)                         # HTTP 404; result UNMATCHED
 class Response(NamedTuple): status: int; body: bytes; headers: Mapping[str, str]   # built positionally (status, body, headers) everywhere
-def base_for(vault_root, override: str | None = None) -> str
+def base_for(vault_root, override: str | None = None, *, strict: bool = True) -> str   # strict: an unreadable, malformed or wrong-typed machine.json raises; doctor alone passes False
 class ZoteroClient:
     def __init__(self, base=DEFAULT_BASE, timeout=5.0, server_id=None, api_key=None)
     def server_info(self) -> dict                        # {"zotero","api","schema","server_id"}
@@ -3275,7 +3275,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `research_vault/capture.py`, `tests/test_capture.py`
-- Modify: `research_vault/zotero.py` (`base_for(vault_root, override=None, *, strict=True)`: as built in Task 9 it swallows an unreadable or malformed `machine.json` and answers `DEFAULT_BASE` — the production instance — so a typo in the file that says "use 23129" would route every verb at production; with `strict=True` it raises `ZoteroError(f"machine.json unreadable: {error}", result=Result.UNMATCHED)` instead, and only `doctor` resolves with `strict=False`, because its `machine-config` probe is what reports the file), `research_vault/__main__.py` (`main()`'s `--base` resolution from Task 9 passes `strict=args.command != "doctor"` and turns the error into `print(error, file=sys.stderr); return 2`; `cmd_capture`, parser `capture KEY... --vault PATH [--all]`, dispatch), `research_vault/inbox.py` (`REASON_CODES` add `no-fulltext`, `unkeyed`; `CHECK_IDS` add `capture`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
+- Modify: `research_vault/zotero.py` (`base_for(vault_root, override=None, *, strict=True)`: as built in Task 9 it swallows an unreadable or malformed `machine.json` and answers `DEFAULT_BASE` — the production instance — so a typo in the file that says "use 23129" would route every verb at production; with `strict=True` it raises `ZoteroError(f"machine.json unreadable: {error}", result=Result.UNMATCHED)` instead, and only `doctor` resolves with `strict=False`, because its `machine-config` probe is what reports the file; Task 13 built this, and Task 17 closes the case one level down — a `zotero_base` that is present but not a non-empty string (`null`, a number, `""`) is refused in strict mode with `machine.json unreadable: zotero_base must be a non-empty string`, not silently defaulted), `research_vault/__main__.py` (`main()`'s `--base` resolution from Task 9 passes `strict=args.command != "doctor"` and turns the error into `print(error, file=sys.stderr); return 2`; `cmd_capture`, parser `capture KEY... --vault PATH [--all]`, dispatch), `research_vault/inbox.py` (`REASON_CODES` add `no-fulltext`, `unkeyed`; `CHECK_IDS` add `capture`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
 
 **Interfaces:**
 
@@ -4302,7 +4302,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `research_vault/captured.py`, `tests/test_captured.py`, `research_vault/clock.py` (the one clock a check reads — decision 28; Task 18 threads the CLI flag to it)
-- Modify: `research_vault/capture.py` (`_captured_keys` reads `captured.captured_set`), `research_vault/verify.py` (`_plan_state` adds `captured.lint_captured_set(vault, as_of=detection_date)`; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"captured-set"`), `research_vault/inbox.py` (`REASON_CODES` add `recompile-needed`; `CHECK_IDS` add `captured-set`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
+- Modify: `research_vault/capture.py` (`_captured_keys` reads `captured.captured_set`; and the four capture follow-ups from Task 13's review, printed under Step 3 — `resolve_keys` consults the captured notes first and `--all` enumerates item keys, `database-changed` joins the refused set, no hardcoded library name, a mid-run 412 still stamps what was written), `tests/test_capture.py` (the follow-ups' tests), `research_vault/verify.py` (`_plan_state` adds `captured.lint_captured_set(vault, as_of=detection_date)`; `CLOSING_BY_SURFACE["commit"]` and `["publish"]` add `"captured-set"`), `research_vault/inbox.py` (`REASON_CODES` add `recompile-needed`; `CHECK_IDS` add `captured-set`), `skills/evidence-conventions/SKILL.md`, `docs/terminology.md` §4.4
 
 **Interfaces:**
 
@@ -4590,6 +4590,92 @@ def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
         outcomes.append(Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
     return outcomes + structural
 ```
+
+**Capture follow-ups from Task 13's review** (deferred rows 36, 37, 38 and Task 13's concern 9; `capture.py` is this task's file, so they land here rather than reopening Task 13):
+
+1. **`resolve_keys` consults the captured notes first, and `--all` enumerates item keys.** `/items/top` excludes trashed items, so a trashed source requested by its citation key resolved to nothing and reported `not-admitted — … is not in the library` while the linter said `trashed`; and `refresh_all` enumerated citation keys, so an `--all` refresh after a re-key resolved the old name through the live route and got the same false answer. A requested key that is a captured note's citation key now resolves through its tuple, and the linter's verdict reaches it:
+
+```python
+def resolve_keys(client: ZoteroClient, keys: list[str], known: dict[str, str] | None = None) -> dict[str, str | None]:
+    """An item key is itself; a captured citation key resolves through its tuple; anything else through /items/top."""
+    known = known or {}
+    resolved: dict[str, str | None] = {}
+    by_citation: dict[str, str] | None = None
+    for key in keys:
+        if ITEM_KEY.match(key):
+            resolved[key] = key
+        elif key in known:
+            resolved[key] = known[key]  # the linter's trashed/merged/deleted verdict reaches a captured source this way
+        else:
+            if by_citation is None:
+                items, _ = client.top_items()
+                by_citation = {
+                    item["data"]["citationKey"]: item["key"]
+                    for item in items
+                    if isinstance(item.get("data"), dict) and item["data"].get("citationKey")
+                }
+            resolved[key] = by_citation.get(key)
+    return resolved
+```
+
+In `capture()`: `requested = list(keys) + ([p.item_key for _, p in existing] if refresh_all else [])` and `resolved = resolve_keys(client, requested, item_key_of)`.
+
+2. **`_REFUSED` (Task 13's frozenset, the constant the refuse check reads) gains `"database-changed"`:** a note the linter reports `database-changed — note records <id>` (a mixed-id vault) is refused too — capturing it would re-home the note to the other database's item of the same key.
+
+3. **No hardcoded library name** (decision 13's "never hardcoded"): `library_name = library_name or read.item.get("library", {}).get("name")` loses its `or "My Library"`, the final call is `_regenerate_csl(vault, client, library_name, run_version)`, and `_regenerate_csl(vault, client, library_name: str | None, run_version)` takes the library route only when a name was read this run; otherwise it goes straight to `item.export` over the captured keys, which needs no name:
+
+```python
+    items = None
+    route = "matched"
+    if library_name is not None:
+        try:
+            items = client.library_csl(library_name)
+            after = _top_version(client)
+            if run_version is not None and after is not None and after != run_version:
+                items = client.library_csl(library_name)
+        except DatabaseChangedError as error:
+            return Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")  # the comment from Task 13 stays
+        except ZoteroError:
+            items = None
+    if items is None:
+        try:
+            items = client.export_csl(captured) if captured else []
+            route = "matched — item.export fallback"
+        except ZoteroError as error:
+            return lifecycle.blocked(CHECK, CSL_TARGET, error)
+```
+
+4. **A mid-run 412 stamps what was written.** The per-item `except DatabaseChangedError` sets `aborted = Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")` and `break`s instead of returning, `aborted: Outcome | None = None` is declared before the loop, and after the loop the existing `stamp.stamp_types` / `okf.regenerate_log` block runs before `if aborted is not None: return outcomes + [aborted]` — so the notes written before the database moved are stamped and logged, and no CSL file is regenerated from the other database.
+
+5. `skills/evidence-conventions/SKILL.md`'s `not-admitted` row names the third condition: a typed refusal routed through `lifecycle.blocked` — the API-off 403, a 404 on a versions route.
+
+Tests, appended to `tests/test_capture.py`:
+
+```python
+def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admitted(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.get("/api/users/0/items?since=0&format=versions", body={"D7EJ9FTG": 551}, headers={"Last-Modified-Version": "566"})
+    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+    by_key = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert by_key[0].reason.startswith("trashed — ")  # resolved through the tuple, not through /items/top
+    refreshed = capture.capture(tmp_vault, client, [], refresh_all=True)
+    assert refreshed[0].reason.startswith("trashed — ")
+
+
+def test_csl_regeneration_needs_no_library_name_when_nothing_was_read(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.rpc("item.export", LIBRARY)
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    outcomes = capture.capture(tmp_vault, client, ["GHOST001"])  # 404: nothing read this run
+    assert outcomes[0].reason.startswith("not-admitted")
+    assert outcomes[-1].reason == "matched — item.export fallback"
+    assert not [c for c in fake.calls if "better-bibtex/library" in c[1]]  # no library route without a name
+```
+
+(A test for follow-up 4 needs a 412 between two items: monkeypatch `client.item` to flip `fake.server_id` after the first key's read, then assert the first note carries its `type` stamp and `log.md` was regenerated before the `vault` row that ends the list — write it against the fake's shape, since the plan cannot print a route sequence it has not run.)
 
 Add `clock` to `captured.py`'s `from . import …` line. Wire verify (`raw.extend(captured.lint_captured_set(vault, as_of=detection_date))`; closing on `commit` and `publish`), and `capture._captured_keys` → `set(captured.captured_set(vault))`.
 
@@ -5641,7 +5727,7 @@ Capture runs the lifecycle linter first, then for each item reads the item, its 
 | `UNMATCHED KEY — not-admitted — …` | The key is not in the library. |
 | `UNMATCHED KEY — no-fulltext — …` | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
 | `SKIPPED KEY — no-fulltext — no attachment to read (…)` | The item holds no file at all — a web page, a repository, a program. The note was written; the text checks do not apply, and nothing was filed. Getting text for such sources is a later lane's work, not a capture failure. |
-| `UNMATCHED KEY — re-keyed — old → new` | The citation key changed. Run `propagate` (§4). |
+| `UNMATCHED KEY — re-keyed — old → new` | The citation key changed. Run `propagate` (§4) before capturing that source again: capture proceeds on `re-keyed` (propagation's own recapture relies on it) and would write a second note under the new name beside the old. |
 | `UNMATCHED KEY — merged|trashed|deleted — …` | The item left the library. Nothing was written; the note is kept. |
 | `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record. |
 | `UNREACHABLE … — outage — …` | Zotero did not answer. **Never a verdict on the source.** Retry later. |
@@ -5713,7 +5799,7 @@ PY
 Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
 ````
 
-`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | \`capture-source\` | Add an item to Zotero, capture it into \`literatures/\` and \`fulltext/\`, propagate a citation-key change |`; the routing sentence at `:89`becomes "Capture this paper" is not "capture it and rebuild the concept page."`docs/terminology.md`§4.3: the governed skill names list swaps`import-source`for`capture-source\`.
+`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literatures/ and fulltext/, propagate a citation-key change |` (with `capture-source`, `literatures/` and `fulltext/` in backticks in the file — the plan cannot print a backtick inside a code span); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
