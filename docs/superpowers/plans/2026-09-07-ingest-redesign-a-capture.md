@@ -4070,7 +4070,7 @@ ______________________________________________________________________
 **Files:**
 
 - Create: `research_vault/addons.py`, `research_vault/templates/zotero-addons.md`, `tests/test_addons.py`
-- Modify: `research_vault/scaffold.py` (`doctor` rewrite; new probe helpers), `research_vault/__main__.py` (`DOCTOR_*` sets), `research_vault/templates/research-vault/machine.json.example` (`zotero_profile`, `claude_obsidian_root` keys, canonical JSON), `README.md` (embed the add-on table under a `## Zotero add-ons` heading, verbatim from the template), `tests/test_doctor.py` (rewrite: probe names, sets, the profile-dir fixture), `tests/test_templates.py` (README ↔ template parity)
+- Modify: `research_vault/scaffold.py` (`doctor` rewrite; new probe helpers), `research_vault/__main__.py` (`DOCTOR_*` sets), `research_vault/templates/research-vault/machine.json.example` (`zotero_profile`, `claude_obsidian_root` keys, canonical JSON), `README.md` (embed the add-on table under a `## Zotero add-ons` heading, verbatim from the template), `tests/test_doctor.py` (rewrite: probe names, sets, the profile-dir fixture), `tests/test_templates.py` (README ↔ template parity), `docs/terminology.md` §4.4 (the `doctor probe ids` row becomes decision 06's thirteen ids; `tests/test_config_validity.py::test_every_doctor_probe_id_at_head_is_governed` asserts that row in both directions, so the suite fails without it)
 
 **Interfaces:**
 
@@ -4514,9 +4514,17 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads thi
 
 `machine.json.example` adds `"zotero_profile": ""` and `"claude_obsidian_root": ""` (run `python -m json.tool --indent 2 --no-ensure-ascii` on it).
 
+`docs/terminology.md` §4.4, the `doctor probe ids` row, verbatim:
+
+```markdown
+| doctor probe ids | `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`
+```
+
+(keep the row's remaining cells as they are; `autoexport` and `staleness` leave the row here — Task 2 removed the probes, and the governance test only checks the row against the probes `scaffold.py` emits at head, so the stale entries would fail it now.)
+
 - [ ] **Step 4: Run the suite and form owners; run doctor live; commit**
 
-Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
+Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault && mdformat --number --wrap keep docs/terminology.md`
 Expected: PASS, clean. Live, on a scratch vault whose `machine.json` names this machine's profile (`/mnt/c/Users/eranr/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default`): `.venv/bin/python -m research_vault doctor --vault "$scratch"` prints thirteen rows; expected today: `write-guard` MATCHED, `plugins` MATCHED with `zoteroshortdoi@wiernik.org appDisabled` in the reason, `translator-formats` MATCHED, `compile-tool` SKIPPED until Part B Task 1 installs the tool.
 
 ```bash
@@ -4526,7 +4534,7 @@ One GET /api/ for four facts, 403 distinguished from down, the write
 guard proved with a deliberately wrong id, profile facts from
 zotero_profile, add-ons from the packaged declaration README embeds.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests README.md
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests README.md docs/terminology.md
 ```
 
 ### Task 17: The `add` verb — Path A create, then capture (spec §2)
