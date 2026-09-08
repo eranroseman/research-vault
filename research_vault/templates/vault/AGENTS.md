@@ -4,7 +4,7 @@ type: "guide"
 
 # Vault agents guide
 
-This is a research-vault vault. `literatures/`, `log/`, `log.md`, and `inbox/review-queue.md` are machine-written — the CLI writes them; don't edit them by hand.
+This is a research-vault vault. `literatures/`, `log/`, `log.md`, `inbox/review-queue.md`, and `fulltext/` are machine-written — the CLI writes them; don't edit them by hand.
 
 Evidence is admitted through Zotero and projected into `literatures/` — evidence notes exist only by projection, never by hand. Read `wiki/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
 
