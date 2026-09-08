@@ -19,7 +19,9 @@ def _note(vault, key, item_key, *, title=None, text_key=None, sha=None):
     ]
     if text_key:
         lines.append(f'  - {{attachment-key: "{text_key}", sha256: "{sha}"}}')
-        lines.append(f'compile-input-sha256: "{sha}"')
+        lines.append(
+            'compile-input-sha256: "' + "f" * 64 + '"'
+        )  # a decoy: the structural leg compares per attachment, never this
     lines += ["---", ""]
     (vault / "literatures" / f"{key}.md").write_text("\n".join(lines))
 
@@ -79,8 +81,10 @@ def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_v
     _note(tmp_vault, "smith2020", "SMITH001", title="Mortality decline")
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
+    # [[wiki/Other page]] and [[Other page.md]] are the two forms Obsidian resolves
+    # for one file; neither may add a row (rule 2 is a trailing path form, not a stem).
     (pages / "Mortality decline.md").write_text(
-        '---\ntype: source\nsources:\n  - "[[Mortality decline]]"\n---\n[[smith2020]] [@smith2020] [[Other page]] [[ghost2020]] [@ghost2021]\n'
+        '---\ntype: source\nsources:\n  - "[[Mortality decline]]"\n---\n[[smith2020]] [@smith2020] [[Other page]] [[wiki/Other page]] [[Other page.md]] [[ghost2020]] [@ghost2021]\n'
     )
     (tmp_vault / "wiki" / "Other page.md").write_text("---\ntype: concept\n---\n")
     outcomes = captured.lint_captured_set(tmp_vault)
@@ -88,6 +92,23 @@ def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_v
     assert bad == [
         "not-captured — wiki/sources/Mortality decline.md cites [@ghost2021], not in the captured set",
         "not-captured — wiki/sources/Mortality decline.md links [[ghost2020]], not a page and not in the captured set",
+    ]
+
+
+def test_a_wikilink_resolves_by_a_note_alias_when_no_page_carries_the_name(tmp_vault):
+    _note(
+        tmp_vault, "smith2020", "SMITH001", title="Mortality decline"
+    )  # aliases: ["Mortality decline"]; no page has that stem
+    page = tmp_vault / "wiki" / "sources" / "A.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("---\ntype: source\n---\n[[Mortality decline]] [[Nobody at all]]\n")
+    bad = [
+        o.reason
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ]
+    assert bad == [
+        "not-captured — wiki/sources/A.md links [[Nobody at all]], not a page and not in the captured set"
     ]
 
 
@@ -170,12 +191,83 @@ def test_clock_today_takes_the_instant_or_reads_utc():
 
     assert clock.today("2026-01-02") == "2026-01-02"
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", clock.today())
-    try:
-        clock.today("2026-13-01")
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("an invalid as_of must be refused, never read as today")
+    # "20260102" and "2026-W01-1" are what date.fromisoformat accepts and this
+    # module does not: measured 2026-09-08, the second parses as 2025-12-29, a day
+    # nobody typing it would recognise. The shape is refused before the parse.
+    for bad in ("2026-13-01", "20260102", "2026-W01-1", "2026-1-2", ""):
+        try:
+            clock.today(bad)
+        except ValueError:
+            continue
+        raise AssertionError(
+            f"an invalid as_of must be refused, never read as today: {bad!r}"
+        )
+
+
+def test_a_stray_byte_under_wiki_is_a_row_not_a_traceback(tmp_vault):
+    """verify's except tuple excludes ValueError, so a UnicodeDecodeError out of
+    this lint would end the run with a traceback instead of a finding."""
+    page = tmp_vault / "wiki" / "sources"
+    page.mkdir(parents=True)
+    (page / "Co-writing.md").write_bytes(b"---\ntype: source\n---\n\xff [@ghost2021]\n")
+    bad = [
+        o.reason
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ]
+    assert bad == [
+        "not-captured — wiki/sources/Co-writing.md cites [@ghost2021], not in the captured set"
+    ]
+
+
+def test_a_sources_array_is_a_schema_violation_not_an_attribute_error(tmp_vault):
+    """The tool's schema always writes an object; an array reaches .items(), which
+    has to be inside the same guard as the read."""
+    _ledger(tmp_vault, [])
+    rows = [
+        (o.result, o.reason)
+        for o in captured.lint_captured_set(tmp_vault)
+        if "source-ledger" in str(o.target)
+    ]
+    assert rows == [(Result.UNMATCHED, "schema-violation — source ledger unreadable")]
+
+
+def test_an_unreadable_ledger_is_an_outage_not_a_verdict_on_its_content(
+    tmp_vault, monkeypatch
+):
+    """A permission or disk fault is not a schema violation: nothing read the
+    content, so nothing may rule on it (ADR 0002). _read_notes types the identical
+    OSError the same way one function above."""
+    _ledger(tmp_vault, {})
+
+    def refuse(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(captured.Path, "read_text", refuse)
+    rows = [
+        (o.result, o.reason.split(" — ")[0])
+        for o in captured.lint_captured_set(tmp_vault)
+        if "source-ledger" in str(o.target)
+    ]
+    assert rows == [(Result.UNREACHABLE, "outage")]
+
+
+def test_one_verdict_per_run_never_matched_and_unmatched_at_once(tmp_vault):
+    """The textual half is clean and the structural half is not. Deciding MATCHED
+    before the structural rows exist puts both verdicts on one check in one report."""
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
+    _ledger(
+        tmp_vault,
+        {
+            "src-1": {
+                "origin": {"kind": "file", "locator": "fulltext/ATT00002.md"},
+                "content_sha256": "b" * 64,
+            }
+        },
+    )
+    assert [o.result for o in captured.lint_captured_set(tmp_vault)] == [
+        Result.UNMATCHED
+    ]
 
 
 def test_quiet_vault_is_matched_and_a_missing_ledger_is_skipped(tmp_vault):

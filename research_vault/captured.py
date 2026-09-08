@@ -92,13 +92,16 @@ def _aliases(vault: Path) -> set[str]:
 
 
 def _page_names(vault: Path) -> set[str]:
-    names = set()
+    """Every name a wikilink resolves to as a page: the stem, and each trailing path form Obsidian accepts
+    (`concepts/Foo`, `wiki/concepts/Foo` for `wiki/concepts/Foo.md`)."""
+    names: set[str] = set()
     for path in vault.rglob("*.md"):
         if structure.is_excluded(path, vault):
             continue
-        if path.relative_to(vault).parts[0] == "literatures":
+        parts = path.relative_to(vault).with_suffix("").parts
+        if parts[0] == "literatures":
             continue
-        names.add(path.stem)
+        names.update("/".join(parts[k:]) for k in range(len(parts)))
     return names
 
 
@@ -112,9 +115,10 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
         if structure.is_excluded(path, vault):
             continue
         relative = path.relative_to(vault).as_posix()
-        text = path.read_text(
-            encoding="utf-8"
-        )  # frontmatter scanned with the body (§4.4)
+        # frontmatter scanned with the body (§4.4). surrogateescape, as the sibling
+        # residue lint reads its surfaces (propagate.py): a stray byte in one page
+        # must not end verify with a UnicodeDecodeError the CLI does not catch.
+        text = path.read_text(encoding="utf-8", errors="surrogateescape")
         for match in _CITATION.finditer(text):
             key = match.group("key")
             if key not in keys:
@@ -128,6 +132,9 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                 )
         for match in _WIKILINK.finditer(text):
             target = match.group("target").strip()
+            target = target.removesuffix(
+                ".md"
+            )  # Obsidian resolves [[Foo.md]] as [[Foo]]
             if target in keys or target in pages or target in aliases:
                 continue
             outcomes.append(
@@ -149,17 +156,32 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
                 CHECK, LEDGER_PATH, Result.SKIPPED, "no-identifier — no source ledger"
             )
         ]
+    unreadable = Outcome(
+        CHECK,
+        RepoPath(os.fsencode(LEDGER_PATH)),
+        Result.UNMATCHED,
+        "schema-violation — source ledger unreadable",
+    )
     try:
-        records = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError):
+        text = ledger.read_text(encoding="utf-8")
+    except OSError as error:
+        # Could not read: no verdict on content nobody saw (the same split _read_notes makes).
         return [
             Outcome(
                 CHECK,
                 RepoPath(os.fsencode(LEDGER_PATH)),
-                Result.UNMATCHED,
-                "schema-violation — source ledger unreadable",
+                Result.UNREACHABLE,
+                f"outage — source ledger unreadable: {error}",
             )
         ]
+    except UnicodeError:
+        return [unreadable]
+    try:
+        # .items() belongs inside this guard too: a ledger whose "sources" is an
+        # array raises AttributeError here rather than at the loop below.
+        records = sorted(json.loads(text).get("sources", {}).items())
+    except (ValueError, AttributeError):
+        return [unreadable]
     written = {}
     for _data, provenance in _notes(vault):
         for entry in provenance.fulltext:
@@ -169,7 +191,7 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
                 entry.get("sha256"),
             )
     outcomes = []
-    for source_id, record in sorted(records.items()):
+    for source_id, record in records:
         origin = record.get("origin", {}) if isinstance(record, dict) else {}
         if origin.get("kind") != "file":
             continue
@@ -225,7 +247,10 @@ def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
     entries, outcomes = _read_notes(vault)
     keys = {p.citation_key for _data, p in entries}
     outcomes += _textual(vault, keys)
-    structural = _structural(vault, as_of)
-    if not outcomes:
-        outcomes.append(Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
-    return outcomes + structural
+    outcomes += _structural(vault, as_of)
+    if all(o.result is Result.SKIPPED for o in outcomes):
+        # One verdict per run: the summary row exists only when nothing failed or was
+        # unreachable in either half, so a report never says matched and unmatched
+        # about one check at once.
+        outcomes.insert(0, Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
+    return outcomes

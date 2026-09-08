@@ -475,6 +475,11 @@ def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admi
         headers={"Last-Modified-Version": "566"},
     )
     fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[],
+        headers={"Last-Modified-Version": "566"},
+    )  # /items/top excludes trashed items: the exclusion this follow-up exists for
     by_key = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
     assert by_key[0].reason.startswith(
         "trashed — "
@@ -558,9 +563,9 @@ def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
         ("vault", Result.UNMATCHED),
     ]
     assert outcomes[-1].reason.startswith("database-changed")
-    data, _ = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
-    )
-    assert data["type"] == "literature"
-    assert (tmp_vault / "log.md").is_file()  # the witness: the post-loop block ran
+    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    # log.md is the discriminator: tmp_vault ships none, and the pre-fix early
+    # return skipped okf.regenerate_log. (A `type` assertion on the note would be
+    # vacuous — render_note writes that field on every write, stamped or not.)
+    assert (tmp_vault / "log.md").is_file()
     assert not (tmp_vault / "system" / "bibliography.json").exists()

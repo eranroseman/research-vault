@@ -242,7 +242,7 @@ def _regenerate_csl(
     read from the item envelope this run, so a run that read no item (a refusal,
     a 404) goes straight to ``item.export`` over the captured keys, which needs none.
     """
-    captured = sorted(_captured_keys(vault))
+    captured_keys = sorted(_captured_keys(vault))
     items = None
     route = "matched"
     if library_name is not None:
@@ -266,14 +266,14 @@ def _regenerate_csl(
             items = None
     if items is None:
         try:
-            items = client.export_csl(captured) if captured else []
+            items = client.export_csl(captured_keys) if captured_keys else []
             route = "matched — item.export fallback"
         except ZoteroError as error:
             # A JSON-RPC error (a stale captured key after a re-key) is UNMATCHED;
             # only a transport failure is the outage — the four-state split
             # lifecycle.blocked already makes.
             return lifecycle.blocked(CHECK, CSL_TARGET, error)
-    selected = [item for item in items if item.get("id") in captured]
+    selected = [item for item in items if item.get("id") in captured_keys]
     try:
         bibliography.write(vault, selected)
     except bibliography.BibliographyError as error:
