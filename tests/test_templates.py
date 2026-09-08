@@ -349,3 +349,35 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert "git commit" not in text
     assert "--pathspec-from-file" not in text
     assert "|| true" not in text
+
+
+def test_glossary_carries_the_ingest_vocabulary_and_no_retired_terms():
+    text = (REPO / "CONTEXT.md").read_text()
+    for term in (
+        "**Ingest**",
+        "**Selection**",
+        "**Add**",
+        "**Capture**",
+        "**Compile**",
+        "**Drift**",
+        "**Refresh**",
+        "**Item key**",
+        "**Citation key**",
+        "**Captured set**",
+        "**Provenance tuple**",
+        "**Text layer**",
+        "**Compiled layer**",
+        "**Propagation plan**",
+    ):
+        assert term in text, term
+    for retired in (
+        "**Admission**",
+        "**Managed region**",
+        "**Screening state**",
+        "**Bibliography export**",
+        "**Synthesis layer**",
+    ):
+        assert retired not in text, retired
+    # named once, as the spelling to avoid
+    assert text.count("citekey") == 1
+    assert "_Avoid_: citekey" in text

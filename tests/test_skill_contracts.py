@@ -58,7 +58,16 @@ def _skill_md_files() -> list[Path]:
 
 
 def _shipped_template_files() -> list[Path]:
-    return sorted(p for p in TEMPLATES_DIR.rglob("*") if p.is_file())
+    # context.md is the packaged glossary (byte-identical to CONTEXT.md, pinned
+    # by test_templates.py::test_packaged_context_is_the_canonical_glossary_source),
+    # never a skill-routing surface: it backticks governed frontmatter fields
+    # and identifiers (`zotero-item-key`, `managed-sha256`, `compile-input-sha256`,
+    # ...) that take the same bare-kebab shape a cited skill name would, without
+    # being one. AGENTS.md's routing table is the surface this scan actually
+    # guards, and it is unaffected by the exclusion.
+    return sorted(
+        p for p in TEMPLATES_DIR.rglob("*") if p.is_file() and p.name != "context.md"
+    )
 
 
 def test_every_skill_directory_ships_a_skill_md():
