@@ -87,6 +87,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Part B Task 2) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Part B Task 1) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
 25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
 26. **A vault with no captured notes does not wait on Zotero at verify or publish time** (raised by Task 2's review, 2026-09-07). `verify._staleness_outcome`, retired with the auto-export contract, ran on every network pass and turned a Zotero outage into exit 3 even for a vault with an empty bibliography and no cited claim; `tests/test_publish.py::test_mark_published_waits_when_the_gate_is_unreachable` pinned that and Task 2 deletes it. The behaviour is not carried forward, on purpose: the lifecycle linter is the one Zotero-facing check at verify (invariant 5), it classifies captured notes, and with none there is nothing whose evidence depends on Zotero — blocking publish on an unrelated service being down was a side effect of the retired contract, and no invariant in §1 names it. Kept: with one or more captured notes a genuine `UNREACHABLE` from `lifecycle` still returns exit 3 (decision 04), and with none `lint_lifecycle` returns one `SKIPPED` outcome, `no-identifier — no note carries a provenance tuple`, so the report shows a check that ran with nothing to check rather than a silent absence (ADR 0002). Zotero liveness on its own is doctor's `zotero` probe. Recorded here so the whole-branch review reads it as settled, not open.
+27. **The note body carries three mechanical pointers** (spec §3.3 step 5 and §4.4 as revised at `5ba814c`, 2026-09-07; the §4.4 "no forward link" sentence is reversed for an embed). Rendered by `notes.render_body`, in this order: `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` — the path is read, never guessed, by `notes.compiled_pages`, which matches ledger records on `origin.locator == fulltext/<attachment key>.md` for this note's text files; `## Item` with `zotero://select/library/items/<item key>`; the existing `## Attachments` list, whose `zotero://open-pdf/library/items/<attachment key>` links are the third pointer (decision 10); `## Zotero notes`. Consequence the tasks encode: capture writes the note twice in the normal flow — the first capture has no ledger entry and renders no `## Compiled`, the refresh after compile renders it, and the third run is NOOP (Task 13's test). No Part A task asserts a note is complete after one capture. `LEDGER_PATH` has one definition site, `notes.py`; `captured.py` and `compile.py` import it. Better BibTeX's `zotero://select/items/@<citation key>` is not emitted (a name-keyed link would be a fifth propagation surface).
 
 ______________________________________________________________________
 
@@ -163,10 +164,13 @@ def note_path(vault_root, citation_key) -> Path
 def display_text(value) -> str
 def frontmatter_value(value) -> object                    # decision 9
 def note_body(text: str) -> str                          # Task 5: the body below the frontmatter
+LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"      # the one definition site; captured.py and compile.py import it
+def compiled_pages(vault_root, provenance: Provenance) -> list[str]   # the ledger's pages[] for this note's text files, by locator; [] before the first compile
+def render_body(provenance: Provenance, children, child_notes, pages=()) -> str   # ## Compiled (embeds, if any), ## Item, ## Attachments, ## Zotero notes
 def body_sha256(text: str) -> str
 def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]
 def read_provenance(text: str) -> Provenance | None
-def render_note(item_data, provenance, children, child_notes, existing, accessed, generated_at) -> str   # children: the whole child list; attachments are filtered inside
+def render_note(item_data, provenance, children, child_notes, existing, accessed, generated_at, pages=()) -> str   # children: the whole child list; attachments are filtered inside; pages from compiled_pages
 def content_changed(existing_text, candidate_text) -> bool
 def generated_at_now(now=None) -> str
 def rename_frontmatter_key(text, old, new) -> str        # Task 7's migration
@@ -215,12 +219,12 @@ def propagate(vault_root, client, mapping: dict[str, str] | None, *, now=None) -
 def lint_propagation(vault_root) -> list[Outcome]
 
 # research_vault/captured.py                                  (Task 15)
-CHECK = "captured-set"; LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"   # compile.py (Part B) declares the same value
+CHECK = "captured-set"; LEDGER_PATH = notes.LEDGER_PATH   # one definition site (Task 11)
 def captured_set(vault_root) -> dict[str, str]            # citation key -> item key
 def lint_captured_set(vault_root) -> list[Outcome]
 
 # research_vault/compile.py                                   (Part B Task 2)
-LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"; PIN = "ad67087"
+LEDGER_PATH = notes.LEDGER_PATH; PIN = "ad67087"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"; CHECK = "compile"
 def stable_source_id(kind, locator, content_sha256) -> str
 def tool_root(vault_root) -> Path | None
@@ -2351,7 +2355,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `frontmatter.serialize/parse`, `notes.display_text`, `notes.body_sha256`, `notes._valid_generated`, `AGENT_ACTOR`.
 
-- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys).
+- Produces: the Interface index `research_vault/notes.py` block. Frontmatter order: `type`, `title`, `aliases`, the snapshot fields present (in `SNAPSHOT_FIELDS` order; `title` is not repeated), the tuple fields in `TUPLE_FIELDS` order, `accessed`, `managed-sha256`, `generated`, then every prior non-capture field in its prior order (the verifier's `verified` list, human-set keys). Body order (spec §3.3 step 5 as revised 2026-09-07, decision 27): `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` for this note's text files — the section is absent before the first compile; `## Item` with `- [Open in Zotero](zotero://select/library/items/<item key>)`; `## Attachments`; `## Zotero notes`. `compiled_pages(vault_root, provenance)` reads `LEDGER_PATH` and matches records by `origin.locator == fulltext/<attachment key>.md`; a missing or unreadable ledger yields `[]` (the captured-set lint owns that finding).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2359,6 +2363,7 @@ Append to `tests/test_notes.py`:
 
 ```python
 import dataclasses
+import json
 
 from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM
 
@@ -2376,10 +2381,10 @@ PROVENANCE = notes.Provenance(
 )
 
 
-def _render(existing=None, generated_at="2026-09-07T10:00:00Z"):
+def _render(existing=None, generated_at="2026-09-07T10:00:00Z", pages=()):
     return notes.render_note(
         ITEM["data"], PROVENANCE, [ATTACHMENT], [CHILD_NOTE], existing,
-        accessed="2026-09-07", generated_at=generated_at,
+        accessed="2026-09-07", generated_at=generated_at, pages=pages,
     )
 
 
@@ -2412,6 +2417,8 @@ def test_render_note_carries_snapshot_tuple_and_witness_in_order():
 def test_body_renders_only_what_frontmatter_cannot_carry():
     _data, body = frontmatter.parse(_render())
     assert body == (
+        "## Item\n\n"
+        "- [Open in Zotero](zotero://select/library/items/E352DFS8)\n\n"
         "## Attachments\n\n"
         "- [Jakesch et al. - 2023.pdf](zotero://open-pdf/library/items/D7EJ9FTG) "
         "— application/pdf, md5 aa59569ae4f4b3a7c546158d4771c738, text layer [[fulltext/D7EJ9FTG]]\n\n"
@@ -2419,12 +2426,33 @@ def test_body_renders_only_what_frontmatter_cannot_carry():
         "Read for the method.\n\nSecond paragraph.\n"
     )
     assert "Co-writing" not in body  # title lives in frontmatter only
+    assert "## Compiled" not in body  # absent until the first compile (§3.3 step 5)
+
+
+def test_body_embeds_the_compiled_page_by_ledger_path_when_one_exists():
+    _data, body = frontmatter.parse(_render(pages=["wiki/sources/Co-Writing with Opinionated Language Models.md"]))
+    assert body.startswith(
+        "## Compiled\n\n![[wiki/sources/Co-Writing with Opinionated Language Models.md]]\n\n## Item\n\n"
+    )
+
+
+def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+    ledger = tmp_path / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(json.dumps({"schema": "claude-obsidian.source-ledger.v1", "sources": {
+        "src-1": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "pages": ["wiki/sources/B.md", "wiki/sources/A.md"]},
+        "src-2": {"origin": {"kind": "file", "locator": "fulltext/OTHER001.md"}, "pages": ["wiki/sources/C.md"]},
+    }}))
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == ["wiki/sources/A.md", "wiki/sources/B.md"]
+    ledger.write_text("not json")
+    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
 
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
     first = _render()
     with_events = first.replace(
-        "---\n## Attachments", 'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-07", check: "update-notice"}\n---\n## Attachments', 1
+        "---\n## Item", 'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-07", check: "update-notice"}\n---\n## Item', 1
     )
     second = notes.render_note(
         ITEM["data"], PROVENANCE, [ATTACHMENT], [CHILD_NOTE], with_events,
@@ -2507,6 +2535,7 @@ Expected: FAIL — `notes.Provenance` undefined.
 
 ```python
 import dataclasses
+import json
 from html.parser import HTMLParser
 
 SNAPSHOT_FIELDS: tuple[str, ...] = (
@@ -2524,6 +2553,7 @@ CAPTURE_FIELDS: frozenset[str] = (
     | frozenset({"type", "aliases", "accessed", "managed-sha256"})
 )
 _ATTACHMENT_KEYS = ("key", "version", "md5", "contentType", "filename")
+LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"  # the compile tool's ledger; captured.py and compile.py import this name
 
 
 @dataclasses.dataclass(frozen=True)
@@ -2605,9 +2635,38 @@ def _attachment_line(child) -> str:
     return line
 
 
-def render_body(provenance: Provenance, children, child_notes) -> str:
+def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
+    """The ledger's pages[] for this note's text files, matched by locator (§3.3 step 5).
+
+    Empty before the first compile. An unreadable ledger renders no embed here;
+    reporting it is the captured-set lint's job, not capture's.
+    """
+    ledger = Path(vault_root) / LEDGER_PATH
+    if not ledger.is_file():
+        return []
+    try:
+        sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
+    except (OSError, UnicodeError, ValueError, AttributeError):
+        return []
+    locators = {f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext}
+    pages: set[str] = set()
+    for record in sources.values() if isinstance(sources, dict) else ():
+        origin = record.get("origin", {}) if isinstance(record, dict) else {}
+        if isinstance(origin, dict) and origin.get("locator") in locators:
+            pages.update(page for page in record.get("pages", []) if isinstance(page, str))
+    return sorted(pages)
+
+
+def render_body(provenance: Provenance, children, child_notes, pages=()) -> str:
     cached = {entry["attachment-key"] for entry in provenance.fulltext}
     lines = []
+    if pages:
+        lines.append("## Compiled\n")
+        lines.extend(f"![[{page}]]" for page in pages)
+        lines.append("")
+    lines.append("## Item\n")
+    lines.append(f"- [Open in Zotero](zotero://select/library/items/{provenance.item_key})")
+    lines.append("")
     attachments = [c for c in children if c.get("data", {}).get("itemType") == "attachment"]
     if attachments:
         lines.append("## Attachments\n")
@@ -2644,15 +2703,15 @@ def _projection(items) -> list[tuple[str, object]]:
     return [(k, v) for k, v in items if k in CAPTURE_FIELDS and k not in {"generated", "managed-sha256", "accessed"}]
 
 
-def render_note(item_data, provenance, children, child_notes, existing, accessed, generated_at) -> str:
-    """Frontmatter, then only what frontmatter cannot carry (§3.3 step 5)."""
+def render_note(item_data, provenance, children, child_notes, existing, accessed, generated_at, pages=()) -> str:
+    """Frontmatter, then only what frontmatter cannot carry, plus the three pointers (§3.3 step 5)."""
     prior = frontmatter.parse(existing)[0] if existing else {}
     prior_items = list(frontmatter._mapping_items(prior))
     title = display_text(item_data.get("title") or provenance.citation_key)
     fields: list[tuple[str, object]] = [("type", "literature"), ("title", title), ("aliases", [title])]
     fields.extend((k, v) for k, v in snapshot(item_data) if k != "title")
     fields.extend(_tuple_fields(provenance))
-    body = render_body(provenance, children, child_notes)
+    body = render_body(provenance, children, child_notes, pages)
     prior_body = note_body(existing) if existing else None
     unchanged = (
         existing is not None
@@ -3191,6 +3250,23 @@ def _at(text):
     return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
+def test_refresh_after_compile_embeds_the_page_and_completes_the_note(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    assert "## Compiled" not in note.read_text()  # capture runs before compile (§3.3 step 5)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(json.dumps({"schema": "claude-obsidian.source-ledger.v1", "sources": {
+        "src-1": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "pages": ["wiki/sources/Co-Writing.md"]},
+    }}))
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].reason == "matched"  # the second write is what completes the note
+    assert "## Compiled\n\n![[wiki/sources/Co-Writing.md]]\n\n## Item\n" in note.read_text()
+    assert capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched — NOOP"
+
+
 def test_read_restarts_when_the_item_moves_mid_read(tmp_vault, monkeypatch):
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
@@ -3441,6 +3517,7 @@ def _capture_one(vault: Path, client: ZoteroClient, read: ItemRead, server_id: s
     candidate = notes.render_note(
         item["data"], provenance, read.children, child_notes, existing,
         accessed=now.date().isoformat(), generated_at=notes.generated_at_now(now),
+        pages=notes.compiled_pages(vault, provenance),  # absent until the first compile; the refresh after it completes the note
     )
     outcomes = []
     if existing is not None and not notes.content_changed(existing, candidate):
@@ -3989,7 +4066,7 @@ from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
 CHECK = "captured-set"
-LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"
+LEDGER_PATH = notes.LEDGER_PATH
 _CITATION = re.compile(r"\[@(?P<key>[A-Za-z0-9_.:-]+)")
 _WIKILINK = re.compile(r"\[\[(?P<target>[^\]#|]+)")
 _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
@@ -5166,7 +5243,7 @@ Task numbers are this part's; `B n` names a Part B task. Part B's own self-revie
 | §3.8                                 | build verdict recorded; nothing to implement                                                                                                                                         | —                            |
 | §4.1–4.3                             | adoption at `ad67087`; tracers T1–T4; `wiki/` layout; `.raw/`, `.vault-meta/` gitignored and unwalked; `capture` unused; modes                                                       | 6, B1, B2                    |
 | §4.3.1                               | `wiki/index.md` exemption in `structure.py`                                                                                                                                          | 6                            |
-| §4.4                                 | captured-set lint (textual + structural); no second copy of text; `wiki/concepts/`; recompile-needed; no forward link                                                                | 6, 15                        |
+| §4.4                                 | captured-set lint (textual + structural); no second copy of text; `wiki/concepts/`; recompile-needed; the note embeds the compiled page (reversed 2026-09-07)                        | 6, 11, 13, 15                |
 | §4.5                                 | wrapper owns selection, locators, ledger records, invocation; no prompt                                                                                                              | B2                           |
 | §5                                   | doctor probes incl. write guard, 403, profile facts, plugins via `appDisabled`/`active`, path shim, translator-format warning; facts file gone; auto-export retired from setup       | 16, 19, B3                   |
 | §6 retire                            | auto-export; base constant; screening state; claim lines; managed region; doi/metadata; `archive-source`; synthesis under `wiki/`; frozen checks untouched; kept items               | 1–6                          |
