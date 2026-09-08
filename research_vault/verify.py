@@ -619,10 +619,8 @@ def _split_line_ending(line):
 
 
 def file_outcomes(vault_root, path, bibliography_universe=None):
-    outcomes = (
-        quotes.check_all_quotes(vault_root, path)
-        + lints.lint_screening_state(vault_root, path)
-        + lints.lint_disputed_claim(vault_root, path)
+    outcomes = quotes.check_all_quotes(vault_root, path) + lints.lint_disputed_claim(
+        vault_root, path
     )
     if bibliography_universe is not None:
         outcomes = (

@@ -44,7 +44,6 @@ doi: "10.1000/xyz"
 accessed: "2026-08-16"
 fixity-sha256:
   - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
-status: "included"
 aliases:
   - "Mortality decline"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
@@ -66,8 +65,6 @@ citekey: "gone2019"
 type: "literature"
 doi: "10.1000/old"
 accessed: "2026-08-16"
-status: "superseded"
-superseded-by: "smith2020"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
 %%rv-managed%%

@@ -564,58 +564,6 @@ def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vaul
     ]
 
 
-def test_screening_state_deduplicates_repeated_references_and_records_origin(
-    fixture_vault,
-):
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text()
-        + "- (paraphrase) Old claim [@gone2019, p. 1] [@gone2019, p. 2] ^c-88888888\n"
-    )
-
-    outs = lints.lint_screening_state(fixture_vault, draft)
-
-    assert [(out.target, out.extra) for out in outs] == [
-        (
-            "gone2019",
-            {
-                "note_path": "path-bytes:projects/brief/draft.md",
-                "claim_id": "c-88888888",
-            },
-        )
-    ]
-    assert outs[0].reason.startswith("superseded-note")
-
-
-def test_screening_state_catches_excluded_sources(fixture_vault):
-    excluded = fixture_vault / "literatures" / "excluded2024.md"
-    excluded.write_text(
-        '---\ncitekey: "excluded2024"\nstatus: "excluded"\n---\n# Excluded\n'
-    )
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text() + "- (paraphrase) Bad source [@excluded2024] ^c-12121212\n"
-    )
-
-    outs = lints.lint_screening_state(fixture_vault, draft)
-
-    assert len(outs) == 1
-    assert outs[0].reason.startswith("superseded-note — cites excluded2024")
-
-
-def test_screening_state_sorts_mixed_anchored_origins_without_crashing(fixture_vault):
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text()
-        + "- (paraphrase) Old source [@gone2019]\n"
-        + "- (paraphrase) Also old [@gone2019] ^c-34343434\n"
-    )
-
-    outs = lints.lint_screening_state(fixture_vault, draft)
-
-    assert [out.extra["claim_id"] for out in outs] == ["c-34343434", None]
-
-
 def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(
     fixture_vault,
 ):
@@ -655,30 +603,6 @@ def test_citing_the_counterevidence_address_is_clean(fixture_vault):
     )
 
     assert lints.lint_disputed_claim(fixture_vault, draft) == []
-
-
-def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
-    web = fixture_vault / "literatures" / "webonly2024.md"
-    web.write_text('---\nurl: "https://example.org"\n')
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text() + "- (paraphrase) Old claim [@webonly2024] ^c-12345678\n"
-    )
-
-    source = lints.lint_screening_state(fixture_vault, draft)
-
-    assert source == [
-        lints.Outcome(
-            "screening-state",
-            "webonly2024",
-            Result.UNMATCHED,
-            "schema-violation — malformed frontmatter",
-            extra={
-                "note_path": lints.RepoPath(b"projects/brief/draft.md"),
-                "claim_id": "c-12345678",
-            },
-        )
-    ]
 
 
 def _refresh_managed_witness(path):
@@ -838,33 +762,6 @@ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
         and item.reason == expected_reason
         for item in outcomes
     ), outcomes
-
-
-def test_screening_status_hand_edit_is_not_evidence_layer_drift(fixture_vault):
-    """Screening state is deliberately human-writable (spec) — the guard must
-    not treat it as machine-owned.
-    """
-    base = subprocess.run(
-        ["git", "rev-parse", "HEAD^{tree}"],
-        cwd=fixture_vault,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
-    source = fixture_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace('status: "included"', 'status: "excluded"', 1)
-    )
-
-    outcomes = lints.lint_evidence_layer(
-        gitstate.snapshot_tree(fixture_vault, base),
-        gitstate.snapshot_worktree(fixture_vault),
-    )
-
-    assert not any(
-        item.result is Result.UNMATCHED and item.reason.startswith("drift")
-        for item in outcomes
-    )
 
 
 @pytest.mark.parametrize(
@@ -1056,3 +953,14 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         "drift — fixity-sha256 changed without writer attestation",
         "drift — managed-sha256 changed without writer attestation",
     }
+
+
+def test_screening_state_is_retired(fixture_vault):
+    from research_vault import inbox, lints, verify
+
+    assert not hasattr(lints, "lint_screening_state")
+    assert "screening-state" not in inbox.CHECK_IDS
+    assert "superseded-note" not in inbox.REASON_CODES
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    checks = {outcome.check for outcome in verify.file_outcomes(fixture_vault, draft)}
+    assert "screening-state" not in checks

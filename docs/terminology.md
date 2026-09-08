@@ -139,11 +139,11 @@ row for the parity checks. Per-claim check values use
 [assembly design](superpowers/specs/2026-09-05-assembly-design.md) §2 demotes to a fact
 source; this table owns their spellings regardless.
 
-| Group            | Governed identifiers                                                                                                                                                                                                                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| check ids        | `citekey`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `render`, `integrate`, `okf-frontmatter`, `okf-structure`, `tree`                                                                                 |
-| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `remote`, `backup`                                                                                                                                                                                                                                 |
-| reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `superseded-note`, `warn-notice` |
+| Group            | Governed identifiers                                                                                                                                                                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| check ids        | `citekey`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `disputed-claim`, `publish`, `factcheck`, `render`, `integrate`, `okf-frontmatter`, `okf-structure`, `tree`                                                                                 |
+| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `remote`, `backup`                                                                                                                                                                                                              |
+| reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `warn-notice` |
 
 Allowed register splits:
 

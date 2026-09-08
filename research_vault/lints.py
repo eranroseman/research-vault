@@ -487,45 +487,6 @@ def _origin(
     }
 
 
-def _note_status(vault_root: Path, citekey: str) -> tuple[str | None, str | None, bool]:
-    path = vault_root / "literatures" / f"{citekey}.md"
-    if not path.is_file():
-        return None, None, True
-    data, parsed = _parse_frontmatter(path.read_text())
-    if not parsed:
-        return None, None, False
-    return data.get("status"), data.get("superseded-by"), True
-
-
-def lint_screening_state(vault_root, note_file) -> list[Outcome]:
-    vault, note = Path(vault_root), Path(note_file)
-    text = note.read_text()
-    outcomes = []
-    lines = text.splitlines()
-    for claim in claims_mod.parse_claims(text):
-        citekeys = [
-            match.group("key")
-            for match in claims_mod.CITE_RE.finditer(lines[claim.line_no - 1])
-        ]
-        for citekey in citekeys:
-            target, extra = _origin(vault, note, claim, citekey)
-            status, successor, parsed = _note_status(vault, citekey)
-            if not parsed:
-                outcomes.append(_schema_outcome("screening-state", target, extra))
-            elif status in {"excluded", "superseded"}:
-                suffix = f" (superseded-by {successor})" if successor else ""
-                outcomes.append(
-                    Outcome(
-                        "screening-state",
-                        target,
-                        Result.UNMATCHED,
-                        f"superseded-note — cites {citekey} with status {status}{suffix}",
-                        extra=extra,
-                    )
-                )
-    return _deduplicate(outcomes)
-
-
 def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
     disputed, outcomes = set(), []
     for path in (
