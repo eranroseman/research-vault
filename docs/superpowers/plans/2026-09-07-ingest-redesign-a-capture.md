@@ -5558,13 +5558,17 @@ Expected: every command exits 0; report the pytest counts and the mutation-gate 
 
 Per `AGENTS.md`: fetch first, merge back to `main` locally and push `main` to origin in the same motion. If this part ran on `main` directly, push. Part B does not start before this lands.
 
-- [ ] **Step 3: Report invariant 5 to the author (no action)**
+- [ ] **Step 3: Disposition the deferred-minor roll-up**
+
+The execution keeps `docs/superpowers/plans/2026-09-07-ingest-redesign-a-deferred.md` on the branch — one row per finding a task review deferred (file, line, one sentence, the task that recorded it), plus a `Do not fix` section for decided non-actions with their reason (the first is the `quote:<claim-link>:managed-region` check value, a durable value in written `verified` events that ADR 0003 keeps), and a `Process notes` section for lessons about running the plan. It is committed as it grows, so nothing in it dies with the SDD workspace, and it is the home `AGENTS.md`'s task-reports rule asks each Concern to name at write time. The whole-branch review works from it: every row ends as **fixed** (commit named) or **declined** (reason written into the row). Rows still open after that review become one repository issue, filed here with `gh issue create --label ready-for-agent` and the rows as its body (a repository issue on this tracker is ordinary work, not the outward-facing act the constraints gate; the upstream Zotero issue is Part B's). The file itself stays: it is the record.
+
+- [ ] **Step 4: Report invariant 5 to the author (no action)**
 
 In the completion message, state: the lifecycle linter's pre-commit leg is held (spec invariant 5); `verify --offline` reports it `UNREACHABLE` and never blocks; the write-side gate the leg waits on is unchanged — measured 2026-09-06 (decomposition §15.20), `main` has no branch protection and no rulesets, and this checkout has no `.git/hooks/pre-commit`. Settling the gate is the author's call; the plan changes nothing there.
 
-- [ ] **Step 4: Completion message**
+- [ ] **Step 5: Completion message**
 
-Report: the tasks landed (with commit shas), the read-only live-leg results, the invariant-5 report, anything skipped with its reason, and what Part B needs from the author before it starts: presence for the tracers (Part B Task 1, Obsidian open) and for one consent dialog on the test instance (Part B Task 5).
+Report: the tasks landed (with commit shas), the read-only live-leg results, the invariant-5 report, the roll-up's disposition (fixed, declined, filed as `#<n>`), the process notes the roll-up records, anything skipped with its reason, and what Part B needs from the author before it starts: presence for the tracers (Part B Task 1, Obsidian open) and for one consent dialog on the test instance (Part B Task 5).
 
 ______________________________________________________________________
 
