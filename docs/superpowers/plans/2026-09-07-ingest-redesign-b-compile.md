@@ -175,7 +175,7 @@ Glue tier: it selects, fills a ledger record, calls the tool's CLI. It carries n
   "authority": "unknown",
   "review_status": "unreviewed",
   "title": "<the note's title>",
-  "content_sha256": "<the note's compile-input-sha256>",
+  "content_sha256": "<the note's compile-input-sha256, which is the fulltext sha256 of the locator's attachment>",
   "ingested_at": "<today>",
   "retrieved_at": "<the note's accessed>",
   "refresh_due": null,

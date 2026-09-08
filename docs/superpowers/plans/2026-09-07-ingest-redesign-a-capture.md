@@ -39,7 +39,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 02. **The review queue is not rewritten on a re-key.** §3.5 lists "review-queue and acknowledgment targets" among propagation's surfaces, but `inbox/review-queue.md` is append-only (`lint_append_only`) and ADR 0003 forbids rewriting records. A re-key re-renders the note, so the note's content hash changes and every acknowledgment scoped to it lapses by scope mismatch — the behaviour `CONTEXT.md` already defines for an acknowledgment. The rename log is what lets a reader follow an old target forward. Findings written after the rename carry the new key.
 03. **Verbs** (open point 04, terminology §4.3): `capture` (replaces `import-note`), `add` (Path A create, then capture), `propagate` (the re-key pass), `compile` (the wrapper; `compile` prints the tool's approval hash, `compile --bundle <path> --approved-plan-sha256 <sha>` applies, mirroring `transaction apply`). Retired verbs: `import-note`, `archive-source`, `staleness`, `backfill-selectors`.
 04. **Check ids** (§4.4 coinages): `capture` (capture's own holds), `lifecycle` (the linter; non-closing on every surface — capture aborts on `database-changed`, nothing else blocks), `propagation` (the residue check; closing on `commit` and `publish`), `captured-set` (§4.4's seam lint; closing on `commit` and `publish`), `compile` (the wrapper's outcome). `citekey` becomes `citation-key`. Retired: `doi`, `metadata`, `web-archive`, `screening-state`, `autoexport`.
-05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key the rename log maps away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the note's compile-input hash differs from the ledger's). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
+05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key the rename log maps away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
 06. **Doctor probe ids**: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`. Retired: `autoexport`, `staleness`.
 07. **The CSL file keeps its path**, `system/bibliography.json`; the glossary retires *Bibliography export* as a concept (the whole admitted library), not the file. `bibliography.py` keeps `BIB_PATH`, `BibliographyError`, `load` and gains `write`.
 08. **The captured set** (§1.1, §4.4): the citation keys read from the `citationKey` field of every parseable note under `literatures/*.md` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation and the linter reports it; a hand-deleted note leaves the set at once, which is when the captured-set lint should fire.
@@ -90,7 +90,7 @@ ______________________________________________________________________
 
 ## Interface index
 
-Names later tasks rely on. A task's Interfaces block cites this index; a mismatch here is a plan bug.
+Names later tasks rely on. A task's Interfaces block cites this index; a mismatch here is a plan bug. Where a task body and this index disagreed in the 2026-09-07 pre-flight scan, the index was corrected to the body: the printed code is the authority, and this index is its summary.
 
 ```python
 # research_vault/zotero.py                                   (Task 9)
@@ -101,7 +101,7 @@ class ZoteroError(Exception): result: Result            # UNREACHABLE by default
 class DatabaseChangedError(ZoteroError)                  # HTTP 412; result UNMATCHED
 class LocalApiDisabledError(ZoteroError)                 # HTTP 403; result UNMATCHED
 class NotFoundError(ZoteroError)                         # HTTP 404; result UNMATCHED
-class Response(NamedTuple): status: int; headers: dict[str, str]; body: bytes
+class Response(NamedTuple): status: int; body: bytes; headers: Mapping[str, str]   # built positionally (status, body, headers) everywhere
 def base_for(vault_root, override: str | None = None) -> str
 class ZoteroClient:
     def __init__(self, base=DEFAULT_BASE, timeout=5.0, server_id=None, api_key=None)
@@ -120,6 +120,11 @@ class ZoteroClient:
     def ready(self) -> dict
     def attachments(self, citation_key) -> list[dict]   # BBT item.attachments (annotation fallback, unwired)
     def export_csl(self, citation_keys: list[str]) -> list[dict]   # BBT item.export fallback
+    # private, but consumed by Tasks 13 and 16 (no public method serves items/top?format=versions or a raw POST):
+    def _http(self, url, data=None, headers=None, method=None) -> Response
+    def _local_json(self, path) -> tuple[object, dict[str, str]]   # (decoded payload, response headers)
+    @staticmethod
+    def _version_header(headers) -> int | None                    # Last-Modified-Version, if present
 
 # research_vault/notes.py                                     (Tasks 5, 7, 11)
 SNAPSHOT_FIELDS: tuple[str, ...]; TUPLE_FIELDS: tuple[str, ...]; CAPTURE_FIELDS: frozenset[str]
@@ -130,10 +135,11 @@ class InvalidCitationKeyError(ValueError)
 def note_path(vault_root, citation_key) -> Path
 def display_text(value) -> str
 def frontmatter_value(value) -> object                    # decision 9
+def note_body(text: str) -> str                          # Task 5: the body below the frontmatter
 def body_sha256(text: str) -> str
 def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]
 def read_provenance(text: str) -> Provenance | None
-def render_note(item_data, provenance, attachments, child_notes, existing, accessed, generated_at) -> str
+def render_note(item_data, provenance, children, child_notes, existing, accessed, generated_at) -> str   # children: the whole child list; attachments are filtered inside
 def content_changed(existing_text, candidate_text) -> bool
 def generated_at_now(now=None) -> str
 def rename_frontmatter_key(text, old, new) -> str        # Task 7's migration
@@ -150,6 +156,11 @@ def sha256_of(path) -> str
 BIB_PATH; class BibliographyError; def load(vault_root) -> dict[str, dict]
 def write(vault_root, items: list[dict]) -> Path         # sorted by "id", indent 2, trailing newline
 
+# research_vault/structure.py                                 (Task 6)
+EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})
+def is_excluded(path: Path, vault: Path) -> bool          # consumed by Tasks 14 and 15
+def expected_type(relative: str) -> str | None           # None under wiki/ (existing function, new answer)
+
 # research_vault/capture.py                                   (Task 13)
 CHECK = "capture"; MAX_READ_RESTARTS = 3; KEY_WAIT_SECONDS = 10
 class ItemRead(NamedTuple): item: dict; children: list[dict]; texts: dict[str, dict | None]; version: int
@@ -159,12 +170,13 @@ def capture(vault_root, client, keys, *, now=None, refresh_all=False, key_wait_s
 def add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]   # Task 17
 
 # research_vault/lifecycle.py                                 (Task 12)
-CHECK = "lifecycle"; ORDER = ("database-changed", "merged", "deleted", "trashed", "re-keyed", "drift")
+CHECK = "lifecycle"; ORDER = ("database-changed", "merged", "deleted", "trashed", "re-keyed", "drift")   # the per-object precedence classify's branch order implements; documentation, never iterated
 class Live(NamedTuple): versions: dict[str,int]; trash: dict[str,int]; top: dict[str, dict]
 def replaces_keys(relations) -> set[str]
 def read_live(client) -> Live                            # raises DatabaseChangedError
 def classify(provenance: Provenance, live: Live) -> tuple[str, str]   # (state, detail)
-def lint_lifecycle(vault_root, client, provenances=None) -> list[Outcome]
+def lint_lifecycle(vault_root, client, provenances=None) -> list[Outcome]   # provenances: list[tuple[Path, Provenance]]
+def _provenances(vault: Path) -> list[tuple[Path, Provenance]]   # private, consumed by Tasks 13 and 17; the shape lint_lifecycle takes
 
 # research_vault/propagate.py                                 (Task 14)
 RENAME_LOG = "system/renames.md"; CHECK = "propagation"
@@ -176,7 +188,7 @@ def propagate(vault_root, client, mapping: dict[str, str] | None, *, now=None) -
 def lint_propagation(vault_root) -> list[Outcome]
 
 # research_vault/captured.py                                  (Task 15)
-CHECK = "captured-set"
+CHECK = "captured-set"; LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"   # compile.py (Part B) declares the same value
 def captured_set(vault_root) -> dict[str, str]            # citation key -> item key
 def lint_captured_set(vault_root) -> list[Outcome]
 
@@ -193,17 +205,22 @@ def apply(vault_root, bundle_path, approved_sha256) -> Outcome
 class Addon(NamedTuple): name: str; addon_id: str; need: str; auto_pref: str | None
 def declared() -> list[Addon]                            # parses templates/zotero-addons.md
 def observe(profile_dir: Path) -> dict[str, dict]        # id -> {"active","appDisabled","version"}
+def read_prefs(profile_dir: Path) -> dict[str, str | bool | int]   # user_pref("name", value); lines of prefs.js
 
 # research_vault/scaffold.py                                  (Task 16)
 def doctor(vault_root, client=None) -> list[Probe]
 
 # tests/fakes.py                                              (Task 9)
-class FakeZotero:                                        # canned by (method, path)
+ITEM: dict; ATTACHMENT: dict; CHILD_NOTE: dict; FULLTEXT: dict   # the canned local-API envelopes every offline test shares
+class FakeZotero:                                        # canned by (method, path + query string)
     def __init__(self, server_id="6LpvURP2E933", library_name="My Library")
-    def get(self, path, status=200, body=None, headers=None)   # register a canned GET
+    def get(self, path, status=200, body=None, headers=None, method="GET")   # register a canned GET
+    def post(self, path, status=200, body=None, headers=None)               # register a canned POST
     def rpc(self, method, result)                        # register a canned JSON-RPC result
-    def install(self, client, monkeypatch)               # patches client._http and client._rpc
-    calls: list[tuple[str, str, dict]]                   # (method, url, headers) in order
+    def install(self, client, monkeypatch) -> ZoteroClient   # patches client._http and client._rpc; returns the client
+    calls: list[tuple[str, str, dict]]                   # (method, url, headers) in order; an RPC leg logs ("RPC", method, {"params": params})
+    _last_post_body: bytes | None                        # Task 17 adds it: the body of the last POST
+def canned_item(fake, item=ITEM, children=(ATTACHMENT, CHILD_NOTE), fulltext=FULLTEXT) -> FakeZotero   # registers one whole item the way capture reads it
 ```
 
 ______________________________________________________________________
@@ -1713,7 +1730,7 @@ def test_local_api_403_and_404_are_typed_and_other_statuses_are_outages(fake):
 def test_authorize_requires_a_server_id_and_returns_the_key(fake):
     fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": True})
     with pytest.raises(zotero.ZoteroError):
-        fake.client.authorize()  # no server id -> 428
+        fake.client.authorize()  # no server id -> authorize() raises before any request
     fake.client.server_id = "6LpvURP2E933"
     assert fake.client.authorize() == {"key": "k" * 32, "remember": True}
     verb, path, headers = fake.calls[-1]
@@ -2456,7 +2473,7 @@ SNAPSHOT_FIELDS: tuple[str, ...] = (
 )
 TUPLE_FIELDS: tuple[str, ...] = (
     "zotero-server-id", "zotero-item-key", "zotero-item-version", "citationKey",
-    "attachments", "fulltext", "compile-input-sha256", "generated",
+    "attachments", "fulltext", "compile-input-sha256", "generated",  # generated is emitted last by render_note, after accessed and managed-sha256
 )
 CAPTURE_FIELDS: frozenset[str] = (
     frozenset(SNAPSHOT_FIELDS)
@@ -2660,7 +2677,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Interfaces:**
 
-- Consumes: `notes.read_provenance`, `notes.Provenance`, `ZoteroClient.versions/trash_versions/top_items/children/fulltext`, `fulltext.sha256_of`, `zotero.DatabaseChangedError`.
+- Consumes: `notes.read_provenance`, `notes.Provenance`, `ZoteroClient.versions/trash_versions/top_items/children`, `fulltext.path_for/sha256_of`, `zotero.DatabaseChangedError`.
 
 - Produces: the Interface index `research_vault/lifecycle.py` block. `classify` returns one of `("current", "")`, `("drifted", "<detail>")`, `("re-keyed", "old → new")`, `("merged", "<successor key>")`, `("trashed", "<key>")`, `("deleted", "<key>")`. `lint_lifecycle` files one `Outcome("lifecycle", <citation key>, UNMATCHED, "<code> — <detail>")` per non-current note in the order `merged, deleted, trashed, re-keyed, drift`, a `MATCHED "matched"` per current note, and on a 412 exactly one `Outcome("lifecycle", "vault", UNMATCHED, "database-changed — ...")` and nothing else; on any other `ZoteroError` one `Outcome("lifecycle", "vault", UNREACHABLE, "outage — ...")`.
 
@@ -2861,7 +2878,7 @@ from .zotero import DatabaseChangedError, ZoteroClient, ZoteroError
 CHECK = "lifecycle"
 # First transition that matches wins; merged outranks deleted and trashed
 # because Zotero trashes a merge's predecessor and a later purge removes it.
-ORDER = ("database-changed", "merged", "deleted", "trashed", "re-keyed", "drift")
+ORDER = ("database-changed", "merged", "deleted", "trashed", "re-keyed", "drift")  # classify's branch order below implements this precedence; exported for the docs, never iterated
 
 
 class Live(NamedTuple):
@@ -3041,7 +3058,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Interfaces:**
 
-- Consumes: `ZoteroClient` (Task 9), `fulltext.verdict/write` (Task 10), `notes.render_note/read_provenance/Provenance/note_path/content_changed` (Task 11), `lifecycle.lint_lifecycle/read_live/classify` (Task 12), `bibliography.write` (Task 2), `stamp.stamp_types`, `okf.regenerate_log`, `__main__._hold`.
+- Consumes: `ZoteroClient` (Task 9; including `_local_json` and `_version_header` for `items/top?format=versions`), `fulltext.verdict/write` (Task 10), `notes.render_note/read_provenance/Provenance/note_path/content_changed` (Task 11), `lifecycle.lint_lifecycle/_provenances` (Task 12), `bibliography.write` (Task 2), `stamp.stamp_types`, `okf.regenerate_log`, `__main__._hold`.
 
 - Produces: the Interface index `research_vault/capture.py` block. `capture()` returns one `Outcome("capture", <citation key or argument>, ...)` per requested key plus one `Outcome("capture", "system/bibliography.json", ...)` for the CSL regeneration. Reasons: `matched` (wrote), `matched — NOOP` (identical projection), `not-admitted — <arg> is not in the library`, `unkeyed — item <key> has no citation key`, `no-fulltext — <verdict>` (the note is written; this is an additional UNMATCHED finding on the same target), `merged|trashed|deleted — <detail>` (nothing written), `database-changed — ...` (run aborted, nothing written), `outage — ...` (UNREACHABLE, nothing written), `schema-violation — ...`. CLI exit: 0 when every outcome is MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is UNMATCHED.
 
@@ -3413,9 +3430,8 @@ def _top_version(client: ZoteroClient) -> int | None:
 
 
 def _captured_keys(vault: Path) -> set[str]:
-    from .captured import captured_set  # Task 15; until then, read the notes directly
-
-    return set(captured_set(vault))
+    # Task 15 rewires this to captured.captured_set; research_vault/captured.py does not exist yet.
+    return {p.citation_key for _, p in lifecycle._provenances(vault)}
 
 
 def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=False, key_wait_seconds=KEY_WAIT_SECONDS) -> list[Outcome]:
@@ -3478,7 +3494,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     return outcomes
 ```
 
-(Drop the `hasattr(client, "top_items_version")` guard: call `_top_version(client)` directly. `_captured_keys` reads `captured.captured_set` once Task 15 lands; until then inline `{p.citation_key for _, p in lifecycle._provenances(vault)}`.) In `research_vault/__main__.py`:
+(Drop the `hasattr(client, "top_items_version")` guard: call `_top_version(client)` directly. `_captured_keys` is the inline provenance walk above until Task 15 rewires it to `captured.captured_set`.) In `research_vault/__main__.py`:
 
 ```python
 def cmd_capture(args):
@@ -3531,7 +3547,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Interfaces:**
 
-- Consumes: `appendlog._serialize`, `appendlog._FIELD` (the review queue's line codec), `lifecycle.lint_lifecycle`, `capture.capture`, `notes.note_path`.
+- Consumes: `appendlog._serialize`, `appendlog._FIELD` (the review queue's line codec), `lifecycle.lint_lifecycle`, `capture.capture`, `notes.note_path`, `structure.is_excluded` (Task 6).
 
 - Produces: the Interface index `research_vault/propagate.py` block. The rename-log file: frontmatter `type: "rename-log"` then one line per rename, e.g. `- [date:: 2026-09-07] [item:: E352DFS8] [from:: jakesch.etal2023] [to:: jakesch.etal2023a] [actor:: research_vault/0.1.0]`. Surfaces rewritten: every `*.md` under the vault except `literatures/` (renamed, then re-captured), `fulltext/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/renames.md`, and `structure.EXCLUDED_DIRS`; patterns `[@old` → `[@new` (followed by `]`, `,` or space), `[[old]]`/`[[old#`/`[[old|` → the same with `new`. The residue lint reports `Outcome("propagation", <repo path>, UNMATCHED, "stale-key — names <old>, renamed to <new> on <date>")` per surface still naming a mapped-away key, or one `MATCHED "matched"` on target `system/renames.md` (SKIPPED `no-identifier — no rename log` when the log is absent).
 
@@ -3817,9 +3833,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Interfaces:**
 
-- Consumes: `notes.read_provenance`, `frontmatter.parse`, `structure.is_excluded`, the compile tool's ledger at `wiki/meta/ledgers/source-ledger.json` (`{"schema": "claude-obsidian.source-ledger.v1", "sources": {"src-…": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "content_sha256": "…", ...}}}`).
+- Consumes: `notes.read_provenance`, `frontmatter.parse`, `structure.is_excluded` (Task 6), `pathcodec.RepoPath`, `Outcome`/`Result`, the compile tool's ledger at `wiki/meta/ledgers/source-ledger.json` (`{"schema": "claude-obsidian.source-ledger.v1", "sources": {"src-…": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "content_sha256": "…", ...}}}`).
 
-- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from that note's `compile-input-sha256` is `recompile-needed`.
+- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4058,7 +4074,7 @@ ______________________________________________________________________
 
 **Interfaces:**
 
-- Consumes: `ZoteroClient.server_info/ready/file_view_url/_local`, `paths.to_local`, `paths.load_machine_config`.
+- Consumes: `ZoteroClient.server_info/ready/file_view_url/_http/_local_json`, `paths.to_local`, `paths.load_machine_config`.
 - Produces: `addons.declared() -> list[Addon]`; `addons.observe(profile_dir) -> dict[str, dict]`; `addons.read_prefs(profile_dir) -> dict[str, str | bool | int]` (parses `user_pref("name", value);` lines of `prefs.js`); `scaffold.doctor(vault_root, client=None) -> list[Probe]` with probes in this order and these semantics:
 
 | Probe                | MATCHED                                                                                                                                                                     | UNMATCHED                                                                                  | UNREACHABLE                                                   | SKIPPED             |
@@ -4518,11 +4534,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `tests/test_add.py`
-- Modify: `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`)
+- Modify: `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` records `self._last_post_body = data` on every POST)
 
 **Interfaces:**
 
-- Consumes: `ZoteroClient.authorize/create_items/server_info`, `capture.capture`, `notes.SNAPSHOT_FIELDS`.
+- Consumes: `ZoteroClient.authorize/create_items/server_info`, `zotero.DatabaseChangedError`, `capture.capture`, `lifecycle._provenances`, `notes.SNAPSHOT_FIELDS`.
 
 - Produces: `capture.add(...)`: validates each item (object; `itemType` a non-empty string; every other key in `SNAPSHOT_FIELDS` or `collections`; `creators`/`tags` lists), sets `client.server_id` to the recorded id when any note exists (so a wrong instance is refused with 412 before any write) else the live one, uses a preset `client.api_key` when one is set (the live leg sets it from `RV_LIVE_WRITE_KEY`), else loads the key for that server id from `.research-vault/zotero-keys.json` (`{"<server id>": "<key>"}`, mode `0600`), authorizes **once** when absent (never in a loop: five dialogs a minute), POSTs, on 401 authorizes once more and retries once, then runs `capture(...)` on the returned keys with `key_wait_seconds=KEY_WAIT_SECONDS`. Outcomes: the create as `Outcome("capture", "add", MATCHED, "matched — created <keys>")`, then capture's. Failures: `schema-violation — item 0: unknown field foo`, `outage — authorize rate-limited ...`, `not-admitted — authorization denied` (UNMATCHED), `mismatch — create failed: <Zotero's failed map>` (UNMATCHED).
 
