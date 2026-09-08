@@ -760,6 +760,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs tests .github/
 """Live legs against Zotero 10 (spec §7). Read legs need RV_LIVE=1; the write
 leg needs RV_LIVE_WRITE_BASE too and refuses the production instance."""
 
+# An automated propagate leg (Part A Task 20 Step 1 runs it attended) needs a
+# way to re-key an item over the local API. Unmeasured: whether PATCH accepts
+# the native ``citationKey`` field (research record 279: Zotero moved the pin
+# out of Extra into a native field; 333: BBT still parses the legacy Extra
+# line). Measure on the test instance before printing such a leg; until then
+# the attended round is propagate's only live coverage.
+
 import json
 import os
 import time
