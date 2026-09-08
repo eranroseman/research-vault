@@ -4517,6 +4517,12 @@ def test_structural_half_checks_locators_and_hashes(tmp_vault):
     ]
 
 
+def test_one_verdict_per_run_never_matched_and_unmatched_at_once(tmp_vault):
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)  # the textual half holds (no wiki/)
+    _ledger(tmp_vault, {"src-2": {"origin": {"kind": "file", "locator": "fulltext/ATT00002.md"}, "content_sha256": "b" * 64}})
+    assert [o.result for o in captured.lint_captured_set(tmp_vault)] == [Result.UNMATCHED]  # no summary row beside a failure
+
+
 def test_structural_half_applies_the_tools_staleness_predicate_as_of(tmp_vault):
     _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
     active = {"origin": {"kind": "file", "locator": "fulltext/ATT00001.md"}, "content_sha256": "a" * 64,
@@ -4667,7 +4673,7 @@ def _aliases(vault: Path) -> set[str]:
 def _page_names(vault: Path) -> set[str]:
     """Every name a wikilink resolves to as a page: the stem, and each trailing path form Obsidian accepts
     (`concepts/Foo`, `wiki/concepts/Foo` for `wiki/concepts/Foo.md`)."""
-    names = set()
+    names: set[str] = set()
     for path in vault.rglob("*.md"):
         if structure.is_excluded(path, vault):
             continue
@@ -4695,9 +4701,7 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                 outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(relative)), Result.UNMATCHED,
                                         f"not-captured — {relative} cites [@{key}], not in the captured set"))
         for match in _WIKILINK.finditer(text):
-            target = match.group("target").strip()
-            if target.endswith(".md"):
-                target = target[:-3]  # Obsidian resolves [[Foo.md]] as [[Foo]]
+            target = match.group("target").strip().removesuffix(".md")  # Obsidian resolves [[Foo.md]] as [[Foo]]
             if target in keys or target in pages or target in aliases:
                 continue
             outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(relative)), Result.UNMATCHED,
@@ -4717,7 +4721,7 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
     except UnicodeError:
         return [Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED, "schema-violation — source ledger unreadable")]
     try:
-        records = json.loads(text).get("sources", {})
+        records = sorted(json.loads(text).get("sources", {}).items())  # .items() inside the guard: a non-object "sources" is malformed too
     except (ValueError, AttributeError):
         return [Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED, "schema-violation — source ledger unreadable")]
     written = {}
@@ -4725,7 +4729,7 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
         for entry in provenance.fulltext:
             written[entry.get("attachment-key")] = (provenance.citation_key, provenance.compile_input_sha256, entry.get("sha256"))
     outcomes = []
-    for source_id, record in sorted(records.items()):
+    for source_id, record in records:
         origin = record.get("origin", {}) if isinstance(record, dict) else {}
         if origin.get("kind") != "file":
             continue
