@@ -122,7 +122,6 @@ research_vault/searchlog.py::module::True -> False
 research_vault/verify.py::func/_apply_state_transitions::True -> False
 research_vault/verify.py::func/_apply_state_transitions::note and note.is_file() -> note or note.is_file()
 research_vault/verify.py::func/_apply_state_transitions::outcome.result is Result.MATCHED -> outcome.result is not Result.MATCHED
-research_vault/verify.py::func/_archive_outcomes::not isinstance(archive_url, str) or not archive_url -> not isinstance(archive_url, str) and not archive_url
 research_vault/verify.py::func/_candidate_destinations_match_live::snapshots.candidate_name == "worktree" -> snapshots.candidate_name != "worktree"
 research_vault/verify.py::func/_citekey_hash::isinstance(attachment_hashes, list) and attachment_hashes -> isinstance(attachment_hashes, list) or attachment_hashes
 research_vault/verify.py::func/_citekey_hash::isinstance(first, str) and first -> isinstance(first, str) or first
