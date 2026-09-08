@@ -304,7 +304,17 @@ The claim that a URL-only entry gains nothing from Zotero is right about organis
 
 ### 7.2.1 Lane 2 inherits URL-source acquisition, with one candidate already measured
 
-Lane 1 defers the URL-only classes and makes the deferral mechanical (ingest spec §0). What lane 2 inherits is the acquisition question, and it is **two questions wearing one label**: 111 of the 138 URL-shaped items are `computerProgram`, where the useful text is a repository README, and the rest are pages.
+Lane 1 defers the URL-only classes and makes the deferral mechanical (ingest spec §0). What lane 2 inherits is the acquisition question, and it is **three questions wearing one label**, because a single page, a repository and a multi-page documentation site are not the same artifact. Measured 2026-09-07 — **110 of the 138 are `github.com`**, and the classes break as `computerProgram` 111, `webpage` 23, `blogPost` 3, `report` 1:
+
+| Class           | Population | One fetch gives                                | Fixity anchor       |
+| --------------- | ---------- | ---------------------------------------------- | ------------------- |
+| Single page     | ~27        | the source                                     | the access date     |
+| Repository      | ~110       | the README — a canonical surface, not the tree | **a commit SHA**    |
+| Multi-page docs | few here   | **the landing page, looking like success**     | none from one fetch |
+
+**The repository route is the stronger one and is not defuddle.** GitHub's API returns the README directly — 980 words for `zotero-better-bibtex`, against defuddle's 991 by scraping — and returns a HEAD commit SHA with it (`cfdba6ac507a`, 2026-09-04). That matters beyond convenience: a repository is a *moving* artifact and this design's provenance assumes fixity, so the SHA is what lets a note say which version it read. Scraping HEAD's rendering gives bytes and no version.
+
+**The multi-page case is the hazard, and the content floor does not catch it.** Run against `retorquere.github.io/zotero-better-bibtex`, whose documentation runs to dozens of pages, defuddle returned **817 words of landing page** with nothing marking it as a fragment. The ingest spec's floor asks whether there is enough text, which 817 words passes; it cannot ask whether this is all of it. A crawl is the only honest answer for that class and is unbounded work, so lane 2 may reasonably rule it out of scope rather than solve it — but it must rule, because silence here ships a truncated source that reads as complete.
 
 **The pipeline needs no new machinery — it needs an input.** Capture already lands extracted text at `fulltext/<key>.md` and the ledger already points there; a URL source differs only in where the bytes come from. Whatever wins must write that file, so the text lands in the *gated* evidence layer rather than in a compiled page under `wiki/`, which is ungated by §7.2's boundary. That also restores the link-rot protection retired with `archive.py`: the `fulltext/` copy is the snapshot.
 
