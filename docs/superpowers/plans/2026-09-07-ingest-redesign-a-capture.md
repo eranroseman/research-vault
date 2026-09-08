@@ -4463,6 +4463,20 @@ def test_captured_set_is_the_recorded_keys_not_the_filenames(tmp_vault):
     assert captured.captured_set(tmp_vault) == {"smith2020": "SMITH001", "smith2020a": "SMITH001"}
 
 
+def test_a_note_the_reader_cannot_take_is_a_row_not_a_silent_omission(tmp_vault):
+    """Decision 08 drops a corrupt note's key from the captured set; this lint is what says so."""
+    _note(tmp_vault, "smith2020", "E352DFS8")
+    (tmp_vault / "literatures" / "broken.md").write_text("---\ntype: literature\n")  # unterminated frontmatter
+    (tmp_vault / "literatures" / "stray.md").write_text('---\ntype: "literature"\n---\nno tuple\n')
+    rows = sorted(
+        (str(o.target).rsplit("/", 1)[-1], o.result, o.reason.split(" — ")[0])
+        for o in captured.lint_captured_set(tmp_vault)
+        if "literatures/" in str(o.target)
+    )
+    assert rows == [("broken.md", Result.UNMATCHED, "schema-violation"), ("stray.md", Result.UNMATCHED, "schema-violation")]
+    assert captured.captured_set(tmp_vault) == {"smith2020": "E352DFS8"}  # the set is what capture's CSL selection reads
+
+
 def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_vault):
     _note(tmp_vault, "smith2020", "SMITH001", title="Mortality decline")
     pages = tmp_vault / "wiki" / "sources"
@@ -4590,16 +4604,40 @@ _WIKILINK = re.compile(r"\[\[(?P<target>[^\]#|]+)")
 _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 
 
-def _notes(vault: Path):
+def _read_notes(vault: Path) -> tuple[list[tuple[dict, notes.Provenance]], list[Outcome]]:
+    """Every note under literatures/ with its tuple — and a row for every note the reader cannot take.
+
+    lifecycle._provenances skips such a note silently, and capture reports it only when its key is
+    requested; decision 08 then drops the key from the captured set and so from the CSL file. This
+    lint is the mechanism that design relies on: the omission is reported here, never silent.
+    """
+    entries: list[tuple[dict, notes.Provenance]] = []
+    outcomes: list[Outcome] = []
     for path in sorted((vault / "literatures").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
         try:
             text = path.read_text(encoding="utf-8")
+        except OSError as error:
+            outcomes.append(Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {error}"))  # could not read: no verdict on the note
+            continue
+        except UnicodeError as error:
+            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — not UTF-8: {error}"))
+            continue
+        try:
             data, _body = frontmatter.parse(text)
-        except (OSError, UnicodeError, frontmatter.FrontmatterError):
+        except frontmatter.FrontmatterError as error:
+            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — {error}"))
             continue
         provenance = notes.read_provenance(text)
-        if provenance is not None:
-            yield data, provenance
+        if provenance is None:
+            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, "schema-violation — no provenance tuple"))
+            continue
+        entries.append((data, provenance))
+    return entries, outcomes
+
+
+def _notes(vault: Path) -> list[tuple[dict, notes.Provenance]]:
+    return _read_notes(vault)[0]
 
 
 def captured_set(vault_root) -> dict[str, str]:
@@ -4698,8 +4736,9 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
 
 def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
     vault = Path(vault_root)
-    keys = set(captured_set(vault))
-    outcomes = _textual(vault, keys)
+    entries, outcomes = _read_notes(vault)
+    keys = {p.citation_key for _data, p in entries}
+    outcomes += _textual(vault, keys)
     structural = _structural(vault, as_of)
     if not outcomes:
         outcomes.append(Outcome(CHECK, CHECK, Result.MATCHED, "matched"))
