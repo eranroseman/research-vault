@@ -99,19 +99,21 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
 
 
 def test_setup_vault_treats_the_whole_library_auto_export_as_a_human_wizard_step():
-    """Registering an auto-export for the person must fail."""
+    """Registering an auto-export for the person, or claiming doctor
+    observes it, must fail."""
     text = _skill_text()
     companion_section = text[text.index("## Provision companions") :]
 
     for phrase in (
         "human-only wizard step",
-        "exact target path doctor reported",
+        "the vault's `system/bibliography.json` target path",
         "whole-library scope",
         "Better CSL JSON translator",
         "keep updated",
     ):
         assert phrase in companion_section
     assert "Never register an auto-export for them" in companion_section
+    assert "Doctor does not observe or report on this file" in companion_section
 
 
 def test_setup_vault_reports_only_scaffold_created_commit_paths():
