@@ -5331,7 +5331,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `tests/test_add.py`
-- Modify: `research_vault/zotero.py` (the export timeout — decision 13's measurement: the Better BibTeX library route takes 4.78 s cold against the 5.0 s default, and Task 13's first live run filed a false outage while the `item.export` fallback queued behind the still-running export and timed out too, so a retry repeats the failure: `_http(url, data=None, headers=None, method=None, *, timeout=None)` defaulting to `self.timeout`; a module constant `EXPORT_TIMEOUT = 30.0` (about six times the cold measurement, so a library three times larger still clears); `library_csl` passes it; `_rpc(method, params, *, timeout=None)` with **only** `export_csl` passing it — never `_rpc` globally, because `ready()` is doctor's `bbt` probe and per-item reads keep the short timeout or a busy Zotero hangs the loop; `_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` gains `timeout=None` in its signature and records `self._last_post_body = data` on every POST), `tests/test_capture.py` (the two test-local `_http` shims, `moving` and `changing`, gain `timeout=None` — they have fixed four-parameter signatures and break the moment `_http` is called with the keyword), `tests/test_zotero.py` (one test asserts `library_csl` and `export_csl` open their sockets with `EXPORT_TIMEOUT` and `ready()`/`item()` with the default, by patching `_http` to record the keyword)
+- Modify: `research_vault/zotero.py` (the export timeout — decision 13's measurement: the Better BibTeX library route takes 4.78 s cold against the 5.0 s default, and Task 13's first live run filed a false outage while the `item.export` fallback queued behind the still-running export and timed out too, so a retry repeats the failure: `_http(url, data=None, headers=None, method=None, *, timeout=None)` defaulting to `self.timeout`; a module constant `EXPORT_TIMEOUT = 30.0` (about six times the cold measurement, so a library three times larger still clears); `library_csl` passes it; `_rpc(method, params, *, timeout=None)` with **only** `export_csl` passing it — never `_rpc` globally, because `ready()` is doctor's `bbt` probe and per-item reads keep the short timeout or a busy Zotero hangs the loop; `_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`; and `--all` re-based on every note under `literatures/` by its recorded `citationKey`, tuple or not — Step 3's closing block, the migration path Task 19 documents), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`), `tests/fakes.py` (`FakeZotero._http` gains `timeout=None` in its signature and records `self._last_post_body = data` on every POST), `tests/test_capture.py` (the two test-local `_http` shims, `moving` and `changing`, gain `timeout=None` — they have fixed four-parameter signatures and break the moment `_http` is called with the keyword; and the `--all` test at the end of Step 3), `tests/test_zotero.py` (one test asserts `library_csl` and `export_csl` open their sockets with `EXPORT_TIMEOUT` and `ready()`/`item()` with the default, by patching `_http` to record the keyword)
 
 **Interfaces:**
 
@@ -5519,6 +5519,61 @@ def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -
 ```
 
 CLI: `cmd_add` reads `--item FILE` (JSON list or object), calls `capture.add`, prints and holds like `cmd_capture`. Parser: `add_cmd = sub.add_parser("add", parents=[common]); add_cmd.add_argument("--vault", required=True); add_cmd.add_argument("--item", required=True); add_cmd.add_argument("--collection")`.
+
+**`--all` reaches a note that carries no tuple.** As built in Task 13, `refresh_all` enumerated `[p.citation_key for _, p in existing]`, and `existing` is `lifecycle._provenances(vault)` — notes with a tuple. An older vault's notes carry `citationKey` and none of the `zotero-*` fields (the retired template never wrote them), so `capture --all` on such a vault requested nothing, reported only decision 26's SKIPPED row, and after Task 15 every one of those notes is an `UNMATCHED schema-violation — no provenance tuple` in the `commit` and `publish` closing sets with no remedy the plan named. Task 15's implementer found it (Concern 15). The fix is what `--all` should have meant: every note under `literatures/`, named by its recorded `citationKey`. A note with a tuple still resolves through it (`resolve_keys`' `known`, row 36 — nothing there changes); a note without one is a name-only request that takes its identity from Zotero at capture, exactly as `capture <citation key>` does (decision 08: the name is the request, the item key and server id are the answer, recorded in the tuple the write produces). A note with no usable `citationKey` is reported, not skipped. Replace the `requested = …` line in `capture()` with:
+
+```python
+    all_keys, unrequestable = _every_note(vault) if refresh_all else ([], [])
+    requested = list(keys) + all_keys
+```
+
+append `unrequestable` to `outcomes` right after `outcomes: list[Outcome] = []`, and add the helper (imports: `os`, and `from .pathcodec import RepoPath`):
+
+```python
+def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
+    """--all: every note under literatures/, by its recorded citationKey — tuple or not.
+
+    A note without a tuple is an older vault's, captured once to acquire one; a note
+    that cannot even be named is a row, never a silent omission.
+    """
+    keys: list[str] = []
+    outcomes: list[Outcome] = []
+    for path in sorted((vault / "literatures").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
+        try:
+            data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
+        except OSError as error:
+            outcomes.append(Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {error}"))
+            continue
+        except (UnicodeError, frontmatter.FrontmatterError) as error:
+            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — {error}"))
+            continue
+        key = data.get("citationKey")
+        if isinstance(key, str) and key:
+            keys.append(key)
+        else:
+            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, "schema-violation — no citationKey to request by"))
+    return keys, outcomes
+```
+
+The note is then rewritten whole from Zotero by the ordinary write path (`render_note` takes the existing text; `content_changed` decides NOOP or write), which is the spec's greenfield clause in action — "no existing vault content must survive" — so prose an older note carried does not survive the capture; Task 19's migration section says so before the operator runs it. Two shapes leave a note without a tuple after `--all`, and both are already rows: a `citationKey` Zotero does not hold is `not-admitted` from `resolve_keys`, and a key Zotero has since changed writes the new note beside the old, whose captured-set row stands until the person resolves it (ADR 0003: the tool does not delete it). Test, appended to `tests/test_capture.py` (add `notes` to its `from research_vault import …` line):
+
+```python
+def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch):
+    """An older vault's note has citationKey and no zotero-* fields; --all captures it by name."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    (tmp_vault / "literatures").mkdir(exist_ok=True)
+    legacy = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    legacy.write_text('---\ntype: "literature"\ncitationKey: "jakesch.etal2023a"\n---\nold prose\n')
+    (tmp_vault / "literatures" / "nameless.md").write_text('---\ntype: "literature"\n---\n')
+    outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
+    rows = [(str(o.target), o.result, o.reason.split(" — ")[0]) for o in outcomes]
+    assert ("jakesch.etal2023a", Result.MATCHED, "matched") in rows
+    assert [r[1:] for r in rows if r[0].endswith("literatures/nameless.md")] == [(Result.UNMATCHED, "schema-violation")]
+    assert notes.read_provenance(legacy.read_text()) is not None  # the capture gave it its tuple
+    assert "old prose" not in legacy.read_text()  # greenfield: rewritten whole from Zotero
+```
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -5952,7 +6007,7 @@ for path in sorted(Path("literatures").glob("*.md")):
 PY
 ```
 
-Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
+Run it from the vault root and report the paths it printed. Then `capture --all`: it requests every note under `literatures/` by its `citationKey`, and a note that carries no Zotero tuple yet is captured by that name and given one. **The capture rewrites each note whole from Zotero** — the design is greenfield, and prose an older note carried does not survive it; move anything worth keeping into `wiki/` first. Afterwards `inbox` names what did not migrate, and each row is the person's to resolve, never the tool's to delete: `not-admitted` means Zotero holds no item under that citation key (the source was removed, or the key was never Zotero's), and a note that stays `no provenance tuple` beside a freshly written one means Zotero's key for that item has changed since the note was written.
 ````
 
 `research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literatures/ and fulltext/, propagate a citation-key change |` (the file's row wraps `capture-source`, `literatures/` and `fulltext/` in backticks); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
