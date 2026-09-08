@@ -92,6 +92,53 @@ def _refusal(old: str, detail: str) -> Outcome:
     return Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {detail}")
 
 
+def _sources(
+    vault: Path, mapping: dict[str, str]
+) -> tuple[dict[str, tuple[Path, notes.Provenance]], list[Outcome]]:
+    """The note behind each old key, found by its recorded ``citationKey``.
+
+    Decision 08's identity, not the filename: after a partial apply — an
+    outage during the recapture is the realistic route — the note sits at
+    ``literatures/<new>.md`` still recording ``<old>``, and a plan that opened
+    ``literatures/<old>.md`` would refuse the very state it produced. Found by
+    the recorded key, a re-run treats that note as already at its target.
+    """
+    by_key: dict[str, list[tuple[Path, notes.Provenance]]] = {}
+    by_name: dict[str, notes.Provenance] = {}
+    for path, provenance in lifecycle._provenances(vault):
+        by_key.setdefault(provenance.citation_key, []).append((path, provenance))
+        by_name[path.name] = provenance
+    found: dict[str, tuple[Path, notes.Provenance]] = {}
+    outcomes: list[Outcome] = []
+    for old in mapping:
+        candidates = by_key.get(old, [])
+        named = f"{old}.md"
+        if len(candidates) == 1:
+            found[old] = candidates[0]
+        elif candidates:
+            names = ", ".join(sorted(path.name for path, _ in candidates))
+            outcomes.append(
+                _refusal(
+                    old, f"{len(candidates)} notes record citationKey {old}: {names}"
+                )
+            )
+        elif named in by_name:
+            outcomes.append(
+                _refusal(
+                    old,
+                    f"literatures/{named} records citationKey "
+                    f"{by_name[named].citation_key}, not {old}",
+                )
+            )
+        elif (vault / "literatures" / named).is_file():
+            outcomes.append(_refusal(old, "note carries no provenance tuple"))
+        else:
+            outcomes.append(
+                _refusal(old, f"no note under literatures/ records citationKey {old}")
+            )
+    return found, outcomes
+
+
 def plan(
     vault_root, client, mapping: dict[str, str] | None, *, now=None
 ) -> tuple[Plan | None, list[Outcome]]:
@@ -120,25 +167,21 @@ def plan(
                 "no-identifier — nothing to propagate",
             )
         ]
-    outcomes: list[Outcome] = []
+    sources, outcomes = _sources(vault, mapping)
     item_keys: dict[str, str] = {}
     for old, new in mapping.items():
-        source = vault / "literatures" / f"{old}.md"
-        if not source.is_file():
-            outcomes.append(_refusal(old, f"no note literatures/{old}.md to rename"))
+        if old not in sources:
             continue
-        provenance = notes.read_provenance(source.read_text(encoding="utf-8"))
-        if provenance is None:
-            outcomes.append(_refusal(old, "note carries no provenance tuple"))
-            continue
+        source, provenance = sources[old]
         try:
             target = notes.note_path(vault, new)
         except notes.InvalidCitationKeyError as error:
             outcomes.append(_refusal(old, str(error)))
             continue
-        if target.exists():
+        if source.name != target.name and (target.exists() or target.is_symlink()):
             # ADR 0003: no transition deletes a literature note, and a POSIX
-            # rename over an existing file replaces it silently.
+            # rename over an existing file replaces it silently. The note
+            # already sitting at its target is the one exception: no rename.
             outcomes.append(
                 _refusal(
                     old,
@@ -277,9 +320,17 @@ def apply(
                 "computed; run propagate again",
             )
         ]
+    # Resolved again, by recorded key, for the rename itself; the recompute
+    # above already proved each note's item key against the approved plan.
+    sources, refused = _sources(vault, approved.mapping)
+    if refused:
+        return refused
     outcomes = []
     for old, new in approved.mapping.items():
-        (vault / "literatures" / f"{old}.md").rename(notes.note_path(vault, new))
+        source, _provenance = sources[old]
+        target = notes.note_path(vault, new)
+        if source.name != target.name:
+            source.rename(target)
         changed = rewrite_surfaces(vault, old, new)
         recapture = (
             capture.capture(vault, client, [approved.item_keys[old]])
@@ -311,20 +362,21 @@ def read_records(vault_root) -> list[Plan]:
     return [read_plan(path) for path in sorted(directory.glob("*.json"))]
 
 
-def _stale_keys(records: list[Plan]) -> dict[str, tuple[str, str]]:
-    """Old key -> (new key, operation id) after every record, oldest first.
+def _stale_keys(records: list[Plan]) -> dict[str, tuple[str, str, str | None]]:
+    """Old key -> (new key, operation id, item key) after every record, oldest first.
 
     A later record supersedes an earlier one: a key a later plan mapped *to*
     is a current name again (a→b then b→a leaves only `b` stale), so the fold
     drops it before recording the new mapping. Without this, the first record
     would flag every surface naming `a` forever, and `propagation` closes
-    `commit`.
+    `commit`. The item key rides along so the lint can tell the same item
+    back under a retired name from a different item that now holds it.
     """
-    stale: dict[str, tuple[str, str]] = {}
+    stale: dict[str, tuple[str, str, str | None]] = {}
     for record in records:
         for old, new in record.mapping.items():
             stale.pop(new, None)
-            stale[old] = (new, record.operation_id)
+            stale[old] = (new, record.operation_id, record.item_keys.get(old))
     return stale
 
 
@@ -363,8 +415,19 @@ def lint_propagation(vault_root) -> list[Outcome]:
         (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))
         for path, relative in _surfaces(vault)
     ]
+    recorded = {path.name: p for path, p in lifecycle._provenances(vault)}
     outcomes: list[Outcome] = []
-    for old, (new, operation_id) in _stale_keys(records).items():
+    for old, (new, operation_id, item_key) in _stale_keys(records).items():
+        provenance = recorded.get(f"{old}.md")
+        if (
+            provenance is not None
+            and item_key is not None
+            and provenance.item_key != item_key
+        ):
+            # A different item now holds this name — a fresh item minted under
+            # the freed key and captured normally — so the mapping's claim on
+            # the name ends: the item key is identity, the name only a name.
+            continue
         if (vault / "literatures" / f"{old}.md").is_file():
             outcomes.append(_stale(f"literatures/{old}.md", old, new, operation_id))
         outcomes.extend(

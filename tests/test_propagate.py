@@ -224,6 +224,9 @@ def test_lint_follows_a_key_renamed_back_and_reports_only_the_latest_mapping(
     first = datetime.datetime(2026, 9, 8, 10, 15, tzinfo=datetime.UTC)
     _, path, digest = _planned(tmp_vault, now=first)
     propagate.apply(tmp_vault, None, path, digest)
+    # With no client there is no recapture; stand in for the one that re-renders
+    # the note under its new key, which is what the second plan resolves by.
+    (tmp_vault / "literatures" / "new2020.md").write_text(_note("E352DFS8", "new2020"))
     back, back_path, back_digest = _planned(
         tmp_vault, (("new2020", "old2020"),), now=first + datetime.timedelta(seconds=1)
     )
@@ -258,3 +261,95 @@ def test_plan_refuses_to_rename_over_an_existing_note(tmp_vault):
     assert refused.reason == (
         "schema-violation — literatures/new2020.md already exists; nothing is renamed over it"
     )
+
+
+# --- fix round 1 ---------------------------------------------------------------
+
+
+def _note(item_key, citation_key):
+    return (
+        f'---\ntype: "literature"\nzotero-server-id: "S"\nzotero-item-key: "{item_key}"\n'
+        f'zotero-item-version: 1\ncitationKey: "{citation_key}"\nattachments:\nfulltext:\n---\n'
+    )
+
+
+def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_recorded_key(
+    tmp_vault,
+):
+    """Finding 1: after an outage during the recapture the note sits at
+    literatures/new2020.md still recording citationKey: old2020. The captured
+    set is the recorded key, not the filename (decision 08), so a re-run plans,
+    treats the note as already at its target, and still rewrites and records."""
+    _seed(tmp_vault)
+    (tmp_vault / "literatures" / "old2020.md").rename(
+        tmp_vault / "literatures" / "new2020.md"
+    )
+    planned, path, digest = _planned(tmp_vault)
+    assert planned.item_keys == {"old2020": "E352DFS8"}
+    (matched,) = propagate.apply(tmp_vault, None, path, digest)
+    assert matched.result is Result.MATCHED
+    assert (tmp_vault / "literatures" / "new2020.md").read_text() == _note(
+        "E352DFS8", "old2020"
+    )
+    assert not (tmp_vault / "literatures" / "old2020.md").exists()
+    assert (
+        "[@new2020, p. 3]"
+        in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
+    )
+    assert propagate.read_records(tmp_vault)[0].mapping == {"old2020": "new2020"}
+
+
+def test_plan_resolves_the_note_wherever_its_recorded_key_puts_it_and_refuses_two(
+    tmp_vault,
+):
+    _seed(tmp_vault)
+    literatures = tmp_vault / "literatures"
+    (literatures / "old2020.md").rename(literatures / "moved.md")
+    _, path, digest = _planned(tmp_vault)
+    propagate.apply(tmp_vault, None, path, digest)
+    assert (literatures / "new2020.md").is_file()
+    assert not (literatures / "moved.md").exists()
+    # Two notes recording one key is a refusal, never a guess.
+    (literatures / "a.md").write_text(_note("E352DFS8", "twice2020"))
+    (literatures / "b.md").write_text(_note("E352DFS8", "twice2020"))
+    planned, (refused,) = propagate.plan(tmp_vault, None, {"twice2020": "x2020"})
+    assert planned is None
+    assert refused.reason == (
+        "schema-violation — 2 notes record citationKey twice2020: a.md, b.md"
+    )
+    # A note at the old name with no tuple keeps the brief's own refusal.
+    (literatures / "bare2020.md").write_text('---\ntype: "literature"\n---\n')
+    planned, (refused,) = propagate.plan(tmp_vault, None, {"bare2020": "x2020"})
+    assert planned is None
+    assert refused.reason == "schema-violation — note carries no provenance tuple"
+    # A note at the old name recording another key says which, rather than
+    # claiming it has no tuple: the shape a partial apply leaves when the
+    # mapping is read off the filename instead of the linter.
+    planned, (refused,) = propagate.plan(tmp_vault, None, {"new2020": "y2020"})
+    assert planned is None
+    assert refused.reason == (
+        "schema-violation — literatures/new2020.md records citationKey old2020, "
+        "not new2020"
+    )
+
+
+def test_lint_lets_a_freed_name_go_when_a_different_item_now_holds_it(tmp_vault):
+    """Finding 2: after old2020→new2020, a fresh Zotero item minted under the
+    freed key and captured normally makes literatures/old2020.md and every
+    [@old2020] current again — the item key is identity, the name only a name.
+    The same item back under the retired name is still residue."""
+    _seed(tmp_vault)
+    _, path, digest = _planned(tmp_vault)
+    propagate.apply(tmp_vault, None, path, digest)
+    (tmp_vault / "projects" / "brief" / "late.md").write_text(
+        '---\ntype: "project"\n---\n[@old2020]\n'
+    )
+    (tmp_vault / "literatures" / "old2020.md").write_text(_note("FRESH001", "old2020"))
+    (clean,) = propagate.lint_propagation(tmp_vault)
+    assert clean.result is Result.MATCHED, clean
+    (tmp_vault / "literatures" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
+    stale = propagate.lint_propagation(tmp_vault)
+    assert {o.target for o in stale} == {
+        "path-bytes:literatures/old2020.md",
+        "path-bytes:projects/brief/late.md",
+    }
