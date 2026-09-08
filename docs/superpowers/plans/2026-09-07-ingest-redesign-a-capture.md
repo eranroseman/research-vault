@@ -65,7 +65,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 02. **The review queue is not rewritten on a re-key.** §3.5 lists "review-queue and acknowledgment targets" among propagation's surfaces, but `inbox/review-queue.md` is append-only (`lint_append_only`) and ADR 0003 forbids rewriting records. A re-key re-renders the note, so the note's content hash changes and every acknowledgment scoped to it lapses by scope mismatch — the behaviour `CONTEXT.md` already defines for an acknowledgment. The applied propagation plan under `system/propagations/` is what lets a reader follow an old target forward. Findings written after the rename carry the new key.
 03. **Verbs** (open point 04, terminology §4.3): `capture` (replaces `import-note`), `add` (Path A create, then capture), `propagate` (the re-key pass), `compile` (the wrapper; `compile` prints the tool's approval hash, `compile --bundle <path> --approved-plan-sha256 <sha>` applies, mirroring `transaction apply`). Retired verbs: `import-note`, `archive-source`, `staleness`, `backfill-selectors`.
 04. **Check ids** (§4.4 coinages): `capture` (capture's own holds), `lifecycle` (the linter; non-closing on every surface — capture aborts on `database-changed`, nothing else blocks; a genuine `UNREACHABLE` from it still returns exit 3 like every other outage, because `verify.surface_decision` waits on any genuine `UNREACHABLE` whatever the closing sets say), `propagation` (the residue check; closing on `commit` and `publish`), `captured-set` (§4.4's seam lint; closing on `commit` and `publish`), `compile` (the wrapper's outcome). `citekey` becomes `citation-key`. Retired: `doi`, `metadata`, `web-archive`, `screening-state`, `autoexport`.
-05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key an applied propagation plan mapped away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
+05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key an applied propagation plan mapped away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index — `UNMATCHED` when an attachment exists and has no usable text, `SKIPPED` and never filed when the item has no stored attachment at all, spec §0 at `ac0cfd2`), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
 06. **Doctor probe ids**: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`. Retired: `autoexport`, `staleness`.
 07. **The CSL file keeps its path**, `system/bibliography.json`; the glossary retires *Bibliography export* as a concept (the whole admitted library), not the file. `bibliography.py` keeps `BIB_PATH`, `BibliographyError`, `load` and gains `write`.
 08. **The captured set** (§1.1, §4.4): the citation keys read from the `citationKey` field of every parseable note under `literatures/*.md` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation and the linter reports it; a hand-deleted note leaves the set at once, which is when the captured-set lint should fire.
@@ -88,7 +88,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
 26. **A vault with no captured notes does not wait on Zotero at verify or publish time** (raised by Task 2's review, 2026-09-07). `verify._staleness_outcome`, retired with the auto-export contract, ran on every network pass and turned a Zotero outage into exit 3 even for a vault with an empty bibliography and no cited claim; `tests/test_publish.py::test_mark_published_waits_when_the_gate_is_unreachable` pinned that and Task 2 deletes it. The behaviour is not carried forward, on purpose: the lifecycle linter is the one Zotero-facing check at verify (invariant 5), it classifies captured notes, and with none there is nothing whose evidence depends on Zotero — blocking publish on an unrelated service being down was a side effect of the retired contract, and no invariant in §1 names it. Kept: with one or more captured notes a genuine `UNREACHABLE` from `lifecycle` still returns exit 3 (decision 04), and with none `lint_lifecycle` returns one `SKIPPED` outcome, `no-identifier — no note carries a provenance tuple`, so the report shows a check that ran with nothing to check rather than a silent absence (ADR 0002). Zotero liveness on its own is doctor's `zotero` probe. Recorded here so the whole-branch review reads it as settled, not open.
 27. **The note body carries three mechanical pointers** (spec §3.3 step 5 and §4.4 as revised at `5ba814c`, 2026-09-07; the §4.4 "no forward link" sentence is reversed for an embed). Rendered by `notes.render_body`, in this order: `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` — the path is read, never guessed, by `notes.compiled_pages`, which matches ledger records on `origin.locator == fulltext/<attachment key>.md` for this note's text files; `## Item` with `zotero://select/library/items/<item key>`; the existing `## Attachments` list, whose `zotero://open-pdf/library/items/<attachment key>` links are the third pointer (decision 10); `## Zotero notes`. Consequence the tasks encode: capture writes the note twice in the normal flow — the first capture has no ledger entry and renders no `## Compiled`, the refresh after compile renders it, and the third run is NOOP (Task 13's test). No Part A task asserts a note is complete after one capture. `LEDGER_PATH` has one definition site, `notes.py`; `captured.py` and `compile.py` import it. Better BibTeX's `zotero://select/items/@<citation key>` is not emitted (a name-keyed link would be a fifth propagation surface). Matching on the `fulltext/` locator is deliberate, not incidental: §4.5 makes the wrapper the ledger's only writer and it registers every source as `fulltext/<attachment key>.md`, so a file record that reaches the ledger by another route (the tool's own `capture`, a hand-authored bundle) describes nothing capture wrote, embeds nothing, and is reported by the captured-set lint's structural leg as `not-captured` (Task 15). `pages[]` entries keep their `.md`: Obsidian resolves `[[path.md]]` and `[[path]]` alike (spec `a066604`), and the tool validates the entries as canonical `wiki/`-relative paths, so nothing is normalised.
-28. **A check takes its instant as an argument** (spec §7 `verify --as-of`, `692b134`). `research_vault/clock.py::today(as_of=None)` is the one place the package reads today's date — Task 15 creates it, and a test scans the package for any other `now(datetime.UTC).date()` reader. `verify --as-of` and `inbox --as-of` feed it (Task 18), and `verify_state`'s `detection_date`, the date defaults of `record_finding`, `append_entry` and `searchlog`, and `inbox.summary`'s age arithmetic all resolve through it. Stamps that record when something happened — capture's `accessed` and `generated`, a propagation's `operation_id` and `applied_at` — keep reading the wall clock through their `now=` parameters; they are stamps, not checks. The ledger's `refresh_due` is the third dated surface: the captured-set structural leg (Task 15) compares an `active` record's `refresh_due` against the same instant and reports `recompile-needed`, the vault writing no freshness field of its own (`stale_after` retired and reconciled with `refresh_due`) — this is the plan's reading of the spec's summary sentence, recorded so it can be corrected rather than rediscovered. Part A carries no fixture time bomb: the lifecycle fixtures are version maps without dates, capture's tests pin `now=`, and the update-notice tests already pass `detection_date`.
+28. **A check takes its instant as an argument** (spec §7 `verify --as-of`, `692b134`). `research_vault/clock.py::today(as_of=None)` is the one place the package reads today's date — Task 15 creates it, and a test scans the package for any other `now(datetime.UTC).date()` reader. `verify --as-of` and `inbox --as-of` feed it (Task 18), and `verify_state`'s `detection_date`, the date defaults of `record_finding`, `append_entry` and `searchlog`, and `inbox.summary`'s age arithmetic all resolve through it. Stamps that record when something happened — capture's `accessed` and `generated`, a propagation's `operation_id` and `applied_at` — keep reading the wall clock through their `now=` parameters; they are stamps, not checks. The ledger's `refresh_due` is the third dated surface, and the vault is its only reporter (spec §7 at `ac0cfd2`: the tool defines `source_is_stale` but its lint never calls it): the captured-set structural leg (Task 15) applies the tool's own predicate — `due is None or observed is None or observed > as_of or due < as_of` — to `active` records against the same instant and reports `recompile-needed`; `unreviewed` records, which is what the wrapper writes, are never judged. The vault writes no freshness field of its own (`stale_after` retired and reconciled with `refresh_due`). Part A carries no fixture time bomb: the lifecycle fixtures are version maps without dates, capture's tests pin `now=`, and the update-notice tests already pass `detection_date`.
 
 ______________________________________________________________________
 
@@ -3203,7 +3203,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `ZoteroClient` (Task 9; including `_local_json` and `_version_header` for `items/top?format=versions`), `fulltext.verdict/write` (Task 10), `notes.render_note/read_provenance/Provenance/note_path/content_changed` (Task 11), `lifecycle.lint_lifecycle/_provenances` (Task 12), `bibliography.write` (Task 2), `stamp.stamp_types`, `okf.regenerate_log`, `__main__._hold`.
 
-- Produces: the Interface index `research_vault/capture.py` block. `capture()` returns one `Outcome("capture", <citation key or argument>, ...)` per requested key plus one `Outcome("capture", "system/bibliography.json", ...)` for the CSL regeneration. Reasons: `matched` (wrote), `matched — NOOP` (identical projection), `not-admitted — <arg> is not in the library`, `unkeyed — item <key> has no citation key`, `no-fulltext — <verdict>` (the note is written; this is an additional UNMATCHED finding on the same target), `merged|trashed|deleted — <detail>` (nothing written), `database-changed — ...` (run aborted, nothing written), `outage — ...` (UNREACHABLE, nothing written), `schema-violation — ...`. CLI exit: 0 when every outcome is MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is UNMATCHED.
+- Produces: the Interface index `research_vault/capture.py` block. `capture()` returns one `Outcome("capture", <citation key or argument>, ...)` per requested key plus one `Outcome("capture", "system/bibliography.json", ...)` for the CSL regeneration. Reasons: `matched` (wrote), `matched — NOOP` (identical projection), `not-admitted — <arg> is not in the library`, `unkeyed — item <key> has no citation key`, `no-fulltext — <verdict>` (the note is written; this is an additional UNMATCHED finding on the same target), `merged|trashed|deleted — <detail>` (nothing written), `database-changed — ...` (run aborted, nothing written), `outage — ...` (UNREACHABLE, nothing written), `schema-violation — ...`. CLI exit: 0 when every outcome is MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is UNMATCHED. An item with no stored attachment at all (spec §0 at `ac0cfd2`: 130 of the live library's 138 URL-shaped items carry none) gets its note and `Outcome("capture", <key>, SKIPPED, "no-fulltext — no attachment to read (<itemType>); text checks do not apply")`, and `cmd_capture` holds only `UNMATCHED` and `UNREACHABLE` outcomes — a class this iteration does not handle is not a capture failure, and a finding nothing can clear drains nothing (ADR 0002). `UNMATCHED no-fulltext` is reserved for an attachment that exists and has no usable text.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3327,6 +3327,27 @@ def test_no_usable_text_writes_the_note_and_files_no_fulltext(tmp_vault, monkeyp
     data, _ = frontmatter.parse((tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text())
     assert "compile-input-sha256" not in data and data["fulltext"] == []
     assert not (tmp_vault / "fulltext").exists()
+
+
+def test_url_only_item_without_attachment_is_skipped_not_a_finding(tmp_vault, monkeypatch, capsys):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    webpage = json.loads(json.dumps(ITEM))
+    webpage["data"]["itemType"] = "webpage"
+    webpage["links"] = {}
+    fake = _canned_run(canned_item(FakeZotero(), item=webpage, children=()), items=(webpage,))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.result, o.reason) for o in outcomes if o.target == "jakesch.etal2023a"] == [
+        (Result.MATCHED, "matched"),
+        (Result.SKIPPED, "no-fulltext — no attachment to read (webpage); text checks do not apply"),
+    ]
+    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 0
+    assert "SKIPPED jakesch.etal2023a — no-fulltext" in capsys.readouterr().out
+    assert not [f for f in inbox.load(tmp_vault) if f.check == "capture"]  # nothing to clear, so nothing filed
 
 
 def test_unkeyed_item_is_reported_not_written(tmp_vault, monkeypatch):
@@ -3557,7 +3578,12 @@ def _capture_one(vault: Path, client: ZoteroClient, read: ItemRead, server_id: s
         with path.open("w", encoding="utf-8", newline="") as handle:
             handle.write(candidate)
         outcomes.append(Outcome(CHECK, citation_key, Result.MATCHED, "matched"))
-    if reasons and best is None:
+    if not read.texts:
+        # Spec §0 (ac0cfd2): a web page, a repository, a program — no stored attachment, nothing to read.
+        # The fourth state, not a failure: the note is written, the text checks do not apply, nothing is filed.
+        outcomes.append(Outcome(CHECK, citation_key, Result.SKIPPED,
+                                f"no-fulltext — no attachment to read ({item['data'].get('itemType')}); text checks do not apply"))
+    elif reasons and best is None:
         outcomes.append(Outcome(CHECK, citation_key, Result.UNMATCHED, "no-fulltext — " + "; ".join(reasons)))
     return outcomes
 
@@ -3664,7 +3690,7 @@ def cmd_capture(args):
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if outcome.result is not Result.MATCHED:
+        if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):  # SKIPPED is automatic-only and never a finding
             _hold(args.vault, capture.CHECK, outcome.target, outcome.result, outcome.reason)
         if outcome.result is Result.UNMATCHED:
             worst = 1
@@ -4147,7 +4173,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `notes.read_provenance`, `frontmatter.parse`, `structure.is_excluded` (Task 6), `pathcodec.RepoPath`, `Outcome`/`Result`, the compile tool's ledger at `wiki/meta/ledgers/source-ledger.json` (`{"schema": "claude-obsidian.source-ledger.v1", "sources": {"src-…": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "content_sha256": "…", ...}}}`).
 
-- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record whose `refresh_due` (an ISO instant; its first ten characters are the date) is earlier than `as_of` is also `recompile-needed — ledger <id> refresh due <refresh_due>`: the vault writes no freshness field of its own (spec §3.2, `stale_after` reconciled with `refresh_due` at `692b134`), and `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
+- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key; (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record is also `recompile-needed — ledger <id> stale: observed <retrieved_at or ingested_at>, refresh due <refresh_due>, as of <as_of>` when the tool's own staleness predicate holds — `due is None or observed is None or observed > as_of or due < as_of`, with `observed = retrieved_at or ingested_at` and ISO instants compared by their first ten characters (spec §7 at `ac0cfd2`: the tool defines `source_is_stale` but its lint never calls it, so the vault is the only reporter, and it uses the tool's predicate so the two can never disagree about what stale means). Only `active` records are judged: the wrapper writes `unreviewed` with `refresh_due: null`, which the predicate would otherwise call stale. The vault writes no freshness field of its own (`stale_after` reconciled with `refresh_due` at `692b134`); `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4217,15 +4243,24 @@ def test_structural_half_checks_locators_and_hashes(tmp_vault):
     ]
 
 
-def test_structural_half_reads_refresh_due_against_as_of(tmp_vault):
+def test_structural_half_applies_the_tools_staleness_predicate_as_of(tmp_vault):
     _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
-    _ledger(tmp_vault, {
-        "src-1": {"origin": {"kind": "file", "locator": "fulltext/ATT00001.md"}, "content_sha256": "a" * 64,
-                  "review_status": "active", "refresh_due": "2026-03-01T00:00:00Z"},
-    })
-    due = [o for o in captured.lint_captured_set(tmp_vault, as_of="2026-09-07") if o.result is Result.UNMATCHED]
-    assert [o.reason for o in due] == ["recompile-needed — ledger src-1 refresh due 2026-03-01T00:00:00Z"]
-    assert not [o for o in captured.lint_captured_set(tmp_vault, as_of="2026-02-01") if o.result is Result.UNMATCHED]
+    active = {"origin": {"kind": "file", "locator": "fulltext/ATT00001.md"}, "content_sha256": "a" * 64,
+              "review_status": "active", "retrieved_at": "2026-02-01T00:00:00Z", "refresh_due": "2026-03-01T00:00:00Z"}
+
+    def unmatched(as_of):
+        return [o.reason for o in captured.lint_captured_set(tmp_vault, as_of=as_of) if o.result is Result.UNMATCHED]
+
+    _ledger(tmp_vault, {"src-1": active})
+    assert unmatched("2026-09-07") == [
+        "recompile-needed — ledger src-1 stale: observed 2026-02-01T00:00:00Z, refresh due 2026-03-01T00:00:00Z, as of 2026-09-07"
+    ]
+    assert unmatched("2026-02-15") == []
+    assert unmatched("2026-01-15") != []  # observed after as_of is stale too: the tool's predicate, verbatim
+    _ledger(tmp_vault, {"src-1": {**active, "refresh_due": None}})
+    assert unmatched("2026-02-15")[0].startswith("recompile-needed — ledger src-1 stale: observed 2026-02-01T00:00:00Z, refresh due None")
+    _ledger(tmp_vault, {"src-1": {**active, "review_status": "unreviewed", "refresh_due": None}})
+    assert unmatched("2026-09-07") == []  # what the wrapper writes is never judged stale
 
 
 def test_clock_today_takes_the_instant_or_reads_utc():
@@ -4395,10 +4430,19 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
         if recorded and text_sha and recorded != text_sha:
             outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED,
                                     f"recompile-needed — ledger {source_id} holds {recorded} for {locator}; the note records {text_sha}"))
-        due = record.get("refresh_due")
-        if record.get("review_status") == "active" and isinstance(due, str) and due[:10] < clock.today(as_of):
-            outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED,
-                                    f"recompile-needed — ledger {source_id} refresh due {due}"))
+        if record.get("review_status") == "active":
+            # The tool's own predicate (ledgers.py source_is_stale), so the two never disagree about "stale";
+            # its lint never calls it, so this is the only reporter (spec §7 at ac0cfd2).
+            due = record.get("refresh_due")
+            observed = record.get("retrieved_at") or record.get("ingested_at")
+            instant = clock.today(as_of)
+            stale = (
+                not isinstance(due, str) or not isinstance(observed, str)
+                or observed[:10] > instant or due[:10] < instant
+            )
+            if stale:
+                outcomes.append(Outcome(CHECK, RepoPath(os.fsencode(LEDGER_PATH)), Result.UNMATCHED,
+                                        f"recompile-needed — ledger {source_id} stale: observed {observed}, refresh due {due}, as of {instant}"))
     return outcomes
 
 
@@ -5405,6 +5449,7 @@ Capture runs the lifecycle linter first, then for each item reads the item, its 
 | `MATCHED KEY — matched — NOOP` | The projection is identical. Nothing was written. Report it as "already current", never as an error and never as a capture you performed. |
 | `UNMATCHED KEY — not-admitted — …` | The key is not in the library. |
 | `UNMATCHED KEY — no-fulltext — …` | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
+| `SKIPPED KEY — no-fulltext — no attachment to read (…)` | The item holds no file at all — a web page, a repository, a program. The note was written; the text checks do not apply, and nothing was filed. Getting text for such sources is a later lane's work, not a capture failure. |
 | `UNMATCHED KEY — re-keyed — old → new` | The citation key changed. Run `propagate` (§4). |
 | `UNMATCHED KEY — merged|trashed|deleted — …` | The item left the library. Nothing was written; the note is kept. |
 | `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record. |
@@ -5529,36 +5574,36 @@ ______________________________________________________________________
 
 Task numbers are this part's; `B n` names a Part B task. Part B's own self-review covers its sections again from its side.
 
-| Spec section                         | Requirement                                                                                                                                                                          | Task                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
-| §0                                   | Scope: scholarly documents; capture on demand; greenfield; derived text as gitignored cache; screening belongs to the review                                                         | 4, 10, 13                    |
-| §1 table                             | States and owners: captured, compiled, current, drifted, re-keyed, merged, trashed, deleted, database changed                                                                        | 12, 13, 14, B2               |
-| §1 invariants 1–6                    | identity once; server id in every tuple; no deletion; every transition visible; one linter code path with the pre-commit leg held; falsifiability                                    | 11, 12, 13, 20; B6           |
-| §1 "full-map read"                   | `?since=0` full maps, three reads                                                                                                                                                    | 9, 12                        |
-| §1.1                                 | retire then rename; 200 identifiers; ten skill files; frontmatter migration; glossary; `import`/`authority` collisions; captured set defined                                         | 1–8, 15, 19                  |
-| §2                                   | Path A authorize/write; `Zotero-Server-ID` recorded not echoed; key poll to 10 s; Path B dropped; tags verbatim; no pinning; URL-only cut; archive retired                           | 1, 9, 11, 17                 |
-| §3.1                                 | item key + server id identity; filename `literatures/<citation key>.md`; alias probe; rename by propagation                                                                          | 11, 14, B1 (T5)              |
-| §3.2                                 | snapshot fields; provenance tuple; `annotations` deferred; wholly machine-written note; vault-owned fields dispositioned; CSL file scope = captured set; `Extra` note                | 5, 11, 13, 18                |
-| §3.3 steps 1–7                       | reads; annotations route measured/unwired; fulltext usability; whole-library CSL read + fallback; body renders only what frontmatter cannot; NOOP; per-item restart; library re-read | 9, 10, 11, 13                |
-| §3.4                                 | linter at capture and verify; 412 stop; three reads; per-object classification; drift cause; reason order; outage at pre-commit never a classification                               | 12, 13                       |
-| §3.5, 3.5.1                          | detection only in the linter; propagation task set; the applied plan is the log (open point 12 closed); regenerate_key never called                                                  | 12, 14                       |
-| §3.6                                 | no absolute paths; `fulltext/` layer, gitignored, OKF-conformant, walked; not in `VAULT_DIRS`; named by attachment key; compile input = best attachment; hash machine-local          | 10, 11, 13                   |
-| §3.7                                 | local API only; translator formats 500; base URL configurable                                                                                                                        | 9, 16                        |
-| §3.8                                 | build verdict recorded; nothing to implement                                                                                                                                         | —                            |
-| §4.1–4.3                             | adoption at `ad67087`; tracers T1–T4; `wiki/` layout; `.raw/`, `.vault-meta/` gitignored and unwalked; `capture` unused; modes                                                       | 6, B1, B2                    |
-| §4.3.1                               | `wiki/index.md` exemption in `structure.py`                                                                                                                                          | 6                            |
-| §4.4                                 | captured-set lint (textual + structural); no second copy of text; `wiki/concepts/`; recompile-needed; the note embeds the compiled page (reversed 2026-09-07)                        | 6, 11, 13, 15                |
-| §4.5                                 | wrapper owns selection, locators, ledger records, invocation; no prompt                                                                                                              | B2                           |
-| §5                                   | doctor probes incl. write guard, 403, profile facts, plugins via `appDisabled`/`active`, path shim, translator-format warning; facts file gone; auto-export retired from setup       | 16, 19, B3                   |
-| §6 retire                            | auto-export; base constant; screening state; claim lines; managed region; doi/metadata; `archive-source`; synthesis under `wiki/`; frozen checks untouched; kept items               | 1–6                          |
-| §6 reason codes                      | five new; three plan-assigned (`stale-key`, `no-fulltext`, `recompile-needed`)                                                                                                       | 12, 13, 14, 15               |
-| §6 skills                            | import-source, setup-vault, synthesis-conventions rewritten                                                                                                                          | 19, B3                       |
-| §7                                   | offline fixtures from the sitting; no recorder; live legs; the missing trashed snapshot; `--as-of` replay                                                                            | 12, 15, 18, B5               |
-| §8 open points 04, 07, 08, 09, 12    | names; derived ack scope; retraction-ack site; ack clears marker; the applied plan is the log                                                                                        | Decisions 1, 3–7, 21; 14, 18 |
-| §8 open points 05, 06, 10, 11, 13–16 | recorded deferrals; nothing to build                                                                                                                                                 | —                            |
-| Decision 17 / §6.1                   | add-on declaration with ids; `active` + `appDisabled`                                                                                                                                | 16                           |
-| Decision 28                          | annotations deferred, specified not run                                                                                                                                              | 9 (`annotations()` unwired)  |
-| Decision 29                          | propagation in the same plan, rename-log site settled first                                                                                                                          | Decision 1, Task 14          |
+| Spec section                         | Requirement                                                                                                                                                                                                    | Task                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| §0                                   | Scope: scholarly documents; capture on demand; greenfield; derived text as gitignored cache; screening belongs to the review; URL-only classes deferred mechanically — no attachment is SKIPPED, not a finding | 4, 10, 13                    |
+| §1 table                             | States and owners: captured, compiled, current, drifted, re-keyed, merged, trashed, deleted, database changed                                                                                                  | 12, 13, 14, B2               |
+| §1 invariants 1–6                    | identity once; server id in every tuple; no deletion; every transition visible; one linter code path with the pre-commit leg held; falsifiability                                                              | 11, 12, 13, 20; B6           |
+| §1 "full-map read"                   | `?since=0` full maps, three reads                                                                                                                                                                              | 9, 12                        |
+| §1.1                                 | retire then rename; 200 identifiers; ten skill files; frontmatter migration; glossary; `import`/`authority` collisions; captured set defined                                                                   | 1–8, 15, 19                  |
+| §2                                   | Path A authorize/write; `Zotero-Server-ID` recorded not echoed; key poll to 10 s; Path B dropped; tags verbatim; no pinning; URL-only cut; archive retired                                                     | 1, 9, 11, 17                 |
+| §3.1                                 | item key + server id identity; filename `literatures/<citation key>.md`; alias probe; rename by propagation                                                                                                    | 11, 14, B1 (T5)              |
+| §3.2                                 | snapshot fields; provenance tuple; `annotations` deferred; wholly machine-written note; vault-owned fields dispositioned; CSL file scope = captured set; `Extra` note                                          | 5, 11, 13, 18                |
+| §3.3 steps 1–7                       | reads; annotations route measured/unwired; fulltext usability; whole-library CSL read + fallback; body renders only what frontmatter cannot; NOOP; per-item restart; library re-read                           | 9, 10, 11, 13                |
+| §3.4                                 | linter at capture and verify; 412 stop; three reads; per-object classification; drift cause; reason order; outage at pre-commit never a classification                                                         | 12, 13                       |
+| §3.5, 3.5.1                          | detection only in the linter; propagation task set; the applied plan is the log (open point 12 closed); regenerate_key never called                                                                            | 12, 14                       |
+| §3.6                                 | no absolute paths; `fulltext/` layer, gitignored, OKF-conformant, walked; not in `VAULT_DIRS`; named by attachment key; compile input = best attachment; hash machine-local                                    | 10, 11, 13                   |
+| §3.7                                 | local API only; translator formats 500; base URL configurable                                                                                                                                                  | 9, 16                        |
+| §3.8                                 | build verdict recorded; nothing to implement                                                                                                                                                                   | —                            |
+| §4.1–4.3                             | adoption at `ad67087`; tracers T1–T4; `wiki/` layout; `.raw/`, `.vault-meta/` gitignored and unwalked; `capture` unused; modes                                                                                 | 6, B1, B2                    |
+| §4.3.1                               | `wiki/index.md` exemption in `structure.py`                                                                                                                                                                    | 6                            |
+| §4.4                                 | captured-set lint (textual + structural); no second copy of text; `wiki/concepts/`; recompile-needed; the note embeds the compiled page (reversed 2026-09-07)                                                  | 6, 11, 13, 15                |
+| §4.5                                 | wrapper owns selection, locators, ledger records, invocation; no prompt                                                                                                                                        | B2                           |
+| §5                                   | doctor probes incl. write guard, 403, profile facts, plugins via `appDisabled`/`active`, path shim, translator-format warning; facts file gone; auto-export retired from setup                                 | 16, 19, B3                   |
+| §6 retire                            | auto-export; base constant; screening state; claim lines; managed region; doi/metadata; `archive-source`; synthesis under `wiki/`; frozen checks untouched; kept items                                         | 1–6                          |
+| §6 reason codes                      | five new; three plan-assigned (`stale-key`, `no-fulltext`, `recompile-needed`)                                                                                                                                 | 12, 13, 14, 15               |
+| §6 skills                            | import-source, setup-vault, synthesis-conventions rewritten                                                                                                                                                    | 19, B3                       |
+| §7                                   | offline fixtures from the sitting; no recorder; live legs; the missing trashed snapshot; `--as-of` replay                                                                                                      | 12, 15, 18, B5               |
+| §8 open points 04, 07, 08, 09, 12    | names; derived ack scope; retraction-ack site; ack clears marker; the applied plan is the log                                                                                                                  | Decisions 1, 3–7, 21; 14, 18 |
+| §8 open points 05, 06, 10, 11, 13–16 | recorded deferrals; nothing to build                                                                                                                                                                           | —                            |
+| Decision 17 / §6.1                   | add-on declaration with ids; `active` + `appDisabled`                                                                                                                                                          | 16                           |
+| Decision 28                          | annotations deferred, specified not run                                                                                                                                                                        | 9 (`annotations()` unwired)  |
+| Decision 29                          | propagation in the same plan, rename-log site settled first                                                                                                                                                    | Decision 1, Task 14          |
 
 ### Placeholder scan
 
