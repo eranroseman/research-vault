@@ -63,7 +63,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 01. **Rename log site (open point 12, decision 29 — settled first).** `system/renames.md`, append-only, machine-written, frontmatter `type: "rename-log"`, one line per rename in the review queue's own field grammar: `- [date:: 2026-09-07] [item:: E352DFS8] [from:: jakesch.etal2023] [to:: jakesch.etal2023a] [actor:: research_vault/0.1.0]`. Why a system file: a frontmatter field would give propagation a write into a record capture alone owns (§3.2); the review queue holds findings and acknowledgments, and a mapping is neither; `system/` already holds the one other machine-projected artifact (`bibliography.json`). It joins `lints._is_append_only_path`, the pre-tool-use guard's machine surfaces, and the three formatter-ignore templates.
 02. **The review queue is not rewritten on a re-key.** §3.5 lists "review-queue and acknowledgment targets" among propagation's surfaces, but `inbox/review-queue.md` is append-only (`lint_append_only`) and ADR 0003 forbids rewriting records. A re-key re-renders the note, so the note's content hash changes and every acknowledgment scoped to it lapses by scope mismatch — the behaviour `CONTEXT.md` already defines for an acknowledgment. The rename log is what lets a reader follow an old target forward. Findings written after the rename carry the new key.
 03. **Verbs** (open point 04, terminology §4.3): `capture` (replaces `import-note`), `add` (Path A create, then capture), `propagate` (the re-key pass), `compile` (the wrapper; `compile` prints the tool's approval hash, `compile --bundle <path> --approved-plan-sha256 <sha>` applies, mirroring `transaction apply`). Retired verbs: `import-note`, `archive-source`, `staleness`, `backfill-selectors`.
-04. **Check ids** (§4.4 coinages): `capture` (capture's own holds), `lifecycle` (the linter; non-closing on every surface — capture aborts on `database-changed`, nothing else blocks), `propagation` (the residue check; closing on `commit` and `publish`), `captured-set` (§4.4's seam lint; closing on `commit` and `publish`), `compile` (the wrapper's outcome). `citekey` becomes `citation-key`. Retired: `doi`, `metadata`, `web-archive`, `screening-state`, `autoexport`.
+04. **Check ids** (§4.4 coinages): `capture` (capture's own holds), `lifecycle` (the linter; non-closing on every surface — capture aborts on `database-changed`, nothing else blocks; a genuine `UNREACHABLE` from it still returns exit 3 like every other outage, because `verify.surface_decision` waits on any genuine `UNREACHABLE` whatever the closing sets say), `propagation` (the residue check; closing on `commit` and `publish`), `captured-set` (§4.4's seam lint; closing on `commit` and `publish`), `compile` (the wrapper's outcome). `citekey` becomes `citation-key`. Retired: `doi`, `metadata`, `web-archive`, `screening-state`, `autoexport`.
 05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key the rename log maps away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
 06. **Doctor probe ids**: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`. Retired: `autoexport`, `staleness`.
 07. **The CSL file keeps its path**, `system/bibliography.json`; the glossary retires *Bibliography export* as a concept (the whole admitted library), not the file. `bibliography.py` keeps `BIB_PATH`, `BibliographyError`, `load` and gains `write`.
@@ -85,6 +85,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 23. **Invariant 5 / decomposition §15.20** (no branch protection, no dev pre-commit hook): reported in Task 20's final message to the author, unchanged by this plan.
 24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Part B Task 2) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Part B Task 1) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
 25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
+26. **A vault with no captured notes does not wait on Zotero at verify or publish time** (raised by Task 2's review, 2026-09-07). `verify._staleness_outcome`, retired with the auto-export contract, ran on every network pass and turned a Zotero outage into exit 3 even for a vault with an empty bibliography and no cited claim; `tests/test_publish.py::test_mark_published_waits_when_the_gate_is_unreachable` pinned that and Task 2 deletes it. The behaviour is not carried forward, on purpose: the lifecycle linter is the one Zotero-facing check at verify (invariant 5), it classifies captured notes, and with none there is nothing whose evidence depends on Zotero — blocking publish on an unrelated service being down was a side effect of the retired contract, and no invariant in §1 names it. Kept: with one or more captured notes a genuine `UNREACHABLE` from `lifecycle` still returns exit 3 (decision 04), and with none `lint_lifecycle` returns one `SKIPPED` outcome, `no-identifier — no note carries a provenance tuple`, so the report shows a check that ran with nothing to check rather than a silent absence (ADR 0002). Zotero liveness on its own is doctor's `zotero` probe. Recorded here so the whole-branch review reads it as settled, not open.
 
 ______________________________________________________________________
 
@@ -2720,7 +2721,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `notes.read_provenance`, `notes.Provenance`, `ZoteroClient.versions/trash_versions/top_items/children`, `fulltext.path_for/sha256_of`, `zotero.DatabaseChangedError`.
 
-- Produces: the Interface index `research_vault/lifecycle.py` block. `classify` returns one of `("current", "")`, `("drifted", "<detail>")`, `("re-keyed", "old → new")`, `("merged", "<successor key>")`, `("trashed", "<key>")`, `("deleted", "<key>")`. `lint_lifecycle` files one `Outcome("lifecycle", <citation key>, UNMATCHED, "<code> — <detail>")` per non-current note in the order `merged, deleted, trashed, re-keyed, drift`, a `MATCHED "matched"` per current note, and on a 412 exactly one `Outcome("lifecycle", "vault", UNMATCHED, "database-changed — ...")` and nothing else; on any other `ZoteroError` one `Outcome("lifecycle", "vault", UNREACHABLE, "outage — ...")`.
+- Produces: the Interface index `research_vault/lifecycle.py` block. `classify` returns one of `("current", "")`, `("drifted", "<detail>")`, `("re-keyed", "old → new")`, `("merged", "<successor key>")`, `("trashed", "<key>")`, `("deleted", "<key>")`. `lint_lifecycle` files one `Outcome("lifecycle", <citation key>, UNMATCHED, "<code> — <detail>")` per non-current note in the order `merged, deleted, trashed, re-keyed, drift`, a `MATCHED "matched"` per current note, and on a 412 exactly one `Outcome("lifecycle", "vault", UNMATCHED, "database-changed — ...")` and nothing else; on any other `ZoteroError` one `Outcome("lifecycle", "vault", UNREACHABLE, "outage — ...")`. With no provenance-bearing note, `lint_lifecycle` returns one `SKIPPED` outcome and never touches the client (decision 26).
 
 - [ ] **Step 1: Build the fixtures and write the failing tests**
 
@@ -2890,6 +2891,15 @@ def test_verify_offline_reports_the_held_leg_as_synthetic_unreachable(fixture_va
     assert lifecycle_rows[0].result is Result.UNREACHABLE
     assert lifecycle_rows[0].extra.get("synthetic_offline") is True
     assert not [o for o in effective if o.check == "lifecycle"]
+
+
+def test_lint_lifecycle_with_no_captured_notes_is_skipped_and_asks_nothing(tmp_vault, monkeypatch):
+    fake = FakeZotero()
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert outcome.result is Result.SKIPPED
+    assert outcome.reason == "no-identifier — no note carries a provenance tuple"
+    assert fake.calls == []  # decision 26: an empty vault does not wait on Zotero
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -3033,7 +3043,8 @@ def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[O
     vault = Path(vault_root)
     pairs = provenances if provenances is not None else _provenances(vault)
     if not pairs:
-        return []
+        # Decision 26: nothing depends on Zotero yet, so the check does not apply; say so rather than vanish.
+        return [Outcome(CHECK, "vault", Result.SKIPPED, "no-identifier — no note carries a provenance tuple")]
     recorded_ids = {p.server_id for _, p in pairs}
     client.server_id = sorted(recorded_ids)[0]
     try:
