@@ -344,3 +344,61 @@ def test_cli_capture_exit_codes_and_holds(tmp_vault, monkeypatch, capsys):
     queue = (tmp_vault / "inbox" / "review-queue.md").read_text()
     assert "[check:: capture]" in queue
     assert "not-admitted" in queue
+
+
+def test_a_database_change_during_the_csl_read_aborts_the_run_not_the_route(
+    tmp_vault, monkeypatch
+):
+    """A 412 on the version read that brackets the library route must abort as
+    database-changed: the item.export fallback is JSON-RPC, which carries no
+    server id, so falling through would write the CSL file from whichever
+    database now answers and call it a matched fallback."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    original = fake._http
+    answers = iter([200, 412])  # the run's own read answers; the CSL bracket is refused
+
+    def changing(url, data=None, headers=None, method=None):
+        if url.endswith("/items/top?format=versions") and next(answers, 412) == 412:
+            return zotero.Response(412, b"does not match this server", {})
+        return original(url, data, headers, method)
+
+    monkeypatch.setattr(client, "_http", changing)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result) for o in outcomes] == [
+        ("jakesch.etal2023a", Result.MATCHED),
+        ("vault", Result.UNMATCHED),
+    ]
+    assert outcomes[-1].reason.startswith("database-changed")
+    assert not (tmp_vault / "system" / "bibliography.json").exists()
+    assert not [c for c in fake.calls if c[0] == "RPC"]  # never item.export
+
+
+def test_a_key_filled_during_the_wait_is_captured_at_its_post_fill_version(
+    tmp_vault, monkeypatch
+):
+    """Better BibTeX's fill is a save that moves the item (sitting 2026-09-07:
+    II7E6CVR 1710 on create, 1711 once keyed). The pass that saw the item
+    unkeyed is re-read whole, so the tuple records the post-fill version and
+    the next lifecycle lint does not report drift on an item add just made."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    real_item = client.item
+    keyed = ("jakesch.etal2023a", 545)
+    states = iter([(None, 544), (None, 544), keyed])  # first pass unkeyed, then filled
+
+    def filling_item(key):
+        envelope = json.loads(json.dumps(real_item(key)))
+        citation_key, version = next(states, keyed)
+        envelope["data"]["citationKey"] = citation_key
+        envelope["version"] = envelope["data"]["version"] = version
+        return envelope
+
+    monkeypatch.setattr(client, "item", filling_item)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], key_wait_seconds=0)
+    assert outcomes[0].reason == "matched"
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["citationKey"] == "jakesch.etal2023a"
+    assert data["zotero-item-version"] == 545
