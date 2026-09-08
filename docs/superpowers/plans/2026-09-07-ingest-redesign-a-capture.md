@@ -24,7 +24,32 @@
 - **Deprecate, never delete, for vault records** (ADR 0003): no transition deletes a literature note. Repository artifacts (plans, docs, code) are outside that rule; deleting them is hygiene.
 - **No `Disposition:` line** on new Markdown: the marker system was deleted on 2026-09-07 (`7ec2c95`, `8e2721b`).
 - **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`.
-- **Deleting a module** deletes its `research_vault/<module>.py.manifest.json` sidecar (mutate4py sidecars; nothing enforces them) and prunes its rows from `mutation-baseline.txt` (`grep -v '^research_vault/<module>.py::'`). **Deleting a function** inside a surviving module prunes that function's rows the same way (`grep -v '::func/<name>::'`), in the same commit. The gate computes `found - baseline` (`scripts/mutation_gate.py::new_survivors`), so a stale row for a function that no longer exists never fails a run; pruning is hygiene, not a blocker, and it keeps the file honest until the next `--update-baseline`. New modules need no sidecar; the gate writes one on its first run.
+- **Deleting a module or a function prunes its `mutation-baseline.txt` rows** in the same commit, by mechanism, not by a hand-written `grep -v`: run the baseline prune below before committing and put `mutation-baseline.txt` on the pathspec. It drops every row whose module file or function definition no longer exists (a method row `func/Class.method` matches on the method name) and prints each row it drops; a deleted module's `research_vault/<module>.py.manifest.json` sidecar (mutate4py's, unenforced) is deleted by hand. The gate computes `found - baseline` (`scripts/mutation_gate.py::new_survivors`), so a stale row never fails a run; the prune keeps the file honest until the next `--update-baseline`. Measured 2026-09-07: the tree already carries one stale row, `research_vault/scaffold.py::func/_okf_probe`, which the first task to run the prune removes (say so in that commit). New modules need no sidecar; the gate writes one on its first run.
+
+```bash
+.venv/bin/python - <<'PY'
+import ast, pathlib, re
+baseline = pathlib.Path("mutation-baseline.txt")
+rows = baseline.read_text(encoding="utf-8").splitlines()
+defs, keep = {}, []
+for row in rows:
+    match = re.match(r"^(research_vault/[^:]+\.py)::func/([^:]+)::", row)
+    if match is None:
+        keep.append(row)
+        continue
+    module, func = match.groups()
+    path = pathlib.Path(module)
+    if module not in defs:
+        tree = ast.parse(path.read_text(encoding="utf-8")) if path.is_file() else None
+        defs[module] = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))} if tree else set()
+    if func.rsplit(".", 1)[-1] in defs[module]:
+        keep.append(row)
+    else:
+        print("pruned", module, func)
+baseline.write_text("\n".join(keep) + "\n", encoding="utf-8")
+PY
+```
+
 - **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
 - **Outward-facing actions need explicit go-ahead in that turn**: Part B's upstream Zotero issue (its Task 6) is not run on plan approval alone; nothing in this part is outward-facing.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
@@ -270,7 +295,7 @@ Expected: FAIL — `main` dispatches `archive-source` and returns normally (no `
 
 ```bash
 git rm -q research_vault/archive.py research_vault/archive.py.manifest.json tests/test_archive.py
-grep -v '^research_vault/archive.py::\|::func/_archive_outcomes::\|::func/lint_web_archive::' mutation-baseline.txt > /tmp/baseline && mv /tmp/baseline mutation-baseline.txt
+# prune the baseline rows of archive.py and of every function this task deleted: run the baseline prune from Global Constraints
 ```
 
 In `research_vault/__main__.py`: remove `archive,` from the `from . import (...)` block; delete `cmd_archive_source`; delete the four `archive_source_cmd` parser lines; delete `"archive-source": cmd_archive_source,` from the dispatch dict.
@@ -462,7 +487,7 @@ def write(vault_root, items: list[dict]) -> Path:
     return target
 ```
 
-Delete everything else in the module (all `_Export*`, lock, git and observation code, `AutoexportObservation`, `staleness`, `commit_autoexport`, `observe_autoexport`). Prune: `grep -v '^research_vault/bibliography.py::' mutation-baseline.txt > /tmp/b && mv /tmp/b mutation-baseline.txt`.
+Delete everything else in the module (all `_Export*`, lock, git and observation code, `AutoexportObservation`, `staleness`, `commit_autoexport`, `observe_autoexport`). Prune the baseline rows of everything deleted here with the baseline prune from Global Constraints.
 
 `research_vault/__main__.py`: delete `cmd_staleness`, its parser lines and dispatch entry; set
 
@@ -960,7 +985,7 @@ Replace every `_managed_bytes(` call with `_body_bytes(`; the four reasons becom
 - [ ] **Step 4: Rewrite the fixtures, delete the retired tests, run everything**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests hooks && ruff check research_vault tests hooks && mypy research_vault`
-Expected: PASS, clean. Prune `mutation-baseline.txt` rows whose function no longer exists (`grep -v 'cmd_import_note\|cmd_backfill_selectors\|_retain_prior_contexts\|_attachment_hash\|render_claim\|render_note\|managed_slice' mutation-baseline.txt`).
+Expected: PASS, clean. Prune `mutation-baseline.txt` rows whose function no longer exists with the baseline prune from Global Constraints (a name-list `grep -v` would also drop rows of the new `render_note` Task 11 adds; the prune matches definitions, not substrings).
 
 - [ ] **Step 5: Commit**
 
