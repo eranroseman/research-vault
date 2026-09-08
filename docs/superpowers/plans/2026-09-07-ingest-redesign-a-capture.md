@@ -61,11 +61,11 @@ ______________________________________________________________________
 
 Each is a plan-level cell the spec left open, or a measurement made on 2026-09-07 while writing this plan that corrects or completes §9. Rename mechanically at plan review if the author prefers another spelling; nothing else changes.
 
-01. **Rename log site (open point 12, decision 29 — settled first).** `system/renames.md`, append-only, machine-written, frontmatter `type: "rename-log"`, one line per rename in the review queue's own field grammar: `- [date:: 2026-09-07] [item:: E352DFS8] [from:: jakesch.etal2023] [to:: jakesch.etal2023a] [actor:: research_vault/0.1.0]`. Why a system file: a frontmatter field would give propagation a write into a record capture alone owns (§3.2); the review queue holds findings and acknowledgments, and a mapping is neither; `system/` already holds the one other machine-projected artifact (`bibliography.json`). It joins `lints._is_append_only_path`, the pre-tool-use guard's machine surfaces, and the three formatter-ignore templates.
-02. **The review queue is not rewritten on a re-key.** §3.5 lists "review-queue and acknowledgment targets" among propagation's surfaces, but `inbox/review-queue.md` is append-only (`lint_append_only`) and ADR 0003 forbids rewriting records. A re-key re-renders the note, so the note's content hash changes and every acknowledgment scoped to it lapses by scope mismatch — the behaviour `CONTEXT.md` already defines for an acknowledgment. The rename log is what lets a reader follow an old target forward. Findings written after the rename carry the new key.
+01. **Propagation is plan-and-apply, and the applied plan is the log** (open point 12, closed by spec `692b134` on 2026-09-07; this supersedes the `system/renames.md` rename log this plan first settled on). `propagate` computes a plan — the old→new mapping, the item key behind each old key, the note rename, and every surface it will rewrite with that surface's sha256 as it stands — writes it to `.research-vault/propagate/<operation id>.json`, prints it with the plan's sha256, and applies nothing. `propagate --plan FILE --approved-plan-sha256 SHA` recomputes the plan from the vault as it is *now* and applies only when the recomputed hash equals the approved one; a draft edited in between, or a new surface that started naming the old key, changes the hash and the apply refuses with `UNMATCHED mismatch — plan changed` (exit 1) — the compile wrapper's `PLAN_CHANGED` shape, and the spec's "sanctioning a computation and comparing what ran against it". The applied plan, with `applied_at` and the approved hash, is written to `system/propagations/<operation id>.json`, committed and never rewritten: it carries the mapping, the surfaces and one hash, so it is the record a reader follows an old key forward through and the residue lint's input; a separate rename log would be a copy of it. `system/propagations/` joins `lints._is_append_only_path` (a write-once file is an append-only file that never grows), the pre-tool-use guard's machine surfaces, and the three formatter-ignore templates. Capture takes no such gate: deterministic, idempotent by render-compare, machine-owned trees only.
+02. **The review queue is not rewritten on a re-key.** §3.5 lists "review-queue and acknowledgment targets" among propagation's surfaces, but `inbox/review-queue.md` is append-only (`lint_append_only`) and ADR 0003 forbids rewriting records. A re-key re-renders the note, so the note's content hash changes and every acknowledgment scoped to it lapses by scope mismatch — the behaviour `CONTEXT.md` already defines for an acknowledgment. The applied propagation plan under `system/propagations/` is what lets a reader follow an old target forward. Findings written after the rename carry the new key.
 03. **Verbs** (open point 04, terminology §4.3): `capture` (replaces `import-note`), `add` (Path A create, then capture), `propagate` (the re-key pass), `compile` (the wrapper; `compile` prints the tool's approval hash, `compile --bundle <path> --approved-plan-sha256 <sha>` applies, mirroring `transaction apply`). Retired verbs: `import-note`, `archive-source`, `staleness`, `backfill-selectors`.
 04. **Check ids** (§4.4 coinages): `capture` (capture's own holds), `lifecycle` (the linter; non-closing on every surface — capture aborts on `database-changed`, nothing else blocks; a genuine `UNREACHABLE` from it still returns exit 3 like every other outage, because `verify.surface_decision` waits on any genuine `UNREACHABLE` whatever the closing sets say), `propagation` (the residue check; closing on `commit` and `publish`), `captured-set` (§4.4's seam lint; closing on `commit` and `publish`), `compile` (the wrapper's outcome). `citekey` becomes `citation-key`. Retired: `doi`, `metadata`, `web-archive`, `screening-state`, `autoexport`.
-05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key the rename log maps away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
+05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key an applied propagation plan mapped away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
 06. **Doctor probe ids**: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`. Retired: `autoexport`, `staleness`.
 07. **The CSL file keeps its path**, `system/bibliography.json`; the glossary retires *Bibliography export* as a concept (the whole admitted library), not the file. `bibliography.py` keeps `BIB_PATH`, `BibliographyError`, `load` and gains `write`.
 08. **The captured set** (§1.1, §4.4): the citation keys read from the `citationKey` field of every parseable note under `literatures/*.md` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation and the linter reports it; a hand-deleted note leaves the set at once, which is when the captured-set lint should fire.
@@ -81,7 +81,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 18. **`wiki/` joins the pre-tool-use guard's machine surfaces.** The tool's engine is the only writer under `wiki/` (its skills forbid host `Write`/`Edit` there: "Do not use host Write/Edit"), so an agent `Write` into `wiki/` is exactly the bypass the guard exists to refuse. Tracer T1 (Part B Task 1) confirms the tool's own session still completes with the guard active.
 19. **`fulltext/` is walked by verify's worktree snapshot** (`gitstate.snapshot_worktree` walks the live tree, `.git` excluded), so `okf-frontmatter` attests it as §3.6 intends; the index snapshot used at pre-commit (`git ls-files --stage`) never sees it, so the held leg costs nothing. `stamp.stamp_types` and `structure.check_reserved` skip `fulltext/`, `.raw/` and `.vault-meta/` (a 1,335-file parse per commit buys nothing: the layer carries its type by construction).
 20. **`selectors.py` stays** (unused after `backfill-selectors` retires): it is the Web-Annotation context machinery open point 10 defers with annotations, and lane 5 is its consumer. `backfill-selectors` goes because its only input (claim lines in the managed region) retires.
-21. **Open point 07**: the acknowledgment scope hash is the sha256 of the note bytes with the verifier-owned `verified` list removed (`verify._note_bytes`), truncated to 16 hex characters — what `_citekey_hash` already computes when no `fixity-sha256` is present. The `fixity-sha256` branch is deleted. **Open point 08**: `skills/evidence-conventions/SKILL.md` is the single definition site of `[retraction-ack:: <code>]`; `publish.py` carries the one module constant `RETRACTION_ACK_FIELD = "retraction-ack"` any future parser keys on (measured 2026-09-07: nothing in the package reads the field; `grep -rn retraction-ack research_vault` is empty), and a test asserts the skill's fenced example uses that spelling. **Open point 09**: `ack` clears the target's `[failed-verification:: <check>/<date>]` marker.
+21. **Open point 07** (closed by spec `692b134`, 2026-09-07): an acknowledgment's scope is *derived*, not passed — `inbox.scope_id(check, target, target_hash)` is `sha256(check \0 target \0 target_hash)`, and for a note-targeted finding `target_hash` is the note's `managed-sha256`, the body hash Task 11 writes (`verify._citation_key_hash` reads it from the frontmatter and falls back to the `_note_bytes` digest only for a note capture has not written). The `fixity-sha256` branch is deleted. A changed target yields a different scope id, the ack stops matching and the finding re-fires — `CONTEXT.md`'s rule with no comparison logic to get wrong. Stated so nobody rediscovers it: `managed-sha256` hashes the body, so an ack on a note-targeted finding survives a frontmatter-only change (an item version moving) and lapses when the body moves. The same shape covers a doctor row (`target` a probe id, the hash what the probe observed) should doctor ever file one; nothing in this plan does. **Open point 08**: `skills/evidence-conventions/SKILL.md` is the single definition site of `[retraction-ack:: <code>]`; `publish.py` carries the one module constant `RETRACTION_ACK_FIELD = "retraction-ack"` any future parser keys on (measured 2026-09-07: nothing in the package reads the field; `grep -rn retraction-ack research_vault` is empty), and a test asserts the skill's fenced example uses that spelling. **Open point 09**: `ack` clears the target's `[failed-verification:: <check>/<date>]` marker.
 22. **Tracer results land in Part B** under "Tracer results" (Part B Task 1) and as one dated sentence in the spec's §4.3 tracer paragraph.
 23. **Invariant 5 / decomposition §15.20** (no branch protection, no dev pre-commit hook): reported in Task 20's final message to the author, unchanged by this plan.
 24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Part B Task 2) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Part B Task 1) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
@@ -100,7 +100,7 @@ Create:
 - `research_vault/fulltext.py` — the `fulltext/<attachment key>.md` layer: usability verdict, render, write, hash.
 - `research_vault/capture.py` — the capture verb: key resolution, version-checked read pass, note render, text layer, CSL regeneration, NOOP detection.
 - `research_vault/lifecycle.py` — the lifecycle linter: three reads, per-object classification, ordered reason codes.
-- `research_vault/propagate.py` — the rename log, surface rewrite, residue lint.
+- `research_vault/propagate.py` — the propagation plan, its hash-gated apply, the surface rewrite, the applied-plan records, the residue lint.
 - `research_vault/captured.py` — the captured set and the captured-set lint (textual + structural + recompile-needed).
 - (Part B) `research_vault/compile.py` — the compile wrapper: selection, `stable_source_id`, ledger records, bundle, tool invocation.
 - `research_vault/addons.py` — the add-on declaration parser doctor reads.
@@ -210,12 +210,16 @@ def lint_lifecycle(vault_root, client, provenances=None) -> list[Outcome]   # pr
 def _provenances(vault: Path) -> list[tuple[Path, Provenance]]   # private, consumed by Tasks 13 and 17; the shape lint_lifecycle takes
 
 # research_vault/propagate.py                                 (Task 14)
-RENAME_LOG = "system/renames.md"; CHECK = "propagation"
-class Rename(NamedTuple): date: str; item_key: str; old: str; new: str
-def append_rename(vault_root, rename: Rename, actor=AGENT_ACTOR) -> None
-def read_renames(vault_root) -> list[Rename]
+PLAN_DIR = ".research-vault/propagate"; RECORD_DIR = "system/propagations"; CHECK = "propagation"
+class Surface(NamedTuple): path: str; sha256: str          # a file the plan rewrites, hashed as it stood at planning
+class Plan(NamedTuple): operation_id: str; date: str; mapping: dict[str, str]; item_keys: dict[str, str]; surfaces: tuple[Surface, ...]
+def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tuple[Plan | None, list[Outcome]]   # None + outcomes when nothing can be planned
+def plan_sha256(plan: Plan) -> str                        # sha256 of the canonical JSON (sorted keys, no applied_at)
+def write_plan(vault_root, plan: Plan) -> Path           # PLAN_DIR/<operation id>.json
+def read_plan(path) -> Plan
+def apply(vault_root, client, plan_path, approved_sha256: str, *, now=None) -> list[Outcome]   # recompute, compare, rewrite, rename, recapture, record
 def rewrite_surfaces(vault_root, old, new) -> list[str]  # relative paths rewritten
-def propagate(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> list[Outcome]
+def read_records(vault_root) -> list[Plan]               # applied plans under RECORD_DIR, oldest first
 def lint_propagation(vault_root) -> list[Outcome]
 
 # research_vault/captured.py                                  (Task 15)
@@ -1173,7 +1177,7 @@ okf_version: "0.2"
 - [projects/](projects/) — manuscripts and deliverables
 - [log/](log/) — daily activity log (summary: [[log]])
 - [inbox/](inbox/) — fleeting notes and the review queue
-- [system/](system/) — support artifacts: templates, bases, the CSL file, the rename log
+- [system/](system/) — support artifacts: templates, bases, the CSL file, the applied propagation plans
 
 Literature notes, for trust-tier review:
 
@@ -1353,7 +1357,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Interfaces:**
 
-- Produces: the vocabulary every later task, skill and finding message uses. The eight concepts of §1.1 plus the captured set, the record home, the three layers, the rename log and the acknowledgment scope.
+- Produces: the vocabulary every later task, skill and finding message uses. The eight concepts of §1.1 plus the captured set, the record home, the three layers, the propagation plan and the acknowledgment scope.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1366,7 +1370,7 @@ def test_glossary_carries_the_ingest_vocabulary_and_no_retired_terms():
         "**Ingest**", "**Selection**", "**Add**", "**Capture**", "**Compile**",
         "**Drift**", "**Refresh**", "**Item key**", "**Citation key**",
         "**Captured set**", "**Provenance tuple**", "**Text layer**",
-        "**Compiled layer**", "**Rename log**",
+        "**Compiled layer**", "**Propagation plan**",
     ):
         assert term in text, term
     for retired in ("**Admission**", "**Managed region**", "**Screening state**",
@@ -1414,9 +1418,9 @@ _Avoid_: synthesis layer, synthesis note (the layer moved under `wiki/` and took
 
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
 
-**System folder**: The vault's support artifacts (`system/`): templates, bases, the CSL file (`system/bibliography.json`) and the rename log (`system/renames.md`).
+**System folder**: The vault's support artifacts (`system/`): templates, bases, the CSL file (`system/bibliography.json`) and the applied propagation plans (`system/propagations/`).
 
-**Rename log**: The append-only record of every citation-key change, `system/renames.md`, one line per rename with the item key, the old key and the new key. Propagation appends to it; its residue check reads it; a reader follows an old key forward through it.
+**Propagation plan**: The computed description of one re-key pass — the old→new mapping, the item key behind it, the note rename, every surface to rewrite with its hash as it stands — printed for a person to approve and applied only against its own sha256. The applied plan, kept under `system/propagations/` and never rewritten, is the record a reader follows an old key forward through and the residue check reads. There is no separate rename log.
 
 ### Ingest
 
@@ -1482,7 +1486,7 @@ _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex'
 
 **Review queue**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to.
 
-**Acknowledgment**: A human's standing acceptance of a finding, scoped to the target's content hash — the sha256 of the note with its `verified` list removed, truncated to sixteen hex characters. If the target changes, the finding re-fires. An ack lets a check stand down; it never erases the finding.
+**Acknowledgment**: A human's standing acceptance of a finding, identified by the derived scope `sha256(check \0 target \0 target content hash)`; for a note-targeted finding the content hash is the note's `managed-sha256`. If the target's body changes, the scope no longer matches and the finding re-fires. An ack lets a check stand down; it never erases the finding.
 
 **Publish gate**: The fail-closed verification boundary every publication crosses.
 
