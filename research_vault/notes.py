@@ -15,6 +15,17 @@ class InvalidCitationKeyError(ValueError):
     """A citation key that cannot safely name one file in ``literatures``."""
 
 
+class LedgerUnreadableError(Exception):
+    """The compile tool's ledger exists but could not be read or parsed.
+
+    An outage, never an empty: a missing ledger is the true empty before the
+    first compile, and the two must not share a value (ADR 0002). Deliberately
+    not a ``ValueError`` or ``OSError``, so a caller's broad ``except`` around
+    the read cannot fold it back into ``[]``; ``notes`` stays transport-free,
+    so this is not a ``ZoteroError`` either. The caller decides the hold.
+    """
+
+
 _UNSAFE_IDENTIFIER = re.compile(r"[\s\x00-\x1f\x7f]")
 # Duplicated from ``zotero.ITEM_KEY`` rather than imported, so ``notes`` stays
 # transport-free.
@@ -335,18 +346,22 @@ def _attachment_line(child) -> str:
 def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     """The ledger's pages[] for this note's text files, matched by locator (§3.3 step 5).
 
-    Empty before the first compile. An unreadable ledger renders no embed here;
-    reporting it is the captured-set lint's job, not capture's. Only records the
-    wrapper wrote match (their locator is fulltext/<key>.md, spec §4.5); a record
-    from any other route embeds nothing and the same lint reports it not-captured.
+    Empty before the first compile: a missing ledger is a true empty. An
+    unreadable one raises ``LedgerUnreadableError`` rather than reading as
+    empty, because capture writes the note from this value — a transient read
+    failure would otherwise strip ``## Compiled``, bump ``generated``, and break
+    decision 27's third-run NOOP, silently, since the next readable run re-adds
+    it. Only records the wrapper wrote match (their locator is
+    fulltext/<key>.md, spec §4.5); a record from any other route embeds nothing
+    and the captured-set lint reports it not-captured.
     """
     ledger = Path(vault_root) / LEDGER_PATH
     if not ledger.is_file():
         return []
     try:
         sources = json.loads(ledger.read_text(encoding="utf-8")).get("sources", {})
-    except (OSError, UnicodeError, ValueError, AttributeError):
-        return []
+    except (OSError, UnicodeError, ValueError, AttributeError) as exc:
+        raise LedgerUnreadableError(f"unreadable ledger {LEDGER_PATH}: {exc}") from exc
     locators = {
         f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext
     }

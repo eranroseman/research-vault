@@ -480,8 +480,35 @@ def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
         "wiki/sources/A.md",
         "wiki/sources/B.md",
     ]
-    ledger.write_text("not json")
+
+
+def test_compiled_pages_missing_ledger_is_a_true_empty(tmp_path):
+    assert not (tmp_path / notes.LEDGER_PATH).exists()
     assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [b"not json", b"\xff\xfe", b"[]"],
+    ids=["not-json", "not-utf8", "json-but-not-an-object"],
+)
+def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
+    tmp_path, payload
+):
+    """Four-state: a missing ledger and an unreadable one must not share a value.
+
+    Capture writes the note from this value, so an unreadable ledger reading as
+    `[]` would strip `## Compiled`, bump `generated`, and break decision 27's
+    third-run NOOP — silently, since the next readable run re-adds it.
+    """
+    ledger = tmp_path / notes.LEDGER_PATH
+    ledger.parent.mkdir(parents=True)
+    ledger.write_bytes(payload)
+    with pytest.raises(notes.LedgerUnreadableError):
+        notes.compiled_pages(tmp_path, PROVENANCE)
+    # Not a ValueError or OSError: a caller's broad `except` around the JSON
+    # read cannot fold the outage back into the empty it is not.
+    assert not issubclass(notes.LedgerUnreadableError, (ValueError, OSError))
 
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
