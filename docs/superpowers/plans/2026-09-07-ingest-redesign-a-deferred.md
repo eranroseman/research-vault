@@ -94,3 +94,17 @@ here because a committed file is the only home that survives the workspace delet
    twice without checking. Task 8's own brief states its dependency on Task 7 in its text, one
    grep away. This is "deletion lists are claims, not orders" one level up: an assertion about
    what the plan says is checkable against the plan, and should be checked before it is acted on.
+
+6. **"Converge at the next touch of X" is not a schedule unless a later Files block claims X.**
+   The `LedgerUnreadableError` message string was left to converge "at the next touch of
+   `notes.py` (Task 13 if the implementer is in that file, otherwise Task 20)". Task 13 does not
+   touch `notes.py` — its Files block names `zotero.py`, `__main__.py`, `inbox.py`, the skill and
+   terminology, and creates `capture.py`. So the deferral silently landed on Task 20, which runs
+   after Task 13, whose printed test asserts the plan's spelling. Composed, the code's message read
+   `outage — unreadable ledger wiki/…json: …` against a `startswith` looking for
+   `outage — wiki/…json unreadable`; run rather than eyeballed, that is `False`. Task 13's test
+   would have failed on the day it was written, and its implementer could only have weakened the
+   assertion or edited a file outside its Files block. A Files block is the one place file
+   ownership is knowable, so a deferral names the task that claims the file. Neither the author who
+   scheduled it nor the controller who re-extracted the brief twice checked the assertion against
+   the committed string; it surfaced from reading the Files block for an unrelated reason.
