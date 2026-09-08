@@ -3933,19 +3933,24 @@ def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkey
     assert "[@old2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
 
 
-def test_a_partial_apply_is_finished_by_running_again(tmp_vault, monkeypatch):
-    """After an outage during the recapture the note sits at new2020.md still recording old2020."""
+def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_recorded_key(tmp_vault, monkeypatch):
+    """After an outage during the recapture the note sits at literatures/new2020.md
+    still recording citationKey: old2020. The captured set is the recorded key, not
+    the filename (decision 08), so a re-run plans, treats the note as already at its
+    target, and still rewrites, recaptures and records."""
     _seed(tmp_vault)
     client = _zotero(monkeypatch)
     (tmp_vault / "literatures" / "old2020.md").rename(tmp_vault / "literatures" / "new2020.md")
     calls = []
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: calls.append(list(keys)) or [])
-    planned, path, digest = _planned(tmp_vault, client)  # found by recorded key, not by filename
+    planned, path, digest = _planned(tmp_vault, client)
     assert planned.item_keys == {"old2020": "E352DFS8"}
-    outcomes = propagate.apply(tmp_vault, client, path, digest)
-    assert outcomes[0].result is Result.MATCHED and calls == [["E352DFS8"]]
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
+    (matched,) = propagate.apply(tmp_vault, client, path, digest)
+    assert matched.result is Result.MATCHED
+    assert calls == [["E352DFS8"]]  # the recapture is what rewrites the note's recorded key; it is asserted by its call
+    assert not (tmp_vault / "literatures" / "old2020.md").exists()
     assert "[@new2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
+    assert propagate.read_records(tmp_vault)[0].mapping == {"old2020": "new2020"}
 
 
 def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(tmp_vault, monkeypatch):
