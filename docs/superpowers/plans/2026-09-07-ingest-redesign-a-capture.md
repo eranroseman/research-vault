@@ -1357,7 +1357,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type`, `trust-tier`, `mark-published`), `skills/evidence-conventions/SKILL.md` (`:37` "Claims in `synthesis/` add:" names the folder Task 6 moved — say the compiled layer under `wiki/`; `:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero)
+- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type`, `trust-tier`, `mark-published`), `skills/evidence-conventions/SKILL.md` (`:37` "Claims in `synthesis/` add:" names the folder Task 6 moved — say the compiled layer under `wiki/`; `:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero), `docs/adr/0003-deprecate-never-delete.md` (amended in place with a dated note, decision unchanged — see Step 3's closing block; it is in this plan's authority list and after this task it would be the last live document naming screening states)
 - Test: `tests/test_templates.py` (the glossary render test, if it asserts content), `tests/test_skill_contracts.py` (the backticked-token rule at `:157-170` over templates)
 
 **Interfaces:**
@@ -1500,6 +1500,20 @@ _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex'
 
 `docs/terminology.md`: §4.1 adds `fulltext/` and `wiki/` and drops `synthesis/`; §4.2 lists `citationKey`, `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `compile-input-sha256`, `managed-sha256` ("sha256 over the note body below the frontmatter") and drops `fixity-sha256`, `archive-url`, `status`; §4.4 rows reflect the registries as they stand after Task 7.
 
+`docs/adr/0003-deprecate-never-delete.md`, amended in place the way ADR 0001 took its dated second exemption: the decision stands, its examples named a mechanism this branch retired (the note-level screening state, spec §0 and §6 — screening belongs to the review, not the source), and its acknowledgment sentence predates the derived scope (decision 21). Status line becomes `Status: accepted (2026-08-20); amended 2026-09-07 — examples and the acknowledgment-scope sentence follow the ingest redesign, decision unchanged`. The first paragraph's opening becomes:
+
+```markdown
+Records of what was known, decided, or found — captured sources and their lifecycle transitions, verification events, review-inbox findings and their acknowledgments, update notices — change state only by recorded transition (new state, actor, date); they are never silently removed or overwritten. A source that leaves the library is reported (`trashed`, `deleted`, `merged`) and its note is kept, not deleted; a superseded claim is deprecated with a `superseded-by` pointer to its successor; a contradiction between sources is preserved as two linked claims with stance links, never resolved by erasing one. The decision exists because the vault's value as a research record depends on negative and outdated knowledge staying inspectable: what a source's note said when the source left the library, what a claim said before correction, that a finding was seen and acknowledged rather than never raised.
+```
+
+and the Consequences paragraph's first two sentences become:
+
+```markdown
+The vault grows monotonically in records; noise management happens by state and filtering (lifecycle reason codes, superseded markers, acknowledgments), never by removal. Acknowledgments are standing data identified by a scope derived from the check, the target and the target's content hash — they persist, and lapse when the target's body changes, rather than being cleaned up.
+```
+
+Nothing else in the file moves; the Considered Options stand as written. Keep it inside the 13–33-line shape `docs/agents/domain.md` records for ADRs.
+
 - [ ] **Step 4: Run the suite, mdformat, commit**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && mdformat --number --wrap keep CONTEXT.md docs/terminology.md`
@@ -1512,7 +1526,7 @@ Eight concepts traced to their fields; the captured set defined; the
 import and authority collisions named; the false literature-note and
 managed-region definitions rewritten rather than repointed.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- CONTEXT.md docs/terminology.md tests/test_templates.py skills/evidence-conventions/SKILL.md
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- CONTEXT.md docs/terminology.md docs/adr/0003-deprecate-never-delete.md tests/test_templates.py skills/evidence-conventions/SKILL.md
 ```
 
 ______________________________________________________________________
