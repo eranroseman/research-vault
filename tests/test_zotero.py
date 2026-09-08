@@ -34,14 +34,18 @@ def test_base_for_prefers_flag_then_machine_config_then_default(tmp_vault):
 
 
 def test_base_for_falls_back_when_machine_config_is_unreadable(tmp_vault):
-    """`doctor` owns the machine-config finding; resolving --base must not
-    crash the CLI before that probe can report it."""
+    """`doctor` owns the machine-config finding; its tolerant read
+    (``strict=False``) must not crash the CLI before that probe can report
+    it. Every other verb resolves strictly and is refused instead — the
+    default is the production instance (Task 13's test covers the CLI)."""
     (tmp_vault / ".research-vault").mkdir()
     machine = tmp_vault / ".research-vault" / "machine.json"
     machine.write_text("{not json")
-    assert zotero.base_for(tmp_vault) == zotero.DEFAULT_BASE
+    assert zotero.base_for(tmp_vault, strict=False) == zotero.DEFAULT_BASE
     machine.write_text("[]")
-    assert zotero.base_for(tmp_vault) == zotero.DEFAULT_BASE
+    assert zotero.base_for(tmp_vault, strict=False) == zotero.DEFAULT_BASE
+    with pytest.raises(zotero.ZoteroError, match=r"machine\.json unreadable"):
+        zotero.base_for(tmp_vault)
 
 
 def test_server_info_reads_the_four_headers(fake):

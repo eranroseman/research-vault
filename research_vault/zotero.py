@@ -61,22 +61,31 @@ class Response(NamedTuple):
     headers: Mapping[str, str]
 
 
-def base_for(vault_root, override: str | None = None) -> str:
+def base_for(vault_root, override: str | None = None, *, strict: bool = True) -> str:
     """--base, then machine.json's zotero_base, then the default (§6).
 
-    An unreadable or malformed ``machine.json`` resolves to the default: the
-    CLI resolves the base before dispatch, and doctor's ``machine-config``
-    probe is the one that reports the file, so it must still get to run.
+    The default is the production instance, so an unreadable or malformed
+    ``machine.json`` — a typo in the file that meant to say "use 23129" — is
+    refused with ``ZoteroError(result=UNMATCHED)`` rather than silently
+    routing every verb at production. Only ``doctor`` resolves with
+    ``strict=False``: its ``machine-config`` probe is the one that reports the
+    file, so it must still get to run.
     """
     if override:
         return override.rstrip("/")
-    config: object = {}
-    if vault_root:
-        try:
-            config = paths.load_machine_config(Path(vault_root))
-        except (OSError, ValueError):
-            config = {}
-    base = config.get("zotero_base") if isinstance(config, Mapping) else None
+    if not vault_root:
+        return DEFAULT_BASE
+    try:
+        config: object = paths.load_machine_config(Path(vault_root))
+        if not isinstance(config, Mapping):
+            raise ValueError("expected an object")
+    except (OSError, ValueError) as error:
+        if strict:
+            raise ZoteroError(
+                f"machine.json unreadable: {error}", Result.UNMATCHED
+            ) from error
+        return DEFAULT_BASE
+    base = config.get("zotero_base")
     if isinstance(base, str) and base.strip():
         return base.strip().rstrip("/")
     return DEFAULT_BASE

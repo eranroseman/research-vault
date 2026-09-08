@@ -46,6 +46,9 @@ REASON_CODES = frozenset(
         "trashed",
         "deleted",
         "database-changed",
+        # The capture verb's own conditions (ingest spec §3.3, decision 05).
+        "no-fulltext",
+        "unkeyed",
     }
 )
 # The governed check-id registry (terminology §4.4). ``append_entry`` itself
@@ -72,6 +75,8 @@ CHECK_IDS = frozenset(
         "tree",
         # The lifecycle linter (ingest spec §3.4, decision 04).
         "lifecycle",
+        # The capture verb (ingest spec §3.3, decision 04).
+        "capture",
     }
 )
 _REASON = re.compile(

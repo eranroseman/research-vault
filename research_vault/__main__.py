@@ -10,6 +10,7 @@ from . import (
     AGENT_ACTOR,
     Result,
     bibliography,
+    capture,
     events,
     factcheck,
     frontmatter,
@@ -53,6 +54,36 @@ def cmd_probe(args):
         return 3
     print(json.dumps(report))
     return 0
+
+
+def cmd_capture(args):
+    """The capture verb (ingest spec §3.3): one line per outcome, holds filed.
+
+    Only ``UNMATCHED`` and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is
+    automatic-only and never a finding (an item with no attachment to read is
+    a class this iteration does not handle, not a capture failure), and
+    ``record_finding`` would refuse it anyway. Exit 0 when every outcome is
+    MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is
+    UNMATCHED.
+    """
+    client = ZoteroClient(base=args.base)
+    outcomes = capture.capture(args.vault, client, args.keys, refresh_all=args.all)
+    worst = 0
+    for outcome in outcomes:
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
+            _hold(
+                args.vault,
+                capture.CHECK,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+            )
+        if outcome.result is Result.UNMATCHED:
+            worst = 1
+        elif outcome.result is Result.UNREACHABLE and worst == 0:
+            worst = 3
+    return worst
 
 
 def _hold(vault, check, target, result: Result, reason: str) -> None:
@@ -525,6 +556,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="research_vault", parents=[common])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("probe", parents=[common])
+    capture_cmd = sub.add_parser("capture", parents=[common])
+    capture_cmd.add_argument("keys", nargs="*")
+    capture_cmd.add_argument("--vault", required=True)
+    capture_cmd.add_argument("--all", action="store_true")
     verify = sub.add_parser("verify", parents=[common])
     verify.add_argument("--vault", required=True)
     verify.add_argument("--offline", action="store_true")
@@ -600,11 +635,21 @@ def main(argv=None):
             parser.error("--commit-projected requires a non-empty message")
         if args.changed_paths_file is None:
             parser.error("--commit-projected requires --changed-paths-file")
-    args.base = zotero.base_for(
-        getattr(args, "vault", None), getattr(args, "base", None)
-    )
+    try:
+        # Only doctor tolerates an unreadable machine.json: its machine-config
+        # probe reports the file. Every other verb refuses rather than run at
+        # the production default because of a typo.
+        args.base = zotero.base_for(
+            getattr(args, "vault", None),
+            getattr(args, "base", None),
+            strict=args.cmd != "doctor",
+        )
+    except ZoteroError as error:
+        print(error, file=sys.stderr)
+        return 2
     return {
         "probe": cmd_probe,
+        "capture": cmd_capture,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
         "trust-tier": cmd_trust_tier,

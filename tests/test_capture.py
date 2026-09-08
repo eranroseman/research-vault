@@ -1,0 +1,346 @@
+import json
+
+import pytest
+
+from research_vault import Result, capture, frontmatter, zotero
+from tests.fakes import ITEM, FakeZotero, canned_item
+
+LIBRARY = [
+    {
+        "id": "jakesch.etal2023a",
+        "citation-key": "jakesch.etal2023a",
+        "type": "paper-conference",
+        "title": "T",
+    }
+]
+
+
+def _client(monkeypatch, fake):
+    return fake.install(zotero.ZoteroClient(), monkeypatch)
+
+
+def _canned_run(fake, items=(ITEM,)):
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"E352DFS8": 544, "D7EJ9FTG": 551, "N0TE0001": 552},
+        headers={"Last-Modified-Version": "565"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=list(items),
+        headers={"Last-Modified-Version": "565"},
+    )
+    fake.get(
+        "/api/users/0/items/top?format=versions",
+        body={"E352DFS8": 544},
+        headers={"Last-Modified-Version": "565"},
+    )
+    fake.get("/better-bibtex/library?/My%20Library.json", body=LIBRARY)
+    return fake
+
+
+def test_capture_writes_note_text_layer_and_csl_file(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        ("jakesch.etal2023a", Result.MATCHED, "matched"),
+        ("system/bibliography.json", Result.MATCHED, "matched"),
+    ]
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    data, _body = frontmatter.parse(note.read_text())
+    assert data["zotero-server-id"] == "6LpvURP2E933"
+    assert data["zotero-item-version"] == 544
+    assert data["attachments"][0]["version"] == 551
+    text = tmp_vault / "fulltext" / "D7EJ9FTG.md"
+    assert text.is_file()
+    assert data["fulltext"][0]["sha256"] == data["compile-input-sha256"]
+    assert (
+        json.loads((tmp_vault / "system" / "bibliography.json").read_text())[0]["id"]
+        == "jakesch.etal2023a"
+    )
+    assert (tmp_vault / "log.md").is_file()
+
+
+def test_capture_accepts_an_item_key_and_resolves_a_citation_key(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    assert capture.resolve_keys(
+        client, ["E352DFS8", "jakesch.etal2023a", "nobody2020"]
+    ) == {
+        "E352DFS8": "E352DFS8",
+        "jakesch.etal2023a": "E352DFS8",
+        "nobody2020": None,
+    }
+    outcomes = capture.capture(tmp_vault, client, ["nobody2020"])
+    assert outcomes[0].result is Result.UNMATCHED
+    assert outcomes[0].reason.startswith("not-admitted")
+
+
+def test_second_run_is_a_noop_and_keeps_generated(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00Z"))
+    first = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    outcomes = capture.capture(
+        tmp_vault, client, ["E352DFS8"], now=_at("2026-09-08T10:00:00Z")
+    )
+    assert outcomes[0].reason == "matched — NOOP"
+    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text() == first
+
+
+def _at(text):
+    import datetime
+
+    return datetime.datetime.fromisoformat(text)
+
+
+def test_refresh_after_compile_embeds_the_page_and_completes_the_note(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    assert (
+        "## Compiled" not in note.read_text()
+    )  # capture runs before compile (§3.3 step 5)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        json.dumps(
+            {
+                "schema": "claude-obsidian.source-ledger.v1",
+                "sources": {
+                    "src-1": {
+                        "origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"},
+                        "pages": ["wiki/sources/Co-Writing.md"],
+                    },
+                },
+            }
+        )
+    )
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (
+        outcomes[0].reason == "matched"
+    )  # the second write is what completes the note
+    assert (
+        "## Compiled\n\n![[wiki/sources/Co-Writing.md]]\n\n## Item\n"
+        in note.read_text()
+    )
+    assert (
+        capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched — NOOP"
+    )
+
+
+def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    before = note.read_text()
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text("{not json")
+    held = [
+        o
+        for o in capture.capture(tmp_vault, client, ["E352DFS8"])
+        if o.target == "jakesch.etal2023a"
+    ]
+    assert [o.result for o in held] == [Result.UNREACHABLE]
+    assert held[0].reason.startswith(
+        "outage — wiki/meta/ledgers/source-ledger.json unreadable"
+    )
+    assert (
+        note.read_text() == before
+    )  # not rewritten from a view that could not be read
+
+
+def test_read_restarts_when_the_item_moves_mid_read(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    versions = iter([544, 545, 545, 545])
+    real_item = client.item
+
+    def moving_item(key):
+        envelope = json.loads(json.dumps(real_item(key)))
+        envelope["version"] = envelope["data"]["version"] = next(versions)
+        return envelope
+
+    monkeypatch.setattr(client, "item", moving_item)
+    read = capture.read_item(client, "E352DFS8")
+    assert read.version == 545
+    assert read.item["data"]["citationKey"] == "jakesch.etal2023a"
+
+
+def test_no_usable_text_writes_the_note_and_files_no_fulltext(tmp_vault, monkeypatch):
+    partial = {"content": "x" * 900, "indexedPages": 100, "totalPages": 143}
+    fake = _canned_run(canned_item(FakeZotero(), fulltext=partial))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    reasons = [
+        (o.result, o.reason) for o in outcomes if o.target == "jakesch.etal2023a"
+    ]
+    assert reasons == [
+        (Result.MATCHED, "matched"),
+        (Result.UNMATCHED, "no-fulltext — D7EJ9FTG partial — indexedPages 100 of 143"),
+    ]
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    assert "compile-input-sha256" not in data
+    assert data["fulltext"] == []
+    assert not (tmp_vault / "fulltext").exists()
+
+
+def test_url_only_item_without_attachment_is_skipped_not_a_finding(
+    tmp_vault, monkeypatch, capsys
+):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    webpage = json.loads(json.dumps(ITEM))
+    webpage["data"]["itemType"] = "webpage"
+    webpage["links"] = {}
+    fake = _canned_run(
+        canned_item(FakeZotero(), item=webpage, children=()), items=(webpage,)
+    )
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [
+        (o.result, o.reason) for o in outcomes if o.target == "jakesch.etal2023a"
+    ] == [
+        (Result.MATCHED, "matched"),
+        (
+            Result.SKIPPED,
+            "no-fulltext — no attachment to read (webpage); text checks do not apply",
+        ),
+    ]
+    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 0
+    assert "SKIPPED jakesch.etal2023a — no-fulltext" in capsys.readouterr().out
+    assert not [
+        f for f in inbox.load(tmp_vault) if f.check == "capture"
+    ]  # nothing to clear, so nothing filed
+
+
+def test_an_unreadable_machine_json_is_a_refusal_not_the_production_default(
+    tmp_vault, monkeypatch, capsys
+):
+    import research_vault.__main__ as cli
+
+    (tmp_vault / ".research-vault").mkdir(exist_ok=True)
+    (tmp_vault / ".research-vault" / "machine.json").write_text("{not json")
+    assert (
+        zotero.base_for(tmp_vault, None, strict=False) == zotero.DEFAULT_BASE
+    )  # doctor's tolerant read
+    # A malformed machine.json must not resolve to the production instance.
+    with pytest.raises(zotero.ZoteroError) as caught:
+        zotero.base_for(tmp_vault, None)
+    assert caught.value.result is Result.UNMATCHED
+    assert "machine.json unreadable" in str(caught.value)
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 2
+    assert "machine.json unreadable" in capsys.readouterr().err
+
+
+def test_unkeyed_item_is_reported_not_written(tmp_vault, monkeypatch):
+    unkeyed = json.loads(json.dumps(ITEM))
+    unkeyed["data"]["citationKey"] = None
+    fake = _canned_run(canned_item(FakeZotero(), item=unkeyed), items=(unkeyed,))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], key_wait_seconds=0)
+    assert outcomes[0].result is Result.UNMATCHED
+    assert outcomes[0].reason.startswith("unkeyed")
+    assert not list((tmp_vault / "literatures").glob("*.md"))
+
+
+def test_capture_runs_the_linter_first_and_refuses_a_trashed_item(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"D7EJ9FTG": 551},
+        headers={"Last-Modified-Version": "566"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+    before = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].reason.startswith("trashed — ")
+    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text() == before
+
+
+def test_database_changed_aborts_before_any_write(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.server_id = "Tdoqsn2J4q4h"
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNMATCHED)]
+    assert outcomes[0].reason.startswith("database-changed")
+
+
+def test_csl_file_falls_back_to_item_export_when_the_library_route_breaks(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.get("/better-bibtex/library?/My%20Library.json", status=500, body=b"")
+    fake.rpc("item.export", LIBRARY)
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[-1].reason == "matched — item.export fallback"
+    assert (
+        "RPC",
+        "item.export",
+        {"params": [["jakesch.etal2023a"], "Better CSL JSON"]},
+    ) in fake.calls
+
+
+def test_library_route_is_reread_once_when_zotero_moved_during_the_run(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    seen = iter(["565", "570"])
+    original = fake._http
+
+    def moving(url, data=None, headers=None, method=None):
+        response = original(url, data, headers, method)
+        if url.endswith("/items/top?format=versions"):
+            return zotero.Response(
+                response.status,
+                response.body,
+                {**response.headers, "Last-Modified-Version": next(seen, "570")},
+            )
+        return response
+
+    monkeypatch.setattr(client, "_http", moving)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    library_reads = [c for c in fake.calls if c[1].startswith("/better-bibtex/library")]
+    assert len(library_reads) == 2
+
+
+def test_cli_capture_exit_codes_and_holds(tmp_vault, monkeypatch, capsys):
+    import research_vault.__main__ as cli
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    monkeypatch.setattr(
+        cli,
+        "ZoteroClient",
+        lambda **kw: fake.install(zotero.ZoteroClient(**kw), monkeypatch),
+    )
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 0
+    assert cli.main(["capture", "nobody2020", "--vault", str(tmp_vault)]) == 1
+    queue = (tmp_vault / "inbox" / "review-queue.md").read_text()
+    assert "[check:: capture]" in queue
+    assert "not-admitted" in queue
