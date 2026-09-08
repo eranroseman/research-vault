@@ -77,6 +77,47 @@ def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkey
     )
 
 
+def test_apply_refuses_a_key_that_moved_again_between_plan_and_apply(
+    tmp_vault, monkeypatch
+):
+    """The property the second read exists for: a citation key that moved in
+    Zotero after the plan was approved is refused before the first rename."""
+    _seed(tmp_vault)
+    _, path, digest = _planned(tmp_vault, _zotero(monkeypatch))
+    (refused,) = propagate.apply(
+        tmp_vault, _zotero(monkeypatch, "newer2020"), path, digest
+    )
+    assert refused.result is Result.UNMATCHED
+    assert refused.target == "old2020"
+    assert refused.reason == (
+        "mismatch — item E352DFS8 carries citation key 'newer2020', not 'new2020'"
+    )
+    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (
+        (tmp_vault / "projects" / "brief" / "draft.md")
+        .read_text()
+        .endswith(
+            "See [@old2020, p. 3] and [@old2020] and [[old2020]] and [[old2020#^c-1]] and [[old2020|alias]].\n"
+        )
+    )
+    assert not (tmp_vault / "system" / "propagations").exists()
+
+
+def test_plan_refuses_without_a_client_and_writes_nothing(tmp_vault):
+    _seed(tmp_vault)
+    for mapping in ({"old2020": "new2020"}, None):
+        planned, (refused,) = propagate.plan(tmp_vault, None, mapping)
+        assert planned is None
+        assert refused.result is Result.UNMATCHED
+        assert refused.target == "system/propagations"
+        assert refused.reason == (
+            "schema-violation — no Zotero client to verify the mapping against"
+        )
+    assert not (tmp_vault / ".research-vault").exists()
+    assert not (tmp_vault / "system" / "propagations").exists()
+    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+
+
 def test_plan_refuses_the_wrong_database_before_any_rename(tmp_vault, monkeypatch):
     """The verification read sends the tuple's server id, so a Zotero that is
     not the one the note recorded answers 412 — database-changed, never a
@@ -355,10 +396,11 @@ def test_plan_refuses_to_rename_over_an_existing_note(tmp_vault, monkeypatch):
 def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_recorded_key(
     tmp_vault, monkeypatch
 ):
-    """Finding 1: after an outage during the recapture the note sits at
+    """After an outage during the recapture the note sits at
     literatures/new2020.md still recording citationKey: old2020. The captured
     set is the recorded key, not the filename (decision 08), so a re-run plans,
-    treats the note as already at its target, and still rewrites and records."""
+    treats the note as already at its target, and still rewrites, recaptures
+    and records."""
     _seed(tmp_vault)
     client = _zotero(monkeypatch)
     # The recapture is what re-renders the note under its new key; with it

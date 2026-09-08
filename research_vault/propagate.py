@@ -182,9 +182,10 @@ def plan(
             outcomes.append(_refusal(old, str(error)))
             continue
         if source.name != target.name and (target.exists() or target.is_symlink()):
-            # ADR 0003: no transition deletes a literature note, and a POSIX
-            # rename over an existing file replaces it silently. The note
-            # already sitting at its target is the one exception: no rename.
+            # ADR 0003: no transition deletes a literature note, and a POSIX rename
+            # over an existing file replaces it silently — a dangling symlink too,
+            # which exists() would not see. The note already sitting at its target
+            # (a re-run after a partial apply) is the one exception: no rename.
             outcomes.append(
                 _refusal(
                     old,
