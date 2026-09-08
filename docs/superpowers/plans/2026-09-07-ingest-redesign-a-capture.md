@@ -216,7 +216,7 @@ def read_live(client) -> Live                            # raises DatabaseChange
 def classify(provenance: Provenance, live: Live) -> tuple[str, str]   # (state, detail)
 def lint_lifecycle(vault_root, client, provenances=None) -> list[Outcome]   # provenances: list[tuple[Path, Provenance]]
 def _provenances(vault: Path) -> list[tuple[Path, Provenance]]   # private, consumed by Tasks 13 and 17; the shape lint_lifecycle takes
-def blocked(check, target, error: ZoteroError) -> Outcome    # a typed refusal (403 preference off) is UNMATCHED not-admitted; only error.result UNREACHABLE is an outage
+def blocked(check, target, error: ZoteroError) -> Outcome    # 412 → UNMATCHED database-changed; another typed refusal (403) → UNMATCHED not-admitted; only error.result UNREACHABLE is an outage
 
 # research_vault/propagate.py                                 (Task 14)
 PLAN_DIR = ".research-vault/propagate"; RECORD_DIR = "system/propagations"; CHECK = "propagation"
@@ -3202,6 +3202,8 @@ def blocked(check: str, target, error: ZoteroError) -> Outcome:
     """
     if error.result is Result.UNREACHABLE:
         return Outcome(check, target, Result.UNREACHABLE, f"outage — {error}")
+    if isinstance(error, DatabaseChangedError):
+        return Outcome(check, target, Result.UNMATCHED, f"database-changed — {error}")
     return Outcome(check, target, Result.UNMATCHED, f"not-admitted — {error}")
 
 
@@ -3654,7 +3656,7 @@ def _write_texts(vault: Path, read: ItemRead) -> tuple[list[dict], list[str], li
     return entries, usable, reasons
 
 
-def _capture_one(vault: Path, client: ZoteroClient, read: ItemRead, server_id: str, now) -> list[Outcome]:
+def _capture_one(vault: Path, read: ItemRead, server_id: str, now) -> list[Outcome]:
     item = read.item
     citation_key = item["data"].get("citationKey")
     entries, usable, reasons = _write_texts(vault, read)
@@ -3744,10 +3746,9 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=0)
     try:
         info = client.server_info()
-    except DatabaseChangedError as error:
-        # A client that still carries an earlier run's server id is refused with 412 before any read.
-        return [Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")]
     except ZoteroError as error:
+        # blocked names a 412 database-changed: a client still carrying an earlier run's server id is
+        # refused before any read.
         return [lifecycle.blocked(CHECK, "vault", error)]
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
@@ -3759,7 +3760,10 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
         return blocking  # database-changed or an outage; decision 26's SKIPPED row (empty vault) blocks nothing
     # The linter targets citation keys; capture resolves item keys. Join the two through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
-    standing = {item_key_of.get(o.target, o.target): o for o in linted}
+    standing: dict[str, Outcome] = {}
+    for outcome in linted:
+        if isinstance(outcome.target, str):  # Outcome.target is str | RepoPath; the linter's are keys
+            standing[item_key_of.get(outcome.target, outcome.target)] = outcome
     try:
         run_version = _top_version(client)
     except ZoteroError as error:
@@ -3789,7 +3793,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
                 outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"unkeyed — item {item_key} has no citation key"))
                 continue
             library_name = library_name or read.item.get("library", {}).get("name") or "My Library"
-            outcomes.extend(_capture_one(vault, client, read, client.server_id, now))
+            outcomes.extend(_capture_one(vault, read, client.server_id, now))
         except DatabaseChangedError as error:
             return outcomes + [Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")]
         except NotFoundError:
@@ -5233,10 +5237,8 @@ def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -
         return [Outcome(CHECK, "add", Result.UNMATCHED, f"schema-violation — {problem}")]
     try:
         info = client.server_info()
-    except DatabaseChangedError as error:
-        return [Outcome(CHECK, "add", Result.UNMATCHED, f"database-changed — {error}")]
     except ZoteroError as error:
-        return [lifecycle.blocked(CHECK, "add", error)]  # the API-off 403 is not-admitted, not an outage
+        return [lifecycle.blocked(CHECK, "add", error)]  # 412 database-changed, 403 not-admitted, else outage
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
     if client.server_id != info["server_id"]:
