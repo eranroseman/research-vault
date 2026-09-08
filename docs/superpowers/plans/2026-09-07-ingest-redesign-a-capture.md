@@ -87,7 +87,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Part B Task 2) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Part B Task 1) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
 25. **`linkMode` is not a local-API query filter.** Measured 2026-09-07: `GET /api/users/0/items?itemType=attachment&linkMode=imported_file&limit=3&format=json` answered 200 with three `imported_url` rows. Doctor's `path-shim` probe (Task 16) requests `itemType=attachment&limit=50` and picks the first `imported_file` row client-side; `itemType` filtering itself is honoured.
 26. **A vault with no captured notes does not wait on Zotero at verify or publish time** (raised by Task 2's review, 2026-09-07). `verify._staleness_outcome`, retired with the auto-export contract, ran on every network pass and turned a Zotero outage into exit 3 even for a vault with an empty bibliography and no cited claim; `tests/test_publish.py::test_mark_published_waits_when_the_gate_is_unreachable` pinned that and Task 2 deletes it. The behaviour is not carried forward, on purpose: the lifecycle linter is the one Zotero-facing check at verify (invariant 5), it classifies captured notes, and with none there is nothing whose evidence depends on Zotero — blocking publish on an unrelated service being down was a side effect of the retired contract, and no invariant in §1 names it. Kept: with one or more captured notes a genuine `UNREACHABLE` from `lifecycle` still returns exit 3 (decision 04), and with none `lint_lifecycle` returns one `SKIPPED` outcome, `no-identifier — no note carries a provenance tuple`, so the report shows a check that ran with nothing to check rather than a silent absence (ADR 0002). Zotero liveness on its own is doctor's `zotero` probe. Recorded here so the whole-branch review reads it as settled, not open.
-27. **The note body carries three mechanical pointers** (spec §3.3 step 5 and §4.4 as revised at `5ba814c`, 2026-09-07; the §4.4 "no forward link" sentence is reversed for an embed). Rendered by `notes.render_body`, in this order: `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` — the path is read, never guessed, by `notes.compiled_pages`, which matches ledger records on `origin.locator == fulltext/<attachment key>.md` for this note's text files; `## Item` with `zotero://select/library/items/<item key>`; the existing `## Attachments` list, whose `zotero://open-pdf/library/items/<attachment key>` links are the third pointer (decision 10); `## Zotero notes`. Consequence the tasks encode: capture writes the note twice in the normal flow — the first capture has no ledger entry and renders no `## Compiled`, the refresh after compile renders it, and the third run is NOOP (Task 13's test). No Part A task asserts a note is complete after one capture. `LEDGER_PATH` has one definition site, `notes.py`; `captured.py` and `compile.py` import it. Better BibTeX's `zotero://select/items/@<citation key>` is not emitted (a name-keyed link would be a fifth propagation surface).
+27. **The note body carries three mechanical pointers** (spec §3.3 step 5 and §4.4 as revised at `5ba814c`, 2026-09-07; the §4.4 "no forward link" sentence is reversed for an embed). Rendered by `notes.render_body`, in this order: `## Compiled` with one `![[<page path>]]` per path in the ledger's `pages[]` — the path is read, never guessed, by `notes.compiled_pages`, which matches ledger records on `origin.locator == fulltext/<attachment key>.md` for this note's text files; `## Item` with `zotero://select/library/items/<item key>`; the existing `## Attachments` list, whose `zotero://open-pdf/library/items/<attachment key>` links are the third pointer (decision 10); `## Zotero notes`. Consequence the tasks encode: capture writes the note twice in the normal flow — the first capture has no ledger entry and renders no `## Compiled`, the refresh after compile renders it, and the third run is NOOP (Task 13's test). No Part A task asserts a note is complete after one capture. `LEDGER_PATH` has one definition site, `notes.py`; `captured.py` and `compile.py` import it. Better BibTeX's `zotero://select/items/@<citation key>` is not emitted (a name-keyed link would be a fifth propagation surface). Matching on the `fulltext/` locator is deliberate, not incidental: §4.5 makes the wrapper the ledger's only writer and it registers every source as `fulltext/<attachment key>.md`, so a file record that reaches the ledger by another route (the tool's own `capture`, a hand-authored bundle) describes nothing capture wrote, embeds nothing, and is reported by the captured-set lint's structural leg as `not-captured` (Task 15). `pages[]` entries keep their `.md`: Obsidian resolves `[[path.md]]` and `[[path]]` alike (spec `a066604`), and the tool validates the entries as canonical `wiki/`-relative paths, so nothing is normalised.
 
 ______________________________________________________________________
 
@@ -1348,7 +1348,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows), `skills/evidence-conventions/SKILL.md` (only if a term it defines changed spelling)
+- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type`, `trust-tier`, `mark-published`), `skills/evidence-conventions/SKILL.md` (`:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero)
 - Test: `tests/test_templates.py` (the glossary render test, if it asserts content), `tests/test_skill_contracts.py` (the backticked-token rule at `:157-170` over templates)
 
 **Interfaces:**
@@ -1503,7 +1503,7 @@ Eight concepts traced to their fields; the captured set defined; the
 import and authority collisions named; the false literature-note and
 managed-region definitions rewritten rather than repointed.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- CONTEXT.md docs/terminology.md tests/test_templates.py
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- CONTEXT.md docs/terminology.md tests/test_templates.py skills/evidence-conventions/SKILL.md
 ```
 
 ______________________________________________________________________
@@ -2348,7 +2348,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `research_vault/notes.py` (add the record; keep Task 5's helpers), `research_vault/lints.py` (`_MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS`), `tests/conftest.py` (the two fixture notes take the new frontmatter shape — see Step 1), `tests/test_lints.py` (attestation tests name `citationKey`/`zotero-item-version` instead of `fixity-sha256`)
+- Modify: `research_vault/notes.py` (add the record; keep Task 5's helpers), `research_vault/lints.py` (`_MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS`), `tests/conftest.py` (the two fixture notes take the new frontmatter shape — see Step 1), `tests/test_lints.py` (attestation tests name `citationKey`/`zotero-item-version` instead of `fixity-sha256`), `README.md` (the machine-surface sentence at `:7` and the whole `## The layers` section describe the managed region, the free region and `synthesis/`, all gone by now; this task lands the record they should describe — see Step 3's closing paragraph)
 - Test: `tests/test_notes.py`
 
 **Interfaces:**
@@ -2639,7 +2639,9 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
     """The ledger's pages[] for this note's text files, matched by locator (§3.3 step 5).
 
     Empty before the first compile. An unreadable ledger renders no embed here;
-    reporting it is the captured-set lint's job, not capture's.
+    reporting it is the captured-set lint's job, not capture's. Only records the
+    wrapper wrote match (their locator is fulltext/<key>.md, spec §4.5); a record
+    from any other route embeds nothing and the same lint reports it not-captured.
     """
     ledger = Path(vault_root) / LEDGER_PATH
     if not ledger.is_file():
@@ -2756,6 +2758,26 @@ def read_provenance(text: str) -> Provenance | None:
 
 with `ITEM_KEY_RE = re.compile(r"^[A-Z0-9]{8}$")` (duplicated here rather than importing `zotero`, so `notes` stays transport-free). `research_vault/lints.py`: `_MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS` with the comment "every field capture writes; a change to any without a `generated` bump by the machine actor is drift".
 
+`README.md`, which this task's record makes describable. The sentence at `:7` beginning "No skill hand-edits a managed region or machine surface" becomes:
+
+```markdown
+No skill hand-edits a machine surface — `literatures/`, `fulltext/`, `wiki/`, `log/`, `system/`, the review queue — mints a verification event, or files a review record: those are verbs, and only the CLI runs them (under `wiki/`, the adopted compile tool's transaction engine). Prose is composed by hand where it belongs: project drafts, and per-source notes written in Zotero, which capture renders into the literature note.
+```
+
+`## The layers` becomes, whole:
+
+```markdown
+## The layers
+
+- **`literatures/`** — one note per captured source, wholly machine-written: `capture` regenerates the whole note from Zotero on every run — frontmatter carrying Zotero's own fields and the provenance tuple (server id, item key, item version, citation key, attachments, text files); a body carrying the embed of the compiled page once one exists, the item and attachment links into Zotero, and the item's Zotero child notes. Per-source prose is written in Zotero as a child note, and capture renders it.
+- **`fulltext/`** — the text layer, gitignored: one `<attachment key>.md` per attachment with usable extracted text, regenerated by capture; the compile input.
+- **`wiki/`** — the compiled layer, arrangement not evidence, written only by the adopted compile tool (claude-obsidian) through its transaction gate: per-source pages under `wiki/sources/`, concept pages under `wiki/concepts/`, each citing its source as `[[<citation key>]]`. A page earns its existence at two or more captured sources on the same topic, and that threshold *permits* a page without obligating one — sources set side by side with nothing said about how they relate are a compilation, not a synthesis.
+- **`projects/`** — the framed question, the search log, the draft. One project note carries the disposition frontmatter.
+- **`inbox/`**, **`log/`** — the review queue and the append-only activity log.
+```
+
+Two sentences elsewhere name the old flow and are rewritten in the same terms: `:19` ("Claims get copied — from a literature note into a synthesis page, from synthesis into a draft") — claims are written in project drafts, never in the machine-written literature note, and arranged into `wiki/` pages by the compile tool; `:75` ("already in synthesis") becomes "already in a draft or a compiled page". `grep -n 'managed region\|free region\|synthesis/\|admitted' README.md` must print nothing afterwards (the skills table rows at `:83-84` and `:89` are Task 19's).
+
 - [ ] **Step 4: Run the suite and form owners; commit**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
@@ -2767,7 +2789,7 @@ git commit -m "render the literature note as snapshot, tuple and body (ingest sp
 Zotero's field names verbatim, every dependent object's key and version,
 and a body carrying only the attachment list and the child notes.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests README.md
 ```
 
 ### Task 12: The lifecycle linter (spec §1 table, §3.4, §3.5 detection, §7 fixtures)
@@ -5000,7 +5022,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Create: `skills/capture-source/SKILL.md`, `tests/test_capture_source_skill.py`
 - Delete: `skills/import-source/` (whole directory), `tests/test_import_source_skill.py`
-- Modify: `skills/setup-vault/SKILL.md`, `research_vault/templates/vault/AGENTS.md` (the skills table row), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
+- Modify: `skills/setup-vault/SKILL.md`, `research_vault/templates/vault/AGENTS.md` (the skills table row), `README.md` (the skills table rows at `:83-84` — `find-sources` "terminates at the admission boundary" and the `import-source` row — and the routing sentence at `:89`, "Import this paper"), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
 
 **Interfaces:**
 
@@ -5173,7 +5195,7 @@ PY
 Run it from the vault root, report the paths it printed, and then `capture --all` to bring every note to the current record shape.
 ````
 
-`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`.
+`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | \`capture-source\` | Add an item to Zotero, capture it into \`literatures/\` and \`fulltext/\`, propagate a citation-key change |`; the routing sentence at `:89`becomes "Capture this paper" is not "capture it and rebuild the concept page."`docs/terminology.md`§4.3: the governed skill names list swaps`import-source`for`capture-source\`.
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -5183,7 +5205,7 @@ Expected: PASS.
 ```bash
 git commit -m "rewrite capture-source and setup-vault (ingest spec §6)
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests research_vault docs
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests research_vault docs README.md
 ```
 
 ### Task 20: Final verification, the merge, the report to the author
