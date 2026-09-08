@@ -570,32 +570,6 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     return _deduplicate(outcomes)
 
 
-def lint_web_archive(vault_root) -> list[Outcome]:
-    vault = Path(vault_root)
-    outcomes: list[Outcome] = []
-    literature = vault / "literatures"
-    if not literature.is_dir():
-        return outcomes
-    for path in sorted(literature.glob("*.md")):
-        rel = _relative(vault, path)
-        data, parsed = _parse_frontmatter(path.read_text())
-        if not parsed:
-            outcomes.append(_schema_outcome("web-archive", RepoPath(rel)))
-            continue
-        if data.get("url") and not data.get("doi") and not data.get("archive-url"):
-            note_citekey = data.get("citekey")
-            target = note_citekey if isinstance(note_citekey, str) else RepoPath(rel)
-            outcomes.append(
-                Outcome(
-                    "web-archive",
-                    target,
-                    Result.UNMATCHED,
-                    "missing-archive — web source has no archive-url",
-                )
-            )
-    return _deduplicate(outcomes)
-
-
 def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileImage]:
     return {
         raw_path: image
@@ -616,13 +590,10 @@ def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
 
 
 # Machine-owned fields that live outside %%rv-managed%%: `notes.render_note`
-# owns citekey/managed-sha256/fixity-sha256, `archive.set_archive_url` owns
-# archive-url (notes.py's comment on MANAGED_FIELDS names it explicitly as
-# passed-through). Neither writer is otherwise distinguishable from a
-# hand-edit, so legality here rides on the `generated` writer attestation,
-# not on slice membership.
+# owns citekey/managed-sha256/fixity-sha256. Legality rides on the `generated`
+# writer attestation, not on slice membership.
 _MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
-    {"archive-url", "managed-sha256", "fixity-sha256", "citekey"}
+    {"managed-sha256", "fixity-sha256", "citekey"}
 )
 # docs/terminology.md's actor convention: process-written records carry
 # `research_vault/<version>`, so this class test — not an exact-version

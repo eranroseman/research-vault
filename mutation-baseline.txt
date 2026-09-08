@@ -10,8 +10,6 @@ research_vault/__main__.py::func/cmd_search_log::args.source is None or args.hit
 research_vault/__main__.py::func/cmd_verify::True -> False
 research_vault/__main__.py::func/main::True -> False
 research_vault/appendlog.py::func/_sync_directory::0 -> 1
-research_vault/archive.py::func/archive_source::_string_field(data, "citekey") or citekey -> _string_field(data, "citekey") and citekey
-research_vault/archive.py::func/is_archive_url::not isinstance(url, str) or not url or url.splitlines() != [url] -> not isinstance(url, str) and not url or url.splitlines() != [url]
 research_vault/bibliography.py::func/_open_parent_chain::0 -> 1
 research_vault/bibliography.py::func/_open_parent_chain::1 -> 0
 research_vault/bibliography.py::func/_poll_window::clock() >= deadline -> clock() > deadline

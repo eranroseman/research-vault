@@ -203,14 +203,12 @@ def test_unowned_frontmatter_fields_survive_rerender():
     ]
     data["superseded-by"] = "smith2024"
     data["authority"] = "peer-reviewed journal"
-    data["archive-url"] = "https://web.archive.org/web/x"
     edited = frontmatter.serialize(data) + body
     v2 = notes.render_note(ITEM, ["aa11"], [], existing=edited, accessed="2026-08-17")
     kept, _ = frontmatter.parse(v2)
     assert kept["verified"] == data["verified"]
     assert kept["superseded-by"] == "smith2024"
     assert kept["authority"] == "peer-reviewed journal"
-    assert kept["archive-url"] == "https://web.archive.org/web/x"
 
 
 def test_rerender_preserves_duplicate_key_verified_as_rejected_evidence():

@@ -657,29 +657,6 @@ def test_citing_the_counterevidence_address_is_clean(fixture_vault):
     assert lints.lint_disputed_claim(fixture_vault, draft) == []
 
 
-def test_web_archive_lint_requires_archive_for_a_doi_less_web_source(fixture_vault):
-    web = fixture_vault / "literatures" / "webonly2024.md"
-    web.write_text(
-        '---\ncitekey: "webonly2024"\nurl: "https://example.org/post"\n---\n# Web\n'
-    )
-
-    outs = lints.lint_web_archive(fixture_vault)
-
-    assert [(out.target, out.reason) for out in outs] == [
-        ("webonly2024", "missing-archive — web source has no archive-url")
-    ]
-
-
-def test_web_archive_lint_accepts_an_archived_web_source(fixture_vault):
-    web = fixture_vault / "literatures" / "webonly2024.md"
-    web.write_text(
-        '---\ncitekey: "webonly2024"\nurl: "https://example.org/post"\n'
-        'archive-url: "https://archive.example.org/post"\n---\n# Web\n'
-    )
-
-    assert lints.lint_web_archive(fixture_vault) == []
-
-
 def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
     web = fixture_vault / "literatures" / "webonly2024.md"
     web.write_text('---\nurl: "https://example.org"\n')
@@ -689,7 +666,6 @@ def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
     )
 
     source = lints.lint_screening_state(fixture_vault, draft)
-    archive = lints.lint_web_archive(fixture_vault)
 
     assert source == [
         lints.Outcome(
@@ -703,7 +679,6 @@ def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
             },
         )
     ]
-    assert any(out.reason.startswith("schema-violation") for out in archive)
 
 
 def _refresh_managed_witness(path):
@@ -812,14 +787,6 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
 
 def _hand_edit_machine_owned_key(text: str, key: str) -> str:
     """Mutate exactly one machine-owned frontmatter field, managed slice untouched."""
-    if key == "archive-url":
-        return text.replace(
-            'doi: "10.1000/xyz"\n',
-            'doi: "10.1000/xyz"\n'
-            'archive-url: "https://web.archive.org/web/20260101000000/'
-            'https://example.org/x"\n',
-            1,
-        )
     if key == "managed-sha256":
         digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
         return text.replace(digest, "b" * 64, 1)
@@ -839,7 +806,7 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
 
 @pytest.mark.parametrize(
     "key",
-    ["archive-url", "managed-sha256", "fixity-sha256", "generated", "citekey"],
+    ["managed-sha256", "fixity-sha256", "generated", "citekey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     """Machine-owned frontmatter sits outside %%rv-managed%%, so a hand-edit

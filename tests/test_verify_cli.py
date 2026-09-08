@@ -1,12 +1,10 @@
 """Integration regressions for the verify and inbox command surface."""
 
 import hashlib
-import io
 import json
 import os
 import subprocess
 import sys
-import urllib.parse
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -20,13 +18,11 @@ from research_vault import (
     events,
     gitstate,
     inbox,
-    webapi,
 )
 from research_vault.__main__ import cmd_inbox, cmd_verify, main
 from research_vault.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from research_vault.verify import (
     _apply_state_transitions,
-    _archive_outcomes,
     _file_effects,
     _mutate_marker,
     _note_bytes,
@@ -623,93 +619,6 @@ def test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a
     )
 
 
-@pytest.mark.parametrize(
-    ("status", "error", "want"),
-    [
-        (200, None, Result.MATCHED),
-        (404, None, Result.UNMATCHED),
-        (None, "down", Result.UNREACHABLE),
-    ],
-)
-def test_archive_resolution_uses_status_and_distinguishes_404_from_outage(
-    net_vault, monkeypatch, status, error, want
-):
-    source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            'doi: "10.1000/xyz"',
-            'doi: "10.1000/xyz"\narchive-url: "https://archive.example/item"',
-        )
-    )
-    if error:
-
-        def unavailable(*_args, **_kwargs):
-            raise webapi.ApiError(error)
-
-        monkeypatch.setattr(
-            "research_vault.webapi.get_status",
-            unavailable,
-        )
-    else:
-        monkeypatch.setattr("research_vault.webapi.get_status", lambda *_, **__: status)
-    outcomes = _archive_outcomes(net_vault)
-    assert outcomes[0].result is want
-
-
-# A real Wayback replay URL: the address it serves rides in its *path*.
-WAYBACK_SNAPSHOT = "https://web.archive.org/web/20260822000000/https://example.org/page"
-
-
-class _HeadResponse(io.BytesIO):
-    """Enough of an HTTP response for ``webapi._open``'s status-only path."""
-
-    status = 200
-
-
-def test_the_archive_reader_keeps_the_contact_address_out_of_the_query_string(
-    net_vault, monkeypatch
-):
-    """A snapshot `archive-source` records must read back as the archive serves it.
-
-    Live-confirmed 2026-08-22 at the writer's own call site: the same Wayback
-    URL answers 200 bare and 404 with `?mailto=` appended, because a replay URL
-    carries its target in the path and Wayback reads the query string as part
-    of the archived address. `archive-source` writes only archive-host URLs, so
-    sending the contact address in the query here would report every snapshot
-    it records as missing and append a false, unrewritable `missing-archive`
-    finding to the queue on every publish gate run.
-
-    Faked at `webapi._urlopen` rather than at `get_status`, so this asserts the
-    request the reader actually puts on the wire instead of a mock's signature.
-    """
-    source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            'doi: "10.1000/xyz"',
-            f'doi: "10.1000/xyz"\narchive-url: "{WAYBACK_SNAPSHOT}"',
-        )
-    )
-    seen = {}
-
-    def fake_urlopen(request, timeout):
-        seen["url"] = request.full_url
-        seen["ua"] = request.get_header("User-agent")
-        return _HeadResponse()
-
-    monkeypatch.setattr(webapi, "_urlopen", fake_urlopen)
-
-    outcomes = _archive_outcomes(net_vault)
-
-    assert [outcome.result for outcome in outcomes] == [Result.MATCHED]
-    query = urllib.parse.parse_qsl(
-        urllib.parse.urlsplit(seen["url"]).query, keep_blank_values=True
-    )
-    assert [key for key, _ in query if key == "mailto"] == []
-    assert seen["url"] == WAYBACK_SNAPSHOT
-    # The polite pool stays mandatory: the address rides in the User-Agent.
-    assert "mailto:eran@example.edu" in seen["ua"]
-
-
 def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
     net_vault, monkeypatch
 ):
@@ -1171,46 +1080,6 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     assert _target_hash(net_vault, directory_outcome) != first
 
 
-@pytest.mark.parametrize(
-    "raw_citekey",
-    [42, ["not-a-citekey"], "", " ../escape", "nested/file", "bad\0key"],
-)
-def test_archive_invalid_citekey_falls_back_to_safe_note_target(
-    net_vault, monkeypatch, raw_citekey
-):
-    source = net_vault / "literatures" / "smith2020.md"
-    if isinstance(raw_citekey, list):
-        citekey_line = 'citekey:\n  - "not-a-citekey"'
-    elif isinstance(raw_citekey, int):
-        citekey_line = f"citekey: {raw_citekey}"
-    else:
-        citekey_line = f'citekey: "{raw_citekey}"'
-    source.write_text(
-        source.read_text()
-        .replace('citekey: "smith2020"', citekey_line)
-        .replace(
-            'doi: "10.1000/xyz"',
-            'doi: "10.1000/xyz"\narchive-url: "https://archive.example/item"',
-        )
-    )
-    monkeypatch.setattr("research_vault.webapi.get_status", lambda *_, **__: 200)
-
-    outcome = _archive_outcomes(net_vault)[0]
-
-    assert outcome.target == "path-bytes:literatures/smith2020.md"
-    assert outcome.target_kind == "repo-path"
-    assert _target_hash(net_vault, outcome) is not None
-    filed = inbox.append_entry(
-        net_vault,
-        outcome.check,
-        outcome.target,
-        outcome.result,
-        outcome.reason,
-        target_hash=_target_hash(net_vault, outcome),
-    )
-    assert json.dumps(filed.__dict__)
-
-
 def test_main_routes_base_before_and_after_verify(net_vault, monkeypatch, capsys):
     bases = []
 
@@ -1360,10 +1229,8 @@ def _isolate_network_verify(monkeypatch, outcomes):
         "lint_append_only",
         "lint_claim_immutability",
         "lint_published_drift",
-        "lint_web_archive",
     ):
         monkeypatch.setattr(f"research_vault.lints.{name}", lambda *_args: [])
-    monkeypatch.setattr("research_vault.verify._archive_outcomes", lambda *_args: [])
 
 
 def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
@@ -1833,7 +1700,6 @@ def test_invalid_bibliography_is_not_reloaded_while_hashing(net_vault, monkeypat
         "lint_append_only",
         "lint_claim_immutability",
         "lint_published_drift",
-        "lint_web_archive",
     ):
         monkeypatch.setattr(f"research_vault.lints.{name}", lambda *_args: [])
 
@@ -2129,3 +1995,15 @@ def test_commit_projected_rejects_dirty_output_overlap_before_any_projection(
     assert _git_bytes(fixture_vault, "rev-parse", "HEAD") == head
     assert _git_bytes(fixture_vault, "diff", "--cached", "--binary") == index
     assert not manifest.exists()
+
+
+def test_archive_source_verb_and_web_archive_check_are_retired(tmp_vault):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["archive-source", "smith2020", "--vault", str(tmp_vault)])
+    assert exit_info.value.code == 2
+    assert "web-archive" not in inbox.CHECK_IDS
+    assert "missing-archive" not in inbox.REASON_CODES
+    assert not hasattr(cli, "cmd_archive_source")

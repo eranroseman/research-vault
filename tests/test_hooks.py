@@ -1019,10 +1019,10 @@ def test_stop_gate_pass_clears_flag(fixture_vault, monkeypatch, capsys):
             "mismatch — quote differs",
         ),
         Outcome(
-            "web-archive",
-            "https://example.test/archive",
+            "update-notice",
+            "smith2020",
             Result.UNREACHABLE,
-            "outage — archive unavailable",
+            "outage — network unavailable",
         ),
     ],
 )
@@ -1919,7 +1919,6 @@ def test_stop_gate_matches_direct_publish_state_and_effects(
         lambda *_args, **_kwargs: Result.MATCHED,
     )
     monkeypatch.setattr(verify, "_network_outcomes", lambda *_args: [])
-    monkeypatch.setattr(verify, "_archive_outcomes", lambda *_args: [])
 
     _report, effective, _hashes, warning_effective = verify.verify_state(
         direct_vault,

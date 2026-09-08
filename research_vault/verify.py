@@ -27,7 +27,6 @@ from . import (
     notes,
     quotes,
     structure,
-    webapi,
 )
 from .pathcodec import (
     PathCodecError,
@@ -721,40 +720,6 @@ def _offline_network_outcomes(entry, detection_date, notice_lookup):
     ]
 
 
-def _archive_outcomes(vault_root):
-    outcomes = []
-    for path in sorted((Path(vault_root) / "literatures").glob("*.md")):
-        try:
-            data, _ = frontmatter.parse(_read_note_text(path))
-        except (OSError, UnicodeError, frontmatter.FrontmatterError):
-            continue
-        archive_url = data.get("archive-url")
-        if not isinstance(archive_url, str) or not archive_url:
-            continue
-        raw_target = data.get("citekey")
-        target = (
-            raw_target.strip()
-            if isinstance(raw_target, str)
-            and raw_target.strip()
-            and _note_for_citekey(vault_root, raw_target.strip()) is not None
-            else RepoPath(os.fsencode(path.relative_to(vault_root)))
-        )
-        try:
-            status = webapi.get_status(archive_url, vault_root, query_mailto=False)
-        except webapi.ApiError:
-            result = Result.UNREACHABLE
-            reason = "outage — archive-url unavailable"
-        else:
-            if status == 404:
-                result = Result.UNMATCHED
-                reason = "missing-archive — archive-url 404s"
-            else:
-                result = Result.MATCHED
-                reason = "matched"
-        outcomes.append(checks.Outcome("web-archive", target, result, reason))
-    return outcomes
-
-
 # The annotation pins the ARITY (exactly three), which is what the splat at the
 # is_acknowledged call site needs; the element types stay Any because they are read
 # straight off the JSON extra mapping and nothing here verifies them. Claiming
@@ -1037,9 +1002,6 @@ def _plan_state(
         lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
     )
     raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
-    raw.extend(lints.lint_web_archive(vault))
-    if network:
-        raw.extend(_archive_outcomes(vault))
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]
