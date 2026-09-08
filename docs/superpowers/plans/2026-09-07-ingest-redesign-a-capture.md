@@ -55,7 +55,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 18. **`wiki/` joins the pre-tool-use guard's machine surfaces.** The tool's engine is the only writer under `wiki/` (its skills forbid host `Write`/`Edit` there: "Do not use host Write/Edit"), so an agent `Write` into `wiki/` is exactly the bypass the guard exists to refuse. Tracer T1 (Part B Task 1) confirms the tool's own session still completes with the guard active.
 19. **`fulltext/` is walked by verify's worktree snapshot** (`gitstate.snapshot_worktree` walks the live tree, `.git` excluded), so `okf-frontmatter` attests it as §3.6 intends; the index snapshot used at pre-commit (`git ls-files --stage`) never sees it, so the held leg costs nothing. `stamp.stamp_types` and `structure.check_reserved` skip `fulltext/`, `.raw/` and `.vault-meta/` (a 1,335-file parse per commit buys nothing: the layer carries its type by construction).
 20. **`selectors.py` stays** (unused after `backfill-selectors` retires): it is the Web-Annotation context machinery open point 10 defers with annotations, and lane 5 is its consumer. `backfill-selectors` goes because its only input (claim lines in the managed region) retires.
-21. **Open point 07**: the acknowledgment scope hash is the sha256 of the note bytes with the verifier-owned `verified` list removed (`verify._note_bytes`), truncated to 16 hex characters — what `_citekey_hash` already computes when no `fixity-sha256` is present. The `fixity-sha256` branch is deleted. **Open point 08**: `skills/evidence-conventions/SKILL.md` is the single definition site of `[retraction-ack:: <code>]`; `publish.py` parses it through one module constant `RETRACTION_ACK_FIELD = "retraction-ack"` and a test asserts the skill's fenced example uses that spelling. **Open point 09**: `ack` clears the target's `[failed-verification:: <check>/<date>]` marker.
+21. **Open point 07**: the acknowledgment scope hash is the sha256 of the note bytes with the verifier-owned `verified` list removed (`verify._note_bytes`), truncated to 16 hex characters — what `_citekey_hash` already computes when no `fixity-sha256` is present. The `fixity-sha256` branch is deleted. **Open point 08**: `skills/evidence-conventions/SKILL.md` is the single definition site of `[retraction-ack:: <code>]`; `publish.py` carries the one module constant `RETRACTION_ACK_FIELD = "retraction-ack"` any future parser keys on (measured 2026-09-07: nothing in the package reads the field; `grep -rn retraction-ack research_vault` is empty), and a test asserts the skill's fenced example uses that spelling. **Open point 09**: `ack` clears the target's `[failed-verification:: <check>/<date>]` marker.
 22. **Tracer results land in Part B** under "Tracer results" (Part B Task 1) and as one dated sentence in the spec's §4.3 tracer paragraph.
 23. **Invariant 5 / decomposition §15.20** (no branch protection, no dev pre-commit hook): reported in Task 20's final message to the author, unchanged by this plan.
 24. **The tool's inbox, belt and braces (§4.3 conflict 2).** Measured 2026-09-07 in `claude_obsidian/capture.py` and `cli.py` at `ad67087`: the tool's `capture plan|apply` take `--inbox <folder>`, which wins over the file and writes no state; the durable key is `"inbox"` in `.vault-meta/capture/config.json` (schema `claude-obsidian.capture-config.v1`, default `"inbox"`, a dot-prefixed folder refused as `INBOX_NOT_VISIBLE`). This design never runs the tool's `capture` — the wrapper calls only `transaction inspect|apply` (Part B Task 2) — so the vault's `inbox/` is never its drop zone, and tracer T3 (Part B Task 1) checks that a compile run writes only under `wiki/`, so nothing lands under `.raw/`. Should the tool's `capture` ever be adopted, point `"inbox"` at a folder other than `inbox/` in that file, or pass `--inbox` on every call.
@@ -1025,13 +1025,21 @@ def test_reserved_check_skips_the_tool_stores(tmp_path):
 (`tests/test_structure.py` imports `Result` from `research_vault`; add it if absent.) Append to `tests/test_hooks.py` a guard test:
 
 ```python
-def test_pretooluse_denies_wiki_writes(fixture_vault, monkeypatch):
-    # Mirror the existing deny test for `literatures/` (grep "DENY_REASON" in
-    # this file) with target `wiki/concepts/new.md`; expect the same deny payload.
-    ...
+@pytest.mark.parametrize(
+    "relative",
+    [Path("wiki") / "concepts" / "new.md", Path("wiki") / "index.md", Path("wiki") / "sources" / "a.md"],
+)
+def test_pretooluse_denies_write_under_wiki(fixture_vault, relative):
+    _make_hook_vault(fixture_vault)
+    target = fixture_vault / relative
+    payload = _pretooluse_payload(fixture_vault, "Write", file_path=str(target), content="x\n")
+
+    result = _run_pretooluse(fixture_vault, payload)
+
+    assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
 ```
 
-Write it by copying the existing `literatures/` deny test body and changing the path.
+and add `Path("wiki") / "concepts" / "new.md"` to the `relative` list of `test_pretooluse_denies_edit_into_every_machine_surface`; in `test_pretooluse_allows_edit_outside_machine_surfaces` replace `Path("synthesis") / "note.md"` with `Path("inbox") / "fleeting.md"` (the folder no longer exists).
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -1220,9 +1228,6 @@ class InvalidCitationKeyError(ValueError):
     """A citation key that cannot safely name one file in ``literatures``."""
 
 
-_FRONTMATTER_END = re.compile(r"^---\r?\n", re.MULTILINE)
-
-
 def rename_frontmatter_key(text: str, old: str, new: str) -> str:
     """Rename one top-level frontmatter key without touching anything else.
 
@@ -1254,7 +1259,7 @@ grep -rl '"citekey"' research_vault tests hooks | xargs sed -i -e 's/"citekey"/"
 grep -rl "'citekey'" research_vault tests hooks | xargs sed -i -e "s/'citekey'/'citation-key'/g"
 # 2. The frontmatter key: the check-id substitution above also hit
 #    data.get("citekey") reads and fixture lines; repair those to the field spelling.
-grep -rln 'get("citation-key")\|^citation-key: \|\ncitation-key: ' research_vault tests hooks | xargs sed -i \
+grep -rln 'get("citation-key")\|^citation-key: \|\\ncitation-key: ' research_vault tests hooks | xargs sed -i \
   -e 's/get("citation-key")/get("citationKey")/g' -e 's/^citation-key: /citationKey: /' -e 's/\\ncitation-key: /\\ncitationKey: /g'
 # 3. Remaining bare identifiers.
 grep -rl 'citekey' research_vault tests hooks | xargs sed -i -e 's/citekeys/citation_keys/g' -e 's/citekey/citation_key/g'
@@ -1326,8 +1331,9 @@ def test_glossary_carries_the_ingest_vocabulary_and_no_retired_terms():
     ):
         assert term in text, term
     for retired in ("**Admission**", "**Managed region**", "**Screening state**",
-                    "**Bibliography export**", "**Synthesis layer**", "citekey"):
+                    "**Bibliography export**", "**Synthesis layer**"):
         assert retired not in text, retired
+    assert text.count("citekey") == 1 and "_Avoid_: citekey" in text  # named once, as the spelling to avoid
 ```
 
 (`REPO` is the repository root; `tests/test_skeleton.py` defines it as `Path(__file__).resolve().parents[1]` — reuse that spelling.)
@@ -1529,7 +1535,7 @@ class FakeZotero:
         if path.startswith("/api/") and sent_id and sent_id != self.server_id:
             return zotero.Response(412, b"does not match this server", {})
         if verb == "POST" and path.startswith("/api/") and not sent_id:
-            return zotero.Response(428, b"Precondition Required", {})
+            return zotero.Response(428, b"Precondition Required", {})  # measured server answer; authorize() raises before sending
         table = self._posts if verb == "POST" else self._gets
         if path not in table:
             return zotero.Response(404, b"", {"Zotero-Server-ID": self.server_id})
@@ -2283,7 +2289,7 @@ insert_final_newline = false
 trim_trailing_whitespace = false
 ```
 
-`hooks/pretooluse_guard.py:11`: `MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki", "fulltext"})`. Update `tests/test_templates.py:208-216` expected lists and add the hook deny test by copying the `literatures/` one.
+`hooks/pretooluse_guard.py:11`: `MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki", "fulltext"})`. Update `tests/test_templates.py:208-216` expected lists and add `Path("fulltext") / "D7EJ9FTG.md"` to the `relative` list of `tests/test_hooks.py::test_pretooluse_denies_edit_into_every_machine_surface` (and the same path to Task 6's `test_pretooluse_denies_write_under_wiki` list, renamed `test_pretooluse_denies_write_under_machine_layers` if the name now reads wrong).
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -2317,6 +2323,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 Append to `tests/test_notes.py`:
 
 ```python
+import dataclasses
+
 from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM
 
 PROVENANCE = notes.Provenance(
@@ -2396,7 +2404,7 @@ def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
 
 def test_rerender_bumps_generated_when_the_projection_moved():
     first = _render()
-    moved = notes.Provenance(**{**PROVENANCE._asdict(), "item_version": 545}) if hasattr(PROVENANCE, "_asdict") else dataclasses.replace(PROVENANCE, item_version=545)
+    moved = dataclasses.replace(PROVENANCE, item_version=545)
     second = notes.render_note(
         ITEM["data"], moved, [ATTACHMENT], [CHILD_NOTE], first,
         accessed="2026-09-08", generated_at="2026-09-08T00:00:00Z",
@@ -2718,9 +2726,10 @@ keeps only the keys the tests name. Shapes are the observed shapes: flat
 - `items-before.json` / `trash-before.json` — the baseline.
 - `items-after-delete.json` — `ALKT2NF7` moved 0 → 1708 by a human edit (drifted).
 - `trash-trashed.json` — `II7E6CVR` present at 1712 (trashed); **non-replayable
-  as a transition**: no snapshot holds the item while it was live, so the pair
-  shows a key entering the trash map without leaving the items map. Part B Task 5
-  takes the missing snapshot.
+  as a transition**: no snapshot holds the item while it was live — it is absent
+  from every items map here — so the pair shows only its arrival in the trash
+  map, never its departure from the items map. Part B Task 5 takes the missing
+  snapshot.
 - `trash-after-delete.json` — `II7E6CVR` gone from both maps (deleted; replays).
 ```
 
@@ -3867,16 +3876,16 @@ def _ledger(vault, records):
 
 
 def test_captured_set_is_the_recorded_keys_not_the_filenames(tmp_vault):
-    _note(tmp_vault, "smith2020", "SMITH0001")
+    _note(tmp_vault, "smith2020", "SMITH001")
     (tmp_vault / "literatures" / "renamed2020.md").write_text(
         (tmp_vault / "literatures" / "smith2020.md").read_text().replace('citationKey: "smith2020"', 'citationKey: "smith2020a"')
     )
     (tmp_vault / "literatures" / "junk.md").write_text("no frontmatter\n")
-    assert captured.captured_set(tmp_vault) == {"smith2020": "SMITH0001", "smith2020a": "SMITH0001"}
+    assert captured.captured_set(tmp_vault) == {"smith2020": "SMITH001", "smith2020a": "SMITH001"}
 
 
 def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_vault):
-    _note(tmp_vault, "smith2020", "SMITH0001", title="Mortality decline")
+    _note(tmp_vault, "smith2020", "SMITH001", title="Mortality decline")
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
     (pages / "Mortality decline.md").write_text("---\ntype: source\nsources:\n  - \"[[Mortality decline]]\"\n---\n[[smith2020]] [@smith2020] [[Other page]] [[ghost2020]] [@ghost2021]\n")
@@ -3890,7 +3899,7 @@ def test_textual_half_resolves_pages_aliases_and_keys_and_reports_the_rest(tmp_v
 
 
 def test_structural_half_checks_locators_and_hashes(tmp_vault):
-    _note(tmp_vault, "smith2020", "SMITH0001", text_key="ATT00001", sha="a" * 64)
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
     _ledger(tmp_vault, {
         "src-1": {"origin": {"kind": "file", "locator": "fulltext/ATT00001.md"}, "content_sha256": "a" * 64},
         "src-2": {"origin": {"kind": "file", "locator": "fulltext/ATT00002.md"}, "content_sha256": "b" * 64},
@@ -4740,8 +4749,8 @@ ______________________________________________________________________
 
 **Files:**
 
-- Modify: `research_vault/verify.py` (`_citation_key_hash` loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/__main__.py` (`cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (`RETRACTION_ACK_FIELD = "retraction-ack"` hoisted from its literal; `grep -n 'retraction-ack' research_vault/publish.py` finds the site — open point 08)
-- Test: `tests/test_verify_cli.py`, `tests/test_publish.py`, `tests/test_skill_contracts.py`
+- Modify: `research_vault/verify.py` (`_citation_key_hash` loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/__main__.py` (`cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
+- Test: `tests/test_verify_cli.py`, `tests/test_publish.py`
 
 **Interfaces:**
 
@@ -4845,7 +4854,7 @@ def cmd_ack(args):
     return 0
 ```
 
-`publish.py`: `RETRACTION_ACK_FIELD = "retraction-ack"` and every literal use reads the constant.
+`publish.py`: add `RETRACTION_ACK_FIELD = "retraction-ack"` beside its other module constants, with a one-line comment naming `skills/evidence-conventions/SKILL.md` as the definition site. No literal exists to hoist (see Files); the constant is where any future parser keys on the field.
 
 - [ ] **Step 4: Run everything; commit**
 
@@ -4904,7 +4913,7 @@ def test_capture_source_keeps_the_kept_rules():
         "SKIPPED applied to reading", "the range you did not read named",
         "python3 -m research_vault capture", "python3 -m research_vault add",
         "python3 -m research_vault propagate",
-        "`NOOP`", "re-keyed", "no-fulltext", "database-changed",
+        "matched — NOOP", "re-keyed", "no-fulltext", "database-changed",
     ):
         assert needle in text, needle
     assert "import-note" not in text and "managed region" not in text and "auto-export" not in text
@@ -5127,7 +5136,7 @@ Task numbers are this part's; `B n` names a Part B task. Part B's own self-revie
 
 ### Placeholder scan
 
-Every `...` in a code block names the existing lines it stands for (`# unchanged body from :73-98`, `# the existing extraction body verbatim`); none says "implement later". Two tests are written as instructions to copy an existing test body (`test_pretooluse_denies_wiki_writes`, the `fulltext/` deny test) because the pattern lives in `tests/test_hooks.py` and copying it is the point.
+Every `...` in a code block names the existing lines it stands for (`# unchanged body from :73-98`, `# the existing extraction body verbatim`); none says "implement later". The two hook deny legs (Tasks 6 and 10) are a printed test plus named additions to the existing parametrize lists in `tests/test_hooks.py`; nothing is left as "copy the other one".
 
 ### Type consistency
 
