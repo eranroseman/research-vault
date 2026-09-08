@@ -212,6 +212,7 @@ def read_live(client) -> Live                            # raises DatabaseChange
 def classify(provenance: Provenance, live: Live) -> tuple[str, str]   # (state, detail)
 def lint_lifecycle(vault_root, client, provenances=None) -> list[Outcome]   # provenances: list[tuple[Path, Provenance]]
 def _provenances(vault: Path) -> list[tuple[Path, Provenance]]   # private, consumed by Tasks 13 and 17; the shape lint_lifecycle takes
+def blocked(check, target, error: ZoteroError) -> Outcome    # a typed refusal (403 preference off) is UNMATCHED not-admitted; only error.result UNREACHABLE is an outage
 
 # research_vault/propagate.py                                 (Task 14)
 PLAN_DIR = ".research-vault/propagate"; RECORD_DIR = "system/propagations"; CHECK = "propagation"
@@ -1360,7 +1361,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type`, `trust-tier`, `mark-published`; and §3's "Literature screening states" deviation row, which is marked superseded **in place** — `Superseded <today's date> by the ingest redesign spec §0`, the form the `citation key` row already uses — and never deleted, because a register that drops retired rows cannot show a deviation was taken or why it ended), `skills/evidence-conventions/SKILL.md` (`:37` "Claims in `synthesis/` add:" names the folder Task 6 moved — say the compiled layer under `wiki/`; `:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero), `docs/adr/0003-deprecate-never-delete.md` (amended in place as decision content, status line untouched, no date written, decision unchanged — see Step 3's closing block; it is in this plan's authority list and after this task it would be the last live document naming screening states)
+- Modify: `CONTEXT.md` (`research_vault/templates/context.md` is a symlink to it and needs no edit), `docs/terminology.md` (§4.1 vault paths, §4.2 field spellings, §4.3 governed skill names — leave `import-source` until Part B Task 4, §4.4 rows, and the naming-convention examples row at `:120`, whose `import-note`, `backfill-selectors` and `archive-source` are retired verbs — the examples become `stamp-type` alone (the one surviving verb-noun kebab command; this plan first named `trust-tier` and `mark-published` too, but they already sit in their own rows of the same table — Task 8 caught it); and §3's "Literature screening states" deviation row, which is marked superseded **in place** — `Superseded <today's date> by the ingest redesign spec §0`, the form the `citation key` row already uses — and never deleted, because a register that drops retired rows cannot show a deviation was taken or why it ended), `skills/evidence-conventions/SKILL.md` (`:37` "Claims in `synthesis/` add:" names the folder Task 6 moved — say the compiled layer under `wiki/`; `:82`, `:83` and `:102` still teach `import-note` and "the literature note's managed region", both retired by Task 5 — rewrite them in this task's terms: `capture`, and a note wholly machine-written from Zotero), `docs/adr/0003-deprecate-never-delete.md` (amended in place as decision content, status line untouched, no date written, decision unchanged — see Step 3's closing block; it is in this plan's authority list and after this task it would be the last live document naming screening states)
 - Test: `tests/test_templates.py` (the glossary render test, if it asserts content), `tests/test_skill_contracts.py` (the backticked-token rule at `:157-170` over templates)
 
 **Interfaces:**
@@ -2829,7 +2830,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `notes.read_provenance`, `notes.Provenance`, `ZoteroClient.versions/trash_versions/top_items/children`, `fulltext.path_for/sha256_of`, `zotero.DatabaseChangedError`.
 
-- Produces: the Interface index `research_vault/lifecycle.py` block. `classify` returns one of `("current", "")`, `("drifted", "<detail>")`, `("re-keyed", "old → new")`, `("merged", "<successor key>")`, `("trashed", "<key>")`, `("deleted", "<key>")`. `lint_lifecycle` files one `Outcome("lifecycle", <citation key>, UNMATCHED, "<code> — <detail>")` per non-current note in the order `merged, deleted, trashed, re-keyed, drift`, a `MATCHED "matched"` per current note, and on a 412 exactly one `Outcome("lifecycle", "vault", UNMATCHED, "database-changed — ...")` and nothing else; on any other `ZoteroError` one `Outcome("lifecycle", "vault", UNREACHABLE, "outage — ...")`. With no provenance-bearing note, `lint_lifecycle` returns one `SKIPPED` outcome and never touches the client (decision 26).
+- Produces: the Interface index `research_vault/lifecycle.py` block. `classify` returns one of `("current", "")`, `("drifted", "<detail>")`, `("re-keyed", "old → new")`, `("merged", "<successor key>")`, `("trashed", "<key>")`, `("deleted", "<key>")`. `lint_lifecycle` files one `Outcome("lifecycle", <citation key>, UNMATCHED, "<code> — <detail>")` per non-current note in the order `merged, deleted, trashed, re-keyed, drift`, a `MATCHED "matched"` per current note, and on a 412 exactly one `Outcome("lifecycle", "vault", UNMATCHED, "database-changed — ...")` and nothing else; on any other `ZoteroError` one `Outcome("lifecycle", "vault", UNREACHABLE, "outage — ...")`. With no provenance-bearing note, `lint_lifecycle` returns one `SKIPPED` outcome and never touches the client (decision 26). `lifecycle.blocked(check, target, error)` turns a `ZoteroError` into the right vault-level outcome — `UNMATCHED not-admitted` for a typed refusal such as the API-off 403, `UNREACHABLE outage` only when `error.result` says so — and every verb's vault-level Zotero read (Tasks 13 and 17) routes through it.
 
 - [ ] **Step 1: Build the fixtures and write the failing tests**
 
@@ -2990,6 +2991,16 @@ def test_outage_never_reads_as_a_classification(tmp_vault, monkeypatch):
     assert outcome.result is Result.UNREACHABLE and outcome.reason.startswith("outage")
 
 
+def test_the_api_off_403_is_a_refusal_not_an_outage(tmp_vault, monkeypatch):
+    _write_note(tmp_vault, _prov())
+    fake = FakeZotero()
+    fake.get("/api/users/0/items?since=0&format=versions", status=403, body=b"")
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert outcome.result is Result.UNMATCHED and outcome.reason.startswith("not-admitted — ")
+    assert lifecycle.blocked("lifecycle", "vault", zotero.ZoteroError("down")).result is Result.UNREACHABLE
+
+
 def test_verify_offline_reports_the_held_leg_as_synthetic_unreachable(fixture_vault):
     from research_vault import verify
 
@@ -3147,6 +3158,21 @@ def _provenances(vault: Path) -> list[tuple[Path, notes.Provenance]]:
     return found
 
 
+def blocked(check: str, target, error: ZoteroError) -> Outcome:
+    """A typed refusal is a verdict, an outage is not (ADR 0002).
+
+    ``LocalApiDisabledError`` (403: the local-API preference is off) carries
+    ``result=UNMATCHED`` and names a condition a person can fix; reporting it
+    as an outage would tell them to wait for something that will not change.
+    Only ``error.result is UNREACHABLE`` — a refused connection, a 500, a
+    malformed body — is the outage the four-state rule says never reads as a
+    pass. Every verb's vault-level Zotero read routes its ``ZoteroError`` here.
+    """
+    if error.result is Result.UNREACHABLE:
+        return Outcome(check, target, Result.UNREACHABLE, f"outage — {error}")
+    return Outcome(check, target, Result.UNMATCHED, f"not-admitted — {error}")
+
+
 def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[Outcome]:
     vault = Path(vault_root)
     pairs = provenances if provenances is not None else _provenances(vault)
@@ -3160,7 +3186,7 @@ def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[O
     except DatabaseChangedError as error:
         return [Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}; every recorded version is void")]
     except ZoteroError as error:
-        return [Outcome(CHECK, "vault", Result.UNREACHABLE, f"outage — {error}")]
+        return [blocked(CHECK, "vault", error)]  # 403 is not-admitted, not an outage
     outcomes = []
     for _path, provenance in pairs:
         if provenance.server_id != client.server_id:
@@ -3664,7 +3690,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
         # A client that still carries an earlier run's server id is refused with 412 before any read.
         return [Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")]
     except ZoteroError as error:
-        return [Outcome(CHECK, "vault", Result.UNREACHABLE, f"outage — {error}")]
+        return [lifecycle.blocked(CHECK, "vault", error)]
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
     requested = list(keys) + ([p.citation_key for _, p in existing] if refresh_all else [])
@@ -3681,7 +3707,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
     try:
         resolved = resolve_keys(client, requested)
     except ZoteroError as error:
-        return [Outcome(CHECK, "vault", Result.UNREACHABLE, f"outage — {error}")]
+        return [lifecycle.blocked(CHECK, "vault", error)]
     for requested_key, item_key in resolved.items():
         if item_key is None:
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"not-admitted — {requested_key} is not in the library"))
@@ -3704,7 +3730,7 @@ def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=Fal
         except NotFoundError:
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"not-admitted — {item_key} is not in the library"))
         except ZoteroError as error:
-            outcomes.append(Outcome(CHECK, requested_key, Result.UNREACHABLE, f"outage — {error}"))
+            outcomes.append(lifecycle.blocked(CHECK, requested_key, error))
         except (notes.InvalidCitationKeyError, OSError) as error:
             outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"schema-violation — {error}"))
     if any(o.reason == "matched" for o in outcomes):
@@ -5142,7 +5168,7 @@ def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -
     except DatabaseChangedError as error:
         return [Outcome(CHECK, "add", Result.UNMATCHED, f"database-changed — {error}")]
     except ZoteroError as error:
-        return [Outcome(CHECK, "add", Result.UNREACHABLE, f"outage — {error}")]
+        return [lifecycle.blocked(CHECK, "add", error)]  # the API-off 403 is not-admitted, not an outage
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
     if client.server_id != info["server_id"]:
@@ -5397,7 +5423,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Create: `skills/capture-source/SKILL.md`, `tests/test_capture_source_skill.py`
 - Delete: `skills/import-source/` (whole directory), `tests/test_import_source_skill.py`
-- Modify: `skills/setup-vault/SKILL.md`, `skills/project-flow/SKILL.md` (`:15` "Read `synthesis/index.md`" and `:52` "`synthesis/` pages" become `wiki/index.md` and "`wiki/` pages" — the folder Task 6 moved) with `tests/test_project_flow_skill.py:54` (the `sequence` list's `"synthesis/index.md"` becomes `"wiki/index.md"`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `README.md` (the skills table rows at `:83-84` — `find-sources` "terminates at the admission boundary" and the `import-source` row — and the routing sentence at `:89`, "Import this paper"), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
+- Modify: `docs/adr/0003-deprecate-never-delete.md:7` (the Scope-bound paragraph's "Synthesis prose is freely rewritable" becomes "The compiled layer under `wiki/` is freely rewritable" — a retired term in an authority document, left by Task 8 because its brief said nothing else in the file moves; deferred row 18), `skills/setup-vault/SKILL.md`, `skills/project-flow/SKILL.md` (`:15` "Read `synthesis/index.md`" and `:52` "`synthesis/` pages" become `wiki/index.md` and "`wiki/` pages" — the folder Task 6 moved) with `tests/test_project_flow_skill.py:54` (the `sequence` list's `"synthesis/index.md"` becomes `"wiki/index.md"`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `README.md` (the skills table rows at `:83-84` — `find-sources` "terminates at the admission boundary" and the `import-source` row — and the routing sentence at `:89`, "Import this paper"), `docs/terminology.md` §4.3 (governed skill names: `capture-source` replaces `import-source`), `tests/test_skill_files.py`, `tests/test_skill_contracts.py:33-41` (`ENTRY_SKILLS`), `tests/test_templates.py`
 
 **Interfaces:**
 
@@ -5582,7 +5608,7 @@ Expected: PASS.
 ```bash
 git commit -m "rewrite capture-source and setup-vault (ingest spec §6)
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests research_vault docs README.md
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests research_vault docs README.md docs/adr/0003-deprecate-never-delete.md
 ```
 
 ### Task 20: Final verification, the merge, the report to the author
