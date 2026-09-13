@@ -238,7 +238,7 @@ The ledger is the strongest artifact here. Three things in particular:
 
 Recorded so this pass reads honestly against a tree that moved while it was being written; the findings above stand as observed at `ebea360`/`ddc43a1`.
 
-- **§3.1 acted on.** `f6b7788` `docs: split Part 4 into Plan W (quality tail)` moved Tasks 23–25, 24b, 24c and 24d into `docs/superpowers/plans/2026-08-24-plan-w-quality-tail.md`. The batch drops from 35 tasks to 29, and the header's single-dispatch claim is true again.
+- **§3.1 acted on.** `f6b7788` `docs: split Part 4 into Plan W (quality tail)` moved Tasks 23–25, 24b, 24c and 24d into `docs/superpowers/plans/2026-09-13-plan-w-quality-tail.md`. The batch drops from 35 tasks to 29, and the header's single-dispatch claim is true again.
 - **§3.2 stands.** The header still asserts `- [ ]` tracking; the plan is 109 unchecked / 3 checked, and all three checked boxes are Task 8b's verify-only steps.
 - **A second finding of §2.2's class surfaced while this record was being written.** `750d4c7`
   corrects the plan's Task 4 XML annotation — "no entity expansion" becomes "no EXTERNAL entity

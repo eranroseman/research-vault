@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-13
 - **Method:** as the record states below
-- **Spec:** 2026-09-04-import-redesign-design.md
+- **Spec:** 2026-09-06-import-redesign-design.md
 - **Binds:** nothing — a record of what an execution produced and measured; the spec is the current state
 
 Run serially (`--max-workers 1 --memory-cap 6G --base main`) in a detached worktree on 2026-09-13; the per-module

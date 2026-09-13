@@ -4,7 +4,7 @@ Disposition: historical (2026-09-06) [should-be-scoping-review]
 
 **What this artifact is.** An adopt-first sourcing run. It searches for existing components that might serve the import redesign's requirements, reads each candidate's own body, and reports what each one covers, what it does not, and what could not be determined. It follows the `sourcing` skill (`docs/superpowers/reqs/2026-09-02-sourcing.md`), whose own requirements govern this artifact: S27 for this header, S24 for the method, S16 for coverage, S5 for the per-candidate opinions, S6 for the null report, S14 for the handoff.
 
-**What consumes it.** The import redesign brainstorm of 2026-09-04 and the spec that came out of it, `docs/superpowers/specs/2026-09-04-import-redesign-design.md`. Sections 4.2 and 4.3 of that spec draw their candidate descriptions from this note.
+**What consumes it.** The import redesign brainstorm of 2026-09-04 and the spec that came out of it, `docs/superpowers/specs/2026-09-06-import-redesign-design.md`. Sections 4.2 and 4.3 of that spec draw their candidate descriptions from this note.
 
 **Which requirement set, at which state.** The import requirement set as carried through the 2026-09-04 brainstorm. The set has no standing file of its own, so it is reproduced in full below rather than cited by path. Every requirement was at **version 1** for the whole run; no requirement changed meaning while the run was open, so nothing here is void under S2.
 
@@ -5648,7 +5648,7 @@ ______________________________________________________________________
 
 ## The Zotero fact register
 
-The Z lane's output has moved to `docs/research/2026-09-05-zotero-api-reading.md`, which carries all 448 deduplicated facts, Z1 through Z7, each with its verbatim quote and location, and the table of the bodies read with their pins. It moved because it is environment documentation rather than a sourcing finding: a register of API facts frozen on one day goes stale, and a third of this note spent on it buried the candidate findings the note exists to report. What stays here is the Z lane's place in the run, meaning the fact list in the requirement set above and the per-body rows in the coverage matrix. Neither file is where the design reads its facts from: the facts the ingest design depends on live in section 9 of `docs/superpowers/specs/2026-09-04-import-redesign-design.md` with their method and date, and are re-probed.
+The Z lane's output has moved to `docs/research/2026-09-05-zotero-api-reading.md`, which carries all 448 deduplicated facts, Z1 through Z7, each with its verbatim quote and location, and the table of the bodies read with their pins. It moved because it is environment documentation rather than a sourcing finding: a register of API facts frozen on one day goes stale, and a third of this note spent on it buried the candidate findings the note exists to report. What stays here is the Z lane's place in the run, meaning the fact list in the requirement set above and the per-body rows in the coverage matrix. Neither file is where the design reads its facts from: the facts the ingest design depends on live in section 9 of `docs/superpowers/specs/2026-09-06-import-redesign-design.md` with their method and date, and are re-probed.
 
 ______________________________________________________________________
 

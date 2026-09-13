@@ -577,7 +577,7 @@ ______________________________________________________________________
 
 ## Part 4 — SPLIT OUT (2026-08-24, review finding: the plan outgrew its "single dispatch" header)
 
-The non-gating post-merge tail (mutmut adoption, comment sweep, hermeticity, version currency, CI hardening, full baseline) now lives in its own plan: `docs/superpowers/plans/2026-08-24-plan-w-quality-tail.md`. It runs on main AFTER this plan's Task 21 merge; nothing in it gates the slice.
+The non-gating post-merge tail (mutmut adoption, comment sweep, hermeticity, version currency, CI hardening, full baseline) now lives in its own plan: `docs/superpowers/plans/2026-09-13-plan-w-quality-tail.md`. It runs on main AFTER this plan's Task 21 merge; nothing in it gates the slice.
 
 ## NOT in this plan
 

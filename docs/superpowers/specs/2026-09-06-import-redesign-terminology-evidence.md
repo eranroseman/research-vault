@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-04
 - **Method:** as the note records below (its own method section is unchanged)
-- **Spec:** 2026-09-04-import-redesign-design.md
+- **Spec:** 2026-09-06-import-redesign-design.md
 - **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-09-04. Industry-terminology evidence for the import redesign glossary.

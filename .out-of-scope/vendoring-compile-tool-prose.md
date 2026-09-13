@@ -60,5 +60,5 @@ Python, whatever the prose says.
 
 - Proposed and rejected in the ingest redesign session of 2026-09-07. No issue
   was filed: the decision has a home in
-  [the ingest spec §4.3](../docs/superpowers/specs/2026-09-04-import-redesign-design.md),
+  [the ingest spec §4.3](../docs/superpowers/specs/2026-09-06-import-redesign-design.md),
   and the tracker is for findings with no home.

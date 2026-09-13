@@ -2,14 +2,14 @@
 
 - **Date:** 2026-09-05
 - **Method:** as the note records below (its own method section is unchanged)
-- **Spec:** 2026-09-04-import-redesign-design.md
+- **Spec:** 2026-09-06-import-redesign-design.md
 - **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-09-05. A layout-configurability probe of the two compile-step candidates, run against scratch vaults rather than against their documentation.
 
 **What this artifact is.** A record of what `AgriciDaniel/claude-obsidian` and `nvk/llm-wiki` do to a directory tree they are pointed at. Five questions were asked of each: whether the caller can name the directories, what the tool writes per source, whether its pages carry a frontmatter `type`, whether its lint reaches folders it did not write, and what it does with `index.md`. Each candidate was cloned at its pin into `/tmp`, a scratch vault with the research-vault folder shape was built beside it, and the tool's deterministic parts were run against that vault: config load, path resolution, lint, transaction scope validation, and the page writers. The LLM legs (ingest drafting, compile) were not driven; where a fact could only come from prose or a template, that is marked.
 
-**What consumes it.** The compile section of the ingest redesign spec, `docs/superpowers/specs/2026-09-04-import-redesign-design.md`. Specifically §4.3, whose proposed adoption rests on "the two things that must fit this vault are configuration, not code"; §4.4, which names pointing the tool at `synthesis/` as a tracer and leaves the source page's home open; §4.3's second tracer, that `wiki-lint` leaves `literatures/` untouched; and §8 item 7, the open question about whether compiled pages carry a `type` the vault's structure check accepts.
+**What consumes it.** The compile section of the ingest redesign spec, `docs/superpowers/specs/2026-09-06-import-redesign-design.md`. Specifically §4.3, whose proposed adoption rests on "the two things that must fit this vault are configuration, not code"; §4.4, which names pointing the tool at `synthesis/` as a tracer and leaves the source page's home open; §4.3's second tracer, that `wiki-lint` leaves `literatures/` untouched; and §8 item 7, the open question about whether compiled pages carry a `type` the vault's structure check accepts.
 
 **Nothing here is a decision.** This note reports what the probes found and, per candidate, what the findings imply about the treatment rung. It does not rank the candidates, does not recommend one, and does not choose a home for the source page. It lays out the options and their costs and leaves the choice to design.
 
