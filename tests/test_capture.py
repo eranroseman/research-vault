@@ -734,16 +734,24 @@ def test_capture_refuses_a_re_keyed_item_while_the_old_note_exists_and_propagate
     refuses while the old note still exists; propagate plans, renames, and its
     own recapture proceeds because the old path is gone by then."""
     import research_vault.__main__ as cli
-    from research_vault import propagate
+    from research_vault import inbox, propagate
 
     fake, client, new = _re_keyed_fake(monkeypatch)
     assert capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched"
     _re_key(fake, new)
     monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
     assert cli.main(["capture", "--all", "--vault", str(tmp_vault)]) == 1
+    captured = capsys.readouterr()
     assert (
         "UNMATCHED old2020 — re-keyed — old2020 → new2020; run propagate"
-        in capsys.readouterr().out.splitlines()
+        in captured.out.splitlines()
+    )
+    # The first `;`-carrying reason through `record_finding`: filed, not refused.
+    assert "review record refused" not in captured.err
+    (held,) = [f for f in inbox.load(tmp_vault) if f.check == "capture"]
+    assert (held.target, held.reason) == (
+        "old2020",
+        "re-keyed — old2020 → new2020; run propagate",
     )
     literatures = tmp_vault / "literatures"
     assert sorted(p.name for p in literatures.glob("*.md")) == ["old2020.md"]

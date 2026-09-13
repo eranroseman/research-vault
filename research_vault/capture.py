@@ -40,10 +40,11 @@ KEY_WAIT_SECONDS = 10
 CSL_TARGET = bibliography.BIB_PATH
 # The linter transitions capture will not write over (spec §3.4 step 6): the
 # item's identity has moved or gone, and a fresh render would paper over it.
-# ``drift`` is what a refresh repairs, so it proceeds; ``re-keyed`` proceeds
-# only once the old note is gone (``_refused``: the rename is propagation's).
-# ``database-changed`` joins them: capturing a note the linter says records
-# another database would re-home it to this database's item of the same key.
+# ``database-changed`` joins the refused set: capturing a note the linter says
+# records another database would re-home it to this database's item of the
+# same key. ``drift`` is what a refresh repairs, so it proceeds; ``re-keyed``
+# proceeds only once the old note is gone (``_refused``: the rename is
+# propagation's).
 _REFUSED = frozenset({"merged", "trashed", "deleted", "database-changed"})
 
 
