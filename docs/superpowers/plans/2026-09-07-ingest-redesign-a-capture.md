@@ -3746,75 +3746,147 @@ def _captured_keys(vault: Path) -> set[str]:
     return {p.citation_key for _, p in lifecycle._provenances(vault)}
 
 
-def capture(vault_root, client: ZoteroClient, keys, *, now=None, refresh_all=False, key_wait_seconds=KEY_WAIT_SECONDS) -> list[Outcome]:
+def capture(
+    vault_root,
+    client: ZoteroClient,
+    keys,
+    *,
+    now: datetime.datetime | None = None,
+    refresh_all: bool = False,
+    key_wait_seconds: float = KEY_WAIT_SECONDS,
+) -> list[Outcome]:
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=0)
     try:
         info = client.server_info()
     except ZoteroError as error:
-        # blocked names a 412 database-changed: a client still carrying an earlier run's server id is
-        # refused before any read.
+        # A client that still carries an earlier run's server id is refused with
+        # 412 before any read; ``blocked`` names that as database-changed.
         return [lifecycle.blocked(CHECK, "vault", error)]
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
-    requested = list(keys) + ([p.citation_key for _, p in existing] if refresh_all else [])
-    # The linter runs first, through its one code path (§3.4).
+    all_keys, unrequestable = _every_note(vault) if refresh_all else ([], [])
+    requested = list(keys) + all_keys
+    # The linter runs first, through its one code path (§3.4). A vault-level
+    # refusal or outage stops the run; its decision-26 SKIPPED — no note carries
+    # a tuple yet — is the first capture into a fresh vault, not a reason to stop.
     linted = lifecycle.lint_lifecycle(vault, client)
-    blocking = [o for o in linted if o.target == "vault" and o.result is not Result.SKIPPED]
+    blocking = [
+        o for o in linted if o.target == "vault" and o.result is not Result.SKIPPED
+    ]
     if blocking:
-        return blocking  # database-changed or an outage; decision 26's SKIPPED row (empty vault) blocks nothing
-    # The linter targets citation keys; capture resolves item keys. Join the two through the provenance tuples.
+        # `unrequestable` (--all's `_every_note` rows) is already computed
+        # here, before `outcomes` even exists; a vault-level lint refusal
+        # must not silently drop it either (ADR 0002, same shape as the
+        # _top_version/resolve_keys failure below).
+        return [*unrequestable, *blocking]
+    # The linter targets citation keys; capture resolves item keys. Join the two
+    # through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
     standing: dict[str, Outcome] = {}
     for outcome in linted:
-        if isinstance(outcome.target, str):  # Outcome.target is str | RepoPath; the linter's are keys
+        # Outcome normalises target to str at construction; only the declared
+        # union still names RepoPath.
+        if isinstance(outcome.target, str):
             standing[item_key_of.get(outcome.target, outcome.target)] = outcome
+    # The id the linter sent and Zotero accepted, recorded in every tuple written.
+    server_id = client.server_id or info["server_id"]
+    outcomes: list[Outcome] = []
+    outcomes.extend(unrequestable)
+    library_name = None
+    aborted: Outcome | None = None
     try:
         run_version = _top_version(client)
+        resolved = resolve_keys(client, requested, item_key_of)
     except ZoteroError as error:
-        return [lifecycle.blocked(CHECK, "vault", error)]
-    outcomes: list[Outcome] = []
-    library_name = None
-    try:
-        resolved = resolve_keys(client, requested)
-    except ZoteroError as error:
-        return [lifecycle.blocked(CHECK, "vault", error)]
+        # `outcomes` may already hold `_every_note`'s unrequestable rows
+        # (--all); a vault-level failure here must not silently drop them
+        # (ADR 0002).
+        return [*outcomes, lifecycle.blocked(CHECK, "vault", error)]
     for requested_key, item_key in resolved.items():
         if item_key is None:
-            outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"not-admitted — {requested_key} is not in the library"))
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    requested_key,
+                    Result.UNMATCHED,
+                    f"not-admitted — {requested_key} is not in the library",
+                )
+            )
             continue
         prior = standing.get(item_key)
-        if prior is not None and prior.result is Result.UNMATCHED and prior.reason.split(" — ")[0] in {"merged", "trashed", "deleted"}:
-            outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, prior.reason))
+        if (
+            prior is not None
+            and prior.result is Result.UNMATCHED
+            and prior.reason.split(" — ")[0] in _REFUSED
+        ):
+            outcomes.append(
+                Outcome(CHECK, requested_key, Result.UNMATCHED, prior.reason)
+            )
             continue
         try:
             read = read_item(client, item_key)
             if not read.item["data"].get("citationKey"):
-                if _wait_for_key(client, item_key, key_wait_seconds)["data"].get("citationKey"):
-                    # The fill saves the item (1710 → 1711 on the sitting): re-read the whole pass so the
-                    # tuple records the keyed version, or the next verify reports drift on every added item.
-                    read = read_item(client, item_key)
-            if not read.item["data"].get("citationKey"):
-                outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"unkeyed — item {item_key} has no citation key"))
-                continue
-            library_name = library_name or read.item.get("library", {}).get("name") or "My Library"
-            outcomes.extend(_capture_one(vault, read, client.server_id, now))
+                keyed = _wait_for_key(client, item_key, key_wait_seconds)
+                if not keyed["data"].get("citationKey"):
+                    outcomes.append(
+                        Outcome(
+                            CHECK,
+                            requested_key,
+                            Result.UNMATCHED,
+                            f"unkeyed — item {item_key} has no citation key",
+                        )
+                    )
+                    continue
+                # The fill is a save that moves the item's version (sitting
+                # 2026-09-07: II7E6CVR 1710 -> 1711 once keyed), so the whole pass
+                # is re-read rather than the item swapped under a stale version.
+                read = read_item(client, item_key)
+            library_name = library_name or read.item.get("library", {}).get("name")
+            outcomes.extend(_capture_one(vault, read, server_id, now))
         except DatabaseChangedError as error:
-            return outcomes + [Outcome(CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}")]
+            # The database moved mid-run: stop reading, but let the notes already
+            # written be stamped and logged before the vault row ends the list.
+            aborted = Outcome(
+                CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}"
+            )
+            break
         except NotFoundError:
-            outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"not-admitted — {item_key} is not in the library"))
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    requested_key,
+                    Result.UNMATCHED,
+                    f"not-admitted — {item_key} is not in the library",
+                )
+            )
         except ZoteroError as error:
             outcomes.append(lifecycle.blocked(CHECK, requested_key, error))
-        except (notes.InvalidCitationKeyError, frontmatter.FrontmatterError, OSError) as error:
-            # A corrupt existing note reaches render_note as FrontmatterError; the linter cannot see it
-            # (read_provenance declines it), so this is the only place it becomes a finding. The OSError
-            # branch is the whole-branch review's to reclassify as an outage (deferred).
-            outcomes.append(Outcome(CHECK, requested_key, Result.UNMATCHED, f"schema-violation — {error}"))
+        except (
+            notes.InvalidCitationKeyError,
+            frontmatter.FrontmatterError,
+            OSError,
+        ) as error:
+            # A corrupt existing note reaches render_note as FrontmatterError; the
+            # linter cannot see it (read_provenance declines it), so this is the
+            # only place it becomes a finding. The OSError branch is the
+            # whole-branch review's to reclassify as an outage (deferred).
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    requested_key,
+                    Result.UNMATCHED,
+                    f"schema-violation — {error}",
+                )
+            )
     if any(o.reason == "matched" for o in outcomes):
         stamp.stamp_types(vault)
         okf.regenerate_log(vault)
+    if aborted is not None:
+        # No CSL file from the database that answered after the move.
+        return [*outcomes, aborted]
     if library_name is not None or existing:
-        outcomes.append(_regenerate_csl(vault, client, library_name or "My Library", run_version))
+        outcomes.append(_regenerate_csl(vault, client, library_name, run_version))
     return outcomes
 ```
 
@@ -5703,6 +5775,8 @@ Expected: FAIL — `capture.add` undefined.
 
 - [ ] **Step 3: Implement `add` in `research_vault/capture.py` and the verb**
 
+The `add` block and `_every_note` below are the branch's committed code at Task 17's close (`b3c492c`, merged at `1856a21`), folded verbatim after two fix rounds; the rulings recorded under Step 3 explain each departure from the first printed draft, and Task 13's printed `capture()` is likewise the committed body (the `--all` rows survive both vault-level early returns, legacy-note rows first, the vault row last). The printed tests are the task's original intent; `tests/test_add.py`, `tests/test_capture.py` and `tests/test_zotero.py` on the branch are the shape that runs.
+
 ```python
 KEY_STORE = ".research-vault/zotero-keys.json"
 _ITEM_FIELDS = frozenset(notes.SNAPSHOT_FIELDS) | {"collections"}
@@ -5719,6 +5793,9 @@ def _validate_items(items) -> str | None:
         for field_name in item:
             if field_name != "itemType" and field_name not in _ITEM_FIELDS:
                 return f"item {index}: unknown field {field_name}"
+        for list_field in ("creators", "tags"):
+            if list_field in item and not isinstance(item[list_field], list):
+                return f"item {index}: {list_field} must be a list"
     return None
 
 
@@ -5737,35 +5814,58 @@ def _store_key(vault: Path, server_id: str, key: str) -> None:
         current = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         current = {}
+    if not isinstance(current, dict):
+        current = {}
     current[server_id] = key
     path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
     path.chmod(0o600)
 
 
-def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -> list[Outcome]:
+def add(
+    vault_root, client: ZoteroClient, items, *, collection=None, now=None
+) -> list[Outcome]:
     """Path A: authorize once, create, poll for the citation key, capture (§2)."""
     vault = Path(vault_root)
     problem = _validate_items(items)
     if problem:
-        return [Outcome(CHECK, "add", Result.UNMATCHED, f"schema-violation — {problem}")]
+        return [
+            Outcome(CHECK, "add", Result.UNMATCHED, f"schema-violation — {problem}")
+        ]
     try:
         info = client.server_info()
     except ZoteroError as error:
-        return [lifecycle.blocked(CHECK, "add", error)]  # 412 database-changed, 403 not-admitted, else outage
+        return [
+            lifecycle.blocked(CHECK, "add", error)
+        ]  # 412 database-changed, 403 not-admitted, else outage
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
     if client.server_id != info["server_id"]:
-        return [Outcome(CHECK, "add", Result.UNMATCHED,
-                        f"database-changed — notes record {client.server_id}, Zotero answers {info['server_id']}")]
-    payload = [dict(item, **({"collections": [collection]} if collection else {})) for item in items]
-    key = client.api_key or _load_key(vault, client.server_id)  # a preset key (RV_LIVE_WRITE_KEY) wins over the store
+        return [
+            Outcome(
+                CHECK,
+                "add",
+                Result.UNMATCHED,
+                f"database-changed — notes record {client.server_id}, Zotero answers {info['server_id']}",
+            )
+        ]
+    payload = [
+        dict(item, **({"collections": [collection]} if collection else {}))
+        for item in items
+    ]
+    key = client.api_key or _load_key(
+        vault, client.server_id
+    )  # a preset key (RV_LIVE_WRITE_KEY) wins over the store
     for attempt in (1, 2):
         if key is None:
             try:
                 granted = client.authorize()
             except ZoteroError as error:
                 if error.result is Result.UNMATCHED:
-                    return [Outcome(CHECK, "add", Result.UNMATCHED, f"not-admitted — {error}")]
+                    return [
+                        Outcome(
+                            CHECK, "add", Result.UNMATCHED, f"not-admitted — {error}"
+                        )
+                    ]
                 return [Outcome(CHECK, "add", Result.UNREACHABLE, f"outage — {error}")]
             key = granted["key"]
             if granted["remember"]:
@@ -5775,14 +5875,35 @@ def add(vault_root, client: ZoteroClient, items, *, collection=None, now=None) -
             envelope = client.create_items(payload)
             break
         except ZoteroError as error:
-            if "401" in str(error) and attempt == 1:
+            if isinstance(error, ApiKeyRejectedError) and attempt == 1:
                 key = None
+                client.api_key = None
                 continue
-            return [Outcome(CHECK, "add", error.result, f"{'outage' if error.result is Result.UNREACHABLE else 'mismatch'} — {error}")]
-    created = [entry["key"] for entry in envelope.get("successful", {}).values() if isinstance(entry, dict) and entry.get("key")]
+            return [
+                Outcome(
+                    CHECK,
+                    "add",
+                    error.result,
+                    f"{'outage' if error.result is Result.UNREACHABLE else 'mismatch'} — {error}",
+                )
+            ]
+    created = [
+        entry["key"]
+        for entry in envelope.get("successful", {}).values()
+        if isinstance(entry, dict) and entry.get("key")
+    ]
     if envelope.get("failed") or not created:
-        return [Outcome(CHECK, "add", Result.UNMATCHED, f"mismatch — create failed: {envelope.get('failed')}")]
-    outcomes = [Outcome(CHECK, "add", Result.MATCHED, "matched — created " + ", ".join(created))]
+        return [
+            Outcome(
+                CHECK,
+                "add",
+                Result.UNMATCHED,
+                f"mismatch — create failed: {envelope.get('failed')}",
+            )
+        ]
+    outcomes = [
+        Outcome(CHECK, "add", Result.MATCHED, "matched — created " + ", ".join(created))
+    ]
     return outcomes + capture(vault, client, created, now=now)
 ```
 
@@ -5811,16 +5932,27 @@ def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
         try:
             data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
         except OSError as error:
-            outcomes.append(Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {error}"))
+            outcomes.append(
+                Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {error}")
+            )
             continue
         except (UnicodeError, frontmatter.FrontmatterError) as error:
-            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — {error}"))
+            outcomes.append(
+                Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — {error}")
+            )
             continue
         key = data.get("citationKey")
         if isinstance(key, str) and key:
             keys.append(key)
         else:
-            outcomes.append(Outcome(CHECK, target, Result.UNMATCHED, "schema-violation — no citationKey to request by"))
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    target,
+                    Result.UNMATCHED,
+                    "schema-violation — no citationKey to request by",
+                )
+            )
     return keys, outcomes
 ```
 
