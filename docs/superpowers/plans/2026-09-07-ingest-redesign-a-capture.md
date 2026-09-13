@@ -56,6 +56,7 @@ PY
 - **Deletion lists are claims, not orders.** Every name a Files block says to delete carries the line number it had when the plan was written; before deleting it, grep for callers across `research_vault/`, `tests/`, `hooks/` and `scripts/`, and if kept code still uses it, keep it and report the call site as a deviation instead of deleting it or working around it (Task 3's `registry_agency`, called by the kept `check_update_notice`, and `metadata_year`, imported by `identify.py`, are the measured cases). Deleting an exception class also means removing it from every `except (...)` tuple that names it — `cmd_verify` and `_run_disposition` in `__main__.py` name `notes.ManagedRegionError` and `notes.RenderIntegrityError` — because Python evaluates that tuple only when an exception reaches it, so the suite may stay green while a real error is masked by `AttributeError` at runtime. Line numbers in Files blocks are navigation hints to verify by name.
 - **What one task's design relies on another task's code doing is a claim to check, not a fact to assert.** Task 13's corrupt-note CSL loss relied on Task 15's lint reporting it, and the printed lint skipped such notes silently; Task 14's server-id argument relied on capture's read order, and the order was inverted. A brief that depends on such a behaviour says "if X does not hold, that is a finding to report" rather than asserting X, and the controller checks X against the ref that will run — the plan's printed code, or the branch — before dispatch. Both times this was done, X did not hold. The same rule covers a review finding relayed into a dispatch: Task 15's controller relayed "`validate_reason` is not pinned" without checking that `Outcome` construction already reaches it, and asked for three assertions that could not fail.
 - **A mutation check sweeps `__pycache__` before each case.** Two same-length edits to one file inside one mtime second let CPython's `mtime + size` pyc validation reuse the previous case's bytecode, so a mutation can "fail" on stale code and read as caught; `PYTHONDONTWRITEBYTECODE=1` blocks writing a pyc, not loading one. Remove `__pycache__` under `research_vault/` and `tests/` before every mutate-run-restore cycle, and confirm the tree byte-identical after the restore (Task 15's implementer found the false positive in its own table and its reviewer corrected the fix).
+- **No string literal under `research_vault/` spells a hyphenated skill name.** The skill-directory scan (`tests/test_skill_contracts.py`) classifies a backticked kebab-case token in a skill or template as a skill name unless the code spells it as a substring of a non-docstring string literal, so a literal that spelled one would mask a route to a deleted skill; `test_the_code_spells_no_hyphenated_skill_name` pins the constraint (Task 19, `5b17dde`). Check ids, reason codes and field names are what the code spells; skill names are what the skills directory holds.
 - **A pathspec commit ignores untracked files.** `git commit -- <paths>` picks up only files git already tracks; a file the task created stays behind silently. Every task that creates a file runs `git add -- <each created file>` before its commit and then checks that `git show --stat HEAD` lists every file it created (Task 10's first attempt missed both of its new files).
 - **A new machine surface names itself where agents read.** A task that adds a directory to `hooks/pretooluse_guard.py`'s `MACHINE_SURFACE_DIR_NAMES` or `MACHINE_SURFACE_PREFIXES` also adds it to `research_vault/templates/vault/AGENTS.md`'s machine-written enumeration (the line-7 group: surfaces the CLI writes) and updates the byte-pin in `tests/test_templates.py`. A surface written by something other than the CLI gets its own sentence instead, as `wiki/` has — follow a precedent's reason, not its shape (Task 10 guarded `fulltext/` and left the enumeration unchanged).
 - **No non-`live` test opens a socket to Zotero.** The offline suite must be green on a machine with no Zotero and give the same answer on one where a production instance is running; a test that reads a live instance is nondeterministic and green only by accident of someone's library. `tests/conftest.py::_no_zotero_socket` (autouse, Task 12) makes every `ZoteroClient` outside the `live` markers read an outage, and a test that needs a Zotero answer registers it on `FakeZotero`. Reads count as much as writes here: the write ban keeps production intact, this keeps the suite honest.
@@ -6071,10 +6072,14 @@ Append to `tests/test_config_validity.py` (use the repository-root constant that
 ```python
 def test_the_package_reads_one_date_clock():
     """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
+    # The call shape, not one spelling: `now(tz=datetime.UTC).date()` is the
+    # same reader (Task 18 review, ruling 8).
+    reads_today = re.compile(r"\.now\([^)]*\)\.date\(\)")
     offenders = sorted(
         path.name
         for path in (ROOT / "research_vault").glob("*.py")
-        if "now(datetime.UTC).date()" in path.read_text(encoding="utf-8") and path.name != "clock.py"
+        if reads_today.search(path.read_text(encoding="utf-8"))
+        and path.name != "clock.py"
     )
     assert offenders == [], offenders
 ```
@@ -6097,13 +6102,17 @@ Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` 
 
 - [ ] **Step 3: Implement**
 
+The code below — `scope_id`, `_as_of`, `clear_marker_for`, `cmd_ack`, `must_replace` and the two scans — is the branch's committed code at Task 18's close (`ec136c2`, merged at `3b9b2ad`), folded verbatim after three fix rounds; the rulings under Step 3 explain each departure from the first printed draft. `notes.canonical_content`'s round-3 change (the verifier-owned `failed-verification` list excluded from the scope under `_failure_rows`, the owned-shape test) is not printed here; the branch is its shape. The printed tests in Step 1 are the task's original intent.
+
 In `_citation_key_hash`, delete both `attachment_hashes = data.get("fixity-sha256") ... return first` blocks and in their place return the note's `managed-sha256` when the frontmatter carries one (`value = data.get("managed-sha256")`; `if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value): return value`), keeping the `_note_bytes` digest only as the fallback for a note capture has not written. `research_vault/inbox.py`:
 
 ```python
 def scope_id(check: str, target: str, target_hash: str | None) -> str:
     """Open point 07: an acknowledgment's identity is derived, never passed."""
     parts = (check, str(target), target_hash or "")
-    return hashlib.sha256(b"\x00".join(part.encode("utf-8") for part in parts)).hexdigest()
+    return hashlib.sha256(
+        b"\x00".join(part.encode("utf-8") for part in parts)
+    ).hexdigest()
 ```
 
 In `_scope_acknowledged`'s last branch (the standing scope; leave the legacy update-notice and repeatable-act branches as they are), compute `wanted = scope_id(finding.check, finding.target, finding.target_hash)` and replace the four-field comparison: `scope_ids` collects entries with `entry.ack_of is None and entry.target_kind == finding.target_kind and scope_id(entry.check, entry.target, entry.target_hash) == wanted` (plus the existing update-notice fingerprint condition), and an ack matches when `ack.ack_of in scope_ids and ack.actor.startswith("human:") and scope_id(finding.check, finding.target, ack.target_hash) == wanted` (plus the same fingerprint condition). `append_entry`: `date = _validate_date("date", clock.today(date))`. `summary(vault, as_of=None)`: the age arithmetic uses `datetime.date.fromisoformat(clock.today(as_of))` in place of `datetime.datetime.now(datetime.UTC).date()`. `research_vault/searchlog.py`: `_resolved_date(date)` returns `_validate_date("date", clock.today(date))`. `research_vault/__main__.py`: `record_finding`'s `resolved_date = clock.today(date)`; parser lines `verify.add_argument("--as-of", metavar="YYYY-MM-DD")` and `review_inbox.add_argument("--as-of", metavar="YYYY-MM-DD")`; and:
@@ -6122,34 +6131,75 @@ def _as_of(args) -> str | None:
 
 ```python
 def clear_marker_for(vault_root, check: str, target: str) -> bool:
-    """Open point 09: a human acknowledgment stands the marker down."""
-    vault = Path(vault_root)
+    """Open point 09: a human acknowledgment stands the marker down.
+
+    Markers live where ``_mutate_marker`` writes them — at each claim's origin
+    — so a ``<citation key>#^<claim id>`` target names every note carrying the
+    anchor, which confines the edit to the claim line; a bare citation-key
+    target of a ``citation-key`` finding (verify's own shape: the claim list
+    rides in the outcome's ``extra`` and the inbox row does not persist it)
+    names every line citing ``[@<key>``, the citation regex keeping
+    ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
+    the file itself, and every terminal marker for the check in it. The notes
+    are ``projects/**/*.md`` and ``literatures/*.md``: ``_plan_state`` scans
+    both for claim lines, and a capture-rendered literature note matches
+    nothing only because it carries none — a hand-authored one does receive
+    markers. Anything under ``wiki/`` is skipped, mirroring the writer's own
+    guard (ingest spec §4.4). Returns whether a marker was removed.
+    """
+    # The root exactly as `gitstate._absolute` builds a `path-bytes:` candidate
+    # from it (abspath, not resolve: no symlink is followed), so the two meet
+    # in the `wiki/` guard when `cmd_ack` was handed `--vault .`.
+    vault = Path(os.fsdecode(gitstate._root_bytes(Path(vault_root))))
+    claim_id: str | None = None
+    citation_key: str | None = None
     if "#^" in target:
-        citation_key, claim_id = target.split("#^", 1)
-        note = _note_for_citation_key(vault, citation_key)
-        candidates = [note] if note and note.is_file() else sorted((vault / "projects").rglob("*.md"))
+        claim_id = target.split("#^", 1)[1]
+        candidates = _claim_notes(vault)
     elif target.startswith("path-bytes:"):
         candidates = [_safe_relative(vault, target, "repo-path")]
-        claim_id = None
+    elif check == "citation-key":
+        citation_key = target
+        candidates = _claim_notes(vault)
     else:
         return False
-    pattern = _terminal_marker_pattern(check, claim_id)
     cleared = False
     for path in candidates:
         if path is None or not path.is_file():
             continue
+        if path.relative_to(vault).parts[0] == "wiki":
+            # The compiled layer is the tool's write scope (ingest spec §4.4):
+            # verify never writes a marker there, so there is none to clear.
+            continue
         lines = _read_note_text(path).splitlines(keepends=True)
+        changed = False
         for index, line in enumerate(lines):
             content, ending = _split_line_ending(line)
-            if claim_id is not None and _terminal_anchor_match(content, claim_id) is None:
-                continue
-            replacement = pattern.sub(" " if claim_id else "", content)
+            if claim_id is not None:
+                if _terminal_anchor_match(content, claim_id) is None:
+                    continue
+                terminal_claim_id: str | None = claim_id
+            elif citation_key is not None:
+                if not _cites(content, citation_key):
+                    continue
+                # The writer put the marker before the citing line's own
+                # anchor when it has one, after the line otherwise.
+                anchor = claims.ANCHOR_RE.search(content)
+                terminal_claim_id = anchor.group("id") if anchor else None
+            else:
+                terminal_claim_id = None
+            # `_mutate_marker`'s clear substitution: the pattern's lookahead keeps
+            # the anchor, and the single space closes the gap the marker left.
+            pattern = _terminal_marker_pattern(check, terminal_claim_id)
+            replacement = pattern.sub(
+                " " if isinstance(terminal_claim_id, str) else "", content
+            )
             if replacement != content:
-                lines[index] = replacement.rstrip(" ") + (" " + content[_terminal_anchor_match(content, claim_id).start():] if claim_id and not replacement.endswith(content[_terminal_anchor_match(content, claim_id).start():]) else "") + ending
-                cleared = True
-        if cleared:
+                lines[index] = replacement + ending
+                changed = True
+        if changed:
             _write_note_text(path, "".join(lines))
-            break
+            cleared = True
     return cleared
 ```
 
@@ -6180,8 +6230,11 @@ def cmd_ack(args):
 - and closes the class by mechanism: `tests/conftest.py` gains
 
 ```python
-def must_replace(text: str, old: str, new: str, count: int = 1) -> str:
-    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly."""
+def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
+    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly.
+
+    ``text``, ``old`` and ``new`` are all ``str`` or all ``bytes`` (ruling 7).
+    """
     assert old in text, f"substitution target no longer in the fixture: {old!r}"
     return text.replace(old, new, count)
 ```
@@ -6193,20 +6246,40 @@ def test_fixture_substitutions_cannot_become_no_ops():
     """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
     import ast
 
-    offenders = []
-    for name in ("test_verify_cli.py", "test_lints.py", "test_events.py", "test_notes.py"):
-        tree = ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "replace"
-                and node.args
-                and isinstance(node.args[0], ast.Constant)
-                and isinstance(node.args[0].value, str)
-                and ("\n" in node.args[0].value or ": " in node.args[0].value or "::" in node.args[0].value)
-            ):
-                offenders.append(f"{name}:{node.lineno}")
+    def fixture_shaped(node) -> bool:
+        # A str or bytes literal with a line break, a `key: value` or an inline
+        # field, or any f-string: the shapes fixture text takes (ruling 7).
+        if isinstance(node, ast.JoinedStr):
+            return True
+        if not isinstance(node, ast.Constant):
+            return False
+        value = node.value
+        if isinstance(value, bytes):
+            return b"\n" in value or b": " in value or b"::" in value
+        if isinstance(value, str):
+            return "\n" in value or ": " in value or "::" in value
+        return False
+
+    offenders = [
+        f"{name}:{node.lineno}"
+        for name in (
+            "conftest.py",
+            "test_verify_cli.py",
+            "test_lints.py",
+            "test_events.py",
+            "test_notes.py",
+        )
+        for node in ast.walk(
+            ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))
+        )
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "replace"
+            and node.args
+            and fixture_shaped(node.args[0])
+        )
+    ]
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
 ```
 
@@ -6415,6 +6488,8 @@ Run it from the vault root and report the paths it printed. Then `capture --all`
 ````
 
 `research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literatures/ and fulltext/, propagate a citation-key change |` (the file's row wraps `capture-source`, `literatures/` and `fulltext/` in backticks); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
+
+**Rulings from Task 19's execution, for its fix round 1 — the round's committed text is the shape, folded here once it lands:** (1) The commit deletes `skills/import-source/` while `skills/find-sources/SKILL.md:115` ("route to `import-source` to catalog it") and `:122` (the routing table's Catalog row) still route to it, and `tests/test_searchlog_cli.py:520` pins the name — a live skill routing to a deleted one, which no Files block in Part A or B claims and no test catches, because the directory scan (`test_every_skill_name_a_shipped_template_cites_has_a_skill_directory`, in `tests/test_skill_contracts.py` at HEAD — not `tests/test_skill_files.py` as this paragraph first said) walks shipped templates only. Ruling: Task 19 re-routes both lines to `capture-source` and moves the pin, by the plan's own rule (no later block claims it: fix now); and the scan gains `skills/*/SKILL.md` as a second corpus, so a skill that names a kebab-case skill token without a directory fails the suite — the mechanism that would have caught this, for the next rename. Historical documents under `docs/product-landscape/`, `docs/research/` and older plans keep the name; they are records of what was, not routes. (2) Three strings the Files block lists for removal were already absent at `674e57e` — navigation drift, nothing to do. (3) Measured departures upheld: the printed outcomes table's raw `|` is written `\|` because mdformat mangles it otherwise; the terminology row sits above the "Other" catch-all per that table's first-match rule, cells `Mechanical ingest step | Bare imperative verb`; `skills/project-flow/SKILL.md`'s routing row, example sentence and its pin at `tests/test_project_flow_skill.py:122` follow the deleted directory. (4) Process: two `sonnet` implementers stalled at the moment of issuing a command — the first at "run the full offline suite", the second at "check ruff and mypy" — with no child process and no tool call recorded; an `opus` implementer from the same inherited tree committed in ten minutes and verified all sixteen inherited paths byte for byte. Recorded as a tier ruling; a third stall would have been read as environmental. (5) **Two design choices in the scan's mechanism, ruled after round 1 (`5b17dde`):** (a) over a corpus that backticks check ids, reason codes, field names and verbs, the scan needs a rule for "is this bare kebab token a skill name"; the implementer measured three readings and shipped *a token is a skill name unless the code spells it* — a substring of a non-docstring string literal under `research_vault/` — which masks no live skill name at base and whose price is a constraint on product code, pinned by `test_the_code_spells_no_hyphenated_skill_name` so a literal that would mask a skill name fails visibly. Upheld as a proportionate mechanism, and the constraint is promoted to both parts' Global Constraints so Part B's code meets it. (b) `paper-lookup`, K-Dense's upstream skill cited by provenance at `skills/find-sources/SKILL.md:11` (the vendored-fork sentence with the repo URL and commit), shipped as an explicit, cited, staleness-checked exemption `_FOREIGN_SKILL_NAMES`. Overruled in favour of the alternative the report offered: the backticks at `:11` go, because a provenance citation is prose about a name, not a route, and an exemption list is a rule where dropping two characters eliminates the problem; the exemption is then empty and is deleted with its staleness check. "Admission" stays at `:3`, `:9`, `:114`, where the skill defines it as the person's act of accepting a source into Zotero; only the boundary sentences follow the README's "person's selection".
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
