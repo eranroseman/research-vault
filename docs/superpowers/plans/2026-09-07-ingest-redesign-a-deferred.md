@@ -181,3 +181,13 @@ here because a committed file is the only home that survives the workspace delet
    the case where the plan's printed shape is not that shape at all, and the diff must be against
    the committed tree. The rule that generalises: a claim about what code does is checked against
    the ref that will run it.
+
+9. **Two lessons from Part A's close (2026-09-13), recorded by the author.** A controller read a
+   pytest line's "1 failed" as a count to report rather than a failure to fix, and committed; the
+   next run caught it. A number in a tool's output is read for what it means before it is
+   copied. And two `sonnet` implementers dispatched onto an inherited, uncommitted tree (Task 19)
+   stalled at the moment of issuing a command — "now let's run the full offline suite", "now
+   let's check ruff and mypy" — with no child process and no tool call recorded, while an `opus`
+   implementer from the same tree committed in ten minutes and verified all sixteen inherited
+   paths byte for byte. A task whose first act is classifying someone else's half-finished work
+   against printed text is a judgment task, and the tier follows the task, not the file count.
