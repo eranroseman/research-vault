@@ -99,6 +99,10 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
     assert "README" in companion_section
     assert "zotero_profile" in companion_section
     assert "rename_frontmatter_key" in text  # the one-shot citekey migration, §1.1
+    # Review M-9: the migration says what a capture rewrite does to a standing
+    # acknowledgment (its scope is the note's managed-sha256, decision 21).
+    assert "Acknowledgments made against a migrated note lapse" in text
+    assert "re-filed by the next `verify`" in text
 
 
 def test_setup_vault_reports_only_scaffold_created_commit_paths():

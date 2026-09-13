@@ -645,7 +645,10 @@ def _cites(content, citation_key):
 
 
 def _claim_notes(vault: Path) -> list[Path]:
-    """The notes ``_plan_state`` scans for claim lines, minus the compiled layer."""
+    """The notes ``_plan_state`` scans for claim lines, minus the compiled layer.
+
+    ``literatures/`` flat, the same rule as every reader of it (decision 08).
+    """
     return sorted((vault / "projects").rglob("*.md")) + sorted(
         (vault / "literatures").glob("*.md")
     )
@@ -1041,9 +1044,12 @@ def _plan_state(
                 reason,
             )
         )
-    note_files = [
+    # `literatures/` flat, as every reader of it globs (`_claim_notes`, the
+    # captured set, the linter, `--all`): a nested file is a literature note
+    # nowhere, so nothing here stamps a claim `clear_marker_for` cannot reach.
+    note_files = sorted((vault / "literatures").glob("*.md")) + [
         path
-        for folder in ("literatures", "wiki", "projects")
+        for folder in ("wiki", "projects")
         for path in sorted((vault / folder).rglob("*.md"))
     ]
     for path in note_files:

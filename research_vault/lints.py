@@ -473,9 +473,8 @@ def lint_published_drift(
     return _deduplicate(outcomes)
 
 
-def _origin(
-    vault_root: Path, note_file: Path, claim, fallback: str
-) -> tuple[str | RepoPath, dict]:
+def _origin(vault_root: Path, note_file: Path, claim) -> tuple[str | RepoPath, dict]:
+    """The claim's target — its anchor link, else the note's repo path — and its origin extra."""
     vault = Path(vault_root)
     note = Path(note_file)
     rel = _relative(vault, note)
@@ -485,7 +484,7 @@ def _origin(
     if claim.claim_id and isinstance(citation_key, str) and citation_key:
         target = claims_mod.claim_link(citation_key, claim.claim_id)
     else:
-        target = fallback or RepoPath(rel)
+        target = RepoPath(rel)
     return target, {
         "note_path": RepoPath(rel),
         "claim_id": claim.claim_id,
@@ -521,7 +520,7 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     disputed, outcomes = disputed_claim_links(vault)
     text = note.read_text()
     for claim in claims_mod.parse_claims(text):
-        _target, extra = _origin(vault, note, claim, "")
+        _target, extra = _origin(vault, note, claim)
         for claim_link in CLAIM_LINK.findall(claim.fields.get("supports", "")):
             if claim_link in disputed:
                 outcomes.append(
@@ -537,10 +536,18 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
 
 
 def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileImage]:
+    """Every literature note in the snapshot: `literatures/<key>.md`, flat.
+
+    The one shape capture writes (`notes.note_path` refuses a `/` in the key)
+    and the captured set's own definition (decision 08: `literatures/*.md`);
+    every reader of the directory globs flat so a nested file is a literature
+    note nowhere rather than somewhere.
+    """
     return {
         raw_path: image
         for raw_path, image in snapshot.images.items()
         if raw_path.startswith(b"literatures/")
+        and b"/" not in raw_path[len(b"literatures/") :]
         and raw_path.endswith(b".md")
         and image.kind == "file"
     }

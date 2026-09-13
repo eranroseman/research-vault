@@ -1366,12 +1366,14 @@ def test_unwitnessed_note_target_hashes_are_candidate_bound_before_projection(
 
 
 @pytest.mark.parametrize("check", ["update-notice", "quote"])
-def test_unwitnessed_note_acknowledgment_is_decided_from_candidate_before_projection(
+def test_unwitnessed_note_acknowledgment_survives_projections_own_writes(
     net_vault, monkeypatch, check
 ):
     # A note capture never wrote takes the `_note_bytes` fallback, which
     # ignores projection's own writes — the body marker (ruling 5) and the
-    # frontmatter failure row (ruling 10) — as a witness would. Committed so
+    # frontmatter failure row (ruling 10) — as a witness would, so the ack
+    # scoped to the candidate hash still holds once projection has written
+    # (round 3 flipped the last line from `!=` to `==`). Committed so
     # `lint_evidence_layer`'s base and candidate agree on the missing
     # managed-sha256 — this test exercises candidate-bound hashing, not the
     # machine-owned-frontmatter guard.
@@ -2632,3 +2634,47 @@ def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_ba
         _target_hash(net_vault, outcome, candidate_snapshot=candidate)
         == hashlib.sha256(b"").hexdigest()[:16]
     )
+
+
+def test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere(net_vault):
+    """One rule at every reader of `literatures/` (review M-7, row 54):
+    the captured set is `literatures/*.md` (decision 08), capture writes only
+    that shape (`note_path` refuses `/`), so a nested `.md` is not a
+    literature note for the captured set, the linter, `--all`, the marker
+    clear, the claim scan or the evidence layer. Two readers recursed: a
+    nested note's claims were stamped by `_plan_state` and unreachable by
+    `clear_marker_for`, and the evidence layer judged a witness capture could
+    never have written."""
+    from research_vault import capture, captured, lifecycle, lints, verify
+
+    nested = net_vault / "literatures" / "older" / "nested2020.md"
+    nested.parent.mkdir()
+    nested.write_text(
+        '---\ntype: "literature"\ncitationKey: "nested2020"\n'
+        'zotero-server-id: "6LpvURP2E933"\nzotero-item-key: "NESTED01"\n'
+        "zotero-item-version: 1\nattachments:\nfulltext:\n---\n"
+        "- (quote) [@ghost2020, p. 1] ^c-99999999\n"
+    )
+    raw = os.fsencode("literatures/older/nested2020.md")
+    snapshot = gitstate.snapshot_worktree(net_vault)
+    assert raw in snapshot.images
+    assert raw not in lints._literature_files(snapshot)
+    assert not [
+        o for o in lints.lint_evidence_layer(snapshot, snapshot) if "older" in o.target
+    ]
+    assert "nested2020" not in captured.captured_set(net_vault)
+    assert "nested2020" not in {
+        p.citation_key for _, p in lifecycle._provenances(net_vault)
+    }
+    assert "nested2020" not in capture._every_note(net_vault)[0]
+    assert nested not in verify._claim_notes(net_vault)
+    _report, effective, _hashes, _warnings = verify_state(net_vault, network=False)
+    # `structure.check_note_frontmatter` walks the whole vault and still types
+    # the file by its folder (OKF rule 2, not a literatures/ reader): that row
+    # is the one thing verify says about it.
+    assert [
+        (o.check, o.result)
+        for o in effective
+        if "older" in str(o.target) or "older" in str(o.extra.get("note_path", ""))
+    ] == [("okf-frontmatter", Result.MATCHED)]
+    assert "[failed-verification::" not in nested.read_text()

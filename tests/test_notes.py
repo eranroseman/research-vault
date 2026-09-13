@@ -117,7 +117,15 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
 
 
 def test_generated_metadata_is_substantive_canonical_content():
-    first = _note(generated="2026-08-20T12:34:56Z")
+    """The `{by, at}` mapping `_valid_generated` defines — the shape a
+    mapping-aware exemption would have to match — moves the content."""
+    first = must_replace(
+        _note(),
+        "---\n# Mortality decline\n",
+        f'generated: {{by: "{AGENT_ACTOR}", at: "2026-08-20T12:34:56Z"}}\n'
+        "---\n# Mortality decline\n",
+    )
+    assert notes._valid_generated(frontmatter.parse(first)[0]["generated"])
     changed = must_replace(first, "2026-08-20T12:34:56Z", "2026-08-21T01:02:03Z")
 
     assert notes.content_changed(first, changed)
@@ -359,6 +367,10 @@ def test_rename_frontmatter_key_is_byte_surgical():
     assert (
         notes.rename_frontmatter_key("no frontmatter\n", "citekey", "citationKey")
         == "no frontmatter\n"
+    )
+    # `new` is inserted literally, never read as a replacement template (row 14).
+    assert notes.rename_frontmatter_key(text, "citekey", "a\\g<0>b").startswith(
+        '---\na\\g<0>b: "smith2020"\n'
     )
 
 

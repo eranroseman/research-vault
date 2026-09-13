@@ -590,9 +590,14 @@ def _path_shim_probe(client, skip: str | None, vault: Path) -> Probe:
         # to_local re-reads machine.json without machine-config's shape checks: a
         # malformed file raises ValueError/OSError, a non-object path_map or a
         # non-string entry AttributeError/TypeError. All are setup faults, not outages.
-        return Probe("path-shim", Result.UNMATCHED, str(error))
-    result = Result.MATCHED if local.is_file() else Result.UNMATCHED
-    return Probe("path-shim", result, str(local))
+        return Probe(
+            "path-shim",
+            Result.UNMATCHED,
+            f"machine.json path_map: {type(error).__name__}: {error}",
+        )
+    if local.is_file():
+        return Probe("path-shim", Result.MATCHED, str(local))
+    return Probe("path-shim", Result.UNMATCHED, f"{local} does not exist")
 
 
 def _translator_formats_probe(client, skip: str | None) -> Probe:
@@ -622,7 +627,13 @@ def _compile_tool_probe() -> Probe:
     record = records[0] if isinstance(records, list) and records else None
     if not isinstance(record, dict):
         return Probe("compile-tool", Result.SKIPPED, f"{_COMPILE_PLUGIN} not installed")
-    sha = str(record.get("gitCommitSha", ""))
+    sha = str(record.get("gitCommitSha") or "")
+    if not sha:
+        return Probe(
+            "compile-tool",
+            Result.UNMATCHED,
+            f"{_COMPILE_PLUGIN} record has no gitCommitSha, pin is {_COMPILE_PIN}",
+        )
     if sha.startswith(_COMPILE_PIN):
         return Probe("compile-tool", Result.MATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}")
     return Probe(

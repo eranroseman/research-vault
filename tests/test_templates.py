@@ -109,8 +109,9 @@ def test_markdown_templates_match_canonical_content():
     # Constraint on the opening paragraph (the preamble, first two sentences
     # below): it names machine surfaces but must assert no enforcement
     # mechanism — no claim of a session warning, a commit-time gate, or a
-    # guaranteed trace. None holds uniformly across literatures/, log/,
-    # log.md, and inbox/review-queue.md: an in-format append to log/ or
+    # guaranteed trace. None holds uniformly across the six it names —
+    # literatures/, log/, log.md, inbox/review-queue.md, fulltext/ and
+    # system/propagations/: an in-format append to log/ or
     # inbox/review-queue.md keeps the prior bytes as a prefix, so
     # lint_append_only's startswith check never fires and
     # `verify --surface commit` exits 0 with zero findings. Any future

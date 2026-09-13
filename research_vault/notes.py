@@ -159,8 +159,14 @@ def rename_frontmatter_key(text: str, old: str, new: str) -> str:
     if closing is None:
         return text
     block = text[opening.end() : closing.start()]
+    # A callable replacement: `new` is inserted literally, never read as a
+    # template (a backslash or `\g` in it would otherwise be an escape).
     renamed = re.sub(
-        rf"^{re.escape(old)}:(?=\s)", f"{new}:", block, count=1, flags=re.MULTILINE
+        rf"^{re.escape(old)}:(?=\s)",
+        lambda _: f"{new}:",
+        block,
+        count=1,
+        flags=re.MULTILINE,
     )
     return text[: opening.end()] + renamed + text[closing.start() :]
 
@@ -210,7 +216,11 @@ def canonical_content(note_text: str) -> str:
     or a render-compare (Task 18 round 3, ruling 10). A list that fails its
     verifier-owned shape test — ``_valid_event`` for events, ``_failure_rows``
     for rows — is hand-written as far as this reader knows and stays byte for
-    byte, as does a duplicated or non-list-looking header.
+    byte, as does a duplicated or non-list-looking header. The two empty
+    lists differ: ``verified: []`` is excluded (``all([])`` holds; an empty
+    event list carries nothing either way), while an empty
+    ``failed-verification: []`` stays as hand-written — verify's writers drop
+    the header with the last row, so an empty one on disk is never theirs.
     """
     close, lines = _frontmatter_close(note_text)
     if close is None:

@@ -664,7 +664,9 @@ def test_doctor_path_shim_fails_when_the_resolved_file_is_absent(
     by = {p.check: p for p in scaffold.doctor(vault, client=client)}
 
     assert by["path-shim"].result is Result.UNMATCHED
-    assert by["path-shim"].reason == str(tmp_path / "storage" / "D7EJ9FTG" / "a.pdf")
+    assert by["path-shim"].reason == (
+        f"{tmp_path / 'storage' / 'D7EJ9FTG' / 'a.pdf'} does not exist"
+    )
 
 
 @pytest.mark.parametrize(
@@ -792,6 +794,8 @@ def test_doctor_path_shim_reports_a_malformed_machine_json_instead_of_raising(
     assert [p.check for p in probes] == PROBE_NAMES
     assert by["machine-config"].result is Result.UNMATCHED
     assert by["path-shim"].result is Result.UNMATCHED
+    # The reason names the file and the fault class, not a bare str(error).
+    assert by["path-shim"].reason.startswith("machine.json path_map: ")
 
 
 def test_doctor_path_shim_is_skipped_outside_wsl(tmp_vault, tmp_path, monkeypatch):
@@ -826,6 +830,9 @@ def test_doctor_translator_formats_warns_when_the_closed_route_reopens(
         ({}, Result.SKIPPED),
         ({COMPILE_PLUGIN: [{"gitCommitSha": "0000000beef"}]}, Result.UNMATCHED),
         ({COMPILE_PLUGIN: [{"gitCommitSha": "ad67087cad22"}]}, Result.MATCHED),
+        # An installed record without a sha is malformed: UNMATCHED, and the
+        # reason says so rather than printing `at , pin is` (row 42).
+        ({COMPILE_PLUGIN: [{"installPath": "/x"}]}, Result.UNMATCHED),
     ],
 )
 def test_doctor_compile_tool_compares_the_installed_sha_to_the_pin(
@@ -838,8 +845,12 @@ def test_doctor_compile_tool_compares_the_installed_sha_to_the_pin(
 
     assert by["compile-tool"].result is expected
     if expected is Result.UNMATCHED:
-        assert "0000000" in by["compile-tool"].reason
         assert "ad67087" in by["compile-tool"].reason
+        record = installed[COMPILE_PLUGIN][0]
+        if "gitCommitSha" in record:
+            assert "0000000" in by["compile-tool"].reason
+        else:
+            assert "has no gitCommitSha" in by["compile-tool"].reason
 
 
 @pytest.mark.parametrize(
