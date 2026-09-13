@@ -6071,10 +6071,14 @@ Append to `tests/test_config_validity.py` (use the repository-root constant that
 ```python
 def test_the_package_reads_one_date_clock():
     """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
+    # The call shape, not one spelling: `now(tz=datetime.UTC).date()` is the
+    # same reader (Task 18 review, ruling 8).
+    reads_today = re.compile(r"\.now\([^)]*\)\.date\(\)")
     offenders = sorted(
         path.name
         for path in (ROOT / "research_vault").glob("*.py")
-        if "now(datetime.UTC).date()" in path.read_text(encoding="utf-8") and path.name != "clock.py"
+        if reads_today.search(path.read_text(encoding="utf-8"))
+        and path.name != "clock.py"
     )
     assert offenders == [], offenders
 ```
@@ -6097,13 +6101,17 @@ Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` 
 
 - [ ] **Step 3: Implement**
 
+The code below — `scope_id`, `_as_of`, `clear_marker_for`, `cmd_ack`, `must_replace` and the two scans — is the branch's committed code at Task 18's close (`ec136c2`, merged at `3b9b2ad`), folded verbatim after three fix rounds; the rulings under Step 3 explain each departure from the first printed draft. `notes.canonical_content`'s round-3 change (the verifier-owned `failed-verification` list excluded from the scope under `_failure_rows`, the owned-shape test) is not printed here; the branch is its shape. The printed tests in Step 1 are the task's original intent.
+
 In `_citation_key_hash`, delete both `attachment_hashes = data.get("fixity-sha256") ... return first` blocks and in their place return the note's `managed-sha256` when the frontmatter carries one (`value = data.get("managed-sha256")`; `if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value): return value`), keeping the `_note_bytes` digest only as the fallback for a note capture has not written. `research_vault/inbox.py`:
 
 ```python
 def scope_id(check: str, target: str, target_hash: str | None) -> str:
     """Open point 07: an acknowledgment's identity is derived, never passed."""
     parts = (check, str(target), target_hash or "")
-    return hashlib.sha256(b"\x00".join(part.encode("utf-8") for part in parts)).hexdigest()
+    return hashlib.sha256(
+        b"\x00".join(part.encode("utf-8") for part in parts)
+    ).hexdigest()
 ```
 
 In `_scope_acknowledged`'s last branch (the standing scope; leave the legacy update-notice and repeatable-act branches as they are), compute `wanted = scope_id(finding.check, finding.target, finding.target_hash)` and replace the four-field comparison: `scope_ids` collects entries with `entry.ack_of is None and entry.target_kind == finding.target_kind and scope_id(entry.check, entry.target, entry.target_hash) == wanted` (plus the existing update-notice fingerprint condition), and an ack matches when `ack.ack_of in scope_ids and ack.actor.startswith("human:") and scope_id(finding.check, finding.target, ack.target_hash) == wanted` (plus the same fingerprint condition). `append_entry`: `date = _validate_date("date", clock.today(date))`. `summary(vault, as_of=None)`: the age arithmetic uses `datetime.date.fromisoformat(clock.today(as_of))` in place of `datetime.datetime.now(datetime.UTC).date()`. `research_vault/searchlog.py`: `_resolved_date(date)` returns `_validate_date("date", clock.today(date))`. `research_vault/__main__.py`: `record_finding`'s `resolved_date = clock.today(date)`; parser lines `verify.add_argument("--as-of", metavar="YYYY-MM-DD")` and `review_inbox.add_argument("--as-of", metavar="YYYY-MM-DD")`; and:
@@ -6122,34 +6130,75 @@ def _as_of(args) -> str | None:
 
 ```python
 def clear_marker_for(vault_root, check: str, target: str) -> bool:
-    """Open point 09: a human acknowledgment stands the marker down."""
-    vault = Path(vault_root)
+    """Open point 09: a human acknowledgment stands the marker down.
+
+    Markers live where ``_mutate_marker`` writes them — at each claim's origin
+    — so a ``<citation key>#^<claim id>`` target names every note carrying the
+    anchor, which confines the edit to the claim line; a bare citation-key
+    target of a ``citation-key`` finding (verify's own shape: the claim list
+    rides in the outcome's ``extra`` and the inbox row does not persist it)
+    names every line citing ``[@<key>``, the citation regex keeping
+    ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
+    the file itself, and every terminal marker for the check in it. The notes
+    are ``projects/**/*.md`` and ``literatures/*.md``: ``_plan_state`` scans
+    both for claim lines, and a capture-rendered literature note matches
+    nothing only because it carries none — a hand-authored one does receive
+    markers. Anything under ``wiki/`` is skipped, mirroring the writer's own
+    guard (ingest spec §4.4). Returns whether a marker was removed.
+    """
+    # The root exactly as `gitstate._absolute` builds a `path-bytes:` candidate
+    # from it (abspath, not resolve: no symlink is followed), so the two meet
+    # in the `wiki/` guard when `cmd_ack` was handed `--vault .`.
+    vault = Path(os.fsdecode(gitstate._root_bytes(Path(vault_root))))
+    claim_id: str | None = None
+    citation_key: str | None = None
     if "#^" in target:
-        citation_key, claim_id = target.split("#^", 1)
-        note = _note_for_citation_key(vault, citation_key)
-        candidates = [note] if note and note.is_file() else sorted((vault / "projects").rglob("*.md"))
+        claim_id = target.split("#^", 1)[1]
+        candidates = _claim_notes(vault)
     elif target.startswith("path-bytes:"):
         candidates = [_safe_relative(vault, target, "repo-path")]
-        claim_id = None
+    elif check == "citation-key":
+        citation_key = target
+        candidates = _claim_notes(vault)
     else:
         return False
-    pattern = _terminal_marker_pattern(check, claim_id)
     cleared = False
     for path in candidates:
         if path is None or not path.is_file():
             continue
+        if path.relative_to(vault).parts[0] == "wiki":
+            # The compiled layer is the tool's write scope (ingest spec §4.4):
+            # verify never writes a marker there, so there is none to clear.
+            continue
         lines = _read_note_text(path).splitlines(keepends=True)
+        changed = False
         for index, line in enumerate(lines):
             content, ending = _split_line_ending(line)
-            if claim_id is not None and _terminal_anchor_match(content, claim_id) is None:
-                continue
-            replacement = pattern.sub(" " if claim_id else "", content)
+            if claim_id is not None:
+                if _terminal_anchor_match(content, claim_id) is None:
+                    continue
+                terminal_claim_id: str | None = claim_id
+            elif citation_key is not None:
+                if not _cites(content, citation_key):
+                    continue
+                # The writer put the marker before the citing line's own
+                # anchor when it has one, after the line otherwise.
+                anchor = claims.ANCHOR_RE.search(content)
+                terminal_claim_id = anchor.group("id") if anchor else None
+            else:
+                terminal_claim_id = None
+            # `_mutate_marker`'s clear substitution: the pattern's lookahead keeps
+            # the anchor, and the single space closes the gap the marker left.
+            pattern = _terminal_marker_pattern(check, terminal_claim_id)
+            replacement = pattern.sub(
+                " " if isinstance(terminal_claim_id, str) else "", content
+            )
             if replacement != content:
-                lines[index] = replacement.rstrip(" ") + (" " + content[_terminal_anchor_match(content, claim_id).start():] if claim_id and not replacement.endswith(content[_terminal_anchor_match(content, claim_id).start():]) else "") + ending
-                cleared = True
-        if cleared:
+                lines[index] = replacement + ending
+                changed = True
+        if changed:
             _write_note_text(path, "".join(lines))
-            break
+            cleared = True
     return cleared
 ```
 
@@ -6180,8 +6229,11 @@ def cmd_ack(args):
 - and closes the class by mechanism: `tests/conftest.py` gains
 
 ```python
-def must_replace(text: str, old: str, new: str, count: int = 1) -> str:
-    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly."""
+def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
+    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly.
+
+    ``text``, ``old`` and ``new`` are all ``str`` or all ``bytes`` (ruling 7).
+    """
     assert old in text, f"substitution target no longer in the fixture: {old!r}"
     return text.replace(old, new, count)
 ```
@@ -6193,20 +6245,40 @@ def test_fixture_substitutions_cannot_become_no_ops():
     """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
     import ast
 
-    offenders = []
-    for name in ("test_verify_cli.py", "test_lints.py", "test_events.py", "test_notes.py"):
-        tree = ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "replace"
-                and node.args
-                and isinstance(node.args[0], ast.Constant)
-                and isinstance(node.args[0].value, str)
-                and ("\n" in node.args[0].value or ": " in node.args[0].value or "::" in node.args[0].value)
-            ):
-                offenders.append(f"{name}:{node.lineno}")
+    def fixture_shaped(node) -> bool:
+        # A str or bytes literal with a line break, a `key: value` or an inline
+        # field, or any f-string: the shapes fixture text takes (ruling 7).
+        if isinstance(node, ast.JoinedStr):
+            return True
+        if not isinstance(node, ast.Constant):
+            return False
+        value = node.value
+        if isinstance(value, bytes):
+            return b"\n" in value or b": " in value or b"::" in value
+        if isinstance(value, str):
+            return "\n" in value or ": " in value or "::" in value
+        return False
+
+    offenders = [
+        f"{name}:{node.lineno}"
+        for name in (
+            "conftest.py",
+            "test_verify_cli.py",
+            "test_lints.py",
+            "test_events.py",
+            "test_notes.py",
+        )
+        for node in ast.walk(
+            ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))
+        )
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "replace"
+            and node.args
+            and fixture_shaped(node.args[0])
+        )
+    ]
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
 ```
 
