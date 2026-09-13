@@ -4444,3 +4444,58 @@ Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a
 ```
 
 Where: https://github.com/retorquere/zotero-better-bibtex/blob/cfdba6ac507a0b49a99d4b23fc4fed359edebc5d/content/json-rpc.ts line 714 (API.handle); code constants declared at lines 24-28. Read in: Better BibTeX `content/key-manager.ts`. Record id `Z7-rpc-error-codes`.
+
+## Live measurements, 2026-09-13 — Task 20 of Part A (test instance, Zotero 10.0.2 / Better BibTeX 9.0.64, server id `Tdoqsn2J4q4h`)
+
+Measured by the attended propagate leg; the operator answered one consent dialog. Production received one read-only probe.
+
+**449.** Live: the Zotero 10.0.2 local API accepts a `PATCH` of the native `citationKey` field on a regular item; Better BibTeX 9.0.64 adopts the new key within about two seconds without touching `extra`, and the lifecycle linter reports the item `re-keyed`. This is the mechanism Part B Task 5's automated leg can use; the Extra-line fallback was not needed and was not exercised.
+
+```
+PATCH http://localhost:23129/api/users/0/items/ALKT2NF7
+headers: Content-Type: application/json; If-Unmodified-Since-Version: 1708; Zotero-Server-ID: Tdoqsn2J4q4h; Zotero-API-Key: <32-char key from /api/local/authorize, remember=true>
+body: {"citationKey": "aston-jones2005INTEGRATIVEleg"}
+HTTP 204 in 0.11 s
+X-Zotero-Version: 10.0.2
+X-Zotero-Connector-API-Version: 3
+Last-Modified-Version: 1714
+Zotero-API-Version: 3
+Zotero-Schema-Version: 44
+Zotero-Server-ID: Tdoqsn2J4q4h
+Content-Length: 0
+(empty body)
+```
+
+Then, polled once a second: `GET …/items/ALKT2NF7?format=json` answered `version 1714, data.citationKey "aston-jones2005INTEGRATIVEleg", extra "sitting probe"` from the first read (t+0 s); BBT JSON-RPC `item.citationkey [["ALKT2NF7"]]` still answered the old key at t+0 s and t+1 s and the new key at t+2 s. `capture ALKT2NF7` on a vault whose note records the old key then printed `UNMATCHED ALKT2NF7 — re-keyed — aston-jones2005INTEGRATIVE → aston-jones2005INTEGRATIVEleg; run propagate`.
+
+Where: the test instance, Zotero 10.0.2 / server id `Tdoqsn2J4q4h` / Better BibTeX 9.0.64, item `ALKT2NF7`, item version 1708 → 1714, observed 2026-09-13T16:28:58Z. Sent through `ZoteroClient._http` with `ZoteroClient._headers`, attended (Task 20 Step 1's propagate leg). Read in: Task 20 attended leg, 2026-09-13. Record id `Z6-live-patch-native-citationKey-accepted`.
+
+**450.** Live: the same `PATCH` restores the original key; a second write with a reusable (`remember: true`) key needs no second `authorize`. Better BibTeX again lagged Zotero by about two seconds. The item's `dateModified` and version are the only residue.
+
+```
+PATCH http://localhost:23129/api/users/0/items/ALKT2NF7
+headers: Content-Type: application/json; If-Unmodified-Since-Version: 1714; Zotero-Server-ID: Tdoqsn2J4q4h; Zotero-API-Key: <same key as record 449>
+body: {"citationKey": "aston-jones2005INTEGRATIVE"}
+HTTP 204 in 0.39 s
+X-Zotero-Version: 10.0.2
+X-Zotero-Connector-API-Version: 3
+Last-Modified-Version: 1715
+Zotero-API-Version: 3
+Zotero-Schema-Version: 44
+Zotero-Server-ID: Tdoqsn2J4q4h
+Content-Length: 0
+(empty body)
+```
+
+Polled: GET answered `version 1715, citationKey "aston-jones2005INTEGRATIVE", extra "sitting probe"` at t+0 s; BBT `item.citationkey` answered the leg's key at t+0 s and t+1 s and the original at t+2 s. Final read: `version 1715, citationKey "aston-jones2005INTEGRATIVE", extra "sitting probe", dateModified "2026-09-13T16:30:13Z"`; BBT `{"ALKT2NF7":"aston-jones2005INTEGRATIVE"}`.
+
+Where: same instance and item, item version 1714 → 1715, observed 2026-09-13T16:30:13Z. Read in: Task 20 attended leg, 2026-09-13. Record id `Z6-live-patch-native-citationKey-restore`.
+
+**451.** Live: `POST /api/local/authorize` on Zotero 10.0.2 with `Zotero-Server-ID` and body `{"appName": "research-vault"}` blocked 5.0 s until the person answered Always Allow, then returned a 32-character key with `remember: true`. One call, one dialog; the key served two writes.
+
+```
+POST http://localhost:23129/api/local/authorize  (Zotero-Server-ID: Tdoqsn2J4q4h; Content-Type: application/json; body {"appName": "research-vault"})
+answered after 5.0 s: remember=True key_len=32
+```
+
+Where: the test instance, observed 2026-09-13T16:28:46Z–16:28:51Z, through `ZoteroClient.authorize()` with `timeout=180`. Read in: Task 20 attended leg, 2026-09-13. Record id `Z1-live-authorize-always-allow-10.0.2`.
