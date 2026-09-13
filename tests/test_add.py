@@ -268,3 +268,104 @@ def test_a_create_envelope_whose_successful_is_not_an_object_is_a_mismatch(
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
     assert outcome.result is Result.UNMATCHED
     assert outcome.reason.startswith("mismatch — create failed")
+
+
+def _cli_item(tmp_vault, payload):
+    path = tmp_vault / "item.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return str(path)
+
+
+def test_cli_add_creates_captures_and_prints_every_row(tmp_vault, monkeypatch, capsys):
+    """`add` through the CLI: one object or a list in `--item`, the create row
+    then capture's rows, exit 0, nothing held."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    fake, client = _fake_for_add(monkeypatch)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    item = _cli_item(tmp_vault, {"itemType": "journalArticle", "title": "T"})
+    assert (
+        cli.main(
+            [
+                "add",
+                "--vault",
+                str(tmp_vault),
+                "--item",
+                item,
+                "--collection",
+                "IQZW5UVX",
+            ]
+        )
+        == 0
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "MATCHED add — matched — created E352DFS8"
+    assert lines[1] == "MATCHED jakesch.etal2023a — matched"
+    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert json.loads(fake._last_post_body)[0]["collections"] == ["IQZW5UVX"]
+    assert not [f for f in inbox.load(tmp_vault) if f.check == "capture"]
+
+
+def test_cli_add_holds_a_refusal_and_exits_1_and_a_denied_key_is_not_stored(
+    tmp_vault, monkeypatch, capsys
+):
+    """A denied dialog is `not-admitted` on `add`: printed, held under check
+    id `capture`, exit 1. A key granted with `remember: false` never reaches
+    the store (row 50)."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    fake, client = _fake_for_add(monkeypatch)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    item = _cli_item(tmp_vault, [{"itemType": "book", "title": "T"}])
+    fake.post("/api/local/authorize", status=403, body={"denied": True})
+    assert cli.main(["add", "--vault", str(tmp_vault), "--item", item]) == 1
+    assert capsys.readouterr().out.startswith(
+        "UNMATCHED add — not-admitted — authorization denied"
+    )
+    (held,) = [f for f in inbox.load(tmp_vault) if f.check == "capture"]
+    assert (held.target, held.result) == ("add", Result.UNMATCHED.value)
+    store = tmp_vault / ".research-vault" / "zotero-keys.json"
+    fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": False})
+    assert cli.main(["add", "--vault", str(tmp_vault), "--item", item]) == 0
+    assert not store.exists()
+
+
+@pytest.mark.parametrize(
+    "content", [None, "{not json", b"\xff\xfe"], ids=["absent", "not-json", "not-utf8"]
+)
+def test_cli_add_with_an_unreadable_item_file_is_exit_2(
+    content, tmp_vault, monkeypatch, capsys
+):
+    """A file the verb cannot even read is "could not run" (exit 2), never a
+    four-state verdict, and nothing reaches Zotero."""
+    import research_vault.__main__ as cli
+
+    path = tmp_vault / "item.json"
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    elif content is not None:
+        path.write_text(content)
+    fake, client = _fake_for_add(monkeypatch)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    assert cli.main(["add", "--vault", str(tmp_vault), "--item", str(path)]) == 2
+    assert capsys.readouterr().err.startswith("add: cannot read --item:")
+    assert not [c for c in fake.calls if c[0] == "POST"]
+
+
+def test_cli_add_reports_a_named_failure_as_exit_2(tmp_vault, monkeypatch, capsys):
+    """Same contract as `cmd_capture` (review M-2): a named failure outside
+    the verb's own four-state handling is exit 2 with a stderr line."""
+    import research_vault.__main__ as cli
+
+    _fake, client = _fake_for_add(monkeypatch)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    item = _cli_item(tmp_vault, {"itemType": "book", "title": "T"})
+
+    def failing(*_args, **_kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(capture, "_store_key", failing)
+    assert cli.main(["add", "--vault", str(tmp_vault), "--item", item]) == 2
+    assert capsys.readouterr().err.startswith("add unavailable: [Errno 28]")

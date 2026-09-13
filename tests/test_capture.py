@@ -850,3 +850,37 @@ def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
         Result.MATCHED,
         "matched",
     )
+
+
+def test_cli_capture_with_neither_keys_nor_all_is_a_usage_error(tmp_vault, capsys):
+    """Nothing to capture is not a run that regenerates the CSL file and exits
+    0: argparse refuses it with usage and exit 2 (review M-1)."""
+    import research_vault.__main__ as cli
+
+    with pytest.raises(SystemExit) as caught:
+        cli.main(["capture", "--vault", str(tmp_vault)])
+    assert caught.value.code == 2
+    assert "at least one KEY or --all" in capsys.readouterr().err
+
+
+def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
+    tmp_vault, monkeypatch, capsys
+):
+    """An OSError from `stamp_types`, `regenerate_log` or the CSL write sits
+    outside the per-item `try`; it used to be a traceback whose exit 1 read
+    as UNMATCHED. `cmd_verify`'s named-exception tuple now answers exit 2 —
+    "could not run", never a four-state verdict (review M-2)."""
+    import research_vault.__main__ as cli
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+
+    def failing(*_args, **_kwargs):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(capture.stamp, "stamp_types", failing)
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("capture unavailable: [Errno 30]")

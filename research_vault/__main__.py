@@ -56,6 +56,23 @@ DOCTOR_WARN_ONLY = {
     "fulltext-sync",
     "path-shim",
 }
+# Named domain failures only, shared by the verbs whose run can fail outside
+# their own four-state handling (`verify`, `capture`, `add`): each answers exit
+# 2 — "could not run" — with one stderr line. A bare ValueError here would
+# dress an implementation bug as a tidy exit 2 with no traceback.
+# UnicodeDecodeError is the stopgap for the unguarded `read_text()` sites the
+# whole-branch review left to an issue: a non-UTF-8 record is exit 2, not a
+# traceback, until each site files its own row.
+_NAMED_FAILURES = (
+    gitstate.GitStateError,
+    PathCodecError,
+    bibliography.BibliographyError,
+    inbox.InboxError,
+    frontmatter.FrontmatterError,
+    notes.InvalidCitationKeyError,
+    OSError,
+    UnicodeDecodeError,
+)
 
 
 def cmd_probe(args):
@@ -73,8 +90,8 @@ def cmd_probe(args):
     return 0
 
 
-def cmd_capture(args):
-    """The capture verb (ingest spec §3.3): one line per outcome, holds filed.
+def _print_and_hold(vault, outcomes) -> int:
+    """One line per outcome, holds filed; the exit code both ingest verbs share.
 
     Only ``UNMATCHED`` and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is
     automatic-only and never a finding (an item with no attachment to read is
@@ -83,14 +100,12 @@ def cmd_capture(args):
     MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is
     UNMATCHED.
     """
-    client = ZoteroClient(base=args.base)
-    outcomes = capture.capture(args.vault, client, args.keys, refresh_all=args.all)
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
         if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
             _hold(
-                args.vault,
+                vault,
                 capture.CHECK,
                 outcome.target,
                 outcome.result,
@@ -102,6 +117,22 @@ def cmd_capture(args):
         elif outcome.result is Result.UNREACHABLE and worst == 0:
             worst = 3
     return worst
+
+
+def cmd_capture(args):
+    """The capture verb (ingest spec §3.3): one line per outcome, holds filed.
+
+    A named failure outside the verb's per-item handling (a disk fault in
+    ``stamp_types``, ``regenerate_log`` or the CSL write) is exit 2 — "could
+    not run" — never exit 1, which is UNMATCHED's code.
+    """
+    client = ZoteroClient(base=args.base)
+    try:
+        outcomes = capture.capture(args.vault, client, args.keys, refresh_all=args.all)
+    except _NAMED_FAILURES as error:
+        print(f"capture unavailable: {error}", file=sys.stderr)
+        return 2
+    return _print_and_hold(args.vault, outcomes)
 
 
 def cmd_add(args):
@@ -122,24 +153,12 @@ def cmd_add(args):
         return 2
     items = payload if isinstance(payload, list) else [payload]
     client = ZoteroClient(base=args.base)
-    outcomes = capture.add(args.vault, client, items, collection=args.collection)
-    worst = 0
-    for outcome in outcomes:
-        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
-            _hold(
-                args.vault,
-                capture.CHECK,
-                outcome.target,
-                outcome.result,
-                outcome.reason,
-                target_kind=outcome.target_kind,
-            )
-        if outcome.result is Result.UNMATCHED:
-            worst = 1
-        elif outcome.result is Result.UNREACHABLE and worst == 0:
-            worst = 3
-    return worst
+    try:
+        outcomes = capture.add(args.vault, client, items, collection=args.collection)
+    except _NAMED_FAILURES as error:
+        print(f"add unavailable: {error}", file=sys.stderr)
+        return 2
+    return _print_and_hold(args.vault, outcomes)
 
 
 def _hold(
@@ -261,17 +280,7 @@ def cmd_verify(args):
             changed_paths_file=getattr(args, "changed_paths_file", None),
             commit_projected=getattr(args, "commit_projected", None),
         )
-    except (
-        # Named domain failures only. A bare ValueError here would dress an
-        # implementation bug as a tidy exit 2 with no traceback.
-        gitstate.GitStateError,
-        PathCodecError,
-        bibliography.BibliographyError,
-        inbox.InboxError,
-        frontmatter.FrontmatterError,
-        notes.InvalidCitationKeyError,
-        OSError,
-    ) as error:
+    except _NAMED_FAILURES as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2
     if not args.rw_csv:
@@ -437,7 +446,11 @@ def cmd_ack(args):
         return 2
     acked = next((f for f in inbox.load(args.vault) if f.id == args.finding), None)
     if acked is not None and clear_marker_for(args.vault, acked.check, acked.target):
-        print(f"cleared [failed-verification:: {acked.check}] on {acked.target}")
+        # stderr: stdout stays the id alone, so `id=$(… ack …)` reads it.
+        print(
+            f"cleared [failed-verification:: {acked.check}] on {acked.target}",
+            file=sys.stderr,
+        )
     print(entry.id)
     return 0
 
@@ -734,7 +747,7 @@ def main(argv=None):
     factcheck_cmd.add_argument("--draft", required=True)
     factcheck_cmd.add_argument("--cap", type=int, default=factcheck.DEFAULT_CAP)
     trust_tier_cmd = sub.add_parser("trust-tier", parents=[common])
-    trust_tier_cmd.add_argument("citation_key")
+    trust_tier_cmd.add_argument("citation_key", metavar="CITATION_KEY")
     trust_tier_cmd.add_argument("--vault", required=True)
     arm_publish = sub.add_parser("arm-publish", parents=[common])
     arm_publish.add_argument("project")
@@ -789,6 +802,8 @@ def main(argv=None):
     stamp_type = sub.add_parser("stamp-type", parents=[common])
     stamp_type.add_argument("--vault", required=True)
     args = parser.parse_args(argv)
+    if args.cmd == "capture" and not args.keys and not args.all:
+        parser.error("capture needs at least one KEY or --all")
     if args.cmd == "verify" and args.commit_projected is not None:
         if not args.commit_projected.strip():
             parser.error("--commit-projected requires a non-empty message")

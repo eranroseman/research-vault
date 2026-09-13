@@ -2240,7 +2240,11 @@ def test_ack_clears_the_marker_on_a_claim_citing_a_captured_note(fixture_vault, 
         )
         == 0
     )
-    assert "cleared [failed-verification:: quote]" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    # stdout is the ack's id alone (`id=$(… ack …)` must take the right line,
+    # row 53); what the ack stood down is said on stderr.
+    assert captured.out == f"ack/{finding_id}\n"
+    assert "cleared [failed-verification:: quote]" in captured.err
     assert "- (quote) [@smith2020, p. 12] ^c-66666666\n" in draft.read_text()
     assert "[failed-verification::" not in draft.read_text()
 
@@ -2546,3 +2550,85 @@ def test_ack_on_an_unwitnessed_note_survives_the_failure_row(
         if entry.check == check and entry.target == primary.target
     ]
     assert events.current_failures(source.read_text())  # ruling 9: ack leaves it
+
+
+# --- whole-branch review fix wave (2026-09-13): the repo-path hash planes ------
+
+
+def _repo_path_outcome(relative):
+    """A non-append-only repo-path target: routes to `_repo_path_hash`, not
+    to the append-only basis."""
+    return checks.Outcome(
+        "okf-frontmatter",
+        RepoPath(os.fsencode(relative)),
+        Result.UNMATCHED,
+        "schema-violation — frontmatter",
+    )
+
+
+def test_worktree_path_hash_reads_a_live_note_through_its_scope_bytes(net_vault):
+    """No candidate snapshot: the live worktree is the plane. A `.md` target
+    hashes its `_note_bytes` (verifier-owned lists and verify's own marks
+    excluded), so a marker landing on the note does not move the hash."""
+    source = net_vault / "literatures" / "smith2020.md"
+    outcome = _repo_path_outcome("literatures/smith2020.md")
+    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome) == expected
+    source.write_text(
+        must_replace(
+            source.read_text(),
+            "---\n# Mortality decline\n",
+            'verified:\n  - {by: "bot", at: "2026-08-16", check: "quote"}\n'
+            "---\n# Mortality decline\n",
+        )
+    )
+    assert _target_hash(net_vault, outcome) == expected  # the event list is not scope
+    assert hashlib.sha256(source.read_bytes()).hexdigest()[:16] != expected
+
+
+def test_worktree_path_hash_of_a_live_symlink_is_none(net_vault):
+    """A symlink carries no content a hash could stand for: `_safe_relative`
+    refuses it and no base image answers, so the target has no identity."""
+    link = net_vault / "literatures" / "link.md"
+    link.symlink_to("smith2020.md")
+    assert _target_hash(net_vault, _repo_path_outcome("literatures/link.md")) is None
+
+
+def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
+    net_vault,
+):
+    """A path no longer on disk is still identifiable from the base snapshot,
+    or from HEAD when no base was given — what holds a deletion's
+    acknowledgment hash steady across the transaction that deleted it."""
+    source = net_vault / "literatures" / "smith2020.md"
+    before = _note_bytes(source.read_bytes())
+    base = gitstate.snapshot_worktree(net_vault)
+    outcome = _repo_path_outcome("literatures/smith2020.md")
+    live = _target_hash(net_vault, outcome, base_snapshot=base)
+    source.unlink()
+    assert _target_hash(net_vault, outcome, base_snapshot=base) == live
+    assert live == hashlib.sha256(before).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome) == live  # HEAD: the fixture is committed
+
+
+def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_base(
+    net_vault,
+):
+    """A candidate snapshot IS the vault for this hash; a path the candidate
+    lacks falls back to the base image so a deletion keeps a stable hash."""
+    source = net_vault / "literatures" / "smith2020.md"
+    before = _note_bytes(source.read_bytes())
+    base = gitstate.snapshot_worktree(net_vault)
+    source.unlink()
+    candidate = gitstate.snapshot_worktree(net_vault)
+    outcome = _repo_path_outcome("literatures/smith2020.md")
+    assert (
+        _target_hash(
+            net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
+        )
+        == hashlib.sha256(before).hexdigest()[:16]
+    )
+    assert (
+        _target_hash(net_vault, outcome, candidate_snapshot=candidate)
+        == hashlib.sha256(b"").hexdigest()[:16]
+    )

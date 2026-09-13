@@ -61,6 +61,12 @@ def test_base_for_strict_refuses_a_wrong_typed_zotero_base(tmp_vault):
     assert "zotero_base must be a non-empty string" in str(error.value)
     machine.write_text('{"zotero_base": null}')
     assert zotero.base_for(tmp_vault) == zotero.DEFAULT_BASE
+    # doctor's tolerant read (row 50): the same wrong-typed value that the
+    # strict read refuses answers the default, so machine-config can report it.
+    machine.write_text('{"zotero_base": 23119}')
+    assert zotero.base_for(tmp_vault, None, strict=False) == zotero.DEFAULT_BASE
+    with pytest.raises(zotero.ZoteroError):
+        zotero.base_for(tmp_vault)
 
 
 def test_server_info_reads_the_four_headers(fake):
