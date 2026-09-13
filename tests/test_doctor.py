@@ -483,6 +483,24 @@ def test_doctor_path_shim_is_unreachable_without_a_stored_attachment(
     assert "no stored attachment" in by["path-shim"].reason
 
 
+def test_doctor_path_shim_reports_a_malformed_machine_json_instead_of_raising(
+    tmp_vault, tmp_path, monkeypatch
+):
+    # `machine-config` is the reporter for this file; the shim, which reads it
+    # again through paths.to_local, must not turn the same fault into a traceback.
+    vault = _doctor_vault(tmp_vault)
+    (vault / ".research-vault" / "machine.json").write_text("{not json")
+    _fake, client = _doctor_fake(monkeypatch, tmp_path)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+
+    probes = scaffold.doctor(vault, client=client)
+    by = {p.check: p for p in probes}
+
+    assert [p.check for p in probes] == PROBE_NAMES
+    assert by["machine-config"].result is Result.UNMATCHED
+    assert by["path-shim"].result is Result.UNMATCHED
+
+
 def test_doctor_path_shim_is_skipped_outside_wsl(tmp_vault, tmp_path, monkeypatch):
     vault = _doctor_vault(tmp_vault)
     _fake, client = _doctor_fake(monkeypatch, tmp_path)

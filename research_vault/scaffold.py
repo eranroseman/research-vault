@@ -484,7 +484,10 @@ def _path_shim_probe(client, info, vault: Path) -> Probe:
     windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
     try:
         local = paths.to_local(windows_path, vault)
-    except paths.PathError as error:
+    except (paths.PathError, OSError, ValueError, AttributeError, TypeError) as error:
+        # to_local re-reads machine.json without machine-config's shape checks: a
+        # malformed file raises ValueError/OSError, a non-object path_map or a
+        # non-string entry AttributeError/TypeError. All are setup faults, not outages.
         return Probe("path-shim", Result.UNMATCHED, str(error))
     result = Result.MATCHED if local.is_file() else Result.UNMATCHED
     return Probe("path-shim", result, str(local))
