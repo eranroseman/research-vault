@@ -172,15 +172,29 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         for e in inbox.open_entries(net_vault)
         if e.check == "quote" and e.target == raw.target
     )
-    inbox.append_ack(
-        net_vault, entry.id, "manual — checked", "human:test", entry.target_hash
+    assert (
+        main(
+            [
+                "ack",
+                entry.id,
+                "--vault",
+                str(net_vault),
+                "--reason",
+                "manual — checked",
+                "--actor",
+                "human:test",
+            ]
+        )
+        == 0
     )
     second = run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert any(
         o is not None and o.check == "quote" and o.result is Result.UNMATCHED
         for o in second["outcomes"]
     )
-    assert "[failed-verification:: quote/" in draft.read_text()
+    # The marker mirrors the inbox row: the ack closed both, and the next run
+    # stamps only what is still effective (open point 09, resolution i).
+    assert "[failed-verification:: quote/" not in draft.read_text()
     assert not any(
         e.check == "quote" and e.target == raw.target
         for e in inbox.open_entries(net_vault)
@@ -208,6 +222,8 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         for e in inbox.open_entries(net_vault)
     )
     assert fourth["counts"]["UNMATCHED"] >= 1
+    # The ack lapsed with the body, so the marker returns with the finding.
+    assert "[failed-verification:: quote/" in draft.read_text()
 
 
 def test_target_hash_routes_safe_file_claim_and_citation_key(net_vault):
@@ -568,7 +584,7 @@ def test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a
         "mismatch — version differs",
     )
 
-    _apply_state_transitions(net_vault, [outcome], "2026-08-16")
+    _apply_state_transitions(net_vault, [outcome], "2026-08-16", stamp=[outcome])
 
     source = (net_vault / "literatures" / "smith2020.md").read_text()
     assert not any(

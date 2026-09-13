@@ -824,8 +824,17 @@ def _projection_identity(outcome):
     return None
 
 
-def _apply_state_transitions(vault_root, raw, detection_date):
-    """Project raw current state after the candidate-bound decision is frozen."""
+def _apply_state_transitions(vault_root, raw, detection_date, *, stamp):
+    """Project raw current state after the candidate-bound decision is frozen.
+
+    ``stamp`` is the effective set. A ``[failed-verification:: <check>/<date>]``
+    marker means a raw failure no person has acknowledged, standing beside the
+    inbox row it mirrors — both closed by the same ack (open point 09), both
+    reopened when the ack lapses on a content-hash change — so only an outcome
+    still effective is stamped. The note's verified event and failure row and
+    the MATCHED clear run over every raw outcome as before.
+    """
+    stamp_ids = {id(outcome) for outcome in stamp}
     for outcome in raw:
         projection = _projection_identity(outcome)
         if projection is not None:
@@ -855,7 +864,8 @@ def _apply_state_transitions(vault_root, raw, detection_date):
                     if updated != text:
                         _write_note_text(note, updated)
         if outcome.result is Result.UNMATCHED:
-            _mutate_marker(vault_root, outcome, detection_date)
+            if id(outcome) in stamp_ids:
+                _mutate_marker(vault_root, outcome, detection_date)
         elif outcome.result is Result.MATCHED:
             _mutate_marker(vault_root, outcome, detection_date, clear=True)
 
@@ -1079,7 +1089,7 @@ def _plan_state(
     }
     effective = _effective(authoritative, hashes, vault)
     warning_effective = _warning_effectiveness(authoritative, hashes, vault)
-    _apply_state_transitions(vault, authoritative, detection_date)
+    _apply_state_transitions(vault, authoritative, detection_date, stamp=effective)
     _file_effects(vault, effective, hashes, warning_effective, detection_date)
     counts: dict[str, int] = {}
     for outcome in effective:

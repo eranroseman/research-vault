@@ -318,6 +318,9 @@ def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(
     )
     assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 0
     assert _status(blocked_vault) == "published"
+    # The gate run stamps only what is still effective: the ack holds.
+    draft = blocked_vault / "projects" / "brief" / "draft.md"
+    assert "[failed-verification::" not in draft.read_text()
 
 
 def test_mark_published_refuses_an_uncommitted_project_file(green_vault, capsys):
