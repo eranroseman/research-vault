@@ -176,37 +176,47 @@ def test_read_module_results_extracts_survivors_and_counts_from_faked_artifacts(
     assert result.survivors == {KEY_ADD_1, KEY_SIZE_1}
     assert result.counts == {"survived": 2, "killed": 1, "no tests": 1}
     assert result.flagged == []
-    assert result.unchecked == []
+    assert result.no_verdict == []
 
 
 def test_read_module_results_reports_timeouts_by_name_not_as_survivors(tmp_path):
-    """A timeout (a mutant that hangs the tests) or a suspicious exit is a
-    legitimate outcome that must stay visible: named, counted, never a
+    """A timeout (a mutant that hangs the tests) or a type-check catch is a
+    verdict the mutant caused, and must stay visible: named, counted, never a
     survivor and never silently folded into killed."""
     root = _fake_root(tmp_path)
-    _fake_module(root, MODULE, {ADD_1: 36, ADD_2: 35, ADD_3: 1, SIZE_1: 1})
+    _fake_module(root, MODULE, {ADD_1: 36, ADD_2: 37, ADD_3: 1, SIZE_1: 1})
 
     result = read_module_results(MODULE, root=root)
 
     assert result.survivors == set()
-    assert result.counts == {"timeout": 1, "suspicious": 1, "killed": 2}
+    assert result.counts == {"timeout": 1, "caught by type check": 1, "killed": 2}
     assert result.flagged == [
         ("timeout", ADD_1, KEY_ADD_1),
-        ("suspicious", ADD_2, KEY_ADD_2),
+        ("caught by type check", ADD_2, KEY_ADD_2),
     ]
+    assert result.no_verdict == []
 
 
-def test_read_module_results_marks_unchecked_and_interrupted_mutants(tmp_path):
-    """mutmut swallows a KeyboardInterrupt and still exits 0, leaving `null`
-    (not checked) or 2 (interrupted) codes behind -- an incomplete
-    measurement the gate must refuse rather than read as zero survivors."""
+def test_read_module_results_marks_mutants_without_a_verdict(tmp_path):
+    """Four codes are the ABSENCE of a verdict, not one: `null` (not checked)
+    and 2 (interrupted) -- mutmut swallows a KeyboardInterrupt and still
+    exits 0 -- plus `suspicious` (a code mutmut cannot classify, e.g. pytest's
+    usage-error 4) and `segfault` (-9, the OOM killer's SIGKILL; -11). An
+    incomplete measurement the gate must refuse, never read as zero
+    survivors."""
     root = _fake_root(tmp_path)
-    _fake_module(root, MODULE, {ADD_1: None, ADD_2: 2, ADD_3: 1, SIZE_1: 1})
+    _fake_module(root, MODULE, {ADD_1: None, ADD_2: 2, ADD_3: 4, SIZE_1: -9})
 
     result = read_module_results(MODULE, root=root)
 
-    assert result.unchecked == [ADD_1, ADD_2]
+    assert result.no_verdict == [
+        ("not checked", ADD_1),
+        ("check was interrupted by user", ADD_2),
+        ("suspicious", ADD_3),
+        ("segfault", SIZE_1),
+    ]
     assert result.survivors == set()
+    assert result.flagged == []
 
 
 def test_read_module_results_missing_meta_raises(tmp_path):
@@ -520,7 +530,11 @@ def test_update_baseline_refuses_to_write_when_meta_is_missing(tmp_path, monkeyp
     assert not baseline_path.exists()
 
 
-def test_timeouts_are_reported_by_name_and_never_written(tmp_path, monkeypatch, capsys):
+def test_timeout_verdict_keeps_the_module_ok_in_both_modes(
+    tmp_path, monkeypatch, capsys
+):
+    """A timeout is a verdict the mutant caused: listed by name (id and key),
+    never written to the baseline, and no change to either mode's exit code."""
     root = _fake_root(tmp_path)
     a = "research_vault/a.py"
     _fake_module(root, a, {ADD_1: 36, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
@@ -531,9 +545,52 @@ def test_timeouts_are_reported_by_name_and_never_written(tmp_path, monkeypatch, 
     assert mutation_gate.main() == 0
     assert baseline_keys(baseline_path) == {KEY_SIZE_1.replace(MODULE, a)}
     out = capsys.readouterr().out
-    assert "timeout" in out
-    assert "research_vault.a.x_add__mutmut_1" in out
+    assert f"[baseline] {a}: ok (killed 2, survived 1, no tests 0, timeout 1)" in out
+    assert f"[baseline]   timeout {ADD_1.replace('fake', 'a')}  " in out
     assert KEY_ADD_1.replace(MODULE, a) in out
+
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    _argv_gate(monkeypatch, root)  # the baseline just written holds the survivor
+    assert mutation_gate.main() == 0
+    assert "[gate] pass — no new survivors" in capsys.readouterr().out.splitlines()
+
+
+@pytest.mark.parametrize(
+    ("code", "status"),
+    [(4, "suspicious"), (-9, "segfault")],
+    ids=["suspicious", "segfault"],
+)
+def test_suspicious_and_segfault_verdicts_class_the_module_error_in_both_modes(
+    tmp_path, monkeypatch, capsys, code, status
+):
+    """Suspicious (a code mutmut cannot classify) and segfault (SIGKILL) are the
+    absence of a verdict: the module is an error, --update-baseline refuses to
+    write, gate mode fails, and the class line names the offending mutant id so
+    the module can be redone with --only once the cause is fixed."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: code, ADD_3: 1, SIZE_1: 1})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    out = capsys.readouterr().out
+    offender = ADD_2.replace("fake", "a")
+    assert f"{status} {offender}" in out
+    class_line = next(line for line in out.splitlines() if f"{a}: error" in line)
+    assert offender in class_line
+    assert "[baseline]   error (1): research_vault/a.py" in out
+
+    baseline_path.write_text(KEY_ADD_1.replace(MODULE, a) + "\n", encoding="utf-8")
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    _argv_gate(monkeypatch, root)
+    assert mutation_gate.main() == 1
+    out = capsys.readouterr().out
+    assert f"[gate] {a}: error" in out
+    assert offender in out
+    assert "[gate]   error (1): research_vault/a.py" in out
 
 
 def test_out_dir_skips_module_with_recorded_success(tmp_path, monkeypatch):
@@ -548,7 +605,7 @@ def test_out_dir_skips_module_with_recorded_success(tmp_path, monkeypatch):
         survivors={KEY_ADD_2.replace(MODULE, a)},
         counts={"survived": 1, "killed": 3},
         flagged=[],
-        unchecked=[],
+        no_verdict=[],
     )
     mutation_gate._write_record(out_dir, a, "old out", 0, "ok", recorded)
 
@@ -597,7 +654,9 @@ def test_out_dir_reruns_an_interrupted_module_recorded_with_exit_zero(
     out_dir.mkdir()
     a = "research_vault/a.py"
     partial = ModuleResult(
-        survivors=set(), counts={"killed": 1}, unchecked=[ADD_2.replace("fake", "a")]
+        survivors=set(),
+        counts={"killed": 1},
+        no_verdict=[("not checked", ADD_2.replace("fake", "a"))],
     )
     mutation_gate._write_record(out_dir, a, "interrupted", 0, "error", partial)
     assert (out_dir / "research_vault__a.py.exit").read_text(encoding="utf-8") == (

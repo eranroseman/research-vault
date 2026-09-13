@@ -16,7 +16,7 @@ survivor keys and counts as JSON, exit code + class) written as each module
 finishes, so a blanket run killed partway through resumes instead of restarting.
 A recorded "0 ok" is reused without re-running; anything else -- no record, an
 unparseable exit file, a recorded failure, or a record whose own body lists
-unchecked mutants -- re-runs and overwrites. The
+mutants without a verdict -- re-runs and overwrites. The
 baseline is assembled from the RECORDS, not from mutants/: mutmut's mutant ids
 renumber on any edit and mutants/ regenerates, so only the derived keys are
 durable. --only RELPATH (repeatable, update-baseline only) narrows which modules
@@ -27,9 +27,15 @@ to redo such a module, delete its .exit record first. Gate mode ignores
 
 Every module gets a class: "ok" (mutmut exited 0 and every selected mutant has
 a verdict) or "error" (a non-zero exit, no mutants/<relpath>.meta afterwards, or
-any mutant left "not checked" / "interrupted" -- mutmut swallows a
-KeyboardInterrupt and still exits 0, leaving null codes behind). An error is
-never zero survivors: it fails the gate and blocks the baseline write.
+any mutant WITHOUT a verdict: "not checked" / "interrupted" -- mutmut swallows
+a KeyboardInterrupt and still exits 0, leaving null codes behind -- and
+"suspicious" / "segfault", which are the absence of a verdict rather than one:
+suspicious is mutmut's fallback for an exit code it cannot classify, e.g.
+pytest's usage-error 4, the node-id re-escaping defect's signature; segfault is
+-9, the SIGKILL an OOM killer sends, or -11). An error is never zero survivors:
+it fails the gate and blocks the baseline write, and the module's class line
+names the offending mutant ids so the module can be redone with --only once
+the cause is fixed.
 
 How mutmut is driven. Each module is one invocation of
 scripts/mutmut_shims/run_mutmut.py (the launcher; see its header) with the name
@@ -42,9 +48,12 @@ stats phase, cached in mutants/mutmut-stats.json), then forks one child per
 selected mutant running only the tests that reached that function. Results land
 in mutants/<relpath>.meta as `exit_code_by_key` and are classified through
 mutmut's own status_by_exit_code (0 survived; 1/3 killed; 5/33 no tests; 34
-skipped; 36 timeout; 2 interrupted; null not checked; the rest suspicious).
-Timeouts, suspicious and segfault verdicts are counted and reported by name
-(mutmut id and key) but are never survivors and never folded into killed.
+skipped; 24/152/255/-24/36 timeout; 37 caught by type check; -9/-11 segfault;
+2 interrupted; null not checked; any other code suspicious). A timeout or a
+type-check catch is a verdict the mutant caused: counted and reported by name
+(mutmut id and key), never a survivor, never folded into killed, and no change
+to the exit code in either mode. Suspicious and segfault are not verdicts and
+class the module error (above), which fails the gate and blocks the write.
 
 Two mutmut cache limits to know. (1) The stats cache re-collects only for NEW
 test names: an edited test body does not refresh which functions it reaches,
@@ -108,8 +117,16 @@ LAUNCHER = SHIMS / "run_mutmut.py"
 # The trees mutmut must leave alone (hashed) and where stale bytecode could
 # hide (swept, together with mutants/).
 SOURCE_TREES = ("research_vault", "tests")
-# Verdicts that mean "measurement incomplete", not "mutant outcome".
-UNCHECKED_STATUSES = ("not checked", "check was interrupted by user")
+# The absence of a verdict, not a mutant outcome: any of these makes the
+# module an error (see the header).
+NO_VERDICT_STATUSES = (
+    "not checked",
+    "check was interrupted by user",
+    "suspicious",
+    "segfault",
+)
+# Verdicts the mutant caused, reported by name and never a survivor.
+BY_NAME_STATUSES = ("timeout", "caught by type check")
 
 
 class SourceTreeChangedError(RuntimeError):
@@ -120,10 +137,10 @@ class SourceTreeChangedError(RuntimeError):
 class ModuleResult:
     survivors: set[str]
     counts: dict[str, int]
-    # (status, mutmut id, key) for every timeout / suspicious / segfault verdict.
+    # (status, mutmut id, key) for every BY_NAME_STATUSES verdict.
     flagged: list[tuple[str, str, str]] = field(default_factory=list)
-    # mutmut ids left "not checked" or "interrupted": the module is an error.
-    unchecked: list[str] = field(default_factory=list)
+    # (status, mutmut id) for every NO_VERDICT_STATUSES code: the module is an error.
+    no_verdict: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _mutmut(root: Path) -> ModuleType:
@@ -173,10 +190,10 @@ def read_module_results(relpath: str, root: Path = ROOT) -> ModuleResult:
         for name, code in exit_code_by_key.items():
             status = mm.status_by_exit_code[code]
             result.counts[status] = result.counts.get(status, 0) + 1
-            if status in UNCHECKED_STATUSES:
-                result.unchecked.append(name)
+            if status in NO_VERDICT_STATUSES:
+                result.no_verdict.append((status, name))
                 continue
-            if status in ("killed", "no tests", "skipped", "caught by type check"):
+            if status not in ("survived", *BY_NAME_STATUSES):
                 continue
             key = mutation_key(
                 relpath, name, mm.get_diff_for_mutant(name, path=relpath)
@@ -304,7 +321,7 @@ def _measure(
         result = read_module_results(module, ROOT)
     except FileNotFoundError:
         return out, code, "error", None
-    if result.unchecked:
+    if result.no_verdict:
         return out, code, "error", result
     return out, code, "ok", result
 
@@ -328,14 +345,16 @@ def _report(
     if result is None:
         print(f"{prefix} {module}: {cls} (mutmut exited {code}; no result read)")
         return
-    print(f"{prefix} {module}: {cls} ({_describe(result)})")
+    line = f"{prefix} {module}: {cls} ({_describe(result)})"
+    if result.no_verdict:
+        # The ids ride on the class line itself: the operator's next move is
+        # `mutmut show <id>` and a redo with --only once the cause is fixed.
+        line += " -- no verdict: " + ", ".join(
+            f"{status} {name}" for status, name in result.no_verdict
+        )
+    print(line)
     for status, name, key in result.flagged:
         print(f"{prefix}   {status} {name}  {key}")
-    if result.unchecked:
-        print(
-            f"{prefix}   not checked ({len(result.unchecked)}): "
-            + ", ".join(result.unchecked)
-        )
 
 
 def _record_paths(out_dir: Path, module: str) -> tuple[Path, Path, Path]:
@@ -354,8 +373,8 @@ def _cached_result(out_dir: Path, module: str) -> ModuleResult | None:
     # so its absence or an unparseable body means no usable record -- a run
     # killed mid-write left the set incomplete. Only "0 ok" is a cache hit:
     # the class token is required because exit 0 no longer implies ok (an
-    # interrupted run records "0 error" with unchecked mutants), and a record
-    # whose own body lists unchecked mutants is refused as belt. Anything else
+    # interrupted run records "0 error" with mutants lacking a verdict), and a
+    # record whose own body lists such mutants is refused as belt. Anything else
     # is a recorded *failure*, and the caller re-runs it.
     _stdout_path, result_path, exit_path = _record_paths(out_dir, module)
     try:
@@ -367,11 +386,11 @@ def _cached_result(out_dir: Path, module: str) -> ModuleResult | None:
             survivors=set(data["survivors"]),
             counts=data["counts"],
             flagged=[(s, n, k) for s, n, k in data["flagged"]],
-            unchecked=list(data["unchecked"]),
+            no_verdict=[(s, n) for s, n in data["no_verdict"]],
         )
     except (OSError, ValueError, KeyError):
         return None
-    return None if result.unchecked else result
+    return None if result.no_verdict else result
 
 
 def _write_record(
