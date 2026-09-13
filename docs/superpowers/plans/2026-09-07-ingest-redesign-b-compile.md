@@ -749,7 +749,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs tests .github/
 **Files:**
 
 - Create: `tests/test_capture_live.py`, `tests/fixtures/lifecycle/items-trashed.json`
-- Modify: `research_vault/zotero.py` (`trash_item(key, version)`, `delete_item(key, version)` — PATCH `{"deleted": true}` and DELETE with `If-Unmodified-Since-Version`; both need the API key), `tests/fixtures/lifecycle/README.md` (the trashed fixture becomes replayable), `tests/test_lifecycle.py` (a replay test for the observed trashed transition), `tests/conftest.py` (`pytest_collection_modifyitems` also skips `live_write` without `RV_LIVE_WRITE_BASE`; `pyproject.toml` registers the marker `live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE)`), `docs/research/2026-09-05-zotero-api-reading.md` (append one dated record — the request, the answering headers and the shape of the map — for `GET /api/users/0/items/trash?format=versions` as this leg observes it: `trash_versions` is the one route the client reads on the spec's own measurement with no corpus record behind it, and Task 7 showed what an uncorroborated assertion costs; and a second dated record for `GET /api/users/0/items/top?format=csljson&limit=1`, which Part A's Task 16 live leg measured on 2026-09-13 answering 200 with a CSL JSON body on Zotero 10.0.1 and 10.0.2 where record 15 and the spec's §9 row measured 500 on 2026-09-04 — re-measure it in this leg and record what answers, since the route has now been observed both ways)
+- Modify: `research_vault/zotero.py` (`trash_item(key, version)`, `delete_item(key, version)` — PATCH `{"deleted": true}` and DELETE with `If-Unmodified-Since-Version`; both need the API key), `tests/fixtures/lifecycle/README.md` (the trashed fixture becomes replayable), `tests/test_lifecycle.py` (a replay test for the observed trashed transition), `tests/conftest.py` (`pytest_collection_modifyitems` also skips `live_write` without `RV_LIVE_WRITE_BASE`; `pyproject.toml` registers the marker `live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE)`), `docs/research/2026-09-05-zotero-api-reading.md` (append one dated record — the request, the answering headers and the shape of the map — for `GET /api/users/0/items/trash?format=versions` as this leg observes it: `trash_versions` is the one route the client reads on the spec's own measurement with no corpus record behind it, and Task 7 showed what an uncorroborated assertion costs; the three records 449–451 that Part A's Task 20 attended leg measured on 2026-09-13 (the native `citationKey` PATCH with `If-Unmodified-Since-Version` → 204, the version headers, Better BibTeX's agreement), copied from its report into the reading doc, and a second re-measured record for `GET /api/users/0/items/top?format=csljson&limit=1`, which Part A's Task 16 live leg measured on 2026-09-13 answering 200 with a CSL JSON body on Zotero 10.0.1 and 10.0.2 where record 15 and the spec's §9 row measured 500 on 2026-09-04 — re-measure it in this leg and record what answers, since the route has now been observed both ways)
 
 **Interfaces:**
 
@@ -763,12 +763,14 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs tests .github/
 """Live legs against Zotero 10 (spec §7). Read legs need RV_LIVE=1; the write
 leg needs RV_LIVE_WRITE_BASE too and refuses the production instance."""
 
-# An automated propagate leg (Part A Task 20 Step 1 runs it attended) needs a
-# way to re-key an item over the local API. Unmeasured: whether PATCH accepts
-# the native ``citationKey`` field (research record 279: Zotero moved the pin
-# out of Extra into a native field; 333: BBT still parses the legacy Extra
-# line). Measure on the test instance before printing such a leg; until then
-# the attended round is propagate's only live coverage.
+# An automated propagate leg (Part A Task 20 Step 1 ran it attended on
+# 2026-09-13) re-keys an item over the local API: measured, PATCH accepts the
+# native ``citationKey`` field — ``PATCH /api/users/0/items/<key>`` with
+# ``If-Unmodified-Since-Version`` answered 204 and Better BibTeX agreed within
+# seconds; the legacy Extra line was never needed (research records 449-451,
+# appended by this task from the Task 20 report). Print the leg from those
+# records: authorize once, PATCH the native field, run the linter, propagate,
+# restore the key with a second PATCH.
 
 import json
 import os

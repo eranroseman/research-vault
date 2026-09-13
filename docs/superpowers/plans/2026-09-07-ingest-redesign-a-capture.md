@@ -6723,13 +6723,13 @@ B=http://localhost:23129
 python3 -m research_vault capture KEY --vault "$V" --base "$B"          # one item of the test instance, by item key
 printf -- '---\ntype: "project"\n---\nSee [@OLD, p. 3] and [[OLD]].\n' > "$V/projects/leg.md"   # OLD = the captured citation key
 # Now change that item's citation key on the test instance (in Zotero; how is your choice — the leg needs only that the linter sees it).
-python3 -m research_vault inbox --vault "$V" --base "$B"                # expect: UNMATCHED OLD — re-keyed — OLD → NEW
+python3 -m research_vault capture KEY --vault "$V" --base "$B"          # expect: UNMATCHED OLD — re-keyed — OLD → NEW; run propagate (the refusal files the hold; `inbox` only reads the queue, it never runs the linter)
 python3 -m research_vault propagate --vault "$V" --base "$B"            # prints the plan path and its sha256
 python3 -m research_vault propagate --vault "$V" --base "$B" --plan PLAN --approved-plan-sha256 SHA
-python3 -m research_vault inbox --vault "$V" --base "$B"                # expect: clean
+python3 -m research_vault verify --vault "$V" --base "$B"               # expect: no lifecycle row for the key; the queue is append-only, so the earlier holds stay open until `ack`
 ```
 
-Expected after apply: `literatures/NEW.md` exists and carries `citationKey: NEW`, `literatures/OLD.md` is gone, `projects/leg.md` reads `[@NEW, p. 3]` and `[[NEW]]`, `system/propagations/<operation id>.json` records the applied plan, and `inbox` reports nothing. Report the three `inbox` outputs and the record's path verbatim in Step 5. If the recapture fails (the partial state Task 14's fix round made recoverable), report exactly what the vault holds and stop — that outcome is the leg's finding, not a reason to fix by hand.
+Expected after apply: `literatures/NEW.md` exists and carries `citationKey: NEW`, `literatures/OLD.md` is gone, `projects/leg.md` reads `[@NEW, p. 3]` and `[[NEW]]`, `system/propagations/<operation id>.json` records the applied plan, `verify` reports no lifecycle row for the key, and `inbox` still lists the holds the refused capture filed (append-only; two of them, since the CSL `item.export` fallback also asked for the old key — issue #129). Report the capture, propagate and verify outputs and the record's path verbatim in Step 5. **Run 2026-09-13 on 23129, item `ALKT2NF7`:** the native `citationKey` field took the re-key — `PATCH /api/users/0/items/ALKT2NF7` with `If-Unmodified-Since-Version: 1708` answered 204, `Last-Modified-Version: 1714`, Better BibTeX agreeing within about two seconds, `extra` untouched, so the Extra-line fallback was never needed; one `authorize()` with `remember: true`; the linter's `re-keyed` refusal fired live through `capture`, `propagate` planned and applied, the recapture was a NOOP, a fresh plan found nothing to propagate, and a restore PATCH answered 204. Research records 449–451 in the Task 20 report carry the request and answering headers in the reading doc's shape for Part B Task 5. If the recapture fails (the partial state Task 14's fix round made recoverable), report exactly what the vault holds and stop — that outcome is the leg's finding, not a reason to fix by hand.
 
 - [ ] **Step 2: Merge to `main`**
 
