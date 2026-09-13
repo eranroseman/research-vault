@@ -54,6 +54,18 @@ class LocalApiDisabledError(ZoteroError):
         super().__init__(message, Result.UNMATCHED)
 
 
+class ApiKeyRejectedError(ZoteroError):
+    """401: the API key ``authorize`` granted is no longer valid (§2).
+
+    Its own type, not a string match: ``_local``'s 400 branch echoes up to
+    200 bytes of the server's own body, and a 400 and a 401 both carry
+    ``result=UNMATCHED``, so only the type tells ``add`` which one to retry.
+    """
+
+    def __init__(self, message="API key rejected (401); re-authorize"):
+        super().__init__(message, Result.UNMATCHED)
+
+
 class NotFoundError(ZoteroError):
     """404 from the local API."""
 
@@ -374,7 +386,7 @@ class ZoteroClient:
             expect=(200, 401),
         )
         if response.status == 401:
-            raise ZoteroError("API key rejected (401); re-authorize", Result.UNMATCHED)
+            raise ApiKeyRejectedError()
         payload = self._decode_json(response.body, "create response")
         if not isinstance(payload, Mapping) or "successful" not in payload:
             raise ZoteroError(

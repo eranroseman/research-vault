@@ -346,6 +346,45 @@ def test_cli_capture_exit_codes_and_holds(tmp_vault, monkeypatch, capsys):
     assert "not-admitted" in queue
 
 
+def test_cli_capture_all_files_a_repo_path_hold_that_an_ack_closes(
+    tmp_vault, monkeypatch
+):
+    """A note with no citationKey is a repo-path target (`_every_note`); the
+    hold `_hold` files for it must carry that target kind through
+    `record_finding` to `inbox.append_entry`, or `inbox.is_acknowledged`'s
+    repo-path lookup — the one `verify`'s dedup uses — can never match the id
+    a human acknowledgment references."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    (tmp_vault / "literatures").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "literatures" / "nameless.md").write_text(
+        '---\ntype: "literature"\n---\n'
+    )
+    fake = FakeZotero()
+    fake.get(
+        "/api/users/0/items/top?format=versions",
+        body={},
+        headers={"Last-Modified-Version": "1"},
+    )
+    monkeypatch.setattr(
+        cli,
+        "ZoteroClient",
+        lambda **kw: fake.install(zotero.ZoteroClient(**kw), monkeypatch),
+    )
+    assert cli.main(["capture", "--all", "--vault", str(tmp_vault)]) == 1
+
+    entries = [e for e in inbox.load(tmp_vault) if e.check == "capture"]
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.target_kind == "repo-path"
+
+    inbox.append_ack(tmp_vault, entry.id, "manual — resolved", "human:tester")
+    assert inbox.is_acknowledged(
+        tmp_vault, entry.check, entry.target, target_kind=entry.target_kind
+    )
+
+
 def test_a_database_change_during_the_csl_read_voids_the_run_not_the_file(
     tmp_vault, monkeypatch
 ):

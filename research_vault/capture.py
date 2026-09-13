@@ -26,6 +26,7 @@ from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 from .zotero import (
     ITEM_KEY,
+    ApiKeyRejectedError,
     DatabaseChangedError,
     NotFoundError,
     ZoteroClient,
@@ -485,6 +486,9 @@ def _validate_items(items) -> str | None:
         for field_name in item:
             if field_name != "itemType" and field_name not in _ITEM_FIELDS:
                 return f"item {index}: unknown field {field_name}"
+        for list_field in ("creators", "tags"):
+            if list_field in item and not isinstance(item[list_field], list):
+                return f"item {index}: {list_field} must be a list"
     return None
 
 
@@ -502,6 +506,8 @@ def _store_key(vault: Path, server_id: str, key: str) -> None:
     try:
         current = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        current = {}
+    if not isinstance(current, dict):
         current = {}
     current[server_id] = key
     path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
@@ -562,8 +568,9 @@ def add(
             envelope = client.create_items(payload)
             break
         except ZoteroError as error:
-            if "401" in str(error) and attempt == 1:
+            if isinstance(error, ApiKeyRejectedError) and attempt == 1:
                 key = None
+                client.api_key = None
                 continue
             return [
                 Outcome(

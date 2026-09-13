@@ -94,6 +94,7 @@ def cmd_capture(args):
                 outcome.target,
                 outcome.result,
                 outcome.reason,
+                target_kind=outcome.target_kind,
             )
         if outcome.result is Result.UNMATCHED:
             worst = 1
@@ -131,6 +132,7 @@ def cmd_add(args):
                 outcome.target,
                 outcome.result,
                 outcome.reason,
+                target_kind=outcome.target_kind,
             )
         if outcome.result is Result.UNMATCHED:
             worst = 1
@@ -139,7 +141,9 @@ def cmd_add(args):
     return worst
 
 
-def _hold(vault, check, target, result: Result, reason: str) -> None:
+def _hold(
+    vault, check, target, result: Result, reason: str, target_kind: str = "identifier"
+) -> None:
     """File one import hold through ``record_finding`` — never a forked writer.
 
     Additive to the failure exit that calls it: stderr and the exit code stay
@@ -148,7 +152,9 @@ def _hold(vault, check, target, result: Result, reason: str) -> None:
     already carrying a different finding leaves the queue without the record,
     and a silently missing review record is the failure this reports.
     """
-    status, detail = record_finding(vault, check, target, result, reason)
+    status, detail = record_finding(
+        vault, check, target, result, reason, target_kind=target_kind
+    )
     if status:
         print(f"warning: review record refused: {detail}", file=sys.stderr)
 
@@ -220,6 +226,7 @@ def cmd_propagate(args):
                 outcome.target,
                 outcome.result,
                 outcome.reason,
+                target_kind=outcome.target_kind,
             )
             worst = 1
         elif outcome.result is Result.UNREACHABLE and worst == 0:
@@ -427,6 +434,7 @@ def record_finding(
     actor=None,
     date=None,
     target_hash=None,
+    target_kind: str = "identifier",
 ) -> tuple[int, str]:
     """The single review-record writer above ``inbox.append_entry``.
 
@@ -469,7 +477,7 @@ def record_finding(
             None,
             None,
             None,
-            "identifier",
+            target_kind,
             reason,
         )
         colliding = [
@@ -482,7 +490,7 @@ def record_finding(
             duplicate = (
                 existing.check == check
                 and existing.target == target
-                and existing.target_kind == "identifier"
+                and existing.target_kind == target_kind
                 and existing.result == result.value
                 and existing.reason == reason
                 and existing.actor == actor
@@ -507,6 +515,7 @@ def record_finding(
             actor=actor,
             date=date,
             target_hash=target_hash,
+            target_kind=target_kind,
         )
     except (inbox.InboxError, ValueError, OSError) as error:
         return 2, str(error)

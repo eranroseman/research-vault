@@ -57,13 +57,14 @@ def test_add_authorizes_once_stores_the_key_creates_and_captures(
     assert oct(store.stat().st_mode & 0o777) == "0o600"
     posts = [c for c in fake.calls if c[0] == "POST"]
     assert [p[1] for p in posts] == ["/api/local/authorize", "/api/users/0/items"]
-    sent = (
-        json.loads(fake._last_post_body) if hasattr(fake, "_last_post_body") else None
-    )
-    # the FakeZotero records the last POST body in `_last_post_body`; add that attribute to the fake in this task
+    sent = json.loads(fake._last_post_body)
     assert sent[0]["collections"] == ["IQZW5UVX"]
 
-    capture.add(tmp_vault, client, items)
+    # A fresh client per call is what production does (`cmd_add` builds one
+    # each invocation); the "authorize once across runs" promise rests on
+    # `_load_key` reading the store, not on the same client object surviving.
+    fresh_client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    capture.add(tmp_vault, fresh_client, items)
     assert [c[1] for c in fake.calls if c[0] == "POST"].count(
         "/api/local/authorize"
     ) == 1
@@ -116,3 +117,102 @@ def test_a_400_from_the_local_api_is_a_mismatch_not_an_outage(tmp_vault, monkeyp
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
     assert outcome.result is Result.UNMATCHED
     assert outcome.reason.startswith("mismatch — local API 400 for /api/users/0/items")
+
+
+def test_a_400_body_containing_the_text_401_is_not_mistaken_for_a_rejected_key(
+    tmp_vault, monkeypatch
+):
+    """`_local`'s 400 branch echoes up to 200 bytes of the server's own body;
+    a 400 whose body happens to contain "401" must not be read as the typed
+    `ApiKeyRejectedError` a real 401 raises — that would pop an extra
+    authorize dialog and re-POST a payload Zotero already refused."""
+    fake = FakeZotero()
+    fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": True})
+    fake.post("/api/users/0/items", status=400, body=b"error 401: bogus item type")
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("mismatch — local API 400 for /api/users/0/items")
+    posts = [c for c in fake.calls if c[0] == "POST"]
+    assert [p[1] for p in posts] == ["/api/local/authorize", "/api/users/0/items"]
+
+
+def test_store_key_replaces_a_non_object_store(tmp_vault, monkeypatch):
+    """A valid-JSON store whose top level is not an object (a list, a string,
+    a number) must not crash the write after the dialog is already granted —
+    that would lose the just-granted key and re-dialog on every later run."""
+    _fake, client = _fake_for_add(monkeypatch)
+    store = tmp_vault / ".research-vault" / "zotero-keys.json"
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text("[]")
+    outcomes = capture.add(
+        tmp_vault, client, [{"itemType": "journalArticle", "title": "T"}]
+    )
+    assert outcomes[0].reason.startswith("matched — created")
+    assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
+
+
+def test_add_reauthorizes_once_after_a_401_and_retries(tmp_vault, monkeypatch):
+    fake, client = _fake_for_add(monkeypatch)
+    real_http = fake._http
+    rejected_once = {"done": False}
+
+    def flaky(url, data=None, headers=None, method=None, *, timeout=None):
+        if (
+            url.endswith("/api/users/0/items")
+            and method == "POST"
+            and not rejected_once["done"]
+        ):
+            rejected_once["done"] = True
+            # Log it as `real_http` would have: this intercept short-circuits
+            # before the fake's own call-recording line runs.
+            fake.calls.append(("POST", "/api/users/0/items", dict(headers or {})))
+            return zotero.Response(401, b"", {})
+        return real_http(
+            url, data=data, headers=headers, method=method, timeout=timeout
+        )
+
+    monkeypatch.setattr(client, "_http", flaky)
+    outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    posts = [c for c in fake.calls if c[0] == "POST"]
+    assert [p[1] for p in posts] == [
+        "/api/local/authorize",
+        "/api/users/0/items",
+        "/api/local/authorize",
+        "/api/users/0/items",
+    ]
+    # The rejected key must not ride the re-authorize request.
+    assert "Zotero-API-Key" not in posts[2][2]
+    assert outcomes[0].reason.startswith("matched — created")
+
+
+def test_add_stops_after_one_retry_when_the_second_create_also_401s(
+    tmp_vault, monkeypatch
+):
+    fake, client = _fake_for_add(monkeypatch)
+    fake.post("/api/users/0/items", status=401, body=b"")
+    outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    posts = [c for c in fake.calls if c[0] == "POST"]
+    assert [p[1] for p in posts] == [
+        "/api/local/authorize",
+        "/api/users/0/items",
+        "/api/local/authorize",
+        "/api/users/0/items",
+    ]
+    assert outcomes[0].result is Result.UNMATCHED
+    assert outcomes[0].reason.startswith("mismatch — API key rejected")
+
+
+def test_add_refuses_a_non_list_creators_or_tags_before_any_network(
+    tmp_vault, monkeypatch
+):
+    fake, client = _fake_for_add(monkeypatch)
+    outcomes = capture.add(
+        tmp_vault, client, [{"itemType": "book", "creators": "not-a-list"}]
+    )
+    assert outcomes[0].result is Result.UNMATCHED
+    assert "creators must be a list" in outcomes[0].reason
+    outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "tags": "ai"}])
+    assert outcomes[0].result is Result.UNMATCHED
+    assert "tags must be a list" in outcomes[0].reason
+    assert not [c for c in fake.calls if c[0] == "POST"]
