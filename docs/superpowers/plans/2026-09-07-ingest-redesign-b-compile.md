@@ -531,7 +531,7 @@ Part A Task 19 shipped `capture-source` and `setup-vault` without their compile 
 
 **Files:**
 
-- Modify: `skills/capture-source/SKILL.md`, `skills/setup-vault/SKILL.md`, `skills/synthesis-conventions/SKILL.md`, `research_vault/scaffold.py:23` (`PROVISION_COMPANIONS = ["kepano/obsidian-skills", "claude-obsidian@agricidaniel-claude-obsidian"]`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `tests/test_capture_source_skill.py`, `tests/test_skill_files.py`, `tests/test_templates.py`
+- Modify: `skills/capture-source/SKILL.md`, `skills/setup-vault/SKILL.md`, `skills/synthesis-conventions/SKILL.md`, `skills/evidence-conventions/SKILL.md` (`:16` "into a synthesis page" becomes the compiled layer under `wiki/` — Part A's deferred row 60, a one-word edit that rides with this rewrite; `skills/synthesis-conventions/SKILL.md:16,22` carry the same retired term), `research_vault/scaffold.py:23` (`PROVISION_COMPANIONS = ["kepano/obsidian-skills", "claude-obsidian@agricidaniel-claude-obsidian"]`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `tests/test_capture_source_skill.py`, `tests/test_skill_files.py`, `tests/test_templates.py`
 
 **Interfaces:**
 
