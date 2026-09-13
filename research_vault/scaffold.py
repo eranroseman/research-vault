@@ -323,7 +323,12 @@ _WRONG_ID = "research-vault-wrong-id"
 _COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
 _COMPILE_PIN = "ad67087"
 _UNSET = "unset (Zotero default)"
-_NO_STORED_ATTACHMENT = "no stored attachment to resolve"
+_PAGE_SIZE = 50
+_MAX_PAGES = 20
+_ATTACHMENT_PAGE = (
+    "/api/users/0/items?itemType=attachment&sort=dateAdded&direction=asc"
+    f"&limit={_PAGE_SIZE}&start={{start}}&format=json"
+)
 
 
 class _ProfileHold(NamedTuple):
@@ -412,22 +417,20 @@ def _write_guard_probe(client, skip: str | None) -> Probe:
     )
 
 
-def _profile_dir(config) -> Path | None:
-    """The configured zotero_profile path, whether or not it exists; None only when unset."""
-    value = config.get("zotero_profile")
-    return Path(value) if isinstance(value, str) and value.strip() else None
-
-
 def _profile_facts(config) -> _ProfileFacts | _ProfileHold:
     """Read the profile once for the three probes that need it (decision 15).
 
-    A configured-but-wrong profile is a finding, never "not configured". Could
-    not read is an outage and malformed content a fault — the split captured.py
-    makes on every file it opens.
+    A configured-but-wrong profile is a finding, never "not configured": only an
+    absent, null or empty key is unconfigured (the reading Task 17 gives
+    zotero_base). Could not read is an outage and malformed content a fault —
+    the split captured.py makes on every file it opens.
     """
-    path = _profile_dir(config)
-    if path is None:
+    value = config.get("zotero_profile")
+    if value is None or (isinstance(value, str) and not value.strip()):
         return _ProfileHold(Result.SKIPPED, "zotero_profile not configured")
+    if not isinstance(value, str):
+        return _ProfileHold(Result.UNMATCHED, "zotero_profile must be a string")
+    path = Path(value)
     if not path.is_dir():
         return _ProfileHold(
             Result.UNMATCHED, f"zotero_profile {path} is not a directory"
@@ -505,44 +508,81 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
     return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
 
 
+def _is_stored_file(row) -> bool:
+    return (
+        isinstance(row, dict)
+        and isinstance(row.get("key"), str)
+        and isinstance(row.get("data"), dict)
+        and row["data"].get("linkMode") == "imported_file"
+    )
+
+
+def _first_stored_attachment(client) -> str | Probe:
+    """The oldest stored attachment's key, or the path-shim row to report instead.
+
+    The listing is walked fifty rows at a time, oldest first, stopping at the
+    first ``imported_file`` and capped at twenty pages. Measured 2026-09-13 on
+    both instances: the route honours ``sort=dateAdded&direction=asc`` (dates
+    non-decreasing within and across pages, order stable across reads), so the
+    walk meets the same file on every run as the library grows; the unpaged
+    read answered in 22 s on 1,372 rows against the client's 5 s timeout; a
+    page answers in under half a second. The local API ignores a ``linkMode``
+    query filter (measured 2026-09-07, decision 25), hence the client-side test.
+    """
+    inspected = 0
+    total: str | None = None
+    for page in range(_MAX_PAGES):
+        path = _ATTACHMENT_PAGE.format(start=page * _PAGE_SIZE)
+        try:
+            payload, headers = client._local_json(path)
+        except ZoteroError as error:
+            return Probe(
+                "path-shim", Result.UNREACHABLE, f"attachment listing: {error}"
+            )
+        if not isinstance(payload, list):
+            return Probe(
+                "path-shim",
+                Result.UNMATCHED,
+                "attachment listing malformed: expected a list",
+            )
+        if page == 0:
+            reported = headers.get("Total-Results")
+            total = (
+                reported if isinstance(reported, str) and reported.isdigit() else None
+            )
+        inspected += len(payload)
+        for row in payload:
+            if _is_stored_file(row):
+                return str(row["key"])
+        if len(payload) < _PAGE_SIZE:
+            break  # the listing ended before the cap
+    span = f"of {total}" if total is not None else "(total unreported)"
+    # nothing to check is not an outage; the reason says what span was read
+    return Probe(
+        "path-shim",
+        Result.SKIPPED,
+        f"no stored attachment among the first {inspected} {span}",
+    )
+
+
 def _path_shim_probe(client, skip: str | None, vault: Path) -> Probe:
     if not paths._running_in_wsl():
         return Probe("path-shim", Result.SKIPPED, "not running in WSL")
     if skip:
         return Probe("path-shim", Result.SKIPPED, skip)
-    try:
-        # Measured 2026-09-07: the local API ignores a `linkMode` query filter (it
-        # answered `imported_url` rows for `linkMode=imported_file`), so fetch
-        # attachments and filter client-side (decision 25).
-        payload, _ = client._local_json(
-            "/api/users/0/items?itemType=attachment&limit=50&format=json"
-        )
-    except ZoteroError as error:
-        return Probe("path-shim", Result.UNREACHABLE, f"attachment listing: {error}")
-    if not isinstance(payload, list):
-        return Probe(
-            "path-shim",
-            Result.UNMATCHED,
-            "attachment listing malformed: expected a list",
-        )
-    stored = [
-        row
-        for row in payload
-        if isinstance(row, dict)
-        and isinstance(row.get("key"), str)
-        and isinstance(row.get("data"), dict)
-        and row["data"].get("linkMode") == "imported_file"
-    ]
-    if not stored:
-        # nothing to check is not an outage
-        return Probe("path-shim", Result.SKIPPED, _NO_STORED_ATTACHMENT)
-    key = stored[0]["key"]
+    found = _first_stored_attachment(client)
+    if isinstance(found, Probe):
+        return found
+    key = found
     try:
         url = client.file_view_url(key)
     except ZoteroError as error:
         return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")
     if not url:
-        return Probe("path-shim", Result.SKIPPED, _NO_STORED_ATTACHMENT)
+        # the server's two definite negatives (404, 400) for a row it listed as stored
+        return Probe(
+            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"
+        )
     windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
     try:
         local = paths.to_local(windows_path, vault)

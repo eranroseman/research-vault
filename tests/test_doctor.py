@@ -38,6 +38,20 @@ WARN_ONLY = [
 READY = {"zotero": "10.0.1", "betterbibtex": "9.0.63"}
 COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
 PROFILE_PROBES = ("fulltext-sync", "bbt-git", "plugins")
+LISTING = (
+    "/api/users/0/items?itemType=attachment&sort=dateAdded&direction=asc"
+    "&limit=50&start={start}&format=json"
+)
+
+
+def _linked_rows(start, count=50):
+    """A page of attachments that are not stored files."""
+    return [
+        {"key": f"L{start + i:07d}", "data": {"linkMode": "imported_url"}}
+        for i in range(count)
+    ]
+
+
 LOCAL_API_PROBES = ("write-guard", "path-shim", "translator-formats")
 
 
@@ -231,12 +245,13 @@ def _doctor_fake(monkeypatch, tmp_path):
     fake.post("/api/users/0/items", status=401, body=b"")
     fake.get("/api/users/0/items/top?format=csljson&limit=1", status=500, body=b"")
     fake.get(
-        "/api/users/0/items?itemType=attachment&limit=50&format=json",
+        LISTING.format(start=0),
         body=[
             # skipped: not a stored file
             {"key": "Q1W2E3R4", "data": {"linkMode": "imported_url"}},
             {"key": "D7EJ9FTG", "data": {"linkMode": "imported_file"}},
         ],
+        headers={"Total-Results": "2"},
     )
     fake.get(
         "/api/users/0/items/D7EJ9FTG/file/view/url",
@@ -535,6 +550,37 @@ def test_doctor_fulltext_sync_reports_zotero_defaults_when_prefs_are_unset(
     )
 
 
+def test_doctor_reports_a_zotero_profile_that_is_not_a_string(tmp_vault, monkeypatch):
+    vault = _doctor_vault(tmp_vault)
+    (vault / ".research-vault" / "machine.json").write_text(
+        json.dumps({"mailto": "eran@example.edu", "zotero_profile": 42})
+    )
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    for name in PROFILE_PROBES:
+        assert by[name] == scaffold.Probe(
+            name, Result.UNMATCHED, "zotero_profile must be a string"
+        )
+
+
+@pytest.mark.parametrize("value", [None, "", "  "], ids=["null", "empty", "blank"])
+def test_doctor_treats_a_null_or_empty_zotero_profile_as_not_configured(
+    value, tmp_vault, monkeypatch
+):
+    vault = _doctor_vault(tmp_vault)
+    (vault / ".research-vault" / "machine.json").write_text(
+        json.dumps({"mailto": "eran@example.edu", "zotero_profile": value})
+    )
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    for name in PROFILE_PROBES:
+        assert by[name] == scaffold.Probe(
+            name, Result.SKIPPED, "zotero_profile not configured"
+        )
+
+
 def test_doctor_reports_a_zotero_profile_that_is_not_a_directory(
     tmp_vault, tmp_path, monkeypatch
 ):
@@ -621,36 +667,106 @@ def test_doctor_path_shim_fails_when_the_resolved_file_is_absent(
     assert by["path-shim"].reason == str(tmp_path / "storage" / "D7EJ9FTG" / "a.pdf")
 
 
-def test_doctor_path_shim_is_skipped_without_a_stored_attachment(
-    tmp_vault, monkeypatch
+@pytest.mark.parametrize(
+    ("rows", "headers", "reason"),
+    [
+        ([], {"Total-Results": "0"}, "no stored attachment among the first 0 of 0"),
+        (
+            _linked_rows(0, 1),
+            {"Total-Results": "1"},
+            "no stored attachment among the first 1 of 1",
+        ),
+        (
+            _linked_rows(0, 1),
+            {},
+            "no stored attachment among the first 1 (total unreported)",
+        ),
+    ],
+    ids=["empty-library", "linked-only", "no-total-results-header"],
+)
+def test_doctor_path_shim_is_skipped_without_a_stored_attachment_and_names_the_span(
+    rows, headers, reason, tmp_vault, monkeypatch
 ):
     vault = _doctor_vault(tmp_vault)
     fake = FakeZotero()
     fake.rpc("api.ready", READY)
+    fake.get(LISTING.format(start=0), body=rows, headers=headers)
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+
+    # nothing to check is not an outage; a short page ends the walk
+    assert by["path-shim"] == scaffold.Probe("path-shim", Result.SKIPPED, reason)
+    listing_calls = [c for c in fake.calls if c[1].startswith("/api/users/0/items?")]
+    assert [c[1] for c in listing_calls] == [LISTING.format(start=0)]
+
+
+def test_doctor_path_shim_walks_to_a_stored_file_on_the_second_page(
+    tmp_vault, tmp_path, monkeypatch
+):
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path))
+    _stored_attachment(tmp_path)
+    fake = FakeZotero()
+    fake.rpc("api.ready", READY)
     fake.get(
-        "/api/users/0/items?itemType=attachment&limit=50&format=json",
-        body=[{"key": "Q1W2E3R4", "data": {"linkMode": "imported_url"}}],
+        LISTING.format(start=0), body=_linked_rows(0), headers={"Total-Results": "51"}
+    )
+    fake.get(
+        LISTING.format(start=50),
+        body=[{"key": "D7EJ9FTG", "data": {"linkMode": "imported_file"}}],
+        headers={"Total-Results": "51"},
+    )
+    fake.get(
+        "/api/users/0/items/D7EJ9FTG/file/view/url",
+        body=b"file:///D:/Zotero/storage/D7EJ9FTG/a.pdf",
     )
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
     by = {p.check: p for p in scaffold.doctor(vault, client=client)}
 
-    # nothing to check is not an outage
+    assert by["path-shim"].result is Result.MATCHED
+    listing_calls = [c[1] for c in fake.calls if c[1].startswith("/api/users/0/items?")]
+    assert listing_calls == [LISTING.format(start=0), LISTING.format(start=50)]
+
+
+def test_doctor_path_shim_caps_the_walk_at_twenty_pages(tmp_vault, monkeypatch):
+    vault = _doctor_vault(tmp_vault)
+    fake = FakeZotero()
+    fake.rpc("api.ready", READY)
+    for page in range(21):  # a 21st page exists and must not be read
+        start = page * 50
+        fake.get(
+            LISTING.format(start=start),
+            body=_linked_rows(start),
+            headers={"Total-Results": "1372"},
+        )
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+
     assert by["path-shim"] == scaffold.Probe(
-        "path-shim", Result.SKIPPED, "no stored attachment to resolve"
+        "path-shim",
+        Result.SKIPPED,
+        "no stored attachment among the first 1000 of 1372",
     )
+    listing_calls = [c[1] for c in fake.calls if c[1].startswith("/api/users/0/items?")]
+    assert listing_calls == [LISTING.format(start=page * 50) for page in range(20)]
 
 
-def test_doctor_path_shim_listing_failure_is_an_outage(tmp_vault, monkeypatch):
+@pytest.mark.parametrize("failing_page", [0, 1], ids=["first-page", "second-page"])
+def test_doctor_path_shim_listing_failure_is_an_outage(
+    failing_page, tmp_vault, monkeypatch
+):
     vault = _doctor_vault(tmp_vault)
     fake = FakeZotero()
     fake.rpc("api.ready", READY)
     fake.get(
-        "/api/users/0/items?itemType=attachment&limit=50&format=json",
-        status=500,
-        body=b"",
+        LISTING.format(start=0), body=_linked_rows(0), headers={"Total-Results": "60"}
     )
+    fake.get(LISTING.format(start=failing_page * 50), status=500, body=b"")
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
