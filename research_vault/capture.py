@@ -383,7 +383,10 @@ def capture(
         run_version = _top_version(client)
         resolved = resolve_keys(client, requested, item_key_of)
     except ZoteroError as error:
-        return [lifecycle.blocked(CHECK, "vault", error)]
+        # `outcomes` may already hold `_every_note`'s unrequestable rows
+        # (--all); a vault-level failure here must not silently drop them
+        # (ADR 0002).
+        return [*outcomes, lifecycle.blocked(CHECK, "vault", error)]
     for requested_key, item_key in resolved.items():
         if item_key is None:
             outcomes.append(

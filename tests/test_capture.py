@@ -634,3 +634,27 @@ def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch
     assert (
         "old prose" not in legacy.read_text()
     )  # greenfield: rewritten whole from Zotero
+
+
+def test_all_keeps_unrequestable_rows_when_the_vault_level_read_then_fails(
+    tmp_vault, monkeypatch
+):
+    """A note with no citationKey is its own row (`_every_note`, `--all`); a
+    vault-level Zotero failure right after (`_top_version`/`resolve_keys`)
+    must not silently drop it — ADR 0002: a finding is never silently
+    dropped. A bare `FakeZotero()` 404s on `/items/top?format=versions`
+    (nothing registers it), which is exactly the outage this pins."""
+    fake = FakeZotero()
+    client = _client(monkeypatch, fake)
+    (tmp_vault / "literatures").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "literatures" / "nameless.md").write_text(
+        '---\ntype: "literature"\n---\n'
+    )
+    outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
+    assert len(outcomes) == 2
+    assert str(outcomes[0].target).endswith("literatures/nameless.md")
+    assert outcomes[0].result is Result.UNMATCHED
+    assert outcomes[0].reason.startswith("schema-violation")
+    assert outcomes[1].target == "vault"
+    assert outcomes[1].result is Result.UNMATCHED
+    assert outcomes[1].reason.startswith("not-admitted")
