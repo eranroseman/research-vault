@@ -21,12 +21,28 @@ docs/research/2026-08-23-mutmut-defect-reports.md.
 
 Usage: python scripts/mutmut_shims/run_mutmut.py <mutant-name-pattern>
 [mutmut run options]. Activated in this repo via
-PYTHONPATH=scripts/mutmut_shims on mutmut invocations only.
+PYTHONPATH=scripts/mutmut_shims on mutmut invocations only. `--help` / `-h`
+as the first argument prints this usage and exits 0 BEFORE mutmut is
+imported, from any cwd: stock mutmut 3.7.0 loads its config at import time
+(see sitecustomize.py), so mutmut's own `--help` only answers from a
+configured repo root.
 """
 
-# ruff: noqa: PLW2901
+# ruff: noqa: PLW2901, E402
 
 import sys
+
+USAGE = (
+    "Usage: python scripts/mutmut_shims/run_mutmut.py <mutant-name-pattern> "
+    "[mutmut run options]\n"
+    "Every other argument is passed through to `mutmut run`, whose own --help "
+    "is available from a configured repo root (mutmut loads its config at "
+    "import time).\n"
+)
+
+if sys.argv[1:2] in (["-h"], ["--help"]):
+    sys.stdout.write(USAGE)
+    sys.exit(0)
 
 from mutmut import __main__ as mm
 

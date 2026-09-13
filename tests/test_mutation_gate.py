@@ -381,6 +381,33 @@ def test_run_mutmut_hash_ignores_bytecode_written_during_the_run(tmp_path, monke
     mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
 
 
+def test_launcher_answers_help_before_importing_mutmut(tmp_path):
+    """The smoke check as literally written: `run_mutmut.py --help` from any
+    cwd, with neither MUTANT_UNDER_TEST nor PYTHONPATH set, answers with the
+    launcher's own usage and exits 0 -- before mutmut is imported, whose
+    import-time config load would otherwise die outside a configured root."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("MUTANT_UNDER_TEST", "PYTHONPATH")
+    }
+    for flag in ("--help", "-h"):
+        proc = subprocess.run(
+            [sys.executable, str(mutation_gate.LAUNCHER), flag],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert proc.stdout.startswith(
+            "Usage: python scripts/mutmut_shims/run_mutmut.py"
+        )
+        assert "mutmut run" in proc.stdout
+        assert proc.stderr == ""
+
+
 # --- main(): --update-baseline, --out-dir, --only ------------------------------
 
 
