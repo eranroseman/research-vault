@@ -174,27 +174,36 @@ def test_export_calls_carry_the_export_timeout_reads_keep_the_default(
     """Decision 13: the two whole-library export calls (``library_csl``,
     ``export_csl``) get ``EXPORT_TIMEOUT``; ``ready()`` (doctor's ``bbt``
     probe) and a per-item read keep the client's default so a busy Zotero
-    cannot hang the loop."""
+    cannot hang the loop.
+
+    Reaches the real ``_rpc`` (``monkeypatch.delattr`` removes
+    ``FakeZotero``'s dict-backed substitute, the pattern at
+    ``test_capture.py``'s ``test_a_refused_item_export_is_unmatched_not_an_outage``)
+    so its own ``timeout=timeout`` forward to ``_http`` is what this test
+    exercises, not just ``export_csl``'s/``ready()``'s call into ``_rpc``.
+    """
     canned_item(fake)
     fake.get("/better-bibtex/library?/My%20Library.json", body=[])
-    fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
-    fake.rpc("item.export", [])
+    monkeypatch.delattr(fake.client, "_rpc")  # the real parser, over fake._http
     real_http = fake.client._http
-    real_rpc = fake.client._rpc
     calls: list[tuple[str, float | None]] = []
 
     def recording_http(url, data=None, headers=None, method=None, *, timeout=None):
         calls.append(("http", timeout))
+        if url.endswith("/better-bibtex/json-rpc"):
+            requested = json.loads(data)["method"]
+            result = (
+                {"zotero": "10.0.1", "betterbibtex": "9.0.63"}
+                if requested == "api.ready"
+                else []
+            )
+            body = json.dumps({"jsonrpc": "2.0", "id": 1, "result": result}).encode()
+            return zotero.Response(200, body, {})
         return real_http(
             url, data=data, headers=headers, method=method, timeout=timeout
         )
 
-    def recording_rpc(method, params, *, timeout=None):
-        calls.append((method, timeout))
-        return real_rpc(method, params, timeout=timeout)
-
     monkeypatch.setattr(fake.client, "_http", recording_http)
-    monkeypatch.setattr(fake.client, "_rpc", recording_rpc)
 
     fake.client.library_csl("My Library")
     fake.client.export_csl(["smith2020"])
@@ -202,10 +211,10 @@ def test_export_calls_carry_the_export_timeout_reads_keep_the_default(
     fake.client.item("E352DFS8")
 
     assert calls == [
-        ("http", zotero.EXPORT_TIMEOUT),
-        ("item.export", zotero.EXPORT_TIMEOUT),
-        ("api.ready", None),
-        ("http", None),
+        ("http", zotero.EXPORT_TIMEOUT),  # library_csl
+        ("http", zotero.EXPORT_TIMEOUT),  # export_csl -> item.export over JSON-RPC
+        ("http", None),  # ready() -> api.ready over JSON-RPC, the default
+        ("http", None),  # item() -> the local API, the default
     ]
 
 
