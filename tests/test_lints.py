@@ -376,7 +376,7 @@ def test_claim_immutability_does_not_mask_a_continuation_newline_change(
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
-    note.write_bytes(note.read_bytes().replace(b"\n", b"\r\n"))
+    note.write_bytes(must_replace(note.read_bytes(), b"\n", b"\r\n", -1))
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
         ["git", "commit", "-m", "preserve source line endings"],
@@ -384,7 +384,8 @@ def test_claim_immutability_does_not_mask_a_continuation_newline_change(
         check=True,
     )
     note.write_bytes(
-        note.read_bytes().replace(
+        must_replace(
+            note.read_bytes(),
             b"^c-11111111\r\n  > Mortality fell 12% across all strata.\r\n",
             b"[failed-verification:: quote/2026-08-16] ^c-11111111\r\n"
             b"  > Mortality fell 12% across all strata.\n",
@@ -400,7 +401,7 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
-    note.write_bytes(note.read_bytes().replace(b"\n", b"\r\n"))
+    note.write_bytes(must_replace(note.read_bytes(), b"\n", b"\r\n", -1))
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
         ["git", "commit", "-m", "preserve source line endings"],
@@ -408,7 +409,8 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
         check=True,
     )
     note.write_bytes(
-        note.read_bytes().replace(
+        must_replace(
+            note.read_bytes(),
             b"- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222\r\n",
             b"- (paraphrase) Retrospective design [@smith2020, p. 3] "
             b"[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -424,7 +426,7 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
 def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_bytes(
-        note.read_bytes().replace(b"  > Mortality fell", b"  > \xffortality fell", 1)
+        must_replace(note.read_bytes(), b"  > Mortality fell", b"  > \xffortality fell")
     )
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -433,7 +435,9 @@ def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
         check=True,
     )
     note.write_bytes(
-        note.read_bytes().replace(b"  > \xffortality fell", b"  > \xfeortality fell", 1)
+        must_replace(
+            note.read_bytes(), b"  > \xffortality fell", b"  > \xfeortality fell"
+        )
     )
 
     assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [

@@ -57,7 +57,7 @@ def test_body_witness_validation_is_four_state():
     good = f'---\ntype: "literature"\nmanaged-sha256: "{digest}"\n---\n{body}'.encode()
     assert notes.validate_managed_witness(good) == (Result.MATCHED, "matched")
 
-    stale = good.replace(body.encode(), b"# Edited\n")
+    stale = must_replace(good, body.encode(), b"# Edited\n")
     assert notes.validate_managed_witness(stale) == (
         Result.UNMATCHED,
         "schema-violation — stale managed-sha256",

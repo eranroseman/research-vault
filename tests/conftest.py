@@ -1,14 +1,18 @@
 import json as _json
 import os
 import subprocess
+from typing import AnyStr
 
 import pytest
 
 from research_vault import scaffold
 
 
-def must_replace(text: str, old: str, new: str, count: int = 1) -> str:
-    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly."""
+def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
+    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly.
+
+    ``text``, ``old`` and ``new`` are all ``str`` or all ``bytes`` (ruling 7).
+    """
     assert old in text, f"substitution target no longer in the fixture: {old!r}"
     return text.replace(old, new, count)
 
@@ -17,8 +21,10 @@ def _with_body_witness(text):
     from research_vault import notes
 
     digest = notes.body_sha256(text)
-    return text.replace(
-        'type: "literature"\n', f'type: "literature"\nmanaged-sha256: "{digest}"\n', 1
+    return must_replace(
+        text,
+        'type: "literature"\n',
+        f'type: "literature"\nmanaged-sha256: "{digest}"\n',
     )
 
 

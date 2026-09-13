@@ -472,9 +472,10 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
         for entry in inbox.open_entries(net_vault)
         if entry.check == "citation-key" and entry.target == "fabricated2020"
     ]
-    assert len(first_entries) == 1
-    assert len(second_entries) == len(third_entries) == 2
-    assert first_entries[0].target_hash != second_entries[-1].target_hash
+    # The tool's own stamp never moves an ack scope (open point 07, ruling 5):
+    # one row across three runs, not a second one filed over the stamped draft.
+    assert len(first_entries) == len(second_entries) == len(third_entries) == 1
+    assert first_entries[0].target_hash == second_entries[0].target_hash
     source = (net_vault / "literatures" / "smith2020.md").read_text()
     recorded = {event["check"] for event in events.verified_checks(source)}
     assert "quote:smith2020#^c-66666666:managed-region" in recorded
@@ -716,11 +717,12 @@ def test_marker_clear_uses_exact_origin_and_citation_key_claim_collection(net_va
     )
 
 
-def test_unwitnessed_note_hash_ignores_events_but_markers_and_content_are_substantive(
+def test_unwitnessed_note_hash_ignores_events_and_markers_but_content_is_substantive(
     net_vault,
 ):
     """The `_note_bytes` fallback, for a note capture never wrote: verifier
-    events are not content, everything else is."""
+    events and verify's own marker are not content (open point 07, ruling 5);
+    the body and the frontmatter the author wrote are."""
     source = net_vault / "literatures" / "smith2020.md"
     text = _without_witness(source.read_text())
     source.write_bytes(must_replace(text, "\n", "\r\n", -1).encode())
@@ -757,7 +759,7 @@ def test_unwitnessed_note_hash_ignores_events_but_markers_and_content_are_substa
     )
 
     assert b"\r\r\n" not in after_effects
-    assert marked_hash != original
+    assert marked_hash == original  # the stamp is not scope
     assert inbox.is_acknowledged(
         net_vault, outcome.check, outcome.target, current_hash=marked_hash
     )
@@ -798,7 +800,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
 
     assert b"   [failed-verification:: citation-key/2026-08-16] ^c-1\r\n" in stamped
     assert b"\r [failed-verification" not in stamped
-    assert _target_hash(net_vault, anchored) != anchored_hash
+    assert _target_hash(net_vault, anchored) == anchored_hash  # the stamp is not scope
     _mutate_marker(net_vault, anchored, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, anchored) == anchored_hash
@@ -818,7 +820,7 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
         b"line only [@missing] [failed-verification:: quote/2026-08-16]\r\n" in stamped
     )
     assert b"\r [failed-verification" not in stamped
-    assert _target_hash(net_vault, line_only) != line_hash
+    assert _target_hash(net_vault, line_only) == line_hash  # the stamp is not scope
     _mutate_marker(net_vault, line_only, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, line_only) == line_hash
@@ -847,7 +849,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
         b"- (quote) trailing [@missing] [failed-verification:: quote/2026-08-16] ^c-1  \r\n"
     )
     assert claims.parse_claims(stamped.decode())[0].claim_id == "c-1"
-    assert _target_hash(net_vault, outcome) != before
+    assert _target_hash(net_vault, outcome) == before  # the stamp is not scope
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, outcome) == before
@@ -2325,3 +2327,161 @@ def test_clear_marker_for_never_writes_under_wiki(fixture_vault):
         is False
     )
     assert concept.read_text() == marked
+
+
+def test_ack_clears_a_file_target_from_a_relative_vault(
+    fixture_vault, monkeypatch, capsys
+):
+    """`--vault .` is a shipped form; the `path-bytes:` candidate is absolute
+    while the root a caller hands `cmd_ack` need not be, and the two must
+    still meet in the `wiki/` guard (review round 2, item 1)."""
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_text(
+        must_replace(
+            draft.read_text(),
+            "^c-77777777\n",
+            "^c-77777777 [failed-verification:: quote/2026-09-07]\n",
+        )
+    )
+    finding = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        "path-bytes:projects/brief/draft.md",
+        Result.UNMATCHED,
+        "schema-violation — quote claim has no anchor",
+        date="2026-09-07",
+        target_kind="repo-path",
+    )
+    monkeypatch.chdir(fixture_vault)
+    assert (
+        main(
+            [
+                "ack",
+                finding.id,
+                "--vault",
+                ".",
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out.splitlines()
+    assert out[-1] == f"ack/{finding.id}"
+    assert "[failed-verification::" not in draft.read_text()
+    assert len([e for e in inbox.load(fixture_vault) if e.ack_of == finding.id]) == 1
+
+
+def test_ack_clears_the_marker_on_a_hand_authored_literature_note(
+    fixture_vault, capsys
+):
+    """`_plan_state` scans `literatures/` too, so a hand-authored note there
+    that carries claim lines receives markers; the clear reaches them. A
+    capture-rendered note carries no claim lines and matches nothing."""
+    note = fixture_vault / "literatures" / "smith2020.md"
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            "- (quote) [@smith2020, p. 12] ^c-11111111",
+            "- (quote) [@smith2020, p. 12] [failed-verification:: quote/2026-09-07] ^c-11111111",
+        )
+    )
+    assert (
+        main(
+            [
+                "finding",
+                "quote",
+                "smith2020#^c-11111111",
+                "UNMATCHED",
+                "mismatch — quote",
+                "--vault",
+                str(fixture_vault),
+                "--date",
+                "2026-09-07",
+            ]
+        )
+        == 0
+    )
+    finding_id = capsys.readouterr().out.strip()
+    assert (
+        main(
+            [
+                "ack",
+                finding_id,
+                "--vault",
+                str(fixture_vault),
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    assert "- (quote) [@smith2020, p. 12] ^c-11111111\n" in note.read_text()
+    assert "[failed-verification::" not in note.read_text()
+
+
+def test_every_scope_leg_ignores_verifys_own_marks():
+    """An ack scope hashes what the person wrote, never the tool's marks: the
+    anchored-claim, origin-note and repo-path legs all read the same bytes
+    before a stamp, after it, and after the clear (open point 07, ruling 5)."""
+    from research_vault.verify import _claim_bytes_from_text
+
+    plain = (
+        '---\ntype: "project"\n---\n'
+        "- (quote) anchored [@k]   ^c-1\n"
+        "- (inference) unanchored [@k]\n"
+    )
+    stamped = must_replace(
+        plain, "   ^c-1", "   [failed-verification:: quote/2026-09-07] ^c-1"
+    )
+    stamped = must_replace(
+        stamped, "[@k]\n", "[@k] [failed-verification:: citation-key/2026-09-07]\n"
+    )
+    assert _claim_bytes_from_text(stamped, "c-1") == _claim_bytes_from_text(
+        plain, "c-1"
+    )
+    assert _note_bytes(stamped.encode()) == _note_bytes(plain.encode())
+
+
+def test_ack_scope_survives_verifys_own_stamp_and_clear(net_vault, capsys):
+    """The orphaning case, closed by mechanism: a row filed from a stamped
+    state carries the same scope as one filed before the stamp, so acking it
+    holds through the ack's own clear and through the next run."""
+    draft = net_vault / "projects" / "brief" / "draft.md"
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    assert "[failed-verification:: citation-key/2026-08-16]" in draft.read_text()
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    rows = [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == "citation-key" and entry.target == "fabricated2020"
+    ]
+    assert len(rows) == 1  # the stamp did not move the scope: no second row
+    assert (
+        main(
+            [
+                "ack",
+                rows[0].id,
+                "--vault",
+                str(net_vault),
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert "[failed-verification:: citation-key/" not in draft.read_text()
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    assert "[failed-verification:: citation-key/" not in draft.read_text()
+    assert not [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == "citation-key" and entry.target == "fabricated2020"
+    ]

@@ -620,10 +620,13 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
 
 def test_the_package_reads_one_date_clock():
     """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
+    # The call shape, not one spelling: `now(tz=datetime.UTC).date()` is the
+    # same reader (Task 18 review, ruling 8).
+    reads_today = re.compile(r"\.now\([^)]*\)\.date\(\)")
     offenders = sorted(
         path.name
         for path in (ROOT / "research_vault").glob("*.py")
-        if "now(datetime.UTC).date()" in path.read_text(encoding="utf-8")
+        if reads_today.search(path.read_text(encoding="utf-8"))
         and path.name != "clock.py"
     )
     assert offenders == [], offenders
@@ -633,9 +636,24 @@ def test_fixture_substitutions_cannot_become_no_ops():
     """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
     import ast
 
+    def fixture_shaped(node) -> bool:
+        # A str or bytes literal with a line break, a `key: value` or an inline
+        # field, or any f-string: the shapes fixture text takes (ruling 7).
+        if isinstance(node, ast.JoinedStr):
+            return True
+        if not isinstance(node, ast.Constant):
+            return False
+        value = node.value
+        if isinstance(value, bytes):
+            return b"\n" in value or b": " in value or b"::" in value
+        if isinstance(value, str):
+            return "\n" in value or ": " in value or "::" in value
+        return False
+
     offenders = [
         f"{name}:{node.lineno}"
         for name in (
+            "conftest.py",
             "test_verify_cli.py",
             "test_lints.py",
             "test_events.py",
@@ -649,13 +667,7 @@ def test_fixture_substitutions_cannot_become_no_ops():
             and isinstance(node.func, ast.Attribute)
             and node.func.attr == "replace"
             and node.args
-            and isinstance(node.args[0], ast.Constant)
-            and isinstance(node.args[0].value, str)
-            and (
-                "\n" in node.args[0].value
-                or ": " in node.args[0].value
-                or "::" in node.args[0].value
-            )
+            and fixture_shaped(node.args[0])
         )
     ]
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
