@@ -139,7 +139,7 @@ def test_markdown_templates_match_canonical_content():
         "| `setup-vault`      | create, repair, or provision a vault                     |\n"
         "| `project-flow`     | start or resume a research project                       |\n"
         "| `find-sources`     | find literature before it is admitted to Zotero          |\n"
-        "| `import-source`    | import, catalog, refresh, or backfill an admitted source |\n"
+        "| `capture-source`   | add, capture, refresh, or propagate a re-key of a source |\n"
         "| `verify-citations` | verify citations and run the citation checks             |\n"
         "| `factcheck-draft`  | factcheck a draft against its sources before review      |\n"
         "| `publish`          | publish, park, correct, or withdraw a project            |\n"

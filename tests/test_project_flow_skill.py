@@ -51,7 +51,7 @@ def test_project_documents_the_resume_orientation_triple_in_order():
     text = _skill_text()
 
     sequence = [
-        "synthesis/index.md",
+        "wiki/index.md",
         "recent `log/`",
         "the project's files",
         "## Gap analysis",
@@ -119,7 +119,7 @@ def test_project_documents_every_routing_target():
 
     for skill_name in (
         "find-sources",
-        "import-source",
+        "capture-source",
         "verify-citations",
         "factcheck-draft",
         "publish",

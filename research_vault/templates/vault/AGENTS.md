@@ -17,7 +17,7 @@ These seven are the user-invoked entry points — type the name to run one; an a
 | `setup-vault`      | create, repair, or provision a vault                     |
 | `project-flow`     | start or resume a research project                       |
 | `find-sources`     | find literature before it is admitted to Zotero          |
-| `import-source`    | import, catalog, refresh, or backfill an admitted source |
+| `capture-source`   | add, capture, refresh, or propagate a re-key of a source |
 | `verify-citations` | verify citations and run the citation checks             |
 | `factcheck-draft`  | factcheck a draft against its sources before review      |
 | `publish`          | publish, park, correct, or withdraw a project            |

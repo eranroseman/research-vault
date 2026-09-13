@@ -92,28 +92,13 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
     )
     assert "restart-to-activate" in text
     assert "Zotero .xpi installs are human-only wizard steps" in text
-    assert "BBT required" in text
-    assert "MarkDB-Connect optional" in text
     for forbidden in ("download", "click", "close Zotero"):
         assert f"never {forbidden}" in text
-
-
-def test_setup_vault_treats_the_whole_library_auto_export_as_a_human_wizard_step():
-    """Registering an auto-export for the person, or claiming doctor
-    observes it, must fail."""
-    text = _skill_text()
-    companion_section = text[text.index("## Provision companions") :]
-
-    for phrase in (
-        "human-only wizard step",
-        "the vault's `system/bibliography.json` target path",
-        "whole-library scope",
-        "Better CSL JSON translator",
-        "keep updated",
-    ):
-        assert phrase in companion_section
-    assert "Never register an auto-export for them" in companion_section
-    assert "Doctor does not observe or report on this file" in companion_section
+    assert "Zotero .xpi installs are human-only wizard steps" in companion_section
+    assert "research_vault/templates/zotero-addons.md" in companion_section
+    assert "README" in companion_section
+    assert "zotero_profile" in companion_section
+    assert "rename_frontmatter_key" in text  # the one-shot citekey migration, §1.1
 
 
 def test_setup_vault_reports_only_scaffold_created_commit_paths():

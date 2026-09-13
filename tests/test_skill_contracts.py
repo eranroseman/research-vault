@@ -36,7 +36,7 @@ ENTRY_SKILLS = {
     "verify-citations",
     "factcheck-draft",
     "project-flow",
-    "import-source",
+    "capture-source",
     "find-sources",
 }
 
