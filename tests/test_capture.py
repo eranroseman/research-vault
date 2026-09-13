@@ -3,7 +3,7 @@ import json
 import pytest
 
 from research_vault import Result, capture, frontmatter, notes, zotero
-from tests.fakes import ITEM, FakeZotero, canned_item
+from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM, FakeZotero, canned_item
 
 LIBRARY = [
     {
@@ -691,3 +691,162 @@ def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     assert outcomes[1].target == "vault"
     assert outcomes[1].result is Result.UNMATCHED
     assert outcomes[1].reason.startswith("database-changed")
+
+
+# --- whole-branch review fix wave (2026-09-13) ---------------------------------
+
+
+def _re_keyed_fake(monkeypatch):
+    """Capture `old2020` through the fake, then re-key the fake's item to
+    `new2020` with a version bump — the state the reviewer's scratch run built."""
+    old = json.loads(json.dumps(ITEM))
+    old["data"]["citationKey"] = "old2020"
+    fake = _canned_run(canned_item(FakeZotero(), item=old), items=(old,))
+    fake.rpc("item.export", [])
+    client = _client(monkeypatch, fake)
+    new = json.loads(json.dumps(old))
+    new["data"]["citationKey"] = "new2020"
+    new["version"] = new["data"]["version"] = 545
+    return fake, client, new
+
+
+def _re_key(fake, new):
+    canned_item(fake, item=new)
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"E352DFS8": 545, "D7EJ9FTG": 551, "N0TE0001": 552},
+        headers={"Last-Modified-Version": "566"},
+    )
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[new],
+        headers={"Last-Modified-Version": "566"},
+    )
+
+
+def test_capture_refuses_a_re_keyed_item_while_the_old_note_exists_and_propagate_proceeds(
+    tmp_vault, monkeypatch, capsys
+):
+    """Spec §3.1: the file renames only on a re-key, and propagation performs
+    it — capture does not. A refresh of a re-keyed item used to derive the path
+    from the live key and write `new2020.md` beside `old2020.md`, after which
+    `propagate.plan` refused over the existing file (review I-1). Capture now
+    refuses while the old note still exists; propagate plans, renames, and its
+    own recapture proceeds because the old path is gone by then."""
+    import research_vault.__main__ as cli
+    from research_vault import propagate
+
+    fake, client, new = _re_keyed_fake(monkeypatch)
+    assert capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched"
+    _re_key(fake, new)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    assert cli.main(["capture", "--all", "--vault", str(tmp_vault)]) == 1
+    assert (
+        "UNMATCHED old2020 — re-keyed — old2020 → new2020; run propagate"
+        in capsys.readouterr().out.splitlines()
+    )
+    literatures = tmp_vault / "literatures"
+    assert sorted(p.name for p in literatures.glob("*.md")) == ["old2020.md"]
+    planned, outcomes = propagate.plan(tmp_vault, client, None)
+    assert planned is not None, outcomes
+    assert planned.mapping == {"old2020": "new2020"}
+    path = propagate.write_plan(tmp_vault, planned)
+    applied = propagate.apply(
+        tmp_vault, client, path, propagate.plan_sha256(planned)
+    )  # the real capture, not a stub: its recapture must pass the refusal
+    assert [(o.check, o.target, o.result) for o in applied] == [
+        ("propagation", "new2020", Result.MATCHED)
+    ]
+    assert sorted(p.name for p in literatures.glob("*.md")) == ["new2020.md"]
+    data, _ = frontmatter.parse((literatures / "new2020.md").read_text())
+    assert data["citationKey"] == "new2020"
+    assert data["zotero-item-version"] == 545
+
+
+def test_cli_capture_holds_a_per_item_outage_and_exits_3(
+    tmp_vault, monkeypatch, capsys
+):
+    """A 500 on the item read is `lifecycle.blocked`'s outage: held under
+    check id `capture`, never a verdict on the source, exit 3 (review I-3)."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.get("/api/users/0/items/E352DFS8?format=json", status=500, body=b"")
+    client = _client(monkeypatch, fake)
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 3
+    line = capsys.readouterr().out.splitlines()[0]
+    assert line.startswith("UNREACHABLE E352DFS8 — outage — local API HTTP 500")
+    (held,) = [f for f in inbox.load(tmp_vault) if f.check == "capture"]
+    assert (held.target, held.result) == ("E352DFS8", Result.UNREACHABLE.value)
+    assert not list((tmp_vault / "literatures").glob("*.md"))
+
+
+def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
+    tmp_vault, monkeypatch
+):
+    """An OSError writing `fulltext/` is the disk's fault, not the record's:
+    UNREACHABLE outage, never UNMATCHED schema-violation (review I-4)."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    def failing_write(*_args, **_kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(capture.fulltext, "write", failing_write)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[0].target, outcomes[0].result) == (
+        "E352DFS8",
+        Result.UNREACHABLE,
+    )
+    assert outcomes[0].reason.startswith("outage — ")
+    assert not (tmp_vault / "literatures" / "jakesch.etal2023a.md").exists()
+
+
+def test_an_unsafe_live_citation_key_is_a_schema_violation(tmp_vault, monkeypatch):
+    """`note_path` refuses the key before anything is written: the record's
+    fault, UNMATCHED schema-violation (review I-4's kept branch)."""
+    unsafe = json.loads(json.dumps(ITEM))
+    unsafe["data"]["citationKey"] = "../escape"
+    fake = _canned_run(canned_item(FakeZotero(), item=unsafe), items=(unsafe,))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[0].target, outcomes[0].result) == ("E352DFS8", Result.UNMATCHED)
+    assert outcomes[0].reason.startswith("schema-violation — unsafe citation key")
+    assert not (tmp_vault / "fulltext").exists()  # refused before the text layer
+
+
+def test_read_item_skips_a_stored_child_without_a_key(tmp_vault, monkeypatch):
+    """A malformed child (no `key`) is not a KeyError that ends the run: its
+    text is unread and it is absent from the tuple's fulltext list (row 40)."""
+    keyless = json.loads(json.dumps(ATTACHMENT))
+    del keyless["key"]
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.get("/api/users/0/items/E352DFS8/children", body=[keyless, CHILD_NOTE])
+    client = _client(monkeypatch, fake)
+    read = capture.read_item(client, "E352DFS8")
+    assert read.texts == {}
+    assert not [c for c in fake.calls if c[1].endswith("/fulltext")]
+
+
+def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
+    tmp_vault, monkeypatch
+):
+    """`_refused`'s re-keyed check asks whether `literatures/<old>.md` exists;
+    a recorded key no filename can carry (a hand edit on a machine surface)
+    is a name `note_path` refuses, and the check steps aside rather than
+    turning the refusal into a traceback or a new refusal."""
+    fake, client, new = _re_keyed_fake(monkeypatch)
+    _re_key(fake, new)
+    (tmp_vault / "literatures" / "odd.md").write_text(
+        '---\ntype: "literature"\nzotero-server-id: "6LpvURP2E933"\n'
+        'zotero-item-key: "E352DFS8"\nzotero-item-version: 544\n'
+        'citationKey: "../escape"\nattachments:\nfulltext:\n---\n'
+    )
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[0].target, outcomes[0].result, outcomes[0].reason) == (
+        "new2020",
+        Result.MATCHED,
+        "matched",
+    )

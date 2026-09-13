@@ -9,6 +9,7 @@ import datetime
 import json
 import os
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import NamedTuple
 
@@ -39,7 +40,8 @@ KEY_WAIT_SECONDS = 10
 CSL_TARGET = bibliography.BIB_PATH
 # The linter transitions capture will not write over (spec §3.4 step 6): the
 # item's identity has moved or gone, and a fresh render would paper over it.
-# ``re-keyed`` and ``drift`` are what a refresh repairs, so they proceed.
+# ``drift`` is what a refresh repairs, so it proceeds; ``re-keyed`` proceeds
+# only once the old note is gone (``_refused``: the rename is propagation's).
 # ``database-changed`` joins them: capturing a note the linter says records
 # another database would re-home it to this database's item of the same key.
 _REFUSED = frozenset({"merged", "trashed", "deleted", "database-changed"})
@@ -97,7 +99,11 @@ def read_item(client: ZoteroClient, item_key: str) -> ItemRead:
     for _attempt in range(MAX_READ_RESTARTS):
         item = client.item(item_key)
         children = client.children(item_key)
-        texts = {c["key"]: client.fulltext(c["key"]) for c in children if _stored(c)}
+        texts = {
+            c["key"]: client.fulltext(c["key"])
+            for c in children
+            if _stored(c) and isinstance(c.get("key"), str)
+        }
         again = client.item(item_key)
         if again["version"] == item["version"]:
             return ItemRead(item, children, texts, int(item["version"]))
@@ -334,6 +340,69 @@ def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
     return keys, outcomes
 
 
+def _standing_by_item_key(
+    linted: list[Outcome], item_key_of: dict[str, str]
+) -> dict[str, Outcome]:
+    """The linter's outcome per item key; a target it cannot join stays under its own name."""
+    return {
+        # Outcome normalises target to str at construction; only the declared
+        # union still names RepoPath.
+        item_key_of.get(outcome.target, outcome.target): outcome
+        for outcome in linted
+        if isinstance(outcome.target, str)
+    }
+
+
+def _read_keyed(
+    client: ZoteroClient, item_key: str, key_wait_seconds: float
+) -> ItemRead | None:
+    """One whole read pass, or None when the item has no citation key to name it.
+
+    Better BibTeX fills the key after ``fillKeyAfter`` (§2); an unkeyed item is
+    polled to the ceiling. The fill is a save that moves the item's version
+    (sitting 2026-09-07: II7E6CVR 1710 -> 1711 once keyed), so the pass is
+    re-read whole rather than the item swapped under a stale version.
+    """
+    read = read_item(client, item_key)
+    if read.item["data"].get("citationKey"):
+        return read
+    keyed = _wait_for_key(client, item_key, key_wait_seconds)
+    if not keyed["data"].get("citationKey"):
+        return None
+    return read_item(client, item_key)
+
+
+def _refused(vault: Path, prior: Outcome | None, requested_key: str) -> Outcome | None:
+    """The linter's standing this item is not written over, or None to proceed.
+
+    A ``_REFUSED`` transition is refused outright. ``re-keyed`` is refused only
+    while ``literatures/<old>.md`` still exists: rendering under the live key
+    would leave a second note beside it, and ``propagate.plan`` refuses to
+    rename over an existing file — the file renames only on a re-key, and the
+    propagation task set performs it (spec §3.1). ``propagate.apply`` renames
+    before it recaptures, and a partial-apply re-run finds the note already at
+    ``<new>.md``, so the old path is gone in both and the recapture proceeds.
+    """
+    if prior is None or prior.result is not Result.UNMATCHED:
+        return None
+    code = prior.reason.split(" — ")[0]
+    if code in _REFUSED:
+        return Outcome(CHECK, requested_key, Result.UNMATCHED, prior.reason)
+    if code != "re-keyed":
+        return None
+    try:
+        old_note = notes.note_path(vault, prior.target)
+    except notes.InvalidCitationKeyError:
+        # A recorded key no filename can carry is a hand edit this check
+        # cannot place; capture proceeds as it did before the check existed.
+        return None
+    if not old_note.is_file():
+        return None
+    return Outcome(
+        CHECK, requested_key, Result.UNMATCHED, f"{prior.reason}; run propagate"
+    )
+
+
 def capture(
     vault_root,
     client: ZoteroClient,
@@ -343,6 +412,16 @@ def capture(
     refresh_all: bool = False,
     key_wait_seconds: float = KEY_WAIT_SECONDS,
 ) -> list[Outcome]:
+    """The capture verb (spec §3.3): the linter first, then one read and one
+    render per requested item, then the CSL file whole.
+
+    ``keys`` are item keys or citation keys (``resolve_keys``); ``refresh_all``
+    adds every note under ``literatures/`` by its recorded ``citationKey``.
+    Returns one ``Outcome`` per requested item — plus a ``vault`` row when a
+    vault-level read or refusal ends the run, and the CSL file's row when the
+    run reached it. Nothing is written for a refused, unkeyed or unreadable
+    item; NOOP is ``matched — NOOP``.
+    """
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=0)
     try:
@@ -371,12 +450,7 @@ def capture(
     # The linter targets citation keys; capture resolves item keys. Join the two
     # through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
-    standing: dict[str, Outcome] = {}
-    for outcome in linted:
-        # Outcome normalises target to str at construction; only the declared
-        # union still names RepoPath.
-        if isinstance(outcome.target, str):
-            standing[item_key_of.get(outcome.target, outcome.target)] = outcome
+    standing = _standing_by_item_key(linted, item_key_of)
     # The id the linter sent and Zotero accepted, recorded in every tuple written.
     server_id = client.server_id or info["server_id"]
     outcomes: list[Outcome] = []
@@ -402,34 +476,22 @@ def capture(
                 )
             )
             continue
-        prior = standing.get(item_key)
-        if (
-            prior is not None
-            and prior.result is Result.UNMATCHED
-            and prior.reason.split(" — ")[0] in _REFUSED
-        ):
-            outcomes.append(
-                Outcome(CHECK, requested_key, Result.UNMATCHED, prior.reason)
-            )
+        refusal = _refused(vault, standing.get(item_key), requested_key)
+        if refusal is not None:
+            outcomes.append(refusal)
             continue
         try:
-            read = read_item(client, item_key)
-            if not read.item["data"].get("citationKey"):
-                keyed = _wait_for_key(client, item_key, key_wait_seconds)
-                if not keyed["data"].get("citationKey"):
-                    outcomes.append(
-                        Outcome(
-                            CHECK,
-                            requested_key,
-                            Result.UNMATCHED,
-                            f"unkeyed — item {item_key} has no citation key",
-                        )
+            read = _read_keyed(client, item_key, key_wait_seconds)
+            if read is None:
+                outcomes.append(
+                    Outcome(
+                        CHECK,
+                        requested_key,
+                        Result.UNMATCHED,
+                        f"unkeyed — item {item_key} has no citation key",
                     )
-                    continue
-                # The fill is a save that moves the item's version (sitting
-                # 2026-09-07: II7E6CVR 1710 -> 1711 once keyed), so the whole pass
-                # is re-read rather than the item swapped under a stale version.
-                read = read_item(client, item_key)
+                )
+                continue
             library_name = library_name or read.item.get("library", {}).get("name")
             outcomes.extend(_capture_one(vault, read, server_id, now))
         except DatabaseChangedError as error:
@@ -450,15 +512,16 @@ def capture(
             )
         except ZoteroError as error:
             outcomes.append(lifecycle.blocked(CHECK, requested_key, error))
-        except (
-            notes.InvalidCitationKeyError,
-            frontmatter.FrontmatterError,
-            OSError,
-        ) as error:
+        except OSError as error:
+            # A disk fault writing fulltext/ or reading the existing note is an
+            # outage for this item, never a verdict on the record (ADR 0002).
+            outcomes.append(
+                Outcome(CHECK, requested_key, Result.UNREACHABLE, f"outage — {error}")
+            )
+        except (notes.InvalidCitationKeyError, frontmatter.FrontmatterError) as error:
             # A corrupt existing note reaches render_note as FrontmatterError; the
             # linter cannot see it (read_provenance declines it), so this is the
-            # only place it becomes a finding. The OSError branch is the
-            # whole-branch review's to reclassify as an outage (deferred).
+            # only place it becomes a finding.
             outcomes.append(
                 Outcome(
                     CHECK,
@@ -517,6 +580,9 @@ def _store_key(vault: Path, server_id: str, key: str) -> None:
     if not isinstance(current, dict):
         current = {}
     current[server_id] = key
+    # Created 0600 before any byte lands: write_text then chmod would leave the
+    # key at the umask default for the instant between them (row 47).
+    path.touch(mode=0o600, exist_ok=True)
     path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
     path.chmod(0o600)
 
@@ -560,13 +626,9 @@ def add(
             try:
                 granted = client.authorize()
             except ZoteroError as error:
-                if error.result is Result.UNMATCHED:
-                    return [
-                        Outcome(
-                            CHECK, "add", Result.UNMATCHED, f"not-admitted — {error}"
-                        )
-                    ]
-                return [Outcome(CHECK, "add", Result.UNREACHABLE, f"outage — {error}")]
+                # 412 database-changed, 403 not-admitted, a denial not-admitted,
+                # a rate limit or a transport failure outage: one split.
+                return [lifecycle.blocked(CHECK, "add", error)]
             key = granted["key"]
             if granted["remember"]:
                 _store_key(vault, client.server_id, key)
@@ -579,17 +641,11 @@ def add(
                 key = None
                 client.api_key = None
                 continue
-            return [
-                Outcome(
-                    CHECK,
-                    "add",
-                    error.result,
-                    f"{'outage' if error.result is Result.UNREACHABLE else 'mismatch'} — {error}",
-                )
-            ]
+            return [lifecycle.blocked(CHECK, "add", error)]
+    successful = envelope.get("successful")
     created = [
         entry["key"]
-        for entry in envelope.get("successful", {}).values()
+        for entry in (successful.values() if isinstance(successful, Mapping) else ())
         if isinstance(entry, dict) and entry.get("key")
     ]
     if envelope.get("failed") or not created:

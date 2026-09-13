@@ -39,7 +39,7 @@ def load(vault_root) -> dict[str, dict]:
             raise BibliographyError(
                 "bibliography is not a regular file", Result.UNMATCHED
             )
-        text = p.read_text()
+        text = p.read_text(encoding="utf-8")
     except BibliographyError:
         raise
     except (OSError, UnicodeError) as error:
@@ -96,5 +96,7 @@ def write(vault_root, items: list[dict]) -> Path:
     ordered = sorted(items, key=lambda item: item["id"])
     target = _path(vault_root)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + "\n")
+    target.write_text(
+        json.dumps(ordered, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     return target

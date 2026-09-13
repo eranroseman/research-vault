@@ -412,3 +412,28 @@ def test_blocked_names_a_database_change_by_its_own_code():
     assert outcome.reason == (
         "database-changed — Zotero-Server-ID does not match this server"
     )
+
+
+def test_a_top_item_with_null_data_is_read_not_a_traceback(tmp_vault, monkeypatch):
+    """`data: null` on one top-items row used to raise AttributeError past
+    `lint_lifecycle`'s `except ZoteroError`, taking a verify run down with a
+    traceback (review I-5, row 31). The row reads as carrying no citation key
+    and no relations; the note classifies from the versions map as before."""
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"ALKT2NF7": 0},
+        headers={"Last-Modified-Version": "1707"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[
+            {"key": "ALKT2NF7", "version": 0, "data": None},
+            {"key": "OTHER001", "version": 0, "data": {"relations": "not-a-map"}},
+        ],
+    )
+    _write_note(tmp_vault, _prov())
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    outcomes = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert [(o.target, o.result) for o in outcomes] == [("alkt2026", Result.MATCHED)]

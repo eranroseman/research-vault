@@ -6,6 +6,7 @@ carry ``citationKey`` and ``relations.dc:replaces``. Every key in a note's
 tuple is compared, because Zotero versions objects independently (§9).
 """
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import NamedTuple
 
@@ -46,13 +47,21 @@ def read_live(client: ZoteroClient) -> Live:
     items, _ = client.top_items()
     top: dict[str, dict] = {}
     for item in items:
-        data = item.get("data", {}) if isinstance(item, dict) else {}
+        # A malformed row (`data: null`, `relations` not an object) reads as
+        # carrying nothing rather than ending the run with an AttributeError
+        # that no caller's `except ZoteroError` sees.
+        data = item.get("data") if isinstance(item, Mapping) else None
+        if not isinstance(data, Mapping):
+            data = {}
+        relations = data.get("relations")
         key = item.get("key")
         if isinstance(key, str):
             top[key] = {
                 "citationKey": data.get("citationKey"),
                 "replaces": replaces_keys(
-                    (data.get("relations") or {}).get("dc:replaces")
+                    relations.get("dc:replaces")
+                    if isinstance(relations, Mapping)
+                    else None
                 ),
             }
     return Live(versions, trash, top)
@@ -162,6 +171,13 @@ def blocked(check: str, target, error: ZoteroError) -> Outcome:
 
 
 def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[Outcome]:
+    """One outcome per captured note, or one ``vault`` row when the read fails.
+
+    Sets ``client.server_id`` to the lowest recorded id before the three reads,
+    so every request carries the tuple's id and a different database is a 412.
+    The caller's client keeps that id afterwards: ``capture`` reads it back as
+    the id Zotero accepted and records it in every tuple it writes.
+    """
     vault = Path(vault_root)
     pairs = provenances if provenances is not None else _provenances(vault)
     if not pairs:

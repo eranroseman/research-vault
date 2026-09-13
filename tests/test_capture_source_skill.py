@@ -26,7 +26,10 @@ def test_capture_source_keeps_the_kept_rules():
         "python3 -m research_vault add",
         "python3 -m research_vault propagate",
         "matched — NOOP",
-        "re-keyed",
+        # The exact line capture prints (its `_refused` reason): the table
+        # once carried a `re-keyed` row capture never emitted (review I-1).
+        "`UNMATCHED KEY — re-keyed — old → new; run propagate`",
+        "a SKIPPED line is never filed",
         "no-fulltext",
         "database-changed",
     ):

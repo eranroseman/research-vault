@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from research_vault import Result, capture, zotero
 from tests.fakes import ITEM, FakeZotero, canned_item
 
@@ -108,7 +110,9 @@ def test_add_reports_a_denied_dialog_and_a_failed_create(tmp_vault, monkeypatch)
     assert outcomes[0].reason.startswith("mismatch — create failed")
 
 
-def test_a_400_from_the_local_api_is_a_mismatch_not_an_outage(tmp_vault, monkeypatch):
+def test_a_400_from_the_local_api_is_a_refusal_not_an_outage(tmp_vault, monkeypatch):
+    """`lifecycle.blocked` spells the local API's refusal `not-admitted`, the
+    same as a capture read's (row 49): one refusal, one spelling."""
     fake = FakeZotero()
     fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
     fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": True})
@@ -116,7 +120,9 @@ def test_a_400_from_the_local_api_is_a_mismatch_not_an_outage(tmp_vault, monkeyp
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("mismatch — local API 400 for /api/users/0/items")
+    assert outcome.reason.startswith(
+        "not-admitted — local API 400 for /api/users/0/items"
+    )
 
 
 def test_a_400_body_containing_the_text_401_is_not_mistaken_for_a_rejected_key(
@@ -132,7 +138,9 @@ def test_a_400_body_containing_the_text_401_is_not_mistaken_for_a_rejected_key(
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("mismatch — local API 400 for /api/users/0/items")
+    assert outcome.reason.startswith(
+        "not-admitted — local API 400 for /api/users/0/items"
+    )
     posts = [c for c in fake.calls if c[0] == "POST"]
     assert [p[1] for p in posts] == ["/api/local/authorize", "/api/users/0/items"]
 
@@ -200,7 +208,7 @@ def test_add_stops_after_one_retry_when_the_second_create_also_401s(
         "/api/users/0/items",
     ]
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("mismatch — API key rejected")
+    assert outcomes[0].reason.startswith("not-admitted — API key rejected")
 
 
 def test_add_refuses_a_non_list_creators_or_tags_before_any_network(
@@ -216,3 +224,47 @@ def test_add_refuses_a_non_list_creators_or_tags_before_any_network(
     assert outcomes[0].result is Result.UNMATCHED
     assert "tags must be a list" in outcomes[0].reason
     assert not [c for c in fake.calls if c[0] == "POST"]
+
+
+# --- whole-branch review fix wave (2026-09-13) ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("route", "status", "expected"),
+    [
+        ("/api/local/authorize", 412, "database-changed — Zotero-Server-ID"),
+        ("/api/users/0/items", 412, "database-changed — Zotero-Server-ID"),
+        ("/api/users/0/items", 403, "not-admitted — local API preference is disabled"),
+        ("/api/users/0/items", 500, "outage — local API HTTP 500"),
+    ],
+    ids=["authorize-412", "create-412", "create-403", "create-500"],
+)
+def test_add_routes_every_write_error_through_blocked(
+    route, status, expected, tmp_vault, monkeypatch
+):
+    """A 412 on either write is `database-changed` — the one code the skill
+    tells the agent to stop on — never `not-admitted` or `mismatch` (review
+    I-2); a 403 is the preference a person can fix; a 500 is the outage."""
+    fake, client = _fake_for_add(monkeypatch)
+    fake.post(route, status=status, body=b"")
+    (outcome,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    assert outcome.target == "add"
+    assert outcome.result is (Result.UNREACHABLE if status == 500 else Result.UNMATCHED)
+    assert outcome.reason.startswith(expected)
+    assert not (tmp_vault / "literatures" / "jakesch.etal2023a.md").exists()
+
+
+@pytest.mark.parametrize("successful", [None, [], "E352DFS8"])
+def test_a_create_envelope_whose_successful_is_not_an_object_is_a_mismatch(
+    successful, tmp_vault, monkeypatch
+):
+    """`successful` not a dict used to be an AttributeError after the item was
+    already created (review I-5); it reads as no key created."""
+    fake, client = _fake_for_add(monkeypatch)
+    fake.post(
+        "/api/users/0/items",
+        body={"successful": successful, "unchanged": {}, "failed": {}},
+    )
+    (outcome,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("mismatch — create failed")
