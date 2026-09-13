@@ -1,6 +1,9 @@
-# Zotero full-text indexing: mechanism
+# Zotero full-text indexing: mechanism — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-08-24
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 **Verified (2026-08-24):** A second session independently re-fetched all 60 claims raw at the pinned
 commits (plus GitHub API metadata and the live docs/forum pages): zero fabrications, verbatim quotes

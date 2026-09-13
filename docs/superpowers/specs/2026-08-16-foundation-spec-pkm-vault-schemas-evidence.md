@@ -1,6 +1,9 @@
-# PKM vault schemas against primary sources
+# PKM vault schemas against primary sources — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-08-16
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-08-16. Feeds wayfinder ticket #7 (vault structure) of eranroseman/knowledge-harness. Scope: the seven common vault-schema families, each read against the source that owns it — not secondary write-ups — and judged for one design: a trust-first academic-research vault under git, Zotero as reference source of truth, citekey-keyed literature notes (ZotLit conventions, see prior-art-knowledge-work-harness.md §4), and a two-layer split under consideration (immutable evidence layer vs LLM-owned synthesis layer, per Karpathy's llm-wiki concept). Every claim cites the owning URL inline; unreachable primaries and unfounded claims are logged in Dead ends. This note lists options and trade-offs only — the structure decision is HITL in ticket #7.
 

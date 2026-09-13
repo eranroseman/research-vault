@@ -533,7 +533,7 @@ https://research.google.com/pubs/archive/46584.pdf). Google's system generates m
 reviewer during code review, so "does this new test actually discriminate this new code" is answered at
 review time, per change, rather than as a separate offline mutation-score report. This is the same locus of
 enforcement as the process's own discrimination proof: evaluated per targeted change, not as an aggregate
-suite-wide score. This repo's own `docs/research/prior-art/2026-08-23-mutate4py-defects.md` and the mutation gate
+suite-wide score. This repo's own `docs/superpowers/specs/2026-08-16-foundation-spec-mutate4py-defects-evidence.md` and the mutation gate
 described in `docs/testing.md` are the in-repo continuation of this same lineage — the process is already
 running a version of this practice, and this section supplies its published ancestry.
 

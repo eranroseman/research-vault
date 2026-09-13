@@ -1,6 +1,9 @@
-# Compile-step layout: what the two candidates let a caller name
+# Compile-step layout: what the two candidates let a caller name — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-09-05
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-09-04-import-redesign-design.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-09-05. A layout-configurability probe of the two compile-step candidates, run against scratch vaults rather than against their documentation.
 

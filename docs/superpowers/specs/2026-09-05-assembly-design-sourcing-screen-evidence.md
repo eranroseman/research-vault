@@ -1,6 +1,9 @@
-# Sourcing screen: twelve candidates against twenty-nine musts
+# Sourcing screen: twelve candidates against twenty-nine musts — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-09-01
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-09-05-assembly-design.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-09-01. Evidence for the sourcing decisions in `docs/superpowers/reqs/2026-09-01-writing-reqs.md`.
 

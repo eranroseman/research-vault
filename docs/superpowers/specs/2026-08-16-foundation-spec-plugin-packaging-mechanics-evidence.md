@@ -1,6 +1,9 @@
-# Plugin packaging mechanics — evidence for #11 (skill invocation policies) and #12 (plugin architecture & coexistence)
+# Plugin packaging mechanics — evidence for #11 (skill invocation policies) and #12 (plugin architecture & coexistence) — evidence
 
-Disposition: historical (2026-09-06)
+- **Date:** 2026-08-16
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-08-16. Observations made against **Claude Code 2.1.220** on this machine;
 official docs quoted from code.claude.com are themselves littered with `v2.1.x` conditionals, so

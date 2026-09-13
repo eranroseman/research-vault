@@ -1,6 +1,9 @@
-# Provenance schemas & evidence-boundary tags: prior art
+# Provenance schemas & evidence-boundary tags: prior art — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-08-16
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-08-16. Feeds decision ticket #9 (eranroseman/knowledge-harness) — "Provenance schema & evidence-boundary tags". Scope: WHAT gets recorded per claim and HOW it is anchored, in a git-tracked Obsidian vault with citekey-keyed literature notes. Out of scope (sibling tickets): Zotero data flow; verification/gate machinery. Builds on `docs/research/prior-art/prior-art-knowledge-work-harness.md` §5–§6 (Crossref/RW/OpenAlex fields, Elicit quote+locator, scite stance tags, AgriciDaniel claim ledger). All web sources fetched 2026-08-16 unless noted.
 

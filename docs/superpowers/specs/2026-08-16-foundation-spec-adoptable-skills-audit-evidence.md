@@ -1,6 +1,9 @@
-# Adoptable skills audit
+# Adoptable skills audit — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-08-16
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-08-16. Feeds ticket #11 (Foundation skill inventory). Method: actual skill files read, never READMEs alone — repos audited at pinned commits via shallow/sparse clone and raw.githubusercontent.com: K-Dense-AI/scientific-agent-skills @ `336c4f8`, AgriciDaniel/claude-obsidian @ `1c1bc49`, urschrei/zotero_search_skill @ `b7de66c`, hesreallyhim/awesome-claude-code @ `d33d6ca`. License strings recorded verbatim as found in each artifact.
 
