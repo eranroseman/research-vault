@@ -5866,7 +5866,7 @@ ______________________________________________________________________
 
 **Files:**
 
-- Modify: `research_vault/verify.py` (`_citation_key_hash` returns the note's `managed-sha256` and loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/inbox.py` (`scope_id(check, target, target_hash)`; `_scope_acknowledged`'s standing-scope branch compares derived scope ids; `append_entry`'s date default and `summary(vault, as_of=None)` resolve through `clock.today`), `research_vault/searchlog.py` (`_resolved_date` through `clock.today`), `research_vault/__main__.py` (`verify --as-of`, `inbox --as-of`, `_as_of(args)`; `record_finding`'s date default through `clock.today`; `cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
+- Modify: `research_vault/verify.py` (`_citation_key_hash` returns the note's `managed-sha256` and loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/inbox.py` (`scope_id(check, target, target_hash)`; `_scope_acknowledged`'s standing-scope branch compares derived scope ids; `append_entry`'s date default and `summary(vault, as_of=None)` resolve through `clock.today`), `research_vault/searchlog.py` (`_resolved_date` through `clock.today`), `research_vault/events.py` (`:116`, the verified event's `at` default, through `clock.today()` — the fifth reader outside `clock.py`, found by the controller's pre-dispatch scan; with no `as_of` it is the wall clock, so behaviour is unchanged, and exempting it from the scan test would exempt the class the test exists to close), `research_vault/__main__.py` (`verify --as-of`, `inbox --as-of`, `_as_of(args)`; `record_finding`'s date default through `clock.today`; `cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
 - Test: `tests/test_verify_cli.py` (the six new tests below, plus the inheritance from Task 11's fixture change — see "Inherited from Task 11" under Step 3), `tests/test_publish.py`, `tests/test_config_validity.py` (the one-clock scan and the fixture-substitution scan), `tests/conftest.py` (`must_replace`)
 
 **Interfaces:**
@@ -5951,7 +5951,7 @@ Append to `tests/test_publish.py`:
 def test_retraction_ack_field_has_one_definition_site():
     from research_vault import publish
 
-    skill = (ROOT / "skills" / "evidence-conventions" / "SKILL.md").read_text()
+    skill = (REPO / "skills" / "evidence-conventions" / "SKILL.md").read_text()  # tests/test_publish.py names the root REPO
     assert f"[{publish.RETRACTION_ACK_FIELD}:: <code>" in skill
     assert publish.RETRACTION_ACK_FIELD == "retraction-ack"
 ```
@@ -5959,7 +5959,7 @@ def test_retraction_ack_field_has_one_definition_site():
 - [ ] **Step 2: Run to verify failure**
 
 Run: `.venv/bin/python -m pytest tests/test_verify_cli.py tests/test_publish.py tests/test_config_validity.py -q -k "ack_scope or clears or definition_site or as_of or one_date_clock"`
-Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` unknown; four `now(...).date()` readers outside `clock.py`; marker survives; constant missing.
+Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` unknown; five `now(...).date()` readers outside `clock.py`; marker survives; constant missing.
 
 - [ ] **Step 3: Implement**
 
@@ -6037,7 +6037,7 @@ def cmd_ack(args):
 
 `publish.py`: add `RETRACTION_ACK_FIELD = "retraction-ack"` beside its other module constants, with a one-line comment naming `skills/evidence-conventions/SKILL.md` as the definition site. No literal exists to hoist (see Files); the constant is where any future parser keys on the field.
 
-**Inherited from Task 11.** Task 11's `fixture_vault` notes carry `managed-sha256` and no `fixity-sha256`, so seven functions in `tests/test_verify_cli.py` (at Task 11's HEAD: `:249`, `:273`, `:299`, `:721`, `:906`, `:1338`, `:1381`) now run `.replace('fixity-sha256:\n  - "aa11…"', …)` against text that no longer contains the literal — a no-op, so each passes while asserting nothing about fixity, and its name still promises it (`test_ack_hash_rejects_placeholder_fixity_live_file` asserts only `result != "unresolved"`). Task 11's review measured that six of the seven fail under this task's `_citation_key_hash` change, and two tests carry `xfail(strict=True)` markers (`:150`, `:1191`) waiting on it. This task, therefore:
+**Inherited from Task 11.** Task 11's `fixture_vault` notes carry `managed-sha256` and no `fixity-sha256`, so seven functions in `tests/test_verify_cli.py` (at Task 11's HEAD: `:249`, `:273`, `:299`, `:721`, `:906`, `:1338`, `:1381`; five sites remain at `a51bbfe`: `:308`, `:726`, `:911`, `:1346`, `:1389` — navigation hints, not a count to reconcile) now run `.replace('fixity-sha256:\n  - "aa11…"', …)` against text that no longer contains the literal — a no-op, so each passes while asserting nothing about fixity, and its name still promises it (`test_ack_hash_rejects_placeholder_fixity_live_file` asserts only `result != "unresolved"`). Task 11's review measured that six of the seven fail under this task's `_citation_key_hash` change, and two tests carry `xfail(strict=True)` markers (`:150`, `:1191`) waiting on it. This task, therefore:
 
 - removes both `xfail` markers and shows both tests passing unmarked, not merely not-XPASSing;
 - rewrites or deletes the seven fallback-pinning functions rather than keeping them green by leaving a fixity path alive — a test that pins the `_note_bytes` fallback now needs a note capture never wrote (no `managed-sha256`), and a test that pinned fixity is deleted with its subject;
