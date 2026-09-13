@@ -5098,6 +5098,8 @@ Expected: FAIL — `research_vault.addons` missing; eight/six probes.
 
 - [ ] **Step 3: Implement `addons.py` and the new doctor**
 
+The two code blocks below are the branch's committed `addons.py` and the doctor section of `scaffold.py` at Task 16's close (`c25d3e8`, merged at `f6b012f`), folded verbatim after two fix rounds; the review rulings above explain each departure from the first printed draft. The printed tests in Step 1 are the task's original intent; `tests/test_doctor.py` on the branch is the shape that runs, and it is larger.
+
 ```python
 """The Zotero add-on declaration doctor reads (decomposition decision 17, §6.1)."""
 
@@ -5107,7 +5109,12 @@ from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-_ROW = re.compile(r"^\|\s*(?P<name>[^|]+?)\s*\|\s*`(?P<id>[^`]+)`\s*\|\s*(?P<need>required|recommended|optional)\s*\|\s*(?:`(?P<pref>[^`]+)`)?\s*\|$")
+_ROW = re.compile(
+    r"^\|\s*(?P<name>[^|]+?)\s*"
+    r"\|\s*`(?P<id>[^`]+)`\s*"
+    r"\|\s*(?P<need>required|recommended|optional)\s*"
+    r"\|\s*(?:`(?P<pref>[^`]+)`)?\s*\|$"
+)
 _PREF = re.compile(r'^user_pref\("(?P<name>[^"]+)",\s*(?P<value>.+)\);$')
 
 
@@ -5119,18 +5126,31 @@ class Addon(NamedTuple):
 
 
 def declared() -> list[Addon]:
-    text = resources.files("research_vault").joinpath("templates/zotero-addons.md").read_text(encoding="utf-8")
+    text = (
+        resources.files("research_vault")
+        .joinpath("templates/zotero-addons.md")
+        .read_text(encoding="utf-8")
+    )
     rows = []
     for line in text.splitlines():
         match = _ROW.match(line.strip())
         if match:
-            rows.append(Addon(match.group("name"), match.group("id"), match.group("need"), match.group("pref")))
+            rows.append(
+                Addon(
+                    match.group("name"),
+                    match.group("id"),
+                    match.group("need"),
+                    match.group("pref"),
+                )
+            )
     return rows
 
 
 def observe(profile_dir: Path) -> dict[str, dict]:
     """`active` and `appDisabled` from the running Zotero's extensions.json — never the manifest cap."""
-    data = json.loads((Path(profile_dir) / "extensions.json").read_text(encoding="utf-8"))
+    data = json.loads(
+        (Path(profile_dir) / "extensions.json").read_text(encoding="utf-8")
+    )
     observed = {}
     for addon in data.get("addons", []):
         if addon.get("type") != "extension" or addon.get("location") != "app-profile":
@@ -5145,7 +5165,9 @@ def observe(profile_dir: Path) -> dict[str, dict]:
 
 def read_prefs(profile_dir: Path) -> dict[str, str | bool | int]:
     prefs: dict[str, str | bool | int] = {}
-    for line in (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines():
+    for line in (
+        (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines()
+    ):
         match = _PREF.match(line.strip())
         if not match:
             continue
@@ -5156,9 +5178,24 @@ def read_prefs(profile_dir: Path) -> dict[str, str | bool | int]:
         elif raw.lstrip("-").isdigit():
             value = int(raw)
         else:
-            value = json.loads(raw) if raw.startswith('"') else raw
+            value = _string_pref(raw)
         prefs[match.group("name")] = value
     return prefs
+
+
+def _string_pref(raw: str) -> str:
+    """A quoted token as JSON reads it; the token itself when JSON refuses it.
+
+    prefs.js is JavaScript, so a build may escape a string in a way JSON does
+    not accept. One such line must not fail the whole file.
+    """
+    if not raw.startswith('"'):
+        return raw
+    try:
+        decoded = json.loads(raw)
+    except ValueError:
+        return raw
+    return decoded if isinstance(decoded, str) else raw
 ```
 
 `research_vault/scaffold.py` — replace `doctor` with the thirteen-probe version. The shape (each helper returns one `Probe`; the whole function is a fixed-order list):
@@ -5167,137 +5204,329 @@ def read_prefs(profile_dir: Path) -> dict[str, str | bool | int]:
 _WRONG_ID = "research-vault-wrong-id"
 _COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
 _COMPILE_PIN = "ad67087"
+_UNSET = "unset (Zotero default)"
+_PAGE_SIZE = 50
+_MAX_PAGES = 20
+_ATTACHMENT_PAGE = (
+    "/api/users/0/items?itemType=attachment&sort=dateAdded&direction=asc"
+    f"&limit={_PAGE_SIZE}&start={{start}}&format=json"
+)
+
+
+class _ProfileHold(NamedTuple):
+    """The row every profile probe reports instead of reading the profile."""
+
+    result: Result
+    reason: str
+
+
+class _ProfileFacts(NamedTuple):
+    """A readable zotero_profile directory and its prefs.js."""
+
+    path: Path
+    prefs: dict[str, str | bool | int]
+
+
+def _tree_probe(vault: Path) -> Probe:
+    try:
+        scaffold_vault(vault)
+        tree_complete = all((vault / relative).is_dir() for relative in VAULT_DIRS)
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        return Probe("tree", Result.UNMATCHED, f"vault tree repair failed: {error}")
+    if tree_complete:
+        return Probe("tree", Result.MATCHED, "required vault tree complete")
+    return Probe(
+        "tree", Result.UNMATCHED, "required vault tree incomplete after repair"
+    )
 
 
 def _installed_plugins() -> dict:
     path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
     try:
-        return json.loads(path.read_text(encoding="utf-8")).get("plugins", {})
-    except (OSError, UnicodeError, ValueError, AttributeError):
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
         return {}
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    return plugins if isinstance(plugins, dict) else {}
 
 
-def _zotero_probe(client) -> tuple[Probe, dict | None]:
+def _zotero_probe(client) -> Probe:
     try:
         info = client.server_info()
     except LocalApiDisabledError:
-        return Probe("zotero", Result.UNMATCHED, "local API preference is off — enable it in Settings, Advanced"), None
+        return Probe(
+            "zotero",
+            Result.UNMATCHED,
+            "local API preference is off — enable it in Settings, Advanced",
+        )
     except (ZoteroError, OSError, UnicodeError, ValueError) as error:
-        return Probe("zotero", Result.UNREACHABLE, str(error)), None
-    return Probe("zotero", Result.MATCHED, " ".join(f"{k}={v}" for k, v in info.items())), info
+        return Probe("zotero", Result.UNREACHABLE, str(error))
+    reason = " ".join(f"{key}={value}" for key, value in info.items())
+    return Probe("zotero", Result.MATCHED, reason)
 
 
-def _write_guard_probe(client, info) -> Probe:
-    if info is None:
-        return Probe("write-guard", Result.SKIPPED, "zotero unreachable")
+def _local_api_skip(zotero_probe: Probe) -> str | None:
+    """Why a probe that needs the local API cannot run, or None when it answered."""
+    if zotero_probe.result is Result.MATCHED:
+        return None
+    if zotero_probe.result is Result.UNMATCHED:
+        return "local API preference is off"
+    return "zotero unreachable"
+
+
+def _write_guard_probe(client, skip: str | None) -> Probe:
+    if skip:
+        return Probe("write-guard", Result.SKIPPED, skip)
     try:
         response = client._http(
-            f"{client.base}/api/users/0/items", data=b"[]",
-            headers={"Zotero-Server-ID": _WRONG_ID, "Content-Type": "application/json"}, method="POST",
+            f"{client.base}/api/users/0/items",
+            data=b"[]",
+            headers={"Zotero-Server-ID": _WRONG_ID, "Content-Type": "application/json"},
+            method="POST",
         )
     except ZoteroError as error:
         return Probe("write-guard", Result.UNREACHABLE, str(error))
     if response.status == 412:
-        return Probe("write-guard", Result.MATCHED, "a wrong server id is refused before any key (412)")
-    return Probe("write-guard", Result.UNMATCHED, f"wrong server id answered {response.status}, not 412 — the guard is not armed")
+        return Probe(
+            "write-guard",
+            Result.MATCHED,
+            "a wrong server id is refused before any key (412)",
+        )
+    return Probe(
+        "write-guard",
+        Result.UNMATCHED,
+        f"wrong server id answered {response.status}, not 412 — the guard is not armed",
+    )
 
 
-def _profile_dir(config) -> Path | None:
+def _profile_facts(config) -> _ProfileFacts | _ProfileHold:
+    """Read the profile once for the three probes that need it (decision 15).
+
+    A configured-but-wrong profile is a finding, never "not configured": only an
+    absent, null or empty key is unconfigured (the reading Task 17 gives
+    zotero_base). Could not read is an outage and malformed content a fault —
+    the split captured.py makes on every file it opens.
+    """
     value = config.get("zotero_profile")
-    return Path(value) if isinstance(value, str) and value.strip() and Path(value).is_dir() else None
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return _ProfileHold(Result.SKIPPED, "zotero_profile not configured")
+    if not isinstance(value, str):
+        return _ProfileHold(Result.UNMATCHED, "zotero_profile must be a string")
+    path = Path(value)
+    if not path.is_dir():
+        return _ProfileHold(
+            Result.UNMATCHED, f"zotero_profile {path} is not a directory"
+        )
+    try:
+        prefs = addons.read_prefs(path)
+    except OSError as error:
+        return _ProfileHold(Result.UNREACHABLE, f"prefs.js unreadable: {error}")
+    except (UnicodeError, ValueError) as error:
+        return _ProfileHold(Result.UNMATCHED, f"prefs.js unparseable: {error}")
+    return _ProfileFacts(path, prefs)
 
 
-def _fulltext_sync_probe(prefs) -> Probe:
-    if prefs is None:
-        return Probe("fulltext-sync", Result.SKIPPED, "zotero_profile not configured")
-    return Probe("fulltext-sync", Result.MATCHED,
-                 f"sync.fulltext.enabled={prefs.get('extensions.zotero.sync.fulltext.enabled', False)} "
-                 f"storage.protocol={prefs.get('extensions.zotero.sync.storage.protocol', 'zotero')}")
+def _fulltext_sync_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    if isinstance(profile, _ProfileHold):
+        return Probe("fulltext-sync", profile.result, profile.reason)
+    # prefs.js stores only non-defaults: an absent key is Zotero's shipped
+    # default, which this probe did not observe and does not assert.
+    enabled = profile.prefs.get("extensions.zotero.sync.fulltext.enabled", _UNSET)
+    protocol = profile.prefs.get("extensions.zotero.sync.storage.protocol", _UNSET)
+    return Probe(
+        "fulltext-sync",
+        Result.MATCHED,
+        f"sync.fulltext.enabled={enabled} storage.protocol={protocol}",
+    )
 
 
-def _bbt_git_probe(prefs) -> Probe:
-    if prefs is None:
-        return Probe("bbt-git", Result.SKIPPED, "zotero_profile not configured")
-    value = prefs.get("extensions.zotero.translators.better-bibtex.git", "off")
+def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    if isinstance(profile, _ProfileHold):
+        return Probe("bbt-git", profile.result, profile.reason)
+    value = profile.prefs.get("extensions.zotero.translators.better-bibtex.git", "off")
     if value == "off":
         return Probe("bbt-git", Result.MATCHED, "git=off")
-    return Probe("bbt-git", Result.UNMATCHED, f"git={value} — Better BibTeX may run git inside an export target")
+    return Probe(
+        "bbt-git",
+        Result.UNMATCHED,
+        f"git={value} — Better BibTeX may run git inside an export target",
+    )
 
 
-def _plugins_probe(profile, prefs) -> Probe:
-    if profile is None or prefs is None:
-        return Probe("plugins", Result.SKIPPED, "zotero_profile not configured")
+def _plugins_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    if isinstance(profile, _ProfileHold):
+        return Probe("plugins", profile.result, profile.reason)
     try:
-        observed = addons.observe(profile)
-    except (OSError, UnicodeError, ValueError, KeyError) as error:
-        return Probe("plugins", Result.UNREACHABLE, f"extensions.json unreadable: {error}")
-    failures, notes_out = [], []
+        observed = addons.observe(profile.path)
+    except OSError as error:
+        return Probe(
+            "plugins", Result.UNREACHABLE, f"extensions.json unreadable: {error}"
+        )
+    except (UnicodeError, ValueError, KeyError, AttributeError, TypeError) as error:
+        return Probe("plugins", Result.UNMATCHED, f"extensions.json malformed: {error}")
+    failures: list[str] = []
+    notes_out: list[str] = []
     for addon in addons.declared():
         seen = observed.get(addon.addon_id)
-        state = ("missing" if seen is None else "appDisabled" if seen["appDisabled"] else "inactive" if not seen["active"] else "active")
+        if seen is None:
+            state = "missing"
+        elif seen["appDisabled"]:
+            state = "appDisabled"
+        elif not seen["active"]:
+            state = "inactive"
+        else:
+            state = "active"
         notes_out.append(f"{addon.addon_id} {state}")
         if addon.need == "required" and state != "active":
             failures.append(f"{addon.name} {state}")
-        if addon.auto_pref and state == "active" and prefs.get(addon.auto_pref) is not True:
+        if (
+            addon.auto_pref
+            and state == "active"
+            and profile.prefs.get(addon.auto_pref) is not True
+        ):
             failures.append(f"{addon.name} automatic mode off ({addon.auto_pref})")
-    result = Result.UNMATCHED if failures else Result.MATCHED
-    return Probe("plugins", result, "; ".join(failures) if failures else "; ".join(notes_out))
+    if failures:
+        return Probe("plugins", Result.UNMATCHED, "; ".join(failures))
+    return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
 
 
-def _path_shim_probe(client, info, vault) -> Probe:
+def _is_stored_file(row) -> bool:
+    return (
+        isinstance(row, dict)
+        and isinstance(row.get("key"), str)
+        and isinstance(row.get("data"), dict)
+        and row["data"].get("linkMode") == "imported_file"
+    )
+
+
+def _first_stored_attachment(client) -> str | Probe:
+    """The oldest stored attachment's key, or the path-shim row to report instead.
+
+    The listing is walked fifty rows at a time, oldest first, stopping at the
+    first ``imported_file`` and capped at twenty pages. Measured 2026-09-13 on
+    both instances: the route honours ``sort=dateAdded&direction=asc`` (dates
+    non-decreasing within and across pages, order stable across reads), so the
+    walk meets the same file on every run as the library grows; the unpaged
+    read answered in 22 s on 1,372 rows against the client's 5 s timeout; a
+    page answers in under half a second. The local API ignores a ``linkMode``
+    query filter (measured 2026-09-07, decision 25), hence the client-side test.
+    """
+    inspected = 0
+    total: str | None = None
+    for page in range(_MAX_PAGES):
+        path = _ATTACHMENT_PAGE.format(start=page * _PAGE_SIZE)
+        try:
+            payload, headers = client._local_json(path)
+        except ZoteroError as error:
+            return Probe(
+                "path-shim", Result.UNREACHABLE, f"attachment listing: {error}"
+            )
+        if not isinstance(payload, list):
+            return Probe(
+                "path-shim",
+                Result.UNMATCHED,
+                "attachment listing malformed: expected a list",
+            )
+        if page == 0:
+            reported = headers.get("Total-Results")
+            total = (
+                reported if isinstance(reported, str) and reported.isdigit() else None
+            )
+        inspected += len(payload)
+        for row in payload:
+            if _is_stored_file(row):
+                return str(row["key"])
+        if len(payload) < _PAGE_SIZE:
+            break  # the listing ended before the cap
+    span = f"of {total}" if total is not None else "(total unreported)"
+    # nothing to check is not an outage; the reason says what span was read
+    return Probe(
+        "path-shim",
+        Result.SKIPPED,
+        f"no stored attachment among the first {inspected} {span}",
+    )
+
+
+def _path_shim_probe(client, skip: str | None, vault: Path) -> Probe:
     if not paths._running_in_wsl():
         return Probe("path-shim", Result.SKIPPED, "not running in WSL")
-    if info is None:
-        return Probe("path-shim", Result.SKIPPED, "zotero unreachable")
+    if skip:
+        return Probe("path-shim", Result.SKIPPED, skip)
+    found = _first_stored_attachment(client)
+    if isinstance(found, Probe):
+        return found
+    key = found
     try:
-        # Measured 2026-09-07: the local API ignores a `linkMode` query filter (it answered `imported_url`
-        # rows for `linkMode=imported_file`), so fetch attachments and filter client-side.
-        payload, _ = client._local_json("/api/users/0/items?itemType=attachment&limit=50&start=0&format=json")
-        stored = [row for row in payload if isinstance(row, dict) and row.get("data", {}).get("linkMode") == "imported_file"]
-        key = stored[0]["key"] if stored else None
-        url = client.file_view_url(key) if key else None
-    except (ZoteroError, KeyError, IndexError, TypeError) as error:
-        return Probe("path-shim", Result.UNREACHABLE, f"no stored attachment to resolve: {error}")
+        url = client.file_view_url(key)
+    except ZoteroError as error:
+        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")
     if not url:
-        return Probe("path-shim", Result.SKIPPED, "no stored attachment to resolve")  # nothing to check is not an outage
+        # the server's two definite negatives (404, 400) for a row it listed as stored
+        return Probe(
+            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"
+        )
     windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
     try:
         local = paths.to_local(windows_path, vault)
-    except paths.PathError as error:
+    except (paths.PathError, OSError, ValueError, AttributeError, TypeError) as error:
+        # to_local re-reads machine.json without machine-config's shape checks: a
+        # malformed file raises ValueError/OSError, a non-object path_map or a
+        # non-string entry AttributeError/TypeError. All are setup faults, not outages.
         return Probe("path-shim", Result.UNMATCHED, str(error))
-    return Probe("path-shim", Result.MATCHED if local.is_file() else Result.UNMATCHED, str(local))
+    result = Result.MATCHED if local.is_file() else Result.UNMATCHED
+    return Probe("path-shim", result, str(local))
 
 
-def _translator_formats_probe(client, info) -> Probe:
-    if info is None:
-        return Probe("translator-formats", Result.SKIPPED, "zotero unreachable")
+def _translator_formats_probe(client, skip: str | None) -> Probe:
+    if skip:
+        return Probe("translator-formats", Result.SKIPPED, skip)
     try:
-        response = client._http(f"{client.base}/api/users/0/items/top?format=csljson&limit=1")
+        response = client._http(
+            f"{client.base}/api/users/0/items/top?format=csljson&limit=1"
+        )
     except ZoteroError as error:
         return Probe("translator-formats", Result.UNREACHABLE, str(error))
     if response.status == 500:
-        return Probe("translator-formats", Result.MATCHED, "translator formats still answer 500 (closed route)")
-    return Probe("translator-formats", Result.UNMATCHED, f"format=csljson answered {response.status} — a route this design closed has reopened")
+        return Probe(
+            "translator-formats",
+            Result.MATCHED,
+            "translator formats still answer 500 (closed route)",
+        )
+    return Probe(
+        "translator-formats",
+        Result.UNMATCHED,
+        f"format=csljson answered {response.status} — a route this design closed has reopened",
+    )
 
 
 def _compile_tool_probe() -> Probe:
-    records = _installed_plugins().get(_COMPILE_PLUGIN) or []
-    if not records:
+    records = _installed_plugins().get(_COMPILE_PLUGIN)
+    record = records[0] if isinstance(records, list) and records else None
+    if not isinstance(record, dict):
         return Probe("compile-tool", Result.SKIPPED, f"{_COMPILE_PLUGIN} not installed")
-    sha = str(records[0].get("gitCommitSha", ""))
+    sha = str(record.get("gitCommitSha", ""))
     if sha.startswith(_COMPILE_PIN):
         return Probe("compile-tool", Result.MATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}")
-    return Probe("compile-tool", Result.UNMATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}")
+    return Probe(
+        "compile-tool",
+        Result.UNMATCHED,
+        f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}",
+    )
 
 
-def _bbt_probe(client) -> Probe:
-    """Independent of the local-API preference: `/better-bibtex/json-rpc` answers with it off (§9)."""
+def _bbt_probe(client, zotero_probe: Probe) -> Probe:
+    """Asked whatever the local-API preference: `/better-bibtex/json-rpc` ignores it (§9)."""
     try:
         versions = client.ready()
-        if not isinstance(versions, dict):
-            raise ZoteroError("malformed api.ready result: expected an object")
     except (ZoteroError, OSError, UnicodeError, ValueError) as error:
-        return Probe("bbt", Result.UNREACHABLE, f"zotero down: {error}")
+        if zotero_probe.result is Result.UNREACHABLE:
+            return Probe("bbt", Result.UNREACHABLE, f"zotero down: {error}")
+        # Zotero answered /api/, so a json-rpc failure is Better BibTeX's, not the
+        # transport's: _rpc types a non-200 (404 when it is not installed) as a
+        # plain ZoteroError and cannot tell the two apart; the zotero row already has.
+        return Probe(
+            "bbt", Result.UNMATCHED, f"Better BibTeX not answering json-rpc: {error}"
+        )
     bbt_version = versions.get("betterbibtex")
     if not isinstance(bbt_version, str) or not bbt_version.strip():
         return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")
@@ -5307,22 +5536,26 @@ def _bbt_probe(client) -> Probe:
 def doctor(vault_root, client=None) -> list[Probe]:
     """Repair the scoped vault substrate and return its thirteen ordered probes (§5)."""
     vault = Path(vault_root)
-    tree = _tree_probe(vault)  # the existing try/except around scaffold_vault, extracted
+    tree = _tree_probe(vault)
     config, machine = _machine_config(vault)
     client = ZoteroClient() if client is None else client
-    zotero_probe, info = _zotero_probe(client)
-    profile = _profile_dir(config)
-    prefs = None
-    if profile is not None:
-        try:
-            prefs = addons.read_prefs(profile)
-        except (OSError, UnicodeError, ValueError):
-            prefs = None
-    bbt = _bbt_probe(client)  # never gated on `info`: the json-rpc route ignores the local-API preference
+    zotero_probe = _zotero_probe(client)
+    skip = _local_api_skip(zotero_probe)
+    profile = _profile_facts(config)
     return [
-        tree, machine, zotero_probe, _write_guard_probe(client, info), _fulltext_sync_probe(prefs),
-        bbt, _bbt_git_probe(prefs), _plugins_probe(profile, prefs), _path_shim_probe(client, info, vault),
-        _translator_formats_probe(client, info), _compile_tool_probe(), _remote_probe(vault), _backup_probe(config),
+        tree,
+        machine,
+        zotero_probe,
+        _write_guard_probe(client, skip),
+        _fulltext_sync_probe(profile),
+        _bbt_probe(client, zotero_probe),
+        _bbt_git_probe(profile),
+        _plugins_probe(profile),
+        _path_shim_probe(client, skip, vault),
+        _translator_formats_probe(client, skip),
+        _compile_tool_probe(),
+        _remote_probe(vault),
+        _backup_probe(config),
     ]
 ```
 
@@ -5610,6 +5843,8 @@ def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch
     assert "old prose" not in legacy.read_text()  # greenfield: rewritten whole from Zotero
 ```
 
+**Rulings from Task 17's review (fix round 1), which the printed code above predates — the round's committed code is the shape, folded here verbatim once it lands:** (1) `_store_key` guards the key store's shape: a valid-JSON non-object (`[]`, a string) reads as `{}` rather than raising `TypeError` after the person has clicked Always Allow, which would lose the granted key and re-dialog every later run; (2) the 401 is typed, not matched by substring — `create_items` raises `ApiKeyRejectedError(ZoteroError)` (result UNMATCHED) and `add` catches it by type, the `DatabaseChangedError` precedent; the printed `"401" in str(error)` would scan a message this task's own `_local` 400 mapping now fills with two hundred bytes of server body; (3) on that 401 `add` clears `client.api_key` beside `key = None`, so the re-authorization does not carry the rejected key on the wire; (4) the printed test's second `add` uses a fresh client, because `client.api_key or _load_key(...)` short-circuits on a reused one and the store's read path — the CLI's only path, since `cmd_add` builds a client per run — was never pinned; (5) `_validate_items` checks `creators` and `tags` are lists, as the Interfaces block says and the printed Step 3 did not — the Interfaces block is the interface; plus two tests the brief lacked: the 401 → re-authorize → retry path both ways, and an export-timeout test that reaches the real `_rpc` (as printed it captured the fake's override, so dropping `timeout=timeout` from `_rpc` stayed green). **(6) Holds keep the outcome's target kind.** `_hold` → `record_finding` → `inbox.append_entry` hardcodes `"identifier"` in both the finding id and the entry, while `verify`'s dedup and `is_acknowledged` key on `outcome.target_kind`; a `literatures/<name>.md` row from `capture._every_note` is the first repo-path target to reach `_hold` (pre-existing since Task 13 — `system/bibliography.json` already rides it), and filed as an identifier it gets an id and a kind no acknowledgment can match. `record_finding` gains `target_kind: str = "identifier"`, passed to `inbox.finding_id` and `inbox.append_entry`; `_hold` gains it and `cmd_capture`, `cmd_propagate` and `cmd_add` pass `outcome.target_kind`; a test files one repo-path hold through `cmd_capture` and asserts the entry's `target_kind == "repo-path"` and that `inbox.append_ack` on it closes it. Nine minors are deferred to the deferred file at the boundary.
+
 - [ ] **Step 4: Run the suite and form owners; commit**
 
 Run: `.venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
@@ -5633,7 +5868,7 @@ ______________________________________________________________________
 
 **Files:**
 
-- Modify: `research_vault/verify.py` (`_citation_key_hash` returns the note's `managed-sha256` and loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/inbox.py` (`scope_id(check, target, target_hash)`; `_scope_acknowledged`'s standing-scope branch compares derived scope ids; `append_entry`'s date default and `summary(vault, as_of=None)` resolve through `clock.today`), `research_vault/searchlog.py` (`_resolved_date` through `clock.today`), `research_vault/__main__.py` (`verify --as-of`, `inbox --as-of`, `_as_of(args)`; `record_finding`'s date default through `clock.today`; `cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
+- Modify: `research_vault/verify.py` (`_citation_key_hash` returns the note's `managed-sha256` and loses the `fixity-sha256` branch — open point 07; `clear_marker_for(vault_root, check, target) -> bool` — open point 09), `research_vault/inbox.py` (`scope_id(check, target, target_hash)`; `_scope_acknowledged`'s standing-scope branch compares derived scope ids; `append_entry`'s date default and `summary(vault, as_of=None)` resolve through `clock.today`), `research_vault/searchlog.py` (`_resolved_date` through `clock.today`), `research_vault/events.py` (`:116`, the verified event's `at` default, through `clock.today()` — the fifth reader outside `clock.py`, found by the controller's pre-dispatch scan; with no `as_of` it is the wall clock, so behaviour is unchanged, and exempting it from the scan test would exempt the class the test exists to close), `research_vault/__main__.py` (`verify --as-of`, `inbox --as-of`, `_as_of(args)`; `record_finding`'s date default through `clock.today`; `cmd_ack` calls `clear_marker_for`), `research_vault/publish.py` (add the module constant `RETRACTION_ACK_FIELD = "retraction-ack"`; nothing in the package reads the field today — `grep -rn retraction-ack research_vault` is empty, measured 2026-09-07 — so there is no literal to hoist, and the constant is the code-side mirror of the definition site — open point 08)
 - Test: `tests/test_verify_cli.py` (the six new tests below, plus the inheritance from Task 11's fixture change — see "Inherited from Task 11" under Step 3), `tests/test_publish.py`, `tests/test_config_validity.py` (the one-clock scan and the fixture-substitution scan), `tests/conftest.py` (`must_replace`)
 
 **Interfaces:**
@@ -5718,7 +5953,7 @@ Append to `tests/test_publish.py`:
 def test_retraction_ack_field_has_one_definition_site():
     from research_vault import publish
 
-    skill = (ROOT / "skills" / "evidence-conventions" / "SKILL.md").read_text()
+    skill = (REPO / "skills" / "evidence-conventions" / "SKILL.md").read_text()  # tests/test_publish.py names the root REPO
     assert f"[{publish.RETRACTION_ACK_FIELD}:: <code>" in skill
     assert publish.RETRACTION_ACK_FIELD == "retraction-ack"
 ```
@@ -5726,7 +5961,7 @@ def test_retraction_ack_field_has_one_definition_site():
 - [ ] **Step 2: Run to verify failure**
 
 Run: `.venv/bin/python -m pytest tests/test_verify_cli.py tests/test_publish.py tests/test_config_validity.py -q -k "ack_scope or clears or definition_site or as_of or one_date_clock"`
-Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` unknown; four `now(...).date()` readers outside `clock.py`; marker survives; constant missing.
+Expected: FAIL — fixity branch still consulted; `scope_id` missing; `--as-of` unknown; five `now(...).date()` readers outside `clock.py`; marker survives; constant missing.
 
 - [ ] **Step 3: Implement**
 
@@ -5804,7 +6039,7 @@ def cmd_ack(args):
 
 `publish.py`: add `RETRACTION_ACK_FIELD = "retraction-ack"` beside its other module constants, with a one-line comment naming `skills/evidence-conventions/SKILL.md` as the definition site. No literal exists to hoist (see Files); the constant is where any future parser keys on the field.
 
-**Inherited from Task 11.** Task 11's `fixture_vault` notes carry `managed-sha256` and no `fixity-sha256`, so seven functions in `tests/test_verify_cli.py` (at Task 11's HEAD: `:249`, `:273`, `:299`, `:721`, `:906`, `:1338`, `:1381`) now run `.replace('fixity-sha256:\n  - "aa11…"', …)` against text that no longer contains the literal — a no-op, so each passes while asserting nothing about fixity, and its name still promises it (`test_ack_hash_rejects_placeholder_fixity_live_file` asserts only `result != "unresolved"`). Task 11's review measured that six of the seven fail under this task's `_citation_key_hash` change, and two tests carry `xfail(strict=True)` markers (`:150`, `:1191`) waiting on it. This task, therefore:
+**Inherited from Task 11.** Task 11's `fixture_vault` notes carry `managed-sha256` and no `fixity-sha256`, so seven functions in `tests/test_verify_cli.py` (at Task 11's HEAD: `:249`, `:273`, `:299`, `:721`, `:906`, `:1338`, `:1381`; five sites remain at `a51bbfe`: `:308`, `:726`, `:911`, `:1346`, `:1389` — navigation hints, not a count to reconcile) now run `.replace('fixity-sha256:\n  - "aa11…"', …)` against text that no longer contains the literal — a no-op, so each passes while asserting nothing about fixity, and its name still promises it (`test_ack_hash_rejects_placeholder_fixity_live_file` asserts only `result != "unresolved"`). Task 11's review measured that six of the seven fail under this task's `_citation_key_hash` change, and two tests carry `xfail(strict=True)` markers (`:150`, `:1191`) waiting on it. This task, therefore:
 
 - removes both `xfail` markers and shows both tests passing unmarked, not merely not-XPASSing;
 - rewrites or deletes the seven fallback-pinning functions rather than keeping them green by leaving a fixity path alive — a test that pins the `_note_bytes` fallback now needs a note capture never wrote (no `managed-sha256`), and a test that pinned fixity is deleted with its subject;
