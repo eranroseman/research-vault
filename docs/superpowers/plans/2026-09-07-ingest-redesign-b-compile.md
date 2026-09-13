@@ -940,7 +940,9 @@ Post only when the user says so in that turn: `gh issue create --repo zotero/zot
 
 Per `AGENTS.md`: fetch first, merge back to `main` locally and push `main` to origin in the same motion. If this part ran on `main` directly, push.
 
-- [ ] **Step 4: Completion message**
+- [ ] **Step 4: Results file, then the completion message**
+
+Write `docs/superpowers/specs/2026-09-04-import-redesign-part-b-results.md` beside the spec, in the shape of `…-part-a-results.md` (date, method, spec, a binds-nothing line; what landed with commit ranges; verification measured in a table; the review's verdict and rounds; what moved in the spec; what remains) — the durable record, since the SDD workspace is deleted at Finish. Commit it with the merge or immediately after.
 
 Report: the tasks landed (with commit shas), the tracer results (Task 1), the live-leg results (Task 5), the issue number or that it was not posted, and anything skipped with its reason. Part A Task 20 delivered decision 23's invariant-5 report; restate it in one line only if the write-side gate changed since.
 

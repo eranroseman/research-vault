@@ -294,7 +294,7 @@ The author's original items 2 and 3 are one lane — counting the **process flow
 
 Lane 1 fixes the seam contract: capture preserves the Extra field byte-identical, reads a **declared** tag vocabulary, and writes the compile input in a format the engine it chooses accepts.
 
-**State 2026-09-13:** Part A (capture) landed on `main` at `f2d3921` — twenty tasks, a whole-branch review with one fix wave, the attended propagate leg on the test instance, suite 1717 passed; its open findings are #129. Plan W runs next (§7.1.1), then Part B (compile) dispatches from a post-Plan-W `main`.
+**State 2026-09-13:** Part A (capture) landed on `main` at `f2d3921` (results: `2026-09-04-import-redesign-part-a-results.md` beside the ingest spec) — twenty tasks, a whole-branch review with one fix wave, the attended propagate leg on the test instance, suite 1717 passed; its open findings are #129. Plan W runs next (§7.1.1), then Part B (compile) dispatches from a post-Plan-W `main`.
 
 ### 7.1.1 Lane 1's quality tail — Plan W, between Part A and Part B (added 2026-09-13)
 
