@@ -6,6 +6,20 @@ Testing and Zotero probing — including the live legs that offline runs silentl
 
 Environment facts are not written down. Live values come from `python3 -m research_vault probe`; facts a probe cannot answer are recorded where they are used, each with its method and date.
 
+## Product and vault boundaries
+
+- This repository is the product source. It is not the default user vault.
+- A user vault is the directory containing `inbox/`, `wiki/`, `litrature/` and `.raw/`. Mutable state always belongs there.
+- `research_vault/templates/vault` is the distributable seed. Root `wiki/`, `.raw/`, and
+  `.vault-meta/` are contributor state and are excluded from public artifacts.
+- Never derive a user vault from the plugin cache or `${CLAUDE_PLUGIN_ROOT}`.
+- A checkout containing contributor-vault state has no marketplace catalog.
+  `config/public-marketplace.json` is injected as
+  `.claude-plugin/marketplace.json` only inside the audited release artifact.
+  An extracted distribution-clean artifact may retain that exact manifest and
+  rebuild idempotently. A public default branch must be populated from the clean
+  artifact, never by pushing contributor-vault state.
+
 ## Agent skills
 
 ### Git
@@ -27,6 +41,10 @@ Components are chosen by a sourcing screen; the build bar is tiered. See `docs/a
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
+### Out of scope
+
+The `.out-of-scope/` directory in a repo stores persistent records of rejected feature requests. See `docs/agents/out-of-scope.md`.
 
 ### Design discipline
 
