@@ -288,16 +288,18 @@ def test_mark_published_refuses_a_blocked_gate_and_leaves_the_gate_armed(
 def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(
     blocked_vault,
 ):
-    # The first gate run stamps the failing claim, so run it twice before
-    # acknowledging: an ack is hash-scoped, and the second run's finding
-    # carries the note's settled hash.
+    # verify hashes the target before it projects (candidate-bound), so the
+    # finding it files carries the draft as the author left it; the stamp is
+    # verify's own write, and `ack` clears it (open point 09), restoring the
+    # very state the ack is scoped to. The gate run inside `mark-published`
+    # files a second row over the stamped draft — acknowledge the first.
     assert main(["verify", "--vault", str(blocked_vault), "--surface", "publish"]) == 1
     assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 1
-    standing = [
+    standing = next(
         entry
         for entry in inbox.open_entries(blocked_vault)
         if entry.check == "citation-key" and entry.result == "UNMATCHED"
-    ][-1]
+    )
 
     assert (
         main(

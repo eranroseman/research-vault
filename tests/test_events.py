@@ -121,8 +121,8 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     body = f"- (quote) body-only ^c-11111111{newline}"
     first = events.record_pass(body, "doi", Result.MATCHED, at="2026-08-16")
     second = events.record_pass(first, "metadata", Result.MATCHED, at="2026-08-17")
-    with_status = first.replace(
-        f"verified:{newline}", f'status: "deprecated"{newline}verified:{newline}', 1
+    with_status = must_replace(
+        first, f"verified:{newline}", f'status: "deprecated"{newline}verified:{newline}'
     )
 
     assert first.endswith(body)
@@ -490,7 +490,7 @@ def test_duplicate_scalar_and_list_verifier_headers_fail_closed(field):
     text = _machine_confirmed_text()
     if field == "failed-verification":
         text = events.record_failure(text, "doi", Result.UNMATCHED)
-    malformed = text.replace(f"{field}:\n", f'{field}: "shadow"\n{field}:\n', 1)
+    malformed = must_replace(text, f"{field}:\n", f'{field}: "shadow"\n{field}:\n')
 
     assert events.trust_tier(malformed) == "unverified"
     with pytest.raises(ValueError, match=field):

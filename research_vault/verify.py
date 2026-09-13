@@ -18,6 +18,7 @@ from . import (
     bibliography,
     captured,
     checks,
+    claims,
     clock,
     events,
     frontmatter,
@@ -620,45 +621,72 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             break
 
 
+def _cites(content, citation_key):
+    """Whether a line cites exactly ``citation_key`` (never a longer key)."""
+    return any(
+        match.group("key") == citation_key for match in claims.CITE_RE.finditer(content)
+    )
+
+
 def clear_marker_for(vault_root, check: str, target: str) -> bool:
     """Open point 09: a human acknowledgment stands the marker down.
 
-    A ``<citation key>#^<claim id>`` target names the cited note, or, when no
-    such note exists, every project note carrying the anchor; a
-    ``path-bytes:`` target names the file itself. Returns whether a
-    ``[failed-verification:: <check>/<date>]`` marker was removed.
+    Markers live where ``_mutate_marker`` writes them — at each claim's origin
+    in a project note, never in a machine-written literature note — so a
+    ``<citation key>#^<claim id>`` target names every project note carrying the
+    anchor, which confines the edit to the claim line; a bare citation-key
+    target of a ``citation-key`` finding (verify's own shape: the claim list
+    rides in the outcome's ``extra`` and the inbox row does not persist it)
+    names every project line citing ``[@<key>``, the citation regex keeping
+    ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
+    the file itself, and every terminal marker for the check in it. Anything
+    under ``wiki/`` is skipped, mirroring the writer's own guard (ingest spec
+    §4.4). Returns whether a marker was removed.
     """
     vault = Path(vault_root)
     claim_id: str | None = None
+    citation_key: str | None = None
     if "#^" in target:
-        citation_key, claim_id = target.split("#^", 1)
-        note = _note_for_citation_key(vault, citation_key)
-        candidates = (
-            [note]
-            if note and note.is_file()
-            else sorted((vault / "projects").rglob("*.md"))
-        )
+        claim_id = target.split("#^", 1)[1]
+        candidates = sorted((vault / "projects").rglob("*.md"))
     elif target.startswith("path-bytes:"):
         candidates = [_safe_relative(vault, target, "repo-path")]
+    elif check == "citation-key":
+        citation_key = target
+        candidates = sorted((vault / "projects").rglob("*.md"))
     else:
         return False
-    pattern = _terminal_marker_pattern(check, claim_id)
     cleared = False
     for path in candidates:
         if path is None or not path.is_file():
+            continue
+        if path.relative_to(vault).parts[0] == "wiki":
+            # The compiled layer is the tool's write scope (ingest spec §4.4):
+            # verify never writes a marker there, so there is none to clear.
             continue
         lines = _read_note_text(path).splitlines(keepends=True)
         changed = False
         for index, line in enumerate(lines):
             content, ending = _split_line_ending(line)
-            if (
-                claim_id is not None
-                and _terminal_anchor_match(content, claim_id) is None
-            ):
-                continue
+            if claim_id is not None:
+                if _terminal_anchor_match(content, claim_id) is None:
+                    continue
+                terminal_claim_id: str | None = claim_id
+            elif citation_key is not None:
+                if not _cites(content, citation_key):
+                    continue
+                # The writer put the marker before the citing line's own
+                # anchor when it has one, after the line otherwise.
+                anchor = claims.ANCHOR_RE.search(content)
+                terminal_claim_id = anchor.group("id") if anchor else None
+            else:
+                terminal_claim_id = None
             # `_mutate_marker`'s clear substitution: the pattern's lookahead keeps
             # the anchor, and the single space closes the gap the marker left.
-            replacement = pattern.sub(" " if isinstance(claim_id, str) else "", content)
+            pattern = _terminal_marker_pattern(check, terminal_claim_id)
+            replacement = pattern.sub(
+                " " if isinstance(terminal_claim_id, str) else "", content
+            )
             if replacement != content:
                 lines[index] = replacement + ending
                 changed = True

@@ -91,7 +91,7 @@ def test_append_only_log_pathspec_excludes_reserved_root_log(tmp_vault):
 def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace("Mortality fell 12%", "Mortality fell 21%")
+        must_replace(note.read_text(), "Mortality fell 12%", "Mortality fell 21%")
     )
 
     outs = lints.lint_claim_immutability(fixture_vault)
@@ -149,7 +149,8 @@ def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
 def test_claim_immutability_allows_complete_deprecation_transition(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -168,7 +169,8 @@ def test_claim_immutability_allows_complete_deprecation_transition_with_a_succes
     exactly like one that doesn't (the "both ways" pair)."""
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -185,7 +187,8 @@ def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -202,7 +205,8 @@ def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
 def test_claim_immutability_rejects_duplicate_superseded_by(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -221,15 +225,15 @@ def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_m
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
+    text = must_replace(note.read_text(), "Mortality fell 12%", "Mortality rose 12%")
+    text = must_replace(
+        text,
+        "^c-11111111",
+        "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+        "[deprecated-by:: human:eran] [reason:: superseded] ^c-11111111",
+    )
     note.write_text(
-        note.read_text()
-        .replace("Mortality fell 12%", "Mortality rose 12%")
-        .replace(
-            "^c-11111111",
-            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
-            "[deprecated-by:: human:eran] [reason:: superseded] ^c-11111111",
-        )
-        .replace("^c-22222222", "[status:: deprecated] ^c-22222222")
+        must_replace(text, "^c-22222222", "[status:: deprecated] ^c-22222222")
     )
 
     assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
@@ -241,7 +245,8 @@ def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_m
 def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [status:: deprecated] "
@@ -258,7 +263,8 @@ def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
 def test_claim_immutability_rejects_duplicate_deprecation_reason(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -277,8 +283,10 @@ def test_claim_immutability_allows_only_one_exact_verify_failed_marker_change(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            note.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
 
@@ -290,7 +298,8 @@ def test_claim_immutability_allows_only_exact_failed_verification_marker_change(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "^c-11111111",
             "[failed-verification:: quote/2026-08-20] ^c-11111111",
         )
@@ -304,8 +313,10 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            note.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
@@ -322,8 +333,10 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
 def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            note.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
@@ -347,10 +360,11 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement_with_mutati
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
+    text = must_replace(note.read_text(), "Mortality fell 12%", "Mortality rose 12%")
     note.write_text(
-        note.read_text()
-        .replace("Mortality fell 12%", "Mortality rose 12%")
-        .replace("^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111")
+        must_replace(
+            text, "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        )
     )
 
     assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
@@ -620,7 +634,7 @@ def test_body_change_always_yields_typed_evidence_finding_with_fresh_witness(
         expected = "path-bytes:literatures/added.md"
     elif change == "edit":
         source.write_text(
-            source.read_text().replace("# Mortality decline", "# Changed")
+            must_replace(source.read_text(), "# Mortality decline", "# Changed")
         )
         _refresh_body_witness(source)
         expected = "path-bytes:literatures/smith2020.md"
@@ -698,7 +712,7 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
     """Mutate exactly one machine-owned frontmatter field, the body untouched."""
     if key == "managed-sha256":
         digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
-        return text.replace(digest, "b" * 64, 1)
+        return must_replace(text, digest, "b" * 64)
     if key == "zotero-item-version":
         return must_replace(text, "zotero-item-version: 12", "zotero-item-version: 13")
     if key == "generated":

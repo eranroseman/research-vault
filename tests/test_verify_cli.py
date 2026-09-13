@@ -157,8 +157,8 @@ def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
 def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_vault):
     draft = net_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace(
-            "Mortality fell 12% across all strata.", "wrong quote"
+        must_replace(
+            draft.read_text(), "Mortality fell 12% across all strata.", "wrong quote"
         )
     )
     first = run_verify(net_vault, network=False, detection_date="2026-08-16")
@@ -185,7 +185,9 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         e.check == "quote" and e.target == raw.target
         for e in inbox.open_entries(net_vault)
     )
-    draft.write_text(draft.read_text().replace("wrong quote", "different wrong quote"))
+    draft.write_text(
+        must_replace(draft.read_text(), "wrong quote", "different wrong quote")
+    )
     run_verify(net_vault, network=False, detection_date="2026-08-16")
     assert not any(
         e.check == "quote" and e.target == raw.target
@@ -353,7 +355,9 @@ def test_missing_citation_key_hash_uses_exact_checked_origins_and_reopens(net_va
     )
     original = _target_hash(net_vault, outcome)
     assert original is not None
-    draft.write_text(draft.read_text().replace("This will replicate", "This will not"))
+    draft.write_text(
+        must_replace(draft.read_text(), "This will replicate", "This will not")
+    )
     assert _target_hash(net_vault, outcome) != original
 
 
@@ -878,8 +882,8 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
 
     _mutate_marker(net_vault, outcome, "2026-08-17")
 
-    assert note.read_text() == original.replace(
-        " ^c-1", " [failed-verification:: quote/2026-08-17] ^c-1"
+    assert note.read_text() == must_replace(
+        original, " ^c-1", " [failed-verification:: quote/2026-08-17] ^c-1"
     )
     _mutate_marker(net_vault, outcome, "2026-08-16", clear=True)
     assert note.read_text() == original
@@ -2137,8 +2141,8 @@ def test_ack_clears_the_failed_verification_marker(fixture_vault, monkeypatch, c
 
 
 def test_clear_marker_for_clears_a_file_target_and_refuses_other_shapes(net_vault):
-    """The `path-bytes:` shape names the file itself; a target that is neither
-    a claim nor a repo path clears nothing and says so."""
+    """The `path-bytes:` shape names the file itself; a bare identifier of any
+    check but `citation-key` is no shape at all and clears nothing."""
     from research_vault.verify import clear_marker_for
 
     draft = net_vault / "projects" / "brief" / "draft.md"
@@ -2158,7 +2162,7 @@ def test_clear_marker_for_clears_a_file_target_and_refuses_other_shapes(net_vaul
     _mutate_marker(net_vault, outcome, "2026-08-16")
     assert "[failed-verification:: quote/2026-08-16]" in draft.read_text()
 
-    assert clear_marker_for(net_vault, "citation-key", "smith2020") is False
+    assert clear_marker_for(net_vault, "quote", "smith2020") is False
     assert (
         clear_marker_for(
             net_vault, "citation-key", "path-bytes:projects/brief/draft.md"
@@ -2169,3 +2173,139 @@ def test_clear_marker_for_clears_a_file_target_and_refuses_other_shapes(net_vaul
     assert clear_marker_for(net_vault, "quote", "path-bytes:projects/brief/draft.md")
     assert "[failed-verification::" not in draft.read_text()
     assert draft.read_text().endswith("[@fabricated2020] ^c-77777777\n")
+
+
+def test_ack_clears_the_marker_on_a_claim_citing_a_captured_note(fixture_vault, capsys):
+    """A `#^` target whose literature note exists: the marker sits at the
+    claim's origin in the project note (where `_mutate_marker` wrote it),
+    never in the machine-written note, and that is where the ack clears it."""
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_text(
+        must_replace(
+            draft.read_text(),
+            "- (quote) [@smith2020, p. 12] ^c-66666666",
+            "- (quote) [@smith2020, p. 12] [failed-verification:: quote/2026-09-07] ^c-66666666",
+        )
+    )
+    assert (fixture_vault / "literatures" / "smith2020.md").is_file()
+    assert (
+        main(
+            [
+                "finding",
+                "quote",
+                "smith2020#^c-66666666",
+                "UNMATCHED",
+                "mismatch — quote",
+                "--vault",
+                str(fixture_vault),
+                "--date",
+                "2026-09-07",
+            ]
+        )
+        == 0
+    )
+    finding_id = capsys.readouterr().out.strip()
+    assert (
+        main(
+            [
+                "ack",
+                finding_id,
+                "--vault",
+                str(fixture_vault),
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    assert "cleared [failed-verification:: quote]" in capsys.readouterr().out
+    assert "- (quote) [@smith2020, p. 12] ^c-66666666\n" in draft.read_text()
+    assert "[failed-verification::" not in draft.read_text()
+
+
+def test_ack_on_a_bare_key_citation_finding_clears_every_line_citing_that_key(
+    fixture_vault, capsys
+):
+    """verify files a `citation-key` finding on the bare key, with the claim
+    lines only in the outcome's extra; the citation is the filter, and the
+    citation regex keeps `smith2020` from touching `smith2020a`."""
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_text(
+        must_replace(
+            draft.read_text(),
+            "- (quote) [@smith2020, p. 12] ^c-66666666",
+            "- (quote) [@smith2020, p. 12] "
+            "[failed-verification:: citation-key/2026-09-07] ^c-66666666",
+        )
+    )
+    other = fixture_vault / "projects" / "brief" / "other.md"
+    other.write_text(
+        "- (inference) unanchored [@smith2020] "
+        "[failed-verification:: citation-key/2026-09-07]\n"
+        "- (inference) longer key [@smith2020a] "
+        "[failed-verification:: citation-key/2026-09-07] ^c-99999999\n"
+    )
+    assert (
+        main(
+            [
+                "finding",
+                "citation-key",
+                "smith2020",
+                "UNMATCHED",
+                "not-captured — cited citation key has no literature note",
+                "--vault",
+                str(fixture_vault),
+                "--date",
+                "2026-09-07",
+            ]
+        )
+        == 0
+    )
+    finding_id = capsys.readouterr().out.strip()
+    assert (
+        main(
+            [
+                "ack",
+                finding_id,
+                "--vault",
+                str(fixture_vault),
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert "- (quote) [@smith2020, p. 12] ^c-66666666\n" in draft.read_text()
+    assert "[failed-verification::" not in draft.read_text()
+    assert other.read_text() == (
+        "- (inference) unanchored [@smith2020]\n"
+        "- (inference) longer key [@smith2020a] "
+        "[failed-verification:: citation-key/2026-09-07] ^c-99999999\n"
+    )
+
+
+def test_clear_marker_for_never_writes_under_wiki(fixture_vault):
+    """The compiled layer is the tool's write scope: a marker there was never
+    verify's, and an ack leaves it alone, mirroring `_mutate_marker`'s guard."""
+    from research_vault.verify import clear_marker_for
+
+    concept = fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
+    # Terminal, the placement a file-target clear would otherwise match.
+    marked = must_replace(
+        concept.read_text(),
+        "^c-55555555\n",
+        "^c-55555555 [failed-verification:: quote/2026-09-07]\n",
+    )
+    concept.write_text(marked)
+    assert (
+        clear_marker_for(
+            fixture_vault, "quote", "path-bytes:wiki/concepts/mortality-trends.md"
+        )
+        is False
+    )
+    assert concept.read_text() == marked

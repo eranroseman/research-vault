@@ -108,7 +108,7 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
     bad, good = 'managed-sha256: "bad"\n', f'managed-sha256: "{valid}"\n'
     duplicate = (bad + good) if valid_last else (good + bad)
     original_line = f'managed-sha256: "{valid}"\n'
-    note = text.replace(original_line, duplicate, 1).encode()
+    note = must_replace(text, original_line, duplicate).encode()
 
     result, reason = notes.validate_managed_witness(note)
 
@@ -118,7 +118,7 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
 
 def test_generated_metadata_is_substantive_canonical_content():
     first = _note(generated="2026-08-20T12:34:56Z")
-    changed = first.replace("2026-08-20T12:34:56Z", "2026-08-21T01:02:03Z")
+    changed = must_replace(first, "2026-08-20T12:34:56Z", "2026-08-21T01:02:03Z")
 
     assert notes.content_changed(first, changed)
 
@@ -149,7 +149,7 @@ status: "included"
 plain [failed-verification:: quote/2026-08-16]
 """
     changed_events = must_replace(base, 'check: "doi"', 'check: "metadata"')
-    changed_marker = base.replace("quote/2026-08-16", "quote/2026-08-17", 1)
+    changed_marker = must_replace(base, "quote/2026-08-16", "quote/2026-08-17")
     deprecated = must_replace(base, 'status: "included"', 'status: "deprecated"')
 
     assert notes.canonical_content(base) == notes.canonical_content(changed_events)
