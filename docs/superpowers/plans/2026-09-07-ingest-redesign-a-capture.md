@@ -4910,9 +4910,11 @@ ______________________________________________________________________
 | `compile-tool`       | `installed_plugins.json` names `claude-obsidian@agricidaniel-claude-obsidian` with `gitCommitSha` starting `ad67087`                                                        | installed at another sha (warn-only, reason carries both)                                  | —                                                             | not installed       |
 | `remote`, `backup`   | unchanged                                                                                                                                                                   | unchanged                                                                                  | —                                                             | —                   |
 
+**Rulings from Task 16's quality review (fix round 1), which the printed code above predates — the fix round's committed code is the shape, and it is folded here verbatim once it lands:** (1) the three probes that need the local API (`write-guard`, `path-shim`, `translator-formats`) derive their SKIPPED reason from the `zotero` probe's own result, so a 403 reads "local API disabled", not "zotero unreachable" three times; (2) `bbt` keys on the `zotero` probe's result — Zotero UNREACHABLE → `zotero down: …` (UNREACHABLE), Zotero answered anything → UNMATCHED `Better BibTeX not answering json-rpc: …`, because `_rpc` types a non-200 as a plain `ZoteroError` and cannot tell a 404 (not installed) from transport, while the `zotero` row already has; (3) a configured-but-wrong `zotero_profile` is a finding, never "not configured": not a directory → UNMATCHED; `prefs.js` unparseable → UNMATCHED; SKIPPED only for an absent or empty key (decision 15); `read_prefs` keeps the raw token for a non-JSON string pref instead of raising; (4) `fulltext-sync` reports an absent key as `unset (Zotero default)` — `prefs.js` stores only non-defaults and no `docs/research/` record settles Zotero's shipped default, so the probe asserts nothing about it; (5) an UNREACHABLE row from `write-guard` or `plugins` was in neither `DOCTOR_HARD_UNREACHABLE` nor `DOCTOR_WARN_ONLY`, so `cmd_doctor` printed it bare and exited 0 — an outage reading as a pass; both join `DOCTOR_HARD_UNREACHABLE` (above), and an AST test asserts every probe id constructed with `Result.UNREACHABLE` in `scaffold.py` is in `DOCTOR_HARD_UNREACHABLE ∪ DOCTOR_WARN_ONLY`, closing the class by mechanism. **One override of the controller's ruling, for consistency with the branch's own split:** a file the probe cannot *read* (`OSError` on `extensions.json` or `prefs.js`) stays UNREACHABLE — could not read, no verdict on content nobody saw — exactly as `captured._read_notes`, `captured._structural` and `capture._every_note` type it; only malformed content is UNMATCHED. That is why `plugins` joins the hard-unreachable set rather than retyping the outage as a fault. Also corrected above: `path-shim` with no stored attachment to resolve is SKIPPED (the check does not apply), not UNREACHABLE. Seven Minor findings are deferred to the deferred file and the whole-branch review (bare-path reasons; `scaffold.py` at 575 lines wanting a `doctor.py` seam; the untested `_installed_plugins` body).
+
 **`translator-formats` measured live 2026-09-13, by Task 16's live leg after the tree was built:** `GET /api/users/0/items/top?format=csljson&limit=1` answers **200 with a CSL JSON body** on both instances (production Zotero 10.0.1, test 10.0.2), where spec §9's row measured 500 on 2026-09-04. The probe reported exactly the condition it was written for, and the ruling is that the design does not move: decision 13 keeps the Better BibTeX library route as the CSL source with `item.export` as the fallback, because a route observed closed and open within nine days is not a basis to build on, and the probe stays warn-only as built — its row is information for the author, never a blocker. The spec's §9 row is superseded by this measurement; the dated sentence lands in the spec when its file is free of another session's uncommitted edits. Whether the probe is retired once the fact is recorded is Task 20's roll-up question, not a fix round's.
 
-`__main__.DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "zotero", "bbt", "write-guard", "plugins"}`, `DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt"}`, `DOCTOR_WARN_ONLY = {"remote", "backup", "bbt-git", "translator-formats", "compile-tool", "fulltext-sync", "path-shim"}`.
+`__main__.DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "zotero", "bbt", "write-guard", "plugins"}`, `DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "write-guard", "plugins"}`, `DOCTOR_WARN_ONLY = {"remote", "backup", "bbt-git", "translator-formats", "compile-tool", "fulltext-sync", "path-shim"}`.
 
 - [ ] **Step 1: Write the declaration and the failing tests**
 
@@ -4979,7 +4981,7 @@ In `tests/test_doctor.py` replace the header lists with
 PROBE_NAMES = ["tree", "machine-config", "zotero", "write-guard", "fulltext-sync", "bbt", "bbt-git",
                "plugins", "path-shim", "translator-formats", "compile-tool", "remote", "backup"]
 HARD_UNMATCHED = ["tree", "machine-config", "zotero", "bbt", "write-guard", "plugins"]
-HARD_UNREACHABLE = ["zotero", "bbt"]
+HARD_UNREACHABLE = ["zotero", "bbt", "write-guard", "plugins"]
 WARN_ONLY = ["remote", "backup", "bbt-git", "translator-formats", "compile-tool", "fulltext-sync", "path-shim"]
 ```
 
@@ -5255,7 +5257,7 @@ def _path_shim_probe(client, info, vault) -> Probe:
     except (ZoteroError, KeyError, IndexError, TypeError) as error:
         return Probe("path-shim", Result.UNREACHABLE, f"no stored attachment to resolve: {error}")
     if not url:
-        return Probe("path-shim", Result.UNREACHABLE, "no stored attachment to resolve")
+        return Probe("path-shim", Result.SKIPPED, "no stored attachment to resolve")  # nothing to check is not an outage
     windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
     try:
         local = paths.to_local(windows_path, vault)
