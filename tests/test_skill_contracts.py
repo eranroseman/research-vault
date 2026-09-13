@@ -181,15 +181,6 @@ def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
     )
 
 
-# Skill names a skill cites that are never a route to one of ours: an upstream
-# skill a vendored fork names by provenance. `find-sources/SKILL.md:11` cites
-# K-Dense's `paper-lookup`, the skill it was forked from, beside that tree's
-# own path and URL. The scan cannot tell a foreign name from a dangling local
-# one, so each is named here with its citation, and the staleness assertion in
-# the test below fails the day the citation goes.
-_FOREIGN_SKILL_NAMES = {"paper-lookup"}
-
-
 def _code_spelled_identifiers() -> list[str]:
     """Every string the package evaluates, off its AST, docstrings excluded.
 
@@ -243,16 +234,17 @@ def test_every_skill_name_a_shipped_skill_cites_has_a_skill_directory():
     live skill routed to the deleted ``import-source`` directory and nothing
     caught it (Task 19, 2026-09-13). Same token shape, second corpus: a bare
     kebab token a skill cites is a skill name unless the code spells it as an
-    identifier (``_code_spelled_identifiers``) or it is a foreign skill named
-    by provenance (``_FOREIGN_SKILL_NAMES``), and every skill name needs a
-    ``skills/<name>/`` directory."""
+    identifier (``_code_spelled_identifiers``), and every skill name needs a
+    ``skills/<name>/`` directory. A foreign skill a vendored fork names by
+    provenance is prose about a name, not a route, and goes unbackticked
+    (``find-sources/SKILL.md:11``) rather than exempted here."""
     existing = {directory.name for directory in _skill_dirs()}
     spelled = _code_spelled_identifiers()
     cited = _cited_skill_tokens_by_skill()
     dangling = {
         skill: sorted(
             token
-            for token in tokens - existing - _FOREIGN_SKILL_NAMES
+            for token in tokens - existing
             if not any(token in literal for literal in spelled)
         )
         for skill, tokens in cited.items()
@@ -260,12 +252,8 @@ def test_every_skill_name_a_shipped_skill_cites_has_a_skill_directory():
     dangling = {skill: tokens for skill, tokens in dangling.items() if tokens}
     assert not dangling, (
         f"skill(s) cite skill name(s) with no skills/<name>/ directory: "
-        f"{dangling}. Fix the route (the skill was renamed or deleted); only "
-        f"an upstream skill named by provenance joins _FOREIGN_SKILL_NAMES, "
-        f"with its citation."
+        f"{dangling}. Fix the route (the skill was renamed or deleted)."
     )
-    uncited = sorted(_FOREIGN_SKILL_NAMES - set().union(*cited.values()))
-    assert not uncited, f"stale foreign-skill exemption(s), cited nowhere: {uncited}"
 
 
 def test_the_code_spells_no_hyphenated_skill_name():
