@@ -1,0 +1,27 @@
+# Plan W deferred findings
+
+Minor findings raised by the per-task reviews of `2026-09-13-plan-w-quality-tail.md`, and
+concerns an implementer reported but could not act on, deliberately held out of their tasks' fix
+loops. None blocks a merge.
+
+Rows are appended by the controller as each finding is deferred, so the record exists at the
+moment the finding is set aside rather than being assembled at the end.
+
+**Task 25 Step 2b's results file dispositions every row.** Each ends **fixed**, naming the
+commit, or **declined**, with the reason written into the row. Rows still open after the final
+whole-branch review become one repository issue (`gh issue create --label ready-for-agent`) with
+the open rows as its body.
+
+## Deferred findings
+
+| #   | Task | File                                     | Finding                                                                                                                                                                                                                                                   | Disposition                                       |
+| --- | ---- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 1   | 23   | `scripts/mutmut_shims/run_mutmut.py`     | Implementer concern: the launcher's `--help` failed with `FileNotFoundError` when `MUTANT_UNDER_TEST` was unset and no `[tool.mutmut]` existed, because the shim's config seed only runs inside a mutmut run.                                             | fixed — 259abd2 (Task 24 item g)                  |
+| 2   | 24   | `scripts/mutation_gate.py:45`            | Header's status list omitted mutmut's timeout (24/152/255/-24/36), segfault (-9/-11) and type-check (37) codes.                                                                                                                                           | fixed — 5c8fd3e (same header edit as fix round 1) |
+| 3   | 24   | `scripts/mutation_gate.py:156` vs `:171` | `mutation_key` re-enters `_mutmut(ROOT)` per mutant (two `os.chdir` round-trips) while `read_module_results` takes `root`; the key tests therefore depend on the real `pyproject.toml` carrying `[tool.mutmut]`, against the test module's own docstring. | open                                              |
+| 4   | 24   | `scripts/mutation_gate.py:298-303`       | A malformed `.meta` (truncated JSON, missing `exit_code_by_key`, a key without `__mutmut_`) tracebacks out of the module loop instead of classing that module `error`; later modules go unmeasured and the offender has no record. Never a silent `ok`.   | open                                              |
+| 5   | 24   | `scripts/mutation_gate.py:430-449`       | `_update_baseline`'s refusal path returns before the no-tests summary that gate mode prints unconditionally.                                                                                                                                              | open                                              |
+| 6   | 24   | `tests/test_mutation_gate.py`            | Unpinned: the `--max-children` CLI-to-argv plumbing (fakes ignore the argument), the end-of-run `_summarise_no_tests` block, and `mutation_text`'s claim that a body line beginning `--` survives.                                                        | open                                              |
+| 7   | 24   | `scripts/mutation_gate.py:511-519`       | `--only` without `--out-dir` always refuses (every other module lands in "not measured"); an argparse error up front would say so before a run that cannot succeed.                                                                                       | open                                              |
+| 8   | 24   | `scripts/mutmut_shims/run_mutmut.py:43`  | `--help` is recognised only as the first argument; `run_mutmut.py <pattern> --help` still imports mutmut and dies outside a configured root (documented in the usage text).                                                                               | open                                              |
+| 9   | 24   | `tests/test_mutation_gate.py:408`        | `assert proc.stderr == ""` in the launcher `--help` test is brittle to any warning the environment routes to stderr (`PYTHONWARNINGS`, a venv deprecation).                                                                                               | open                                              |
