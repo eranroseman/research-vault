@@ -616,3 +616,46 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
         f"INSIDE the span and re-run mdformat.\n"
         + "\n".join(f"  line {n}: {line[:120]}" for n, line in offenders)
     )
+
+
+def test_the_package_reads_one_date_clock():
+    """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
+    offenders = sorted(
+        path.name
+        for path in (ROOT / "research_vault").glob("*.py")
+        if "now(datetime.UTC).date()" in path.read_text(encoding="utf-8")
+        and path.name != "clock.py"
+    )
+    assert offenders == [], offenders
+
+
+def test_fixture_substitutions_cannot_become_no_ops():
+    """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
+    import ast
+
+    offenders = [
+        f"{name}:{node.lineno}"
+        for name in (
+            "test_verify_cli.py",
+            "test_lints.py",
+            "test_events.py",
+            "test_notes.py",
+        )
+        for node in ast.walk(
+            ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))
+        )
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "replace"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+            and (
+                "\n" in node.args[0].value
+                or ": " in node.args[0].value
+                or "::" in node.args[0].value
+            )
+        )
+    ]
+    assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"

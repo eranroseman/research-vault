@@ -38,6 +38,10 @@ PROJECTS = "projects"
 # The check id a publication mints its project-level `verified` event under
 # (§5: publish events attach to the project; terminology §4.4).
 PUBLISH_CHECK = "publish"
+# `[retraction-ack:: <code>]` is defined once, in
+# skills/evidence-conventions/SKILL.md; this is the spelling a parser keys on
+# (open point 08). Nothing in the package reads the field yet.
+RETRACTION_ACK_FIELD = "retraction-ack"
 
 
 class PublishError(RuntimeError):

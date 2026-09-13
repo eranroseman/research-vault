@@ -1002,3 +1002,13 @@ def test_set_status_refuses_a_status_its_own_quoting_would_corrupt():
 
     with pytest.raises(publish.PublishError, match="did not round-trip"):
         publish._set_status(_STATUS_NOTE, r"back\\slash")
+
+
+def test_retraction_ack_field_has_one_definition_site():
+    from research_vault import publish
+
+    skill = (
+        REPO / "skills" / "evidence-conventions" / "SKILL.md"
+    ).read_text()  # tests/test_publish.py names the root REPO
+    assert f"[{publish.RETRACTION_ACK_FIELD}:: <code>" in skill
+    assert publish.RETRACTION_ACK_FIELD == "retraction-ack"

@@ -1,6 +1,7 @@
 import pytest
 
 from research_vault import Result, events, frontmatter
+from tests.conftest import must_replace
 
 BASE = """---
 citationKey: "smith2020"
@@ -57,7 +58,7 @@ def test_record_pass_on_bare_mapping_note_writes_one_verified_block():
 
 
 def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
-    crlf = BASE.replace("\n", "\r\n")
+    crlf = must_replace(BASE, "\n", "\r\n", -1)
     out = events.record_pass(crlf, "doi", Result.MATCHED, at="2026-08-16")
     assert "\r\r\n" not in out
     assert out.endswith("  > Mortality fell 12% across all strata.\r\n")
@@ -110,7 +111,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
     assert notes.canonical_content(out) == notes.canonical_content(text)
     if newline == "\r\n":
         assert "\r\r\n" not in out
-        assert "\n" not in out.replace("\r\n", "")
+        assert "\n" not in must_replace(out, "\r\n", "", -1)
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -127,7 +128,7 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     assert first.endswith(body)
     if newline == "\r\n":
         assert "\r\r\n" not in first
-        assert "\n" not in first.replace("\r\n", "")
+        assert "\n" not in must_replace(first, "\r\n", "", -1)
     assert notes.canonical_content(first) == notes.canonical_content(body)
     assert notes.canonical_content(second) == notes.canonical_content(body)
     assert events.verified_checks(second) == [
@@ -456,8 +457,8 @@ def test_duplicate_verifier_state_headers_fail_closed(field):
 
 def test_duplicate_keys_inside_verified_event_fail_closed():
     confirmed = _machine_confirmed_text()
-    malformed = confirmed.replace(
-        'check: "doi"}', 'check: "metadata", check: "doi"}', 1
+    malformed = must_replace(
+        confirmed, 'check: "doi"}', 'check: "metadata", check: "doi"}'
     )
 
     assert events.verified_checks(malformed) == []
@@ -470,10 +471,10 @@ def test_duplicate_keys_inside_verified_event_fail_closed():
 
 def test_duplicate_keys_inside_current_failure_fail_closed():
     failed = events.record_failure(_machine_confirmed_text(), "doi", Result.UNMATCHED)
-    malformed = failed.replace(
+    malformed = must_replace(
+        failed,
         'check: "doi", result: "UNMATCHED"}',
         'check: "metadata", check: "doi", result: "UNMATCHED"}',
-        1,
     )
 
     assert events.current_failures(malformed) == []

@@ -7,6 +7,12 @@ import pytest
 from research_vault import scaffold
 
 
+def must_replace(text: str, old: str, new: str, count: int = 1) -> str:
+    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly."""
+    assert old in text, f"substitution target no longer in the fixture: {old!r}"
+    return text.replace(old, new, count)
+
+
 def _with_body_witness(text):
     from research_vault import notes
 

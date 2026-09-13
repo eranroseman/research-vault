@@ -16,6 +16,7 @@ from research_vault import (
     checks,
     claims,
     events,
+    frontmatter,
     gitstate,
     inbox,
     notes,
@@ -32,6 +33,7 @@ from research_vault.verify import (
     _target_hash,
     verify_state,
 )
+from tests.conftest import must_replace
 
 
 def run_verify(vault_root, **kwargs):
@@ -51,17 +53,22 @@ def _move_note_body(source):
     """Change the literature note's body and re-witness it, so the content an
     acknowledgment was scoped to moves (`managed-sha256` with it)."""
     old_text = source.read_text()
-    new_text = old_text.replace(
-        "# Mortality decline\n", "# Mortality decline, revised\n", 1
+    new_text = must_replace(
+        old_text, "# Mortality decline\n", "# Mortality decline, revised\n"
     )
-    assert new_text != old_text
     source.write_text(
-        new_text.replace(
+        must_replace(
+            new_text,
             f'managed-sha256: "{notes.body_sha256(old_text)}"',
             f'managed-sha256: "{notes.body_sha256(new_text)}"',
-            1,
         )
     )
+
+
+def _without_witness(text):
+    """The note as capture never wrote it: no `managed-sha256`, so
+    `_citation_key_hash` takes its `_note_bytes` fallback."""
+    return must_replace(text, f'managed-sha256: "{notes.body_sha256(text)}"\n', "")
 
 
 def _git_bytes(vault, *args, stdin=None):
@@ -147,15 +154,6 @@ def test_update_notice_is_one_effective_outcome_with_rw_blocker_offline(
     assert notices[0].result is Result.UNMATCHED
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "open point 07 (decision 21, Task 18): `_citation_key_hash` still falls "
-        "back to the `_note_bytes` digest, which verify's own `failed-verification` "
-        "frontmatter write moves between runs, so no ack on a quote finding survives "
-        "to the next run; `managed-sha256` as the scope closes this — drop the marker."
-    ),
-)
 def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_vault):
     draft = net_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
@@ -227,92 +225,72 @@ def test_target_hash_routes_safe_file_claim_and_citation_key(net_vault):
         ]
     )
     # A claim target and a citation-key target both route to the cited note's
-    # own hash (`_citation_key_hash`), before and after a marker lands on the
-    # note; the value that hash takes is open point 07's (Task 18).
+    # own `managed-sha256` (open point 07), and a marker landing on the note
+    # does not move it: verify's own write never lapses the ack it is scoped by.
     claim_hash = _target_hash(net_vault, claim_outcome)
     assert claim_hash == _citation_key_hash(net_vault, "smith2020")
     assert _target_hash(net_vault, citation_key_outcome) == claim_hash
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(
-        source.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            source.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
-    marked_hash = _citation_key_hash(net_vault, "smith2020")
-    assert _target_hash(net_vault, claim_outcome) == marked_hash
-    assert _target_hash(net_vault, citation_key_outcome) == marked_hash
+    assert _target_hash(net_vault, claim_outcome) == claim_hash
+    assert _target_hash(net_vault, citation_key_outcome) == claim_hash
     with pytest.raises(PathCodecError):
         RepoPath(b"../outside")
 
 
-@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
-def test_ack_hash_rejects_placeholder_fixity_live_file(net_vault, placeholder):
-    """Live-file branch of ``_citation_key_hash`` (no ``candidate_snapshot``).
+def test_well_formed_managed_sha256_never_reaches_the_note_bytes_fallback(
+    net_vault, monkeypatch
+):
+    """Both `_citation_key_hash` branches return the witness capture wrote and
+    never hash the note themselves (open point 07)."""
+    from research_vault import verify
 
-    Two shapes, not one: "unresolved" is non-hex (fails the character
-    class), "aa11" is valid hex but short (fails the length bound) — so
-    this also pins the ``{64}`` bound, not just hex-ness.
-    """
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
-            f'  - "{placeholder}"',
-        )
-    )
-    claim_outcome = _outcome(
-        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
-    )
-    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
-    result = _target_hash(net_vault, claim_outcome)
-    assert result != placeholder
-    assert result == expected
+    witness = frontmatter.parse(source.read_text())[0]["managed-sha256"]
 
+    def never(_data):
+        raise AssertionError("a witnessed note must not reach the _note_bytes fallback")
 
-@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
-def test_ack_hash_rejects_placeholder_fixity_candidate_snapshot(net_vault, placeholder):
-    """Snapshot branch of ``_citation_key_hash`` (explicit ``candidate_snapshot``).
-
-    Two shapes, not one: "unresolved" is non-hex (fails the character
-    class), "aa11" is valid hex but short (fails the length bound) — so
-    this also pins the ``{64}`` bound, not just hex-ness.
-    """
-    source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            '  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"',
-            f'  - "{placeholder}"',
-        )
-    )
+    monkeypatch.setattr(verify, "_note_bytes", never)
+    assert _citation_key_hash(net_vault, "smith2020") == witness
     candidate_snapshot = gitstate.snapshot_worktree(net_vault)
-    claim_outcome = _outcome(
-        "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
+    assert (
+        _citation_key_hash(
+            net_vault, "smith2020", candidate_snapshot=candidate_snapshot
+        )
+        == witness
     )
-    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
-    result = _target_hash(
-        net_vault, claim_outcome, candidate_snapshot=candidate_snapshot
-    )
-    assert result != placeholder
-    assert result == expected
 
 
-def test_ack_hash_falls_through_when_fixity_is_empty_list(net_vault):
-    """A present-but-empty ``fixity-sha256`` list — the shape Task 17's side
-    (a) now writes when every attachment fails to resolve — falls through to
-    the managed-bytes hash on both ``_citation_key_hash`` branches, same as an
-    absent key.
+@pytest.mark.parametrize("placeholder", ["unresolved", "aa11"])
+def test_malformed_managed_sha256_falls_through_to_the_note_bytes_digest(
+    net_vault, placeholder
+):
+    """Two shapes, not one: "unresolved" is non-hex (fails the character
+    class), "aa11" is valid hex but short (fails the length bound) — so this
+    pins the ``{64}`` bound on both `_citation_key_hash` branches, and that a
+    witness capture did not write never becomes an ack scope.
     """
     source = net_vault / "literatures" / "smith2020.md"
+    text = source.read_text()
     source.write_text(
-        source.read_text().replace(
-            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
-            "fixity-sha256:\n",
+        must_replace(
+            text,
+            f'managed-sha256: "{notes.body_sha256(text)}"',
+            f'managed-sha256: "{placeholder}"',
         )
     )
     claim_outcome = _outcome(
         "quote", "smith2020#^c-11111111", Result.UNMATCHED, "mismatch — quote"
     )
     expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    assert expected != placeholder
     assert _target_hash(net_vault, claim_outcome) == expected
     candidate_snapshot = gitstate.snapshot_worktree(net_vault)
     assert (
@@ -718,15 +696,14 @@ def test_marker_clear_uses_exact_origin_and_citation_key_claim_collection(net_va
     )
 
 
-def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substantive(
+def test_unwitnessed_note_hash_ignores_events_but_markers_and_content_are_substantive(
     net_vault,
 ):
+    """The `_note_bytes` fallback, for a note capture never wrote: verifier
+    events are not content, everything else is."""
     source = net_vault / "literatures" / "smith2020.md"
-    text = source.read_text().replace(
-        'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
-        "",
-    )
-    source.write_bytes(text.replace("\n", "\r\n").encode())
+    text = _without_witness(source.read_text())
+    source.write_bytes(must_replace(text, "\n", "\r\n", -1).encode())
     outcome = _outcome(
         "quote",
         "smith2020#^c-11111111",
@@ -765,13 +742,19 @@ def test_no_attachment_hash_ignores_events_but_markers_and_content_are_substanti
         net_vault, outcome.check, outcome.target, current_hash=marked_hash
     )
 
-    source.write_bytes(after_effects.replace(b"Mortality fell", b"Mortality rose", 1))
-    assert _target_hash(net_vault, outcome) != original
+    source.write_bytes(
+        must_replace(
+            after_effects.decode(), "Mortality fell", "Mortality rose"
+        ).encode()
+    )
+    assert _target_hash(net_vault, outcome) != marked_hash
 
     source.write_bytes(
-        after_effects.replace(b'status: "included"', b'status: "deprecated"')
+        must_replace(
+            after_effects.decode(), "zotero-item-version: 12", "zotero-item-version: 13"
+        ).encode()
     )
-    assert _target_hash(net_vault, outcome) != original
+    assert _target_hash(net_vault, outcome) != marked_hash
 
 
 def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
@@ -902,23 +885,10 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
     assert note.read_text() == original
 
 
-def test_no_attachment_acknowledged_warning_stays_suppressed_across_effects(
+def test_acknowledged_warning_stays_suppressed_across_effects(
     net_vault, monkeypatch, capsys
 ):
     source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
-            "",
-        )
-    )
-    # Committed so `lint_evidence_layer`'s base and candidate agree on the
-    # missing fixity-sha256 — this test exercises warning suppression, not
-    # the machine-owned-frontmatter guard.
-    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
-    )
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -1190,16 +1160,6 @@ def _isolate_network_verify(monkeypatch, outcomes):
         monkeypatch.setattr(f"research_vault.lints.{name}", lambda *_args: [])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "open point 07 (decision 21, Task 18): `_citation_key_hash` still falls "
-        "back to the `_note_bytes` digest, which the blocking retraction's own "
-        "`failed-verification` frontmatter write moves before the next run, so the "
-        "retraction ack cannot match; `managed-sha256` as the scope closes this — "
-        "drop the marker."
-    ),
-)
 def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     net_vault, monkeypatch, capsys
 ):
@@ -1303,7 +1263,13 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
         == 0
     )
     assert "retracted — retraction" not in capsys.readouterr().out
-    assert not inbox.open_entries(net_vault)
+    # The lifecycle leg files its own outage under the offline suite's socket
+    # guard; the notices are what this test closes.
+    assert not [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == "update-notice"
+    ]
 
 
 def _projecting_failure(check):
@@ -1337,22 +1303,19 @@ def _projecting_failure(check):
     "reverse", [False, True], ids=["primary-first", "primary-last"]
 )
 @pytest.mark.parametrize("check", ["update-notice", "quote"])
-def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
+def test_unwitnessed_note_target_hashes_are_candidate_bound_before_projection(
     net_vault, monkeypatch, check, reverse
 ):
-    source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
-            "",
-        )
-    )
+    # A note capture never wrote takes the `_note_bytes` fallback, which
+    # projection's own writes move; the witness capture writes would not.
     # Committed so `lint_evidence_layer`'s base and candidate agree on the
-    # missing fixity-sha256 — this test exercises candidate-bound hashing, not
-    # the machine-owned-frontmatter guard.
+    # missing managed-sha256 — this test exercises candidate-bound hashing,
+    # not the machine-owned-frontmatter guard.
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
+        ["git", "commit", "-q", "-m", "drop managed-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
     companion = _outcome(
@@ -1380,22 +1343,19 @@ def test_no_fixity_target_hashes_are_candidate_bound_before_projection(
 
 
 @pytest.mark.parametrize("check", ["update-notice", "quote"])
-def test_no_fixity_acknowledgment_is_decided_from_candidate_before_projection(
+def test_unwitnessed_note_acknowledgment_is_decided_from_candidate_before_projection(
     net_vault, monkeypatch, check
 ):
-    source = net_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace(
-            'fixity-sha256:\n  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"\n',
-            "",
-        )
-    )
+    # A note capture never wrote takes the `_note_bytes` fallback, which
+    # projection's own writes move; the witness capture writes would not.
     # Committed so `lint_evidence_layer`'s base and candidate agree on the
-    # missing fixity-sha256 — this test exercises candidate-bound hashing, not
-    # the machine-owned-frontmatter guard.
+    # missing managed-sha256 — this test exercises candidate-bound hashing,
+    # not the machine-owned-frontmatter guard.
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "drop fixity-sha256"], cwd=net_vault, check=True
+        ["git", "commit", "-q", "-m", "drop managed-sha256"], cwd=net_vault, check=True
     )
     primary = _projecting_failure(check)
     companion = _outcome(
@@ -2025,3 +1985,187 @@ def test_network_outcomes_carry_only_update_notice(net_vault, monkeypatch):
     assert [outcome.check for outcome in offline] == ["update-notice"]
     assert offline[0].extra["synthetic_offline"] is True
     assert "doi" not in verify.CLOSING_BY_SURFACE["publish"]
+
+
+def test_ack_scope_hash_is_the_notes_managed_sha256(fixture_vault):
+    from research_vault import frontmatter, verify
+
+    digest = verify._citation_key_hash(fixture_vault, "smith2020")
+    data, _ = frontmatter.parse(
+        (fixture_vault / "literatures" / "smith2020.md").read_text()
+    )
+    assert (
+        digest == data["managed-sha256"]
+    )  # open point 07: the body hash capture writes, never a hash passed by hand
+
+
+def test_ack_scope_is_derived_and_lapses_when_the_body_moves(fixture_vault, capsys):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    target = "fabricated2020#^c-77777777"
+    expected = hashlib.sha256(
+        b"citation-key\x00" + target.encode() + b"\x00" + b"a" * 64
+    ).hexdigest()
+    assert inbox.scope_id("citation-key", target, "a" * 64) == expected
+    assert inbox.scope_id("citation-key", target, "b" * 64) != expected
+    assert (
+        cli.main(
+            [
+                "finding",
+                "citation-key",
+                target,
+                "UNMATCHED",
+                "mismatch — not in bibliography",
+                "--vault",
+                str(fixture_vault),
+                "--date",
+                "2026-09-07",
+                "--target-hash",
+                "a" * 64,
+            ]
+        )
+        == 0
+    )
+    finding_id = capsys.readouterr().out.strip()
+    assert (
+        cli.main(
+            [
+                "ack",
+                finding_id,
+                "--vault",
+                str(fixture_vault),
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    assert inbox.is_acknowledged(fixture_vault, "citation-key", target, "a" * 64)
+    assert not inbox.is_acknowledged(
+        fixture_vault, "citation-key", target, "b" * 64
+    )  # the body moved: the finding re-fires
+
+
+def test_as_of_pins_the_instant_a_check_compares_against(fixture_vault, capsys):
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    assert (
+        cli.main(
+            [
+                "finding",
+                "citation-key",
+                "fabricated2020#^c-77777777",
+                "UNMATCHED",
+                "mismatch — not in bibliography",
+                "--vault",
+                str(fixture_vault),
+                "--date",
+                "2026-09-07",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert inbox.summary(fixture_vault, as_of="2026-09-10")["oldest_age_days"] == 3
+    assert (
+        cli.main(["inbox", "--vault", str(fixture_vault), "--as-of", "2026-09-10"]) == 0
+    )
+    assert '"oldest_age_days": 3' in capsys.readouterr().out
+    assert (
+        cli.main(
+            [
+                "verify",
+                "--vault",
+                str(fixture_vault),
+                "--offline",
+                "--as-of",
+                "2026-13-01",
+            ]
+        )
+        == 2
+    )
+    assert "--as-of must be YYYY-MM-DD" in capsys.readouterr().err
+
+
+def test_ack_clears_the_failed_verification_marker(fixture_vault, monkeypatch, capsys):
+    import research_vault.__main__ as cli
+
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    text = must_replace(
+        draft.read_text(),
+        "- (inference) This will replicate [@fabricated2020] ^c-77777777",
+        "- (inference) This will replicate [@fabricated2020] [failed-verification:: citation-key/2026-09-07] ^c-77777777",
+    )
+    draft.write_text(text)
+    assert (
+        cli.main(
+            [
+                "finding",
+                "citation-key",
+                "fabricated2020#^c-77777777",
+                "UNMATCHED",
+                "mismatch — not in bibliography",
+                "--vault",
+                str(fixture_vault),
+                "--date",
+                "2026-09-07",
+            ]
+        )
+        == 0
+    )
+    finding_id = capsys.readouterr().out.strip()
+    assert (
+        cli.main(
+            [
+                "ack",
+                finding_id,
+                "--vault",
+                str(fixture_vault),
+                "--reason",
+                "manual — known",
+                "--actor",
+                "human:eran",
+            ]
+        )
+        == 0
+    )
+    assert "[failed-verification::" not in draft.read_text()
+
+
+def test_clear_marker_for_clears_a_file_target_and_refuses_other_shapes(net_vault):
+    """The `path-bytes:` shape names the file itself; a target that is neither
+    a claim nor a repo path clears nothing and says so."""
+    from research_vault.verify import clear_marker_for
+
+    draft = net_vault / "projects" / "brief" / "draft.md"
+    line_no = next(
+        number
+        for number, line in enumerate(draft.read_text().splitlines(), start=1)
+        if "This will replicate" in line
+    )
+    outcome = _outcome(
+        "quote",
+        "smith2020",
+        Result.UNMATCHED,
+        "schema-violation — quote claim has no anchor",
+        note_path="projects/brief/draft.md",
+        line_no=line_no,
+    )
+    _mutate_marker(net_vault, outcome, "2026-08-16")
+    assert "[failed-verification:: quote/2026-08-16]" in draft.read_text()
+
+    assert clear_marker_for(net_vault, "citation-key", "smith2020") is False
+    assert (
+        clear_marker_for(
+            net_vault, "citation-key", "path-bytes:projects/brief/draft.md"
+        )
+        is False
+    )  # another check's marker is not this acknowledgment's to clear
+    assert "[failed-verification:: quote/2026-08-16]" in draft.read_text()
+    assert clear_marker_for(net_vault, "quote", "path-bytes:projects/brief/draft.md")
+    assert "[failed-verification::" not in draft.read_text()
+    assert draft.read_text().endswith("[@fabricated2020] ^c-77777777\n")

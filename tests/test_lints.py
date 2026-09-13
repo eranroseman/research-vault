@@ -4,6 +4,7 @@ import subprocess
 import pytest
 
 from research_vault import Result, frontmatter, gitstate, lints, notes
+from tests.conftest import must_replace
 
 
 def test_all_clean_on_fixture(fixture_vault):
@@ -312,7 +313,7 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
         ["git", "commit", "-m", "stamp failure"], cwd=fixture_vault, check=True
     )
     note.write_text(
-        note.read_text().replace("[failed-verification:: quote/2026-08-16] ", "")
+        must_replace(note.read_text(), "[failed-verification:: quote/2026-08-16] ", "")
     )
 
     assert lints.lint_claim_immutability(fixture_vault) == []
@@ -330,7 +331,8 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vau
         ["git", "commit", "-m", "stamp failure"], cwd=fixture_vault, check=True
     )
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "[failed-verification:: quote/2026-08-16]",
             "[failed-verification:: citation-key/2026-08-17]",
         )
@@ -433,7 +435,7 @@ def test_published_drift_includes_untracked_files(fixture_vault):
     )
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
         + "\nnew paragraph after publishing\n"
     )
     (draft.parent / "untracked.md").write_text("new material\n")
@@ -448,7 +450,7 @@ def test_published_drift_includes_untracked_files(fixture_vault):
 def test_published_drift_catches_tracked_changes_after_a_published_tag(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -471,7 +473,7 @@ def test_published_drift_reports_wholly_deleted_effort_from_prior_published_stat
 ):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -500,7 +502,7 @@ def test_published_drift_leaves_the_unwatched_statuses_alone(fixture_vault, stat
     """
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', f'status: "{status}"')
+        must_replace(draft.read_text(), 'status: "draft"', f'status: "{status}"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -519,7 +521,7 @@ def test_published_drift_leaves_the_unwatched_statuses_alone(fixture_vault, stat
 def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -680,7 +682,7 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
 ):
     source = fixture_vault / "literatures" / "smith2020.md"
     source.write_text(
-        source.read_text().replace('managed-sha256: "', 'managed-sha256: "A', 1)
+        must_replace(source.read_text(), 'managed-sha256: "', 'managed-sha256: "A')
     )
     candidate = gitstate.snapshot_worktree(fixture_vault)
 
@@ -698,15 +700,17 @@ def _hand_edit_machine_owned_key(text: str, key: str) -> str:
         digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
         return text.replace(digest, "b" * 64, 1)
     if key == "zotero-item-version":
-        return text.replace("zotero-item-version: 12", "zotero-item-version: 13", 1)
+        return must_replace(text, "zotero-item-version: 12", "zotero-item-version: 13")
     if key == "generated":
-        return text.replace(
+        return must_replace(
+            text,
             'generated: {by: "research_vault/0.1.0"',
             'generated: {by: "human:hand-edit"',
-            1,
         )
     if key == "citationKey":
-        return text.replace('citationKey: "smith2020"', 'citationKey: "smith2020x"', 1)
+        return must_replace(
+            text, 'citationKey: "smith2020"', 'citationKey: "smith2020x"'
+        )
     raise ValueError(key)
 
 
@@ -769,13 +773,13 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
         capture_output=True,
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
-    edited = source.read_text().replace(
-        'citationKey: "smith2020"', 'citationKey: "smith2020x"', 1
+    edited = must_replace(
+        source.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020x"'
     )
-    edited = edited.replace(
+    edited = must_replace(
+        edited,
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
         malformed_generated,
-        1,
     )
     source.write_text(edited)
 
@@ -797,10 +801,10 @@ def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vau
     """
     source = fixture_vault / "literatures" / "smith2020.md"
     source.write_text(
-        source.read_text().replace(
+        must_replace(
+            source.read_text(),
             'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
             'generated: "junk-one"',
-            1,
         )
     )
     subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
@@ -817,8 +821,8 @@ def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vau
         capture_output=True,
     ).stdout.strip()
 
-    edited = source.read_text().replace(
-        'generated: "junk-one"', 'generated: "junk-two"', 1
+    edited = must_replace(
+        source.read_text(), 'generated: "junk-one"', 'generated: "junk-two"'
     )
     source.write_text(edited)
 
@@ -841,11 +845,11 @@ def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_va
     """
     source = fixture_vault / "literatures" / "smith2020.md"
     original = source.read_text()
-    malformed = original.replace(
+    malformed = must_replace(
+        original,
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "  bad: nested\n---\n",
-        1,
     )
     with pytest.raises(frontmatter.FrontmatterError):
         frontmatter.parse(malformed)
@@ -888,11 +892,11 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
     """
     source = fixture_vault / "literatures" / "smith2020.md"
     original = source.read_text()
-    malformed = original.replace(
+    malformed = must_replace(
+        original,
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "  bad: nested\n---\n",
-        1,
     )
     source.write_text(malformed)
     subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)

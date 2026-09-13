@@ -14,7 +14,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import AGENT_ACTOR, frontmatter, inbox
+from . import AGENT_ACTOR, clock, frontmatter, inbox
 from .appendlog import (
     _FIELD,
     _serialize,
@@ -75,12 +75,7 @@ def _validate_hits(value) -> int:
 
 
 def _resolved_date(date) -> str:
-    return _validate_date(
-        "date",
-        datetime.datetime.now(datetime.UTC).date().isoformat()
-        if date is None
-        else date,
-    )
+    return _validate_date("date", clock.today() if date is None else date)
 
 
 def search_log_path(vault, project) -> Path:

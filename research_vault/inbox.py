@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from . import AGENT_ACTOR, frontmatter
+from . import AGENT_ACTOR, clock, frontmatter
 from .appendlog import (
     _FIELD,
     _serialize,
@@ -289,6 +289,14 @@ def _prepare_append(vault) -> tuple[Path, bool]:
     return queue, created
 
 
+def scope_id(check: str, target: str, target_hash: str | None) -> str:
+    """Open point 07: an acknowledgment's identity is derived, never passed."""
+    parts = (check, str(target), target_hash or "")
+    return hashlib.sha256(
+        b"\x00".join(part.encode("utf-8") for part in parts)
+    ).hexdigest()
+
+
 def finding_id(
     check,
     target,
@@ -343,12 +351,7 @@ def append_entry(
     validate_reason(reason)
     actor = _validate_text("actor", actor)
     target_hash = _validate_optional_text("target_hash", target_hash)
-    date = _validate_date(
-        "date",
-        datetime.datetime.now(datetime.UTC).date().isoformat()
-        if date is None
-        else date,
-    )
+    date = _validate_date("date", clock.today() if date is None else date)
     notice_class, notice_type, notice_date, detection_date = (
         _validate_notice_fingerprint(
             check,
@@ -670,14 +673,16 @@ def _scope_acknowledged(entries: list[Finding], finding: Finding) -> bool:
             and ack.target_hash == finding.target_hash
             for ack in entries
         )
+    # The standing scope is one derived id (open point 07): a changed target
+    # hash yields a different scope id, the ack stops matching and the finding
+    # re-fires, with no comparison logic to get wrong.
+    wanted = scope_id(finding.check, finding.target, finding.target_hash)
     scope_ids = {
         entry.id
         for entry in entries
         if entry.ack_of is None
-        and entry.check == finding.check
-        and entry.target == finding.target
         and entry.target_kind == finding.target_kind
-        and entry.target_hash == finding.target_hash
+        and scope_id(entry.check, entry.target, entry.target_hash) == wanted
         and (
             finding.check != "update-notice"
             or (entry.notice_class, entry.notice_type, entry.notice_date) == fingerprint
@@ -686,7 +691,7 @@ def _scope_acknowledged(entries: list[Finding], finding: Finding) -> bool:
     return any(
         ack.ack_of in scope_ids
         and ack.actor.startswith("human:")
-        and ack.target_hash == finding.target_hash
+        and scope_id(finding.check, finding.target, ack.target_hash) == wanted
         and (
             finding.check != "update-notice"
             or (ack.notice_class, ack.notice_type, ack.notice_date) == fingerprint
@@ -752,18 +757,19 @@ def open_entries(vault) -> list[Finding]:
     ]
 
 
-def summary(vault) -> dict:
+def summary(vault, as_of: str | None = None) -> dict:
     """Return the count and age basis used by inbox orientation surfaces.
 
     SKIPPED findings stay in ``open_entries()`` — verify's dedup keys off
     that list to avoid re-filing them — but are excluded from the count and
     age basis returned here.
 
-    ``oldest_age_days`` is the whole number of days between today (UTC) and
-    ``oldest``, derived from that same filtered basis — supplying the fact
-    so a caller never has to do this date math itself. It is ``None`` exactly
-    when ``oldest`` is ``None`` (nothing unacknowledged to age); a freshly
-    filed entry reports ``0``, not ``None``.
+    ``oldest_age_days`` is the whole number of days between the instant the
+    check compares against — ``as_of``, else today (UTC), through
+    ``clock.today`` (decision 28) — and ``oldest``, derived from that same
+    filtered basis — supplying the fact so a caller never has to do this date
+    math itself. It is ``None`` exactly when ``oldest`` is ``None`` (nothing
+    unacknowledged to age); a freshly filed entry reports ``0``, not ``None``.
     """
     entries = [
         entry for entry in open_entries(vault) if entry.result != Result.SKIPPED.value
@@ -773,7 +779,7 @@ def summary(vault) -> dict:
         None
         if oldest is None
         else (
-            datetime.datetime.now(datetime.UTC).date()
+            datetime.date.fromisoformat(clock.today(as_of))
             - datetime.date.fromisoformat(oldest)
         ).days
     )

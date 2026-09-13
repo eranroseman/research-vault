@@ -1,7 +1,6 @@
 """CLI surface consumed by hooks (Plan C) and skills (Plan D)."""
 
 import argparse
-import datetime
 import json
 import sys
 from pathlib import Path
@@ -11,6 +10,7 @@ from . import (
     Result,
     bibliography,
     capture,
+    clock,
     events,
     factcheck,
     frontmatter,
@@ -32,6 +32,7 @@ from .verify import (
     CLOSING_BY_SURFACE,
     DEFAULT_BASE,
     _read_note_text,
+    clear_marker_for,
     surface_decision,
     verify_state,
 )
@@ -234,12 +235,25 @@ def cmd_propagate(args):
     return worst
 
 
+def _as_of(args) -> str | None:
+    """Resolve --as-of once, before any work; a malformed value is exit 2, never today."""
+    try:
+        return clock.today(getattr(args, "as_of", None))
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return None
+
+
 def cmd_verify(args):
     surface = getattr(args, "surface", "audit")
+    as_of = _as_of(args)
+    if as_of is None:
+        return 2
     try:
         report, effective, _hashes, warning_effective = verify_state(
             args.vault,
             network=not args.offline,
+            detection_date=as_of,
             rw_csv=args.rw_csv,
             base=getattr(args, "base", DEFAULT_BASE),
             git_base=getattr(args, "git_base", None),
@@ -421,6 +435,9 @@ def cmd_ack(args):
     except (inbox.InboxError, ValueError, OSError) as error:
         print(f"acknowledgment refused: {error}", file=sys.stderr)
         return 2
+    acked = next((f for f in inbox.load(args.vault) if f.id == args.finding), None)
+    if acked is not None and clear_marker_for(args.vault, acked.check, acked.target):
+        print(f"cleared [failed-verification:: {acked.check}] on {acked.target}")
     print(entry.id)
     return 0
 
@@ -465,9 +482,7 @@ def record_finding(
     except ValueError as error:
         return 2, str(error)
     actor = AGENT_ACTOR if actor is None else actor
-    resolved_date = (
-        datetime.datetime.now(datetime.UTC).date().isoformat() if date is None else date
-    )
+    resolved_date = clock.today() if date is None else date
     try:
         candidate_id = inbox.finding_id(
             check,
@@ -619,7 +634,10 @@ def cmd_search_log(args):
 
 
 def cmd_inbox(args):
-    print(json.dumps(inbox.summary(args.vault), sort_keys=True))
+    as_of = _as_of(args)
+    if as_of is None:
+        return 2
+    print(json.dumps(inbox.summary(args.vault, as_of=as_of), sort_keys=True))
     for entry in sorted(
         inbox.open_entries(args.vault), key=lambda item: (item.date, item.id)
     ):
@@ -710,6 +728,7 @@ def main(argv=None):
     )
     verify.add_argument("--changed-paths-file")
     verify.add_argument("--commit-projected")
+    verify.add_argument("--as-of", metavar="YYYY-MM-DD")
     factcheck_cmd = sub.add_parser("factcheck", parents=[common])
     factcheck_cmd.add_argument("--vault", required=True)
     factcheck_cmd.add_argument("--draft", required=True)
@@ -760,6 +779,7 @@ def main(argv=None):
     search_log.add_argument("--actor")
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
+    review_inbox.add_argument("--as-of", metavar="YYYY-MM-DD")
     scaffold_vault = sub.add_parser("scaffold", parents=[common])
     scaffold_vault.add_argument("--vault", required=True)
     scaffold_vault.add_argument("--with-ci", action="store_true")

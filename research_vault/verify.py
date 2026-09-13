@@ -4,7 +4,6 @@ Extracted from ``__main__`` so hooks and tests consume a public seam rather
 than the CLI entrypoint's private names.
 """
 
-import datetime
 import hashlib
 import json
 import os
@@ -19,6 +18,7 @@ from . import (
     bibliography,
     captured,
     checks,
+    clock,
     events,
     frontmatter,
     gitstate,
@@ -214,7 +214,22 @@ def _note_for_citation_key(vault_root, citation_key):
     return _safe_relative(vault, encode_repo_path(raw_path), "repo-path")
 
 
+def _managed_witness(data) -> str | None:
+    """The note's ``managed-sha256`` when capture wrote a well-formed one."""
+    value = data.get("managed-sha256")
+    if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value):
+        return value
+    return None
+
+
 def _citation_key_hash(vault_root, citation_key, candidate_snapshot=None):
+    """The scope a note-targeted finding is acknowledged against (open point 07).
+
+    The note's ``managed-sha256`` is the body hash capture writes, so an ack
+    survives a frontmatter-only change and lapses when the body moves
+    (decision 21). The ``_note_bytes`` digest is the fallback only for a note
+    capture never wrote.
+    """
     if candidate_snapshot is not None:
         try:
             candidate = notes.note_path(Path(vault_root), citation_key)
@@ -229,11 +244,9 @@ def _citation_key_hash(vault_root, citation_key, candidate_snapshot=None):
             data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))
         except (UnicodeError, frontmatter.FrontmatterError):
             data = {}
-        attachment_hashes = data.get("fixity-sha256")
-        if isinstance(attachment_hashes, list) and attachment_hashes:
-            first = attachment_hashes[0]
-            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
-                return first
+        witness = _managed_witness(data)
+        if witness is not None:
+            return witness
         return hashlib.sha256(_note_bytes(raw)).hexdigest()[:16]
     note = _note_for_citation_key(vault_root, citation_key)
     if note and note.is_file():
@@ -241,11 +254,9 @@ def _citation_key_hash(vault_root, citation_key, candidate_snapshot=None):
             data, _ = frontmatter.parse(_read_note_text(note))
         except (OSError, UnicodeError, frontmatter.FrontmatterError):
             data = {}
-        attachment_hashes = data.get("fixity-sha256")
-        if isinstance(attachment_hashes, list) and attachment_hashes:
-            first = attachment_hashes[0]
-            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
-                return first
+        witness = _managed_witness(data)
+        if witness is not None:
+            return witness
         return hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
     return None
 
@@ -262,9 +273,9 @@ def _claim_anchor_hash(
 ):
     """The identity of a ``citation-key#^claim`` target, or None if its bytes are gone.
 
-    The citation key's own recorded fixity wins where the note declares a
-    validly-shaped digest; a note with no fixity, an empty list, or a value
-    that doesn't look like a digest is treated as not declaring one at all.
+    The cited note's own ``managed-sha256`` wins where the note carries a
+    validly-shaped one (open point 07); a note with none, or a value that
+    doesn't look like a digest, hashes as ``_citation_key_hash``'s fallback.
     Failing that, the claim's bytes are read from whichever plane still
     holds them — candidate image, worktree note, base image or HEAD, then
     the citation key's note. None is not an error here: it means no plane holds
@@ -422,12 +433,12 @@ def _identifier_hash(
     """The identity of a bare identifier: its note where one exists, else its entry.
 
     A note is preferred over a bibliography entry wherever the identifier has
-    one — a validly-shaped recorded fixity digest first, then candidate
-    image, worktree, base image or HEAD — so an identifier and the note
-    carrying it never disagree about what was acknowledged. A note whose
-    fixity is absent, empty, or not digest-shaped falls through the same as
-    one with none recorded. Only an identifier with no note at all falls
-    through to the canonical bibliography record.
+    one — its validly-shaped ``managed-sha256`` first, then candidate image,
+    worktree, base image or HEAD — so an identifier and the note carrying it
+    never disagree about what was acknowledged. A note whose witness is absent
+    or not digest-shaped falls through the same as one with none recorded.
+    Only an identifier with no note at all falls through to the canonical
+    bibliography record.
     """
     known_citation_key_hash = _citation_key_hash(
         vault_root, target, candidate_snapshot=candidate_snapshot
@@ -607,6 +618,54 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
                 lines[index] = replacement
                 _write_note_text(path, "".join(lines))
             break
+
+
+def clear_marker_for(vault_root, check: str, target: str) -> bool:
+    """Open point 09: a human acknowledgment stands the marker down.
+
+    A ``<citation key>#^<claim id>`` target names the cited note, or, when no
+    such note exists, every project note carrying the anchor; a
+    ``path-bytes:`` target names the file itself. Returns whether a
+    ``[failed-verification:: <check>/<date>]`` marker was removed.
+    """
+    vault = Path(vault_root)
+    claim_id: str | None = None
+    if "#^" in target:
+        citation_key, claim_id = target.split("#^", 1)
+        note = _note_for_citation_key(vault, citation_key)
+        candidates = (
+            [note]
+            if note and note.is_file()
+            else sorted((vault / "projects").rglob("*.md"))
+        )
+    elif target.startswith("path-bytes:"):
+        candidates = [_safe_relative(vault, target, "repo-path")]
+    else:
+        return False
+    pattern = _terminal_marker_pattern(check, claim_id)
+    cleared = False
+    for path in candidates:
+        if path is None or not path.is_file():
+            continue
+        lines = _read_note_text(path).splitlines(keepends=True)
+        changed = False
+        for index, line in enumerate(lines):
+            content, ending = _split_line_ending(line)
+            if (
+                claim_id is not None
+                and _terminal_anchor_match(content, claim_id) is None
+            ):
+                continue
+            # `_mutate_marker`'s clear substitution: the pattern's lookahead keeps
+            # the anchor, and the single space closes the gap the marker left.
+            replacement = pattern.sub(" " if isinstance(claim_id, str) else "", content)
+            if replacement != content:
+                lines[index] = replacement + ending
+                changed = True
+        if changed:
+            _write_note_text(path, "".join(lines))
+            cleared = True
+    return cleared
 
 
 _ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
@@ -900,9 +959,7 @@ def _plan_state(
     """
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
-    detection_date = (
-        detection_date or datetime.datetime.now(datetime.UTC).date().isoformat()
-    )
+    detection_date = detection_date or clock.today()
     raw = []
     try:
         bibliography_universe = bibliography.load(vault)

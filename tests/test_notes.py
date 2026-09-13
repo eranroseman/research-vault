@@ -6,6 +6,7 @@ import json
 import pytest
 
 from research_vault import AGENT_ACTOR, Result, frontmatter, notes
+from tests.conftest import must_replace
 from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM
 
 LITERATURE = '---\ncitationKey: "smith2020"\ntype: "literature"\n'
@@ -124,11 +125,11 @@ def test_generated_metadata_is_substantive_canonical_content():
 
 def test_content_changed_compares_only_the_verifier_owned_surface():
     base = _note()
-    verified = base.replace(
+    verified = must_replace(
+        base,
         "---\n# Mortality decline\n",
         'verified:\n  - {by: "bot", at: "2026-08-16", check: "quote"}\n'
         "---\n# Mortality decline\n",
-        1,
     )
     changed = _note(body="# Updated title\n")
 
@@ -147,9 +148,9 @@ status: "included"
 - (quote) text [failed-verification:: quote/2026-08-16] ^c-1
 plain [failed-verification:: quote/2026-08-16]
 """
-    changed_events = base.replace('check: "doi"', 'check: "metadata"')
+    changed_events = must_replace(base, 'check: "doi"', 'check: "metadata"')
     changed_marker = base.replace("quote/2026-08-16", "quote/2026-08-17", 1)
-    deprecated = base.replace('status: "included"', 'status: "deprecated"')
+    deprecated = must_replace(base, 'status: "included"', 'status: "deprecated"')
 
     assert notes.canonical_content(base) == notes.canonical_content(changed_events)
     assert notes.canonical_content(base) != notes.canonical_content(changed_marker)
@@ -194,10 +195,10 @@ reason: ""
 body
 """
     transitions = [
-        base.replace('status: "included"', 'status: "deprecated"'),
-        base.replace('deprecated-at: ""', 'deprecated-at: "2026-08-16"'),
-        base.replace('deprecated-by: ""', 'deprecated-by: "human:eran"'),
-        base.replace('reason: ""', 'reason: "superseded source"'),
+        must_replace(base, 'status: "included"', 'status: "deprecated"'),
+        must_replace(base, 'deprecated-at: ""', 'deprecated-at: "2026-08-16"'),
+        must_replace(base, 'deprecated-by: ""', 'deprecated-by: "human:eran"'),
+        must_replace(base, 'reason: ""', 'reason: "superseded source"'),
     ]
 
     assert all(notes.content_changed(base, changed) for changed in transitions)
@@ -549,10 +550,10 @@ def test_compiled_pages_schema_conformant_empty_ledger_is_the_one_true_empty(
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
     first = _render()
-    with_events = first.replace(
+    with_events = must_replace(
+        first,
         "---\n## Item",
         'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-07", check: "update-notice"}\n---\n## Item',
-        1,
     )
     second = notes.render_note(
         ITEM["data"],
