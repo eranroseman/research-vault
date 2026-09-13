@@ -637,3 +637,32 @@ def test_linked_attachment_says_it_has_no_fixity():
     assert data["attachments"][0]["md5"] == "absent"
     assert "compile-input-sha256" not in data
     assert "- LINK0001 — linked, no fixity" in body
+
+
+def test_canonical_content_excludes_the_verifier_owned_failure_rows():
+    """The `failed-verification` list `events.record_failure` writes and
+    `record_pass` removes is the tool's own record, excluded from the scope
+    exactly as `verified` events are (Task 18 round 3, ruling 10); a row that
+    fails the verifier-owned shape stays byte for byte, as today."""
+    from research_vault import events
+
+    base = _note()
+    failed = events.record_failure(base, "doi", Result.UNMATCHED)
+    passed = events.record_pass(failed, "doi", Result.MATCHED, at="2026-08-16")
+    assert failed != base
+    assert passed != failed
+    assert notes.canonical_content(failed) == notes.canonical_content(base)
+    assert notes.canonical_content(passed) == notes.canonical_content(base)
+    assert notes.content_changed(base, failed) is False
+
+    hand_written = must_replace(
+        failed,
+        'failed-verification:\n  - {check: "doi", result: "UNMATCHED"}\n',
+        'failed-verification:\n  - {check: "doi", result: "MATCHED"}\n',
+    )
+    assert notes.canonical_content(hand_written) == hand_written
+
+    body = "- (quote) body ^c-1\n"
+    enveloped = events.record_failure(body, "doi", Result.UNMATCHED)
+    assert enveloped.startswith("---\nfailed-verification:\n")
+    assert notes.canonical_content(enveloped) == body

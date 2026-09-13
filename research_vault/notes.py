@@ -201,7 +201,17 @@ def content_changed(existing_text, candidate_text) -> bool:
 
 
 def canonical_content(note_text: str) -> str:
-    """Exclude only a valid verifier-owned ``verified`` event list."""
+    """Exclude only the valid verifier-owned lists: ``verified`` events and
+    ``failed-verification`` rows.
+
+    Both are verify's own writes — ``events.record_pass`` mints the one and
+    removes the other's row, ``events.record_failure`` upserts the other — so
+    neither is what the person wrote, and neither moves an acknowledgment scope
+    or a render-compare (Task 18 round 3, ruling 10). A list that fails its
+    verifier-owned shape test — ``_valid_event`` for events, ``_failure_rows``
+    for rows — is hand-written as far as this reader knows and stays byte for
+    byte, as does a duplicated or non-list-looking header.
+    """
     close, lines = _frontmatter_close(note_text)
     if close is None:
         return note_text
@@ -212,30 +222,36 @@ def canonical_content(note_text: str) -> str:
         data, _ = frontmatter.parse(note_text)
     except frontmatter.FrontmatterError:
         return note_text
-    from .events import _valid_event
+    from .events import FAILURES_FIELD, _failure_rows, _valid_event
 
-    verified = data.get("verified")
-    valid_verified = isinstance(verified, list) and all(
-        _valid_event(event) for event in verified
-    )
     frontmatter_lines = lines[: close + 1]
     body = "".join(lines[close + 1 :])
-    if not valid_verified:
+    owned: list[int] = []
+    verified = data.get("verified")
+    if isinstance(verified, list) and all(_valid_event(event) for event in verified):
+        index = _owned_list_index(frontmatter_lines, "verified")
+        if index is not None:
+            owned.append(index)
+    failures = data.get(FAILURES_FIELD)
+    if isinstance(failures, list) and failures and not _failure_rows(data)[1]:
+        index = _owned_list_index(frontmatter_lines, FAILURES_FIELD)
+        if index is not None:
+            owned.append(index)
+    if not owned:
         return note_text
-    verified_index = _verified_list_index(frontmatter_lines)
-    if verified_index is None:
-        # A duplicate or non-list-looking lexical definition is not a
-        # verifier-owned surface, even if the permissive flat parser kept a
-        # list under the final key.
-        return note_text
-    if _verified_only_envelope(frontmatter_lines, verified_index):
+    dropped: set[int] = set()
+    for index in owned:
+        dropped.add(index)
+        item = index + 1
+        while item < close and frontmatter_lines[item].startswith("  - "):
+            dropped.add(item)
+            item += 1
+    kept = [line for i, line in enumerate(frontmatter_lines) if i not in dropped]
+    if len(kept) == 2:
+        # Solely the verifier-owned lists: the envelope `record_pass` and
+        # `record_failure` put around a bare body is not content either.
         return body
-    result = frontmatter_lines[:verified_index]
-    index = verified_index + 1
-    while index < close and frontmatter_lines[index].startswith("  - "):
-        index += 1
-    result.extend(frontmatter_lines[index:])
-    return "".join(result) + body
+    return "".join(kept) + body
 
 
 def _frontmatter_close(text: str) -> tuple[int | None, list[str]]:
@@ -249,24 +265,21 @@ def _frontmatter_close(text: str) -> tuple[int | None, list[str]]:
     return -1, lines
 
 
-def _verified_list_index(lines: list[str]) -> int | None:
-    """Find one syntactically top-level ``verified:`` event-list header."""
-    verified_lines = [
-        index for index, line in enumerate(lines[:-1]) if line.startswith("verified:")
+def _owned_list_index(lines: list[str], field: str) -> int | None:
+    """Find one syntactically top-level ``<field>:`` list header.
+
+    A duplicate or non-list-looking lexical definition is not a verifier-owned
+    surface, even if the permissive flat parser kept a list under the final key.
+    """
+    headers = [
+        index for index, line in enumerate(lines[:-1]) if line.startswith(f"{field}:")
     ]
-    if len(verified_lines) != 1:
+    if len(headers) != 1:
         return None
-    index = verified_lines[0]
-    if lines[index].rstrip("\r\n").rstrip(" \t") != "verified:":
+    index = headers[0]
+    if lines[index].rstrip("\r\n").rstrip(" \t") != f"{field}:":
         return None
     return index
-
-
-def _verified_only_envelope(lines: list[str], verified_index: int) -> bool:
-    """Whether frontmatter is solely the valid verifier-owned event list."""
-    return verified_index == 1 and all(
-        line.startswith("  - ") for line in lines[verified_index + 1 : -1]
-    )
 
 
 # --- the record: snapshot, tuple, body (ingest spec §3.2, §3.3 step 5) ---------

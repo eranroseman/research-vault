@@ -1329,10 +1329,11 @@ def test_unwitnessed_note_target_hashes_are_candidate_bound_before_projection(
     net_vault, monkeypatch, check, reverse
 ):
     # A note capture never wrote takes the `_note_bytes` fallback, which
-    # projection's own writes move; the witness capture writes would not.
-    # Committed so `lint_evidence_layer`'s base and candidate agree on the
-    # missing managed-sha256 — this test exercises candidate-bound hashing,
-    # not the machine-owned-frontmatter guard.
+    # ignores projection's own writes — the body marker (ruling 5) and the
+    # frontmatter failure row (ruling 10) — as a witness would. Committed so
+    # `lint_evidence_layer`'s base and candidate agree on the missing
+    # managed-sha256 — this test exercises candidate-bound hashing, not the
+    # machine-owned-frontmatter guard.
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
@@ -1359,7 +1360,7 @@ def test_unwitnessed_note_target_hashes_are_candidate_bound_before_projection(
         if entry.check == check and entry.target == primary.target
     )
 
-    assert projected_hash != candidate_hash
+    assert projected_hash == candidate_hash  # projection is not scope
     assert hashes[id(primary)] == candidate_hash
     assert finding.target_hash == candidate_hash
 
@@ -1369,10 +1370,11 @@ def test_unwitnessed_note_acknowledgment_is_decided_from_candidate_before_projec
     net_vault, monkeypatch, check
 ):
     # A note capture never wrote takes the `_note_bytes` fallback, which
-    # projection's own writes move; the witness capture writes would not.
-    # Committed so `lint_evidence_layer`'s base and candidate agree on the
-    # missing managed-sha256 — this test exercises candidate-bound hashing,
-    # not the machine-owned-frontmatter guard.
+    # ignores projection's own writes — the body marker (ruling 5) and the
+    # frontmatter failure row (ruling 10) — as a witness would. Committed so
+    # `lint_evidence_layer`'s base and candidate agree on the missing
+    # managed-sha256 — this test exercises candidate-bound hashing, not the
+    # machine-owned-frontmatter guard.
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
@@ -1421,7 +1423,7 @@ def test_unwitnessed_note_acknowledgment_is_decided_from_candidate_before_projec
 
     assert hashes[id(primary)] == candidate_hash
     assert primary not in effective
-    assert _target_hash(net_vault, primary) != candidate_hash
+    assert _target_hash(net_vault, primary) == candidate_hash  # projection is not scope
     assert not any(
         entry.check == check and entry.target == primary.target
         for entry in inbox.open_entries(net_vault)
@@ -2485,3 +2487,62 @@ def test_ack_scope_survives_verifys_own_stamp_and_clear(net_vault, capsys):
         for entry in inbox.open_entries(net_vault)
         if entry.check == "citation-key" and entry.target == "fabricated2020"
     ]
+
+
+@pytest.mark.parametrize("check", ["update-notice", "quote"])
+def test_ack_on_an_unwitnessed_note_survives_the_failure_row(
+    net_vault, monkeypatch, capsys, check
+):
+    """The scratch run behind round 3: for a note without a `managed-sha256`
+    the scope hash moved with the frontmatter `failed-verification` row the
+    projection writes, so an ack between two runs was orphaned — a second row,
+    and the outcome effective again. The scope now ignores the tool's own
+    record as it ignores `verified` events (ruling 10); the record stays."""
+    source = net_vault / "literatures" / "smith2020.md"
+    source.write_text(_without_witness(source.read_text()))
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "drop managed-sha256"], cwd=net_vault, check=True
+    )
+    primary = _projecting_failure(check)
+    _isolate_network_verify(monkeypatch, [primary])
+
+    _report, effective, _hashes, _warnings = verify_state(
+        net_vault, network=True, detection_date="2026-08-16"
+    )
+    assert primary in effective
+    assert events.current_failures(source.read_text())  # the record is written
+    rows = [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == check and entry.target == primary.target
+    ]
+    assert len(rows) == 1
+    assert (
+        main(
+            [
+                "ack",
+                rows[0].id,
+                "--vault",
+                str(net_vault),
+                "--reason",
+                "manual — checked",
+                "--actor",
+                "human:test",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    _report, effective, _hashes, _warnings = verify_state(
+        net_vault, network=True, detection_date="2026-08-17"
+    )
+
+    assert primary not in effective
+    assert not [
+        entry
+        for entry in inbox.open_entries(net_vault)
+        if entry.check == check and entry.target == primary.target
+    ]
+    assert events.current_failures(source.read_text())  # ruling 9: ack leaves it
