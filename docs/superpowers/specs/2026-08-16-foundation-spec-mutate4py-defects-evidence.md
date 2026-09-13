@@ -1,6 +1,9 @@
-# mutate4py 0.1.4 — five defects, three on the worker path, plus an off-by-one
+# mutate4py 0.1.4 — five defects, three on the worker path, plus an off-by-one — evidence
 
-Disposition: historical (2026-09-06)
+- **Date:** 2026-08-23
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 ## Summary
 

@@ -1,6 +1,9 @@
-# Pre-slice batch — method retrospective
+# Pre-slice batch — method retrospective — results
 
-Disposition: historical (2026-09-06)
+- **Date:** 2026-08-25
+- **Method:** as the record states below
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — a record of what an execution produced and measured; the spec is the current state
 
 **What this is.** The pre-slice batch (`docs/superpowers/plans/2026-08-22-post-q-batch.md`) ran 26 tasks through a dispatch → review → fix loop. This note records what the *method* produced, not what the tasks did. The tasks are recorded in the plan and in git; the findings below are about how errors were made and caught, and they outlast the batch.
 

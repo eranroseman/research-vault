@@ -22,7 +22,7 @@ plugin — not the vault product it built. Consumers: workload 2 (analysis/repor
 loop), a possible research-vault-as-paper methods section, and the single human author across all of them. Method:
 rethink-audit (requires → prior-art → design → gap → migrate → trade-offs). Primary sources:
 [the process reconstruction](../2026-08-25-plugin-development-process-reconstruction.md),
-[the pre-slice batch method retrospective](../validation-slice/2026-08-25-pre-slice-batch-method-retrospective.md),
+[the pre-slice batch method retrospective](../../superpowers/specs/2026-08-16-foundation-spec-pre-slice-batch-method-results.md),
 [prior art for eight of the process's mechanisms](../prior-art/2026-08-25-ai-agent-process-design-prior-art.md),
 the foundation spec, and `docs/superpowers/plans/2026-08-22-slice-decision-rules.md`.
 

@@ -1,6 +1,9 @@
-# Post-Q batch — independent review of the plan and its SDD ledger
+# Post-Q batch — independent review of the plan and its SDD ledger — results
 
-Disposition: historical (2026-09-06)
+- **Date:** 2026-08-24
+- **Method:** as the record states below
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — a record of what an execution produced and measured; the spec is the current state
 
 Independent reviewer, read-only pass, 2026-08-24. Reviewed: the plan at `origin/main` `ddc43a1` and the SDD ledger on `fix/pre-slice-batch` at tip `ebea360` — **22 commits ahead of `origin/main`, 74 behind**, merge-base `002cb25`. Method: programmatic claim-checking rather than reading and judging — `git rev-list --count` for divergence, `git merge-tree` for conflict prediction, a grep-derived state spine over the 159 KB ledger, artifact counts by `ls | wc -l`, and source reads at named line numbers. Nothing in the repository or the worktree was modified during the pass. Commissioned after the pass: this record, a review of the two unreviewed addenda, and a re-run of the ledger's SHA-walk after the boundary merge.
 
@@ -235,7 +238,7 @@ The ledger is the strongest artifact here. Three things in particular:
 
 Recorded so this pass reads honestly against a tree that moved while it was being written; the findings above stand as observed at `ebea360`/`ddc43a1`.
 
-- **§3.1 acted on.** `f6b7788` `docs: split Part 4 into Plan W (quality tail)` moved Tasks 23–25, 24b, 24c and 24d into `docs/superpowers/plans/2026-08-24-plan-w-quality-tail.md`. The batch drops from 35 tasks to 29, and the header's single-dispatch claim is true again.
+- **§3.1 acted on.** `f6b7788` `docs: split Part 4 into Plan W (quality tail)` moved Tasks 23–25, 24b, 24c and 24d into `docs/superpowers/plans/2026-09-13-plan-w-quality-tail.md`. The batch drops from 35 tasks to 29, and the header's single-dispatch claim is true again.
 - **§3.2 stands.** The header still asserts `- [ ]` tracking; the plan is 109 unchecked / 3 checked, and all three checked boxes are Task 8b's verify-only steps.
 - **A second finding of §2.2's class surfaced while this record was being written.** `750d4c7`
   corrects the plan's Task 4 XML annotation — "no entity expansion" becomes "no EXTERNAL entity

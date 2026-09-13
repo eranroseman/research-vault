@@ -1,13 +1,16 @@
-# Skill inventory gap analysis — scenario walkthroughs + design-draft capability diff
+# Skill inventory gap analysis — scenario walkthroughs + design-draft capability diff — evidence
 
-Disposition: historical (2026-09-06) [should-be-scoping-review]
+- **Date:** 2026-08-16
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Research note, 2026-08-16. Feeds ticket #11 (Foundation skill inventory), Q2: which skills ship.
 Method: (A) six day-one user journeys simulated step-by-step against the candidate set, each step
 tagged `SERVED BY <x>` / `GAP` / `OVERLAP`; (B) every skill/capability in the three design-draft
 lenses (`docs/research/harness-audits/design-drafts/`) diffed against the candidate set and the installed harness.
 Inputs: #7–#10 resolutions, #11 partial resolution (control model = user-driven Pocock, plain
-descriptive names), docs/research/prior-art/adoptable-skills-audit.md, docs/research/prior-art/plugin-packaging-mechanics.md,
+descriptive names), docs/superpowers/specs/2026-08-16-foundation-spec-adoptable-skills-audit-evidence.md, docs/superpowers/specs/2026-08-16-foundation-spec-plugin-packaging-mechanics-evidence.md,
 docs/research/harness-audits/dev-harness-analysis.md. **No decisions here — ticket is HITL; contested points are
 presented as options with recommended defaults.**
 

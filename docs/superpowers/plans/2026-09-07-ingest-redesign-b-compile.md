@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+ stdlib only (`urllib`, `json`, `hashlib`, `html.parser`, `subprocess`, `pathlib`). pytest with `monkeypatch` fakes; two live Zotero 10.0.1 instances (production `localhost:23119`, test `localhost:23129`). No new dependency.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-import-redesign-design.md` (the active spec; §9 is its fact register). Also binding: `docs/superpowers/specs/2026-09-05-assembly-design.md` decisions 12, 17, 22, 28, 29 and §9; ADR 0001–0003.
+**Spec:** `docs/superpowers/specs/2026-09-06-import-redesign-design.md` (the active spec; §9 is its fact register). Also binding: `docs/superpowers/specs/2026-09-05-assembly-design.md` decisions 12, 17, 22, 28, 29 and §9; ADR 0001–0003.
 
 **Prerequisite:** Part A (`docs/superpowers/plans/2026-09-07-ingest-redesign-a-capture.md`) merged to `main`. This part consumes, by name: `captured.captured_set`, `notes.read_provenance` and `notes.Provenance`, `fulltext.path_for`, `capture.capture` and `capture.add`, `lifecycle.lint_lifecycle` and `lifecycle.classify`, `zotero.ZoteroClient` on the local API with the `Zotero-Server-ID` header, `scaffold._installed_plugins` and the thirteen-probe doctor, and `skills/capture-source` and `skills/setup-vault` as Part A Task 19 left them. Part A's "Decisions this plan settles" (01–25) bind here unchanged; this part leans on 03 (verbs), 06 (probe ids), 17 (tool location and pin), 18 (`wiki/` in the guard), 22 (tracer results), 24 (the tool's inbox) and 25 (`linkMode`).
 
@@ -91,7 +91,7 @@ Manual, one sitting, on a scratch vault. Record each result as a dated line unde
 
 **Files:**
 
-- Modify: `docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md` (this section's results), `docs/superpowers/specs/2026-09-04-import-redesign-design.md` §4.3 (one sentence: "Tracers run 2026-MM-DD: \<pass|fail> — see the plan.")
+- Modify: `docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md` (this section's results), `docs/superpowers/specs/2026-09-06-import-redesign-design.md` §4.3 (one sentence: "Tracers run 2026-MM-DD: \<pass|fail> — see the plan.")
 
 - [ ] **Step 1: Install the tool at the pin and confirm doctor sees it**
 
@@ -164,7 +164,7 @@ and the one sentence in the spec. Commit:
 ```bash
 git commit -m "record the compile tracers (ingest spec §4.3)
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md docs/superpowers/specs/2026-09-04-import-redesign-design.md
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md docs/superpowers/specs/2026-09-06-import-redesign-design.md
 ```
 
 ### Task 2: The compile wrapper (spec §4.3, §4.4, §4.5)
@@ -940,7 +940,9 @@ Post only when the user says so in that turn: `gh issue create --repo zotero/zot
 
 Per `AGENTS.md`: fetch first, merge back to `main` locally and push `main` to origin in the same motion. If this part ran on `main` directly, push.
 
-- [ ] **Step 4: Completion message**
+- [ ] **Step 4: Results file, then the completion message**
+
+Write `docs/superpowers/specs/2026-09-06-import-redesign-part-b-results.md` beside the spec, in the shape of `…-part-a-results.md` (date, method, spec, a binds-nothing line; what landed with commit ranges; verification measured in a table; the review's verdict and rounds; what moved in the spec; what remains) — the durable record, since the SDD workspace is deleted at Finish. Commit it with the merge or immediately after.
 
 Report: the tasks landed (with commit shas), the tracer results (Task 1), the live-leg results (Task 5), the issue number or that it was not posted, and anything skipped with its reason. Part A Task 20 delivered decision 23's invariant-5 report; restate it in one line only if the write-side gate changed since.
 

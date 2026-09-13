@@ -1,6 +1,9 @@
-# Ideaverse Lite 1.5 — observed vault structure
+# Ideaverse Lite 1.5 — observed vault structure — evidence
 
-Disposition: historical (2026-09-06)
+- **Date:** 2026-08-24
+- **Method:** as the note records below (its own method section is unchanged)
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — evidence the spec was built from and absorbed; the spec is the current state, this file is not
 
 Extracted 2026-08-16 from Nick Milo's Ideaverse Lite 1.5 zip (user-provided; archive kept locally at sources/, gitignored for size — 45MB). This is the ACCESS schema's owning artifact in practice, complementing the tweet-derived description in pkm-vault-schemas.md.
 

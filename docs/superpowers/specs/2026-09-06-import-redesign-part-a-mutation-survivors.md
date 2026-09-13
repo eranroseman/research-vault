@@ -1,4 +1,9 @@
-# Part A mutation survivors — the full gate at `9bd1f1c`, as far as it ran
+# Part A mutation survivors — the full gate at `9bd1f1c`, as far as it ran — results
+
+- **Date:** 2026-09-13
+- **Method:** as the record states below
+- **Spec:** 2026-09-06-import-redesign-design.md
+- **Binds:** nothing — a record of what an execution produced and measured; the spec is the current state
 
 Run serially (`--max-workers 1 --memory-cap 6G --base main`) in a detached worktree on 2026-09-13; the per-module
 "ok" line is mutate4py's failure class, not a verdict. The gate's own verdict (`found − baseline`) is FAIL by
