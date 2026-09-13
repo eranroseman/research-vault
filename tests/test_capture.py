@@ -658,3 +658,36 @@ def test_all_keeps_unrequestable_rows_when_the_vault_level_read_then_fails(
     assert outcomes[1].target == "vault"
     assert outcomes[1].result is Result.UNMATCHED
     assert outcomes[1].reason.startswith("not-admitted")
+
+
+def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
+    tmp_vault, monkeypatch
+):
+    """Same shape as the _top_version/resolve_keys case above (finding 9),
+    one step earlier: `_every_note` runs before `lint_lifecycle`, so a
+    vault-level lint refusal must not drop its rows either (finding 10,
+    ADR 0002). The tupled note's recorded server id ("Tdoqsn2J4q4h", the
+    shape already used by `test_add_uses_the_recorded_server_id_when_notes_exist`
+    and `test_lifecycle.py`'s `_prov()` default) differs from the fake's
+    default, so the linter's own version read 412s and it reports
+    `database-changed` on `vault`."""
+    fake = FakeZotero()
+    client = _client(monkeypatch, fake)
+    (tmp_vault / "literatures").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "literatures" / "nameless.md").write_text(
+        '---\ntype: "literature"\n---\n'
+    )
+    (tmp_vault / "literatures" / "other2020.md").write_text(
+        '---\ntype: "literature"\ntitle: "Other"\n'
+        'zotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "OTHER001"\n'
+        'zotero-item-version: 1\ncitationKey: "other2020"\n'
+        "attachments:\nfulltext:\n---\n"
+    )
+    outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
+    assert len(outcomes) == 2
+    assert str(outcomes[0].target).endswith("literatures/nameless.md")
+    assert outcomes[0].result is Result.UNMATCHED
+    assert outcomes[0].reason.startswith("schema-violation")
+    assert outcomes[1].target == "vault"
+    assert outcomes[1].result is Result.UNMATCHED
+    assert outcomes[1].reason.startswith("database-changed")

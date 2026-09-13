@@ -363,7 +363,11 @@ def capture(
         o for o in linted if o.target == "vault" and o.result is not Result.SKIPPED
     ]
     if blocking:
-        return blocking
+        # `unrequestable` (--all's `_every_note` rows) is already computed
+        # here, before `outcomes` even exists; a vault-level lint refusal
+        # must not silently drop it either (ADR 0002, same shape as the
+        # _top_version/resolve_keys failure below).
+        return [*unrequestable, *blocking]
     # The linter targets citation keys; capture resolves item keys. Join the two
     # through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
