@@ -47,7 +47,7 @@ def test_append_only_reports_whole_tracked_file_deletion_but_not_untracked_addit
 
 
 def test_append_only_guards_project_search_logs(fixture_vault):
-    """`projects/<name>/search-log.md` (Task 6) joins the same guard as
+    """`projects/<name>/search-log.md` joins the same guard as
     ``inbox/review-queue.md`` and ``log/``: it is a PRISMA-S search trail,
     and a trail that can be silently rewritten cannot be trusted."""
     search_log = fixture_vault / "projects" / "brief" / "search-log.md"

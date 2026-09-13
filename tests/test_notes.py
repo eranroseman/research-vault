@@ -535,8 +535,8 @@ def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
     ledger.write_bytes(payload)
     with pytest.raises(notes.LedgerUnreadableError) as caught:
         notes.compiled_pages(tmp_path, PROVENANCE)
-    # Subject first, the plan's shape: capture's hold reason and Task 13's test
-    # both start with "<ledger path> unreadable".
+    # Subject first: capture's hold reason and this error both start with
+    # "<ledger path> unreadable".
     assert str(caught.value).startswith(f"{notes.LEDGER_PATH} unreadable: ")
     assert "source-ledger.json unreadable" in str(caught.value)
     # Only the decode branch has an underlying error to report; the schema
@@ -654,8 +654,8 @@ def test_linked_attachment_says_it_has_no_fixity():
 def test_canonical_content_excludes_the_verifier_owned_failure_rows():
     """The `failed-verification` list `events.record_failure` writes and
     `record_pass` removes is the tool's own record, excluded from the scope
-    exactly as `verified` events are (Task 18 round 3, ruling 10); a row that
-    fails the verifier-owned shape stays byte for byte, as today."""
+    exactly as `verified` events are; a row that fails the verifier-owned
+    shape stays byte for byte."""
     from research_vault import events
 
     base = _note()

@@ -1,14 +1,13 @@
 """The `trust-tier` subcommand: a read-only report over events.trust_tier (spec §5).
 
 `events.trust_tier` derives a literature note's cumulative verification tier
-(unverified / machine-confirmed / human-reviewed) but had no production
-consumer at HEAD — only tests exercised it directly. `project-flow`'s
+(unverified / machine-confirmed / human-reviewed). `project-flow`'s
 resume-orientation step needs to display each cited note's tier, and a
 prompt skill cannot call a Python function, so this is the invocable
-surface: Task 3's `factcheck` precedent (a read-only mechanical part joins
-the one binary as a branch-1 bare report noun, docs/terminology.md §4.3;
-spec §7's one-binary/one-exit-code-contract CLI). It writes nothing — no
-event, status, tag, hold, or ack — the same shape as `verify`/`factcheck`.
+surface: the `factcheck` precedent (a read-only mechanical part joins the
+one binary as a branch-1 bare report noun, docs/terminology.md §4.3; spec
+§7's one-binary/one-exit-code-contract CLI). It writes nothing — no event,
+status, tag, hold, or ack — the same shape as `verify`/`factcheck`.
 """
 
 import subprocess

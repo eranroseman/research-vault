@@ -22,8 +22,8 @@ FAILED_VERIFICATION = re.compile(
     r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
 )
 CLAIM_LINK = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
-# ``published/<project>-<YYYY-MM-DD>-<HHMMSS>`` (ruled 2026-08-22). The time
-# component is uniform, never conditional: a suffix that appeared only on the
+# ``published/<project>-<YYYY-MM-DD>-<HHMMSS>``. The time component is
+# uniform, never conditional: a suffix that appeared only on the
 # second tag of a day would be the shape that breaks this pattern and the
 # newest-tag ordering below, whereas one every tag carries costs this regex
 # once and keeps a plain lexicographic sort chronological to the second.

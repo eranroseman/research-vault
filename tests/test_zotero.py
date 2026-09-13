@@ -37,7 +37,7 @@ def test_base_for_falls_back_when_machine_config_is_unreadable(tmp_vault):
     """`doctor` owns the machine-config finding; its tolerant read
     (``strict=False``) must not crash the CLI before that probe can report
     it. Every other verb resolves strictly and is refused instead — the
-    default is the production instance (Task 13's test covers the CLI)."""
+    default is the production instance."""
     (tmp_vault / ".research-vault").mkdir()
     machine = tmp_vault / ".research-vault" / "machine.json"
     machine.write_text("{not json")
@@ -538,7 +538,7 @@ def test_live_server_info_and_ready():
 @pytest.mark.live
 def test_live_versions_carry_the_library_version():
     """``Last-Modified-Version`` is read from a plain dict by exact name; the
-    lifecycle linter (Task 12) and capture (Task 13) key on that integer."""
+    lifecycle linter and capture key on that integer."""
     client = zotero.ZoteroClient()
     versions, library_version = client.versions()
     assert versions

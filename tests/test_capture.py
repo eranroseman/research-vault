@@ -470,7 +470,7 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
     assert note.read_text() == corrupt  # not rewritten over a note it could not read
     # The CSL file is regenerated from the captured set, which decision 08 defines
     # as the parseable notes: the corrupt note's entry is gone, and this run says
-    # so only through the per-item finding. Task 15's captured-set lint is the
+    # so only through the per-item finding. The captured-set lint is the
     # mechanism that names the gap between the two files.
     assert json.loads(csl.read_text()) == []
 
@@ -693,12 +693,9 @@ def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     assert outcomes[1].reason.startswith("database-changed")
 
 
-# --- whole-branch review fix wave (2026-09-13) ---------------------------------
-
-
 def _re_keyed_fake(monkeypatch):
     """Capture `old2020` through the fake, then re-key the fake's item to
-    `new2020` with a version bump — the state the reviewer's scratch run built."""
+    `new2020` with a version bump."""
     old = json.loads(json.dumps(ITEM))
     old["data"]["citationKey"] = "old2020"
     fake = _canned_run(canned_item(FakeZotero(), item=old), items=(old,))

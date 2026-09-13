@@ -2554,7 +2554,7 @@ def test_ack_on_an_unwitnessed_note_survives_the_failure_row(
     assert events.current_failures(source.read_text())  # ruling 9: ack leaves it
 
 
-# --- whole-branch review fix wave (2026-09-13): the repo-path hash planes ------
+# --- The repo-path hash planes -------------------------------------------------
 
 
 def _repo_path_outcome(relative):

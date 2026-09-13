@@ -226,9 +226,6 @@ def test_add_refuses_a_non_list_creators_or_tags_before_any_network(
     assert not [c for c in fake.calls if c[0] == "POST"]
 
 
-# --- whole-branch review fix wave (2026-09-13) ---------------------------------
-
-
 @pytest.mark.parametrize(
     ("route", "status", "expected"),
     [

@@ -3,8 +3,7 @@
 Unlike ``test_skill_files.py`` (setup-vault-specific content acceptance),
 this module asserts only what the control model and plugin architecture
 require of *every* skill, present and future. It is written to stay green
-as later Plan D tasks add entry skills — nothing here is scoped to the two
-guard skills shipped alongside it.
+as entry skills are added — nothing here is scoped to any one skill.
 """
 
 import ast
@@ -23,14 +22,12 @@ SKILLS_DIR = REPOSITORY / "skills"
 TEMPLATES_DIR = REPOSITORY / "research_vault" / "templates"
 PACKAGE_DIR = REPOSITORY / "research_vault"
 
-# Control model (spec §7/§8, ruled 2026-08-22): entry skills ship
+# Control model (spec §7/§8): entry skills ship
 # `disable-model-invocation: true` so they never enter the model catalog;
 # every other shipped skill is a guard/reference skill, model-invoked AND
 # user-invocable, so it carries neither `disable-model-invocation` nor
-# `user-invocable`. This list grows by one name per Plan D task as each
-# entry skill ships (Task 2 publish; Task 3 verify-citations,
-# factcheck-draft; Task 4 project-flow; Task 5 import-source; Task 6
-# find-sources) — it only ever grows, never shrinks.
+# `user-invocable`. This list grows by one name as each entry skill ships —
+# it only ever grows, never shrinks.
 ENTRY_SKILLS = {
     "setup-vault",
     "publish",
@@ -167,8 +164,8 @@ def test_every_shipped_finding_invocation_names_registered_identifiers():
 
 
 def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
-    """Subsumes the 2026-08-22 landing check: scans every shipped template
-    generically rather than asserting any one cited name by hand."""
+    """Scans every shipped template generically rather than asserting any
+    one cited name by hand."""
     cited = set()
     for template in _shipped_template_files():
         text = template.read_text(encoding="utf-8")
@@ -231,9 +228,9 @@ def _cited_skill_tokens_by_skill() -> dict[str, set[str]]:
 
 
 def test_every_skill_name_a_shipped_skill_cites_has_a_skill_directory():
-    """The templates scan above walks ``research_vault/templates/`` only; a
-    live skill routed to the deleted ``import-source`` directory and nothing
-    caught it (Task 19, 2026-09-13). Same token shape, second corpus: a bare
+    """The templates scan above walks ``research_vault/templates/`` only, so
+    a live skill routed to a deleted skill directory passes it. Same token
+    shape, second corpus: a bare
     kebab token a skill cites is a skill name unless the code spells it as an
     identifier (``_code_spelled_identifiers``), and every skill name needs a
     ``skills/<name>/`` directory. A foreign skill a vendored fork names by
@@ -284,11 +281,10 @@ def test_the_code_spells_no_hyphenated_skill_name():
 
 
 # --------------------------------------------------------------------------
-# Prose enumerating what code owns (2026-08-22 skills-layer audit, C-1/C-2).
-# The audit's own diagnosis: a skill that hand-lists an identifier set the
-# code owns drifts the moment the code moves. The remedy is defer to the
-# code, or pin the enumeration by test — never hand-maintain one. The two
-# checks below are the pins.
+# Prose enumerating what code owns. A skill that hand-lists an identifier
+# set the code owns drifts the moment the code moves. The remedy is defer to
+# the code, or pin the enumeration by test — never hand-maintain one. The
+# two checks below are the pins.
 # --------------------------------------------------------------------------
 
 _BACKTICKED = re.compile(r"`([^`]+)`")
@@ -572,17 +568,17 @@ def _reason_code_section() -> tuple[set[str], str]:
 
 
 def test_evidence_conventions_accounts_for_every_reason_code():
-    """C-2's fix, pinned: the table plus its closing sentence must together
-    name the whole registry, each code exactly once. Registering a new code
-    with no row and no exemption fails here — which is the point, since the
-    closing sentence's count claim is what drifted.
+    """The table plus its closing sentence must together name the whole
+    registry, each code exactly once. Registering a new code with no row and
+    no exemption fails here — the closing sentence's count claim is the part
+    that drifts otherwise.
 
     ``matched`` is the only exemption the section may claim, and it is a real
     one: only non-MATCHED results file findings, so no MATCHED reason ever
     reaches the queue. ``manual`` carries a row because a person *can* meet it
-    there — ``hooks/stop_publish_gate.py:135`` writes it through
-    ``inbox.append_entry`` when someone bypasses the publish gate (ruled
-    2026-08-23). Moving it back off the table fails the equality below.
+    there — ``hooks/stop_publish_gate.py`` writes it through
+    ``inbox.append_entry`` when someone bypasses the publish gate. Moving it
+    back off the table fails the equality below.
     """
     tabled, closing = _reason_code_section()
     assert tabled, "found no reason-code rows — the section scan is broken"

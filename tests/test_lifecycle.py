@@ -279,9 +279,8 @@ def test_verify_online_runs_the_linter_against_the_configured_base(
     fixture_vault, monkeypatch
 ):
     """The one code path (§3.4): verify's network run calls the linter with a
-    client built on the ``base`` it was given — the parameter Task 2 had
-    underscored as unread — and the fixture's captured notes come back
-    classified."""
+    client built on the ``base`` it was given, and the fixture's captured
+    notes come back classified."""
     from research_vault import verify
 
     fake = FakeZotero()  # the production id the fixture notes record

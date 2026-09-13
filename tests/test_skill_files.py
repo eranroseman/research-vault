@@ -123,7 +123,7 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
 
 
 def test_scaffold_provisioning_companions_are_exact_and_current():
-    """Changing the ruled companion package spelling must fail."""
+    """Changing the companion package spelling must fail."""
     assert scaffold.PROVISION_COMPANIONS == ["kepano/obsidian-skills"]
 
 

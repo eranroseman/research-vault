@@ -163,14 +163,11 @@ def test_every_doctor_probe_id_at_head_is_governed():
 def test_every_reason_code_at_head_is_governed():
     """The largest identifier group, enforced the same way as the other two.
 
-    This asserted only that the row contained the string ``REASON_CODES`` until
-    2026-08-22, on the reading that §4.4 governed this group by reference. The
-    row's own Status cell says otherwise -- "additions require a reference row" --
-    so the document was already promising the property the test declined to
-    enforce, and a new code could land with no row and leave the suite green.
-    Reason codes go verbatim onto ``inbox/review-queue.md``, the highest-traffic
-    human surface in the system; it is the last group that should be governed
-    more loosely than the rest.
+    The row's own Status cell -- "additions require a reference row" -- promises
+    every code a row, so a code that lands with no row must fail here rather
+    than leave the suite green. Reason codes go verbatim onto
+    ``inbox/review-queue.md``, the highest-traffic human surface in the system;
+    it is the last group that should be governed more loosely than the rest.
     """
     row = _governance_row("reason codes")
     ungoverned = sorted(inbox.REASON_CODES - _backticked(row))
@@ -250,10 +247,8 @@ def test_repo_python_is_the_version_the_pins_were_measured_against():
 # --------------------------------------------------------------------------
 # pyproject-fmt round-trip losslessness.
 #
-# Ruled 2026-08-22 after an as-built re-measure contradicted the plan's adoption
-# claim ("verified: tool-section comments preserved, zero spurious churn" — which
-# had been tested on a synthetic fragment, not on this file). Measured against the
-# REAL pyproject.toml, bare pyproject-fmt truncated pins (`mdformat==1.0.0` to
+# Measured 2026-08-22 against the REAL pyproject.toml (a synthetic fragment
+# shows none of this): bare pyproject-fmt truncated pins (`mdformat==1.0.0` to
 # `==1`), invented a classifiers block claiming Python 3.14, and — the dangerous
 # one — alpha-sorted the dependency list while hoisting a ruling comment's
 # continuation lines onto a DIFFERENT package, so a recorded ruling silently
@@ -263,7 +258,7 @@ def test_repo_python_is_the_version_the_pins_were_measured_against():
 # remembered rule: a future pyproject-fmt that drops --keep-full-version, or that
 # relocates a comment block, fails here instead of quietly making a recorded
 # ruling false. The association tests assert PLACEMENT, not presence — the
-# original failure preserved every comment character while attaching it to the
+# measured failure preserved every comment character while attaching it to the
 # wrong key, so a "the string is still there" check would have passed it.
 # --------------------------------------------------------------------------
 
@@ -600,8 +595,7 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
     carried `status: unscreened | included | excluded | superseded`. GFM ends the
     cell at the first unescaped `|` REGARDLESS of the code span, so mdformat
     reformatted the truncated parse back out and the enum values plus an entire
-    `superseded-by` clause were deleted -- by a commit whose message read "No
-    sentence, no code, and no meaning is changed anywhere in this commit".
+    `superseded-by` clause were deleted.
 
     The fix is to escape the pipes as \\| inside the span; mdformat then
     round-trips the row unchanged, which is asserted by re-running it.
@@ -622,7 +616,7 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
 def test_the_package_reads_one_date_clock():
     """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
     # The call shape, not one spelling: `now(tz=datetime.UTC).date()` is the
-    # same reader (Task 18 review, ruling 8).
+    # same reader.
     reads_today = re.compile(r"\.now\([^)]*\)\.date\(\)")
     offenders = sorted(
         path.name
@@ -634,7 +628,7 @@ def test_the_package_reads_one_date_clock():
 
 
 def test_fixture_substitutions_cannot_become_no_ops():
-    """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
+    """A bare str.replace on fixture text passes silently once a fixture edit removes its target."""
     import ast
 
     def fixture_shaped(node) -> bool:

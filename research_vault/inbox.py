@@ -74,7 +74,7 @@ CHECK_IDS = frozenset(
         "disputed-claim",
         "publish",
         "factcheck",
-        # OKF structure migration (2026-09-02 plan)
+        # The OKF §11 structure checks (structure.py).
         "okf-frontmatter",
         "okf-structure",
         "tree",

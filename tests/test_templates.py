@@ -100,12 +100,12 @@ def test_markdown_templates_match_canonical_content():
         "![[system/bases/open-questions.base]]\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
-    # Ruled content, 2026-08-22: dangling spec §8 ref cut, managed-region rule
-    # added, machine-surface rule reworded to "raise a finding" (append-only
-    # covers log/ and inbox/review-queue.md but is in no CLOSING_BY_SURFACE
-    # set, so "fail the gate" was false). Pinned whole-file, byte-for-byte,
-    # below: the earlier per-line startswith/in pattern admitted append,
-    # reorder, and layout drift undetected; each line remains load-bearing.
+    # The machine-surface rule says "raise a finding", never "fail the gate":
+    # append-only covers log/ and inbox/review-queue.md but is in no
+    # CLOSING_BY_SURFACE set, so "fail the gate" would be false. Pinned
+    # whole-file, byte-for-byte, below: a per-line startswith/in pattern
+    # admits append, reorder, and layout drift undetected; each line is
+    # load-bearing.
     # Constraint on the opening paragraph (the preamble, first two sentences
     # below): it names machine surfaces but must assert no enforcement
     # mechanism — no claim of a session warning, a commit-time gate, or a

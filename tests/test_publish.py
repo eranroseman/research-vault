@@ -527,10 +527,9 @@ def test_the_tag_pattern_still_yields_the_project_name_as_group_one():
 
 
 def test_newest_published_tag_discriminates_within_one_day(green_vault):
-    """F-2's ordering, regraded for the time component: `max` over a plain
-    lexicographic sort has to pick the later of two tags minted on one day, or
-    the drift lint compares a corrected project against a superseded tree and
-    reports every correction as drift."""
+    """`max` over a plain lexicographic sort has to pick the later of two tags
+    minted on one day, or the drift lint compares a corrected project against
+    a superseded tree and reports every correction as drift."""
     for stamp in ("2026-08-01-090000", "2026-08-01-203000", "2026-07-31-235959"):
         _git(green_vault, "tag", f"published/brief-{stamp}")
 
@@ -611,21 +610,20 @@ def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
     machine off UTC: at UTC+10 a 09:00 publication tags `...-230000` and a
     12:00 correction tags `...-020000`, so `max()` returns the superseded tag
     and `lint_published_drift` reports every legitimate correction as drift —
-    the F-2 failure the uniform time component exists to prevent.
+    the failure the uniform time component exists to prevent.
 
     This test pins the clock rather than the tag string, which is the whole
     point: helpers that stub the time half cannot see where the date half came
-    from, and that is how the mismatch survived a green suite.
+    from, and that is how the mismatch survives a green suite.
 
     The fake replaces `publish`'s own `datetime` name binding (not the shared
     `datetime` module — patching that leaks into every other module's `.now()`
     calls active during the same test and inflates the read count past 1,
     confirmed live 2026-08-22), so only `_publish`'s own clock read is
-    intercepted. It carries both `.timezone` and `.UTC`: this test's original
-    fake had only `.timezone`, which broke the moment production code was
-    rewritten from `datetime.timezone.utc` to the 3.11 `datetime.UTC` alias
-    (target-version bump, requires-python >=3.11) — the property under test is
-    the UTC read itself, not which spelling names it.
+    intercepted. It carries both `.timezone` and `.UTC`, so a production
+    spelling of either `datetime.timezone.utc` or the 3.11 `datetime.UTC`
+    alias reaches it — the property under test is the UTC read itself, not
+    which spelling names it.
     """
     reads = []
     instant = datetime_lib.datetime(2026, 8, 1, 23, 0, 0, tzinfo=datetime_lib.UTC)

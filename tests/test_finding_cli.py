@@ -1,8 +1,8 @@
 """The `finding` verb: the review-record writer (spec §3, §6 factored-verification).
 
 `finding` is a thin CLI wrapper over ``inbox.append_entry`` — the mechanism
-factcheck-draft's adjudicated findings and Task 5's import-time holds both
-write through, so prose never touches the review queue directly.
+factcheck-draft's adjudicated findings write through, so prose never touches
+the review queue directly.
 """
 
 from pathlib import Path
