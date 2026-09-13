@@ -43,8 +43,10 @@ jobs:
         run: pre-commit run --all-files --hook-stage manual
       - name: Workflow lint (actionlint)
         uses: raven-actions/actionlint@v2
+      # -n here, never in addopts: ambient -n races the local Zotero and nests a pool per mutant.
       - name: Tests + branch coverage
-        run: python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info
+        run: python -m pytest tests -q -n auto --dist worksteal --cov=research_vault
+          --cov-branch --cov-report=lcov:lcov.info
       # continue-on-error is a DATED DEFERRAL, not a softened gate. The ceiling is
       # 30 and stays 30 (986086e: "Lowering the ceiling was explicitly rejected").
       # One function is over it and is deliberately not being fixed yet:

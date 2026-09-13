@@ -170,6 +170,10 @@ module = "defusedxml.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+# --strict-markers: a typo'd `live_net` mark would otherwise run silently in the
+# offline suite and make real external API calls. Never `-n` here (the
+# pytest-xdist note above); CI passes it on its own command line.
+addopts = [ "--strict-markers" ]
 markers = [
   "live: requires a running local Zotero (set RV_LIVE=1)",
   "live_net: hits real external APIs (set RV_LIVE_NET=1 and RV_MAILTO)",
@@ -178,6 +182,8 @@ markers = [
 # scripts.* imports identically.
 pythonpath = [ "." ]
 testpaths = [ "tests" ]
+# A passed test leaves no tmp_path behind: one run retained ~249 MB of vaults.
+tmp_path_retention_policy = "failed"
 
 # mutmut 3.7.0 (scripts/mutation_gate.py drives it; read from the cwd, so run
 # from the repo root). It copies source_paths + tests/ + pyproject.toml +

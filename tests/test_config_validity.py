@@ -15,9 +15,11 @@ gains a JSON owner with zero new dependencies (docs/research/rethink-audits/2026
 
 import ast
 import json
+import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tomllib
@@ -666,3 +668,35 @@ def test_fixture_substitutions_cannot_become_no_ops():
         )
     ]
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
+
+
+@pytest.mark.skipif(
+    "1" in (os.environ.get("RV_LIVE"), os.environ.get("RV_LIVE_NET")),
+    reason="the socket block is off in live runs",
+)
+def test_offline_tests_cannot_open_a_tcp_connection(dead_base):
+    """An unmarked test's connect raises the block's error, naming the address.
+
+    Not an outage: the block is a ``RuntimeError`` so no transport's
+    ``except OSError`` can dress a leak as a tidy UNREACHABLE. The one
+    address ``dead_base`` handed out is let through and refused for real.
+    """
+    # By base class and message, not identity: pytest loads the conftest as
+    # `conftest`, `from tests.conftest import ...` loads a second copy.
+    with (
+        socket.socket() as sock,
+        pytest.raises(
+            RuntimeError, match=r"blocked in the offline suite: 127\.0\.0\.1:23119"
+        ),
+    ):
+        sock.connect(("127.0.0.1", 23119))
+
+    port = int(dead_base.rsplit(":", 1)[1])
+    with socket.socket() as sock, pytest.raises(ConnectionRefusedError):
+        sock.connect(("127.0.0.1", port))
+
+
+def test_a_misspelled_marker_is_a_collection_error(request):
+    """``--strict-markers`` is on: a typo'd ``live_net`` mark would otherwise run
+    silently in the offline suite and make real external API calls."""
+    assert request.config.getoption("strict_markers") is True

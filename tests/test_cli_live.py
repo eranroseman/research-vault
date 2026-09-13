@@ -27,8 +27,8 @@ def test_probe():
     assert "betterbibtex" in report["bbt"]
 
 
-def test_probe_unreachable():
-    proc = run_cli("probe", "--base", "http://127.0.0.1:1")
+def test_probe_unreachable(dead_base):
+    proc = run_cli("probe", "--base", dead_base)
     assert proc.returncode == 3
     report = json.loads(proc.stdout)
     assert report["result"] == "UNREACHABLE"

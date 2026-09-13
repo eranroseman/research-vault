@@ -1,6 +1,5 @@
 import json
 import re
-import socket
 from pathlib import Path
 
 import pytest
@@ -129,9 +128,9 @@ def test_file_view_url_returns_none_only_for_the_two_definite_negatives(fake):
     assert error.value.result is Result.UNREACHABLE
 
 
-def test_file_view_url_on_a_dead_port_is_an_outage(monkeypatch):
+def test_file_view_url_on_a_dead_port_is_an_outage(monkeypatch, dead_base):
     monkeypatch.setattr(zotero.ZoteroClient, "_http", _REAL_HTTP)
-    client = zotero.ZoteroClient(base=_dead_port_base())
+    client = zotero.ZoteroClient(base=dead_base)
     with pytest.raises(zotero.ZoteroError) as error:
         client.file_view_url("D7EJ9FTG")
     assert error.value.result is Result.UNREACHABLE
@@ -398,21 +397,13 @@ def test_no_research_vault_module_can_issue_an_autoexport_rpc():
 # -- the JSON-RPC envelope itself: these reach _rpc, so they patch the transport --
 
 
-def _dead_port_base():
-    # An ephemeral port fails at once; port 1 hangs for the whole connect
-    # timeout under WSL2 (docs/testing.md, "The WSL2 low-port trap").
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return f"http://127.0.0.1:{sock.getsockname()[1]}"
-
-
 def _transport_answering(body, status=200):
     return lambda *args, **kwargs: zotero.Response(status, body, {})
 
 
-def test_network_failure_is_unreachable(monkeypatch):
+def test_network_failure_is_unreachable(monkeypatch, dead_base):
     monkeypatch.setattr(zotero.ZoteroClient, "_http", _REAL_HTTP)
-    zotero_client = zotero.ZoteroClient(base=_dead_port_base())
+    zotero_client = zotero.ZoteroClient(base=dead_base)
     with pytest.raises(zotero.ZoteroError) as error:
         zotero_client.ready()
     assert error.value.result is Result.UNREACHABLE

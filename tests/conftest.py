@@ -2,6 +2,8 @@ import ast
 import json as _json
 import os
 import re
+import shutil
+import socket
 import subprocess
 from pathlib import Path
 from typing import AnyStr
@@ -62,17 +64,58 @@ def _with_body_witness(text):
     )
 
 
-@pytest.fixture
-def tmp_vault(tmp_path):
+def _build_bare_vault(root: Path) -> None:
     for d in scaffold.VAULT_DIRS:
-        (tmp_path / d).mkdir(parents=True)
-    (tmp_path / "wiki" / "concepts").mkdir(parents=True)
-    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        (root / d).mkdir(parents=True)
+    (root / "wiki" / "concepts").mkdir(parents=True)
+    # `--template=`: no sample hooks, description or info/exclude — 16 files
+    # nothing reads, copied per test otherwise. A copied entry is ~0.2 ms on
+    # WSL2 (copytree micro-bench, 2026-09-13), so entry count is the cost.
+    subprocess.run(["git", "init", "-q", "--template="], cwd=root, check=True)
+
+
+def _copy_vault(template: Path, tmp_path: Path) -> Path:
+    # Into `tmp_path` itself, not a child of it: tests read the vault root and
+    # `tmp_path` as one directory (`tmp_path.parent / f"{tmp_path.name}-x"` is
+    # "outside the vault"). `.git` copies fine; symlinks stay symlinks.
+    shutil.copytree(template, tmp_path, symlinks=True, dirs_exist_ok=True)
     return tmp_path
 
 
+@pytest.fixture(scope="session")
+def _bare_vault_template(tmp_path_factory):
+    """One bare vault per xdist worker: the tree plus `git init`, built once.
+
+    The git processes were the fixture cost (`init` here; `add` + `commit` too
+    for the fixture vault), one to three per test. Every test gets its own
+    copy; the template is never handed out.
+    """
+    template = tmp_path_factory.mktemp("bare-vault-template")
+    _build_bare_vault(template)
+    return template
+
+
+@pytest.fixture(scope="session")
+def _fixture_vault_template(tmp_path_factory):
+    template = tmp_path_factory.mktemp("fixture-vault-template")
+    _build_bare_vault(template)
+    _populate_fixture_vault(template)
+    # One pack in place of 16 loose objects in 16 fan-out directories.
+    subprocess.run(["git", "repack", "-adq"], cwd=template, check=True)
+    return template
+
+
 @pytest.fixture
-def fixture_vault(tmp_vault):
+def tmp_vault(tmp_path, _bare_vault_template):
+    return _copy_vault(_bare_vault_template, tmp_path)
+
+
+@pytest.fixture
+def fixture_vault(tmp_path, _fixture_vault_template):
+    return _copy_vault(_fixture_vault_template, tmp_path)
+
+
+def _populate_fixture_vault(tmp_vault: Path) -> None:
     (tmp_vault / "index.md").write_text(
         '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
     )
@@ -180,7 +223,6 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
     subprocess.run(
         ["git", "commit", "-q", "-m", "fixture vault"], cwd=tmp_vault, check=True
     )
-    return tmp_vault
 
 
 @pytest.fixture
@@ -228,3 +270,73 @@ def _no_zotero_socket(request, monkeypatch):
         raise zotero.ZoteroError(f"Zotero unreachable in the offline suite: {url}")
 
     monkeypatch.setattr(zotero.ZoteroClient, "_http", refused)
+
+
+class SocketBlockedError(RuntimeError):
+    """An offline test opened a TCP connection.
+
+    Deliberately not an ``OSError``: the transports catch that and dress it
+    as an outage, which is exactly how a leak would stay invisible.
+    """
+
+
+def _live_flags_set() -> bool:
+    return "1" in (os.environ.get("RV_LIVE"), os.environ.get("RV_LIVE_NET"))
+
+
+@pytest.fixture(autouse=True)
+def _no_socket(request, monkeypatch):
+    """Offline runs are socket-blocked: a TCP connect outside the live markers
+    raises, naming the address — never a real connection, never a quiet outage.
+
+    ``_no_zotero_socket`` gives a Zotero read a Zotero-shaped outage; this is
+    the belt under it, so a new client class cannot reopen the hole. Unix
+    sockets and socketpairs are not connects to block; xdist workers talk over
+    pipes. The block is off entirely when ``RV_LIVE=1`` or ``RV_LIVE_NET=1``
+    is set, so live runs keep the real transport.
+
+    Returns the test's allowlist: ``dead_base`` adds the loopback address it
+    proved dead, so a test of the real transport meets a real refusal.
+    """
+    allowed: set[tuple[str, int]] = set()
+    if (
+        _live_flags_set()
+        or request.node.get_closest_marker("live")
+        or request.node.get_closest_marker("live_net")
+    ):
+        return allowed
+
+    def guarded(real):
+        def connect(self, address):
+            if self.family in (socket.AF_INET, socket.AF_INET6):
+                host, port = address[0], address[1]
+                if (host, port) not in allowed:
+                    raise SocketBlockedError(
+                        f"socket connect blocked in the offline suite: {host}:{port}"
+                        " — a test that needs the network carries a `live` or"
+                        " `live_net` marker (tests/conftest.py::_no_socket)"
+                    )
+            return real(self, address)
+
+        return connect
+
+    monkeypatch.setattr(socket.socket, "connect", guarded(socket.socket.connect))
+    monkeypatch.setattr(socket.socket, "connect_ex", guarded(socket.socket.connect_ex))
+    return allowed
+
+
+@pytest.fixture
+def dead_base(_no_socket):
+    """A base URL nothing listens on: an ephemeral port, bound and released.
+
+    A connect there is refused at once; port 1 hangs for the whole connect
+    timeout under WSL2 (docs/testing.md, "The WSL2 low-port trap"). This is
+    the base for every test that needs a real refusal — in-process, where the
+    socket block lets this one address through, or through a subprocess CLI,
+    which no in-process patch can reach.
+    """
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    _no_socket.add(("127.0.0.1", port))
+    return f"http://127.0.0.1:{port}"
