@@ -18,7 +18,7 @@ Disposition: pending-issue: 41 (2026-09-06) [should-be-scoping-review]
 ## Global Constraints
 
 - The vault lives at a path OUTSIDE this repo (e.g. `~/kh-vault`); it gets its own `git init` via `setup-vault`. Nothing from the slice is committed into the plugin repo except this plan and the findings log.
-- **Findings are the product as much as the brief.** Every point of friction, every skill that under-delivers, every drill result → `docs/research/validation-slice/2026-08-22-slice-findings.md` (in the plugin repo — it is a record about research-vault). A slice that ships a brief but hides friction has failed its purpose.
+- **Findings are the product as much as the brief.** Every point of friction, every skill that under-delivers, every drill result → `docs/superpowers/specs/2026-08-16-foundation-spec-validation-slice-results.md` (in the plugin repo — it is a record about research-vault). A slice that ships a brief but hides friction has failed its purpose.
 - Minimum two sessions with a real cold resume between them (§9 — exercises orientation and inbox-drain for real).
 - Live throughout: Zotero running, `RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real>`.
 - The author performs every admission (human act) and every disposition (human-chosen); the agent orchestrates.

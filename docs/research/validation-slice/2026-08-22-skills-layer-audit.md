@@ -452,7 +452,7 @@ Survey recorded verbatim in the relay log of this date. Cross-cutting confirmati
 
 ### Post-Q batch: deferred minors (2026-08-24)
 
-Source: `docs/research/validation-slice/2026-08-24-post-q-batch-review.md` (independent review) and the per-task reviews of the `fix/pre-slice-batch` run. Triage at the polish pass; none blocks merge.
+Source: `docs/superpowers/specs/2026-08-16-foundation-spec-pre-slice-batch-review-results.md` (independent review) and the per-task reviews of the `fix/pre-slice-batch` run. Triage at the polish pass; none blocks merge.
 
 - **T1** — `tests/test_project_flow_skill.py` test functions keep the `test_project_` prefix (10 defs from :23) while file, directory and frontmatter say `project-flow`; node IDs re-create the class-4 collision the rename dissolves.
 - **T1** — no test pins the INBOUND routing references to the renamed skill (`find-sources/SKILL.md:104`, `:17`; `import-source/SKILL.md:173`); a missed inbound row would still leave the suite green.

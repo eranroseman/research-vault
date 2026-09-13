@@ -1,6 +1,9 @@
-# Validation slice — findings log
+# Validation slice — findings log — results
 
-Disposition: pending-issue: 41 (2026-09-06)
+- **Date:** 2026-08-22
+- **Method:** as the record states below
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — a record of what an execution produced and measured; the spec is the current state; this log is still being written under issue #41
 
 Plan: docs/superpowers/plans/2026-08-22-plan-s-validation-slice.md. Vault: ~/kh-vault → github.com/eranroseman/kv-vault. Friction is the product: every entry names what research-vault did short of its prose.
 

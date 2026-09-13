@@ -16,7 +16,7 @@ Why: §9's falsified-when ("the author routed around the vault") and validated-w
   recommendation: the §9 falsified-when clause fires mechanically — record the
     falsification as such, do not soften (Plan S global constraint already forbids
     softening; this rule removes the judgment about whether an occurrence "counts")
-  check: grep for the tag over docs/research/validation-slice/2026-08-22-slice-findings.md
+  check: grep for the tag over docs/superpowers/specs/2026-08-16-foundation-spec-validation-slice-results.md
   status: registered
 
 - id: inbox-review-sizing

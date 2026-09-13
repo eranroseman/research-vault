@@ -1,6 +1,9 @@
-# Pre-slice batch — boundary review, run after the merge
+# Pre-slice batch — boundary review, run after the merge — results
 
-Disposition: historical (2026-09-06)
+- **Date:** 2026-08-25
+- **Method:** as the record states below
+- **Spec:** 2026-08-16-foundation-spec.md
+- **Binds:** nothing — a record of what an execution produced and measured; the spec is the current state
 
 Independent reviewer, read-only pass, 2026-08-25, over `d9b3acf..4b9f427` on `main`.
 
