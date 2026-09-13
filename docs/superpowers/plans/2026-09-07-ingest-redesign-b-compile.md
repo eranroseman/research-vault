@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-06-import-redesign-design.md` (the active spec; §9 is its fact register). Also binding: `docs/superpowers/specs/2026-09-05-assembly-design.md` decisions 12, 17, 22, 28, 29 and §9; ADR 0001–0003.
 
-**Prerequisite:** Part A (`docs/superpowers/plans/2026-09-06-ingest-redesign-a-capture.md`) merged to `main`. This part consumes, by name: `captured.captured_set`, `notes.read_provenance` and `notes.Provenance`, `fulltext.path_for`, `capture.capture` and `capture.add`, `lifecycle.lint_lifecycle` and `lifecycle.classify`, `zotero.ZoteroClient` on the local API with the `Zotero-Server-ID` header, `scaffold._installed_plugins` and the thirteen-probe doctor, and `skills/capture-source` and `skills/setup-vault` as Part A Task 19 left them. Part A's "Decisions this plan settles" (01–25) bind here unchanged; this part leans on 03 (verbs), 06 (probe ids), 17 (tool location and pin), 18 (`wiki/` in the guard), 22 (tracer results), 24 (the tool's inbox) and 25 (`linkMode`).
+**Prerequisite:** Part A (`docs/superpowers/plans/2026-09-07-ingest-redesign-a-capture.md`) merged to `main`. This part consumes, by name: `captured.captured_set`, `notes.read_provenance` and `notes.Provenance`, `fulltext.path_for`, `capture.capture` and `capture.add`, `lifecycle.lint_lifecycle` and `lifecycle.classify`, `zotero.ZoteroClient` on the local API with the `Zotero-Server-ID` header, `scaffold._installed_plugins` and the thirteen-probe doctor, and `skills/capture-source` and `skills/setup-vault` as Part A Task 19 left them. Part A's "Decisions this plan settles" (01–25) bind here unchanged; this part leans on 03 (verbs), 06 (probe ids), 17 (tool location and pin), 18 (`wiki/` in the guard), 22 (tracer results), 24 (the tool's inbox) and 25 (`linkMode`).
 
 **Human attendance:** Task 1 (the tracers, one sitting with Obsidian open), Task 5 (one consent dialog on the test instance) and Task 6 (the go-ahead for the upstream issue) need the author present; Tasks 2, 3 and 4 do not.
 
@@ -91,7 +91,7 @@ Manual, one sitting, on a scratch vault. Record each result as a dated line unde
 
 **Files:**
 
-- Modify: `docs/superpowers/plans/2026-09-06-ingest-redesign-b-compile.md` (this section's results), `docs/superpowers/specs/2026-09-06-import-redesign-design.md` §4.3 (one sentence: "Tracers run 2026-MM-DD: \<pass|fail> — see the plan.")
+- Modify: `docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md` (this section's results), `docs/superpowers/specs/2026-09-06-import-redesign-design.md` §4.3 (one sentence: "Tracers run 2026-MM-DD: \<pass|fail> — see the plan.")
 
 - [ ] **Step 1: Install the tool at the pin and confirm doctor sees it**
 
@@ -164,7 +164,7 @@ and the one sentence in the spec. Commit:
 ```bash
 git commit -m "record the compile tracers (ingest spec §4.3)
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/superpowers/plans/2026-09-06-ingest-redesign-b-compile.md docs/superpowers/specs/2026-09-06-import-redesign-design.md
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md docs/superpowers/specs/2026-09-06-import-redesign-design.md
 ```
 
 ### Task 2: The compile wrapper (spec §4.3, §4.4, §4.5)

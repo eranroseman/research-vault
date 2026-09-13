@@ -1,7 +1,7 @@
 # Ingest redesign, Part A (capture) — results
 
 - **Date:** 2026-09-13
-- **Method:** `docs/superpowers/plans/2026-09-06-ingest-redesign-a-capture.md` (twenty tasks) run under `superpowers:subagent-driven-development` across two controller sessions, with a fresh implementer and a two-stage review per task, a whole-branch review over the final diff with one fix wave and a scoped re-review, and one attended live leg on the test instance. The plan's printed code was folded to the committed tree after each task closed, so the plan on `main` is what runs.
+- **Method:** `docs/superpowers/plans/2026-09-07-ingest-redesign-a-capture.md` (twenty tasks) run under `superpowers:subagent-driven-development` across two controller sessions, with a fresh implementer and a two-stage review per task, a whole-branch review over the final diff with one fix wave and a scoped re-review, and one attended live leg on the test instance. The plan's printed code was folded to the committed tree after each task closed, so the plan on `main` is what runs.
 - **Spec:** 2026-09-06-import-redesign-design.md
 - **Binds:** nothing — this records what the execution produced and measured; the spec is the current state, the plan the authority for what was built.
 
@@ -31,7 +31,7 @@ Retired: the web archive, the Better BibTeX auto-export contract, verify's DOI a
 
 Whole-branch review (`fable`, over the 1.4 MB diff `9d10db3..09f2eb8`): **with fixes**, no Critical; seven Important, ten Minor, four CRAP regressions, a row-by-row triage of every open deferred finding. The one design-level finding: a refresh of a re-keyed item wrote a second note beside the old and dead-ended propagation — capture now refuses while the old note exists. All Important items, the CRAP four, three Minors and seventeen deferred rows landed in one fix wave; the scoped re-review returned clean.
 
-Per-task: every task passed spec compliance on first or second review; quality took one to three fix rounds (Task 18 three, Tasks 14, 16, 17 and 19 two, Tasks 11–13 and 15 one to three). Sixty-one deferred findings were recorded during execution; every one ends fixed with its commit named, declined with its reason, or open in issue #129 (fourteen rows plus the review's extras). Nine process notes stand in `docs/superpowers/plans/2026-09-06-ingest-redesign-a-deferred.md`.
+Per-task: every task passed spec compliance on first or second review; quality took one to three fix rounds (Task 18 three, Tasks 14, 16, 17 and 19 two, Tasks 11–13 and 15 one to three). Sixty-one deferred findings were recorded during execution; every one ends fixed with its commit named, declined with its reason, or open in issue #129 (fourteen rows plus the review's extras). Nine process notes stand in `docs/superpowers/plans/2026-09-07-ingest-redesign-a-deferred.md`.
 
 ## What moved in the spec because of this run
 
@@ -41,5 +41,5 @@ Open points 07, 08 and 09 closed; the re-keyed refusal; the captured-set lint re
 
 - Issue #129: the deferred findings the review ruled real but not merge-blocking, with the leg's two behaviour findings as a comment.
 - Issue #130: the write-side gate.
-- Plan W on `main`, then Part B (`2026-09-06-ingest-redesign-b-compile.md`) from a post-Plan-W `main`; Part B needs the operator present for its tracers (Obsidian open) and possibly one consent click on the test instance.
+- Plan W on `main`, then Part B (`2026-09-07-ingest-redesign-b-compile.md`) from a post-Plan-W `main`; Part B needs the operator present for its tracers (Obsidian open) and possibly one consent click on the test instance.
 - The mutate4py run in `/tmp/rv-gate`, finishing as data; `git worktree remove --force /tmp/rv-gate` when it ends.
