@@ -415,13 +415,13 @@ def test_mark_corrected_mints_a_new_event_and_tag_and_keeps_the_original(
 def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(
     green_vault, monkeypatch
 ):
-    """A correction must not end drift watching (acceptance finding F-2).
+    """A correction must not end drift watching.
 
-    `lint_published_drift` keyed on `status == "published"`, and
-    `mark-corrected` writes `corrected` — so the lint stopped watching the
-    project at the moment a corrections regime needs it watched most, while
-    this skill refuses post-publication `mark-parked` precisely because that flip
-    blinds the lint. The comparison basis is each project's *newest* tag: the
+    `mark-corrected` writes `corrected`, so a `lint_published_drift` keyed on
+    `status == "published"` alone stops watching the project at the moment a
+    corrections regime needs it watched most, while this skill refuses
+    post-publication `mark-parked` precisely because that flip blinds the
+    lint. The comparison basis is each project's *newest* tag: the
     original tag survives (ADR 0003) and the corrected tree differs from it by
     construction, so comparing against it would report every legitimate
     correction as drift.
@@ -541,11 +541,12 @@ def test_newest_published_tag_discriminates_within_one_day(green_vault):
 def test_the_cli_passes_date_through_to_every_dated_disposition(
     green_vault, monkeypatch
 ):
-    """F-3: with no `--date`, the CLI could only ever name today, so a project
-    published and then corrected on one day was unrepairable — the correction's
-    tag collided with the publication's and no flag could name another day. The
-    date rides as the tag's own ISO suffix, never as an extra suffix appended to
-    it, which is what keeps `PUBLISHED_TAG` and the newest-tag ordering intact.
+    """Without `--date` reaching every dated disposition the CLI can only name
+    today, so a project published and then corrected on one day is
+    unrepairable — the correction's tag collides with the publication's and no
+    flag can name another day. The date rides as the tag's own ISO suffix,
+    never as an extra suffix appended to it, which is what keeps
+    `PUBLISHED_TAG` and the newest-tag ordering intact.
     """
     _tag_clock(monkeypatch, "090000", "140000", "203000")
     published = main(
@@ -876,9 +877,6 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
     # The project-level event `mark-published`/`mark-corrected` mint is real and
     # distinct from the per-check ones; the row must not collapse the two.
     assert "`publish`" in row
-
-
-# --- review findings, round 1 ----------------------------------------------
 
 
 def test_a_project_git_cannot_tag_is_refused_before_anything_is_written(

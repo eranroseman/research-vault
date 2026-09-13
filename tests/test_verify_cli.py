@@ -472,7 +472,7 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
         for entry in inbox.open_entries(net_vault)
         if entry.check == "citation-key" and entry.target == "fabricated2020"
     ]
-    # The tool's own stamp never moves an ack scope (open point 07, ruling 5):
+    # The tool's own stamp never moves an ack scope (open point 07):
     # one row across three runs, not a second one filed over the stamped draft.
     assert len(first_entries) == len(second_entries) == len(third_entries) == 1
     assert first_entries[0].target_hash == second_entries[0].target_hash
@@ -721,7 +721,7 @@ def test_unwitnessed_note_hash_ignores_events_and_markers_but_content_is_substan
     net_vault,
 ):
     """The `_note_bytes` fallback, for a note capture never wrote: verifier
-    events and verify's own marker are not content (open point 07, ruling 5);
+    events and verify's own marker are not content (open point 07);
     the body and the frontmatter the author wrote are."""
     source = net_vault / "literatures" / "smith2020.md"
     text = _without_witness(source.read_text())
@@ -1329,8 +1329,8 @@ def test_unwitnessed_note_target_hashes_are_candidate_bound_before_projection(
     net_vault, monkeypatch, check, reverse
 ):
     # A note capture never wrote takes the `_note_bytes` fallback, which
-    # ignores projection's own writes — the body marker (ruling 5) and the
-    # frontmatter failure row (ruling 10) — as a witness would. Committed so
+    # ignores projection's own writes — the body marker and the frontmatter
+    # failure row — as a witness would. Committed so
     # `lint_evidence_layer`'s base and candidate agree on the missing
     # managed-sha256 — this test exercises candidate-bound hashing, not the
     # machine-owned-frontmatter guard.
@@ -1370,10 +1370,9 @@ def test_unwitnessed_note_acknowledgment_survives_projections_own_writes(
     net_vault, monkeypatch, check
 ):
     # A note capture never wrote takes the `_note_bytes` fallback, which
-    # ignores projection's own writes — the body marker (ruling 5) and the
-    # frontmatter failure row (ruling 10) — as a witness would, so the ack
-    # scoped to the candidate hash still holds once projection has written
-    # (round 3 flipped the last line from `!=` to `==`). Committed so
+    # ignores projection's own writes — the body marker and the frontmatter
+    # failure row — as a witness would, so the ack scoped to the candidate
+    # hash still holds once projection has written. Committed so
     # `lint_evidence_layer`'s base and candidate agree on the missing
     # managed-sha256 — this test exercises candidate-bound hashing, not the
     # machine-owned-frontmatter guard.
@@ -2435,7 +2434,7 @@ def test_ack_clears_the_marker_on_a_hand_authored_literature_note(
 def test_every_scope_leg_ignores_verifys_own_marks():
     """An ack scope hashes what the person wrote, never the tool's marks: the
     anchored-claim, origin-note and repo-path legs all read the same bytes
-    before a stamp, after it, and after the clear (open point 07, ruling 5)."""
+    before a stamp, after it, and after the clear (open point 07)."""
     from research_vault.verify import _claim_bytes_from_text
 
     plain = (
@@ -2499,11 +2498,11 @@ def test_ack_scope_survives_verifys_own_stamp_and_clear(net_vault, capsys):
 def test_ack_on_an_unwitnessed_note_survives_the_failure_row(
     net_vault, monkeypatch, capsys, check
 ):
-    """The scratch run behind round 3: for a note without a `managed-sha256`
-    the scope hash moved with the frontmatter `failed-verification` row the
-    projection writes, so an ack between two runs was orphaned — a second row,
-    and the outcome effective again. The scope now ignores the tool's own
-    record as it ignores `verified` events (ruling 10); the record stays."""
+    """For a note without a `managed-sha256`, the scope hash must not move
+    with the frontmatter `failed-verification` row the projection writes, or
+    an ack between two runs is orphaned — a second row, and the outcome
+    effective again. The scope ignores the tool's own record as it ignores
+    `verified` events; the record stays."""
     source = net_vault / "literatures" / "smith2020.md"
     source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
@@ -2551,7 +2550,7 @@ def test_ack_on_an_unwitnessed_note_survives_the_failure_row(
         for entry in inbox.open_entries(net_vault)
         if entry.check == check and entry.target == primary.target
     ]
-    assert events.current_failures(source.read_text())  # ruling 9: ack leaves it
+    assert events.current_failures(source.read_text())  # ack leaves it
 
 
 # --- The repo-path hash planes -------------------------------------------------

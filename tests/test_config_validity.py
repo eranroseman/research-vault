@@ -633,7 +633,7 @@ def test_fixture_substitutions_cannot_become_no_ops():
 
     def fixture_shaped(node) -> bool:
         # A str or bytes literal with a line break, a `key: value` or an inline
-        # field, or any f-string: the shapes fixture text takes (ruling 7).
+        # field, or any f-string: the shapes fixture text takes.
         if isinstance(node, ast.JoinedStr):
             return True
         if not isinstance(node, ast.Constant):

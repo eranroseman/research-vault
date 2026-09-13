@@ -14,7 +14,7 @@ from research_vault import scaffold
 def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
     """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly.
 
-    ``text``, ``old`` and ``new`` are all ``str`` or all ``bytes`` (ruling 7).
+    ``text``, ``old`` and ``new`` are all ``str`` or all ``bytes``.
     """
     assert old in text, f"substitution target no longer in the fixture: {old!r}"
     return text.replace(old, new, count)

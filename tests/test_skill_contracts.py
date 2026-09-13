@@ -446,8 +446,8 @@ def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
 
 @pytest.mark.parametrize("skill_md", _skill_md_files(), ids=lambda p: p.parent.name)
 def test_recognizable_check_id_enumerations_name_only_ids_the_code_files(skill_md):
-    """C-1's class: a skill naming a check id the code renamed or dropped ships
-    prose that describes output the CLI cannot produce. Prose is the one
+    """A skill naming a check id the code renamed or dropped ships prose
+    that describes output the CLI cannot produce. Prose is the one
     surface no other test reads; this catches the drift at build time.
 
     "Recognizable" is load-bearing and not a hedge — it names exactly what
