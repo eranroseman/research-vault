@@ -116,6 +116,7 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     # object, expanded nesting; the one-time canonicalization is its own commit.
     assert (vault / ".research-vault" / "machine.json").read_text() == (
         "{\n"
+        '  "claude_obsidian_root": "",\n'
         '  "mailto": "you@example.edu",\n'
         '  "path_map": {\n'
         '    "D:\\\\Zotero\\\\": "/mnt/d/Zotero/"\n'

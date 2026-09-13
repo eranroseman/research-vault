@@ -37,9 +37,24 @@ from .verify import (
 )
 from .zotero import ZoteroClient, ZoteroError
 
-DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt"}
+DOCTOR_HARD_UNMATCHED = {
+    "tree",
+    "machine-config",
+    "zotero",
+    "bbt",
+    "write-guard",
+    "plugins",
+}
 DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt"}
-DOCTOR_WARN_ONLY = {"remote", "backup"}
+DOCTOR_WARN_ONLY = {
+    "remote",
+    "backup",
+    "bbt-git",
+    "translator-formats",
+    "compile-tool",
+    "fulltext-sync",
+    "path-shim",
+}
 
 
 def cmd_probe(args):

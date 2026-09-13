@@ -4,12 +4,13 @@ import json
 import shutil
 import stat
 import subprocess
+import urllib.parse
 from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, okf
-from .zotero import ZoteroClient, ZoteroError
+from . import Result, addons, okf, paths
+from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
     "inbox",
@@ -106,16 +107,16 @@ def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
 
 
 def _owned_paths(templates, with_ci: bool, with_rw_ci: bool) -> list[str]:
-    paths = [*VAULT_DIRS]
-    paths.extend(relative for relative, _source in _vault_template_paths(templates))
-    paths.append(GLOSSARY_PATH)
-    paths.extend(f"{root}/.gitkeep" for root in _EMPTY_ROOTS)
-    paths.extend((".research-vault/machine.json", ".git/hooks/pre-commit"))
+    owned = [*VAULT_DIRS]
+    owned.extend(relative for relative, _source in _vault_template_paths(templates))
+    owned.append(GLOSSARY_PATH)
+    owned.extend(f"{root}/.gitkeep" for root in _EMPTY_ROOTS)
+    owned.extend((".research-vault/machine.json", ".git/hooks/pre-commit"))
     if with_ci:
-        paths.append(".github/workflows/verify.yml")
+        owned.append(".github/workflows/verify.yml")
     if with_rw_ci:
-        paths.append(".github/workflows/rw-batch.yml")
-    return paths
+        owned.append(".github/workflows/rw-batch.yml")
+    return owned
 
 
 def _reject_owned_symlinks(vault: Path, owned_paths: list[str]) -> None:
@@ -318,47 +319,254 @@ def _backup_probe(config: dict) -> Probe:
     )
 
 
-def doctor(vault_root, client=None) -> list[Probe]:
-    """Repair the scoped vault substrate and return its six ordered probes."""
-    vault = Path(vault_root)
+_WRONG_ID = "research-vault-wrong-id"
+_COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
+_COMPILE_PIN = "ad67087"
+
+
+def _tree_probe(vault: Path) -> Probe:
     try:
         scaffold_vault(vault)
         tree_complete = all((vault / relative).is_dir() for relative in VAULT_DIRS)
-        tree = Probe(
-            "tree",
-            Result.MATCHED if tree_complete else Result.UNMATCHED,
-            "required vault tree complete"
-            if tree_complete
-            else "required vault tree incomplete after repair",
-        )
     except (OSError, subprocess.SubprocessError, ValueError) as error:
-        tree = Probe("tree", Result.UNMATCHED, f"vault tree repair failed: {error}")
+        return Probe("tree", Result.UNMATCHED, f"vault tree repair failed: {error}")
+    if tree_complete:
+        return Probe("tree", Result.MATCHED, "required vault tree complete")
+    return Probe(
+        "tree", Result.UNMATCHED, "required vault tree incomplete after repair"
+    )
 
-    config, machine = _machine_config(vault)
-    probes = [tree, machine]
-    client = ZoteroClient() if client is None else client
+
+def _installed_plugins() -> dict:
+    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        return {}
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    return plugins if isinstance(plugins, dict) else {}
+
+
+def _zotero_probe(client) -> tuple[Probe, dict | None]:
+    try:
+        info = client.server_info()
+    except LocalApiDisabledError:
+        return Probe(
+            "zotero",
+            Result.UNMATCHED,
+            "local API preference is off — enable it in Settings, Advanced",
+        ), None
+    except (ZoteroError, OSError, UnicodeError, ValueError) as error:
+        return Probe("zotero", Result.UNREACHABLE, str(error)), None
+    reason = " ".join(f"{key}={value}" for key, value in info.items())
+    return Probe("zotero", Result.MATCHED, reason), info
+
+
+def _write_guard_probe(client, info) -> Probe:
+    if info is None:
+        return Probe("write-guard", Result.SKIPPED, "zotero unreachable")
+    try:
+        response = client._http(
+            f"{client.base}/api/users/0/items",
+            data=b"[]",
+            headers={"Zotero-Server-ID": _WRONG_ID, "Content-Type": "application/json"},
+            method="POST",
+        )
+    except ZoteroError as error:
+        return Probe("write-guard", Result.UNREACHABLE, str(error))
+    if response.status == 412:
+        return Probe(
+            "write-guard",
+            Result.MATCHED,
+            "a wrong server id is refused before any key (412)",
+        )
+    return Probe(
+        "write-guard",
+        Result.UNMATCHED,
+        f"wrong server id answered {response.status}, not 412 — the guard is not armed",
+    )
+
+
+def _profile_dir(config) -> Path | None:
+    value = config.get("zotero_profile")
+    if isinstance(value, str) and value.strip() and Path(value).is_dir():
+        return Path(value)
+    return None
+
+
+def _fulltext_sync_probe(prefs) -> Probe:
+    if prefs is None:
+        return Probe("fulltext-sync", Result.SKIPPED, "zotero_profile not configured")
+    enabled = prefs.get("extensions.zotero.sync.fulltext.enabled", False)
+    protocol = prefs.get("extensions.zotero.sync.storage.protocol", "zotero")
+    return Probe(
+        "fulltext-sync",
+        Result.MATCHED,
+        f"sync.fulltext.enabled={enabled} storage.protocol={protocol}",
+    )
+
+
+def _bbt_git_probe(prefs) -> Probe:
+    if prefs is None:
+        return Probe("bbt-git", Result.SKIPPED, "zotero_profile not configured")
+    value = prefs.get("extensions.zotero.translators.better-bibtex.git", "off")
+    if value == "off":
+        return Probe("bbt-git", Result.MATCHED, "git=off")
+    return Probe(
+        "bbt-git",
+        Result.UNMATCHED,
+        f"git={value} — Better BibTeX may run git inside an export target",
+    )
+
+
+def _plugins_probe(profile, prefs) -> Probe:
+    if profile is None or prefs is None:
+        return Probe("plugins", Result.SKIPPED, "zotero_profile not configured")
+    try:
+        observed = addons.observe(profile)
+    except (OSError, UnicodeError, ValueError, KeyError, AttributeError) as error:
+        return Probe(
+            "plugins", Result.UNREACHABLE, f"extensions.json unreadable: {error}"
+        )
+    failures: list[str] = []
+    notes_out: list[str] = []
+    for addon in addons.declared():
+        seen = observed.get(addon.addon_id)
+        if seen is None:
+            state = "missing"
+        elif seen["appDisabled"]:
+            state = "appDisabled"
+        elif not seen["active"]:
+            state = "inactive"
+        else:
+            state = "active"
+        notes_out.append(f"{addon.addon_id} {state}")
+        if addon.need == "required" and state != "active":
+            failures.append(f"{addon.name} {state}")
+        if (
+            addon.auto_pref
+            and state == "active"
+            and prefs.get(addon.auto_pref) is not True
+        ):
+            failures.append(f"{addon.name} automatic mode off ({addon.auto_pref})")
+    if failures:
+        return Probe("plugins", Result.UNMATCHED, "; ".join(failures))
+    return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
+
+
+def _path_shim_probe(client, info, vault: Path) -> Probe:
+    if not paths._running_in_wsl():
+        return Probe("path-shim", Result.SKIPPED, "not running in WSL")
+    if info is None:
+        return Probe("path-shim", Result.SKIPPED, "zotero unreachable")
+    try:
+        # Measured 2026-09-07: the local API ignores a `linkMode` query filter (it
+        # answered `imported_url` rows for `linkMode=imported_file`), so fetch
+        # attachments and filter client-side (decision 25).
+        payload, _ = client._local_json(
+            "/api/users/0/items?itemType=attachment&limit=50&format=json"
+        )
+        stored = [
+            row
+            for row in payload
+            if isinstance(row, dict)
+            and isinstance(row.get("data"), dict)
+            and row["data"].get("linkMode") == "imported_file"
+        ]
+        key = stored[0]["key"] if stored else None
+        url = client.file_view_url(key) if key else None
+    except (ZoteroError, KeyError, IndexError, TypeError) as error:
+        return Probe(
+            "path-shim", Result.UNREACHABLE, f"no stored attachment to resolve: {error}"
+        )
+    if not url:
+        return Probe("path-shim", Result.UNREACHABLE, "no stored attachment to resolve")
+    windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
+    try:
+        local = paths.to_local(windows_path, vault)
+    except paths.PathError as error:
+        return Probe("path-shim", Result.UNMATCHED, str(error))
+    result = Result.MATCHED if local.is_file() else Result.UNMATCHED
+    return Probe("path-shim", result, str(local))
+
+
+def _translator_formats_probe(client, info) -> Probe:
+    if info is None:
+        return Probe("translator-formats", Result.SKIPPED, "zotero unreachable")
+    try:
+        response = client._http(
+            f"{client.base}/api/users/0/items/top?format=csljson&limit=1"
+        )
+    except ZoteroError as error:
+        return Probe("translator-formats", Result.UNREACHABLE, str(error))
+    if response.status == 500:
+        return Probe(
+            "translator-formats",
+            Result.MATCHED,
+            "translator formats still answer 500 (closed route)",
+        )
+    return Probe(
+        "translator-formats",
+        Result.UNMATCHED,
+        f"format=csljson answered {response.status} — a route this design closed has reopened",
+    )
+
+
+def _compile_tool_probe() -> Probe:
+    records = _installed_plugins().get(_COMPILE_PLUGIN)
+    record = records[0] if isinstance(records, list) and records else None
+    if not isinstance(record, dict):
+        return Probe("compile-tool", Result.SKIPPED, f"{_COMPILE_PLUGIN} not installed")
+    sha = str(record.get("gitCommitSha", ""))
+    if sha.startswith(_COMPILE_PIN):
+        return Probe("compile-tool", Result.MATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}")
+    return Probe(
+        "compile-tool",
+        Result.UNMATCHED,
+        f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}",
+    )
+
+
+def _bbt_probe(client) -> Probe:
+    """Independent of the local-API preference: `/better-bibtex/json-rpc` answers with it off (§9)."""
     try:
         versions = client.ready()
-        if not isinstance(versions, dict):
-            raise ZoteroError("malformed api.ready result: expected an object")
     except (ZoteroError, OSError, UnicodeError, ValueError) as error:
-        probes.extend(
-            [
-                Probe("zotero", Result.UNREACHABLE, str(error)),
-                Probe("bbt", Result.UNREACHABLE, "zotero down"),
-            ]
-        )
-    else:
-        version_detail = ", ".join(
-            f"{name}={value}" for name, value in sorted(versions.items())
-        )
-        probes.append(Probe("zotero", Result.MATCHED, version_detail))
-        bbt_version = versions.get("betterbibtex")
-        if not isinstance(bbt_version, str) or not bbt_version.strip():
-            probes.append(
-                Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")
-            )
-        else:
-            probes.append(Probe("bbt", Result.MATCHED, bbt_version.strip()))
-    probes.extend([_remote_probe(vault), _backup_probe(config)])
-    return probes
+        return Probe("bbt", Result.UNREACHABLE, f"zotero down: {error}")
+    bbt_version = versions.get("betterbibtex")
+    if not isinstance(bbt_version, str) or not bbt_version.strip():
+        return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")
+    return Probe("bbt", Result.MATCHED, bbt_version.strip())
+
+
+def doctor(vault_root, client=None) -> list[Probe]:
+    """Repair the scoped vault substrate and return its thirteen ordered probes (§5)."""
+    vault = Path(vault_root)
+    tree = _tree_probe(vault)
+    config, machine = _machine_config(vault)
+    client = ZoteroClient() if client is None else client
+    zotero_probe, info = _zotero_probe(client)
+    profile = _profile_dir(config)
+    prefs: dict[str, str | bool | int] | None = None
+    if profile is not None:
+        try:
+            prefs = addons.read_prefs(profile)
+        except (OSError, UnicodeError, ValueError):
+            prefs = None
+    # Never gated on `info`: the json-rpc route ignores the local-API preference.
+    bbt = _bbt_probe(client)
+    return [
+        tree,
+        machine,
+        zotero_probe,
+        _write_guard_probe(client, info),
+        _fulltext_sync_probe(prefs),
+        bbt,
+        _bbt_git_probe(prefs),
+        _plugins_probe(profile, prefs),
+        _path_shim_probe(client, info, vault),
+        _translator_formats_probe(client, info),
+        _compile_tool_probe(),
+        _remote_probe(vault),
+        _backup_probe(config),
+    ]

@@ -24,6 +24,7 @@ EXPECTED_PATHS = {
     "vault/markdownlintignore",
     "vault/editorconfig",
     "research-vault/machine.json.example",
+    "zotero-addons.md",
     "git/pre-commit",
     "ci/verify.yml",
     "ci/rw-batch.yml",
@@ -189,6 +190,7 @@ def test_bases_and_machine_example_match_canonical_shapes():
 
     machine = json.loads(asset("research-vault/machine.json.example").read_text())
     assert machine == {
+        "claude_obsidian_root": "",
         "mailto": "you@example.edu",
         "path_map": {"D:\\Zotero\\": "/mnt/d/Zotero/"},
         "zotero_base": "http://localhost:23119",
@@ -386,3 +388,8 @@ def test_glossary_carries_the_ingest_vocabulary_and_no_retired_terms():
     # named once, as the spelling to avoid
     assert text.count("citekey") == 1
     assert "_Avoid_: citekey" in text
+
+
+def test_readme_embeds_the_addon_declaration_verbatim():
+    table = asset("zotero-addons.md").read_text()
+    assert table.strip() in (REPO / "README.md").read_text()

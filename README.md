@@ -116,6 +116,18 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 
 The foundation was planned on a wayfinder map (issue #1, closed 2026-08-16, label `wayfinder:map`); current sequencing lives in the active plan under `docs/superpowers/plans/`, with the issue tracker holding the work queue. `docs/research/harness-audits/dev-harness-analysis.md` is the anatomy of the software-dev harness this re-imagines.
 
+## Zotero add-ons
+
+Installing a Zotero add-on is a human step in the setup wizard. Doctor reads this same table (packaged as `research_vault/templates/zotero-addons.md`) and reports each row's `active`/`appDisabled` state from the running profile, plus whether its automatic mode is on.
+
+| Add-on             | Add-on id                              | Need        | Automatic-mode preference          |
+| ------------------ | -------------------------------------- | ----------- | ---------------------------------- |
+| Better BibTeX      | `better-bibtex@iris-advies.com`        | required    |                                    |
+| Attachment Scanner | `attachmentscanner@changlab.um.edu.mo` | recommended |                                    |
+| DOI Manager        | `zoteroshortdoi@wiernik.org`           | recommended | `extensions.shortdoi.autoretrieve` |
+| PMCID fetcher      | `zotero-pmcid-fetcher@iris-advies.com` | recommended | `extensions.zotero.pmcid.auto`     |
+| MarkDB-Connect     | `daeda@mit.edu`                        | optional    |                                    |
+
 ## Development
 
 One command runs every form and lint owner, locally and in CI:
