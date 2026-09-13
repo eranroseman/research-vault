@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from research_vault import Result, capture, frontmatter, zotero
+from research_vault import Result, capture, frontmatter, notes, zotero
 from tests.fakes import ITEM, FakeZotero, canned_item
 
 LIBRARY = [
@@ -314,8 +314,8 @@ def test_library_route_is_reread_once_when_zotero_moved_during_the_run(
     seen = iter(["565", "570"])
     original = fake._http
 
-    def moving(url, data=None, headers=None, method=None):
-        response = original(url, data, headers, method)
+    def moving(url, data=None, headers=None, method=None, *, timeout=None):
+        response = original(url, data, headers, method, timeout=timeout)
         if url.endswith("/items/top?format=versions"):
             return zotero.Response(
                 response.status,
@@ -361,10 +361,10 @@ def test_a_database_change_during_the_csl_read_voids_the_run_not_the_file(
     original = fake._http
     answers = iter([200, 412])  # the run's own read answers; the CSL bracket is refused
 
-    def changing(url, data=None, headers=None, method=None):
+    def changing(url, data=None, headers=None, method=None, *, timeout=None):
         if url.endswith("/items/top?format=versions") and next(answers, 412) == 412:
             return zotero.Response(412, b"does not match this server", {})
-        return original(url, data, headers, method)
+        return original(url, data, headers, method, timeout=timeout)
 
     monkeypatch.setattr(client, "_http", changing)
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
@@ -569,3 +569,29 @@ def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
     # vacuous — render_note writes that field on every write, stamped or not.)
     assert (tmp_vault / "log.md").is_file()
     assert not (tmp_vault / "system" / "bibliography.json").exists()
+
+
+def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch):
+    """An older vault's note has citationKey and no zotero-* fields; --all captures it by name."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    (tmp_vault / "literatures").mkdir(exist_ok=True)
+    legacy = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    legacy.write_text(
+        '---\ntype: "literature"\ncitationKey: "jakesch.etal2023a"\n---\nold prose\n'
+    )
+    (tmp_vault / "literatures" / "nameless.md").write_text(
+        '---\ntype: "literature"\n---\n'
+    )
+    outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
+    rows = [(str(o.target), o.result, o.reason.split(" — ")[0]) for o in outcomes]
+    assert ("jakesch.etal2023a", Result.MATCHED, "matched") in rows
+    assert [r[1:] for r in rows if r[0].endswith("literatures/nameless.md")] == [
+        (Result.UNMATCHED, "schema-violation")
+    ]
+    assert (
+        notes.read_provenance(legacy.read_text()) is not None
+    )  # the capture gave it its tuple
+    assert (
+        "old prose" not in legacy.read_text()
+    )  # greenfield: rewritten whole from Zotero

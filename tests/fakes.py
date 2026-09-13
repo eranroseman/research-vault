@@ -40,11 +40,13 @@ class FakeZotero:
     def rpc(self, method, result):
         self._rpc[method] = result
 
-    def _http(self, url, data=None, headers=None, method=None):
+    def _http(self, url, data=None, headers=None, method=None, *, timeout=None):
         parts = urlsplit(url)
         path = parts.path + (f"?{parts.query}" if parts.query else "")
         verb = method or ("POST" if data is not None else "GET")
         self.calls.append((verb, path, dict(headers or {})))
+        if verb == "POST":
+            self._last_post_body = data
         sent_id = (headers or {}).get("Zotero-Server-ID")
         if path.startswith("/api/") and sent_id and sent_id != self.server_id:
             return zotero.Response(412, b"does not match this server", {})
@@ -59,7 +61,7 @@ class FakeZotero:
             status, payload, {"Zotero-Server-ID": self.server_id, **extra}
         )
 
-    def _rpc_call(self, method, params):
+    def _rpc_call(self, method, params, *, timeout=None):
         self.calls.append(("RPC", method, {"params": params}))
         if method not in self._rpc:
             raise zotero.ZoteroError(f"JSON-RPC error: unknown method {method}")

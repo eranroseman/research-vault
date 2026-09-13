@@ -24,6 +24,12 @@ CSL_TRANSLATOR = "Better CSL JSON"
 APP_NAME = "research-vault"
 ITEM_KEY = re.compile(r"^[A-Z0-9]{8}$")
 _USER = "/api/users/0"
+# Decision 13: the Better BibTeX library route measured 4.78 s cold against
+# the client's 5.0 s default, and a busy Zotero's own retry then timed out
+# too. About six times the cold measurement, so a library three times larger
+# still clears; only the two whole-library export calls use it (never a
+# per-item read, and never `ready()` — a busy Zotero must not hang the loop).
+EXPORT_TIMEOUT = 30.0
 
 
 class ZoteroError(Exception):
@@ -88,6 +94,14 @@ def base_for(vault_root, override: str | None = None, *, strict: bool = True) ->
     base = config.get("zotero_base")
     if isinstance(base, str) and base.strip():
         return base.strip().rstrip("/")
+    if base is not None and strict:
+        # JSON null is the spelling of unset and keeps the default; anything
+        # else present and not a non-empty string (a number, "", a list) is a
+        # typo the production default must not silently absorb.
+        raise ZoteroError(
+            "machine.json unreadable: zotero_base must be a non-empty string",
+            Result.UNMATCHED,
+        )
     return DEFAULT_BASE
 
 
@@ -116,12 +130,16 @@ class ZoteroClient:
             headers["Zotero-API-Key"] = self.api_key
         return headers
 
-    def _http(self, url, data=None, headers=None, method=None) -> Response:
+    def _http(
+        self, url, data=None, headers=None, method=None, *, timeout=None
+    ) -> Response:
         request = urllib.request.Request(
             url, data=data, headers=headers or {}, method=method
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with urllib.request.urlopen(
+                request, timeout=timeout if timeout is not None else self.timeout
+            ) as response:
                 return Response(
                     response.status, response.read(), dict(response.headers)
                 )
@@ -147,6 +165,13 @@ class ZoteroClient:
             raise LocalApiDisabledError()
         if response.status == 404:
             raise NotFoundError(f"local API 404 for {path}")
+        if response.status == 400:
+            # Spec §9 measured a malformed POST /items answering 400: a
+            # definite refusal of the payload, not an outage to retry.
+            raise ZoteroError(
+                f"local API 400 for {path}: {response.body[:200]!r}",
+                result=Result.UNMATCHED,
+            )
         raise ZoteroError(f"local API HTTP {response.status} for {path}")
 
     def _local_json(self, path):
@@ -280,7 +305,9 @@ class ZoteroClient:
         Undocumented route; ``export_csl`` is the documented fallback.
         """
         quoted = urllib.parse.quote(library_name, safe="")
-        response = self._http(f"{self.base}/better-bibtex/library?/{quoted}.json")
+        response = self._http(
+            f"{self.base}/better-bibtex/library?/{quoted}.json", timeout=EXPORT_TIMEOUT
+        )
         if response.status != 200:
             raise ZoteroError(f"Better BibTeX library route HTTP {response.status}")
         items = self._decode_json(response.body, "Better BibTeX library export")
@@ -357,7 +384,9 @@ class ZoteroClient:
 
     # -- Better BibTeX JSON-RPC -------------------------------------------------
 
-    def _rpc(self, method: str, params: list) -> object:
+    def _rpc(
+        self, method: str, params: list, *, timeout: float | None = None
+    ) -> object:
         payload = json.dumps(
             {
                 "jsonrpc": "2.0",
@@ -370,6 +399,7 @@ class ZoteroClient:
             f"{self.base}/better-bibtex/json-rpc",
             data=payload,
             headers={"Content-Type": "application/json"},
+            timeout=timeout,
         )
         if response.status != 200:
             raise ZoteroError(f"JSON-RPC HTTP {response.status}")
@@ -405,7 +435,9 @@ class ZoteroClient:
 
     def export_csl(self, citation_keys: list[str]) -> list[dict]:
         """BBT ``item.export``: the documented CSL fallback (§3.3 step 4)."""
-        exported = self._rpc("item.export", [citation_keys, CSL_TRANSLATOR])
+        exported = self._rpc(
+            "item.export", [citation_keys, CSL_TRANSLATOR], timeout=EXPORT_TIMEOUT
+        )
         if not isinstance(exported, list):
             exported = self._decode_json(exported, "item.export result")
         return self._validate_csl_items(exported, "item.export result")

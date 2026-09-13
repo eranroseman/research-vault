@@ -102,6 +102,43 @@ def cmd_capture(args):
     return worst
 
 
+def cmd_add(args):
+    """The add verb (ingest spec §2): create in Zotero, then capture; same
+    print-and-hold shape as ``cmd_capture``.
+
+    ``--item`` names one JSON file holding either a single item object or a
+    list of them; ``capture.add`` validates the items themselves, so this
+    only normalises the one-object shape and reports a file this verb could
+    not even read as exit 2 — the CLI's "could not run" contract, never a
+    four-state verdict.
+    """
+    item_path = Path(args.item)
+    try:
+        payload = json.loads(item_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
+        print(f"add: cannot read --item: {error}", file=sys.stderr)
+        return 2
+    items = payload if isinstance(payload, list) else [payload]
+    client = ZoteroClient(base=args.base)
+    outcomes = capture.add(args.vault, client, items, collection=args.collection)
+    worst = 0
+    for outcome in outcomes:
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
+            _hold(
+                args.vault,
+                capture.CHECK,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+            )
+        if outcome.result is Result.UNMATCHED:
+            worst = 1
+        elif outcome.result is Result.UNREACHABLE and worst == 0:
+            worst = 3
+    return worst
+
+
 def _hold(vault, check, target, result: Result, reason: str) -> None:
     """File one import hold through ``record_finding`` — never a forked writer.
 
@@ -644,6 +681,10 @@ def main(argv=None):
     capture_cmd.add_argument("keys", nargs="*")
     capture_cmd.add_argument("--vault", required=True)
     capture_cmd.add_argument("--all", action="store_true")
+    add_cmd = sub.add_parser("add", parents=[common])
+    add_cmd.add_argument("--vault", required=True)
+    add_cmd.add_argument("--item", required=True)
+    add_cmd.add_argument("--collection")
     propagate_cmd = sub.add_parser("propagate", parents=[common])
     propagate_cmd.add_argument("--vault", required=True)
     propagate_cmd.add_argument("--map", action="append", metavar="OLD=NEW")
@@ -739,6 +780,7 @@ def main(argv=None):
     return {
         "probe": cmd_probe,
         "capture": cmd_capture,
+        "add": cmd_add,
         "propagate": cmd_propagate,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,

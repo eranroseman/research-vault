@@ -6,6 +6,8 @@ regenerated whole at the end of the run; NOOP is a result.
 """
 
 import datetime
+import json
+import os
 import time
 from pathlib import Path
 from typing import NamedTuple
@@ -21,6 +23,7 @@ from . import (
     stamp,
 )
 from .outcome import Outcome, Result
+from .pathcodec import RepoPath
 from .zotero import (
     ITEM_KEY,
     DatabaseChangedError,
@@ -293,6 +296,43 @@ def _captured_keys(vault: Path) -> set[str]:
     return set(captured.captured_set(vault))
 
 
+def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
+    """--all: every note under literatures/, by its recorded citationKey — tuple or not.
+
+    A note without a tuple is an older vault's, captured once to acquire one; a note
+    that cannot even be named is a row, never a silent omission.
+    """
+    keys: list[str] = []
+    outcomes: list[Outcome] = []
+    for path in sorted((vault / "literatures").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
+        try:
+            data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
+        except OSError as error:
+            outcomes.append(
+                Outcome(CHECK, target, Result.UNREACHABLE, f"outage — {error}")
+            )
+            continue
+        except (UnicodeError, frontmatter.FrontmatterError) as error:
+            outcomes.append(
+                Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — {error}")
+            )
+            continue
+        key = data.get("citationKey")
+        if isinstance(key, str) and key:
+            keys.append(key)
+        else:
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    target,
+                    Result.UNMATCHED,
+                    "schema-violation — no citationKey to request by",
+                )
+            )
+    return keys, outcomes
+
+
 def capture(
     vault_root,
     client: ZoteroClient,
@@ -312,9 +352,8 @@ def capture(
         return [lifecycle.blocked(CHECK, "vault", error)]
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
-    requested = list(keys) + (
-        [p.citation_key for _, p in existing] if refresh_all else []
-    )
+    all_keys, unrequestable = _every_note(vault) if refresh_all else ([], [])
+    requested = list(keys) + all_keys
     # The linter runs first, through its one code path (§3.4). A vault-level
     # refusal or outage stops the run; its decision-26 SKIPPED — no note carries
     # a tuple yet — is the first capture into a fresh vault, not a reason to stop.
@@ -336,6 +375,7 @@ def capture(
     # The id the linter sent and Zotero accepted, recorded in every tuple written.
     server_id = client.server_id or info["server_id"]
     outcomes: list[Outcome] = []
+    outcomes.extend(unrequestable)
     library_name = None
     aborted: Outcome | None = None
     try:
@@ -428,3 +468,126 @@ def capture(
     if library_name is not None or existing:
         outcomes.append(_regenerate_csl(vault, client, library_name, run_version))
     return outcomes
+
+
+KEY_STORE = ".research-vault/zotero-keys.json"
+_ITEM_FIELDS = frozenset(notes.SNAPSHOT_FIELDS) | {"collections"}
+
+
+def _validate_items(items) -> str | None:
+    if not isinstance(items, list) or not items or len(items) > 50:
+        return "items must be a non-empty list of at most 50 objects"
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            return f"item {index}: not an object"
+        if not isinstance(item.get("itemType"), str) or not item["itemType"]:
+            return f"item {index}: itemType missing"
+        for field_name in item:
+            if field_name != "itemType" and field_name not in _ITEM_FIELDS:
+                return f"item {index}: unknown field {field_name}"
+    return None
+
+
+def _load_key(vault: Path, server_id: str) -> str | None:
+    path = vault / KEY_STORE
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get(server_id)
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def _store_key(vault: Path, server_id: str, key: str) -> None:
+    path = vault / KEY_STORE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        current = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        current = {}
+    current[server_id] = key
+    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+    path.chmod(0o600)
+
+
+def add(
+    vault_root, client: ZoteroClient, items, *, collection=None, now=None
+) -> list[Outcome]:
+    """Path A: authorize once, create, poll for the citation key, capture (§2)."""
+    vault = Path(vault_root)
+    problem = _validate_items(items)
+    if problem:
+        return [
+            Outcome(CHECK, "add", Result.UNMATCHED, f"schema-violation — {problem}")
+        ]
+    try:
+        info = client.server_info()
+    except ZoteroError as error:
+        return [
+            lifecycle.blocked(CHECK, "add", error)
+        ]  # 412 database-changed, 403 not-admitted, else outage
+    existing = lifecycle._provenances(vault)
+    client.server_id = existing[0][1].server_id if existing else info["server_id"]
+    if client.server_id != info["server_id"]:
+        return [
+            Outcome(
+                CHECK,
+                "add",
+                Result.UNMATCHED,
+                f"database-changed — notes record {client.server_id}, Zotero answers {info['server_id']}",
+            )
+        ]
+    payload = [
+        dict(item, **({"collections": [collection]} if collection else {}))
+        for item in items
+    ]
+    key = client.api_key or _load_key(
+        vault, client.server_id
+    )  # a preset key (RV_LIVE_WRITE_KEY) wins over the store
+    for attempt in (1, 2):
+        if key is None:
+            try:
+                granted = client.authorize()
+            except ZoteroError as error:
+                if error.result is Result.UNMATCHED:
+                    return [
+                        Outcome(
+                            CHECK, "add", Result.UNMATCHED, f"not-admitted — {error}"
+                        )
+                    ]
+                return [Outcome(CHECK, "add", Result.UNREACHABLE, f"outage — {error}")]
+            key = granted["key"]
+            if granted["remember"]:
+                _store_key(vault, client.server_id, key)
+        client.api_key = key
+        try:
+            envelope = client.create_items(payload)
+            break
+        except ZoteroError as error:
+            if "401" in str(error) and attempt == 1:
+                key = None
+                continue
+            return [
+                Outcome(
+                    CHECK,
+                    "add",
+                    error.result,
+                    f"{'outage' if error.result is Result.UNREACHABLE else 'mismatch'} — {error}",
+                )
+            ]
+    created = [
+        entry["key"]
+        for entry in envelope.get("successful", {}).values()
+        if isinstance(entry, dict) and entry.get("key")
+    ]
+    if envelope.get("failed") or not created:
+        return [
+            Outcome(
+                CHECK,
+                "add",
+                Result.UNMATCHED,
+                f"mismatch — create failed: {envelope.get('failed')}",
+            )
+        ]
+    outcomes = [
+        Outcome(CHECK, "add", Result.MATCHED, "matched — created " + ", ".join(created))
+    ]
+    return outcomes + capture(vault, client, created, now=now)

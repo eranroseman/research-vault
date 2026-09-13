@@ -48,6 +48,21 @@ def test_base_for_falls_back_when_machine_config_is_unreadable(tmp_vault):
         zotero.base_for(tmp_vault)
 
 
+def test_base_for_strict_refuses_a_wrong_typed_zotero_base(tmp_vault):
+    """A present-but-wrong-shaped ``zotero_base`` (a number, "", a list) is a
+    typo the production default must not silently absorb; JSON ``null`` is the
+    spelling of unset and keeps the default."""
+    (tmp_vault / ".research-vault").mkdir()
+    machine = tmp_vault / ".research-vault" / "machine.json"
+    machine.write_text('{"zotero_base": 23129}')
+    with pytest.raises(zotero.ZoteroError) as error:
+        zotero.base_for(tmp_vault)
+    assert error.value.result is Result.UNMATCHED
+    assert "zotero_base must be a non-empty string" in str(error.value)
+    machine.write_text('{"zotero_base": null}')
+    assert zotero.base_for(tmp_vault) == zotero.DEFAULT_BASE
+
+
 def test_server_info_reads_the_four_headers(fake):
     assert fake.client.server_info() == {
         "zotero": "10.0.1",
@@ -151,6 +166,47 @@ def test_library_csl_reads_the_whole_library_route(fake):
     )
     items = fake.client.library_csl("My Library")
     assert items[0]["id"] == "jakesch.etal2023a"
+
+
+def test_export_calls_carry_the_export_timeout_reads_keep_the_default(
+    fake, monkeypatch
+):
+    """Decision 13: the two whole-library export calls (``library_csl``,
+    ``export_csl``) get ``EXPORT_TIMEOUT``; ``ready()`` (doctor's ``bbt``
+    probe) and a per-item read keep the client's default so a busy Zotero
+    cannot hang the loop."""
+    canned_item(fake)
+    fake.get("/better-bibtex/library?/My%20Library.json", body=[])
+    fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
+    fake.rpc("item.export", [])
+    real_http = fake.client._http
+    real_rpc = fake.client._rpc
+    calls: list[tuple[str, float | None]] = []
+
+    def recording_http(url, data=None, headers=None, method=None, *, timeout=None):
+        calls.append(("http", timeout))
+        return real_http(
+            url, data=data, headers=headers, method=method, timeout=timeout
+        )
+
+    def recording_rpc(method, params, *, timeout=None):
+        calls.append((method, timeout))
+        return real_rpc(method, params, timeout=timeout)
+
+    monkeypatch.setattr(fake.client, "_http", recording_http)
+    monkeypatch.setattr(fake.client, "_rpc", recording_rpc)
+
+    fake.client.library_csl("My Library")
+    fake.client.export_csl(["smith2020"])
+    fake.client.ready()
+    fake.client.item("E352DFS8")
+
+    assert calls == [
+        ("http", zotero.EXPORT_TIMEOUT),
+        ("item.export", zotero.EXPORT_TIMEOUT),
+        ("api.ready", None),
+        ("http", None),
+    ]
 
 
 def test_local_api_403_and_404_are_typed_and_other_statuses_are_outages(fake):
