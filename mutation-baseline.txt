@@ -1,28 +1,10 @@
 # mutation-baseline.txt -- 6 module(s) excluded (see mutation-exclusions.txt), not represented below: research_vault/events.py, research_vault/frontmatter.py, research_vault/gitstate.py, research_vault/outcome.py, research_vault/pathcodec.py, research_vault/selectors.py
-research_vault/__main__.py::func/_attachment_hash::not isinstance(raw_path, str) or not raw_path -> not isinstance(raw_path, str) and not raw_path
-research_vault/__main__.py::func/_retain_prior_contexts::0 -> 1
-research_vault/__main__.py::func/cmd_backfill_selectors::0 -> 1
-research_vault/__main__.py::func/cmd_backfill_selectors::1 -> 0
-research_vault/__main__.py::func/cmd_backfill_selectors::not isinstance(citekey, str) or not citekey -> not isinstance(citekey, str) and not citekey
 research_vault/__main__.py::func/cmd_factcheck::True -> False
 research_vault/__main__.py::func/cmd_inbox::True -> False
 research_vault/__main__.py::func/cmd_search_log::args.source is None or args.hits is None -> args.source is None and args.hits is None
 research_vault/__main__.py::func/cmd_verify::True -> False
 research_vault/__main__.py::func/main::True -> False
 research_vault/appendlog.py::func/_sync_directory::0 -> 1
-research_vault/archive.py::func/archive_source::_string_field(data, "citekey") or citekey -> _string_field(data, "citekey") and citekey
-research_vault/archive.py::func/is_archive_url::not isinstance(url, str) or not url or url.splitlines() != [url] -> not isinstance(url, str) and not url or url.splitlines() != [url]
-research_vault/bibliography.py::func/_open_parent_chain::0 -> 1
-research_vault/bibliography.py::func/_open_parent_chain::1 -> 0
-research_vault/bibliography.py::func/_poll_window::clock() >= deadline -> clock() > deadline
-research_vault/bibliography.py::func/_poll_window::deadline - clock() -> deadline + clock()
-research_vault/bibliography.py::func/_poll_window::remaining <= 0 -> remaining < 0
-research_vault/bibliography.py::func/_refresh_live_index_lock::0 -> 1
-research_vault/bibliography.py::func/_repair_guidance::state.result is not Result.UNMATCHED or not state.contained -> state.result is not Result.UNMATCHED and not state.contained
-research_vault/bibliography.py::func/_rollback_head::True -> False
-research_vault/bibliography.py::func/_target_state::0 -> 1
-research_vault/bibliography.py::func/_target_state::not stat.S_ISREG(opened_stat.st_mode) or ( path_stat.st_dev, path_stat.st_ino, ) != (opened_stat.st_dev, opened_stat.st_ino) -> not stat.S_ISREG(opened_stat.st_mode) and ( path_stat.st_dev, path_stat.st_ino, ) != (opened_stat.st_dev, opened_stat.st_ino)
-research_vault/bibliography.py::func/observe_autoexport::boundary is None or not captured.contained -> boundary is None and not captured.contained
 research_vault/checks.py::func/_arxiv_identifier::not identifier or re.fullmatch(r"[a-z0-9./-]+", identifier) is None -> not identifier and re.fullmatch(r"[a-z0-9./-]+", identifier) is None
 research_vault/checks.py::func/_arxiv_identity::parts.scheme not in {"http", "https"} or parts.netloc.casefold() != "arxiv.org" -> parts.scheme not in {"http", "https"} and parts.netloc.casefold() != "arxiv.org"
 research_vault/checks.py::func/_arxiv_version_outcome::local_version is None or re.fullmatch(r"v[1-9]\d*", local_version) is None -> local_version is None and re.fullmatch(r"v[1-9]\d*", local_version) is None
@@ -35,7 +17,6 @@ research_vault/checks.py::func/_notice_date_from_updated::len(date_parts) != 1 o
 research_vault/checks.py::func/_notice_target::isinstance(entry, dict) and isinstance(entry.get("id"), str) and entry["id"] -> isinstance(entry, dict) or isinstance(entry.get("id"), str) and entry["id"]
 research_vault/checks.py::func/_rw_date::value is None or (isinstance(value, str) and not value.strip()) -> value is None and (isinstance(value, str) and not value.strip())
 research_vault/checks.py::func/_rw_hits::identifier is None or not isinstance(index, dict) -> identifier is None and not isinstance(index, dict)
-research_vault/checks.py::func/check_metadata::not isinstance(local_title, str) or local_authors is None or not local_year_ok -> not isinstance(local_title, str) and local_authors is None or not local_year_ok
 research_vault/checks.py::func/check_update_notice::status != 200 or not isinstance(payload, dict) -> status != 200 and not isinstance(payload, dict)
 research_vault/checks.py::func/load_rw_csv::doi is not None -> doi is None
 research_vault/checks.py::func/metadata_year::False -> True
@@ -44,8 +25,8 @@ research_vault/checks.py::func/metadata_year::parts is None or parts == [] -> pa
 research_vault/claims.py::module::False -> True
 research_vault/factcheck.py::func/_bucket::0 -> 1
 research_vault/factcheck.py::func/_bucket::1 -> 0
-research_vault/factcheck.py::func/contested_adjacent_links::not claim.citekey or not claim.claim_id -> not claim.citekey and not claim.claim_id
-research_vault/factcheck.py::func/eligible_claims::claim.tag not in _ELIGIBLE_TAGS or not claim.citekey or not claim.claim_id -> claim.tag not in _ELIGIBLE_TAGS and not claim.citekey or not claim.claim_id
+research_vault/factcheck.py::func/contested_adjacent_links::not claim.citation_key or not claim.claim_id -> not claim.citation_key and not claim.claim_id
+research_vault/factcheck.py::func/eligible_claims::claim.tag not in _ELIGIBLE_TAGS or not claim.citation_key or not claim.claim_id -> claim.tag not in _ELIGIBLE_TAGS and not claim.citation_key or not claim.claim_id
 research_vault/factcheck.py::func/select_claims::0 -> 1
 research_vault/factcheck.py::func/select_claims::cap < 0 -> cap <= 0
 research_vault/factcheck.py::module::True -> False
@@ -63,11 +44,10 @@ research_vault/inbox.py::func/_validate_notice_fingerprint::notice_date is not N
 research_vault/inbox.py::func/append_ack::notice_class is None and notice_type is None and notice_date is None -> notice_class is None or notice_type is None and notice_date is None
 research_vault/inbox.py::func/finding_id::notice_date or 'unknown' -> notice_date and 'unknown'
 research_vault/inbox.py::module::True -> False
-research_vault/lints.py::func/_claim_target::isinstance(citekey, str) and citekey -> isinstance(citekey, str) or citekey
+research_vault/lints.py::func/_claim_target::isinstance(citation_key, str) and citation_key -> isinstance(citation_key, str) or citation_key
 research_vault/lints.py::func/_is_complete_deprecation_transition::"[status:: deprecated]" in old_line -> "[status:: deprecated]" not in old_line
 research_vault/lints.py::func/_is_complete_deprecation_transition::TRANSITION_FIELD.search(old_line) and "[status:: deprecated]" in old_line -> TRANSITION_FIELD.search(old_line) or "[status:: deprecated]" in old_line
 research_vault/lints.py::func/_line_content_and_ending::match is None -> match is not None
-research_vault/lints.py::func/_managed_bytes::image is None or image.kind != "file" -> image is None and image.kind != "file"
 research_vault/lints.py::func/_normalize_marker_transition::len(old_lines) != len(new_lines) or old_lines[1:] != new_lines[1:] -> len(old_lines) != len(new_lines) and old_lines[1:] != new_lines[1:]
 research_vault/lints.py::func/_project_status::image.data or b"" -> image.data and b""
 research_vault/lints.py::func/_remove_single_marker::1 -> 0
@@ -78,18 +58,12 @@ research_vault/lints.py::func/lint_claim_immutability::candidate_image is not No
 research_vault/lints.py::func/lint_evidence_layer::managed is not None -> managed is None
 research_vault/notes.py::func/_frontmatter_close::1 -> 0
 research_vault/notes.py::func/_frontmatter_close::not lines or lines[0] not in {"---\n", "---\r\n"} -> not lines and lines[0] not in {"---\n", "---\r\n"}
-research_vault/notes.py::func/_raw_lines::0 -> 1
-research_vault/notes.py::func/_raw_lines::newline < 0 -> newline <= 0
-research_vault/notes.py::func/_raw_lines::offset < len(data) -> offset <= len(data)
 research_vault/notes.py::func/_valid_generated::at.endswith("Z") and parsed.tzinfo is not None -> at.endswith("Z") or parsed.tzinfo is not None
 research_vault/notes.py::func/_valid_generated::len(items) != 2 or {key for key, _ in items} != {"by", "at"} -> len(items) != 2 and {key for key, _ in items} != {"by", "at"}
 research_vault/notes.py::func/_valid_generated::not isinstance(actor, str) or not actor or not isinstance(at, str) -> not isinstance(actor, str) and not actor or not isinstance(at, str)
 research_vault/notes.py::func/canonical_content::0 -> 1
 research_vault/notes.py::func/canonical_content::close < 0 -> close <= 0
 research_vault/notes.py::func/canonical_content::index < close -> index <= close
-research_vault/notes.py::func/managed_slice_bytes::opening_start >= closing_start -> opening_start > closing_start
-research_vault/notes.py::func/render_claim::not isinstance(citekey, str) or _UNSAFE_IDENTIFIER.search(citekey) is not None -> not isinstance(citekey, str) and _UNSAFE_IDENTIFIER.search(citekey) is not None
-research_vault/notes.py::func/render_claim::pre or suf -> pre and suf
 research_vault/okf.py::func/regenerate_log::tail_entries > 0 -> tail_entries >= 0
 research_vault/paths.py::func/to_local::proc.returncode == 0 and proc.stdout.strip() -> proc.returncode == 0 or proc.stdout.strip()
 research_vault/publish.py::func/_append_log::True -> False
@@ -108,8 +82,6 @@ research_vault/quotes.py::func/levenshtein_ratio::1 -> 0
 research_vault/quotes.py::func/levenshtein_ratio::not a and not b -> not a or not b
 research_vault/scaffold.py::func/_add_empty_root_sentinels::False -> True
 research_vault/scaffold.py::func/_git::True -> False
-research_vault/scaffold.py::func/_okf_probe::has_day_files and not (vault / "log.md").exists() -> has_day_files or not (vault / "log.md").exists()
-research_vault/scaffold.py::func/_okf_probe::log_dir.is_dir() and any(log_dir.glob("*.md")) -> log_dir.is_dir() or any(log_dir.glob("*.md"))
 research_vault/scaffold.py::func/_preflight_conflicts::with_ci and not (vault / ".github" / "workflows" / "verify.yml").exists() -> with_ci or not (vault / ".github" / "workflows" / "verify.yml").exists()
 research_vault/scaffold.py::func/_preflight_conflicts::with_rw_ci and not (vault / ".github" / "workflows" / "rw-batch.yml").exists() -> with_rw_ci or not (vault / ".github" / "workflows" / "rw-batch.yml").exists()
 research_vault/scaffold.py::func/_prepare_repository::0 -> 1
@@ -124,10 +96,9 @@ research_vault/searchlog.py::module::True -> False
 research_vault/verify.py::func/_apply_state_transitions::True -> False
 research_vault/verify.py::func/_apply_state_transitions::note and note.is_file() -> note or note.is_file()
 research_vault/verify.py::func/_apply_state_transitions::outcome.result is Result.MATCHED -> outcome.result is not Result.MATCHED
-research_vault/verify.py::func/_archive_outcomes::not isinstance(archive_url, str) or not archive_url -> not isinstance(archive_url, str) and not archive_url
 research_vault/verify.py::func/_candidate_destinations_match_live::snapshots.candidate_name == "worktree" -> snapshots.candidate_name != "worktree"
-research_vault/verify.py::func/_citekey_hash::isinstance(attachment_hashes, list) and attachment_hashes -> isinstance(attachment_hashes, list) or attachment_hashes
-research_vault/verify.py::func/_citekey_hash::isinstance(first, str) and first -> isinstance(first, str) or first
+research_vault/verify.py::func/_citation_key_hash::isinstance(attachment_hashes, list) and attachment_hashes -> isinstance(attachment_hashes, list) or attachment_hashes
+research_vault/verify.py::func/_citation_key_hash::isinstance(first, str) and first -> isinstance(first, str) or first
 research_vault/verify.py::func/_claim_anchor_hash::candidate_snapshot is None -> candidate_snapshot is not None
 research_vault/verify.py::func/_claim_anchor_hash::data is None -> data is not None
 research_vault/verify.py::func/_claim_anchor_hash::data is None and candidate_snapshot is None -> data is None or candidate_snapshot is None

@@ -8,7 +8,10 @@ import stat
 import sys
 from pathlib import Path
 
-MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log"})
+MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki", "fulltext"})
+# Nested machine directories, matched as a path prefix: `system/` itself holds
+# hand-edited templates, so only its propagation records are guarded.
+MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)
 # Root-only exact match: a deeper `log.md` (e.g. inside a project) or
 # `search-log.md` (searchlog.py writes `projects/<name>/search-log.md`) is
 # a different file and is not on this list.
@@ -23,7 +26,7 @@ TOOL_PATH_KEYS = ("file_path", "notebook_path")
 
 DENY_REASON = (
     "machine surface; the CLI writes this — use the matching verb "
-    "(`finding`, `ack`, `import-note`, …)"
+    "(`finding`, `ack`, `capture`, …)"
 )
 FAIL_CLOSED_REASON = (
     "Machine-surface guard failed closed; resolve the fault before retrying this edit."
@@ -79,7 +82,9 @@ def _is_machine_surface(relative: Path) -> bool:
     # act would be to ALLOW the one write this hook exists to refuse.
     # `relative.parts[0]` raising `IndexError` instead routes the same
     # case into `main()`'s fail-closed deny, which is the correct outcome.
-    return relative.parts[0] in MACHINE_SURFACE_DIR_NAMES
+    return relative.parts[0] in MACHINE_SURFACE_DIR_NAMES or any(
+        relative.is_relative_to(prefix) for prefix in MACHINE_SURFACE_PREFIXES
+    )
 
 
 def _deny(reason: str) -> None:

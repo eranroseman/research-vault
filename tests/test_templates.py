@@ -14,10 +14,7 @@ EXPECTED_PATHS = {
     "vault/log.md",
     "vault/AGENTS.md",
     "vault/inbox/review-queue.md",
-    "vault/synthesis/index.md",
     "context.md",
-    "vault/system/templates/literature.md",
-    "vault/system/templates/synthesis.md",
     "vault/system/templates/project.md",
     "vault/system/templates/daily.md",
     "vault/system/bases/open-questions.base",
@@ -27,6 +24,7 @@ EXPECTED_PATHS = {
     "vault/markdownlintignore",
     "vault/editorconfig",
     "research-vault/machine.json.example",
+    "zotero-addons.md",
     "git/pre-commit",
     "ci/verify.yml",
     "ci/rw-batch.yml",
@@ -87,15 +85,18 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
         '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [literatures/](literatures/) — evidence layer: citekey-keyed literature notes\n"
-        "- [synthesis/](synthesis/) — synthesis notes (see [[synthesis/index]])\n"
+        "- [literatures/](literatures/) — evidence layer: literature notes, one per "
+        "captured source, named by citation key\n"
+        "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
+        "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
         "- [projects/](projects/) — manuscripts and deliverables\n"
         "- [log/](log/) — daily activity log (summary: [[log]])\n"
         "- [inbox/](inbox/) — fleeting notes and the review queue\n"
-        "- [system/](system/) — support artifacts: templates, bases, the bibliography export\n\n"
+        "- [system/](system/) — support artifacts: templates, bases, the CSL file, "
+        "the applied propagation plans\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![[system/bases/trust-tier.base]]\n\n"
-        "Synthesis notes, flagged where they contain an open-question:\n\n"
+        "Concept pages, flagged where they contain an open-question:\n\n"
         "![[system/bases/open-questions.base]]\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
@@ -108,8 +109,9 @@ def test_markdown_templates_match_canonical_content():
     # Constraint on the opening paragraph (the preamble, first two sentences
     # below): it names machine surfaces but must assert no enforcement
     # mechanism — no claim of a session warning, a commit-time gate, or a
-    # guaranteed trace. None holds uniformly across literatures/, log/,
-    # log.md, and inbox/review-queue.md: an in-format append to log/ or
+    # guaranteed trace. None holds uniformly across the six it names —
+    # literatures/, log/, log.md, inbox/review-queue.md, fulltext/ and
+    # system/propagations/: an in-format append to log/ or
     # inbox/review-queue.md keeps the prior bytes as a prefix, so
     # lint_append_only's startswith check never fires and
     # `verify --surface commit` exits 0 with zero findings. Any future
@@ -121,15 +123,16 @@ def test_markdown_templates_match_canonical_content():
         '---\ntype: "guide"\n---\n\n'
         "# Vault agents guide\n\n"
         "This is a research-vault vault. `literatures/`, `log/`, `log.md`, "
-        "and `inbox/review-queue.md` are machine-written — the CLI writes "
-        "them; don't edit them by hand.\n\n"
+        "`inbox/review-queue.md`, `fulltext/`, and `system/propagations/` are "
+        "machine-written — the CLI writes them; don't edit them by hand.\n\n"
         "Evidence is admitted through Zotero and projected into `literatures/` — "
         "evidence notes exist only by projection, never by hand. Read "
-        "`synthesis/index.md` and recent `log/` entries before editing; review "
+        "`wiki/index.md` and recent `log/` entries before editing; review "
         "findings live in `inbox/review-queue.md`.\n\n"
         "Prefer the two model-invocable research-vault skills over generic "
         "drafting, even for free-form requests: run `evidence-conventions` for "
-        "claim syntax and `synthesis-conventions` for synthesis-note rules.\n\n"
+        "claim syntax and `synthesis-conventions` for the rules of the compiled "
+        "layer.\n\n"
         "These seven are the user-invoked entry points — type the name to run "
         "one; an agent cannot reach them on its own:\n\n"
         "| Skill              | Use it to                                                |\n"
@@ -137,16 +140,18 @@ def test_markdown_templates_match_canonical_content():
         "| `setup-vault`      | create, repair, or provision a vault                     |\n"
         "| `project-flow`     | start or resume a research project                       |\n"
         "| `find-sources`     | find literature before it is admitted to Zotero          |\n"
-        "| `import-source`    | import, catalog, refresh, or backfill an admitted source |\n"
+        "| `capture-source`   | add, capture, refresh, or propagate a re-key of a source |\n"
         "| `verify-citations` | verify citations and run the citation checks             |\n"
         "| `factcheck-draft`  | factcheck a draft against its sources before review      |\n"
         "| `publish`          | publish, park, correct, or withdraw a project            |\n"
         "\n"
-        "Text between `%%rv-managed%%` markers is regenerated by the bridge — "
-        "edits there do not survive. Free prose below the managed region is "
-        "yours and persists.\n\n"
+        "Literature notes are wholly machine-written: `capture` regenerates "
+        "the whole note from Zotero on every run, so per-source prose belongs "
+        "in a Zotero child note, which capture renders.\n\n"
         "Machine surfaces are owner-written: hand or tool edits are "
         "regenerated away or raise a finding.\n\n"
+        "`wiki/` is written only by the adopted compile tool's transaction "
+        "engine; never `Write` or `Edit` under it.\n\n"
         "Better BibTeX is the sole writer of `system/bibliography.json`; users "
         "and other tools must not write it.\n\n"
         "Formatters are writers too: `.prettierignore` and `.markdownlintignore` "
@@ -157,19 +162,10 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/inbox/review-queue.md").read_text() == (
         '---\ntype: "review-queue"\n---\n'
     )
-    assert asset("vault/synthesis/index.md").read_text() == "# Synthesis index\n"
-    assert asset("vault/system/templates/literature.md").read_text() == (
-        '---\ncitekey: "{{CITEKEY}}"\ntype: "literature"\n'
-        'accessed: "{{TODAY}}"\nfixity-sha256:\n'
-        'managed-sha256: "{{MANAGED_SHA256}}"\nstatus: "unscreened"\n'
-        'generated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n\n'
-        "%%rv-managed%%\n\n# {{TITLE}}\n\n%%/rv-managed%%\n\n## Notes\n"
+    assert asset("vault/system/templates/project.md").read_text() == (
+        '---\ntitle: "{{TITLE}}"\ntype: "project"\n'
+        'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
     )
-    for kind in ("synthesis", "project"):
-        assert asset(f"vault/system/templates/{kind}.md").read_text() == (
-            f'---\ntitle: "{{{{TITLE}}}}"\ntype: "{kind}"\n'
-            'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
-        )
     assert asset("vault/system/templates/daily.md").read_text() == (
         '---\ntype: "daily"\n---\n\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
     )
@@ -179,7 +175,7 @@ def test_bases_and_machine_example_match_canonical_shapes():
     open_questions = asset("vault/system/bases/open-questions.base").read_text()
     trust_tier = asset("vault/system/bases/trust-tier.base").read_text()
     assert re.search(
-        r"name: Open questions\nfilters:\n  and:\n    - 'type == \"synthesis\"'",
+        r"name: Open questions\nfilters:\n  and:\n    - 'type == \"concept\"'",
         open_questions,
     )
     assert (
@@ -195,8 +191,11 @@ def test_bases_and_machine_example_match_canonical_shapes():
 
     machine = json.loads(asset("research-vault/machine.json.example").read_text())
     assert machine == {
+        "claude_obsidian_root": "",
         "mailto": "you@example.edu",
         "path_map": {"D:\\Zotero\\": "/mnt/d/Zotero/"},
+        "zotero_base": "http://localhost:23119",
+        "zotero_profile": "",
     }
     gitignore = asset("vault/gitignore").read_text()
     assert ".research-vault/\n" in gitignore
@@ -206,21 +205,24 @@ def test_bases_and_machine_example_match_canonical_shapes():
 # Anchored (leading "/") gitignore-style form, as research_vault/lints.py's
 # _is_append_only_path names the append-only three (log/, inbox/review-queue.md,
 # projects/*/search-log.md) plus system/bibliography.json (Better BibTeX's
-# export) and literatures/ (the evidence layer). Anchoring matters: an
-# unanchored "log/" also matches a nested projects/<name>/log/, silently
-# widening what a formatter skips.
+# export), literatures/ (the evidence layer), and fulltext/ (capture's
+# derived text layer, hash-tracked by the literature note it belongs to).
+# Anchoring matters: an unanchored "log/" also matches a nested
+# projects/<name>/log/, silently widening what a formatter skips.
 _MACHINE_SURFACES = (
     "/literatures/",
     "/log/",
     "/inbox/review-queue.md",
     "/system/bibliography.json",
     "/projects/*/search-log.md",
+    "/fulltext/",
+    "/system/propagations/",
 )
 
 
 def test_formatter_ignores_cover_every_machine_surface():
     # prettier and markdownlint both read gitignore-style patterns, so their
-    # ignore files list the five machine surfaces as plain, anchored
+    # ignore files list the seven machine surfaces as plain, anchored
     # gitignore lines.
     for name in ("vault/prettierignore", "vault/markdownlintignore"):
         text = asset(name).read_text()
@@ -228,7 +230,7 @@ def test_formatter_ignores_cover_every_machine_surface():
             assert surface in text, (name, surface)
 
     # .editorconfig has no gitignore-style ignore mechanism, and ships no
-    # [*] section -- it defends only the five machine surfaces and makes
+    # [*] section -- it defends only the seven machine surfaces and makes
     # no claim about any other vault file. `false` is the active override
     # for the two boolean properties: it wins even against a user's own
     # editor-wide setting, unlike `unset` or omission, either of which
@@ -355,3 +357,40 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert "git commit" not in text
     assert "--pathspec-from-file" not in text
     assert "|| true" not in text
+
+
+def test_glossary_carries_the_ingest_vocabulary_and_no_retired_terms():
+    text = (REPO / "CONTEXT.md").read_text()
+    for term in (
+        "**Ingest**",
+        "**Selection**",
+        "**Add**",
+        "**Capture**",
+        "**Compile**",
+        "**Drift**",
+        "**Refresh**",
+        "**Item key**",
+        "**Citation key**",
+        "**Captured set**",
+        "**Provenance tuple**",
+        "**Text layer**",
+        "**Compiled layer**",
+        "**Propagation plan**",
+    ):
+        assert term in text, term
+    for retired in (
+        "**Admission**",
+        "**Managed region**",
+        "**Screening state**",
+        "**Bibliography export**",
+        "**Synthesis layer**",
+    ):
+        assert retired not in text, retired
+    # named once, as the spelling to avoid
+    assert text.count("citekey") == 1
+    assert "_Avoid_: citekey" in text
+
+
+def test_readme_embeds_the_addon_declaration_verbatim():
+    table = asset("zotero-addons.md").read_text()
+    assert table.strip() in (REPO / "README.md").read_text()

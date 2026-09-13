@@ -4,29 +4,29 @@ A Claude Code plugin for knowledge work — academic research first (question �
 
 Success criterion: **trustworthy output** — every claim traceable to a real source, zero fabricated citations.
 
-research-vault is an Obsidian vault, a Python CLI (`research_vault`), and a set of agent skills. The vault holds the evidence; the CLI performs every mechanical write; the skills carry the judgment. That separation is the whole design: **the agent composes and explains, the CLI writes.** No skill hand-edits a managed region or machine surface, mints a verification event, or files a review record — those are verbs, and only the CLI runs them. (Prose is composed by hand where it belongs: free regions, synthesis pages, drafts.)
+research-vault is an Obsidian vault, a Python CLI (`research_vault`), and a set of agent skills. The vault holds the evidence; the CLI performs every mechanical write; the skills carry the judgment. That separation is the whole design: **the agent composes and explains, the CLI writes.** No skill hand-edits a machine surface — `literatures/`, `fulltext/`, `wiki/`, `log/`, `system/`, the review queue — mints a verification event, or files a review record: those are verbs, and only the CLI runs them (under `wiki/`, the adopted compile tool's transaction engine). Prose is composed by hand where it belongs: project drafts, and per-source notes written in Zotero, which capture renders into the literature note.
 
 ## The Iron Law
 
 > No claim enters a draft without a verified source first.
 
-A claim line exists only after its literature note exists and its citekey resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — it stays fleeting prose, not a tagged claim, until the source is admitted.
+A claim line exists only after its literature note exists and its citation key resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — it stays fleeting prose, not a tagged claim, until the source is captured.
 
 **Admission is a human act.** Accepting a source into Zotero is the only way anything becomes citable, and no import, search, or agent step can substitute for it.
 
 ## Claims carry their own evidence
 
-Claims get copied — from a literature note into a synthesis page, from synthesis into a draft — and whatever is not on the line does not travel with it. So everything rides the line:
+Claims are written in project drafts — never in the machine-written literature note — and arranged into `wiki/` pages by the compile tool; whatever is not on the line does not travel with it. So everything rides the line:
 
 ```
-- (quote|paraphrase|inference|open-question) <text> [@citekey, locator] [field:: value ...] ^claim-id
+- (quote|paraphrase|inference|open-question) <text> [@citation-key, locator] [field:: value ...] ^claim-id
 ```
 
 - The **evidence-boundary tag** states what kind of claim this is. `open-question` marks a claim with no derivation edge — itself lintable, not an escape hatch.
-- The **citekey and locator** parse losslessly to CSL `locator` + `label`.
+- The **citation key and locator** parse losslessly to CSL `locator` + `label`.
 - The **anchor** derives from stable content (a Zotero annotation key, else a quote hash), never from render order, so re-rendering never breaks an existing claim link.
 
-Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it. Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citekey#^claim-id]]`) rather than creating a second, unverified copy.
+Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it. Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citation-key#^claim-id]]`) rather than creating a second, unverified copy.
 
 **Claims are deprecated, never deleted.** Retirement is a transition record written on the same line — status, date, actor, reason, and a `superseded-by` link where a successor exists. The anchor survives the transition.
 
@@ -67,26 +67,27 @@ A cumulative tier is derived per literature note — `unverified`, `machine-conf
 
 ## The layers
 
-- **`literatures/`** — one note per admitted source. A managed region rendered from Zotero (rewritten on import) sits above a free region that import never touches.
-- **`synthesis/`** — arrangement, not evidence. Freely rewritable, because every arranged claim still cites its source claim link. A page earns its existence at two or more sources on the same topic, and that threshold *permits* a page without obligating one — sources set side by side with nothing said about how they relate are a compilation, not a synthesis.
+- **`literatures/`** — one note per captured source, wholly machine-written: `capture` regenerates the whole note from Zotero on every run — frontmatter carrying Zotero's own fields and the provenance tuple (server id, item key, item version, citation key, attachments, text files); a body carrying the embed of the compiled page once one exists, the item and attachment links into Zotero, and the item's Zotero child notes. Per-source prose is written in Zotero as a child note, and capture renders it.
+- **`fulltext/`** — the text layer, gitignored: one `<attachment key>.md` per attachment with usable extracted text, regenerated by capture; the compile input.
+- **`wiki/`** — the compiled layer, arrangement not evidence, written only by the adopted compile tool (claude-obsidian) through its transaction gate: per-source pages under `wiki/sources/`, concept pages under `wiki/concepts/`, each citing its source as `[[<citation key>]]`. A page earns its existence at two or more captured sources on the same topic, and that threshold *permits* a page without obligating one — sources set side by side with nothing said about how they relate are a compilation, not a synthesis.
 - **`projects/`** — the framed question, the search log, the draft. One project note carries the disposition frontmatter.
 - **`inbox/`**, **`log/`** — the review queue and the append-only activity log.
 
-Contradiction is preserved, not resolved. When a new claim contradicts one already in synthesis, both sides stay and are linked with `disputes`; a `disputed-claim` finding surfaces standing counter-evidence rather than letting it get silently relied on.
+Contradiction is preserved, not resolved. When a new claim contradicts one already in a draft or a compiled page, both sides stay and are linked with `disputes`; a `disputed-claim` finding surfaces standing counter-evidence rather than letting it get silently relied on.
 
 ## The flow
 
-| Step           | Skill              | What it does                                                                                               |
-| -------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| Provision      | `setup-vault`      | Scaffold, diagnose, and provision companions — with per-item consent, never inferred                       |
-| Frame / resume | `project-flow`     | Orient, drain the inbox, surface trust tiers, frame the question, run gap analysis                         |
-| Search         | `find-sources`     | Literature search upstream of Zotero, logged PRISMA-S style; terminates at the admission boundary          |
-| Catalog        | `import-source`    | Project an admitted item into `literatures/`, then integrate its claims into synthesis in the same session |
-| Verify         | `verify-citations` | Run the deterministic suite and report it grouped by check id                                              |
-| Factcheck      | `factcheck-draft`  | Non-blocking LLM adjudication of selected claims                                                           |
-| Publish        | `publish`          | The armed gate and its disposition menu                                                                    |
+| Step           | Skill              | What it does                                                                                           |
+| -------------- | ------------------ | ------------------------------------------------------------------------------------------------------ |
+| Provision      | `setup-vault`      | Scaffold, diagnose, and provision companions — with per-item consent, never inferred                   |
+| Frame / resume | `project-flow`     | Orient, drain the inbox, surface trust tiers, frame the question, run gap analysis                     |
+| Search         | `find-sources`     | Literature search upstream of Zotero, logged PRISMA-S style; terminates at the person's selection      |
+| Catalog        | `capture-source`   | Add an item to Zotero, capture it into `literatures/` and `fulltext/`, propagate a citation-key change |
+| Verify         | `verify-citations` | Run the deterministic suite and report it grouped by check id                                          |
+| Factcheck      | `factcheck-draft`  | Non-blocking LLM adjudication of selected claims                                                       |
+| Publish        | `publish`          | The armed gate and its disposition menu                                                                |
 
-Skills route the need actually stated, never an enlarged version of it. "Import this paper" is not "import it and rebuild the synthesis page."
+Skills route the need actually stated, never an enlarged version of it. "Capture this paper" is not "capture it and rebuild the concept page."
 
 ## Publishing
 
@@ -104,7 +105,7 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 
 | The temptation                               | The rule that forbids it                                                                                                             |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| "I'll cite it later."                        | The Iron Law — no claim line before its citekey resolves.                                                                            |
+| "I'll cite it later."                        | The Iron Law — no claim line before its citation key resolves.                                                                       |
 | "It's common knowledge."                     | Common knowledge is not an evidence-boundary tag.                                                                                    |
 | "The abstract said so."                      | An abstract cannot supply the methods, conditions, and magnitudes a claim states. Read the source or say no full text was available. |
 | "It's paywalled, I can't check the wording." | Use `paraphrase` or `inference`. A `quote` tag commits to text a checker can byte-compare.                                           |
@@ -114,6 +115,18 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 ## Planning
 
 The foundation was planned on a wayfinder map (issue #1, closed 2026-08-16, label `wayfinder:map`); current sequencing lives in the active plan under `docs/superpowers/plans/`, with the issue tracker holding the work queue. `docs/research/harness-audits/dev-harness-analysis.md` is the anatomy of the software-dev harness this re-imagines.
+
+## Zotero add-ons
+
+Installing a Zotero add-on is a human step in the setup wizard. Doctor reads this same table (packaged as `research_vault/templates/zotero-addons.md`) and reports each row's `active`/`appDisabled` state from the running profile, plus whether its automatic mode is on.
+
+| Add-on             | Add-on id                              | Need        | Automatic-mode preference          |
+| ------------------ | -------------------------------------- | ----------- | ---------------------------------- |
+| Better BibTeX      | `better-bibtex@iris-advies.com`        | required    |                                    |
+| Attachment Scanner | `attachmentscanner@changlab.um.edu.mo` | recommended |                                    |
+| DOI Manager        | `zoteroshortdoi@wiernik.org`           | recommended | `extensions.shortdoi.autoretrieve` |
+| PMCID fetcher      | `zotero-pmcid-fetcher@iris-advies.com` | recommended | `extensions.zotero.pmcid.auto`     |
+| MarkDB-Connect     | `daeda@mit.edu`                        | optional    |                                    |
 
 ## Development
 

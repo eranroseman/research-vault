@@ -18,12 +18,10 @@ from research_vault import Result, events, factcheck
 from research_vault.__main__ import main
 from research_vault.factcheck import ClaimRef
 
-MANAGED = "%%rv-managed%%\n{body}\n%%/rv-managed%%\n"
 
-
-def _note(citekey, body, verified=None):
-    header = f'---\ncitekey: "{citekey}"\ntype: "literature"\n---\n'
-    text = header + MANAGED.format(body=body)
+def _note(citation_key, body, verified=None):
+    header = f'---\ncitationKey: "{citation_key}"\ntype: "literature"\n---\n'
+    text = f"{header}{body}\n"
     if verified is not None:
         for event in verified:
             text = events.record_pass(
@@ -42,8 +40,8 @@ def _draft(claims_text):
 
 def _write_vault(tmp_vault, notes: dict[str, str], draft_claims: str):
     literatures = tmp_vault / "literatures"
-    for citekey, text in notes.items():
-        (literatures / f"{citekey}.md").write_text(text)
+    for citation_key, text in notes.items():
+        (literatures / f"{citation_key}.md").write_text(text)
     project = tmp_vault / "projects" / "brief"
     project.mkdir(parents=True, exist_ok=True)
     draft_path = project / "draft.md"
@@ -70,7 +68,7 @@ def test_claim_text_hash_changes_with_content():
 # --- eligible_claims -------------------------------------------------------
 
 
-def test_eligible_claims_excludes_open_question_and_unresolved_citekey(tmp_vault):
+def test_eligible_claims_excludes_open_question_and_unresolved_citation_key(tmp_vault):
     draft_path = _write_vault(
         tmp_vault,
         {"smith2020": _note("smith2020", "# Note\n")},
@@ -175,8 +173,8 @@ def test_select_claims_rejects_a_negative_cap(tmp_vault):
 def test_contested_adjacent_links_reuses_the_disputed_claim_lint(tmp_vault):
     (tmp_vault / "literatures" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
     (tmp_vault / "literatures" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
-    (tmp_vault / "synthesis" / "mortality.md").write_text(
-        '---\ntitle: "Mortality"\ntype: "synthesis"\nstatus: "draft"\n'
+    (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
+        '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
         "- (inference) Contested [supports:: [[smith2020#^c-11111111]]] "
         "[disputes:: [[gone2019#^c-22222222]]] ^c-99999999\n"
@@ -239,8 +237,8 @@ def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):
     (tmp_vault / "literatures" / "gone2019.md").write_text(
         _note("gone2019", "# Note\n")
     )
-    (tmp_vault / "synthesis" / "mortality.md").write_text(
-        '---\ntitle: "Mortality"\ntype: "synthesis"\nstatus: "draft"\n'
+    (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
+        '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
         "- (inference) Disputing [supports:: [[smith2020#^c-11111111]]] "
         "[disputes:: [[gone2019#^c-99999999]]] ^c-syn00001\n"

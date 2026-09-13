@@ -1,103 +1,120 @@
-"""Literature-note generation: managed region + preserved free region (spec §3-§5)."""
+"""The literature note record: snapshot, provenance tuple, body (ingest spec §3.2)."""
 
+import dataclasses
 import datetime
 import hashlib
+import json
 import re
-import unicodedata
-from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
 
 from . import AGENT_ACTOR, Result, frontmatter
 
-MANAGED_OPEN = "%%rv-managed%%"
-MANAGED_CLOSE = "%%/rv-managed%%"
-MANAGED_OPEN_BYTES = MANAGED_OPEN.encode("ascii")
-MANAGED_CLOSE_BYTES = MANAGED_CLOSE.encode("ascii")
-SEED_FREE = "\n## Notes\n"
+
+class InvalidCitationKeyError(ValueError):
+    """A citation key that cannot safely name one file in ``literatures``."""
 
 
-class InvalidCitekeyError(ValueError):
-    """A citekey that cannot safely name one file in ``literatures``."""
+class LedgerUnreadableError(Exception):
+    """The compile tool's ledger exists but could not be read or parsed.
 
-
-class ManagedRegionError(ValueError):
-    """The exact byte-level managed delimiter grammar is invalid."""
-
-
-class RenderIntegrityError(RuntimeError):
-    """The rendered managed body does not parse back to the intended claims."""
+    An outage, never an empty: a missing ledger is the true empty before the
+    first compile, and the two must not share a value (ADR 0002). Deliberately
+    not a ``ValueError`` or ``OSError``, so a caller's broad ``except`` around
+    the read cannot fold it back into ``[]``; ``notes`` stays transport-free,
+    so this is not a ``ZoteroError`` either. The caller decides the hold.
+    """
 
 
 _UNSAFE_IDENTIFIER = re.compile(r"[\s\x00-\x1f\x7f]")
+# Duplicated from ``zotero.ITEM_KEY`` rather than imported, so ``notes`` stays
+# transport-free.
+ITEM_KEY_RE = re.compile(r"^[A-Z0-9]{8}$")
 
-# Matches harness_core.frontmatter._CONTROL (C0, DEL, NEL, and the Unicode
-# line/paragraph separators): every code point that some downstream parser
-# treats as a line break, not only the \r/\n pair. Selector attribute values
-# come from PDF-extracted context and must not be able to forge a rendered
-# line using any of them.
-_SELECTOR_CONTROL = re.compile(r"[\x00-\x1f\x7f\x85\u2028\u2029]")
+SNAPSHOT_FIELDS: tuple[str, ...] = (
+    "itemType",
+    "title",
+    "creators",
+    "date",
+    "DOI",
+    "url",
+    "publicationTitle",
+    "volume",
+    "issue",
+    "pages",
+    "publisher",
+    "ISBN",
+    "language",
+    "abstractNote",
+    "extra",
+    "accessDate",
+    "tags",
+)
+TUPLE_FIELDS: tuple[str, ...] = (
+    "zotero-server-id",
+    "zotero-item-key",
+    "zotero-item-version",
+    "citationKey",
+    "attachments",
+    "fulltext",
+    "compile-input-sha256",
+    # generated is emitted last by render_note, after accessed and managed-sha256
+    "generated",
+)
+CAPTURE_FIELDS: frozenset[str] = (
+    frozenset(SNAPSHOT_FIELDS)
+    | frozenset(TUPLE_FIELDS)
+    | frozenset({"type", "aliases", "accessed", "managed-sha256"})
+)
+# The shape of one ``attachments`` entry (spec §3.2).
+_ATTACHMENT_KEYS = ("key", "version", "md5", "contentType", "filename")
+# The compile tool's ledger; captured.py and compile.py import this name.
+LEDGER_PATH = "wiki/meta/ledgers/source-ledger.json"
+
+
+@dataclasses.dataclass(frozen=True)
+class Provenance:
+    """Which Zotero objects, at which versions, produced a literature note."""
+
+    server_id: str
+    item_key: str
+    item_version: int
+    citation_key: str
+    attachments: tuple[dict, ...]
+    fulltext: tuple[dict, ...]
+    compile_input_sha256: str | None
 
 
 def display_text(value) -> str:
     """Collapse a display-class value so it can never span a rendered line.
 
-    Total by design: an import is never held on ugly-but-real metadata. Without
+    Total by design: a capture is never held on ugly-but-real metadata. Without
     a line break, injected text cannot forge a claim line, a blockquote line, a
-    managed delimiter, or a frontmatter boundary.
+    heading, or a frontmatter boundary.
     """
     return "" if value is None else " ".join(str(value).split())
 
 
-def _raw_lines(data: bytes):
-    offset = 0
-    while offset < len(data):
-        newline = data.find(b"\n", offset)
-        if newline < 0:
-            yield offset, len(data), data[offset:]
-            return
-        content = data[offset:newline]
-        if content.endswith(b"\r"):
-            content = content[:-1]
-        end = newline + 1
-        yield offset, end, content
-        offset = end
+def note_body(text: str) -> str:
+    """The body below the frontmatter: capture's, compared byte for byte."""
+    _data, body = frontmatter.parse(text)
+    return body
 
 
-def managed_slice_bytes(note_bytes: bytes) -> bytes:
-    """Return the one exact managed slice, delimiters and line endings included."""
-    if type(note_bytes) is not bytes:
-        raise TypeError("note bytes must be bytes")
-    openings = []
-    closings = []
-    for start, end, content in _raw_lines(note_bytes):
-        if content == MANAGED_OPEN_BYTES:
-            openings.append((start, end))
-        elif content == MANAGED_CLOSE_BYTES:
-            closings.append((start, end))
-    if len(openings) != 1 or len(closings) != 1:
-        raise ManagedRegionError("managed delimiters must each appear exactly once")
-    opening_start, _ = openings[0]
-    closing_start, closing_end = closings[0]
-    if opening_start >= closing_start:
-        raise ManagedRegionError("managed delimiters are misordered")
-    return note_bytes[opening_start:closing_end]
+def body_sha256(text: str) -> str:
+    return hashlib.sha256(note_body(text).encode("utf-8")).hexdigest()
 
 
-def managed_sha256(note_bytes: bytes) -> str:
-    return hashlib.sha256(managed_slice_bytes(note_bytes)).hexdigest()
-
-
-def validate_managed_witness(note_bytes: bytes):
+def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]:
     """Return the four-state witness result without inventing I/O state."""
     try:
         text = note_bytes.decode("utf-8")
     except UnicodeDecodeError:
         return Result.UNREACHABLE, "outage — literature note is not UTF-8"
     try:
-        data, _ = frontmatter.parse(text)
-        actual = managed_sha256(note_bytes)
-    except (frontmatter.FrontmatterError, ManagedRegionError):
-        return Result.UNMATCHED, "schema-violation — malformed managed boundary"
+        data, body = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return Result.UNMATCHED, "schema-violation — malformed frontmatter"
     witnesses = [
         value
         for key, value in frontmatter._mapping_items(data)
@@ -110,88 +127,48 @@ def validate_managed_witness(note_bytes: bytes):
     witness = witnesses[0]
     if not isinstance(witness, str) or re.fullmatch(r"[0-9a-f]{64}", witness) is None:
         return Result.UNMATCHED, "schema-violation — invalid managed-sha256"
-    if witness != actual:
+    if witness != hashlib.sha256(body.encode("utf-8")).hexdigest():
         return Result.UNMATCHED, "schema-violation — stale managed-sha256"
     return Result.MATCHED, "matched"
 
 
-def note_path(vault_root, citekey) -> Path:
+def note_path(vault_root, citation_key) -> Path:
     if (
-        not isinstance(citekey, str)
-        or not citekey
-        or citekey in {".", ".."}
-        or "/" in citekey
-        or "\\" in citekey
-        or _UNSAFE_IDENTIFIER.search(citekey) is not None
-        or Path(citekey).is_absolute()
+        not isinstance(citation_key, str)
+        or not citation_key
+        or citation_key in {".", ".."}
+        or "/" in citation_key
+        or "\\" in citation_key
+        or _UNSAFE_IDENTIFIER.search(citation_key) is not None
+        or Path(citation_key).is_absolute()
     ):
-        raise InvalidCitekeyError(f"unsafe citekey: {citekey!r}")
-    return Path(vault_root) / "literatures" / f"{citekey}.md"
+        raise InvalidCitationKeyError(f"unsafe citation key: {citation_key!r}")
+    return Path(vault_root) / "literatures" / f"{citation_key}.md"
 
 
-def _managed_body(item, annotations) -> str:
-    heading = display_text(item.get("title", item["id"]))
-    lines = [MANAGED_OPEN, f"# {heading}", ""]
-    # completed in Part B before commit/review
-    lines.extend(render_claim(ann) for ann in annotations)
-    lines.append(MANAGED_CLOSE)
-    return "\n".join(lines) + "\n"
+def rename_frontmatter_key(text: str, old: str, new: str) -> str:
+    """Rename one top-level frontmatter key without touching anything else.
 
-
-def _split_free(existing) -> str:
-    if not existing:
-        return SEED_FREE
-    offset = 0
-    for line in existing.splitlines(keepends=True):
-        if line in {MANAGED_CLOSE, f"{MANAGED_CLOSE}\n", f"{MANAGED_CLOSE}\r\n"}:
-            # Verbatim tail after the exact standalone marker line, including
-            # blank lines and a deliberately emptied free region (§3).
-            return existing[offset + len(line) :]
-        offset += len(line)
-    raise RenderIntegrityError(
-        "existing note has no managed-close marker — refusing to overwrite the body"
+    The one migration §1.1 prices as carrying real risk: byte-surgical on the
+    key's own line, inside the frontmatter block only, idempotent.
+    """
+    opening = frontmatter._FRONTMATTER_OPEN.match(text)
+    if opening is None:
+        return text
+    closing = frontmatter._FRONTMATTER_CLOSE.search(text, opening.end())
+    if closing is None:
+        return text
+    block = text[opening.end() : closing.start()]
+    # A callable replacement: `new` is inserted literally, never read as a
+    # template (a backslash or `\g` in it would otherwise be an escape).
+    renamed = re.sub(
+        rf"^{re.escape(old)}:(?=\s)",
+        lambda _: f"{new}:",
+        block,
+        count=1,
+        flags=re.MULTILINE,
     )
-
-
-# Fields the renderer owns and may rewrite; EVERYTHING else in prior frontmatter
-# passes through unchanged (verified events, superseded-by, authority, archive-url,
-# human-added keys — §5 never-delete applies to metadata too).
-MANAGED_FIELDS = {
-    "citekey",
-    "type",
-    "fixity-sha256",
-    "managed-sha256",
-    "aliases",
-    "doi",
-    "url",
-    "pmid",
-    "version",
-    "accessed",
-    "generated",
-}
-
-
-def _prior_managed_body(existing: str | None) -> str | None:
-    if existing is None:
-        return None
-    try:
-        _, body = frontmatter.parse(existing)
-    except frontmatter.FrontmatterError:
-        return None
-    offset = 0
-    for line in body.splitlines(keepends=True):
-        offset += len(line)
-        if line in {MANAGED_CLOSE, f"{MANAGED_CLOSE}\n", f"{MANAGED_CLOSE}\r\n"}:
-            return body[:offset]
-    return None
-
-
-def _managed_projection(data: dict) -> list[tuple[str, object]]:
-    return [
-        (key, value)
-        for key, value in frontmatter._mapping_items(data)
-        if key in MANAGED_FIELDS and key != "generated"
-    ]
+    return text[: opening.end()] + renamed + text[closing.start() :]
 
 
 def _valid_generated(value) -> bool:
@@ -212,135 +189,11 @@ def _valid_generated(value) -> bool:
 
 def generated_at_now(now: datetime.datetime | None = None) -> str:
     """Second-resolution, ``Z``-suffixed ISO 8601 — the one spelling every
-    ``generated.at`` stamp of "now" uses (``__main__``'s import, ``archive``'s
-    writer attestation), so they cannot drift into formats `_valid_generated`
-    disagrees on.
+    ``generated.at`` stamp of "now" uses, so they cannot drift into formats
+    `_valid_generated` disagrees on.
     """
     moment = now if now is not None else datetime.datetime.now(datetime.UTC)
     return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def render_note(
-    item, attachment_hashes, annotations, existing, accessed, generated_at=None
-) -> str:
-    if generated_at is None:
-        generated_at = f"{accessed}T00:00:00Z"
-    prior = frontmatter.parse(existing)[0] if existing else {}
-    fm = {"citekey": item["id"], "type": "literature"}
-    if item.get("DOI"):
-        fm["doi"] = item["DOI"]
-    if item.get("URL"):
-        fm["url"] = item["URL"]
-    if item.get("PMID"):
-        fm["pmid"] = item["PMID"]
-    if item.get("version"):
-        fm["version"] = item["version"]
-    fm["accessed"] = prior.get("accessed", accessed)  # day-one, never overwritten
-    fm["fixity-sha256"] = attachment_hashes
-    fm["status"] = prior.get("status", "unscreened")
-    fm["aliases"] = [display_text(item.get("title", item["id"]))]
-    managed_body = _managed_body(item, annotations)
-    fm["managed-sha256"] = hashlib.sha256(managed_body.encode("utf-8")).hexdigest()
-    prior_generated = prior.get("generated")
-    prior_actor = (
-        prior_generated.get("by") if isinstance(prior_generated, dict) else None
-    )
-    projection_changed = (
-        existing is None
-        or _managed_projection(prior) != _managed_projection(fm)
-        or _prior_managed_body(existing) != managed_body
-        or prior_actor != AGENT_ACTOR
-        or not _valid_generated(prior_generated)
-    )
-    prior_generated_at = (
-        prior_generated.get("at") if isinstance(prior_generated, dict) else None
-    )
-    fm["generated"] = {
-        "by": AGENT_ACTOR,
-        "at": generated_at if projection_changed else prior_generated_at,
-    }
-    rendered_keys = set(fm)
-    fm_items = list(fm.items())
-    for key, value in frontmatter._mapping_items(prior):
-        if key not in MANAGED_FIELDS and key not in rendered_keys:
-            fm_items.append((key, value))
-    fm = frontmatter._mapping_from_items(fm_items)
-    _assert_managed_body_parses(managed_body, annotations)
-    return frontmatter.serialize(fm) + managed_body + _split_free(existing)
-
-
-def _assert_managed_body_parses(managed_body: str, annotations) -> None:
-    """Re-parse the emitter's own output before it can reach a note file."""
-    from . import claims as claims_mod
-
-    expected = [claim_id(annotation) for annotation in annotations]
-    if len(set(expected)) != len(expected):
-        raise RenderIntegrityError(f"duplicate claim anchors in render: {expected!r}")
-    parsed = [
-        claim.claim_id
-        for claim in claims_mod.parse_claims(managed_body)
-        if claim.in_managed
-    ]
-    if parsed != expected:
-        raise RenderIntegrityError(
-            f"managed body parsed to {parsed!r}, expected {expected!r}"
-        )
-
-
-def _norm(text: str) -> str:
-    return " ".join(unicodedata.normalize("NFKC", text).split())
-
-
-def claim_id(annotation: dict) -> str:
-    basis = annotation.get("key") or _norm(annotation.get("annotationText", ""))
-    return "c-" + hashlib.sha256(basis.encode()).hexdigest()[:8]
-
-
-def _escape_selector(value: str) -> str:
-    """Escape selector attributes without allowing markup to span source lines."""
-    escaped = escape(value, quote=True).replace("\r", "&#13;").replace("\n", "&#10;")
-    # \r/\n keep their existing numeric-entity spelling: harness_core.selectors
-    # .unescape_selector (the real round-trip consumer, via html.unescape)
-    # decodes &#13;/&#10; back correctly. The rest of the control class is
-    # dropped outright rather than entity-escaped the same way: per the
-    # HTML5 numeric-character-reference algorithm that html.unescape follows,
-    # C1 controls such as NEL (\x85) decode to unrelated Windows-1252
-    # lookalikes (e.g. "&#133;" -> "…") and most other C0 references
-    # decode to nothing, so entity-escaping them would corrupt rather than
-    # preserve retained context on a future round trip. Stripping is lossy
-    # but never silently wrong, and still guarantees no surviving code point
-    # can be read back as a line break by a downstream parser.
-    return _SELECTOR_CONTROL.sub("", escaped)
-
-
-def render_claim(annotation: dict) -> str:
-    cid = claim_id(annotation)
-    citekey = annotation["citekey"]
-    # Identifier class rejects rather than repairs: altering a citekey would
-    # silently mis-key the claim against the bibliography.
-    if not isinstance(citekey, str) or _UNSAFE_IDENTIFIER.search(citekey) is not None:
-        raise InvalidCitekeyError(f"unsafe citekey: {citekey!r}")
-    page_label = display_text(annotation.get("pageLabel"))
-    cite = f"[@{citekey}, p. {page_label}]" if page_label else f"[@{citekey}]"
-    text = annotation.get("annotationText") or ""
-    if text:
-        lines = [f"- (quote) {cite} ^{cid}"]
-        # Segment on the parser's own break set (``claims.parse_claims`` reads
-        # with ``str.splitlines()``), not on "\n" alone. A separator left inside
-        # a blockquote line — \r, \v, \f, \x1c-\x1e, \x85, U+2028, U+2029 — is a
-        # line break to the reader and not to the writer, so everything after it
-        # loses its "  > " prefix and the quote silently truncates there. The
-        # anchor is unaffected either way: ``claim_id`` hashes whitespace-
-        # collapsed content, never render output (§5 anchor durability).
-        lines.extend(f"  > {line}" for line in text.splitlines())
-        pre, suf = annotation.get("context_prefix"), annotation.get("context_suffix")
-        if pre or suf:
-            prefix = _escape_selector((pre or "")[-32:])
-            suffix = _escape_selector((suf or "")[:32])
-            lines.append(f'  <!-- rv-selector prefix="{prefix}" suffix="{suffix}" -->')
-        return "\n".join(lines)
-    comment = " ".join((annotation.get("comment") or "").split())
-    return f"- (paraphrase) {comment} {cite} ^{cid}"
 
 
 def sha256_file(path) -> str:
@@ -354,7 +207,21 @@ def content_changed(existing_text, candidate_text) -> bool:
 
 
 def canonical_content(note_text: str) -> str:
-    """Exclude only a valid verifier-owned ``verified`` event list."""
+    """Exclude only the valid verifier-owned lists: ``verified`` events and
+    ``failed-verification`` rows.
+
+    Both are verify's own writes — ``events.record_pass`` mints the one and
+    removes the other's row, ``events.record_failure`` upserts the other — so
+    neither is what the person wrote, and neither moves an acknowledgment scope
+    or a render-compare (Task 18 round 3, ruling 10). A list that fails its
+    verifier-owned shape test — ``_valid_event`` for events, ``_failure_rows``
+    for rows — is hand-written as far as this reader knows and stays byte for
+    byte, as does a duplicated or non-list-looking header. The two empty
+    lists differ: ``verified: []`` is excluded (``all([])`` holds; an empty
+    event list carries nothing either way), while an empty
+    ``failed-verification: []`` stays as hand-written — verify's writers drop
+    the header with the last row, so an empty one on disk is never theirs.
+    """
     close, lines = _frontmatter_close(note_text)
     if close is None:
         return note_text
@@ -365,30 +232,36 @@ def canonical_content(note_text: str) -> str:
         data, _ = frontmatter.parse(note_text)
     except frontmatter.FrontmatterError:
         return note_text
-    from .events import _valid_event
+    from .events import FAILURES_FIELD, _failure_rows, _valid_event
 
-    verified = data.get("verified")
-    valid_verified = isinstance(verified, list) and all(
-        _valid_event(event) for event in verified
-    )
     frontmatter_lines = lines[: close + 1]
     body = "".join(lines[close + 1 :])
-    if not valid_verified:
+    owned: list[int] = []
+    verified = data.get("verified")
+    if isinstance(verified, list) and all(_valid_event(event) for event in verified):
+        index = _owned_list_index(frontmatter_lines, "verified")
+        if index is not None:
+            owned.append(index)
+    failures = data.get(FAILURES_FIELD)
+    if isinstance(failures, list) and failures and not _failure_rows(data)[1]:
+        index = _owned_list_index(frontmatter_lines, FAILURES_FIELD)
+        if index is not None:
+            owned.append(index)
+    if not owned:
         return note_text
-    verified_index = _verified_list_index(frontmatter_lines)
-    if verified_index is None:
-        # A duplicate or non-list-looking lexical definition is not a
-        # verifier-owned surface, even if the permissive flat parser kept a
-        # list under the final key.
-        return note_text
-    if _verified_only_envelope(frontmatter_lines, verified_index):
+    dropped: set[int] = set()
+    for index in owned:
+        dropped.add(index)
+        item = index + 1
+        while item < close and frontmatter_lines[item].startswith("  - "):
+            dropped.add(item)
+            item += 1
+    kept = [line for i, line in enumerate(frontmatter_lines) if i not in dropped]
+    if len(kept) == 2:
+        # Solely the verifier-owned lists: the envelope `record_pass` and
+        # `record_failure` put around a bare body is not content either.
         return body
-    result = frontmatter_lines[:verified_index]
-    index = verified_index + 1
-    while index < close and frontmatter_lines[index].startswith("  - "):
-        index += 1
-    result.extend(frontmatter_lines[index:])
-    return "".join(result) + body
+    return "".join(kept) + body
 
 
 def _frontmatter_close(text: str) -> tuple[int | None, list[str]]:
@@ -402,21 +275,264 @@ def _frontmatter_close(text: str) -> tuple[int | None, list[str]]:
     return -1, lines
 
 
-def _verified_list_index(lines: list[str]) -> int | None:
-    """Find one syntactically top-level ``verified:`` event-list header."""
-    verified_lines = [
-        index for index, line in enumerate(lines[:-1]) if line.startswith("verified:")
+def _owned_list_index(lines: list[str], field: str) -> int | None:
+    """Find one syntactically top-level ``<field>:`` list header.
+
+    A duplicate or non-list-looking lexical definition is not a verifier-owned
+    surface, even if the permissive flat parser kept a list under the final key.
+    """
+    headers = [
+        index for index, line in enumerate(lines[:-1]) if line.startswith(f"{field}:")
     ]
-    if len(verified_lines) != 1:
+    if len(headers) != 1:
         return None
-    index = verified_lines[0]
-    if lines[index].rstrip("\r\n").rstrip(" \t") != "verified:":
+    index = headers[0]
+    if lines[index].rstrip("\r\n").rstrip(" \t") != f"{field}:":
         return None
     return index
 
 
-def _verified_only_envelope(lines: list[str], verified_index: int) -> bool:
-    """Whether frontmatter is solely the valid verifier-owned event list."""
-    return verified_index == 1 and all(
-        line.startswith("  - ") for line in lines[verified_index + 1 : -1]
+# --- the record: snapshot, tuple, body (ingest spec §3.2, §3.3 step 5) ---------
+
+
+def frontmatter_value(value):
+    """Decision 9: a string with line breaks becomes a list of its lines."""
+    if isinstance(value, str):
+        # Each line goes through display_text: the codec rejects every C0 control,
+        # and a tab inside an abstract must not hold the whole capture.
+        lines = [display_text(line) for line in value.splitlines()]
+        return lines if len(lines) > 1 else display_text(value)
+    if isinstance(value, list):
+        return [
+            {k: display_text(v) if isinstance(v, str) else v for k, v in item.items()}
+            if isinstance(item, dict)
+            else display_text(item)
+            for item in value
+        ]
+    return value
+
+
+def snapshot(item_data) -> list[tuple[str, object]]:
+    """The fixed subset, verbatim, under Zotero's own names; empty values absent."""
+    fields: list[tuple[str, object]] = []
+    for name in SNAPSHOT_FIELDS:
+        value = item_data.get(name)
+        if value in (None, "", []):
+            continue
+        fields.append((name, frontmatter_value(value)))
+    return fields
+
+
+class _TextExtractor(HTMLParser):
+    _BREAKS = frozenset(
+        {"p", "br", "li", "div", "h1", "h2", "h3", "h4", "h5", "h6", "tr"}
     )
+
+    def __init__(self):
+        super().__init__()
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag, _attrs):
+        if tag in self._BREAKS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self._BREAKS:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+
+def html_to_text(html: str) -> str:
+    """Zotero child notes are HTML; the body carries their text, paragraphs kept."""
+    extractor = _TextExtractor()
+    extractor.feed(html or "")
+    paragraphs = [" ".join(p.split()) for p in "".join(extractor.parts).split("\n")]
+    return "\n\n".join(p for p in paragraphs if p)
+
+
+def _attachment_line(child) -> str:
+    data = child.get("data", {})
+    key = child.get("key", "")
+    if data.get("linkMode") not in {"imported_file", "imported_url"} or not data.get(
+        "md5"
+    ):
+        return f"- {key} — linked, no fixity"
+    name = display_text(data.get("filename") or key)
+    return (
+        f"- [{name}](zotero://open-pdf/library/items/{key}) — "
+        f"{display_text(data.get('contentType'))}, md5 {data['md5']}"
+    )
+
+
+def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
+    """The ledger's pages[] for this note's text files, matched by locator (§3.3 step 5).
+
+    Empty before the first compile: a missing ledger is a true empty. An
+    unreadable one raises ``LedgerUnreadableError`` rather than reading as
+    empty, because capture writes the note from this value — a transient read
+    failure would otherwise strip ``## Compiled``, bump ``generated``, and break
+    decision 27's third-run NOOP, silently, since the next readable run re-adds
+    it. Only records the wrapper wrote match (their locator is
+    fulltext/<key>.md, spec §4.5); a record from any other route embeds nothing
+    and the captured-set lint reports it not-captured.
+    """
+    ledger = Path(vault_root) / LEDGER_PATH
+    if not ledger.is_file():
+        return []
+    try:
+        document = json.loads(ledger.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
+        raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: {error}") from error
+    sources = document.get("sources") if isinstance(document, dict) else None
+    if not isinstance(sources, dict):
+        # The tool's schema always writes `sources`; {"sources": {}} is the only
+        # true empty. A document without it — {} or a top-level array alike — is
+        # malformed, not "no compile yet".
+        raise LedgerUnreadableError(f"{LEDGER_PATH} unreadable: no sources object")
+    locators = {
+        f"fulltext/{entry.get('attachment-key')}.md" for entry in provenance.fulltext
+    }
+    pages: set[str] = set()
+    for record in sources.values():
+        origin = record.get("origin", {}) if isinstance(record, dict) else {}
+        if isinstance(origin, dict) and origin.get("locator") in locators:
+            pages.update(
+                page for page in record.get("pages", []) if isinstance(page, str)
+            )
+    return sorted(pages)
+
+
+def render_body(provenance: Provenance, children, child_notes, pages=()) -> str:
+    """The three mechanical pointers and the child notes (decision 27), in order."""
+    cached = {entry["attachment-key"] for entry in provenance.fulltext}
+    lines: list[str] = []
+    if pages:
+        lines.append("## Compiled\n")
+        lines.extend(f"![[{page}]]" for page in pages)
+        lines.append("")
+    lines.append("## Item\n")
+    lines.append(
+        f"- [Open in Zotero](zotero://select/library/items/{provenance.item_key})"
+    )
+    lines.append("")
+    attachments = [
+        c for c in children if c.get("data", {}).get("itemType") == "attachment"
+    ]
+    if attachments:
+        lines.append("## Attachments\n")
+        for child in attachments:
+            line = _attachment_line(child)
+            if child.get("key") in cached:
+                line += f", text layer [[fulltext/{child['key']}]]"
+            lines.append(line)
+        lines.append("")
+    notes_text = [html_to_text(n.get("data", {}).get("note", "")) for n in child_notes]
+    notes_text = [t for t in notes_text if t]
+    if notes_text:
+        lines.append("## Zotero notes\n")
+        lines.append("\n\n".join(notes_text))
+    body = "\n".join(lines)
+    return body + "\n" if body and not body.endswith("\n") else body
+
+
+def _tuple_fields(provenance: Provenance) -> list[tuple[str, object]]:
+    fields: list[tuple[str, object]] = [
+        ("zotero-server-id", provenance.server_id),
+        ("zotero-item-key", provenance.item_key),
+        ("zotero-item-version", provenance.item_version),
+        ("citationKey", provenance.citation_key),
+        ("attachments", [dict(a) for a in provenance.attachments]),
+        ("fulltext", [dict(f) for f in provenance.fulltext]),
+    ]
+    if provenance.compile_input_sha256:
+        fields.append(("compile-input-sha256", provenance.compile_input_sha256))
+    return fields
+
+
+def _projection(items) -> list[tuple[str, object]]:
+    """The capture fields that decide whether the projection moved."""
+    return [
+        (k, v)
+        for k, v in items
+        if k in CAPTURE_FIELDS and k not in {"generated", "managed-sha256", "accessed"}
+    ]
+
+
+def render_note(
+    item_data,
+    provenance,
+    children,
+    child_notes,
+    existing,
+    accessed,
+    generated_at,
+    pages=(),
+) -> str:
+    """Frontmatter, then only what frontmatter cannot carry, plus the three pointers (§3.3 step 5)."""
+    prior = frontmatter.parse(existing)[0] if existing else {}
+    prior_items = list(frontmatter._mapping_items(prior))
+    title = display_text(item_data.get("title") or provenance.citation_key)
+    fields: list[tuple[str, object]] = [
+        ("type", "literature"),
+        ("title", title),
+        ("aliases", [title]),
+    ]
+    fields.extend((k, v) for k, v in snapshot(item_data) if k != "title")
+    fields.extend(_tuple_fields(provenance))
+    body = render_body(provenance, children, child_notes, pages)
+    prior_body = note_body(existing) if existing else None
+    unchanged = (
+        existing is not None
+        and _projection(prior_items) == _projection(fields)
+        and prior_body == body
+        and _valid_generated(prior.get("generated"))
+        and str(prior["generated"]["by"]).startswith(AGENT_ACTOR.split("/")[0] + "/")
+    )
+    prior_accessed = prior.get("accessed")
+    fields.append(
+        (
+            "accessed",
+            prior_accessed
+            if isinstance(prior_accessed, str) and prior_accessed
+            else accessed,
+        )
+    )
+    fields.append(("managed-sha256", hashlib.sha256(body.encode("utf-8")).hexdigest()))
+    at = prior["generated"]["at"] if unchanged else generated_at
+    fields.append(("generated", {"by": AGENT_ACTOR, "at": at}))
+    rendered = {k for k, _ in fields}
+    fields.extend(
+        (k, v) for k, v in prior_items if k not in CAPTURE_FIELDS and k not in rendered
+    )
+    return frontmatter.serialize(frontmatter._mapping_from_items(fields)) + body
+
+
+def read_provenance(text: str) -> Provenance | None:
+    """The tuple a note records, or None when it carries no complete tuple."""
+    try:
+        data, _ = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return None
+    try:
+        attachments = tuple(
+            dict(a) for a in data.get("attachments", []) if isinstance(a, dict)
+        )
+        fulltext = tuple(
+            dict(f) for f in data.get("fulltext", []) if isinstance(f, dict)
+        )
+        provenance = Provenance(
+            server_id=str(data["zotero-server-id"]),
+            item_key=str(data["zotero-item-key"]),
+            item_version=int(data["zotero-item-version"]),
+            citation_key=str(data["citationKey"]),
+            attachments=attachments,
+            fulltext=fulltext,
+            compile_input_sha256=data.get("compile-input-sha256") or None,
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not ITEM_KEY_RE.match(provenance.item_key) or not provenance.citation_key:
+        return None
+    return provenance

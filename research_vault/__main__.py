@@ -1,31 +1,28 @@
 """CLI surface consumed by hooks (Plan C) and skills (Plan D)."""
 
 import argparse
-import datetime
 import json
-import re
 import sys
-from collections.abc import Mapping
 from pathlib import Path
 
 from . import (
     AGENT_ACTOR,
     Result,
-    archive,
     bibliography,
+    capture,
+    clock,
     events,
     factcheck,
     frontmatter,
     gitstate,
     inbox,
     notes,
-    okf,
-    paths,
+    propagate,
     publish,
     scaffold,
     searchlog,
-    selectors,
     stamp,
+    zotero,
 )
 from .pathcodec import (
     PathCodecError,
@@ -35,135 +32,149 @@ from .verify import (
     CLOSING_BY_SURFACE,
     DEFAULT_BASE,
     _read_note_text,
-    _write_note_text,
+    clear_marker_for,
     surface_decision,
     verify_state,
 )
 from .zotero import ZoteroClient, ZoteroError
 
-QUOTE_ANNOTATION_TYPES = {"highlight", "underline"}
-DOCTOR_HARD_UNMATCHED = {"tree", "machine-config", "bbt", "autoexport"}
-DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "autoexport"}
-DOCTOR_WARN_ONLY = {"staleness", "remote", "backup"}
-
-
-def _text(value) -> str:
-    """Keep only strings that are safe for claim IDs and Markdown rendering."""
-    return value if isinstance(value, str) else ""
-
-
-def normalize_annotation(annotation, citekey: str) -> dict:
-    """Adapt a raw BBT item-JSON annotation to ``notes``' input contract."""
-    raw = annotation if isinstance(annotation, Mapping) else {}
-    annotation_type = _text(raw.get("annotationType"))
-    annotation_text = _text(raw.get("annotationText"))
-    comment = _text(raw.get("annotationComment"))
-
-    # Unknown or non-quoting annotation types cannot safely assert that their
-    # payload is a verbatim quote. Preserve usable text as a paraphrase instead.
-    if annotation_type not in QUOTE_ANNOTATION_TYPES:
-        comment = comment or annotation_text
-        annotation_text = ""
-
-    normalized = {
-        "type": annotation_type,
-        "comment": comment,
-        "pageLabel": notes.display_text(_text(raw.get("annotationPageLabel"))),
-        "key": _text(raw.get("key")),
-        "annotationText": annotation_text,
-        "citekey": _text(citekey),
-    }
-    for field in ("context_prefix", "context_suffix"):
-        value = raw.get(field)
-        if isinstance(value, str):
-            normalized[field] = value
-    return normalized
+DOCTOR_HARD_UNMATCHED = {
+    "tree",
+    "machine-config",
+    "zotero",
+    "bbt",
+    "write-guard",
+    "plugins",
+}
+DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "write-guard", "plugins"}
+DOCTOR_WARN_ONLY = {
+    "remote",
+    "backup",
+    "bbt-git",
+    "translator-formats",
+    "compile-tool",
+    "fulltext-sync",
+    "path-shim",
+}
+# Named domain failures only, shared by the verbs whose run can fail outside
+# their own four-state handling (`verify`, `capture`, `add`): each answers exit
+# 2 — "could not run" — with one stderr line. A bare ValueError here would
+# dress an implementation bug as a tidy exit 2 with no traceback.
+# UnicodeDecodeError is the stopgap for the unguarded `read_text()` sites the
+# whole-branch review left to an issue: a non-UTF-8 record is exit 2, not a
+# traceback, until each site files its own row.
+_NAMED_FAILURES = (
+    gitstate.GitStateError,
+    PathCodecError,
+    bibliography.BibliographyError,
+    inbox.InboxError,
+    frontmatter.FrontmatterError,
+    notes.InvalidCitationKeyError,
+    OSError,
+    UnicodeDecodeError,
+)
 
 
 def cmd_probe(args):
     client = ZoteroClient(base=args.base)
+    report: dict[str, object] = {}
     try:
-        info = client.ready()
-    except ZoteroError:
-        print(json.dumps({"result": Result.UNREACHABLE.value}))
+        report["server"] = client.server_info()
+        report["bbt"] = client.ready()
+    except ZoteroError as error:
+        report["result"] = Result.UNREACHABLE.value
+        report["detail"] = str(error)
+        print(json.dumps(report))
         return 3
-    print(json.dumps(info))
+    print(json.dumps(report))
     return 0
 
 
-def _attachment_annotations(attachment):
-    if not isinstance(attachment, Mapping):
-        return []
-    annotations = attachment.get("annotations")
-    return annotations if isinstance(annotations, list) else []
+def _print_and_hold(vault, outcomes) -> int:
+    """One line per outcome, holds filed; the exit code both ingest verbs share.
+
+    Only ``UNMATCHED`` and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is
+    automatic-only and never a finding (an item with no attachment to read is
+    a class this iteration does not handle, not a capture failure), and
+    ``record_finding`` would refuse it anyway. Exit 0 when every outcome is
+    MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is
+    UNMATCHED.
+    """
+    worst = 0
+    for outcome in outcomes:
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
+            _hold(
+                vault,
+                capture.CHECK,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+                target_kind=outcome.target_kind,
+            )
+        if outcome.result is Result.UNMATCHED:
+            worst = 1
+        elif outcome.result is Result.UNREACHABLE and worst == 0:
+            worst = 3
+    return worst
 
 
-def _attachment_hash(attachment, vault) -> tuple[str, Path]:
-    raw_path = attachment.get("path") if isinstance(attachment, Mapping) else None
-    if not isinstance(raw_path, str) or not raw_path:
-        raise paths.PathError(f"invalid attachment path: {raw_path!r}")
-    local_path = paths.to_local(raw_path, vault)
-    return notes.sha256_file(local_path), local_path
+def cmd_capture(args):
+    """The capture verb (ingest spec §3.3): one line per outcome, holds filed.
+
+    A named failure outside the verb's per-item handling (a disk fault in
+    ``stamp_types``, ``regenerate_log`` or the CSL write) is exit 2 — "could
+    not run" — never exit 1, which is UNMATCHED's code.
+    """
+    client = ZoteroClient(base=args.base)
+    try:
+        outcomes = capture.capture(args.vault, client, args.keys, refresh_all=args.all)
+    except _NAMED_FAILURES as error:
+        print(f"capture unavailable: {error}", file=sys.stderr)
+        return 2
+    return _print_and_hold(args.vault, outcomes)
 
 
-_QUOTE_SELECTOR = re.compile(
-    r"^- \(quote\)[^\r\n]*\^(?P<claim_id>c-[0-9a-f]{8})\r?\n"
-    r"(?:  >[^\r\n]*(?:\r\n|\n|$))*"
-    r'  <!-- rv-selector prefix="(?P<prefix>.*?)" suffix="(?P<suffix>.*?)" -->',
-    re.MULTILINE | re.DOTALL,
-)
+def cmd_add(args):
+    """The add verb (ingest spec §2): create in Zotero, then capture; same
+    print-and-hold shape as ``cmd_capture``.
+
+    ``--item`` names one JSON file holding either a single item object or a
+    list of them; ``capture.add`` validates the items themselves, so this
+    only normalises the one-object shape and reports a file this verb could
+    not even read as exit 2 — the CLI's "could not run" contract, never a
+    four-state verdict.
+    """
+    item_path = Path(args.item)
+    try:
+        payload = json.loads(item_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
+        print(f"add: cannot read --item: {error}", file=sys.stderr)
+        return 2
+    items = payload if isinstance(payload, list) else [payload]
+    client = ZoteroClient(base=args.base)
+    try:
+        outcomes = capture.add(args.vault, client, items, collection=args.collection)
+    except _NAMED_FAILURES as error:
+        print(f"add unavailable: {error}", file=sys.stderr)
+        return 2
+    return _print_and_hold(args.vault, outcomes)
 
 
-def _prior_contexts(existing: str | None) -> dict[str, tuple[str, str]]:
-    if not existing:
-        return {}
-    return {
-        match["claim_id"]: (
-            selectors.unescape_selector(match["prefix"]),
-            selectors.unescape_selector(match["suffix"]),
-        )
-        for match in _QUOTE_SELECTOR.finditer(existing)
-    }
-
-
-def _retain_prior_contexts(annotations: list[dict], existing: str | None) -> int:
-    prior = _prior_contexts(existing)
-    retained = 0
-    for annotation in annotations:
-        if not annotation.get("annotationText"):
-            continue
-        context = prior.get(notes.claim_id(annotation))
-        if context and not (
-            annotation.get("context_prefix") or annotation.get("context_suffix")
-        ):
-            annotation["context_prefix"], annotation["context_suffix"] = context
-            retained += 1
-    return retained
-
-
-def _selector_warning(reasons: list[str], *, retained: int) -> None:
-    if not reasons:
-        return
-    reason = "; ".join(dict.fromkeys(reasons))
-    if retained:
-        print(
-            f"warning: selectors degraded ({reason}; existing selector contexts retained)",
-            file=sys.stderr,
-        )
-    else:
-        print(f"warning: selectors skipped ({reason})", file=sys.stderr)
-
-
-def _hold(vault, check, target, result: Result, reason: str) -> None:
+def _hold(
+    vault, check, target, result: Result, reason: str, target_kind: str = "identifier"
+) -> None:
     """File one import hold through ``record_finding`` — never a forked writer.
 
     Additive to the failure exit that calls it: stderr and the exit code stay
     exactly as they were, and a landed hold prints nothing. A *refused* hold is
-    the one thing this says out loud — an unrepresentable citekey or an id
+    the one thing this says out loud — an unrepresentable citation key or an id
     already carrying a different finding leaves the queue without the record,
     and a silently missing review record is the failure this reports.
     """
-    status, detail = record_finding(vault, check, target, result, reason)
+    status, detail = record_finding(
+        vault, check, target, result, reason, target_kind=target_kind
+    )
     if status:
         print(f"warning: review record refused: {detail}", file=sys.stderr)
 
@@ -174,213 +185,94 @@ def _hold_reason(code: str, detail: str) -> str:
     return f"{code} — {detail}" if detail else code
 
 
-def cmd_import_note(args):
-    try:
-        path = notes.note_path(args.vault, args.citekey)
-    except notes.InvalidCitekeyError:
-        print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
-        _hold(
-            args.vault,
-            "citekey",
-            args.citekey,
-            Result.UNMATCHED,
-            "schema-violation — citekey cannot name a literature note",
-        )
-        return 1
+def cmd_propagate(args):
+    """The re-key pass, plan-and-apply (ingest spec §3.5, decision 01).
 
-    client = ZoteroClient(base=args.base)
-    vault = args.vault
-    matches = [
-        item
-        for item in client.search(args.citekey)
-        if item.get("citekey") == args.citekey
-    ]
-    if not matches:
-        print(f"citekey not found: {args.citekey}", file=sys.stderr)
-        _hold(
-            vault,
-            "citekey",
-            args.citekey,
-            Result.UNMATCHED,
-            "not-admitted — citekey is absent from the Zotero library",
-        )
-        return 1
-    item = matches[0]
-    item["id"] = args.citekey
-
-    observed = bibliography.observe_autoexport(vault, client)
-    if observed.result is not Result.MATCHED:
-        print(observed.detail, file=sys.stderr)
-        unmatched = observed.result is Result.UNMATCHED
-        _hold(
-            vault,
-            "autoexport",
-            args.citekey,
-            observed.result,
-            _hold_reason("mismatch" if unmatched else "outage", observed.detail),
-        )
-        return 1 if unmatched else 3
-
-    existing = _read_note_text(path) if path.is_file() else None
-    hashes = []
-    annotations = []
-    attachment_pairs = []
-    for attachment in client.attachments(args.citekey):
-        local_path = None
-        try:
-            attachment_hash, local_path = _attachment_hash(attachment, vault)
-            hashes.append(attachment_hash)
-        except (paths.PathError, OSError) as error:
-            print(f"warning: attachment unresolved: {error}", file=sys.stderr)
-        attachment_annotations = [
-            normalize_annotation(annotation, args.citekey)
-            for annotation in _attachment_annotations(attachment)
-        ]
-        annotations.extend(attachment_annotations)
-        attachment_pairs.append((local_path, attachment_annotations))
-
-    degradation_reasons = []
-    for local_path, attachment_annotations in attachment_pairs:
-        needed = [
-            annotation
-            for annotation in attachment_annotations
-            if annotation["annotationText"]
-            and not (
-                annotation.get("context_prefix") or annotation.get("context_suffix")
-            )
-        ]
-        if not needed:
-            continue
-        if local_path is None:
-            degradation_reasons.append("attachment unresolved")
-            continue
-        text = selectors.pdf_text(local_path)
-        if not text:
-            degradation_reasons.append("no extractable PDF text")
-            continue
-        if selectors.attach_contexts(needed, text) != len(needed):
-            degradation_reasons.append(
-                "some annotation quotes were not found in extracted text"
-            )
-    retained = _retain_prior_contexts(annotations, existing)
-    _selector_warning(degradation_reasons, retained=retained)
-
-    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
-    generated_at = notes.generated_at_now(now)
-    try:
-        candidate = notes.render_note(
-            item,
-            hashes,
-            annotations,
-            existing,
-            accessed=now.date().isoformat(),
-            generated_at=generated_at,
-        )
-    except (
-        notes.RenderIntegrityError,
-        notes.InvalidCitekeyError,
-        frontmatter.FrontmatterError,
-    ) as error:
-        # Ruled 2026-08-21, wired 2026-08-22 with integrate-at-import: this
-        # class stays loud and fail-closed — nothing is written and stderr and
-        # the exit code are unchanged — and it now also files its reason-coded
-        # hold, like every other failure exit here.
-        print(f"render rejected for {args.citekey}: {error}", file=sys.stderr)
-        _hold(
-            vault,
-            "render",
-            args.citekey,
-            Result.UNMATCHED,
-            _hold_reason("schema-violation", str(error) or "render rejected"),
-        )
-        return 1
-
-    if not notes.content_changed(existing, candidate):
-        print("NOOP")
-        return 0
-    _write_note_text(path, candidate)
-    stamp.stamp_types(vault)
-    okf.regenerate_log(vault)
-    print(str(path))
-    return 0
-
-
-def cmd_backfill_selectors(args):
-    literature_dir = notes.note_path(args.vault, "placeholder").parent
-    failures = 0
-    for path in sorted(literature_dir.glob("*.md")):
-        try:
-            data, _ = frontmatter.parse(_read_note_text(path))
-        except (OSError, frontmatter.FrontmatterError) as error:
-            print(
-                f"warning: malformed literature note {path}: {error}", file=sys.stderr
-            )
-            failures += 1
-            continue
-        citekey = data.get("citekey")
-        if not isinstance(citekey, str) or not citekey:
-            print(
-                f"warning: malformed literature note {path}: missing citekey",
-                file=sys.stderr,
-            )
-            failures += 1
-            continue
-        try:
-            notes.note_path(args.vault, citekey)
-        except notes.InvalidCitekeyError:
-            print(f"invalid citekey: {citekey!r}", file=sys.stderr)
-            failures += 1
-            continue
-        failures += (
-            cmd_import_note(
-                argparse.Namespace(citekey=citekey, vault=args.vault, base=args.base)
-            )
-            != 0
-        )
-    return int(bool(failures))
-
-
-def cmd_archive_source(args):
-    """Archive one web source and record the confirmed snapshot (spec §7).
-
-    The sole writer of literature ``archive-url``. Same exit-code contract as
-    every other four-state report in this binary: 0 recorded or not applicable,
-    1 the archive is serving nothing, 3 an outage, 2 the verb could not run.
+    Without ``--plan``, computes a plan from ``--map OLD=NEW`` pairs or from the
+    lifecycle linter, writes it under ``.research-vault/propagate/`` and prints
+    the apply line with the plan's own sha256; nothing is rewritten. With
+    ``--plan`` and ``--approved-plan-sha256``, recomputes the plan from the
+    vault as it stands and applies only when the hash still matches. Every
+    outcome prints as one line; ``UNMATCHED`` files a hold under the check
+    that produced it (``propagate.apply`` returns the recapture's own rows,
+    with their own check id). Exit 0, 1 on any UNMATCHED, 3 on an UNREACHABLE
+    with no UNMATCHED.
     """
-    try:
-        outcome = archive.archive_source(args.vault, args.citekey, args.snapshot)
-    except archive.ArchiveError as error:
-        print(f"archive refused: {error}", file=sys.stderr)
+    if bool(args.plan) != bool(args.approved_plan_sha256):
+        print(
+            "propagate: --plan and --approved-plan-sha256 go together",
+            file=sys.stderr,
+        )
         return 2
-    recorded = outcome.extra.get("archive_url")
-    print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-    if recorded:
-        print(recorded)
-    return {
-        Result.MATCHED: 0,
-        Result.SKIPPED: 0,
-        Result.UNMATCHED: 1,
-        Result.UNREACHABLE: 3,
-    }[outcome.result]
+    if args.plan and args.map:
+        print("propagate: --map plans; it is not read by an apply", file=sys.stderr)
+        return 2
+    mapping = None
+    if args.map:
+        malformed = [
+            pair for pair in args.map if "=" not in pair or not all(pair.split("=", 1))
+        ]
+        if malformed:
+            print(
+                f"propagate: --map takes OLD=NEW, not {malformed[0]!r}", file=sys.stderr
+            )
+            return 2
+        mapping = dict(pair.split("=", 1) for pair in args.map)
+    client = ZoteroClient(base=args.base)
+    if args.plan:
+        outcomes = propagate.apply(
+            args.vault, client, args.plan, args.approved_plan_sha256
+        )
+    else:
+        planned, outcomes = propagate.plan(args.vault, client, mapping)
+        if planned is not None:
+            path = propagate.write_plan(args.vault, planned)
+            for old, new in planned.mapping.items():
+                print(f"rename {old} → {new} (item {planned.item_keys[old]})")
+            for surface in planned.surfaces:
+                print(f"rewrite {surface.path}")
+            print(
+                f"apply with: python3 -m research_vault propagate --vault {args.vault} "
+                f"--plan {path} --approved-plan-sha256 {propagate.plan_sha256(planned)}"
+            )
+            return 0
+    worst = 0
+    for outcome in outcomes:
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result is Result.UNMATCHED:
+            _hold(
+                args.vault,
+                outcome.check,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+                target_kind=outcome.target_kind,
+            )
+            worst = 1
+        elif outcome.result is Result.UNREACHABLE and worst == 0:
+            worst = 3
+    return worst
 
 
-def cmd_staleness(args):
-    result = bibliography.staleness(args.vault, ZoteroClient(base=args.base))
-    print(result.value)
-    return {
-        Result.MATCHED: 0,
-        Result.SKIPPED: 0,
-        Result.UNMATCHED: 1,
-        Result.UNREACHABLE: 3,
-    }[result]
+def _as_of(args) -> str | None:
+    """Resolve --as-of once, before any work; a malformed value is exit 2, never today."""
+    try:
+        return clock.today(getattr(args, "as_of", None))
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return None
 
 
 def cmd_verify(args):
     surface = getattr(args, "surface", "audit")
+    as_of = _as_of(args)
+    if as_of is None:
+        return 2
     try:
         report, effective, _hashes, warning_effective = verify_state(
             args.vault,
             network=not args.offline,
+            detection_date=as_of,
             rw_csv=args.rw_csv,
             base=getattr(args, "base", DEFAULT_BASE),
             git_base=getattr(args, "git_base", None),
@@ -388,19 +280,7 @@ def cmd_verify(args):
             changed_paths_file=getattr(args, "changed_paths_file", None),
             commit_projected=getattr(args, "commit_projected", None),
         )
-    except (
-        # Named domain failures only. A bare ValueError here would dress an
-        # implementation bug as a tidy exit 2 with no traceback.
-        gitstate.GitStateError,
-        PathCodecError,
-        bibliography.BibliographyError,
-        inbox.InboxError,
-        frontmatter.FrontmatterError,
-        notes.ManagedRegionError,
-        notes.InvalidCitekeyError,
-        notes.RenderIntegrityError,
-        OSError,
-    ) as error:
+    except _NAMED_FAILURES as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2
     if not args.rw_csv:
@@ -459,16 +339,16 @@ def cmd_trust_tier(args):
     and `verify`. It writes nothing — no event, status, tag, hold, or ack.
 
     Every way this verb can fail is the verb failing to run — an unsafe
-    citekey, no such note, unreadable frontmatter — so all of them exit 2,
+    citation key, no such note, unreadable frontmatter — so all of them exit 2,
     the exit-code contract's "could not run", never a four-state verdict.
     """
     try:
-        path = notes.note_path(args.vault, args.citekey)
-    except notes.InvalidCitekeyError:
-        print(f"invalid citekey: {args.citekey!r}", file=sys.stderr)
+        path = notes.note_path(args.vault, args.citation_key)
+    except notes.InvalidCitationKeyError:
+        print(f"invalid citation key: {args.citation_key!r}", file=sys.stderr)
         return 2
     if not path.is_file():
-        print(f"literature note not found: {args.citekey}", file=sys.stderr)
+        print(f"literature note not found: {args.citation_key}", file=sys.stderr)
         return 2
     try:
         tier = events.trust_tier(_read_note_text(path))
@@ -510,9 +390,7 @@ def _run_disposition(action):
         bibliography.BibliographyError,
         inbox.InboxError,
         frontmatter.FrontmatterError,
-        notes.ManagedRegionError,
-        notes.InvalidCitekeyError,
-        notes.RenderIntegrityError,
+        notes.InvalidCitationKeyError,
         OSError,
     ) as error:
         print(f"cannot complete this disposition: {error}", file=sys.stderr)
@@ -566,6 +444,13 @@ def cmd_ack(args):
     except (inbox.InboxError, ValueError, OSError) as error:
         print(f"acknowledgment refused: {error}", file=sys.stderr)
         return 2
+    acked = next((f for f in inbox.load(args.vault) if f.id == args.finding), None)
+    if acked is not None and clear_marker_for(args.vault, acked.check, acked.target):
+        # stderr: stdout stays the id alone, so `id=$(… ack …)` reads it.
+        print(
+            f"cleared [failed-verification:: {acked.check}] on {acked.target}",
+            file=sys.stderr,
+        )
     print(entry.id)
     return 0
 
@@ -579,6 +464,7 @@ def record_finding(
     actor=None,
     date=None,
     target_hash=None,
+    target_kind: str = "identifier",
 ) -> tuple[int, str]:
     """The single review-record writer above ``inbox.append_entry``.
 
@@ -609,9 +495,7 @@ def record_finding(
     except ValueError as error:
         return 2, str(error)
     actor = AGENT_ACTOR if actor is None else actor
-    resolved_date = (
-        datetime.datetime.now(datetime.UTC).date().isoformat() if date is None else date
-    )
+    resolved_date = clock.today() if date is None else date
     try:
         candidate_id = inbox.finding_id(
             check,
@@ -621,7 +505,7 @@ def record_finding(
             None,
             None,
             None,
-            "identifier",
+            target_kind,
             reason,
         )
         colliding = [
@@ -634,7 +518,7 @@ def record_finding(
             duplicate = (
                 existing.check == check
                 and existing.target == target
-                and existing.target_kind == "identifier"
+                and existing.target_kind == target_kind
                 and existing.result == result.value
                 and existing.reason == reason
                 and existing.actor == actor
@@ -659,6 +543,7 @@ def record_finding(
             actor=actor,
             date=date,
             target_hash=target_hash,
+            target_kind=target_kind,
         )
     except (inbox.InboxError, ValueError, OSError) as error:
         return 2, str(error)
@@ -762,7 +647,10 @@ def cmd_search_log(args):
 
 
 def cmd_inbox(args):
-    print(json.dumps(inbox.summary(args.vault), sort_keys=True))
+    as_of = _as_of(args)
+    if as_of is None:
+        return 2
+    print(json.dumps(inbox.summary(args.vault, as_of=as_of), sort_keys=True))
     for entry in sorted(
         inbox.open_entries(args.vault), key=lambda item: (item.date, item.id)
     ):
@@ -829,17 +717,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="research_vault", parents=[common])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("probe", parents=[common])
-    import_note = sub.add_parser("import-note", parents=[common])
-    import_note.add_argument("citekey")
-    import_note.add_argument("--vault", required=True)
-    archive_source_cmd = sub.add_parser("archive-source", parents=[common])
-    archive_source_cmd.add_argument("citekey")
-    archive_source_cmd.add_argument("--vault", required=True)
-    archive_source_cmd.add_argument("--snapshot")
-    staleness = sub.add_parser("staleness", parents=[common])
-    staleness.add_argument("--vault", required=True)
-    backfill = sub.add_parser("backfill-selectors", parents=[common])
-    backfill.add_argument("--vault", required=True)
+    capture_cmd = sub.add_parser("capture", parents=[common])
+    capture_cmd.add_argument("keys", nargs="*")
+    capture_cmd.add_argument("--vault", required=True)
+    capture_cmd.add_argument("--all", action="store_true")
+    add_cmd = sub.add_parser("add", parents=[common])
+    add_cmd.add_argument("--vault", required=True)
+    add_cmd.add_argument("--item", required=True)
+    add_cmd.add_argument("--collection")
+    propagate_cmd = sub.add_parser("propagate", parents=[common])
+    propagate_cmd.add_argument("--vault", required=True)
+    propagate_cmd.add_argument("--map", action="append", metavar="OLD=NEW")
+    propagate_cmd.add_argument("--plan")
+    propagate_cmd.add_argument("--approved-plan-sha256")
     verify = sub.add_parser("verify", parents=[common])
     verify.add_argument("--vault", required=True)
     verify.add_argument("--offline", action="store_true")
@@ -851,12 +741,13 @@ def main(argv=None):
     )
     verify.add_argument("--changed-paths-file")
     verify.add_argument("--commit-projected")
+    verify.add_argument("--as-of", metavar="YYYY-MM-DD")
     factcheck_cmd = sub.add_parser("factcheck", parents=[common])
     factcheck_cmd.add_argument("--vault", required=True)
     factcheck_cmd.add_argument("--draft", required=True)
     factcheck_cmd.add_argument("--cap", type=int, default=factcheck.DEFAULT_CAP)
     trust_tier_cmd = sub.add_parser("trust-tier", parents=[common])
-    trust_tier_cmd.add_argument("citekey")
+    trust_tier_cmd.add_argument("citation_key", metavar="CITATION_KEY")
     trust_tier_cmd.add_argument("--vault", required=True)
     arm_publish = sub.add_parser("arm-publish", parents=[common])
     arm_publish.add_argument("project")
@@ -901,6 +792,7 @@ def main(argv=None):
     search_log.add_argument("--actor")
     review_inbox = sub.add_parser("inbox", parents=[common])
     review_inbox.add_argument("--vault", required=True)
+    review_inbox.add_argument("--as-of", metavar="YYYY-MM-DD")
     scaffold_vault = sub.add_parser("scaffold", parents=[common])
     scaffold_vault.add_argument("--vault", required=True)
     scaffold_vault.add_argument("--with-ci", action="store_true")
@@ -910,19 +802,30 @@ def main(argv=None):
     stamp_type = sub.add_parser("stamp-type", parents=[common])
     stamp_type.add_argument("--vault", required=True)
     args = parser.parse_args(argv)
+    if args.cmd == "capture" and not args.keys and not args.all:
+        parser.error("capture needs at least one KEY or --all")
     if args.cmd == "verify" and args.commit_projected is not None:
         if not args.commit_projected.strip():
             parser.error("--commit-projected requires a non-empty message")
         if args.changed_paths_file is None:
             parser.error("--commit-projected requires --changed-paths-file")
-    if not hasattr(args, "base"):
-        args.base = DEFAULT_BASE
+    try:
+        # Only doctor tolerates an unreadable machine.json: its machine-config
+        # probe reports the file. Every other verb refuses rather than run at
+        # the production default because of a typo.
+        args.base = zotero.base_for(
+            getattr(args, "vault", None),
+            getattr(args, "base", None),
+            strict=args.cmd != "doctor",
+        )
+    except ZoteroError as error:
+        print(error, file=sys.stderr)
+        return 2
     return {
         "probe": cmd_probe,
-        "import-note": cmd_import_note,
-        "archive-source": cmd_archive_source,
-        "staleness": cmd_staleness,
-        "backfill-selectors": cmd_backfill_selectors,
+        "capture": cmd_capture,
+        "add": cmd_add,
+        "propagate": cmd_propagate,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
         "trust-tier": cmd_trust_tier,

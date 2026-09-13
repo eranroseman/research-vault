@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Literature search upstream of Zotero admission — this skill answers "what is out there," never "what is now citable." Admission is the human act of accepting a source into Zotero, and it is the **only** way anything becomes citable; this skill never performs it and never writes the evidence layer.
 
-This is a vendored fork of K-Dense Inc.'s `paper-lookup` skill (`skills/paper-lookup/` at `https://github.com/K-Dense-AI/scientific-agent-skills` @ `336c4f838a6c21b54e1e1f58cbbeae143d151fe2`, license MIT, © 2025 K-Dense Inc.), renamed into this plugin's namespace. Its `references/` (11 per-database files) and `scripts/` (5 stdlib-only Python CLIs — no bundled credentials, though `paginate.py` reads `OPENALEX_EMAIL`, `OPENALEX_API_KEY`, and `CROSSREF_MAILTO` from the environment when they are set) live beside this file, unmodified except for a provenance header on each — re-vendor from upstream to update them, never hand-edit. Upstream prose describes upstream's corpus and upstream's behaviour, not necessarily this fork's; where a vendored file and this one disagree, this one governs. What upstream terminates at (a retrieval report) is where this skill adds two things: search-log provenance and an explicit admission boundary.
+This is a vendored fork of K-Dense Inc.'s paper-lookup skill (`skills/paper-lookup/` at `https://github.com/K-Dense-AI/scientific-agent-skills` @ `336c4f838a6c21b54e1e1f58cbbeae143d151fe2`, license MIT, © 2025 K-Dense Inc.), renamed into this plugin's namespace. Its `references/` (11 per-database files) and `scripts/` (5 stdlib-only Python CLIs — no bundled credentials, though `paginate.py` reads `OPENALEX_EMAIL`, `OPENALEX_API_KEY`, and `CROSSREF_MAILTO` from the environment when they are set) live beside this file, unmodified except for a provenance header on each — re-vendor from upstream to update them, never hand-edit. Upstream prose describes upstream's corpus and upstream's behaviour, not necessarily this fork's; where a vendored file and this one disagree, this one governs. What upstream terminates at (a retrieval report) is where this skill adds two things: search-log provenance and an explicit admission boundary.
 
 ## Vendoring notes: where the vendored files are wrong
 
@@ -108,17 +108,17 @@ Never promise a search you did not run, and never let a silent gap read as "noth
 
 Report results the way the retrieval can be repeated — per candidate: title, authors, year, venue; identifiers (DOI/PMID/arXiv ID/URL, whichever apply); and enough provenance (endpoint, parameters, access date) that a human or another agent could reproduce the exact call. Default to a readable summary; quote raw JSON only when explicitly asked, labelled as untrusted third-party data. For a large full-text pull, save it to a local file and report the path rather than flooding the response.
 
-That report is the entire deliverable. This skill **terminates at the admission step**:
+That report is the entire deliverable. This skill **terminates at the person's selection**:
 
-- It never writes `literatures/`, never creates a literature note, and never invents a citekey — that projection exists only after `import-source` runs against an item already admitted.
+- It never writes `literatures/`, never creates a literature note, and never invents a citation key — that projection exists only after `capture-source` runs against an item the person selected and added to Zotero.
 - It never decides admission on the person's behalf. Present candidates; the person chooses what goes into Zotero.
-- Once something is admitted, route to `import-source` to catalog it — this skill's job ends at the search log and the report.
+- Once something is selected, route to `capture-source` to add and capture it — this skill's job ends at the search log and the report.
 
 ## Routing
 
-| Need                                               | Route to               |
-| -------------------------------------------------- | ---------------------- |
-| Frame or resume the project this search serves     | `project-flow`         |
-| Catalog an admitted source into the evidence layer | `import-source`        |
-| Claim, quote, and stance-link syntax               | `evidence-conventions` |
-| Verify citations deterministically                 | `verify-citations`     |
+| Need                                                     | Route to               |
+| -------------------------------------------------------- | ---------------------- |
+| Frame or resume the project this search serves           | `project-flow`         |
+| Add, capture, refresh, or propagate a re-key of a source | `capture-source`       |
+| Claim, quote, and stance-link syntax                     | `evidence-conventions` |
+| Verify citations deterministically                       | `verify-citations`     |

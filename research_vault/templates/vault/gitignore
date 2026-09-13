@@ -1,2 +1,5 @@
 .research-vault/
 .obsidian/workspace*
+.raw/
+.vault-meta/
+fulltext/

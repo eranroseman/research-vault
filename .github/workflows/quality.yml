@@ -47,18 +47,18 @@ jobs:
         run: python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info
       # continue-on-error is a DATED DEFERRAL, not a softened gate. The ceiling is
       # 30 and stays 30 (986086e: "Lowering the ceiling was explicitly rejected").
-      # Two functions are over it and both are deliberately not being fixed yet:
+      # One function is over it and is deliberately not being fixed yet:
       # `_bump_generated` (archive.py, CRAP 43.1) is a coverage gap in a module
       # whose survival is open — the assembly spec ties archive.py to lane 1's
       # URL-only decision (§7.2), so testing it now may test code about to be
-      # deleted. `check_metadata` (checks.py, CRAP 37.0) is CC 37 at 100% coverage,
-      # so only a split moves it, and that is develop-work the lanes outrank.
+      # deleted. (`check_metadata`, the other function this note tracked, was
+      # deleted retiring the doi/metadata checks, ingest spec §6.)
       # Left hard-failing, this step failed 189 consecutive runs and SKIPPED every
       # step below it — drywall and the mutation gate have not run since
       # 2026-08-25, and a genuinely broken test read the same red as the debt.
       # That is what this buys: the lane goes red for NEW breakage and stays
-      # legible while the known debt is carried. Remove this line when the two
-      # functions land under the ceiling; the exit condition is lane 1 deciding
+      # legible while the known debt is carried. Remove this line when the
+      # function lands under the ceiling; the exit condition is lane 1 deciding
       # archive.py, and it is tracked at spec §15.22.
       - name: CRAP ceiling (crap4py)
         continue-on-error: true

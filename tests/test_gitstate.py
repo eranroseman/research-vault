@@ -9,9 +9,11 @@ from research_vault import gitstate
 
 
 def test_revision_paths_and_blob_bytes_preserve_an_arbitrary_revision(tmp_vault):
-    path = tmp_vault / "synthesis" / "deleted.md"
+    path = tmp_vault / "wiki" / "concepts" / "deleted.md"
     path.write_bytes(b"claim \xff\n")
-    subprocess.run(["git", "add", "synthesis/deleted.md"], cwd=tmp_vault, check=True)
+    subprocess.run(
+        ["git", "add", "wiki/concepts/deleted.md"], cwd=tmp_vault, check=True
+    )
     subprocess.run(
         ["git", "commit", "-q", "-m", "binary claim"],
         cwd=tmp_vault,
@@ -19,7 +21,9 @@ def test_revision_paths_and_blob_bytes_preserve_an_arbitrary_revision(tmp_vault)
     )
     subprocess.run(["git", "tag", "snapshot"], cwd=tmp_vault, check=True)
     path.write_bytes(b"replacement\n")
-    subprocess.run(["git", "add", "synthesis/deleted.md"], cwd=tmp_vault, check=True)
+    subprocess.run(
+        ["git", "add", "wiki/concepts/deleted.md"], cwd=tmp_vault, check=True
+    )
     subprocess.run(
         ["git", "commit", "-q", "-m", "replace claim"],
         cwd=tmp_vault,
@@ -27,32 +31,34 @@ def test_revision_paths_and_blob_bytes_preserve_an_arbitrary_revision(tmp_vault)
     )
     path.unlink()
 
-    assert gitstate.revision_paths(tmp_vault, "snapshot", "synthesis") == {
-        b"synthesis/deleted.md"
+    assert gitstate.revision_paths(tmp_vault, "snapshot", "wiki/concepts") == {
+        b"wiki/concepts/deleted.md"
     }
     assert (
-        gitstate.blob_bytes(tmp_vault, "snapshot", "synthesis/deleted.md")
+        gitstate.blob_bytes(tmp_vault, "snapshot", "wiki/concepts/deleted.md")
         == b"claim \xff\n"
     )
     assert (
-        gitstate.blob_bytes(tmp_vault, "HEAD", "synthesis/deleted.md")
+        gitstate.blob_bytes(tmp_vault, "HEAD", "wiki/concepts/deleted.md")
         == b"replacement\n"
     )
-    assert gitstate.blob_bytes(tmp_vault, "snapshot", "synthesis/missing.md") is None
+    assert (
+        gitstate.blob_bytes(tmp_vault, "snapshot", "wiki/concepts/missing.md") is None
+    )
 
 
 def test_blob_bytes_distinguishes_an_empty_blob_from_a_missing_blob(tmp_vault):
-    path = tmp_vault / "synthesis" / "empty.md"
+    path = tmp_vault / "wiki" / "concepts" / "empty.md"
     path.write_bytes(b"")
-    subprocess.run(["git", "add", "synthesis/empty.md"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "add", "wiki/concepts/empty.md"], cwd=tmp_vault, check=True)
     subprocess.run(
         ["git", "commit", "-q", "-m", "empty claim"],
         cwd=tmp_vault,
         check=True,
     )
 
-    assert gitstate.blob_bytes(tmp_vault, "HEAD", "synthesis/empty.md") == b""
-    assert gitstate.blob_bytes(tmp_vault, "HEAD", "synthesis/absent.md") is None
+    assert gitstate.blob_bytes(tmp_vault, "HEAD", "wiki/concepts/empty.md") == b""
+    assert gitstate.blob_bytes(tmp_vault, "HEAD", "wiki/concepts/absent.md") is None
 
 
 def _git(vault, *args, stdin=None, check=True):
@@ -68,11 +74,11 @@ def _commit(vault, message="baseline"):
 
 
 def test_snapshot_resolution_separates_base_expected_head_index_and_live(tmp_vault):
-    path = tmp_vault / "synthesis" / "note.md"
+    path = tmp_vault / "wiki" / "concepts" / "note.md"
     path.write_bytes(b"base\n")
     parent = _commit(tmp_vault)
     path.write_bytes(b"staged\n")
-    _git(tmp_vault, "add", "synthesis/note.md")
+    _git(tmp_vault, "add", "wiki/concepts/note.md")
     path.write_bytes(b"unstaged scratch\n")
     index_before = (tmp_vault / ".git" / "index").read_bytes()
 
@@ -85,8 +91,8 @@ def test_snapshot_resolution_separates_base_expected_head_index_and_live(tmp_vau
         == _git(tmp_vault, "rev-parse", f"{parent}^{{tree}}").stdout.decode().strip()
     )
     assert snapshots.expected_head == parent
-    assert snapshots.candidate.image(b"synthesis/note.md").data == b"staged\n"
-    assert snapshots.live.image(b"synthesis/note.md").data == b"unstaged scratch\n"
+    assert snapshots.candidate.image(b"wiki/concepts/note.md").data == b"staged\n"
+    assert snapshots.live.image(b"wiki/concepts/note.md").data == b"unstaged scratch\n"
     assert (tmp_vault / ".git" / "index").read_bytes() == index_before
     assert _git(tmp_vault, "rev-parse", "HEAD").stdout.decode().strip() == parent
 
@@ -121,9 +127,9 @@ def test_corrupt_head_is_not_silently_treated_as_an_unborn_branch(tmp_vault):
 
 
 def test_snapshot_rejects_same_inode_rewrite_during_read(tmp_vault, monkeypatch):
-    path = tmp_vault / "synthesis" / "changing.md"
+    path = tmp_vault / "wiki" / "concepts" / "changing.md"
     path.write_bytes(b"before\n")
-    raw_path = b"synthesis/changing.md"
+    raw_path = b"wiki/concepts/changing.md"
     before = os.lstat(path)
     real_open = builtins.open
 
@@ -172,14 +178,14 @@ def test_bad_explicit_base_is_operational_error_before_snapshot(tmp_vault, revis
 
 def test_tree_snapshot_preserves_raw_nul_paths_and_rename_identity(tmp_vault):
     root = os.fsencode(tmp_vault)
-    old = b"synthesis/old\xff\nname.md"
+    old = b"wiki/concepts/old\xff\nname.md"
     old_abs = os.path.join(root, old)
     os.makedirs(os.path.dirname(old_abs), exist_ok=True)
     with open(old_abs, "wb") as stream:
         stream.write(b"raw\n")
     _git(tmp_vault, "add", "--", old)
     first = _commit(tmp_vault)
-    new = b"synthesis/new\xfe\nname.md"
+    new = b"wiki/concepts/new\xfe\nname.md"
     os.rename(old_abs, os.path.join(root, new))
     _git(tmp_vault, "add", "-A")
     second = _commit(tmp_vault, "rename")
@@ -197,7 +203,7 @@ def test_planning_materialization_never_exposes_a_candidate_symlink_target(
 ):
     outside = tmp_path.parent / f"{tmp_path.name}-outside"
     outside.write_bytes(b"mutable outside\n")
-    link = tmp_vault / "synthesis" / "outside.md"
+    link = tmp_vault / "wiki" / "concepts" / "outside.md"
     link.symlink_to(outside)
     candidate = gitstate.snapshot_worktree(tmp_vault)
     planning = tmp_path / "planning"
@@ -206,9 +212,9 @@ def test_planning_materialization_never_exposes_a_candidate_symlink_target(
     captured = gitstate.snapshot_worktree(planning)
     restored = gitstate.restore_candidate_nonfiles(candidate, captured)
 
-    assert not (planning / "synthesis" / "outside.md").exists()
-    assert restored.image(b"synthesis/outside.md") == candidate.image(
-        b"synthesis/outside.md"
+    assert not (planning / "wiki" / "concepts" / "outside.md").exists()
+    assert restored.image(b"wiki/concepts/outside.md") == candidate.image(
+        b"wiki/concepts/outside.md"
     )
     assert gitstate.outputs_between(candidate, restored) == ()
 
@@ -216,7 +222,7 @@ def test_planning_materialization_never_exposes_a_candidate_symlink_target(
 def test_publish_outputs_uses_exact_captured_blobs_and_leaves_live_index_unchanged(
     tmp_vault,
 ):
-    target = tmp_vault / "synthesis" / "out.md"
+    target = tmp_vault / "wiki" / "concepts" / "out.md"
     target.write_bytes(b"base\n")
     unrelated = tmp_vault / "projects" / "scratch.md"
     unrelated.write_bytes(b"base scratch\n")
@@ -229,7 +235,7 @@ def test_publish_outputs_uses_exact_captured_blobs_and_leaves_live_index_unchang
     index_before = (tmp_vault / ".git" / "index").read_bytes()
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
     captured = gitstate.CapturedOutput(
-        b"synthesis/out.md", stat.S_IFREG | 0o644, b"captured\n"
+        b"wiki/concepts/out.md", stat.S_IFREG | 0o644, b"captured\n"
     )
     target.write_bytes(b"later rewrite\n")
 
@@ -238,7 +244,7 @@ def test_publish_outputs_uses_exact_captured_blobs_and_leaves_live_index_unchang
     )
 
     assert _git(tmp_vault, "rev-parse", "HEAD^").stdout.decode().strip() == parent
-    assert _git(tmp_vault, "show", "HEAD:synthesis/out.md").stdout == b"captured\n"
+    assert _git(tmp_vault, "show", "HEAD:wiki/concepts/out.md").stdout == b"captured\n"
     assert (
         _git(tmp_vault, "show", "HEAD:projects/scratch.md").stdout == b"base scratch\n"
     )
@@ -252,7 +258,7 @@ def test_publish_outputs_uses_exact_captured_blobs_and_leaves_live_index_unchang
 def test_publish_outputs_loses_concurrent_head_cas_without_touching_index(
     tmp_vault, monkeypatch
 ):
-    path = tmp_vault / "synthesis" / "out.md"
+    path = tmp_vault / "wiki" / "concepts" / "out.md"
     path.write_bytes(b"base\n")
     expected = _commit(tmp_vault)
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
@@ -284,7 +290,7 @@ def test_publish_outputs_loses_concurrent_head_cas_without_touching_index(
             snapshots,
             [
                 gitstate.CapturedOutput(
-                    b"synthesis/out.md", stat.S_IFREG | 0o644, b"captured\n"
+                    b"wiki/concepts/out.md", stat.S_IFREG | 0o644, b"captured\n"
                 )
             ],
             "snapshot projection",
@@ -321,13 +327,13 @@ def test_empty_publication_is_a_noop(tmp_vault, monkeypatch):
 def test_each_publication_stage_failure_preserves_head_index_and_captured_source(
     tmp_vault, monkeypatch, stage
 ):
-    target = tmp_vault / "synthesis" / "out.md"
+    target = tmp_vault / "wiki" / "concepts" / "out.md"
     target.write_bytes(b"base\n")
     expected_head = _commit(tmp_vault)
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
     index_before = (tmp_vault / ".git" / "index").read_bytes()
     captured = gitstate.CapturedOutput(
-        b"synthesis/out.md", stat.S_IFREG | 0o644, b"captured\n"
+        b"wiki/concepts/out.md", stat.S_IFREG | 0o644, b"captured\n"
     )
     target.write_bytes(b"reread bytes\n")
     real_git = gitstate._git
@@ -370,13 +376,13 @@ def test_each_publication_stage_failure_preserves_head_index_and_captured_source
     assert len(commits) == (1 if stage == "update-ref" else 0)
     for commit in commits:
         assert (
-            _git(tmp_vault, "show", f"{commit}:synthesis/out.md").stdout
+            _git(tmp_vault, "show", f"{commit}:wiki/concepts/out.md").stdout
             == b"captured\n"
         )
 
 
 def test_projection_refuses_preimage_divergence_before_first_write(tmp_vault):
-    first = tmp_vault / "synthesis" / "a.md"
+    first = tmp_vault / "wiki" / "concepts" / "a.md"
     second = tmp_vault / "projects" / "b.md"
     first.write_bytes(b"one\n")
     second.write_bytes(b"two\n")
@@ -384,7 +390,7 @@ def test_projection_refuses_preimage_divergence_before_first_write(tmp_vault):
     second.write_bytes(b"human rewrite\n")
     outputs = [
         gitstate.CapturedOutput(b"projects/b.md", stat.S_IFREG | 0o644, b"B\n"),
-        gitstate.CapturedOutput(b"synthesis/a.md", stat.S_IFREG | 0o644, b"A\n"),
+        gitstate.CapturedOutput(b"wiki/concepts/a.md", stat.S_IFREG | 0o644, b"A\n"),
     ]
 
     with pytest.raises(gitstate.GitStateError, match="diverged"):
@@ -417,14 +423,14 @@ def test_planned_out_of_allowlist_output_is_rejected_before_apply(
 def test_projection_rolls_back_owned_postimages_and_preserves_concurrent_successor(
     tmp_vault, monkeypatch
 ):
-    first = tmp_vault / "synthesis" / "a.md"
+    first = tmp_vault / "wiki" / "concepts" / "a.md"
     second = tmp_vault / "projects" / "b.md"
     first.write_bytes(b"one\n")
     second.write_bytes(b"two\n")
     before = gitstate.snapshot_worktree(tmp_vault)
     outputs = [
         gitstate.CapturedOutput(b"projects/b.md", stat.S_IFREG | 0o644, b"B\n"),
-        gitstate.CapturedOutput(b"synthesis/a.md", stat.S_IFREG | 0o644, b"A\n"),
+        gitstate.CapturedOutput(b"wiki/concepts/a.md", stat.S_IFREG | 0o644, b"A\n"),
     ]
     real_install = gitstate._atomic_install
     calls = []
@@ -441,7 +447,7 @@ def test_projection_rolls_back_owned_postimages_and_preserves_concurrent_success
     with pytest.raises(gitstate.GitStateError, match="projection failed"):
         gitstate.apply_outputs(tmp_vault, before, outputs)
 
-    # Raw-byte order applies projects/b.md before synthesis/a.md. Its installed
+    # Raw-byte order applies projects/b.md before wiki/concepts/a.md. Its installed
     # postimage is replaced by the injected successor and rollback must not win.
     assert second.read_bytes() == b"concurrent successor\n"
     assert first.read_bytes() == b"one\n"
@@ -449,13 +455,13 @@ def test_projection_rolls_back_owned_postimages_and_preserves_concurrent_success
 
 def test_projection_reports_both_primary_and_rollback_conflicts(tmp_vault, monkeypatch):
     first = tmp_vault / "projects" / "a.md"
-    second = tmp_vault / "synthesis" / "b.md"
+    second = tmp_vault / "wiki" / "concepts" / "b.md"
     first.write_bytes(b"one\n")
     second.write_bytes(b"two\n")
     before = gitstate.snapshot_worktree(tmp_vault)
     outputs = [
         gitstate.CapturedOutput(b"projects/a.md", stat.S_IFREG | 0o644, b"A\n"),
-        gitstate.CapturedOutput(b"synthesis/b.md", stat.S_IFREG | 0o644, b"B\n"),
+        gitstate.CapturedOutput(b"wiki/concepts/b.md", stat.S_IFREG | 0o644, b"B\n"),
     ]
     real_install = gitstate._atomic_install
     calls = []
@@ -470,7 +476,7 @@ def test_projection_reports_both_primary_and_rollback_conflicts(tmp_vault, monke
     monkeypatch.setattr(gitstate, "_atomic_install", fail_second)
     with pytest.raises(
         gitstate.GitStateError,
-        match=r"projection failed at path-bytes:synthesis/b.md: primary; rollback failed at path-bytes:projects/a.md: diverged",
+        match=r"projection failed at path-bytes:wiki/concepts/b.md: primary; rollback failed at path-bytes:projects/a.md: diverged",
     ):
         gitstate.apply_outputs(tmp_vault, before, outputs)
 
@@ -545,11 +551,11 @@ def test_manifest_destination_preflight_rejects_unusable_targets(
 def test_manifest_rejects_same_path_rewrite_and_never_recaptures_raced_bytes(
     tmp_vault, tmp_path
 ):
-    path = tmp_vault / "synthesis" / "out.md"
+    path = tmp_vault / "literatures" / "out.md"
     path.write_bytes(b"before\n")
     before = gitstate.snapshot_worktree(tmp_vault)
     planned = gitstate.CapturedOutput(
-        b"synthesis/out.md", stat.S_IFREG | 0o644, b"planned\n"
+        b"literatures/out.md", stat.S_IFREG | 0o644, b"planned\n"
     )
     path.write_bytes(b"concurrent rewrite\n")
     manifest = tmp_path.parent / f"{tmp_path.name}-manifest-race"
@@ -570,7 +576,7 @@ def _index_info(vault, records):
 
 
 def test_dirty_overlap_ignores_unrelated_conflicts_and_gitlinks(tmp_vault):
-    target = tmp_vault / "synthesis" / "out.md"
+    target = tmp_vault / "wiki" / "concepts" / "out.md"
     target.write_bytes(b"base\n")
     head = _commit(tmp_vault)
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
@@ -593,7 +599,7 @@ def test_dirty_overlap_ignores_unrelated_conflicts_and_gitlinks(tmp_vault):
     gitstate.validate_dirty_overlap(
         tmp_vault,
         snapshots,
-        [gitstate.CapturedOutput(b"synthesis/out.md", 0o100644, b"planned\n")],
+        [gitstate.CapturedOutput(b"wiki/concepts/out.md", 0o100644, b"planned\n")],
     )
 
     assert (tmp_vault / ".git" / "index").read_bytes() == index_before
@@ -601,7 +607,7 @@ def test_dirty_overlap_ignores_unrelated_conflicts_and_gitlinks(tmp_vault):
 
 @pytest.mark.parametrize("overlap_kind", ["conflict", "gitlink"])
 def test_dirty_overlap_rejects_conflict_or_gitlink_at_output(tmp_vault, overlap_kind):
-    target = tmp_vault / "synthesis" / "out.md"
+    target = tmp_vault / "wiki" / "concepts" / "out.md"
     target.write_bytes(b"base\n")
     head = _commit(tmp_vault)
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
@@ -611,17 +617,19 @@ def test_dirty_overlap_rejects_conflict_or_gitlink_at_output(tmp_vault, overlap_
         .strip()
     )
     if overlap_kind == "conflict":
-        _git(tmp_vault, "update-index", "--force-remove", "--", "synthesis/out.md")
-        records = [(0o100644, blob, stage, b"synthesis/out.md") for stage in (1, 2, 3)]
+        _git(tmp_vault, "update-index", "--force-remove", "--", "wiki/concepts/out.md")
+        records = [
+            (0o100644, blob, stage, b"wiki/concepts/out.md") for stage in (1, 2, 3)
+        ]
     else:
-        records = [(0o160000, head, 0, b"synthesis/out.md")]
+        records = [(0o160000, head, 0, b"wiki/concepts/out.md")]
     _index_info(tmp_vault, records)
 
     with pytest.raises(gitstate.GitStateError, match=r"unmerged|dirty overlapping"):
         gitstate.validate_dirty_overlap(
             tmp_vault,
             snapshots,
-            [gitstate.CapturedOutput(b"synthesis/out.md", 0o100644, b"planned\n")],
+            [gitstate.CapturedOutput(b"wiki/concepts/out.md", 0o100644, b"planned\n")],
         )
 
 
@@ -659,19 +667,23 @@ def test_invalid_utf8_publication_failure_has_canonical_ascii_diagnostic(
 
 def test_apply_outputs_sweeps_scratch_files_stranded_by_a_killed_run(tmp_vault):
     """A SIGKILL mid-write leaves a scratch file the finally block never ran."""
-    target = tmp_vault / "synthesis" / "note.md"
+    target = tmp_vault / "wiki" / "concepts" / "note.md"
     target.write_bytes(b"base\n")
     _commit(tmp_vault)
     dead_pid = 999999
     while gitstate._owner_is_live(dead_pid):
         dead_pid += 1
-    stranded = tmp_vault / "synthesis" / f".research-vault-projection-{dead_pid}-0"
+    stranded = (
+        tmp_vault / "wiki" / "concepts" / f".research-vault-projection-{dead_pid}-0"
+    )
     stranded.write_bytes(b"half-written\n")
-    live = tmp_vault / "synthesis" / f".research-vault-projection-{os.getpid()}-0"
+    live = (
+        tmp_vault / "wiki" / "concepts" / f".research-vault-projection-{os.getpid()}-0"
+    )
     live.write_bytes(b"mine\n")
 
     before = gitstate.snapshot_worktree(tmp_vault)
-    output = gitstate.CapturedOutput(b"synthesis/note.md", 0o100644, b"projected\n")
+    output = gitstate.CapturedOutput(b"wiki/concepts/note.md", 0o100644, b"projected\n")
     gitstate.apply_outputs(tmp_vault, before, [output])
 
     assert not stranded.exists(), "a dead owner's scratch file must be swept"
@@ -688,12 +700,12 @@ def test_rollback_restores_a_deletion_a_file_and_a_symlink_preimage(tmp_vault):
     bytes would leave the first as a stray file and the last as a real file
     holding the link text.
     """
-    kept = tmp_vault / "synthesis" / "kept.md"
+    kept = tmp_vault / "wiki" / "concepts" / "kept.md"
     kept.write_bytes(b"before\n")
     kept.chmod(0o755)
-    link = os.path.join(os.fsencode(tmp_vault), b"synthesis/link.md")
+    link = os.path.join(os.fsencode(tmp_vault), b"wiki/concepts/link.md")
     os.symlink(b"kept.md", link)
-    created = tmp_vault / "synthesis" / "created.md"
+    created = tmp_vault / "wiki" / "concepts" / "created.md"
     preimage = gitstate.snapshot_worktree(tmp_vault)
 
     kept.write_bytes(b"AFTER\n")
@@ -703,12 +715,14 @@ def test_rollback_restores_a_deletion_a_file_and_a_symlink_preimage(tmp_vault):
         stream.write(b"link flattened\n")
     created.write_bytes(b"new\n")
     outputs = [
-        gitstate.CapturedOutput(b"synthesis/kept.md", stat.S_IFREG | 0o644, b"AFTER\n"),
         gitstate.CapturedOutput(
-            b"synthesis/link.md", stat.S_IFREG | 0o644, b"link flattened\n"
+            b"wiki/concepts/kept.md", stat.S_IFREG | 0o644, b"AFTER\n"
         ),
         gitstate.CapturedOutput(
-            b"synthesis/created.md", stat.S_IFREG | 0o644, b"new\n"
+            b"wiki/concepts/link.md", stat.S_IFREG | 0o644, b"link flattened\n"
+        ),
+        gitstate.CapturedOutput(
+            b"wiki/concepts/created.md", stat.S_IFREG | 0o644, b"new\n"
         ),
     ]
 
@@ -727,20 +741,20 @@ def test_rollback_refuses_a_directory_preimage_and_names_the_path(tmp_vault):
     the worktree diverged outside the projection's vocabulary. Rollback must say
     so and name the path, not silently accept the postimage as the new truth.
     """
-    folder = tmp_vault / "synthesis" / "part"
+    folder = tmp_vault / "wiki" / "concepts" / "part"
     folder.mkdir()
     preimage = gitstate.snapshot_worktree(tmp_vault)
     folder.rmdir()
-    flattened = tmp_vault / "synthesis" / "part"
+    flattened = tmp_vault / "wiki" / "concepts" / "part"
     flattened.write_bytes(b"flattened\n")
     output = gitstate.CapturedOutput(
-        b"synthesis/part", stat.S_IFREG | 0o644, b"flattened\n"
+        b"wiki/concepts/part", stat.S_IFREG | 0o644, b"flattened\n"
     )
 
     with pytest.raises(
         gitstate.GitStateError,
         match=(
-            r"rollback failed at path-bytes:synthesis/part: "
+            r"rollback failed at path-bytes:wiki/concepts/part: "
             r"cannot restore a non-file projection preimage"
         ),
     ):

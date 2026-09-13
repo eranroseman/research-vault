@@ -1,23 +1,30 @@
-import hashlib as _hashlib
 import json as _json
 import os
 import subprocess
+from typing import AnyStr
 
 import pytest
 
 from research_vault import scaffold
 
 
-def _with_managed_witness(text):
-    opening = text.index("%%rv-managed%%")
-    closing = text.index("%%/rv-managed%%", opening) + len("%%/rv-managed%%")
-    if text[closing : closing + 2] == "\r\n":
-        closing += 2
-    elif text[closing : closing + 1] == "\n":
-        closing += 1
-    digest = _hashlib.sha256(text[opening:closing].encode()).hexdigest()
-    return text.replace(
-        'type: "literature"\n', f'type: "literature"\nmanaged-sha256: "{digest}"\n', 1
+def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
+    """str.replace that refuses to be a no-op: a fixture edit that removes `old` must fail loudly.
+
+    ``text``, ``old`` and ``new`` are all ``str`` or all ``bytes`` (ruling 7).
+    """
+    assert old in text, f"substitution target no longer in the fixture: {old!r}"
+    return text.replace(old, new, count)
+
+
+def _with_body_witness(text):
+    from research_vault import notes
+
+    digest = notes.body_sha256(text)
+    return must_replace(
+        text,
+        'type: "literature"\n',
+        f'type: "literature"\nmanaged-sha256: "{digest}"\n',
     )
 
 
@@ -25,6 +32,7 @@ def _with_managed_witness(text):
 def tmp_vault(tmp_path):
     for d in scaffold.VAULT_DIRS:
         (tmp_path / d).mkdir(parents=True)
+    (tmp_path / "wiki" / "concepts").mkdir(parents=True)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     return tmp_path
 
@@ -37,53 +45,56 @@ def fixture_vault(tmp_vault):
     (tmp_vault / "log.md").write_text("# Log\n")
     literature = tmp_vault / "literatures"
     (literature / "smith2020.md").write_text(
-        _with_managed_witness("""---
-citekey: "smith2020"
+        _with_body_witness("""---
 type: "literature"
-doi: "10.1000/xyz"
-accessed: "2026-08-16"
-fixity-sha256:
-  - "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
-status: "included"
+title: "Mortality decline"
 aliases:
   - "Mortality decline"
+itemType: "journalArticle"
+DOI: "10.1000/xyz"
+zotero-server-id: "6LpvURP2E933"
+zotero-item-key: "SMITH020"
+zotero-item-version: 12
+citationKey: "smith2020"
+attachments:
+  - {key: "ATT00001", version: 13, md5: "aa11aa11aa11aa11aa11aa11aa11aa11", contentType: "application/pdf", filename: "smith2020.pdf"}
+fulltext:
+  - {attachment-key: "ATT00001", sha256: "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"}
+compile-input-sha256: "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
+accessed: "2026-08-16"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-%%rv-managed%%
 # Mortality decline
 
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
 - (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222
-%%/rv-managed%%
-
-## Notes
 """)
     )
     (literature / "gone2019.md").write_text(
-        _with_managed_witness("""---
-citekey: "gone2019"
+        _with_body_witness("""---
 type: "literature"
-doi: "10.1000/old"
+title: "Old result"
+aliases:
+  - "Old result"
+itemType: "journalArticle"
+DOI: "10.1000/old"
+zotero-server-id: "6LpvURP2E933"
+zotero-item-key: "GONE2019"
+zotero-item-version: 7
+citationKey: "gone2019"
+attachments:
+fulltext:
 accessed: "2026-08-16"
-status: "superseded"
-superseded-by: "smith2020"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
-%%rv-managed%%
 # Old result
-%%/rv-managed%%
-
-## Notes
 """)
     )
-    (tmp_vault / "synthesis" / "index.md").write_text(
-        "# Synthesis index\n\n- [[mortality-trends]] — mortality synthesis\n"
-    )
-    (tmp_vault / "synthesis" / "mortality-trends.md").write_text(
+    (tmp_vault / "wiki" / "concepts" / "mortality-trends.md").write_text(
         """---
 title: "Mortality trends"
-type: "synthesis"
+type: "concept"
 status: "draft"
 generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
 ---
@@ -164,3 +175,22 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_live)
         if "live_net" in item.keywords and os.environ.get("RV_LIVE_NET") != "1":
             item.add_marker(skip_net)
+
+
+@pytest.fixture(autouse=True)
+def _no_zotero_socket(request, monkeypatch):
+    """The offline suite never reaches a Zotero: an unpatched read is an outage.
+
+    Both instances run on the author's machine, so an unguarded read would pass
+    or fail with whatever happens to be live — and verify's lifecycle leg opens
+    a client on every network-capable run. Fakes install at instance level and
+    shadow this; live legs (``RV_LIVE=1``) keep the real transport.
+    """
+    if request.node.get_closest_marker("live"):
+        return
+    from research_vault import zotero
+
+    def refused(self, url, *_args, **_kwargs):
+        raise zotero.ZoteroError(f"Zotero unreachable in the offline suite: {url}")
+
+    monkeypatch.setattr(zotero.ZoteroClient, "_http", refused)

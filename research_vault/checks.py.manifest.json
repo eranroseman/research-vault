@@ -26,8 +26,8 @@
       "hash": "198b7feda981133eb9b8411b8624c8ea0b4913ee3aeb189126baeb4979a04c70"
     },
     {
-      "id": "func/check_citekeys",
-      "name": "check_citekeys",
+      "id": "func/check_citation_keys",
+      "name": "check_citation_keys",
       "line": 131,
       "end_line": 173,
       "hash": "7beba6dbd0a499eebbf2f5e319b2795cde820e2757d3663b41aa07dfd735e123"

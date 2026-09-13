@@ -1,38 +1,30 @@
 import pytest
 
 from research_vault import Result, events, frontmatter
+from tests.conftest import must_replace
 
 BASE = """---
-citekey: "smith2020"
+citationKey: "smith2020"
 type: "literature"
 doi: "10.1000/xyz"
 ---
-%%rv-managed%%
 - (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
-%%/rv-managed%%
-
-## Notes
-Free-region content remains untouched.
 """
 
 PMID_ONLY = """---
-citekey: "pmid2020"
+citationKey: "pmid2020"
 type: "literature"
 pmid: "12345"
 ---
-%%rv-managed%%
-%%/rv-managed%%
 """
 
 NO_ID_QUOTE = """---
-citekey: "noid2020"
+citationKey: "noid2020"
 type: "literature"
 ---
-%%rv-managed%%
 - (quote) [@noid2020, p. 1] ^c-11111111
   > A quoted sentence.
-%%/rv-managed%%
 """
 
 
@@ -41,17 +33,12 @@ def test_record_pass_appends_event_and_preserves_note_contents():
 
     data, body = frontmatter.parse(out)
 
-    assert data["citekey"] == "smith2020"
+    assert data["citationKey"] == "smith2020"
     assert data["doi"] == "10.1000/xyz"
     assert (
         body
-        == """%%rv-managed%%
-- (quote) [@smith2020, p. 12] ^c-11111111
+        == """- (quote) [@smith2020, p. 12] ^c-11111111
   > Mortality fell 12% across all strata.
-%%/rv-managed%%
-
-## Notes
-Free-region content remains untouched.
 """
     )
     assert events.verified_checks(out) == [
@@ -71,10 +58,10 @@ def test_record_pass_on_bare_mapping_note_writes_one_verified_block():
 
 
 def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
-    crlf = BASE.replace("\n", "\r\n")
+    crlf = must_replace(BASE, "\n", "\r\n", -1)
     out = events.record_pass(crlf, "doi", Result.MATCHED, at="2026-08-16")
     assert "\r\r\n" not in out
-    assert out.endswith("Free-region content remains untouched.\r\n")
+    assert out.endswith("  > Mortality fell 12% across all strata.\r\n")
 
 
 def test_record_pass_lexically_changes_only_verified_events_with_crlf():
@@ -82,7 +69,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
 
     text = (
         "---\r\n"
-        "citekey: smith2020\r\n"
+        "citationKey: smith2020\r\n"
         "status: included\r\n"
         "deprecated-at: 2026-08-16\r\n"
         "---\r\n"
@@ -92,7 +79,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     out = events.record_pass(text, "doi", Result.MATCHED, at="2026-08-17")
 
     assert "\r\r\n" not in out
-    assert "citekey: smith2020\r\nstatus: included\r\n" in out
+    assert "citationKey: smith2020\r\nstatus: included\r\n" in out
     assert out.endswith("- (quote) body ^c-11111111\r\n")
     assert notes.canonical_content(out) == notes.canonical_content(text)
 
@@ -124,7 +111,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
     assert notes.canonical_content(out) == notes.canonical_content(text)
     if newline == "\r\n":
         assert "\r\r\n" not in out
-        assert "\n" not in out.replace("\r\n", "")
+        assert "\n" not in must_replace(out, "\r\n", "", -1)
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -134,14 +121,14 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     body = f"- (quote) body-only ^c-11111111{newline}"
     first = events.record_pass(body, "doi", Result.MATCHED, at="2026-08-16")
     second = events.record_pass(first, "metadata", Result.MATCHED, at="2026-08-17")
-    with_status = first.replace(
-        f"verified:{newline}", f'status: "deprecated"{newline}verified:{newline}', 1
+    with_status = must_replace(
+        first, f"verified:{newline}", f'status: "deprecated"{newline}verified:{newline}'
     )
 
     assert first.endswith(body)
     if newline == "\r\n":
         assert "\r\r\n" not in first
-        assert "\n" not in first.replace("\r\n", "")
+        assert "\n" not in must_replace(first, "\r\n", "", -1)
     assert notes.canonical_content(first) == notes.canonical_content(body)
     assert notes.canonical_content(second) == notes.canonical_content(body)
     assert events.verified_checks(second) == [
@@ -184,7 +171,7 @@ def test_trust_tier_progression():
 
 def test_no_identifier_no_claims_note_is_unverified():
     """An empty applicable-check set must not vacuously satisfy machine-confirmed."""
-    text = "---\ntype: literature\ncitekey: url2024only\nurl: https://example.org\n---\nbody\n"
+    text = "---\ntype: literature\ncitationKey: url2024only\nurl: https://example.org\n---\nbody\n"
     assert events.trust_tier(text) == "unverified"
 
 
@@ -228,7 +215,7 @@ def test_identifier_less_note_with_human_event_and_no_quotes_is_unverified():
     """A human: event alone no longer derives human-reviewed when the note
     has neither an applicable check nor a managed quote claim — the floor
     applies before the human-actor check runs."""
-    text = '---\ncitekey: "noid2020"\ntype: "literature"\n---\nbody\n'
+    text = '---\ncitationKey: "noid2020"\ntype: "literature"\n---\nbody\n'
     text = events.record_pass(
         text, "doi", Result.MATCHED, by="human:eran", at="2026-08-16"
     )
@@ -253,12 +240,9 @@ def test_pmid_only_requires_update_notice_coverage():
     assert events.trust_tier(text) == "machine-confirmed"
 
 
-def test_each_managed_quote_requires_its_own_address():
-    text = BASE.replace(
-        "%%/rv-managed%%",
-        "- (quote) [@smith2020, p. 13] ^c-22222222\n"
-        "  > The decline was sustained.\n"
-        "%%/rv-managed%%",
+def test_each_quote_claim_requires_its_own_address():
+    text = BASE + (
+        "- (quote) [@smith2020, p. 13] ^c-22222222\n  > The decline was sustained.\n"
     )
     for check in ("doi", "metadata", "update-notice"):
         text = events.record_pass(text, check, Result.MATCHED, at="2026-08-16")
@@ -383,15 +367,22 @@ def test_checkless_by_at_event_is_valid_and_elevates_to_human_reviewed():
 
 
 def test_historical_pass_is_demoted_by_current_failure_and_recovers_on_match():
+    """``update-notice`` is applicable (BASE carries a DOI), so a current
+    failure on it demotes trust — unlike the retired ``doi``/``metadata``
+    checks, which no longer sit in the applicable set at all."""
     confirmed = _machine_confirmed_text()
 
-    failed = events.record_failure(confirmed, "doi", Result.UNMATCHED)
+    failed = events.record_failure(confirmed, "update-notice", Result.UNMATCHED)
 
     assert events.trust_tier(failed) == "unverified"
-    assert events.current_failures(failed) == [{"check": "doi", "result": "UNMATCHED"}]
+    assert events.current_failures(failed) == [
+        {"check": "update-notice", "result": "UNMATCHED"}
+    ]
     assert events.verified_checks(failed) == events.verified_checks(confirmed)
 
-    recovered = events.record_pass(failed, "doi", Result.MATCHED, at="2026-08-17")
+    recovered = events.record_pass(
+        failed, "update-notice", Result.MATCHED, at="2026-08-17"
+    )
 
     assert events.current_failures(recovered) == []
     assert events.trust_tier(recovered) == "machine-confirmed"
@@ -466,8 +457,8 @@ def test_duplicate_verifier_state_headers_fail_closed(field):
 
 def test_duplicate_keys_inside_verified_event_fail_closed():
     confirmed = _machine_confirmed_text()
-    malformed = confirmed.replace(
-        'check: "doi"}', 'check: "metadata", check: "doi"}', 1
+    malformed = must_replace(
+        confirmed, 'check: "doi"}', 'check: "metadata", check: "doi"}'
     )
 
     assert events.verified_checks(malformed) == []
@@ -480,10 +471,10 @@ def test_duplicate_keys_inside_verified_event_fail_closed():
 
 def test_duplicate_keys_inside_current_failure_fail_closed():
     failed = events.record_failure(_machine_confirmed_text(), "doi", Result.UNMATCHED)
-    malformed = failed.replace(
+    malformed = must_replace(
+        failed,
         'check: "doi", result: "UNMATCHED"}',
         'check: "metadata", check: "doi", result: "UNMATCHED"}',
-        1,
     )
 
     assert events.current_failures(malformed) == []
@@ -499,7 +490,7 @@ def test_duplicate_scalar_and_list_verifier_headers_fail_closed(field):
     text = _machine_confirmed_text()
     if field == "failed-verification":
         text = events.record_failure(text, "doi", Result.UNMATCHED)
-    malformed = text.replace(f"{field}:\n", f'{field}: "shadow"\n{field}:\n', 1)
+    malformed = must_replace(text, f"{field}:\n", f'{field}: "shadow"\n{field}:\n')
 
     assert events.trust_tier(malformed) == "unverified"
     with pytest.raises(ValueError, match=field):
@@ -537,7 +528,21 @@ def test_foreign_human_event_without_check_stays_unverified():
     # coverage at all, so it cannot be machine-confirmed, and therefore
     # cannot be human-reviewed either -- it stays "unverified".
     text = (
-        '---\ncitekey: "noid2020"\ntype: "literature"\n'
+        '---\ncitationKey: "noid2020"\ntype: "literature"\n'
         'verified: {by: "human:eran", at: "2026-08-02T09:00:00Z"}\n---\nbody\n'
     )
     assert events.trust_tier(text) == "unverified"
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ({"DOI": "10.1000/xyz"}, {"update-notice"}),
+        ({"doi": "10.1000/xyz"}, {"update-notice"}),
+        ({"extra": ["PMID: 28503678", "PMCID: PMC5428074"]}, {"update-notice"}),
+        ({"extra": "PMID: 28503678"}, {"update-notice"}),
+        ({"title": "no identifiers"}, set()),
+    ],
+)
+def test_applicable_note_checks_is_update_notice_or_nothing(data, expected):
+    assert events._applicable_note_checks(data) == expected

@@ -131,13 +131,14 @@ def test_no_comparison_text_is_unreachable(fixture_vault):
 
 
 def test_no_quote_claims_returns_one_controlled_skipped_outcome(fixture_vault):
-    note = fixture_vault / "synthesis" / "index.md"
+    note = fixture_vault / "wiki" / "concepts" / "clean.md"
+    note.write_text("# Clean\n")
 
     outs = quotes.check_all_quotes(fixture_vault, note)
 
     assert len(outs) == 1
     assert outs[0].check == "quote"
-    assert outs[0].target == "path-bytes:synthesis/index.md"
+    assert outs[0].target == "path-bytes:wiki/concepts/clean.md"
     assert outs[0].result is Result.SKIPPED
     assert outs[0].reason == "no-identifier — note has no quote claims"
 
@@ -167,7 +168,7 @@ def test_uncited_quote_is_schema_violation_with_its_note_origin(fixture_vault):
 
     assert out.target == "path-bytes:projects/brief/draft.md"
     assert out.result is Result.UNMATCHED
-    assert out.reason == "schema-violation — quote claim has no citekey"
+    assert out.reason == "schema-violation — quote claim has no citation key"
     assert out.extra == {
         "note_path": "path-bytes:projects/brief/draft.md",
         "claim_id": "c-66666666",
@@ -186,10 +187,10 @@ def test_quote_producers_type_note_paths_but_keep_claim_links_identifiers(
     assert claim.path_extra_fields == ("note_path",)
     assert claim.extra["note_path"] == "path-bytes:projects/brief/draft.md"
 
-    fallback = quotes.check_all_quotes(
-        fixture_vault, fixture_vault / "synthesis" / "index.md"
-    )[0]
-    assert fallback.target == "path-bytes:synthesis/index.md"
+    note_without_claims = fixture_vault / "wiki" / "concepts" / "clean.md"
+    note_without_claims.write_text("# Clean\n")
+    fallback = quotes.check_all_quotes(fixture_vault, note_without_claims)[0]
+    assert fallback.target == "path-bytes:wiki/concepts/clean.md"
     assert fallback.target_kind == "repo-path"
 
 

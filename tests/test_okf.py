@@ -76,14 +76,19 @@ def test_regenerated_log_is_date_grouped_newest_first(tmp_path):
 
 def test_doctor_is_substrate_and_posture_only(tmp_path):
     scaffold.scaffold_vault(tmp_path)
-    names = [p[0] for p in scaffold.doctor(tmp_path, client=None, settle_seconds=0)]
+    names = [p[0] for p in scaffold.doctor(tmp_path, client=None)]
     assert names == [
         "tree",
         "machine-config",
         "zotero",
+        "write-guard",
+        "fulltext-sync",
         "bbt",
-        "autoexport",
-        "staleness",
+        "bbt-git",
+        "plugins",
+        "path-shim",
+        "translator-formats",
+        "compile-tool",
         "remote",
         "backup",
     ]

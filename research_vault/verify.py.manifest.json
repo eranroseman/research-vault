@@ -75,15 +75,15 @@
       "hash": "18b7ec162590d1cc15af1b25c7492d4e371d0f87e1fb8b9b3d2224c48d7d26d8"
     },
     {
-      "id": "func/_note_for_citekey",
-      "name": "_note_for_citekey",
+      "id": "func/_note_for_citation_key",
+      "name": "_note_for_citation_key",
       "line": 183,
       "end_line": 192,
       "hash": "852dac807164a83d0d4de4092e69aa2c619e18da2f54f9097a0256a678cc8289"
     },
     {
-      "id": "func/_citekey_hash",
-      "name": "_citekey_hash",
+      "id": "func/_citation_key_hash",
+      "name": "_citation_key_hash",
       "line": 195,
       "end_line": 228,
       "hash": "b07d31790c08996918fad75d16c5a7b63690e9b9a7143a6babdbaf025d373eeb"

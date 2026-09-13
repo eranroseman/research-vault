@@ -12,7 +12,7 @@ This is the real-life entry point — the project flow (question → literature 
 
 Before framing anything or touching a draft, orient — whether this is a brand-new project or the twentieth session on an old one:
 
-1. Read `synthesis/index.md` — what topics the vault already arranges.
+1. Read `wiki/index.md` — what topics the vault already arranges.
 2. Read the recent `log/` entries — what happened lately, across every project.
 3. If `projects/NAME/` already exists, read the project's files — the framed question, the draft frame, whatever is there.
 
@@ -28,10 +28,10 @@ Every finding in that queue is another check's non-MATCHED result — UNMATCHED,
 
 ### Surface trust tiers
 
-For every citekey the project's files cite, look up its tier:
+For every citation key the project's files cite, look up its tier:
 
 ```sh
-python3 -m research_vault trust-tier CITEKEY --vault PATH
+python3 -m research_vault trust-tier CITATION_KEY --vault PATH
 ```
 
 Report each cited note next to its tier — `unverified`, `machine-confirmed`, or `human-reviewed` (cumulative: human-reviewed implies machine-confirmed). This is a read-only report; it writes nothing. `unverified` is the normal starting tier, not a verdict of failure — it just means `verify-citations` has not yet run, or has not yet matched, for that note. This skill never claims a check ran that it did not; it only reads what the CLI already computed.
@@ -49,7 +49,7 @@ Write the framed question, in the person's own words, into `projects/NAME/draft.
 
 ## Gap analysis (existing projects)
 
-Once a project has a framed question, compare it against what the vault already knows — `synthesis/` pages and the bibliography (`system/bibliography.json`) — and sort what you find into three buckets:
+Once a project has a framed question, compare it against what the vault already knows — `wiki/` pages and the bibliography (`system/bibliography.json`) — and sort what you find into three buckets:
 
 - **Covered** — the question, or a piece of it, is already answered by synthesis claims with solid backing.
 - **Contested** — synthesis claims bear on the question but carry `[disputes:: ...]` links against them; surface those disputing claim links explicitly, not just the claim they attach to. Disconfirmation must be seen, never silently folded into "covered."
@@ -65,15 +65,15 @@ When it is time to draft, invoke `evidence-conventions` before writing a single 
 
 `project-flow` orchestrates; it does not do any of these itself:
 
-| Need                                  | Route to           |
-| ------------------------------------- | ------------------ |
-| Acquire new sources                   | `find-sources`     |
-| Catalog an admitted source            | `import-source`    |
-| Verify citations deterministically    | `verify-citations` |
-| Factcheck a draft against its sources | `factcheck-draft`  |
-| Publish, park, correct, or withdraw   | `publish`          |
+| Need                                                     | Route to           |
+| -------------------------------------------------------- | ------------------ |
+| Acquire new sources                                      | `find-sources`     |
+| Add, capture, refresh, or propagate a re-key of a source | `capture-source`   |
+| Verify citations deterministically                       | `verify-citations` |
+| Factcheck a draft against its sources                    | `factcheck-draft`  |
+| Publish, park, correct, or withdraw                      | `publish`          |
 
-Route the user's intent without silently broadening it. Hand the routed skill the need the person actually stated — not an enlarged version of it, and not the adjacent work you can see it will need. "Import this paper" is not "import it and rebuild the synthesis page"; "find sources" is not "find and admit them." When the stated need turns out to sit inside a larger job, say so and let the person widen it; never widen it for them and report back on work they never asked for.
+Route the user's intent without silently broadening it. Hand the routed skill the need the person actually stated — not an enlarged version of it, and not the adjacent work you can see it will need. "Capture this paper" is not "capture it and rebuild the concept page"; "find sources" is not "find and admit them." When the stated need turns out to sit inside a larger job, say so and let the person widen it; never widen it for them and report back on work they never asked for.
 
 ## Acknowledgments
 

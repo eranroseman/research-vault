@@ -36,7 +36,7 @@ ENTRY_SKILLS = {
     "verify-citations",
     "factcheck-draft",
     "project-flow",
-    "import-source",
+    "capture-source",
     "find-sources",
 }
 
@@ -44,7 +44,7 @@ ENTRY_SKILLS = {
 # the shape a skill name takes when a template cites one in prose. Requires
 # at least one hyphen so ordinary single words never match, and excludes
 # slashes/dots/percents so path fragments (`` `synthesis/index.md` ``),
-# managed markers (`` `%%rv-managed%%` ``), and similar template furniture
+# comment markers (`` `%%rv-anything%%` ``), and similar template furniture
 # never false-positive.
 _BACKTICKED_KEBAB_TOKEN = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
 
@@ -58,7 +58,18 @@ def _skill_md_files() -> list[Path]:
 
 
 def _shipped_template_files() -> list[Path]:
-    return sorted(p for p in TEMPLATES_DIR.rglob("*") if p.is_file())
+    # context.md is the packaged glossary (byte-identical to CONTEXT.md, pinned
+    # by test_templates.py::test_packaged_context_is_the_canonical_glossary_source),
+    # never a skill-routing surface: it backticks governed frontmatter fields
+    # and identifiers (`zotero-item-key`, `managed-sha256`, `compile-input-sha256`,
+    # ...) that take the same bare-kebab shape a cited skill name would, without
+    # being one. AGENTS.md's routing table is the surface this scan actually
+    # guards, and it is unaffected by the exclusion.
+    return sorted(
+        p
+        for p in TEMPLATES_DIR.rglob("*")
+        if p.is_file() and p != TEMPLATES_DIR / "context.md"
+    )
 
 
 def test_every_skill_directory_ships_a_skill_md():
@@ -170,6 +181,107 @@ def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
     )
 
 
+def _code_spelled_identifiers() -> list[str]:
+    """Every string the package evaluates, off its AST, docstrings excluded.
+
+    A skill's bare-kebab tokens are not all skill names: check ids
+    (``captured-set``), reason codes (``not-admitted``), verbs
+    (``mark-published``), doctor probes (``bbt-git``), markers
+    (``failed-verification``) and tags (``open-question``) take the same
+    shape. Every one of those is an identifier the code spells, so "the code
+    spells it" is the decision, deferred to the code the way
+    ``_emitted_check_ids`` defers. Measured 2026-09-13 across the 42 distinct
+    tokens the nine skills cite: whole-literal equality misses
+    ``open-question``, which ``claims.py`` owns only inside a regex
+    alternation; a substring read over *every* literal masks three live skill
+    names (``factcheck-draft``, ``find-sources``, ``project-flow``) through
+    docstrings that talk about them; a substring read over the non-docstring
+    literals spells every non-skill token and no live hyphenated skill name.
+    A docstring is a bare string-expression statement, prose the code never
+    evaluates, so it is dropped rather than read as spelling.
+    """
+    spelled: list[str] = []
+    for module in sorted(PACKAGE_DIR.glob("*.py")):
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        prose = {
+            id(node.value)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        }
+        spelled.extend(
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in prose
+        )
+    return spelled
+
+
+def _cited_skill_tokens_by_skill() -> dict[str, set[str]]:
+    return {
+        skill_md.parent.name: set(
+            _BACKTICKED_KEBAB_TOKEN.findall(skill_md.read_text(encoding="utf-8"))
+        )
+        for skill_md in _skill_md_files()
+    }
+
+
+def test_every_skill_name_a_shipped_skill_cites_has_a_skill_directory():
+    """The templates scan above walks ``research_vault/templates/`` only; a
+    live skill routed to the deleted ``import-source`` directory and nothing
+    caught it (Task 19, 2026-09-13). Same token shape, second corpus: a bare
+    kebab token a skill cites is a skill name unless the code spells it as an
+    identifier (``_code_spelled_identifiers``), and every skill name needs a
+    ``skills/<name>/`` directory. A foreign skill a vendored fork names by
+    provenance is prose about a name, not a route, and goes unbackticked
+    (``find-sources/SKILL.md:11``) rather than exempted here."""
+    existing = {directory.name for directory in _skill_dirs()}
+    spelled = _code_spelled_identifiers()
+    cited = _cited_skill_tokens_by_skill()
+    dangling = {
+        skill: sorted(
+            token
+            for token in tokens - existing
+            if not any(token in literal for literal in spelled)
+        )
+        for skill, tokens in cited.items()
+    }
+    dangling = {skill: tokens for skill, tokens in dangling.items() if tokens}
+    assert not dangling, (
+        f"skill(s) cite skill name(s) with no skills/<name>/ directory: "
+        f"{dangling}. Fix the route (the skill was renamed or deleted)."
+    )
+
+
+def test_the_code_spells_no_hyphenated_skill_name():
+    """The self-check that keeps the exclusion above from masking a route.
+
+    ``_code_spelled_identifiers`` exempts a token the code spells, so the day a
+    non-docstring literal in ``research_vault/`` carries a live skill name —
+    ``"run capture-source"`` in an error message — that skill's deletion would
+    stop failing the scan. This fails that day instead, visibly, and the
+    author narrows the reading. A rule on product code, and the price of the
+    exclusion; measured 2026-09-13 as already true (``publish`` is spelled,
+    but carries no hyphen and so is never a token the scan reads).
+    """
+    spelled = _code_spelled_identifiers()
+    hyphenated = {
+        directory.name for directory in _skill_dirs() if "-" in directory.name
+    }
+    assert hyphenated, "expected at least one hyphenated skill directory"
+    offenders = sorted(
+        name for name in hyphenated if any(name in literal for literal in spelled)
+    )
+    assert offenders == [], (
+        f"research_vault/ spells skill name(s) in a non-docstring literal: "
+        f"{offenders}; the skill-directory scan would no longer catch a route "
+        f"to them once deleted"
+    )
+
+
 # --------------------------------------------------------------------------
 # Prose enumerating what code owns (2026-08-22 skills-layer audit, C-1/C-2).
 # The audit's own diagnosis: a skill that hand-lists an identifier set the
@@ -207,8 +319,8 @@ def _emitted_check_ids() -> set[str]:
     constant. ``inbox.CHECK_IDS`` is the *registry* — the boundary the
     `finding` verb enforces — and ``inbox.py``'s own comment records that the
     deterministic pipeline legitimately files ids that registry does not
-    carry (``staleness``, ``append-only``, ``claim-immutability``,
-    ``published-drift``). So the registry alone would flag correct prose, and
+    carry (``append-only``, ``claim-immutability``, ``published-drift``). So
+    the registry alone would flag correct prose, and
     the AST is the only honest source for what a `verify` run can emit. Same
     technique and same reason as ``_probe_ids`` in ``test_config_validity``.
 
@@ -249,10 +361,10 @@ def _known_check_ids() -> set[str]:
     """Every check id the code knows, from all three of its code-side sources.
 
     The emitted set and the registry overlap but neither contains the other:
-    the pipeline emits four ids the registry does not carry, and the registry
-    carries five (``publish``, ``factcheck``, ``autoexport``, ``render``,
-    ``integrate``) that only the `finding` verb ever files — skills name
-    those in prose too, so an emitted-only universe would fail correct prose.
+    the pipeline emits three ids the registry does not carry, and the registry
+    carries four (``publish``, ``factcheck``, ``render``, ``integrate``) that
+    only the `finding` verb ever files — skills name those in prose too, so
+    an emitted-only universe would fail correct prose.
     ``REPEATABLE_ACT_CHECKS`` adds ``publish-gate``, filed by the Stop hook.
     """
     return (
@@ -307,7 +419,7 @@ def _enumerated_check_ids(text: str) -> list[tuple[int, str]]:
     renames — so a phrase-less run's visibility tracks how many valid ids
     remain beside a drifted one, not how many drifted. The two-member run
     shipped at ``skills/publish/SKILL.md:37`` ("this surface's other two
-    closing checks, `citekey` and `evidence-layer`", which sits before that
+    closing checks, `citation-key` and `evidence-layer`", which sits before that
     line's "check id" phrase and so has only this anchor) goes unread the
     moment *either* single member drifts, carrying the drifted token out of
     view with it. A longer run stays readable while two valid members
@@ -371,7 +483,6 @@ def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
     # The four the registry does not carry are the whole reason this is an AST
     # scan rather than `inbox.CHECK_IDS`; losing them is losing the point.
     assert {
-        "staleness",
         "append-only",
         "claim-immutability",
         "published-drift",
@@ -388,21 +499,23 @@ def test_the_documented_bound_on_the_co_occurrence_anchor_holds():
     "check id" phrase introduces.
     """
     pair = "— this surface's other two closing checks, `{a}` and `{b}`, mint nothing."
-    assert _enumerated_check_ids(pair.format(a="citekey", b="evidence-layer")) == [
-        (1, "citekey"),
+    assert _enumerated_check_ids(pair.format(a="citation-key", b="evidence-layer")) == [
+        (1, "citation-key"),
         (1, "evidence-layer"),
     ]
     # ONE rename leaves one survivor, below the anchor, and the whole run goes
     # unread — the drifted token with it. Single-id drift, not wholesale.
-    assert _enumerated_check_ids(pair.format(a="citekeys", b="evidence-layer")) == []
-    assert _enumerated_check_ids(pair.format(a="citekey", b="evidence-tier")) == []
+    assert (
+        _enumerated_check_ids(pair.format(a="citation-keys", b="evidence-layer")) == []
+    )
+    assert _enumerated_check_ids(pair.format(a="citation-key", b="evidence-tier")) == []
 
     # Longer runs track survivors too: two survivors keep the run readable and
     # the drifted member is reported; one survivor takes it out of view.
     triple = "This surface closes on `{a}`, `{b}`, and `{c}`."
     assert _enumerated_check_ids(
-        triple.format(a="citekey", b="evidence-layer", c="bogus-one")
-    ) == [(1, "citekey"), (1, "evidence-layer"), (1, "bogus-one")]
+        triple.format(a="citation-key", b="evidence-layer", c="bogus-one")
+    ) == [(1, "citation-key"), (1, "evidence-layer"), (1, "bogus-one")]
     assert (
         _enumerated_check_ids(triple.format(a="bogus-one", b="bogus-two", c="doi"))
         == []
@@ -418,7 +531,7 @@ def test_the_check_id_extractor_anchors_on_the_phrase_and_on_co_occurrence():
         "Every other outcome is a finding, filed by check id `source-status`, "
         "carrying that claim's `text_hash` as `--target-hash`.\n"
         # Co-occurrence anchor: an enumeration that never says "check id".
-        "This surface closes on `citekey`, `evidence-layer`, and `contested`.\n"
+        "This surface closes on `citation-key`, `evidence-layer`, and `contested`.\n"
         # One known id is not a list — the evidence-boundary-tag trap.
         "Tag it `quote`, `paraphrase`, `inference`, or `open-question`.\n"
         # No known id is not a list either.
@@ -430,7 +543,7 @@ def test_the_check_id_extractor_anchors_on_the_phrase_and_on_co_occurrence():
     )
     assert _enumerated_check_ids(sample) == [
         (1, "source-status"),
-        (2, "citekey"),
+        (2, "citation-key"),
         (2, "evidence-layer"),
         (2, "contested"),
         (5, "quote"),

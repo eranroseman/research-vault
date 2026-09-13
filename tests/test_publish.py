@@ -1,12 +1,11 @@
 """The publish surface: gate-flag verbs, dispositions, and the ack verb (spec §6).
 
-Every vault built here is deliberately bibliography-free (or points its
-Zotero base at a dead port), so the publish gate runs its real
-network-capable transaction without ever leaving the machine: absent
-`system/bibliography.json` means no staleness probe and no bibliography
-entries to route through Crossref. The disposition verbs therefore need no
-``--offline`` escape hatch — spec §6 forbids synthetic offline outcomes from
-minting trust, and one does not exist to be misused.
+Every vault built here is deliberately bibliography-free, so the publish gate
+runs its real network-capable transaction without ever leaving the machine:
+absent `system/bibliography.json` means no bibliography entries to route
+through Crossref. The disposition verbs therefore need no ``--offline``
+escape hatch — spec §6 forbids synthetic offline outcomes from minting
+trust, and one does not exist to be misused.
 """
 
 import datetime as datetime_lib
@@ -99,7 +98,7 @@ def _build_vault(
     for folder in (
         "inbox",
         "literatures",
-        "synthesis",
+        "wiki",
         "log",
         "projects",
         "system",
@@ -109,7 +108,7 @@ def _build_vault(
         (root / folder).mkdir()
     (root / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Knowledge bundle\n')
     (root / "log.md").write_text("# Log\n")
-    (root / "synthesis" / "index.md").write_text("# Synthesis index\n")
+    (root / "wiki" / "index.md").write_text("# Wiki index\n")
     (root / "inbox" / "review-queue.md").write_text('---\ntype: "review-queue"\n---\n')
     if bibliography is not None:
         (root / "system" / "bibliography.json").write_text(json.dumps(bibliography))
@@ -131,17 +130,8 @@ def green_vault(tmp_path):
 
 @pytest.fixture
 def blocked_vault(tmp_path):
-    """A vault blocked by a closing check: a citekey outside the bibliography."""
+    """A vault blocked by a closing check: a citation key outside the bibliography."""
     return _build_vault(tmp_path, GHOST_CLAIM)
-
-
-@pytest.fixture
-def unreachable_vault(tmp_path):
-    """A vault whose only non-MATCHED result is an outage — publishing waits."""
-    return _build_vault(tmp_path, UNCITED_CLAIM, bibliography=[])
-
-
-DEAD_BASE = "http://127.0.0.1:1/"
 
 
 # --- gate flag -------------------------------------------------------------
@@ -288,44 +278,28 @@ def test_mark_published_refuses_a_blocked_gate_and_leaves_the_gate_armed(
 
     assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 1
 
-    assert "UNMATCHED citekey ghost2020" in capsys.readouterr().out
+    assert "UNMATCHED citation-key ghost2020" in capsys.readouterr().out
     assert _status(blocked_vault) == "draft"
     assert _tags(blocked_vault) == []
     assert _head(blocked_vault) == before
     assert (blocked_vault / FLAG).exists()
 
 
-def test_mark_published_waits_when_the_gate_is_unreachable(unreachable_vault, capsys):
-    code = main(
-        [
-            "mark-published",
-            "brief",
-            "--vault",
-            str(unreachable_vault),
-            "--base",
-            DEAD_BASE,
-        ]
-    )
-
-    assert code == 3
-    assert "UNREACHABLE staleness" in capsys.readouterr().out
-    assert _status(unreachable_vault) == "draft"
-    assert _tags(unreachable_vault) == []
-
-
 def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(
     blocked_vault,
 ):
-    # The first gate run stamps the failing claim, so run it twice before
-    # acknowledging: an ack is hash-scoped, and the second run's finding
-    # carries the note's settled hash.
+    # verify hashes the target before it projects (candidate-bound), so the
+    # finding it files carries the draft as the author left it; the stamp is
+    # verify's own write, and `ack` clears it (open point 09), restoring the
+    # very state the ack is scoped to. The gate run inside `mark-published`
+    # files a second row over the stamped draft — acknowledge the first.
     assert main(["verify", "--vault", str(blocked_vault), "--surface", "publish"]) == 1
     assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 1
-    standing = [
+    standing = next(
         entry
         for entry in inbox.open_entries(blocked_vault)
-        if entry.check == "citekey" and entry.result == "UNMATCHED"
-    ][-1]
+        if entry.check == "citation-key" and entry.result == "UNMATCHED"
+    )
 
     assert (
         main(
@@ -344,6 +318,9 @@ def test_mark_published_proceeds_once_a_blocking_entry_carries_a_standing_ack(
     )
     assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 0
     assert _status(blocked_vault) == "published"
+    # The gate run stamps only what is still effective: the ack holds.
+    draft = blocked_vault / "projects" / "brief" / "draft.md"
+    assert "[failed-verification::" not in draft.read_text()
 
 
 def test_mark_published_refuses_an_uncommitted_project_file(green_vault, capsys):
@@ -729,7 +706,7 @@ def test_ack_closes_an_open_finding(blocked_vault):
     standing = [
         entry
         for entry in inbox.open_entries(blocked_vault)
-        if entry.check == "citekey" and entry.result == "UNMATCHED"
+        if entry.check == "citation-key" and entry.result == "UNMATCHED"
     ][-1]
 
     code = main(
@@ -875,7 +852,7 @@ def _minting_check_ids() -> set[str]:
 def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
     """The MATCHED row promised a `verified` event for every check that passes.
 
-    False for two of this surface's own closing checks: `citekey` and
+    False for two of this surface's own closing checks: `citation-key` and
     `evidence-layer` mint nothing, so a person told "the CLI appends a
     `verified` event" would go looking for durable proof that was never
     written — the "no skill promises verification it didn't run" constraint,
@@ -889,12 +866,12 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
         line for line in text.splitlines() if re.match(r"\|\s*MATCHED\s*\|", line)
     )
 
-    assert _minting_check_ids() == {"doi", "metadata", "update-notice", "quote"}
+    assert _minting_check_ids() == {"update-notice", "quote"}
     for check in sorted(_minting_check_ids()):
         assert f"`{check}`" in row, f"the MATCHED row never names minting id {check!r}"
     # The publish surface's other two closing checks mint nothing, and the row
     # has to say so rather than leaving a blanket promise standing.
-    for check in ("citekey", "evidence-layer"):
+    for check in ("citation-key", "evidence-layer"):
         assert f"`{check}`" in row, f"the MATCHED row never names {check!r}"
     assert "mint nothing" in row
     assert "Passes; the CLI appends a `verified` event." not in text
@@ -939,10 +916,10 @@ def test_inbox_prints_the_finding_id_the_ack_verb_needs(blocked_vault, capsys):
     assert main(["inbox", "--vault", str(blocked_vault)]) == 0
 
     lines = capsys.readouterr().out.splitlines()
-    citekey_lines = [line for line in lines[1:] if "ghost2020" in line]
-    assert len(citekey_lines) == 1
-    finding_id = citekey_lines[0].split()[0]
-    assert finding_id.startswith("citekey/")
+    citation_key_lines = [line for line in lines[1:] if "ghost2020" in line]
+    assert len(citation_key_lines) == 1
+    finding_id = citation_key_lines[0].split()[0]
+    assert finding_id.startswith("citation-key/")
 
     code = main(
         [
@@ -1030,3 +1007,13 @@ def test_set_status_refuses_a_status_its_own_quoting_would_corrupt():
 
     with pytest.raises(publish.PublishError, match="did not round-trip"):
         publish._set_status(_STATUS_NOTE, r"back\\slash")
+
+
+def test_retraction_ack_field_has_one_definition_site():
+    from research_vault import publish
+
+    skill = (
+        REPO / "skills" / "evidence-conventions" / "SKILL.md"
+    ).read_text()  # tests/test_publish.py names the root REPO
+    assert f"[{publish.RETRACTION_ACK_FIELD}:: <code>" in skill
+    assert publish.RETRACTION_ACK_FIELD == "retraction-ack"

@@ -4,6 +4,7 @@ import subprocess
 import pytest
 
 from research_vault import Result, frontmatter, gitstate, lints, notes
+from tests.conftest import must_replace
 
 
 def test_all_clean_on_fixture(fixture_vault):
@@ -90,7 +91,7 @@ def test_append_only_log_pathspec_excludes_reserved_root_log(tmp_vault):
 def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace("Mortality fell 12%", "Mortality fell 21%")
+        must_replace(note.read_text(), "Mortality fell 12%", "Mortality fell 21%")
     )
 
     outs = lints.lint_claim_immutability(fixture_vault)
@@ -122,7 +123,7 @@ def test_claim_immutability_reports_each_claim_when_a_tracked_note_is_deleted(
 def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
     fixture_vault,
 ):
-    note = fixture_vault / "synthesis" / "synthèse.md"
+    note = fixture_vault / "projects" / "synthèse.md"
     note.write_text("- (inference) Unicode path claim ^c-unicode\n")
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -136,9 +137,9 @@ def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
 
     assert [(out.target, out.extra) for out in outs] == [
         (
-            "path-bytes:synthesis/synth%C3%A8se.md",
+            "path-bytes:projects/synth%C3%A8se.md",
             {
-                "note_path": "path-bytes:synthesis/synth%C3%A8se.md",
+                "note_path": "path-bytes:projects/synth%C3%A8se.md",
                 "claim_id": "c-unicode",
             },
         )
@@ -148,7 +149,8 @@ def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
 def test_claim_immutability_allows_complete_deprecation_transition(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -167,7 +169,8 @@ def test_claim_immutability_allows_complete_deprecation_transition_with_a_succes
     exactly like one that doesn't (the "both ways" pair)."""
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -184,7 +187,8 @@ def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -201,7 +205,8 @@ def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
 def test_claim_immutability_rejects_duplicate_superseded_by(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -220,15 +225,15 @@ def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_m
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
+    text = must_replace(note.read_text(), "Mortality fell 12%", "Mortality rose 12%")
+    text = must_replace(
+        text,
+        "^c-11111111",
+        "[status:: deprecated] [deprecated-at:: 2026-08-16] "
+        "[deprecated-by:: human:eran] [reason:: superseded] ^c-11111111",
+    )
     note.write_text(
-        note.read_text()
-        .replace("Mortality fell 12%", "Mortality rose 12%")
-        .replace(
-            "^c-11111111",
-            "[status:: deprecated] [deprecated-at:: 2026-08-16] "
-            "[deprecated-by:: human:eran] [reason:: superseded] ^c-11111111",
-        )
-        .replace("^c-22222222", "[status:: deprecated] ^c-22222222")
+        must_replace(text, "^c-22222222", "[status:: deprecated] ^c-22222222")
     )
 
     assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
@@ -240,7 +245,8 @@ def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_m
 def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [status:: deprecated] "
@@ -257,7 +263,8 @@ def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
 def test_claim_immutability_rejects_duplicate_deprecation_reason(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
             "- (paraphrase) Retrospective design [@smith2020, p. 3] "
             "[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -276,8 +283,10 @@ def test_claim_immutability_allows_only_one_exact_verify_failed_marker_change(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            note.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
 
@@ -289,7 +298,8 @@ def test_claim_immutability_allows_only_exact_failed_verification_marker_change(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "^c-11111111",
             "[failed-verification:: quote/2026-08-20] ^c-11111111",
         )
@@ -303,8 +313,10 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            note.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
@@ -312,7 +324,7 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
         ["git", "commit", "-m", "stamp failure"], cwd=fixture_vault, check=True
     )
     note.write_text(
-        note.read_text().replace("[failed-verification:: quote/2026-08-16] ", "")
+        must_replace(note.read_text(), "[failed-verification:: quote/2026-08-16] ", "")
     )
 
     assert lints.lint_claim_immutability(fixture_vault) == []
@@ -321,8 +333,10 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
 def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_text(
-        note.read_text().replace(
-            "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
+        must_replace(
+            note.read_text(),
+            "^c-11111111",
+            "[failed-verification:: quote/2026-08-16] ^c-11111111",
         )
     )
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
@@ -330,9 +344,10 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vau
         ["git", "commit", "-m", "stamp failure"], cwd=fixture_vault, check=True
     )
     note.write_text(
-        note.read_text().replace(
+        must_replace(
+            note.read_text(),
             "[failed-verification:: quote/2026-08-16]",
-            "[failed-verification:: citekey/2026-08-17]",
+            "[failed-verification:: citation-key/2026-08-17]",
         )
     )
 
@@ -345,28 +360,11 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement_with_mutati
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
+    text = must_replace(note.read_text(), "Mortality fell 12%", "Mortality rose 12%")
     note.write_text(
-        note.read_text()
-        .replace("Mortality fell 12%", "Mortality rose 12%")
-        .replace("^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111")
-    )
-
-    assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
-        "smith2020#^c-11111111"
-    ]
-
-
-def test_claim_immutability_rejects_marker_change_when_a_selector_continuation_changes(
-    fixture_vault,
-):
-    note = fixture_vault / "literatures" / "smith2020.md"
-    note.write_text(
-        note.read_text()
-        .replace(
-            "  > Mortality fell 12% across all strata.",
-            "  > Mortality rose 12% across all strata.",
+        must_replace(
+            text, "^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111"
         )
-        .replace("^c-11111111", "[failed-verification:: quote/2026-08-16] ^c-11111111")
     )
 
     assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
@@ -378,7 +376,7 @@ def test_claim_immutability_does_not_mask_a_continuation_newline_change(
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
-    note.write_bytes(note.read_bytes().replace(b"\n", b"\r\n"))
+    note.write_bytes(must_replace(note.read_bytes(), b"\n", b"\r\n", -1))
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
         ["git", "commit", "-m", "preserve source line endings"],
@@ -386,7 +384,8 @@ def test_claim_immutability_does_not_mask_a_continuation_newline_change(
         check=True,
     )
     note.write_bytes(
-        note.read_bytes().replace(
+        must_replace(
+            note.read_bytes(),
             b"^c-11111111\r\n  > Mortality fell 12% across all strata.\r\n",
             b"[failed-verification:: quote/2026-08-16] ^c-11111111\r\n"
             b"  > Mortality fell 12% across all strata.\n",
@@ -402,7 +401,7 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
     fixture_vault,
 ):
     note = fixture_vault / "literatures" / "smith2020.md"
-    note.write_bytes(note.read_bytes().replace(b"\n", b"\r\n"))
+    note.write_bytes(must_replace(note.read_bytes(), b"\n", b"\r\n", -1))
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
         ["git", "commit", "-m", "preserve source line endings"],
@@ -410,7 +409,8 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
         check=True,
     )
     note.write_bytes(
-        note.read_bytes().replace(
+        must_replace(
+            note.read_bytes(),
             b"- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222\r\n",
             b"- (paraphrase) Retrospective design [@smith2020, p. 3] "
             b"[status:: deprecated] [deprecated-at:: 2026-08-16] "
@@ -426,7 +426,7 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
 def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
     note = fixture_vault / "literatures" / "smith2020.md"
     note.write_bytes(
-        note.read_bytes().replace(b"  > Mortality fell", b"  > \xffortality fell", 1)
+        must_replace(note.read_bytes(), b"  > Mortality fell", b"  > \xffortality fell")
     )
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -435,7 +435,9 @@ def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
         check=True,
     )
     note.write_bytes(
-        note.read_bytes().replace(b"  > \xffortality fell", b"  > \xfeortality fell", 1)
+        must_replace(
+            note.read_bytes(), b"  > \xffortality fell", b"  > \xfeortality fell"
+        )
     )
 
     assert [out.target for out in lints.lint_claim_immutability(fixture_vault)] == [
@@ -451,7 +453,7 @@ def test_published_drift_includes_untracked_files(fixture_vault):
     )
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
         + "\nnew paragraph after publishing\n"
     )
     (draft.parent / "untracked.md").write_text("new material\n")
@@ -466,7 +468,7 @@ def test_published_drift_includes_untracked_files(fixture_vault):
 def test_published_drift_catches_tracked_changes_after_a_published_tag(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -489,7 +491,7 @@ def test_published_drift_reports_wholly_deleted_effort_from_prior_published_stat
 ):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -518,7 +520,7 @@ def test_published_drift_leaves_the_unwatched_statuses_alone(fixture_vault, stat
     """
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', f'status: "{status}"')
+        must_replace(draft.read_text(), 'status: "draft"', f'status: "{status}"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -537,7 +539,7 @@ def test_published_drift_leaves_the_unwatched_statuses_alone(fixture_vault, stat
 def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
-        draft.read_text().replace('status: "draft"', 'status: "published"')
+        must_replace(draft.read_text(), 'status: "draft"', 'status: "published"')
     )
     subprocess.run(["git", "add", draft], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -562,58 +564,6 @@ def test_published_drift_keeps_drift_finding_with_malformed_sibling(fixture_vaul
             "schema-violation — malformed frontmatter",
         ),
     ]
-
-
-def test_screening_state_deduplicates_repeated_references_and_records_origin(
-    fixture_vault,
-):
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text()
-        + "- (paraphrase) Old claim [@gone2019, p. 1] [@gone2019, p. 2] ^c-88888888\n"
-    )
-
-    outs = lints.lint_screening_state(fixture_vault, draft)
-
-    assert [(out.target, out.extra) for out in outs] == [
-        (
-            "gone2019",
-            {
-                "note_path": "path-bytes:projects/brief/draft.md",
-                "claim_id": "c-88888888",
-            },
-        )
-    ]
-    assert outs[0].reason.startswith("superseded-note")
-
-
-def test_screening_state_catches_excluded_sources(fixture_vault):
-    excluded = fixture_vault / "literatures" / "excluded2024.md"
-    excluded.write_text(
-        '---\ncitekey: "excluded2024"\nstatus: "excluded"\n---\n# Excluded\n'
-    )
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text() + "- (paraphrase) Bad source [@excluded2024] ^c-12121212\n"
-    )
-
-    outs = lints.lint_screening_state(fixture_vault, draft)
-
-    assert len(outs) == 1
-    assert outs[0].reason.startswith("superseded-note — cites excluded2024")
-
-
-def test_screening_state_sorts_mixed_anchored_origins_without_crashing(fixture_vault):
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text()
-        + "- (paraphrase) Old source [@gone2019]\n"
-        + "- (paraphrase) Also old [@gone2019] ^c-34343434\n"
-    )
-
-    outs = lints.lint_screening_state(fixture_vault, draft)
-
-    assert [out.extra["claim_id"] for out in outs] == ["c-34343434", None]
 
 
 def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(
@@ -657,64 +607,15 @@ def test_citing_the_counterevidence_address_is_clean(fixture_vault):
     assert lints.lint_disputed_claim(fixture_vault, draft) == []
 
 
-def test_web_archive_lint_requires_archive_for_a_doi_less_web_source(fixture_vault):
-    web = fixture_vault / "literatures" / "webonly2024.md"
-    web.write_text(
-        '---\ncitekey: "webonly2024"\nurl: "https://example.org/post"\n---\n# Web\n'
-    )
-
-    outs = lints.lint_web_archive(fixture_vault)
-
-    assert [(out.target, out.reason) for out in outs] == [
-        ("webonly2024", "missing-archive — web source has no archive-url")
-    ]
-
-
-def test_web_archive_lint_accepts_an_archived_web_source(fixture_vault):
-    web = fixture_vault / "literatures" / "webonly2024.md"
-    web.write_text(
-        '---\ncitekey: "webonly2024"\nurl: "https://example.org/post"\n'
-        'archive-url: "https://archive.example.org/post"\n---\n# Web\n'
-    )
-
-    assert lints.lint_web_archive(fixture_vault) == []
-
-
-def test_lints_report_malformed_frontmatter_without_crashing(fixture_vault):
-    web = fixture_vault / "literatures" / "webonly2024.md"
-    web.write_text('---\nurl: "https://example.org"\n')
-    draft = fixture_vault / "projects" / "brief" / "draft.md"
-    draft.write_text(
-        draft.read_text() + "- (paraphrase) Old claim [@webonly2024] ^c-12345678\n"
-    )
-
-    source = lints.lint_screening_state(fixture_vault, draft)
-    archive = lints.lint_web_archive(fixture_vault)
-
-    assert source == [
-        lints.Outcome(
-            "screening-state",
-            "webonly2024",
-            Result.UNMATCHED,
-            "schema-violation — malformed frontmatter",
-            extra={
-                "note_path": lints.RepoPath(b"projects/brief/draft.md"),
-                "claim_id": "c-12345678",
-            },
-        )
-    ]
-    assert any(out.reason.startswith("schema-violation") for out in archive)
-
-
-def _refresh_managed_witness(path):
+def _refresh_body_witness(path):
     text = path.read_text()
     data, body = frontmatter.parse(text)
-    data["managed-sha256"] = notes.managed_sha256(text.encode())
+    data["managed-sha256"] = notes.body_sha256(text)
     path.write_text(frontmatter.serialize(data) + body)
 
 
 @pytest.mark.parametrize("change", ["add", "edit", "delete", "rename"])
-def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
+def test_body_change_always_yields_typed_evidence_finding_with_fresh_witness(
     fixture_vault, change
 ):
     base = subprocess.run(
@@ -726,10 +627,10 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
     expected_reason = {
-        "add": "drift — managed literature note added",
-        "edit": "drift — managed literature region changed",
-        "delete": "drift — managed literature note deleted",
-        "rename": "drift — managed literature note renamed",
+        "add": "drift — literature note added",
+        "edit": "drift — literature note body changed",
+        "delete": "drift — literature note deleted",
+        "rename": "drift — literature note renamed",
     }[change]
     if change == "add":
         added = fixture_vault / "literatures" / "added.md"
@@ -737,9 +638,9 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
         expected = "path-bytes:literatures/added.md"
     elif change == "edit":
         source.write_text(
-            source.read_text().replace("# Mortality decline", "# Changed")
+            must_replace(source.read_text(), "# Mortality decline", "# Changed")
         )
-        _refresh_managed_witness(source)
+        _refresh_body_witness(source)
         expected = "path-bytes:literatures/smith2020.md"
     elif change == "delete":
         source.unlink()
@@ -771,7 +672,9 @@ def test_managed_change_always_yields_typed_evidence_finding_with_fresh_witness(
     assert any(finding.reason == expected_reason for finding in findings), findings
 
 
-def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
+def test_prose_appended_below_the_note_is_a_body_change(fixture_vault):
+    """The free region is retired: the whole body is capture's, so hand-added
+    prose is drift rather than the one edit the linter used to wave through."""
     base = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],
         cwd=fixture_vault,
@@ -780,17 +683,16 @@ def test_free_region_only_edit_is_not_evidence_layer_change(fixture_vault):
         capture_output=True,
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
-    source.write_text(source.read_text() + "human free prose\n")
+    source.write_text(source.read_text() + "hand-written prose\n")
 
     outcomes = lints.lint_evidence_layer(
         gitstate.snapshot_tree(fixture_vault, base),
         gitstate.snapshot_worktree(fixture_vault),
     )
 
-    assert not any(
-        item.result is Result.UNMATCHED and item.reason.startswith("drift")
-        for item in outcomes
-    )
+    assert "drift — literature note body changed" in {
+        item.reason for item in outcomes if item.result is Result.UNMATCHED
+    }
 
 
 def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
@@ -798,7 +700,7 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
 ):
     source = fixture_vault / "literatures" / "smith2020.md"
     source.write_text(
-        source.read_text().replace('managed-sha256: "', 'managed-sha256: "A', 1)
+        must_replace(source.read_text(), 'managed-sha256: "', 'managed-sha256: "A')
     )
     candidate = gitstate.snapshot_worktree(fixture_vault)
 
@@ -811,41 +713,34 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
 
 
 def _hand_edit_machine_owned_key(text: str, key: str) -> str:
-    """Mutate exactly one machine-owned frontmatter field, managed slice untouched."""
-    if key == "archive-url":
-        return text.replace(
-            'doi: "10.1000/xyz"\n',
-            'doi: "10.1000/xyz"\n'
-            'archive-url: "https://web.archive.org/web/20260101000000/'
-            'https://example.org/x"\n',
-            1,
-        )
+    """Mutate exactly one machine-owned frontmatter field, the body untouched."""
     if key == "managed-sha256":
         digest = re.search(r'managed-sha256: "([0-9a-f]{64})"', text).group(1)
-        return text.replace(digest, "b" * 64, 1)
-    if key == "fixity-sha256":
-        digest = re.search(r'fixity-sha256:\n  - "([0-9a-f]+)"', text).group(1)
-        return text.replace(digest, "c" * 64, 1)
+        return must_replace(text, digest, "b" * 64)
+    if key == "zotero-item-version":
+        return must_replace(text, "zotero-item-version: 12", "zotero-item-version: 13")
     if key == "generated":
-        return text.replace(
+        return must_replace(
+            text,
             'generated: {by: "research_vault/0.1.0"',
             'generated: {by: "human:hand-edit"',
-            1,
         )
-    if key == "citekey":
-        return text.replace('citekey: "smith2020"', 'citekey: "smith2020x"', 1)
+    if key == "citationKey":
+        return must_replace(
+            text, 'citationKey: "smith2020"', 'citationKey: "smith2020x"'
+        )
     raise ValueError(key)
 
 
 @pytest.mark.parametrize(
     "key",
-    ["archive-url", "managed-sha256", "fixity-sha256", "generated", "citekey"],
+    ["managed-sha256", "zotero-item-version", "generated", "citationKey"],
 )
 def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
-    """Machine-owned frontmatter sits outside %%rv-managed%%, so a hand-edit
-    to it — with the managed slice untouched and no writer attestation (a
-    `generated` bump by the machine actor in the same diff) — must surface as
-    drift, the same as a managed-region change would.
+    """Machine-owned frontmatter sits above the body, so a hand-edit to it —
+    with the body untouched and no writer attestation (a `generated` bump by
+    the machine actor in the same diff) — must surface as drift, the same as a
+    body change would.
     """
     base = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],
@@ -873,33 +768,6 @@ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     ), outcomes
 
 
-def test_screening_status_hand_edit_is_not_evidence_layer_drift(fixture_vault):
-    """Screening state is deliberately human-writable (spec) — the guard must
-    not treat it as machine-owned.
-    """
-    base = subprocess.run(
-        ["git", "rev-parse", "HEAD^{tree}"],
-        cwd=fixture_vault,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
-    source = fixture_vault / "literatures" / "smith2020.md"
-    source.write_text(
-        source.read_text().replace('status: "included"', 'status: "excluded"', 1)
-    )
-
-    outcomes = lints.lint_evidence_layer(
-        gitstate.snapshot_tree(fixture_vault, base),
-        gitstate.snapshot_worktree(fixture_vault),
-    )
-
-    assert not any(
-        item.result is Result.UNMATCHED and item.reason.startswith("drift")
-        for item in outcomes
-    )
-
-
 @pytest.mark.parametrize(
     "malformed_generated",
     [
@@ -923,13 +791,13 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
         capture_output=True,
     ).stdout.strip()
     source = fixture_vault / "literatures" / "smith2020.md"
-    edited = source.read_text().replace(
-        'citekey: "smith2020"', 'citekey: "smith2020x"', 1
+    edited = must_replace(
+        source.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020x"'
     )
-    edited = edited.replace(
+    edited = must_replace(
+        edited,
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
         malformed_generated,
-        1,
     )
     source.write_text(edited)
 
@@ -939,7 +807,7 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
     )
 
     assert any(
-        item.reason == "drift — citekey changed without writer attestation"
+        item.reason == "drift — citationKey changed without writer attestation"
         for item in outcomes
     ), outcomes
 
@@ -951,10 +819,10 @@ def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vau
     """
     source = fixture_vault / "literatures" / "smith2020.md"
     source.write_text(
-        source.read_text().replace(
+        must_replace(
+            source.read_text(),
             'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
             'generated: "junk-one"',
-            1,
         )
     )
     subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
@@ -971,8 +839,8 @@ def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vau
         capture_output=True,
     ).stdout.strip()
 
-    edited = source.read_text().replace(
-        'generated: "junk-one"', 'generated: "junk-two"', 1
+    edited = must_replace(
+        source.read_text(), 'generated: "junk-one"', 'generated: "junk-two"'
     )
     source.write_text(edited)
 
@@ -995,11 +863,11 @@ def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_va
     """
     source = fixture_vault / "literatures" / "smith2020.md"
     original = source.read_text()
-    malformed = original.replace(
+    malformed = must_replace(
+        original,
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "  bad: nested\n---\n",
-        1,
     )
     with pytest.raises(frontmatter.FrontmatterError):
         frontmatter.parse(malformed)
@@ -1042,11 +910,11 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
     """
     source = fixture_vault / "literatures" / "smith2020.md"
     original = source.read_text()
-    malformed = original.replace(
+    malformed = must_replace(
+        original,
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n',
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n'
         "  bad: nested\n---\n",
-        1,
     )
     source.write_text(malformed)
     subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
@@ -1081,11 +949,43 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         and item.target == "path-bytes:literatures/smith2020.md"
     }
     # Pinned, not presence-only: a truthiness check survives the loss of any
-    # single reason below, because the remaining two keep the set non-empty.
-    # Measured — dropping only the citekey outcome leaves a presence-only
-    # assertion green.
+    # single reason below, because the rest keep the set non-empty. Measured —
+    # dropping only the citationKey outcome leaves a presence-only assertion
+    # green. Every capture field the fixture carries fires, `generated`
+    # included: an unparseable base attests nothing, so a machine-shaped
+    # candidate `generated` is itself an unattested change.
     assert findings == {
-        "drift — citekey changed without writer attestation",
-        "drift — fixity-sha256 changed without writer attestation",
-        "drift — managed-sha256 changed without writer attestation",
+        f"drift — {key} changed without writer attestation"
+        for key in (
+            "DOI",
+            "accessed",
+            "aliases",
+            "attachments",
+            "citationKey",
+            "compile-input-sha256",
+            "fulltext",
+            "generated",
+            "itemType",
+            "managed-sha256",
+            "title",
+            "type",
+            "zotero-item-key",
+            "zotero-item-version",
+            "zotero-server-id",
+        )
+    } | {
+        # `_body_bytes` fails closed on the unparseable side too, so the body
+        # comparison cannot be silenced by the frontmatter that hid it.
+        "drift — literature note body changed",
     }
+
+
+def test_screening_state_is_retired(fixture_vault):
+    from research_vault import inbox, lints, verify
+
+    assert not hasattr(lints, "lint_screening_state")
+    assert "screening-state" not in inbox.CHECK_IDS
+    assert "superseded-note" not in inbox.REASON_CODES
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    checks = {outcome.check for outcome in verify.file_outcomes(fixture_vault, draft)}
+    assert "screening-state" not in checks

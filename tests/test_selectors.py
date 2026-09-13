@@ -1,7 +1,7 @@
 import builtins
-import re
+import html
 
-from research_vault import checks, notes, selectors
+from research_vault import checks, selectors
 
 TEXT = (
     "Background prose before the finding. The cohort showed that "
@@ -60,41 +60,19 @@ def test_attach_contexts_counts():
     assert "context_prefix" not in anns[1]
 
 
-def test_unescape_inverts_notes_escaping_for_entity_looking_input():
+def test_unescape_inverts_html_escaping_for_entity_looking_input():
     value = '" & --> &quot; &#x27; &amp;'
-    ann = {
-        "key": "K1",
-        "type": "highlight",
-        "citekey": "x2020",
-        "annotationText": "quote",
-        "comment": "",
-        "pageLabel": "1",
-        "context_prefix": value,
-        "context_suffix": "tail",
-    }
-    rendered = notes.render_claim(ann)
-    selector = next(line for line in rendered.splitlines() if "rv-selector" in line)
-    prefix_escaped = re.search(r'prefix="([^"]*)"', selector).group(1)
-    assert selectors.unescape_selector(prefix_escaped) == value
+
+    assert selectors.unescape_selector(html.escape(value, quote=True)) == value
 
 
-def test_unescape_inverts_newline_selector_escaping():
-    value = "before\r\nafter\n"
-    ann = {
-        "key": "K2",
-        "type": "highlight",
-        "citekey": "x2020",
-        "annotationText": "quote",
-        "comment": "",
-        "pageLabel": "1",
-        "context_prefix": value,
-        "context_suffix": "tail",
-    }
-    selector = next(
-        line for line in notes.render_claim(ann).splitlines() if "rv-selector" in line
+def test_unescape_decodes_the_numeric_newline_spellings():
+    """`&#13;`/`&#10;` are the spelling a selector emitter must use for a line
+    break: an attribute value may not carry one literally, and this is the half
+    of that round trip the vault keeps (decision 20 holds the emitter)."""
+    assert (
+        selectors.unescape_selector("before&#13;&#10;after&#10;") == "before\r\nafter\n"
     )
-    prefix_escaped = re.search(r'prefix="([^"]*)"', selector).group(1)
-    assert selectors.unescape_selector(prefix_escaped) == value
 
 
 def test_pdf_text_degrades_without_pypdf(monkeypatch, tmp_path):

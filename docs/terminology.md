@@ -63,10 +63,10 @@ instead of restating them here.
 
 | Governed spelling                                                                                   | Declined anchor                                         | Cost                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pandoc `[@citekey, locator]`                                                                        | OKF §5.1 footnote attribution                           | 1 — permanent toolchain mismatch; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                 |
+| Pandoc `[@citation-key, locator]`                                                                   | OKF §5.1 footnote attribution                           | 1 — permanent toolchain mismatch; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                 |
 | `citation key` as the source's name; the Zotero item key qualified by the server id is its identity | OKF `sources`/`resource`                                | Superseded 2026-09-07 by the ingest redesign spec §3.1, which mints the second identity the earlier row said was avoided. The `sources`/`resource` adoption stays deferred; the open cost is ongoing double-bookkeeping, not a lost distinction                                                    |
 | `supports` / `disputes`                                                                             | OKF untyped lineage                                     | 2 — stance would be lost; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                         |
-| Literature screening states in [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                      | OKF document lifecycle                                  | 2 — screening is distinct from document maturity                                                                                                                                                                                                                                                   |
+| Literature screening states in [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                      | OKF document lifecycle                                  | Superseded 2026-09-08 by the ingest redesign, which retired note-level screening state                                                                                                                                                                                                             |
 | Project `draft` / `parked` / `published` / `corrected` / `withdrawn`                                | OKF document lifecycle                                  | 2 — publication states would be lost                                                                                                                                                                                                                                                               |
 | `source` for the cited document; `venue` for its outlet                                             | OpenAlex `source` for an outlet                         | 4 — the senses collide; see [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                                                                                                                                                                                                                        |
 | Frontmatter on `wiki/index.md`, written by the adopted compile tool                                 | OKF §8 (index files carry no frontmatter)               | 1 — permanent mismatch with a tool whose index path is hard-coded and whose own lint requires the frontmatter OKF forbids; the deviation is one file in a machine-owned tree, and a consumer that ignores unknown frontmatter reads it correctly; [ADR 0001](adr/0001-vault-outlives-its-tools.md) |
@@ -74,7 +74,7 @@ instead of restating them here.
 | Untyped `inbox/` fleeting captures at creation                                                      | OKF §11 rule 1 (frontmatter on every non-reserved file) | 1 — permanent mismatch with the capture-time editor, the uncontrolled surface; `stamp-type` converges frontmatter at triage; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                      |
 | `verified[].check` field and coverage-derived trust tiers                                           | OKF §5.2 `{by, at}` event shape                         | 3 — collapsing to `{by, at}` alone would lose which check passed, the tier-coverage derivation it drives                                                                                                                                                                                           |
 | `verified[].at` as a calendar date                                                                  | OKF §5 ISO 8601 datetime with UTC offset                | 3 — recorded pending an ADR 0002 reconciliation; [ADR 0002](adr/0002-verification-records-tell-the-truth.md)'s no-padded-precision rule vs the genuinely date-valued upstreams                                                                                                                     |
-| `[[citekey#^claim-id]]` claim and stance links                                                      | OKF §6.1 markdown link form                             | 1 — the Dataview inline-field grammar requires the wikilink form; a markdown link's `]` would close the field early                                                                                                                                                                                |
+| `[[citation-key#^claim-id]]` claim and stance links                                                 | OKF §6.1 markdown link form                             | 1 — the Dataview inline-field grammar requires the wikilink form; a markdown link's `]` would close the field early                                                                                                                                                                                |
 | No adoption of OKF §10 Attested Computation                                                         | OKF §10 Attested Computation                            | Declined — `fixity-sha256` and the bibliography byte-comparison can't be attested consumer-side; `managed-sha256` and the quote check remain tool-only computations                                                                                                                                |
 
 ## 4. Governed spellings
@@ -85,10 +85,12 @@ instead of restating them here.
 [ADR 0001](adr/0001-vault-outlives-its-tools.md) owns the OKF-required root files
 and frontmatter. This section adds only spellings not named there.
 
-| Spelling                                              | Source or rule                                                  |
-| ----------------------------------------------------- | --------------------------------------------------------------- |
-| `projects/<name>/search-log.md`; `type: "search-log"` | PRISMA-S `search log`, scoped to a project                      |
-| `system/`; `system/templates/`; `system/bases/`       | Product-owned vault tooling, kept outside the knowledge folders |
+| Spelling                                              | Source or rule                                                                                        |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `projects/<name>/search-log.md`; `type: "search-log"` | PRISMA-S `search log`, scoped to a project                                                            |
+| `system/`; `system/templates/`; `system/bases/`       | Product-owned vault tooling, kept outside the knowledge folders                                       |
+| `fulltext/`                                           | Zotero's own `fulltext` naming (its sync preference and local-API endpoint), scoped to the text layer |
+| `wiki/`                                               | The adopted compile tool's own page tree (T2 toolchain)                                               |
 
 ### 4.2 Claim and metadata language
 
@@ -101,31 +103,36 @@ bibliography authority in
 (§3.1 and §3.2), which supersede the two suspended decision records that
 previously held them.
 
-| Spelling                                 | Source or rule                                       |
-| ---------------------------------------- | ---------------------------------------------------- |
-| `fixity-sha256`                          | OAIS/NDSA `fixity`, with the algorithm made explicit |
-| `managed-sha256`                         | Matching coined name for the managed-region witness  |
-| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                 |
-| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor     |
+| Spelling                                 | Source or rule                                                                                      |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `citationKey`                            | Zotero's own native field name (Zotero 8+), filled by Better BibTeX                                 |
+| `zotero-server-id`                       | Prefixed to Zotero's own `Zotero-Server-ID` response header; qualifies the item key to one instance |
+| `zotero-item-key`                        | Prefixed to Zotero's own item `key`, to disambiguate the frontmatter namespace                      |
+| `zotero-item-version`                    | Prefixed to Zotero's own item `version`, to disambiguate the frontmatter namespace                  |
+| `compile-input-sha256`                   | sha256 over the text-layer file capture wrote; the compile wrapper's input attestation              |
+| `managed-sha256`                         | sha256 over the note body below the frontmatter                                                     |
+| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                                                                |
+| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor                                                    |
 
 ### 4.3 Commands and skill names
 
 A new CLI command takes the first matching branch:
 
-| Branch                         | Form                                                   | Current commands                                                                                                                     |
-| ------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Read-only report               | Bare report noun                                       | `doctor`, `inbox`, `probe`, `staleness`, `trust-tier`; `verify` is the established verb-form exception; `factcheck` remains one word |
-| Ledger append                  | Record noun, or ledger name when no record noun exists | `finding`, `ack`, `search-log`                                                                                                       |
-| Persistent switch              | `arm-<gate>` / `disarm-<gate>`                         | `arm-publish`, `disarm-publish`                                                                                                      |
-| Lifecycle transition           | `mark-<status>`                                        | `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`                                                                  |
-| Other projection or derivation | Imperative verb-noun kebab                             | `import-note`, `backfill-selectors`, `archive-source`, `stamp-type`; `scaffold` is the established single-verb exception             |
+| Branch                         | Form                                                   | Current commands                                                                                                        |
+| ------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Read-only report               | Bare report noun                                       | `doctor`, `inbox`, `probe`, `trust-tier`; `verify` is the established verb-form exception; `factcheck` remains one word |
+| Ledger append                  | Record noun, or ledger name when no record noun exists | `finding`, `ack`, `search-log`                                                                                          |
+| Persistent switch              | `arm-<gate>` / `disarm-<gate>`                         | `arm-publish`, `disarm-publish`                                                                                         |
+| Lifecycle transition           | `mark-<status>`                                        | `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`                                                     |
+| Mechanical ingest step         | Bare imperative verb                                   | `capture`, `add`, `propagate`; `compile` is Part B's fourth                                                             |
+| Other projection or derivation | Imperative verb-noun kebab                             | `stamp-type`; `scaffold` is the established single-verb exception                                                       |
 
 Use kebab-case and exact [CONTEXT.md](../CONTEXT.md) nouns. Do not invent
 abbreviations, compatibility aliases, or multiple verbs for one act. Command
 names do not persist in vault records and may be renamed outright.
 
 Governed skill names are `setup-vault`, `project-flow`, `find-sources`,
-`import-source`, `verify-citations`, `factcheck-draft`, `publish`,
+`capture-source`, `verify-citations`, `factcheck-draft`, `publish`,
 `evidence-conventions`, and `synthesis-conventions`.
 
 ### 4.4 Identifier inventory
@@ -140,11 +147,11 @@ row for the parity checks. Per-claim check values use
 [assembly design](superpowers/specs/2026-09-05-assembly-design.md) §2 demotes to a fact
 source; this table owns their spellings regardless.
 
-| Group            | Governed identifiers                                                                                                                                                                                                                                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| check ids        | `citekey`, `doi`, `metadata`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `web-archive`, `screening-state`, `disputed-claim`, `publish`, `factcheck`, `autoexport`, `render`, `integrate`, `okf-frontmatter`, `okf-structure`, `tree`                                                             |
-| doctor probe ids | `tree`, `machine-config`, `zotero`, `bbt`, `autoexport`, `staleness`, `remote`, `backup`                                                                                                                                                                                                                                  |
-| reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `mismatch`, `missing-archive`, `no-identifier`, `not-admitted`, `not-imported`, `outage`, `retracted`, `schema-violation`, `stale`, `superseded-note`, `warn-notice` |
+| Group            | Governed identifiers                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| check ids        | `citation-key`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `disputed-claim`, `publish`, `factcheck`, `okf-frontmatter`, `okf-structure`, `tree`, `lifecycle`, `capture`, `propagation`, `captured-set`                                                                                                                                                                       |
+| doctor probe ids | `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`                                                                                                                                                                                                                                |
+| reason codes     | the `REASON_CODES` registry at HEAD: `budget-cap`, `contradiction`, `database-changed`, `deleted`, `disputed-claim`, `drift`, `fuzzy-quote`, `low-confidence`, `manual`, `matched`, `merged`, `mismatch`, `no-fulltext`, `no-identifier`, `not-admitted`, `not-captured`, `outage`, `re-keyed`, `recompile-needed`, `retracted`, `schema-violation`, `stale-key`, `trashed`, `unkeyed`, `warn-notice` |
 
 Allowed register splits:
 
@@ -174,7 +181,7 @@ The name of a researcher's own vault or repository is outside this ruling.
 | Repository slug; plugin and distribution names | `research-vault`                                                                             |
 | Python module and CLI program                  | `research_vault`                                                                             |
 | Process-written actor                          | `research_vault/<version>`                                                                   |
-| Vault markers and selector field               | `%%rv-managed%%`, `%%/rv-managed%%`, `rv-selector`                                           |
+| Selector field                                 | `rv-selector`                                                                                |
 | Vault tooling directory                        | `.research-vault/`                                                                           |
 | Environment-variable family                    | `RV_*`                                                                                       |
 | Internal scratch paths                         | `.research-vault-projection-`, `.research-vault-rollback`, `.research-vault-manifest-probe-` |

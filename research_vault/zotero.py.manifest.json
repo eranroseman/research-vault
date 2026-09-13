@@ -68,8 +68,8 @@
       "hash": "747aa574cd2ec3c9a8e5094df009e4393bdb4ae76385411e2d09ae771097d08a"
     },
     {
-      "id": "func/ZoteroClient.citekey_of",
-      "name": "citekey_of",
+      "id": "func/ZoteroClient.citation_key_of",
+      "name": "citation_key_of",
       "line": 114,
       "end_line": 130,
       "hash": "4ec65f161b6cfec0c9b23c63791124b57802f9b9fd73c598d64e13f5f0204562"

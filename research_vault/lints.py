@@ -107,10 +107,15 @@ def _schema_outcome(check: str, target, extra: dict | None = None) -> Outcome:
 
 
 def _is_append_only_path(rel: bytes) -> bool:
-    """The three durable-append surfaces this lint protects (terminology §4.1)."""
+    """The durable-append surfaces this lint protects (terminology §4.1).
+
+    An applied propagation plan (``system/propagations/``, decision 01) is a
+    write-once record: an append-only file that never grows, so the same
+    prefix check refuses any rewrite of it.
+    """
     return (
         rel == b"inbox/review-queue.md"
-        or rel.startswith(b"log/")
+        or rel.startswith((b"log/", b"system/propagations/"))
         or (rel.startswith(b"projects/") and rel.endswith(b"/search-log.md"))
     )
 
@@ -261,9 +266,9 @@ def _is_complete_deprecation_transition(old_block: str, new_block: str) -> bool:
 
 def _claim_target(rel: bytes, text: str, claim_id: str):
     data, parsed = _parse_frontmatter(text)
-    citekey = data.get("citekey") if parsed else None
-    if isinstance(citekey, str) and citekey:
-        return claims_mod.claim_link(citekey, claim_id)
+    citation_key = data.get("citationKey") if parsed else None
+    if isinstance(citation_key, str) and citation_key:
+        return claims_mod.claim_link(citation_key, claim_id)
     return RepoPath(rel)
 
 
@@ -275,7 +280,7 @@ def lint_claim_immutability(
     """Require committed claims to stay byte-identical absent a real transition."""
     vault = Path(vault_root)
     outcomes = []
-    roots = (b"literatures/", b"synthesis/", b"projects/")
+    roots = (b"literatures/", b"projects/")
     if base_snapshot is None:
         try:
             base_snapshot = gitstate.snapshot_tree(vault, "HEAD")
@@ -468,69 +473,29 @@ def lint_published_drift(
     return _deduplicate(outcomes)
 
 
-def _origin(
-    vault_root: Path, note_file: Path, claim, fallback: str
-) -> tuple[str | RepoPath, dict]:
+def _origin(vault_root: Path, note_file: Path, claim) -> tuple[str | RepoPath, dict]:
+    """The claim's target — its anchor link, else the note's repo path — and its origin extra."""
     vault = Path(vault_root)
     note = Path(note_file)
     rel = _relative(vault, note)
     data, parsed = _parse_frontmatter(note.read_text())
-    citekey = data.get("citekey") if parsed else None
+    citation_key = data.get("citationKey") if parsed else None
     target: str | RepoPath
-    if claim.claim_id and isinstance(citekey, str) and citekey:
-        target = claims_mod.claim_link(citekey, claim.claim_id)
+    if claim.claim_id and isinstance(citation_key, str) and citation_key:
+        target = claims_mod.claim_link(citation_key, claim.claim_id)
     else:
-        target = fallback or RepoPath(rel)
+        target = RepoPath(rel)
     return target, {
         "note_path": RepoPath(rel),
         "claim_id": claim.claim_id,
     }
 
 
-def _note_status(vault_root: Path, citekey: str) -> tuple[str | None, str | None, bool]:
-    path = vault_root / "literatures" / f"{citekey}.md"
-    if not path.is_file():
-        return None, None, True
-    data, parsed = _parse_frontmatter(path.read_text())
-    if not parsed:
-        return None, None, False
-    return data.get("status"), data.get("superseded-by"), True
-
-
-def lint_screening_state(vault_root, note_file) -> list[Outcome]:
-    vault, note = Path(vault_root), Path(note_file)
-    text = note.read_text()
-    outcomes = []
-    lines = text.splitlines()
-    for claim in claims_mod.parse_claims(text):
-        citekeys = [
-            match.group("key")
-            for match in claims_mod.CITE_RE.finditer(lines[claim.line_no - 1])
-        ]
-        for citekey in citekeys:
-            target, extra = _origin(vault, note, claim, citekey)
-            status, successor, parsed = _note_status(vault, citekey)
-            if not parsed:
-                outcomes.append(_schema_outcome("screening-state", target, extra))
-            elif status in {"excluded", "superseded"}:
-                suffix = f" (superseded-by {successor})" if successor else ""
-                outcomes.append(
-                    Outcome(
-                        "screening-state",
-                        target,
-                        Result.UNMATCHED,
-                        f"superseded-note — cites {citekey} with status {status}{suffix}",
-                        extra=extra,
-                    )
-                )
-    return _deduplicate(outcomes)
-
-
 def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
     disputed, outcomes = set(), []
     for path in (
-        sorted((vault_root / "synthesis").rglob("*.md"))
-        if (vault_root / "synthesis").is_dir()
+        sorted((vault_root / "wiki").rglob("*.md"))
+        if (vault_root / "wiki").is_dir()
         else []
     ):
         rel = _relative(vault_root, path)
@@ -538,7 +503,7 @@ def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
         data, parsed = _parse_frontmatter(text)
         if not parsed:
             outcomes.append(_schema_outcome("disputed-claim", RepoPath(rel)))
-        page_key = data.get("citekey") if parsed else None
+        page_key = data.get("citationKey") if parsed else None
         if not isinstance(page_key, str) or not page_key:
             page_key = path.stem
         for claim in claims_mod.parse_claims(text):
@@ -555,7 +520,7 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     disputed, outcomes = disputed_claim_links(vault)
     text = note.read_text()
     for claim in claims_mod.parse_claims(text):
-        _target, extra = _origin(vault, note, claim, "")
+        _target, extra = _origin(vault, note, claim)
         for claim_link in CLAIM_LINK.findall(claim.fields.get("supports", "")):
             if claim_link in disputed:
                 outcomes.append(
@@ -570,60 +535,39 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     return _deduplicate(outcomes)
 
 
-def lint_web_archive(vault_root) -> list[Outcome]:
-    vault = Path(vault_root)
-    outcomes: list[Outcome] = []
-    literature = vault / "literatures"
-    if not literature.is_dir():
-        return outcomes
-    for path in sorted(literature.glob("*.md")):
-        rel = _relative(vault, path)
-        data, parsed = _parse_frontmatter(path.read_text())
-        if not parsed:
-            outcomes.append(_schema_outcome("web-archive", RepoPath(rel)))
-            continue
-        if data.get("url") and not data.get("doi") and not data.get("archive-url"):
-            note_citekey = data.get("citekey")
-            target = note_citekey if isinstance(note_citekey, str) else RepoPath(rel)
-            outcomes.append(
-                Outcome(
-                    "web-archive",
-                    target,
-                    Result.UNMATCHED,
-                    "missing-archive — web source has no archive-url",
-                )
-            )
-    return _deduplicate(outcomes)
-
-
 def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileImage]:
+    """Every literature note in the snapshot: `literatures/<key>.md`, flat.
+
+    The one shape capture writes (`notes.note_path` refuses a `/` in the key)
+    and the captured set's own definition (decision 08: `literatures/*.md`);
+    every reader of the directory globs flat so a nested file is a literature
+    note nowhere rather than somewhere.
+    """
     return {
         raw_path: image
         for raw_path, image in snapshot.images.items()
         if raw_path.startswith(b"literatures/")
+        and b"/" not in raw_path[len(b"literatures/") :]
         and raw_path.endswith(b".md")
         and image.kind == "file"
     }
 
 
-def _managed_bytes(image: gitstate.FileImage | None) -> bytes | None:
+def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
+    """The note body below the frontmatter, or None when it cannot be read."""
     if image is None or image.kind != "file":
         return None
     try:
-        return notes.managed_slice_bytes(image.data or b"")
-    except notes.ManagedRegionError:
+        text = (image.data or b"").decode("utf-8")
+        return notes.note_body(text).encode("utf-8")
+    except (UnicodeDecodeError, frontmatter.FrontmatterError):
         return None
 
 
-# Machine-owned fields that live outside %%rv-managed%%: `notes.render_note`
-# owns citekey/managed-sha256/fixity-sha256, `archive.set_archive_url` owns
-# archive-url (notes.py's comment on MANAGED_FIELDS names it explicitly as
-# passed-through). Neither writer is otherwise distinguishable from a
-# hand-edit, so legality here rides on the `generated` writer attestation,
-# not on slice membership.
-_MACHINE_OWNED_FRONTMATTER_KEYS = frozenset(
-    {"archive-url", "managed-sha256", "fixity-sha256", "citekey"}
-)
+# Machine-owned frontmatter fields: every field capture writes; a change to any
+# without a `generated` bump by the machine actor is drift. Legality rides on
+# the `generated` writer attestation, not on where in the note the field sits.
+_MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS
 # docs/terminology.md's actor convention: process-written records carry
 # `research_vault/<version>`, so this class test — not an exact-version
 # match — survives a `__version__` bump without flagging every prior note.
@@ -649,7 +593,7 @@ def _field(data: dict | None, key: str):
 
     An unparseable side (`data is None`) must not be able to hide a change —
     it has to compare unequal to whatever the other, parseable side holds, the
-    same fail-closed shape `_managed_bytes` already uses for the managed slice.
+    same fail-closed shape `_body_bytes` already uses for the note body.
     """
     return data.get(key) if data is not None else None
 
@@ -669,12 +613,12 @@ def _machine_attested(generated) -> bool:
 def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     """Flag a machine-owned frontmatter change with no matching writer attestation.
 
-    Legality rule: a change to any of the four machine-owned keys is legal iff
-    `generated` also changed in the same diff with `by` the machine actor
-    class. `generated` guards itself the same way, so it cannot legalize its
-    own unattested change. Attestation is per-file-per-diff: one legitimate
-    `generated` bump also legalizes any other machine-owned key riding along
-    unattested in the same diff.
+    Legality rule: a change to any machine-owned key is legal iff `generated`
+    also changed in the same diff with `by` the machine actor class.
+    `generated` is itself a capture field, so the same loop guards it and it
+    cannot legalize its own unattested change. Attestation is
+    per-file-per-diff: one legitimate `generated` bump also legalizes any
+    other machine-owned key riding along unattested in the same diff.
 
     Stated boundary, not a compliance control: this catches accidents and
     oblivious agents. Forging the attestation — hand-writing a machine-class
@@ -694,7 +638,7 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
         and generated_changed
         and _machine_attested(candidate_generated)
     )
-    outcomes = [
+    return [
         Outcome(
             "evidence-layer",
             RepoPath(raw_path),
@@ -704,23 +648,13 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
         for key in sorted(_MACHINE_OWNED_FRONTMATTER_KEYS)
         if _field(base_data, key) != _field(candidate_data, key) and not attested
     ]
-    if generated_changed and not _machine_attested(candidate_generated):
-        outcomes.append(
-            Outcome(
-                "evidence-layer",
-                RepoPath(raw_path),
-                Result.UNMATCHED,
-                "drift — generated changed without writer attestation",
-            )
-        )
-    return outcomes
 
 
 def lint_evidence_layer(
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
 ) -> list[Outcome]:
-    """Validate witnesses and expose every base-to-candidate managed change."""
+    """Validate witnesses and expose every base-to-candidate body change."""
     outcomes = []
     base_files = _literature_files(base_snapshot)
     candidate_files = _literature_files(candidate_snapshot)
@@ -741,14 +675,14 @@ def lint_evidence_layer(
     added = set(candidate_files) - set(base_files)
     paired_removed = set()
     paired_added = set()
-    removed_by_managed: dict[bytes, list[bytes]] = {}
+    removed_by_body: dict[bytes, list[bytes]] = {}
     for raw_path in removed:
-        managed = _managed_bytes(base_files[raw_path])
-        if managed is not None:
-            removed_by_managed.setdefault(managed, []).append(raw_path)
+        body = _body_bytes(base_files[raw_path])
+        if body is not None:
+            removed_by_body.setdefault(body, []).append(raw_path)
     for raw_path in sorted(added):
-        managed = _managed_bytes(candidate_files[raw_path])
-        candidates = removed_by_managed.get(managed, []) if managed is not None else []
+        body = _body_bytes(candidate_files[raw_path])
+        candidates = removed_by_body.get(body, []) if body is not None else []
         if candidates:
             old_path = sorted(candidates)[0]
             candidates.remove(old_path)
@@ -759,7 +693,7 @@ def lint_evidence_layer(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    "drift — managed literature note renamed",
+                    "drift — literature note renamed",
                     extra={"prior_path": RepoPath(old_path)},
                 )
             )
@@ -768,7 +702,7 @@ def lint_evidence_layer(
             "evidence-layer",
             RepoPath(raw_path),
             Result.UNMATCHED,
-            "drift — managed literature note added",
+            "drift — literature note added",
         )
         for raw_path in sorted(added - paired_added)
     )
@@ -777,20 +711,20 @@ def lint_evidence_layer(
             "evidence-layer",
             RepoPath(raw_path),
             Result.UNMATCHED,
-            "drift — managed literature note deleted",
+            "drift — literature note deleted",
         )
         for raw_path in sorted(removed - paired_removed)
     )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
-        old = _managed_bytes(base_files[raw_path])
-        new = _managed_bytes(candidate_files[raw_path])
+        old = _body_bytes(base_files[raw_path])
+        new = _body_bytes(candidate_files[raw_path])
         if old != new:
             outcomes.append(
                 Outcome(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    "drift — managed literature region changed",
+                    "drift — literature note body changed",
                 )
             )
         outcomes.extend(

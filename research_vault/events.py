@@ -3,7 +3,7 @@
 import datetime
 import re
 
-from . import AGENT_ACTOR, frontmatter
+from . import AGENT_ACTOR, clock, frontmatter
 from . import claims as claims_mod
 from .outcome import Result
 
@@ -113,7 +113,7 @@ def record_pass(
         raise ValueError("verified event by must be a nonempty single-line string")
     if not _single_line(check):
         raise ValueError("verified event check must be a nonempty single-line string")
-    at = datetime.datetime.now(datetime.UTC).date().isoformat() if at is None else at
+    at = clock.today() if at is None else at
     if not _calendar_date(at):
         raise ValueError("verified event at must be a YYYY-MM-DD calendar date")
 
@@ -245,12 +245,21 @@ def current_failures(note_text: str) -> list[dict]:
     return [] if _duplicate_header(note_text, FAILURES_FIELD) else failures
 
 
+def _extra_lines(value) -> list[str]:
+    if isinstance(value, str):
+        return value.splitlines()
+    if isinstance(value, list):
+        return [line for line in value if isinstance(line, str)]
+    return []
+
+
 def _applicable_note_checks(data: dict) -> set[str]:
-    if data.get("doi"):
-        return {"doi", "metadata", "update-notice"}
-    if data.get("pmid"):
-        return {"update-notice"}
-    return set()
+    has_doi = bool(data.get("DOI") or data.get("doi"))
+    has_pmid = bool(data.get("pmid")) or any(
+        line.strip().upper().startswith("PMID:")
+        for line in _extra_lines(data.get("extra"))
+    )
+    return {"update-notice"} if has_doi or has_pmid else set()
 
 
 def trust_tier(note_text: str) -> str:
@@ -268,22 +277,23 @@ def trust_tier(note_text: str) -> str:
     checks = {str(event.get("check", "")) for event in events}
     applicable = _applicable_note_checks(data)
     machine_confirmed = applicable <= checks
-    citekey = data.get("citekey", "")
+    citation_key = data.get("citationKey", "")
 
     for row in failures:
         check = row["check"]
         quote = _QUOTE_CHECK.fullmatch(check)
         if check in applicable or (
-            quote is not None and quote.group("claim_link").split("#^", 1)[0] == citekey
+            quote is not None
+            and quote.group("claim_link").split("#^", 1)[0] == citation_key
         ):
             machine_confirmed = False
 
-    has_managed_quotes = False
+    has_quote_claims = False
     for claim in claims_mod.parse_claims(note_text):
-        if claim.tag != "quote" or not claim.in_managed or not claim.claim_id:
+        if claim.tag != "quote" or not claim.claim_id:
             continue
-        has_managed_quotes = True
-        claim_link = claims_mod.claim_link(citekey, claim.claim_id)
+        has_quote_claims = True
+        claim_link = claims_mod.claim_link(citation_key, claim.claim_id)
         quote_checks = {
             f"quote:{claim_link}:managed-region",
             f"quote:{claim_link}:source-text",
@@ -291,7 +301,7 @@ def trust_tier(note_text: str) -> str:
         if checks.isdisjoint(quote_checks):
             machine_confirmed = False
 
-    if not applicable and not has_managed_quotes:
+    if not applicable and not has_quote_claims:
         # A subset test over an empty applicable set is vacuously true; require
         # at least one deterministic check to have run and matched instead.
         machine_confirmed = False

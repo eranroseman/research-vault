@@ -1,26 +1,24 @@
 """Canonicality of the surfaces no off-the-shelf formatter may touch.
 
 The one-form-owner matrix (docs/research/rethink-audits/2026-08-21-lint-format-rethink.md) gives every
-file type a single owner. For RENDERED vault-dialect markdown -- literature
-notes with real managed-region content, not the placeholder templates they
-render from -- the owner is *the sole writer*: mdformat measurably mangles
+file type a single owner. For WRITTEN vault-dialect markdown -- literature
+notes with real claim-line content, not the placeholder templates they are
+built from -- the owner is *the sole writer*: mdformat measurably mangles
 the dialect on real content — ``[[wikilink]]`` becomes ``\\[[wikilink]\\]``,
-``[field:: value]`` gets escaped, a managed-region close marker that follows
-a list item gets indented into it (verified: a real ``render_note`` output
-round-tripped through mdformat) — and ``mdformat-obsidian`` does the same, so
-no formatter speaks it. (Task 2e gated nine of the vault's ten STATIC
-templates through mdformat instead: their placeholder content carries no
-list markup or wikilinks to mangle, so mdformat owns them now. The tenth,
-``vault/index.md``, does carry real wikilinks and Base embeds and stays
+``[field:: value]`` gets escaped, a standalone marker line that follows a
+list item gets indented into it (verified 2026-08-21 on a real rendered
+literature note round-tripped through mdformat) — and ``mdformat-obsidian``
+does the same, so no formatter speaks it. (Task 2e gated every STATIC template
+but one through mdformat instead: their placeholder content carries no
+list markup or wikilinks to mangle, so mdformat owns them now. The one held
+out, ``vault/index.md``, does carry real wikilinks and Base embeds and stays
 excluded — see .pre-commit-config.yaml's mdformat hook.) "The emitter is the
 formatter" only means something if the emitter is actually canonical, which
 is what this file makes mechanical:
 
-1. renders are idempotent — same inputs, same bytes, and re-rendering rendered
-   output is a fixed point;
-2. every durable ledger line an emitter produces matches the shared entry
+1. every durable ledger line an emitter produces matches the shared entry
    grammar exactly, anchored end to end;
-3. scaffold output is byte-stable across two runs into fresh directories.
+2. scaffold output is byte-stable across two runs into fresh directories.
 
 Together these give the vault surfaces form-certainty with zero remembered
 rules — enforced by the owners, verified here.
@@ -30,24 +28,7 @@ import re
 
 import pytest
 
-from research_vault import Result, appendlog, inbox, notes, scaffold, searchlog
-
-ITEM = {
-    "id": "smith2020",
-    "type": "article-journal",
-    "title": "Mortality decline",
-    "DOI": "10.1000/xyz",
-}
-ANNOTATIONS = [
-    {
-        "kind": "quote",
-        "text": "Mortality fell 12% across all strata.",
-        "locator": "p. 12",
-        "citekey": "smith2020",
-    }
-]
-ACCESSED = "2026-08-20"
-GENERATED_AT = "2026-08-20T12:34:56Z"
+from research_vault import Result, appendlog, inbox, scaffold, searchlog
 
 # The full-line grammar, BUILT FROM the shared field definition rather than
 # restated: a restated copy is exactly the drift this file exists to catch. The
@@ -57,56 +38,7 @@ LEDGER_LINE = re.compile(rf"^- {_FIELD}(?: {_FIELD})*$")
 
 
 # --------------------------------------------------------------------------
-# 1. Render idempotence
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("annotations", [[], ANNOTATIONS], ids=["bare", "annotated"])
-def test_rendering_the_same_item_twice_yields_identical_bytes(annotations):
-    first = notes.render_note(
-        ITEM, ["aa11"], annotations, None, ACCESSED, generated_at=GENERATED_AT
-    )
-    second = notes.render_note(
-        ITEM, ["aa11"], annotations, None, ACCESSED, generated_at=GENERATED_AT
-    )
-    assert first.encode("utf-8") == second.encode("utf-8")
-
-
-@pytest.mark.parametrize("annotations", [[], ANNOTATIONS], ids=["bare", "annotated"])
-def test_re_rendering_rendered_output_is_a_fixed_point(annotations):
-    """The projection is settled: feeding a render back in must change nothing.
-
-    A later ``generated_at`` is passed deliberately — if re-rendering were not a
-    fixed point it would leak the new timestamp into the frontmatter, which is
-    precisely the drift a witnessed managed region must never show.
-    """
-    first = notes.render_note(
-        ITEM, ["aa11"], annotations, None, ACCESSED, generated_at=GENERATED_AT
-    )
-    again = notes.render_note(
-        ITEM,
-        ["aa11"],
-        annotations,
-        existing=first,
-        accessed="2026-08-25",
-        generated_at="2026-08-25T23:59:59Z",
-    )
-    assert again == first
-
-
-def test_managed_witness_matches_the_rendered_managed_region():
-    """The witness IS the canonical-form receipt for the managed region."""
-    text = notes.render_note(
-        ITEM, ["aa11"], ANNOTATIONS, None, ACCESSED, generated_at=GENERATED_AT
-    )
-    assert notes.validate_managed_witness(text.encode("utf-8")) == (
-        Result.MATCHED,
-        "matched",
-    )
-
-
-# --------------------------------------------------------------------------
-# 2. Ledger/inbox entry grammar
+# 1. Ledger/inbox entry grammar
 # --------------------------------------------------------------------------
 
 
@@ -178,7 +110,7 @@ def test_a_bracket_in_a_value_stays_grammatical_after_escaping(project_vault):
 
 
 # --------------------------------------------------------------------------
-# 3. Scaffold byte-stability
+# 2. Scaffold byte-stability
 # --------------------------------------------------------------------------
 
 

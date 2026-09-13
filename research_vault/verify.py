@@ -4,7 +4,6 @@ Extracted from ``__main__`` so hooks and tests consume a public seam rather
 than the CLI entrypoint's private names.
 """
 
-import datetime
 import hashlib
 import json
 import os
@@ -17,17 +16,21 @@ from typing import Any
 from . import (
     Result,
     bibliography,
+    captured,
     checks,
+    claims,
+    clock,
     events,
     frontmatter,
     gitstate,
     identify,
     inbox,
+    lifecycle,
     lints,
     notes,
+    propagate,
     quotes,
     structure,
-    webapi,
 )
 from .pathcodec import (
     PathCodecError,
@@ -35,10 +38,25 @@ from .pathcodec import (
     decode_repo_path,
     encode_repo_path,
 )
-from .zotero import ZoteroClient
+from .zotero import DEFAULT_BASE, ZoteroClient  # DEFAULT_BASE re-exported for the CLI
 
-DEFAULT_BASE = "http://localhost:23119"
 _OMITTED_BIBLIOGRAPHY = object()
+
+_ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
+# The writer's own shape, both placements: `before + "[marker] " + anchor`
+# after a space-terminated `before`, or `content + " [marker]"`.
+_OWN_MARK = re.compile(rf" {_ANY_VERIFY_MARKER}")
+
+
+def _without_own_marks(text: str) -> str:
+    """An ack scope hashes what the person wrote, never the tool's own marks.
+
+    Every scope leg strips verify's ``[failed-verification:: …]`` marker before
+    hashing, so the scope is invariant under the tool's own stamp and clear
+    (open point 07, ruling 5) — the body-marker counterpart of what
+    ``canonical_content`` already does with ``verified`` events.
+    """
+    return _OWN_MARK.sub("", text)
 
 
 def _read_note_text(path):
@@ -54,18 +72,27 @@ def _write_note_text(path, text):
 CLOSING_BY_SURFACE = {
     "audit": frozenset(),
     "commit": frozenset(
-        {"citekey", "evidence-layer", "okf-frontmatter", "okf-structure", "tree"}
-    ),
-    "publish": frozenset(
         {
-            "citekey",
+            "citation-key",
             "evidence-layer",
-            "quote",
-            "update-notice",
-            "doi",
             "okf-frontmatter",
             "okf-structure",
             "tree",
+            "propagation",
+            "captured-set",
+        }
+    ),
+    "publish": frozenset(
+        {
+            "citation-key",
+            "evidence-layer",
+            "quote",
+            "update-notice",
+            "okf-frontmatter",
+            "okf-structure",
+            "tree",
+            "propagation",
+            "captured-set",
         }
     ),
 }
@@ -94,9 +121,9 @@ def _extra_path(vault_root, outcome, key):
 
 
 def _note_bytes(data: bytes) -> bytes:
-    return notes.canonical_content(data.decode(errors="surrogateescape")).encode(
-        errors="surrogateescape"
-    )
+    """A note's scope bytes: verifier events and verify's own marks excluded."""
+    text = notes.canonical_content(data.decode(errors="surrogateescape"))
+    return _without_own_marks(text).encode(errors="surrogateescape")
 
 
 def _claim_bytes_from_text(text, claim_id):
@@ -111,7 +138,7 @@ def _claim_bytes_from_text(text, claim_id):
                     block.append(continuation)
                 else:
                     break
-            return "".join(block).encode(errors="surrogateescape")
+            return _without_own_marks("".join(block)).encode(errors="surrogateescape")
     return None
 
 
@@ -192,24 +219,39 @@ def _snapshot_directory_bytes(snapshot, raw_path):
     return b"\0".join(chunks)
 
 
-def _note_for_citekey(vault_root, citekey):
+def _note_for_citation_key(vault_root, citation_key):
     try:
         vault = Path(vault_root)
-        candidate = notes.note_path(vault, citekey)
+        candidate = notes.note_path(vault, citation_key)
         raw_path = os.fsencode(candidate.relative_to(vault))
-    except notes.InvalidCitekeyError:
+    except notes.InvalidCitationKeyError:
         return None
     except ValueError:
         return None
     return _safe_relative(vault, encode_repo_path(raw_path), "repo-path")
 
 
-def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
+def _managed_witness(data) -> str | None:
+    """The note's ``managed-sha256`` when capture wrote a well-formed one."""
+    value = data.get("managed-sha256")
+    if isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value):
+        return value
+    return None
+
+
+def _citation_key_hash(vault_root, citation_key, candidate_snapshot=None):
+    """The scope a note-targeted finding is acknowledged against (open point 07).
+
+    The note's ``managed-sha256`` is the body hash capture writes, so an ack
+    survives a frontmatter-only change and lapses when the body moves
+    (decision 21). The ``_note_bytes`` digest is the fallback only for a note
+    capture never wrote.
+    """
     if candidate_snapshot is not None:
         try:
-            candidate = notes.note_path(Path(vault_root), citekey)
+            candidate = notes.note_path(Path(vault_root), citation_key)
             raw_path = os.fsencode(candidate.relative_to(vault_root))
-        except (notes.InvalidCitekeyError, ValueError):
+        except (notes.InvalidCitationKeyError, ValueError):
             return None
         image = candidate_snapshot.image(raw_path)
         if image is None or image.kind != "file":
@@ -219,23 +261,19 @@ def _citekey_hash(vault_root, citekey, candidate_snapshot=None):
             data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))
         except (UnicodeError, frontmatter.FrontmatterError):
             data = {}
-        attachment_hashes = data.get("fixity-sha256")
-        if isinstance(attachment_hashes, list) and attachment_hashes:
-            first = attachment_hashes[0]
-            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
-                return first
+        witness = _managed_witness(data)
+        if witness is not None:
+            return witness
         return hashlib.sha256(_note_bytes(raw)).hexdigest()[:16]
-    note = _note_for_citekey(vault_root, citekey)
+    note = _note_for_citation_key(vault_root, citation_key)
     if note and note.is_file():
         try:
             data, _ = frontmatter.parse(_read_note_text(note))
         except (OSError, UnicodeError, frontmatter.FrontmatterError):
             data = {}
-        attachment_hashes = data.get("fixity-sha256")
-        if isinstance(attachment_hashes, list) and attachment_hashes:
-            first = attachment_hashes[0]
-            if isinstance(first, str) and re.fullmatch(r"[0-9a-f]{64}", first):
-                return first
+        witness = _managed_witness(data)
+        if witness is not None:
+            return witness
         return hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
     return None
 
@@ -250,23 +288,23 @@ def _claim_anchor_hash(
     base_snapshot,
     candidate_snapshot,
 ):
-    """The identity of a ``citekey#^claim`` target, or None if its bytes are gone.
+    """The identity of a ``citation-key#^claim`` target, or None if its bytes are gone.
 
-    The citekey's own recorded fixity wins where the note declares a
-    validly-shaped digest; a note with no fixity, an empty list, or a value
-    that doesn't look like a digest is treated as not declaring one at all.
+    The cited note's own ``managed-sha256`` wins where the note carries a
+    validly-shaped one (open point 07); a note with none, or a value that
+    doesn't look like a digest, hashes as ``_citation_key_hash``'s fallback.
     Failing that, the claim's bytes are read from whichever plane still
     holds them — candidate image, worktree note, base image or HEAD, then
-    the citekey's note. None is not an error here: it means no plane holds
+    the citation key's note. None is not an error here: it means no plane holds
     the claim any more, and the caller falls back to the coarser identities
     below.
     """
-    citekey, claim_id = target.split("#^", 1)
-    known_citekey_hash = _citekey_hash(
-        vault_root, citekey, candidate_snapshot=candidate_snapshot
+    citation_key, claim_id = target.split("#^", 1)
+    known_citation_key_hash = _citation_key_hash(
+        vault_root, citation_key, candidate_snapshot=candidate_snapshot
     )
-    if known_citekey_hash is not None:
-        return known_citekey_hash
+    if known_citation_key_hash is not None:
+        return known_citation_key_hash
     data = (
         _claim_bytes_from_text(
             (origin_image.data or b"").decode(errors="surrogateescape"), claim_id
@@ -292,7 +330,7 @@ def _claim_anchor_hash(
                 head.decode(errors="surrogateescape"), claim_id
             )
     if data is None and candidate_snapshot is None:
-        note = _note_for_citekey(vault_root, citekey)
+        note = _note_for_citation_key(vault_root, citation_key)
         data = _claim_bytes(note, claim_id) if note else None
     if data is not None:
         return hashlib.sha256(data).hexdigest()[:16]
@@ -412,18 +450,18 @@ def _identifier_hash(
     """The identity of a bare identifier: its note where one exists, else its entry.
 
     A note is preferred over a bibliography entry wherever the identifier has
-    one — a validly-shaped recorded fixity digest first, then candidate
-    image, worktree, base image or HEAD — so an identifier and the note
-    carrying it never disagree about what was acknowledged. A note whose
-    fixity is absent, empty, or not digest-shaped falls through the same as
-    one with none recorded. Only an identifier with no note at all falls
-    through to the canonical bibliography record.
+    one — its validly-shaped ``managed-sha256`` first, then candidate image,
+    worktree, base image or HEAD — so an identifier and the note carrying it
+    never disagree about what was acknowledged. A note whose witness is absent
+    or not digest-shaped falls through the same as one with none recorded.
+    Only an identifier with no note at all falls through to the canonical
+    bibliography record.
     """
-    known_citekey_hash = _citekey_hash(
+    known_citation_key_hash = _citation_key_hash(
         vault_root, target, candidate_snapshot=candidate_snapshot
     )
-    if known_citekey_hash is not None:
-        return known_citekey_hash
+    if known_citation_key_hash is not None:
+        return known_citation_key_hash
     if origin_image is not None and origin_image.kind == "file":
         data = _note_bytes(origin_image.data or b"")
         return hashlib.sha256(data).hexdigest()[:16]
@@ -535,7 +573,7 @@ def _origins(outcome):
         if "note_path" in outcome.path_extra_fields
         else None
     )
-    if outcome.check == "citekey":
+    if outcome.check == "citation-key":
         for claim in outcome.extra.get("claims", []):
             if isinstance(claim, Mapping):
                 claim_id = claim.get("claim_id")
@@ -557,6 +595,10 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
     for relative, claim_id, line_no in _origins(outcome):
         path = _safe_relative(vault_root, relative, "repo-path")
         if path is None or not path.is_file():
+            continue
+        if path.relative_to(Path(vault_root)).parts[0] == "wiki":
+            # The compiled layer is the tool's write scope (ingest spec §4.4):
+            # verify reads it and never writes into it.
             continue
         lines = _read_note_text(path).splitlines(keepends=True)
         for index, line in enumerate(lines):
@@ -595,7 +637,94 @@ def _mutate_marker(vault_root, outcome, date, *, clear=False):
             break
 
 
-_ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
+def _cites(content, citation_key):
+    """Whether a line cites exactly ``citation_key`` (never a longer key)."""
+    return any(
+        match.group("key") == citation_key for match in claims.CITE_RE.finditer(content)
+    )
+
+
+def _claim_notes(vault: Path) -> list[Path]:
+    """The notes ``_plan_state`` scans for claim lines, minus the compiled layer.
+
+    ``literatures/`` flat, the same rule as every reader of it (decision 08).
+    """
+    return sorted((vault / "projects").rglob("*.md")) + sorted(
+        (vault / "literatures").glob("*.md")
+    )
+
+
+def clear_marker_for(vault_root, check: str, target: str) -> bool:
+    """Open point 09: a human acknowledgment stands the marker down.
+
+    Markers live where ``_mutate_marker`` writes them — at each claim's origin
+    — so a ``<citation key>#^<claim id>`` target names every note carrying the
+    anchor, which confines the edit to the claim line; a bare citation-key
+    target of a ``citation-key`` finding (verify's own shape: the claim list
+    rides in the outcome's ``extra`` and the inbox row does not persist it)
+    names every line citing ``[@<key>``, the citation regex keeping
+    ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
+    the file itself, and every terminal marker for the check in it. The notes
+    are ``projects/**/*.md`` and ``literatures/*.md``: ``_plan_state`` scans
+    both for claim lines, and a capture-rendered literature note matches
+    nothing only because it carries none — a hand-authored one does receive
+    markers. Anything under ``wiki/`` is skipped, mirroring the writer's own
+    guard (ingest spec §4.4). Returns whether a marker was removed.
+    """
+    # The root exactly as `gitstate._absolute` builds a `path-bytes:` candidate
+    # from it (abspath, not resolve: no symlink is followed), so the two meet
+    # in the `wiki/` guard when `cmd_ack` was handed `--vault .`.
+    vault = Path(os.fsdecode(gitstate._root_bytes(Path(vault_root))))
+    claim_id: str | None = None
+    citation_key: str | None = None
+    if "#^" in target:
+        claim_id = target.split("#^", 1)[1]
+        candidates = _claim_notes(vault)
+    elif target.startswith("path-bytes:"):
+        candidates = [_safe_relative(vault, target, "repo-path")]
+    elif check == "citation-key":
+        citation_key = target
+        candidates = _claim_notes(vault)
+    else:
+        return False
+    cleared = False
+    for path in candidates:
+        if path is None or not path.is_file():
+            continue
+        if path.relative_to(vault).parts[0] == "wiki":
+            # The compiled layer is the tool's write scope (ingest spec §4.4):
+            # verify never writes a marker there, so there is none to clear.
+            continue
+        lines = _read_note_text(path).splitlines(keepends=True)
+        changed = False
+        for index, line in enumerate(lines):
+            content, ending = _split_line_ending(line)
+            if claim_id is not None:
+                if _terminal_anchor_match(content, claim_id) is None:
+                    continue
+                terminal_claim_id: str | None = claim_id
+            elif citation_key is not None:
+                if not _cites(content, citation_key):
+                    continue
+                # The writer put the marker before the citing line's own
+                # anchor when it has one, after the line otherwise.
+                anchor = claims.ANCHOR_RE.search(content)
+                terminal_claim_id = anchor.group("id") if anchor else None
+            else:
+                terminal_claim_id = None
+            # `_mutate_marker`'s clear substitution: the pattern's lookahead keeps
+            # the anchor, and the single space closes the gap the marker left.
+            pattern = _terminal_marker_pattern(check, terminal_claim_id)
+            replacement = pattern.sub(
+                " " if isinstance(terminal_claim_id, str) else "", content
+            )
+            if replacement != content:
+                lines[index] = replacement + ending
+                changed = True
+        if changed:
+            _write_note_text(path, "".join(lines))
+            cleared = True
+    return cleared
 
 
 def _terminal_marker_pattern(check, claim_id):
@@ -622,63 +751,23 @@ def _split_line_ending(line):
 
 
 def file_outcomes(vault_root, path, bibliography_universe=None):
-    outcomes = (
-        quotes.check_all_quotes(vault_root, path)
-        + lints.lint_screening_state(vault_root, path)
-        + lints.lint_disputed_claim(vault_root, path)
+    outcomes = quotes.check_all_quotes(vault_root, path) + lints.lint_disputed_claim(
+        vault_root, path
     )
     if bibliography_universe is not None:
         outcomes = (
-            checks.check_citekeys(vault_root, path, bibliography_universe) + outcomes
+            checks.check_citation_keys(vault_root, path, bibliography_universe)
+            + outcomes
         )
     return outcomes
 
 
 def _bibliography_entries(bib):
-    return [bib[citekey] for citekey in sorted(bib)]
-
-
-def _staleness_outcome(vault_root, base=DEFAULT_BASE):
-    result = bibliography.staleness(vault_root, ZoteroClient(base=base))
-    reasons = {
-        Result.MATCHED: "matched",
-        Result.SKIPPED: "no-identifier — bibliography absent",
-        Result.UNMATCHED: "stale — bibliography differs or is invalid",
-        Result.UNREACHABLE: "outage — bibliography comparison unavailable",
-    }
-    return checks.Outcome(
-        "staleness",
-        RepoPath(os.fsencode(bibliography.BIB_PATH)),
-        result,
-        reasons[result],
-    )
+    return [bib[citation_key] for citation_key in sorted(bib)]
 
 
 def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
-    """Produce DOI/metadata and one reduced update-notice outcome."""
-    outcomes = []
-    doi = entry.get("DOI") or entry.get("doi")
-    if doi:
-        outcomes.extend(
-            [
-                checks.check_doi_exists(vault_root, doi, entry.get("id")),
-                checks.check_metadata(vault_root, entry),
-            ]
-        )
-    else:
-        unavailable = entry.get("_discovery_unreachable") is True
-        result = Result.UNREACHABLE if unavailable else Result.SKIPPED
-        reason = (
-            "outage — identifier discovery unavailable"
-            if unavailable
-            else "no-identifier — discovery found nothing"
-        )
-        outcomes.extend(
-            [
-                checks.Outcome("doi", entry["id"], result, reason),
-                checks.Outcome("metadata", entry["id"], result, reason),
-            ]
-        )
+    """Produce one reduced update-notice outcome for a bibliography entry."""
     if entry.get("_discovery_unreachable") and not (
         entry.get("DOI") or entry.get("doi")
     ):
@@ -696,9 +785,7 @@ def _network_outcomes(vault_root, entry, detection_date, notice_lookup):
         else None
     )
     reduced = checks.reduce_update_notice_outcomes(live, rw_leg)
-    if reduced is not None:
-        outcomes.append(reduced)
-    return outcomes
+    return [reduced] if reduced is not None else []
 
 
 def _offline_network_outcomes(entry, detection_date, notice_lookup):
@@ -711,48 +798,13 @@ def _offline_network_outcomes(entry, detection_date, notice_lookup):
         return [rw_leg]
     return [
         checks.Outcome(
-            check,
+            "update-notice",
             entry["id"],
             Result.UNREACHABLE,
             "outage — network disabled",
             {"synthetic_offline": True},
         )
-        for check in ("doi", "metadata", "update-notice")
     ]
-
-
-def _archive_outcomes(vault_root):
-    outcomes = []
-    for path in sorted((Path(vault_root) / "literatures").glob("*.md")):
-        try:
-            data, _ = frontmatter.parse(_read_note_text(path))
-        except (OSError, UnicodeError, frontmatter.FrontmatterError):
-            continue
-        archive_url = data.get("archive-url")
-        if not isinstance(archive_url, str) or not archive_url:
-            continue
-        raw_target = data.get("citekey")
-        target = (
-            raw_target.strip()
-            if isinstance(raw_target, str)
-            and raw_target.strip()
-            and _note_for_citekey(vault_root, raw_target.strip()) is not None
-            else RepoPath(os.fsencode(path.relative_to(vault_root)))
-        )
-        try:
-            status = webapi.get_status(archive_url, vault_root, query_mailto=False)
-        except webapi.ApiError:
-            result = Result.UNREACHABLE
-            reason = "outage — archive-url unavailable"
-        else:
-            if status == 404:
-                result = Result.UNMATCHED
-                reason = "missing-archive — archive-url 404s"
-            else:
-                result = Result.MATCHED
-                reason = "matched"
-        outcomes.append(checks.Outcome("web-archive", target, result, reason))
-    return outcomes
 
 
 # The annotation pins the ARITY (exactly three), which is what the splat at the
@@ -786,7 +838,7 @@ def _effective(outcomes, hashes, vault_root):
 
 
 def _projection_identity(outcome):
-    if outcome.check in {"doi", "metadata", "update-notice"}:
+    if outcome.check == "update-notice":
         return outcome.target, outcome.check
     if outcome.check == "quote" and isinstance(outcome.target, str):
         comparison_target = outcome.extra.get("target", "managed-region")
@@ -795,18 +847,27 @@ def _projection_identity(outcome):
             and isinstance(comparison_target, str)
             and comparison_target
         ):
-            citekey = outcome.target.split("#^", 1)[0]
-            return citekey, f"quote:{outcome.target}:{comparison_target}"
+            citation_key = outcome.target.split("#^", 1)[0]
+            return citation_key, f"quote:{outcome.target}:{comparison_target}"
     return None
 
 
-def _apply_state_transitions(vault_root, raw, detection_date):
-    """Project raw current state after the candidate-bound decision is frozen."""
+def _apply_state_transitions(vault_root, raw, detection_date, *, stamp):
+    """Project raw current state after the candidate-bound decision is frozen.
+
+    ``stamp`` is the effective set. A ``[failed-verification:: <check>/<date>]``
+    marker means a raw failure no person has acknowledged, standing beside the
+    inbox row it mirrors — both closed by the same ack (open point 09), both
+    reopened when the ack lapses on a content-hash change — so only an outcome
+    still effective is stamped. The note's verified event and failure row and
+    the MATCHED clear run over every raw outcome as before.
+    """
+    stamp_ids = {id(outcome) for outcome in stamp}
     for outcome in raw:
         projection = _projection_identity(outcome)
         if projection is not None:
-            citekey, check = projection
-            note = _note_for_citekey(vault_root, citekey)
+            citation_key, check = projection
+            note = _note_for_citation_key(vault_root, citation_key)
             if note and note.is_file():
                 try:
                     text = _read_note_text(note)
@@ -831,7 +892,8 @@ def _apply_state_transitions(vault_root, raw, detection_date):
                     if updated != text:
                         _write_note_text(note, updated)
         if outcome.result is Result.UNMATCHED:
-            _mutate_marker(vault_root, outcome, detection_date)
+            if id(outcome) in stamp_ids:
+                _mutate_marker(vault_root, outcome, detection_date)
         elif outcome.result is Result.MATCHED:
             _mutate_marker(vault_root, outcome, detection_date, clear=True)
 
@@ -956,12 +1018,14 @@ def _plan_state(
     repository_root=None,
     snapshots,
 ):
-    """Compute one complete projection inside a materialized candidate."""
+    """Compute one complete projection inside a materialized candidate.
+
+    ``base`` is the Zotero base URL the lifecycle leg reads (ingest spec
+    §3.4); ``verify_state`` forwards it positionally.
+    """
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
-    detection_date = (
-        detection_date or datetime.datetime.now(datetime.UTC).date().isoformat()
-    )
+    detection_date = detection_date or clock.today()
     raw = []
     try:
         bibliography_universe = bibliography.load(vault)
@@ -974,40 +1038,42 @@ def _plan_state(
         )
         raw.append(
             checks.Outcome(
-                "staleness",
+                "citation-key",
                 RepoPath(os.fsencode(bibliography.BIB_PATH)),
                 error.result,
                 reason,
             )
         )
-    else:
-        if network:
-            raw.append(_staleness_outcome(vault, base))
-        else:
-            raw.append(
-                checks.Outcome(
-                    "staleness",
-                    RepoPath(os.fsencode(bibliography.BIB_PATH)),
-                    Result.UNREACHABLE,
-                    "outage — network disabled",
-                    {"synthetic_offline": True},
-                )
-            )
-    note_files = [
+    # `literatures/` flat, as every reader of it globs (`_claim_notes`, the
+    # captured set, the linter, `--all`): a nested file is a literature note
+    # nowhere, so nothing here stamps a claim `clear_marker_for` cannot reach.
+    note_files = sorted((vault / "literatures").glob("*.md")) + [
         path
-        for folder in ("literatures", "synthesis", "projects")
+        for folder in ("wiki", "projects")
         for path in sorted((vault / folder).rglob("*.md"))
     ]
     for path in note_files:
         raw.extend(file_outcomes(vault, path, bibliography_universe))
     for path in sorted(vault.rglob("*.md")):
-        if ".git" in path.parts:
+        if structure.is_excluded(path, vault):
             continue
         if path.name == "index.md" or path.name == "log.md":
             continue
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
     raw.append(structure.check_tree(vault))
+    if network:
+        raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))
+    else:
+        raw.append(
+            checks.Outcome(
+                "lifecycle",
+                "vault",
+                Result.UNREACHABLE,
+                "outage — network disabled",
+                {"synthetic_offline": True},
+            )
+        )
     # `cmd_verify` mirrors this same falsy-rw_csv predicate to print the
     # unarmed-RW-leg stdout line.
     notice_lookup = checks.load_rw_csv(rw_csv) if rw_csv else None
@@ -1037,9 +1103,8 @@ def _plan_state(
         lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
     )
     raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
-    raw.extend(lints.lint_web_archive(vault))
-    if network:
-        raw.extend(_archive_outcomes(vault))
+    raw.extend(propagate.lint_propagation(vault))
+    raw.extend(captured.lint_captured_set(vault, as_of=detection_date))
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]
@@ -1055,7 +1120,7 @@ def _plan_state(
     }
     effective = _effective(authoritative, hashes, vault)
     warning_effective = _warning_effectiveness(authoritative, hashes, vault)
-    _apply_state_transitions(vault, authoritative, detection_date)
+    _apply_state_transitions(vault, authoritative, detection_date, stamp=effective)
     _file_effects(vault, effective, hashes, warning_effective, detection_date)
     counts: dict[str, int] = {}
     for outcome in effective:

@@ -1,9 +1,13 @@
 # Machine-owned surfaces: the CLI, Better BibTeX, and the bridge are their
 # only writers. Prettier reformatting them would fight the trust machinery.
 # Source of truth for this list: research_vault/lints.py's
-# _is_append_only_path, plus system/bibliography.json (Better BibTeX's export).
+# _is_append_only_path (system/propagations/ included: an applied propagation
+# plan is a write-once record), plus system/bibliography.json (Better BibTeX's
+# export), plus fulltext/ (capture's derived text layer).
 /literatures/
 /log/
 /inbox/review-queue.md
 /system/bibliography.json
 /projects/*/search-log.md
+/fulltext/
+/system/propagations/

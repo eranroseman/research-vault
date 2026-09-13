@@ -16,12 +16,12 @@ def test_stamps_bare_capture_with_folder_type(tmp_path):
 def test_inserts_type_into_parseable_block(tmp_path):
     (tmp_path / "literatures").mkdir(parents=True)
     note = tmp_path / "literatures" / "x.md"
-    note.write_text('---\ncitekey: "x"\n---\nbody\n')
+    note.write_text('---\ncitationKey: "x"\n---\nbody\n')
     stamped, _ = stamp.stamp_types(tmp_path)
     assert stamped == ["literatures/x.md"]
     data, _ = frontmatter.parse(note.read_text())
     assert data["type"] == "literature"
-    assert data["citekey"] == "x"
+    assert data["citationKey"] == "x"
 
 
 def test_reports_unparseable_and_underived(tmp_path):
@@ -82,14 +82,14 @@ def test_preserves_crlf_for_bare_capture(tmp_path):
 def test_preserves_crlf_for_insert_as_first_key(tmp_path):
     (tmp_path / "literatures").mkdir(parents=True)
     note = tmp_path / "literatures" / "x.md"
-    note.write_bytes(b'---\r\ncitekey: "x"\r\n---\r\nbody text\r\n')
+    note.write_bytes(b'---\r\ncitationKey: "x"\r\n---\r\nbody text\r\n')
     stamped, _ = stamp.stamp_types(tmp_path)
     assert stamped == ["literatures/x.md"]
     raw = note.read_bytes()
     assert b"\n" not in raw.replace(b"\r\n", b"")  # every \n is part of \r\n
     data, _ = frontmatter.parse(raw.decode("utf-8"))
     assert data["type"] == "literature"
-    assert data["citekey"] == "x"
+    assert data["citationKey"] == "x"
     assert raw.endswith(b"---\r\nbody text\r\n")
 
 

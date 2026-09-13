@@ -1,0 +1,39 @@
+from pathlib import Path
+
+REPOSITORY = Path(__file__).resolve().parents[1]
+SKILL = REPOSITORY / "skills" / "capture-source" / "SKILL.md"
+
+
+def test_capture_source_replaces_import_source():
+    assert SKILL.is_file()
+    assert not (REPOSITORY / "skills" / "import-source").exists()
+    text = SKILL.read_text()
+    assert text.startswith("---\nname: capture-source\ndescription: Use when ")
+    assert "disable-model-invocation: true\n---\n" in text
+
+
+def test_capture_source_keeps_the_kept_rules():
+    text = SKILL.read_text()
+    for needle in (
+        "No project is required",
+        "project-independent",
+        "zero projects",
+        "Citation Key",
+        "Better BibTeX",
+        "SKIPPED applied to reading",
+        "the range you did not read named",
+        "python3 -m research_vault capture",
+        "python3 -m research_vault add",
+        "python3 -m research_vault propagate",
+        "matched — NOOP",
+        # The exact line capture prints (its `_refused` reason): the table
+        # once carried a `re-keyed` row capture never emitted (review I-1).
+        "`UNMATCHED KEY — re-keyed — old → new; run propagate`",
+        "a SKIPPED line is never filed",
+        "no-fulltext",
+        "database-changed",
+    ):
+        assert needle in text, needle
+    assert "import-note" not in text
+    assert "managed region" not in text
+    assert "auto-export" not in text

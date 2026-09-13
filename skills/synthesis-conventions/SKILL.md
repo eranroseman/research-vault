@@ -5,7 +5,7 @@ description: Use when creating or editing synthesis notes in a research-vault va
 
 # Synthesis conventions
 
-The synthesis layer (`synthesis/`) arranges claims across sources — it asserts arrangement, not evidence. That is why it is freely rewritable: reword, restructure, or reorganize a synthesis note at will. What never moves is the evidence underneath it — every arranged claim keeps citing its source claim link (`[[citekey#^claim-id]]`), never carrying evidence of its own.
+The synthesis layer (`synthesis/`) arranges claims across sources — it asserts arrangement, not evidence. That is why it is freely rewritable: reword, restructure, or reorganize a synthesis note at will. What never moves is the evidence underneath it — every arranged claim keeps citing its source claim link (`[[citation-key#^claim-id]]`), never carrying evidence of its own.
 
 ## Orientation first
 

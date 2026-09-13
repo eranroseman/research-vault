@@ -1,6 +1,8 @@
 #!/bin/sh
 # research-vault pre-commit: offline commit-closing checks.
 # Bypass: git commit --no-verify. CI replays the same checks.
+# The lifecycle leg is held — verify --offline reports it UNREACHABLE and
+# never blocks; ingest spec invariant 5.
 vault="$(git rev-parse --show-toplevel)" || exit 1
 
 if ! command -v python3 >/dev/null 2>&1; then

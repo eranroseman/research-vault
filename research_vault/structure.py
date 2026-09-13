@@ -28,12 +28,24 @@ from .pathcodec import RepoPath
 
 _FOLDER_TYPES = {
     "literatures": "literature",
-    "synthesis": "synthesis",
     "log": "daily",
     "inbox": "fleeting",
 }
+# The compile tool's own stores (ingest spec §4.3): `.raw/` would hold a
+# duplicate of `fulltext/` if its capture were ever run, and `.vault-meta/` is
+# its runtime state. Both are gitignored and never walked.
+EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})
+# ADR 0001, second exemption (2026-09-07): the adopted compile tool writes
+# `wiki/index.md` with frontmatter at a hard-coded path; OKF §8 forbids it on
+# a nested index and the tool's own lint requires it. The vault carries the
+# deviation; nothing the vault authors deviates.
+_EXEMPT_INDEXES = frozenset({"wiki/index.md"})
 
 _PROJECT_NOTE_NAME = "draft.md"
+
+
+def is_excluded(path: Path, vault: Path) -> bool:
+    return any(part in EXCLUDED_DIRS for part in path.relative_to(vault).parts)
 
 
 def is_fleeting(relative: str) -> bool:
@@ -127,7 +139,7 @@ def check_reserved(vault_root) -> list[Outcome]:
     vault = Path(vault_root)
     problems: list[tuple[str, str]] = []
     for path in sorted(vault.rglob("*.md")):
-        if ".git" in path.parts:
+        if is_excluded(path, vault):
             continue
         relative = path.relative_to(vault).as_posix()
         if path.name == "index.md":
@@ -147,6 +159,8 @@ def check_reserved(vault_root) -> list[Outcome]:
                     )
                 if not str(data.get("okf_version", "")).strip():
                     problems.append((relative, "missing okf_version"))
+            elif relative in _EXEMPT_INDEXES:
+                continue
             elif data:
                 problems.append((relative, "nested index.md must be frontmatter-free"))
         elif path.name == "log.md":
