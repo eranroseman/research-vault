@@ -181,6 +181,119 @@ def test_every_skill_name_a_shipped_template_cites_has_a_skill_directory():
     )
 
 
+# Skill names a skill cites that are never a route to one of ours: an upstream
+# skill a vendored fork names by provenance. `find-sources/SKILL.md:11` cites
+# K-Dense's `paper-lookup`, the skill it was forked from, beside that tree's
+# own path and URL. The scan cannot tell a foreign name from a dangling local
+# one, so each is named here with its citation, and the staleness assertion in
+# the test below fails the day the citation goes.
+_FOREIGN_SKILL_NAMES = {"paper-lookup"}
+
+
+def _code_spelled_identifiers() -> list[str]:
+    """Every string the package evaluates, off its AST, docstrings excluded.
+
+    A skill's bare-kebab tokens are not all skill names: check ids
+    (``captured-set``), reason codes (``not-admitted``), verbs
+    (``mark-published``), doctor probes (``bbt-git``), markers
+    (``failed-verification``) and tags (``open-question``) take the same
+    shape. Every one of those is an identifier the code spells, so "the code
+    spells it" is the decision, deferred to the code the way
+    ``_emitted_check_ids`` defers. Measured 2026-09-13 across the 42 distinct
+    tokens the nine skills cite: whole-literal equality misses
+    ``open-question``, which ``claims.py`` owns only inside a regex
+    alternation; a substring read over *every* literal masks three live skill
+    names (``factcheck-draft``, ``find-sources``, ``project-flow``) through
+    docstrings that talk about them; a substring read over the non-docstring
+    literals spells every non-skill token and no live hyphenated skill name.
+    A docstring is a bare string-expression statement, prose the code never
+    evaluates, so it is dropped rather than read as spelling.
+    """
+    spelled: list[str] = []
+    for module in sorted(PACKAGE_DIR.glob("*.py")):
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        prose = {
+            id(node.value)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        }
+        spelled.extend(
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in prose
+        )
+    return spelled
+
+
+def _cited_skill_tokens_by_skill() -> dict[str, set[str]]:
+    return {
+        skill_md.parent.name: set(
+            _BACKTICKED_KEBAB_TOKEN.findall(skill_md.read_text(encoding="utf-8"))
+        )
+        for skill_md in _skill_md_files()
+    }
+
+
+def test_every_skill_name_a_shipped_skill_cites_has_a_skill_directory():
+    """The templates scan above walks ``research_vault/templates/`` only; a
+    live skill routed to the deleted ``import-source`` directory and nothing
+    caught it (Task 19, 2026-09-13). Same token shape, second corpus: a bare
+    kebab token a skill cites is a skill name unless the code spells it as an
+    identifier (``_code_spelled_identifiers``) or it is a foreign skill named
+    by provenance (``_FOREIGN_SKILL_NAMES``), and every skill name needs a
+    ``skills/<name>/`` directory."""
+    existing = {directory.name for directory in _skill_dirs()}
+    spelled = _code_spelled_identifiers()
+    cited = _cited_skill_tokens_by_skill()
+    dangling = {
+        skill: sorted(
+            token
+            for token in tokens - existing - _FOREIGN_SKILL_NAMES
+            if not any(token in literal for literal in spelled)
+        )
+        for skill, tokens in cited.items()
+    }
+    dangling = {skill: tokens for skill, tokens in dangling.items() if tokens}
+    assert not dangling, (
+        f"skill(s) cite skill name(s) with no skills/<name>/ directory: "
+        f"{dangling}. Fix the route (the skill was renamed or deleted); only "
+        f"an upstream skill named by provenance joins _FOREIGN_SKILL_NAMES, "
+        f"with its citation."
+    )
+    uncited = sorted(_FOREIGN_SKILL_NAMES - set().union(*cited.values()))
+    assert not uncited, f"stale foreign-skill exemption(s), cited nowhere: {uncited}"
+
+
+def test_the_code_spells_no_hyphenated_skill_name():
+    """The self-check that keeps the exclusion above from masking a route.
+
+    ``_code_spelled_identifiers`` exempts a token the code spells, so the day a
+    non-docstring literal in ``research_vault/`` carries a live skill name —
+    ``"run capture-source"`` in an error message — that skill's deletion would
+    stop failing the scan. This fails that day instead, visibly, and the
+    author narrows the reading. A rule on product code, and the price of the
+    exclusion; measured 2026-09-13 as already true (``publish`` is spelled,
+    but carries no hyphen and so is never a token the scan reads).
+    """
+    spelled = _code_spelled_identifiers()
+    hyphenated = {
+        directory.name for directory in _skill_dirs() if "-" in directory.name
+    }
+    assert hyphenated, "expected at least one hyphenated skill directory"
+    offenders = sorted(
+        name for name in hyphenated if any(name in literal for literal in spelled)
+    )
+    assert offenders == [], (
+        f"research_vault/ spells skill name(s) in a non-docstring literal: "
+        f"{offenders}; the skill-directory scan would no longer catch a route "
+        f"to them once deleted"
+    )
+
+
 # --------------------------------------------------------------------------
 # Prose enumerating what code owns (2026-08-22 skills-layer audit, C-1/C-2).
 # The audit's own diagnosis: a skill that hand-lists an identifier set the

@@ -517,7 +517,7 @@ def test_find_sources_skill_routes_every_mechanical_act_through_the_verb():
         "not-admitted",
         "outage",
         "zero hits",
-        "import-source",
+        "capture-source",
     ):
         assert token in text, f"find-sources/SKILL.md never mentions {token!r}"
 
