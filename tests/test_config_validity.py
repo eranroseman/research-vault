@@ -27,6 +27,7 @@ import pytest
 import yaml
 
 from research_vault import frontmatter, inbox
+from tests.conftest import package_ast
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -119,7 +120,7 @@ def _probe_ids() -> set[str]:
     constant, so the AST is the only honest source; a grep would also match
     prose in docstrings.
     """
-    tree = ast.parse((ROOT / "research_vault/scaffold.py").read_text())
+    tree = package_ast(ROOT / "research_vault/scaffold.py")
     return {
         node.args[0].value
         for node in ast.walk(tree)

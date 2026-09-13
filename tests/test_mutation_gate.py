@@ -1,6 +1,16 @@
-"""Unit tests for the no-new-survivors mutation gate (parsing + comparison only;
-no subprocess — the mutate4py invocation itself is exercised by the baseline run)."""
+"""Unit tests for the no-new-survivors mutation gate over mutmut.
 
+No real mutmut run: the tests fake mutmut's on-disk artifacts (a schemata file
+under mutants/<relpath> and its .meta JSON) in a tmp tree and read them through
+the gate, which reads them through mutmut's own readers. The launcher subprocess
+is faked at subprocess.run. Every test is satisfiable from inside a mutants/
+copy of this repo (nothing here reads a committed file through the gate's ROOT),
+because the gate's own tests run in mutmut's stats phase.
+"""
+
+import ast
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,132 +19,214 @@ import pytest
 
 import scripts.mutation_gate as mutation_gate
 from scripts.mutation_gate import (
+    ModuleResult,
+    SourceTreeChangedError,
     baseline_keys,
     changed_modules,
+    mutation_key,
+    mutation_text,
     new_survivors,
-    parse_survivors,
+    read_module_results,
 )
 
-SAMPLE_OUTPUT = """\
-Mutation run: research_vault/selectors.py
-Total mutation sites: 71
-Covered mutation sites: 54
-Uncovered mutation sites: 17
-Mutation workers: 4
+# A schemata file in the shape mutmut 3.7.0 writes to mutants/<relpath>: the
+# trampoline stub keeps the original name and body, `<mangled>__mutmut_orig` is
+# the pristine copy, `<mangled>__mutmut_<N>` are the mutants. A method's
+# mangled name carries the class between CLASS_NAME_SEPARATOR characters.
+FAKE_SCHEMATA = """\
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
-Mutation Report
-===============
-Killed: 35
-Survived: 3
-Uncovered: 17
-Per-Mutant overhead: 0.33s
+mutants_x_add__mutmut: MutantDict = {}  # type: ignore
 
-Survivors:
-  line 79 char == "-" -> char != "-" func/_norm_with_map
-  line 119 position < 0 -> position <= 0 func/find_context
-  line 123 end < len(text) -> end <= len(text) func/find_context
+
+@_mutmut_mutated(mutants_x_add__mutmut)
+def add(a, b):
+    return a + b
+
+
+def x_add__mutmut_orig(a, b):
+    return a + b
+
+
+def x_add__mutmut_1(a, b):
+    return a - b
+
+
+def x_add__mutmut_2(a, b):
+    return a * b
+
+
+def x_add__mutmut_3(a, b):
+    return None
+
+
+class Box:
+    def size(self):
+        return 1
+
+    def xǁBoxǁsize__mutmut_orig(self):
+        return 1
+
+    def xǁBoxǁsize__mutmut_1(self):
+        return 2
 """
 
+MODULE = "research_vault/fake.py"
+ADD_1 = "research_vault.fake.x_add__mutmut_1"
+ADD_2 = "research_vault.fake.x_add__mutmut_2"
+ADD_3 = "research_vault.fake.x_add__mutmut_3"
+SIZE_1 = "research_vault.fake.xǁBoxǁsize__mutmut_1"
 
-def test_parse_survivors_extracts_file_func_and_mutation():
-    keys = parse_survivors("research_vault/selectors.py", SAMPLE_OUTPUT)
-    assert keys == {
-        'research_vault/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
-        "research_vault/selectors.py::func/find_context::position < 0 -> position <= 0",
-        "research_vault/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
-    }
+KEY_ADD_1 = f"{MODULE}::func/add::-    return a + b\\n+    return a - b"
+KEY_ADD_2 = f"{MODULE}::func/add::-    return a + b\\n+    return a * b"
+KEY_ADD_3 = f"{MODULE}::func/add::-    return a + b\\n+    return None"
+KEY_SIZE_1 = f"{MODULE}::func/Box.size::-    return 1\\n+    return 2"
 
 
-def test_parse_survivors_empty_when_no_survivors_section():
-    assert (
-        parse_survivors("research_vault/paths.py", "Killed: 5\nSurvived: 0\n") == set()
+def _fake_root(tmp_path: Path) -> Path:
+    """A tmp repo root mutmut's readers accept: a pyproject.toml carrying
+    [tool.mutmut] (mutmut loads its config from the cwd at import time -- the
+    gate chdirs there -- and the loaded Config is a process singleton, so this
+    file is what keeps these tests order-independent under xdist), plus the
+    two source trees the gate hashes and sweeps."""
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.mutmut]\nsource_paths = [ "research_vault" ]\n', encoding="utf-8"
+    )
+    (tmp_path / "research_vault").mkdir()
+    (tmp_path / "tests").mkdir()
+    return tmp_path
+
+
+def _fake_module(root: Path, relpath: str, codes: dict[str, int | None]) -> None:
+    """Write the schemata + .meta pair mutmut leaves behind for one module."""
+    target = root / "mutants" / relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    schemata = FAKE_SCHEMATA.replace(
+        "research_vault.fake", relpath[:-3].replace("/", ".")
+    )
+    target.write_text(schemata, encoding="utf-8")
+    module = relpath[:-3].replace("/", ".")
+    (root / "mutants" / f"{relpath}.meta").write_text(
+        json.dumps(
+            {
+                "exit_code_by_key": {
+                    name.replace("research_vault.fake", module): code
+                    for name, code in codes.items()
+                },
+                "hash_by_function_name": {},
+                "type_check_error_by_key": {},
+                "durations_by_key": {},
+                "estimated_durations_by_key": {},
+            }
+        ),
+        encoding="utf-8",
     )
 
 
-# Byte-for-byte excerpt of real mutate4py 0.1.4 stdout for research_vault/inbox.py
-# (see .mutate4py/baseline-run/research_vault__inbox.py.stdout), trimmed from 9
-# survivors to 3. Unlike SAMPLE_OUTPUT above (hand-written, a func/ id on every
-# line, which is exactly why the drop-everything-after-a-module-level-survivor bug
-# went uncaught), this reproduces the real shape: a module-level survivor with no
-# func id (line 115) followed by function-level survivors, plus a genuine
-# multi-line-wrapped mutation description (line 611).
-REALISTIC_OUTPUT = """\
-Mutation run: research_vault/inbox.py
-Total mutation sites: 129
-Covered mutation sites: 58
-Uncovered mutation sites: 71
-Mutation workers: 4
-
-Mutation Report
-===============
-Killed: 49
-Survived: 3
-Uncovered: 71
-Per-Mutant overhead: 0.60s
-
-Survivors:
-  line 115 True -> False
-  line 195 notice_date is not None or detection_date is not None -> notice_date is not None and detection_date is not None func/_validate_notice_fingerprint
-  line 611 len(colliding) == 1 and any(
-            ack.ack_of == finding.id
-            and ack.actor.startswith("human:")
-            and ack.target_hash == finding.target_hash
-            and ack.notice_class is None
-            for ack in entries
-        ) -> len(colliding) == 1 or any(
-            ack.ack_of == finding.id
-            and ack.actor.startswith("human:")
-            and ack.target_hash == finding.target_hash
-            and ack.notice_class is None
-            for ack in entries
-        ) func/_scope_acknowledged
-"""
+# --- key format ------------------------------------------------------------
 
 
-def test_parse_survivors_handles_module_level_and_wrapped_entries():
-    """Regression for the drop bug: a module-level survivor (no func/ id) must
-    key as `::module::`, not be discarded -- and must not truncate the
-    function-level survivors and the wrapped multi-line entry that follow it."""
-    keys = parse_survivors("research_vault/inbox.py", REALISTIC_OUTPUT)
-    assert keys == {
-        "research_vault/inbox.py::module::True -> False",
-        "research_vault/inbox.py::func/_validate_notice_fingerprint::"
-        "notice_date is not None or detection_date is not None -> "
-        "notice_date is not None and detection_date is not None",
-        "research_vault/inbox.py::func/_scope_acknowledged::"
-        "len(colliding) == 1 and any( ack.ack_of == finding.id and "
-        'ack.actor.startswith("human:") and ack.target_hash == '
-        "finding.target_hash and ack.notice_class is None for ack in entries "
-        ") -> len(colliding) == 1 or any( ack.ack_of == finding.id and "
-        'ack.actor.startswith("human:") and ack.target_hash == '
-        "finding.target_hash and ack.notice_class is None for ack in entries )",
-    }
+def test_mutation_text_keeps_only_the_diff_body_lines_on_one_line():
+    """Header lines, hunk headers and context are dropped; the `-`/`+` lines
+    survive verbatim (marker and indentation included), in order, joined by a
+    literal backslash-n so a multi-line hunk is still one baseline line."""
+    diff = (
+        "--- research_vault/x.py\n"
+        "+++ research_vault/x.py\n"
+        "@@ -1,5 +1,4 @@\n"
+        " def f(x):\n"
+        "-    if x:\n"
+        "-        return 1\n"
+        "+    if not x:\n"
+        "     return 2"
+    )
+    text = mutation_text(diff)
+    assert text == "-    if x:\\n-        return 1\\n+    if not x:"
+    assert "\n" not in text
 
 
-def test_parse_survivors_raises_on_genuinely_unparseable_entry():
-    """The other half of the inversion: an indented line that is neither a
-    module-level survivor nor a wrapped continuation must raise, not silently
-    read as zero survivors (same doctrine as a non-zero mutate4py exit)."""
-    bad_output = "Survivors:\n  this is not a survivor line at all\n"
-    with pytest.raises(ValueError, match="unparseable"):
-        parse_survivors("research_vault/paths.py", bad_output)
+def test_mutation_key_names_the_function_never_the_positional_mutant_id():
+    diff = "--- p\n+++ p\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a + b\n+    return a - b"
+    key = mutation_key(MODULE, "research_vault.fake.x_add__mutmut_17", diff)
+    assert key == KEY_ADD_1
+    assert "mutmut_17" not in key
+
+
+def test_mutation_key_qualifies_a_method_with_its_class():
+    diff = (
+        "--- p\n+++ p\n@@ -1,2 +1,2 @@\n def size(self):\n-    return 1\n+    return 2"
+    )
+    assert mutation_key(MODULE, SIZE_1, diff) == KEY_SIZE_1
+
+
+# --- reading mutmut's artifacts ----------------------------------------------
+
+
+def test_read_module_results_extracts_survivors_and_counts_from_faked_artifacts(
+    tmp_path,
+):
+    """Through mutmut's own get_diff_for_mutant: the schemata file is parsed
+    for the `__mutmut_orig` / `__mutmut_<N>` pair, so a key here is exactly
+    what a real run would write."""
+    root = _fake_root(tmp_path)
+    _fake_module(root, MODULE, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 0})
+
+    result = read_module_results(MODULE, root=root)
+
+    assert result.survivors == {KEY_ADD_1, KEY_SIZE_1}
+    assert result.counts == {"survived": 2, "killed": 1, "no tests": 1}
+    assert result.flagged == []
+    assert result.unchecked == []
+
+
+def test_read_module_results_reports_timeouts_by_name_not_as_survivors(tmp_path):
+    """A timeout (a mutant that hangs the tests) or a suspicious exit is a
+    legitimate outcome that must stay visible: named, counted, never a
+    survivor and never silently folded into killed."""
+    root = _fake_root(tmp_path)
+    _fake_module(root, MODULE, {ADD_1: 36, ADD_2: 35, ADD_3: 1, SIZE_1: 1})
+
+    result = read_module_results(MODULE, root=root)
+
+    assert result.survivors == set()
+    assert result.counts == {"timeout": 1, "suspicious": 1, "killed": 2}
+    assert result.flagged == [
+        ("timeout", ADD_1, KEY_ADD_1),
+        ("suspicious", ADD_2, KEY_ADD_2),
+    ]
+
+
+def test_read_module_results_marks_unchecked_and_interrupted_mutants(tmp_path):
+    """mutmut swallows a KeyboardInterrupt and still exits 0, leaving `null`
+    (not checked) or 2 (interrupted) codes behind -- an incomplete
+    measurement the gate must refuse rather than read as zero survivors."""
+    root = _fake_root(tmp_path)
+    _fake_module(root, MODULE, {ADD_1: None, ADD_2: 2, ADD_3: 1, SIZE_1: 1})
+
+    result = read_module_results(MODULE, root=root)
+
+    assert result.unchecked == [ADD_1, ADD_2]
+    assert result.survivors == set()
+
+
+def test_read_module_results_missing_meta_raises(tmp_path):
+    """No .meta is no measurement; it must never parse as a clean module."""
+    root = _fake_root(tmp_path)
+    (root / "mutants" / "research_vault").mkdir(parents=True)
+    with pytest.raises(FileNotFoundError):
+        read_module_results(MODULE, root=root)
+
+
+# --- baseline compare --------------------------------------------------------
 
 
 def test_new_survivors_ignores_baselined_keys():
-    baseline = {
-        'research_vault/selectors.py::func/_norm_with_map::char == "-" -> char != "-"',
-    }
-    found = parse_survivors("research_vault/selectors.py", SAMPLE_OUTPUT)
-    fresh = new_survivors(found, baseline)
-    assert fresh == {
-        "research_vault/selectors.py::func/find_context::position < 0 -> position <= 0",
-        "research_vault/selectors.py::func/find_context::end < len(text) -> end <= len(text)",
-    }
+    assert new_survivors({KEY_ADD_1, KEY_SIZE_1}, {KEY_ADD_1}) == {KEY_SIZE_1}
 
 
 def test_baseline_round_trip(tmp_path: Path):
     path = tmp_path / "mutation-baseline.txt"
-    keys = {"b::func/x::1 -> 0", "a::func/y::True -> False"}
+    keys = {KEY_ADD_1, KEY_SIZE_1}
     path.write_text("\n".join(sorted(keys)) + "\n", encoding="utf-8")
     assert baseline_keys(path) == keys
 
@@ -143,25 +235,26 @@ def test_baseline_missing_file_is_empty(tmp_path: Path):
     assert baseline_keys(tmp_path / "absent.txt") == set()
 
 
-def test_baseline_keys_skips_comment_header(tmp_path: Path):
-    """A written baseline may start with a '#' exclusion header (see
-    _baseline_header) -- it must round-trip as metadata, never as a key."""
+def test_baseline_keys_skips_comment_header_and_tolerates_module_keys(tmp_path):
+    """A '#' header is metadata, never a key; a `::module::` key from the
+    mutate4py era is still a line (mutmut never produces one, so it simply
+    never matches a found survivor)."""
     path = tmp_path / "mutation-baseline.txt"
-    keys = {"b::func/x::1 -> 0", "a::func/y::True -> False"}
-    header = (
-        "# mutation-baseline.txt -- 1 module(s) excluded (see "
-        "mutation-exclusions.txt), not represented below: "
-        "research_vault/gitstate.py\n"
+    path.write_text(
+        "# mutation-baseline.txt -- header\n\n"
+        f"{KEY_ADD_1}\n"
+        "research_vault/inbox.py::module::True -> False\n",
+        encoding="utf-8",
     )
-    path.write_text(header + "\n" + "\n".join(sorted(keys)) + "\n", encoding="utf-8")
-    assert baseline_keys(path) == keys
+    assert baseline_keys(path) == {
+        KEY_ADD_1,
+        "research_vault/inbox.py::module::True -> False",
+    }
 
 
 def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     """The one function deciding whether the gate ever runs must be proven live:
     a wrong pathspec makes the diff silently empty and the gate passes forever."""
-    import subprocess
-
     repo = tmp_path / "repo"
     (repo / "research_vault").mkdir(parents=True)
 
@@ -183,501 +276,495 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     assert changed_modules("main", cwd=repo) == ["research_vault/x.py"]
 
 
-def _run_baseline(
-    monkeypatch,
-    tmp_path: Path,
-    out_dir: Path,
-    memory_cap: str | None = None,
-    exclusions_path: Path | None = None,
+# --- the mutmut invocation ---------------------------------------------------
+
+
+def _completed(cmd, code: int = 0) -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(cmd, code, stdout="mutmut out", stderr="")
+
+
+def test_run_mutmut_invokes_the_launcher_with_pattern_env_and_cwd(
+    tmp_path, monkeypatch
+):
+    """The launcher shim, the module's name pattern, --max-children passed
+    through, cwd at the repo root (mutmut reads [tool.mutmut] from the cwd),
+    PYTHONDONTWRITEBYTECODE=1, and the shims directory PREPENDED to PYTHONPATH
+    as an absolute path: test subprocesses change cwd, so a relative entry
+    would stop resolving in exactly the processes sitecustomize exists for."""
+    root = _fake_root(tmp_path)
+    seen: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        seen.update(kwargs)
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setenv("PYTHONPATH", "/elsewhere")
+
+    out, code = mutation_gate._run_mutmut("research_vault/x.py", 6, root=root)
+
+    assert (out, code) == ("mutmut out", 0)
+    assert seen["cmd"] == [
+        sys.executable,
+        str(mutation_gate.LAUNCHER),
+        "research_vault.x.*",
+        "--max-children",
+        "6",
+    ]
+    assert mutation_gate.LAUNCHER.is_absolute()
+    assert seen["cwd"] == root
+    env = seen["env"]
+    assert env["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert env["PYTHONPATH"] == f"{mutation_gate.SHIMS}{os.pathsep}/elsewhere"
+    assert mutation_gate.SHIMS.is_absolute()
+    assert "PATH" in env  # inherited, not replaced
+
+
+def test_run_mutmut_sweeps_pycache_before_invoking(tmp_path, monkeypatch):
+    """PYTHONDONTWRITEBYTECODE blocks writing a pyc, not loading one: CPython
+    validates on (mtime, size), and a same-length edit inside one mtime
+    second reuses stale bytecode. The sweep removes what the env var cannot,
+    under all three trees, before every invocation."""
+    root = _fake_root(tmp_path)
+    caches = [
+        root / "research_vault" / "__pycache__",
+        root / "tests" / "__pycache__",
+        root / "mutants" / "research_vault" / "__pycache__",
+        root / "mutants" / "tests" / "sub" / "__pycache__",
+    ]
+    for cache in caches:
+        cache.mkdir(parents=True)
+        (cache / "x.cpython-312.pyc").write_bytes(b"stale")
+    (root / "research_vault" / "x.py").write_text("A = 1\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        assert not any(cache.exists() for cache in caches), "sweep must precede"
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+    assert (root / "research_vault" / "x.py").exists()  # source untouched
+
+
+def test_run_mutmut_fails_loudly_when_the_source_tree_changes(tmp_path, monkeypatch):
+    """mutmut never edits the source (schemata live in mutants/); the hash
+    check is the proof. A change under research_vault/ or tests/ during the
+    invocation aborts the measurement instead of reporting on a tree that
+    is not the one being gated."""
+    root = _fake_root(tmp_path)
+    source = root / "research_vault" / "x.py"
+    source.write_text("A = 1\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        source.write_text("A = 2\n", encoding="utf-8")
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(SourceTreeChangedError, match=r"research_vault/x\.py"):
+        mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+
+
+def test_run_mutmut_hash_ignores_bytecode_written_during_the_run(tmp_path, monkeypatch):
+    """The hash covers tracked source, not __pycache__: a pyc some child wrote
+    anyway is not a source change."""
+    root = _fake_root(tmp_path)
+    (root / "tests" / "test_x.py").write_text("def test(): pass\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        cache = root / "tests" / "__pycache__"
+        cache.mkdir()
+        (cache / "test_x.cpython-312.pyc").write_bytes(b"pyc")
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+
+
+# --- main(): --update-baseline, --out-dir, --only ------------------------------
+
+
+def _fake_measurement(root: Path, monkeypatch, calls: list[str] | None = None):
+    """Make _run_mutmut a no-op that reports success; the module's artifacts
+    must already be in place (see _fake_module) so the real reader runs."""
+
+    def fake_run_mutmut(relpath, max_children, root=root):
+        if calls is not None:
+            calls.append(relpath)
+        return "mutmut out", 0
+
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
+
+
+def _argv_baseline(
+    monkeypatch, root: Path, out_dir: Path | None = None, only: list[str] = ()
 ) -> Path:
-    """Shared argv wiring for the --out-dir tests below: --lcov's value is never
-    read (the fake _run_mutate ignores it), so any placeholder string does.
-
-    --exclusions defaults to a tmp_path file that is never created, so these
-    tests stay isolated from the real, committed mutation-exclusions.txt at the
-    repo root -- without this override, a fake module name that happens to
-    collide with a genuinely excluded one (e.g. "research_vault/selectors.py",
-    used as the sample module throughout this file) would be silently skipped
-    instead of exercising the code path each test means to hit.
-    """
-    baseline_path = tmp_path / "mutation-baseline.txt"
-    if exclusions_path is None:
-        exclusions_path = tmp_path / "absent-exclusions.txt"
-    argv = [
-        "mutation_gate.py",
-        "--update-baseline",
-        "--lcov",
-        "unused.info",
-        "--baseline",
-        str(baseline_path),
-        "--out-dir",
-        str(out_dir),
-        "--exclusions",
-        str(exclusions_path),
-    ]
-    if memory_cap is not None:
-        argv += ["--memory-cap", memory_cap]
+    baseline_path = root / "mutation-baseline.txt"
+    argv = ["mutation_gate.py", "--update-baseline", "--baseline", str(baseline_path)]
+    if out_dir is not None:
+        argv += ["--out-dir", str(out_dir)]
+    for module in only:
+        argv += ["--only", module]
     monkeypatch.setattr(sys, "argv", argv)
     return baseline_path
 
 
-def _run_gate(monkeypatch, tmp_path: Path, exclusions_path: Path | None = None) -> Path:
-    """Gate-mode counterpart to _run_baseline, same --exclusions isolation
-    rationale. baseline_path is returned unwritten (a missing baseline means
-    "empty", per baseline_keys()) unless a test writes to it first."""
-    baseline_path = tmp_path / "mutation-baseline.txt"
-    if exclusions_path is None:
-        exclusions_path = tmp_path / "absent-exclusions.txt"
-    argv = [
-        "mutation_gate.py",
-        "--lcov",
-        "unused.info",
-        "--baseline",
-        str(baseline_path),
-        "--exclusions",
-        str(exclusions_path),
-    ]
-    monkeypatch.setattr(sys, "argv", argv)
-    return baseline_path
-
-
-def test_out_dir_skips_module_with_recorded_success(tmp_path: Path, monkeypatch):
-    """The whole point of --out-dir: a resumed run must not redo work a prior
-    run already finished and recorded."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    module = "research_vault/selectors.py"
-    (out_dir / "research_vault__selectors.py.stdout").write_text(
-        SAMPLE_OUTPUT, encoding="utf-8"
+def _argv_gate(monkeypatch, root: Path) -> Path:
+    baseline_path = root / "mutation-baseline.txt"
+    monkeypatch.setattr(
+        sys, "argv", ["mutation_gate.py", "--baseline", str(baseline_path)]
     )
-    (out_dir / "research_vault__selectors.py.exit").write_text("0", encoding="utf-8")
+    return baseline_path
+
+
+def test_update_baseline_writes_every_survivor_and_names_the_no_tests_gap(
+    tmp_path, monkeypatch, capsys
+):
+    root = _fake_root(tmp_path)
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 1})
+    _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 0
+    assert baseline_keys(baseline_path) == {
+        KEY_ADD_1.replace(MODULE, a),
+        KEY_SIZE_1.replace(MODULE, b),
+    }
+    out = capsys.readouterr().out
+    assert f"[baseline] {a}: ok" in out
+    assert "no tests 1" in out  # the per-module gap, visible in the module line
+
+
+def test_update_baseline_refuses_to_write_when_a_module_errors(
+    tmp_path, monkeypatch, capsys
+):
+    """The Q1 guard: a module mutmut did not finish has no survivor list, and
+    an empty contribution is not a clean one."""
+    root = _fake_root(tmp_path)
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_measurement(root, monkeypatch)
+
+    def fake_run_mutmut(relpath, max_children, root=root):
+        return "mutmut out", 1 if relpath == b else 0
+
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    out = capsys.readouterr().out
+    assert f"[baseline] FAIL {b}" in out
+    assert "[baseline]   error (1): research_vault/b.py" in out
+
+
+def test_update_baseline_refuses_to_write_on_an_unchecked_mutant(
+    tmp_path, monkeypatch, capsys
+):
+    """Exit 0 from mutmut is not enough: an interrupted run leaves unchecked
+    mutants behind and still exits 0."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: None, ADD_3: 1, SIZE_1: 1})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    assert "not checked" in capsys.readouterr().out
+
+
+def test_update_baseline_refuses_to_write_when_meta_is_missing(tmp_path, monkeypatch):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    (root / "mutants" / "research_vault").mkdir(parents=True)
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+
+
+def test_timeouts_are_reported_by_name_and_never_written(tmp_path, monkeypatch, capsys):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 36, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 0
+    assert baseline_keys(baseline_path) == {KEY_SIZE_1.replace(MODULE, a)}
+    out = capsys.readouterr().out
+    assert "timeout" in out
+    assert "research_vault.a.x_add__mutmut_1" in out
+    assert KEY_ADD_1.replace(MODULE, a) in out
+
+
+def test_out_dir_skips_module_with_recorded_success(tmp_path, monkeypatch):
+    """The whole point of --out-dir: a resumed run must not redo work a prior
+    run already finished and recorded -- and the baseline is assembled from the
+    RECORD, not from mutants/ (mutant ids renumber and mutants/ regenerates)."""
+    root = _fake_root(tmp_path)
+    out_dir = root / "records"
+    out_dir.mkdir()
+    a = "research_vault/a.py"
+    recorded = ModuleResult(
+        survivors={KEY_ADD_2.replace(MODULE, a)},
+        counts={"survived": 1, "killed": 3},
+        flagged=[],
+        unchecked=[],
+    )
+    mutation_gate._write_record(out_dir, a, "old out", 0, "ok", recorded)
 
     def fail_if_called(*_args, **_kwargs):
         raise AssertionError("a recorded success must not be re-run")
 
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fail_if_called)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
-    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir)
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fail_if_called)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root, out_dir)
 
     assert mutation_gate.main() == 0
-    # Assembled from the *recorded* stdout, not a fresh run -- proves the baseline
-    # is built by reading records back, not merely that _run_mutate was skipped.
-    assert baseline_keys(baseline_path) == parse_survivors(module, SAMPLE_OUTPUT)
+    assert baseline_keys(baseline_path) == recorded.survivors
 
 
-def test_out_dir_reruns_module_with_recorded_failure(tmp_path: Path, monkeypatch):
-    out_dir = tmp_path / "records"
+def test_out_dir_reruns_module_with_recorded_failure(tmp_path, monkeypatch):
+    root = _fake_root(tmp_path)
+    out_dir = root / "records"
     out_dir.mkdir()
-    module = "research_vault/selectors.py"
-    (out_dir / "research_vault__selectors.py.stdout").write_text("", encoding="utf-8")
-    (out_dir / "research_vault__selectors.py.exit").write_text("4", encoding="utf-8")
-
+    a = "research_vault/a.py"
+    (out_dir / "research_vault__a.py.stdout").write_text("", encoding="utf-8")
+    (out_dir / "research_vault__a.py.exit").write_text("1 error", encoding="utf-8")
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
     calls: list[str] = []
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        calls.append(relpath)
-        return SAMPLE_OUTPUT, 0
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
-    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir)
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root, out_dir)
 
     assert mutation_gate.main() == 0
-    assert calls == [module]
-    # Rewritten record now carries the class alongside the code -- proves a
-    # rerun's record isn't just overwritten, but overwritten in the new format.
-    assert (out_dir / "research_vault__selectors.py.exit").read_text(
-        encoding="utf-8"
-    ) == "0 ok"
-    assert baseline_keys(baseline_path) == parse_survivors(module, SAMPLE_OUTPUT)
-
-
-def test_out_dir_writes_no_baseline_when_a_module_still_fails(
-    tmp_path: Path, monkeypatch
-):
-    """The refusal policy is load-bearing: a partial --out-dir pass must never
-    yield a written baseline, same as without --out-dir."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    modules = ["research_vault/a.py", "research_vault/b.py"]
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        if relpath == "research_vault/a.py":
-            return "", 4
-        return SAMPLE_OUTPUT, 0
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
-    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir)
-
-    assert mutation_gate.main() == 1
-    assert not baseline_path.exists()
-
-
-def test_cap_kill_exit_code_classified_memcap_when_cap_in_effect(
-    tmp_path: Path, monkeypatch, capsys
-):
-    """The load-bearing distinction: a signal-death exit code under an active
-    --memory-cap is a memcap kill, not a generic error."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    module = "research_vault/selectors.py"
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert memory_cap == "8G"
-        return "", 137
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
-    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir, memory_cap="8G")
-
-    assert mutation_gate.main() == 1
-    assert not baseline_path.exists()
-    # The record on disk carries the class, not just the raw exit code.
-    assert (out_dir / "research_vault__selectors.py.exit").read_text(
-        encoding="utf-8"
-    ) == "137 memcap"
-    out = capsys.readouterr().out
-    assert "memcap" in out
-    assert "[baseline]   memcap (1)" in out
-
-
-def test_same_exit_code_classified_error_when_no_cap_in_effect(
-    tmp_path: Path, monkeypatch, capsys
-):
-    """Without --memory-cap, 137/143 carry no special meaning -- they must land
-    in the same unexplained-error bucket as exit 4, not be mislabelled memcap."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    module = "research_vault/selectors.py"
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert memory_cap is None
-        return "", 137
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
-    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir)
-
-    assert mutation_gate.main() == 1
-    assert not baseline_path.exists()
-    assert (out_dir / "research_vault__selectors.py.exit").read_text(
-        encoding="utf-8"
-    ) == "137 error"
-    out = capsys.readouterr().out
-    assert "[baseline]   error (1)" in out
-    assert "memcap" not in out
-
-
-def test_summary_reports_memcap_and_error_separately(
-    tmp_path: Path, monkeypatch, capsys
-):
-    """Two failure classes in one run must be counted and listed on separate
-    summary lines, never blended into a single failure count."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    modules = ["research_vault/a.py", "research_vault/b.py"]
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        if relpath == "research_vault/a.py":
-            return "", 137  # memcap, under an active cap
-        return "", 4  # unrelated error
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
-    baseline_path = _run_baseline(monkeypatch, tmp_path, out_dir, memory_cap="512M")
-
-    assert mutation_gate.main() == 1
-    assert not baseline_path.exists()
-    out = capsys.readouterr().out
-    assert "[baseline]   memcap (1): research_vault/a.py" in out
-    assert "[baseline]   error (1): research_vault/b.py" in out
-
-
-def test_memory_cap_wraps_invocation_in_systemd_run_scope(monkeypatch):
-    """--memory-cap must actually change the invoked command -- without this,
-    the classification logic above would be trusting a flag that does nothing."""
-    captured: list[list[str]] = []
-
-    class FakeCompletedProcess:
-        stdout = ""
-        stderr = ""
-        returncode = 0
-
-    def fake_subprocess_run(cmd, **kwargs):
-        captured.append(cmd)
-        return FakeCompletedProcess()
-
-    monkeypatch.setattr(mutation_gate.subprocess, "run", fake_subprocess_run)
-
-    mutation_gate._run_mutate("research_vault/x.py", "lcov.info", [], 4, "8G")
-    assert captured[-1][:6] == [
-        "systemd-run",
-        "--user",
-        "--scope",
-        "-p",
-        "MemoryMax=8G",
-        "-p",
-    ]
-    assert "MemorySwapMax=0" in captured[-1]
-    assert sys.executable in captured[-1]
-
-    mutation_gate._run_mutate("research_vault/x.py", "lcov.info", [], 4)
-    assert captured[-1][0] == sys.executable
-
-
-def test_run_mutate_disables_bytecode_writing(monkeypatch):
-    """Removes a false-SURVIVOR window, which is worse than any abort.
-
-    A timestamp-based .pyc is validated on (mtime, size) alone, and the common
-    mutations are same-length token swaps (`==` -> `!=`). A .pyc written and a
-    mutant applied inside one filesystem-timestamp tick collide on both fields,
-    so the child imports stale bytecode, never exercises the mutant, and records
-    it as survived. This is pinned by a test because an env var that stops being
-    passed fails silently -- and its failure mode is a quietly wrong baseline,
-    not a crash.
-    """
-    seen: dict[str, str] = {}
-
-    def fake_run(cmd, **kwargs):
-        seen.update(kwargs.get("env") or {})
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    mutation_gate._run_mutate("research_vault/x.py", "lcov.info", [], 4)
-    assert seen.get("PYTHONDONTWRITEBYTECODE") == "1"
-    # Inherited, not replaced: mutate4py resolves its own interpreter and tools
-    # through the ambient environment.
-    assert "PATH" in seen
-
-
-# --- mutation-exclusions.txt: parsing --------------------------------------
-
-
-def test_parse_exclusions_missing_file_is_empty_with_warning(tmp_path, capsys):
-    """Absent file (bad --exclusions path, or a checkout predating this
-    feature) degrades to zero exclusions rather than aborting either mode --
-    but never silently: a warning is printed, not just an empty dict returned."""
-    result = mutation_gate.parse_exclusions(tmp_path / "absent.txt")
-    assert result == {}
-    assert "WARNING" in capsys.readouterr().out
-
-
-def test_parse_exclusions_tolerates_comments_and_blank_lines(tmp_path: Path):
-    path = tmp_path / "mutation-exclusions.txt"
-    path.write_text(
-        "# header comment\n"
-        "\n"
-        "research_vault/gitstate.py::B::module import breaks\n"
-        "\n"
-        "# trailing comment\n",
-        encoding="utf-8",
+    assert calls == [a]
+    assert (out_dir / "research_vault__a.py.exit").read_text(encoding="utf-8") == "0 ok"
+    assert (out_dir / "research_vault__a.py.stdout").read_text(encoding="utf-8") == (
+        "mutmut out"
     )
-    assert mutation_gate.parse_exclusions(path) == {
-        "research_vault/gitstate.py": ("B", "module import breaks"),
-    }
+    assert baseline_keys(baseline_path) == {KEY_ADD_1.replace(MODULE, a)}
 
 
-def test_parse_exclusions_malformed_line_raises(tmp_path: Path):
-    """A corrupt committed file could silently drop a module's excluded status
-    -- exactly the undetectable hole the list exists to close -- so a line that
-    doesn't split into three '::'-separated fields fails loudly instead."""
-    path = tmp_path / "mutation-exclusions.txt"
-    path.write_text("research_vault/gitstate.py::B\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="malformed"):
-        mutation_gate.parse_exclusions(path)
-
-
-def test_committed_exclusions_file_parses_and_names_the_known_six():
-    """Sanity check on the real, repo-root mutation-exclusions.txt (not a
-    fixture): it must parse cleanly under the same parser the gate uses, and
-    must still list the six modules established by investigation -- catches
-    a hand-edit that breaks the format or silently drops an entry."""
-    exclusions = mutation_gate.parse_exclusions(
-        mutation_gate.ROOT / "mutation-exclusions.txt"
-    )
-    assert set(exclusions) == {
-        "research_vault/events.py",
-        "research_vault/frontmatter.py",
-        "research_vault/gitstate.py",
-        "research_vault/outcome.py",
-        "research_vault/pathcodec.py",
-        "research_vault/selectors.py",
-    }
-
-
-# --- mutation-exclusions.txt: --update-baseline -----------------------------
-
-
-def test_excluded_module_is_skipped_and_does_not_block_write(
-    tmp_path: Path, monkeypatch
-):
-    """The whole point of the exclusion list: a module known to be
-    unmeasurable must not be run, and must not count as a failure that blocks
-    the write."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    exclusions_path = tmp_path / "mutation-exclusions.txt"
-    exclusions_path.write_text(
-        "research_vault/a.py::A::collection-time reacher, reproduced in isolation\n",
-        encoding="utf-8",
-    )
-    modules = ["research_vault/a.py", "research_vault/b.py"]
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert relpath != "research_vault/a.py", "excluded module must not run"
-        return SAMPLE_OUTPUT, 0
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
-    baseline_path = _run_baseline(
-        monkeypatch, tmp_path, out_dir, exclusions_path=exclusions_path
-    )
-
-    assert mutation_gate.main() == 0
-    written = baseline_path.read_text(encoding="utf-8")
-    # Excluded module never contributed keys -- only b's SAMPLE_OUTPUT did.
-    assert baseline_keys(baseline_path) == parse_survivors(
-        "research_vault/b.py", SAMPLE_OUTPUT
-    )
-    # The exclusion travels into the baseline file itself, not just stdout.
-    assert "research_vault/a.py" in written.splitlines()[0]
-
-
-def test_excluded_module_skip_does_not_mask_a_real_failure(tmp_path: Path, monkeypatch):
-    """Exclusions must not become a general-purpose escape hatch: a module NOT
-    on the list that still fails must block the write exactly as before."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    exclusions_path = tmp_path / "mutation-exclusions.txt"
-    exclusions_path.write_text("research_vault/a.py::A::reason\n", encoding="utf-8")
-    modules = ["research_vault/a.py", "research_vault/b.py"]
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert relpath == "research_vault/b.py"
-        return "", 4
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: modules)
-    baseline_path = _run_baseline(
-        monkeypatch, tmp_path, out_dir, exclusions_path=exclusions_path
-    )
-
-    assert mutation_gate.main() == 1
-    assert not baseline_path.exists()
-
-
-def test_exclusion_inventory_prints_even_when_empty(
-    tmp_path: Path, monkeypatch, capsys
-):
-    """The announcement is unconditional: it must appear even at zero
-    exclusions, so it can never be read only when there happens to be news."""
-    out_dir = tmp_path / "records"
-    out_dir.mkdir()
-    exclusions_path = tmp_path / "mutation-exclusions.txt"
-    exclusions_path.write_text("# nothing excluded yet\n", encoding="utf-8")
-    module = "research_vault/selectors.py"
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        return SAMPLE_OUTPUT, 0
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [module])
-    _run_baseline(monkeypatch, tmp_path, out_dir, exclusions_path=exclusions_path)
-
-    assert mutation_gate.main() == 0
-    assert "[baseline] 0 module(s) excluded" in capsys.readouterr().out
-
-
-# --- mutation-exclusions.txt: gate mode -------------------------------------
-
-
-def test_gate_reports_excluded_changed_module_without_failing(
-    tmp_path: Path, monkeypatch, capsys
-):
-    """Exit-code decision for the advisory lane: an excluded changed module
-    must not fail the gate by itself (the tooling defect isn't the change's
-    fault), but the pass line must name it -- never the bare, unqualified
-    "pass — no new survivors" that would read as a clean verification."""
-    exclusions_path = tmp_path / "mutation-exclusions.txt"
-    exclusions_path.write_text(
-        "research_vault/selectors.py::unexplained::reason\n", encoding="utf-8"
-    )
-    module = "research_vault/selectors.py"
-
-    def fail_if_called(*_args, **_kwargs):
-        raise AssertionError("excluded module must not be run in gate mode either")
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fail_if_called)
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [module])
-    _run_gate(monkeypatch, tmp_path, exclusions_path=exclusions_path)
-
-    assert mutation_gate.main() == 0
-    out = capsys.readouterr().out
-    lines = out.splitlines()
-    assert f"[gate] {module}: excluded [unexplained] -- reason" in lines
-    assert "[gate] pass — no new survivors" not in lines
-    assert any(
-        line.startswith("[gate] pass") and "NOT MEASURED" in line for line in lines
-    )
-
-
-def test_gate_still_fails_on_a_fresh_survivor_alongside_an_excluded_module(
-    tmp_path: Path, monkeypatch
-):
-    """Exclusion of one changed module must not blanket-pass the run: a fresh
-    survivor in a different changed, non-excluded module still fails the gate."""
-    exclusions_path = tmp_path / "mutation-exclusions.txt"
-    exclusions_path.write_text(
-        "research_vault/selectors.py::unexplained::reason\n", encoding="utf-8"
-    )
-    excluded = "research_vault/selectors.py"
-    changed = "research_vault/other.py"
-
-    def fake_run_mutate(relpath, lcov, extra, max_workers, memory_cap=None):
-        assert relpath == changed, "excluded module must not run"
-        return SAMPLE_OUTPUT.replace("research_vault/selectors.py", changed), 0
-
-    monkeypatch.setattr(mutation_gate, "_run_mutate", fake_run_mutate)
-    monkeypatch.setattr(
-        mutation_gate, "changed_modules", lambda base: [changed, excluded]
-    )
-    _run_gate(monkeypatch, tmp_path, exclusions_path=exclusions_path)
-
-    assert mutation_gate.main() == 1
-
-
-def test_restore_if_left_mutated_undoes_an_interrupted_runs_mutation(
+def test_out_dir_reruns_an_interrupted_module_recorded_with_exit_zero(
     tmp_path, monkeypatch
 ):
-    """A signal-killed mutate4py leaves production source MUTATED.
+    """The record an interrupted run leaves behind is "0 error" with unchecked
+    mutants: exit 0 no longer implies ok, so a resume must re-run it rather
+    than merge its partial survivor list into the baseline."""
+    root = _fake_root(tmp_path)
+    out_dir = root / "records"
+    out_dir.mkdir()
+    a = "research_vault/a.py"
+    partial = ModuleResult(
+        survivors=set(), counts={"killed": 1}, unchecked=[ADD_2.replace("fake", "a")]
+    )
+    mutation_gate._write_record(out_dir, a, "interrupted", 0, "error", partial)
+    assert (out_dir / "research_vault__a.py.exit").read_text(encoding="utf-8") == (
+        "0 error"
+    )
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    calls: list[str] = []
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root, out_dir)
 
-    This is not defensive coding: a timeout-killed run left `index += 1` ->
-    `index += 0` in selectors._norm_with_map, and the next ordinary pytest run
-    allocated until the VM died. The .bak is mutate4py's own pre-mutation copy,
-    so restoring from it -- rather than from git -- cannot destroy legitimate
-    uncommitted edits.
-    """
-    monkeypatch.setattr(mutation_gate, "ROOT", tmp_path)
-    (tmp_path / "research_vault").mkdir()
-    source = tmp_path / "research_vault" / "x.py"
-    source.write_text("index += 0\n", encoding="utf-8")  # the mutant left behind
-    (tmp_path / "research_vault" / "x.py.bak").write_text(
-        "index += 1\n", encoding="utf-8"
+    assert mutation_gate.main() == 0
+    assert calls == [a]
+    assert baseline_keys(baseline_path) == {KEY_ADD_1.replace(MODULE, a)}
+
+
+def test_out_dir_writes_no_baseline_when_a_module_still_fails(tmp_path, monkeypatch):
+    root = _fake_root(tmp_path)
+    out_dir = root / "records"
+    out_dir.mkdir()
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_measurement(root, monkeypatch)
+
+    def fake_run_mutmut(relpath, max_children, root=root):
+        return "", 1 if relpath == a else 0
+
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
+    baseline_path = _argv_baseline(monkeypatch, root, out_dir)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    assert (out_dir / "research_vault__a.py.exit").read_text(encoding="utf-8") == (
+        "1 error"
     )
 
-    assert mutation_gate._restore_if_left_mutated("research_vault/x.py") is True
-    assert source.read_text(encoding="utf-8") == "index += 1\n"
-    assert not (tmp_path / "research_vault" / "x.py.bak").exists()
+
+def test_only_narrows_the_run_and_refuses_to_write_until_every_module_has_a_record(
+    tmp_path, monkeypatch, capsys
+):
+    """--only runs the named module(s) and records them; the baseline is
+    written only once EVERY module has a usable record, so a narrowed run can
+    never produce a baseline with a module silently missing from it."""
+    root = _fake_root(tmp_path)
+    out_dir = root / "records"
+    out_dir.mkdir()
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    calls: list[str] = []
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
+
+    baseline_path = _argv_baseline(monkeypatch, root, out_dir, only=[a])
+    assert mutation_gate.main() == 1
+    assert calls == [a]
+    assert not baseline_path.exists()
+    assert (out_dir / "research_vault__a.py.exit").read_text(encoding="utf-8") == "0 ok"
+    out = capsys.readouterr().out
+    assert "[baseline]   not measured (1): research_vault/b.py" in out
+
+    _argv_baseline(monkeypatch, root, out_dir, only=[b])
+    assert mutation_gate.main() == 0
+    assert calls == [a, b]
+    assert baseline_keys(baseline_path) == {
+        KEY_ADD_1.replace(MODULE, a),
+        KEY_SIZE_1.replace(MODULE, b),
+    }
 
 
-def test_restore_if_left_mutated_is_a_noop_after_a_clean_run(tmp_path, monkeypatch):
-    """mutate4py removes the .bak when a module finishes, so no .bak means the
-    source was never left mutated -- and an untouched file must stay untouched."""
-    monkeypatch.setattr(mutation_gate, "ROOT", tmp_path)
-    (tmp_path / "research_vault").mkdir()
-    source = tmp_path / "research_vault" / "x.py"
-    source.write_text("index += 1\n", encoding="utf-8")
+def test_only_requires_update_baseline(tmp_path, monkeypatch):
+    root = _fake_root(tmp_path)
+    monkeypatch.setattr(
+        sys, "argv", ["mutation_gate.py", "--only", "research_vault/a.py"]
+    )
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    with pytest.raises(SystemExit) as exit_info:
+        mutation_gate.main()
+    assert exit_info.value.code == 2
 
-    assert mutation_gate._restore_if_left_mutated("research_vault/x.py") is False
-    assert source.read_text(encoding="utf-8") == "index += 1\n"
+
+def test_only_rejects_a_path_that_is_no_module(tmp_path, monkeypatch, capsys):
+    """A typo in --only must not become a run that measures nothing."""
+    root = _fake_root(tmp_path)
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: ["research_vault/a.py"])
+    _argv_baseline(monkeypatch, root, only=["research_vault/typo.py"])
+    with pytest.raises(SystemExit) as exit_info:
+        mutation_gate.main()
+    assert exit_info.value.code == 2
+    assert "research_vault/typo.py" in capsys.readouterr().err
+
+
+def test_source_tree_change_aborts_the_run_without_writing(
+    tmp_path, monkeypatch, capsys
+):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+
+    def fake_run_mutmut(relpath, max_children, root=root):
+        raise SourceTreeChangedError("research_vault/x.py changed")
+
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    assert "ABORT" in capsys.readouterr().out
+
+
+# --- main(): gate mode -------------------------------------------------------
+
+
+def test_gate_passes_with_no_changed_modules(tmp_path, monkeypatch, capsys):
+    root = _fake_root(tmp_path)
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [])
+    _argv_gate(monkeypatch, root)
+    assert mutation_gate.main() == 0
+    assert "no changed research_vault modules" in capsys.readouterr().out
+
+
+def test_gate_fails_on_a_survivor_absent_from_the_baseline(
+    tmp_path, monkeypatch, capsys
+):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    baseline_path = _argv_gate(monkeypatch, root)
+    baseline_path.write_text(KEY_ADD_1.replace(MODULE, a) + "\n", encoding="utf-8")
+
+    assert mutation_gate.main() == 1
+    out = capsys.readouterr().out
+    assert "[gate] FAIL — 1 new survivor(s):" in out
+    assert KEY_SIZE_1.replace(MODULE, a) in out
+
+
+def test_gate_passes_when_every_survivor_is_baselined(tmp_path, monkeypatch, capsys):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    baseline_path = _argv_gate(monkeypatch, root)
+    baseline_path.write_text(
+        KEY_ADD_1.replace(MODULE, a) + "\n" + KEY_SIZE_1.replace(MODULE, a) + "\n",
+        encoding="utf-8",
+    )
+
+    assert mutation_gate.main() == 0
+    assert "[gate] pass — no new survivors" in capsys.readouterr().out.splitlines()
+
+
+def test_gate_fails_when_a_module_errors(tmp_path, monkeypatch, capsys):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(
+        mutation_gate, "_run_mutmut", lambda relpath, max_children, root=root: ("", 1)
+    )
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    _argv_gate(monkeypatch, root)
+
+    assert mutation_gate.main() == 1
+    out = capsys.readouterr().out
+    assert f"[gate] {a}: error" in out
+    assert "[gate]   error (1): research_vault/a.py" in out
+
+
+# --- the suite's own mutant-awareness ----------------------------------------
+
+
+def test_package_ast_prunes_mutmut_siblings_at_module_and_class_level(tmp_path):
+    """Under the gate, an AST-inventory test reads mutmut's schemata copy of a
+    module; the mutant siblings' mutated literals must not enter the
+    inventory. Only the original's defs remain, at both levels."""
+    from tests.conftest import package_ast
+
+    path = tmp_path / "fake.py"
+    path.write_text(FAKE_SCHEMATA, encoding="utf-8")
+    tree = package_ast(path)
+    defs = [node.name for node in tree.body if isinstance(node, ast.FunctionDef)]
+    (box,) = (node for node in tree.body if isinstance(node, ast.ClassDef))
+    methods = [node.name for node in box.body if isinstance(node, ast.FunctionDef)]
+    assert defs == ["add"]
+    assert methods == ["size"]
+    returns = {
+        ast.unparse(node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Return) and node.value is not None
+    }
+    assert returns == {"a + b", "1"}

@@ -16,6 +16,7 @@ import pytest
 
 from research_vault import inbox
 from research_vault.frontmatter import FrontmatterError, parse
+from tests.conftest import package_ast
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPOSITORY / "skills"
@@ -202,7 +203,7 @@ def _code_spelled_identifiers() -> list[str]:
     """
     spelled: list[str] = []
     for module in sorted(PACKAGE_DIR.glob("*.py")):
-        tree = ast.parse(module.read_text(encoding="utf-8"))
+        tree = package_ast(module)
         prose = {
             id(node.value)
             for node in ast.walk(tree)
@@ -331,7 +332,7 @@ def _emitted_check_ids() -> set[str]:
     """
     emitted: set[str] = set()
     for module in sorted(PACKAGE_DIR.glob("*.py")):
-        tree = ast.parse(module.read_text(encoding="utf-8"))
+        tree = package_ast(module)
         constants = {
             target.id: node.value.value
             for node in tree.body

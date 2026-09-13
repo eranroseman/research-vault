@@ -11,6 +11,8 @@ sources/
 lcov.info
 # wildcard also matches mutate4py's <db>.test-context-cache.json sidecar
 .contexts.db*
+# mutmut's working copy: schemata, .meta results, stats cache (scripts/mutation_gate.py)
+mutants/
 
 # Python
 __pycache__/

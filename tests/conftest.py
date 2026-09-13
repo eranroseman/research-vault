@@ -1,6 +1,9 @@
+import ast
 import json as _json
 import os
+import re
 import subprocess
+from pathlib import Path
 from typing import AnyStr
 
 import pytest
@@ -15,6 +18,37 @@ def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyS
     """
     assert old in text, f"substitution target no longer in the fixture: {old!r}"
     return text.replace(old, new, count)
+
+
+# The generated siblings mutmut writes next to every function in its mutants/
+# copy of the package: `<mangled>__mutmut_<N>` carries one mutation each (a
+# literal among them), `<mangled>__mutmut_orig` is the pristine copy. The
+# trampoline stub keeps the original name and body.
+_MUTMUT_SIBLING = re.compile(r"__mutmut_(?:\d+|orig)$")
+
+
+def package_ast(path: Path) -> ast.Module:
+    """Parse a package module for inventory, mutmut's generated siblings pruned.
+
+    A test that reads literals or defs off a module's AST runs, under the
+    mutation gate, against mutmut's schemata copy of that module, where every
+    function has mutant siblings with mutated literals: a `Probe("XXidXX")`
+    among them would read as an ungoverned id. Pruning the siblings (module
+    level and inside class bodies) leaves exactly the original's defs.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+
+    def keep(node: ast.stmt) -> bool:
+        return not (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and _MUTMUT_SIBLING.search(node.name)
+        )
+
+    tree.body = [node for node in tree.body if keep(node)]
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            node.body = [child for child in node.body if keep(child)]
+    return tree
 
 
 def _with_body_witness(text):

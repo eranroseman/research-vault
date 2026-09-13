@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from research_vault import Result, paths, scaffold, zotero
+from tests.conftest import package_ast
 from tests.fakes import FakeZotero
 
 PROBE_NAMES = [
@@ -153,7 +154,7 @@ def _maybe_unreachable_probe_ids() -> set[str]:
     argument. A Probe whose result is written as any other expression — a
     variable, a NamedTuple field — can carry any result, so it counts too.
     """
-    tree = ast.parse(Path(scaffold.__file__).read_text(encoding="utf-8"))
+    tree = package_ast(Path(scaffold.__file__))
     ids: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or getattr(node.func, "id", None) != "Probe":

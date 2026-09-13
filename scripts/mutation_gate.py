@@ -1,142 +1,191 @@
-"""No-new-survivors mutation gate over mutate4py.
+"""No-new-survivors mutation gate over mutmut 3.7.0.
 
 Invoked explicitly as `python scripts/mutation_gate.py` — no shebang on purpose
 (EXE001 fires on a shebang in a non-executable file, and nothing execs this directly).
 
-Gate mode (default): mutation-test the research_vault files changed since --base,
-fail (exit 1) on any survivor whose key is absent from the committed baseline.
---update-baseline: blanket-run every research_vault module (--mutate-all) and
-rewrite the baseline file with every current survivor.
+Gate mode (default): mutation-test the research_vault modules changed since
+--base, fail (exit 1) on any survivor whose key is absent from the committed
+baseline. --update-baseline: measure every research_vault module and rewrite the
+baseline file with every current survivor; REFUSES to write if any module did
+not measure cleanly (a module mutmut did not finish has no survivor list, and an
+empty contribution is not a clean one -- writing it would put an undetectable
+hole in the baseline).
 
---out-dir (update-baseline only): per-module stdout+exit-code records written as
-each module finishes, so a blanket run killed partway through can resume instead
-of restarting from zero. A recorded exit 0 is reused without re-running; anything
-else -- no record, an unparseable exit file, or a recorded failure -- re-runs and
-overwrites both files. Gate mode ignores this flag.
+--out-dir (update-baseline only): per-module records (stdout, the derived
+survivor keys and counts as JSON, exit code + class) written as each module
+finishes, so a blanket run killed partway through resumes instead of restarting.
+A recorded "0 ok" is reused without re-running; anything else -- no record, an
+unparseable exit file, a recorded failure, or a record whose own body lists
+unchecked mutants -- re-runs and overwrites. The
+baseline is assembled from the RECORDS, not from mutants/: mutmut's mutant ids
+renumber on any edit and mutants/ regenerates, so only the derived keys are
+durable. --only RELPATH (repeatable, update-baseline only) narrows which modules
+this invocation runs; the write still requires every module to hold a usable
+record, and names the ones that do not. A recorded ok still wins over --only:
+to redo such a module, delete its .exit record first. Gate mode ignores
+--out-dir.
 
---memory-cap SIZE (either mode): wraps every mutate4py invocation in
-`systemd-run --user --scope -p MemoryMax=SIZE -p MemorySwapMax=0`, so the kernel
-kills a runaway invocation instead of the whole VM. Measured cause: mutate4py
-0.1.4's parallel path (--max-workers >= 2) leaks ~199 MB/s monotonically and has
-taken down this machine's VM before Linux's OOM-killer could react; the serial
-path (--max-workers 1) is memory-stable but ~9x slower. SIZE is passed through
-verbatim to MemoryMax= -- systemd owns that size grammar, not this script.
+Every module gets a class: "ok" (mutmut exited 0 and every selected mutant has
+a verdict) or "error" (a non-zero exit, no mutants/<relpath>.meta afterwards, or
+any mutant left "not checked" / "interrupted" -- mutmut swallows a
+KeyboardInterrupt and still exits 0, leaving null codes behind). An error is
+never zero survivors: it fails the gate and blocks the baseline write.
 
-Every module gets a failure class, not just a pass/fail bit: "ok" (exit 0),
-"memcap" (killed by the cap -- exit 137/143, and ONLY when --memory-cap was
-actually in effect for that invocation, since those same codes mean something
-else without one), or "error" (any other non-zero exit -- where the
-still-unexplained mutate4py exit-4 cases live). Keeping memcap out of that
-error bucket is deliberate: blending the two would contaminate a clean
-inventory with kills that already have a known cause. The class is recorded
-per module (out-dir record, progress line, end-of-run summary) but nothing
-here retries or falls back automatically -- --out-dir's existing resume rule
-already re-runs a recorded failure, so rerunning the same command with
---max-workers 1 serially re-runs exactly the cap-killed modules.
+How mutmut is driven. Each module is one invocation of
+scripts/mutmut_shims/run_mutmut.py (the launcher; see its header) with the name
+pattern `research_vault.<stem>.*` and --max-children passed through, cwd at the
+repo root because mutmut reads [tool.mutmut] from pyproject.toml in the cwd.
+mutmut copies source_paths + tests/ + pyproject.toml + also_copy into mutants/,
+generates every module's mutants there (once; cached by mtime), runs the whole
+suite in-process from mutants/ to learn which tests reach which function (the
+stats phase, cached in mutants/mutmut-stats.json), then forks one child per
+selected mutant running only the tests that reached that function. Results land
+in mutants/<relpath>.meta as `exit_code_by_key` and are classified through
+mutmut's own status_by_exit_code (0 survived; 1/3 killed; 5/33 no tests; 34
+skipped; 36 timeout; 2 interrupted; null not checked; the rest suspicious).
+Timeouts, suspicious and segfault verdicts are counted and reported by name
+(mutmut id and key) but are never survivors and never folded into killed.
 
---exclusions PATH (either mode, default mutation-exclusions.txt at the repo
-root): modules mutate4py 0.1.4 cannot measure AT ALL -- it aborts them
-identically at every worker count, so their "no Survivors: section" is a true
-absence of data, not a report of zero survivors. --update-baseline skips a
-listed module outright (never invoked, no wasted minutes) and still writes the
-baseline from everything else; a non-listed module that fails still blocks the
-write exactly as before -- the list narrows what gets measured, it does not
-loosen the refusal. Gate mode skips a listed CHANGED module the same way,
-rather than let it land in the error bucket above and fail every PR that
-merely touches one of these six for a cause outside the change -- but the skip
-is reported by name and the final "pass" line is qualified when it happens, so
-it can never read as a clean pass. The full exclusion set -- file, class,
-reason -- prints once near the start of every invocation of either mode,
-regardless of whether this run's modules intersect it: a gap you see every
-time stays a gap; a gap in a file becomes furniture.
+Two mutmut cache limits to know. (1) The stats cache re-collects only for NEW
+test names: an edited test body does not refresh which functions it reaches,
+so a test that starts covering a function keeps reading "no tests" for that
+function's mutants until mutants/ is deleted. (2) Non-.py files under
+source_paths are copied once; research_vault/templates is therefore listed in
+also_copy so it refreshes every invocation, but a deleted file lingers.
+`rm -rf mutants/` is the reset for both; CI starts from nothing.
 
-mutate4py exits 0 even when mutants survive, so pass/fail is parsed from the
-"Survivors:" report section. Baseline keys exclude line numbers on purpose:
-`<relpath>::<func-id>::<mutation>` stays stable across unrelated edits. A
-module-level site (mutate4py's `function_id` is "" for these -- no enclosing
-function) has no func-id to put there, so it keys as `<relpath>::module::
-<mutation>` instead: still stable, and the literal "module" can never collide
-with a real func-id, which is always `func/<name>`. A written baseline may
-start with a `#`-prefixed line recording which modules were excluded when it
-was built, so the file is self-describing on its own; baseline_keys() skips
-comment and blank lines so that header is never mistaken for a key.
-Always invokes mutate4py with --manifest-file (sidecar); the embedded manifest
-mode writes into production source files and is never acceptable here.
+Known measurement limit: coverage exercised only through a subprocess (a test
+running `python -m research_vault ...`, or a hook script) is invisible to the
+in-process stats phase, so those mutants read "no tests" -- never "survived".
+The per-module line and the end-of-run summary carry the "no tests" count so
+that gap stays visible rather than reading as strength.
+
+Stale-bytecode guard. PYTHONDONTWRITEBYTECODE=1 blocks WRITING a pyc, not
+loading one: CPython validates a timestamp pyc on (mtime, size) alone, and a
+same-length edit inside one mtime second reuses the previous bytecode. So
+before every invocation this sweeps __pycache__ under research_vault/, tests/
+and mutants/, and keeps the env var as belt. mutmut never edits the source
+(schemata live in mutants/), and the gate proves it: research_vault/ and tests/
+are hashed before and after every invocation and a difference aborts the run.
+
+Baseline keys exclude line numbers and mutmut's positional mutant ids on
+purpose: `<relpath>::func/<name>::<mutation>` stays stable across unrelated
+edits, where <name> is the function (or `<Class>.<method>`) from mutmut's
+orig_function_and_class_names_from_key, and <mutation> is the `-`/`+` lines of
+mutmut's get_diff_for_mutant unified diff -- file and hunk headers and context
+dropped, each line verbatim with its marker, joined by a literal backslash-n so
+a multi-line hunk is still one baseline line. What such a key can answer:
+"no NEW survivor" -- a survivor whose text was already baselined is not news.
+What it cannot answer: "the rewrite fixed the old ones" -- a function rewritten
+on a branch that still admits a baselined mutation text reads ok, and a
+baselined key whose function no longer exists stays in the file unnoticed until
+the next --update-baseline. mutmut does not mutate module scope, so the
+mutate4py-era `<relpath>::module::<mutation>` keys can no longer be produced;
+baseline_keys() still tolerates them as lines. A written baseline starts with a
+`#` header line; baseline_keys() skips comment and blank lines.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
+import json
 import os
-import re
+import shutil
 import subprocess
 import sys
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent  # repo root
-# func is OPTIONAL: mutate4py 0.1.4 omits the trailing " func/<name>" entirely
-# for a module-level (import-time) site (_discovery.Site.function_id is ""
-# there), so a survivor there prints as "  line 38 True -> False" with
-# nothing after the mutation text. mutation is non-greedy so it yields the
-# shortest text for which the rest of the line matches "func/<name>" exactly
-# to end-of-string -- that is what makes the split land on the real boundary
-# instead of swallowing part of a func id, or a func id swallowing part of
-# the mutation text.
-SURVIVOR_RE = re.compile(r"^\s+line \d+ (?P<mutation>.+?)(?: (?P<func>func/\S+))?$")
-_ENTRY_START_RE = re.compile(r"^\s+line \d+ ")
+SHIMS = ROOT / "scripts" / "mutmut_shims"
+LAUNCHER = SHIMS / "run_mutmut.py"
+# The trees mutmut must leave alone (hashed) and where stale bytecode could
+# hide (swept, together with mutants/).
+SOURCE_TREES = ("research_vault", "tests")
+# Verdicts that mean "measurement incomplete", not "mutant outcome".
+UNCHECKED_STATUSES = ("not checked", "check was interrupted by user")
 
 
-def parse_survivors(relpath: str, output: str) -> set[str]:
-    keys: set[str] = set()
-    in_section = False
-    pending: list[str] = []  # physical lines of the survivor entry in progress
+class SourceTreeChangedError(RuntimeError):
+    """research_vault/ or tests/ differed after a mutmut invocation."""
 
-    def flush() -> None:
-        # A long s.desc wraps across further-indented continuation lines (see
-        # the module docstring and the multi-line fixture in
-        # tests/test_mutation_gate.py) -- folded here into one logical entry
-        # by stripping each continuation and rejoining with a space, so the
-        # anchored SURVIVOR_RE (which only ever sees single-line text) still
-        # applies unchanged.
-        if not pending:
-            return
-        text = pending[0]
-        if len(pending) > 1:
-            text += " " + " ".join(part.strip() for part in pending[1:])
-        match = SURVIVOR_RE.match(text)
-        if match is None:
-            # Genuinely unparseable -- not module-level (func is optional
-            # above) and not a wrapped continuation (folded above). Same
-            # doctrine this script already applies to a non-zero mutate4py
-            # exit: an unreadable measurement must never read as zero
-            # survivors, so this raises instead of silently dropping the
-            # entry and everything after it.
-            raise ValueError(f"{relpath}: unparseable survivor entry: {text!r}")
-        func = match["func"] or "module"
-        keys.add(f"{relpath}::{func}::{match['mutation']}")
 
-    for line in output.splitlines():
-        if line.startswith("Survivors:"):
-            in_section = True
-            continue
-        if not in_section:
-            continue
-        if not line[:1].isspace():
-            # The section ends ONLY on a non-indented line (a blank line
-            # qualifies too: line[:1] on "" is "" and .isspace() on that is
-            # False) -- never on an indented line SURVIVOR_RE fails to match
-            # standalone, since that shape is exactly a wrapped continuation,
-            # not the end of the section.
-            flush()
-            pending.clear()
-            in_section = False
-            continue
-        if pending and _ENTRY_START_RE.match(line):
-            flush()
-            pending.clear()
-        pending.append(line)
-    flush()  # a Survivors: section may run to EOF with no trailing blank line
-    return keys
+@dataclass
+class ModuleResult:
+    survivors: set[str]
+    counts: dict[str, int]
+    # (status, mutmut id, key) for every timeout / suspicious / segfault verdict.
+    flagged: list[tuple[str, str, str]] = field(default_factory=list)
+    # mutmut ids left "not checked" or "interrupted": the module is an error.
+    unchecked: list[str] = field(default_factory=list)
+
+
+def _mutmut(root: Path) -> ModuleType:
+    # Imported lazily and from the repo root: mutmut 3.7.0 loads its config at
+    # import time from pyproject.toml in the CWD, and every reader in it
+    # resolves mutants/ relative to the cwd too.
+    with contextlib.chdir(root):
+        import mutmut.__main__ as mm
+    return mm
+
+
+def mutation_text(diff: str) -> str:
+    lines = diff.splitlines()
+    # unified_diff's two file-header lines (`--- path`, `+++ path`) come first
+    # and are dropped by position, so a removed code line that itself begins
+    # with "--" inside a hunk is never mistaken for one.
+    if lines[:1] and lines[0].startswith("---"):
+        lines = lines[1:]
+    if lines[:1] and lines[0].startswith("+++"):
+        lines = lines[1:]
+    body = [
+        line.rstrip()
+        for line in lines
+        if line[:1] in ("-", "+") and not line.startswith("@@")
+    ]
+    return "\\n".join(body)
+
+
+def mutation_key(relpath: str, mutant_name: str, diff: str) -> str:
+    mm = _mutmut(ROOT)
+    func, cls = mm.orig_function_and_class_names_from_key(mutant_name)
+    name = f"{cls}.{func}" if cls else func
+    return f"{relpath}::func/{name}::{mutation_text(diff)}"
+
+
+def read_module_results(relpath: str, root: Path = ROOT) -> ModuleResult:
+    """Everything the gate needs from mutants/<relpath>.meta, keyed durably.
+    Raises FileNotFoundError when there is no .meta: no measurement must never
+    read as zero survivors."""
+    meta_path = root / "mutants" / f"{relpath}.meta"
+    exit_code_by_key: dict[str, int | None] = json.loads(
+        meta_path.read_text(encoding="utf-8")
+    )["exit_code_by_key"]
+    mm = _mutmut(root)
+    result = ModuleResult(survivors=set(), counts={})
+    with contextlib.chdir(root):
+        for name, code in exit_code_by_key.items():
+            status = mm.status_by_exit_code[code]
+            result.counts[status] = result.counts.get(status, 0) + 1
+            if status in UNCHECKED_STATUSES:
+                result.unchecked.append(name)
+                continue
+            if status in ("killed", "no tests", "skipped", "caught by type check"):
+                continue
+            key = mutation_key(
+                relpath, name, mm.get_diff_for_mutant(name, path=relpath)
+            )
+            if status == "survived":
+                result.survivors.add(key)
+            else:
+                result.flagged.append((status, name, key))
+    return result
 
 
 def new_survivors(found: set[str], baseline: set[str]) -> set[str]:
@@ -146,42 +195,11 @@ def new_survivors(found: set[str], baseline: set[str]) -> set[str]:
 def baseline_keys(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    # "#" is the exclusion-header prefix _baseline_header writes -- skipped here
-    # so a written baseline's own self-description never parses back as a key.
     return {
         line
         for line in path.read_text(encoding="utf-8").splitlines()
         if line and not line.startswith("#")
     }
-
-
-def parse_exclusions(path: Path) -> dict[str, tuple[str, str]]:
-    """module -> (trigger class, one-line reason), read from mutation-exclusions.txt.
-    Comment ('#') and blank lines are tolerated by design -- the file is meant to be
-    read by a human without a guide. A missing file returns {} (nothing known to be
-    unmeasurable) rather than erroring: a bad --exclusions path or a checkout that
-    predates this file should degrade to "measure everything", not abort the gate --
-    but that is never silent, since it prints a warning here rather than just
-    returning quietly. A malformed line, by contrast, DOES raise: silently dropping
-    an entry would put back exactly the undetectable hole this whole list exists to
-    close, and a corrupt committed file is a bug worth failing loudly on."""
-    if not path.exists():
-        print(f"[exclusions] WARNING: {path} not found; treating as zero exclusions")
-        return {}
-    exclusions: dict[str, tuple[str, str]] = {}
-    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split("::", 2)
-        if len(parts) != 3:
-            raise ValueError(
-                f"{path}:{lineno}: malformed exclusion line (want "
-                f"<module>::<class>::<reason>): {raw!r}"
-            )
-        module, cls, reason = parts
-        exclusions[module] = (cls, reason)
-    return exclusions
 
 
 def changed_modules(base: str, cwd: Path = ROOT) -> list[str]:
@@ -217,373 +235,310 @@ def _all_modules() -> list[str]:
     )
 
 
-def _run_mutate(
-    relpath: str,
-    lcov: str,
-    extra: list[str],
-    max_workers: int,
-    memory_cap: str | None = None,
-) -> tuple[str, int]:
+def _sweep_pycache(root: Path) -> None:
+    for tree in (*SOURCE_TREES, "mutants"):
+        for cache in (root / tree).rglob("__pycache__"):
+            shutil.rmtree(cache, ignore_errors=True)
+
+
+def _tree_digest(root: Path) -> dict[str, str]:
+    """Per-file content hash of the source trees, __pycache__ excluded."""
+    digest: dict[str, str] = {}
+    for tree in SOURCE_TREES:
+        for path in sorted((root / tree).rglob("*")):
+            if "__pycache__" in path.parts or not path.is_file():
+                continue
+            digest[str(path.relative_to(root))] = hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+    return digest
+
+
+def _run_mutmut(relpath: str, max_children: int, root: Path = ROOT) -> tuple[str, int]:
+    pattern = relpath[: -len(".py")].replace("/", ".") + ".*"
     cmd = [
         sys.executable,
-        "-m",
-        "mutate4py",
-        relpath,
-        "--lcov",
-        lcov,
-        "--manifest-file",
-        "--max-workers",
-        str(max_workers),
-        *extra,
+        str(LAUNCHER),
+        pattern,
+        "--max-children",
+        str(max_children),
     ]
-    if memory_cap is not None:
-        # A systemd-run --user --scope cgroup makes the KERNEL enforce the
-        # ceiling, so a leaking invocation gets SIGKILLed on its own instead
-        # of exhausting host RAM+swap and taking the whole VM down with it
-        # (measured: ~155 MB/s leak, VM dead in ~3.5 minutes, unmitigated).
-        # MemorySwapMax=0 forbids paging near the limit -- letting it swap
-        # would just trade a fast kill for a slow one without fixing anything.
-        cmd = [
-            "systemd-run",
-            "--user",
-            "--scope",
-            "-p",
-            f"MemoryMax={memory_cap}",
-            "-p",
-            "MemorySwapMax=0",
-            "--quiet",
-            "--",
-            *cmd,
-        ]
-    # check=False deliberate: mutate4py exits 0 even with survivors, so the caller
-    # must inspect returncode itself rather than rely on an exception -- a mutate4py
-    # invocation that aborts (case-3 test-context disagreement, case-4 no test ran)
-    # also exits non-zero with NO "Survivors:" section, and is otherwise
-    # indistinguishable from a clean module with zero survivors. Returning the
-    # code (not raising) keeps that distinction visible to both call sites, which
-    # decide separately what a failed module means for their mode.
-    # PYTHONDONTWRITEBYTECODE removes a false-SURVIVOR window, which is worse than
-    # any abort: a timestamp-based .pyc is validated on (mtime, size) alone, and the
-    # common mutations are same-length token swaps (== -> !=, + -> -, < -> >). A .pyc
-    # written and a mutant applied inside the same filesystem-timestamp tick therefore
-    # collide on both fields, so the child imports the STALE bytecode, never exercises
-    # the mutant, and records it as survived. mutate4py's forking executor guards this
-    # itself (_invalidate_bytecode_cache + sys.dont_write_bytecode); its subprocess
-    # fallback does not, and that fallback is silent. Writing no bytecode at all costs
-    # a recompile per run and removes the window on every path.
-    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    # sitecustomize.py in SHIMS must be found by every process of the run,
+    # including test subprocesses that chdir away: absolute, and prepended so
+    # it wins over anything already on PYTHONPATH.
+    inherited = os.environ.get("PYTHONPATH")
+    pythonpath = f"{SHIMS}{os.pathsep}{inherited}" if inherited else str(SHIMS)
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": pythonpath}
+    _sweep_pycache(root)
+    before = _tree_digest(root)
+    # check=False deliberate: the exit code is the module's class, decided by
+    # the caller, and a non-zero exit must reach it as data, not an exception.
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, cwd=ROOT, check=False, env=env
+        cmd, capture_output=True, text=True, cwd=root, check=False, env=env
     )
-    _restore_if_left_mutated(relpath)
+    after = _tree_digest(root)
     sys.stderr.write(proc.stderr)
+    if after != before:
+        changed = sorted(
+            path
+            for path in before.keys() | after.keys()
+            if before.get(path) != after.get(path)
+        )
+        raise SourceTreeChangedError(
+            f"{relpath}: the source tree changed during the mutmut invocation: "
+            + ", ".join(changed)
+        )
     return proc.stdout, proc.returncode
 
 
-def _restore_if_left_mutated(relpath: str) -> bool:
-    """Undo a mutation mutate4py did not live long enough to undo. Returns True
-    if it had to act.
-
-    mutate4py writes `<module>.py.bak` before applying a mutant and removes it
-    once the module finishes, so a surviving .bak means the run died mid-mutant
-    and the PRODUCTION SOURCE IS STILL MUTATED. That has already cost this repo a
-    machine: a timeout-killed run left `index += 1` -> `index += 0` in
-    selectors._norm_with_map -- an infinite loop appending to a list -- and the
-    next ordinary `pytest` invocation allocated until the VM died.
-
-    Restores from the .bak rather than from git ON PURPOSE: the .bak is the exact
-    pre-run content whatever it was, so this cannot destroy legitimate uncommitted
-    edits the way `git checkout --` would. Nothing here is silent: an interrupted
-    run that mutated production source is reported every time, because the same
-    condition also means whatever ran in between saw mutated code.
-    """
-    bak = ROOT / f"{relpath}.bak"
-    if not bak.exists():
-        return False
-    target = ROOT / relpath
-    print(
-        f"[restore] {relpath} was left MUTATED by an interrupted run; "
-        f"restoring from {bak.name}",
-        flush=True,
-    )
-    target.write_bytes(bak.read_bytes())
-    bak.unlink()
-    return True
+def _measure(
+    module: str, max_children: int
+) -> tuple[str, int, str, ModuleResult | None]:
+    """One module, start to finish: (stdout, exit code, class, result)."""
+    # ROOT passed explicitly (not left to the parameter defaults, which bind at
+    # definition time) so a monkeypatched ROOT reaches every reader.
+    out, code = _run_mutmut(module, max_children, ROOT)
+    if code != 0:
+        return out, code, "error", None
+    try:
+        result = read_module_results(module, ROOT)
+    except FileNotFoundError:
+        return out, code, "error", None
+    if result.unchecked:
+        return out, code, "error", result
+    return out, code, "ok", result
 
 
-def _classify(code: int, memory_cap: str | None) -> str:
-    # 137 (SIGKILL) / 143 (SIGTERM) mean "the memory cap killed this" only
-    # when a cap was actually wrapping the invocation -- without one those
-    # are ordinary signal deaths and belong with the rest of the unexplained
-    # non-zero exits (exit 4 among them), not mislabelled as a cap kill.
-    if code == 0:
-        return "ok"
-    if memory_cap is not None and code in (137, 143):
-        return "memcap"
-    return "error"
+def _describe(result: ModuleResult) -> str:
+    counts = dict(result.counts)
+    parts = [
+        f"{status} {counts.pop(status, 0)}"
+        for status in ("killed", "survived", "no tests")
+    ]
+    parts += [f"{status} {n}" for status, n in sorted(counts.items())]
+    return ", ".join(parts)
 
 
-def _print_exclusions(
-    prefix: str, exclusions: dict[str, tuple[str, str]], path: Path
+def _report(
+    prefix: str, module: str, cls: str, code: int, result: ModuleResult | None
 ) -> None:
-    # Unconditional -- called once per invocation regardless of mode, regardless
-    # of whether this run's modules intersect the list, and even at zero
-    # exclusions: "a gap you see every time stays a gap; a gap in a file becomes
-    # furniture." A reader scanning CI output for this run sees the measurement
-    # gap without having to go open mutation-exclusions.txt separately.
-    print(
-        f"{prefix} {len(exclusions)} module(s) excluded (unmeasurable by "
-        f"mutate4py 0.1.4; see {path}):"
-    )
-    for module in sorted(exclusions):
-        cls, reason = exclusions[module]
-        print(f"{prefix}   {module} [{cls}]: {reason}")
+    # Printed once the module's outcome is known -- cached or freshly run, ok
+    # or error -- so the class and the counts are visible per module, not only
+    # in the end-of-run summary.
+    if result is None:
+        print(f"{prefix} {module}: {cls} (mutmut exited {code}; no result read)")
+        return
+    print(f"{prefix} {module}: {cls} ({_describe(result)})")
+    for status, name, key in result.flagged:
+        print(f"{prefix}   {status} {name}  {key}")
+    if result.unchecked:
+        print(
+            f"{prefix}   not checked ({len(result.unchecked)}): "
+            + ", ".join(result.unchecked)
+        )
 
 
-def _baseline_header(exclusions: dict[str, tuple[str, str]]) -> str:
-    # Written into mutation-baseline.txt itself, not only stdout -- a reader with
-    # only the baseline file open (no run log, no mutation-exclusions.txt beside
-    # it) still cannot mistake a partial baseline for whole-tree coverage. Always
-    # present, even at zero exclusions, so a clean baseline states its own
-    # completeness rather than leaving it to be inferred from an absent header.
-    names = ", ".join(sorted(exclusions)) if exclusions else "none"
-    return (
-        f"# mutation-baseline.txt -- {len(exclusions)} module(s) excluded (see "
-        f"mutation-exclusions.txt), not represented below: {names}\n"
-    )
-
-
-def _record_paths(out_dir: Path, module: str) -> tuple[Path, Path]:
+def _record_paths(out_dir: Path, module: str) -> tuple[Path, Path, Path]:
     # "/" -> "__" (not "_") so a nested module can't collide with a differently
     # -nested module that happens to share a basename.
     stem = module.replace("/", "__")
-    return out_dir / f"{stem}.stdout", out_dir / f"{stem}.exit"
+    return (
+        out_dir / f"{stem}.stdout",
+        out_dir / f"{stem}.result.json",
+        out_dir / f"{stem}.exit",
+    )
 
 
-def _cached_stdout(out_dir: Path, module: str) -> str | None:
-    # The .exit file is the completion marker (written last by _write_record), so
-    # its absence or an unparseable body means no usable record -- a run killed
-    # mid-write left this pair incomplete. A parseable but non-zero exit is a
-    # recorded *failure*, not a cache hit: it is deliberately not returned here,
-    # so the caller re-runs it and _write_record overwrites both files.
-    stdout_path, exit_path = _record_paths(out_dir, module)
+def _cached_result(out_dir: Path, module: str) -> ModuleResult | None:
+    # The .exit file is the completion marker (written last by _write_record),
+    # so its absence or an unparseable body means no usable record -- a run
+    # killed mid-write left the set incomplete. Only "0 ok" is a cache hit:
+    # the class token is required because exit 0 no longer implies ok (an
+    # interrupted run records "0 error" with unchecked mutants), and a record
+    # whose own body lists unchecked mutants is refused as belt. Anything else
+    # is a recorded *failure*, and the caller re-runs it.
+    _stdout_path, result_path, exit_path = _record_paths(out_dir, module)
     try:
-        # Split rather than a bare int(): a pre-classification record ("0")
-        # and a classed one ("0 ok") both parse this way -- only the leading
-        # code decides cache-hit, so an old record needs no migration.
-        code = int(exit_path.read_text(encoding="utf-8").strip().split()[0])
-    except (OSError, ValueError, IndexError):
+        code, cls = exit_path.read_text(encoding="utf-8").split()[:2]
+        if (code, cls) != ("0", "ok"):
+            return None
+        data = json.loads(result_path.read_text(encoding="utf-8"))
+        result = ModuleResult(
+            survivors=set(data["survivors"]),
+            counts=data["counts"],
+            flagged=[(s, n, k) for s, n, k in data["flagged"]],
+            unchecked=list(data["unchecked"]),
+        )
+    except (OSError, ValueError, KeyError):
         return None
-    if code != 0:
-        return None
-    try:
-        return stdout_path.read_text(encoding="utf-8")
-    except OSError:
-        return None
+    return None if result.unchecked else result
 
 
-def _write_record(out_dir: Path, module: str, out: str, code: int, cls: str) -> None:
-    # stdout first, exit+class second: a run killed between the two writes leaves
-    # the .exit file missing, which _cached_stdout treats as no record at all --
-    # never as a false success or a false failure.
-    stdout_path, exit_path = _record_paths(out_dir, module)
+def _write_record(
+    out_dir: Path,
+    module: str,
+    out: str,
+    code: int,
+    cls: str,
+    result: ModuleResult | None,
+) -> None:
+    # stdout and result first, exit+class last: a run killed between the
+    # writes leaves the .exit file missing, which _cached_result treats as no
+    # record at all -- never as a false success or a false failure.
+    stdout_path, result_path, exit_path = _record_paths(out_dir, module)
     stdout_path.write_text(out, encoding="utf-8")
+    if result is not None:
+        data = asdict(result)
+        data["survivors"] = sorted(result.survivors)
+        result_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    else:
+        result_path.unlink(missing_ok=True)
     exit_path.write_text(f"{code} {cls}", encoding="utf-8")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--lcov", required=True, help="pre-generated branch-coverage LCOV"
-    )
-    parser.add_argument(
-        "--base", default="origin/main", help="gate mode: diff base ref"
-    )
-    parser.add_argument("--baseline", default=str(ROOT / "mutation-baseline.txt"))
-    parser.add_argument(
-        "--exclusions",
-        default=str(ROOT / "mutation-exclusions.txt"),
-        help="modules mutate4py 0.1.4 cannot measure at all; skipped in both "
-        "modes rather than treated as zero survivors",
-    )
-    parser.add_argument("--update-baseline", action="store_true")
-    parser.add_argument("--max-workers", type=int, default=4)
-    parser.add_argument(
-        "--test-contexts", default=None, help="optional contexts db for narrowing"
-    )
-    parser.add_argument(
-        "--out-dir",
-        default=None,
-        help="--update-baseline only: per-module stdout+exit records, for resuming "
-        "a killed blanket run instead of restarting it",
-    )
-    parser.add_argument(
-        "--memory-cap",
-        default=None,
-        help="wrap every mutate4py invocation in a systemd-run --user --scope "
-        "cgroup with MemoryMax=<this value>, verbatim (systemd's size grammar, "
-        "not parsed here); mutate4py's parallel path leaks memory unboundedly "
-        "without it",
-    )
-    args = parser.parse_args()
-
-    extra = ["--test-contexts", args.test_contexts] if args.test_contexts else []
-    baseline_path = Path(args.baseline)
-    exclusions_path = Path(args.exclusions)
-    exclusions = parse_exclusions(exclusions_path)
-    prefix = "[baseline]" if args.update_baseline else "[gate]"
-    _print_exclusions(prefix, exclusions, exclusions_path)
-
-    if args.update_baseline:
-        out_dir = Path(args.out_dir) if args.out_dir else None
-        if out_dir is not None:
-            out_dir.mkdir(parents=True, exist_ok=True)
-        keys: set[str] = set()
-        failed: list[tuple[str, str]] = []
-        for module in _all_modules():
-            if module in exclusions:
-                # Known-unmeasurable (mutation-exclusions.txt) -- skipped before
-                # ever invoking mutate4py, not merely excluded from the result:
-                # the refusal below exists to catch modules the tool silently
-                # couldn't check, not ones already known and explained not to be
-                # checkable. Contributes nothing to `keys` and nothing to `failed`.
-                cls, reason = exclusions[module]
-                print(f"[baseline] {module}: excluded [{cls}] -- {reason}")
+def _update_baseline(
+    baseline_path: Path, out_dir: Path | None, only: list[str], max_children: int
+) -> int:
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    keys: set[str] = set()
+    failed: list[str] = []
+    unmeasured: list[str] = []
+    no_tests: dict[str, int] = {}
+    for module in _all_modules():
+        cached = _cached_result(out_dir, module) if out_dir is not None else None
+        if cached is not None:
+            _report("[baseline]", module, "ok (cached)", 0, cached)
+            result = cached
+        elif only and module not in only:
+            unmeasured.append(module)
+            continue
+        else:
+            print(f"[baseline] {module}", flush=True)
+            out, code, cls, measured = _measure(module, max_children)
+            if out_dir is not None:
+                _write_record(out_dir, module, out, code, cls, measured)
+            _report("[baseline]", module, cls, code, measured)
+            if cls != "ok" or measured is None:
+                print(f"[baseline] FAIL {module}: mutmut exited {code} [{cls}]")
+                failed.append(module)
                 continue
-            cached = _cached_stdout(out_dir, module) if out_dir is not None else None
-            if cached is not None:
-                out, code, cls = cached, 0, "ok"
-            else:
-                print(f"[baseline] {module}", flush=True)
-                out, code = _run_mutate(
-                    module,
-                    args.lcov,
-                    [*extra, "--mutate-all"],
-                    args.max_workers,
-                    args.memory_cap,
-                )
-                cls = _classify(code, args.memory_cap)
-                if out_dir is not None:
-                    _write_record(out_dir, module, out, code, cls)
-            # Printed once the module's outcome is known -- cached or freshly
-            # run, ok/memcap/error alike -- so the class is visible per module,
-            # not only in the end-of-run summary below.
-            suffix = " (cached)" if cached is not None else ""
-            print(f"[baseline] {module}: {cls}{suffix}")
-            if cls != "ok":
-                # A non-ok exit here means mutate4py aborted before ever printing
-                # a "Survivors:" section (e.g. a test-context/coverage disagreement,
-                # or a memory-cap kill) -- parse_survivors would silently return an
-                # empty set, identical to a module that genuinely has zero
-                # survivors. Recording that would write a baseline with an
-                # undetectable hole in it, so this module's (empty, meaningless)
-                # contribution is refused outright rather than merged in.
-                print(f"[baseline] FAIL {module}: mutate4py exited {code} [{cls}]")
-                failed.append((module, cls))
-                continue
-            keys |= parse_survivors(module, out)
-        if failed:
-            memcap_failed = [m for m, c in failed if c == "memcap"]
-            error_failed = [m for m, c in failed if c == "error"]
-            print(
-                f"[baseline] refusing to write {baseline_path}: "
-                f"{len(failed)} module(s) failed and were excluded"
-            )
-            # Reported as two separate classes, not one blended count: a
-            # memory-cap kill has a known cause (rerun serially), an error
-            # does not (it's the still-open exit-4 mystery) -- merging them
-            # would make the summary useless for deciding what to do next.
-            if memcap_failed:
-                print(
-                    f"[baseline]   memcap ({len(memcap_failed)}): "
-                    f"{', '.join(memcap_failed)}"
-                )
-            if error_failed:
-                print(
-                    f"[baseline]   error ({len(error_failed)}): "
-                    f"{', '.join(error_failed)}"
-                )
-            return 1
-        baseline_path.write_text(
-            _baseline_header(exclusions) + "\n".join(sorted(keys)) + "\n",
-            encoding="utf-8",
-        )
+            result = measured
+        keys |= result.survivors
+        if result.counts.get("no tests"):
+            no_tests[module] = result.counts["no tests"]
+    if failed or unmeasured:
         print(
-            f"[baseline] {len(keys)} survivors written to {baseline_path} "
-            f"({len(exclusions)} module(s) excluded, not measured)"
+            f"[baseline] refusing to write {baseline_path}: "
+            f"{len(failed)} module(s) failed, {len(unmeasured)} not measured"
         )
-        return 0
+        if failed:
+            print(f"[baseline]   error ({len(failed)}): {', '.join(failed)}")
+        if unmeasured:
+            print(
+                f"[baseline]   not measured ({len(unmeasured)}): {', '.join(unmeasured)}"
+            )
+        return 1
+    header = (
+        "# mutation-baseline.txt -- every research_vault module measured by "
+        "scripts/mutation_gate.py --update-baseline over mutmut; one survivor "
+        "key per line, format in the script header\n"
+    )
+    baseline_path.write_text(header + "\n".join(sorted(keys)) + "\n", encoding="utf-8")
+    print(f"[baseline] {len(keys)} survivors written to {baseline_path}")
+    _summarise_no_tests("[baseline]", no_tests)
+    return 0
 
-    modules = changed_modules(args.base)
+
+def _summarise_no_tests(prefix: str, no_tests: dict[str, int]) -> None:
+    total = sum(no_tests.values())
+    print(
+        f"{prefix} no tests: {total} mutant(s) in {len(no_tests)} module(s) -- "
+        "coverage reached only through subprocesses is invisible to mutmut's "
+        "stats, so these are unmeasured, not killed"
+    )
+    for module, n in sorted(no_tests.items()):
+        print(f"{prefix}   {module}: {n}")
+
+
+def _gate(baseline_path: Path, base: str, max_children: int) -> int:
+    modules = changed_modules(base)
     if not modules:
         print("[gate] no changed research_vault modules; pass")
         return 0
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()
-    failed_modules: list[tuple[str, str]] = []
-    excluded_changed: list[str] = []
+    failed: list[str] = []
+    no_tests: dict[str, int] = {}
     for module in modules:
-        if module in exclusions:
-            # Known-unmeasurable module touched by this change. Running mutate4py
-            # on it would only reproduce the same deterministic abort recorded in
-            # mutation-exclusions.txt -- and land it in failed_modules below,
-            # which would fail every PR that so much as touches one of these six
-            # for a cause outside the change (an explicitly rejected policy; see
-            # the --exclusions docstring paragraph). Skipped, but named here and
-            # again below so the run can never be misread as having verified it.
-            cls, reason = exclusions[module]
-            print(f"[gate] {module}: excluded [{cls}] -- {reason}")
-            excluded_changed.append(module)
-            continue
         print(f"[gate] {module}", flush=True)
-        out, code = _run_mutate(
-            module, args.lcov, extra, args.max_workers, args.memory_cap
-        )
+        out, code, cls, result = _measure(module, max_children)
         print(out)
-        cls = _classify(code, args.memory_cap)
-        # Printed once the module's outcome is known, ok/memcap/error alike --
-        # the class is visible per module, not only in the end-of-run summary.
-        print(f"[gate] {module}: {cls}")
-        if cls != "ok":
-            # Same reasoning as --update-baseline: an aborted run produces no
-            # "Survivors:" section, which parse_survivors cannot tell apart from
-            # a clean pass. Treat it as a gate failure rather than silently
-            # passing a module the tool never actually finished checking.
-            print(f"[gate] FAIL {module}: mutate4py exited {code} [{cls}]")
-            failed_modules.append((module, cls))
+        _report("[gate]", module, cls, code, result)
+        if cls != "ok" or result is None:
+            print(f"[gate] FAIL {module}: mutmut exited {code} [{cls}]")
+            failed.append(module)
             continue
-        fresh |= new_survivors(parse_survivors(module, out), baseline)
-    if failed_modules:
-        memcap_failed = [m for m, c in failed_modules if c == "memcap"]
-        error_failed = [m for m, c in failed_modules if c == "error"]
-        print(f"[gate] FAIL — {len(failed_modules)} module(s) errored:")
-        # Reported as two separate classes -- see --update-baseline for why
-        # blending them would contaminate the still-open exit-4 inventory.
-        if memcap_failed:
-            print(f"[gate]   memcap ({len(memcap_failed)}): {', '.join(memcap_failed)}")
-        if error_failed:
-            print(f"[gate]   error ({len(error_failed)}): {', '.join(error_failed)}")
+        fresh |= new_survivors(result.survivors, baseline)
+        if result.counts.get("no tests"):
+            no_tests[module] = result.counts["no tests"]
+    _summarise_no_tests("[gate]", no_tests)
+    if failed:
+        print(f"[gate] FAIL — {len(failed)} module(s) errored:")
+        print(f"[gate]   error ({len(failed)}): {', '.join(failed)}")
         return 1
     if fresh:
         print(f"[gate] FAIL — {len(fresh)} new survivor(s):")
         for key in sorted(fresh):
             print(f"  {key}")
         return 1
-    if excluded_changed:
-        # Exit-code decision for an advisory lane: neither "fail every PR that
-        # touches these six" (the tooling defect isn't the change's fault) nor
-        # "pass silently" (that would hide a real coverage gap) is acceptable, so
-        # this exits 0 -- but the pass line itself is never the bare, unqualified
-        # "[gate] pass — no new survivors"; it must name what wasn't measured, so
-        # grepping CI output for a plain pass can't mistake this run for a full one.
-        print(
-            f"[gate] pass — no new survivors, but {len(excluded_changed)} "
-            f"changed module(s) NOT MEASURED (see mutation-exclusions.txt): "
-            f"{', '.join(excluded_changed)}"
-        )
-        return 0
     print("[gate] pass — no new survivors")
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--base", default="origin/main", help="gate mode: diff base ref"
+    )
+    parser.add_argument("--baseline", default=str(ROOT / "mutation-baseline.txt"))
+    parser.add_argument("--update-baseline", action="store_true")
+    parser.add_argument(
+        "--max-children", type=int, default=4, help="passed through to mutmut run"
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="--update-baseline only: per-module records, for resuming a killed "
+        "blanket run instead of restarting it",
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="RELPATH",
+        help="--update-baseline only: run just this module (repeatable); the "
+        "baseline is still written only once every module holds a record, and "
+        "a recorded ok is reused -- delete its .exit record to redo it",
+    )
+    args = parser.parse_args()
+    if args.only and not args.update_baseline:
+        parser.error("--only requires --update-baseline")
+    unknown = sorted(set(args.only) - set(_all_modules()))
+    if unknown:
+        parser.error(f"--only names no research_vault module: {', '.join(unknown)}")
+    baseline_path = Path(args.baseline)
+    try:
+        if args.update_baseline:
+            out_dir = Path(args.out_dir) if args.out_dir else None
+            return _update_baseline(
+                baseline_path, out_dir, args.only, args.max_children
+            )
+        return _gate(baseline_path, args.base, args.max_children)
+    except SourceTreeChangedError as error:
+        prefix = "[baseline]" if args.update_baseline else "[gate]"
+        print(f"{prefix} ABORT: {error}")
+        return 1
 
 
 if __name__ == "__main__":
