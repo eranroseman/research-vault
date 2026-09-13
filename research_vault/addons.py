@@ -75,6 +75,21 @@ def read_prefs(profile_dir: Path) -> dict[str, str | bool | int]:
         elif raw.lstrip("-").isdigit():
             value = int(raw)
         else:
-            value = json.loads(raw) if raw.startswith('"') else raw
+            value = _string_pref(raw)
         prefs[match.group("name")] = value
     return prefs
+
+
+def _string_pref(raw: str) -> str:
+    """A quoted token as JSON reads it; the token itself when JSON refuses it.
+
+    prefs.js is JavaScript, so a build may escape a string in a way JSON does
+    not accept. One such line must not fail the whole file.
+    """
+    if not raw.startswith('"'):
+        return raw
+    try:
+        decoded = json.loads(raw)
+    except ValueError:
+        return raw
+    return decoded if isinstance(decoded, str) else raw

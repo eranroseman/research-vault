@@ -45,7 +45,7 @@ DOCTOR_HARD_UNMATCHED = {
     "write-guard",
     "plugins",
 }
-DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt"}
+DOCTOR_HARD_UNREACHABLE = {"zotero", "bbt", "write-guard", "plugins"}
 DOCTOR_WARN_ONLY = {
     "remote",
     "backup",

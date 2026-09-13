@@ -322,6 +322,22 @@ def _backup_probe(config: dict) -> Probe:
 _WRONG_ID = "research-vault-wrong-id"
 _COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
 _COMPILE_PIN = "ad67087"
+_UNSET = "unset (Zotero default)"
+_NO_STORED_ATTACHMENT = "no stored attachment to resolve"
+
+
+class _ProfileHold(NamedTuple):
+    """The row every profile probe reports instead of reading the profile."""
+
+    result: Result
+    reason: str
+
+
+class _ProfileFacts(NamedTuple):
+    """A readable zotero_profile directory and its prefs.js."""
+
+    path: Path
+    prefs: dict[str, str | bool | int]
 
 
 def _tree_probe(vault: Path) -> Probe:
@@ -347,7 +363,7 @@ def _installed_plugins() -> dict:
     return plugins if isinstance(plugins, dict) else {}
 
 
-def _zotero_probe(client) -> tuple[Probe, dict | None]:
+def _zotero_probe(client) -> Probe:
     try:
         info = client.server_info()
     except LocalApiDisabledError:
@@ -355,16 +371,25 @@ def _zotero_probe(client) -> tuple[Probe, dict | None]:
             "zotero",
             Result.UNMATCHED,
             "local API preference is off — enable it in Settings, Advanced",
-        ), None
+        )
     except (ZoteroError, OSError, UnicodeError, ValueError) as error:
-        return Probe("zotero", Result.UNREACHABLE, str(error)), None
+        return Probe("zotero", Result.UNREACHABLE, str(error))
     reason = " ".join(f"{key}={value}" for key, value in info.items())
-    return Probe("zotero", Result.MATCHED, reason), info
+    return Probe("zotero", Result.MATCHED, reason)
 
 
-def _write_guard_probe(client, info) -> Probe:
-    if info is None:
-        return Probe("write-guard", Result.SKIPPED, "zotero unreachable")
+def _local_api_skip(zotero_probe: Probe) -> str | None:
+    """Why a probe that needs the local API cannot run, or None when it answered."""
+    if zotero_probe.result is Result.MATCHED:
+        return None
+    if zotero_probe.result is Result.UNMATCHED:
+        return "local API preference is off"
+    return "zotero unreachable"
+
+
+def _write_guard_probe(client, skip: str | None) -> Probe:
+    if skip:
+        return Probe("write-guard", Result.SKIPPED, skip)
     try:
         response = client._http(
             f"{client.base}/api/users/0/items",
@@ -388,17 +413,41 @@ def _write_guard_probe(client, info) -> Probe:
 
 
 def _profile_dir(config) -> Path | None:
+    """The configured zotero_profile path, whether or not it exists; None only when unset."""
     value = config.get("zotero_profile")
-    if isinstance(value, str) and value.strip() and Path(value).is_dir():
-        return Path(value)
-    return None
+    return Path(value) if isinstance(value, str) and value.strip() else None
 
 
-def _fulltext_sync_probe(prefs) -> Probe:
-    if prefs is None:
-        return Probe("fulltext-sync", Result.SKIPPED, "zotero_profile not configured")
-    enabled = prefs.get("extensions.zotero.sync.fulltext.enabled", False)
-    protocol = prefs.get("extensions.zotero.sync.storage.protocol", "zotero")
+def _profile_facts(config) -> _ProfileFacts | _ProfileHold:
+    """Read the profile once for the three probes that need it (decision 15).
+
+    A configured-but-wrong profile is a finding, never "not configured". Could
+    not read is an outage and malformed content a fault — the split captured.py
+    makes on every file it opens.
+    """
+    path = _profile_dir(config)
+    if path is None:
+        return _ProfileHold(Result.SKIPPED, "zotero_profile not configured")
+    if not path.is_dir():
+        return _ProfileHold(
+            Result.UNMATCHED, f"zotero_profile {path} is not a directory"
+        )
+    try:
+        prefs = addons.read_prefs(path)
+    except OSError as error:
+        return _ProfileHold(Result.UNREACHABLE, f"prefs.js unreadable: {error}")
+    except (UnicodeError, ValueError) as error:
+        return _ProfileHold(Result.UNMATCHED, f"prefs.js unparseable: {error}")
+    return _ProfileFacts(path, prefs)
+
+
+def _fulltext_sync_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    if isinstance(profile, _ProfileHold):
+        return Probe("fulltext-sync", profile.result, profile.reason)
+    # prefs.js stores only non-defaults: an absent key is Zotero's shipped
+    # default, which this probe did not observe and does not assert.
+    enabled = profile.prefs.get("extensions.zotero.sync.fulltext.enabled", _UNSET)
+    protocol = profile.prefs.get("extensions.zotero.sync.storage.protocol", _UNSET)
     return Probe(
         "fulltext-sync",
         Result.MATCHED,
@@ -406,10 +455,10 @@ def _fulltext_sync_probe(prefs) -> Probe:
     )
 
 
-def _bbt_git_probe(prefs) -> Probe:
-    if prefs is None:
-        return Probe("bbt-git", Result.SKIPPED, "zotero_profile not configured")
-    value = prefs.get("extensions.zotero.translators.better-bibtex.git", "off")
+def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    if isinstance(profile, _ProfileHold):
+        return Probe("bbt-git", profile.result, profile.reason)
+    value = profile.prefs.get("extensions.zotero.translators.better-bibtex.git", "off")
     if value == "off":
         return Probe("bbt-git", Result.MATCHED, "git=off")
     return Probe(
@@ -419,15 +468,17 @@ def _bbt_git_probe(prefs) -> Probe:
     )
 
 
-def _plugins_probe(profile, prefs) -> Probe:
-    if profile is None or prefs is None:
-        return Probe("plugins", Result.SKIPPED, "zotero_profile not configured")
+def _plugins_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    if isinstance(profile, _ProfileHold):
+        return Probe("plugins", profile.result, profile.reason)
     try:
-        observed = addons.observe(profile)
-    except (OSError, UnicodeError, ValueError, KeyError, AttributeError) as error:
+        observed = addons.observe(profile.path)
+    except OSError as error:
         return Probe(
             "plugins", Result.UNREACHABLE, f"extensions.json unreadable: {error}"
         )
+    except (UnicodeError, ValueError, KeyError, AttributeError, TypeError) as error:
+        return Probe("plugins", Result.UNMATCHED, f"extensions.json malformed: {error}")
     failures: list[str] = []
     notes_out: list[str] = []
     for addon in addons.declared():
@@ -446,7 +497,7 @@ def _plugins_probe(profile, prefs) -> Probe:
         if (
             addon.auto_pref
             and state == "active"
-            and prefs.get(addon.auto_pref) is not True
+            and profile.prefs.get(addon.auto_pref) is not True
         ):
             failures.append(f"{addon.name} automatic mode off ({addon.auto_pref})")
     if failures:
@@ -454,11 +505,11 @@ def _plugins_probe(profile, prefs) -> Probe:
     return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
 
 
-def _path_shim_probe(client, info, vault: Path) -> Probe:
+def _path_shim_probe(client, skip: str | None, vault: Path) -> Probe:
     if not paths._running_in_wsl():
         return Probe("path-shim", Result.SKIPPED, "not running in WSL")
-    if info is None:
-        return Probe("path-shim", Result.SKIPPED, "zotero unreachable")
+    if skip:
+        return Probe("path-shim", Result.SKIPPED, skip)
     try:
         # Measured 2026-09-07: the local API ignores a `linkMode` query filter (it
         # answered `imported_url` rows for `linkMode=imported_file`), so fetch
@@ -466,21 +517,32 @@ def _path_shim_probe(client, info, vault: Path) -> Probe:
         payload, _ = client._local_json(
             "/api/users/0/items?itemType=attachment&limit=50&format=json"
         )
-        stored = [
-            row
-            for row in payload
-            if isinstance(row, dict)
-            and isinstance(row.get("data"), dict)
-            and row["data"].get("linkMode") == "imported_file"
-        ]
-        key = stored[0]["key"] if stored else None
-        url = client.file_view_url(key) if key else None
-    except (ZoteroError, KeyError, IndexError, TypeError) as error:
+    except ZoteroError as error:
+        return Probe("path-shim", Result.UNREACHABLE, f"attachment listing: {error}")
+    if not isinstance(payload, list):
         return Probe(
-            "path-shim", Result.UNREACHABLE, f"no stored attachment to resolve: {error}"
+            "path-shim",
+            Result.UNMATCHED,
+            "attachment listing malformed: expected a list",
         )
+    stored = [
+        row
+        for row in payload
+        if isinstance(row, dict)
+        and isinstance(row.get("key"), str)
+        and isinstance(row.get("data"), dict)
+        and row["data"].get("linkMode") == "imported_file"
+    ]
+    if not stored:
+        # nothing to check is not an outage
+        return Probe("path-shim", Result.SKIPPED, _NO_STORED_ATTACHMENT)
+    key = stored[0]["key"]
+    try:
+        url = client.file_view_url(key)
+    except ZoteroError as error:
+        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")
     if not url:
-        return Probe("path-shim", Result.UNREACHABLE, "no stored attachment to resolve")
+        return Probe("path-shim", Result.SKIPPED, _NO_STORED_ATTACHMENT)
     windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
     try:
         local = paths.to_local(windows_path, vault)
@@ -493,9 +555,9 @@ def _path_shim_probe(client, info, vault: Path) -> Probe:
     return Probe("path-shim", result, str(local))
 
 
-def _translator_formats_probe(client, info) -> Probe:
-    if info is None:
-        return Probe("translator-formats", Result.SKIPPED, "zotero unreachable")
+def _translator_formats_probe(client, skip: str | None) -> Probe:
+    if skip:
+        return Probe("translator-formats", Result.SKIPPED, skip)
     try:
         response = client._http(
             f"{client.base}/api/users/0/items/top?format=csljson&limit=1"
@@ -530,12 +592,19 @@ def _compile_tool_probe() -> Probe:
     )
 
 
-def _bbt_probe(client) -> Probe:
-    """Independent of the local-API preference: `/better-bibtex/json-rpc` answers with it off (§9)."""
+def _bbt_probe(client, zotero_probe: Probe) -> Probe:
+    """Asked whatever the local-API preference: `/better-bibtex/json-rpc` ignores it (§9)."""
     try:
         versions = client.ready()
     except (ZoteroError, OSError, UnicodeError, ValueError) as error:
-        return Probe("bbt", Result.UNREACHABLE, f"zotero down: {error}")
+        if zotero_probe.result is Result.UNREACHABLE:
+            return Probe("bbt", Result.UNREACHABLE, f"zotero down: {error}")
+        # Zotero answered /api/, so a json-rpc failure is Better BibTeX's, not the
+        # transport's: _rpc types a non-200 (404 when it is not installed) as a
+        # plain ZoteroError and cannot tell the two apart; the zotero row already has.
+        return Probe(
+            "bbt", Result.UNMATCHED, f"Better BibTeX not answering json-rpc: {error}"
+        )
     bbt_version = versions.get("betterbibtex")
     if not isinstance(bbt_version, str) or not bbt_version.strip():
         return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")
@@ -548,27 +617,20 @@ def doctor(vault_root, client=None) -> list[Probe]:
     tree = _tree_probe(vault)
     config, machine = _machine_config(vault)
     client = ZoteroClient() if client is None else client
-    zotero_probe, info = _zotero_probe(client)
-    profile = _profile_dir(config)
-    prefs: dict[str, str | bool | int] | None = None
-    if profile is not None:
-        try:
-            prefs = addons.read_prefs(profile)
-        except (OSError, UnicodeError, ValueError):
-            prefs = None
-    # Never gated on `info`: the json-rpc route ignores the local-API preference.
-    bbt = _bbt_probe(client)
+    zotero_probe = _zotero_probe(client)
+    skip = _local_api_skip(zotero_probe)
+    profile = _profile_facts(config)
     return [
         tree,
         machine,
         zotero_probe,
-        _write_guard_probe(client, info),
-        _fulltext_sync_probe(prefs),
-        bbt,
-        _bbt_git_probe(prefs),
-        _plugins_probe(profile, prefs),
-        _path_shim_probe(client, info, vault),
-        _translator_formats_probe(client, info),
+        _write_guard_probe(client, skip),
+        _fulltext_sync_probe(profile),
+        _bbt_probe(client, zotero_probe),
+        _bbt_git_probe(profile),
+        _plugins_probe(profile),
+        _path_shim_probe(client, skip, vault),
+        _translator_formats_probe(client, skip),
         _compile_tool_probe(),
         _remote_probe(vault),
         _backup_probe(config),

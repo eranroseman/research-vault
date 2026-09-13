@@ -73,3 +73,18 @@ def test_read_prefs_parses_user_pref_lines(tmp_path):
         "extensions.zotero.pmcid.auto": True,
         "extensions.zotero.httpServer.port": 23129,
     }
+
+
+def test_read_prefs_keeps_the_raw_token_for_a_string_json_refuses(tmp_path):
+    # A JS escape JSON does not accept must not fail the whole file: one odd
+    # line would otherwise turn three doctor probes into a fault.
+    odd = "it\\'s"  # the token as prefs.js carries it: it\'s, in double quotes
+    (tmp_path / "prefs.js").write_text(
+        f'user_pref("extensions.zotero.note.fontFamily", "{odd}");\n'
+        'user_pref("extensions.zotero.pmcid.auto", true);\n'
+    )
+    prefs = addons.read_prefs(tmp_path)
+    assert prefs == {
+        "extensions.zotero.note.fontFamily": f'"{odd}"',
+        "extensions.zotero.pmcid.auto": True,
+    }

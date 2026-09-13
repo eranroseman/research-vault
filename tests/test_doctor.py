@@ -1,6 +1,8 @@
 import argparse
+import ast
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -23,7 +25,7 @@ PROBE_NAMES = [
     "backup",
 ]
 HARD_UNMATCHED = ["tree", "machine-config", "zotero", "bbt", "write-guard", "plugins"]
-HARD_UNREACHABLE = ["zotero", "bbt"]
+HARD_UNREACHABLE = ["zotero", "bbt", "write-guard", "plugins"]
 WARN_ONLY = [
     "remote",
     "backup",
@@ -35,6 +37,8 @@ WARN_ONLY = [
 ]
 READY = {"zotero": "10.0.1", "betterbibtex": "9.0.63"}
 COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
+PROFILE_PROBES = ("fulltext-sync", "bbt-git", "plugins")
+LOCAL_API_PROBES = ("write-guard", "path-shim", "translator-formats")
 
 
 @pytest.fixture(autouse=True)
@@ -115,6 +119,55 @@ def test_cmd_doctor_sets_partition_the_thirteen_probes():
     assert set(WARN_ONLY) == cli.DOCTOR_WARN_ONLY
     assert set(PROBE_NAMES) == cli.DOCTOR_HARD_UNMATCHED | cli.DOCTOR_WARN_ONLY
     assert not cli.DOCTOR_HARD_UNMATCHED & cli.DOCTOR_WARN_ONLY
+
+
+def _result_literal(node) -> str | None:
+    """`Result.<NAME>` as written, or None for any other result expression."""
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "Result"
+    ):
+        return node.attr
+    return None
+
+
+def _maybe_unreachable_probe_ids() -> set[str]:
+    """Every probe id scaffold.py may construct with Result.UNREACHABLE, off the AST.
+
+    The technique of test_config_validity's _probe_ids, keyed on the result
+    argument. A Probe whose result is written as any other expression — a
+    variable, a NamedTuple field — can carry any result, so it counts too.
+    """
+    tree = ast.parse(Path(scaffold.__file__).read_text(encoding="utf-8"))
+    ids: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or getattr(node.func, "id", None) != "Probe":
+            continue
+        positional = [
+            *node.args,
+            *(k.value for k in node.keywords if k.arg == "result"),
+        ]
+        assert len(positional) >= 2, ast.unparse(node)
+        check, result = positional[0], positional[1]
+        assert isinstance(check, ast.Constant), ast.unparse(node)
+        assert isinstance(check.value, str), ast.unparse(node)
+        if _result_literal(result) in {None, "UNREACHABLE"}:
+            ids.add(check.value)
+    return ids
+
+
+def test_every_unreachable_row_doctor_can_emit_reaches_an_exit_code_set():
+    """An UNREACHABLE row in neither set prints bare and exits 0: an outage as a pass."""
+    import research_vault.__main__ as cli
+
+    ids = _maybe_unreachable_probe_ids()
+    assert ids, "AST scan found no UNREACHABLE rows — the scan itself is broken"
+    unrouted = sorted(ids - (cli.DOCTOR_HARD_UNREACHABLE | cli.DOCTOR_WARN_ONLY))
+    assert not unrouted, (
+        "probe ids that can emit UNREACHABLE but are in neither "
+        f"DOCTOR_HARD_UNREACHABLE nor DOCTOR_WARN_ONLY: {unrouted}"
+    )
 
 
 def _doctor_vault(tmp_vault, *, backup="/backup"):
@@ -250,10 +303,16 @@ def test_doctor_distinguishes_local_api_off_from_zotero_down(tmp_vault, monkeypa
     fake.get("/api/", status=403, body=b"")
     fake.rpc("api.ready", READY)
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+
     by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+
     assert by["zotero"].result is Result.UNMATCHED
     assert "preference" in by["zotero"].reason
-    assert by["write-guard"].result is Result.SKIPPED
+    for name in LOCAL_API_PROBES:
+        assert by[name] == scaffold.Probe(
+            name, Result.SKIPPED, "local API preference is off"
+        )
     assert by["bbt"].result is Result.MATCHED  # json-rpc answers with the pref off
 
 
@@ -300,8 +359,11 @@ def test_doctor_returns_thirteen_tuple_probes_and_repairs_tree(tmp_vault, monkey
     assert by["bbt"] == scaffold.Probe("bbt", Result.MATCHED, "9.0.63")
 
 
-def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(tmp_vault):
+def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(
+    tmp_vault, monkeypatch
+):
     vault = _doctor_vault(tmp_vault)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
     # No fake installed: the offline socket guard makes every read an outage.
     probes = scaffold.doctor(vault, client=None)
@@ -311,9 +373,30 @@ def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(tmp_va
     assert by["zotero"].result is Result.UNREACHABLE
     assert by["bbt"].result is Result.UNREACHABLE
     assert by["bbt"].reason.startswith("zotero down: ")
-    for name in ("write-guard", "translator-formats"):
+    for name in LOCAL_API_PROBES:
         assert by[name] == scaffold.Probe(name, Result.SKIPPED, "zotero unreachable")
     assert [probe.check for probe in probes[-2:]] == ["remote", "backup"]
+
+
+@pytest.mark.parametrize(
+    "local_api_status", [200, 403], ids=["local-api-on", "local-api-off"]
+)
+def test_doctor_bbt_not_answering_is_a_setup_fault_when_zotero_answered(
+    local_api_status, tmp_vault, monkeypatch
+):
+    vault = _doctor_vault(tmp_vault)
+    fake = FakeZotero()
+    if local_api_status == 403:
+        fake.get("/api/", status=403, body=b"")
+    # No api.ready registered: the fake raises ZoteroError, as the real 404 on
+    # /better-bibtex/json-rpc does when Better BibTeX is not installed.
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+
+    assert by["zotero"].result is not Result.UNREACHABLE
+    assert by["bbt"].result is Result.UNMATCHED
+    assert by["bbt"].reason.startswith("Better BibTeX not answering json-rpc: ")
 
 
 def test_doctor_missing_bbt_reports_unmatched(tmp_vault, monkeypatch):
@@ -447,8 +530,82 @@ def test_doctor_fulltext_sync_reports_zotero_defaults_when_prefs_are_unset(
     assert by["fulltext-sync"] == scaffold.Probe(
         "fulltext-sync",
         Result.MATCHED,
-        "sync.fulltext.enabled=False storage.protocol=zotero",
+        "sync.fulltext.enabled=unset (Zotero default) "
+        "storage.protocol=unset (Zotero default)",
     )
+
+
+def test_doctor_reports_a_zotero_profile_that_is_not_a_directory(
+    tmp_vault, tmp_path, monkeypatch
+):
+    missing = tmp_path / "no-such-profile"
+    vault = _profiled_vault(tmp_vault, tmp_path, missing)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    for name in PROFILE_PROBES:
+        assert by[name] == scaffold.Probe(
+            name, Result.UNMATCHED, f"zotero_profile {missing} is not a directory"
+        )
+
+
+def test_doctor_reports_an_unreadable_prefs_js_as_an_outage(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = tmp_path / "profile"
+    profile.mkdir()  # no prefs.js: could not read, no verdict on content nobody saw
+    (profile / "extensions.json").write_text(json.dumps({"addons": []}))
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    for name in PROFILE_PROBES:
+        assert by[name].result is Result.UNREACHABLE
+        assert by[name].reason.startswith("prefs.js unreadable: ")
+
+
+def test_doctor_reports_an_unparseable_prefs_js_as_a_fault(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile(tmp_path)
+    (profile / "prefs.js").write_bytes(b"\xff\xfe not utf-8")
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    for name in PROFILE_PROBES:
+        assert by[name].result is Result.UNMATCHED
+        assert by[name].reason.startswith("prefs.js unparseable: ")
+
+
+def test_doctor_plugins_unreadable_extensions_json_is_an_outage(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile(tmp_path)
+    (profile / "extensions.json").unlink()
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    assert by["plugins"].result is Result.UNREACHABLE
+    assert by["plugins"].reason.startswith("extensions.json unreadable: ")
+    assert by["fulltext-sync"].result is Result.MATCHED  # prefs.js itself was fine
+
+
+@pytest.mark.parametrize(
+    "content", ["{not json", "[]"], ids=["not-json", "not-an-object"]
+)
+def test_doctor_plugins_malformed_extensions_json_is_a_fault(
+    content, tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile(tmp_path)
+    (profile / "extensions.json").write_text(content)
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    assert by["plugins"].result is Result.UNMATCHED
+    assert by["plugins"].reason.startswith("extensions.json malformed: ")
 
 
 def test_doctor_path_shim_fails_when_the_resolved_file_is_absent(
@@ -464,7 +621,7 @@ def test_doctor_path_shim_fails_when_the_resolved_file_is_absent(
     assert by["path-shim"].reason == str(tmp_path / "storage" / "D7EJ9FTG" / "a.pdf")
 
 
-def test_doctor_path_shim_is_unreachable_without_a_stored_attachment(
+def test_doctor_path_shim_is_skipped_without_a_stored_attachment(
     tmp_vault, monkeypatch
 ):
     vault = _doctor_vault(tmp_vault)
@@ -479,8 +636,28 @@ def test_doctor_path_shim_is_unreachable_without_a_stored_attachment(
 
     by = {p.check: p for p in scaffold.doctor(vault, client=client)}
 
+    # nothing to check is not an outage
+    assert by["path-shim"] == scaffold.Probe(
+        "path-shim", Result.SKIPPED, "no stored attachment to resolve"
+    )
+
+
+def test_doctor_path_shim_listing_failure_is_an_outage(tmp_vault, monkeypatch):
+    vault = _doctor_vault(tmp_vault)
+    fake = FakeZotero()
+    fake.rpc("api.ready", READY)
+    fake.get(
+        "/api/users/0/items?itemType=attachment&limit=50&format=json",
+        status=500,
+        body=b"",
+    )
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+
     assert by["path-shim"].result is Result.UNREACHABLE
-    assert "no stored attachment" in by["path-shim"].reason
+    assert "500" in by["path-shim"].reason
 
 
 def test_doctor_path_shim_reports_a_malformed_machine_json_instead_of_raising(
