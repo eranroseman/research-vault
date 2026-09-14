@@ -280,29 +280,25 @@ class SocketBlockedError(RuntimeError):
     """
 
 
-def _live_flags_set() -> bool:
-    return "1" in (os.environ.get("RV_LIVE"), os.environ.get("RV_LIVE_NET"))
-
-
 @pytest.fixture(autouse=True)
 def _no_socket(request, monkeypatch):
-    """Offline runs are socket-blocked: a TCP connect outside the live markers
-    raises, naming the address — never a real connection, never a quiet outage.
+    """An unmarked test is socket-blocked: its TCP connect raises, naming the
+    address — never a real connection, never a quiet outage.
 
     ``_no_zotero_socket`` gives a Zotero read a Zotero-shaped outage; this is
     the belt under it, so a new client class cannot reopen the hole. Unix
     sockets and socketpairs are not connects to block; xdist workers talk over
-    pipes. The block is off entirely when ``RV_LIVE=1`` or ``RV_LIVE_NET=1``
-    is set, so live runs keep the real transport.
+    pipes. The marker is the mechanism, per test: a ``live`` or ``live_net``
+    test keeps the real transport (the collection hook has already skipped it
+    unless its flag is set); every other test is blocked in every run, so a
+    live run cannot leak a connection an offline run would have caught.
 
     Returns the test's allowlist: ``dead_base`` adds the loopback address it
     proved dead, so a test of the real transport meets a real refusal.
     """
     allowed: set[tuple[str, int]] = set()
-    if (
-        _live_flags_set()
-        or request.node.get_closest_marker("live")
-        or request.node.get_closest_marker("live_net")
+    if request.node.get_closest_marker("live") or request.node.get_closest_marker(
+        "live_net"
     ):
         return allowed
 

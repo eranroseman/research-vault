@@ -15,7 +15,6 @@ gains a JSON owner with zero new dependencies (docs/research/rethink-audits/2026
 
 import ast
 import json
-import os
 import re
 import shlex
 import shutil
@@ -87,7 +86,15 @@ def test_pyproject_pins_the_tools_the_seam_runs():
         data = tomllib.load(handle)
     dev = data["project"]["optional-dependencies"]["dev"]
     pinned = {row.split("==")[0] for row in dev if "==" in row}
-    for tool in ("ruff", "mypy", "mdformat", "yamlfix", "pyproject-fmt", "pre-commit"):
+    for tool in (
+        "ruff",
+        "mypy",
+        "mdformat",
+        "yamlfix",
+        "pyproject-fmt",
+        "pre-commit",
+        "pytest",
+    ):
         assert tool in pinned, f"{tool} must be pinned with == in the dev extra"
 
 
@@ -275,10 +282,14 @@ PYPROJECT_FMT_FLAGS = [
 # two significant (non-comment, non-blank) lines following the comment block,
 # which allows for a `[table.header]` line sitting between a block and its key.
 RULING_ANCHORS = [
+    ("A floor, not a pin", "requires = ["),
+    ("Single-sourced from research_vault.__version__", "dynamic = ["),
     ("Lazy-imported at research_vault's single parse site", '"defusedxml==0.7.1"'),
+    ("A floor by design", "pdf = ["),
     ("FORMAT + RENDER-CONTRACT pin", '"mdformat==1.0.0"'),
     ("never in addopts", '"pytest-xdist==3.8.0"'),
     ("Dev-lane instrument, read-only posture", '"pyzotero[cli]==1.14.0"'),
+    ("ruff 0.16 formats Python fences", "extend-exclude = ["),
     ("Bandit idiom exclusions", "extend-select = ["),
     ("ARG in tests only", '"tests/*" = ['),
     ("PTH off in gitstate ONLY", '"research_vault/gitstate.py" = ['),
@@ -670,16 +681,14 @@ def test_fixture_substitutions_cannot_become_no_ops():
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
 
 
-@pytest.mark.skipif(
-    "1" in (os.environ.get("RV_LIVE"), os.environ.get("RV_LIVE_NET")),
-    reason="the socket block is off in live runs",
-)
 def test_offline_tests_cannot_open_a_tcp_connection(dead_base):
     """An unmarked test's connect raises the block's error, naming the address.
 
     Not an outage: the block is a ``RuntimeError`` so no transport's
     ``except OSError`` can dress a leak as a tidy UNREACHABLE. The one
     address ``dead_base`` handed out is let through and refused for real.
+    Unmarked, deliberately: the block is decided by markers alone, so this
+    runs — and must pass — under the live flags too.
     """
     # By base class and message, not identity: pytest loads the conftest as
     # `conftest`, `from tests.conftest import ...` loads a second copy.
