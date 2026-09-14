@@ -1,15 +1,14 @@
-"""OKF §11 structure checks over vault files (audit §1, ruled 2026-09-02).
+"""OKF §11 structure checks over vault files (audit §1).
 
 The vault rule: a note's ``type`` is determined by its folder. ``system/``
 and root-level concepts carry any non-empty type. ``inbox/`` captures other
 than the review queue are the recorded fleeting exemption — never checked
 here; the stamp converges them at chokepoints.
 
-``projects/`` is narrower than the other folders (ruled 2026-09-02,
-research-vault#105): ``publish.project_note()`` requires exactly one
-``type: "project"`` note per project directory, found by scanning
-``projects/<name>/**/*.md`` for that type field — not by filename. The
-codebase's actual convention for that one file is
+``projects/`` is narrower than the other folders: ``publish.project_note()``
+requires exactly one ``type: "project"`` note per project directory, found
+by scanning ``projects/<name>/**/*.md`` for that type field — not by
+filename. The codebase's actual convention for that one file is
 ``projects/<name>/draft.md`` (every test fixture across the suite builds
 it there). So only that exact shape derives ``"project"``; every other
 ``.md`` under ``projects/`` — including a flat ``projects/<name>.md`` with
@@ -35,7 +34,7 @@ _FOLDER_TYPES = {
 # duplicate of `fulltext/` if its capture were ever run, and `.vault-meta/` is
 # its runtime state. Both are gitignored and never walked.
 EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})
-# ADR 0001, second exemption (2026-09-07): the adopted compile tool writes
+# ADR 0001, second exemption: the adopted compile tool writes
 # `wiki/index.md` with frontmatter at a hard-coded path; OKF §8 forbids it on
 # a nested index and the tool's own lint requires it. The vault carries the
 # deviation; nothing the vault authors deviates.

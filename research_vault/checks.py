@@ -764,7 +764,7 @@ def check_update_notice(vault_root, entry: dict, detection_date: str) -> Outcome
 _RW_DATE_FORMATS = ("%m/%d/%Y %H:%M", "%m/%d/%Y")
 
 
-def _rw_date(value) -> str | None | object:
+def _rw_date(value) -> str | object | None:
     if value is None or (isinstance(value, str) and not value.strip()):
         return None
     if not isinstance(value, str):

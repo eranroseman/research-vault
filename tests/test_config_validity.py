@@ -15,9 +15,12 @@ gains a JSON owner with zero new dependencies (docs/research/rethink-audits/2026
 
 import ast
 import json
+import os
+import pwd
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tomllib
@@ -27,6 +30,13 @@ import pytest
 import yaml
 
 from research_vault import frontmatter, inbox
+from tests.conftest import (
+    GIT_HOME_OVERRIDES,
+    OFFLINE_GIT_IDENTITY,
+    _home_env,
+    _make_home,
+    package_ast,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -84,7 +94,15 @@ def test_pyproject_pins_the_tools_the_seam_runs():
         data = tomllib.load(handle)
     dev = data["project"]["optional-dependencies"]["dev"]
     pinned = {row.split("==")[0] for row in dev if "==" in row}
-    for tool in ("ruff", "mypy", "mdformat", "yamlfix", "pyproject-fmt", "pre-commit"):
+    for tool in (
+        "ruff",
+        "mypy",
+        "mdformat",
+        "yamlfix",
+        "pyproject-fmt",
+        "pre-commit",
+        "pytest",
+    ):
         assert tool in pinned, f"{tool} must be pinned with == in the dev extra"
 
 
@@ -119,7 +137,7 @@ def _probe_ids() -> set[str]:
     constant, so the AST is the only honest source; a grep would also match
     prose in docstrings.
     """
-    tree = ast.parse((ROOT / "research_vault/scaffold.py").read_text())
+    tree = package_ast(ROOT / "research_vault/scaffold.py")
     return {
         node.args[0].value
         for node in ast.walk(tree)
@@ -162,14 +180,11 @@ def test_every_doctor_probe_id_at_head_is_governed():
 def test_every_reason_code_at_head_is_governed():
     """The largest identifier group, enforced the same way as the other two.
 
-    This asserted only that the row contained the string ``REASON_CODES`` until
-    2026-08-22, on the reading that §4.4 governed this group by reference. The
-    row's own Status cell says otherwise -- "additions require a reference row" --
-    so the document was already promising the property the test declined to
-    enforce, and a new code could land with no row and leave the suite green.
-    Reason codes go verbatim onto ``inbox/review-queue.md``, the highest-traffic
-    human surface in the system; it is the last group that should be governed
-    more loosely than the rest.
+    The row's own Status cell -- "additions require a reference row" -- promises
+    every code a row, so a code that lands with no row must fail here rather
+    than leave the suite green. Reason codes go verbatim onto
+    ``inbox/review-queue.md``, the highest-traffic human surface in the system;
+    it is the last group that should be governed more loosely than the rest.
     """
     row = _governance_row("reason codes")
     ungoverned = sorted(inbox.REASON_CODES - _backticked(row))
@@ -249,10 +264,8 @@ def test_repo_python_is_the_version_the_pins_were_measured_against():
 # --------------------------------------------------------------------------
 # pyproject-fmt round-trip losslessness.
 #
-# Ruled 2026-08-22 after an as-built re-measure contradicted the plan's adoption
-# claim ("verified: tool-section comments preserved, zero spurious churn" — which
-# had been tested on a synthetic fragment, not on this file). Measured against the
-# REAL pyproject.toml, bare pyproject-fmt truncated pins (`mdformat==1.0.0` to
+# Measured 2026-08-22 against the REAL pyproject.toml (a synthetic fragment
+# shows none of this): bare pyproject-fmt truncated pins (`mdformat==1.0.0` to
 # `==1`), invented a classifiers block claiming Python 3.14, and — the dangerous
 # one — alpha-sorted the dependency list while hoisting a ruling comment's
 # continuation lines onto a DIFFERENT package, so a recorded ruling silently
@@ -262,7 +275,7 @@ def test_repo_python_is_the_version_the_pins_were_measured_against():
 # remembered rule: a future pyproject-fmt that drops --keep-full-version, or that
 # relocates a comment block, fails here instead of quietly making a recorded
 # ruling false. The association tests assert PLACEMENT, not presence — the
-# original failure preserved every comment character while attaching it to the
+# measured failure preserved every comment character while attaching it to the
 # wrong key, so a "the string is still there" check would have passed it.
 # --------------------------------------------------------------------------
 
@@ -277,10 +290,14 @@ PYPROJECT_FMT_FLAGS = [
 # two significant (non-comment, non-blank) lines following the comment block,
 # which allows for a `[table.header]` line sitting between a block and its key.
 RULING_ANCHORS = [
+    ("A floor, not a pin", "requires = ["),
+    ("Single-sourced from research_vault.__version__", "dynamic = ["),
     ("Lazy-imported at research_vault's single parse site", '"defusedxml==0.7.1"'),
+    ("A floor by design", "pdf = ["),
     ("FORMAT + RENDER-CONTRACT pin", '"mdformat==1.0.0"'),
     ("never in addopts", '"pytest-xdist==3.8.0"'),
     ("Dev-lane instrument, read-only posture", '"pyzotero[cli]==1.14.0"'),
+    ("ruff 0.16 formats Python fences", "extend-exclude = ["),
     ("Bandit idiom exclusions", "extend-select = ["),
     ("ARG in tests only", '"tests/*" = ['),
     ("PTH off in gitstate ONLY", '"research_vault/gitstate.py" = ['),
@@ -599,8 +616,7 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
     carried `status: unscreened | included | excluded | superseded`. GFM ends the
     cell at the first unescaped `|` REGARDLESS of the code span, so mdformat
     reformatted the truncated parse back out and the enum values plus an entire
-    `superseded-by` clause were deleted -- by a commit whose message read "No
-    sentence, no code, and no meaning is changed anywhere in this commit".
+    `superseded-by` clause were deleted.
 
     The fix is to escape the pipes as \\| inside the span; mdformat then
     round-trips the row unchanged, which is asserted by re-running it.
@@ -621,7 +637,7 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
 def test_the_package_reads_one_date_clock():
     """A check takes its instant as an argument (decision 28); only clock.py reads today's date."""
     # The call shape, not one spelling: `now(tz=datetime.UTC).date()` is the
-    # same reader (Task 18 review, ruling 8).
+    # same reader.
     reads_today = re.compile(r"\.now\([^)]*\)\.date\(\)")
     offenders = sorted(
         path.name
@@ -633,12 +649,12 @@ def test_the_package_reads_one_date_clock():
 
 
 def test_fixture_substitutions_cannot_become_no_ops():
-    """A bare str.replace on fixture text passes silently once a fixture edit removes its target (Tasks 4, 5, 11)."""
+    """A bare str.replace on fixture text passes silently once a fixture edit removes its target."""
     import ast
 
     def fixture_shaped(node) -> bool:
         # A str or bytes literal with a line break, a `key: value` or an inline
-        # field, or any f-string: the shapes fixture text takes (ruling 7).
+        # field, or any f-string: the shapes fixture text takes.
         if isinstance(node, ast.JoinedStr):
             return True
         if not isinstance(node, ast.Constant):
@@ -671,3 +687,203 @@ def test_fixture_substitutions_cannot_become_no_ops():
         )
     ]
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
+
+
+def test_offline_tests_cannot_open_a_tcp_connection(dead_base):
+    """An unmarked test's connect raises the block's error, naming the address.
+
+    Not an outage: the block is a ``RuntimeError`` so no transport's
+    ``except OSError`` can dress a leak as a tidy UNREACHABLE. The one
+    address ``dead_base`` handed out is let through and refused for real.
+    Unmarked, deliberately: the block is decided by markers alone, so this
+    runs — and must pass — under the live flags too.
+    """
+    # By base class and message, not identity: pytest loads the conftest as
+    # `conftest`, `from tests.conftest import ...` loads a second copy.
+    with (
+        socket.socket() as sock,
+        pytest.raises(
+            RuntimeError, match=r"blocked in the offline suite: 127\.0\.0\.1:23119"
+        ),
+    ):
+        sock.connect(("127.0.0.1", 23119))
+
+    port = int(dead_base.rsplit(":", 1)[1])
+    with socket.socket() as sock, pytest.raises(ConnectionRefusedError):
+        sock.connect(("127.0.0.1", port))
+
+
+def test_offline_tests_cannot_resolve_a_name_outside_loopback(dead_base):
+    """An unmarked test's name lookup raises the block's error, naming the
+    host: `urllib` resolves before it connects, so a leaked hostname would
+    otherwise be a real DNS query here and a `gaierror` on a machine without
+    DNS. Loopback, by name and by literal, still resolves; the one address
+    `dead_base` handed out does too. Through `urlopen` the block is what
+    comes back, not a URLError-dressed outage. Unmarked, deliberately: the
+    block is decided by markers alone and holds under the live flags."""
+    import urllib.request
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"name resolution blocked in the offline suite: example\.invalid:80",
+    ):
+        socket.getaddrinfo("example.invalid", 80)
+    with pytest.raises(RuntimeError, match=r"blocked in the offline suite"):
+        urllib.request.urlopen("http://example.invalid/", timeout=1)
+    port = int(dead_base.rsplit(":", 1)[1])
+    for host in ("localhost", "127.0.0.1", "::1", None):
+        assert socket.getaddrinfo(host, port)
+    assert socket.getaddrinfo("127.0.0.1", 23119)
+
+
+def test_a_home_of_the_suites_own_removes_what_outranks_its_gitconfig(
+    tmp_path, monkeypatch
+):
+    """`_make_home` names, beside the entries to set, every variable that
+    would outrank the `.gitconfig` it wrote -- the config-location family
+    with the numbered GIT_CONFIG_KEY_n / GIT_CONFIG_VALUE_n pairs present,
+    the identity family, the template directory -- and `_home_env` builds
+    the session templates' environment without them. With those exported,
+    a commit under `_home_env` still carries the synthetic identity, where
+    the same commit under the inherited environment carries the export."""
+    other = tmp_path / "other.gitconfig"
+    other.write_text("[user]\n\tname = Other Global\n\temail = other@example.invalid\n")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(other))
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Someone Else")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "user.email")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "counted@example.invalid")
+    home = tmp_path / "home"
+    home.mkdir()
+
+    entries, remove = _make_home(home)
+
+    assert entries == {"HOME": str(home), "XDG_CONFIG_HOME": str(home / ".config")}
+    assert set(remove) == {
+        *GIT_HOME_OVERRIDES,
+        "GIT_CONFIG_KEY_0",
+        "GIT_CONFIG_VALUE_0",
+    }
+    assert set(GIT_HOME_OVERRIDES) == {
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_NOSYSTEM",
+        "GIT_CONFIG_COUNT",
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_AUTHOR_DATE",
+        "GIT_COMMITTER_NAME",
+        "GIT_COMMITTER_EMAIL",
+        "GIT_COMMITTER_DATE",
+        "GIT_TEMPLATE_DIR",
+    }
+    session_home = tmp_path / "session-home"
+    session_home.mkdir()
+    env = _home_env(session_home)
+    assert not set(remove) & set(env)
+    assert env["HOME"] == str(session_home)
+    assert env["PATH"] == os.environ["PATH"]
+
+    def author(environment: dict[str, str]) -> str:
+        repo = tmp_path / str(len(list(tmp_path.iterdir())))
+        repo.mkdir()
+        for argv in (["init", "-q"], ["commit", "-q", "--allow-empty", "-m", "x"]):
+            subprocess.run(
+                ["git", *argv],
+                cwd=repo,
+                env=environment,
+                check=True,
+                capture_output=True,
+            )
+        return subprocess.run(
+            ["git", "log", "-1", "--format=%an <%ae>"],
+            cwd=repo,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+    name, email = OFFLINE_GIT_IDENTITY
+    assert author(env) == f"{name} <{email}>"
+    assert author(dict(os.environ)) == "Someone Else <counted@example.invalid>"
+
+
+def test_an_unmarked_test_runs_under_its_own_home(tmp_path, tmp_path_factory):
+    """`Path.home()`, `$HOME` and `$XDG_CONFIG_HOME` resolve into a fresh
+    directory under pytest's basetemp, for this process and for a subprocess
+    it launches; it holds the synthetic git identity as global config and
+    nothing else (no plugin registry, no global excludes), so a commit in a
+    temp repository succeeds under that identity and a local `user.name`
+    still outranks it; none of the git variables that would outrank the
+    `.gitconfig` is in the environment. Unmarked, deliberately: like the
+    socket block, the redirect is decided by the markers alone and holds
+    under the live flags.
+    """
+
+    home = Path.home()
+    real_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+    assert home != real_home
+    assert home.is_relative_to(tmp_path_factory.getbasetemp())
+    assert os.environ["HOME"] == str(home)
+    assert os.environ["XDG_CONFIG_HOME"] == str(home / ".config")
+    assert sorted(p.name for p in home.iterdir()) == [".config", ".gitconfig"]
+    assert not (home / ".claude").exists()
+    assert not set(GIT_HOME_OVERRIDES) & set(os.environ)
+    assert not [
+        key
+        for key in os.environ
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
+    ]
+    child = subprocess.run(
+        [sys.executable, "-c", "from pathlib import Path; print(Path.home())"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert child.stdout.strip() == str(home)
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    name, email = OFFLINE_GIT_IDENTITY
+    git("init", "-q")
+    assert git("config", "--global", "--list").splitlines() == [
+        f"user.name={name}",
+        f"user.email={email}",
+    ]
+    (tmp_path / "a.md").write_text("a\n")
+    git("add", "--", "a.md")
+    git("commit", "-qm", "under the suite identity")
+    assert git("log", "-1", "--format=%an <%ae>") == f"{name} <{email}>"
+    git("config", "--local", "user.name", "Local Name")
+    git("config", "--local", "user.email", "local@example.invalid")
+    git("commit", "-q", "--allow-empty", "-m", "under the local identity")
+    assert (
+        git("log", "-1", "--format=%an <%ae>") == "Local Name <local@example.invalid>"
+    )
+
+
+def test_the_template_vaults_were_built_under_the_suite_home(fixture_vault):
+    """The session-scoped fixture vault's one commit carries the synthetic
+    identity: the templates every test copies were built under a home of the
+    suite's own, not the developer's global config."""
+    name, email = OFFLINE_GIT_IDENTITY
+    author = subprocess.run(
+        ["git", "log", "-1", "--format=%an <%ae>"],
+        cwd=fixture_vault,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert author == f"{name} <{email}>"
+
+
+def test_strict_markers_is_on_so_a_misspelled_marker_cannot_collect(request):
+    """``--strict-markers`` is on, read from the live config: a typo'd
+    ``live_net`` mark would otherwise run silently in the offline suite and
+    make real external API calls. The option is what this pins; the collection
+    error it produces is pytest's own behaviour, not provoked here."""
+    assert request.config.getoption("strict_markers") is True

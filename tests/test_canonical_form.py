@@ -8,9 +8,9 @@ the dialect on real content — ``[[wikilink]]`` becomes ``\\[[wikilink]\\]``,
 ``[field:: value]`` gets escaped, a standalone marker line that follows a
 list item gets indented into it (verified 2026-08-21 on a real rendered
 literature note round-tripped through mdformat) — and ``mdformat-obsidian``
-does the same, so no formatter speaks it. (Task 2e gated every STATIC template
-but one through mdformat instead: their placeholder content carries no
-list markup or wikilinks to mangle, so mdformat owns them now. The one held
+does the same, so no formatter speaks it. (Every STATIC template but one
+goes through mdformat instead: their placeholder content carries no
+list markup or wikilinks to mangle, so mdformat owns them. The one held
 out, ``vault/index.md``, does carry real wikilinks and Base embeds and stays
 excluded — see .pre-commit-config.yaml's mdformat hook.) "The emitter is the
 formatter" only means something if the emitter is actually canonical, which

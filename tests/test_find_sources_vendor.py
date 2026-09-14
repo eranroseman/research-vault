@@ -4,11 +4,11 @@ Upstream: https://github.com/K-Dense-AI/scientific-agent-skills @
 336c4f838a6c21b54e1e1f58cbbeae143d151fe2, ``skills/paper-lookup/scripts/``,
 license MIT (© 2025 K-Dense Inc.). Renamed into the plugin namespace at
 ``skills/find-sources/scripts/`` (spec §7's vendoring doctrine: behavior
-stays frozen). Upstream's own ``tests/paper-lookup/`` is not vendored — the
-controller ruling is to take only what the skill uses, and these are our
-own tests proving the vendored copies still work, offline, after the
-provenance-header edit. No network: every case here feeds a local XML/JSON
-fixture on stdin, never a live API call (the suite's ``live_net`` marker
+stays frozen). Upstream's own ``tests/paper-lookup/`` is not vendored — only
+what the skill uses is vendored — and these are our own tests proving the
+vendored copies still work, offline, after the provenance-header edit. No
+network: every case here feeds a local XML/JSON fixture on stdin, never a
+live API call (the suite's ``live_net`` marker
 convention is for the CLI's own network-touching tests, not for this).
 """
 
@@ -242,13 +242,12 @@ def _env_vars_read_by_the_vendored_scripts() -> set[str]:
 
 
 def test_the_skill_names_exactly_the_environment_variables_the_scripts_read():
-    """Pins two SKILL.md corrections from the references cross-read
-    (``docs/research/validation-slice/2026-08-22-references-cross-read.md``),
-    both of them hand-maintainable prose about what the code reads: the
-    scripts are not credential-free — ``paginate.py`` consumes three env vars —
-    and ``paginate.py``'s docstring names two more (``NCBI_API_KEY``,
-    ``S2_API_KEY``) that nothing reads, which the vendoring note records as
-    dead. Both claims are true only while this set is what it is."""
+    """Pins two SKILL.md claims, both of them hand-maintainable prose about
+    what the code reads: the scripts are not credential-free —
+    ``paginate.py`` consumes three env vars — and ``paginate.py``'s docstring
+    names two more (``NCBI_API_KEY``, ``S2_API_KEY``) that nothing reads,
+    which the vendoring note records as dead. Both claims are true only while
+    this set is what it is."""
     read = _env_vars_read_by_the_vendored_scripts()
 
     assert read == {"OPENALEX_EMAIL", "OPENALEX_API_KEY", "CROSSREF_MAILTO"}

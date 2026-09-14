@@ -71,3 +71,29 @@ def test_claims_carry_no_managed_flag():
     (claim,) = claims.parse_claims("- (quote) [@smith2020, p. 1] ^c-1\n  > text\n")
     assert not hasattr(claim, "in_managed")
     assert claim.quote_text == "text"
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_blockquote_lines_attach_only_to_the_quote_claim_directly_above():
+    """A `  > ` line before any claim, after a non-quote claim, or after a
+    plain line that closed the quote is not quote text; a plain line after a
+    quote claim is neither quote text nor an error."""
+    text = (
+        "  > stray before any claim\n"
+        "- (inference) An inference [@smith2020, p. 1] ^c-1\n"
+        "  > not a quote continuation\n"
+        "- (quote) [@smith2020, p. 2] ^c-2\n"
+        "  > first line\n"
+        "  > second line\n"
+        "plain prose\n"
+        "  > closed already\n"
+        "- (quote) [@smith2020, p. 3] ^c-3\n"
+    )
+    parsed = claims.parse_claims(text)
+    assert [(c.tag, c.claim_id, c.quote_text) for c in parsed] == [
+        ("inference", "c-1", None),
+        ("quote", "c-2", "first line second line"),
+        ("quote", "c-3", None),
+    ]

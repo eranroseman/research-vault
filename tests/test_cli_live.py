@@ -1,6 +1,9 @@
 import json
+import os
+import pwd
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -17,6 +20,16 @@ def run_cli(*args):
 
 
 @pytest.mark.live
+def test_a_live_test_keeps_the_operators_real_home():
+    """The per-test HOME redirect (tests/conftest.py::_per_test_home) is
+    decided by the markers: a live leg reads the operator's real registry and
+    profile paths on purpose, so under this marker `Path.home()` is the
+    account's home, not a directory under pytest's basetemp."""
+    assert Path.home() == Path(pwd.getpwuid(os.getuid()).pw_dir)
+    assert os.environ.get("HOME") == str(Path.home())
+
+
+@pytest.mark.live
 def test_probe():
     proc = run_cli("probe")
     assert proc.returncode == 0
@@ -27,8 +40,8 @@ def test_probe():
     assert "betterbibtex" in report["bbt"]
 
 
-def test_probe_unreachable():
-    proc = run_cli("probe", "--base", "http://127.0.0.1:1")
+def test_probe_unreachable(dead_base):
+    proc = run_cli("probe", "--base", dead_base)
     assert proc.returncode == 3
     report = json.loads(proc.stdout)
     assert report["result"] == "UNREACHABLE"
@@ -68,3 +81,15 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
         "server": FakeClient("unused").server_info(),
         "bbt": {"zotero": "10.0.1", "betterbibtex": "9.0.63"},
     }
+
+
+def test_probe_unreachable_in_process_is_exit_3(dead_base, capsys):
+    """The same refusal the subprocess test measures, reached through
+    `main()` so the exit code is pinned in-process too."""
+    import research_vault.__main__ as cli
+
+    assert cli.main(["probe", "--base", dead_base]) == 3
+    report = json.loads(capsys.readouterr().out)
+    assert report["result"] == "UNREACHABLE"
+    assert set(report) == {"result", "detail"}
+    assert "127.0.0.1" in report["detail"]

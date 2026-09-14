@@ -1,8 +1,8 @@
 """The `finding` verb: the review-record writer (spec §3, §6 factored-verification).
 
 `finding` is a thin CLI wrapper over ``inbox.append_entry`` — the mechanism
-factcheck-draft's adjudicated findings and Task 5's import-time holds both
-write through, so prose never touches the review queue directly.
+factcheck-draft's adjudicated findings write through, so prose never touches
+the review queue directly.
 """
 
 from pathlib import Path
@@ -269,6 +269,54 @@ def test_finding_refuses_a_same_day_retry_with_a_different_result(tmp_vault, cap
     )
     assert ack_code == 0
     assert inbox.open_entries(tmp_vault) == []
+
+
+def test_record_finding_refuses_with_exit_2_and_a_retry_must_match_on_every_field(
+    tmp_vault,
+):
+    """Every refusal answers 2 (never another code): MATCHED, SKIPPED outside
+    factcheck, and a same-id retry whose RESULT differs while the reason and
+    everything else match -- that is the collision the id cannot carry, not
+    a duplicate."""
+    from research_vault import Result
+    from research_vault.__main__ import record_finding
+
+    code, detail = record_finding(
+        tmp_vault, "quote", "smith2020", Result.MATCHED, "matched"
+    )
+    assert code == 2
+    assert detail.startswith("MATCHED never files a finding")
+    code, detail = record_finding(
+        tmp_vault, "quote", "smith2020", Result.SKIPPED, "no-identifier — nothing"
+    )
+    assert code == 2
+    assert detail.startswith("SKIPPED is automatic-only for 'quote'")
+    first = record_finding(
+        tmp_vault,
+        "factcheck",
+        "smith2020#^c-11111111",
+        Result.UNREACHABLE,
+        "outage — network unavailable",
+        date="2026-08-21",
+    )
+    assert first[0] == 0
+    code, detail = record_finding(
+        tmp_vault,
+        "factcheck",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "outage — network unavailable",
+        date="2026-08-21",
+    )
+    assert code == 2
+    assert "already recorded with different content" in detail
+    assert len(inbox.open_entries(tmp_vault)) == 1
+    code, detail = record_finding(
+        tmp_vault, "quote", "smith2020", Result.UNMATCHED, "mismatch — x", date="soon"
+    )
+    # The refusal, not its sentence: the code and the shape the detail names.
+    assert code == 2
+    assert detail.startswith("date must be a YYYY-MM-DD")
 
 
 def test_finding_retry_with_the_same_target_hash_is_idempotent(tmp_vault):

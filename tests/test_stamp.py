@@ -99,3 +99,74 @@ def test_idempotent(tmp_path):
     stamp.stamp_types(tmp_path)
     stamped, _ = stamp.stamp_types(tmp_path)
     assert stamped == []
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_every_skip_is_a_pass_over_not_the_end_of_the_walk(tmp_path):
+    """In walk order, before the one stampable note: a note under an excluded
+    directory, a note no type is derivable for, a directory named like a note,
+    a symlink, an unparseable note, a duplicate-key note, an already-typed
+    note, the root index.md and log.md. Each is skipped or reported on its
+    own, and the project note sorted after all of them is still stamped."""
+    (tmp_path / ".raw").mkdir()
+    (tmp_path / ".raw" / "a.md").write_text("raw\n")
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "a-dir.md").mkdir()
+    (inbox / "b-link.md").symlink_to(tmp_path / "nowhere.md")
+    (inbox / "c-bad.md").write_text("---\n  bad: nested\n---\ntext\n")
+    (tmp_path / "literatures").mkdir()
+    (tmp_path / "literatures" / "dup.md").write_text(
+        '---\ntags: "a"\ntags: "b"\n---\ntext\n'
+    )
+    (inbox / "d-typed.md").write_text('---\ntype: "fleeting"\n---\ntext\n')
+    (tmp_path / "index.md").write_text("root index\n")
+    (tmp_path / "log.md").write_text("log\n")
+    (tmp_path / "a-loose").mkdir()
+    (tmp_path / "a-loose" / "e-notype.md").write_text("loose\n")
+    (tmp_path / "projects" / "p").mkdir(parents=True)
+    (tmp_path / "projects" / "p" / "draft.md").write_text("the draft\n")
+
+    stamped, reported = stamp.stamp_types(tmp_path)
+
+    assert stamped == ["projects/p/draft.md"]
+    assert reported == [
+        ("a-loose/e-notype.md", "no-type"),
+        ("inbox/b-link.md", "symlink"),
+        ("inbox/c-bad.md", "unparseable"),
+        ("literatures/dup.md", "unparseable"),
+    ]
+    assert (tmp_path / "index.md").read_text() == "root index\n"
+    assert (tmp_path / "log.md").read_text() == "log\n"
+    assert (inbox / "d-typed.md").read_text() == '---\ntype: "fleeting"\n---\ntext\n'
+    data, _body = frontmatter.parse(
+        (tmp_path / "projects" / "p" / "draft.md").read_text()
+    )
+    assert data == {"type": "project"}
+
+
+def test_explicit_paths_skip_git_and_index_but_stamp_the_rest(tmp_path):
+    """Named paths, relative or absolute: anything under .git and index.md are
+    passed over; the named note is stamped and nothing else is walked."""
+    (tmp_path / ".git" / "hooks").mkdir(parents=True)
+    (tmp_path / ".git" / "hooks" / "note.md").write_text("hook\n")
+    (tmp_path / "inbox").mkdir()
+    (tmp_path / "inbox" / "index.md").write_text("an index\n")
+    (tmp_path / "inbox" / "idea.md").write_text("thought\n")
+    (tmp_path / "inbox" / "other.md").write_text("not named\n")
+
+    stamped, reported = stamp.stamp_types(
+        tmp_path,
+        paths=[
+            ".git/hooks/note.md",
+            "inbox/index.md",
+            str(tmp_path / "inbox" / "idea.md"),
+        ],
+    )
+
+    assert (stamped, reported) == (["inbox/idea.md"], [])
+    assert (tmp_path / ".git" / "hooks" / "note.md").read_text() == "hook\n"
+    assert (tmp_path / "inbox" / "index.md").read_text() == "an index\n"
+    assert (tmp_path / "inbox" / "other.md").read_text() == "not named\n"

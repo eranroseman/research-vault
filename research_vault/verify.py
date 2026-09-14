@@ -53,7 +53,7 @@ def _without_own_marks(text: str) -> str:
 
     Every scope leg strips verify's ``[failed-verification:: …]`` marker before
     hashing, so the scope is invariant under the tool's own stamp and clear
-    (open point 07, ruling 5) — the body-marker counterpart of what
+    (open point 07) — the body-marker counterpart of what
     ``canonical_content`` already does with ``verified`` events.
     """
     return _OWN_MARK.sub("", text)

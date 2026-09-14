@@ -1,13 +1,20 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools>=68" ]
+# A floor, not a pin, unlike every dev-lane tool: the backend is resolved by the
+# installer in its isolated build environment at build time and is not part of
+# the pinned tool set. >=77 is where SPDX `license` strings (PEP 639) landed.
+requires = [ "setuptools>=77" ]
 
 [project]
 name = "research-vault"
-version = "0.1.0"
 description = "Deterministic core for the research-vault plugin"
-# Floor matches mutate4py's own >=3.11; nothing tests or claims 3.10.
+license = "MIT"
+# 3.11 is where the stdlib the package and its lane lean on landed: datetime.UTC
+# (clock.py, capture.py), contextlib.chdir (the mutation gate), tomllib (the
+# config-validity tests). Nothing tests or claims 3.10.
 requires-python = ">=3.11"
+# Single-sourced from research_vault.__version__ (tool.setuptools.dynamic below).
+dynamic = [ "version" ]
 dependencies = [
   # Lazy-imported at research_vault's single parse site (package boundary only —
   # the vendored find-sources scripts parse via stdlib by upstream's choice, recorded
@@ -15,6 +22,7 @@ dependencies = [
   "defusedxml==0.7.1",
 ]
 [project.optional-dependencies]
+# A floor by design: a user-installed, feature-detected extra, not a dev-lane tool.
 pdf = [ "pypdf>=4" ]
 dev = [
   "crap4py==0.1.1",
@@ -34,11 +42,11 @@ dev = [
   "mdformat==1.0.0",
   "mdformat-frontmatter==2.1.2",
   "mdformat-gfm==1.0.0",
-  "mutate4py==0.1.4",
+  "mutmut==3.7.0",
   "mypy==2.3.1",
   "pre-commit==4.6.2",
-  "pyproject-fmt==2.28.0",
-  "pytest>=8",
+  "pyproject-fmt==2.29.4",
+  "pytest==9.1.1",
   "pytest-cov==7.1.0",
   # Pass `-n auto` ON THE COMMAND LINE, never in addopts: ambient parallelism races
   # the single Zotero instance, and mutation runs would nest a pool per mutant.
@@ -46,21 +54,55 @@ dev = [
   # Dev-lane instrument, read-only posture: local writes sit behind Zotero's own
   # consent dialog; web-API write keys never against the real library; no key in repo.
   "pyzotero[cli]==1.14.0",
-  "ruff==0.15.21",
+  "ruff==0.16.7",
   "yamlfix==1.19.1",
 ]
+[project.urls]
+Homepage = "https://github.com/eranroseman/research-vault"
+Repository = "https://github.com/eranroseman/research-vault"
 
 [tool.setuptools.packages.find]
 include = [ "research_vault*" ]
 [tool.setuptools.package-data]
 research_vault = [ "templates/**/*" ]
+[tool.setuptools.dynamic]
+version = { attr = "research_vault.__version__" }
 
 [tool.ruff]
-required-version = "==0.15.21"
-# Explicit (ruff would infer from requires-python only when absent) — the two
-# move together on any floor bump.
+required-version = "==0.16.7"
+# Explicit (ruff would infer from requires-python only when absent) — the three
+# move together on any floor bump: this, requires-python, and mypy's python_version.
 target-version = "py311"
 line-length = 88
+# ruff 0.16 formats Python fences in Markdown by default (`*.md` joined its
+# include list). Markdown has one form owner, mdformat (.pre-commit-config.yaml),
+# and vault/index.md is off-limits to every formatter (#70) — ruff stays off it.
+extend-exclude = [ "*.md" ]
+[tool.ruff.lint.per-file-ignores]
+# unicode fixtures deliberate; assert IS pytest.
+# ARG in tests only: a monkeypatch double's unused parameters ARE the signature it
+# honours, and a side-effect fixture is named but never read. Guard stays armed in core.
+"tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
+"tests/test_cli_live.py" = [ "UP012" ]
+# print IS the CLI output contract.
+"research_vault/__main__.py" = [ "T20" ]
+# Gate scripts report via stdout by design.
+"scripts/*" = [ "T20" ]
+# PTH off in gitstate ONLY: this module IS the byte-exact path plane — vault paths
+# are raw bytes pathlib cannot hold, os.path.abspath is NOT Path.resolve() (resolve
+# follows symlinks; containment requires not), and Path.readlink() normalises where
+# snapshot/restore must be byte-exact.
+"research_vault/gitstate.py" = [ "PTH" ]
+# Test side of the same ruling: fixtures are deliberately non-UTF-8 byte paths
+# pathlib cannot construct.
+"tests/test_gitstate.py" = [ "PTH" ]
+"tests/test_verify_cli.py" = [ "PTH" ]
+# ~2x the package's measured C901 maximum — deliberate slack so this cap never
+# competes with the CRAP ceiling for the same decision; it catches only what a high
+# coverage number hid. C901 and crap4py's CC are DIFFERENT metrics (crap4py is
+# expression-aware and reads far higher); neither subsumes the other.
+[tool.ruff.lint.mccabe]
+max-complexity = 28
 [tool.ruff.lint]
 # Bandit idiom exclusions — see `ignore` below: these fire on this repo's own
 # architecture, not on findings. S602/S604 (shell=True) stay active inside "S".
@@ -71,9 +113,17 @@ line-length = 88
 #   PLR   — pylint-refactor thresholds: PLR0911's "too many returns" flags four-state
 #           outcome mappers (multi-return IS the doctrine's shape); PLR2004 flags HTTP
 #           codes; complexity rows are covered by C90 + the CRAP ceiling
+#   PLC   — pylint-convention: PLC0415 flags the package's deliberate lazy imports
+#           (defusedxml at the single parse site, mutmut in the shims); of pylint
+#           only PLE + PLW are selected
 #   BLE   — the four-state doctrine requires broad catch -> UNREACHABLE in probe
 #           wrappers and fail-open hooks; this rule fights the architecture
-#   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
+#   TRY   — TRY004 wants TypeError where an isinstance check fails; a wrong JSON
+#           shape here IS a malformed value, raised as ValueError so the enclosing
+#           (OSError, ValueError) handler maps it to a four-state outcome — a
+#           TypeError would escape the handler. The rest of TRY is raise/log style.
+#   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist;
+#           in `ignore` with the other skip families so no default expansion re-enables it
 #   D     — docstrings unenforced by decision: presence/format checks can't verify truth,
 #           and the meaning layer lives in CONTEXT.md/spec; docstrings stay by convention
 # C90 IS selected: below the CRAP ceiling a CC cap catches complexity laundered by
@@ -83,6 +133,11 @@ line-length = 88
 # extend-select cannot unselect defaults. On any ruff upgrade: diff the new version's
 # defaults (ruff check --isolated --show-settings) against these skips and move any
 # violated skip into `ignore`, or the recorded rulings silently stop being true.
+# 0.16 (2026-07) did exactly that — 413 defaults, up from 59 — so the skip families
+# now sit in `ignore` as PREFIXES, which no later default expansion can re-enable.
+# The same release dropped 18 pycodestyle/pyflakes singles from the defaults (E401,
+# E402, E7xx, F403/F405/F406/F722); the pre-0.16 default set (E4, E7, E9, F) is
+# selected explicitly below so the lane's coverage did not shrink with the bump.
 extend-select = [
   "A",
   "ARG",
@@ -91,7 +146,11 @@ extend-select = [
   "C4",
   "C90",
   "DTZ",
+  "E4",
+  "E7",
+  "E9",
   "EXE",
+  "F",
   "FA",
   "FLY",
   "FURB",
@@ -120,38 +179,14 @@ extend-select = [
   "W",
   "YTT",
 ]
-ignore = [ "S310", "S603", "S607" ]
-[tool.ruff.lint.per-file-ignores]
-# unicode fixtures deliberate; assert IS pytest.
-# ARG in tests only: a monkeypatch double's unused parameters ARE the signature it
-# honours, and a side-effect fixture is named but never read. Guard stays armed in core.
-"tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
-"tests/test_cli_live.py" = [ "UP012" ]
-# print IS the CLI output contract.
-"research_vault/__main__.py" = [ "T20" ]
-# Gate scripts report via stdout by design.
-"scripts/*" = [ "T20" ]
-# PTH off in gitstate ONLY: this module IS the byte-exact path plane — vault paths
-# are raw bytes pathlib cannot hold, os.path.abspath is NOT Path.resolve() (resolve
-# follows symlinks; containment requires not), and Path.readlink() normalises where
-# snapshot/restore must be byte-exact.
-"research_vault/gitstate.py" = [ "PTH" ]
-# Test side of the same ruling: fixtures are deliberately non-UTF-8 byte paths
-# pathlib cannot construct.
-"tests/test_gitstate.py" = [ "PTH" ]
-"tests/test_verify_cli.py" = [ "PTH" ]
-# ~2x the package's measured C901 maximum — deliberate slack so this cap never
-# competes with the CRAP ceiling for the same decision; it catches only what a high
-# coverage number hid. C901 and crap4py's CC are DIFFERENT metrics (crap4py is
-# expression-aware and reads far higher); neither subsumes the other.
-[tool.ruff.lint.mccabe]
-max-complexity = 28
+ignore = [ "ANN", "BLE", "D", "PLC", "PLR", "S310", "S603", "S607", "TRY" ]
 
 # Ratchet: disallow_incomplete_defs -> disallow_untyped_defs as code gets annotated.
 # Full --strict waits for the evidence shapes to be modeled as TypedDicts — before
 # that it invites cast()-laundered "asserted, not verified" types at JSON boundaries.
 [tool.mypy]
-files = [ "research_vault" ]
+files = [ "hooks", "research_vault", "scripts" ]
+python_version = "3.11"
 # rung 1: untyped function bodies are checked.
 check_untyped_defs = true
 warn_redundant_casts = true
@@ -169,11 +204,54 @@ module = "defusedxml.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+testpaths = [ "tests" ]
+# Pinning collection here makes bare `pytest` and `python -m pytest` resolve
+# scripts.* imports identically.
+pythonpath = [ "." ]
+# --strict-markers: a typo'd `live_net` mark would otherwise run silently in the
+# offline suite and make real external API calls. Never `-n` here (the
+# pytest-xdist note above); CI passes it on its own command line.
+addopts = [ "--strict-markers" ]
 markers = [
   "live: requires a running local Zotero (set RV_LIVE=1)",
   "live_net: hits real external APIs (set RV_LIVE_NET=1 and RV_MAILTO)",
 ]
-# Pinning collection here makes bare `pytest` and `python -m pytest` resolve
-# scripts.* imports identically.
-pythonpath = [ "." ]
-testpaths = [ "tests" ]
+# A passed test leaves no tmp_path behind: one run retained ~249 MB of vaults
+# (measured 2026-08-24: `du -sh /tmp/pytest-of-<user>` after one serial run).
+tmp_path_retention_policy = "failed"
+
+# mutmut 3.7.0 (scripts/mutation_gate.py drives it; read from the cwd, so run
+# from the repo root). It copies source_paths + tests/ + pyproject.toml +
+# also_copy into mutants/ and runs the suite from there, where a test's
+# `Path(__file__).resolve().parents[1]` is mutants/ -- so every repo file a test
+# reads must be listed in also_copy, or the stats phase fails on that read.
+# Entries, by the tests that read them:
+#   research_vault/templates  copied with source_paths but only once (mutmut
+#                             refreshes .py files by mtime, nothing else);
+#                             listed here so template edits reach mutants/
+#   hooks                     test_hooks, test_publish run the hook scripts
+#   skills                    skill contract/file tests, find-sources vendor
+#   scripts                   test_mutation_gate imports scripts.mutation_gate
+#   docs                      test_config_validity reads docs/terminology.md
+#                             (a file entry needs its parent to exist, so the
+#                             directory)
+#   .claude-plugin            test_skeleton, test_config_validity manifests
+#   .pre-commit-config.yaml   test_config_validity's pyproject-fmt/mdformat pins
+#   CONTEXT.md, README.md     test_templates
+# pytest_add_cli_args: no .pytest_cache under mutants/ (the tree is hashed and
+# swept by the gate; a cache dir is noise there). -n is never added: mutation
+# runs would nest a pool per mutant (see the pytest-xdist note above).
+[tool.mutmut]
+source_paths = [ "research_vault" ]
+also_copy = [
+  "research_vault/templates",
+  "hooks",
+  "skills",
+  "scripts",
+  "docs",
+  ".claude-plugin",
+  ".pre-commit-config.yaml",
+  "CONTEXT.md",
+  "README.md",
+]
+pytest_add_cli_args = [ "-p", "no:cacheprovider" ]

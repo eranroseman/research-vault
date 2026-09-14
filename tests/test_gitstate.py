@@ -761,3 +761,23 @@ def test_rollback_refuses_a_directory_preimage_and_names_the_path(tmp_vault):
         gitstate.rollback_outputs(tmp_vault, preimage, [output])
 
     assert flattened.read_bytes() == b"flattened\n"
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_allowed_manifest_path_needs_a_file_image_an_md_suffix_and_an_owned_root():
+    """The verifier's output allowlist: a regular file image, a `.md` path,
+    under literatures/ or projects/ or exactly the review queue -- each of
+    the three guards refuses on its own."""
+    file_image = gitstate.FileImage(b"literatures/x.md", "file", 0o100644, b"")
+    directory = gitstate.FileImage(b"literatures/x.md", "directory", 0o40000, None)
+    allowed = gitstate._allowed_manifest_path
+    assert allowed(b"literatures/x.md", file_image) is True
+    assert allowed(b"projects/brief/draft.md", file_image) is True
+    assert allowed(b"inbox/review-queue.md", file_image) is True
+    assert allowed(b"literatures/x.md", None) is False
+    assert allowed(b"literatures/x.md", directory) is False
+    assert allowed(b"literatures/x.txt", file_image) is False
+    assert allowed(b"system/x.md", file_image) is False
+    assert allowed(b"inbox/other.md", file_image) is False

@@ -4,8 +4,7 @@ Project-scoped, append-only ``projects/<name>/search-log.md``. Two record
 kinds through one verb, mutually exclusive per call: a search-run entry
 (query as run, source searched, date, hit count) and a not-admitted-candidate
 entry (candidate, reason code, date). Shares its low-level durable-append
-primitives with ``inbox.py`` via ``research_vault/appendlog.py`` (Task 6
-review, 2026-08-22 — an earlier draft duplicated them instead); reuses
+primitives with ``inbox.py`` via ``research_vault/appendlog.py``; reuses
 ``inbox.validate_reason``/``inbox.REASON_CODES`` for the reason field and
 ``publish.project_dir`` for project resolution, so the reason-code registry
 and the project-path safety checks each still have exactly one owner.
@@ -266,6 +265,61 @@ def test_search_log_refuses_a_query_entry_missing_source_or_hits(fixture_vault, 
     assert not _log_path(fixture_vault).exists()
 
 
+@pytest.mark.parametrize(
+    "given", [["--source", "s"], ["--hits", "3"]], ids=["no-hits", "no-source"]
+)
+def test_search_log_refuses_a_query_entry_missing_either_source_or_hits(
+    fixture_vault, capsys, given
+):
+    """One of the two is not enough: the refusal names both, before any write."""
+    code = main(
+        [
+            "search-log",
+            "--vault",
+            str(fixture_vault),
+            "--project",
+            "brief",
+            "--query",
+            "q",
+            *given,
+        ]
+    )
+
+    assert code == 2
+    err = capsys.readouterr().err
+    # The branch, not the sentence: the code prefix (which every string mutant
+    # of the message breaks) and the two flags the refusal names.
+    assert err.startswith("search-log refused: ")
+    assert "--source" in err
+    assert "--hits" in err
+    assert not _log_path(fixture_vault).exists()
+
+
+def test_search_log_records_the_given_date_and_actor_on_a_search_run(fixture_vault):
+    code = main(
+        [
+            "search-log",
+            "--vault",
+            str(fixture_vault),
+            "--project",
+            "brief",
+            "--query",
+            "q",
+            "--source",
+            "PubMed",
+            "--hits",
+            "2",
+            "--date",
+            "2026-01-02",
+            "--actor",
+            "human:eran",
+        ]
+    )
+    assert code == 0
+    entry = searchlog.load(fixture_vault, "brief")[0]
+    assert (entry.date, entry.actor) == ("2026-01-02", "human:eran")
+
+
 def test_search_log_refuses_a_not_admitted_entry_missing_reason(fixture_vault, capsys):
     code = main(
         [
@@ -450,13 +504,11 @@ def test_search_log_accepts_an_explicit_actor_and_date(fixture_vault):
 def test_search_log_fsyncs_the_directory_only_when_the_file_is_created(
     fixture_vault, monkeypatch
 ):
-    """Review finding (2026-08-22, Important 2): an earlier draft computed
-    ``created`` from ``path.exists()`` *after* ``_prepare_append`` had
-    already written the file, so it was always ``True`` and the
-    directory-entry fsync could never run. Reproduces the reviewer's own
-    empirical check: two ``durable=True`` calls, the first creating the
-    file, must fsync the directory exactly once — on the first call, never
-    the second."""
+    """``created`` must be decided before ``_prepare_append`` writes the
+    file: read from ``path.exists()`` afterwards it is always ``True`` and
+    the directory-entry fsync never runs. Two ``durable=True`` calls, the
+    first creating the file, must fsync the directory exactly once — on the
+    first call, never the second."""
     calls = []
     monkeypatch.setattr(searchlog, "_sync_directory", calls.append)
 
@@ -523,13 +575,12 @@ def test_find_sources_skill_routes_every_mechanical_act_through_the_verb():
 
 
 def test_find_sources_skill_never_applies_check_result_vocabulary_to_a_search():
-    """Review finding (2026-08-22, Important 3): MATCHED/UNMATCHED/UNREACHABLE/
-    SKIPPED are spec §6's vocabulary for a *check* with a real `Result` — a
-    search has none. The skill may explain that boundary in prose (it does,
-    once, to stop a future editor re-introducing the mistake), but must never
-    hand an agent one of these words as a label for a search outcome, which
-    the table used to do. Assert the plain-language replacement labels are
-    present and that the four words appear at most once each — the single
+    """MATCHED/UNMATCHED/UNREACHABLE/SKIPPED are spec §6's vocabulary for a
+    *check* with a real `Result` — a search has none. The skill may explain
+    that boundary in prose (it does, once, to stop a future editor
+    re-introducing the mistake), but must never hand an agent one of these
+    words as a label for a search outcome. Assert the plain-language labels
+    are present and that the four words appear at most once each — the single
     explanatory mention, never a second, table-row usage."""
     text = FIND_SOURCES_SKILL.read_text(encoding="utf-8")
     for token in (

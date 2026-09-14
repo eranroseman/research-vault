@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from research_vault import Result, paths, scaffold, zotero
+from tests.conftest import package_ast
 from tests.fakes import FakeZotero
 
 PROBE_NAMES = [
@@ -116,6 +117,21 @@ def test_cmd_doctor_warn_only_failures_exit_zero_and_print_warn_prefix(
     assert line.startswith(f"warn:{state.value} {name}")
 
 
+def test_cmd_doctor_warn_prefix_needs_both_a_warn_only_check_and_a_failure(
+    monkeypatch, capsys
+):
+    """`warn:` marks a warn-only check that failed -- never a hard check's
+    failure, never a warn-only check that passed."""
+    _code, captured = _run_cmd(monkeypatch, capsys, _probes())
+    assert not [line for line in captured.out.splitlines() if line.startswith("warn:")]
+    _code, captured = _run_cmd(
+        monkeypatch, capsys, _probes(tree=Result.UNMATCHED, remote=Result.UNREACHABLE)
+    )
+    lines = captured.out.splitlines()
+    assert "UNMATCHED tree — tree detail" in lines
+    assert "warn:UNREACHABLE remote — remote detail" in lines
+
+
 def test_cmd_doctor_hard_unmatched_wins_over_hard_unreachable(monkeypatch, capsys):
     code, _ = _run_cmd(
         monkeypatch,
@@ -153,7 +169,7 @@ def _maybe_unreachable_probe_ids() -> set[str]:
     argument. A Probe whose result is written as any other expression — a
     variable, a NamedTuple field — can carry any result, so it counts too.
     """
-    tree = ast.parse(Path(scaffold.__file__).read_text(encoding="utf-8"))
+    tree = package_ast(Path(scaffold.__file__))
     ids: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or getattr(node.func, "id", None) != "Probe":
@@ -391,6 +407,18 @@ def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(
     for name in LOCAL_API_PROBES:
         assert by[name] == scaffold.Probe(name, Result.SKIPPED, "zotero unreachable")
     assert [probe.check for probe in probes[-2:]] == ["remote", "backup"]
+
+
+def test_doctor_reads_the_remote_of_the_vault_not_of_the_process_cwd(
+    tmp_vault, monkeypatch
+):
+    """The remote probe runs git in the vault: from a cwd that is no repository
+    at all it still finds the vault's `origin`."""
+    vault = _doctor_vault(tmp_vault)
+    monkeypatch.chdir(tmp_vault.parent)
+    probes = scaffold.doctor(vault, client=None)
+    by = {p.check: p for p in probes}
+    assert by["remote"] == scaffold.Probe("remote", Result.MATCHED, "origin")
 
 
 @pytest.mark.parametrize(
@@ -877,3 +905,28 @@ def test_doctor_base_routes_before_and_after_subcommand(
     assert cli.main(argv) == 0
     assert bases == [expected]
     assert len(capsys.readouterr().out.splitlines()) == 13
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_list(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        scaffold,
+        "_installed_plugins",
+        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "ad67087cad22"}]},
+    )
+    probe = scaffold._compile_tool_probe()
+    assert (probe.check, probe.result, probe.reason) == (
+        "compile-tool",
+        Result.MATCHED,
+        f"{COMPILE_PLUGIN} at ad67087",
+    )
+    monkeypatch.setattr(scaffold, "_installed_plugins", lambda: {COMPILE_PLUGIN: []})
+    probe = scaffold._compile_tool_probe()
+    assert (probe.result, probe.reason) == (
+        Result.SKIPPED,
+        f"{COMPILE_PLUGIN} not installed",
+    )

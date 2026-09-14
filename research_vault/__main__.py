@@ -1,4 +1,4 @@
-"""CLI surface consumed by hooks (Plan C) and skills (Plan D)."""
+"""CLI surface consumed by hooks and skills."""
 
 import argparse
 import json

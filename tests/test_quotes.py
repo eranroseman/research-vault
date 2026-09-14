@@ -130,6 +130,76 @@ def test_no_comparison_text_is_unreachable(fixture_vault):
     }
 
 
+def test_textless_quote_is_schema_violation_on_its_claim_link(fixture_vault):
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    lines = draft.read_text().splitlines(keepends=True)
+    draft.write_text("".join(line for line in lines if not line.startswith("  > ")))
+
+    out = quotes.check_all_quotes(fixture_vault, draft)[0]
+
+    assert (out.check, out.target, out.result, out.reason) == (
+        "quote",
+        "smith2020#^c-66666666",
+        Result.UNMATCHED,
+        "schema-violation — quote claim has no text",
+    )
+    assert out.extra == {
+        "note_path": "path-bytes:projects/brief/draft.md",
+        "claim_id": "c-66666666",
+        "line_no": 7,
+        "target": "managed-region",
+    }
+
+
+def test_a_ratio_exactly_at_the_fuzzy_threshold_is_fuzzy_not_mismatch(
+    fixture_vault, monkeypatch
+):
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text().replace(
+            "Mortality fell 12% across all strata.", "Something else entirely."
+        )
+    )
+    monkeypatch.setattr(
+        quotes, "levenshtein_ratio", lambda a, b: quotes.FUZZY_THRESHOLD
+    )
+
+    out = quotes.check_all_quotes(fixture_vault, draft)[0]
+
+    assert (out.check, out.result) == ("quote", Result.UNMATCHED)
+    assert out.reason == "fuzzy-quote — best ratio 0.90"
+
+
+def test_an_anchorless_claim_and_a_quoteless_source_row_under_the_quote_check(
+    fixture_vault,
+):
+    """Both early exits file under check `quote`: no anchor targets the
+    citation key alone; a source with no extractable text is an outage on
+    the claim link."""
+    from research_vault.claims import Claim
+
+    anchorless = Claim("quote", "smith2020", None, None, 3, quote_text="x")
+    out = quotes.check_quote(fixture_vault, anchorless, "smith2020")
+    assert (out.check, out.target, out.result, out.reason) == (
+        "quote",
+        "smith2020",
+        Result.UNMATCHED,
+        "schema-violation — quote claim has no anchor",
+    )
+
+    (fixture_vault / "literatures" / "smith2020.md").write_text(
+        '---\ntype: "literature"\n---\n# Smith\n'
+    )
+    anchored = Claim("quote", "smith2020", None, "c-66666666", 3, quote_text="x")
+    out = quotes.check_quote(fixture_vault, anchored, "smith2020")
+    assert (out.check, out.target, out.result, out.reason) == (
+        "quote",
+        "smith2020#^c-66666666",
+        Result.UNREACHABLE,
+        "outage — no extractable comparison text",
+    )
+
+
 def test_no_quote_claims_returns_one_controlled_skipped_outcome(fixture_vault):
     note = fixture_vault / "wiki" / "concepts" / "clean.md"
     note.write_text("# Clean\n")

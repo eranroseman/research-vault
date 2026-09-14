@@ -1182,7 +1182,7 @@ def _bypass_once(hook, fixture_vault, monkeypatch, capsys, reason):
 def test_two_distinct_same_day_bypasses_stay_separately_acknowledgeable(
     fixture_vault, monkeypatch, capsys
 ):
-    """Plan C follow-up 2: one id per act, not one id per day.
+    """One id per act, not one id per day.
 
     A same-day retry of the SAME bypass still collapses to one row; two
     genuinely distinct bypasses must each be recordable and closable on their

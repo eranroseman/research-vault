@@ -535,8 +535,8 @@ def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
     ledger.write_bytes(payload)
     with pytest.raises(notes.LedgerUnreadableError) as caught:
         notes.compiled_pages(tmp_path, PROVENANCE)
-    # Subject first, the plan's shape: capture's hold reason and Task 13's test
-    # both start with "<ledger path> unreadable".
+    # Subject first: capture's hold reason and this error both start with
+    # "<ledger path> unreadable".
     assert str(caught.value).startswith(f"{notes.LEDGER_PATH} unreadable: ")
     assert "source-ledger.json unreadable" in str(caught.value)
     # Only the decode branch has an underlying error to report; the schema
@@ -654,8 +654,8 @@ def test_linked_attachment_says_it_has_no_fixity():
 def test_canonical_content_excludes_the_verifier_owned_failure_rows():
     """The `failed-verification` list `events.record_failure` writes and
     `record_pass` removes is the tool's own record, excluded from the scope
-    exactly as `verified` events are (Task 18 round 3, ruling 10); a row that
-    fails the verifier-owned shape stays byte for byte, as today."""
+    exactly as `verified` events are; a row that fails the verifier-owned
+    shape stays byte for byte."""
     from research_vault import events
 
     base = _note()
@@ -678,3 +678,129 @@ def test_canonical_content_excludes_the_verifier_owned_failure_rows():
     enveloped = events.record_failure(body, "doi", Result.UNMATCHED)
     assert enveloped.startswith("---\nfailed-verification:\n")
     assert notes.canonical_content(enveloped) == body
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_canonical_content_drops_an_empty_verified_list_that_closes_the_frontmatter():
+    """The owned-list header is found anywhere before the closing delimiter,
+    including on the line right above it."""
+    text = '---\ntitle: "x"\nverified:\n---\nbody\n'
+    assert notes.canonical_content(text) == '---\ntitle: "x"\n---\nbody\n'
+
+
+def test_rename_frontmatter_key_renames_the_first_of_a_duplicated_key_only():
+    assert notes.rename_frontmatter_key("---\na: 1\na: 2\n---\n", "a", "b") == (
+        "---\nb: 1\na: 2\n---\n"
+    )
+
+
+def test_rename_frontmatter_key_reaches_a_key_below_the_first_line_of_the_block():
+    assert notes.rename_frontmatter_key(
+        "---\nx: 0\na: 1\n---\na: body\n", "a", "b"
+    ) == ("---\nx: 0\nb: 1\n---\na: body\n")
+
+
+def test_canonical_content_owns_a_verified_header_with_trailing_blanks():
+    text = (
+        '---\ntitle: "x"\nverified:  \t\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n'
+    )
+    assert notes.canonical_content(text) == '---\ntitle: "x"\n---\nbody\n'
+
+
+def test_render_note_writes_the_title_once():
+    assert _render().count("\ntitle:") == 1
+
+
+def test_attachment_line_names_an_imported_url_attachment_with_its_md5():
+    child = {
+        "key": "URL00001",
+        "data": {"linkMode": "imported_url", "md5": "abc", "filename": "page.html"},
+    }
+    line = notes._attachment_line(child)
+    assert line.startswith("- [page.html](zotero://open-pdf/library/items/URL00001)")
+    assert "no fixity" not in line
+
+
+def test_read_provenance_reads_a_tuple_without_list_fields_and_refuses_a_bad_item_key():
+    """A note whose tuple carries no `attachments:`/`fulltext:` keys at all is
+    a complete tuple with empty lists; an item key that is not eight
+    characters of [A-Z0-9] is no tuple even when the citation key is fine."""
+    bare = (
+        '---\nzotero-server-id: "S"\nzotero-item-key: "E352DFS8"\n'
+        'zotero-item-version: 1\ncitationKey: "x"\n---\n'
+    )
+    assert notes.read_provenance(bare) == notes.Provenance(
+        "S", "E352DFS8", 1, "x", (), (), None
+    )
+    bad_key = bare.replace('"E352DFS8"', '"bad"')
+    assert notes.read_provenance(bad_key) is None
+
+
+def test_attachment_line_needs_both_an_imported_link_mode_and_an_md5():
+    linked_with_md5 = {
+        "key": "LINK0001",
+        "data": {"linkMode": "linked_file", "md5": "abc", "filename": "f.pdf"},
+    }
+    imported_without_md5 = {
+        "key": "IMP00001",
+        "data": {"linkMode": "imported_file", "filename": "f.pdf"},
+    }
+    assert notes._attachment_line(linked_with_md5) == "- LINK0001 — linked, no fixity"
+    assert (
+        notes._attachment_line(imported_without_md5) == "- IMP00001 — linked, no fixity"
+    )
+
+
+def test_render_body_ends_with_one_newline_and_joins_the_child_notes_it_can_read():
+    prov = notes.Provenance("S", "E352DFS8", 1, "x", (), (), None)
+    assert notes.render_body(prov, [], []) == (
+        "## Item\n\n- [Open in Zotero](zotero://select/library/items/E352DFS8)\n"
+    )
+    child_notes = [
+        {"data": {"note": "<p>a</p>"}},
+        {"data": {}},
+        {"key": "N0DATA01"},
+        {"data": {"note": "<p>b</p>"}},
+    ]
+    assert notes.render_body(prov, [], child_notes) == (
+        "## Item\n\n- [Open in Zotero](zotero://select/library/items/E352DFS8)\n\n"
+        "## Zotero notes\n\na\n\nb\n"
+    )
+
+
+def test_rerender_replaces_a_blank_or_non_string_prior_accessed_and_drops_a_stale_capture_field():
+    """`accessed` is kept from the prior note only when it is a non-empty
+    string; a capture field the new tuple no longer renders (here the compile
+    digest) is not carried over from the prior note."""
+    first = _render()
+    for prior_accessed in ('""', "2026"):
+        prior = must_replace(
+            first, 'accessed: "2026-09-07"', f"accessed: {prior_accessed}"
+        )
+        data, _ = frontmatter.parse(
+            notes.render_note(
+                ITEM["data"],
+                PROVENANCE,
+                [ATTACHMENT],
+                [CHILD_NOTE],
+                prior,
+                accessed="2026-09-08",
+                generated_at="2026-09-08T00:00:00Z",
+            )
+        )
+        assert data["accessed"] == "2026-09-08"
+    without_digest = dataclasses.replace(PROVENANCE, compile_input_sha256=None)
+    data, _ = frontmatter.parse(
+        notes.render_note(
+            ITEM["data"],
+            without_digest,
+            [ATTACHMENT],
+            [CHILD_NOTE],
+            first,
+            accessed="2026-09-08",
+            generated_at="2026-09-08T00:00:00Z",
+        )
+    )
+    assert "compile-input-sha256" not in data

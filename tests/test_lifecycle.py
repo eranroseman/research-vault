@@ -279,9 +279,8 @@ def test_verify_online_runs_the_linter_against_the_configured_base(
     fixture_vault, monkeypatch
 ):
     """The one code path (§3.4): verify's network run calls the linter with a
-    client built on the ``base`` it was given — the parameter Task 2 had
-    underscored as unread — and the fixture's captured notes come back
-    classified."""
+    client built on the ``base`` it was given, and the fixture's captured
+    notes come back classified."""
     from research_vault import verify
 
     fake = FakeZotero()  # the production id the fixture notes record
@@ -417,7 +416,7 @@ def test_blocked_names_a_database_change_by_its_own_code():
 def test_a_top_item_with_null_data_is_read_not_a_traceback(tmp_vault, monkeypatch):
     """`data: null` on one top-items row used to raise AttributeError past
     `lint_lifecycle`'s `except ZoteroError`, taking a verify run down with a
-    traceback (review I-5, row 31). The row reads as carrying no citation key
+    traceback. The row reads as carrying no citation key
     and no relations; the note classifies from the versions map as before."""
     fake = FakeZotero(server_id="Tdoqsn2J4q4h")
     fake.get(
@@ -437,3 +436,182 @@ def test_a_top_item_with_null_data_is_read_not_a_traceback(tmp_vault, monkeypatc
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     outcomes = lifecycle.lint_lifecycle(tmp_vault, client)
     assert [(o.target, o.result) for o in outcomes] == [("alkt2026", Result.MATCHED)]
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_replaces_keys_takes_the_last_segment_and_ignores_non_strings():
+    """A trailing slash, a key ending in X, an empty string and a non-string
+    value: the key is the last path segment, and only non-empty strings count."""
+    assert lifecycle.replaces_keys(
+        ["http://zotero.org/users/1/items/T6GF6HH7/", "", 7, None]
+    ) == {"T6GF6HH7"}
+    assert lifecycle.replaces_keys("http://zotero.org/users/1/items/ABCDEFGX/") == {
+        "ABCDEFGX"
+    }
+    assert lifecycle.replaces_keys([""]) == set()
+
+
+def test_read_live_reads_replaces_from_the_dc_relations(tmp_vault, monkeypatch):
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get("/api/users/0/items?since=0&format=versions", body={"NEW00001": 9})
+    fake.get("/api/users/0/items/trash?format=versions", body={"OLD00001": 8})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[
+            {
+                "key": "NEW00001",
+                "data": {
+                    "citationKey": "new2026",
+                    "relations": {
+                        "dc:replaces": ["http://zotero.org/users/1/items/OLD00001"]
+                    },
+                },
+            }
+        ],
+    )
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    live = lifecycle.read_live(client)
+    assert live.top == {
+        "NEW00001": {"citationKey": "new2026", "replaces": {"OLD00001"}}
+    }
+    assert (live.versions, live.trash) == ({"NEW00001": 9}, {"OLD00001": 8})
+
+
+def test_drift_detail_refines_every_moved_attachment_and_skips_shapeless_children(
+    tmp_vault, monkeypatch
+):
+    """Two attachments, the first unmoved and the second moved, with a child
+    envelope without `data` in the children read: the moved one is refined
+    (file changed, no cache to judge -- so no "cached text stale") and the
+    unmoved one is passed over without ending the walk."""
+    second = dict(_ATTACHMENT, key="ATT00002", md5="cc33")
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"ALKT2NF7": 0, "ATT00001": 4, "ATT00002": 5},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[{"key": "ALKT2NF7", "data": {"citationKey": "alkt2026"}}],
+    )
+    fake.get(
+        "/api/users/0/items/ALKT2NF7/children",
+        body=[
+            {"key": "N0DATA01"},
+            {"key": "ATT00001", "data": {"md5": "aa11"}},
+            {"key": "ATT00002", "data": {"md5": "dd44"}},
+        ],
+    )
+    _write_note(tmp_vault, _prov(attachments=(_ATTACHMENT, second)))
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert outcome.reason == (
+        "drift — attachment ATT00002 4 → 5; ATT00002: file changed"
+    )
+
+
+def test_drift_detail_joins_two_refinements_with_a_semicolon(tmp_vault, monkeypatch):
+    second = dict(_ATTACHMENT, key="ATT00002", md5="cc33")
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"ALKT2NF7": 0, "ATT00001": 5, "ATT00002": 5},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[{"key": "ALKT2NF7", "data": {"citationKey": "alkt2026"}}],
+    )
+    fake.get(
+        "/api/users/0/items/ALKT2NF7/children",
+        body=[
+            {"key": "ATT00001", "data": {"md5": "aa11"}},
+            {"key": "ATT00002", "data": {"md5": "dd44"}},
+        ],
+    )
+    _write_note(tmp_vault, _prov(attachments=(_ATTACHMENT, second)))
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert outcome.reason == (
+        "drift — attachment ATT00001 4 → 5; attachment ATT00002 4 → 5; "
+        "ATT00001: metadata only; ATT00002: file changed"
+    )
+
+
+def test_the_vault_rows_name_the_vault_target(tmp_vault, monkeypatch):
+    """The decision-26 SKIPPED row of a tupleless vault and the outage row of
+    a failed read both target `vault`, with their full reasons."""
+    client = FakeZotero(server_id="Tdoqsn2J4q4h").install(
+        zotero.ZoteroClient(), monkeypatch
+    )
+    (skipped,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert (skipped.check, skipped.target, skipped.result, skipped.reason) == (
+        "lifecycle",
+        "vault",
+        Result.SKIPPED,
+        "no-identifier — no note carries a provenance tuple",
+    )
+    _write_note(tmp_vault, _prov())
+    monkeypatch.setattr(
+        client,
+        "_http",
+        lambda *a, **k: (_ for _ in ()).throw(zotero.ZoteroError("down")),
+    )
+    (outage,) = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert (outage.check, outage.target, outage.result, outage.reason) == (
+        "lifecycle",
+        "vault",
+        Result.UNREACHABLE,
+        "outage — down",
+    )
+
+
+def test_provenances_skip_an_unreadable_note_and_keep_reading(tmp_vault):
+    (tmp_vault / "literatures" / "a-dir.md").mkdir()
+    (tmp_vault / "literatures" / "b-latin1.md").write_bytes(b"---\ntitle: \xe9\n---\n")
+    _write_note(tmp_vault, _prov())
+    found = lifecycle._provenances(tmp_vault)
+    assert [(p.name, prov.citation_key) for p, prov in found] == [
+        ("alkt2026.md", "alkt2026")
+    ]
+
+
+def test_lint_lifecycle_rows_every_note_after_a_foreign_one_and_a_current_one(
+    tmp_vault, monkeypatch
+):
+    """Three notes in path order: one recording another database (rowed,
+    passed over), one current (matched), one moved (drift) -- the walk reaches
+    all three."""
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"ALKT2NF7": 0, "MOVED001": 3},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[
+            {"key": "ALKT2NF7", "data": {"citationKey": "alkt2026"}},
+            {"key": "MOVED001", "data": {"citationKey": "moved2026"}},
+        ],
+    )
+    foreign = notes.Provenance(
+        "Zzzzzzzzzzzz", "FOREIGN1", 0, "a-foreign2026", (), (), None
+    )
+    _write_note(tmp_vault, foreign)
+    _write_note(tmp_vault, _prov())
+    _write_note(tmp_vault, _prov(item_key="MOVED001", citation_key="moved2026"))
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    outcomes = lifecycle.lint_lifecycle(tmp_vault, client)
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        (
+            "a-foreign2026",
+            Result.UNMATCHED,
+            "database-changed — note records Zzzzzzzzzzzz",
+        ),
+        ("alkt2026", Result.MATCHED, "matched"),
+        ("moved2026", Result.UNMATCHED, "drift — item MOVED001 0 → 3"),
+    ]

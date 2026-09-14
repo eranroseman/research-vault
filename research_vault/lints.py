@@ -22,8 +22,8 @@ FAILED_VERIFICATION = re.compile(
     r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
 )
 CLAIM_LINK = re.compile(r"\[\[([A-Za-z0-9_.:-]+#\^c-[A-Za-z0-9-]+)\]\]")
-# ``published/<project>-<YYYY-MM-DD>-<HHMMSS>`` (ruled 2026-08-22). The time
-# component is uniform, never conditional: a suffix that appeared only on the
+# ``published/<project>-<YYYY-MM-DD>-<HHMMSS>``. The time component is
+# uniform, never conditional: a suffix that appeared only on the
 # second tag of a day would be the shape that breaks this pattern and the
 # newest-tag ordering below, whereas one every tag carries costs this regex
 # once and keeps a plain lexicographic sort chronological to the second.
@@ -684,7 +684,7 @@ def lint_evidence_layer(
         body = _body_bytes(candidate_files[raw_path])
         candidates = removed_by_body.get(body, []) if body is not None else []
         if candidates:
-            old_path = sorted(candidates)[0]
+            old_path = min(candidates)
             candidates.remove(old_path)
             paired_removed.add(old_path)
             paired_added.add(raw_path)

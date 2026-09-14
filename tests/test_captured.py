@@ -319,6 +319,26 @@ def test_clock_today_takes_the_instant_or_reads_utc():
         )
 
 
+def test_clock_today_is_the_utc_date_even_when_the_local_day_differs(monkeypatch):
+    """At 23:30 local (UTC-5) it is already 04:30 of the next day in UTC:
+    today() answers the UTC date whatever the machine's wall clock says. (A
+    `now(None)` mutant survives or dies with the hour of the day otherwise --
+    it was killed at 22:14 CDT and survived at 03:03 CDT, measured 2026-09-14.)"""
+    import datetime
+
+    from research_vault import clock
+
+    class Frozen(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return cls(2026, 9, 13, 23, 30)
+            return cls(2026, 9, 14, 4, 30, tzinfo=datetime.UTC).astimezone(tz)
+
+    monkeypatch.setattr(clock.datetime, "datetime", Frozen)
+    assert clock.today() == "2026-09-14"
+
+
 def test_a_stray_byte_under_wiki_is_a_row_not_a_traceback(tmp_vault):
     """verify's except tuple excludes ValueError, so a UnicodeDecodeError out of
     this lint would end the run with a traceback instead of a finding."""
@@ -390,4 +410,161 @@ def test_quiet_vault_is_matched_and_a_missing_ledger_is_skipped(tmp_vault):
     assert [(o.target, o.result) for o in outcomes] == [
         ("captured-set", Result.MATCHED),
         ("wiki/meta/ledgers/source-ledger.json", Result.SKIPPED),
+    ]
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_staleness_is_strict_on_both_dates_and_reads_ingested_at_as_the_fallback(
+    tmp_vault,
+):
+    """The tool's predicate verbatim: observed AFTER as_of or due BEFORE as_of
+    is stale; a source observed on as_of, or due on as_of, is not. `ingested_at`
+    stands in for a missing `retrieved_at` and is what the row names."""
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
+    active = {
+        "origin": {"kind": "file", "locator": "fulltext/ATT00001.md"},
+        "content_sha256": "a" * 64,
+        "review_status": "active",
+        "retrieved_at": "2026-02-01T00:00:00Z",
+        "refresh_due": "2026-03-01T00:00:00Z",
+    }
+
+    def unmatched(as_of):
+        return [
+            o.reason
+            for o in captured.lint_captured_set(tmp_vault, as_of=as_of)
+            if o.result is Result.UNMATCHED
+        ]
+
+    _ledger(tmp_vault, {"src-1": active})
+    assert unmatched("2026-02-01") == []  # observed on as_of: not stale
+    assert unmatched("2026-03-01") == []  # due on as_of: not stale
+    assert unmatched("2026-03-02") != []
+    assert unmatched("2026-01-31") != []
+    ingested = dict(active)
+    del ingested["retrieved_at"]
+    ingested["ingested_at"] = "2026-02-10T00:00:00Z"
+    _ledger(tmp_vault, {"src-1": ingested})
+    assert unmatched("2026-02-10") == []
+    assert unmatched("2026-02-09") == [
+        (
+            "recompile-needed — ledger src-1 stale: observed 2026-02-10T00:00:00Z, "
+            "refresh due 2026-03-01T00:00:00Z, as of 2026-02-09"
+        )
+    ]
+
+
+def test_structural_half_skips_non_file_and_shapeless_records_and_keeps_walking(
+    tmp_vault,
+):
+    """A url source, a record without an origin and a file origin without a
+    locator sit BEFORE the stale file source; each is passed over or rowed on
+    its own and the stale one is still reported. A ledger without `sources`
+    is an empty ledger, not unreadable."""
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
+    _ledger(
+        tmp_vault,
+        {
+            "src-0": {"origin": {"kind": "url", "locator": "https://example.org/"}},
+            "src-1": {},
+            "src-2": {"origin": {"kind": "file"}},
+            "src-3": {
+                "origin": {"kind": "file", "locator": "fulltext/ATT00001.md"},
+                "content_sha256": "a" * 64,
+                "review_status": "active",
+                "retrieved_at": "2026-02-01T00:00:00Z",
+                "refresh_due": "2026-03-01T00:00:00Z",
+            },
+        },
+    )
+    rows = [
+        o.reason
+        for o in captured.lint_captured_set(tmp_vault, as_of="2026-09-07")
+        if o.result is Result.UNMATCHED
+    ]
+    assert rows == [
+        "not-captured — ledger src-2 names , which no capture wrote",
+        (
+            "recompile-needed — ledger src-3 stale: observed 2026-02-01T00:00:00Z, "
+            "refresh due 2026-03-01T00:00:00Z, as of 2026-09-07"
+        ),
+    ]
+    path = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    path.write_text(json.dumps({"schema": "claude-obsidian.source-ledger.v1"}))
+    assert [
+        o.result for o in captured.lint_captured_set(tmp_vault, as_of="2026-09-07")
+    ] == [Result.MATCHED]
+
+
+def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
+    """An unreadable note, an unparseable one, a non-UTF-8 one and one without
+    a tuple each get their row, in name order, and the readable note after
+    them is still taken."""
+    lit = tmp_vault / "literatures"
+    (lit / "a-dir.md").mkdir()
+    (lit / "b-bad.md").write_text("---\nnot a mapping\n---\n")
+    (lit / "c-latin1.md").write_bytes(b"---\ntitle: \xe9\n---\n")
+    (lit / "d-notuple.md").write_text('---\ntype: "literature"\n---\n')
+    _note(tmp_vault, "smith2020", "SMITH001")
+
+    entries, outcomes = captured._read_notes(tmp_vault)
+
+    assert [p.citation_key for _data, p in entries] == ["smith2020"]
+    rows = [(o.target, o.result, o.reason.split(" — ")[0]) for o in outcomes]
+    assert rows == [
+        ("path-bytes:literatures/a-dir.md", Result.UNREACHABLE, "outage"),
+        ("path-bytes:literatures/b-bad.md", Result.UNMATCHED, "schema-violation"),
+        ("path-bytes:literatures/c-latin1.md", Result.UNMATCHED, "schema-violation"),
+        ("path-bytes:literatures/d-notuple.md", Result.UNMATCHED, "schema-violation"),
+    ]
+    assert outcomes[2].reason.startswith("schema-violation — not UTF-8: ")
+    assert outcomes[3].reason == "schema-violation — no provenance tuple"
+
+
+def test_page_names_skip_excluded_and_literature_paths_but_not_the_pages_after_them(
+    tmp_vault,
+):
+    """rglob order is not name order: an excluded path and a literatures/ note
+    are passed over, and every wiki page still contributes its names."""
+    (tmp_vault / ".raw").mkdir(exist_ok=True)
+    (tmp_vault / ".raw" / "hidden.md").write_text("x\n")
+    _note(tmp_vault, "smith2020", "SMITH001")
+    (tmp_vault / "wiki" / "concepts").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "wiki" / "concepts" / "Foo.md").write_text("x\n")
+    (tmp_vault / "wiki" / "Bar.md").write_text("x\n")
+    names = captured._page_names(tmp_vault)
+    assert {"Foo", "concepts/Foo", "wiki/concepts/Foo", "Bar", "wiki/Bar"} <= names
+    assert "hidden" not in names
+    assert "smith2020" not in names
+    assert "literatures/smith2020" not in names
+
+
+def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vault):
+    """A page under an excluded directory is passed over, an unreadable page
+    is an outage row, and the unresolved link in the page sorted after them
+    is still reported."""
+    wiki = tmp_vault / "wiki"
+    wiki.mkdir(exist_ok=True)
+    (wiki / ".raw").mkdir()
+    (wiki / ".raw" / "a.md").write_text("[[nowhere-hidden]]\n")
+    (wiki / "b-dir.md").mkdir()
+    (wiki / "c.md").write_text("[[nowhere]] and [@ghost2020]\n")
+    rows = [
+        (str(o.target), o.result, o.reason) for o in captured._textual(tmp_vault, set())
+    ]
+    assert rows[0][:2] == ("path-bytes:wiki/b-dir.md", Result.UNREACHABLE)
+    assert rows[0][2].startswith("outage — [Errno 21]")
+    assert rows[1:] == [
+        (
+            "path-bytes:wiki/c.md",
+            Result.UNMATCHED,
+            "not-captured — wiki/c.md cites [@ghost2020], not in the captured set",
+        ),
+        (
+            "path-bytes:wiki/c.md",
+            Result.UNMATCHED,
+            "not-captured — wiki/c.md links [[nowhere]], not a page and not in the captured set",
+        ),
     ]

@@ -231,6 +231,29 @@ def test_disarm_publish_removes_the_flag_and_tolerates_an_unarmed_vault(green_va
     assert main(["disarm-publish", "--vault", str(green_vault)]) == 0
 
 
+def test_disarm_publish_reports_a_flag_it_cannot_remove_as_exit_2(
+    green_vault, monkeypatch, capsys
+):
+    def refusing(_vault):
+        raise publish.PublishError("busy")
+
+    monkeypatch.setattr(publish, "disarm", refusing)
+    assert main(["disarm-publish", "--vault", str(green_vault)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    # The branch, not the sentence: the code prefix (which every string mutant
+    # of the message breaks) and the helper's own reason carried through.
+    assert captured.err.startswith("cannot disarm the publish gate: ")
+    assert "busy" in captured.err
+
+
+def test_a_disposition_prints_one_sorted_json_line(green_vault, capsys):
+    assert main(["mark-parked", "brief", "--vault", str(green_vault)]) == 0
+    line = capsys.readouterr().out.rstrip()
+    assert line == json.dumps(json.loads(line), sort_keys=True)
+    assert list(json.loads(line)) == ["commit", "project", "status", "tag"]
+
+
 def test_arm_publish_refuses_a_project_the_hook_would_reject(green_vault, capsys):
     assert main(["arm-publish", "missing", "--vault", str(green_vault)]) == 2
     assert main(["arm-publish", "projects/brief", "--vault", str(green_vault)]) == 2
@@ -415,13 +438,13 @@ def test_mark_corrected_mints_a_new_event_and_tag_and_keeps_the_original(
 def test_a_corrected_project_stays_watched_across_the_whole_lifecycle(
     green_vault, monkeypatch
 ):
-    """A correction must not end drift watching (acceptance finding F-2).
+    """A correction must not end drift watching.
 
-    `lint_published_drift` keyed on `status == "published"`, and
-    `mark-corrected` writes `corrected` — so the lint stopped watching the
-    project at the moment a corrections regime needs it watched most, while
-    this skill refuses post-publication `mark-parked` precisely because that flip
-    blinds the lint. The comparison basis is each project's *newest* tag: the
+    `mark-corrected` writes `corrected`, so a `lint_published_drift` keyed on
+    `status == "published"` alone stops watching the project at the moment a
+    corrections regime needs it watched most, while this skill refuses
+    post-publication `mark-parked` precisely because that flip blinds the
+    lint. The comparison basis is each project's *newest* tag: the
     original tag survives (ADR 0003) and the corrected tree differs from it by
     construction, so comparing against it would report every legitimate
     correction as drift.
@@ -527,10 +550,9 @@ def test_the_tag_pattern_still_yields_the_project_name_as_group_one():
 
 
 def test_newest_published_tag_discriminates_within_one_day(green_vault):
-    """F-2's ordering, regraded for the time component: `max` over a plain
-    lexicographic sort has to pick the later of two tags minted on one day, or
-    the drift lint compares a corrected project against a superseded tree and
-    reports every correction as drift."""
+    """`max` over a plain lexicographic sort has to pick the later of two tags
+    minted on one day, or the drift lint compares a corrected project against
+    a superseded tree and reports every correction as drift."""
     for stamp in ("2026-08-01-090000", "2026-08-01-203000", "2026-07-31-235959"):
         _git(green_vault, "tag", f"published/brief-{stamp}")
 
@@ -542,11 +564,12 @@ def test_newest_published_tag_discriminates_within_one_day(green_vault):
 def test_the_cli_passes_date_through_to_every_dated_disposition(
     green_vault, monkeypatch
 ):
-    """F-3: with no `--date`, the CLI could only ever name today, so a project
-    published and then corrected on one day was unrepairable — the correction's
-    tag collided with the publication's and no flag could name another day. The
-    date rides as the tag's own ISO suffix, never as an extra suffix appended to
-    it, which is what keeps `PUBLISHED_TAG` and the newest-tag ordering intact.
+    """Without `--date` reaching every dated disposition the CLI can only name
+    today, so a project published and then corrected on one day is
+    unrepairable — the correction's tag collides with the publication's and no
+    flag can name another day. The date rides as the tag's own ISO suffix,
+    never as an extra suffix appended to it, which is what keeps
+    `PUBLISHED_TAG` and the newest-tag ordering intact.
     """
     _tag_clock(monkeypatch, "090000", "140000", "203000")
     published = main(
@@ -602,6 +625,28 @@ def test_a_dated_disposition_refuses_a_bad_date_before_writing_anything(
     assert sorted((green_vault / "log").glob("*.md")) == []
 
 
+def test_append_log_writes_the_day_header_once_and_keeps_every_line(green_vault):
+    """Two appends to one day: one `type: daily` header, both lines in order,
+    and a missing log/ directory is created rather than refused."""
+    import shutil
+
+    shutil.rmtree(green_vault / "log")
+    now = datetime_lib.datetime(2026, 9, 7, 10, 0, tzinfo=datetime_lib.UTC)
+    day = publish._append_log(green_vault, "first", date="2026-09-07", now=now)
+    publish._append_log(
+        green_vault,
+        "second",
+        date="2026-09-07",
+        now=now.replace(minute=5),
+    )
+    assert day == green_vault / "log" / "2026-09-07.md"
+    assert day.read_text() == (
+        '---\ntype: "daily"\n---\n'
+        f"- 10:00 {publish.AGENT_ACTOR} — first\n"
+        f"- 10:05 {publish.AGENT_ACTOR} — second\n"
+    )
+
+
 def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
     green_vault, monkeypatch
 ):
@@ -611,21 +656,20 @@ def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
     machine off UTC: at UTC+10 a 09:00 publication tags `...-230000` and a
     12:00 correction tags `...-020000`, so `max()` returns the superseded tag
     and `lint_published_drift` reports every legitimate correction as drift —
-    the F-2 failure the uniform time component exists to prevent.
+    the failure the uniform time component exists to prevent.
 
     This test pins the clock rather than the tag string, which is the whole
     point: helpers that stub the time half cannot see where the date half came
-    from, and that is how the mismatch survived a green suite.
+    from, and that is how the mismatch would survive a green suite.
 
     The fake replaces `publish`'s own `datetime` name binding (not the shared
     `datetime` module — patching that leaks into every other module's `.now()`
     calls active during the same test and inflates the read count past 1,
     confirmed live 2026-08-22), so only `_publish`'s own clock read is
-    intercepted. It carries both `.timezone` and `.UTC`: this test's original
-    fake had only `.timezone`, which broke the moment production code was
-    rewritten from `datetime.timezone.utc` to the 3.11 `datetime.UTC` alias
-    (target-version bump, requires-python >=3.11) — the property under test is
-    the UTC read itself, not which spelling names it.
+    intercepted. It carries both `.timezone` and `.UTC`, so a production
+    spelling of either `datetime.timezone.utc` or the 3.11 `datetime.UTC`
+    alias reaches it — the property under test is the UTC read itself, not
+    which spelling names it.
     """
     reads = []
     instant = datetime_lib.datetime(2026, 8, 1, 23, 0, 0, tzinfo=datetime_lib.UTC)
@@ -878,9 +922,6 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
     # The project-level event `mark-published`/`mark-corrected` mint is real and
     # distinct from the per-check ones; the row must not collapse the two.
     assert "`publish`" in row
-
-
-# --- review findings, round 1 ----------------------------------------------
 
 
 def test_a_project_git_cannot_tag_is_refused_before_anything_is_written(

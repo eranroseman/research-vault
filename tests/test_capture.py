@@ -470,7 +470,7 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
     assert note.read_text() == corrupt  # not rewritten over a note it could not read
     # The CSL file is regenerated from the captured set, which decision 08 defines
     # as the parseable notes: the corrupt note's entry is gone, and this run says
-    # so only through the per-item finding. Task 15's captured-set lint is the
+    # so only through the per-item finding. The captured-set lint is the
     # mechanism that names the gap between the two files.
     assert json.loads(csl.read_text()) == []
 
@@ -693,12 +693,9 @@ def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     assert outcomes[1].reason.startswith("database-changed")
 
 
-# --- whole-branch review fix wave (2026-09-13) ---------------------------------
-
-
 def _re_keyed_fake(monkeypatch):
     """Capture `old2020` through the fake, then re-key the fake's item to
-    `new2020` with a version bump — the state the reviewer's scratch run built."""
+    `new2020` with a version bump."""
     old = json.loads(json.dumps(ITEM))
     old["data"]["citationKey"] = "old2020"
     fake = _canned_run(canned_item(FakeZotero(), item=old), items=(old,))
@@ -730,7 +727,7 @@ def test_capture_refuses_a_re_keyed_item_while_the_old_note_exists_and_propagate
     """Spec §3.1: the file renames only on a re-key, and propagation performs
     it — capture does not. A refresh of a re-keyed item used to derive the path
     from the live key and write `new2020.md` beside `old2020.md`, after which
-    `propagate.plan` refused over the existing file (review I-1). Capture now
+    `propagate.plan` refused over the existing file. Capture now
     refuses while the old note still exists; propagate plans, renames, and its
     own recapture proceeds because the old path is gone by then."""
     import research_vault.__main__ as cli
@@ -775,7 +772,7 @@ def test_cli_capture_holds_a_per_item_outage_and_exits_3(
     tmp_vault, monkeypatch, capsys
 ):
     """A 500 on the item read is `lifecycle.blocked`'s outage: held under
-    check id `capture`, never a verdict on the source, exit 3 (review I-3)."""
+    check id `capture`, never a verdict on the source, exit 3."""
     import research_vault.__main__ as cli
     from research_vault import inbox
 
@@ -795,7 +792,7 @@ def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
     tmp_vault, monkeypatch
 ):
     """An OSError writing `fulltext/` is the disk's fault, not the record's:
-    UNREACHABLE outage, never UNMATCHED schema-violation (review I-4)."""
+    UNREACHABLE outage, never UNMATCHED schema-violation."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
 
@@ -814,7 +811,7 @@ def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
 
 def test_an_unsafe_live_citation_key_is_a_schema_violation(tmp_vault, monkeypatch):
     """`note_path` refuses the key before anything is written: the record's
-    fault, UNMATCHED schema-violation (review I-4's kept branch)."""
+    fault, UNMATCHED schema-violation."""
     unsafe = json.loads(json.dumps(ITEM))
     unsafe["data"]["citationKey"] = "../escape"
     fake = _canned_run(canned_item(FakeZotero(), item=unsafe), items=(unsafe,))
@@ -862,7 +859,7 @@ def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
 
 def test_cli_capture_with_neither_keys_nor_all_is_a_usage_error(tmp_vault, capsys):
     """Nothing to capture is not a run that regenerates the CSL file and exits
-    0: argparse refuses it with usage and exit 2 (review M-1)."""
+    0: argparse refuses it with usage and exit 2."""
     import research_vault.__main__ as cli
 
     with pytest.raises(SystemExit) as caught:
@@ -877,7 +874,7 @@ def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
     """An OSError from `stamp_types`, `regenerate_log` or the CSL write sits
     outside the per-item `try`; it used to be a traceback whose exit 1 read
     as UNMATCHED. `cmd_verify`'s named-exception tuple now answers exit 2 —
-    "could not run", never a four-state verdict (review M-2)."""
+    "could not run", never a four-state verdict."""
     import research_vault.__main__ as cli
 
     fake = _canned_run(canned_item(FakeZotero()))
@@ -892,3 +889,539 @@ def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err.startswith("capture unavailable: [Errno 30]")
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_attachment_tuple_records_each_field_and_defaults_the_absent_ones():
+    """Every field of the tuple, read from the child by its own key; a stored
+    child missing md5/contentType/filename records "absent"/""/"" and no
+    version records 0 -- not a KeyError, not the neighbouring field."""
+    assert capture._attachment_tuple(ATTACHMENT) == {
+        "key": "D7EJ9FTG",
+        "version": 551,
+        "md5": "aa59569ae4f4b3a7c546158d4771c738",
+        "contentType": "application/pdf",
+        "filename": "Jakesch et al. - 2023.pdf",
+    }
+    bare = {
+        "key": "B4RE0001",
+        "data": {"itemType": "attachment", "md5": None, "filename": None},
+    }
+    assert capture._attachment_tuple(bare) == {
+        "key": "B4RE0001",
+        "version": 0,
+        "md5": "absent",
+        "contentType": "",
+        "filename": "",
+    }
+    assert capture._attachment_tuple({}) == {
+        "key": "",
+        "version": 0,
+        "md5": "absent",
+        "contentType": "",
+        "filename": "",
+    }
+
+
+def test_best_attachment_follows_the_item_link_when_usable_else_the_first_usable():
+    """The item's `links.attachment.href` names the attachment Zotero itself
+    opens (last path component, trailing slash or not); it wins when its text
+    is usable, the first usable one otherwise, None when nothing is."""
+    slashed = {
+        "links": {
+            "attachment": {"href": "http://localhost:23119/api/users/0/items/BBBB2222/"}
+        }
+    }
+    plain = {
+        "links": {
+            "attachment": {"href": "http://localhost:23119/api/users/0/items/BBBB2222"}
+        }
+    }
+    assert capture._best_attachment(slashed, ["AAAA1111", "BBBB2222"]) == "BBBB2222"
+    assert capture._best_attachment(plain, ["AAAA1111", "BBBB2222"]) == "BBBB2222"
+    assert capture._best_attachment(slashed, ["AAAA1111"]) == "AAAA1111"
+    assert capture._best_attachment(slashed, []) is None
+    assert capture._best_attachment({}, ["AAAA1111"]) == "AAAA1111"
+    assert capture._best_attachment({"links": {"attachment": {}}}, []) is None
+
+
+def _second_attachment(key="A2ND0002"):
+    child = json.loads(json.dumps(ATTACHMENT))
+    child["key"] = child["data"]["key"] = key
+    child["data"]["filename"] = "second.pdf"
+    return child
+
+
+def test_no_fulltext_is_filed_only_when_no_attachment_is_usable(tmp_vault, monkeypatch):
+    """Two stored attachments, the first unreadable (404 text) and the second
+    complete: the note is written from the second and NO no-fulltext row is
+    filed. With both unreadable the row joins the reasons with "; " in child
+    order."""
+    unreadable = _second_attachment("A2ND0002")
+    fake = FakeZotero()
+    canned_item(fake, children=(unreadable, ATTACHMENT, CHILD_NOTE))
+    fake.get("/api/users/0/items/A2ND0002/fulltext", status=404, body=b"")
+    _canned_run(fake)
+    client = _client(monkeypatch, fake)
+
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        ("jakesch.etal2023a", Result.MATCHED, "matched"),
+        ("system/bibliography.json", Result.MATCHED, "matched"),
+    ]
+    data, _body = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["fulltext"] == [
+        {"attachment-key": "D7EJ9FTG", "sha256": data["compile-input-sha256"]}
+    ]
+
+    fake.get("/api/users/0/items/D7EJ9FTG/fulltext", status=404, body=b"")
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result, o.reason) for o in outcomes[:2]] == [
+        ("jakesch.etal2023a", Result.MATCHED, "matched"),
+        (
+            "jakesch.etal2023a",
+            Result.UNMATCHED,
+            "no-fulltext — A2ND0002 no-index; D7EJ9FTG no-index",
+        ),
+    ]
+
+
+def test_capture_renders_the_child_notes_and_stamps_accessed_and_generated_from_now(
+    tmp_vault, monkeypatch
+):
+    """The body carries the child NOTES (never the attachment child) under
+    `## Zotero notes`, and the frontmatter's `accessed` and `generated.at`
+    come from the `now` the caller passed."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    outcomes = capture.capture(
+        tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00+00:00")
+    )
+
+    assert outcomes[0].reason == "matched"
+    text = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    data, body = frontmatter.parse(text)
+    assert body.endswith(
+        "## Zotero notes\n\nRead for the method.\n\nSecond paragraph.\n"
+    )
+    assert data["accessed"] == "2026-09-07"
+    assert data["generated"]["at"] == "2026-09-07T10:00:00Z"
+
+
+def test_capture_without_now_stamps_a_utc_second_resolution_instant(
+    tmp_vault, monkeypatch
+):
+    """Without `now`, capture takes the UTC instant at second resolution and
+    the stamp is tz-aware, microsecond-free and Z-suffixed, with `accessed`
+    the same instant's date. The shape alone decides every mutant of the
+    defaulting line: `now(None)` yields a naive local instant (no tzinfo, no
+    Z), `now and ...` yields None and `microsecond=None` a TypeError, so the
+    note is never written; `microsecond=1` is unobservable here -- the stamp
+    writer re-zeroes the microsecond and `accessed` is a date -- and stays
+    baselined. No mutant moves the instant while keeping it UTC, so a
+    wall-clock comparison would add nothing a frozen clock would not, and
+    neither is read."""
+    import datetime
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    data, _body = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    at = data["generated"]["at"]
+    assert at.endswith("Z")
+    assert "." not in at
+    parsed = datetime.datetime.fromisoformat(at)
+    assert parsed.tzinfo is not None
+    assert parsed.utcoffset() == datetime.timedelta(0)
+    assert parsed.microsecond == 0
+    assert data["accessed"] == parsed.date().isoformat()
+
+
+def test_an_existing_crlf_note_is_rewritten_not_read_as_a_noop(tmp_vault, monkeypatch):
+    """The existing note is read byte-exact (newline=""): a CRLF copy of the
+    candidate is a change, and capture rewrites it LF."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00Z"))
+    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    lf = note.read_bytes()
+    note.write_bytes(lf.replace(b"\n", b"\r\n"))
+
+    outcomes = capture.capture(
+        tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00Z")
+    )
+
+    assert outcomes[0].reason == "matched"
+    assert note.read_bytes() == lf
+
+
+def test_every_note_lists_each_key_and_rows_every_note_it_cannot_request(
+    tmp_vault,
+):
+    """--all walks literatures/ in name order: a readable note contributes its
+    citationKey; an unreadable one is an outage row, an unparseable one and
+    one whose citationKey is missing, empty or not a string are
+    schema-violation rows -- and none of them stops the walk."""
+    lit = tmp_vault / "literatures"
+    lit.mkdir(exist_ok=True)
+    (lit / "a-good.md").write_text('---\ncitationKey: "good"\n---\n')
+    (lit / "b-unreadable.md").mkdir()  # read_text raises IsADirectoryError
+    (lit / "c-broken.md").write_text("---\nnot a mapping\n---\n")
+    (lit / "d-nokey.md").write_text('---\ntype: "literature"\n---\n')
+    (lit / "e-emptykey.md").write_text('---\ncitationKey: ""\n---\n')
+    (lit / "f-intkey.md").write_text("---\ncitationKey: 7\n---\n")
+    (lit / "g-good.md").write_text('---\ncitationKey: "later"\n---\n')
+
+    keys, outcomes = capture._every_note(tmp_vault)
+
+    assert keys == ["good", "later"]
+    rows = [(o.check, o.target, o.result, o.reason) for o in outcomes]
+    assert rows[0][:3] == (
+        "capture",
+        "path-bytes:literatures/b-unreadable.md",
+        Result.UNREACHABLE,
+    )
+    assert rows[0][3].startswith("outage — [Errno 21] Is a directory")
+    assert rows[1][:3] == (
+        "capture",
+        "path-bytes:literatures/c-broken.md",
+        Result.UNMATCHED,
+    )
+    assert rows[1][3].startswith("schema-violation — ")
+    assert rows[2:] == [
+        (
+            "capture",
+            f"path-bytes:literatures/{name}.md",
+            Result.UNMATCHED,
+            "schema-violation — no citationKey to request by",
+        )
+        for name in ("d-nokey", "e-emptykey", "f-intkey")
+    ]
+
+
+def test_validate_items_boundaries_and_messages():
+    """At most 50 objects (50 passes, 51 does not), each an object with a
+    non-empty string itemType and only snapshot fields; the message names the
+    first offence."""
+    book = {"itemType": "book", "title": "T"}
+    assert capture._validate_items([book] * 50) is None
+    limit = "items must be a non-empty list of at most 50 objects"
+    assert capture._validate_items([book] * 51) == limit
+    assert capture._validate_items([]) == limit
+    assert capture._validate_items("book") == limit
+    assert capture._validate_items({"itemType": "book"}) == limit
+    assert capture._validate_items([book, "book"]) == "item 1: not an object"
+    assert capture._validate_items([{"itemType": ""}]) == "item 0: itemType missing"
+    assert capture._validate_items([{"itemType": 3}]) == "item 0: itemType missing"
+    assert capture._validate_items([{"title": "T"}]) == "item 0: itemType missing"
+    assert (
+        capture._validate_items([{"itemType": "book", "isbn": "x"}])
+        == "item 0: unknown field isbn"
+    )
+    assert (
+        capture._validate_items([{"itemType": "book", "tags": {"tag": "x"}}])
+        == "item 0: tags must be a list"
+    )
+
+
+class _PollingClient:
+    """`item()` answers from a script of citation keys, counting the polls."""
+
+    def __init__(self, keys):
+        self.keys = list(keys)
+        self.polls = 0
+
+    def item(self, _key):
+        self.polls += 1
+        key = self.keys[min(self.polls, len(self.keys)) - 1]
+        return {"key": "E352DFS8", "data": {"citationKey": key}}
+
+
+def _clocked(monkeypatch, instants):
+    ticks = iter(instants)
+    sleeps: list = []
+    monkeypatch.setattr(capture.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(capture.time, "sleep", sleeps.append)
+    return sleeps
+
+
+def test_wait_for_key_returns_at_the_deadline_inclusive_after_one_second_sleeps(
+    monkeypatch,
+):
+    """The poll ceiling is `now >= deadline` -- reaching it exactly ends the
+    wait without another sleep -- the deadline is now PLUS the ceiling, the
+    key is read under `citationKey`, and each idle poll sleeps one second."""
+    # Reaching the deadline exactly: one poll, no sleep, the unkeyed item back.
+    sleeps = _clocked(monkeypatch, [0.0, 5.0])
+    client = _PollingClient([None])
+    assert capture._wait_for_key(client, "E352DFS8", 5)["data"]["citationKey"] is None
+    assert (client.polls, sleeps) == (1, [])
+
+    # Keyed on the second poll, well before the deadline: returns at once.
+    sleeps = _clocked(monkeypatch, [0.0, 3.0, 4.0, 6.0])
+    client = _PollingClient([None, "keyed2026"])
+    item = capture._wait_for_key(client, "E352DFS8", 5)
+    assert item["data"]["citationKey"] == "keyed2026"
+    assert (client.polls, sleeps) == (2, [1])
+
+    # Never keyed: polls until the ceiling passes, sleeping between polls.
+    sleeps = _clocked(monkeypatch, [0.0, 3.0, 4.0, 6.0])
+    client = _PollingClient([None])
+    assert capture._wait_for_key(client, "E352DFS8", 5)["data"]["citationKey"] is None
+    assert (client.polls, sleeps) == (3, [1, 1])
+
+
+def _second_item():
+    second = json.loads(json.dumps(ITEM))
+    second["key"] = second["data"]["key"] = "F441KKD2"
+    second["data"]["citationKey"] = "second2023"
+    second["links"] = {}
+    return second
+
+
+def test_capture_keeps_going_past_a_not_admitted_and_a_refused_key(
+    tmp_vault, monkeypatch
+):
+    """One unknown key, one refused (trashed) note and one capturable item in
+    a single run: each gets its row and the run continues to the next."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    second = _second_item()
+    canned_item(fake, item=second, children=())
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"D7EJ9FTG": 551},
+        headers={"Last-Modified-Version": "566"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+
+    outcomes = capture.capture(
+        tmp_vault, client, ["nobody2020", "E352DFS8", "F441KKD2"]
+    )
+
+    assert [(o.target, o.result) for o in outcomes] == [
+        ("nobody2020", Result.UNMATCHED),
+        ("E352DFS8", Result.UNMATCHED),
+        ("second2023", Result.MATCHED),
+        ("second2023", Result.SKIPPED),
+        ("system/bibliography.json", Result.MATCHED),
+    ]
+    assert outcomes[0].reason == "not-admitted — nobody2020 is not in the library"
+    assert outcomes[1].reason.startswith("trashed — ")
+
+
+def test_a_lint_outage_on_the_vault_blocks_the_run_before_any_read(
+    tmp_vault, monkeypatch
+):
+    """The linter's vault row is the run's only row when its versions read
+    fails -- even though the item reads that would follow succeed."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.get("/api/users/0/items?since=0&format=versions", status=500, body=b"")
+    before = len(fake.calls)
+
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+
+    assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNREACHABLE)]
+    assert outcomes[0].reason.startswith("outage — ")
+    assert not [
+        c for c in fake.calls[before:] if c[1].startswith("/api/users/0/items/E352DFS8")
+    ]
+
+
+def test_a_mid_run_move_stops_reading_and_never_reads_the_csl_library(
+    tmp_vault, monkeypatch
+):
+    """After the 412 the run ends with the vault row and sends nothing more:
+    no CSL library read from the database that answered after the move."""
+    second = _second_item()
+    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, second))
+    canned_item(fake, item=second, children=())
+    client = _client(monkeypatch, fake)
+    real_item = client.item
+    reads = []
+
+    def flipping_item(key):
+        reads.append(key)
+        if len(reads) == 3:
+            fake.server_id = "Tdoqsn2J4q4h"
+        return real_item(key)
+
+    monkeypatch.setattr(client, "item", flipping_item)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
+    assert [(o.target, o.result) for o in outcomes] == [
+        ("jakesch.etal2023a", Result.MATCHED),
+        ("vault", Result.UNMATCHED),
+    ]
+    assert not [c for c in fake.calls if c[1].startswith("/better-bibtex/library")]
+
+
+def test_the_library_route_is_read_once_when_zotero_did_not_move(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    library_reads = [c for c in fake.calls if c[1].startswith("/better-bibtex/library")]
+    assert len(library_reads) == 1
+
+
+def test_an_item_without_a_library_envelope_falls_back_to_item_export(
+    tmp_vault, monkeypatch
+):
+    """The library route needs the name the item envelope carries; an envelope
+    without one sends the CSL step straight to item.export over the captured
+    keys (decision 13: no hardcoded library name)."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    item = json.loads(json.dumps(ITEM))
+    del item["library"]
+    canned_item(fake, item=item)
+    fake.rpc("item.export", [LIBRARY[0]])
+
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+
+    assert outcomes[-1].reason == "matched — item.export fallback"
+
+
+def test_a_csl_schema_violation_is_an_unmatched_row_on_the_csl_file(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    def refusing(_vault, _items):
+        raise capture.bibliography.BibliographyError(
+            "id 0 is not a string", Result.UNMATCHED
+        )
+
+    monkeypatch.setattr(capture.bibliography, "write", refusing)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    last = outcomes[-1]
+    assert (last.check, last.target, last.result, last.reason) == (
+        "capture",
+        "system/bibliography.json",
+        Result.UNMATCHED,
+        "schema-violation — id 0 is not a string",
+    )
+
+
+def test_best_attachment_keeps_a_key_that_ends_in_x():
+    link = {
+        "links": {
+            "attachment": {"href": "http://localhost:23119/api/users/0/items/AAAAXXXX/"}
+        }
+    }
+    assert capture._best_attachment(link, ["BBBB2222", "AAAAXXXX"]) == "AAAAXXXX"
+
+
+def test_stored_children_are_imported_files_or_urls_and_a_child_without_data_is_skipped(
+    tmp_vault, monkeypatch
+):
+    """An `imported_url` attachment is a stored one (its text is read and
+    recorded), a `linked_file` one is not (no text to read: the item is
+    SKIPPED, not a no-fulltext finding), and a child envelope without `data`
+    is passed over rather than raised on. The text layer records the item
+    key it belongs to."""
+    imported_url = _second_attachment("A2ND0002")
+    imported_url["data"]["linkMode"] = "imported_url"
+    dataless = {"key": "N0DATA01", "version": 1}
+    fake = FakeZotero()
+    canned_item(fake, children=(imported_url, CHILD_NOTE))
+    fake.get(
+        "/api/users/0/items/E352DFS8/children",
+        body=[dataless, imported_url, CHILD_NOTE],
+    )
+    _canned_run(fake)
+    client = _client(monkeypatch, fake)
+
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+
+    assert [(o.result, o.reason) for o in outcomes[:1]] == [(Result.MATCHED, "matched")]
+    data, _body = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    assert [e["attachment-key"] for e in data["fulltext"]] == ["A2ND0002"]
+    text, _ = frontmatter.parse((tmp_vault / "fulltext" / "A2ND0002.md").read_text())
+    assert (text["zotero-attachment-key"], text["zotero-item-key"]) == (
+        "A2ND0002",
+        "E352DFS8",
+    )
+
+    linked = _second_attachment("L1NK0003")
+    linked["data"]["linkMode"] = "linked_file"
+    del linked["data"]["md5"]
+    fake = FakeZotero()
+    canned_item(fake, children=(linked,), fulltext=None)
+    _canned_run(fake)
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.result, o.reason.split(" — ")[0]) for o in outcomes[:2]] == [
+        (Result.MATCHED, "matched"),
+        (Result.SKIPPED, "no-fulltext"),
+    ]
+
+
+def test_capture_keeps_going_past_an_unkeyed_item(tmp_vault, monkeypatch):
+    unkeyed = _second_item()
+    unkeyed["data"]["citationKey"] = None
+    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, unkeyed))
+    canned_item(fake, item=unkeyed, children=())
+    client = _client(monkeypatch, fake)
+
+    outcomes = capture.capture(
+        tmp_vault, client, ["F441KKD2", "E352DFS8"], key_wait_seconds=0
+    )
+
+    assert [(o.target, o.result) for o in outcomes] == [
+        ("F441KKD2", Result.UNMATCHED),
+        ("jakesch.etal2023a", Result.MATCHED),
+        ("system/bibliography.json", Result.MATCHED),
+    ]
+    assert outcomes[0].reason == "unkeyed — item F441KKD2 has no citation key"
+
+
+def test_resolve_keys_skips_a_top_item_whose_data_is_not_an_object(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(
+        canned_item(FakeZotero()), items=(ITEM, {"key": "BAD00001", "data": None})
+    )
+    client = _client(monkeypatch, fake)
+    assert capture.resolve_keys(client, ["jakesch.etal2023a", "other"]) == {
+        "jakesch.etal2023a": "E352DFS8",
+        "other": None,
+    }
+
+
+def test_store_key_creates_the_store_private_before_the_first_byte_lands(
+    tmp_vault, monkeypatch
+):
+    """The key store is born 0600 by `touch(mode=0o600)`, not fixed up by the
+    trailing chmod (row 47: write-then-chmod would leave the key at the umask
+    default for an instant). With chmod disabled and a permissive umask, a
+    fresh store still lands private."""
+    import os
+    import stat
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "chmod", lambda self, mode, **kwargs: None)
+    previous = os.umask(0o022)
+    try:
+        capture._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    finally:
+        os.umask(previous)
+    store = tmp_vault / capture.KEY_STORE
+    assert stat.S_IMODE(store.stat().st_mode) == 0o600
+    assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}

@@ -164,3 +164,18 @@ def test_commit_surface_ignores_fleeting_notes(tmp_path):
     )
     decision, _blockers = verify.surface_decision("commit", effective, warning)
     assert decision == 0
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_log_shape_reads_a_log_whose_frontmatter_does_not_parse_as_all_body():
+    assert (
+        structure._log_shape_problems(
+            "---\nnot a mapping\n---\n## 2026-08-21\n- y\n\n## 2026-08-20\n- x\n"
+        )
+        == []
+    )
+    assert structure._log_shape_problems("## 2026-08-20\n\n## 2026-08-21\n") == [
+        "day headings not newest first"
+    ]

@@ -48,6 +48,39 @@ def test_unresolvable_raises(tmp_vault, monkeypatch):
         paths.to_local("D:\\x.pdf", tmp_vault)
 
 
+def test_wslpath_is_run_captured_as_text_and_unchecked_and_both_answers_must_hold(
+    tmp_vault, monkeypatch
+):
+    """wslpath is invoked with its output captured as text and never `check`ed
+    (a non-zero exit is the fallback's own signal, not an exception), and only
+    exit 0 WITH a non-empty answer resolves: exit 0 with nothing, or an answer
+    under a failing exit, is unresolvable."""
+    seen: list[dict] = []
+    answers = iter([(0, ""), (1, "/mnt/d/x.pdf\n")])
+
+    def fake_run(command, **kwargs):
+        seen.append({"command": command, **kwargs})
+        code, out = next(answers)
+        return subprocess.CompletedProcess(command, code, stdout=out)
+
+    monkeypatch.setattr(paths.subprocess, "run", fake_run)
+    for _ in range(2):
+        with pytest.raises(paths.PathError):
+            paths.to_local("D:\\x.pdf", tmp_vault)
+    assert (
+        seen
+        == [
+            {
+                "command": ["wslpath", "-u", "D:\\x.pdf"],
+                "capture_output": True,
+                "text": True,
+                "check": False,
+            }
+        ]
+        * 2
+    )
+
+
 def test_bbt_host_target_is_the_native_absolute_path_off_wsl(monkeypatch):
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: False)
 

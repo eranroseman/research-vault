@@ -94,8 +94,7 @@ def read_item(client: ZoteroClient, item_key: str) -> ItemRead:
 
     A ``client.fulltext`` failure propagates to the caller's per-item handler:
     only a 404 is ``None``, and feeding an outage to ``fulltext.verdict`` as
-    ``None`` would read it as "no index" — the distinction Task 10 kept out of
-    its domain on purpose.
+    ``None`` would read it as "no index".
     """
     for _attempt in range(MAX_READ_RESTARTS):
         item = client.item(item_key)

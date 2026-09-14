@@ -213,14 +213,14 @@ def canonical_content(note_text: str) -> str:
     Both are verify's own writes — ``events.record_pass`` mints the one and
     removes the other's row, ``events.record_failure`` upserts the other — so
     neither is what the person wrote, and neither moves an acknowledgment scope
-    or a render-compare (Task 18 round 3, ruling 10). A list that fails its
-    verifier-owned shape test — ``_valid_event`` for events, ``_failure_rows``
-    for rows — is hand-written as far as this reader knows and stays byte for
-    byte, as does a duplicated or non-list-looking header. The two empty
-    lists differ: ``verified: []`` is excluded (``all([])`` holds; an empty
-    event list carries nothing either way), while an empty
-    ``failed-verification: []`` stays as hand-written — verify's writers drop
-    the header with the last row, so an empty one on disk is never theirs.
+    or a render-compare. A list that fails its verifier-owned shape test —
+    ``_valid_event`` for events, ``_failure_rows`` for rows — is hand-written
+    as far as this reader knows and stays byte for byte, as does a duplicated
+    or non-list-looking header. The two empty lists differ: ``verified: []``
+    is excluded (``all([])`` holds; an empty event list carries nothing either
+    way), while an empty ``failed-verification: []`` stays as hand-written —
+    verify's writers drop the header with the last row, so an empty one on
+    disk is never theirs.
     """
     close, lines = _frontmatter_close(note_text)
     if close is None:

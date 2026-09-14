@@ -984,16 +984,22 @@ def test_load_rejects_invalid_dates_results_and_incomplete_notice_fingerprint(
 ):
     queue = fixture_vault / "inbox" / "review-queue.md"
     rows = [
-        "- [id:: doi/x/2026-02-30] [check:: doi] [target:: x] "
-        "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: research_vault/0.1.0] "
-        "[reason:: mismatch]",
-        "- [id:: doi/x/2026-08-16] [check:: doi] [target:: x] "
-        "[result:: MAYBE] [date:: 2026-08-16] [actor:: research_vault/0.1.0] "
-        "[reason:: mismatch]",
-        "- [id:: update-notice/x/2026-08-16] [check:: update-notice] "
-        "[target:: x] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: research_vault/0.1.0] [reason:: warn-notice — correction] "
-        "[notice-class:: warn]",
+        (
+            "- [id:: doi/x/2026-02-30] [check:: doi] [target:: x] "
+            "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: research_vault/0.1.0] "
+            "[reason:: mismatch]"
+        ),
+        (
+            "- [id:: doi/x/2026-08-16] [check:: doi] [target:: x] "
+            "[result:: MAYBE] [date:: 2026-08-16] [actor:: research_vault/0.1.0] "
+            "[reason:: mismatch]"
+        ),
+        (
+            "- [id:: update-notice/x/2026-08-16] [check:: update-notice] "
+            "[target:: x] [result:: UNMATCHED] [date:: 2026-08-16] "
+            "[actor:: research_vault/0.1.0] [reason:: warn-notice — correction] "
+            "[notice-class:: warn]"
+        ),
     ]
     for row in rows:
         _write_body(queue, row + "\n")
@@ -1281,15 +1287,19 @@ def test_load_skips_blank_body_lines_but_still_counts_them(fixture_vault):
             "ack",
         ),
         (
-            "- [id:: {id}] [target:: smith2020] [result:: UNMATCHED] "
-            "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
-            "[reason:: mismatch]",
+            (
+                "- [id:: {id}] [target:: smith2020] [result:: UNMATCHED] "
+                "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
+                "[reason:: mismatch]"
+            ),
             "finding",
         ),
         (
-            "- [id:: {id}] [check:: doi] [target:: smith2020] [result:: UNMATCHED] "
-            "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
-            "[reason:: mismatch] [bogus:: x]",
+            (
+                "- [id:: {id}] [check:: doi] [target:: smith2020] [result:: UNMATCHED] "
+                "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
+                "[reason:: mismatch] [bogus:: x]"
+            ),
             "finding",
         ),
     ],
@@ -1345,6 +1355,242 @@ def test_load_rejects_an_acknowledgment_no_named_human_signed(fixture_vault, act
         inbox.InboxError, match="invalid acknowledgment on inbox line 2"
     ):
         inbox.load(fixture_vault)
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_line_fields_refuses_junk_between_fields_and_a_line_with_none():
+    with pytest.raises(inbox.InboxError, match="unparseable inbox line 3"):
+        inbox._line_fields("- [check:: quote] junk [target:: x]", 3)
+    with pytest.raises(inbox.InboxError, match="unparseable inbox line 4"):
+        inbox._line_fields("- ", 4)
+
+
+def test_append_entry_creates_a_missing_inbox_directory(tmp_vault):
+    import shutil
+
+    shutil.rmtree(tmp_vault / "inbox")
+    entry = inbox.append_entry(
+        tmp_vault, "quote", "smith2020", Result.UNMATCHED, "mismatch — x"
+    )
+    assert [e.id for e in inbox.load(tmp_vault)] == [entry.id]
+
+
+def test_validate_reason_refuses_a_non_string_with_a_value_error():
+    with pytest.raises(ValueError, match="reason must be a supported code"):
+        inbox.validate_reason(5)
+
+
+def test_finding_id_shape_and_its_sixteen_hex_discriminators():
+    import hashlib
+
+    scope = hashlib.sha256(b"aa11").hexdigest()[:16]
+    act = hashlib.sha256("manual — the act".encode()).hexdigest()[:16]
+    assert inbox.finding_id("quote", "t", "2026-01-01", None, None, None, None) == (
+        "quote/kind-10:identifier;target-1:t/2026-01-01"
+    )
+    assert inbox.finding_id(
+        "update-notice", "t", "2026-01-01", "aa11", "warn", "correction", None
+    ) == (
+        f"update-notice/kind-10:identifier;target-1:t/2026-01-01/warn/correction/unknown/scope-{scope}"
+    )
+    assert (
+        inbox.finding_id(
+            "publish-gate",
+            "t",
+            "2026-01-01",
+            None,
+            None,
+            None,
+            None,
+            reason="manual — the act",
+        )
+        == f"publish-gate/kind-10:identifier;target-1:t/2026-01-01/act-{act}"
+    )
+
+
+def test_notice_fingerprint_validation_names_each_fault(fixture_vault):
+    with pytest.raises(ValueError, match="notice dates require a complete notice"):
+        inbox._validate_notice_fingerprint("update-notice", None, None, "2026-01-01")
+    with pytest.raises(ValueError, match="provided together"):
+        inbox._validate_notice_fingerprint("update-notice", "warn", None, None)
+    with pytest.raises(ValueError, match="provided together"):
+        inbox._validate_notice_fingerprint("update-notice", None, "correction", None)
+    # Each fault names its field verbatim, at the start of the message.
+    with pytest.raises(ValueError, match=r"^notice_type "):
+        inbox._validate_notice_fingerprint("update-notice", "warn", 5, None)
+    with pytest.raises(ValueError, match=r"^notice_date must be a YYYY, YYYY-MM"):
+        inbox._validate_notice_fingerprint(
+            "update-notice", "warn", "correction", "soon"
+        )
+    with pytest.raises(ValueError, match=r"^detection_date must be a YYYY-MM-DD"):
+        inbox._validate_notice_fingerprint(
+            "update-notice", "warn", "correction", "2026-01-01", "2026-01"
+        )
+
+
+def test_is_acknowledged_is_false_for_an_unknown_scope_or_a_bad_target_kind(
+    fixture_vault,
+):
+    assert inbox.is_acknowledged(fixture_vault, "quote", "smith2020") is False
+    assert (
+        inbox.is_acknowledged(fixture_vault, "quote", "smith2020", target_kind="bogus")
+        is False
+    )
+
+
+def test_a_fingerprinted_ack_must_carry_the_whole_fingerprint_it_names(fixture_vault):
+    """An ack that names the class and type but not the date of a dated
+    notice is a mismatch, not a silent adoption of the finding's date; an ack
+    naming the full fingerprint closes it."""
+    finding = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        target_hash="aa11",
+        notice_class="warn",
+        notice_type="correction",
+        notice_date="2026-01-01",
+    )
+    with pytest.raises(ValueError, match="notice fingerprint does not match"):
+        inbox.append_ack(
+            fixture_vault,
+            finding.id,
+            "manual — reviewed",
+            "human:eran",
+            notice_class="warn",
+            notice_type="correction",
+        )
+    inbox.append_ack(
+        fixture_vault,
+        finding.id,
+        "manual — reviewed",
+        "human:eran",
+        notice_class="warn",
+        notice_type="correction",
+        notice_date="2026-01-01",
+    )
+    assert inbox.open_entries(fixture_vault) == []
+
+
+def test_a_legacy_update_notice_row_closes_only_on_its_own_human_ack(fixture_vault):
+    """The legacy branch (an update-notice row without a fingerprint) needs
+    exactly one row under the id and a human ack that names that id with the
+    same hash: an ack of a different finding with the same hash, and a
+    duplicated row, each leave it open."""
+    legacy = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-16",
+        target_hash="aa11",
+    )
+    other = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch — x",
+        date="2026-08-16",
+        target_hash="aa11",
+    )
+    inbox.append_ack(fixture_vault, other.id, "manual — reviewed", "human:eran")
+    assert [e.id for e in inbox.open_entries(fixture_vault)] == [legacy.id]
+    inbox.append_ack(fixture_vault, legacy.id, "manual — reviewed", "human:eran")
+    assert inbox.open_entries(fixture_vault) == []
+    queue = fixture_vault / inbox.INBOX_PATH
+    body = queue.read_text()
+    legacy_line = next(
+        line for line in body.splitlines() if legacy.id in line and "[ack::" not in line
+    )
+    queue.write_text(body + legacy_line + "\n")
+    assert [e.id for e in inbox.open_entries(fixture_vault)] == [legacy.id, legacy.id]
+
+
+def test_a_standing_scope_ack_closes_a_later_recurrence_of_the_same_scope(
+    fixture_vault,
+):
+    """A quote finding re-filed on a later day under the same hash is closed
+    by the ack of the earlier one: the scope, not the row id, is what a human
+    acknowledged."""
+    first = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch — x",
+        date="2026-08-16",
+        target_hash="aa11",
+    )
+    inbox.append_ack(fixture_vault, first.id, "manual — reviewed", "human:eran")
+    later = inbox.append_entry(
+        fixture_vault,
+        "quote",
+        "smith2020",
+        Result.UNMATCHED,
+        "mismatch — x",
+        date="2026-08-17",
+        target_hash="aa11",
+    )
+    assert later.id != first.id
+    assert inbox.open_entries(fixture_vault) == []
+
+
+def test_a_notice_scope_ack_closes_only_the_fingerprint_it_named(fixture_vault):
+    """Two update-notice rows on the same target and hash share a scope id; a
+    human ack of the first (dated 2026-01-01) closes a later recurrence with
+    the same fingerprint, and leaves one with a different notice date open.
+    Only update-notice rows carry that extra discriminator."""
+    kwargs = {
+        "target_hash": "aa11",
+        "notice_class": "warn",
+        "notice_type": "correction",
+    }
+    first = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-16",
+        notice_date="2026-01-01",
+        **kwargs,
+    )
+    inbox.append_ack(
+        fixture_vault,
+        first.id,
+        "manual — reviewed",
+        "human:eran",
+        notice_date="2026-01-01",
+        **kwargs,
+    )
+    same = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-17",
+        notice_date="2026-01-01",
+        **kwargs,
+    )
+    other = inbox.append_entry(
+        fixture_vault,
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "warn-notice — correction",
+        date="2026-08-17",
+        notice_date="2026-02-02",
+        **kwargs,
+    )
+    assert same.id != first.id
+    assert [entry.id for entry in inbox.open_entries(fixture_vault)] == [other.id]
 
 
 def test_a_legacy_update_notice_is_closed_only_by_an_ack_naming_it(fixture_vault):

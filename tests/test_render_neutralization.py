@@ -1,4 +1,4 @@
-"""Regression tests for the 2026-08-21 evidence-text injection review findings.
+"""Regression tests for evidence-text injection.
 
 Evidence strings arrive from Zotero and are interpolated into a line-oriented
 markdown grammar. A line break inside one of them can forge a claim line, a

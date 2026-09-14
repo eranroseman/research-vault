@@ -100,12 +100,12 @@ def test_markdown_templates_match_canonical_content():
         "![[system/bases/open-questions.base]]\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
-    # Ruled content, 2026-08-22: dangling spec §8 ref cut, managed-region rule
-    # added, machine-surface rule reworded to "raise a finding" (append-only
-    # covers log/ and inbox/review-queue.md but is in no CLOSING_BY_SURFACE
-    # set, so "fail the gate" was false). Pinned whole-file, byte-for-byte,
-    # below: the earlier per-line startswith/in pattern admitted append,
-    # reorder, and layout drift undetected; each line remains load-bearing.
+    # The machine-surface rule says "raise a finding", never "fail the gate":
+    # append-only covers log/ and inbox/review-queue.md but is in no
+    # CLOSING_BY_SURFACE set, so "fail the gate" would be false. Pinned
+    # whole-file, byte-for-byte, below: a per-line startswith/in pattern
+    # admits append, reorder, and layout drift undetected; each line is
+    # load-bearing.
     # Constraint on the opening paragraph (the preamble, first two sentences
     # below): it names machine surfaces but must assert no enforcement
     # mechanism — no claim of a session warning, a commit-time gate, or a
@@ -288,9 +288,9 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     text = asset("ci/verify.yml").read_text()
     assert "name: verify\non: [push, pull_request]" in text
     assert "permissions:\n  contents: read" in text
-    assert "- uses: actions/checkout@v4" in text
+    assert "- uses: actions/checkout@v7" in text
     assert "fetch-depth: 0" in text
-    assert "- uses: actions/setup-python@v5" in text
+    assert "- uses: actions/setup-python@v7" in text
     assert "python-version: '3.12'" in text
     assert (
         'python -m pip install "research-vault @ git+https://github.com/eranroseman/'
@@ -328,9 +328,9 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert "workflow_dispatch: {}" in text
     assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
     assert "permissions:\n  contents: write" in text
-    assert "- uses: actions/checkout@v4" in text
+    assert "- uses: actions/checkout@v7" in text
     assert "fetch-depth: 0" in text
-    assert "- uses: actions/setup-python@v5" in text
+    assert "- uses: actions/setup-python@v7" in text
     assert "python-version: '3.12'" in text
     assert (
         'python -m pip install "research-vault @ git+https://github.com/eranroseman/'

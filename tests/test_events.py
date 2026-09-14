@@ -546,3 +546,47 @@ def test_foreign_human_event_without_check_stays_unverified():
 )
 def test_applicable_note_checks_is_update_notice_or_nothing(data, expected):
     assert events._applicable_note_checks(data) == expected
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+def test_record_pass_refuses_a_duplicated_verified_or_failure_header():
+    """A frontmatter carrying two `verified:` (or two `failed-verification:`)
+    headers is not a list the writer can own: refused, never appended to."""
+    two_verified = must_replace(
+        BASE, "---\n- (quote)", "verified:\nverified:\n---\n- (quote)"
+    )
+    with pytest.raises(ValueError, match="verified frontmatter must be a list"):
+        events.record_pass(two_verified, "doi", Result.MATCHED, at="2026-08-16")
+    two_failures = must_replace(
+        BASE,
+        "---\n- (quote)",
+        "failed-verification:\nfailed-verification:\n---\n- (quote)",
+    )
+    with pytest.raises(ValueError, match="failed-verification frontmatter must be"):
+        events.record_pass(two_failures, "doi", Result.MATCHED, at="2026-08-16")
+
+
+def test_trust_tier_checks_every_quote_claim_and_ignores_foreign_failure_rows():
+    """A non-quote claim listed before a quote claim does not stop the quote
+    claims from being checked (the unverified quote still holds the tier
+    down); a failure row for a check that is neither applicable nor a quote
+    check is passed over rather than raised on."""
+    text = must_replace(
+        BASE,
+        "- (quote) [@smith2020, p. 12] ^c-11111111\n",
+        "- (inference) Some inference [@smith2020, p. 1] ^c-22222222\n"
+        "- (quote) [@smith2020, p. 12] ^c-11111111\n",
+    )
+    text = events.record_pass(text, "update-notice", Result.MATCHED, at="2026-08-16")
+    assert events.trust_tier(text) == "unverified"
+    text = events.record_pass(
+        text,
+        "quote:smith2020#^c-11111111:managed-region",
+        Result.MATCHED,
+        at="2026-08-16",
+    )
+    assert events.trust_tier(text) == "machine-confirmed"
+    with_foreign_failure = events.record_failure(text, "metadata", Result.UNMATCHED)
+    assert events.trust_tier(with_foreign_failure) == "machine-confirmed"

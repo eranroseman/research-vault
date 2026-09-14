@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -168,6 +169,23 @@ def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
     assert not os.access(hook, os.X_OK)
     assert scaffold.scaffold_vault(vault) == []
     assert glossary.read_text() == "human glossary\n"
+
+
+def test_scaffold_git_calls_run_in_the_vault_wherever_the_process_sits(
+    tmp_path, monkeypatch
+):
+    """From a cwd that is no repository at all, scaffold still commits into the
+    vault. `.research-vault/machine.json` is created and stays out of that
+    commit by the local-only rule (`_LOCAL_ONLY_PATHS`), which runs before any
+    git call -- the vault's own ignore rules are pinned by
+    test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores."""
+    monkeypatch.chdir(tmp_path)
+    vault = tmp_path / "vault"
+    created = scaffold.scaffold_vault(vault)
+    assert ".research-vault/machine.json" in created
+    assert git(vault, "log", "--format=%s") == "Scaffold knowledge vault\n"
+    assert git(vault, "ls-files", "--", ".research-vault") == ""
+    assert git(vault, "ls-files", "--", "index.md") == "index.md\n"
 
 
 def test_scaffold_installs_an_executable_hook_and_keeps_empty_roots_in_clones(tmp_path):
@@ -437,3 +455,188 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
     assert not (vault / ".github/workflows/verify.yml").exists()
     assert (vault / ".git/hooks/pre-commit").stat().st_mode & 0o111 == 0o111
     assert rw_workflow.stat().st_mode & 0o111 == 0
+
+
+# --- boundaries pinned against mutation survivors -----------------------------
+
+
+@pytest.mark.parametrize(
+    ("relative", "flags"),
+    [
+        (".research-vault/machine.json", {}),
+        (".github/workflows/verify.yml", {"with_ci": True}),
+        (".github/workflows/rw-batch.yml", {"with_rw_ci": True}),
+    ],
+)
+def test_scaffold_refuses_a_staged_deletion_of_each_optional_owned_target(
+    tmp_path, relative, flags
+):
+    """Each of the three optional owned paths is a preflight candidate exactly
+    when scaffold would create it: tracked but deleted from the worktree is
+    the conflict, named by its path."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    target = vault / relative
+    target.parent.mkdir(parents=True)
+    target.write_text("user version\n")
+    git(vault, "add", "--", relative)
+    git(vault, "commit", "-qm", "baseline")
+    target.unlink()
+    git(vault, "add", "--", relative)
+
+    with pytest.raises(
+        ValueError, match=f"scaffold conflict with tracked path: {relative}"
+    ):
+        scaffold.scaffold_vault(vault, **flags)
+    assert not (vault / "inbox").exists()
+
+
+def test_scaffold_ignores_a_tracked_workflow_it_was_not_asked_for_and_its_own_commits(
+    tmp_path,
+):
+    """A tracked-but-deleted workflow is no conflict when its flag is off, and
+    a second scaffold over the workflows and machine.json it committed or
+    wrote itself is a no-op, never a conflict."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    workflow = vault / ".github" / "workflows" / "verify.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("user version\n")
+    git(vault, "add", "--", ".github/workflows/verify.yml")
+    git(vault, "commit", "-qm", "baseline")
+    workflow.unlink()
+    git(vault, "add", "--", ".github/workflows/verify.yml")
+    created = scaffold.scaffold_vault(vault, with_rw_ci=True)
+    assert ".github/workflows/rw-batch.yml" in created
+    assert ".github/workflows/verify.yml" not in created
+
+    git(vault, "add", "-f", "--", ".research-vault/machine.json")
+    git(vault, "commit", "-qm", "track machine.json")
+    assert scaffold.scaffold_vault(vault, with_rw_ci=True) == []
+
+    # The user's own verify.yml committed again (past the vault's verifier
+    # hook, which is not under test here): asking for CI over it is a no-op
+    # too, not a conflict and not an overwrite.
+    workflow.write_text("user version\n")
+    git(vault, "add", "--", ".github/workflows/verify.yml")
+    git(vault, "commit", "--no-verify", "-qm", "the user's own workflow")
+    assert scaffold.scaffold_vault(vault, with_ci=True, with_rw_ci=True) == []
+    assert workflow.read_text() == "user version\n"
+
+
+# --- the survivors the observed CI gate run (34827110718) exposed -----------
+# Locally each of the four git-subcommand mutants read as a timeout (an invalid
+# `git LS-FILES` walks PATH, slow enough under WSL2 to hit mutmut's limit),
+# which the gate never baselines; on the runner the same call exited 1 in
+# milliseconds and read as "not tracked" / "not ignored", and no test told the
+# difference. The runner is the arbiter; these pin the answers.
+
+
+def test_is_tracked_reads_the_index_and_head_and_nothing_else(tmp_path):
+    """A path in the index but not yet in HEAD is tracked -- the state only
+    `ls-files --error-unmatch` answers, since `cat-file -e HEAD:` cannot see
+    it; a committed path is tracked; an untracked or absent one is not."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    (vault / "committed.md").write_text("committed\n")
+    git(vault, "add", "--", "committed.md")
+    git(vault, "commit", "-qm", "baseline")
+    (vault / "staged.md").write_text("staged\n")
+    git(vault, "add", "--", "staged.md")
+    (vault / "untracked.md").write_text("untracked\n")
+
+    assert scaffold._is_tracked(vault, "staged.md") is True
+    assert scaffold._is_tracked(vault, "committed.md") is True
+    assert scaffold._is_tracked(vault, "untracked.md") is False
+    assert scaffold._is_tracked(vault, "absent.md") is False
+
+
+def test_scaffold_refuses_an_owned_target_staged_but_never_committed(tmp_path):
+    """The index alone makes a path tracked: an `index.md` the user added and
+    then removed from the worktree before any commit is the conflict, named,
+    and nothing is written."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    index = vault / "index.md"
+    index.write_text("user version\n")
+    git(vault, "add", "--", "index.md")
+    index.unlink()
+
+    with pytest.raises(
+        ValueError, match=r"scaffold conflict with tracked path: index\.md"
+    ):
+        scaffold.scaffold_vault(vault)
+
+    assert not index.exists()
+    assert not (vault / "inbox").exists()
+    assert git(vault, "ls-files", "--", "index.md") == "index.md\n"
+
+
+def test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores(
+    tmp_path, monkeypatch
+):
+    """A user `.gitignore` that ignores a template path: the file is still
+    created (the template is the template), but scaffold asks git -- in the
+    vault, from a cwd that is no repository -- whether each created path is
+    ignored, and commits only the rest; `git add` of an ignored path refuses."""
+    monkeypatch.chdir(tmp_path)
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    (vault / ".gitignore").write_text("log.md\n")
+
+    created = scaffold.scaffold_vault(vault)
+
+    assert "log.md" in created
+    assert ".gitignore" not in created
+    assert (vault / "log.md").is_file()
+    committed = git(vault, "show", "--format=", "--name-only", "HEAD").splitlines()
+    assert "log.md" not in committed
+    assert "index.md" in committed
+    assert git_result(vault, "check-ignore", "-q", "--", "log.md").returncode == 0
+    assert git(vault, "ls-files", "--", "log.md") == ""
+
+
+@pytest.fixture
+def plugin_registry(_per_test_home):
+    """The plugin registry's path under the test's own HOME, its directory
+    made and the file absent -- the seam `_installed_plugins` reads."""
+    registry = _per_test_home / ".claude" / "plugins" / "installed_plugins.json"
+    registry.parent.mkdir(parents=True)
+    return registry
+
+
+def test_installed_plugins_reads_the_registry_under_home_or_answers_empty(
+    plugin_registry,
+):
+    """`~/.claude/plugins/installed_plugins.json`: its `plugins` mapping when
+    the file parses to an object carrying one; `{}` for an absent,
+    unreadable, undecodable, malformed or shapeless registry. Under the
+    test's own HOME: the one suite test that reached this read (doctor's
+    probe list) answered from the developer's own home, where a registry
+    exists, and the CI runner has none -- so a mutant that broke the read
+    died here and lived there. The codec is not pinned: the fixture bodies
+    are ASCII and the undecodable bytes decode under no codec, so
+    `encoding="UTF-8"` and `encoding=None` answer the same and stay
+    baselined; a codec name that does not exist (`XXutf-8XX`) dies on the
+    LookupError the except tuple does not catch, because a registry is there
+    to be opened."""
+    registry = plugin_registry
+    assert Path.home() == registry.parents[2]
+    assert scaffold._installed_plugins() == {}
+    plugins = {
+        "claude-obsidian@agricidaniel-claude-obsidian": [
+            {"gitCommitSha": "ad67087cad22", "installPath": "/plugins/claude-obsidian"}
+        ]
+    }
+    registry.write_text(
+        json.dumps({"version": 2, "plugins": plugins}), encoding="utf-8"
+    )
+    assert scaffold._installed_plugins() == plugins
+    for body in ('{"version": 2}', '{"plugins": ["x"]}', "[1, 2]", "{not json"):
+        registry.write_text(body, encoding="utf-8")
+        assert scaffold._installed_plugins() == {}
+    registry.write_bytes(b"\xff\xfe\x00")
+    assert scaffold._installed_plugins() == {}
+    registry.unlink()
+    registry.mkdir()
+    assert scaffold._installed_plugins() == {}
