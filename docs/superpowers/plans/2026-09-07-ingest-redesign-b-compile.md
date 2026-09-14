@@ -912,7 +912,7 @@ ______________________________________________________________________
 ruff format --check research_vault tests scripts hooks && ruff check research_vault tests scripts hooks && mypy research_vault
 .venv/bin/python -m pytest tests -q --cov=research_vault --cov-branch --cov-report=lcov:lcov.info && .venv/bin/crap4py research_vault --lcov lcov.info --max-crap 30 && .venv/bin/drywall research_vault
 RV_LIVE=1 .venv/bin/python -m pytest tests -q -k live
-python3 scripts/mutation_gate.py --lcov lcov.info --max-workers 1 --base main
+python3 scripts/mutation_gate.py --base main --max-children 6 --child-address-space 4GiB   # the mutmut gate (Plan W): reads no LCOV; children and cap as measured locally, CI passes --max-mutants 9000 at 2 x 3GiB
 git status --porcelain   # must be empty
 ```
 
