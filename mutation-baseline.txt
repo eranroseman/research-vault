@@ -1520,7 +1520,6 @@ research_vault/scaffold.py::func/_bbt_probe::-        return Probe("bbt", Result
 research_vault/scaffold.py::func/_commit_created_paths::-        "--",
 research_vault/scaffold.py::func/_commit_created_paths::-        "--only",
 research_vault/scaffold.py::func/_commit_created_paths::-    _git(vault, "add", "--", *trackable)\n+    _git(vault, "add", *trackable)
-research_vault/scaffold.py::func/_commit_created_paths::-    trackable = _trackable_paths(vault, created)\n+    trackable = _trackable_paths(None, created)
 research_vault/scaffold.py::func/_compile_tool_probe::-        f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}",\n+        f"{_COMPILE_PLUGIN} at {sha[:8]}, pin is {_COMPILE_PIN}",
 research_vault/scaffold.py::func/_first_stored_attachment::-                "attachment listing malformed: expected a list",\n+                "ATTACHMENT LISTING MALFORMED: EXPECTED A LIST",
 research_vault/scaffold.py::func/_first_stored_attachment::-                "attachment listing malformed: expected a list",\n+                "XXattachment listing malformed: expected a listXX",
@@ -1536,27 +1535,11 @@ research_vault/scaffold.py::func/_first_stored_attachment::-    total: str | Non
 research_vault/scaffold.py::func/_git::-        check=check,
 research_vault/scaffold.py::func/_git::-        check=check,\n+        check=None,
 research_vault/scaffold.py::func/_git::-def _git(vault: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:\n+def _git(vault: Path, *args: str, check: bool = False) -> subprocess.CompletedProcess:
-research_vault/scaffold.py::func/_installed_plugins::-        data = json.loads(path.read_text(encoding="utf-8"))\n+        data = None
 research_vault/scaffold.py::func/_installed_plugins::-        data = json.loads(path.read_text(encoding="utf-8"))\n+        data = json.loads(path.read_text(encoding="UTF-8"))
 research_vault/scaffold.py::func/_installed_plugins::-        data = json.loads(path.read_text(encoding="utf-8"))\n+        data = json.loads(path.read_text(encoding=None))
-research_vault/scaffold.py::func/_installed_plugins::-    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"\n+    path = Path.home() / ".CLAUDE" / "plugins" / "installed_plugins.json"
-research_vault/scaffold.py::func/_installed_plugins::-    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"\n+    path = Path.home() / ".claude" / "PLUGINS" / "installed_plugins.json"
-research_vault/scaffold.py::func/_installed_plugins::-    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"\n+    path = Path.home() / ".claude" / "XXpluginsXX" / "installed_plugins.json"
-research_vault/scaffold.py::func/_installed_plugins::-    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"\n+    path = Path.home() / ".claude" / "plugins" / "INSTALLED_PLUGINS.JSON"
-research_vault/scaffold.py::func/_installed_plugins::-    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"\n+    path = Path.home() / ".claude" / "plugins" / "XXinstalled_plugins.jsonXX"
-research_vault/scaffold.py::func/_installed_plugins::-    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"\n+    path = Path.home() / "XX.claudeXX" / "plugins" / "installed_plugins.json"
-research_vault/scaffold.py::func/_installed_plugins::-    plugins = data.get("plugins") if isinstance(data, dict) else None\n+    plugins = None
-research_vault/scaffold.py::func/_installed_plugins::-    plugins = data.get("plugins") if isinstance(data, dict) else None\n+    plugins = data.get("PLUGINS") if isinstance(data, dict) else None
-research_vault/scaffold.py::func/_installed_plugins::-    plugins = data.get("plugins") if isinstance(data, dict) else None\n+    plugins = data.get("XXpluginsXX") if isinstance(data, dict) else None
-research_vault/scaffold.py::func/_installed_plugins::-    plugins = data.get("plugins") if isinstance(data, dict) else None\n+    plugins = data.get(None) if isinstance(data, dict) else None
-research_vault/scaffold.py::func/_is_tracked::-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n+            None, "ls-files", "--error-unmatch", "--", relative, check=False
-research_vault/scaffold.py::func/_is_tracked::-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n+            vault, "--error-unmatch", "--", relative, check=False
-research_vault/scaffold.py::func/_is_tracked::-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n+            vault, "ls-files", "--ERROR-UNMATCH", "--", relative, check=False
 research_vault/scaffold.py::func/_is_tracked::-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n+            vault, "ls-files", "--error-unmatch", "--", relative, check=None
-research_vault/scaffold.py::func/_is_tracked::-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n+            vault, "ls-files", "--error-unmatch", "XX--XX", relative, check=False
 research_vault/scaffold.py::func/_is_tracked::-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n+            vault, "ls-files", "--error-unmatch", relative, check=False
 research_vault/scaffold.py::func/_is_tracked::-    in_head = _git(vault, "cat-file", "-e", f"HEAD:{relative}", check=False)\n+    in_head = _git(vault, "cat-file", "-e", f"HEAD:{relative}", check=None)
-research_vault/scaffold.py::func/_is_tracked::-    in_index = (\n-        _git(\n-            vault, "ls-files", "--error-unmatch", "--", relative, check=False\n-        ).returncode\n-        == 0\n-    )\n+    in_index = None
 research_vault/scaffold.py::func/_machine_config::-            "machine-config", Result.UNMATCHED, f"machine config unreadable: {error}"\n+            "machine-config", Result.UNMATCHED, None
 research_vault/scaffold.py::func/_machine_config::-            "mailto is missing or still uses you@example.edu",\n+            "MAILTO IS MISSING OR STILL USES YOU@EXAMPLE.EDU",
 research_vault/scaffold.py::func/_machine_config::-            "mailto is missing or still uses you@example.edu",\n+            "XXmailto is missing or still uses you@example.eduXX",
@@ -1631,13 +1614,8 @@ research_vault/scaffold.py::func/_render_glossary_if_absent::-    target.parent.
 research_vault/scaffold.py::func/_template_files::-    for child in sorted(root.iterdir(), key=lambda item: item.name):\n+    for child in sorted(root.iterdir(), ):
 research_vault/scaffold.py::func/_template_files::-    for child in sorted(root.iterdir(), key=lambda item: item.name):\n+    for child in sorted(root.iterdir(), key=None):
 research_vault/scaffold.py::func/_trackable_paths::-            continue\n+            break
-research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(None, "check-ignore", "-q", "--", relative, check=False)
-research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "-q", "--", relative, check=False)
 research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "--", relative, check=False)
-research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "-Q", "--", relative, check=False)
-research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "-q", "--", check=False)
 research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "-q", "--", relative, check=None)
-research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "-q", "XX--XX", relative, check=False)
 research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "-q", relative, check=False)
 research_vault/scaffold.py::func/_trackable_paths::-        result = _git(vault, "check-ignore", "-q", "--", relative, check=False)\n+        result = _git(vault, "check-ignore", "XX-qXX", "--", relative, check=False)
 research_vault/scaffold.py::func/_translator_formats_probe::-            "translator formats still answer 500 (closed route)",\n+            "TRANSLATOR FORMATS STILL ANSWER 500 (CLOSED ROUTE)",

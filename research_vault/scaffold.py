@@ -421,8 +421,8 @@ def _profile_facts(config) -> _ProfileFacts | _ProfileHold:
     """Read the profile once for the three probes that need it (decision 15).
 
     A configured-but-wrong profile is a finding, never "not configured": only an
-    absent, null or empty key is unconfigured (the same reading zotero_base
-    gets). Could not read is an outage and malformed content a fault —
+    absent, null or empty key is unconfigured (as zotero_base is read).
+    Could not read is an outage and malformed content a fault —
     the split captured.py makes on every file it opens.
     """
     value = config.get("zotero_profile")

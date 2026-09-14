@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -174,8 +175,10 @@ def test_scaffold_git_calls_run_in_the_vault_wherever_the_process_sits(
     tmp_path, monkeypatch
 ):
     """From a cwd that is no repository at all, scaffold still commits into the
-    vault and still reads the vault's own ignore rules: the ignored
-    `.research-vault/machine.json` is created but never committed."""
+    vault. `.research-vault/machine.json` is created and stays out of that
+    commit by the local-only rule (`_LOCAL_ONLY_PATHS`), which runs before any
+    git call -- the vault's own ignore rules are pinned by
+    test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores."""
     monkeypatch.chdir(tmp_path)
     vault = tmp_path / "vault"
     created = scaffold.scaffold_vault(vault)
@@ -519,3 +522,108 @@ def test_scaffold_ignores_a_tracked_workflow_it_was_not_asked_for_and_its_own_co
     git(vault, "commit", "--no-verify", "-qm", "the user's own workflow")
     assert scaffold.scaffold_vault(vault, with_ci=True, with_rw_ci=True) == []
     assert workflow.read_text() == "user version\n"
+
+
+# --- the survivors the observed CI gate run (34827110718) exposed -----------
+# Locally each of the four git-subcommand mutants read as a timeout (an invalid
+# `git LS-FILES` walks PATH, slow enough under WSL2 to hit mutmut's limit),
+# which the gate never baselines; on the runner the same call exited 1 in
+# milliseconds and read as "not tracked" / "not ignored", and no test told the
+# difference. The runner is the arbiter; these pin the answers.
+
+
+def test_is_tracked_reads_the_index_and_head_and_nothing_else(tmp_path):
+    """A path in the index but not yet in HEAD is tracked -- the state only
+    `ls-files --error-unmatch` answers, since `cat-file -e HEAD:` cannot see
+    it; a committed path is tracked; an untracked or absent one is not."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    (vault / "committed.md").write_text("committed\n")
+    git(vault, "add", "--", "committed.md")
+    git(vault, "commit", "-qm", "baseline")
+    (vault / "staged.md").write_text("staged\n")
+    git(vault, "add", "--", "staged.md")
+    (vault / "untracked.md").write_text("untracked\n")
+
+    assert scaffold._is_tracked(vault, "staged.md") is True
+    assert scaffold._is_tracked(vault, "committed.md") is True
+    assert scaffold._is_tracked(vault, "untracked.md") is False
+    assert scaffold._is_tracked(vault, "absent.md") is False
+
+
+def test_scaffold_refuses_an_owned_target_staged_but_never_committed(tmp_path):
+    """The index alone makes a path tracked: an `index.md` the user added and
+    then removed from the worktree before any commit is the conflict, named,
+    and nothing is written."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    index = vault / "index.md"
+    index.write_text("user version\n")
+    git(vault, "add", "--", "index.md")
+    index.unlink()
+
+    with pytest.raises(
+        ValueError, match=r"scaffold conflict with tracked path: index\.md"
+    ):
+        scaffold.scaffold_vault(vault)
+
+    assert not index.exists()
+    assert not (vault / "inbox").exists()
+    assert git(vault, "ls-files", "--", "index.md") == "index.md\n"
+
+
+def test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores(
+    tmp_path, monkeypatch
+):
+    """A user `.gitignore` that ignores a template path: the file is still
+    created (the template is the template), but scaffold asks git -- in the
+    vault, from a cwd that is no repository -- whether each created path is
+    ignored, and commits only the rest; `git add` of an ignored path refuses."""
+    monkeypatch.chdir(tmp_path)
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    (vault / ".gitignore").write_text("log.md\n")
+
+    created = scaffold.scaffold_vault(vault)
+
+    assert "log.md" in created
+    assert ".gitignore" not in created
+    assert (vault / "log.md").is_file()
+    committed = git(vault, "show", "--format=", "--name-only", "HEAD").splitlines()
+    assert "log.md" not in committed
+    assert "index.md" in committed
+    assert git_result(vault, "check-ignore", "-q", "--", "log.md").returncode == 0
+    assert git(vault, "ls-files", "--", "log.md") == ""
+
+
+def test_installed_plugins_reads_the_registry_under_home_as_utf8_or_answers_empty(
+    tmp_path, monkeypatch
+):
+    """`~/.claude/plugins/installed_plugins.json`, read as UTF-8: its
+    `plugins` mapping when the file parses to an object carrying one; `{}`
+    for an absent, unreadable, undecodable, malformed or shapeless registry.
+    Under a temporary HOME: the one suite test that reached this read
+    (doctor's probe list) answered from the developer's own home, where a
+    registry exists, and the CI runner has none -- so a mutant that broke the
+    read died here and lived there."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = tmp_path / ".claude" / "plugins" / "installed_plugins.json"
+    assert scaffold._installed_plugins() == {}
+    registry.parent.mkdir(parents=True)
+    plugins = {
+        "claude-obsidian@agricidaniel-claude-obsidian": [
+            {"gitCommitSha": "ad67087cad22", "installPath": "/plugins/claude-obsidian"}
+        ]
+    }
+    registry.write_text(
+        json.dumps({"version": 2, "plugins": plugins}), encoding="utf-8"
+    )
+    assert scaffold._installed_plugins() == plugins
+    for body in ('{"version": 2}', '{"plugins": ["x"]}', "[1, 2]", "{not json"):
+        registry.write_text(body, encoding="utf-8")
+        assert scaffold._installed_plugins() == {}
+    registry.write_bytes(b"\xff\xfe\x00")
+    assert scaffold._installed_plugins() == {}
+    registry.unlink()
+    registry.mkdir()
+    assert scaffold._installed_plugins() == {}
