@@ -10,7 +10,7 @@ Offline (default): `python -m pytest tests -q -n auto` from the repo root, insid
 RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q
 ```
 
-The offline suite is hermetic through four mechanisms in `tests/conftest.py`, each an autouse fixture the markers gate: a `live` or `live_net` test keeps the real thing, and every unmarked test gets the block in every run, live flags or not.
+The offline suite is hermetic through four mechanisms in `tests/conftest.py`: three autouse fixtures the markers gate — a marked test keeps the real thing (the marker each honours is named below), and every unmarked test gets the block in every run, live flags or not — and one opt-in fixture for subprocess tests.
 
 - **The Zotero client patch** (`_no_zotero_socket`; `live` keeps the real transport): every `ZoteroClient` read outside the `live` markers is an outage, so the offline suite gives the same answer on a machine with no Zotero and on one where a production instance is running; a test that needs a Zotero answer registers it on `tests/fakes.py::FakeZotero`.
 - **The socket block** (`_no_socket`; `live` or `live_net` keeps the real transport): any TCP connect raises, naming the address, so no client class can reopen the hole; the resolver is blocked with it — `socket.getaddrinfo` raises for any host outside loopback, because `urllib` resolves before it connects, and a leaked hostname would otherwise be a real DNS query on a networked machine and an outage on one without DNS.
