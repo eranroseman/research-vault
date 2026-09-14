@@ -92,6 +92,36 @@ the next --update-baseline. mutmut does not mutate module scope, so the
 mutate4py-era `<relpath>::module::<mutation>` keys can no longer be produced;
 baseline_keys() still tolerates them as lines. A written baseline starts with a
 `#` header line; baseline_keys() skips comment and blank lines.
+
+Per-child address-space cap. --child-address-space (default 4GiB; a plain byte
+count, or a decimal with a MiB or GiB suffix) is applied to the mutmut process
+through resource.setrlimit(RLIMIT_AS) in a preexec_fn, and mutmut forks its
+per-mutant children from that process, so every child inherits it. Why: a
+cgroup MemoryMax bounds the SUM over the children, so a runaway-allocation
+mutant (measured 2026-09-14 in selectors.py: one child at 2.0 GB, then five at
+1.6-2.2 GB) takes the whole run down by OOM-kill; under a per-process cap the
+same mutant raises MemoryError, pytest exits 1, and the mutant counts as
+killed. Sizing: children x cap under the machine's memory bound is the
+guarantee that the OOM killer never fires; a looser product only holds while
+at most one child runs away at a time. False-kill cost: only a test that
+genuinely needs more than the cap, and the suite runs in under 1 GB.
+
+Git isolation. Measured 2026-09-14T02:13Z: a scaffold.py mutant with its vault
+argument mutated to a non-vault ran the vault-hook install with cwd inside
+mutants/, `git rev-parse --git-path hooks/pre-commit` walked up to this
+repository, and the vault pre-commit template landed in the shared .git/hooks
+-- killed as a mutant, escaped as a side effect, and blocked every commit until
+removed by hand. So before every invocation the gate makes mutants/ its own
+git repository (`git init --template=` when mutants/.git is absent; the empty
+template keeps a user's init.templateDir from seeding hooks into it) and
+exports GIT_CEILING_DIRECTORIES=<repo root> to the mutmut process: discovery
+from anywhere under mutants/ stops at mutants/.git, and from anywhere else
+under the root it fails loudly instead of reaching this repository (the root
+itself is not below the ceiling, so mutmut's own git calls from the root still
+work, and tmp_path repositories are outside it). A core.hooksPath override for
+every child was measured and rejected: it sends the hook the UNMUTATED
+scaffold tests install to one shared directory, 9 of them fail on the hook's
+location, and that hook would then run on every commit any child makes.
 """
 
 from __future__ import annotations
@@ -101,6 +131,7 @@ import contextlib
 import hashlib
 import json
 import os
+import resource
 import shutil
 import subprocess
 import sys
@@ -109,6 +140,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent  # repo root
@@ -127,6 +159,8 @@ NO_VERDICT_STATUSES = (
 )
 # Verdicts the mutant caused, reported by name and never a survivor.
 BY_NAME_STATUSES = ("timeout", "caught by type check")
+DEFAULT_ADDRESS_SPACE = "4GiB"
+_SIZE_UNITS = {"MiB": 1 << 20, "GiB": 1 << 30}
 
 
 class SourceTreeChangedError(RuntimeError):
@@ -271,7 +305,57 @@ def _tree_digest(root: Path) -> dict[str, str]:
     return digest
 
 
-def _run_mutmut(relpath: str, max_children: int, root: Path = ROOT) -> tuple[str, int]:
+def parse_size(text: str) -> int:
+    """A byte count: plain digits, or a decimal with a MiB or GiB suffix."""
+    value = 0
+    if text.isdigit():
+        value = int(text)
+    else:
+        for unit, factor in _SIZE_UNITS.items():
+            if text.endswith(unit):
+                try:
+                    value = round(float(text[: -len(unit)]) * factor)
+                except ValueError:
+                    value = 0
+    if value <= 0:
+        raise argparse.ArgumentTypeError(
+            f"{text!r}: expected a positive byte count, or a decimal with a MiB "
+            "or GiB suffix (e.g. 4GiB, 2.5GiB, 512MiB)"
+        )
+    return value
+
+
+def _address_space_limiter(cap: int) -> Callable[[], None]:
+    """The preexec_fn: caps the mutmut process (and, inherited, every child it
+    forks) at `cap` bytes of address space -- see the header."""
+
+    def limit() -> None:
+        resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
+
+    return limit
+
+
+def _isolate_git(root: Path) -> dict[str, str]:
+    """mutants/ becomes its own repository and the root is git's ceiling --
+    see the header. Returns the env entries the mutmut process gets."""
+    mutants = root / "mutants"
+    mutants.mkdir(exist_ok=True)
+    if not (mutants / ".git").exists():
+        subprocess.run(
+            ["git", "init", "-q", "--template=", str(mutants)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    return {"GIT_CEILING_DIRECTORIES": str(root)}
+
+
+def _run_mutmut(
+    relpath: str,
+    max_children: int,
+    root: Path = ROOT,
+    address_space: int = parse_size(DEFAULT_ADDRESS_SPACE),
+) -> tuple[str, int]:
     pattern = relpath[: -len(".py")].replace("/", ".") + ".*"
     cmd = [
         sys.executable,
@@ -285,13 +369,26 @@ def _run_mutmut(relpath: str, max_children: int, root: Path = ROOT) -> tuple[str
     # it wins over anything already on PYTHONPATH.
     inherited = os.environ.get("PYTHONPATH")
     pythonpath = f"{SHIMS}{os.pathsep}{inherited}" if inherited else str(SHIMS)
-    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": pythonpath}
     _sweep_pycache(root)
     before = _tree_digest(root)
+    # The isolation's git init runs inside the hashed window: nothing it does
+    # may touch the source trees either.
+    env = {
+        **os.environ,
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": pythonpath,
+        **_isolate_git(root),
+    }
     # check=False deliberate: the exit code is the module's class, decided by
     # the caller, and a non-zero exit must reach it as data, not an exception.
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, cwd=root, check=False, env=env
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=root,
+        check=False,
+        env=env,
+        preexec_fn=_address_space_limiter(address_space),
     )
     after = _tree_digest(root)
     sys.stderr.write(proc.stderr)
@@ -309,12 +406,12 @@ def _run_mutmut(relpath: str, max_children: int, root: Path = ROOT) -> tuple[str
 
 
 def _measure(
-    module: str, max_children: int
+    module: str, max_children: int, address_space: int
 ) -> tuple[str, int, str, ModuleResult | None]:
     """One module, start to finish: (stdout, exit code, class, result)."""
     # ROOT passed explicitly (not left to the parameter defaults, which bind at
     # definition time) so a monkeypatched ROOT reaches every reader.
-    out, code = _run_mutmut(module, max_children, ROOT)
+    out, code = _run_mutmut(module, max_children, ROOT, address_space)
     if code != 0:
         return out, code, "error", None
     try:
@@ -416,7 +513,11 @@ def _write_record(
 
 
 def _update_baseline(
-    baseline_path: Path, out_dir: Path | None, only: list[str], max_children: int
+    baseline_path: Path,
+    out_dir: Path | None,
+    only: list[str],
+    max_children: int,
+    address_space: int,
 ) -> int:
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -434,7 +535,7 @@ def _update_baseline(
             continue
         else:
             print(f"[baseline] {module}", flush=True)
-            out, code, cls, measured = _measure(module, max_children)
+            out, code, cls, measured = _measure(module, max_children, address_space)
             if out_dir is not None:
                 _write_record(out_dir, module, out, code, cls, measured)
             _report("[baseline]", module, cls, code, measured)
@@ -480,7 +581,7 @@ def _summarise_no_tests(prefix: str, no_tests: dict[str, int]) -> None:
         print(f"{prefix}   {module}: {n}")
 
 
-def _gate(baseline_path: Path, base: str, max_children: int) -> int:
+def _gate(baseline_path: Path, base: str, max_children: int, address_space: int) -> int:
     modules = changed_modules(base)
     if not modules:
         print("[gate] no changed research_vault modules; pass")
@@ -491,7 +592,7 @@ def _gate(baseline_path: Path, base: str, max_children: int) -> int:
     no_tests: dict[str, int] = {}
     for module in modules:
         print(f"[gate] {module}", flush=True)
-        out, code, cls, result = _measure(module, max_children)
+        out, code, cls, result = _measure(module, max_children, address_space)
         print(out)
         _report("[gate]", module, cls, code, result)
         if cls != "ok" or result is None:
@@ -526,6 +627,15 @@ def main() -> int:
         "--max-children", type=int, default=4, help="passed through to mutmut run"
     )
     parser.add_argument(
+        "--child-address-space",
+        type=parse_size,
+        default=DEFAULT_ADDRESS_SPACE,
+        metavar="BYTES",
+        help="RLIMIT_AS for the mutmut process and every child it forks: plain "
+        "bytes, or a decimal with a MiB/GiB suffix (default %(default)s); size "
+        "it so --max-children x this fits the machine's memory bound",
+    )
+    parser.add_argument(
         "--out-dir",
         default=None,
         help="--update-baseline only: per-module records, for resuming a killed "
@@ -551,9 +661,15 @@ def main() -> int:
         if args.update_baseline:
             out_dir = Path(args.out_dir) if args.out_dir else None
             return _update_baseline(
-                baseline_path, out_dir, args.only, args.max_children
+                baseline_path,
+                out_dir,
+                args.only,
+                args.max_children,
+                args.child_address_space,
             )
-        return _gate(baseline_path, args.base, args.max_children)
+        return _gate(
+            baseline_path, args.base, args.max_children, args.child_address_space
+        )
     except SourceTreeChangedError as error:
         prefix = "[baseline]" if args.update_baseline else "[gate]"
         print(f"{prefix} ABORT: {error}")

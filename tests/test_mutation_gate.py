@@ -8,6 +8,7 @@ copy of this repo (nothing here reads a committed file through the gate's ROOT),
 because the gate's own tests run in mutmut's stats phase.
 """
 
+import argparse
 import ast
 import json
 import os
@@ -293,6 +294,25 @@ def _completed(cmd, code: int = 0) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(cmd, code, stdout="mutmut out", stderr="")
 
 
+def _record_runs(monkeypatch) -> list[dict]:
+    """Fake subprocess.run at the gate's one seam; every call (the git init
+    that isolates mutants/ and the launcher) lands in the returned list as
+    {"cmd": argv, **kwargs}."""
+    calls: list[dict] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append({"cmd": cmd, **kwargs})
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return calls
+
+
+def _launcher_call(calls: list[dict]) -> dict:
+    (call,) = [c for c in calls if c["cmd"][1:2] == [str(mutation_gate.LAUNCHER)]]
+    return call
+
+
 def test_run_mutmut_invokes_the_launcher_with_pattern_env_and_cwd(
     tmp_path, monkeypatch
 ):
@@ -302,19 +322,13 @@ def test_run_mutmut_invokes_the_launcher_with_pattern_env_and_cwd(
     as an absolute path: test subprocesses change cwd, so a relative entry
     would stop resolving in exactly the processes sitecustomize exists for."""
     root = _fake_root(tmp_path)
-    seen: dict = {}
-
-    def fake_run(cmd, **kwargs):
-        seen["cmd"] = cmd
-        seen.update(kwargs)
-        return _completed(cmd)
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    calls = _record_runs(monkeypatch)
     monkeypatch.setenv("PYTHONPATH", "/elsewhere")
 
     out, code = mutation_gate._run_mutmut("research_vault/x.py", 6, root=root)
 
     assert (out, code) == ("mutmut out", 0)
+    seen = _launcher_call(calls)
     assert seen["cmd"] == [
         sys.executable,
         str(mutation_gate.LAUNCHER),
@@ -329,6 +343,116 @@ def test_run_mutmut_invokes_the_launcher_with_pattern_env_and_cwd(
     assert env["PYTHONPATH"] == f"{mutation_gate.SHIMS}{os.pathsep}/elsewhere"
     assert mutation_gate.SHIMS.is_absolute()
     assert "PATH" in env  # inherited, not replaced
+
+
+def test_run_mutmut_caps_the_address_space_of_the_mutmut_process_and_its_children(
+    tmp_path, monkeypatch
+):
+    """RLIMIT_AS, soft and hard, set in the preexec_fn of the launcher process
+    -- mutmut forks its per-mutant children from there, so they inherit it and
+    a runaway-allocation mutant dies by MemoryError (pytest exit 1, killed)
+    instead of the cgroup OOM-killing the whole run. The preexec is called
+    here in-process against a recorder; the real setrlimit never runs under
+    pytest."""
+    root = _fake_root(tmp_path)
+    calls = _record_runs(monkeypatch)
+    limits: list = []
+    monkeypatch.setattr(
+        mutation_gate.resource, "setrlimit", lambda *args: limits.append(args)
+    )
+    cap = mutation_gate.parse_size("2.5GiB")
+
+    mutation_gate._run_mutmut("research_vault/x.py", 2, root=root, address_space=cap)
+
+    preexec = _launcher_call(calls)["preexec_fn"]
+    assert limits == []  # applied in the child, never in the gate's process
+    preexec()
+    assert cap == 2_684_354_560
+    assert limits == [(mutation_gate.resource.RLIMIT_AS, (cap, cap))]
+
+
+def test_parse_size_reads_bytes_and_binary_suffixes():
+    parse = mutation_gate.parse_size
+    assert parse("4GiB") == 4 << 30
+    assert parse("2.5GiB") == 2_684_354_560
+    assert parse("512MiB") == 512 << 20
+    assert parse("1073741824") == 1 << 30
+    assert mutation_gate.DEFAULT_ADDRESS_SPACE == "4GiB"
+    for bad in ("4GB", "4G", "GiB", "abc", "0", "-1", "1.5"):
+        with pytest.raises(argparse.ArgumentTypeError):
+            parse(bad)
+
+
+def test_run_mutmut_isolates_git_from_the_repository(tmp_path, monkeypatch):
+    """The env the launcher gets carries GIT_CEILING_DIRECTORIES=<root> and no
+    GIT_CONFIG_* injection (a core.hooksPath override was measured to break
+    the scaffold tests and to share one hook across every child), and
+    mutants/ is made its own repository first, `--template=` so nothing seeds
+    hooks into it -- once: a second invocation finds mutants/.git and inits
+    nothing."""
+    root = _fake_root(tmp_path)
+    calls = _record_runs(monkeypatch)
+
+    mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+
+    env = _launcher_call(calls)["env"]
+    assert env["GIT_CEILING_DIRECTORIES"] == str(root)
+    assert not any(key.startswith("GIT_CONFIG") for key in env)
+    assert calls[0]["cmd"] == [
+        "git",
+        "init",
+        "-q",
+        "--template=",
+        str(root / "mutants"),
+    ]
+    assert calls[0]["check"] is True
+    (root / "mutants" / ".git").mkdir()  # the fake ran no git; stand in for it
+    calls.clear()
+    mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+    assert [c["cmd"][:2] for c in calls] == [
+        [sys.executable, str(mutation_gate.LAUNCHER)]
+    ]
+
+
+def test_git_isolation_contains_hook_paths_under_mutants_and_walls_off_the_root(
+    tmp_path,
+):
+    """The measured escape, with real git: `git rev-parse --git-path
+    hooks/pre-commit` from under mutants/ resolves inside mutants/.git, and
+    from anywhere else under the root it finds no repository at all -- never
+    the one enclosing the root -- while the root itself (mutmut's own cwd)
+    and a repository outside it are untouched."""
+    outer = tmp_path / "outer"
+    root = outer / "root"
+    (root / "mutants" / "research_vault").mkdir(parents=True)
+    (root / "scripts").mkdir()
+    subprocess.run(["git", "init", "-q", str(outer)], check=True, capture_output=True)
+    elsewhere = tmp_path / "elsewhere"
+    subprocess.run(
+        ["git", "init", "-q", str(elsewhere)], check=True, capture_output=True
+    )
+
+    env = {**os.environ, **mutation_gate._isolate_git(root)}
+
+    def hook_path(cwd: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "rev-parse", "--git-path", "hooks/pre-commit"],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    assert (root / "mutants" / ".git").is_dir()
+    assert not (root / "mutants" / ".git" / "hooks").exists()  # --template=
+    inside = hook_path(root / "mutants" / "research_vault")
+    assert inside.returncode == 0
+    resolved = (root / "mutants" / "research_vault" / inside.stdout.strip()).resolve()
+    assert resolved == (root / "mutants" / ".git" / "hooks" / "pre-commit").resolve()
+    assert hook_path(root / "scripts").returncode == 128
+    assert hook_path(root).returncode == 0  # the ceiling itself still discovers
+    assert hook_path(elsewhere).returncode == 0
 
 
 def test_run_mutmut_sweeps_pycache_before_invoking(tmp_path, monkeypatch):
@@ -382,8 +506,9 @@ def test_run_mutmut_hash_ignores_bytecode_written_during_the_run(tmp_path, monke
     (root / "tests" / "test_x.py").write_text("def test(): pass\n", encoding="utf-8")
 
     def fake_run(cmd, **kwargs):
+        # Seen twice: the isolation's git init and the launcher.
         cache = root / "tests" / "__pycache__"
-        cache.mkdir()
+        cache.mkdir(exist_ok=True)
         (cache / "test_x.cpython-312.pyc").write_bytes(b"pyc")
         return _completed(cmd)
 
@@ -425,7 +550,7 @@ def _fake_measurement(root: Path, monkeypatch, calls: list[str] | None = None):
     """Make _run_mutmut a no-op that reports success; the module's artifacts
     must already be in place (see _fake_module) so the real reader runs."""
 
-    def fake_run_mutmut(relpath, max_children, root=root):
+    def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
         if calls is not None:
             calls.append(relpath)
         return "mutmut out", 0
@@ -487,7 +612,7 @@ def test_update_baseline_refuses_to_write_when_a_module_errors(
     _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
     _fake_measurement(root, monkeypatch)
 
-    def fake_run_mutmut(relpath, max_children, root=root):
+    def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
         return "mutmut out", 1 if relpath == b else 0
 
     monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
@@ -681,7 +806,7 @@ def test_out_dir_writes_no_baseline_when_a_module_still_fails(tmp_path, monkeypa
     _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
     _fake_measurement(root, monkeypatch)
 
-    def fake_run_mutmut(relpath, max_children, root=root):
+    def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
         return "", 1 if relpath == a else 0
 
     monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
@@ -758,7 +883,7 @@ def test_source_tree_change_aborts_the_run_without_writing(
     a = "research_vault/a.py"
     monkeypatch.setattr(mutation_gate, "ROOT", root)
 
-    def fake_run_mutmut(relpath, max_children, root=root):
+    def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
         raise SourceTreeChangedError("research_vault/x.py changed")
 
     monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
@@ -819,9 +944,7 @@ def test_gate_fails_when_a_module_errors(tmp_path, monkeypatch, capsys):
     root = _fake_root(tmp_path)
     a = "research_vault/a.py"
     monkeypatch.setattr(mutation_gate, "ROOT", root)
-    monkeypatch.setattr(
-        mutation_gate, "_run_mutmut", lambda relpath, max_children, root=root: ("", 1)
-    )
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", lambda *_args, **_kwargs: ("", 1))
     monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
     _argv_gate(monkeypatch, root)
 
