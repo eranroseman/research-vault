@@ -119,7 +119,7 @@ python3 "$CORE" mode set generic --vault "$scratch" --apply --approved-plan-sha2
 python3 "$CORE" mode get --vault "$scratch"
 ```
 
-Expected: `mode get` reports `sources_folder: wiki/sources/`, `concepts_folder: wiki/concepts/` and, since v2.2.0, `questions_folder: wiki/questions/`; `.vault-meta/mode.json` exists; `adopt` created `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, `wiki/overview.md`, `.raw/.manifest.json`, `wiki/meta/ledgers/*.json`, `.claude-obsidian.json`, `.obsidian/*`, and **did not overwrite** the vault's `.gitignore` (it refuses without `--force`; append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`). (If the exact flag names differ from the ones above, read `python3 "$CORE" adopt --help`; the approve-then-apply shape is `_require_approved_plan` in `claude_obsidian/cli.py:86-104`.)
+Expected: `mode get` reports `sources_folder: wiki/sources/`, `concepts_folder: wiki/concepts/` and, since v2.2.0, `questions_folder: wiki/questions/`; `.vault-meta/mode.json` exists; `adopt` created `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, `wiki/overview.md`, `.raw/.manifest.json`, `wiki/meta/ledgers/*.json`, `.claude-obsidian.json`, `.obsidian/*`, and **did not overwrite** the vault's `.gitignore` (measured 2026-09-14 T2: it leaves an existing file untouched, silently rather than by refusing; append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`). (If the exact flag names differ from the ones above, read `python3 "$CORE" adopt --help`; the approve-then-apply shape is `_require_approved_plan` in `claude_obsidian/cli.py:86-104`.)
 
 - [ ] **Step 4: T3 — a compile run over three captured sources writes only under `wiki/`**
 
@@ -604,7 +604,7 @@ claude plugin marketplace add AgriciDaniel/claude-obsidian
 claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
-Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool refuses to overwrite the vault's `.gitignore`; append its four rules by hand.
+Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
 ````
 
 `skills/synthesis-conventions/SKILL.md`:
