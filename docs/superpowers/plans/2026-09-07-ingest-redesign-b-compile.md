@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Drive the adopted compile tool (`AgriciDaniel/claude-obsidian` at `ad67087`) through a glue wrapper once its tracers pass; add the compile sections to the skills; close the docs, registries and the CI deferral; run the write-capable live legs on the test instance; and close the ingest redesign with its one upstream issue.
+**Goal:** Drive the adopted compile tool (`AgriciDaniel/claude-obsidian` at `32ac5a0`, v2.2.0 — the pin moved from `ad67087` on 2026-09-14, operator decision A, after a diff found nothing the wrapper or the tracers call moved between the two) through a glue wrapper once its tracers pass; add the compile sections to the skills; close the docs, registries and the CI deferral; run the write-capable live legs on the test instance; and close the ingest redesign with its one upstream issue.
 
 **Architecture:** Compile is adopted unmodified: `research_vault/compile.py` selects captured sources, registers ledger records through the tool's own `transaction inspect`/`apply`, and never writes under `wiki/`. Everything else here is documentation, live-leg tests and one report. Capture, the lifecycle linter, propagation, the captured-set lint, doctor and `add` are Part A's and are consumed unchanged.
 
@@ -51,7 +51,7 @@ Signatures this part adds, then the Part A signatures its tasks call (copied fro
 
 ```python
 # research_vault/compile.py                                   (Task 2) 
-LEDGER_PATH = notes.LEDGER_PATH; PIN = "ad67087"   # one definition site (Part A Task 11)
+LEDGER_PATH = notes.LEDGER_PATH; PIN = "32ac5a0"   # one definition site (Part A Task 11); v2.2.0, moved from ad67087 on 2026-09-14
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"; CHECK = "compile"
 def stable_source_id(kind, locator, content_sha256) -> str
 def tool_root(vault_root) -> Path | None
@@ -102,7 +102,7 @@ claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 python3 -c "import json,pathlib;p=json.load(open(pathlib.Path.home()/'.claude/plugins/installed_plugins.json'))['plugins']['claude-obsidian@agricidaniel-claude-obsidian'][0];print(p['gitCommitSha'],p['installPath'])"
 ```
 
-Expected: a sha starting `ad67087`. If the marketplace has moved past the pin, pin locally: `git -C "$installPath" checkout ad67087` is **not** available (the cache is not a git checkout) — record the sha found, and treat `compile-tool` UNMATCHED as the tracer's finding; Task 2 still targets the documented `ad67087` surface (agent-read 2026-09-07) and the author decides whether to move the pin.
+Expected: a sha starting `32ac5a0` (v2.2.0; measured 2026-09-14: `32ac5a02c4e082e4a5628ca810776375e134708e`, installPath `~/.claude/plugins/cache/agricidaniel-claude-obsidian/claude-obsidian/2.2.0`). The pin moved from `ad67087` to `32ac5a0` on 2026-09-14 (operator decision A) after the controller diffed the two: `ledgers.py` byte-identical, the CLI verbs, flag shapes and exit codes unchanged, `wiki-ingest`'s write set unchanged; the move lands as one Task 1 commit before the tracers (`scaffold._COMPILE_PIN`, `tests/test_doctor.py`, `tests/test_scaffold.py`, spec §4.1, `ATTRIBUTION.md`), so this doctor run reads `compile-tool` MATCHED. If the marketplace has moved past the pin again, pin locally is **not** available (`claude plugin install` takes no version or commit and the cache is not a git checkout) — record the sha found, treat `compile-tool` UNMATCHED as the tracer's finding, and the operator decides whether to move the pin once more after the same diff.
 
 - [ ] **Step 2: T1 — the plugin loads whole and an ordinary capture run still completes**
 
@@ -119,7 +119,7 @@ python3 "$CORE" mode set generic --vault "$scratch" --apply --approved-plan-sha2
 python3 "$CORE" mode get --vault "$scratch"
 ```
 
-Expected: `mode get` reports `sources_folder: wiki/sources/`, `concepts_folder: wiki/concepts/`; `.vault-meta/mode.json` exists; `adopt` created `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, `wiki/overview.md`, `.raw/.manifest.json`, `wiki/meta/ledgers/*.json`, `.claude-obsidian.json`, `.obsidian/*`, and **did not overwrite** the vault's `.gitignore` (it refuses without `--force`; append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`). (If the exact flag names differ from the ones above, read `python3 "$CORE" adopt --help`; the approve-then-apply shape is `_require_approved_plan` in `claude_obsidian/cli.py:86-104`.)
+Expected: `mode get` reports `sources_folder: wiki/sources/`, `concepts_folder: wiki/concepts/` and, since v2.2.0, `questions_folder: wiki/questions/`; `.vault-meta/mode.json` exists; `adopt` created `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, `wiki/overview.md`, `.raw/.manifest.json`, `wiki/meta/ledgers/*.json`, `.claude-obsidian.json`, `.obsidian/*`, and **did not overwrite** the vault's `.gitignore` (it refuses without `--force`; append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`). (If the exact flag names differ from the ones above, read `python3 "$CORE" adopt --help`; the approve-then-apply shape is `_require_approved_plan` in `claude_obsidian/cli.py:86-104`.)
 
 - [ ] **Step 4: T3 — a compile run over three captured sources writes only under `wiki/`**
 
@@ -343,7 +343,7 @@ LEDGER_PATH = notes.LEDGER_PATH
 LEDGER_SCHEMA = "claude-obsidian.source-ledger.v1"
 BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
-PIN = "ad67087"
+PIN = "32ac5a0"
 CHECK = "compile"
 BUNDLE_DIR = ".research-vault/compile"
 
@@ -353,7 +353,7 @@ class ToolMissingError(RuntimeError):
 
 
 def stable_source_id(kind: str, locator: str, content_sha256: str | None) -> str:
-    """Byte-for-byte the tool's ``ledgers.stable_source_id`` (read at ad67087)."""
+    """Byte-for-byte the tool's ``ledgers.stable_source_id`` (read at ad67087; byte-identical at 32ac5a0)."""
     normalized = PurePosixPath(locator).as_posix() if kind.casefold() == "file" else locator
     digest = hashlib.sha256(
         f"{kind.casefold()}\0{normalized}\0{(content_sha256 or '').casefold()}".encode("utf-8", errors="surrogatepass")
@@ -604,7 +604,7 @@ claude plugin marketplace add AgriciDaniel/claude-obsidian
 claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
-Doctor's `compile-tool` probe reports the installed commit against the pin `ad67087`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool refuses to overwrite the vault's `.gitignore`; append its four rules by hand.
+Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool refuses to overwrite the vault's `.gitignore`; append its four rules by hand.
 ````
 
 `skills/synthesis-conventions/SKILL.md`:
@@ -984,7 +984,7 @@ This part's sections only; Part A's table carries the rest and names these tasks
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---- |
 | §1 invariant 6        | falsifiability: full verification, write-capable live legs, mutation gate                                                        | 5, 6 |
 | §3.1                  | alias probe (T5)                                                                                                                 | 1    |
-| §4.1–4.3              | adoption at `ad67087`; tracers T1–T4 before any compile task; `capture` unused; modes; results recorded in the plan and the spec | 1, 2 |
+| §4.1–4.3              | adoption at `32ac5a0`; tracers T1–T4 before any compile task; `capture` unused; modes; results recorded in the plan and the spec | 1, 2 |
 | §4.4                  | the wrapper's ledger record carries `content_sha256`, the value `captured-set` compares for `recompile-needed`                   | 2    |
 | §4.5                  | wrapper owns selection, locators, ledger records, invocation; no prompt                                                          | 2    |
 | §5                    | setup skill's compile-tool install and adoption steps; `compile-tool` probe consumed                                             | 3    |
