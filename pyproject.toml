@@ -121,7 +121,8 @@ max-complexity = 28
 #           shape here IS a malformed value, raised as ValueError so the enclosing
 #           (OSError, ValueError) handler maps it to a four-state outcome — a
 #           TypeError would escape the handler. The rest of TRY is raise/log style.
-#   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist
+#   ANN   — mypy owns typing: it checks annotations are TRUE, ANN only that they exist;
+#           in `ignore` with the other skip families so no default expansion re-enables it
 #   D     — docstrings unenforced by decision: presence/format checks can't verify truth,
 #           and the meaning layer lives in CONTEXT.md/spec; docstrings stay by convention
 # C90 IS selected: below the CRAP ceiling a CC cap catches complexity laundered by
@@ -177,7 +178,7 @@ extend-select = [
   "W",
   "YTT",
 ]
-ignore = [ "BLE", "D", "PLC", "PLR", "S310", "S603", "S607", "TRY" ]
+ignore = [ "ANN", "BLE", "D", "PLC", "PLR", "S310", "S603", "S607", "TRY" ]
 
 # Ratchet: disallow_incomplete_defs -> disallow_untyped_defs as code gets annotated.
 # Full --strict waits for the evidence shapes to be modeled as TypedDicts — before
@@ -214,7 +215,8 @@ markers = [
   "live: requires a running local Zotero (set RV_LIVE=1)",
   "live_net: hits real external APIs (set RV_LIVE_NET=1 and RV_MAILTO)",
 ]
-# A passed test leaves no tmp_path behind: one run retained ~249 MB of vaults.
+# A passed test leaves no tmp_path behind: one run retained ~249 MB of vaults
+# (measured 2026-08-24: `du -sh /tmp/pytest-of-<user>` after one serial run).
 tmp_path_retention_policy = "failed"
 
 # mutmut 3.7.0 (scripts/mutation_gate.py drives it; read from the cwd, so run

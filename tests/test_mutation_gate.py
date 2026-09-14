@@ -164,18 +164,30 @@ def test_mutation_text_keeps_only_the_diff_body_lines_on_one_line():
     assert "\n" not in text
 
 
-def test_mutation_key_names_the_function_never_the_positional_mutant_id():
+def test_mutation_text_keeps_a_body_line_that_itself_begins_with_two_dashes():
+    """The file headers are dropped by position, never by prefix: a removed
+    code line whose text begins `--` (its diff line then begins `---`) is body,
+    and so is an added `++`-prefixed one."""
+    diff = "--- p\n+++ p\n@@ -1,2 +1,2 @@\n def f(x):\n---x\n+++x"
+    assert mutation_text(diff) == "---x\\n+++x"
+
+
+def test_mutation_key_names_the_function_never_the_positional_mutant_id(tmp_path):
+    """Keyed through mutmut's own name parser under the tmp root's config --
+    nothing here reads the real pyproject.toml."""
     diff = "--- p\n+++ p\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a + b\n+    return a - b"
-    key = mutation_key(MODULE, "research_vault.fake.x_add__mutmut_17", diff)
+    key = mutation_key(
+        MODULE, "research_vault.fake.x_add__mutmut_17", diff, root=_fake_root(tmp_path)
+    )
     assert key == KEY_ADD_1
     assert "mutmut_17" not in key
 
 
-def test_mutation_key_qualifies_a_method_with_its_class():
+def test_mutation_key_qualifies_a_method_with_its_class(tmp_path):
     diff = (
         "--- p\n+++ p\n@@ -1,2 +1,2 @@\n def size(self):\n-    return 1\n+    return 2"
     )
-    assert mutation_key(MODULE, SIZE_1, diff) == KEY_SIZE_1
+    assert mutation_key(MODULE, SIZE_1, diff, root=_fake_root(tmp_path)) == KEY_SIZE_1
 
 
 # --- reading mutmut's artifacts ----------------------------------------------
@@ -246,6 +258,91 @@ def test_read_module_results_missing_meta_raises(tmp_path):
         read_module_results(MODULE, root=root)
 
 
+@pytest.mark.parametrize(
+    ("body", "fault"),
+    [
+        ('{"exit_code_by_key": {"research_vault.fake.x_add__mutmut_1": 0', "record"),
+        ('{"hash_by_function_name": {}}', "record"),
+        ('{"exit_code_by_key": [1, 2]}', "record"),
+        (
+            '{"exit_code_by_key": {"research_vault.fake.add": 0}}',
+            "'research_vault.fake.add'",
+        ),
+        (
+            '{"exit_code_by_key": {"research_vault.fake.x_gone__mutmut_1": 0}}',
+            "'research_vault.fake.x_gone__mutmut_1'",
+        ),
+        ('{"exit_code_by_key": {"research_vault.fake.x_add__mutmut_1": [0]}}', "[0]"),
+    ],
+    ids=[
+        "truncated",
+        "no-exit-codes",
+        "not-a-mapping",
+        "no-mutmut-in-name",
+        "absent-from-schemata",
+        "unhashable-code",
+    ],
+)
+def test_read_module_results_names_a_malformed_meta_as_a_read_error(
+    tmp_path, body, fault
+):
+    """A .meta that exists but is not mutmut's record -- truncated JSON, no
+    exit_code_by_key, a mutant name its readers cannot resolve, a code that
+    is no exit code -- is a MetaReadError naming the file and the fault, never
+    a traceback and never a clean module."""
+    root = _fake_root(tmp_path)
+    _fake_module(root, MODULE, {ADD_1: 0})
+    (root / "mutants" / f"{MODULE}.meta").write_text(body, encoding="utf-8")
+    with pytest.raises(mutation_gate.MetaReadError) as caught:
+        read_module_results(MODULE, root=root)
+    assert f"{MODULE}.meta" in str(caught.value)
+    assert fault in str(caught.value)
+
+
+def test_a_malformed_meta_classes_only_its_module_error_and_the_rest_still_run(
+    tmp_path, monkeypatch, capsys
+):
+    """Through main(), both modes: the offending module reads `error` with the
+    fault on its own class line, gets a record, and the modules after it are
+    still measured -- the loop is not torn down by the read."""
+    root = _fake_root(tmp_path)
+    out_dir = root / "records"
+    a, b, c = "research_vault/a.py", "research_vault/b.py", "research_vault/c.py"
+    for module in (a, b, c):
+        _fake_module(root, module, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    (root / "mutants" / f"{b}.meta").write_text('{"nothing": 1}', encoding="utf-8")
+    calls: list[str] = []
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b, c])
+    baseline_path = _argv_baseline(monkeypatch, root, out_dir)
+
+    assert mutation_gate.main() == 1
+    assert calls == [a, b, c]
+    assert not baseline_path.exists()
+    out = capsys.readouterr().out
+    assert (
+        f"[baseline] {b}: error (mutmut exited 0; no result read: "
+        f"{root / 'mutants' / b}.meta: not mutmut's record (" in out
+    )
+    assert f"[baseline] FAIL {b}" in out
+    assert f"[baseline] {c}: ok" in out
+    assert "[baseline]   error (1): research_vault/b.py" in out
+    assert (out_dir / "research_vault__b.py.exit").read_text(encoding="utf-8") == (
+        "0 error"
+    )
+    assert (out_dir / "research_vault__c.py.exit").read_text(encoding="utf-8") == "0 ok"
+
+    calls.clear()
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a, b, c])
+    _argv_gate(monkeypatch, root)
+    assert mutation_gate.main() == 1
+    assert calls == [a, b, c]
+    out = capsys.readouterr().out
+    assert f"[gate] {b}: error (mutmut exited 0; no result read: " in out
+    assert "not mutmut's record" in out
+    assert "[gate]   error (1): research_vault/b.py" in out
+
+
 # --- baseline compare --------------------------------------------------------
 
 
@@ -266,8 +363,8 @@ def test_baseline_missing_file_is_empty(tmp_path: Path):
 
 def test_baseline_keys_skips_comment_header_and_tolerates_module_keys(tmp_path):
     """A '#' header is metadata, never a key; a `::module::` key from the
-    mutate4py era is still a line (mutmut never produces one, so it simply
-    never matches a found survivor)."""
+    retired predecessor's era (the gate header names it) is still a line
+    (mutmut never produces one, so it simply never matches a found survivor)."""
     path = tmp_path / "mutation-baseline.txt"
     path.write_text(
         "# mutation-baseline.txt -- header\n\n"
@@ -640,7 +737,7 @@ def test_git_isolation_replaces_a_mutants_git_that_is_not_its_own(tmp_path, shap
     else:
         dot_git.symlink_to(elsewhere / ".git")
 
-    env = {**os.environ, **mutation_gate._isolate_git(root)}
+    env = {**mutation_gate._git_env(root), **mutation_gate._isolate_git(root)}
 
     def common_dir() -> Path:
         probe = subprocess.run(
@@ -683,7 +780,7 @@ def test_git_isolation_contains_hook_paths_under_mutants_and_walls_off_the_root(
         ["git", "init", "-q", str(elsewhere)], check=True, capture_output=True
     )
 
-    env = {**os.environ, **mutation_gate._isolate_git(root)}
+    env = {**mutation_gate._git_env(root), **mutation_gate._isolate_git(root)}
 
     def hook_path(cwd: Path) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -791,7 +888,7 @@ def test_launcher_answers_help_before_importing_mutmut(tmp_path):
             "Usage: python scripts/mutmut_shims/run_mutmut.py"
         )
         assert "mutmut run" in proc.stdout
-        assert proc.stderr == ""
+        assert "Traceback" not in proc.stderr, proc.stderr
 
 
 # --- main(): --update-baseline, --out-dir, --only ------------------------------
@@ -823,6 +920,15 @@ def _argv_baseline(
     return baseline_path
 
 
+def _no_tests_line(prefix: str, mutants: int, modules: int) -> str:
+    """The end-of-run block's first line, verbatim: the count and the reading."""
+    return (
+        f"{prefix} no tests: {mutants} mutant(s) in {modules} module(s) -- coverage "
+        "reached only through subprocesses is invisible to mutmut's stats, so these "
+        "are unmeasured, not killed"
+    )
+
+
 def _argv_gate(monkeypatch, root: Path, max_mutants: int | None = None) -> Path:
     baseline_path = root / "mutation-baseline.txt"
     argv = ["mutation_gate.py", "--baseline", str(baseline_path)]
@@ -851,16 +957,72 @@ def test_update_baseline_writes_every_survivor_and_names_the_no_tests_gap(
     out = capsys.readouterr().out
     assert f"[baseline] {a}: ok" in out
     assert "no tests 1" in out  # the per-module gap, visible in the module line
+    # ...and again in the end-of-run block, by module, with the reading spelled
+    # out so the gap never reads as strength.
+    assert out.splitlines()[-3:] == [
+        f"[baseline] 2 survivors written to {baseline_path}",
+        _no_tests_line("[baseline]", 1, 1),
+        "[baseline]   research_vault/a.py: 1",
+    ]
+
+
+def test_max_children_and_the_cap_reach_the_launch_in_both_modes(tmp_path, monkeypatch):
+    """`--max-children N --child-address-space BYTES` on the command line are
+    what _run_mutmut is launched with, in --update-baseline and in gate mode;
+    the defaults (4, 4 GiB) when neither is given."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    launches: list[tuple[str, int, int]] = []
+
+    def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
+        launches.append((relpath, max_children, address_space))
+        return "mutmut out", 0
+
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    baseline_path = root / "mutation-baseline.txt"
+    flags = ["--max-children", "3", "--child-address-space", "2.5GiB"]
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "mutation_gate.py",
+            "--update-baseline",
+            "--baseline",
+            str(baseline_path),
+            *flags,
+        ],
+    )
+    assert mutation_gate.main() == 0
+    monkeypatch.setattr(
+        sys, "argv", ["mutation_gate.py", "--baseline", str(baseline_path), *flags]
+    )
+    assert mutation_gate.main() == 0
+    monkeypatch.setattr(
+        sys, "argv", ["mutation_gate.py", "--baseline", str(baseline_path)]
+    )
+    assert mutation_gate.main() == 0
+
+    assert launches == [
+        (a, 3, round(2.5 * (1 << 30))),
+        (a, 3, round(2.5 * (1 << 30))),
+        (a, 4, 4 << 30),
+    ]
 
 
 def test_update_baseline_refuses_to_write_when_a_module_errors(
     tmp_path, monkeypatch, capsys
 ):
     """The Q1 guard: a module mutmut did not finish has no survivor list, and
-    an empty contribution is not a clean one."""
+    an empty contribution is not a clean one. The refusal still ends with the
+    no-tests block -- the gap is reported on every run that measured anything."""
     root = _fake_root(tmp_path)
     a, b = "research_vault/a.py", "research_vault/b.py"
-    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 1})
     _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
     _fake_measurement(root, monkeypatch)
 
@@ -875,7 +1037,11 @@ def test_update_baseline_refuses_to_write_when_a_module_errors(
     assert not baseline_path.exists()
     out = capsys.readouterr().out
     assert f"[baseline] FAIL {b}" in out
-    assert "[baseline]   error (1): research_vault/b.py" in out
+    assert out.splitlines()[-3:] == [
+        "[baseline]   error (1): research_vault/b.py",
+        _no_tests_line("[baseline]", 1, 1),
+        "[baseline]   research_vault/a.py: 1",
+    ]
 
 
 def test_update_baseline_refuses_to_write_on_an_unchecked_mutant(
@@ -1105,7 +1271,7 @@ def test_only_narrows_the_run_and_refuses_to_write_until_every_module_has_a_reco
     }
 
 
-def test_only_requires_update_baseline(tmp_path, monkeypatch):
+def test_only_requires_update_baseline(tmp_path, monkeypatch, capsys):
     root = _fake_root(tmp_path)
     monkeypatch.setattr(
         sys, "argv", ["mutation_gate.py", "--only", "research_vault/a.py"]
@@ -1114,6 +1280,26 @@ def test_only_requires_update_baseline(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exit_info:
         mutation_gate.main()
     assert exit_info.value.code == 2
+    assert "--only requires --update-baseline" in capsys.readouterr().err
+
+
+def test_only_requires_out_dir(tmp_path, monkeypatch, capsys):
+    """--only without --out-dir would refuse the write every time (the other
+    modules have no record to be read from): argparse says so up front, and
+    nothing is measured."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    calls: list[str] = []
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root, only=[a])
+    with pytest.raises(SystemExit) as exit_info:
+        mutation_gate.main()
+    assert exit_info.value.code == 2
+    assert "--only requires --out-dir" in capsys.readouterr().err
+    assert calls == []
+    assert not baseline_path.exists()
 
 
 def test_only_rejects_a_path_that_is_no_module(tmp_path, monkeypatch, capsys):
@@ -1121,7 +1307,9 @@ def test_only_rejects_a_path_that_is_no_module(tmp_path, monkeypatch, capsys):
     root = _fake_root(tmp_path)
     monkeypatch.setattr(mutation_gate, "ROOT", root)
     monkeypatch.setattr(mutation_gate, "_all_modules", lambda: ["research_vault/a.py"])
-    _argv_baseline(monkeypatch, root, only=["research_vault/typo.py"])
+    _argv_baseline(
+        monkeypatch, root, out_dir=root / "records", only=["research_vault/typo.py"]
+    )
     with pytest.raises(SystemExit) as exit_info:
         mutation_gate.main()
     assert exit_info.value.code == 2
@@ -1177,9 +1365,11 @@ def test_gate_fails_on_a_survivor_absent_from_the_baseline(
 
 
 def test_gate_passes_when_every_survivor_is_baselined(tmp_path, monkeypatch, capsys):
+    """...and the pass still ends with the no-tests block, by module, so the
+    subprocess-only gap is on every run's output."""
     root = _fake_root(tmp_path)
     a = "research_vault/a.py"
-    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 0})
     _fake_measurement(root, monkeypatch)
     monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
     baseline_path = _argv_gate(monkeypatch, root)
@@ -1189,7 +1379,11 @@ def test_gate_passes_when_every_survivor_is_baselined(tmp_path, monkeypatch, cap
     )
 
     assert mutation_gate.main() == 0
-    assert "[gate] pass — no new survivors" in capsys.readouterr().out.splitlines()
+    assert capsys.readouterr().out.splitlines()[-3:] == [
+        _no_tests_line("[gate]", 1, 1),
+        "[gate]   research_vault/a.py: 1",
+        "[gate] pass — no new survivors",
+    ]
 
 
 def test_gate_fails_when_a_module_errors(tmp_path, monkeypatch, capsys):

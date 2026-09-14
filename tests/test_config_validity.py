@@ -705,7 +705,9 @@ def test_offline_tests_cannot_open_a_tcp_connection(dead_base):
         sock.connect(("127.0.0.1", port))
 
 
-def test_a_misspelled_marker_is_a_collection_error(request):
-    """``--strict-markers`` is on: a typo'd ``live_net`` mark would otherwise run
-    silently in the offline suite and make real external API calls."""
+def test_strict_markers_is_on_so_a_misspelled_marker_cannot_collect(request):
+    """``--strict-markers`` is on, read from the live config: a typo'd
+    ``live_net`` mark would otherwise run silently in the offline suite and
+    make real external API calls. The option is what this pins; the collection
+    error it produces is pytest's own behaviour, not provoked here."""
     assert request.config.getoption("strict_markers") is True

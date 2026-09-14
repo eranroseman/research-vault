@@ -19,11 +19,12 @@ unparseable exit file, a recorded failure, or a record whose own body lists
 mutants without a verdict -- re-runs and overwrites. The
 baseline is assembled from the RECORDS, not from mutants/: mutmut's mutant ids
 renumber on any edit and mutants/ regenerates, so only the derived keys are
-durable. --only RELPATH (repeatable, update-baseline only) narrows which modules
-this invocation runs; the write still requires every module to hold a usable
-record, and names the ones that do not. A recorded ok still wins over --only:
-to redo such a module, delete its .exit record first. Gate mode ignores
---out-dir.
+durable. --only RELPATH (repeatable, update-baseline only, and only with
+--out-dir -- without records the other modules have nowhere to be read from,
+so argparse refuses the pair up front) narrows which modules this invocation
+runs; the write still requires every module to hold a usable record, and
+names the ones that do not. A recorded ok still wins over --only: to redo
+such a module, delete its .exit record first. Gate mode ignores --out-dir.
 
 Every module gets a class: "ok" (mutmut exited 0 and every selected mutant has
 a verdict) or "error" (a non-zero exit, no mutants/<relpath>.meta afterwards, or
@@ -101,9 +102,11 @@ cgroup MemoryMax bounds the SUM over the children, so a runaway-allocation
 mutant (measured 2026-09-14 in selectors.py: one child at 2.0 GB, then five at
 1.6-2.2 GB) takes the whole run down by OOM-kill; under a per-process cap the
 same mutant raises MemoryError, pytest exits 1, and the mutant counts as
-killed. Sizing: children x cap under the machine's memory bound is the
-guarantee that the OOM killer never fires; a looser product only holds while
-at most one child runs away at a time. False-kill cost: only a test that
+killed. Sizing: the strict bound is (children + 1 + concurrent test
+subprocesses) x cap -- the mutmut parent and every subprocess a test spawns
+carry the same cap -- so children x cap under the machine's memory bound is
+a bound on the OOM killer, not a guarantee, and a looser product only holds
+while at most one child runs away at a time. False-kill cost: only a test that
 genuinely needs more than the cap, and the suite runs in under 1 GB. A cap
 the process may not set -- the inherited hard limit is already below it --
 is checked before the launch and aborts the run with the gate's own
@@ -228,6 +231,12 @@ class MutantsTreeError(GateAbortError):
     """mutants/ is not a real directory the gate may own (a symlink, a file)."""
 
 
+class MetaReadError(ValueError):
+    """mutants/<relpath>.meta exists but is not mutmut's record (truncated
+    JSON, no exit_code_by_key, a mutant its readers cannot resolve): the
+    module is an error naming the file and the fault, never a silent ok."""
+
+
 @dataclass
 class ModuleResult:
     survivors: set[str]
@@ -264,8 +273,8 @@ def mutation_text(diff: str) -> str:
     return "\\n".join(body)
 
 
-def mutation_key(relpath: str, mutant_name: str, diff: str) -> str:
-    mm = _mutmut(ROOT)
+def mutation_key(relpath: str, mutant_name: str, diff: str, root: Path = ROOT) -> str:
+    mm = _mutmut(root)
     func, cls = mm.orig_function_and_class_names_from_key(mutant_name)
     name = f"{cls}.{func}" if cls else func
     return f"{relpath}::func/{name}::{mutation_text(diff)}"
@@ -273,26 +282,43 @@ def mutation_key(relpath: str, mutant_name: str, diff: str) -> str:
 
 def read_module_results(relpath: str, root: Path = ROOT) -> ModuleResult:
     """Everything the gate needs from mutants/<relpath>.meta, keyed durably.
-    Raises FileNotFoundError when there is no .meta: no measurement must never
-    read as zero survivors."""
+    Raises FileNotFoundError when there is no .meta (no measurement must never
+    read as zero survivors) and MetaReadError when there is one the gate
+    cannot read as mutmut's record -- either way the module is an error."""
     meta_path = root / "mutants" / f"{relpath}.meta"
-    exit_code_by_key: dict[str, int | None] = json.loads(
-        meta_path.read_text(encoding="utf-8")
-    )["exit_code_by_key"]
+    text = meta_path.read_text(encoding="utf-8")
+    try:
+        exit_code_by_key: dict[str, int | None] = json.loads(text)["exit_code_by_key"]
+        items = list(exit_code_by_key.items())
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        raise MetaReadError(f"{meta_path}: not mutmut's record ({error})") from error
     mm = _mutmut(root)
     result = ModuleResult(survivors=set(), counts={})
     with contextlib.chdir(root):
-        for name, code in exit_code_by_key.items():
-            status = mm.status_by_exit_code[code]
+        for name, code in items:
+            try:
+                status = mm.status_by_exit_code[code]
+            except TypeError as error:  # an unhashable code: not an exit code
+                raise MetaReadError(
+                    f"{meta_path}: {name}: exit code {code!r} is not one"
+                ) from error
             result.counts[status] = result.counts.get(status, 0) + 1
             if status in NO_VERDICT_STATUSES:
                 result.no_verdict.append((status, name))
                 continue
             if status not in ("survived", *BY_NAME_STATUSES):
                 continue
-            key = mutation_key(
-                relpath, name, mm.get_diff_for_mutant(name, path=relpath)
-            )
+            # Whatever mutmut's readers raise for this name -- an assertion on
+            # a name without `__mutmut_`, a function the schemata lacks -- is
+            # the record's fault, not the gate's: named, classed error.
+            try:
+                diff = mm.get_diff_for_mutant(name, path=relpath)
+                key = mutation_key(relpath, name, diff, root)
+            except Exception as error:
+                raise MetaReadError(
+                    f"{meta_path}: mutant {name!r} cannot be read back "
+                    f"({type(error).__name__}: {error})"
+                ) from error
             if status == "survived":
                 result.survivors.add(key)
             else:
@@ -563,20 +589,23 @@ def _run_mutmut(
 
 def _measure(
     module: str, max_children: int, address_space: int
-) -> tuple[str, int, str, ModuleResult | None]:
-    """One module, start to finish: (stdout, exit code, class, result)."""
+) -> tuple[str, int, str, ModuleResult | None, str | None]:
+    """One module, start to finish: (stdout, exit code, class, result, and
+    -- when no result could be read -- what stopped the read)."""
     # ROOT passed explicitly (not left to the parameter defaults, which bind at
     # definition time) so a monkeypatched ROOT reaches every reader.
     out, code = _run_mutmut(module, max_children, ROOT, address_space)
     if code != 0:
-        return out, code, "error", None
+        return out, code, "error", None, None
     try:
         result = read_module_results(module, ROOT)
-    except FileNotFoundError:
-        return out, code, "error", None
+    except FileNotFoundError as error:
+        return out, code, "error", None, f"no {error.filename or error}"
+    except MetaReadError as error:
+        return out, code, "error", None, str(error)
     if result.no_verdict:
-        return out, code, "error", result
-    return out, code, "ok", result
+        return out, code, "error", result, None
+    return out, code, "ok", result, None
 
 
 def _describe(result: ModuleResult) -> str:
@@ -590,13 +619,20 @@ def _describe(result: ModuleResult) -> str:
 
 
 def _report(
-    prefix: str, module: str, cls: str, code: int, result: ModuleResult | None
+    prefix: str,
+    module: str,
+    cls: str,
+    code: int,
+    result: ModuleResult | None,
+    note: str | None = None,
 ) -> None:
     # Printed once the module's outcome is known -- cached or freshly run, ok
     # or error -- so the class and the counts are visible per module, not only
-    # in the end-of-run summary.
+    # in the end-of-run summary. `note` names what stopped a result read (a
+    # missing or malformed .meta), so the offender is on its own class line.
     if result is None:
-        print(f"{prefix} {module}: {cls} (mutmut exited {code}; no result read)")
+        why = f"; no result read: {note}" if note else "; no result read"
+        print(f"{prefix} {module}: {cls} (mutmut exited {code}{why})")
         return
     line = f"{prefix} {module}: {cls} ({_describe(result)})"
     if result.no_verdict:
@@ -691,10 +727,12 @@ def _update_baseline(
             continue
         else:
             print(f"[baseline] {module}", flush=True)
-            out, code, cls, measured = _measure(module, max_children, address_space)
+            out, code, cls, measured, note = _measure(
+                module, max_children, address_space
+            )
             if out_dir is not None:
                 _write_record(out_dir, module, out, code, cls, measured)
-            _report("[baseline]", module, cls, code, measured)
+            _report("[baseline]", module, cls, code, measured, note)
             if cls != "ok" or measured is None:
                 print(f"[baseline] FAIL {module}: mutmut exited {code} [{cls}]")
                 failed.append(module)
@@ -714,6 +752,9 @@ def _update_baseline(
             print(
                 f"[baseline]   not measured ({len(unmeasured)}): {', '.join(unmeasured)}"
             )
+        # The gap is reported on every run that measured anything, refused or
+        # not -- the same block gate mode prints unconditionally.
+        _summarise_no_tests("[baseline]", no_tests)
         return 1
     header = (
         "# mutation-baseline.txt -- every research_vault module measured by "
@@ -777,9 +818,9 @@ def _gate(
     no_tests: dict[str, int] = {}
     for module in modules:
         print(f"[gate] {module}", flush=True)
-        out, code, cls, result = _measure(module, max_children, address_space)
+        out, code, cls, result, note = _measure(module, max_children, address_space)
         print(out)
-        _report("[gate]", module, cls, code, result)
+        _report("[gate]", module, cls, code, result, note)
         if cls != "ok" or result is None:
             print(f"[gate] FAIL {module}: mutmut exited {code} [{cls}]")
             failed.append(module)
@@ -847,6 +888,14 @@ def main() -> int:
     args = parser.parse_args()
     if args.only and not args.update_baseline:
         parser.error("--only requires --update-baseline")
+    if args.only and not args.out_dir:
+        # Without records the other modules have nowhere to be read from, so
+        # the write would refuse every time: say so before a run that cannot
+        # succeed.
+        parser.error(
+            "--only requires --out-dir: the baseline is written only once every "
+            "module holds a record, and only the records carry the others"
+        )
     if args.max_mutants is not None and args.update_baseline:
         parser.error("--max-mutants is a gate-mode budget; not with --update-baseline")
     unknown = sorted(set(args.only) - set(_all_modules()))

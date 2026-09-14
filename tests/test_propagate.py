@@ -634,32 +634,31 @@ def test_cli_propagate_refuses_malformed_flags_on_stderr_with_exit_2(
     tmp_vault, monkeypatch, capsys
 ):
     """--plan without its hash (and the reverse), --map beside --plan, and a
-    --map pair that is not OLD=NEW with both halves: each is one stderr line,
-    nothing on stdout, exit 2, and no client is built."""
+    --map pair that is not OLD=NEW with both halves: each is one stderr line
+    that starts with the verb's code and names the flag at fault, nothing on
+    stdout, exit 2, and no client is built. The branch is the target, not the
+    sentence: the code prefix is what every string mutant of the message
+    breaks, and the flag name is what tells the branches apart."""
     cli, bases = _cli(monkeypatch, _zotero(monkeypatch))
     vault = str(tmp_vault)
     cases = [
-        (
-            ["--plan", "p.json"],
-            "propagate: --plan and --approved-plan-sha256 go together",
-        ),
-        (
-            ["--approved-plan-sha256", "0" * 64],
-            "propagate: --plan and --approved-plan-sha256 go together",
-        ),
+        (["--plan", "p.json"], "--approved-plan-sha256"),
+        (["--approved-plan-sha256", "0" * 64], "--approved-plan-sha256"),
         (
             ["--plan", "p.json", "--approved-plan-sha256", "0" * 64, "--map", "a=b"],
-            "propagate: --map plans; it is not read by an apply",
+            "--map plans",
         ),
-        (["--map", "old2020"], "propagate: --map takes OLD=NEW, not 'old2020'"),
-        (["--map", "=new2020"], "propagate: --map takes OLD=NEW, not '=new2020'"),
-        (["--map", "old2020="], "propagate: --map takes OLD=NEW, not 'old2020='"),
+        (["--map", "old2020"], "OLD=NEW, not 'old2020'"),
+        (["--map", "=new2020"], "OLD=NEW, not '=new2020'"),
+        (["--map", "old2020="], "OLD=NEW, not 'old2020='"),
     ]
-    for extra, message in cases:
+    for extra, named in cases:
         assert cli.main(["propagate", "--vault", vault, *extra]) == 2
         captured = capsys.readouterr()
         assert captured.out == ""
-        assert captured.err.rstrip() == message
+        assert len(captured.err.splitlines()) == 1
+        assert captured.err.startswith("propagate: ")
+        assert named in captured.err
     assert bases == []
 
 

@@ -235,15 +235,16 @@ def test_disarm_publish_reports_a_flag_it_cannot_remove_as_exit_2(
     green_vault, monkeypatch, capsys
 ):
     def refusing(_vault):
-        raise publish.PublishError("cannot disarm the publish gate: busy")
+        raise publish.PublishError("busy")
 
     monkeypatch.setattr(publish, "disarm", refusing)
     assert main(["disarm-publish", "--vault", str(green_vault)]) == 2
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert captured.err.rstrip() == (
-        "cannot disarm the publish gate: cannot disarm the publish gate: busy"
-    )
+    # The branch, not the sentence: the code prefix (which every string mutant
+    # of the message breaks) and the helper's own reason carried through.
+    assert captured.err.startswith("cannot disarm the publish gate: ")
+    assert "busy" in captured.err
 
 
 def test_a_disposition_prints_one_sorted_json_line(green_vault, capsys):
@@ -659,7 +660,7 @@ def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(
 
     This test pins the clock rather than the tag string, which is the whole
     point: helpers that stub the time half cannot see where the date half came
-    from, and that is how the mismatch survives a green suite.
+    from, and that is how the mismatch would survive a green suite.
 
     The fake replaces `publish`'s own `datetime` name binding (not the shared
     `datetime` module — patching that leaks into every other module's `.now()`

@@ -39,14 +39,20 @@ jobs:
       - name: Form + lint (the one command — same as local)
         run: pre-commit run --all-files --show-diff-on-failure
       # The manual-stage hooks below are `language: system` hooks that need shfmt
-      # and shellcheck on PATH. Both are installed here, pinned exact and
-      # digest-checked, like every other tool in this lane: the runner image's own
-      # shellcheck floats with the image (0.9.0 on 24.04, 0.11.x on 26.04), so it is
-      # never used; /usr/local/bin precedes it on PATH and the version is asserted.
-      # A tag pins a name, the digest pins the bytes. actionlint below shells out to
-      # whichever shellcheck is on PATH, so this step also precedes it.
+      # and shellcheck on PATH. Both are installed here, pinned exact; the
+      # downloaded binaries (these two and actionlint below) are digest-checked.
+      # Every tool in this lane is pinned exact, but only the downloads carry a
+      # digest: the pip-installed tools are version pins, and actions/* are major
+      # tags (commit d402858's subject, "every tool pinned and digest-checked",
+      # overstated this; the subject is history, this comment is the record).
+      # The runner image's own shellcheck floats with the image (0.9.0 on 24.04,
+      # 0.11.x on 26.04), so it is never used; /usr/local/bin precedes it on PATH
+      # and the version is asserted. A tag pins a name, the digest pins the bytes.
+      # actionlint below shells out to whichever shellcheck is on PATH, so this
+      # step also precedes it.
       - name: Install shfmt + shellcheck (pinned, digest-checked)
         run: |
+          set -euo pipefail
           curl -fsSL -o "$RUNNER_TEMP/shfmt" https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64
           echo "fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1  $RUNNER_TEMP/shfmt" | sha256sum -c
           sudo install -m 0755 "$RUNNER_TEMP/shfmt" /usr/local/bin/shfmt
@@ -62,6 +68,7 @@ jobs:
       # every user vault, so they are linted here as the workflow files they are.
       - name: Workflow lint (actionlint, pinned, digest-checked)
         run: |
+          set -euo pipefail
           curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
@@ -95,13 +102,17 @@ jobs:
       # mutmut over the research_vault modules the diff touches and fails on any
       # survivor that mutation-baseline.txt (all 34 modules) does not carry; the
       # gate sets PYTHONPATH to its own shims, so the [dev] install is all it needs.
-      # --max-children 2 with --child-address-space 3GiB: 2 × 3 GiB = 6 GiB fits
-      # both the 7 GB and the 16 GB ubuntu-latest runners. The cap is per child
-      # (RLIMIT_AS), so the one runaway-allocation mutant measured so far
-      # (selectors.py: one child at 2.0 GB, then five at 1.6–2.2 GB, which
-      # OOM-killed a whole 8 GB cgroup twice on 2026-09-14) dies at 3 GiB with a
-      # MemoryError — a killed mutant, not a dead runner. The child count is a
-      # runner-memory bound, not a measured optimum.
+      # --max-children 2 with --child-address-space 3GiB: 2 × 3 GiB = 6 GiB bounds
+      # the children on both the 7 GB and the 16 GB ubuntu-latest runners. A bound,
+      # not a guarantee: the mutmut parent and every subprocess a test spawns
+      # carry the same cap, so the strict form is (children + 1 + concurrent test
+      # subprocesses) × cap, and the product only holds the OOM killer off while
+      # at most one child runs away at a time. The cap is per child (RLIMIT_AS),
+      # so the one runaway-allocation mutant measured so far (selectors.py: one
+      # child at 2.0 GB, then five at 1.6–2.2 GB, which OOM-killed a whole 8 GB
+      # cgroup twice on 2026-09-14) dies at 3 GiB with a MemoryError — a killed
+      # mutant, not a dead runner. The child count is a runner-memory bound, not a
+      # measured optimum.
       # --max-mutants 9000 is the CI mutant budget: a changed set that would run
       # more mutants is reported as "not measured" (exit 0) instead of run, so an
       # integration-sized diff reads unmeasured rather than hitting the 360-minute

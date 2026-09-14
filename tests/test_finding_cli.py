@@ -314,7 +314,9 @@ def test_record_finding_refuses_with_exit_2_and_a_retry_must_match_on_every_fiel
     code, detail = record_finding(
         tmp_vault, "quote", "smith2020", Result.UNMATCHED, "mismatch — x", date="soon"
     )
-    assert (code, detail) == (2, "date must be a YYYY-MM-DD calendar date")
+    # The refusal, not its sentence: the code and the shape the detail names.
+    assert code == 2
+    assert detail.startswith("date must be a YYYY-MM-DD")
 
 
 def test_finding_retry_with_the_same_target_hash_is_idempotent(tmp_vault):

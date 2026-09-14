@@ -230,12 +230,12 @@ def _cited_skill_tokens_by_skill() -> dict[str, set[str]]:
 def test_every_skill_name_a_shipped_skill_cites_has_a_skill_directory():
     """The templates scan above walks ``research_vault/templates/`` only, so
     a live skill routed to a deleted skill directory passes it. Same token
-    shape, second corpus: a bare
-    kebab token a skill cites is a skill name unless the code spells it as an
-    identifier (``_code_spelled_identifiers``), and every skill name needs a
-    ``skills/<name>/`` directory. A foreign skill a vendored fork names by
-    provenance is prose about a name, not a route, and goes unbackticked
-    (``find-sources/SKILL.md:11``) rather than exempted here."""
+    shape, second corpus: a bare kebab token a skill cites is a skill name
+    unless the code spells it as an identifier (``_code_spelled_identifiers``),
+    and every skill name needs a ``skills/<name>/`` directory. A foreign skill
+    a vendored fork names by provenance is prose about a name, not a route,
+    and goes unbackticked (``find-sources/SKILL.md:11``) rather than exempted
+    here."""
     existing = {directory.name for directory in _skill_dirs()}
     spelled = _code_spelled_identifiers()
     cited = _cited_skill_tokens_by_skill()

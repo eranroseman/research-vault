@@ -286,9 +286,12 @@ def test_search_log_refuses_a_query_entry_missing_either_source_or_hits(
     )
 
     assert code == 2
-    assert capsys.readouterr().err.rstrip() == (
-        "search-log refused: --query requires --source and --hits"
-    )
+    err = capsys.readouterr().err
+    # The branch, not the sentence: the code prefix (which every string mutant
+    # of the message breaks) and the two flags the refusal names.
+    assert err.startswith("search-log refused: ")
+    assert "--source" in err
+    assert "--hits" in err
     assert not _log_path(fixture_vault).exists()
 
 
