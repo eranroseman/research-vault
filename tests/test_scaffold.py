@@ -625,7 +625,7 @@ def test_installed_plugins_reads_the_registry_under_home_or_answers_empty(
     assert scaffold._installed_plugins() == {}
     plugins = {
         "claude-obsidian@agricidaniel-claude-obsidian": [
-            {"gitCommitSha": "ad67087cad22", "installPath": "/plugins/claude-obsidian"}
+            {"gitCommitSha": "32ac5a02c4e0", "installPath": "/plugins/claude-obsidian"}
         ]
     }
     registry.write_text(

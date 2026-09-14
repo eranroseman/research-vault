@@ -321,7 +321,7 @@ def _backup_probe(config: dict) -> Probe:
 
 _WRONG_ID = "research-vault-wrong-id"
 _COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
-_COMPILE_PIN = "ad67087"
+_COMPILE_PIN = "32ac5a0"
 _UNSET = "unset (Zotero default)"
 _PAGE_SIZE = 50
 _MAX_PAGES = 20

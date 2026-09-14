@@ -305,7 +305,7 @@ def test_doctor_reports_the_thirteen_probes_in_order(tmp_vault, tmp_path, monkey
         scaffold,
         "_installed_plugins",
         lambda: {
-            COMPILE_PLUGIN: [{"gitCommitSha": "ad67087cad22", "installPath": "/x"}]
+            COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0", "installPath": "/x"}]
         },
     )
     monkeypatch.setattr(scaffold.paths, "_running_in_wsl", lambda: True)
@@ -857,7 +857,7 @@ def test_doctor_translator_formats_warns_when_the_closed_route_reopens(
     [
         ({}, Result.SKIPPED),
         ({COMPILE_PLUGIN: [{"gitCommitSha": "0000000beef"}]}, Result.UNMATCHED),
-        ({COMPILE_PLUGIN: [{"gitCommitSha": "ad67087cad22"}]}, Result.MATCHED),
+        ({COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]}, Result.MATCHED),
         # An installed record without a sha is malformed: UNMATCHED, and the
         # reason says so rather than printing `at , pin is` (row 42).
         ({COMPILE_PLUGIN: [{"installPath": "/x"}]}, Result.UNMATCHED),
@@ -873,7 +873,7 @@ def test_doctor_compile_tool_compares_the_installed_sha_to_the_pin(
 
     assert by["compile-tool"].result is expected
     if expected is Result.UNMATCHED:
-        assert "ad67087" in by["compile-tool"].reason
+        assert "32ac5a0" in by["compile-tool"].reason
         record = installed[COMPILE_PLUGIN][0]
         if "gitCommitSha" in record:
             assert "0000000" in by["compile-tool"].reason
@@ -916,13 +916,13 @@ def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_l
     monkeypatch.setattr(
         scaffold,
         "_installed_plugins",
-        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "ad67087cad22"}]},
+        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
     )
     probe = scaffold._compile_tool_probe()
     assert (probe.check, probe.result, probe.reason) == (
         "compile-tool",
         Result.MATCHED,
-        f"{COMPILE_PLUGIN} at ad67087",
+        f"{COMPILE_PLUGIN} at 32ac5a0",
     )
     monkeypatch.setattr(scaffold, "_installed_plugins", lambda: {COMPILE_PLUGIN: []})
     probe = scaffold._compile_tool_probe()
