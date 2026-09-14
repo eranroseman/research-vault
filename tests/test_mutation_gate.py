@@ -83,6 +83,24 @@ KEY_ADD_2 = f"{MODULE}::func/add::-    return a + b\\n+    return a * b"
 KEY_ADD_3 = f"{MODULE}::func/add::-    return a + b\\n+    return None"
 KEY_SIZE_1 = f"{MODULE}::func/Box.size::-    return 1\\n+    return 2"
 
+# The gate's real read of the inherited RLIMIT_AS, captured before the fixture
+# below replaces it for every test here.
+_REAL_GETRLIMIT = mutation_gate._getrlimit
+
+
+@pytest.fixture(autouse=True)
+def _unlimited_inherited_address_space(monkeypatch):
+    """Every test here also runs inside mutmut's stats phase, in-process,
+    under whatever --child-address-space the enclosing gate set (CI: 3 GiB);
+    the pre-check would read that cap as the hard limit and refuse the 4 GiB
+    default every launch below uses (measured 2026-09-14, run 34822363722:
+    all ten changed modules errored on this file's first launching test). So
+    the seam reports no limit unless a test sets one itself."""
+    infinity = mutation_gate.resource.RLIM_INFINITY
+    monkeypatch.setattr(
+        mutation_gate, "_getrlimit", lambda _which: (infinity, infinity)
+    )
+
 
 def _fake_root(tmp_path: Path) -> Path:
     """A tmp repo root mutmut's readers accept: a pyproject.toml carrying
@@ -441,9 +459,10 @@ def test_run_mutmut_refuses_a_cap_above_the_inherited_hard_limit(tmp_path, monke
     root = _fake_root(tmp_path)
     calls = _record_runs(monkeypatch)
     cap = mutation_gate.parse_size("4GiB")
-    monkeypatch.setattr(
-        mutation_gate.resource, "getrlimit", lambda _which: (cap, cap - 1)
-    )
+    # The seam's default is the real read; the tests replace it (autouse
+    # fixture above) so the inherited limit never decides a test's outcome.
+    assert _REAL_GETRLIMIT is mutation_gate.resource.getrlimit
+    monkeypatch.setattr(mutation_gate, "_getrlimit", lambda _which: (cap, cap - 1))
 
     with pytest.raises(mutation_gate.ChildLimitError, match=f"{cap}.*{cap - 1}"):
         mutation_gate._run_mutmut(
@@ -454,9 +473,7 @@ def test_run_mutmut_refuses_a_cap_above_the_inherited_hard_limit(tmp_path, monke
 
     infinity = mutation_gate.resource.RLIM_INFINITY
     for limits in ((infinity, infinity), (cap, cap), (cap - 1, cap + 1)):
-        monkeypatch.setattr(
-            mutation_gate.resource, "getrlimit", lambda _w, pair=limits: pair
-        )
+        monkeypatch.setattr(mutation_gate, "_getrlimit", lambda _w, pair=limits: pair)
         calls.clear()
         mutation_gate._run_mutmut(
             "research_vault/x.py", 6, root=root, address_space=cap

@@ -108,7 +108,12 @@ genuinely needs more than the cap, and the suite runs in under 1 GB. A cap
 the process may not set -- the inherited hard limit is already below it --
 is checked before the launch and aborts the run with the gate's own
 `[...] ABORT:` line and exit 1; a preexec that still fails is caught at the
-launch and reported the same way, never as a traceback.
+launch and reported the same way, never as a traceback. That read goes
+through one seam (_getrlimit) because the gate's own tests run inside
+mutmut's stats phase under the enclosing gate's cap (measured 2026-09-14 on
+CI: a 3 GiB cap made every test launching with the 4 GiB default read as a
+nested over-cap, and all ten modules errored); the tests patch the seam, and
+a real nested over-cap is still refused.
 
 Git isolation. Measured 2026-09-14T02:13Z: a scaffold.py mutant with its vault
 argument mutated to a non-vault ran the vault-hook install with cwd inside
@@ -178,6 +183,12 @@ NO_VERDICT_STATUSES = (
 BY_NAME_STATUSES = ("timeout", "caught by type check")
 DEFAULT_ADDRESS_SPACE = "4GiB"
 _SIZE_UNITS = {"MiB": 1 << 20, "GiB": 1 << 30}
+# The pre-check's one read of the inherited limit, a seam so the gate's own
+# tests do not depend on it: mutmut's stats phase runs them in-process under
+# whatever cap the enclosing gate set (measured 2026-09-14, CI run 34822363722:
+# the 3 GiB cap quality.yml passes made every test that launches with the
+# 4 GiB default read as a nested over-cap and errored all ten modules).
+_getrlimit = resource.getrlimit
 # Inherited, any one of these names a repository outright and git's discovery
 # (the ceiling with it) never runs -- see the header.
 GIT_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE")
@@ -371,7 +382,7 @@ def _check_address_space_cap(cap: int) -> None:
     """A cap above the inherited hard limit is one setrlimit would refuse in
     the child, where the failure is only a preexec traceback: refuse it here,
     as the gate's own abort, before anything is launched."""
-    _soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    _soft, hard = _getrlimit(resource.RLIMIT_AS)
     if hard != resource.RLIM_INFINITY and hard < cap:
         raise ChildLimitError(
             f"--child-address-space {cap} exceeds this process's RLIMIT_AS hard "
