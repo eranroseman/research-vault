@@ -30,7 +30,13 @@ import pytest
 import yaml
 
 from research_vault import frontmatter, inbox
-from tests.conftest import OFFLINE_GIT_IDENTITY, package_ast
+from tests.conftest import (
+    GIT_HOME_OVERRIDES,
+    OFFLINE_GIT_IDENTITY,
+    _home_env,
+    _make_home,
+    package_ast,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -707,14 +713,112 @@ def test_offline_tests_cannot_open_a_tcp_connection(dead_base):
         sock.connect(("127.0.0.1", port))
 
 
+def test_offline_tests_cannot_resolve_a_name_outside_loopback(dead_base):
+    """An unmarked test's name lookup raises the block's error, naming the
+    host: `urllib` resolves before it connects, so a leaked hostname would
+    otherwise be a real DNS query here and a `gaierror` on a machine without
+    DNS. Loopback, by name and by literal, still resolves; the one address
+    `dead_base` handed out does too. Through `urlopen` the block is what
+    comes back, not a URLError-dressed outage. Unmarked, deliberately: the
+    block is decided by markers alone and holds under the live flags."""
+    import urllib.request
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"name resolution blocked in the offline suite: example\.invalid:80",
+    ):
+        socket.getaddrinfo("example.invalid", 80)
+    with pytest.raises(RuntimeError, match=r"blocked in the offline suite"):
+        urllib.request.urlopen("http://example.invalid/", timeout=1)
+    port = int(dead_base.rsplit(":", 1)[1])
+    for host in ("localhost", "127.0.0.1", "::1", None):
+        assert socket.getaddrinfo(host, port)
+    assert socket.getaddrinfo("127.0.0.1", 23119)
+
+
+def test_a_home_of_the_suites_own_removes_what_outranks_its_gitconfig(
+    tmp_path, monkeypatch
+):
+    """`_make_home` names, beside the entries to set, every variable that
+    would outrank the `.gitconfig` it wrote -- the config-location family
+    with the numbered GIT_CONFIG_KEY_n / GIT_CONFIG_VALUE_n pairs present,
+    the identity family, the template directory -- and `_home_env` builds
+    the session templates' environment without them. With those exported,
+    a commit under `_home_env` still carries the synthetic identity, where
+    the same commit under the inherited environment carries the export."""
+    other = tmp_path / "other.gitconfig"
+    other.write_text("[user]\n\tname = Other Global\n\temail = other@example.invalid\n")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(other))
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Someone Else")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "user.email")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "counted@example.invalid")
+    home = tmp_path / "home"
+    home.mkdir()
+
+    entries, remove = _make_home(home)
+
+    assert entries == {"HOME": str(home), "XDG_CONFIG_HOME": str(home / ".config")}
+    assert set(remove) == {
+        *GIT_HOME_OVERRIDES,
+        "GIT_CONFIG_KEY_0",
+        "GIT_CONFIG_VALUE_0",
+    }
+    assert set(GIT_HOME_OVERRIDES) == {
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_NOSYSTEM",
+        "GIT_CONFIG_COUNT",
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_AUTHOR_DATE",
+        "GIT_COMMITTER_NAME",
+        "GIT_COMMITTER_EMAIL",
+        "GIT_COMMITTER_DATE",
+        "GIT_TEMPLATE_DIR",
+    }
+    session_home = tmp_path / "session-home"
+    session_home.mkdir()
+    env = _home_env(session_home)
+    assert not set(remove) & set(env)
+    assert env["HOME"] == str(session_home)
+    assert env["PATH"] == os.environ["PATH"]
+
+    def author(environment: dict[str, str]) -> str:
+        repo = tmp_path / str(len(list(tmp_path.iterdir())))
+        repo.mkdir()
+        for argv in (["init", "-q"], ["commit", "-q", "--allow-empty", "-m", "x"]):
+            subprocess.run(
+                ["git", *argv],
+                cwd=repo,
+                env=environment,
+                check=True,
+                capture_output=True,
+            )
+        return subprocess.run(
+            ["git", "log", "-1", "--format=%an <%ae>"],
+            cwd=repo,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+    name, email = OFFLINE_GIT_IDENTITY
+    assert author(env) == f"{name} <{email}>"
+    assert author(dict(os.environ)) == "Someone Else <counted@example.invalid>"
+
+
 def test_an_unmarked_test_runs_under_its_own_home(tmp_path, tmp_path_factory):
     """`Path.home()`, `$HOME` and `$XDG_CONFIG_HOME` resolve into a fresh
     directory under pytest's basetemp, for this process and for a subprocess
     it launches; it holds the synthetic git identity as global config and
     nothing else (no plugin registry, no global excludes), so a commit in a
     temp repository succeeds under that identity and a local `user.name`
-    still outranks it. Unmarked, deliberately: like the socket block, the
-    redirect is decided by the markers alone and holds under the live flags.
+    still outranks it; none of the git variables that would outrank the
+    `.gitconfig` is in the environment. Unmarked, deliberately: like the
+    socket block, the redirect is decided by the markers alone and holds
+    under the live flags.
     """
 
     home = Path.home()
@@ -725,6 +829,12 @@ def test_an_unmarked_test_runs_under_its_own_home(tmp_path, tmp_path_factory):
     assert os.environ["XDG_CONFIG_HOME"] == str(home / ".config")
     assert sorted(p.name for p in home.iterdir()) == [".config", ".gitconfig"]
     assert not (home / ".claude").exists()
+    assert not set(GIT_HOME_OVERRIDES) & set(os.environ)
+    assert not [
+        key
+        for key in os.environ
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
+    ]
     child = subprocess.run(
         [sys.executable, "-c", "from pathlib import Path; print(Path.home())"],
         capture_output=True,
