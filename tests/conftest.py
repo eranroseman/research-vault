@@ -363,6 +363,12 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_live)
         if "live_net" in item.keywords and os.environ.get("RV_LIVE_NET") != "1":
             item.add_marker(skip_net)
+    skip_write = pytest.mark.skip(
+        reason="write-capable live leg not enabled (RV_LIVE_WRITE_BASE=http://localhost:23129)"
+    )
+    for item in items:
+        if "live_write" in item.keywords and not os.environ.get("RV_LIVE_WRITE_BASE"):
+            item.add_marker(skip_write)
 
 
 @pytest.fixture(autouse=True)

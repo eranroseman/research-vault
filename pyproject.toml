@@ -84,6 +84,9 @@ extend-exclude = [ "*.md" ]
 # honours, and a side-effect fixture is named but never read. Guard stays armed in core.
 "tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
 "tests/test_cli_live.py" = [ "UP012" ]
+# The write leg's paired postcondition (item left `versions`, arrived in
+# `trash`) is one fact from the live instance; splitting it loses that.
+"tests/test_capture_live.py" = [ "PT018" ]
 # print IS the CLI output contract.
 "research_vault/__main__.py" = [ "T20" ]
 # Gate scripts report via stdout by design.
@@ -215,6 +218,7 @@ addopts = [ "--strict-markers" ]
 markers = [
   "live: requires a running local Zotero (set RV_LIVE=1)",
   "live_net: hits real external APIs (set RV_LIVE_NET=1 and RV_MAILTO)",
+  "live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE; never production)",
 ]
 # A passed test leaves no tmp_path behind: one run retained ~249 MB of vaults
 # (measured 2026-08-24: `du -sh /tmp/pytest-of-<user>` after one serial run).

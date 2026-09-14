@@ -301,6 +301,94 @@ def test_create_items_refuses_before_sending_without_a_key_or_a_server_id(fake):
     assert fake.calls == []
 
 
+def test_trash_and_delete_item_refuse_before_sending_without_a_key(fake):
+    """Neither write helper's precondition is server-id-gated (§2's key
+    precedes it); both are UNMATCHED and neither request leaves the client."""
+    with pytest.raises(zotero.ZoteroError) as error:
+        fake.client.trash_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+    with pytest.raises(zotero.ZoteroError) as error:
+        fake.client.delete_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+    assert fake.calls == []
+
+
+def test_trash_item_returns_204_and_carries_the_version_precondition(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="PATCH")
+
+    assert fake.client.trash_item("E352DFS8", 544) == 204
+
+    verb, path, headers = fake.calls[-1]
+    assert (verb, path) == ("PATCH", "/api/users/0/items/E352DFS8")
+    assert headers["If-Unmodified-Since-Version"] == "544"
+    assert headers["Content-Type"] == "application/json"
+    assert headers["Zotero-API-Key"] == "k" * 32
+
+
+def test_delete_item_returns_204_and_carries_the_version_precondition(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="DELETE")
+
+    assert fake.client.delete_item("E352DFS8", 544) == 204
+
+    verb, path, headers = fake.calls[-1]
+    assert (verb, path) == ("DELETE", "/api/users/0/items/E352DFS8")
+    assert headers["If-Unmodified-Since-Version"] == "544"
+    assert headers["Content-Type"] == "application/json"
+    assert headers["Zotero-API-Key"] == "k" * 32
+
+
+def test_trash_item_sends_deleted_true_delete_item_sends_no_body(fake, monkeypatch):
+    """``fake.calls`` logs only ``(verb, path, headers)`` (tests/fakes.py), so
+    the body each helper puts on the wire is checked by wrapping the fake's
+    own transport, the way ``test_export_calls_...`` above already does."""
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="PATCH")
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="DELETE")
+    real_http = fake.client._http
+    sent: list[tuple[str | None, bytes | None]] = []
+
+    def recording_http(url, data=None, headers=None, method=None, *, timeout=None):
+        sent.append((method, data))
+        return real_http(
+            url, data=data, headers=headers, method=method, timeout=timeout
+        )
+
+    monkeypatch.setattr(fake.client, "_http", recording_http)
+
+    assert fake.client.trash_item("E352DFS8", 544) == 204
+    assert fake.client.delete_item("E352DFS8", 544) == 204
+
+    assert sent == [("PATCH", json.dumps({"deleted": True}).encode()), ("DELETE", None)]
+
+
+def test_trash_or_delete_item_412_is_version_moved_and_unmatched(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=412, body=b"", method="PATCH")
+    with pytest.raises(zotero.ZoteroError, match="version moved") as error:
+        fake.client.trash_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+
+    fake.get("/api/users/0/items/E352DFS8", status=412, body=b"", method="DELETE")
+    with pytest.raises(zotero.ZoteroError, match="version moved") as error:
+        fake.client.delete_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+
+
+def test_trash_or_delete_item_other_status_is_an_outage(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=500, body=b"", method="PATCH")
+    with pytest.raises(zotero.ZoteroError) as error:
+        fake.client.trash_item("E352DFS8", 544)
+    assert error.value.result is Result.UNREACHABLE
+
+    fake.get("/api/users/0/items/E352DFS8", status=500, body=b"", method="DELETE")
+    with pytest.raises(zotero.ZoteroError) as error:
+        fake.client.delete_item("E352DFS8", 544)
+    assert error.value.result is Result.UNREACHABLE
+
+
 def test_rpc_fallbacks_survive(fake):
     fake.rpc("api.ready", {"zotero": "10.0.1", "betterbibtex": "9.0.63"})
     fake.rpc("item.export", [{"id": "jakesch.etal2023a", "type": "paper-conference"}])

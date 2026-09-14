@@ -394,6 +394,34 @@ class ZoteroClient:
             )
         return dict(payload)
 
+    def trash_item(self, key: str, version: int) -> int:
+        return self._mutate(
+            key, version, method="PATCH", data=json.dumps({"deleted": True}).encode()
+        )
+
+    def delete_item(self, key: str, version: int) -> int:
+        return self._mutate(key, version, method="DELETE")
+
+    def _mutate(self, key, version, *, method, data=None) -> int:
+        if not self.api_key:
+            raise ZoteroError(
+                f"{method} needs an API key from authorize", Result.UNMATCHED
+            )
+        headers = self._headers(
+            {
+                "If-Unmodified-Since-Version": str(version),
+                "Content-Type": "application/json",
+            }
+        )
+        response = self._http(
+            f"{self.base}{_USER}/items/{key}", data=data, headers=headers, method=method
+        )
+        if response.status == 412:
+            raise ZoteroError(f"{method} {key}: version moved (412)", Result.UNMATCHED)
+        if response.status not in (200, 204):
+            raise ZoteroError(f"{method} {key}: HTTP {response.status}")
+        return response.status
+
     # -- Better BibTeX JSON-RPC -------------------------------------------------
 
     def _rpc(
