@@ -34,10 +34,12 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
       # GitHub-hosted runners carry no git identity (actions/checkout writes only
-      # safe.directory and the auth header), and the test fixtures commit into
-      # `git init` temp repos outside the workspace, so --global is load-bearing.
-      # Same identity research-vault's own vault CI template uses.
-      - name: Git identity (tests commit into temp repos)
+      # safe.directory and the auth header). The suite does not consult this
+      # one: every unmarked test and both session template vaults commit under
+      # tests/conftest.py::OFFLINE_GIT_IDENTITY, the global config of a per-test
+      # HOME. Belt for any process outside that HOME -- a hook or tool run from
+      # the workspace. Same identity research-vault's own vault CI template uses.
+      - name: Git identity (belt for processes outside the per-test HOME)
         run: |
           git config --global user.name "research-vault-ci"
           git config --global user.email "actions@users.noreply.github.com"
