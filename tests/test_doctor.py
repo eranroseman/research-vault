@@ -409,6 +409,18 @@ def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(
     assert [probe.check for probe in probes[-2:]] == ["remote", "backup"]
 
 
+def test_doctor_reads_the_remote_of_the_vault_not_of_the_process_cwd(
+    tmp_vault, monkeypatch
+):
+    """The remote probe runs git in the vault: from a cwd that is no repository
+    at all it still finds the vault's `origin`."""
+    vault = _doctor_vault(tmp_vault)
+    monkeypatch.chdir(tmp_vault.parent)
+    probes = scaffold.doctor(vault, client=None)
+    by = {p.check: p for p in probes}
+    assert by["remote"] == scaffold.Probe("remote", Result.MATCHED, "origin")
+
+
 @pytest.mark.parametrize(
     "local_api_status", [200, 403], ids=["local-api-on", "local-api-off"]
 )

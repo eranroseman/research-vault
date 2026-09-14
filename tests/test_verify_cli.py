@@ -670,6 +670,26 @@ def test_scaffold_and_stamp_type_run_in_process_with_their_flags(tmp_path, capsy
     assert capsys.readouterr().out.splitlines() == ["stamped inbox/idea.md"]
 
 
+def test_stamp_type_prints_each_report_reason_in_its_own_words(tmp_path, capsys):
+    """The three reasons stamp_types reports each get their own line, in walk
+    order, after the stamped notes; the exit is 0 regardless."""
+    vault = tmp_path / "vault"
+    (vault / "a-loose").mkdir(parents=True)
+    (vault / "a-loose" / "e-notype.md").write_text("loose\n")
+    inbox = vault / "inbox"
+    inbox.mkdir()
+    (inbox / "b-link.md").symlink_to(vault / "nowhere.md")
+    (inbox / "c-bad.md").write_text("---\n  bad: nested\n---\ntext\n")
+    (inbox / "d-idea.md").write_text("a thought\n")
+    assert main(["stamp-type", "--vault", str(vault)]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "stamped inbox/d-idea.md",
+        "skipped a-loose/e-notype.md — no type could be derived",
+        "skipped inbox/b-link.md — path is a symlink, refusing to write through it",
+        "skipped inbox/c-bad.md — frontmatter is unparseable",
+    ]
+
+
 def test_verify_passes_every_flag_through_and_prints_sorted_counts(
     net_vault, monkeypatch, capsys, tmp_path
 ):

@@ -170,6 +170,21 @@ def test_scaffold_is_idempotent_and_never_overwrites_existing_files(tmp_path):
     assert glossary.read_text() == "human glossary\n"
 
 
+def test_scaffold_git_calls_run_in_the_vault_wherever_the_process_sits(
+    tmp_path, monkeypatch
+):
+    """From a cwd that is no repository at all, scaffold still commits into the
+    vault and still reads the vault's own ignore rules: the ignored
+    `.research-vault/machine.json` is created but never committed."""
+    monkeypatch.chdir(tmp_path)
+    vault = tmp_path / "vault"
+    created = scaffold.scaffold_vault(vault)
+    assert ".research-vault/machine.json" in created
+    assert git(vault, "log", "--format=%s") == "Scaffold knowledge vault\n"
+    assert git(vault, "ls-files", "--", ".research-vault") == ""
+    assert git(vault, "ls-files", "--", "index.md") == "index.md\n"
+
+
 def test_scaffold_installs_an_executable_hook_and_keeps_empty_roots_in_clones(tmp_path):
     """Dropping hook execute permission or empty vault roots after clone fails."""
     vault = tmp_path / "vault"
