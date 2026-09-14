@@ -669,7 +669,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests resear
 
 **Interfaces:**
 
-- Produces: the final §4.4 rows, verbatim:
+- Produces: the final §4.4 rows, verbatim — with one ordering rule: when Task 4 runs before Task 2 (allowed; the phase's own fallback ships Tasks 4–6 without 2–3), the check-ids row omits `compile`, because the test below asserts the row equals the code at that HEAD, and Task 2 adds `compile` to `inbox.CHECK_IDS` and to the row in one commit (its Files block claims §4.4):
 
   - check ids: `citation-key`, `quote`, `update-notice`, `evidence-layer`, `identifier-discovery`, `disputed-claim`, `publish`, `factcheck`, `okf-frontmatter`, `okf-structure`, `tree`, `lifecycle`, `capture`, `propagation`, `captured-set`, `compile`
   - doctor probe ids: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`
