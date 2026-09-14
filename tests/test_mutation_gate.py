@@ -402,6 +402,28 @@ def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     assert changed_modules("main", cwd=repo) == ["research_vault/x.py"]
 
 
+def test_changed_modules_aborts_with_the_command_when_base_does_not_resolve(
+    tmp_path: Path,
+):
+    """Real git. A --base that is no ref (a shallow clone without origin/main)
+    makes the diff fail: the gate's own GitCommandError, naming the command
+    (the ref inside it), the exit code and git's stderr -- not the
+    CalledProcessError's traceback."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True, capture_output=True)
+
+    with pytest.raises(mutation_gate.GitCommandError) as caught:
+        changed_modules("no-such-ref", cwd=repo)
+    message = str(caught.value)
+    assert message.startswith("`git diff --name-only --relative no-such-ref...HEAD")
+    assert "exited 128: " in message
+    assert "no-such-ref" in message.split("exited 128: ", 1)[1]  # git's stderr
+    assert "\n" not in message
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+    assert isinstance(caught.value.__cause__, subprocess.CalledProcessError)
+
+
 # --- the mutmut invocation ---------------------------------------------------
 
 
@@ -712,6 +734,40 @@ def test_run_mutmut_drops_the_inherited_git_location_variables(tmp_path, monkeyp
         assert call["env"]["GIT_CEILING_DIRECTORIES"] == str(root)
 
 
+def test_a_failed_git_init_of_mutants_is_the_gates_abort_not_a_traceback(
+    tmp_path, monkeypatch
+):
+    """The isolation's `git init` failing (an unwritable root, a git that
+    refuses) is GitCommandError -- the command, the exit code and git's
+    stderr on one line -- raised before any launch; the init keeps check=True
+    so the failure cannot pass as a made repository."""
+    root = _fake_root(tmp_path)
+    calls: list[dict] = []
+
+    def refusing_run(cmd, **kwargs):
+        calls.append({"cmd": cmd, **kwargs})
+        if cmd[:2] == ["git", "init"]:
+            raise subprocess.CalledProcessError(
+                128,
+                cmd,
+                output="",
+                stderr="fatal: cannot mkdir .git: Permission denied\n",
+            )
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", refusing_run)
+
+    with pytest.raises(mutation_gate.GitCommandError) as caught:
+        mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+    assert str(caught.value) == (
+        f"`git init -q --template= {root / 'mutants'}` exited 128: "
+        "fatal: cannot mkdir .git: Permission denied"
+    )
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+    assert [c["cmd"][:2] for c in calls] == [["git", "init"]]  # no launcher
+    assert calls[0]["check"] is True
+
+
 @pytest.mark.parametrize("shape", ["gitfile-elsewhere", "garbage-head", "symlink"])
 def test_git_isolation_replaces_a_mutants_git_that_is_not_its_own(tmp_path, shape):
     """Real git. A pre-seeded mutants/.git that is a gitfile pointing at another
@@ -889,6 +945,67 @@ def test_launcher_answers_help_before_importing_mutmut(tmp_path):
         )
         assert "mutmut run" in proc.stdout
         assert "Traceback" not in proc.stderr, proc.stderr
+
+
+def _seeded_config_keywords(shim: Path) -> set[str]:
+    """The keyword names sitecustomize.py passes to its one `Config(...)` seed."""
+    tree = ast.parse(shim.read_text(encoding="utf-8"))
+    (seed,) = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "Config"
+    ]
+    assert not seed.args, "the seed passes every field by keyword"
+    return {keyword.arg for keyword in seed.keywords if keyword.arg is not None}
+
+
+def test_shim_seeds_exactly_the_fields_of_mutmuts_config_dataclass():
+    """sitecustomize.py seeds `Config(...)` inside a blanket except (its body
+    is the pilot's, verbatim). A mutmut release that adds or drops a field
+    would turn the seed into a swallowed TypeError: no config seeded, every
+    hook subprocess dead at import, and the run recording those deaths as
+    kills -- the false-kill class the shim exists to prevent, written into
+    the baseline silently. So a pin bump that changes the field list fails
+    here, in the suite: the seed's keyword set is the dataclass's field set
+    (21 names at 3.7.0). The dataclass module loads no config at import; the
+    shim itself imports it from an unconfigured cwd."""
+    import dataclasses
+
+    import mutmut.configuration
+
+    seeded = _seeded_config_keywords(mutation_gate.SHIMS / "sitecustomize.py")
+    fields = {f.name for f in dataclasses.fields(mutmut.configuration.Config)}
+    assert seeded == fields
+    assert len(seeded) == 21
+
+
+def test_launcher_patches_a_pytest_runner_method_mutmut_still_defines(tmp_path):
+    """run_mutmut.py rebinds one method on mutmut's PytestRunner to widen the
+    re-escaped parametrize ids (its header). Under a pin bump that renames
+    or reshapes the method, the assignment would bind a name nothing calls
+    and the defect would return as false kills forty minutes into a run.
+    The name the launcher assigns is read from its source, and mutmut must
+    still define it as a function taking (self, tests)."""
+    import inspect
+
+    tree = ast.parse(mutation_gate.LAUNCHER.read_text(encoding="utf-8"))
+    patched = {
+        target.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Attribute)
+        and isinstance(target.value, ast.Attribute)
+        and target.value.attr == "PytestRunner"
+    }
+    assert patched == {"_pytest_args_regular_run"}
+    mm = mutation_gate._mutmut(_fake_root(tmp_path))
+    (name,) = patched
+    method = inspect.getattr_static(mm.PytestRunner, name)
+    assert inspect.isfunction(method)
+    assert list(inspect.signature(method).parameters) == ["self", "tests"]
 
 
 # --- main(): --update-baseline, --out-dir, --only ------------------------------
@@ -1408,8 +1525,10 @@ BUDGET_SOURCE = (
     "def add(a, b):\n    return a + b\n\n\nclass Box:\n    def size(self):\n"
     "        return 1\n"
 )
+# `modules` is the counted noun phrase, spelled by the test: "2 changed modules",
+# "1 changed module".
 OVER_BUDGET = (
-    "[gate] not measured: {count} mutants across {modules} changed modules "
+    "[gate] not measured: {count} mutants across {modules} "
     "exceed the CI budget of {budget}; run the gate locally"
 )
 
@@ -1437,6 +1556,75 @@ def test_count_mutants_is_mutmuts_own_generation_run_in_memory(tmp_path):
     assert mutation_gate.count_mutants(a, root) == 0
 
 
+@pytest.mark.parametrize(
+    ("source", "parser_error"),
+    [
+        ("def add(a, b:\n    return a + b\n", "ParserSyntaxError"),
+        ("# pragma: no mutate end\nA = 1\n", "PragmaParseError"),
+    ],
+    ids=["syntax", "pragma"],
+)
+def test_count_mutants_aborts_naming_a_module_the_generator_cannot_parse(
+    tmp_path, source, parser_error
+):
+    """A syntax error, or a `# pragma: no mutate` context mutmut's pragma
+    parser refuses, is ModuleParseError -- the module, the parser's class and
+    its message on one line -- not libcst's or mutmut's own traceback."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    (root / a).write_text(source, encoding="utf-8")
+
+    with pytest.raises(mutation_gate.ModuleParseError) as caught:
+        mutation_gate.count_mutants(a, root)
+    message = str(caught.value)
+    assert message.startswith(
+        f"{a}: mutmut's generator cannot parse it ({parser_error}: "
+    )
+    assert "\n" not in message
+    assert type(caught.value.__cause__).__name__ == parser_error
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+    assert not (root / "mutants").exists()
+
+
+def test_a_git_or_parse_failure_is_the_gates_abort_line_in_gate_mode(
+    tmp_path, monkeypatch, capsys
+):
+    """main() prints `[gate] ABORT: ...` and returns 1 for GitCommandError (a
+    --base that does not resolve) and for ModuleParseError (a changed module
+    the budget count cannot parse), as it does for the other aborts: no
+    traceback, no launch, no baseline read."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
+    monkeypatch.setattr(mutation_gate, "baseline_keys", _fail_if_called)
+
+    def unresolved(base):
+        raise mutation_gate.GitCommandError(
+            f"`git diff --name-only --relative {base}...HEAD -- research_vault/*.py` "
+            "exited 128: fatal: bad revision"
+        )
+
+    monkeypatch.setattr(mutation_gate, "changed_modules", unresolved)
+    _argv_gate(monkeypatch, root)
+    assert mutation_gate.main() == 1
+    assert capsys.readouterr().out.splitlines() == [
+        (
+            "[gate] ABORT: `git diff --name-only --relative origin/main...HEAD -- "
+            "research_vault/*.py` exited 128: fatal: bad revision"
+        )
+    ]
+
+    (root / a).write_text("def add(a, b:\n    return a + b\n", encoding="utf-8")
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    _argv_gate(monkeypatch, root, max_mutants=3)
+    assert mutation_gate.main() == 1
+    (line,) = capsys.readouterr().out.splitlines()
+    assert line.startswith(
+        f"[gate] ABORT: {a}: mutmut's generator cannot parse it (ParserSyntaxError: "
+    )
+
+
 def test_gate_reads_an_oversize_diff_as_unmeasured_without_launching_mutmut(
     tmp_path, monkeypatch, capsys
 ):
@@ -1457,7 +1645,7 @@ def test_gate_reads_an_oversize_diff_as_unmeasured_without_launching_mutmut(
 
     assert mutation_gate.main() == 0
     assert capsys.readouterr().out.splitlines() == [
-        OVER_BUDGET.format(count=4, modules=2, budget=3),
+        OVER_BUDGET.format(count=4, modules="2 changed modules", budget=3),
         f"[gate]   {a}: 2",
         f"[gate]   {b}: 2",
     ]
@@ -1485,7 +1673,7 @@ def test_gate_measures_a_diff_within_the_budget(tmp_path, monkeypatch, capsys):
     assert mutation_gate.main() == 0
     out = capsys.readouterr().out.splitlines()
     assert calls == [a]
-    assert "[gate] 2 mutants across 1 changed modules, within the CI budget of 2" in out
+    assert "[gate] 2 mutants across 1 changed module, within the CI budget of 2" in out
     assert f"[gate]   {a}: 2" in out
     assert "[gate] pass — no new survivors" in out
     assert not any("not measured" in line for line in out)
@@ -1495,7 +1683,7 @@ def test_gate_measures_a_diff_within_the_budget(tmp_path, monkeypatch, capsys):
     assert mutation_gate.main() == 0
     out = capsys.readouterr().out.splitlines()
     assert calls == []
-    assert OVER_BUDGET.format(count=2, modules=1, budget=1) in out
+    assert OVER_BUDGET.format(count=2, modules="1 changed module", budget=1) in out
     assert "[gate] pass — no new survivors" not in out
 
     monkeypatch.setattr(mutation_gate, "count_mutants", _fail_if_called)

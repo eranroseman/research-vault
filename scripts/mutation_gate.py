@@ -182,6 +182,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from libcst import ParserSyntaxError
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import ModuleType
@@ -229,6 +231,17 @@ class ChildLimitError(GateAbortError):
 
 class MutantsTreeError(GateAbortError):
     """mutants/ is not a real directory the gate may own (a symlink, a file)."""
+
+
+class GitCommandError(GateAbortError):
+    """A git command the gate runs for itself failed -- the diff against
+    --base, the init of mutants/: the command, its exit code and its stderr."""
+
+
+class ModuleParseError(GateAbortError):
+    """A module's source does not parse for mutmut's generator (a syntax
+    error, a malformed `# pragma: no mutate` context): the file and the
+    parser's message. Nothing is counted or run for a module it cannot read."""
 
 
 class MetaReadError(ValueError):
@@ -340,24 +353,39 @@ def baseline_keys(path: Path) -> set[str]:
     }
 
 
+def _git_failure(error: subprocess.CalledProcessError) -> GitCommandError:
+    """The abort for a git command the gate ran with check=True: what was run,
+    how it exited and what git said -- never the CalledProcessError's own
+    traceback."""
+    stderr = " ".join((error.stderr or "").split()) or "(no stderr)"
+    return GitCommandError(
+        f"`{' '.join(map(str, error.cmd))}` exited {error.returncode}: {stderr}"
+    )
+
+
 def changed_modules(base: str, cwd: Path = ROOT) -> list[str]:
     # --relative + a cwd-relative pathspec, both resolved from the repo root: a
     # stale core/-prefixed pathspec here matches nothing and kills the gate silently.
-    diff = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--name-only",
-            "--relative",
-            f"{base}...HEAD",
-            "--",
-            "research_vault/*.py",
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=cwd,
-    ).stdout.split()
+    try:
+        diff = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--relative",
+                f"{base}...HEAD",
+                "--",
+                "research_vault/*.py",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=cwd,
+        ).stdout.split()
+    except subprocess.CalledProcessError as error:
+        # A --base that does not resolve (a shallow clone without origin/main)
+        # is the usual cause; the abort names the ref through the command.
+        raise _git_failure(error) from error
     return sorted(
         p
         for p in diff
@@ -378,9 +406,19 @@ def count_mutants(relpath: str, root: Path = ROOT) -> int:
     generator over the source, in memory -- see the header's budget
     paragraph. Nothing is written and no test runs."""
     mm = _mutmut(root)  # loads mutmut's config from root: pragma patterns
+    # Imported after _mutmut, for the reason _mutmut exists (config at import).
+    from mutmut.mutation.pragma_handling import PragmaParseError
+
     source = (root / relpath).read_text(encoding="utf-8")
-    with contextlib.chdir(root):
-        return len(mm.mutate_file_contents(relpath, source).mutant_names)
+    try:
+        with contextlib.chdir(root):
+            return len(mm.mutate_file_contents(relpath, source).mutant_names)
+    except (ParserSyntaxError, PragmaParseError) as error:
+        message = " ".join(str(error).split())
+        raise ModuleParseError(
+            f"{relpath}: mutmut's generator cannot parse it "
+            f"({type(error).__name__}: {message})"
+        ) from error
 
 
 def _sweep_pycache(root: Path) -> None:
@@ -511,13 +549,16 @@ def _isolate_git(root: Path) -> dict[str, str]:
             dot_git.unlink()
         present = False
     if not present:
-        subprocess.run(
-            ["git", "init", "-q", "--template=", str(mutants)],
-            env=env,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                ["git", "init", "-q", "--template=", str(mutants)],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as error:
+            raise _git_failure(error) from error
     return {"GIT_CEILING_DIRECTORIES": str(root)}
 
 
@@ -784,15 +825,16 @@ def _over_budget(modules: list[str], max_mutants: int) -> bool:
     counts = {module: count_mutants(module, ROOT) for module in modules}
     total = sum(counts.values())
     over = total > max_mutants
+    changed = f"{len(modules)} changed module" + ("" if len(modules) == 1 else "s")
     if over:
         print(
-            f"[gate] not measured: {total} mutants across {len(modules)} changed "
-            f"modules exceed the CI budget of {max_mutants}; run the gate locally"
+            f"[gate] not measured: {total} mutants across {changed} exceed the "
+            f"CI budget of {max_mutants}; run the gate locally"
         )
     else:
         print(
-            f"[gate] {total} mutants across {len(modules)} changed modules, "
-            f"within the CI budget of {max_mutants}"
+            f"[gate] {total} mutants across {changed}, within the CI budget of "
+            f"{max_mutants}"
         )
     for module, n in counts.items():
         print(f"[gate]   {module}: {n}")
