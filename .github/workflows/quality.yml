@@ -102,9 +102,21 @@ jobs:
       # OOM-killed a whole 8 GB cgroup twice on 2026-09-14) dies at 3 GiB with a
       # MemoryError — a killed mutant, not a dead runner. The child count is a
       # runner-memory bound, not a measured optimum.
+      # --max-mutants 9000 is the CI mutant budget: a changed set that would run
+      # more mutants is reported as "not measured" (exit 0) instead of run, so an
+      # integration-sized diff reads unmeasured rather than hitting the 360-minute
+      # job limit. Arithmetic (PROVISIONAL until the second observed run measures
+      # the runner's rate): 360 min × 0.75 (25 % headroom for the other steps and
+      # variance) = 270 min; minus ≈10 min of fixed cost per run (the steps before
+      # the gate took 1 min 50 s on run 34822363722; mutant generation 78 s and
+      # the stats phase ≈5 min happen once per gate run; the count itself ≈1 min)
+      # = 260 min = 15,600 s of mutant time; × 0.6 mutants/s — the conservative
+      # end of the rate assumed for two children on the 4-vCPU runner, scaled
+      # from the local blanket run's 17,151 mutants in ≈116 min at six children
+      # (≈2.5/s, ≈0.41/s per child) — = 9,360, rounded down.
       - name: Mutation gate (no new survivors)
         run: python scripts/mutation_gate.py --base "origin/${{ github.base_ref || 'main' }}"
-          --max-children 2 --child-address-space 3GiB
+          --max-children 2 --child-address-space 3GiB --max-mutants 9000
   okf-spec-drift:
     name: OKF spec drift (pin vs upstream)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

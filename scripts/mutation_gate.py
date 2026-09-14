@@ -115,6 +115,24 @@ CI: a 3 GiB cap made every test launching with the 4 GiB default read as a
 nested over-cap, and all ten modules errored); the tests patch the seam, and
 a real nested over-cap is still refused.
 
+CI mutant budget. --max-mutants N (gate mode only; default: no budget). A
+GitHub job dies at 360 minutes, and the whole-branch integration case -- a
+diff touching most of the 34 modules, ~10,000 mutants at the runner's two
+children -- does not fit that with headroom: without a budget it would time
+out, and a timed-out check reads as a failure it never measured. So before
+mutating anything the gate counts the mutants the changed set would run and,
+over the budget, prints exactly one qualified line -- `[gate] not measured:
+<count> mutants across <M> changed modules exceed the CI budget of <N>; run
+the gate locally` -- plus the per-module counts, and exits 0 without
+launching mutmut or reading the baseline (the four-state rule: an unrun check
+reads unmeasured, never pass or fail, so the advisory lane does not go red
+for size). The count is mutmut's own generator run in memory over each
+changed module's source (mutate_file_contents: the same operator set and
+pragma handling the run applies, so it equals the run's count -- checked
+2026-09-14 against the blanket run's cached .meta for all 34 modules, 17,151
+of 17,151), writing nothing under mutants/ and running no test. N is set in
+quality.yml from the measured per-mutant cost on the runner.
+
 Git isolation. Measured 2026-09-14T02:13Z: a scaffold.py mutant with its vault
 argument mutated to a non-vault ran the vault-hook install with cwd inside
 mutants/, `git rev-parse --git-path hooks/pre-commit` walked up to this
@@ -329,6 +347,16 @@ def _all_modules() -> list[str]:
     )
 
 
+def count_mutants(relpath: str, root: Path = ROOT) -> int:
+    """How many mutants mutmut would generate for the module: its own
+    generator over the source, in memory -- see the header's budget
+    paragraph. Nothing is written and no test runs."""
+    mm = _mutmut(root)  # loads mutmut's config from root: pragma patterns
+    source = (root / relpath).read_text(encoding="utf-8")
+    with contextlib.chdir(root):
+        return len(mm.mutate_file_contents(relpath, source).mutant_names)
+
+
 def _sweep_pycache(root: Path) -> None:
     for tree in (*SOURCE_TREES, "mutants"):
         for cache in (root / tree).rglob("__pycache__"):
@@ -366,6 +394,13 @@ def parse_size(text: str) -> int:
             "or GiB suffix (e.g. 4GiB, 2.5GiB, 512MiB)"
         )
     return value
+
+
+def parse_budget(text: str) -> int:
+    """--max-mutants: a positive mutant count."""
+    if not text.isdigit() or int(text) < 1:
+        raise argparse.ArgumentTypeError(f"{text!r}: expected a positive mutant count")
+    return int(text)
 
 
 def _address_space_limiter(cap: int) -> Callable[[], None]:
@@ -702,10 +737,39 @@ def _summarise_no_tests(prefix: str, no_tests: dict[str, int]) -> None:
         print(f"{prefix}   {module}: {n}")
 
 
-def _gate(baseline_path: Path, base: str, max_children: int, address_space: int) -> int:
+def _over_budget(modules: list[str], max_mutants: int) -> bool:
+    """Count what the changed set would run and say so; over the budget the
+    diff is reported as unmeasured (see the header) and the caller stops."""
+    counts = {module: count_mutants(module, ROOT) for module in modules}
+    total = sum(counts.values())
+    over = total > max_mutants
+    if over:
+        print(
+            f"[gate] not measured: {total} mutants across {len(modules)} changed "
+            f"modules exceed the CI budget of {max_mutants}; run the gate locally"
+        )
+    else:
+        print(
+            f"[gate] {total} mutants across {len(modules)} changed modules, "
+            f"within the CI budget of {max_mutants}"
+        )
+    for module, n in counts.items():
+        print(f"[gate]   {module}: {n}")
+    return over
+
+
+def _gate(
+    baseline_path: Path,
+    base: str,
+    max_children: int,
+    address_space: int,
+    max_mutants: int | None = None,
+) -> int:
     modules = changed_modules(base)
     if not modules:
         print("[gate] no changed research_vault modules; pass")
+        return 0
+    if max_mutants is not None and _over_budget(modules, max_mutants):
         return 0
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()
@@ -757,6 +821,15 @@ def main() -> int:
         "it so --max-children x this fits the machine's memory bound",
     )
     parser.add_argument(
+        "--max-mutants",
+        type=parse_budget,
+        default=None,
+        metavar="N",
+        help="gate mode only: the CI mutant budget; a changed set that would run "
+        "more than N mutants is reported as not measured (exit 0) instead of "
+        "run -- see the header",
+    )
+    parser.add_argument(
         "--out-dir",
         default=None,
         help="--update-baseline only: per-module records, for resuming a killed "
@@ -774,6 +847,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.only and not args.update_baseline:
         parser.error("--only requires --update-baseline")
+    if args.max_mutants is not None and args.update_baseline:
+        parser.error("--max-mutants is a gate-mode budget; not with --update-baseline")
     unknown = sorted(set(args.only) - set(_all_modules()))
     if unknown:
         parser.error(f"--only names no research_vault module: {', '.join(unknown)}")
@@ -789,7 +864,11 @@ def main() -> int:
                 args.child_address_space,
             )
         return _gate(
-            baseline_path, args.base, args.max_children, args.child_address_space
+            baseline_path,
+            args.base,
+            args.max_children,
+            args.child_address_space,
+            args.max_mutants,
         )
     except GateAbortError as error:
         prefix = "[baseline]" if args.update_baseline else "[gate]"

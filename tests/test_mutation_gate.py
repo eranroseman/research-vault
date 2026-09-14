@@ -823,11 +823,12 @@ def _argv_baseline(
     return baseline_path
 
 
-def _argv_gate(monkeypatch, root: Path) -> Path:
+def _argv_gate(monkeypatch, root: Path, max_mutants: int | None = None) -> Path:
     baseline_path = root / "mutation-baseline.txt"
-    monkeypatch.setattr(
-        sys, "argv", ["mutation_gate.py", "--baseline", str(baseline_path)]
-    )
+    argv = ["mutation_gate.py", "--baseline", str(baseline_path)]
+    if max_mutants is not None:
+        argv += ["--max-mutants", str(max_mutants)]
+    monkeypatch.setattr(sys, "argv", argv)
     return baseline_path
 
 
@@ -1203,6 +1204,132 @@ def test_gate_fails_when_a_module_errors(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert f"[gate] {a}: error" in out
     assert "[gate]   error (1): research_vault/a.py" in out
+
+
+# --- main(): the CI mutant budget --------------------------------------------
+
+# A source whose mutant count under mutmut 3.7.0's operator set is known:
+# `a + b` -> `a - b` and `return 1` -> `return 2`, two mutants.
+BUDGET_SOURCE = (
+    "def add(a, b):\n    return a + b\n\n\nclass Box:\n    def size(self):\n"
+    "        return 1\n"
+)
+OVER_BUDGET = (
+    "[gate] not measured: {count} mutants across {modules} changed modules "
+    "exceed the CI budget of {budget}; run the gate locally"
+)
+
+
+def _fail_if_called(*_args, **_kwargs):
+    raise AssertionError("must not be called")
+
+
+def test_count_mutants_is_mutmuts_own_generation_run_in_memory(tmp_path):
+    """The count is mutmut's generator over the module's source -- the same
+    operator set and pragma handling a run applies, so it equals what the run
+    would generate -- with nothing written under mutants/, the source
+    untouched, and no test run."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    (root / a).write_text(BUDGET_SOURCE, encoding="utf-8")
+
+    assert mutation_gate.count_mutants(a, root) == 2
+    assert not (root / "mutants").exists()
+    assert (root / a).read_text(encoding="utf-8") == BUDGET_SOURCE
+
+    (root / a).write_text(
+        "def add(a, b):\n    return a + b  # pragma: no mutate\n", encoding="utf-8"
+    )
+    assert mutation_gate.count_mutants(a, root) == 0
+
+
+def test_gate_reads_an_oversize_diff_as_unmeasured_without_launching_mutmut(
+    tmp_path, monkeypatch, capsys
+):
+    """Over budget: exactly the qualified line plus the per-module counts,
+    exit 0, no mutmut launch through the seam, no baseline comparison and no
+    mutants/ -- the four-state rule: an unrun check reads unmeasured, never
+    pass or fail, and the advisory lane does not go red for size."""
+    root = _fake_root(tmp_path)
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    for module in (a, b):
+        (root / module).write_text(BUDGET_SOURCE, encoding="utf-8")
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    calls = _record_runs(monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
+    monkeypatch.setattr(mutation_gate, "new_survivors", _fail_if_called)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a, b])
+    _argv_gate(monkeypatch, root, max_mutants=3)
+
+    assert mutation_gate.main() == 0
+    assert capsys.readouterr().out.splitlines() == [
+        OVER_BUDGET.format(count=4, modules=2, budget=3),
+        f"[gate]   {a}: 2",
+        f"[gate]   {b}: 2",
+    ]
+    assert calls == []
+    assert not (root / "mutants").exists()
+
+
+def test_gate_measures_a_diff_within_the_budget(tmp_path, monkeypatch, capsys):
+    """At the budget exactly the gate runs as it would without one (`>`
+    decides, not `>=`), one mutant over it does not; with no --max-mutants
+    nothing is counted at all."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    (root / a).write_text(BUDGET_SOURCE, encoding="utf-8")
+    _fake_module(root, a, {ADD_1: 0, SIZE_1: 0})
+    calls: list[str] = []
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    baseline_path = _argv_gate(monkeypatch, root, max_mutants=2)
+    baseline_path.write_text(
+        KEY_ADD_1.replace(MODULE, a) + "\n" + KEY_SIZE_1.replace(MODULE, a) + "\n",
+        encoding="utf-8",
+    )
+
+    assert mutation_gate.main() == 0
+    out = capsys.readouterr().out.splitlines()
+    assert calls == [a]
+    assert "[gate] 2 mutants across 1 changed modules, within the CI budget of 2" in out
+    assert f"[gate]   {a}: 2" in out
+    assert "[gate] pass — no new survivors" in out
+    assert not any("not measured" in line for line in out)
+
+    calls.clear()
+    _argv_gate(monkeypatch, root, max_mutants=1)
+    assert mutation_gate.main() == 0
+    out = capsys.readouterr().out.splitlines()
+    assert calls == []
+    assert OVER_BUDGET.format(count=2, modules=1, budget=1) in out
+    assert "[gate] pass — no new survivors" not in out
+
+    monkeypatch.setattr(mutation_gate, "count_mutants", _fail_if_called)
+    _argv_gate(monkeypatch, root)
+    assert mutation_gate.main() == 0
+    assert "[gate] pass — no new survivors" in capsys.readouterr().out.splitlines()
+
+
+def test_max_mutants_is_a_positive_gate_mode_budget(tmp_path, monkeypatch, capsys):
+    """--max-mutants with --update-baseline, or a non-positive budget, is an
+    argparse error (exit 2 naming the flag), never a run."""
+    root = _fake_root(tmp_path)
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+    monkeypatch.setattr(mutation_gate, "changed_modules", _fail_if_called)
+    monkeypatch.setattr(mutation_gate, "_all_modules", _fail_if_called)
+    for argv, expected in (
+        (["--update-baseline", "--max-mutants", "5"], "--update-baseline"),
+        (["--max-mutants", "0"], "positive"),
+        (["--max-mutants", "-1"], "positive"),
+        (["--max-mutants", "many"], "positive"),
+    ):
+        monkeypatch.setattr(sys, "argv", ["mutation_gate.py", *argv])
+        with pytest.raises(SystemExit) as exit_info:
+            mutation_gate.main()
+        assert exit_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "--max-mutants" in err
+        assert expected in err
 
 
 # --- the suite's own mutant-awareness ----------------------------------------
