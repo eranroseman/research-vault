@@ -91,21 +91,20 @@ jobs:
       - name: Duplicate gate (drywall)
         run: drywall research_vault
       # No-op on push by construction (origin/main...HEAD is empty after a landing);
-      # this gate earns its keep on pull_request and workflow_dispatch. Until the
-      # baseline lands, an absent mutation-baseline.txt reads as zero baselined
-      # survivors, so on a PR touching core every survivor counts as new and fails
-      # here — loudly, in an advisory lane, which is the intended reading.
-      # --max-workers 1 is load-bearing, not a tuning knob: mutate4py takes its
-      # parallel path whenever max_workers >= 2 and >= 2 sites are selected, and
-      # that path provisions each worker tree with `uv venv` + `uv sync`. uv is
-      # absent from the runner image and from the dev extra, and there is no serial
-      # fallback — a missing uv is an uncaught FileNotFoundError, so the gate would
-      # die during provisioning and measure nothing. 1 keeps mutate4py serial, in
-      # the job's own environment. (0 is not an option: mutate4py rejects < 1 and
-      # mutation_gate.py always forwards the flag.)
+      # this gate earns its keep on pull_request and workflow_dispatch. It runs
+      # mutmut over the research_vault modules the diff touches and fails on any
+      # survivor that mutation-baseline.txt (all 34 modules) does not carry; the
+      # gate sets PYTHONPATH to its own shims, so the [dev] install is all it needs.
+      # --max-children 2 with --child-address-space 3GiB: 2 × 3 GiB = 6 GiB fits
+      # both the 7 GB and the 16 GB ubuntu-latest runners. The cap is per child
+      # (RLIMIT_AS), so the one runaway-allocation mutant measured so far
+      # (selectors.py: one child at 2.0 GB, then five at 1.6–2.2 GB, which
+      # OOM-killed a whole 8 GB cgroup twice on 2026-09-14) dies at 3 GiB with a
+      # MemoryError — a killed mutant, not a dead runner. The child count is a
+      # runner-memory bound, not a measured optimum.
       - name: Mutation gate (no new survivors)
-        run: python scripts/mutation_gate.py --lcov lcov.info --max-workers 1 --base
-          "origin/${{ github.base_ref || 'main' }}"
+        run: python scripts/mutation_gate.py --base "origin/${{ github.base_ref || 'main' }}"
+          --max-children 2 --child-address-space 3GiB
   okf-spec-drift:
     name: OKF spec drift (pin vs upstream)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
