@@ -7,6 +7,11 @@ on:
   workflow_dispatch:
   schedule:
     - cron: 17 4 * * 1
+# A newer push to the same ref supersedes a PR run; a push-to-main run is a
+# landing and is never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
@@ -14,10 +19,11 @@ jobs:
     name: dev-quality lane (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # mutation gate diffs against the merge base
-      - uses: actions/setup-python@v5
+          persist-credentials: false  # nothing after checkout fetches or pushes
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install
@@ -32,17 +38,34 @@ jobs:
           git config --global user.email "actions@users.noreply.github.com"
       - name: Form + lint (the one command — same as local)
         run: pre-commit run --all-files --show-diff-on-failure
-      # shellcheck ships in the runner image (0.9.0, the local version); shfmt does
-      # not, and the manual-stage hook below is a `language: system` hook that needs
-      # the binary on PATH. Pinned exact, like every other tool in this lane.
-      - name: Install shfmt (pinned; absent from the runner image)
+      # The manual-stage hooks below are `language: system` hooks that need shfmt
+      # and shellcheck on PATH. Both are installed here, pinned exact and
+      # digest-checked, like every other tool in this lane: the runner image's own
+      # shellcheck floats with the image (0.9.0 on 24.04, 0.11.x on 26.04), so it is
+      # never used; /usr/local/bin precedes it on PATH and the version is asserted.
+      # A tag pins a name, the digest pins the bytes. actionlint below shells out to
+      # whichever shellcheck is on PATH, so this step also precedes it.
+      - name: Install shfmt + shellcheck (pinned, digest-checked)
         run: |
           curl -fsSL -o "$RUNNER_TEMP/shfmt" https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64
+          echo "fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1  $RUNNER_TEMP/shfmt" | sha256sum -c
           sudo install -m 0755 "$RUNNER_TEMP/shfmt" /usr/local/bin/shfmt
+          curl -fsSL -o "$RUNNER_TEMP/shellcheck.tar.xz" https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  $RUNNER_TEMP/shellcheck.tar.xz" | sha256sum -c
+          tar -xJf "$RUNNER_TEMP/shellcheck.tar.xz" -C "$RUNNER_TEMP" shellcheck-v0.11.0/shellcheck
+          sudo install -m 0755 "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" /usr/local/bin/shellcheck
+          test "$(shellcheck --version | sed -n 's/^version: //p')" = 0.11.0
       - name: Residual binary hooks (manual stage)
         run: pre-commit run --all-files --hook-stage manual
-      - name: Workflow lint (actionlint)
-        uses: raven-actions/actionlint@v2
+      # Pinned binary, not a marketplace action: a floating third-party tag executes
+      # whatever it resolves to on the day. The two vault CI templates render into
+      # every user vault, so they are linted here as the workflow files they are.
+      - name: Workflow lint (actionlint, pinned, digest-checked)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" .github/workflows/quality.yml research_vault/templates/ci/verify.yml research_vault/templates/ci/rw-batch.yml
       # -n here, never in addopts: ambient -n races the local Zotero and nests a pool per mutant.
       - name: Tests + branch coverage
         run: python -m pytest tests -q -n auto --dist worksteal --cov=research_vault
@@ -91,7 +114,9 @@ jobs:
       issues: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false  # gh authenticates through GH_TOKEN below
       - name: Compare upstream SPEC.md against the pin
         env:
           GH_TOKEN: ${{ github.token }}

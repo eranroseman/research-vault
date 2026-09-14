@@ -192,7 +192,7 @@ def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[O
             )
         ]
     recorded_ids = {p.server_id for _, p in pairs}
-    client.server_id = sorted(recorded_ids)[0]
+    client.server_id = min(recorded_ids)
     try:
         live = read_live(client)
     except DatabaseChangedError as error:

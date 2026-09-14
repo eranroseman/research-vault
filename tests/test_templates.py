@@ -288,9 +288,9 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     text = asset("ci/verify.yml").read_text()
     assert "name: verify\non: [push, pull_request]" in text
     assert "permissions:\n  contents: read" in text
-    assert "- uses: actions/checkout@v4" in text
+    assert "- uses: actions/checkout@v7" in text
     assert "fetch-depth: 0" in text
-    assert "- uses: actions/setup-python@v5" in text
+    assert "- uses: actions/setup-python@v7" in text
     assert "python-version: '3.12'" in text
     assert (
         'python -m pip install "research-vault @ git+https://github.com/eranroseman/'
@@ -328,9 +328,9 @@ def test_rw_workflow_has_explicit_csv_only_write_boundary():
     assert "workflow_dispatch: {}" in text
     assert "concurrency:\n  group: rw-batch\n  cancel-in-progress: false\n" in text
     assert "permissions:\n  contents: write" in text
-    assert "- uses: actions/checkout@v4" in text
+    assert "- uses: actions/checkout@v7" in text
     assert "fetch-depth: 0" in text
-    assert "- uses: actions/setup-python@v5" in text
+    assert "- uses: actions/setup-python@v7" in text
     assert "python-version: '3.12'" in text
     assert (
         'python -m pip install "research-vault @ git+https://github.com/eranroseman/'

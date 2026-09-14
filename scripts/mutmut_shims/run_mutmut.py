@@ -66,7 +66,9 @@ def patched(self, tests):
     return _orig(self, _widened(list(tests)))
 
 
-mm.PytestRunner._pytest_args_regular_run = patched
+# Monkeypatch by design (see the module docstring); mypy reads the assignment as a
+# method rewrite, which is exactly what it is.
+mm.PytestRunner._pytest_args_regular_run = patched  # type: ignore[method-assign]
 
 sys.argv = ["mutmut", "run", *sys.argv[1:]]
 mm.cli()

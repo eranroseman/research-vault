@@ -984,16 +984,22 @@ def test_load_rejects_invalid_dates_results_and_incomplete_notice_fingerprint(
 ):
     queue = fixture_vault / "inbox" / "review-queue.md"
     rows = [
-        "- [id:: doi/x/2026-02-30] [check:: doi] [target:: x] "
-        "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: research_vault/0.1.0] "
-        "[reason:: mismatch]",
-        "- [id:: doi/x/2026-08-16] [check:: doi] [target:: x] "
-        "[result:: MAYBE] [date:: 2026-08-16] [actor:: research_vault/0.1.0] "
-        "[reason:: mismatch]",
-        "- [id:: update-notice/x/2026-08-16] [check:: update-notice] "
-        "[target:: x] [result:: UNMATCHED] [date:: 2026-08-16] "
-        "[actor:: research_vault/0.1.0] [reason:: warn-notice — correction] "
-        "[notice-class:: warn]",
+        (
+            "- [id:: doi/x/2026-02-30] [check:: doi] [target:: x] "
+            "[result:: UNMATCHED] [date:: 2026-02-30] [actor:: research_vault/0.1.0] "
+            "[reason:: mismatch]"
+        ),
+        (
+            "- [id:: doi/x/2026-08-16] [check:: doi] [target:: x] "
+            "[result:: MAYBE] [date:: 2026-08-16] [actor:: research_vault/0.1.0] "
+            "[reason:: mismatch]"
+        ),
+        (
+            "- [id:: update-notice/x/2026-08-16] [check:: update-notice] "
+            "[target:: x] [result:: UNMATCHED] [date:: 2026-08-16] "
+            "[actor:: research_vault/0.1.0] [reason:: warn-notice — correction] "
+            "[notice-class:: warn]"
+        ),
     ]
     for row in rows:
         _write_body(queue, row + "\n")
@@ -1281,15 +1287,19 @@ def test_load_skips_blank_body_lines_but_still_counts_them(fixture_vault):
             "ack",
         ),
         (
-            "- [id:: {id}] [target:: smith2020] [result:: UNMATCHED] "
-            "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
-            "[reason:: mismatch]",
+            (
+                "- [id:: {id}] [target:: smith2020] [result:: UNMATCHED] "
+                "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
+                "[reason:: mismatch]"
+            ),
             "finding",
         ),
         (
-            "- [id:: {id}] [check:: doi] [target:: smith2020] [result:: UNMATCHED] "
-            "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
-            "[reason:: mismatch] [bogus:: x]",
+            (
+                "- [id:: {id}] [check:: doi] [target:: smith2020] [result:: UNMATCHED] "
+                "[date:: 2026-08-16] [actor:: research_vault/0.1.0] "
+                "[reason:: mismatch] [bogus:: x]"
+            ),
             "finding",
         ),
     ],

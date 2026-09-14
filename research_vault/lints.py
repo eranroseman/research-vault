@@ -684,7 +684,7 @@ def lint_evidence_layer(
         body = _body_bytes(candidate_files[raw_path])
         candidates = removed_by_body.get(body, []) if body is not None else []
         if candidates:
-            old_path = sorted(candidates)[0]
+            old_path = min(candidates)
             candidates.remove(old_path)
             paired_removed.add(old_path)
             paired_added.add(raw_path)
