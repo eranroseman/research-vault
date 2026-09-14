@@ -9,7 +9,9 @@ requires = [ "setuptools>=77" ]
 name = "research-vault"
 description = "Deterministic core for the research-vault plugin"
 license = "MIT"
-# Floor matches mutate4py's own >=3.11; nothing tests or claims 3.10.
+# 3.11 is where the stdlib the package and its lane lean on landed: datetime.UTC
+# (clock.py, capture.py), contextlib.chdir (the mutation gate), tomllib (the
+# config-validity tests). Nothing tests or claims 3.10.
 requires-python = ">=3.11"
 # Single-sourced from research_vault.__version__ (tool.setuptools.dynamic below).
 dynamic = [ "version" ]
@@ -40,7 +42,6 @@ dev = [
   "mdformat==1.0.0",
   "mdformat-frontmatter==2.1.2",
   "mdformat-gfm==1.0.0",
-  "mutate4py==0.1.4",
   "mutmut==3.7.0",
   "mypy==2.3.1",
   "pre-commit==4.6.2",

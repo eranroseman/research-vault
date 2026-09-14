@@ -18,6 +18,11 @@ jobs:
   quality:
     name: dev-quality lane (advisory)
     runs-on: ubuntu-latest
+    # From the mutation gate's measured rate (its step comment below): the
+    # budget-sized worst case is ≈254 min end to end, plus ≈18 % variance. Below
+    # GitHub's own 360, so an overrun reads as this job's timeout, not the
+    # platform's.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v7
         with:
@@ -116,15 +121,18 @@ jobs:
       # --max-mutants 9000 is the CI mutant budget: a changed set that would run
       # more mutants is reported as "not measured" (exit 0) instead of run, so an
       # integration-sized diff reads unmeasured rather than hitting the 360-minute
-      # job limit. Arithmetic (PROVISIONAL until the second observed run measures
-      # the runner's rate): 360 min × 0.75 (25 % headroom for the other steps and
-      # variance) = 270 min; minus ≈10 min of fixed cost per run (the steps before
-      # the gate took 1 min 50 s on run 34822363722; mutant generation 78 s and
-      # the stats phase ≈5 min happen once per gate run; the count itself ≈1 min)
-      # = 260 min = 15,600 s of mutant time; × 0.6 mutants/s — the conservative
-      # end of the rate assumed for two children on the 4-vCPU runner, scaled
-      # from the local blanket run's 17,151 mutants in ≈116 min at six children
-      # (≈2.5/s, ≈0.41/s per child) — = 9,360, rounded down.
+      # job limit. Arithmetic, MEASURED on run 34827110718 (2026-09-14, a
+      # one-module diff — scaffold.py, 1,308 mutants — at two children on the
+      # 4-vCPU runner: gate step 41 min 02 s, ≈0.53 mutants/s step-inclusive).
+      # mutmut's phases are not separable in the log, so the fixed cost per gate
+      # run is taken as ≈5 min (mutant generation 78 s and the stats phase ≈3 min
+      # on run 34822363722, plus the per-module clean run), which puts the mutant
+      # phase at 1,308 / ((41.0 − 5) × 60) ≈ 0.61 mutants/s; the other steps take
+      # ≈3 min. 9,000 / 0.61 / 60 ≈ 246 min of mutants + 5 + 3 ≈ 254 min: under
+      # 360 with ≈30 % headroom, so the provisional 9,000 (360 × 0.75 − 10 min at
+      # an assumed 0.6/s) stands as measured. timeout-minutes on the job (300) is
+      # this worst case plus ≈18 % variance. The steady state is small diffs
+      # (one module ≈40 min); an oversize one is run locally.
       - name: Mutation gate (no new survivors)
         run: python scripts/mutation_gate.py --base "origin/${{ github.base_ref || 'main' }}"
           --max-children 2 --child-address-space 3GiB --max-mutants 9000
