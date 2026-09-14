@@ -1622,3 +1622,198 @@ def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources(
     assert reduced.extra["warn_notices"][0]["type"] == "correction"
     assert checks.outcome_to_record(live) == live_record
     assert checks.outcome_to_record(rw) == rw_record
+
+
+# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+
+_ARXIV_ENTRY = {
+    "id": "preprint",
+    "DOI": "10.48550/arxiv.2401.12345",
+    "URL": "https://arxiv.org/abs/2401.12345v2",
+    "version": "v2",
+}
+
+
+def _arxiv(monkeypatch, net_vault, feed_status, feed, entry=_ARXIV_ENTRY):
+    seen = []
+
+    def fake_text(url, vault_root, params=None, headers=None, timeout=10.0):
+        seen.append(vault_root)
+        return feed_status, feed
+
+    _fake_get(
+        monkeypatch,
+        {
+            "doi.org/doiRA/": _notice_route("10.48550/arxiv.2401.12345", "DataCite"),
+            "api.openalex.org/works/": (200, {"is_retracted": False}),
+        },
+    )
+    monkeypatch.setattr(webapi, "get_text", fake_text)
+    outcome = checks.check_update_notice(net_vault, entry, "2026-08-16")
+    assert seen == [net_vault]
+    return outcome
+
+
+@pytest.mark.parametrize(
+    ("feed_status", "feed"),
+    [
+        (500, ARXIV_FEED),
+        (200, "<not xml"),
+        (200, ARXIV_MULTI_FEED),
+        (200, ARXIV_FEED.replace("2401.12345", "2401.99999", 1)),
+        (200, ARXIV_FEED.replace("2401.12345v2", "2401.12345", 1)),
+        (
+            200,
+            ARXIV_FEED.replace(
+                "  </entry>",
+                "    <arxiv:comment>This submission has been withdrawn.</arxiv:comment>\n"
+                "  </entry>",
+            ),
+        ),
+        (200, ARXIV_FEED.replace("pdf/2401.12345v2", "pdf/2401.12345v3", 1)),
+        (200, ARXIV_FEED.replace("abs/2401.12345v2", "abs/2401.99999v2", 1)),
+    ],
+    ids=[
+        "http-500-with-a-good-body",
+        "unparseable",
+        "multiple-entries",
+        "wrong-id",
+        "unversioned-alternate",
+        "withdrawal-comment-with-live-pdf",
+        "pdf-version-differs",
+        "alternate-names-another-id",
+    ],
+)
+def test_update_notice_arxiv_every_unreachable_branch_names_the_provider(
+    net_vault, monkeypatch, feed_status, feed
+):
+    outcome = _arxiv(monkeypatch, net_vault, feed_status, feed)
+    assert (outcome.check, outcome.target, outcome.result, outcome.reason) == (
+        "update-notice",
+        "preprint",
+        Result.UNREACHABLE,
+        "outage — arXiv version status unavailable",
+    )
+
+
+def test_update_notice_arxiv_version_mismatch_and_match_are_full_rows(
+    net_vault, monkeypatch
+):
+    older = dict(_ARXIV_ENTRY, version="v1")
+    outcome = _arxiv(monkeypatch, net_vault, 200, ARXIV_FEED, entry=older)
+    assert (outcome.check, outcome.target, outcome.result, outcome.reason) == (
+        "update-notice",
+        "preprint",
+        Result.UNMATCHED,
+        "mismatch — arXiv version differs",
+    )
+    outcome = _arxiv(monkeypatch, net_vault, 200, ARXIV_FEED)
+    assert (outcome.check, outcome.target, outcome.result, outcome.reason) == (
+        "update-notice",
+        "preprint",
+        Result.MATCHED,
+        "matched",
+    )
+
+
+def test_update_notice_arxiv_link_filters_need_both_rel_and_type(
+    net_vault, monkeypatch
+):
+    """An extra link that matches only one half of either filter (an
+    `alternate` PDF, a `related` HTML page) is not an identity: the feed
+    still reads as one alternate and one PDF, and the version matches."""
+    feed = ARXIV_FEED.replace(
+        "  </entry>",
+        '    <link href="https://arxiv.org/pdf/2401.12345v2" rel="alternate" type="application/pdf" />\n'
+        '    <link href="https://arxiv.org/abs/2401.12345v9" rel="related" type="text/html" />\n'
+        "  </entry>",
+    )
+    outcome = _arxiv(monkeypatch, net_vault, 200, feed)
+    assert outcome.result is Result.MATCHED
+
+
+def test_update_notice_arxiv_withdrawal_carries_the_detection_date(
+    net_vault, monkeypatch
+):
+    withdrawn = ARXIV_FEED.replace(
+        '<link href="https://arxiv.org/pdf/2401.12345v2" rel="related" '
+        'type="application/pdf" title="pdf" />',
+        "<arxiv:comment>This submission has been withdrawn by the authors.</arxiv:comment>",
+    )
+    outcome = _arxiv(monkeypatch, net_vault, 200, withdrawn)
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.extra["detection_date"] == "2026-08-16"
+
+
+def test_crossref_notices_reinstatement_rows_and_unknown_types_pass_through():
+    """A reinstatement is a blocking-list row of its own type; a type the
+    registry does not know is neither blocking nor warn -- and neither ends
+    the walk over the notices after it."""
+    payload = {
+        "message": {
+            "updated-by": [
+                {"type": "new_edition", "updated": {"date-parts": [[2023]]}},
+                {"type": "reinstatement", "updated": {"date-parts": [[2024, 2]]}},
+                {"type": "correction", "updated": {"date-parts": [[2024, 3, 4]]}},
+            ]
+        }
+    }
+    assert checks._crossref_notices(payload) == (
+        [{"type": "reinstatement", "notice_date": "2024-02"}],
+        [{"type": "correction", "notice_date": "2024-03-04"}],
+    )
+
+
+def test_crossref_relation_retractions_skip_a_shapeless_entry_and_keep_reading():
+    """An is-retracted-by entry without a non-empty string id is passed over,
+    not the end of the relation walk: the well-formed one after it still
+    rows a relation-sourced retraction."""
+    payload = {
+        "message": {
+            "updated-by": [],
+            "relation": {"is-retracted-by": [{"id": ""}, "junk", {"id": "10.1000/r1"}]},
+        }
+    }
+    assert checks._crossref_notices(payload) == (
+        [
+            {
+                "type": "retraction",
+                "notice_date": None,
+                "source": "relation",
+                "id": "10.1000/r1",
+            }
+        ],
+        [],
+    )
+
+
+def test_notice_date_validation_shapes():
+    """Absent or null date-parts is no date; the outer list must hold exactly
+    one inner list of at most three ints; a month/day is validated as given
+    and never invented."""
+    invalid = checks._INVALID
+    assert checks._notice_date_from_updated({}) is None
+    assert checks._notice_date_from_updated({"date-parts": None}) is None
+    assert checks._notice_date_from_updated({"date-parts": [[2023], [2024]]}) is invalid
+    assert checks._notice_date_from_updated({"date-parts": [2023]}) is invalid
+    assert (
+        checks._notice_date_from_updated({"date-parts": [[2023, 1, 2, 3]]}) is invalid
+    )
+    assert checks._notice_date_from_updated({"date-parts": [[2023, 2, 29]]}) is invalid
+    assert checks._notice_date_from_updated({"date-parts": [[2023, 2, 28]]}) == (
+        "2023-02-28"
+    )
+
+
+def test_dates_of_equal_partial_precision_are_comparable_only_when_equal():
+    assert checks._dates_incomparable("2023-06", "2023-06") is True
+    assert checks._dates_incomparable("2023-06", "2023-07") is False
+    assert checks._dates_incomparable("2023", "2023-06") is True
+    assert checks._dates_incomparable("2023-06-01", "2023-06-02") is False
+
+
+def test_rw_date_treats_only_none_and_blank_strings_as_absent():
+    assert checks._rw_date(None) is None
+    assert checks._rw_date("   ") is None
+    assert checks._rw_date(20230102) is checks._INVALID
+    assert checks._rw_date("") is None

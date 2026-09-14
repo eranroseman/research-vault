@@ -437,3 +437,70 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
     assert not (vault / ".github/workflows/verify.yml").exists()
     assert (vault / ".git/hooks/pre-commit").stat().st_mode & 0o111 == 0o111
     assert rw_workflow.stat().st_mode & 0o111 == 0
+
+
+# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+
+
+@pytest.mark.parametrize(
+    ("relative", "flags"),
+    [
+        (".research-vault/machine.json", {}),
+        (".github/workflows/verify.yml", {"with_ci": True}),
+        (".github/workflows/rw-batch.yml", {"with_rw_ci": True}),
+    ],
+)
+def test_scaffold_refuses_a_staged_deletion_of_each_optional_owned_target(
+    tmp_path, relative, flags
+):
+    """Each of the three optional owned paths is a preflight candidate exactly
+    when scaffold would create it: tracked but deleted from the worktree is
+    the conflict, named by its path."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    target = vault / relative
+    target.parent.mkdir(parents=True)
+    target.write_text("user version\n")
+    git(vault, "add", "--", relative)
+    git(vault, "commit", "-qm", "baseline")
+    target.unlink()
+    git(vault, "add", "--", relative)
+
+    with pytest.raises(
+        ValueError, match=f"scaffold conflict with tracked path: {relative}"
+    ):
+        scaffold.scaffold_vault(vault, **flags)
+    assert not (vault / "inbox").exists()
+
+
+def test_scaffold_ignores_a_tracked_workflow_it_was_not_asked_for_and_its_own_commits(
+    tmp_path,
+):
+    """A tracked-but-deleted workflow is no conflict when its flag is off, and
+    a second scaffold over the workflows and machine.json it committed or
+    wrote itself is a no-op, never a conflict."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    workflow = vault / ".github" / "workflows" / "verify.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("user version\n")
+    git(vault, "add", "--", ".github/workflows/verify.yml")
+    git(vault, "commit", "-qm", "baseline")
+    workflow.unlink()
+    git(vault, "add", "--", ".github/workflows/verify.yml")
+    created = scaffold.scaffold_vault(vault, with_rw_ci=True)
+    assert ".github/workflows/rw-batch.yml" in created
+    assert ".github/workflows/verify.yml" not in created
+
+    git(vault, "add", "-f", "--", ".research-vault/machine.json")
+    git(vault, "commit", "-qm", "track machine.json")
+    assert scaffold.scaffold_vault(vault, with_rw_ci=True) == []
+
+    # The user's own verify.yml committed again (past the vault's verifier
+    # hook, which is not under test here): asking for CI over it is a no-op
+    # too, not a conflict and not an overwrite.
+    workflow.write_text("user version\n")
+    git(vault, "add", "--", ".github/workflows/verify.yml")
+    git(vault, "commit", "--no-verify", "-qm", "the user's own workflow")
+    assert scaffold.scaffold_vault(vault, with_ci=True, with_rw_ci=True) == []
+    assert workflow.read_text() == "user version\n"

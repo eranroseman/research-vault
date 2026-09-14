@@ -4,6 +4,7 @@ import subprocess
 import pytest
 
 from research_vault import Result, frontmatter, gitstate, lints, notes
+from research_vault.pathcodec import RepoPath
 from tests.conftest import must_replace
 
 
@@ -989,3 +990,182 @@ def test_screening_state_is_retired(fixture_vault):
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     checks = {outcome.check for outcome in verify.file_outcomes(fixture_vault, draft)}
     assert "screening-state" not in checks
+
+
+# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+
+
+def _file(raw, data):
+    return gitstate.FileImage(raw, "file", 0o100644, data)
+
+
+_CLAIM = b'---\ncitationKey: "smith2020"\n---\n- (inference) A claim [@smith2020, p. 1] ^c-1\n'
+_MUTATED = _CLAIM.replace(b"A claim", b"A changed claim")
+
+
+def test_claim_immutability_watches_only_md_notes_under_its_roots(tmp_vault):
+    """A mutated claim in a wiki page or in a non-.md file under literatures/
+    is not this lint's business; the same mutation under literatures/ is."""
+    base = gitstate.Snapshot(
+        {
+            b"wiki/concepts/a.md": _file(b"wiki/concepts/a.md", _CLAIM),
+            b"literatures/a.txt": _file(b"literatures/a.txt", _CLAIM),
+            b"literatures": gitstate.FileImage(
+                b"literatures", "directory", 0o40000, None
+            ),
+            b"literatures/b.md": _file(b"literatures/b.md", _CLAIM),
+        }
+    )
+    candidate = gitstate.Snapshot(
+        {
+            b"wiki/concepts/a.md": _file(b"wiki/concepts/a.md", _MUTATED),
+            b"literatures/a.txt": _file(b"literatures/a.txt", _MUTATED),
+            b"literatures/b.md": _file(b"literatures/b.md", _MUTATED),
+        }
+    )
+    outs = lints.lint_claim_immutability(tmp_vault, base, candidate)
+    assert [(o.check, o.target, o.result) for o in outs] == [
+        ("claim-immutability", "smith2020#^c-1", Result.UNMATCHED)
+    ]
+    assert (
+        outs[0].reason == "drift — claim ^c-1 mutated or vanished without deprecation"
+    )
+
+
+def test_claim_immutability_walks_past_a_candidate_only_note_to_the_drift_after_it(
+    tmp_vault,
+):
+    """A note the base does not carry (new in the candidate) sorts first and
+    is passed over, not the end of the walk: the mutated note after it still
+    rows its drift."""
+    base = gitstate.Snapshot({b"literatures/b.md": _file(b"literatures/b.md", _CLAIM)})
+    candidate = gitstate.Snapshot(
+        {
+            b"literatures/a.md": _file(b"literatures/a.md", _CLAIM),
+            b"literatures/b.md": _file(b"literatures/b.md", _MUTATED),
+        }
+    )
+    outs = lints.lint_claim_immutability(tmp_vault, base, candidate)
+    assert [(o.check, o.target, o.result) for o in outs] == [
+        ("claim-immutability", "smith2020#^c-1", Result.UNMATCHED)
+    ]
+
+
+def test_claim_target_is_the_claim_link_only_for_a_non_empty_string_key():
+    text = '---\ncitationKey: "smith2020"\n---\n'
+    assert lints._claim_target(b"literatures/x.md", text, "c-1") == "smith2020#^c-1"
+    for key in ('""', "5"):
+        text = f"---\ncitationKey: {key}\n---\n"
+        assert lints._claim_target(b"literatures/x.md", text, "c-1") == RepoPath(
+            b"literatures/x.md"
+        )
+
+
+def test_claim_immutability_rows_a_malformed_candidate_by_its_path(tmp_vault):
+    """A candidate whose frontmatter no longer parses is a schema row on the
+    note's path (the head still parses); a deleted note whose head never
+    parsed is not a schema row, only its vanished claims are drift."""
+    base = gitstate.Snapshot({b"literatures/b.md": _file(b"literatures/b.md", _CLAIM)})
+    candidate = gitstate.Snapshot(
+        {b"literatures/b.md": _file(b"literatures/b.md", b"---\nnot a mapping\n---\n")}
+    )
+    outs = lints.lint_claim_immutability(tmp_vault, base, candidate)
+    assert (outs[0].check, outs[0].target, outs[0].result, outs[0].reason) == (
+        "claim-immutability",
+        "path-bytes:literatures/b.md",
+        Result.UNMATCHED,
+        "schema-violation — malformed frontmatter",
+    )
+    malformed_head = gitstate.Snapshot(
+        {
+            b"literatures/c.md": _file(
+                b"literatures/c.md",
+                b"---\nnot a mapping\n---\n- (inference) x [@smith2020, p. 1] ^c-9\n",
+            )
+        }
+    )
+    outs = lints.lint_claim_immutability(
+        tmp_vault, malformed_head, gitstate.Snapshot({})
+    )
+    assert [(o.result, o.reason.split(" — ")[0]) for o in outs] == [
+        (Result.UNMATCHED, "drift")
+    ]
+
+
+def test_claim_immutability_on_a_repository_without_a_head_reads_an_empty_base(
+    tmp_path,
+):
+    vault = tmp_path / "vault"
+    (vault / "literatures").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=vault, check=True)
+    (vault / "literatures" / "a.md").write_bytes(_CLAIM)
+    assert lints.lint_claim_immutability(vault) == []
+
+
+def test_disputed_claim_links_walk_every_page_and_name_it_by_key_or_stem(tmp_vault):
+    """A page's disputing claims are keyed by its citationKey when it has a
+    non-empty string one and by its stem otherwise; a claim without
+    `disputes` before a disputing one does not end the walk; a disputing
+    claim without `supports` adds only its own link; a page whose
+    frontmatter does not parse is one schema row and still read."""
+    wiki = tmp_vault / "wiki" / "concepts"
+    wiki.mkdir(parents=True, exist_ok=True)
+    (wiki / "keyed.md").write_text(
+        '---\ncitationKey: "keyed2020"\n---\n'
+        "- (inference) Plain [@a2020] ^c-0\n"
+        "- (inference) Dispute [disputes:: [[x2020#^c-5]]] ^c-1\n"
+    )
+    (wiki / "blank-key.md").write_text(
+        '---\ncitationKey: ""\n---\n'
+        "- (inference) Dispute [disputes:: [[x2020#^c-5]]] "
+        "[supports:: [[y2020#^c-6]]] ^c-2\n"
+    )
+    (wiki / "broken.md").write_text(
+        "---\nnot a mapping\n---\n- (inference) Dispute [disputes:: [[x2020#^c-5]]] ^c-3\n"
+    )
+    disputed, outcomes = lints.disputed_claim_links(tmp_vault)
+    assert disputed == {"keyed2020#^c-1", "blank-key#^c-2", "y2020#^c-6", "broken#^c-3"}
+    assert [(o.check, o.target, o.result, o.reason) for o in outcomes] == [
+        (
+            "disputed-claim",
+            "path-bytes:wiki/concepts/broken.md",
+            Result.UNMATCHED,
+            "schema-violation — malformed frontmatter",
+        )
+    ]
+
+
+def test_origin_targets_the_claim_link_only_with_a_key_and_an_anchor(tmp_vault):
+    from research_vault import claims as claims_mod
+
+    note = tmp_vault / "projects" / "brief" / "draft.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text('---\ncitationKey: "brief2020"\n---\n')
+    anchored = claims_mod.Claim("inference", "smith2020", None, "c-1", 4)
+    unanchored = claims_mod.Claim("inference", "smith2020", None, None, 4)
+    target, extra = lints._origin(tmp_vault, note, anchored)
+    assert target == "brief2020#^c-1"
+    assert extra == {
+        "note_path": RepoPath(b"projects/brief/draft.md"),
+        "claim_id": "c-1",
+    }
+    target, _extra = lints._origin(tmp_vault, note, unanchored)
+    assert target == RepoPath(b"projects/brief/draft.md")
+    note.write_text('---\ncitationKey: ""\n---\n')
+    target, _extra = lints._origin(tmp_vault, note, anchored)
+    assert target == RepoPath(b"projects/brief/draft.md")
+
+
+def test_body_bytes_and_frontmatter_need_a_file_image():
+    directory = gitstate.FileImage(b"literatures/d", "directory", 0o40000, None)
+    assert lints._body_bytes(None) is None
+    assert lints._body_bytes(directory) is None
+    assert lints._frontmatter(None) is None
+    assert lints._frontmatter(directory) is None
+    note = _file(b"literatures/a.md", _CLAIM)
+    assert lints._body_bytes(note) == b"- (inference) A claim [@smith2020, p. 1] ^c-1\n"
+    assert lints._frontmatter(note) == {"citationKey": "smith2020"}
+    # An empty file reads as an empty body and no frontmatter, not as junk.
+    empty = _file(b"literatures/a.md", b"")
+    assert lints._body_bytes(empty) == b""
+    assert lints._frontmatter(empty) == lints._frontmatter(_file(b"x.md", b"body\n"))

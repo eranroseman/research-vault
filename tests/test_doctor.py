@@ -117,6 +117,21 @@ def test_cmd_doctor_warn_only_failures_exit_zero_and_print_warn_prefix(
     assert line.startswith(f"warn:{state.value} {name}")
 
 
+def test_cmd_doctor_warn_prefix_needs_both_a_warn_only_check_and_a_failure(
+    monkeypatch, capsys
+):
+    """`warn:` marks a warn-only check that failed -- never a hard check's
+    failure, never a warn-only check that passed."""
+    _code, captured = _run_cmd(monkeypatch, capsys, _probes())
+    assert not [line for line in captured.out.splitlines() if line.startswith("warn:")]
+    _code, captured = _run_cmd(
+        monkeypatch, capsys, _probes(tree=Result.UNMATCHED, remote=Result.UNREACHABLE)
+    )
+    lines = captured.out.splitlines()
+    assert "UNMATCHED tree — tree detail" in lines
+    assert "warn:UNREACHABLE remote — remote detail" in lines
+
+
 def test_cmd_doctor_hard_unmatched_wins_over_hard_unreachable(monkeypatch, capsys):
     code, _ = _run_cmd(
         monkeypatch,
@@ -878,3 +893,28 @@ def test_doctor_base_routes_before_and_after_subcommand(
     assert cli.main(argv) == 0
     assert bases == [expected]
     assert len(capsys.readouterr().out.splitlines()) == 13
+
+
+# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+
+
+def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_list(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        scaffold,
+        "_installed_plugins",
+        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "ad67087cad22"}]},
+    )
+    probe = scaffold._compile_tool_probe()
+    assert (probe.check, probe.result, probe.reason) == (
+        "compile-tool",
+        Result.MATCHED,
+        f"{COMPILE_PLUGIN} at ad67087",
+    )
+    monkeypatch.setattr(scaffold, "_installed_plugins", lambda: {COMPILE_PLUGIN: []})
+    probe = scaffold._compile_tool_probe()
+    assert (probe.result, probe.reason) == (
+        Result.SKIPPED,
+        f"{COMPILE_PLUGIN} not installed",
+    )

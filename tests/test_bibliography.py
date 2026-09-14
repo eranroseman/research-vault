@@ -75,3 +75,21 @@ def test_load_classifies_undecodable_bibliography_as_unreachable(tmp_vault):
 def test_autoexport_surface_is_gone():
     for name in ("observe_autoexport", "staleness", "commit_autoexport"):
         assert not hasattr(bibliography, name)
+
+
+# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+
+
+def test_write_renders_two_space_indented_json_with_non_ascii_kept(tmp_vault):
+    """The CSL file's bytes are a committed artifact: two-space indent,
+    non-ASCII as is, one trailing newline, UTF-8."""
+    path = bibliography.write(
+        tmp_vault, [{"id": "müller2020", "type": "book", "title": "Größe → x"}]
+    )
+    assert (
+        path.read_bytes()
+        == (
+            '[\n  {\n    "id": "müller2020",\n    "type": "book",\n'
+            '    "title": "Größe → x"\n  }\n]\n'
+        ).encode()
+    )

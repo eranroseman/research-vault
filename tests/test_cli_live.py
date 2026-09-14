@@ -68,3 +68,15 @@ def test_base_option_works_before_and_after_subcommand(monkeypatch, capsys):
         "server": FakeClient("unused").server_info(),
         "bbt": {"zotero": "10.0.1", "betterbibtex": "9.0.63"},
     }
+
+
+def test_probe_unreachable_in_process_is_exit_3(dead_base, capsys):
+    """The same refusal the subprocess test measures, reached through
+    `main()` so the exit code is pinned in-process too."""
+    import research_vault.__main__ as cli
+
+    assert cli.main(["probe", "--base", dead_base]) == 3
+    report = json.loads(capsys.readouterr().out)
+    assert report["result"] == "UNREACHABLE"
+    assert set(report) == {"result", "detail"}
+    assert "127.0.0.1" in report["detail"]

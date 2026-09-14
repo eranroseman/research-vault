@@ -162,6 +162,51 @@ def test_selection_respects_the_cap_and_returns_the_tail_as_skipped(tmp_vault):
     } == {ref.claim_link for ref in refs}
 
 
+def test_select_claims_accepts_a_zero_cap_and_skips_everything(tmp_vault):
+    """Zero is a cap, not a fault: nothing selected, every claim skipped."""
+    draft_path = _write_vault(
+        tmp_vault,
+        {"smith2020": _note("smith2020", "# Note\n")},
+        "- (inference) Claim [@smith2020, p. 1] ^c-00000001\n",
+    )
+    refs = factcheck.eligible_claims(tmp_vault, draft_path)
+    selected, skipped = factcheck.select_claims(tmp_vault, refs, set(), cap=0)
+    assert (selected, [r.claim_link for r in skipped]) == (
+        [],
+        ["smith2020#^c-00000001"],
+    )
+
+
+def test_contested_adjacent_links_skips_unlinkable_claims_and_keeps_walking(
+    tmp_vault,
+):
+    """A claim without a citation key, and one without an anchor, cannot be
+    contested-adjacent even when they support disputed evidence -- and they
+    do not stop the claim after them from being found."""
+    (tmp_vault / "literatures" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
+    (tmp_vault / "literatures" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
+    (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
+        '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
+        "- (inference) Contested [supports:: [[smith2020#^c-11111111]]] "
+        "[disputes:: [[gone2019#^c-22222222]]] ^c-99999999\n"
+    )
+    project = tmp_vault / "projects" / "brief"
+    project.mkdir(parents=True)
+    draft_path = project / "draft.md"
+    draft_path.write_text(
+        _draft(
+            "- (open-question) No citation [supports:: [[smith2020#^c-11111111]]] ^c-44444444\n"
+            "- (paraphrase) No anchor [@smith2020, p. 1] [supports:: [[smith2020#^c-11111111]]]\n"
+            "- (paraphrase) Builds on it [@smith2020, p. 1] "
+            "[supports:: [[smith2020#^c-11111111]]] ^c-33333333\n"
+        )
+    )
+    assert factcheck.contested_adjacent_links(tmp_vault, draft_path) == {
+        "smith2020#^c-33333333"
+    }
+
+
 def test_select_claims_rejects_a_negative_cap(tmp_vault):
     with pytest.raises(ValueError, match="cap"):
         factcheck.select_claims(tmp_vault, [], set(), cap=-1)
@@ -297,6 +342,27 @@ def test_factcheck_subcommand_prints_json_and_exits_zero(tmp_vault, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["cap"] == 1
     assert len(payload["selected"]) == 1
+
+
+def test_factcheck_subcommand_takes_an_absolute_or_vault_relative_draft_and_prints_sorted_json(
+    tmp_vault, capsys
+):
+    """An absolute --draft is used as given, a relative one is joined to the
+    vault, --cap defaults to the module's cap, and the report prints as
+    two-space-indented JSON with sorted keys."""
+    draft_path = _write_vault(
+        tmp_vault,
+        {"smith2020": _note("smith2020", "# Note\n")},
+        "- (inference) Only claim [@smith2020, p. 1] ^c-11111111\n",
+    )
+    for draft in (str(draft_path), "projects/brief/draft.md"):
+        code = main(["factcheck", "--vault", str(tmp_vault), "--draft", draft])
+        assert code == 0
+        out = capsys.readouterr().out
+        payload = json.loads(out)
+        assert out == json.dumps(payload, indent=2, sort_keys=True) + "\n"
+        assert payload["cap"] == factcheck.DEFAULT_CAP
+        assert len(payload["selected"]) == 1
 
 
 def test_factcheck_subcommand_reports_a_missing_draft_without_a_traceback(

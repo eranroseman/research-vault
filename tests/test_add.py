@@ -366,3 +366,126 @@ def test_cli_add_reports_a_named_failure_as_exit_2(tmp_vault, monkeypatch, capsy
     monkeypatch.setattr(capture, "_store_key", failing)
     assert cli.main(["add", "--vault", str(tmp_vault), "--item", item]) == 2
     assert capsys.readouterr().err.startswith("add unavailable: [Errno 28]")
+
+
+# --- rows the blanket mutation run (Plan W Task 25) found unpinned ------------
+
+
+def test_add_rows_an_invalid_batch_and_a_failed_server_read_on_add(
+    tmp_vault, monkeypatch
+):
+    """Both refusals before any write carry the check, the `add` target and
+    the full reason -- the schema violation as UNMATCHED, the /api/ outage
+    through `blocked` as UNREACHABLE."""
+    fake, client = _fake_for_add(monkeypatch)
+    (row,) = capture.add(tmp_vault, client, [])
+    assert (row.check, row.target, row.result, row.reason) == (
+        "capture",
+        "add",
+        Result.UNMATCHED,
+        "schema-violation — items must be a non-empty list of at most 50 objects",
+    )
+    fake.get("/api/", status=500, body=b"")
+    (row,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    assert (row.check, row.target, row.result) == (
+        "capture",
+        "add",
+        Result.UNREACHABLE,
+    )
+    assert row.reason.startswith("outage — local API HTTP 500")
+    assert not [c for c in fake.calls if c[0] == "POST"]
+
+
+def test_add_names_the_add_target_on_a_recorded_server_mismatch(tmp_vault, monkeypatch):
+    _fake, client = _fake_for_add(monkeypatch)
+    (tmp_vault / "literatures" / "x.md").write_text(
+        '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "AAAA0000"\n'
+        'zotero-item-version: 1\ncitationKey: "x"\nattachments:\nfulltext:\n---\n'
+    )
+    (row,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    assert (row.check, row.target, row.result, row.reason) == (
+        "capture",
+        "add",
+        Result.UNMATCHED,
+        "database-changed — notes record Tdoqsn2J4q4h, Zotero answers 6LpvURP2E933",
+    )
+
+
+def test_add_reports_a_partial_or_malformed_create_as_a_mismatch_naming_failed(
+    tmp_vault, monkeypatch
+):
+    """A create envelope with anything under `failed` is a mismatch even when
+    `successful` also names a key, and an entry under `successful` that is
+    not an object counts as no key created -- never a traceback."""
+    fake, client = _fake_for_add(monkeypatch)
+    fake.post(
+        "/api/users/0/items",
+        body={
+            "successful": {"0": {"key": "E352DFS8", "version": 544}},
+            "unchanged": {},
+            "failed": {"1": {"code": 400, "message": "bad"}},
+        },
+    )
+    (row,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    assert (row.target, row.result, row.reason) == (
+        "add",
+        Result.UNMATCHED,
+        "mismatch — create failed: {'1': {'code': 400, 'message': 'bad'}}",
+    )
+    fake.post(
+        "/api/users/0/items",
+        body={"successful": {"0": "E352DFS8"}, "unchanged": {}, "failed": {}},
+    )
+    (row,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+    assert (row.result, row.reason) == (
+        Result.UNMATCHED,
+        "mismatch — create failed: {}",
+    )
+
+
+def test_add_posts_each_item_whole_names_every_created_key_and_captures_at_now(
+    tmp_vault, monkeypatch
+):
+    from research_vault import frontmatter
+
+    fake, client = _fake_for_add(monkeypatch)
+    fake.post(
+        "/api/users/0/items",
+        body={
+            "successful": {
+                "0": {"key": "E352DFS8", "version": 544},
+                "1": {"key": "F441KKD2", "version": 545},
+            },
+            "unchanged": {},
+            "failed": {},
+        },
+    )
+    items = [
+        {"itemType": "journalArticle", "title": "T"},
+        {"itemType": "book", "title": "U", "tags": [{"tag": "x"}]},
+    ]
+    import datetime
+
+    outcomes = capture.add(
+        tmp_vault,
+        client,
+        items,
+        collection="IQZW5UVX",
+        now=datetime.datetime.fromisoformat("2026-09-07T10:00:00Z"),
+    )
+
+    assert outcomes[0].reason == "matched — created E352DFS8, F441KKD2"
+    assert json.loads(fake._last_post_body) == [
+        {"itemType": "journalArticle", "title": "T", "collections": ["IQZW5UVX"]},
+        {
+            "itemType": "book",
+            "title": "U",
+            "tags": [{"tag": "x"}],
+            "collections": ["IQZW5UVX"],
+        },
+    ]
+    data, _body = frontmatter.parse(
+        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["accessed"] == "2026-09-07"
+    assert data["generated"]["at"] == "2026-09-07T10:00:00Z"

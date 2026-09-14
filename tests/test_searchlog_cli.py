@@ -265,6 +265,58 @@ def test_search_log_refuses_a_query_entry_missing_source_or_hits(fixture_vault, 
     assert not _log_path(fixture_vault).exists()
 
 
+@pytest.mark.parametrize(
+    "given", [["--source", "s"], ["--hits", "3"]], ids=["no-hits", "no-source"]
+)
+def test_search_log_refuses_a_query_entry_missing_either_source_or_hits(
+    fixture_vault, capsys, given
+):
+    """One of the two is not enough: the refusal names both, before any write."""
+    code = main(
+        [
+            "search-log",
+            "--vault",
+            str(fixture_vault),
+            "--project",
+            "brief",
+            "--query",
+            "q",
+            *given,
+        ]
+    )
+
+    assert code == 2
+    assert capsys.readouterr().err.rstrip() == (
+        "search-log refused: --query requires --source and --hits"
+    )
+    assert not _log_path(fixture_vault).exists()
+
+
+def test_search_log_records_the_given_date_and_actor_on_a_search_run(fixture_vault):
+    code = main(
+        [
+            "search-log",
+            "--vault",
+            str(fixture_vault),
+            "--project",
+            "brief",
+            "--query",
+            "q",
+            "--source",
+            "PubMed",
+            "--hits",
+            "2",
+            "--date",
+            "2026-01-02",
+            "--actor",
+            "human:eran",
+        ]
+    )
+    assert code == 0
+    entry = searchlog.load(fixture_vault, "brief")[0]
+    assert (entry.date, entry.actor) == ("2026-01-02", "human:eran")
+
+
 def test_search_log_refuses_a_not_admitted_entry_missing_reason(fixture_vault, capsys):
     code = main(
         [

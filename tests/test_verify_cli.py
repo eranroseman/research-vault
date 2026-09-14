@@ -20,6 +20,7 @@ from research_vault import (
     gitstate,
     inbox,
     notes,
+    zotero,
 )
 from research_vault.__main__ import cmd_inbox, cmd_verify, main
 from research_vault.pathcodec import PathCodecError, RepoPath, encode_repo_path
@@ -479,6 +480,325 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
     source = (net_vault / "literatures" / "smith2020.md").read_text()
     recorded = {event["check"] for event in events.verified_checks(source)}
     assert "quote:smith2020#^c-66666666:managed-region" in recorded
+
+
+# --- the CLI's parser and pass-through contract (Plan W Task 25 survivors) ----
+
+_SUBCOMMANDS_WITH_VAULT = [
+    ["capture", "K"],
+    ["add", "--item", "i.json"],
+    ["propagate"],
+    ["verify"],
+    ["factcheck", "--draft", "d.md"],
+    ["trust-tier", "key2020"],
+    ["arm-publish", "brief"],
+    ["disarm-publish"],
+    ["mark-published", "brief"],
+    ["mark-corrected", "brief"],
+    ["mark-withdrawn", "brief"],
+    ["mark-parked", "brief"],
+    ["ack", "f-1", "--reason", "r", "--actor", "human:x"],
+    ["finding", "quote", "t", "UNMATCHED", "reason"],
+    ["search-log", "--project", "brief"],
+    ["inbox"],
+    ["scaffold"],
+    ["doctor"],
+    ["stamp-type"],
+]
+
+
+@pytest.mark.parametrize("argv", _SUBCOMMANDS_WITH_VAULT, ids=lambda a: a[0])
+def test_every_vault_verb_requires_vault_and_accepts_base_after_it(argv, capsys):
+    """Each verb refuses to run without --vault (argparse exit 2 naming it),
+    and takes --base after the verb: the shared parent is attached to every
+    subparser, so the only complaint is the missing --vault, never an
+    unrecognized --base."""
+    with pytest.raises(SystemExit) as caught:
+        main([*argv, "--base", "http://127.0.0.1:9"])
+    assert caught.value.code == 2
+    err = capsys.readouterr().err
+    assert "--vault" in err
+    assert "unrecognized" not in err
+
+
+class _StubClient:
+    """A ZoteroClient stand-in whose every call is an outage: no socket."""
+
+    def __init__(self, base=None):
+        self.base = base
+        self.server_id = None
+        self.api_key = None
+
+    def __getattr__(self, name):
+        def refuse(*_args, **_kwargs):
+            raise zotero.ZoteroError("stubbed — no Zotero here")
+
+        return refuse
+
+
+def _verb_argvs(vault):
+    v = str(vault)
+    return [
+        ["probe"],
+        ["capture", "K", "--vault", v],
+        ["add", "--vault", v, "--item", str(vault / "missing.json")],
+        ["propagate", "--vault", v],
+        ["verify", "--vault", v, "--offline"],
+        ["factcheck", "--vault", v, "--draft", "missing.md"],
+        ["trust-tier", "nobody2020", "--vault", v],
+        ["arm-publish", "brief", "--vault", v],
+        ["disarm-publish", "--vault", v],
+        ["mark-published", "brief", "--vault", v],
+        ["mark-corrected", "brief", "--vault", v],
+        ["mark-withdrawn", "brief", "--vault", v],
+        ["mark-parked", "brief", "--vault", v],
+        ["ack", "f-1", "--vault", v, "--reason", "manual — x", "--actor", "human:x"],
+        ["finding", "quote", "t", "UNMATCHED", "mismatch — x", "--vault", v],
+        ["search-log", "--vault", v, "--project", "brief"],
+        ["inbox", "--vault", v],
+        ["scaffold", "--vault", v],
+        ["doctor", "--vault", v],
+        ["stamp-type", "--vault", v],
+    ]
+
+
+def test_every_verb_takes_base_after_the_verb_and_runs(tmp_vault, monkeypatch, capsys):
+    """The shared parent parser is attached to every subparser: `--base` after
+    the verb parses, and the verb then runs to an exit code (argparse's
+    SystemExit is the one outcome a dropped parent would produce). Zotero is
+    a stub that refuses every call, so no verb opens a socket."""
+    import research_vault.__main__ as cli
+
+    monkeypatch.setattr(cli, "ZoteroClient", _StubClient)
+    monkeypatch.setattr(cli, "doctor", lambda vault, client: [])
+    for argv in _verb_argvs(tmp_vault):
+        code = main([*argv, "--base", "http://127.0.0.1:9"])
+        assert isinstance(code, int), argv
+        capsys.readouterr()
+
+
+def test_doctor_alone_runs_on_an_unreadable_machine_json(
+    tmp_vault, monkeypatch, capsys
+):
+    """Every other verb refuses an unreadable machine.json before running;
+    doctor resolves its base non-strictly so its machine-config probe can be
+    the one to report the file -- and doctor gets the vault, not None."""
+    import research_vault.__main__ as cli
+
+    seen: list = []
+    monkeypatch.setattr(cli, "ZoteroClient", _StubClient)
+    monkeypatch.setattr(
+        cli, "doctor", lambda vault, client: seen.append((vault, client.base)) or []
+    )
+    (tmp_vault / ".research-vault").mkdir(exist_ok=True)
+    (tmp_vault / ".research-vault" / "machine.json").write_text("{not json")
+    assert main(["inbox", "--vault", str(tmp_vault)]) == 2
+    assert capsys.readouterr().err.startswith("machine.json unreadable")
+    assert main(["doctor", "--vault", str(tmp_vault)]) == 0
+    assert capsys.readouterr().err == ""
+    assert seen == [(str(tmp_vault), zotero.DEFAULT_BASE)]
+
+
+def test_verify_surface_is_one_of_the_closing_surfaces(net_vault, capsys):
+    with pytest.raises(SystemExit) as caught:
+        main(["verify", "--vault", str(net_vault), "--surface", "release"])
+    assert caught.value.code == 2
+    assert "invalid choice: 'release'" in capsys.readouterr().err
+
+
+def test_the_other_required_flags_and_the_verb_itself_are_required(capsys):
+    for argv, flag in [
+        (["add", "--vault", "v"], "--item"),
+        (["factcheck", "--vault", "v"], "--draft"),
+        (["ack", "f-1", "--vault", "v", "--actor", "human:x"], "--reason"),
+        (["ack", "f-1", "--vault", "v", "--reason", "r"], "--actor"),
+        (["search-log", "--vault", "v"], "--project"),
+        ([], "cmd"),
+    ]:
+        with pytest.raises(SystemExit) as caught:
+            main(argv)
+        assert caught.value.code == 2
+        assert flag in capsys.readouterr().err
+
+
+def test_probe_takes_base_after_the_verb_and_nothing_positional(capsys):
+    with pytest.raises(SystemExit) as caught:
+        main(["probe", "--base", "http://127.0.0.1:9", "extra"])
+    assert caught.value.code == 2
+    assert capsys.readouterr().err.rstrip().endswith("unrecognized arguments: extra")
+
+
+def test_verify_git_candidate_choices_and_git_base_are_parsed(net_vault, capsys):
+    """`--git-candidate` accepts exactly worktree/index/HEAD; `--git-base`
+    is a flag. The later `--commit-projected` usage error proves the parser
+    accepted the flags before it."""
+    for candidate in ("worktree", "index", "HEAD"):
+        with pytest.raises(SystemExit) as caught:
+            main(
+                [
+                    "verify",
+                    "--vault",
+                    str(net_vault),
+                    "--git-candidate",
+                    candidate,
+                    "--git-base",
+                    "HEAD",
+                    "--commit-projected",
+                    " ",
+                ]
+            )
+        assert caught.value.code == 2
+        assert "--commit-projected requires a non-empty message" in (
+            capsys.readouterr().err
+        )
+    with pytest.raises(SystemExit) as caught:
+        main(["verify", "--vault", str(net_vault), "--git-candidate", "stash"])
+    assert caught.value.code == 2
+    assert "invalid choice: 'stash'" in capsys.readouterr().err
+
+
+def test_scaffold_and_stamp_type_run_in_process_with_their_flags(tmp_path, capsys):
+    """The dispatch table names them and their flags parse: scaffold's two
+    store_true flags take no value, and stamp-type's --vault is read."""
+    vault = tmp_path / "vault"
+    assert main(["scaffold", "--vault", str(vault), "--with-ci", "--with-rw-ci"]) == 0
+    created = capsys.readouterr().out.splitlines()
+    assert ".github/workflows/verify.yml" in created
+    assert ".github/workflows/rw-batch.yml" in created
+    (vault / "inbox" / "idea.md").write_text("a thought\n")
+    assert main(["stamp-type", "--vault", str(vault)]) == 0
+    assert capsys.readouterr().out.splitlines() == ["stamped inbox/idea.md"]
+
+
+def test_verify_passes_every_flag_through_and_prints_sorted_counts(
+    net_vault, monkeypatch, capsys, tmp_path
+):
+    seen: list[dict] = []
+
+    def state(vault, **kwargs):
+        seen.append({"vault": vault, **kwargs})
+        return {"outcomes": [], "counts": {"b": 1, "a": 2}}, [], {}, {}
+
+    monkeypatch.setattr("research_vault.__main__.verify_state", state)
+    csv = tmp_path / "rw.csv"
+    csv.write_text("")
+    assert (
+        main(
+            [
+                "verify",
+                "--vault",
+                str(net_vault),
+                "--offline",
+                "--as-of",
+                "2026-09-07",
+                "--rw-csv",
+                str(csv),
+                "--git-base",
+                "HEAD",
+                "--git-candidate",
+                "index",
+                "--surface",
+                "commit",
+            ]
+        )
+        == 0
+    )
+    assert seen == [
+        {
+            "vault": str(net_vault),
+            "network": False,
+            "detection_date": "2026-09-07",
+            "rw_csv": str(csv),
+            "base": seen[0]["base"],
+            "git_base": "HEAD",
+            "git_candidate": "index",
+            "changed_paths_file": None,
+            "commit_projected": None,
+        }
+    ]
+    assert seen[0]["base"].startswith("http")
+    assert capsys.readouterr().out.splitlines() == ['{"a": 2, "b": 1}']
+
+
+def test_verify_prints_a_warn_notice_only_when_it_is_effective_by_index_or_outcome(
+    net_vault, monkeypatch, capsys
+):
+    by_index = _outcome(
+        "update-notice",
+        "a2020",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction"}],
+    )
+    by_outcome = _outcome(
+        "update-notice",
+        "b2020",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "expression-of-concern"}],
+    )
+    ineffective = _outcome(
+        "update-notice",
+        "c2020",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "retraction"}],
+    )
+    unlisted = _outcome(
+        "update-notice",
+        "d2020",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "withdrawal"}],
+    )
+    items = [by_index, by_outcome, ineffective, unlisted]
+    monkeypatch.setattr(
+        "research_vault.__main__.verify_state",
+        lambda *_args, **_kwargs: (
+            {"outcomes": items, "counts": {}},
+            items,
+            {id(item): "aa11" for item in items},
+            {
+                (id(by_index), 0): True,
+                id(by_outcome): True,
+                (id(ineffective), 0): False,
+            },
+        ),
+    )
+    code = main(
+        ["verify", "--vault", str(net_vault), "--offline", "--surface", "publish"]
+    )
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "UNMATCHED update-notice a2020 — warn-notice — correction" in out
+    assert "UNMATCHED update-notice b2020 — warn-notice — expression-of-concern" in out
+    assert "c2020" not in out
+    assert "d2020" not in out
+
+
+def test_verify_reports_a_named_failure_on_stderr_only_and_exits_2(
+    net_vault, monkeypatch, capsys
+):
+    def failing(*_args, **_kwargs):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr("research_vault.__main__.verify_state", failing)
+    assert main(["verify", "--vault", str(net_vault), "--offline"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("verification unavailable: [Errno 30]")
+
+
+def test_inbox_prints_a_sorted_summary_and_refuses_a_malformed_as_of(net_vault, capsys):
+    assert main(["inbox", "--vault", str(net_vault), "--as-of", "2026-09-07"]) == 0
+    first = capsys.readouterr().out.splitlines()[0]
+    summary = json.loads(first)
+    assert first == json.dumps(summary, sort_keys=True)
+    assert list(summary) == sorted(summary)
+    assert main(["inbox", "--vault", str(net_vault), "--as-of", "yesterday"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err != ""
 
 
 def test_cli_prints_unacknowledged_nested_warn_notice(net_vault, monkeypatch, capsys):
@@ -2610,6 +2930,203 @@ def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
     assert _target_hash(net_vault, outcome, base_snapshot=base) == live
     assert live == hashlib.sha256(before).hexdigest()[:16]
     assert _target_hash(net_vault, outcome) == live  # HEAD: the fixture is committed
+
+
+# --- hash-basis helpers pinned by the blanket mutation run (Plan W Task 25) ---
+
+
+def _image(raw, kind, data=None, mode=0o100644):
+    return gitstate.FileImage(raw, kind, mode if kind == "file" else 0o40000, data)
+
+
+def test_directory_bytes_lists_symlinks_and_files_in_order_and_normalises_notes(
+    tmp_path,
+):
+    """Every child in sorted order: a symlink as its literal target, a file
+    as its bytes, a `.md` as its note bytes (verifier events dropped), a
+    subdirectory contributing only its files -- none of them ends the walk."""
+    from research_vault import verify
+
+    root = tmp_path / "d"
+    (root / "b-dir").mkdir(parents=True)
+    (root / "a-link").symlink_to("target")
+    (root / "b-dir" / "inner.txt").write_bytes(b"inner")
+    (root / "c.md").write_text(
+        '---\ntitle: "x"\nverified:\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n'
+    )
+    (root / "d.txt").write_bytes(b"D")
+    note_bytes = _note_bytes((root / "c.md").read_bytes())
+    assert note_bytes == b'---\ntitle: "x"\n---\nbody\n'
+    assert verify._directory_bytes(root) == b"\0".join(
+        [
+            b"a-link",
+            b"symlink",
+            b"target",
+            b"b-dir/inner.txt",
+            b"inner",
+            b"c.md",
+            note_bytes,
+            b"d.txt",
+            b"D",
+        ]
+    )
+    assert verify._directory_bytes(root / "d.txt") is None
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a mode-000 file")
+def test_directory_bytes_marks_an_unreadable_file_and_keeps_walking(tmp_path):
+    from research_vault import verify
+
+    root = tmp_path / "d"
+    root.mkdir()
+    (root / "a.txt").write_bytes(b"A")
+    unreadable = root / "b.txt"
+    unreadable.write_bytes(b"B")
+    unreadable.chmod(0)
+    (root / "c.txt").write_bytes(b"C")
+    try:
+        assert verify._directory_bytes(root) == b"\0".join(
+            [b"a.txt", b"A", b"b.txt", b"unreadable", b"c.txt", b"C"]
+        )
+    finally:
+        unreadable.chmod(0o644)
+
+
+def test_snapshot_directory_bytes_takes_only_the_prefix_children_that_carry_bytes():
+    from research_vault import verify
+
+    snapshot = gitstate.Snapshot(
+        {
+            b"inbox/x.md": _image(b"inbox/x.md", "file", b"elsewhere"),
+            b"literatures": _image(b"literatures", "directory"),
+            b"literatures/a-link": _image(b"literatures/a-link", "symlink", b"t"),
+            b"literatures/b.md": _image(
+                b"literatures/b.md",
+                "file",
+                b'---\nverified:\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n',
+            ),
+            b"literatures/c.txt": _image(b"literatures/c.txt", "file", b"C"),
+            b"literatures/sub": _image(b"literatures/sub", "directory"),
+            b"literaturesX.md": _image(b"literaturesX.md", "file", b"no"),
+        }
+    )
+    assert verify._snapshot_directory_bytes(snapshot, b"literatures") == b"\0".join(
+        [b"a-link", b"symlink", b"t", b"b.md", b"body\n", b"c.txt", b"C"]
+    )
+
+
+def test_append_only_basis_is_the_base_file_bytes_or_nothing(net_vault):
+    from research_vault import verify
+
+    raw = b"inbox/review-queue.md"
+    with_file = gitstate.Snapshot({raw: _image(raw, "file", b"queued")})
+    as_directory = gitstate.Snapshot({raw: _image(raw, "directory")})
+    assert verify._append_only_basis(net_vault, raw, with_file) == b"queued"
+    assert verify._append_only_basis(net_vault, raw, as_directory) == b""
+    assert verify._append_only_basis(net_vault, raw, gitstate.Snapshot({})) == b""
+
+
+def test_snapshot_path_hash_takes_the_candidate_file_directory_or_base_bytes(
+    net_vault,
+):
+    """A candidate file hashes its (note-normalised) bytes, a candidate
+    directory its listing, an absent path the base file's bytes; an
+    append-only target its base basis regardless of the candidate."""
+    from research_vault import verify
+
+    note = b'---\nverified:\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n'
+    candidate = gitstate.Snapshot(
+        {
+            b"literatures": _image(b"literatures", "directory"),
+            b"literatures/a.md": _image(b"literatures/a.md", "file", note),
+            b"inbox/review-queue.md": _image(
+                b"inbox/review-queue.md", "file", b"grown"
+            ),
+        }
+    )
+    base = gitstate.Snapshot(
+        {
+            b"literatures/gone.md": _image(b"literatures/gone.md", "file", note),
+            b"inbox/review-queue.md": _image(
+                b"inbox/review-queue.md", "file", b"basis"
+            ),
+        }
+    )
+
+    def digest(data):
+        return hashlib.sha256(data).hexdigest()[:16]
+
+    plain = _repo_path_outcome("literatures/a.md")
+    assert verify._snapshot_path_hash(
+        net_vault, plain, b"literatures/a.md", base, candidate
+    ) == digest(b"body\n")
+    assert verify._snapshot_path_hash(
+        net_vault, plain, b"literatures", base, candidate
+    ) == digest(b"\0".join([b"a.md", b"body\n"]))
+    assert verify._snapshot_path_hash(
+        net_vault, plain, b"literatures/gone.md", base, candidate
+    ) == digest(b"body\n")
+    append = _outcome(
+        "append-only", "inbox/review-queue.md", Result.UNMATCHED, "drift — inbox"
+    )
+    assert verify._snapshot_path_hash(
+        net_vault, append, b"inbox/review-queue.md", base, candidate
+    ) == digest(b"basis")
+
+
+def test_safe_relative_needs_the_repo_path_kind_and_a_string(net_vault):
+    encoded = encode_repo_path(b"literatures/smith2020.md")
+    assert _safe_relative(net_vault, encoded, "identifier") is None
+    assert _safe_relative(net_vault, b"literatures/smith2020.md", "repo-path") is None
+    assert _safe_relative(net_vault, encoded, "repo-path") == (
+        net_vault / "literatures" / "smith2020.md"
+    )
+
+
+def test_projection_identity_needs_an_anchored_quote_target_and_a_named_comparison():
+    from research_vault import verify
+
+    quote = _outcome("quote", "smith2020#^c-1", Result.UNMATCHED, "fuzzy-quote — x")
+    assert verify._projection_identity(quote) == (
+        "smith2020",
+        "quote:smith2020#^c-1:managed-region",
+    )
+    unanchored = _outcome("quote", "smith2020", Result.UNMATCHED, "fuzzy-quote — x")
+    assert verify._projection_identity(unanchored) is None
+    blank = checks.Outcome(
+        "quote", "smith2020#^c-1", Result.UNMATCHED, "fuzzy-quote — x", {"target": ""}
+    )
+    assert verify._projection_identity(blank) is None
+    other = _outcome("doi", "smith2020#^c-1", Result.UNMATCHED, "mismatch — x")
+    assert verify._projection_identity(other) is None
+
+
+def test_origins_need_a_string_note_path_and_a_claim_id_or_line_number():
+    from research_vault import verify
+
+    with_claim = _outcome(
+        "quote",
+        "smith2020#^c-1",
+        Result.UNMATCHED,
+        "fuzzy-quote — x",
+        note_path="projects/brief/draft.md",
+        claim_id="c-1",
+    )
+    assert list(verify._origins(with_claim)) == [
+        (encode_repo_path(b"projects/brief/draft.md"), "c-1", None)
+    ]
+    without_path = _outcome(
+        "quote", "smith2020#^c-1", Result.UNMATCHED, "fuzzy-quote — x", claim_id="c-1"
+    )
+    assert list(verify._origins(without_path)) == []
+    without_origin = _outcome(
+        "quote",
+        "smith2020#^c-1",
+        Result.UNMATCHED,
+        "fuzzy-quote — x",
+        note_path="projects/brief/draft.md",
+    )
+    assert list(verify._origins(without_origin)) == []
 
 
 def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_base(

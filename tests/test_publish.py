@@ -231,6 +231,28 @@ def test_disarm_publish_removes_the_flag_and_tolerates_an_unarmed_vault(green_va
     assert main(["disarm-publish", "--vault", str(green_vault)]) == 0
 
 
+def test_disarm_publish_reports_a_flag_it_cannot_remove_as_exit_2(
+    green_vault, monkeypatch, capsys
+):
+    def refusing(_vault):
+        raise publish.PublishError("cannot disarm the publish gate: busy")
+
+    monkeypatch.setattr(publish, "disarm", refusing)
+    assert main(["disarm-publish", "--vault", str(green_vault)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.rstrip() == (
+        "cannot disarm the publish gate: cannot disarm the publish gate: busy"
+    )
+
+
+def test_a_disposition_prints_one_sorted_json_line(green_vault, capsys):
+    assert main(["mark-parked", "brief", "--vault", str(green_vault)]) == 0
+    line = capsys.readouterr().out.rstrip()
+    assert line == json.dumps(json.loads(line), sort_keys=True)
+    assert list(json.loads(line)) == ["commit", "project", "status", "tag"]
+
+
 def test_arm_publish_refuses_a_project_the_hook_would_reject(green_vault, capsys):
     assert main(["arm-publish", "missing", "--vault", str(green_vault)]) == 2
     assert main(["arm-publish", "projects/brief", "--vault", str(green_vault)]) == 2
@@ -600,6 +622,28 @@ def test_a_dated_disposition_refuses_a_bad_date_before_writing_anything(
     assert _status(green_vault) == expected_status
     assert _tags(green_vault) == expected_tags
     assert sorted((green_vault / "log").glob("*.md")) == []
+
+
+def test_append_log_writes_the_day_header_once_and_keeps_every_line(green_vault):
+    """Two appends to one day: one `type: daily` header, both lines in order,
+    and a missing log/ directory is created rather than refused."""
+    import shutil
+
+    shutil.rmtree(green_vault / "log")
+    now = datetime_lib.datetime(2026, 9, 7, 10, 0, tzinfo=datetime_lib.UTC)
+    day = publish._append_log(green_vault, "first", date="2026-09-07", now=now)
+    publish._append_log(
+        green_vault,
+        "second",
+        date="2026-09-07",
+        now=now.replace(minute=5),
+    )
+    assert day == green_vault / "log" / "2026-09-07.md"
+    assert day.read_text() == (
+        '---\ntype: "daily"\n---\n'
+        f"- 10:00 {publish.AGENT_ACTOR} — first\n"
+        f"- 10:05 {publish.AGENT_ACTOR} — second\n"
+    )
 
 
 def test_a_publication_tag_takes_both_halves_from_one_utc_clock_read(

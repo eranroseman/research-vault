@@ -43,3 +43,74 @@ def test_write_refuses_an_unsafe_attachment_key(tmp_vault):
 
     with pytest.raises(ValueError, match="unsafe attachment key"):
         fulltext.write(tmp_vault, "../x", "E352DFS8", {"content": "c"})
+
+
+# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+
+
+def test_verdict_floor_is_inclusive_and_a_half_missing_pair_is_malformed():
+    """Exactly FULLTEXT_MIN_CHARS characters is complete; a pair with either
+    half missing or non-integer is malformed, named by its unit."""
+    assert fulltext.verdict(
+        {"content": "y" * 500, "indexedPages": 1, "totalPages": 1}
+    ) == (True, "complete")
+    assert fulltext.verdict(
+        {"content": "y" * 499, "indexedPages": 1, "totalPages": 1}
+    ) == (False, "empty — 499 characters below floor 500")
+    assert fulltext.verdict({"content": "y" * 600, "indexedPages": 1}) == (
+        False,
+        "malformed — indexedPages pair missing",
+    )
+    assert fulltext.verdict({"content": "y" * 600, "totalChars": "600"}) == (
+        False,
+        "malformed — indexedChars pair missing",
+    )
+
+
+def test_write_renders_a_char_indexed_response_and_no_content_as_an_empty_body(
+    tmp_vault,
+):
+    path, _digest = fulltext.write(
+        tmp_vault,
+        "D7EJ9FTG",
+        "E352DFS8",
+        {"content": None, "indexedChars": 600, "totalChars": 600},
+    )
+    data, body = frontmatter.parse(path.read_text())
+    assert data == {
+        "type": "fulltext",
+        "zotero-attachment-key": "D7EJ9FTG",
+        "zotero-item-key": "E352DFS8",
+        "indexedChars": 600,
+        "totalChars": 600,
+    }
+    assert body == ""
+
+
+def test_write_renders_a_pair_only_when_its_indexed_half_is_present(tmp_vault):
+    """`totalPages` alone is not a pair: nothing page-shaped is rendered and
+    the write still lands (the verdict, not the writer, calls it malformed)."""
+    path, _digest = fulltext.write(
+        tmp_vault, "D7EJ9FTG", "E352DFS8", {"content": "c", "totalPages": 3}
+    )
+    data, body = frontmatter.parse(path.read_text())
+    assert data == {
+        "type": "fulltext",
+        "zotero-attachment-key": "D7EJ9FTG",
+        "zotero-item-key": "E352DFS8",
+    }
+    assert body == "c"
+
+
+def test_write_creates_the_fulltext_directory_and_keeps_line_endings(tmp_vault):
+    import shutil
+
+    if (tmp_vault / "fulltext").exists():
+        shutil.rmtree(tmp_vault / "fulltext")
+    path, _digest = fulltext.write(
+        tmp_vault,
+        "D7EJ9FTG",
+        "E352DFS8",
+        {"content": "one\r\ntwo\n", "indexedPages": 1, "totalPages": 1},
+    )
+    assert path.read_bytes().endswith(b"---\none\r\ntwo\n")

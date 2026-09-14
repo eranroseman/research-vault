@@ -88,3 +88,56 @@ def test_read_prefs_keeps_the_raw_token_for_a_string_json_refuses(tmp_path):
         "extensions.zotero.note.fontFamily": f'"{odd}"',
         "extensions.zotero.pmcid.auto": True,
     }
+
+
+def test_a_foreign_addon_and_a_stray_line_are_passed_over_not_the_end_of_the_walk(
+    tmp_path,
+):
+    """A theme and an app-global add-on listed FIRST do not stop `observe`
+    from reading the profile add-on after them; a comment and a blank line
+    before a `user_pref` do not stop `read_prefs` from reading it."""
+    (tmp_path / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": "theme@mozilla.org",
+                        "type": "theme",
+                        "location": "app-profile",
+                    },
+                    {"id": "global@app", "type": "extension", "location": "app-global"},
+                    {
+                        "id": "better-bibtex@iris-advies.com",
+                        "type": "extension",
+                        "location": "app-profile",
+                        "version": "9.0.63",
+                        "active": True,
+                        "appDisabled": False,
+                    },
+                ]
+            }
+        )
+    )
+    assert addons.observe(tmp_path) == {
+        "better-bibtex@iris-advies.com": {
+            "version": "9.0.63",
+            "active": True,
+            "appDisabled": False,
+        }
+    }
+    (tmp_path / "prefs.js").write_text(
+        "// Mozilla User Preferences\n"
+        "\n"
+        'user_pref("extensions.zotero.pmcid.auto", true);\n'
+        "not a pref line\n"
+        'user_pref("extensions.zotero.dataDir", "D:\\\\Zotero");\n'
+    )
+    assert addons.read_prefs(tmp_path) == {
+        "extensions.zotero.pmcid.auto": True,
+        "extensions.zotero.dataDir": "D:\\Zotero",
+    }
+
+
+def test_observe_reads_an_extensions_file_without_an_addons_list_as_empty(tmp_path):
+    (tmp_path / "extensions.json").write_text(json.dumps({"schemaVersion": 35}))
+    assert addons.observe(tmp_path) == {}
