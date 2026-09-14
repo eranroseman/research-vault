@@ -524,6 +524,8 @@ Rewritten skills: `import-source`, `setup-vault` and `synthesis-conventions`. **
 
 **Gates unchanged**: coverage, mutation baseline, form owners.
 
+**Moved by Plan W (2026-09-14, merge `384d562`; results `docs/superpowers/specs/2026-09-13-plan-w-quality-tail-results.md`).** The read above is dated 2026-09-05 and three of its facts have changed. The `*.manifest.json` sidecars are gone with mutate4py (`a1347dd`); the mutation gate is `scripts/mutation_gate.py` over mutmut 3.7.0 with every module baselined in `mutation-baseline.txt`, and a mutation run is driven only through it (Part B's constraints carry the rule). The offline suite is hermetic: the socket block is decided by the `live`/`live_net` markers alone and the resolver is blocked with it (`7324e11`, `08cd9e6`), and every unmarked test runs under a HOME of its own (`47a1642`); `docs/testing.md` is the reference for the guards, and with both live flags set the suite has no remaining skip (1960 passed on 2026-09-14). The live-marker gate in `pytest_collection_modifyitems` is as described; `test_archive.py` no longer exists (Part A).
+
 ## 8. Open points
 
 Each is either a decision a later lane owns, or a task the plan carries. Nothing here blocks the plan being written; item 12 blocks one task set inside it, and the plan settles it first.

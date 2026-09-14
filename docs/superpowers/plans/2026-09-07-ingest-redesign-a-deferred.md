@@ -13,6 +13,12 @@ one repository issue (`gh issue create --label ready-for-agent`) with the open r
 No issue is filed before then: `docs/agents/issue-tracker.md` asks that the tracker carry findings
 no spec or plan will claim, and this plan claims all of these.
 
+Rows 1–4, 15 and 57 were homed in Plan W Task 25. Plan W ran on 2026-09-14 (merge `384d562`): the
+`.py.manifest.json` sidecars retired with mutate4py at `a1347dd`, and `mutation-baseline.txt` was
+rewritten over mutmut keys for all 34 modules (2,496 rows; no row of the mutate4py form survives, so
+rows 15 and 57's dead entries are gone by construction). Results:
+`docs/superpowers/specs/2026-09-13-plan-w-quality-tail-results.md`.
+
 ## Deferred minors
 
 | #   | File                                                                                                                    | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Task | Disposition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
