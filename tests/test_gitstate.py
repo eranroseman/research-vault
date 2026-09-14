@@ -763,7 +763,7 @@ def test_rollback_refuses_a_directory_preimage_and_names_the_path(tmp_vault):
     assert flattened.read_bytes() == b"flattened\n"
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_allowed_manifest_path_needs_a_file_image_an_md_suffix_and_an_owned_root():

@@ -1624,7 +1624,7 @@ def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources(
     assert checks.outcome_to_record(rw) == rw_record
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 _ARXIV_ENTRY = {
     "id": "preprint",

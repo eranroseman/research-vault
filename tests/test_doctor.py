@@ -907,7 +907,7 @@ def test_doctor_base_routes_before_and_after_subcommand(
     assert len(capsys.readouterr().out.splitlines()) == 13
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_list(

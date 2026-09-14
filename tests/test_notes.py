@@ -680,7 +680,7 @@ def test_canonical_content_excludes_the_verifier_owned_failure_rows():
     assert notes.canonical_content(enveloped) == body
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_canonical_content_drops_an_empty_verified_list_that_closes_the_frontmatter():

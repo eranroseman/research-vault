@@ -45,7 +45,7 @@ def test_write_refuses_an_unsafe_attachment_key(tmp_vault):
         fulltext.write(tmp_vault, "../x", "E352DFS8", {"content": "c"})
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_verdict_floor_is_inclusive_and_a_half_missing_pair_is_malformed():

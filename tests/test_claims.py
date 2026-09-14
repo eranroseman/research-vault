@@ -73,7 +73,7 @@ def test_claims_carry_no_managed_flag():
     assert claim.quote_text == "text"
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_blockquote_lines_attach_only_to_the_quote_claim_directly_above():

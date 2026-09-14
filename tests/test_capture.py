@@ -891,7 +891,7 @@ def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
     assert captured.err.startswith("capture unavailable: [Errno 30]")
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_attachment_tuple_records_each_field_and_defaults_the_absent_ones():

@@ -101,7 +101,7 @@ def test_idempotent(tmp_path):
     assert stamped == []
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_every_skip_is_a_pass_over_not_the_end_of_the_walk(tmp_path):

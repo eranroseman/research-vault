@@ -482,7 +482,7 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
     assert "quote:smith2020#^c-66666666:managed-region" in recorded
 
 
-# --- the CLI's parser and pass-through contract (Plan W Task 25 survivors) ----
+# --- the CLI's parser and pass-through contract -------------------------------
 
 _SUBCOMMANDS_WITH_VAULT = [
     ["capture", "K"],
@@ -2681,7 +2681,7 @@ def test_ack_clears_a_file_target_from_a_relative_vault(
 ):
     """`--vault .` is a shipped form; the `path-bytes:` candidate is absolute
     while the root a caller hands `cmd_ack` need not be, and the two must
-    still meet in the `wiki/` guard (review round 2, item 1)."""
+    still meet in the `wiki/` guard."""
     draft = fixture_vault / "projects" / "brief" / "draft.md"
     draft.write_text(
         must_replace(
@@ -2952,7 +2952,7 @@ def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
     assert _target_hash(net_vault, outcome) == live  # HEAD: the fixture is committed
 
 
-# --- hash-basis helpers pinned by the blanket mutation run (Plan W Task 25) ---
+# --- hash-basis helpers pinned against mutation survivors ---------------------
 
 
 def _image(raw, kind, data=None, mode=0o100644):

@@ -77,7 +77,7 @@ def test_autoexport_surface_is_gone():
         assert not hasattr(bibliography, name)
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_write_renders_two_space_indented_json_with_non_ascii_kept(tmp_vault):

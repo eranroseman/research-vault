@@ -1357,7 +1357,7 @@ def test_load_rejects_an_acknowledgment_no_named_human_signed(fixture_vault, act
         inbox.load(fixture_vault)
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_line_fields_refuses_junk_between_fields_and_a_line_with_none():

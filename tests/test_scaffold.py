@@ -457,7 +457,7 @@ def test_scaffold_cli_requires_literal_rw_consent_and_installs_only_rw_workflow(
     assert rw_workflow.stat().st_mode & 0o111 == 0
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 @pytest.mark.parametrize(

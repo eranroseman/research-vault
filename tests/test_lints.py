@@ -992,7 +992,7 @@ def test_screening_state_is_retired(fixture_vault):
     assert "screening-state" not in checks
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def _file(raw, data):

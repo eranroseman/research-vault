@@ -166,7 +166,7 @@ def test_commit_surface_ignores_fleeting_notes(tmp_path):
     assert decision == 0
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_log_shape_reads_a_log_whose_frontmatter_does_not_parse_as_all_body():

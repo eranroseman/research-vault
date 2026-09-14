@@ -438,7 +438,7 @@ def test_a_top_item_with_null_data_is_read_not_a_traceback(tmp_vault, monkeypatc
     assert [(o.target, o.result) for o in outcomes] == [("alkt2026", Result.MATCHED)]
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_replaces_keys_takes_the_last_segment_and_ignores_non_strings():

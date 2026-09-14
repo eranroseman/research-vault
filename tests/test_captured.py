@@ -413,7 +413,7 @@ def test_quiet_vault_is_matched_and_a_missing_ledger_is_skipped(tmp_vault):
     ]
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_staleness_is_strict_on_both_dates_and_reads_ingested_at_as_the_fallback(

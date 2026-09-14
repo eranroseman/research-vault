@@ -516,9 +516,9 @@ def test_git_isolation_refuses_a_symlinked_mutants_before_touching_anything(
 ):
     """Real symlink. `root/mutants -> victim`, where victim/.git is a gitfile:
     without the refusal, mkdir(exist_ok=True) accepts the link, the gitfile is
-    "not own", unlinked, and `git init` runs over the victim (measured in fix
-    round 2 -- had the link pointed at the root, that is the worktree's own
-    gitfile). The gate aborts naming the path, in both modes, and the victim's
+    "not own", unlinked, and `git init` runs over the victim (measured
+    2026-09-14 -- had the link pointed at the root, that is the worktree's
+    own gitfile). The gate aborts naming the path, in both modes, and the victim's
     gitfile bytes are untouched; no mutants/.git appears. Through _run_mutmut
     the refusal comes before the pycache sweep, which walks mutants/ too: a
     __pycache__ under the victim survives."""

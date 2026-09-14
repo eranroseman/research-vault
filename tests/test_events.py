@@ -548,7 +548,7 @@ def test_applicable_note_checks_is_update_notice_or_nothing(data, expected):
     assert events._applicable_note_checks(data) == expected
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_record_pass_refuses_a_duplicated_verified_or_failure_header():

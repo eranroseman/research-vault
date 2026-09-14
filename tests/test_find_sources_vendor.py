@@ -4,10 +4,9 @@ Upstream: https://github.com/K-Dense-AI/scientific-agent-skills @
 336c4f838a6c21b54e1e1f58cbbeae143d151fe2, ``skills/paper-lookup/scripts/``,
 license MIT (© 2025 K-Dense Inc.). Renamed into the plugin namespace at
 ``skills/find-sources/scripts/`` (spec §7's vendoring doctrine: behavior
-stays frozen). Upstream's own ``tests/paper-lookup/`` is not vendored — the
-controller ruling is to take only what the skill uses, and these are our
-own tests proving the vendored copies still work, offline, after the
-provenance-header edit. No network: every case here feeds a local XML/JSON
+stays frozen). Upstream's own ``tests/paper-lookup/`` is not vendored — only
+what the skill uses is vendored — and these are our own tests proving the
+vendored copies still work, offline, after the provenance-header edit. No network: every case here feeds a local XML/JSON
 fixture on stdin, never a live API call (the suite's ``live_net`` marker
 convention is for the CLI's own network-touching tests, not for this).
 """

@@ -368,7 +368,7 @@ def test_cli_add_reports_a_named_failure_as_exit_2(tmp_vault, monkeypatch, capsy
     assert capsys.readouterr().err.startswith("add unavailable: [Errno 28]")
 
 
-# --- rows the blanket mutation run (Plan W Task 25) found unpinned ------------
+# --- rows pinned against mutation survivors -----------------------------------
 
 
 def test_add_rows_an_invalid_batch_and_a_failed_server_read_on_add(

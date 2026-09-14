@@ -391,7 +391,7 @@ def test_plan_refuses_to_rename_over_an_existing_note(tmp_vault, monkeypatch):
     )
 
 
-# --- fix round 1 ---------------------------------------------------------------
+# --- the recorded key is the note's identity, not its filename ----------------
 
 
 def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_recorded_key(
@@ -495,7 +495,7 @@ def test_lint_lets_a_freed_name_go_when_a_different_item_now_holds_it(
     }
 
 
-# --- boundaries the blanket mutation run (Plan W Task 25) found unpinned ------
+# --- boundaries pinned against mutation survivors -----------------------------
 
 
 def test_canonical_json_is_sorted_two_space_indented_and_keeps_non_ascii():
