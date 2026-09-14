@@ -727,7 +727,7 @@ def test_capture_refuses_a_re_keyed_item_while_the_old_note_exists_and_propagate
     """Spec §3.1: the file renames only on a re-key, and propagation performs
     it — capture does not. A refresh of a re-keyed item used to derive the path
     from the live key and write `new2020.md` beside `old2020.md`, after which
-    `propagate.plan` refused over the existing file (review I-1). Capture now
+    `propagate.plan` refused over the existing file. Capture now
     refuses while the old note still exists; propagate plans, renames, and its
     own recapture proceeds because the old path is gone by then."""
     import research_vault.__main__ as cli
@@ -772,7 +772,7 @@ def test_cli_capture_holds_a_per_item_outage_and_exits_3(
     tmp_vault, monkeypatch, capsys
 ):
     """A 500 on the item read is `lifecycle.blocked`'s outage: held under
-    check id `capture`, never a verdict on the source, exit 3 (review I-3)."""
+    check id `capture`, never a verdict on the source, exit 3."""
     import research_vault.__main__ as cli
     from research_vault import inbox
 
@@ -792,7 +792,7 @@ def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
     tmp_vault, monkeypatch
 ):
     """An OSError writing `fulltext/` is the disk's fault, not the record's:
-    UNREACHABLE outage, never UNMATCHED schema-violation (review I-4)."""
+    UNREACHABLE outage, never UNMATCHED schema-violation."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
 
@@ -811,7 +811,7 @@ def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
 
 def test_an_unsafe_live_citation_key_is_a_schema_violation(tmp_vault, monkeypatch):
     """`note_path` refuses the key before anything is written: the record's
-    fault, UNMATCHED schema-violation (review I-4's kept branch)."""
+    fault, UNMATCHED schema-violation."""
     unsafe = json.loads(json.dumps(ITEM))
     unsafe["data"]["citationKey"] = "../escape"
     fake = _canned_run(canned_item(FakeZotero(), item=unsafe), items=(unsafe,))
@@ -859,7 +859,7 @@ def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
 
 def test_cli_capture_with_neither_keys_nor_all_is_a_usage_error(tmp_vault, capsys):
     """Nothing to capture is not a run that regenerates the CSL file and exits
-    0: argparse refuses it with usage and exit 2 (review M-1)."""
+    0: argparse refuses it with usage and exit 2."""
     import research_vault.__main__ as cli
 
     with pytest.raises(SystemExit) as caught:
@@ -874,7 +874,7 @@ def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
     """An OSError from `stamp_types`, `regenerate_log` or the CSL write sits
     outside the per-item `try`; it used to be a traceback whose exit 1 read
     as UNMATCHED. `cmd_verify`'s named-exception tuple now answers exit 2 —
-    "could not run", never a four-state verdict (review M-2)."""
+    "could not run", never a four-state verdict."""
     import research_vault.__main__ as cli
 
     fake = _canned_run(canned_item(FakeZotero()))

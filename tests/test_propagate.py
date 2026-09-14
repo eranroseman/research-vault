@@ -328,7 +328,7 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(
     assert (tmp_vault / "literatures" / "new2020.md").is_file()
 
 
-# --- deviations from the printed module, each pinned (see the task report) -----
+# --- deviations from the printed module, each pinned --------------------------
 
 
 def test_lint_follows_a_key_renamed_back_and_reports_only_the_latest_mapping(

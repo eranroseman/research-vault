@@ -416,7 +416,7 @@ def test_blocked_names_a_database_change_by_its_own_code():
 def test_a_top_item_with_null_data_is_read_not_a_traceback(tmp_vault, monkeypatch):
     """`data: null` on one top-items row used to raise AttributeError past
     `lint_lifecycle`'s `except ZoteroError`, taking a verify run down with a
-    traceback (review I-5, row 31). The row reads as carrying no citation key
+    traceback. The row reads as carrying no citation key
     and no relations; the note classifies from the versions map as before."""
     fake = FakeZotero(server_id="Tdoqsn2J4q4h")
     fake.get(

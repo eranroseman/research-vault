@@ -3206,7 +3206,7 @@ def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_ba
 
 
 def test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere(net_vault):
-    """One rule at every reader of `literatures/` (review M-7, row 54):
+    """One rule at every reader of `literatures/`:
     the captured set is `literatures/*.md` (decision 08), capture writes only
     that shape (`note_path` refuses `/`), so a nested `.md` is not a
     literature note for the captured set, the linter, `--all`, the marker

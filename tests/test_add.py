@@ -256,7 +256,7 @@ def test_a_create_envelope_whose_successful_is_not_an_object_is_a_mismatch(
     successful, tmp_vault, monkeypatch
 ):
     """`successful` not a dict used to be an AttributeError after the item was
-    already created (review I-5); it reads as no key created."""
+    already created; it reads as no key created."""
     fake, client = _fake_for_add(monkeypatch)
     fake.post(
         "/api/users/0/items",
@@ -352,7 +352,7 @@ def test_cli_add_with_an_unreadable_item_file_is_exit_2(
 
 
 def test_cli_add_reports_a_named_failure_as_exit_2(tmp_vault, monkeypatch, capsys):
-    """Same contract as `cmd_capture` (review M-2): a named failure outside
+    """Same contract as `cmd_capture`: a named failure outside
     the verb's own four-state handling is exit 2 with a stderr line."""
     import research_vault.__main__ as cli
 
