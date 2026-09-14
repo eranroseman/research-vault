@@ -6,7 +6,7 @@
 
 **Architecture:** Compile is adopted unmodified: `research_vault/compile.py` selects captured sources, registers ledger records through the tool's own `transaction inspect`/`apply`, and never writes under `wiki/`. Everything else here is documentation, live-leg tests and one report. Capture, the lifecycle linter, propagation, the captured-set lint, doctor and `add` are Part A's and are consumed unchanged.
 
-**Tech Stack:** Python 3.11+ stdlib only (`urllib`, `json`, `hashlib`, `html.parser`, `subprocess`, `pathlib`). pytest with `monkeypatch` fakes; two live Zotero 10.0.1 instances (production `localhost:23119`, test `localhost:23129`). No new dependency.
+**Tech Stack:** Python 3.11+ stdlib only (`urllib`, `json`, `hashlib`, `html.parser`, `subprocess`, `pathlib`). pytest with `monkeypatch` fakes; two live Zotero 10 instances (production `localhost:23119`, test `localhost:23129`; versions from `python -m research_vault probe --base <base>`, never from this plan). No new dependency.
 
 **Spec:** `docs/superpowers/specs/2026-09-06-import-redesign-design.md` (the active spec; §9 is its fact register). Also binding: `docs/superpowers/specs/2026-09-05-assembly-design.md` decisions 12, 17, 22, 28, 29 and §9; ADR 0001–0003.
 
@@ -17,7 +17,7 @@
 ## Global Constraints
 
 - **Commit with an explicit pathspec** (`git commit -m "..." -- <files>`; the message precedes `--`). The `Co-Authored-By` trailer names the model that authored the commit — the branch's task commits carry `Claude Opus 5 (1M context)`, this plan's printed commit blocks carry its author's `Claude Fable 5.1` — so a trailer that differs from a printed block is not a deviation to itemise. Parallel sessions share this checkout: never revert or restore another session's uncommitted files; report the precondition as unmeetable instead. Every commit message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- **Offline suite before every commit:** `.venv/bin/python -m pytest tests -q -n auto` from the repo root. Baseline on 2026-09-07: 1838 passed, 7 skipped, 28 s. Pass `-n` on the command line, never in addopts.
+- **Offline suite before every commit:** `.venv/bin/python -m pytest tests -q -n auto` from the repo root. Baseline on 2026-09-07: 1838 passed, 7 skipped, 28 s; on 2026-09-14 after Plan W (`main` at `384d562`): 1955 passed, 5 skipped (the fifth skip is the live-marked pin of the HOME gate). Pass `-n` on the command line, never in addopts.
 - **Form owners, run directly on touched files, never `pre-commit run`** (it stashes onto a stack every worktree shares): `ruff format research_vault tests scripts hooks`, `ruff check research_vault tests scripts hooks`, `mypy research_vault`, `mdformat --number --wrap keep <touched .md files>`, `python -m json.tool --indent 2 --no-ensure-ascii <file> <file>` for JSON manifests.
 - **Ruff rules that bite new code:** `T20` (no `print` outside `research_vault/__main__.py` and `scripts/`), `C90` (`max-complexity = 28`), `PTH` (use `pathlib`), `S` (no `shell=True`), `DTZ` (timezone-aware `datetime`). mypy rung 1: annotated functions are checked; no `cast()` laundering.
 - **Stdlib only.** The package's one runtime dependency (`defusedxml`) is untouched. `pytest-recording`/`vcrpy` are not adopted (spec §7: no recorder).
@@ -664,7 +664,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills tests resear
 
 **Files:**
 
-- Modify: `docs/testing.md`, `docs/terminology.md` §4.4 (final registries), `.github/workflows/quality.yml:48-65`, `research_vault/templates/git/pre-commit` (comment, if Part A Task 12 did not add it)
+- Modify: `docs/testing.md`, `docs/terminology.md` §4.4 (final registries), `.github/workflows/quality.yml:87-104` (the CRAP comment block and step, lines as of `384d562`), `research_vault/templates/git/pre-commit` (comment, if Part A Task 12 did not add it)
 
 **Interfaces:**
 
@@ -702,25 +702,30 @@ Expected: FAIL on whichever row drifted.
 
 - [ ] **Step 3: Write the docs and the CI change**
 
-`docs/terminology.md` §4.4: the three rows exactly as in Interfaces. `docs/testing.md`, replace "## The suite" through the end of its second paragraph with:
+`docs/terminology.md` §4.4: the three rows exactly as in Interfaces.
+
+`docs/testing.md` — Plan W (2026-09-14, `08cd9e6`) rewrote "## The suite" around four hermeticity mechanisms (the Zotero client patch, the socket and resolver block, `dead_base`, the per-test HOME). Keep that text; make three edits inside it, and write no environment fact into the file (Zotero and Better BibTeX versions, profile paths and add-on lists come from `probe` and the spec's §7 substrate paragraph, per `AGENTS.md`):
+
+1. Replace the **Live invocation** paragraph and the code block under it with:
 
 ````markdown
-## The suite
-
-Offline (default): `python -m pytest tests -q -n auto` from the repo root, inside `.venv` (xdist pinned; pass `-n` on the command line, never in addopts). Env-gated live legs are skipped unless flagged; live runs stay serial.
-
-**Live invocation.** Two Zotero 10.0.1 instances run on this machine: production on `localhost:23119` (server id from `python -m research_vault probe`) and an unsynced test instance on `localhost:23129` (profile `~/.zotero/zotero/rfnse7tz.default`, data `~/Zotero/`, one add-on: Better BibTeX 9.0.63 with the library's citekey pattern). Read-only legs run against whichever `--base` they are given; **write-capable legs run only against the test instance** and refuse `zotero.DEFAULT_BASE`:
+**Live invocation** (Zotero must be running on the Windows host; the local API answers on `localhost:23119`, the unsynced test instance on `localhost:23129` — `python -m research_vault probe --base <base>` names each). Read-only legs run against whichever `--base` they are given; **write-capable legs run only against the test instance** and refuse `zotero.DEFAULT_BASE`:
 
 ```bash
-RV_LIVE=1 python -m pytest tests -q                                   # read-only local-Zotero legs
-RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k live   # plus the add/trash/delete leg (one consent dialog the first time)
-RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q     # external-registry legs
+RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q            # read-only local-Zotero and external-registry legs
+RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k live  # plus the add/trash/delete leg (one consent dialog the first time)
 ```
-
-The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. If a later run re-opens the dialog, export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. The offline suite never opens a socket to Zotero: `tests/conftest.py::_no_zotero_socket` (autouse) makes every non-`live` client read an outage, so a test that needs an answer registers it on `FakeZotero`. `--as-of YYYY-MM-DD` on `verify` and `inbox` pins the instant a check compares against, which is how a recorded fixture replays without drifting (spec §7). Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 ````
 
-and under "## Poking Zotero" item 1 add: "`python -m research_vault probe --base http://localhost:23129` names the test instance." Remove the `RV_LIVE_AUTOEXPORT_VAULT` and `test_dispositions` sentence if Part A Task 2 left any of it.
+2. In the paragraph that begins "`RV_LIVE` unlocks the local-Zotero legs", replace the sentence "Nothing else is gated: with both flags set the suite has no remaining skip." with: "`RV_LIVE_WRITE_BASE` unlocks the write-capable leg, which carries both the `live` and the `live_write` markers — the hermeticity fixtures honour `live`; `live_write` only adds the base gate. With all three set the suite has no remaining skip."
+
+3. After that paragraph, add:
+
+```markdown
+The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. If a later run re-opens the dialog, export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. `--as-of YYYY-MM-DD` on `verify` and `inbox` pins the instant a check compares against, which is how a recorded fixture replays without drifting (spec §7).
+```
+
+Under "## Poking Zotero" item 1 add: "`python -m research_vault probe --base http://localhost:23129` names the test instance." (Part A left no `RV_LIVE_AUTOEXPORT_VAULT` or `test_dispositions` sentence; checked 2026-09-14.)
 
 `.github/workflows/quality.yml`: delete `continue-on-error: true` from the CRAP step and replace the comment block above it with:
 
@@ -881,7 +886,18 @@ def test_trashed_transition_replays_from_the_live_snapshot():
     assert lifecycle.classify(prov, _live(fixture["trashed_items"], fixture["trashed_trash"], {})) == ("trashed", item_key)
 ```
 
-Update the fixture README's `trash-trashed.json` bullet: "superseded by `items-trashed.json`, recorded live on 2026-MM-DD by `tests/test_capture_live.py`; the transition now replays." Register the `live_write` marker and its skip.
+Update the fixture README's `trash-trashed.json` bullet: "superseded by `items-trashed.json`, recorded live on 2026-MM-DD by `tests/test_capture_live.py`; the transition now replays." Register the `live_write` marker and its skip — `pyproject.toml` `[tool.pytest.ini_options] markers` gains `"live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE; never production)",` beside the two existing rows (`--strict-markers` refuses an unregistered one), and `tests/conftest.py::pytest_collection_modifyitems` gains, after the `live_net` skip:
+
+```python
+    skip_write = pytest.mark.skip(
+        reason="write-capable live leg not enabled (RV_LIVE_WRITE_BASE=http://localhost:23129)"
+    )
+    for item in items:
+        if "live_write" in item.keywords and not os.environ.get("RV_LIVE_WRITE_BASE"):
+            item.add_marker(skip_write)
+```
+
+(The leg keeps its `live` marker too, so the hermeticity fixtures — `_no_zotero_socket`, `_no_socket`, `_per_test_home` — let it through on that marker alone; nothing in `conftest.py` learns `live_write` beyond this skip.)
 
 - [ ] **Step 4: Run everything; commit**
 
