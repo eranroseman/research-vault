@@ -1391,3 +1391,25 @@ def test_resolve_keys_skips_a_top_item_whose_data_is_not_an_object(
         "jakesch.etal2023a": "E352DFS8",
         "other": None,
     }
+
+
+def test_store_key_creates_the_store_private_before_the_first_byte_lands(
+    tmp_vault, monkeypatch
+):
+    """The key store is born 0600 by `touch(mode=0o600)`, not fixed up by the
+    trailing chmod (row 47: write-then-chmod would leave the key at the umask
+    default for an instant). With chmod disabled and a permissive umask, a
+    fresh store still lands private."""
+    import os
+    import stat
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "chmod", lambda self, mode, **kwargs: None)
+    previous = os.umask(0o022)
+    try:
+        capture._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    finally:
+        os.umask(previous)
+    store = tmp_vault / capture.KEY_STORE
+    assert stat.S_IMODE(store.stat().st_mode) == 0o600
+    assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
