@@ -1,6 +1,9 @@
 import json
+import os
+import pwd
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +17,16 @@ def run_cli(*args):
         text=True,
         check=False,
     )
+
+
+@pytest.mark.live
+def test_a_live_test_keeps_the_operators_real_home():
+    """The per-test HOME redirect (tests/conftest.py::_per_test_home) is
+    decided by the markers: a live leg reads the operator's real registry and
+    profile paths on purpose, so under this marker `Path.home()` is the
+    account's home, not a directory under pytest's basetemp."""
+    assert Path.home() == Path(pwd.getpwuid(os.getuid()).pw_dir)
+    assert os.environ.get("HOME") == str(Path.home())
 
 
 @pytest.mark.live

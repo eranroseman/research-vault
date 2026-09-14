@@ -596,20 +596,28 @@ def test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores(
     assert git(vault, "ls-files", "--", "log.md") == ""
 
 
+@pytest.fixture
+def plugin_registry(_per_test_home):
+    """The plugin registry's path under the test's own HOME, its directory
+    made and the file absent -- the seam `_installed_plugins` reads."""
+    registry = _per_test_home / ".claude" / "plugins" / "installed_plugins.json"
+    registry.parent.mkdir(parents=True)
+    return registry
+
+
 def test_installed_plugins_reads_the_registry_under_home_as_utf8_or_answers_empty(
-    tmp_path, monkeypatch
+    plugin_registry,
 ):
     """`~/.claude/plugins/installed_plugins.json`, read as UTF-8: its
     `plugins` mapping when the file parses to an object carrying one; `{}`
     for an absent, unreadable, undecodable, malformed or shapeless registry.
-    Under a temporary HOME: the one suite test that reached this read
+    Under the test's own HOME: the one suite test that reached this read
     (doctor's probe list) answered from the developer's own home, where a
     registry exists, and the CI runner has none -- so a mutant that broke the
     read died here and lived there."""
-    monkeypatch.setenv("HOME", str(tmp_path))
-    registry = tmp_path / ".claude" / "plugins" / "installed_plugins.json"
+    registry = plugin_registry
+    assert Path.home() == registry.parents[2]
     assert scaffold._installed_plugins() == {}
-    registry.parent.mkdir(parents=True)
     plugins = {
         "claude-obsidian@agricidaniel-claude-obsidian": [
             {"gitCommitSha": "ad67087cad22", "installPath": "/plugins/claude-obsidian"}

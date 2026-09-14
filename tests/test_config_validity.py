@@ -15,6 +15,8 @@ gains a JSON owner with zero new dependencies (docs/research/rethink-audits/2026
 
 import ast
 import json
+import os
+import pwd
 import re
 import shlex
 import shutil
@@ -28,7 +30,7 @@ import pytest
 import yaml
 
 from research_vault import frontmatter, inbox
-from tests.conftest import package_ast
+from tests.conftest import OFFLINE_GIT_IDENTITY, package_ast
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -703,6 +705,70 @@ def test_offline_tests_cannot_open_a_tcp_connection(dead_base):
     port = int(dead_base.rsplit(":", 1)[1])
     with socket.socket() as sock, pytest.raises(ConnectionRefusedError):
         sock.connect(("127.0.0.1", port))
+
+
+def test_an_unmarked_test_runs_under_its_own_home(tmp_path, tmp_path_factory):
+    """`Path.home()`, `$HOME` and `$XDG_CONFIG_HOME` resolve into a fresh
+    directory under pytest's basetemp, for this process and for a subprocess
+    it launches; it holds the synthetic git identity as global config and
+    nothing else (no plugin registry, no global excludes), so a commit in a
+    temp repository succeeds under that identity and a local `user.name`
+    still outranks it. Unmarked, deliberately: like the socket block, the
+    redirect is decided by the markers alone and holds under the live flags.
+    """
+
+    home = Path.home()
+    real_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+    assert home != real_home
+    assert home.is_relative_to(tmp_path_factory.getbasetemp())
+    assert os.environ["HOME"] == str(home)
+    assert os.environ["XDG_CONFIG_HOME"] == str(home / ".config")
+    assert sorted(p.name for p in home.iterdir()) == [".config", ".gitconfig"]
+    assert not (home / ".claude").exists()
+    child = subprocess.run(
+        [sys.executable, "-c", "from pathlib import Path; print(Path.home())"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert child.stdout.strip() == str(home)
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    name, email = OFFLINE_GIT_IDENTITY
+    git("init", "-q")
+    assert git("config", "--global", "--list").splitlines() == [
+        f"user.name={name}",
+        f"user.email={email}",
+    ]
+    (tmp_path / "a.md").write_text("a\n")
+    git("add", "--", "a.md")
+    git("commit", "-qm", "under the suite identity")
+    assert git("log", "-1", "--format=%an <%ae>") == f"{name} <{email}>"
+    git("config", "--local", "user.name", "Local Name")
+    git("config", "--local", "user.email", "local@example.invalid")
+    git("commit", "-q", "--allow-empty", "-m", "under the local identity")
+    assert (
+        git("log", "-1", "--format=%an <%ae>") == "Local Name <local@example.invalid>"
+    )
+
+
+def test_the_template_vaults_were_built_under_the_suite_home(fixture_vault):
+    """The session-scoped fixture vault's one commit carries the synthetic
+    identity: the templates every test copies were built under a home of the
+    suite's own, not the developer's global config."""
+    name, email = OFFLINE_GIT_IDENTITY
+    author = subprocess.run(
+        ["git", "log", "-1", "--format=%an <%ae>"],
+        cwd=fixture_vault,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert author == f"{name} <{email}>"
 
 
 def test_strict_markers_is_on_so_a_misspelled_marker_cannot_collect(request):

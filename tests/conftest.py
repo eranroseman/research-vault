@@ -64,14 +64,81 @@ def _with_body_witness(text):
     )
 
 
-def _build_bare_vault(root: Path) -> None:
+# --- a HOME of the suite's own -----------------------------------------------
+
+# The identity every offline commit is made under, as GLOBAL git config in the
+# test's HOME -- not GIT_AUTHOR_* / GIT_COMMITTER_* variables, which outrank a
+# local `user.name` and would defeat the tests that set one and assert it.
+OFFLINE_GIT_IDENTITY = ("research-vault-offline-suite", "offline-suite@example.invalid")
+
+
+def _make_home(root: Path) -> dict[str, str]:
+    """Populate `root` as a HOME the suite can run under and return the
+    environment entries that point a process at it. What is there: a
+    `.gitconfig` carrying the synthetic identity (CI writes the same shape with
+    `git config --global`). What is not: everything else a test could read
+    from the operator's home -- the plugin registry doctor's compile-tool
+    probe opens, git's global excludes and `init.templateDir`, credential
+    helpers -- so an answer never depends on the machine running the test."""
+    name, email = OFFLINE_GIT_IDENTITY
+    (root / ".gitconfig").write_text(
+        f"[user]\n\tname = {name}\n\temail = {email}\n", encoding="utf-8"
+    )
+    (root / ".config").mkdir()
+    return {"HOME": str(root), "XDG_CONFIG_HOME": str(root / ".config")}
+
+
+@pytest.fixture(scope="session")
+def _suite_home_env(tmp_path_factory):
+    """The environment the session-scoped template vaults are built under:
+    the same kind of HOME every test runs under (below), so a global setting
+    on the developer's machine never reaches the tree each test copies."""
+    return {**os.environ, **_make_home(tmp_path_factory.mktemp("suite-home"))}
+
+
+@pytest.fixture(autouse=True)
+def _per_test_home(request, monkeypatch, tmp_path_factory):
+    """An unmarked test runs under a HOME of its own: `Path.home()`, `~` and
+    `$XDG_CONFIG_HOME` resolve into a fresh directory holding only the
+    synthetic git identity, for the test and for every subprocess it launches.
+
+    The class of leak this closes is the one the socket block closes for the
+    network: measured 2026-09-14 on the mutation gate's first CI run, a
+    mutant of the plugin-registry read was killed on the developer's machine
+    (a registry exists under the real home) and survived on the runner (none
+    does) -- a covering test that reads outside the repository is not a
+    covering test. The marker is the mechanism, per test, as for the socket
+    block: a ``live`` or ``live_net`` test keeps the real HOME on purpose (the
+    operator's registry and profile paths are what a live leg reads); every
+    other test is redirected in every run, live flags or not.
+
+    Returns the home, so a test can seed it (the registry fixture in
+    tests/test_scaffold.py). Removed at teardown -- the retained artefact of a
+    failed test is its vault, and the identity is in the commits.
+    """
+    if request.node.get_closest_marker("live") or request.node.get_closest_marker(
+        "live_net"
+    ):
+        yield None
+        return
+    home = tmp_path_factory.mktemp("home")
+    for key, value in _make_home(home).items():
+        monkeypatch.setenv(key, value)
+    yield home
+    shutil.rmtree(home, ignore_errors=True)
+
+
+# --- the vault templates -----------------------------------------------------
+
+
+def _build_bare_vault(root: Path, env: dict[str, str]) -> None:
     for d in scaffold.VAULT_DIRS:
         (root / d).mkdir(parents=True)
     (root / "wiki" / "concepts").mkdir(parents=True)
     # `--template=`: no sample hooks, description or info/exclude — 16 files
     # nothing reads, copied per test otherwise. A copied entry is ~0.2 ms on
     # WSL2 (copytree micro-bench, 2026-09-13), so entry count is the cost.
-    subprocess.run(["git", "init", "-q", "--template="], cwd=root, check=True)
+    subprocess.run(["git", "init", "-q", "--template="], cwd=root, check=True, env=env)
 
 
 def _copy_vault(template: Path, tmp_path: Path) -> Path:
@@ -83,7 +150,7 @@ def _copy_vault(template: Path, tmp_path: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
-def _bare_vault_template(tmp_path_factory):
+def _bare_vault_template(tmp_path_factory, _suite_home_env):
     """One bare vault per xdist worker: the tree plus `git init`, built once.
 
     The git processes were the fixture cost (`init` here; `add` + `commit` too
@@ -91,17 +158,19 @@ def _bare_vault_template(tmp_path_factory):
     copy; the template is never handed out.
     """
     template = tmp_path_factory.mktemp("bare-vault-template")
-    _build_bare_vault(template)
+    _build_bare_vault(template, _suite_home_env)
     return template
 
 
 @pytest.fixture(scope="session")
-def _fixture_vault_template(tmp_path_factory):
+def _fixture_vault_template(tmp_path_factory, _suite_home_env):
     template = tmp_path_factory.mktemp("fixture-vault-template")
-    _build_bare_vault(template)
-    _populate_fixture_vault(template)
+    _build_bare_vault(template, _suite_home_env)
+    _populate_fixture_vault(template, _suite_home_env)
     # One pack in place of 16 loose objects in 16 fan-out directories.
-    subprocess.run(["git", "repack", "-adq"], cwd=template, check=True)
+    subprocess.run(
+        ["git", "repack", "-adq"], cwd=template, check=True, env=_suite_home_env
+    )
     return template
 
 
@@ -115,7 +184,7 @@ def fixture_vault(tmp_path, _fixture_vault_template):
     return _copy_vault(_fixture_vault_template, tmp_path)
 
 
-def _populate_fixture_vault(tmp_vault: Path) -> None:
+def _populate_fixture_vault(tmp_vault: Path, env: dict[str, str]) -> None:
     (tmp_vault / "index.md").write_text(
         '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
     )
@@ -219,9 +288,12 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
     (tmp_vault / "inbox" / "review-queue.md").write_text(
         '---\ntype: "review-queue"\n---\n'
     )
-    subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True, env=env)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "fixture vault"], cwd=tmp_vault, check=True
+        ["git", "commit", "-q", "-m", "fixture vault"],
+        cwd=tmp_vault,
+        check=True,
+        env=env,
     )
 
 
