@@ -605,16 +605,21 @@ def plugin_registry(_per_test_home):
     return registry
 
 
-def test_installed_plugins_reads_the_registry_under_home_as_utf8_or_answers_empty(
+def test_installed_plugins_reads_the_registry_under_home_or_answers_empty(
     plugin_registry,
 ):
-    """`~/.claude/plugins/installed_plugins.json`, read as UTF-8: its
-    `plugins` mapping when the file parses to an object carrying one; `{}`
-    for an absent, unreadable, undecodable, malformed or shapeless registry.
-    Under the test's own HOME: the one suite test that reached this read
-    (doctor's probe list) answered from the developer's own home, where a
-    registry exists, and the CI runner has none -- so a mutant that broke the
-    read died here and lived there."""
+    """`~/.claude/plugins/installed_plugins.json`: its `plugins` mapping when
+    the file parses to an object carrying one; `{}` for an absent,
+    unreadable, undecodable, malformed or shapeless registry. Under the
+    test's own HOME: the one suite test that reached this read (doctor's
+    probe list) answered from the developer's own home, where a registry
+    exists, and the CI runner has none -- so a mutant that broke the read
+    died here and lived there. The codec is not pinned: the fixture bodies
+    are ASCII and the undecodable bytes decode under no codec, so
+    `encoding="UTF-8"` and `encoding=None` answer the same and stay
+    baselined; a codec name that does not exist (`XXutf-8XX`) dies on the
+    LookupError the except tuple does not catch, because a registry is there
+    to be opened."""
     registry = plugin_registry
     assert Path.home() == registry.parents[2]
     assert scaffold._installed_plugins() == {}

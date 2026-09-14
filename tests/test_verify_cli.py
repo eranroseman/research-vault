@@ -537,43 +537,66 @@ class _StubClient:
 
 
 def _verb_argvs(vault):
+    """Every verb with the arguments it takes on a bare vault, and the exit
+    code its handler answers there: 3 where the stubbed Zotero is the first
+    thing the verb reaches (UNREACHABLE), 2 where the verb refuses before
+    Zotero -- a missing --item / --draft file, an unknown citation key, a
+    project directory that is not there, a disposition on a project never
+    published, an ack naming no finding, a search-log run with neither
+    --query nor --not-admitted -- and 0 where it runs to the end (a plan
+    with nothing to propagate, an offline verify, a filed finding, the
+    readers and the fixers, doctor with its probes stubbed to none)."""
     v = str(vault)
     return [
-        ["probe"],
-        ["capture", "K", "--vault", v],
-        ["add", "--vault", v, "--item", str(vault / "missing.json")],
-        ["propagate", "--vault", v],
-        ["verify", "--vault", v, "--offline"],
-        ["factcheck", "--vault", v, "--draft", "missing.md"],
-        ["trust-tier", "nobody2020", "--vault", v],
-        ["arm-publish", "brief", "--vault", v],
-        ["disarm-publish", "--vault", v],
-        ["mark-published", "brief", "--vault", v],
-        ["mark-corrected", "brief", "--vault", v],
-        ["mark-withdrawn", "brief", "--vault", v],
-        ["mark-parked", "brief", "--vault", v],
-        ["ack", "f-1", "--vault", v, "--reason", "manual — x", "--actor", "human:x"],
-        ["finding", "quote", "t", "UNMATCHED", "mismatch — x", "--vault", v],
-        ["search-log", "--vault", v, "--project", "brief"],
-        ["inbox", "--vault", v],
-        ["scaffold", "--vault", v],
-        ["doctor", "--vault", v],
-        ["stamp-type", "--vault", v],
+        (["probe"], 3),
+        (["capture", "K", "--vault", v], 3),
+        (["add", "--vault", v, "--item", str(vault / "missing.json")], 2),
+        (["propagate", "--vault", v], 0),
+        (["verify", "--vault", v, "--offline"], 0),
+        (["factcheck", "--vault", v, "--draft", "missing.md"], 2),
+        (["trust-tier", "nobody2020", "--vault", v], 2),
+        (["arm-publish", "brief", "--vault", v], 2),
+        (["disarm-publish", "--vault", v], 0),
+        (["mark-published", "brief", "--vault", v], 2),
+        (["mark-corrected", "brief", "--vault", v], 2),
+        (["mark-withdrawn", "brief", "--vault", v], 2),
+        (["mark-parked", "brief", "--vault", v], 2),
+        (
+            [
+                "ack",
+                "f-1",
+                "--vault",
+                v,
+                "--reason",
+                "manual — x",
+                "--actor",
+                "human:x",
+            ],
+            2,
+        ),
+        (["finding", "quote", "t", "UNMATCHED", "mismatch — x", "--vault", v], 0),
+        (["search-log", "--vault", v, "--project", "brief"], 2),
+        (["inbox", "--vault", v], 0),
+        (["scaffold", "--vault", v], 0),
+        (["doctor", "--vault", v], 0),
+        (["stamp-type", "--vault", v], 0),
     ]
 
 
 def test_every_verb_takes_base_after_the_verb_and_runs(tmp_vault, monkeypatch, capsys):
     """The shared parent parser is attached to every subparser: `--base` after
-    the verb parses, and the verb then runs to an exit code (argparse's
-    SystemExit is the one outcome a dropped parent would produce). Zotero is
-    a stub that refuses every call, so no verb opens a socket."""
+    the verb parses (argparse's SystemExit is the one outcome a dropped
+    parent would produce), and the verb then runs to the exit code its
+    handler answers on a bare vault -- each one known, so a verb that stops
+    at the wrong refusal is caught, not just one that fails to parse. Zotero
+    is a stub that refuses every call, so no verb opens a socket."""
     import research_vault.__main__ as cli
 
     monkeypatch.setattr(cli, "ZoteroClient", _StubClient)
     monkeypatch.setattr(cli, "doctor", lambda vault, client: [])
-    for argv in _verb_argvs(tmp_vault):
+    for argv, expected in _verb_argvs(tmp_vault):
         code = main([*argv, "--base", "http://127.0.0.1:9"])
-        assert isinstance(code, int), argv
+        assert code == expected, (argv, capsys.readouterr())
         capsys.readouterr()
 
 
@@ -670,9 +693,13 @@ def test_scaffold_and_stamp_type_run_in_process_with_their_flags(tmp_path, capsy
     assert capsys.readouterr().out.splitlines() == ["stamped inbox/idea.md"]
 
 
-def test_stamp_type_prints_each_report_reason_in_its_own_words(tmp_path, capsys):
+def test_stamp_type_prints_each_report_reason_on_its_own_line(tmp_path, capsys):
     """The three reasons stamp_types reports each get their own line, in walk
-    order, after the stamped notes; the exit is 0 regardless."""
+    order, after the stamped notes; the exit is 0 regardless. The branch,
+    not the sentence: each line's `skipped <path> — ` prefix and the token
+    that names its reason, which is what the branch mutants change (a
+    comparison flipped or its literal rewritten sends a reason down the
+    wrong branch; a `print(None)` breaks the prefix)."""
     vault = tmp_path / "vault"
     (vault / "a-loose").mkdir(parents=True)
     (vault / "a-loose" / "e-notype.md").write_text("loose\n")
@@ -682,12 +709,18 @@ def test_stamp_type_prints_each_report_reason_in_its_own_words(tmp_path, capsys)
     (inbox / "c-bad.md").write_text("---\n  bad: nested\n---\ntext\n")
     (inbox / "d-idea.md").write_text("a thought\n")
     assert main(["stamp-type", "--vault", str(vault)]) == 0
-    assert capsys.readouterr().out.splitlines() == [
-        "stamped inbox/d-idea.md",
-        "skipped a-loose/e-notype.md — no type could be derived",
-        "skipped inbox/b-link.md — path is a symlink, refusing to write through it",
-        "skipped inbox/c-bad.md — frontmatter is unparseable",
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "stamped inbox/d-idea.md"
+    reported = [
+        ("skipped a-loose/e-notype.md — ", "no type"),
+        ("skipped inbox/b-link.md — ", "symlink"),
+        ("skipped inbox/c-bad.md — ", "unparseable"),
     ]
+    assert len(lines) == 1 + len(reported)
+    for line, (prefix, token) in zip(lines[1:], reported, strict=True):
+        assert line.startswith(prefix), line
+        assert token in line, line
+        assert sum(other in line for _, other in reported) == 1, line
 
 
 def test_verify_passes_every_flag_through_and_prints_sorted_counts(

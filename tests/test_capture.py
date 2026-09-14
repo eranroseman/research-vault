@@ -1017,6 +1017,16 @@ def test_capture_renders_the_child_notes_and_stamps_accessed_and_generated_from_
 def test_capture_without_now_stamps_a_utc_second_resolution_instant(
     tmp_vault, monkeypatch
 ):
+    """Without `now`, capture takes the UTC instant at second resolution and
+    the stamp is tz-aware, microsecond-free and Z-suffixed, with `accessed`
+    the same instant's date. The shape alone decides every mutant of the
+    defaulting line: `now(None)` yields a naive local instant (no tzinfo, no
+    Z), `now and ...` yields None and `microsecond=None` a TypeError, so the
+    note is never written; `microsecond=1` is unobservable here -- the stamp
+    writer re-zeroes the microsecond and `accessed` is a date -- and stays
+    baselined. No mutant moves the instant while keeping it UTC, so a
+    wall-clock comparison would add nothing a frozen clock would not, and
+    neither is read."""
     import datetime
 
     fake = _canned_run(canned_item(FakeZotero()))
@@ -1030,7 +1040,9 @@ def test_capture_without_now_stamps_a_utc_second_resolution_instant(
     assert "." not in at
     parsed = datetime.datetime.fromisoformat(at)
     assert parsed.tzinfo is not None
-    assert abs(datetime.datetime.now(datetime.UTC) - parsed).total_seconds() < 120
+    assert parsed.utcoffset() == datetime.timedelta(0)
+    assert parsed.microsecond == 0
+    assert data["accessed"] == parsed.date().isoformat()
 
 
 def test_an_existing_crlf_note_is_rewritten_not_read_as_a_noop(tmp_vault, monkeypatch):
