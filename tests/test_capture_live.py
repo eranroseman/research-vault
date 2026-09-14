@@ -86,7 +86,8 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
     assert status == 204
     trashed_versions, _ = client.versions()
     trash = client.trash_versions()
-    assert item_key not in trashed_versions and item_key in trash
+    assert item_key not in trashed_versions
+    assert item_key in trash
     (row,) = lifecycle.lint_lifecycle(tmp_vault, client)
     assert row.reason.startswith("trashed — ")
     fixture = {

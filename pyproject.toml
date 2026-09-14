@@ -84,9 +84,6 @@ extend-exclude = [ "*.md" ]
 # honours, and a side-effect fixture is named but never read. Guard stays armed in core.
 "tests/*" = [ "ARG", "RUF001", "RUF002", "RUF003", "S101" ]
 "tests/test_cli_live.py" = [ "UP012" ]
-# The write leg's paired postcondition (item left `versions`, arrived in
-# `trash`) is one fact from the live instance; splitting it loses that.
-"tests/test_capture_live.py" = [ "PT018" ]
 # print IS the CLI output contract.
 "research_vault/__main__.py" = [ "T20" ]
 # Gate scripts report via stdout by design.
