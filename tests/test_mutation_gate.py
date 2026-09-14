@@ -374,6 +374,64 @@ def test_run_mutmut_caps_the_address_space_of_the_mutmut_process_and_its_childre
     assert limits == [(mutation_gate.resource.RLIMIT_AS, (cap, cap))]
 
 
+def test_git_isolation_refuses_a_symlinked_mutants_before_touching_anything(
+    tmp_path, monkeypatch, capsys
+):
+    """Real symlink. `root/mutants -> victim`, where victim/.git is a gitfile:
+    without the refusal, mkdir(exist_ok=True) accepts the link, the gitfile is
+    "not own", unlinked, and `git init` runs over the victim (measured in fix
+    round 2 -- had the link pointed at the root, that is the worktree's own
+    gitfile). The gate aborts naming the path, in both modes, and the victim's
+    gitfile bytes are untouched; no mutants/.git appears. Through _run_mutmut
+    the refusal comes before the pycache sweep, which walks mutants/ too: a
+    __pycache__ under the victim survives."""
+    root = tmp_path / "root"
+    root.mkdir()
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    gitfile = victim / ".git"
+    gitfile.write_text("gitdir: /elsewhere/.git\n")
+    (victim / "__pycache__").mkdir()
+    (root / "mutants").symlink_to(victim)
+
+    with pytest.raises(mutation_gate.MutantsTreeError, match="mutants") as caught:
+        mutation_gate._isolate_git(root)
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+    assert str(root / "mutants") in str(caught.value)
+    assert gitfile.read_text() == "gitdir: /elsewhere/.git\n"
+    assert not (victim / "mutants").exists()
+    assert (root / "mutants").is_symlink()
+
+    # A plain file where the directory should be is refused the same way.
+    (root / "mutants").unlink()
+    (root / "mutants").write_text("not a directory\n")
+    with pytest.raises(mutation_gate.MutantsTreeError):
+        mutation_gate._isolate_git(root)
+    assert (root / "mutants").read_text() == "not a directory\n"
+
+    # Through main(), in both modes: the gate's own ABORT line, exit 1.
+    (root / "mutants").unlink()
+    (root / "mutants").symlink_to(victim)
+    fake = _fake_root(root)
+    a = "research_vault/a.py"
+    monkeypatch.setattr(mutation_gate, "ROOT", fake)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, fake)
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    out = capsys.readouterr().out
+    assert f"[baseline] ABORT: {fake / 'mutants'} is not a real directory" in out
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    _argv_gate(monkeypatch, fake)
+    assert mutation_gate.main() == 1
+    assert f"[gate] ABORT: {fake / 'mutants'} is not a real directory" in (
+        capsys.readouterr().out
+    )
+    assert gitfile.read_text() == "gitdir: /elsewhere/.git\n"
+    assert not (victim / "HEAD").exists()
+    assert (victim / "__pycache__").is_dir()  # the sweep never crossed the link
+
+
 def test_run_mutmut_refuses_a_cap_above_the_inherited_hard_limit(tmp_path, monkeypatch):
     """setrlimit in the child can only lower the hard limit: a cap above the
     inherited RLIMIT_AS hard limit is refused before anything is launched --

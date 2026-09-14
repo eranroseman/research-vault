@@ -131,7 +131,11 @@ trusted: before every invocation `git -C mutants rev-parse --git-common-dir`
 must resolve to mutants/.git itself, and a gitfile pointing elsewhere, a
 symlink, or a directory git no longer reads as a repository is removed and the
 repository initialised afresh (measured: `git init` over a directory whose
-HEAD is garbage leaves the garbage in place). A core.hooksPath override for
+HEAD is garbage leaves the garbage in place). That removal never follows a
+symlink: a mutants/ that is itself a symlink (or a file) aborts the run before
+anything is touched, because mkdir(exist_ok=True) accepts a symlink to a
+directory and the removal would then land wherever it points -- the root's own
+gitfile, if it pointed at the root. A core.hooksPath override for
 every child was measured and rejected: it sends the hook the UNMUTATED
 scaffold tests install to one shared directory, 9 of them fail on the hook's
 location, and that hook would then run on every commit any child makes.
@@ -189,6 +193,10 @@ class SourceTreeChangedError(GateAbortError):
 
 class ChildLimitError(GateAbortError):
     """The per-child address-space cap cannot be applied."""
+
+
+class MutantsTreeError(GateAbortError):
+    """mutants/ is not a real directory the gate may own (a symlink, a file)."""
 
 
 @dataclass
@@ -399,11 +407,27 @@ def _is_own_repository(mutants: Path, env: dict[str, str]) -> bool:
     return (mutants / probe.stdout.strip()).resolve() == dot_git.resolve()
 
 
+def _real_mutants_dir(root: Path) -> Path:
+    """root/mutants, refused unless absent or a real directory. The gate
+    sweeps, removes and initialises under it: a symlink there
+    (mkdir(exist_ok=True) accepts one, and is_symlink() on `.git` inspects
+    only the last component) would send all of that to whatever it points at
+    -- the root's own gitfile, if it pointed at the root. Touch nothing."""
+    mutants = root / "mutants"
+    if mutants.is_symlink() or (mutants.exists() and not mutants.is_dir()):
+        raise MutantsTreeError(
+            f"{mutants} is not a real directory (a symlink or a file); the gate "
+            "owns mutants/ and will not sweep, remove or initialise through it "
+            "-- move it aside and rerun"
+        )
+    return mutants
+
+
 def _isolate_git(root: Path) -> dict[str, str]:
     """mutants/ becomes its own repository and the root is git's ceiling --
     see the header. An existing mutants/.git is verified, never trusted.
     Returns the env entries the mutmut process gets."""
-    mutants = root / "mutants"
+    mutants = _real_mutants_dir(root)
     mutants.mkdir(exist_ok=True)
     env = _git_env(root)
     dot_git = mutants / ".git"
@@ -445,6 +469,7 @@ def _run_mutmut(
     inherited = os.environ.get("PYTHONPATH")
     pythonpath = f"{SHIMS}{os.pathsep}{inherited}" if inherited else str(SHIMS)
     _check_address_space_cap(address_space)
+    _real_mutants_dir(root)  # before the sweep: it walks mutants/ too
     _sweep_pycache(root)
     before = _tree_digest(root)
     # The isolation's git init runs inside the hashed window: nothing it does
