@@ -319,6 +319,26 @@ def test_clock_today_takes_the_instant_or_reads_utc():
         )
 
 
+def test_clock_today_is_the_utc_date_even_when_the_local_day_differs(monkeypatch):
+    """At 23:30 local (UTC-5) it is already 04:30 of the next day in UTC:
+    today() answers the UTC date whatever the machine's wall clock says. (A
+    `now(None)` mutant survives or dies with the hour of the day otherwise --
+    it was killed at 22:14 CDT and survived at 03:03 CDT, measured 2026-09-14.)"""
+    import datetime
+
+    from research_vault import clock
+
+    class Frozen(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return cls(2026, 9, 13, 23, 30)
+            return cls(2026, 9, 14, 4, 30, tzinfo=datetime.UTC).astimezone(tz)
+
+    monkeypatch.setattr(clock.datetime, "datetime", Frozen)
+    assert clock.today() == "2026-09-14"
+
+
 def test_a_stray_byte_under_wiki_is_a_row_not_a_traceback(tmp_vault):
     """verify's except tuple excludes ValueError, so a UnicodeDecodeError out of
     this lint would end the run with a traceback instead of a finding."""
