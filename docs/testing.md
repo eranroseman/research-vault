@@ -4,10 +4,11 @@
 
 Offline (default): `python -m pytest tests -q -n auto` from the repo root, inside `.venv` (xdist pinned; pass `-n` on the command line, never in addopts). Env-gated live legs are skipped unless flagged; live runs stay serial (polite pools, settle windows).
 
-**Live invocation** (Zotero must be running on the Windows host; the local API answers on `localhost:23119`):
+**Live invocation** (Zotero must be running on the Windows host; the local API answers on `localhost:23119`, the unsynced test instance on `localhost:23129` — `python -m research_vault probe --base <base>` names each). Read-only legs run against whichever `--base` they are given; **write-capable legs run only against the test instance** and refuse `zotero.DEFAULT_BASE`:
 
 ```bash
-RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q
+RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q            # read-only local-Zotero and external-registry legs
+RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k live  # plus the add/trash/delete leg (one consent dialog the first time)
 ```
 
 The offline suite is hermetic through four mechanisms in `tests/conftest.py`: three autouse fixtures the markers gate — a marked test keeps the real thing (the marker each honours is named below), and every unmarked test gets the block in every run, live flags or not — and one opt-in fixture for subprocess tests.
@@ -17,7 +18,9 @@ The offline suite is hermetic through four mechanisms in `tests/conftest.py`: th
 - **`dead_base` for subprocess tests**: both blocks are in-process patches, so a test that launches the CLI in a subprocess is hermetic only through the `dead_base` fixture — an ephemeral loopback port nothing listens on, refused at once — which is also the one address the in-process block lets through.
 - **The per-test HOME** (`_per_test_home`; `live` or `live_net` keeps the real home, because the operator's registry and profile paths are what a live leg reads): `HOME` and `XDG_CONFIG_HOME` point at a fresh directory holding only a synthetic git identity (as global config, so a local `user.name` a test sets still wins; the git variables that would outrank it are removed from the environment), for the test and every subprocess it launches, so nothing a test reads from `~` — doctor's plugin registry, git's global excludes, a credential helper — depends on the machine (measured 2026-09-14: a mutant of the registry read died on the developer's machine and lived on the runner). The session-scoped template vaults are built under a home of the same shape.
 
-`RV_LIVE` unlocks the local-Zotero legs; `RV_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). Nothing else is gated: with both flags set the suite has no remaining skip. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
+`RV_LIVE` unlocks the local-Zotero legs; `RV_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). `RV_LIVE_WRITE_BASE` unlocks the write-capable leg, which carries both the `live` and the `live_write` markers — the hermeticity fixtures honour `live`; `live_write` only adds the base gate. With all three set the suite has no remaining skip. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
+
+The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. If a later run re-opens the dialog, export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. `--as-of YYYY-MM-DD` on `verify` and `inbox` pins the instant a check compares against, which is how a recorded fixture replays without drifting (spec §7).
 
 ## Poking Zotero
 
@@ -25,6 +28,7 @@ Preference order:
 
 1. **research-vault's own client** — same code paths production uses, findings transfer:
    `python -c "from research_vault.zotero import ZoteroClient; ..."` — or the CLI: `python -m research_vault probe` / `doctor`.
+   `python -m research_vault probe --base http://localhost:23129` names the test instance.
 2. **pyzotero** (dev extra, pinned) — richer read API for test authoring and diagnostics:
    `python -c "from pyzotero import zotero; z = zotero.Zotero('0','user',local=True); print(z.top(limit=5))"`
    Posture: local mode is read-only by default and stays that way — local writes sit behind Zotero's own GUI consent dialog (admission is a human act). Web API for tests: read-only key by default; a write-capable key only for a test that needs it, only against a scratch/group library, and no key is ever stored in this repo.
