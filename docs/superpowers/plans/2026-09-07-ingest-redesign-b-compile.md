@@ -40,6 +40,7 @@
 - **No non-`live` test opens a socket to Zotero.** The offline suite must be green on a machine with no Zotero and give the same answer on one where a production instance is running; a test that reads a live instance is nondeterministic and green only by accident of someone's library. `tests/conftest.py::_no_zotero_socket` (autouse, Task 12) makes every `ZoteroClient` outside the `live` markers read an outage, and a test that needs a Zotero answer registers it on `FakeZotero`. Reads count as much as writes here: the write ban keeps production intact, this keeps the suite honest.
 - **Live legs** stay under the existing `live` marker (`RV_LIVE=1`). Write-capable legs additionally require `RV_LIVE_WRITE_BASE` (the test instance, `http://localhost:23129`) and refuse to run against `zotero.DEFAULT_BASE`; `RV_LIVE_WRITE_KEY` optionally supplies a key granted by an earlier **Always Allow** so the leg runs without the dialog. Nothing in the suite ever writes to the production instance.
 - **Outward-facing actions need explicit go-ahead in that turn**: Task 6's upstream Zotero issue is not run on plan approval alone.
+- **Deferred findings have one home while the plan runs.** A review finding held out of a task's fix loop goes to `docs/superpowers/plans/2026-09-07-ingest-redesign-b-deferred.md` (created at the first finding; Part A's `…-a-deferred.md` is the shape: a numbered table with File, Finding, Task and Disposition, appended by the controller in the same commit as the task that recorded it), never only to a task report — the SDD workspace is deleted at Finish (`AGENTS.md`, Task reports). Task 6 Step 1b dispositions every row before the merge.
 - **Scope held by the spec:** annotations (spec §3.2, decision 28) are specified, tested against a fixture, and **not wired into capture**; the pre-commit lifecycle leg is held (invariant 5); substrate absence is deferred (§0); web pages and repositories are deferred (§0).
 
 ______________________________________________________________________
@@ -919,7 +920,9 @@ ______________________________________________________________________
 
 **Files:**
 
-- Modify: nothing in the tree except what the live run touches; this task's deliverable is a message and, on go-ahead, one GitHub issue on `zotero/zotero`.
+- Create: `docs/superpowers/specs/2026-09-06-import-redesign-part-b-results.md`
+
+- Modify: `docs/superpowers/plans/2026-09-07-ingest-redesign-b-deferred.md` (every row dispositioned), plus whatever Step 1b's fix wave touches. The outward deliverables are a message and, on go-ahead, one GitHub issue on `zotero/zotero`.
 
 - [ ] **Step 1: Full verification**
 
@@ -934,6 +937,12 @@ git status --porcelain   # must be empty
 
 Expected: every command exits 0; report the pytest counts and the mutation-gate summary line verbatim. Add the attended leg's result from Task 5 to the report; it is not re-run here.
 
+- [ ] **Step 1b: Whole-branch review, one fix wave, the register's dispositions**
+
+Dispatch the review on the most capable model over `git diff $(git merge-base HEAD main)..HEAD` — the merge base, never the branch tip (Part A process note 3) — with the spec, this plan and the deferred file in hand; it returns Critical, Important and Minor findings with file and line. One fix wave lands them as pathspec commits (tests first for a behaviour fix); a scoped re-review over the wave's commits confirms no new Critical or Important. Then every row of `docs/superpowers/plans/2026-09-07-ingest-redesign-b-deferred.md` ends **fixed** naming the commit, **declined** with the reason in the row, or **open → issue**: the open rows become one issue (`gh issue create --label ready-for-agent`, the rows as its body; Part A's #129 is the shape) and each such row names the number. Findings the review raises outside the table are dispositioned the same way in the results file (Step 4). Read the task reports' Concerns (`.superpowers/sdd/…/task-N-report.md`) once more here: each names a destination, and the SDD workspace is not deleted until every destination holds it (`AGENTS.md`, Task reports).
+
+Expected: no open row without an issue number; the re-review's verdict quoted in the results file.
+
 - [ ] **Step 2: Draft the upstream issue and wait for go-ahead**
 
 Spec §6 keeps verify's update-notice check because Zotero exposes its Retraction Watch verdict nowhere a client can read, "and asking them to is worth an issue." Draft, do not post:
@@ -941,7 +950,7 @@ Spec §6 keeps verify's update-notice check because Zotero exposes its Retractio
 ```
 Title: Local API: expose the retraction flag on item JSON
 
-Zotero 10.0.1 flags retracted items natively (retractions.js, the
+Zotero <version from probe at posting> flags retracted items natively (retractions.js, the
 retractedItems table) and warns at cite time, but the local API exposes
 that verdict nowhere: no field in item JSON or meta, and /retractions and
 /retracted both return 404 (measured 2026-09-05). A client that keeps its
@@ -950,7 +959,7 @@ Request: a boolean (or the notice's date and type) on item JSON, or an
 endpoint listing retracted item keys, on the local API.
 ```
 
-Post only when the user says so in that turn: `gh issue create --repo zotero/zotero --title "..." --body "..."`. Record the issue number in the completion message.
+Fill the version from `python -m research_vault probe` when posting (10.0.2 on 2026-09-14). Post only when the user says so in that turn: `gh issue create --repo zotero/zotero --title "..." --body "..."`. Record the issue number in the completion message. The repository-side record of this filing is #113 (`ready-for-human`): on posting, comment the upstream URL there and close it; if not posted, leave #113 open and say so.
 
 - [ ] **Step 3: Merge to `main`**
 
@@ -960,7 +969,7 @@ Per `AGENTS.md`: fetch first, merge back to `main` locally and push `main` to or
 
 Write `docs/superpowers/specs/2026-09-06-import-redesign-part-b-results.md` beside the spec, in the shape of `…-part-a-results.md` (date, method, spec, a binds-nothing line; what landed with commit ranges; verification measured in a table; the review's verdict and rounds; what moved in the spec; what remains) — the durable record, since the SDD workspace is deleted at Finish. Commit it with the merge or immediately after.
 
-Report: the tasks landed (with commit shas), the tracer results (Task 1), the live-leg results (Task 5), the issue number or that it was not posted, and anything skipped with its reason. Part A Task 20 delivered decision 23's invariant-5 report; restate it in one line only if the write-side gate changed since.
+Report: the tasks landed (with commit shas), the tracer results (Task 1), the live-leg results (Task 5), the review's verdict and the register's final counts (fixed / declined / the follow-up issue number), the upstream issue number or that it was not posted, and anything skipped with its reason. Part A Task 20 delivered decision 23's invariant-5 report; restate it in one line only if the write-side gate changed since.
 
 ______________________________________________________________________
 
