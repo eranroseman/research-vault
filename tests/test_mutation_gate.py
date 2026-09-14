@@ -296,12 +296,15 @@ def _completed(cmd, code: int = 0) -> subprocess.CompletedProcess:
 
 def _record_runs(monkeypatch) -> list[dict]:
     """Fake subprocess.run at the gate's one seam; every call (the git init
-    that isolates mutants/ and the launcher) lands in the returned list as
-    {"cmd": argv, **kwargs}."""
+    that isolates mutants/, the rev-parse that verifies an existing
+    mutants/.git -- answered as git would for an own repository -- and the
+    launcher) lands in the returned list as {"cmd": argv, **kwargs}."""
     calls: list[dict] = []
 
     def fake_run(cmd, **kwargs):
         calls.append({"cmd": cmd, **kwargs})
+        if cmd[-1] == "--git-common-dir":
+            return subprocess.CompletedProcess(cmd, 0, stdout=".git\n", stderr="")
         return _completed(cmd)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -371,6 +374,97 @@ def test_run_mutmut_caps_the_address_space_of_the_mutmut_process_and_its_childre
     assert limits == [(mutation_gate.resource.RLIMIT_AS, (cap, cap))]
 
 
+def test_run_mutmut_refuses_a_cap_above_the_inherited_hard_limit(tmp_path, monkeypatch):
+    """setrlimit in the child can only lower the hard limit: a cap above the
+    inherited RLIMIT_AS hard limit is refused before anything is launched --
+    the gate's own ChildLimitError naming both numbers, no subprocess, no
+    git init -- while an unlimited hard limit, or one at/above the cap, lets
+    the launch proceed."""
+    root = _fake_root(tmp_path)
+    calls = _record_runs(monkeypatch)
+    cap = mutation_gate.parse_size("4GiB")
+    monkeypatch.setattr(
+        mutation_gate.resource, "getrlimit", lambda _which: (cap, cap - 1)
+    )
+
+    with pytest.raises(mutation_gate.ChildLimitError, match=f"{cap}.*{cap - 1}"):
+        mutation_gate._run_mutmut(
+            "research_vault/x.py", 6, root=root, address_space=cap
+        )
+    assert calls == []
+    assert not (root / "mutants").exists()
+
+    infinity = mutation_gate.resource.RLIM_INFINITY
+    for limits in ((infinity, infinity), (cap, cap), (cap - 1, cap + 1)):
+        monkeypatch.setattr(
+            mutation_gate.resource, "getrlimit", lambda _w, pair=limits: pair
+        )
+        calls.clear()
+        mutation_gate._run_mutmut(
+            "research_vault/x.py", 6, root=root, address_space=cap
+        )
+        assert _launcher_call(calls)["preexec_fn"] is not None
+
+
+def test_run_mutmut_reports_a_refused_preexec_as_a_gate_abort(tmp_path, monkeypatch):
+    """A preexec_fn that raises reaches the parent as subprocess.SubprocessError
+    ("Exception occurred in preexec_fn."): it becomes ChildLimitError, the
+    gate's abort, carrying the module, the cap and the cause -- and the
+    source-tree window is not misreported."""
+    root = _fake_root(tmp_path)
+    calls = _record_runs(monkeypatch)
+    cap = mutation_gate.parse_size("2.5GiB")
+
+    def refusing_run(cmd, **kwargs):
+        calls.append({"cmd": cmd, **kwargs})
+        if kwargs.get("preexec_fn") is not None:
+            raise subprocess.SubprocessError("Exception occurred in preexec_fn.")
+        return _completed(cmd)
+
+    monkeypatch.setattr(subprocess, "run", refusing_run)
+
+    with pytest.raises(mutation_gate.ChildLimitError) as caught:
+        mutation_gate._run_mutmut(
+            "research_vault/x.py", 2, root=root, address_space=cap
+        )
+    assert str(caught.value) == (
+        f"research_vault/x.py: launching mutmut under --child-address-space {cap} "
+        "failed: Exception occurred in preexec_fn."
+    )
+    assert isinstance(caught.value.__cause__, subprocess.SubprocessError)
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+
+
+def test_a_child_limit_failure_is_the_gates_abort_line_in_both_modes(
+    tmp_path, monkeypatch, capsys
+):
+    """main() prints `[baseline] ABORT: ...` / `[gate] ABORT: ...` and returns
+    1 for a ChildLimitError exactly as for a source-tree change -- no
+    traceback, and no baseline written."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    monkeypatch.setattr(mutation_gate, "ROOT", root)
+
+    def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
+        raise mutation_gate.ChildLimitError("--child-address-space 4 exceeds ...")
+
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+    assert mutation_gate.main() == 1
+    assert not baseline_path.exists()
+    assert "[baseline] ABORT: --child-address-space 4 exceeds ..." in (
+        capsys.readouterr().out
+    )
+
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    _argv_gate(monkeypatch, root)
+    assert mutation_gate.main() == 1
+    assert "[gate] ABORT: --child-address-space 4 exceeds ..." in (
+        capsys.readouterr().out
+    )
+
+
 def test_parse_size_reads_bytes_and_binary_suffixes():
     parse = mutation_gate.parse_size
     assert parse("4GiB") == 4 << 30
@@ -388,8 +482,9 @@ def test_run_mutmut_isolates_git_from_the_repository(tmp_path, monkeypatch):
     GIT_CONFIG_* injection (a core.hooksPath override was measured to break
     the scaffold tests and to share one hook across every child), and
     mutants/ is made its own repository first, `--template=` so nothing seeds
-    hooks into it -- once: a second invocation finds mutants/.git and inits
-    nothing."""
+    hooks into it, and the init itself runs under the same env; a second
+    invocation finds mutants/.git, verifies it with `rev-parse
+    --git-common-dir` under that env, and inits nothing."""
     root = _fake_root(tmp_path)
     calls = _record_runs(monkeypatch)
 
@@ -406,12 +501,93 @@ def test_run_mutmut_isolates_git_from_the_repository(tmp_path, monkeypatch):
         str(root / "mutants"),
     ]
     assert calls[0]["check"] is True
+    assert calls[0]["env"]["GIT_CEILING_DIRECTORIES"] == str(root)
     (root / "mutants" / ".git").mkdir()  # the fake ran no git; stand in for it
     calls.clear()
     mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
-    assert [c["cmd"][:2] for c in calls] == [
-        [sys.executable, str(mutation_gate.LAUNCHER)]
+    assert [c["cmd"] for c in calls][:-1] == [
+        ["git", "-C", str(root / "mutants"), "rev-parse", "--git-common-dir"]
     ]
+    assert calls[0]["env"]["GIT_CEILING_DIRECTORIES"] == str(root)
+    assert calls[-1]["cmd"][:2] == [sys.executable, str(mutation_gate.LAUNCHER)]
+    assert (root / "mutants" / ".git").is_dir()  # verified as own, kept
+
+
+def test_run_mutmut_drops_the_inherited_git_location_variables(tmp_path, monkeypatch):
+    """GIT_DIR, GIT_WORK_TREE, GIT_COMMON_DIR or GIT_INDEX_FILE inherited by
+    the launcher would name a repository outright and bypass the ceiling:
+    none reaches the launcher, the init, or the verification probe."""
+    root = _fake_root(tmp_path)
+    for name in mutation_gate.GIT_LOCATION_VARS:
+        monkeypatch.setenv(name, f"/elsewhere/{name.lower()}")
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "kept")  # not a location variable
+    calls = _record_runs(monkeypatch)
+
+    mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+    (root / "mutants" / ".git").mkdir()
+    mutation_gate._run_mutmut("research_vault/x.py", 4, root=root)
+
+    assert mutation_gate.GIT_LOCATION_VARS == (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+    )
+    assert len(calls) == 4  # init, launcher, probe, launcher
+    for call in calls:
+        assert not set(mutation_gate.GIT_LOCATION_VARS) & set(call["env"])
+        assert call["env"]["GIT_AUTHOR_NAME"] == "kept"
+        assert call["env"]["GIT_CEILING_DIRECTORIES"] == str(root)
+
+
+@pytest.mark.parametrize("shape", ["gitfile-elsewhere", "garbage-head", "symlink"])
+def test_git_isolation_replaces_a_mutants_git_that_is_not_its_own(tmp_path, shape):
+    """Real git. A pre-seeded mutants/.git that is a gitfile pointing at another
+    repository, a directory git no longer reads as a repository (`git init`
+    over it leaves the garbage HEAD in place -- measured), or a symlink to
+    another repository's .git is removed and mutants/ initialised afresh: the
+    common dir resolves to mutants/.git itself, the other repository is
+    untouched, and an own repository is then kept, not re-initialised."""
+    root = tmp_path / "root"
+    mutants = root / "mutants"
+    mutants.mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    subprocess.run(
+        ["git", "init", "-q", str(elsewhere)], check=True, capture_output=True
+    )
+    (elsewhere / ".git" / "marker").write_text("untouched\n")
+    dot_git = mutants / ".git"
+    if shape == "gitfile-elsewhere":
+        dot_git.write_text(f"gitdir: {elsewhere / '.git'}\n")
+    elif shape == "garbage-head":
+        dot_git.mkdir()
+        (dot_git / "HEAD").write_text("garbage\n")
+    else:
+        dot_git.symlink_to(elsewhere / ".git")
+
+    env = {**os.environ, **mutation_gate._isolate_git(root)}
+
+    def common_dir() -> Path:
+        probe = subprocess.run(
+            ["git", "-C", str(mutants), "rev-parse", "--git-common-dir"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return (mutants / probe.stdout.strip()).resolve()
+
+    assert dot_git.is_dir()
+    assert not dot_git.is_symlink()
+    assert common_dir() == dot_git.resolve()
+    assert not (dot_git / "hooks").exists()  # --template=
+    assert (elsewhere / ".git" / "marker").read_text() == "untouched\n"
+    assert (elsewhere / ".git" / "HEAD").exists()
+    head_before = (dot_git / "HEAD").read_bytes()
+    (dot_git / "own-marker").write_text("kept\n")
+    mutation_gate._isolate_git(root)  # own now: verified, not replaced
+    assert (dot_git / "own-marker").read_text() == "kept\n"
+    assert (dot_git / "HEAD").read_bytes() == head_before
 
 
 def test_git_isolation_contains_hook_paths_under_mutants_and_walls_off_the_root(

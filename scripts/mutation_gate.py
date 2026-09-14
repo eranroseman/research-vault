@@ -104,7 +104,11 @@ same mutant raises MemoryError, pytest exits 1, and the mutant counts as
 killed. Sizing: children x cap under the machine's memory bound is the
 guarantee that the OOM killer never fires; a looser product only holds while
 at most one child runs away at a time. False-kill cost: only a test that
-genuinely needs more than the cap, and the suite runs in under 1 GB.
+genuinely needs more than the cap, and the suite runs in under 1 GB. A cap
+the process may not set -- the inherited hard limit is already below it --
+is checked before the launch and aborts the run with the gate's own
+`[...] ABORT:` line and exit 1; a preexec that still fails is caught at the
+launch and reported the same way, never as a traceback.
 
 Git isolation. Measured 2026-09-14T02:13Z: a scaffold.py mutant with its vault
 argument mutated to a non-vault ran the vault-hook install with cwd inside
@@ -118,7 +122,16 @@ exports GIT_CEILING_DIRECTORIES=<repo root> to the mutmut process: discovery
 from anywhere under mutants/ stops at mutants/.git, and from anywhere else
 under the root it fails loudly instead of reaching this repository (the root
 itself is not below the ceiling, so mutmut's own git calls from the root still
-work, and tmp_path repositories are outside it). A core.hooksPath override for
+work, and tmp_path repositories are outside it). Two things the ceiling alone
+does not cover, so the gate does them too: the four git LOCATION variables
+(GIT_DIR, GIT_WORK_TREE, GIT_COMMON_DIR, GIT_INDEX_FILE) are dropped from the
+child environment -- any one of them inherited names a repository outright and
+discovery, ceiling included, never runs -- and an existing mutants/.git is not
+trusted: before every invocation `git -C mutants rev-parse --git-common-dir`
+must resolve to mutants/.git itself, and a gitfile pointing elsewhere, a
+symlink, or a directory git no longer reads as a repository is removed and the
+repository initialised afresh (measured: `git init` over a directory whose
+HEAD is garbage leaves the garbage in place). A core.hooksPath override for
 every child was measured and rejected: it sends the hook the UNMUTATED
 scaffold tests install to one shared directory, 9 of them fail on the hook's
 location, and that hook would then run on every commit any child makes.
@@ -161,10 +174,21 @@ NO_VERDICT_STATUSES = (
 BY_NAME_STATUSES = ("timeout", "caught by type check")
 DEFAULT_ADDRESS_SPACE = "4GiB"
 _SIZE_UNITS = {"MiB": 1 << 20, "GiB": 1 << 30}
+# Inherited, any one of these names a repository outright and git's discovery
+# (the ceiling with it) never runs -- see the header.
+GIT_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE")
 
 
-class SourceTreeChangedError(RuntimeError):
+class GateAbortError(RuntimeError):
+    """The run cannot continue; main() prints it as the gate's ABORT line."""
+
+
+class SourceTreeChangedError(GateAbortError):
     """research_vault/ or tests/ differed after a mutmut invocation."""
+
+
+class ChildLimitError(GateAbortError):
+    """The per-child address-space cap cannot be applied."""
 
 
 @dataclass
@@ -335,14 +359,65 @@ def _address_space_limiter(cap: int) -> Callable[[], None]:
     return limit
 
 
+def _check_address_space_cap(cap: int) -> None:
+    """A cap above the inherited hard limit is one setrlimit would refuse in
+    the child, where the failure is only a preexec traceback: refuse it here,
+    as the gate's own abort, before anything is launched."""
+    _soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    if hard != resource.RLIM_INFINITY and hard < cap:
+        raise ChildLimitError(
+            f"--child-address-space {cap} exceeds this process's RLIMIT_AS hard "
+            f"limit of {hard} bytes; the cap cannot be applied to the mutmut "
+            "children (lower it, or raise the hard limit)"
+        )
+
+
+def _git_env(root: Path) -> dict[str, str]:
+    """The environment every git-touching process under the gate gets: the
+    inherited one minus the location variables, plus the ceiling."""
+    env = {k: v for k, v in os.environ.items() if k not in GIT_LOCATION_VARS}
+    env["GIT_CEILING_DIRECTORIES"] = str(root)
+    return env
+
+
+def _is_own_repository(mutants: Path, env: dict[str, str]) -> bool:
+    """Whether mutants/.git is a directory git reads as a repository whose
+    common dir is that very directory -- not a gitfile or symlink pointing
+    elsewhere, not a directory git no longer accepts."""
+    dot_git = mutants / ".git"
+    if dot_git.is_symlink() or not dot_git.is_dir():
+        return False
+    probe = subprocess.run(
+        ["git", "-C", str(mutants), "rev-parse", "--git-common-dir"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode != 0:
+        return False
+    return (mutants / probe.stdout.strip()).resolve() == dot_git.resolve()
+
+
 def _isolate_git(root: Path) -> dict[str, str]:
     """mutants/ becomes its own repository and the root is git's ceiling --
-    see the header. Returns the env entries the mutmut process gets."""
+    see the header. An existing mutants/.git is verified, never trusted.
+    Returns the env entries the mutmut process gets."""
     mutants = root / "mutants"
     mutants.mkdir(exist_ok=True)
-    if not (mutants / ".git").exists():
+    env = _git_env(root)
+    dot_git = mutants / ".git"
+    present = dot_git.exists() or dot_git.is_symlink()
+    if present and not _is_own_repository(mutants, env):
+        if dot_git.is_dir() and not dot_git.is_symlink():
+            shutil.rmtree(dot_git)
+        else:
+            dot_git.unlink()
+        present = False
+    if not present:
         subprocess.run(
             ["git", "init", "-q", "--template=", str(mutants)],
+            env=env,
             capture_output=True,
             text=True,
             check=True,
@@ -369,27 +444,37 @@ def _run_mutmut(
     # it wins over anything already on PYTHONPATH.
     inherited = os.environ.get("PYTHONPATH")
     pythonpath = f"{SHIMS}{os.pathsep}{inherited}" if inherited else str(SHIMS)
+    _check_address_space_cap(address_space)
     _sweep_pycache(root)
     before = _tree_digest(root)
     # The isolation's git init runs inside the hashed window: nothing it does
-    # may touch the source trees either.
+    # may touch the source trees either. _git_env drops the inherited git
+    # location variables; the ceiling comes from _isolate_git.
     env = {
-        **os.environ,
+        **_git_env(root),
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONPATH": pythonpath,
         **_isolate_git(root),
     }
     # check=False deliberate: the exit code is the module's class, decided by
     # the caller, and a non-zero exit must reach it as data, not an exception.
-    proc = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=root,
-        check=False,
-        env=env,
-        preexec_fn=_address_space_limiter(address_space),
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=root,
+            check=False,
+            env=env,
+            preexec_fn=_address_space_limiter(address_space),
+        )
+    except subprocess.SubprocessError as error:
+        # A preexec_fn that raises (setrlimit refused) surfaces here, as
+        # "Exception occurred in preexec_fn": the gate's abort, not a traceback.
+        raise ChildLimitError(
+            f"{relpath}: launching mutmut under --child-address-space "
+            f"{address_space} failed: {error}"
+        ) from error
     after = _tree_digest(root)
     sys.stderr.write(proc.stderr)
     if after != before:
@@ -670,7 +755,7 @@ def main() -> int:
         return _gate(
             baseline_path, args.base, args.max_children, args.child_address_space
         )
-    except SourceTreeChangedError as error:
+    except GateAbortError as error:
         prefix = "[baseline]" if args.update_baseline else "[gate]"
         print(f"{prefix} ABORT: {error}")
         return 1
