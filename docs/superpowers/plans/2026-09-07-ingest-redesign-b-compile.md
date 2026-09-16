@@ -241,9 +241,12 @@ def test_ledger_record_and_bundle_shape(tmp_vault, monkeypatch):
     source_id, record = next(iter(records.items()))
     assert source_id == compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "f" * 64)
     assert record["origin"] == {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}
-    assert record["content_sha256"] == "f" * 64 and record["title"] == "Co-writing"
-    assert record["review_status"] == "unreviewed" and record["pages"] == []
-    assert record["retrieved_at"] == "2026-09-07" and record["ingested_at"] == "2026-09-07"
+    assert record["content_sha256"] == "f" * 64
+    assert record["title"] == "Co-writing"
+    assert record["review_status"] == "unreviewed"
+    assert record["pages"] == []
+    assert record["retrieved_at"] == "2026-09-07"
+    assert record["ingested_at"] == "2026-09-07"
 
 
 def test_records_skip_notes_without_a_compile_input(tmp_vault):
@@ -270,6 +273,28 @@ def _fake_tool(tmp_path, monkeypatch, *, inspect_ok=True, apply_code=0):
     return root
 
 
+def test_selected_notes_skips_a_non_utf8_note_without_crashing(tmp_vault):
+    """A corrupted note anywhere in ``literatures/`` must not crash the whole
+    ``compile`` operation -- ``broken.md`` sorts before ``jakesch.etal2023a.md``
+    so this also kills a ``continue`` -> ``break`` mutant: the wanted note, read
+    later in the same walk, must still yield."""
+    (tmp_vault / "literatures" / "broken.md").write_bytes(b"\xff\xfe")
+    _note(tmp_vault)
+    records = compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert len(records) == 1
+
+
+def test_selected_notes_skips_an_unreadable_note_without_crashing(tmp_vault):
+    """A note path that raises ``OSError`` on read (a directory, so
+    ``read_bytes()`` raises ``IsADirectoryError``) is skipped the same way a
+    bad-encoding note is -- the ``except`` tuple really catches ``OSError``.
+    ``dir.md`` sorts before ``jakesch.etal2023a.md``."""
+    (tmp_vault / "literatures" / "dir.md").mkdir()
+    _note(tmp_vault)
+    records = compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert len(records) == 1
+
+
 def test_plan_writes_the_bundle_and_apply_reports_four_state(tmp_vault, tmp_path, monkeypatch):
     _note(tmp_vault)
     _fake_tool(tmp_path, monkeypatch)
@@ -278,14 +303,16 @@ def test_plan_writes_the_bundle_and_apply_reports_four_state(tmp_vault, tmp_path
     bundle = json.loads(bundle_path.read_text())
     assert bundle["operation_type"] == "ingest"
     (write,) = bundle["writes"]
-    assert write["path"] == "wiki/meta/ledgers/source-ledger.json" and write["mode"] == "create"
+    assert write["path"] == "wiki/meta/ledgers/source-ledger.json"
+    assert write["mode"] == "create"
     assert write["sha256"] == hashlib.sha256(write["content"].encode()).hexdigest()
     assert bundle["expected_hashes"] == {"wiki/meta/ledgers/source-ledger.json": None}
     assert json.loads(write["content"])["schema"] == "claude-obsidian.source-ledger.v1"
     assert inspected["approval_sha256"] == "abc123"
 
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
-    assert outcome.result is Result.MATCHED and "source-ledger.json" in outcome.reason
+    assert outcome.result is Result.MATCHED
+    assert "source-ledger.json" in outcome.reason
 
 
 def test_plan_merges_into_an_existing_ledger_and_pins_its_hash(tmp_vault, tmp_path, monkeypatch):
@@ -299,7 +326,8 @@ def test_plan_merges_into_an_existing_ledger_and_pins_its_hash(tmp_vault, tmp_pa
     bundle = json.loads(bundle_path.read_text())
     assert bundle["expected_hashes"]["wiki/meta/ledgers/source-ledger.json"] == hashlib.sha256(ledger.read_bytes()).hexdigest()
     merged = json.loads(bundle["writes"][0]["content"])["sources"]
-    assert "src-keep" in merged and len(merged) == 2
+    assert "src-keep" in merged
+    assert len(merged) == 2
     assert bundle["writes"][0]["mode"] == "replace"
 
 
@@ -308,7 +336,8 @@ def test_apply_maps_tool_exit_codes(tmp_vault, tmp_path, monkeypatch):
     _fake_tool(tmp_path, monkeypatch, apply_code=2)
     bundle_path, _ = compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
-    assert outcome.result is Result.UNMATCHED and outcome.reason.startswith("mismatch")
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("mismatch")
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
     assert outcome.result is Result.UNREACHABLE
@@ -333,10 +362,9 @@ writes under ``wiki/`` itself and carries no prompt.
 import datetime
 import hashlib
 import json
-import subprocess
 from pathlib import Path, PurePosixPath
 
-from . import captured, frontmatter, notes, paths
+from . import captured, clock, frontmatter, notes, paths
 from .outcome import Outcome, Result
 
 LEDGER_PATH = notes.LEDGER_PATH
@@ -375,7 +403,14 @@ def tool_root(vault_root) -> Path | None:
 def _selected_notes(vault: Path, keys):
     wanted = set(keys)
     for path in sorted((vault / "literatures").glob("*.md")):
-        text = path.read_text(encoding="utf-8")
+        try:
+            # bytes.decode()'s default codec already is utf-8, so this carries
+            # no literal codec name a mutation gate could flip with no effect.
+            text = path.read_bytes().decode()
+        except (OSError, UnicodeError):
+            # Skipped exactly as an unparseable note is (read_provenance ->
+            # None); captured-set/okf-frontmatter are where it's reported.
+            continue
         provenance = notes.read_provenance(text)
         if provenance is None or provenance.citation_key not in wanted:
             continue
@@ -409,7 +444,7 @@ def ledger_record(citation_key, provenance, data, today) -> tuple[str, dict] | N
 
 def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
     vault = Path(vault_root)
-    today = today or datetime.datetime.now(datetime.UTC).date().isoformat()
+    today = clock.today(today)
     records = {}
     for provenance, data in _selected_notes(vault, keys):
         entry = ledger_record(provenance.citation_key, provenance, data, today)
@@ -429,8 +464,8 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
     vault = Path(vault_root)
     root = tool_root(vault)
     if root is None:
-        raise ToolMissingError("claude-obsidian is not installed; see setup-vault")
-    today = today or datetime.datetime.now(datetime.UTC).date().isoformat()
+        raise ToolMissingError("claude-obsidian is not installed")
+    today = clock.today(today)
     ledger = vault / LEDGER_PATH
     if ledger.is_file():
         raw = ledger.read_bytes()
