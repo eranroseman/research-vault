@@ -10,6 +10,7 @@ from . import (
     Result,
     bibliography,
     capture,
+    captured,
     clock,
     events,
     factcheck,
@@ -24,6 +25,7 @@ from . import (
     stamp,
     zotero,
 )
+from . import compile as compile_mod
 from .pathcodec import (
     PathCodecError,
 )
@@ -325,6 +327,50 @@ def cmd_factcheck(args):
         return 2
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0
+
+
+def cmd_compile(args):
+    """The compile wrapper's CLI face (ingest spec §4.5): plan, then apply.
+
+    Without ``--approved-plan-sha256``, selects from ``keys`` or (with
+    ``--all``) the whole captured set, writes the transaction bundle, runs the
+    tool's own ``transaction inspect`` and prints the apply line with the
+    plan's hash — read-only against the vault. With ``--approved-plan-sha256``
+    (and ``--bundle``), drives ``transaction apply`` and reports the four-state
+    outcome; an ``UNMATCHED``/``UNREACHABLE`` result is held the same way
+    ``capture`` holds one.
+    """
+    keys = list(args.keys) or (
+        sorted(captured.captured_set(args.vault)) if args.all else []
+    )
+    if args.approved_plan_sha256:
+        outcome = compile_mod.apply(args.vault, args.bundle, args.approved_plan_sha256)
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result is not Result.MATCHED:
+            _hold(
+                args.vault,
+                compile_mod.CHECK,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+            )
+        return {
+            Result.MATCHED: 0,
+            Result.UNMATCHED: 1,
+            Result.UNREACHABLE: 3,
+            Result.SKIPPED: 0,
+        }[outcome.result]
+    try:
+        bundle_path, inspected = compile_mod.plan(args.vault, keys)
+    except compile_mod.ToolMissingError as error:
+        print(f"UNREACHABLE compile — outage — {error}", file=sys.stderr)
+        return 3
+    print(json.dumps({"bundle": str(bundle_path), **inspected}, indent=2))
+    print(
+        f"apply with: python3 -m research_vault compile --vault {args.vault} "
+        f"--bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}"
+    )
+    return 0 if inspected.get("valid") else 1
 
 
 def cmd_trust_tier(args):
@@ -746,6 +792,12 @@ def main(argv=None):
     factcheck_cmd.add_argument("--vault", required=True)
     factcheck_cmd.add_argument("--draft", required=True)
     factcheck_cmd.add_argument("--cap", type=int, default=factcheck.DEFAULT_CAP)
+    compile_cmd = sub.add_parser("compile", parents=[common])
+    compile_cmd.add_argument("keys", nargs="*")
+    compile_cmd.add_argument("--vault", required=True)
+    compile_cmd.add_argument("--all", action="store_true")
+    compile_cmd.add_argument("--bundle")
+    compile_cmd.add_argument("--approved-plan-sha256")
     trust_tier_cmd = sub.add_parser("trust-tier", parents=[common])
     trust_tier_cmd.add_argument("citation_key", metavar="CITATION_KEY")
     trust_tier_cmd.add_argument("--vault", required=True)
@@ -809,6 +861,8 @@ def main(argv=None):
             parser.error("--commit-projected requires a non-empty message")
         if args.changed_paths_file is None:
             parser.error("--commit-projected requires --changed-paths-file")
+    if args.cmd == "compile" and args.approved_plan_sha256 and not args.bundle:
+        parser.error("compile: --approved-plan-sha256 requires --bundle")
     try:
         # Only doctor tolerates an unreadable machine.json: its machine-config
         # probe reports the file. Every other verb refuses rather than run at
@@ -828,6 +882,7 @@ def main(argv=None):
         "propagate": cmd_propagate,
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
+        "compile": cmd_compile,
         "trust-tier": cmd_trust_tier,
         "arm-publish": cmd_arm_publish,
         "disarm-publish": cmd_disarm_publish,
