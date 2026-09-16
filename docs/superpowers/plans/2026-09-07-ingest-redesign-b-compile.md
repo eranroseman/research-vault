@@ -980,7 +980,7 @@ python3 -m research_vault compile KEY [KEY ...] --vault PATH        # prints the
 python3 -m research_vault compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA
 ```
 
-Show the person the plan before applying; the approval hash is the tool's own human gate, and there is no second one. Then run the tool's `wiki-ingest` skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. Then run `capture KEY` again (or `capture --all`): the note now embeds the compiled page, `![[<page path>]]`, from the ledger's `pages[]`. Until that second capture the embed is absent — expected, not an error. A note whose text changed after compile is reported `recompile-needed` by `verify`.
+Show the person the plan before applying; the approval hash is the tool's own human gate, and there is no second one. Then run the tool's wiki-ingest skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. Then run `capture KEY` again (or `capture --all`): the note now embeds the compiled page, `![[<page path>]]`, from the ledger's `pages[]`. Until that second capture the embed is absent — expected, not an error. A note whose text changed after compile is reported `recompile-needed` by `verify`.
 ````
 
 `skills/setup-vault/SKILL.md`: insert before `## Migrate an older vault`:
@@ -993,7 +993,7 @@ claude plugin marketplace add AgriciDaniel/claude-obsidian
 claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
-Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
+Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. `$ROOT` is the plugin's `installPath` recorded in `~/.claude/plugins/installed_plugins.json` (the record doctor's `compile-tool` probe reads); `.research-vault/machine.json` may name a `claude_obsidian_root` that overrides it. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
 ````
 
 `skills/synthesis-conventions/SKILL.md`:
@@ -1010,7 +1010,7 @@ The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/
 
 ## Never write the layer by hand
 
-`wiki/` is a machine surface: pages are created and replaced only through the tool's `wiki-ingest` skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`; the pre-tool-use guard refuses it. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`).
+`wiki/` is a machine surface: pages are created and replaced only through the tool's wiki-ingest skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`; the pre-tool-use guard refuses it. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`).
 
 ## Orientation first
 
@@ -1026,7 +1026,7 @@ Every concept page carries at least two outgoing wikilinks, at least one of them
 
 ## Frontmatter
 
-The tool's lint requires six keys on every page under `wiki/`: `title`, `type`, `status`, `created`, `updated`, `tags`. `type` is one of the tool's own values (`source`, `concept`, `entity`, `meta`); the vault derives none for `wiki/`. No `{{TITLE}}`-style template exists for this layer any more.
+The tool's lint requires six keys on every page under `wiki/`: `title`, `type`, `status`, `created`, `updated`, `tags`. `type` is one of the tool's own `PAGE_TYPES` at 32ac5a0 — `source`, `entity`, `concept`, `question`, `comparison`, `session`, `overview`, `meta`, `fold` (`claude_obsidian/page_schema.py`, read 2026-09-16); the vault derives none for `wiki/`. No `{{TITLE}}`-style template exists for this layer any more.
 
 ## Index registration
 
