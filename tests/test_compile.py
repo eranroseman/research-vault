@@ -71,6 +71,50 @@ def test_records_skip_notes_without_a_compile_input(tmp_vault):
     )
 
 
+def test_ledger_record_skips_when_no_fulltext_entry_matches_the_compile_input(
+    tmp_vault,
+):
+    """``next((...), None)`` must supply the ``None`` default for real: a
+    ``compile-input-sha256`` that matches no ``fulltext[].sha256`` entry
+    leaves the generator exhausted, and without the default that raises
+    ``StopIteration`` instead of a graceful skip."""
+    _note(tmp_vault)
+    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    text = must_replace(
+        path.read_text(),
+        'compile-input-sha256: "' + "f" * 64 + '"',
+        'compile-input-sha256: "' + "b" * 64 + '"',
+    )
+    path.write_text(text)
+    assert (
+        compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+        == {}
+    )
+
+
+def test_stable_source_id_normalizes_a_file_locator_through_pureposixpath():
+    """``kind.casefold() == "file"`` selects normalization; a redundant path
+    segment must hash the same as its normalized form for a file kind,
+    proving ``PurePosixPath`` actually ran — an always-false comparison (a
+    flipped operator, or a comparison against a casefolded value the
+    right-hand side never can be) would leave both un-normalized instead,
+    making them differ from a locator that never needed normalizing."""
+    raw = compile_mod.stable_source_id("file", "fulltext//D7EJ9FTG.md", "a" * 64)
+    normalized = compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "a" * 64)
+    assert raw == normalized
+
+
+def test_stable_source_id_treats_a_missing_sha_as_empty_not_a_placeholder():
+    """``(content_sha256 or '').casefold()``: a placeholder other than ``''``
+    is invisible to a test that only ever passes ``None`` (both are falsy,
+    so any fallback token would be reached the same way) — only comparing
+    against an independently computed digest catches which literal was
+    actually hashed."""
+    result = compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", None)
+    expected_digest = hashlib.sha256(b"file\0fulltext/D7EJ9FTG.md\0").hexdigest()
+    assert result == f"src-{expected_digest[:20]}"
+
+
 def test_stable_source_id_honours_surrogatepass_on_an_undecodable_locator():
     """Ordinary content never exercises the ``errors=`` handler at all (no
     encoding error occurs), so a garbled handler name or a dropped ``errors=``
@@ -420,6 +464,22 @@ def test_plan_reflects_an_invalid_bundle_exit_without_json(
         tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
     )
     assert inspected == {"exit": 2, "stderr": "bundle is invalid: bad hash"}
+
+
+def test_plan_recovers_from_unparseable_non_empty_inspect_stdout(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """Non-empty but invalid JSON on stdout (distinct from the empty-stdout
+    case above, which the ``or "{}"`` fallback turns into valid JSON before
+    ``json.loads`` ever sees it) is what actually reaches ``except
+    ValueError:``. ``inspected`` must become ``{}`` there — a dict, so the
+    later ``.setdefault`` calls still work — not ``None``."""
+    _note(tmp_vault)
+    _fake_tool_raw(tmp_path, monkeypatch, inspect=("not valid json output", "", 2))
+    _bundle_path, inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert inspected == {"exit": 2, "stderr": ""}
 
 
 def test_plan_can_run_twice_against_the_same_vault(tmp_vault, tmp_path, monkeypatch):
