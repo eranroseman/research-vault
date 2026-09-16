@@ -523,6 +523,329 @@ inspect-then-apply gate driven with its approval hash.
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault tests docs
 ```
 
+### Task 2b: The commit surface accepts capture's own writes — `evidence-layer`'s write legs require the writer attestation (spec §6 amendment of 2026-09-16; Task 1 T4 finding)
+
+Independent of Tasks 1–3 (no compile dependency); runs at once, in parallel with Task 2. Operator decision of 2026-09-16 (option 1 of three: this; ack per note; defer to the audit).
+
+**Why.** `lint_evidence_layer` reports every base→candidate change under `literatures/` — added, body changed, renamed, deleted — as UNMATCHED, the check sits in the commit and publish closing sets, and the vault template's pre-commit hook runs the commit surface. Measured by Task 1 T4 on 2026-09-14: a capture, a compile refresh (`## Compiled` inserted) or a propagate blocks the next commit until every note is acknowledged. The legs were the foundation design's human gate on a human-written evidence layer; the ingest spec made the whole note body capture's (§3: "capture writes literature notes … and touches nothing a person wrote") and retired admission (§1.1). The same function already carries the right mechanism for its frontmatter leg: a machine-owned key may change iff `generated` changed in the same diff with a machine-class `by` (`_frontmatter_attestation_outcomes`, "writer attestation"), and `notes.render_note` bumps `generated` on every content change (`notes.py:503-504`). This task puts the body, added and renamed legs under that one rule. A hand edit that refreshes `managed-sha256` but not `generated` is still drift; a forged attestation is the stated boundary the frontmatter leg already declares. A deletion stays a finding: no verb deletes a literature note (ADR 0003).
+
+**Files:**
+
+- Modify: `research_vault/lints.py` (`lint_evidence_layer`, `_frontmatter_attestation_outcomes`; add `_write_attested`, `_note_identity`), `tests/test_lints.py` (`test_body_change_always_yields_typed_evidence_finding_with_fresh_witness` replaced by the two parametrized tests below; `test_prose_appended_below_the_note_is_a_body_change` rewritten; the reason string in `test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate`'s expected set), `docs/superpowers/specs/2026-09-06-import-redesign-design.md` §6 (the dated sentence is already on `main` at the commit that added this task; nothing to write), `docs/terminology.md` (nothing: check id and reason code unchanged)
+
+**Interfaces:**
+
+- Consumes: `notes.read_provenance(text) -> Provenance | None` (identity `(server_id, item_key)`, decision 08), `notes.validate_managed_witness`, `notes._valid_generated`, `lints._machine_attested`, `lints._frontmatter`, `lints._field`, `lints._body_bytes`, `lints._literature_files`.
+
+- Produces: `lint_evidence_layer(base_snapshot, candidate_snapshot) -> list[Outcome]` with reasons `drift — literature note added without writer attestation`, `drift — literature note body changed without writer attestation`, `drift — literature note renamed without writer attestation` (with `extra={"prior_path": RepoPath(old)}`), `drift — literature note deleted`, the witness `schema-violation`/`outage` reasons and the per-key `drift — <key> changed without writer attestation` reasons, all unchanged in check id (`evidence-layer`) and reason code (`drift`). Attested writes yield no row.
+
+- [ ] **Step 1: Write the failing tests**
+
+In `tests/test_lints.py`, delete `test_body_change_always_yields_typed_evidence_finding_with_fresh_witness` (its "add" and "edit" expectations are the behaviour this task retires) and add, beside `_refresh_body_witness`:
+
+```python
+_FIXTURE_GENERATED = 'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}'
+
+
+def _bump_generated(text: str, by: str = "research_vault/0.1.0") -> str:
+    """What `notes.render_note` does on every content change: a fresh `at`."""
+    return must_replace(
+        text, _FIXTURE_GENERATED, f'generated: {{by: "{by}", at: "2026-09-16T09:00:00Z"}}'
+    )
+
+
+def _base_tree(vault) -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=vault,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+
+def _evidence_rows(vault, base):
+    return [
+        item
+        for item in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(vault, base), gitstate.snapshot_worktree(vault)
+        )
+        if item.result is not Result.MATCHED
+    ]
+
+
+@pytest.mark.parametrize("write", ["add", "refresh", "rename"])
+def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, write):
+    """Capture, the compile refresh and propagate bump `generated` under the
+    machine actor on every content change (`notes.render_note`); the commit
+    surface must let those writes through, or every capture blocks the next
+    commit (ingest spec §6 amendment of 2026-09-16, Part B Task 1 T4)."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    if write == "add":
+        # A new capture: a note carrying a valid witness and a machine-class `generated`.
+        added = fixture_vault / "literatures" / "added.md"
+        added.write_text(
+            must_replace(source.read_text(), 'citationKey: "smith2020"', 'citationKey: "added"')
+        )
+        _refresh_body_witness(added)
+    elif write == "refresh":
+        # The compile refresh: the body changes, `generated` moves, the witness is fresh.
+        source.write_text(
+            _bump_generated(
+                source.read_text() + "\n## Compiled\n\n![[wiki/sources/Mortality decline.md]]\n"
+            )
+        )
+        _refresh_body_witness(source)
+    else:
+        # Propagate: the note re-keys, is re-rendered at the new path, same Zotero identity.
+        renamed = fixture_vault / "literatures" / "smith2020b.md"
+        renamed.write_text(
+            _bump_generated(
+                must_replace(source.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020b"')
+            )
+        )
+        _refresh_body_witness(renamed)
+        source.unlink()
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert rows == [], rows
+
+
+@pytest.mark.parametrize("write", ["add", "edit", "rename", "delete"])
+def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write):
+    """The same four shapes with no writer attestation — a hand-written note,
+    a hand edit that refreshed the witness, a bare `mv`, a deletion — each
+    surface as exactly the drift row the shape names."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    if write == "add":
+        added = fixture_vault / "literatures" / "added.md"
+        added.write_text(
+            must_replace(
+                must_replace(source.read_text(), 'citationKey: "smith2020"', 'citationKey: "added"'),
+                _FIXTURE_GENERATED,
+                'generated: {by: "human:eran", at: "2026-09-16T09:00:00Z"}',
+            )
+        )
+        _refresh_body_witness(added)
+        expected = ("path-bytes:literatures/added.md", "drift — literature note added without writer attestation")
+    elif write == "edit":
+        source.write_text(must_replace(source.read_text(), "# Mortality decline", "# Changed"))
+        _refresh_body_witness(source)
+        expected = ("path-bytes:literatures/smith2020.md", "drift — literature note body changed without writer attestation")
+    elif write == "rename":
+        source.rename(fixture_vault / "literatures" / "renamed.md")
+        expected = ("path-bytes:literatures/renamed.md", "drift — literature note renamed without writer attestation")
+    else:
+        source.unlink()
+        expected = ("path-bytes:literatures/smith2020.md", "drift — literature note deleted")
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    matching = [item for item in rows if (item.target, item.reason) == expected]
+    assert len(matching) == 1, rows
+    assert matching[0].result is Result.UNMATCHED
+    assert matching[0].target_kind == "repo-path"
+    if write == "rename":
+        assert matching[0].extra["prior_path"] == RepoPath(b"literatures/smith2020.md")
+
+
+def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
+    """Propagate re-keys and re-renders, so the bytes differ; the pairing is
+    decision 08's identity. A note with no tuple still pairs by body bytes."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    renamed = fixture_vault / "literatures" / "smith2020b.md"
+    renamed.write_text(
+        must_replace(source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed")
+    )
+    _refresh_body_witness(renamed)  # bytes differ from the base; `generated` untouched
+    source.unlink()
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert [item.reason for item in rows] == [
+        "drift — literature note renamed without writer attestation"
+    ], rows
+    assert rows[0].extra["prior_path"] == RepoPath(b"literatures/smith2020.md")
+```
+
+Rewrite `test_prose_appended_below_the_note_is_a_body_change` to:
+
+```python
+def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
+    fixture_vault,
+):
+    """The free region is retired: the whole body is capture's. Hand-added
+    prose is a stale witness when the person did not refresh it, and an
+    unattested body change when they did; it is never silent."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    source.write_text(source.read_text() + "hand-written prose\n")
+
+    stale = {item.reason for item in _evidence_rows(fixture_vault, base)}
+    assert any(reason.startswith("schema-violation") for reason in stale), stale
+
+    _refresh_body_witness(source)
+    fresh = {item.reason for item in _evidence_rows(fixture_vault, base)}
+    assert "drift — literature note body changed without writer attestation" in fresh, fresh
+    assert not any(reason.startswith("schema-violation") for reason in fresh), fresh
+```
+
+In `test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate`, the expected set's last member `"drift — literature note body changed"` becomes `"drift — literature note body changed without writer attestation"`.
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `.venv/bin/python -m pytest tests/test_lints.py -q -k "evidence_layer or prose_appended or pairs_by or unparseable_base"`
+Expected: FAIL — the three attested cases each carry a drift row; the unattested cases carry the old reason strings; the identity pairing case reads "deleted" plus "added".
+
+- [ ] **Step 3: Implement**
+
+In `research_vault/lints.py`, add after `_machine_attested`:
+
+```python
+def _write_attested(base_data: dict | None, candidate_data: dict | None) -> bool:
+    """Whether a change to this note in this diff carries the writer attestation.
+
+    One legality rule for the body and for every machine-owned key: a change
+    is attested iff `generated` also changed in the same diff and the
+    candidate's `generated` is validly shaped with a machine-class `by`. An
+    unparseable base (`base_data is None`) has no prior state to compare
+    against, so a validly machine-shaped candidate `generated` must not be
+    read as evidence of a legitimate write — that would let an unreadable
+    base auto-attest whatever hides behind it.
+    """
+    base_generated = _field(base_data, "generated")
+    candidate_generated = _field(candidate_data, "generated")
+    return (
+        base_data is not None
+        and base_generated != candidate_generated
+        and _machine_attested(candidate_generated)
+    )
+
+
+def _note_identity(image: gitstate.FileImage | None) -> tuple[str, str] | None:
+    """Decision 08's identity of a literature note, `(server id, item key)`,
+    or None for a note that carries no complete tuple."""
+    if image is None or image.kind != "file":
+        return None
+    try:
+        text = (image.data or b"").decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    provenance = notes.read_provenance(text)
+    if provenance is None:
+        return None
+    return provenance.server_id, provenance.item_key
+```
+
+In `_frontmatter_attestation_outcomes`, replace the `base_generated` / `candidate_generated` / `generated_changed` / `attested = (...)` block with `attested = _write_attested(base_data, candidate_data)` and move the docstring's "unparseable base" paragraph onto `_write_attested` (it is printed there above). Replace `lint_evidence_layer` whole:
+
+```python
+def lint_evidence_layer(
+    base_snapshot: gitstate.Snapshot,
+    candidate_snapshot: gitstate.Snapshot,
+) -> list[Outcome]:
+    """Validate witnesses; report a deleted note and any write without attestation.
+
+    Capture, the compile refresh and propagate are the only writers of
+    `literatures/` (ingest spec §3; §6 amended 2026-09-16), and each of their
+    writes bumps `generated` under the machine actor (`notes.render_note`).
+    So an added note, a changed body and a renamed note are findings only
+    when that attestation is absent — `_write_attested`, the rule the
+    machine-owned keys already live under — and a deletion always is (ADR
+    0003: no verb deletes a literature note). Stated boundary, shared with
+    `_frontmatter_attestation_outcomes`: a forged attestation is deliberate
+    circumvention, not this check's job.
+    """
+    outcomes = []
+    base_files = _literature_files(base_snapshot)
+    candidate_files = _literature_files(candidate_snapshot)
+
+    for raw_path, image in sorted(candidate_files.items()):
+        result, reason = notes.validate_managed_witness(image.data or b"")
+        if result is not Result.MATCHED:
+            outcomes.append(Outcome("evidence-layer", RepoPath(raw_path), result, reason))
+
+    removed = set(base_files) - set(candidate_files)
+    added = set(candidate_files) - set(base_files)
+    # A rename is a removed path and an added path carrying the same note:
+    # the same Zotero identity first (propagate re-keys and re-renders, so
+    # the bytes differ), then the same body bytes for a note with no tuple.
+    pairs: dict[bytes, bytes] = {}  # added path -> removed path
+    unpaired_removed = set(removed)
+    for pair_key in (_note_identity, _body_bytes):
+        removed_by_key: dict[object, list[bytes]] = {}
+        for raw_path in sorted(unpaired_removed):
+            key = pair_key(base_files[raw_path])
+            if key is not None:
+                removed_by_key.setdefault(key, []).append(raw_path)
+        for raw_path in sorted(added - set(pairs)):
+            key = pair_key(candidate_files[raw_path])
+            candidates = removed_by_key.get(key, []) if key is not None else []
+            if candidates:
+                old_path = candidates.pop(0)
+                pairs[raw_path] = old_path
+                unpaired_removed.discard(old_path)
+
+    for raw_path in sorted(added):
+        old_path = pairs.get(raw_path)
+        candidate_data = _frontmatter(candidate_files[raw_path])
+        if old_path is None:
+            attested = _machine_attested(_field(candidate_data, "generated"))
+            reason = "drift — literature note added without writer attestation"
+            extra: dict[str, object] = {}
+        else:
+            attested = _write_attested(_frontmatter(base_files[old_path]), candidate_data)
+            reason = "drift — literature note renamed without writer attestation"
+            extra = {"prior_path": RepoPath(old_path)}
+        if not attested:
+            outcomes.append(
+                Outcome("evidence-layer", RepoPath(raw_path), Result.UNMATCHED, reason, extra=extra)
+            )
+    outcomes.extend(
+        Outcome(
+            "evidence-layer",
+            RepoPath(raw_path),
+            Result.UNMATCHED,
+            "drift — literature note deleted",
+        )
+        for raw_path in sorted(unpaired_removed)
+    )
+    for raw_path in sorted(set(base_files) & set(candidate_files)):
+        base_data = _frontmatter(base_files[raw_path])
+        candidate_data = _frontmatter(candidate_files[raw_path])
+        body_changed = _body_bytes(base_files[raw_path]) != _body_bytes(candidate_files[raw_path])
+        if body_changed and not _write_attested(base_data, candidate_data):
+            outcomes.append(
+                Outcome(
+                    "evidence-layer",
+                    RepoPath(raw_path),
+                    Result.UNMATCHED,
+                    "drift — literature note body changed without writer attestation",
+                )
+            )
+        outcomes.extend(_frontmatter_attestation_outcomes(raw_path, base_data, candidate_data))
+    return _deduplicate(outcomes)
+```
+
+- [ ] **Step 4: Run to verify it passes; the whole suite; the gate on this module**
+
+Run: `.venv/bin/python -m pytest tests/test_lints.py -q && .venv/bin/python -m pytest tests -q -n auto && ruff format research_vault tests && ruff check research_vault tests && mypy research_vault`
+Expected: PASS. Then `python3 scripts/mutation_gate.py --base main --max-children 6 --child-address-space 4GiB` (gate mode; it measures `lints.py` as a changed module): expected `0 new survivors`; a new survivor is killed by one more test in this task, not accepted into the baseline. Report the gate's summary line verbatim.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit -m "evidence-layer: capture's own writes are not drift — the write legs require the writer attestation
+
+Added, body-changed and renamed literature notes are findings only without the machine-actor generated bump the frontmatter leg already requires; a deletion stays one. Measured on Part B's tracer T4: a capture, a compile refresh or a propagate blocked the next commit through the vault hook until acknowledged per note. Ingest spec §6, amended 2026-09-16.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault/lints.py tests/test_lints.py
+```
+
 ______________________________________________________________________
 
 ## Phase 2 — the skills' compile sections, docs, live legs
@@ -536,6 +859,8 @@ Part A Task 19 shipped `capture-source` and `setup-vault` without their compile 
 - Modify: `skills/capture-source/SKILL.md`, `skills/setup-vault/SKILL.md`, `skills/synthesis-conventions/SKILL.md`, `skills/evidence-conventions/SKILL.md` (`:16` "into a synthesis page" becomes the compiled layer under `wiki/` — Part A's deferred row 60, a one-word edit that rides with this rewrite; `skills/synthesis-conventions/SKILL.md:16,22` carry the same retired term), `research_vault/scaffold.py:23` (`PROVISION_COMPANIONS = ["kepano/obsidian-skills", "claude-obsidian@agricidaniel-claude-obsidian"]`), `research_vault/templates/vault/AGENTS.md` (the skills table row), `tests/test_capture_source_skill.py`, `tests/test_skill_files.py`, `tests/test_templates.py`
 
 **Interfaces:**
+
+- Consumes: Task 2b — after it, a capture, a compile refresh or a propagate commits through the vault's pre-commit hook without an acknowledgment, so no skill text says "ack each row" or "commit with --no-verify" (Task 1 T4's finding, closed by Task 2b).
 
 - Consumes: the `compile` verb (Task 2: `compile KEY... --vault PATH` prints the plan and its approval hash; `compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA` applies), the `compile-tool` doctor probe (Part A Task 16), the `captured-set` check (Part A Task 15), `scaffold.PROVISION_COMPANIONS`.
 
@@ -990,6 +1315,7 @@ This part's sections only; Part A's table carries the rest and names these tasks
 | §5                    | setup skill's compile-tool install and adoption steps; `compile-tool` probe consumed                                             | 3    |
 | §6 skills             | synthesis-conventions rewritten; compile sections of capture-source and setup-vault                                              | 3    |
 | §6 update-notice kept | the upstream issue, drafted and gated                                                                                            | 6    |
+| §6 frozen checks      | `evidence-layer`'s write legs take the writer attestation; capture's writes commit through the hook (amendment 2026-09-16)       | 2b   |
 | §7                    | live legs on the test instance; the missing trashed snapshot; `docs/testing.md`                                                  | 4, 5 |
 | Assembly decision 21  | the dated CRAP deferral closed                                                                                                   | 4    |
 | Decision 22           | tracer results land here and in the spec                                                                                         | 1    |
