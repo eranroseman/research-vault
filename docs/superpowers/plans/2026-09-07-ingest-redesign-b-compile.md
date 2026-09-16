@@ -652,7 +652,8 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
     assert matching[0].result is Result.UNMATCHED
     assert matching[0].target_kind == "repo-path"
     if write == "rename":
-        assert matching[0].extra["prior_path"] == RepoPath(b"literatures/smith2020.md")
+        # Outcome.__post_init__ encodes a RepoPath in extra to its path-bytes string.
+        assert matching[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
 
 
 def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
@@ -685,6 +686,8 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
         must_replace(source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed")
     )
     _refresh_body_witness(renamed)  # bytes differ from the base; `generated` untouched
+    # `_body_bytes` excludes frontmatter, so the pairing must be decided on a
+    # body that differs; the identity leg pairs it where the body leg cannot.
     source.unlink()
 
     rows = _evidence_rows(fixture_vault, base)
@@ -692,7 +695,7 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     assert [item.reason for item in rows] == [
         "drift — literature note renamed without writer attestation"
     ], rows
-    assert rows[0].extra["prior_path"] == RepoPath(b"literatures/smith2020.md")
+    assert rows[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
 ```
 
 Rewrite `test_prose_appended_below_the_note_is_a_body_change` to:
