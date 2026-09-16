@@ -4500,6 +4500,8 @@ answered after 5.0 s: remember=True key_len=32
 
 Where: the test instance, observed 2026-09-13T16:28:46Z–16:28:51Z, through `ZoteroClient.authorize()` with `timeout=180`. Read in: Task 20 attended leg, 2026-09-13. Record id `Z1-live-authorize-always-allow-10.0.2`.
 
+### 2026-09-16 — Part B Task 5's attended half (test instance, Zotero 10.0.2 / Better BibTeX 9.0.64; read-only GETs, no consent dialog, no production contact)
+
 **452.** Live: `GET /api/users/0/items/trash?format=versions`, as `ZoteroClient.trash_versions()` sends it, answers 200 with a flat map of 212 trashed-item keys to integer versions — the corroboration behind `trash_versions`'s reading, which the spec's own measurement had none of.
 
 ```
