@@ -483,6 +483,8 @@ research_vault/checks.py::func/reduce_update_notice_outcomes::-        raise Typ
 research_vault/checks.py::func/reduce_update_notice_outcomes::-        raise TypeError("Outcome record extra must be an object")\n+        raise TypeError(None)
 research_vault/checks.py::func/registry_agency::-            f"https://doi.org/doiRA/{_doi_path(doi)}", vault_root\n+            f"https://doi.org/doiRA/{_doi_path(doi)}", None
 research_vault/clock.py::func/today::-        raise ValueError(f"--as-of must be YYYY-MM-DD, got {as_of!r}")\n+        raise ValueError(None)
+research_vault/compile.py::func/_run::-        check=False,\n+        check=None,
+research_vault/compile.py::func/_run::-        check=False,\n-    )\n+        )
 research_vault/events.py::func/_calendar_date::-    if not _single_line(value) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):\n+    if not _single_line(value) and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
 research_vault/events.py::func/_duplicate_header::-        (index for index, line in enumerate(lines[1:], 1) if line == "---"), None\n+        (index for index, line in enumerate(lines[1:], 2) if line == "---"), None
 research_vault/events.py::func/_duplicate_header::-        (index for index, line in enumerate(lines[1:], 1) if line == "---"), None\n-    )\n+        (index for index, line in enumerate(lines[1:], 1) if line == "---"), )

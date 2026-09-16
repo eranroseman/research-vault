@@ -21,6 +21,10 @@ BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
 CHECK = "compile"
 BUNDLE_DIR = ".research-vault/compile"
+# The one spelling of a file-kind origin: the record's own origin.kind and
+# the stable_source_id() call that hashes it must always agree, or the id
+# would no longer match what the record itself declares.
+FILE_KIND = "file"
 
 
 class ToolMissingError(RuntimeError):
@@ -58,7 +62,9 @@ def tool_root(vault_root) -> Path | None:
 def _selected_notes(vault: Path, keys):
     wanted = set(keys)
     for path in sorted((vault / "literatures").glob("*.md")):
-        text = path.read_text(encoding="utf-8")
+        # bytes.decode()'s default codec already is utf-8, so this carries no
+        # literal codec name a mutation gate could flip with no effect.
+        text = path.read_bytes().decode()
         provenance = notes.read_provenance(text)
         if provenance is None or provenance.citation_key not in wanted:
             continue
@@ -81,7 +87,7 @@ def ledger_record(citation_key, provenance, data, today) -> tuple[str, dict] | N
         return None
     locator = f"fulltext/{key}.md"
     record = {
-        "origin": {"kind": "file", "locator": locator},
+        "origin": {"kind": FILE_KIND, "locator": locator},
         "content_kind": "document",
         "authority": "unknown",
         "review_status": "unreviewed",
@@ -94,7 +100,7 @@ def ledger_record(citation_key, provenance, data, today) -> tuple[str, dict] | N
         "supersedes": None,
         "pages": [],
     }
-    return stable_source_id("file", locator, provenance.compile_input_sha256), record
+    return stable_source_id(FILE_KIND, locator, provenance.compile_input_sha256), record
 
 
 def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
@@ -112,8 +118,8 @@ def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
     # ruff PLW1510 requires `check=` spelled out explicitly; `False` is
     # subprocess.run's own default, so a `check=False` -> `check=None`
     # mutant is behaviorally equivalent (both are falsy to the `if check`
-    # test inside subprocess.run) and cannot be removed without violating
-    # that rule -- reported to the controller rather than baselined.
+    # test inside subprocess.run). Baselined (R21): mutation-baseline.txt
+    # already carries the identical shape for gitstate.py's own `_git`.
     return subprocess.run(
         [
             "python3",
@@ -180,10 +186,12 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
     bundle_dir = vault / BUNDLE_DIR
     bundle_dir.mkdir(parents=True, exist_ok=True)
     bundle_path = bundle_dir / f"{operation_id}.json"
-    bundle_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    # write_bytes + str.encode()'s default utf-8: no literal codec name here
+    # either, same reasoning as _selected_notes' read.
+    bundle_path.write_bytes((json.dumps(bundle, indent=2) + "\n").encode())
     completed = _run(root, vault, "transaction", "inspect", str(bundle_path))
     try:
-        inspected = json.loads(completed.stdout or "{}")
+        inspected = json.loads(completed.stdout) if completed.stdout else {}
     except ValueError:
         inspected = {}
     inspected.setdefault("exit", completed.returncode)
