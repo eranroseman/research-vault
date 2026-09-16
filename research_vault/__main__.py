@@ -93,16 +93,18 @@ def cmd_probe(args):
     return 0
 
 
-def _print_and_hold(vault, outcomes) -> int:
-    """One line per outcome, holds filed under the outcome's own check; the
-    exit code the ingest verbs (``capture``, ``add``, ``compile``) share.
+def _print_and_hold(vault, outcomes, check: str) -> int:
+    """One line per outcome, holds filed under the verb's ``check``; the exit
+    code the ingest verbs (``capture``, ``add``, ``compile``) share.
 
-    Only ``UNMATCHED`` and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is
-    automatic-only and never a finding (an item with no attachment to read is
-    a class this iteration does not handle, not a capture failure), and
-    ``record_finding`` would refuse it anyway. Exit 0 when every outcome is
-    MATCHED, 1 when any is UNMATCHED, 3 when any is UNREACHABLE and none is
-    UNMATCHED.
+    The verb's check, not each row's: ``capture()`` returns the lifecycle
+    linter's vault-level refusal rows as they are (check ``lifecycle``), and
+    the queue attributes them to the run that met them. Only ``UNMATCHED``
+    and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is automatic-only and
+    never a finding (an item with no attachment to read is a class this
+    iteration does not handle, not a capture failure), and ``record_finding``
+    would refuse it anyway. Exit 0 when every outcome is MATCHED, 1 when any
+    is UNMATCHED, 3 when any is UNREACHABLE and none is UNMATCHED.
     """
     worst = 0
     for outcome in outcomes:
@@ -110,7 +112,7 @@ def _print_and_hold(vault, outcomes) -> int:
         if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
             _hold(
                 vault,
-                outcome.check,
+                check,
                 outcome.target,
                 outcome.result,
                 outcome.reason,
@@ -136,7 +138,7 @@ def cmd_capture(args):
     except _NAMED_FAILURES as error:
         print(f"capture unavailable: {error}", file=sys.stderr)
         return 2
-    return _print_and_hold(args.vault, outcomes)
+    return _print_and_hold(args.vault, outcomes, capture.CHECK)
 
 
 def cmd_add(args):
@@ -162,7 +164,7 @@ def cmd_add(args):
     except _NAMED_FAILURES as error:
         print(f"add unavailable: {error}", file=sys.stderr)
         return 2
-    return _print_and_hold(args.vault, outcomes)
+    return _print_and_hold(args.vault, outcomes, capture.CHECK)
 
 
 def _hold(
@@ -357,12 +359,12 @@ def cmd_compile(args):
     """
     if args.approved_plan_sha256:
         outcome = compile_mod.apply(args.vault, args.bundle, args.approved_plan_sha256)
-        return _print_and_hold(args.vault, [outcome])
+        return _print_and_hold(args.vault, [outcome], compile_mod.CHECK)
     # The parser refused an empty selection already: no keys means --all.
     keys = list(args.keys) or sorted(captured.captured_set(args.vault))
     try:
         records, rows = compile_mod.select(args.vault, keys)
-        worst = _print_and_hold(args.vault, rows)
+        worst = _print_and_hold(args.vault, rows, compile_mod.CHECK)
         if not records:
             print("compile: nothing to register", file=sys.stderr)
             return max(worst, 1)
