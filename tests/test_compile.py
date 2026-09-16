@@ -1,5 +1,7 @@
+import datetime
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -69,18 +71,159 @@ def test_records_skip_notes_without_a_compile_input(tmp_vault):
     )
 
 
-def _fake_tool(tmp_path, monkeypatch, *, inspect_ok=True, apply_code=0):
+def test_stable_source_id_honours_surrogatepass_on_an_undecodable_locator():
+    """Ordinary content never exercises the ``errors=`` handler at all (no
+    encoding error occurs), so a garbled handler name or a dropped ``errors=``
+    kwarg is invisible to any test that never actually triggers it: only a
+    lone surrogate (the undecodable-byte case ``surrogatepass`` exists for,
+    matching ``RepoPath``'s own convention elsewhere in the package) forces
+    the handler to run."""
+    surrogate_locator = "fulltext/\udc80.md"
+    result = compile_mod.stable_source_id("file", surrogate_locator, "a" * 64)
+    assert re.fullmatch(r"src-[0-9a-f]{20}", result)
+
+
+def test_ledger_record_matches_the_ledger_schema_exactly(tmp_vault):
+    _note(tmp_vault)
+    records = compile_mod.records_for(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    (record,) = records.values()
+    assert record == {
+        "origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"},
+        "content_kind": "document",
+        "authority": "unknown",
+        "review_status": "unreviewed",
+        "title": "Co-writing",
+        "content_sha256": "f" * 64,
+        "ingested_at": "2026-09-07",
+        "retrieved_at": "2026-09-07",
+        "refresh_due": None,
+        "independence_key": "jakesch.etal2023a",
+        "supersedes": None,
+        "pages": [],
+    }
+
+
+def test_ledger_record_falls_back_to_the_citation_key_when_the_note_has_no_title(
+    tmp_vault,
+):
+    key = "nokish2026"
+    sha = "e" * 64
+    (tmp_vault / "literatures" / f"{key}.md").write_text(
+        f'---\ntype: "literature"\nzotero-server-id: "S"\nzotero-item-key: "E352DFS9"\n'
+        f'zotero-item-version: 1\ncitationKey: "{key}"\n'
+        f'attachments:\n  - {{key: "ABCDEFGH", version: 1, md5: "m", contentType: "application/pdf", filename: "a.pdf"}}\n'
+        f'fulltext:\n  - {{attachment-key: "ABCDEFGH", sha256: "{sha}"}}\ncompile-input-sha256: "{sha}"\n'
+        f'generated: {{by: "research_vault/0.1.0", at: "2026-09-07T00:00:00Z"}}\n---\n'
+    )
+    records = compile_mod.records_for(tmp_vault, [key], today="2026-09-07")
+    (record,) = records.values()
+    assert record["title"] == key
+    assert record["retrieved_at"] == "2026-09-07"
+    assert record["ingested_at"] == "2026-09-07"
+
+
+def test_ledger_record_prefers_the_notes_own_accessed_date_over_ingestion_day(
+    tmp_vault,
+):
+    """retrieved_at reads the note's own ``accessed`` date, not the ingestion
+    date -- distinguishable only when the two differ, which the fixture's
+    matching date (2026-09-07 for both) cannot show."""
+    _note(tmp_vault)  # accessed: "2026-09-07"
+    records = compile_mod.records_for(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-20"
+    )
+    (record,) = records.values()
+    assert record["retrieved_at"] == "2026-09-07"
+    assert record["ingested_at"] == "2026-09-20"
+
+
+def test_selected_notes_continues_past_an_excluded_note_to_a_later_wanted_one(
+    tmp_vault,
+):
+    """continue, not break: an excluded note that sorts before the wanted one
+    must not stop the walk (literatures/*.md is read in filename order)."""
+    _note(tmp_vault, key="aaa-excluded")
+    _note(tmp_vault, key="zzz-wanted", sha="a" * 64)
+    records = compile_mod.records_for(tmp_vault, ["zzz-wanted"], today="2026-09-07")
+    assert len(records) == 1
+
+
+def test_selected_notes_skips_a_note_with_no_provenance_without_raising(tmp_vault):
+    """``provenance is None or ...`` short-circuits before touching
+    ``.citation_key``; an ``and`` here would evaluate ``None.citation_key``
+    and raise instead of skipping the unparseable note."""
+    (tmp_vault / "literatures" / "broken.md").write_text("not frontmatter at all\n")
+    _note(tmp_vault)
+    records = compile_mod.records_for(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert len(records) == 1
+
+
+def _fake_tool(
+    tmp_path,
+    monkeypatch,
+    *,
+    inspect_ok=True,
+    apply_code=0,
+    apply_changed_paths=("wiki/meta/ledgers/source-ledger.json",),
+):
     root = tmp_path / "tool"
     (root / "scripts").mkdir(parents=True)
     script = root / "scripts" / "claude-obsidian.py"
+    changed = json.dumps(list(apply_changed_paths))
     script.write_text(
         "import json,sys\n"
+        "from pathlib import Path\n"
         "args=sys.argv[1:]\n"
+        # Every invocation's argv, recorded so a test can check exactly what
+        # reached the tool -- not just that something printed the right JSON.
+        "calls=Path(__file__).resolve().parents[1]/'calls.jsonl'\n"
+        "calls.open('a').write(json.dumps(args)+chr(10))\n"
         "if args[:2]==['transaction','inspect']:\n"
         f"    print(json.dumps({{'schema':'claude-obsidian.transaction-plan.v1','valid':{inspect_ok!s},'approval_sha256':'abc123','changed_paths':['wiki/meta/ledgers/source-ledger.json']}}))\n"
         "elif args[:2]==['transaction','apply']:\n"
         "    assert '--approved-plan-sha256' in args\n"
-        f"    print(json.dumps({{'schema':'claude-obsidian.transaction-result.v1','operation_id':'op','changed_paths':['wiki/meta/ledgers/source-ledger.json']}})); sys.exit({apply_code})\n"
+        f"    print(json.dumps({{'schema':'claude-obsidian.transaction-result.v1','operation_id':'op','changed_paths':{changed}}})); sys.exit({apply_code})\n"
+    )
+    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: root)
+    return root
+
+
+def _calls(root):
+    """Every argv the fake tool script received, in call order."""
+    return [
+        json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()
+    ]
+
+
+def _fake_tool_raw(tmp_path, monkeypatch, *, inspect=None, apply=None):
+    """A fake tool whose ``inspect``/``apply`` leg prints fixed raw
+    ``(stdout, stderr, exit_code)`` text, for a shape ``_fake_tool``'s
+    always-valid-JSON script cannot produce — including Task 1's own tracer
+    measurement of an invalid bundle (exit 2, stderr, no JSON at all). A leg
+    not given refuses to run (KeyError): no test should reach a leg it did
+    not configure.
+    """
+    root = tmp_path / "tool"
+    (root / "scripts").mkdir(parents=True)
+    script = root / "scripts" / "claude-obsidian.py"
+    legs = {}
+    if inspect is not None:
+        legs["inspect"] = inspect
+    if apply is not None:
+        legs["apply"] = apply
+    script.write_text(
+        "import sys\n"
+        f"legs={legs!r}\n"
+        "args=sys.argv[1:]\n"
+        "leg=args[1] if args[:1]==['transaction'] else None\n"
+        "stdout,stderr,code=legs[leg]\n"
+        "sys.stdout.write(stdout)\n"
+        "sys.stderr.write(stderr)\n"
+        "sys.exit(code)\n"
     )
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: root)
     return root
@@ -176,6 +319,141 @@ def test_plan_keeps_an_existing_record_with_the_notes_source_id(
     assert merged[source_id] == existing_record
 
 
+def test_plan_bundle_and_ledger_content_are_exact(tmp_vault, tmp_path, monkeypatch):
+    """One golden-content check for both JSON documents ``plan()`` writes:
+    the ledger the tool will read, and the bundle wrapping it. Exact string
+    equality (not just parsed-value spot checks) is what tells apart an
+    ``indent=2``/``sort_keys=True`` formatting mutant, a key-name-casing
+    mutant on a dict literal that a later unconditional re-set of the same
+    key would otherwise mask, and a wrong source id under a fresh ledger."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    bundle = json.loads(bundle_path.read_text())
+    source_id = compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "f" * 64)
+    expected_ledger = {
+        "schema": "claude-obsidian.source-ledger.v1",
+        "generated_at": "2026-09-07T00:00:00Z",
+        "sources": {
+            source_id: {
+                "origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"},
+                "content_kind": "document",
+                "authority": "unknown",
+                "review_status": "unreviewed",
+                "title": "Co-writing",
+                "content_sha256": "f" * 64,
+                "ingested_at": "2026-09-07",
+                "retrieved_at": "2026-09-07",
+                "refresh_due": None,
+                "independence_key": "jakesch.etal2023a",
+                "supersedes": None,
+                "pages": [],
+            }
+        },
+    }
+    expected_content = json.dumps(expected_ledger, indent=2, sort_keys=True) + "\n"
+    assert bundle["writes"][0]["content"] == expected_content
+    assert (
+        bundle["writes"][0]["sha256"]
+        == hashlib.sha256(expected_content.encode()).hexdigest()
+    )
+    assert bundle_path.read_text() == json.dumps(bundle, indent=2) + "\n"
+    assert bundle["schema"] == "claude-obsidian.transaction.v1"
+    assert bundle["operation_type"] == "ingest"
+    assert re.fullmatch(r"research-vault-compile-\d{8}T\d{6}Z", bundle["operation_id"])
+    assert bundle_path.name == bundle["operation_id"] + ".json"
+
+
+class _FrozenOperationClock(datetime.datetime):
+    @classmethod
+    def now(cls, tz=None):
+        # UTC (4:30 the NEXT day) differs from naive local (23:30) on
+        # purpose: a `datetime.UTC` -> `None` mutant would pick the wrong one.
+        if tz is None:
+            return cls(2026, 9, 7, 23, 30)
+        return cls(2026, 9, 8, 4, 30, tzinfo=datetime.UTC)
+
+
+def test_plan_operation_id_uses_the_utc_clock_and_format(
+    tmp_vault, tmp_path, monkeypatch
+):
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    monkeypatch.setattr(compile_mod.datetime, "datetime", _FrozenOperationClock)
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert bundle_path.name == "research-vault-compile-20260908T043000Z.json"
+
+
+def test_plan_raises_tool_missing_with_the_exact_message(tmp_vault, monkeypatch):
+    _note(tmp_vault)
+    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
+    with pytest.raises(compile_mod.ToolMissingError) as excinfo:
+        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert str(excinfo.value) == "claude-obsidian is not installed"
+
+
+def test_plan_records_the_tools_exit_and_stderr(tmp_vault, tmp_path, monkeypatch):
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    _bundle_path, inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert inspected["exit"] == 0
+    assert inspected["stderr"] == ""
+
+
+def test_plan_reflects_an_invalid_bundle_exit_without_json(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """Task 1's own tracer measurement: ``transaction inspect`` on an invalid
+    bundle RAISES (exit 2, stderr, no JSON at all). ``plan()`` must not crash
+    reading that, and reports the tool's exit code and stderr verbatim."""
+    _note(tmp_vault)
+    _fake_tool_raw(
+        tmp_path, monkeypatch, inspect=("", "bundle is invalid: bad hash\n", 2)
+    )
+    _bundle_path, inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert inspected == {"exit": 2, "stderr": "bundle is invalid: bad hash"}
+
+
+def test_plan_can_run_twice_against_the_same_vault(tmp_vault, tmp_path, monkeypatch):
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+
+
+def test_plan_tolerates_an_existing_ledger_without_a_sources_key(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """``.get("sources", {})`` must supply the empty-dict default for real —
+    a ledger somehow missing the key merges as if it carried none, not
+    crashes on ``dict(None)``."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(
+        json.dumps(
+            {
+                "schema": "claude-obsidian.source-ledger.v1",
+                "generated_at": "2026-09-01T00:00:00Z",
+            }
+        )
+    )
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    content = json.loads(json.loads(bundle_path.read_text())["writes"][0]["content"])
+    assert len(content["sources"]) == 1
+
+
 def test_apply_maps_tool_exit_codes(tmp_vault, tmp_path, monkeypatch):
     _note(tmp_vault)
     _fake_tool(tmp_path, monkeypatch, apply_code=2)
@@ -187,6 +465,99 @@ def test_apply_maps_tool_exit_codes(tmp_vault, tmp_path, monkeypatch):
     assert outcome.reason.startswith("mismatch")
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.result is Result.UNREACHABLE
+
+
+def test_apply_maps_the_expected_hash_conflict_exit(tmp_vault, tmp_path, monkeypatch):
+    """Task 1's tracer measurement: ``transaction apply`` exits 75 on an
+    expected-hash conflict. The three-line stderr (not one) is what tells
+    apart the exact ``[-1:]`` slice and the ``stderr or stdout`` precedence
+    from a same-shaped neighbour mutant."""
+    _note(tmp_vault)
+    _fake_tool_raw(
+        tmp_path,
+        monkeypatch,
+        apply=("", "line one\nline two\nline three: the real error\n", 75),
+    )
+    bundle_path = tmp_vault / "bundle.json"
+    bundle_path.write_text("{}")
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason == "mismatch — line three: the real error"
+
+
+def test_apply_reports_no_paths_when_none_are_returned(
+    tmp_vault, tmp_path, monkeypatch
+):
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch, apply_changed_paths=[])
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.reason == "matched — no paths reported"
+
+
+def test_apply_joins_multiple_changed_paths_with_a_comma(
+    tmp_vault, tmp_path, monkeypatch
+):
+    _note(tmp_vault)
+    _fake_tool(
+        tmp_path,
+        monkeypatch,
+        apply_changed_paths=[
+            "wiki/meta/ledgers/source-ledger.json",
+            "inbox/review-queue.md",
+        ],
+    )
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert (
+        outcome.reason
+        == "matched — wiki/meta/ledgers/source-ledger.json, inbox/review-queue.md"
+    )
+
+
+def test_apply_treats_non_json_success_stdout_as_no_paths(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """``changed`` must default to ``[]`` on a ``ValueError`` from a
+    malformed success response — not ``None``, which ``.join()`` cannot
+    format."""
+    _note(tmp_vault)
+    _fake_tool_raw(tmp_path, monkeypatch, apply=("not json", "", 0))
+    bundle_path = tmp_vault / "bundle.json"
+    bundle_path.write_text("{}")
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.reason == "matched — no paths reported"
+
+
+def test_apply_defaults_changed_paths_to_empty_when_the_key_is_absent(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """``.get("changed_paths", [])`` must supply ``[]`` for real when the
+    tool's own JSON omits the field — not ``None``."""
+    _note(tmp_vault)
+    _fake_tool_raw(
+        tmp_path,
+        monkeypatch,
+        apply=(json.dumps({"schema": "x", "operation_id": "op"}), "", 0),
+    )
+    bundle_path = tmp_vault / "bundle.json"
+    bundle_path.write_text("{}")
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.reason == "matched — no paths reported"
+
+
+def test_apply_uses_the_real_vault_for_tool_root(tmp_vault):
+    """No ``_fake_tool``: ``tool_root`` runs for real, so its ``vault``
+    argument must be the one ``apply()`` was given, not a placeholder — a
+    bad ``Path(None)`` argument raises instead of answering ``None``, so an
+    ``UNREACHABLE`` outcome here (the real ``tool_root()`` finds no registry
+    under the test's own HOME) proves the call went through correctly."""
+    outcome = compile_mod.apply(tmp_vault, tmp_vault / "bundle.json", "abc123")
     assert outcome.result is Result.UNREACHABLE
 
 
@@ -250,6 +621,27 @@ def test_cmd_compile_plans_and_prints_the_apply_line(
     assert '"valid": true' in out
     assert "apply with: python3 -m research_vault compile --vault" in out
     assert "--approved-plan-sha256 abc123" in out
+    printed, _apply_line = out.rsplit("\napply with:", 1)
+    assert printed == json.dumps(json.loads(printed), indent=2)
+
+
+def test_cmd_compile_prints_the_sha_placeholder_when_the_tool_omits_it(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    _note(tmp_vault)
+    inspect_json = json.dumps(
+        {
+            "schema": "claude-obsidian.transaction-plan.v1",
+            "valid": True,
+            "changed_paths": [],
+        }
+    )
+    _fake_tool_raw(tmp_path, monkeypatch, inspect=(inspect_json, "", 0))
+    code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    assert code == 0
+    # Exact substring: '<SHA>', 'XX<sha>XX' and the None-default fallback all
+    # print something that is not this literal verbatim.
+    assert "--approved-plan-sha256 <sha>" in capsys.readouterr().out
 
 
 def test_cmd_compile_reports_an_invalid_plan_as_exit_1(
@@ -331,8 +723,91 @@ def test_cmd_compile_holds_an_unmatched_apply(tmp_vault, tmp_path, monkeypatch, 
     assert held.reason.startswith("mismatch")
 
 
+def test_cmd_compile_apply_reports_unreachable_as_exit_3(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    bundle_path, inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
+    code = main(
+        [
+            "compile",
+            "--vault",
+            str(tmp_vault),
+            "--bundle",
+            str(bundle_path),
+            "--approved-plan-sha256",
+            inspected["approval_sha256"],
+        ]
+    )
+    assert code == 3
+    assert "UNREACHABLE" in capsys.readouterr().out
+
+
 def test_compile_refuses_an_approved_hash_without_a_bundle(tmp_vault, capsys):
     with pytest.raises(SystemExit) as excinfo:
         main(["compile", "--vault", str(tmp_vault), "--approved-plan-sha256", "abc123"])
     assert excinfo.value.code == 2
-    assert "--bundle" in capsys.readouterr().err
+    # An exact suffix, not `in`: a mutant that wraps the whole message in
+    # "XX...XX" still contains "--bundle" as a substring, so `in` alone
+    # would not catch it; the trailing "XX" breaks an exact suffix match.
+    err = capsys.readouterr().err
+    assert err.endswith("error: compile: --approved-plan-sha256 requires --bundle\n")
+
+
+def test_compile_requires_the_vault_flag():
+    with pytest.raises(SystemExit) as excinfo:
+        main(["compile", "somekey"])
+    assert excinfo.value.code == 2
+
+
+def test_compile_subparser_accepts_the_shared_base_flag(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """``parents=[common]`` is what gives ``compile`` the ``--base`` flag
+    every other verb shares; dropped, argparse would refuse it as unknown."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    code = main(
+        [
+            "compile",
+            "jakesch.etal2023a",
+            "--vault",
+            str(tmp_vault),
+            "--base",
+            "http://localhost:23129",
+        ]
+    )
+    assert code == 0
+
+
+# --- exact argv reaching the tool --------------------------------------
+
+
+def test_run_invokes_the_tool_with_the_exact_argv(tmp_vault, tmp_path, monkeypatch):
+    _note(tmp_vault)
+    root = _fake_tool(tmp_path, monkeypatch)
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert _calls(root)[-1] == [
+        "transaction",
+        "inspect",
+        str(bundle_path),
+        "--vault",
+        str(tmp_vault),
+    ]
+
+    compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert _calls(root)[-1] == [
+        "transaction",
+        "apply",
+        str(bundle_path),
+        "--approved-plan-sha256",
+        "abc123",
+        "--vault",
+        str(tmp_vault),
+    ]

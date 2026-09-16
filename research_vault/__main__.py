@@ -354,11 +354,13 @@ def cmd_compile(args):
                 outcome.result,
                 outcome.reason,
             )
+        # No Result.SKIPPED entry: compile_mod.apply() never returns it (only
+        # MATCHED/UNMATCHED/UNREACHABLE), so a fourth key here is unreachable
+        # surface a mutation gate can flip with no test able to observe it.
         return {
             Result.MATCHED: 0,
             Result.UNMATCHED: 1,
             Result.UNREACHABLE: 3,
-            Result.SKIPPED: 0,
         }[outcome.result]
     try:
         bundle_path, inspected = compile_mod.plan(args.vault, keys)

@@ -32,9 +32,12 @@ def stable_source_id(kind: str, locator: str, content_sha256: str | None) -> str
     normalized = (
         PurePosixPath(locator).as_posix() if kind.casefold() == "file" else locator
     )
+    # No explicit "utf-8": str.encode()'s default codec already is utf-8, so
+    # naming it leaves a literal a mutation gate can flip with no observable
+    # effect (Global Constraints: "no literal codec names").
     digest = hashlib.sha256(
         f"{kind.casefold()}\0{normalized}\0{(content_sha256 or '').casefold()}".encode(
-            "utf-8", errors="surrogatepass"
+            errors="surrogatepass"
         )
     ).hexdigest()
     return f"src-{digest[:20]}"
@@ -106,6 +109,11 @@ def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
 
 
 def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
+    # ruff PLW1510 requires `check=` spelled out explicitly; `False` is
+    # subprocess.run's own default, so a `check=False` -> `check=None`
+    # mutant is behaviorally equivalent (both are falsy to the `if check`
+    # test inside subprocess.run) and cannot be removed without violating
+    # that rule -- reported to the controller rather than baselined.
     return subprocess.run(
         [
             "python3",
