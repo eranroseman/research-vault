@@ -128,7 +128,11 @@ def test_stable_source_id_honours_surrogatepass_on_an_undecodable_locator():
     makes the hash agree with the tool's, per the brief's printed code."""
     surrogate_locator = "fulltext/\udc80.md"
     result = compile_mod.stable_source_id("file", surrogate_locator, "a" * 64)
-    assert re.fullmatch(r"src-[0-9a-f]{20}", result)
+    # Pinned (review M2): computed once with `"file\0<locator>\0<sha>".encode(
+    # "utf-8", errors="surrogatepass")`; `surrogateescape` also encodes a lone
+    # surrogate, to different bytes (src-1832e95ef88c22e2cffd), so only the
+    # digest tells the handlers apart.
+    assert result == "src-047f6ad602956d2b72aa"
 
 
 def test_ledger_record_matches_the_ledger_schema_exactly(tmp_vault):
@@ -591,6 +595,30 @@ def test_plan_operation_id_uses_the_utc_clock_and_format(
     assert bundle_path.name == "research-vault-compile-20260908T043000Z.json"
 
 
+def test_plan_never_overwrites_a_bundle_written_in_the_same_second(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """Review M3: two plans within one second (a re-run after a refused
+    apply) shared one path, the second silently overwriting the first. The
+    second claims ``<stamp>-1``, the third ``<stamp>-2`` — inside the tool's
+    operation-id charset — and each bundle's ``operation_id`` is its own
+    file name."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    monkeypatch.setattr(compile_mod.datetime, "datetime", _FrozenOperationClock)
+    paths = [
+        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")[0]
+        for _ in range(3)
+    ]
+    assert [path.name for path in paths] == [
+        "research-vault-compile-20260908T043000Z.json",
+        "research-vault-compile-20260908T043000Z-1.json",
+        "research-vault-compile-20260908T043000Z-2.json",
+    ]
+    for path in paths:
+        assert json.loads(path.read_text())["operation_id"] == path.stem
+
+
 def test_plan_raises_tool_missing_with_the_exact_message(tmp_vault, monkeypatch):
     _note(tmp_vault)
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
@@ -706,8 +734,8 @@ def test_plan_recovers_from_unparseable_non_empty_inspect_stdout(
     tmp_vault, tmp_path, monkeypatch
 ):
     """Non-empty but invalid JSON on stdout (distinct from the empty-stdout
-    case above, which the ``or "{}"`` fallback turns into valid JSON before
-    ``json.loads`` ever sees it) is what actually reaches ``except
+    case above, which ``if completed.stdout else {}`` answers before
+    ``json.loads`` ever runs) is what actually reaches ``except
     ValueError:``. ``inspected`` must become ``{}`` there — a dict, so the
     later ``.setdefault`` calls still work — not ``None``."""
     _note(tmp_vault)
@@ -967,6 +995,21 @@ def test_cmd_compile_reports_an_invalid_plan_as_exit_1(
     _fake_tool(tmp_path, monkeypatch, inspect_ok=False)
     code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
     assert code == 1
+
+
+def test_cmd_compile_prints_no_apply_line_for_an_invalid_plan(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    """Review M4: the apply line is an instruction, and an invalid plan has
+    nothing to apply — the tool's JSON (with its ``valid: false``) is the
+    whole output, exit 1."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch, inspect_ok=False)
+    code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "apply with:" not in out
+    assert json.loads(out)["valid"] is False
 
 
 def test_cmd_compile_reports_the_tool_missing_as_exit_3(tmp_vault, capsys):

@@ -12,6 +12,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
+from typing import BinaryIO
 
 from . import captured, clock, frontmatter, notes, paths
 from .outcome import Outcome, Result
@@ -185,6 +186,28 @@ def _same_locator(record, locator: str) -> bool:
     return isinstance(origin, dict) and origin.get("locator") == locator
 
 
+def _claim_bundle(bundle_dir: Path, stamp: str) -> tuple[str, Path, BinaryIO]:
+    """The first unclaimed ``research-vault-compile-<stamp>[-N].json``, created
+    exclusively, with its operation id.
+
+    Two plans within one second (a re-run after a refused apply) would
+    otherwise name one path and the second would silently overwrite the
+    first. Exclusive creation, not an existence check, so two processes
+    cannot claim the same path either; the suffix stays inside the tool's
+    operation-id charset (``[A-Za-z0-9-_.]``, at most 128).
+    """
+    attempt = 0
+    while True:
+        operation_id = f"research-vault-compile-{stamp}" + (
+            f"-{attempt}" if attempt else ""
+        )
+        path = bundle_dir / f"{operation_id}.json"
+        try:
+            return operation_id, path, path.open("xb")
+        except FileExistsError:
+            attempt += 1
+
+
 def _run(script: Path, vault: Path, *args) -> subprocess.CompletedProcess:
     # The wrapper's own interpreter, not a bare `python3` looked up on PATH:
     # it is the one known to exist (a missing one was an uncaught
@@ -267,9 +290,10 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
         "sources": sources,
     }
     content = json.dumps(merged, indent=2, sort_keys=True) + "\n"
-    operation_id = "research-vault-compile-" + datetime.datetime.now(
-        datetime.UTC
-    ).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+    bundle_dir = vault / BUNDLE_DIR
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    operation_id, bundle_path, handle = _claim_bundle(bundle_dir, stamp)
     bundle = {
         "schema": BUNDLE_SCHEMA,
         "operation_id": operation_id,
@@ -284,12 +308,10 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
             }
         ],
     }
-    bundle_dir = vault / BUNDLE_DIR
-    bundle_dir.mkdir(parents=True, exist_ok=True)
-    bundle_path = bundle_dir / f"{operation_id}.json"
-    # write_bytes + str.encode()'s default utf-8: no literal codec name here
-    # either, same reasoning as _selected_notes' read.
-    bundle_path.write_bytes((json.dumps(bundle, indent=2) + "\n").encode())
+    # A binary handle + str.encode()'s default utf-8: no literal codec name
+    # here either, same reasoning as _selected_notes' read.
+    with handle:
+        handle.write((json.dumps(bundle, indent=2) + "\n").encode())
     completed = _run(script, vault, "transaction", "inspect", str(bundle_path))
     try:
         inspected = json.loads(completed.stdout) if completed.stdout else {}
