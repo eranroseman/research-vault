@@ -277,6 +277,18 @@ def test_select_reports_a_captured_note_without_text_as_skipped(tmp_vault):
     assert row.reason == "no-fulltext — no compile input recorded; nothing to register"
 
 
+def test_select_passes_the_ingestion_day_through_to_the_records(tmp_vault):
+    """``select`` hands ``today`` to ``records_for``: the records it returns
+    carry the caller's ingestion day, not the clock's (distinguishable only
+    with a date the clock cannot answer)."""
+    _note(tmp_vault)
+    records, _rows = compile_mod.select(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-20"
+    )
+    (record,) = records.values()
+    assert record["ingested_at"] == "2026-09-20"
+
+
 def test_select_reports_each_requested_key_once_in_request_order(tmp_vault):
     _note(tmp_vault)
     _records, rows = compile_mod.select(

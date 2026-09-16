@@ -182,7 +182,9 @@ def _same_locator(record, locator: str) -> bool:
     object) can match; anything else is left alone for the tool's own
     validation to report.
     """
-    origin = record.get("origin", {}) if isinstance(record, dict) else {}
+    if not isinstance(record, dict):
+        return False
+    origin = record.get("origin")
     return isinstance(origin, dict) and origin.get("locator") == locator
 
 
