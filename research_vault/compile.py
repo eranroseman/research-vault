@@ -62,9 +62,14 @@ def tool_root(vault_root) -> Path | None:
 def _selected_notes(vault: Path, keys):
     wanted = set(keys)
     for path in sorted((vault / "literatures").glob("*.md")):
-        # bytes.decode()'s default codec already is utf-8, so this carries no
-        # literal codec name a mutation gate could flip with no effect.
-        text = path.read_bytes().decode()
+        try:
+            # bytes.decode()'s default codec already is utf-8, so this carries
+            # no literal codec name a mutation gate could flip with no effect.
+            text = path.read_bytes().decode()
+        except (OSError, UnicodeError):
+            # Skipped exactly as an unparseable note is (read_provenance ->
+            # None); captured-set/okf-frontmatter are where it's reported.
+            continue
         provenance = notes.read_provenance(text)
         if provenance is None or provenance.citation_key not in wanted:
             continue

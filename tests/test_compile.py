@@ -119,9 +119,11 @@ def test_stable_source_id_honours_surrogatepass_on_an_undecodable_locator():
     """Ordinary content never exercises the ``errors=`` handler at all (no
     encoding error occurs), so a garbled handler name or a dropped ``errors=``
     kwarg is invisible to any test that never actually triggers it: only a
-    lone surrogate (the undecodable-byte case ``surrogatepass`` exists for,
-    matching ``RepoPath``'s own convention elsewhere in the package) forces
-    the handler to run."""
+    lone surrogate (the undecodable-byte case ``surrogatepass`` exists for)
+    forces the handler to run. ``surrogatepass``, not the package's usual
+    ``surrogateescape``, because it is the external tool's own
+    ``ledgers.stable_source_id`` handler — matching it byte-for-byte is what
+    makes the hash agree with the tool's, per the brief's printed code."""
     surrogate_locator = "fulltext/\udc80.md"
     result = compile_mod.stable_source_id("file", surrogate_locator, "a" * 64)
     assert re.fullmatch(r"src-[0-9a-f]{20}", result)
@@ -199,6 +201,33 @@ def test_selected_notes_skips_a_note_with_no_provenance_without_raising(tmp_vaul
     ``.citation_key``; an ``and`` here would evaluate ``None.citation_key``
     and raise instead of skipping the unparseable note."""
     (tmp_vault / "literatures" / "broken.md").write_text("not frontmatter at all\n")
+    _note(tmp_vault)
+    records = compile_mod.records_for(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert len(records) == 1
+
+
+def test_selected_notes_skips_a_non_utf8_note_without_crashing(tmp_vault):
+    """A corrupted note anywhere in ``literatures/`` must not crash the whole
+    ``compile`` operation (Task 2 review, R24) -- ``broken.md`` sorts before
+    ``jakesch.etal2023a.md`` so this also kills a ``continue`` -> ``break``
+    mutant: the wanted note, read later in the same walk, must still yield."""
+    (tmp_vault / "literatures" / "broken.md").write_bytes(b"\xff\xfe")
+    _note(tmp_vault)
+    records = compile_mod.records_for(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert len(records) == 1
+
+
+def test_selected_notes_skips_an_unreadable_note_without_crashing(tmp_vault):
+    """A note path that raises ``OSError`` on read (here: a directory, not a
+    file, so ``read_bytes()`` raises ``IsADirectoryError``) must be skipped
+    the same way a bad-encoding note is -- proving the ``except`` tuple
+    really catches ``OSError``, not only ``UnicodeError``. ``dir.md`` sorts
+    before ``jakesch.etal2023a.md``."""
+    (tmp_vault / "literatures" / "dir.md").mkdir()
     _note(tmp_vault)
     records = compile_mod.records_for(
         tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
@@ -484,9 +513,10 @@ def test_plan_recovers_from_unparseable_non_empty_inspect_stdout(
 
 def test_plan_can_run_twice_against_the_same_vault(tmp_vault, tmp_path, monkeypatch):
     _note(tmp_vault)
-    _fake_tool(tmp_path, monkeypatch)
+    root = _fake_tool(tmp_path, monkeypatch)
     compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
     compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert len([c for c in _calls(root) if c[:2] == ["transaction", "inspect"]]) == 2
 
 
 def test_plan_tolerates_an_existing_ledger_without_a_sources_key(
