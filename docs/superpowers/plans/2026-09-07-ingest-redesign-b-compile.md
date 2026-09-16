@@ -1240,10 +1240,10 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
 
 ```bash
 RV_LIVE=1 .venv/bin/python -m pytest tests/test_capture_live.py -q -k round_trip
-RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest tests/test_capture_live.py -q -k transitions -s
+RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest tests/test_capture_live.py -q -k transitions -s --basetemp=/tmp/rvlive -o tmp_path_retention_policy=all   # pyproject's retention policy "failed" deletes a PASSING run's tmp_vault, fixture included (measured 2026-09-16, run 3)
 ```
 
-Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Unmeasured:** whether a second `authorize` for the same `appName` after **Always Allow** returns the remembered key silently or re-opens the dialog — the sitting authorized once, and `tmp_vault` is fresh per run so the key store never carries over. If the dialog reappears, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
+Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Measured 2026-09-16 (runs 3 and 4):** a second `authorize` for the same `appName` after **Always Allow** re-opens the dialog against a fresh `tmp_vault` — the grant lives in the key store, not in Zotero. For an unattended re-run, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
 
 - [ ] **Step 3: Implement the two write helpers and the replay test**
 
@@ -1260,14 +1260,17 @@ AUTHORIZE_TIMEOUT = 180.0
 
 ```python
 def test_authorize_waits_for_the_person_not_the_network(fake):
-    fake.server_id = "SRV"
-    fake.register("/api/local/authorize", 200, {"key": "k"})
-    fake.authorize()
-    (call,) = [c for c in fake.calls if "/api/local/authorize" in c.url]
-    assert call.timeout == zotero.AUTHORIZE_TIMEOUT
+    """The consent dialog is answered by a person, not the network: `authorize`
+    must ride `AUTHORIZE_TIMEOUT`, not the client's 5 s default (measured
+    2026-09-16)."""
+    fake.client.server_id = "6LpvURP2E933"
+    fake.post("/api/local/authorize", body={"key": "k"})
+    fake.client.authorize()
+    index = next(i for i, c in enumerate(fake.calls) if c[1] == "/api/local/authorize")
+    assert fake.timeouts[index] == zotero.AUTHORIZE_TIMEOUT
 ```
 
-(Adapt the fixture's registration and call-record shape to `tests/fakes.py` as it is; the assertion is the pin.) The gate re-measures `zotero.py` with the rest of this task's changes.
+(`FakeZotero` records a `timeouts` list parallel to `calls`; the assertion is the pin.) The gate re-measures `zotero.py` with the rest of this task's changes.
 
 ```python
     def trash_item(self, key: str, version: int) -> int:
