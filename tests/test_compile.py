@@ -2,11 +2,13 @@ import datetime
 import hashlib
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from research_vault import Result, inbox
+from research_vault import Result, inbox, notes
 from research_vault import compile as compile_mod
 from research_vault.__main__ import main
 from tests.conftest import must_replace
@@ -233,6 +235,50 @@ def test_selected_notes_skips_an_unreadable_note_without_crashing(tmp_vault):
         tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
     )
     assert len(records) == 1
+
+
+def test_select_reports_a_key_outside_the_captured_set_as_not_captured(tmp_vault):
+    """Review I2: a requested key with no literature note registers nothing
+    and must say so — ``UNMATCHED … not-captured``, the capture-to-compile
+    seam's own code — rather than vanish from a plan that then reads clean."""
+    _note(tmp_vault)
+    records, rows = compile_mod.select(
+        tmp_vault, ["jakesch.etal2023a", "nosuchkey"], today="2026-09-07"
+    )
+    assert len(records) == 1
+    (row,) = rows
+    assert row.check == "compile"
+    assert row.target == "nosuchkey"
+    assert row.result is Result.UNMATCHED
+    assert row.reason == "not-captured — no literature note; capture it first"
+
+
+def test_select_reports_a_captured_note_without_text_as_skipped(tmp_vault):
+    """A captured note with no ``compile-input-sha256`` has nothing to
+    compile: ``SKIPPED … no-fulltext``, the fourth state (as capture reports
+    an item with no attachment to read), never a finding — but a row, so an
+    empty selection cannot read as a pass."""
+    _note(tmp_vault)
+    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    path.write_text(
+        must_replace(path.read_text(), 'compile-input-sha256: "' + "f" * 64 + '"\n', "")
+    )
+    records, rows = compile_mod.select(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert records == {}
+    (row,) = rows
+    assert row.target == "jakesch.etal2023a"
+    assert row.result is Result.SKIPPED
+    assert row.reason == "no-fulltext — no compile input recorded; nothing to register"
+
+
+def test_select_reports_each_requested_key_once_in_request_order(tmp_vault):
+    _note(tmp_vault)
+    _records, rows = compile_mod.select(
+        tmp_vault, ["zzz", "aaa", "zzz", "jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert [row.target for row in rows] == ["zzz", "aaa"]
 
 
 def _fake_tool(
@@ -553,6 +599,83 @@ def test_plan_raises_tool_missing_with_the_exact_message(tmp_vault, monkeypatch)
     assert str(excinfo.value) == "claude-obsidian is not installed"
 
 
+def test_plan_reports_a_corrupt_ledger_as_a_named_error(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """Review I3: an unparseable ledger was a JSONDecodeError traceback.
+    ``notes.LedgerUnreadableError`` is the named error the CLI turns into
+    exit 2 — an outage, never an empty ledger to merge into."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("{not json")
+    with pytest.raises(notes.LedgerUnreadableError) as excinfo:
+        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert str(excinfo.value).startswith(
+        "wiki/meta/ledgers/source-ledger.json unreadable: "
+    )
+
+
+def test_plan_reports_a_ledger_that_is_not_an_object_as_a_named_error(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """A top-level array parses but has no ``sources`` object to merge into;
+    without the guard it is an AttributeError traceback on ``.get``."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("[]")
+    with pytest.raises(notes.LedgerUnreadableError) as excinfo:
+        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert (
+        str(excinfo.value)
+        == "wiki/meta/ledgers/source-ledger.json unreadable: not an object"
+    )
+
+
+def test_plan_reports_a_root_without_the_script_as_tool_missing(tmp_vault, tmp_path):
+    """Review I3: a stale ``claude_obsidian_root`` (or ``installPath``) is an
+    outage, not a mismatch — the tool cannot run. ``tool_root`` runs for
+    real here through the machine.json override, and the error names the
+    path the person has to fix."""
+    _note(tmp_vault)
+    root = tmp_path / "gone"
+    root.mkdir()
+    rv_dir = tmp_vault / ".research-vault"
+    rv_dir.mkdir()
+    (rv_dir / "machine.json").write_text(
+        json.dumps({"claude_obsidian_root": str(root)})
+    )
+    with pytest.raises(compile_mod.ToolMissingError) as excinfo:
+        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert str(excinfo.value) == (
+        f"claude-obsidian script not found: {root / 'scripts' / 'claude-obsidian.py'}"
+    )
+    assert not (tmp_vault / ".research-vault" / "compile").exists()
+
+
+def test_run_invokes_the_tool_with_the_running_interpreter(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """``sys.executable``, not a bare ``python3`` looked up on PATH: the
+    wrapper's own interpreter is the one known to exist (a missing one was
+    an uncaught FileNotFoundError)."""
+    _note(tmp_vault)
+    root = _fake_tool(tmp_path, monkeypatch)
+    seen = []
+
+    def run(argv, **kwargs):
+        seen.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(compile_mod.subprocess, "run", run)
+    compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    (argv,) = seen
+    assert argv[:2] == [sys.executable, str(root / "scripts" / "claude-obsidian.py")]
+
+
 def test_plan_records_the_tools_exit_and_stderr(tmp_vault, tmp_path, monkeypatch):
     _note(tmp_vault)
     _fake_tool(tmp_path, monkeypatch)
@@ -640,6 +763,25 @@ def test_apply_maps_tool_exit_codes(tmp_vault, tmp_path, monkeypatch):
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
     assert outcome.result is Result.UNREACHABLE
+
+
+def test_apply_reports_a_root_without_the_script_as_unreachable(tmp_vault, tmp_path):
+    """The apply leg's shape of review I3: UNREACHABLE naming the path, never
+    an UNMATCHED ``mismatch`` hold for what is an outage."""
+    _note(tmp_vault)
+    root = tmp_path / "gone"
+    root.mkdir()
+    rv_dir = tmp_vault / ".research-vault"
+    rv_dir.mkdir()
+    (rv_dir / "machine.json").write_text(
+        json.dumps({"claude_obsidian_root": str(root)})
+    )
+    outcome = compile_mod.apply(tmp_vault, tmp_vault / "bundle.json", "abc123")
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == (
+        "outage — claude-obsidian script not found: "
+        f"{root / 'scripts' / 'claude-obsidian.py'}"
+    )
 
 
 def test_apply_maps_the_expected_hash_conflict_exit(tmp_vault, tmp_path, monkeypatch):
@@ -919,6 +1061,186 @@ def test_cmd_compile_apply_reports_unreachable_as_exit_3(
     )
     assert code == 3
     assert "UNREACHABLE" in capsys.readouterr().out
+
+
+def test_compile_needs_a_key_or_all(tmp_vault, capsys):
+    """Review I2: no KEY and no ``--all`` planned an empty bundle that read
+    as valid. ``capture``'s own refusal, verbatim in shape."""
+    with pytest.raises(SystemExit) as excinfo:
+        main(["compile", "--vault", str(tmp_vault)])
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert err.endswith("error: compile needs at least one KEY or --all\n")
+
+
+def test_cmd_compile_reports_an_unknown_key_and_plans_nothing(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    """One row, held under ``compile``, exit 1, and no bundle: a selection
+    that registers nothing has nothing to plan, and a plan that would only
+    rewrite ``generated_at`` must not read as a pass."""
+    _note(tmp_vault)
+    root = _fake_tool(tmp_path, monkeypatch)
+    code = main(["compile", "nosuchkey", "--vault", str(tmp_vault)])
+    out, err = capsys.readouterr()
+    assert code == 1
+    assert (
+        out
+        == "UNMATCHED nosuchkey — not-captured — no literature note; capture it first\n"
+    )
+    assert err == "compile: nothing to register\n"
+    assert not (root / "calls.jsonl").exists()
+    assert not (tmp_vault / ".research-vault" / "compile").exists()
+    (held,) = [f for f in inbox.load(tmp_vault) if f.check == "compile"]
+    assert held.target == "nosuchkey"
+    assert held.reason.startswith("not-captured")
+
+
+def test_cmd_compile_reports_a_captured_key_without_text_and_plans_nothing(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    """SKIPPED is never held, but a selection of only SKIPPED rows registered
+    nothing — the one place a SKIPPED row moves the exit."""
+    _note(tmp_vault)
+    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    path.write_text(
+        must_replace(path.read_text(), 'compile-input-sha256: "' + "f" * 64 + '"\n', "")
+    )
+    _fake_tool(tmp_path, monkeypatch)
+    code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    out, err = capsys.readouterr()
+    assert code == 1
+    assert out == (
+        "SKIPPED jakesch.etal2023a — no-fulltext — no compile input recorded; "
+        "nothing to register\n"
+    )
+    assert err == "compile: nothing to register\n"
+    assert [f for f in inbox.load(tmp_vault) if f.check == "compile"] == []
+
+
+def test_cmd_compile_all_on_a_vault_with_no_notes_registers_nothing(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    _fake_tool(tmp_path, monkeypatch)
+    code = main(["compile", "--all", "--vault", str(tmp_vault)])
+    out, err = capsys.readouterr()
+    assert code == 1
+    assert out == ""
+    assert err == "compile: nothing to register\n"
+
+
+def test_cmd_compile_prints_the_rows_before_a_plan_that_registers_the_rest(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    """A mixed selection: the row for the key that registered nothing, then
+    the plan for the one that did; the UNMATCHED row sets exit 1 even though
+    the plan is valid, exactly as a capture run with one UNMATCHED item."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    code = main(
+        ["compile", "nosuchkey", "jakesch.etal2023a", "--vault", str(tmp_vault)]
+    )
+    out = capsys.readouterr().out
+    assert code == 1
+    row, rest = out.split("\n", 1)
+    assert (
+        row
+        == "UNMATCHED nosuchkey — not-captured — no literature note; capture it first"
+    )
+    assert rest.startswith("{")
+    assert "apply with: python3 -m research_vault compile --vault" in rest
+
+
+def test_cmd_compile_a_skipped_row_beside_a_valid_plan_exits_zero(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    _note(tmp_vault)
+    _note(tmp_vault, key="notext", sha="a" * 64)
+    path = tmp_vault / "literatures" / "notext.md"
+    path.write_text(
+        must_replace(path.read_text(), 'compile-input-sha256: "' + "a" * 64 + '"\n', "")
+    )
+    _fake_tool(tmp_path, monkeypatch)
+    code = main(["compile", "notext", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert out.startswith("SKIPPED notext — no-fulltext — ")
+
+
+def test_cmd_compile_reports_a_corrupt_ledger_as_exit_2(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    """Review I3: the sibling verbs' "could not run" shape — one stderr
+    line, exit 2 — for the named failure, never a traceback."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("{not json")
+    code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    out, err = capsys.readouterr()
+    assert code == 2
+    assert out == ""
+    assert err.startswith(
+        "compile unavailable: wiki/meta/ledgers/source-ledger.json unreadable: "
+    )
+
+
+def test_cmd_compile_reports_a_missing_script_as_exit_3(tmp_vault, tmp_path, capsys):
+    """A stale root on the plan leg: UNREACHABLE on stderr, naming the
+    path, exit 3 — never a ``mismatch`` hold in the review queue."""
+    _note(tmp_vault)
+    root = tmp_path / "gone"
+    root.mkdir()
+    rv_dir = tmp_vault / ".research-vault"
+    rv_dir.mkdir()
+    (rv_dir / "machine.json").write_text(
+        json.dumps({"claude_obsidian_root": str(root)})
+    )
+    code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    out, err = capsys.readouterr()
+    assert code == 3
+    assert out == ""
+    assert err == (
+        "UNREACHABLE compile — outage — claude-obsidian script not found: "
+        f"{root / 'scripts' / 'claude-obsidian.py'}\n"
+    )
+    assert [f for f in inbox.load(tmp_vault) if f.check == "compile"] == []
+
+
+def test_cmd_compile_apply_holds_a_missing_script_as_unreachable(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    """The apply leg with a stale root: the UNREACHABLE row is held (an
+    outage is a finding on the apply leg, as for ``capture``), exit 3."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    bundle_path, inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    root = tmp_path / "gone"
+    root.mkdir()
+    monkeypatch.setattr(compile_mod, "tool_root", lambda vault: root)
+    code = main(
+        [
+            "compile",
+            "--vault",
+            str(tmp_vault),
+            "--bundle",
+            str(bundle_path),
+            "--approved-plan-sha256",
+            inspected["approval_sha256"],
+        ]
+    )
+    out = capsys.readouterr().out
+    assert code == 3
+    assert out == (
+        f"UNREACHABLE {bundle_path.stem} — outage — claude-obsidian script not "
+        f"found: {root / 'scripts' / 'claude-obsidian.py'}\n"
+    )
+    (held,) = [f for f in inbox.load(tmp_vault) if f.check == "compile"]
+    assert held.result == Result.UNREACHABLE.value
+    assert held.reason.startswith("outage — claude-obsidian script not found: ")
 
 
 def test_compile_refuses_an_approved_hash_without_a_bundle(tmp_vault, capsys):

@@ -59,9 +59,9 @@ DOCTOR_WARN_ONLY = {
     "path-shim",
 }
 # Named domain failures only, shared by the verbs whose run can fail outside
-# their own four-state handling (`verify`, `capture`, `add`): each answers exit
-# 2 — "could not run" — with one stderr line. A bare ValueError here would
-# dress an implementation bug as a tidy exit 2 with no traceback.
+# their own four-state handling (`verify`, `capture`, `add`, `compile`): each
+# answers exit 2 — "could not run" — with one stderr line. A bare ValueError
+# here would dress an implementation bug as a tidy exit 2 with no traceback.
 # UnicodeDecodeError is the stopgap for the unguarded `read_text()` sites the
 # whole-branch review left to an issue: a non-UTF-8 record is exit 2, not a
 # traceback, until each site files its own row.
@@ -72,6 +72,7 @@ _NAMED_FAILURES = (
     inbox.InboxError,
     frontmatter.FrontmatterError,
     notes.InvalidCitationKeyError,
+    notes.LedgerUnreadableError,
     OSError,
     UnicodeDecodeError,
 )
@@ -93,7 +94,8 @@ def cmd_probe(args):
 
 
 def _print_and_hold(vault, outcomes) -> int:
-    """One line per outcome, holds filed; the exit code both ingest verbs share.
+    """One line per outcome, holds filed under the outcome's own check; the
+    exit code the ingest verbs (``capture``, ``add``, ``compile``) share.
 
     Only ``UNMATCHED`` and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is
     automatic-only and never a finding (an item with no attachment to read is
@@ -108,7 +110,7 @@ def _print_and_hold(vault, outcomes) -> int:
         if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
             _hold(
                 vault,
-                capture.CHECK,
+                outcome.check,
                 outcome.target,
                 outcome.result,
                 outcome.reason,
@@ -333,46 +335,52 @@ def cmd_compile(args):
     """The compile wrapper's CLI face (ingest spec §4.5): plan, then apply.
 
     Without ``--approved-plan-sha256``, selects from ``keys`` or (with
-    ``--all``) the whole captured set, writes the transaction bundle, runs the
-    tool's own ``transaction inspect`` and prints the apply line with the
-    plan's hash — read-only against the vault. With ``--approved-plan-sha256``
-    (and ``--bundle``), drives ``transaction apply`` and reports the four-state
-    outcome; an ``UNMATCHED``/``UNREACHABLE`` result is held the same way
-    ``capture`` holds one.
+    ``--all``) the whole captured set. One line per requested key that
+    registers nothing, printed and held as ``capture``'s rows are:
+    ``UNMATCHED … not-captured`` (held) for a key outside the captured set,
+    ``SKIPPED … no-fulltext`` (never held) for a captured note with no text.
+    With something to register it writes the transaction bundle, runs the
+    tool's own ``transaction inspect``, prints the plan and — only when the
+    tool says ``valid`` — the apply line with the plan's hash; read-only
+    against the vault. With ``--approved-plan-sha256`` (and ``--bundle``),
+    drives ``transaction apply`` and reports the four-state outcome, held
+    the same way.
+
+    The exit contract, once: 0 when no row is UNMATCHED and the plan is valid
+    (or the apply MATCHED); 1 on any UNMATCHED row, an invalid plan, or a
+    selection that registered nothing — the one place a SKIPPED row moves
+    the exit, because a bundle that would only rewrite ``generated_at`` must
+    not read as a pass, and no bundle is written then; 2 when the verb could
+    not run (a named failure — an unreadable ledger, a disk fault — one
+    stderr line); 3 when the tool cannot run on either leg (not installed,
+    or its script missing under the resolved root).
     """
-    keys = list(args.keys) or (
-        sorted(captured.captured_set(args.vault)) if args.all else []
-    )
     if args.approved_plan_sha256:
         outcome = compile_mod.apply(args.vault, args.bundle, args.approved_plan_sha256)
-        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if outcome.result is not Result.MATCHED:
-            _hold(
-                args.vault,
-                compile_mod.CHECK,
-                outcome.target,
-                outcome.result,
-                outcome.reason,
-            )
-        # No Result.SKIPPED entry: compile_mod.apply() never returns it (only
-        # MATCHED/UNMATCHED/UNREACHABLE), so a fourth key here is unreachable
-        # surface a mutation gate can flip with no test able to observe it.
-        return {
-            Result.MATCHED: 0,
-            Result.UNMATCHED: 1,
-            Result.UNREACHABLE: 3,
-        }[outcome.result]
+        return _print_and_hold(args.vault, [outcome])
+    # The parser refused an empty selection already: no keys means --all.
+    keys = list(args.keys) or sorted(captured.captured_set(args.vault))
     try:
+        records, rows = compile_mod.select(args.vault, keys)
+        worst = _print_and_hold(args.vault, rows)
+        if not records:
+            print("compile: nothing to register", file=sys.stderr)
+            return max(worst, 1)
         bundle_path, inspected = compile_mod.plan(args.vault, keys)
     except compile_mod.ToolMissingError as error:
         print(f"UNREACHABLE compile — outage — {error}", file=sys.stderr)
         return 3
+    except _NAMED_FAILURES as error:
+        print(f"compile unavailable: {error}", file=sys.stderr)
+        return 2
     print(json.dumps({"bundle": str(bundle_path), **inspected}, indent=2))
-    print(
-        f"apply with: python3 -m research_vault compile --vault {args.vault} "
-        f"--bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}"
-    )
-    return 0 if inspected.get("valid") else 1
+    valid = bool(inspected.get("valid"))
+    if valid:
+        print(
+            f"apply with: python3 -m research_vault compile --vault {args.vault} "
+            f"--bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}"
+        )
+    return max(worst, 0 if valid else 1)
 
 
 def cmd_trust_tier(args):
@@ -858,6 +866,13 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.cmd == "capture" and not args.keys and not args.all:
         parser.error("capture needs at least one KEY or --all")
+    if (
+        args.cmd == "compile"
+        and not args.approved_plan_sha256
+        and not args.keys
+        and not args.all
+    ):
+        parser.error("compile needs at least one KEY or --all")
     if args.cmd == "verify" and args.commit_projected is not None:
         if not args.commit_projected.strip():
             parser.error("--commit-projected requires a non-empty message")

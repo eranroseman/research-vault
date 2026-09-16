@@ -10,9 +10,10 @@ import datetime
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path, PurePosixPath
 
-from . import clock, frontmatter, notes, paths
+from . import captured, clock, frontmatter, notes, paths
 from .outcome import Outcome, Result
 
 LEDGER_PATH = notes.LEDGER_PATH
@@ -28,7 +29,10 @@ FILE_KIND = "file"
 
 
 class ToolMissingError(RuntimeError):
-    """The compile tool is not installed and machine.json names no root."""
+    """The compile tool cannot run: not installed and machine.json names no
+    root, or the resolved root has no ``scripts/claude-obsidian.py`` (a stale
+    ``claude_obsidian_root`` or ``installPath``). An outage on either leg,
+    never a mismatch — the message names what to fix."""
 
 
 def stable_source_id(kind: str, locator: str, content_sha256: str | None) -> str:
@@ -57,6 +61,17 @@ def tool_root(vault_root) -> Path | None:
     records = _installed_plugins().get(PLUGIN_ID) or []
     install_path = records[0].get("installPath") if records else None
     return Path(install_path) if isinstance(install_path, str) else None
+
+
+def tool_script(vault_root) -> Path:
+    """The tool's entry script under the resolved root, or ``ToolMissingError``."""
+    root = tool_root(Path(vault_root))
+    if root is None:
+        raise ToolMissingError("claude-obsidian is not installed")
+    script = root / "scripts" / "claude-obsidian.py"
+    if not script.is_file():
+        raise ToolMissingError(f"claude-obsidian script not found: {script}")
+    return script
 
 
 def _selected_notes(vault: Path, keys):
@@ -119,6 +134,46 @@ def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
     return records
 
 
+def select(vault_root, keys, *, today=None) -> tuple[dict[str, dict], list[Outcome]]:
+    """The records a selection registers, and one row per requested key that
+    registers nothing (four-state: a skipped selection must not read as clean).
+
+    ``UNMATCHED … not-captured`` for a key outside the captured set — the
+    capture-to-compile seam's own code (spec §4.4) — and ``SKIPPED …
+    no-fulltext`` for a captured note whose ``compile-input-sha256`` is
+    absent or names no ``fulltext[]`` entry: the fourth state, as ``capture``
+    reports an item with no attachment to read. Each requested key answers
+    once, in request order.
+    """
+    vault = Path(vault_root)
+    records = records_for(vault, keys, today=today)
+    registered = {record["independence_key"] for record in records.values()}
+    known = captured.captured_set(vault)
+    rows = []
+    for key in dict.fromkeys(keys):
+        if key in registered:
+            continue
+        if key in known:
+            rows.append(
+                Outcome(
+                    CHECK,
+                    key,
+                    Result.SKIPPED,
+                    "no-fulltext — no compile input recorded; nothing to register",
+                )
+            )
+        else:
+            rows.append(
+                Outcome(
+                    CHECK,
+                    key,
+                    Result.UNMATCHED,
+                    "not-captured — no literature note; capture it first",
+                )
+            )
+    return records, rows
+
+
 def _same_locator(record, locator: str) -> bool:
     """Whether a ledger record's ``origin.locator`` is ``locator``.
 
@@ -130,20 +185,17 @@ def _same_locator(record, locator: str) -> bool:
     return isinstance(origin, dict) and origin.get("locator") == locator
 
 
-def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
-    # ruff PLW1510 requires `check=` spelled out explicitly; `False` is
-    # subprocess.run's own default, so a `check=False` -> `check=None`
-    # mutant is behaviorally equivalent (both are falsy to the `if check`
-    # test inside subprocess.run). Baselined (R21): mutation-baseline.txt
-    # already carries the identical shape for gitstate.py's own `_git`.
+def _run(script: Path, vault: Path, *args) -> subprocess.CompletedProcess:
+    # The wrapper's own interpreter, not a bare `python3` looked up on PATH:
+    # it is the one known to exist (a missing one was an uncaught
+    # FileNotFoundError). ruff PLW1510 requires `check=` spelled out
+    # explicitly; `False` is subprocess.run's own default, so a
+    # `check=False` -> `check=None` mutant is behaviorally equivalent (both
+    # are falsy to the `if check` test inside subprocess.run). Baselined
+    # (R21): mutation-baseline.txt already carries the identical shape for
+    # gitstate.py's own `_git`.
     return subprocess.run(
-        [
-            "python3",
-            str(root / "scripts" / "claude-obsidian.py"),
-            *args,
-            "--vault",
-            str(vault),
-        ],
+        [sys.executable, str(script), *args, "--vault", str(vault)],
         capture_output=True,
         text=True,
         check=False,
@@ -151,15 +203,29 @@ def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
 
 
 def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
+    """Write the bundle registering the selection and run ``transaction inspect``.
+
+    Raises ``ToolMissingError`` when the tool cannot run and
+    ``notes.LedgerUnreadableError`` when the ledger exists but is not the
+    tool's document — an outage, never an empty ledger to merge into (the
+    same split ``notes.compiled_pages`` makes).
+    """
     vault = Path(vault_root)
-    root = tool_root(vault)
-    if root is None:
-        raise ToolMissingError("claude-obsidian is not installed")
+    script = tool_script(vault)
     today = clock.today(today)
     ledger = vault / LEDGER_PATH
     if ledger.is_file():
-        raw = ledger.read_bytes()
-        current = json.loads(raw)
+        try:
+            raw = ledger.read_bytes()
+            current = json.loads(raw)
+        except (OSError, ValueError) as error:
+            raise notes.LedgerUnreadableError(
+                f"{LEDGER_PATH} unreadable: {error}"
+            ) from error
+        if not isinstance(current, dict):
+            raise notes.LedgerUnreadableError(
+                f"{LEDGER_PATH} unreadable: not an object"
+            )
         expected = hashlib.sha256(raw).hexdigest()
         mode = "replace"
     else:
@@ -224,7 +290,7 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
     # write_bytes + str.encode()'s default utf-8: no literal codec name here
     # either, same reasoning as _selected_notes' read.
     bundle_path.write_bytes((json.dumps(bundle, indent=2) + "\n").encode())
-    completed = _run(root, vault, "transaction", "inspect", str(bundle_path))
+    completed = _run(script, vault, "transaction", "inspect", str(bundle_path))
     try:
         inspected = json.loads(completed.stdout) if completed.stdout else {}
     except ValueError:
@@ -236,17 +302,13 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
 
 def apply(vault_root, bundle_path, approved_sha256) -> Outcome:
     vault = Path(vault_root)
-    root = tool_root(vault)
     operation = Path(bundle_path).stem
-    if root is None:
-        return Outcome(
-            CHECK,
-            operation,
-            Result.UNREACHABLE,
-            "outage — claude-obsidian is not installed",
-        )
+    try:
+        script = tool_script(vault)
+    except ToolMissingError as error:
+        return Outcome(CHECK, operation, Result.UNREACHABLE, f"outage — {error}")
     completed = _run(
-        root,
+        script,
         vault,
         "transaction",
         "apply",
