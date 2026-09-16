@@ -1145,7 +1145,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs tests .github/
 **Files:**
 
 - Create: `tests/test_capture_live.py`, `tests/fixtures/lifecycle/items-trashed.json`
-- Modify: `research_vault/zotero.py` (`trash_item(key, version)`, `delete_item(key, version)` — PATCH `{"deleted": true}` and DELETE with `If-Unmodified-Since-Version`; both need the API key), `tests/fixtures/lifecycle/README.md` (the trashed fixture becomes replayable), `tests/test_lifecycle.py` (a replay test for the observed trashed transition), `tests/conftest.py` (`pytest_collection_modifyitems` also skips `live_write` without `RV_LIVE_WRITE_BASE`; `pyproject.toml` registers the marker `live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE)`), `docs/research/2026-09-05-zotero-api-reading.md` (append one dated record — the request, the answering headers and the shape of the map — for `GET /api/users/0/items/trash?format=versions` as this leg observes it: `trash_versions` is the one route the client reads on the spec's own measurement with no corpus record behind it, and Task 7 showed what an uncorroborated assertion costs; the three records 449–451 that Part A's Task 20 attended leg measured on 2026-09-13 (the native `citationKey` PATCH with `If-Unmodified-Since-Version` → 204, the version headers, Better BibTeX's agreement), copied from its report into the reading doc, and a second re-measured record for `GET /api/users/0/items/top?format=csljson&limit=1`, which Part A's Task 16 live leg measured on 2026-09-13 answering 200 with a CSL JSON body on Zotero 10.0.1 and 10.0.2 where record 15 and the spec's §9 row measured 500 on 2026-09-04 — re-measure it in this leg and record what answers, since the route has now been observed both ways)
+- Modify: `research_vault/zotero.py` (`trash_item(key, version)`, `delete_item(key, version)` — PATCH `{"deleted": true}` and DELETE with `If-Unmodified-Since-Version`; both need the API key; and `authorize` waits `AUTHORIZE_TIMEOUT` for the consent click — see Step 3), `tests/fixtures/lifecycle/README.md` (the trashed fixture becomes replayable), `tests/test_lifecycle.py` (a replay test for the observed trashed transition), `tests/conftest.py` (`pytest_collection_modifyitems` also skips `live_write` without `RV_LIVE_WRITE_BASE`; `pyproject.toml` registers the marker `live_write: writes to the Zotero test instance (set RV_LIVE_WRITE_BASE)`), `docs/research/2026-09-05-zotero-api-reading.md` (append one dated record — the request, the answering headers and the shape of the map — for `GET /api/users/0/items/trash?format=versions` as this leg observes it: `trash_versions` is the one route the client reads on the spec's own measurement with no corpus record behind it, and Task 7 showed what an uncorroborated assertion costs; the three records 449–451 that Part A's Task 20 attended leg measured on 2026-09-13 (the native `citationKey` PATCH with `If-Unmodified-Since-Version` → 204, the version headers, Better BibTeX's agreement), copied from its report into the reading doc, and a second re-measured record for `GET /api/users/0/items/top?format=csljson&limit=1`, which Part A's Task 16 live leg measured on 2026-09-13 answering 200 with a CSL JSON body on Zotero 10.0.1 and 10.0.2 where record 15 and the spec's §9 row measured 500 on 2026-09-04 — re-measure it in this leg and record what answers, since the route has now been observed both ways)
 
 **Interfaces:**
 
@@ -1246,6 +1246,28 @@ RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest t
 Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Unmeasured:** whether a second `authorize` for the same `appName` after **Always Allow** returns the remembered key silently or re-opens the dialog — the sitting authorized once, and `tmp_vault` is fresh per run so the key store never carries over. If the dialog reappears, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
 
 - [ ] **Step 3: Implement the two write helpers and the replay test**
+
+**The authorize wait (ruled 2026-09-16, from the attended half's first run).** `authorize` POSTs under the client's default `timeout=5.0`, and Zotero answers only when the person clicks Allow / Always Allow / Deny, so an unanswered dialog reads `UNREACHABLE outage — timed out` after 5 s — in this leg and in the CLI's `add`. A human act gets a human-scale wait, on the product side (a test-only `timeout=180` would leave `add` broken for every user). `EXPORT_TIMEOUT` is the precedent for a per-route timeout. In `research_vault/zotero.py`:
+
+```python
+# The consent dialog is answered by a person; a network timeout is the wrong
+# clock for it. Measured 2026-09-16: an unanswered dialog under the default 5 s
+# reads as an outage in `add` and in the live leg.
+AUTHORIZE_TIMEOUT = 180.0
+```
+
+`_local(...)` gains `*, timeout: float | None = None`, passed straight to `self._http(..., timeout=timeout)`; `authorize` calls `self._local("/api/local/authorize", ..., timeout=AUTHORIZE_TIMEOUT)`. `capture.add` is unchanged (it calls `authorize()`; the wait is the route's). Test, in `tests/test_zotero.py` (extend `tests/fakes.py::FakeZotero._http` to record the `timeout` it received if it does not already):
+
+```python
+def test_authorize_waits_for_the_person_not_the_network(fake):
+    fake.server_id = "SRV"
+    fake.register("/api/local/authorize", 200, {"key": "k"})
+    fake.authorize()
+    (call,) = [c for c in fake.calls if "/api/local/authorize" in c.url]
+    assert call.timeout == zotero.AUTHORIZE_TIMEOUT
+```
+
+(Adapt the fixture's registration and call-record shape to `tests/fakes.py` as it is; the assertion is the pin.) The gate re-measures `zotero.py` with the rest of this task's changes.
 
 ```python
     def trash_item(self, key: str, version: int) -> int:
