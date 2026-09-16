@@ -358,6 +358,8 @@ Expected: FAIL — `ModuleNotFoundError`.
 
 - [ ] **Step 3: Register `compile`; implement `research_vault/compile.py`; wire the verb**
 
+*The printed module and verb below are the tree at `8782215` (Task 6's fix wave, 2026-09-16): a refreshed text retires the stale same-locator record (`supersedes`), an empty selection is rows and exit 1, the verb's error classes match its siblings, a bundle path is claimed exclusively, the claim loop is bounded.*
+
 ```python
 """The compile wrapper: selection, locators, ledger records, invocation (spec §4.5).
 
@@ -370,7 +372,10 @@ writes under ``wiki/`` itself and carries no prompt.
 import datetime
 import hashlib
 import json
+import subprocess
+import sys
 from pathlib import Path, PurePosixPath
+from typing import BinaryIO
 
 from . import captured, clock, frontmatter, notes, paths
 from .outcome import Outcome, Result
@@ -381,17 +386,44 @@ BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
 CHECK = "compile"
 BUNDLE_DIR = ".research-vault/compile"
+# The one spelling of a file-kind origin: the record's own origin.kind and
+# the stable_source_id() call that hashes it must always agree, or the id
+# would no longer match what the record itself declares.
+FILE_KIND = "file"
+# How many same-second bundle names _claim_bundle tries before it gives up.
+# A bound, not `while True`: the loop must not be able to spin under any
+# mutation of its counter (a timeout verdict is environment-dependent), and
+# a thousand plans in one second is not a case the wrapper serves.
+_BUNDLE_CLAIM_ATTEMPTS = 1000
+
+
+class BundleClaimError(OSError):
+    """No free ``research-vault-compile-<stamp>[-N].json`` within the bound.
+
+    An ``OSError`` so the CLI's named-failure net maps it to exit 2 — the
+    verb could not run — never a silent overwrite of an earlier plan.
+    """
 
 
 class ToolMissingError(RuntimeError):
-    """The compile tool is not installed and machine.json names no root."""
+    """The compile tool cannot run: not installed and machine.json names no
+    root, or the resolved root has no ``scripts/claude-obsidian.py`` (a stale
+    ``claude_obsidian_root`` or ``installPath``). An outage on either leg,
+    never a mismatch — the message names what to fix."""
 
 
 def stable_source_id(kind: str, locator: str, content_sha256: str | None) -> str:
     """Byte-for-byte the tool's ``ledgers.stable_source_id`` (read at ad67087; byte-identical at 32ac5a0)."""
-    normalized = PurePosixPath(locator).as_posix() if kind.casefold() == "file" else locator
+    normalized = (
+        PurePosixPath(locator).as_posix() if kind.casefold() == "file" else locator
+    )
+    # No explicit "utf-8": str.encode()'s default codec already is utf-8, so
+    # naming it leaves a literal a mutation gate can flip with no observable
+    # effect (Global Constraints: "no literal codec names").
     digest = hashlib.sha256(
-        f"{kind.casefold()}\0{normalized}\0{(content_sha256 or '').casefold()}".encode("utf-8", errors="surrogatepass")
+        f"{kind.casefold()}\0{normalized}\0{(content_sha256 or '').casefold()}".encode(
+            errors="surrogatepass"
+        )
     ).hexdigest()
     return f"src-{digest[:20]}"
 
@@ -406,6 +438,17 @@ def tool_root(vault_root) -> Path | None:
     records = _installed_plugins().get(PLUGIN_ID) or []
     install_path = records[0].get("installPath") if records else None
     return Path(install_path) if isinstance(install_path, str) else None
+
+
+def tool_script(vault_root) -> Path:
+    """The tool's entry script under the resolved root, or ``ToolMissingError``."""
+    root = tool_root(Path(vault_root))
+    if root is None:
+        raise ToolMissingError("claude-obsidian is not installed")
+    script = root / "scripts" / "claude-obsidian.py"
+    if not script.is_file():
+        raise ToolMissingError(f"claude-obsidian script not found: {script}")
+    return script
 
 
 def _selected_notes(vault: Path, keys):
@@ -429,12 +472,19 @@ def _selected_notes(vault: Path, keys):
 def ledger_record(citation_key, provenance, data, today) -> tuple[str, dict] | None:
     if not provenance.compile_input_sha256:
         return None
-    key = next((f["attachment-key"] for f in provenance.fulltext if f.get("sha256") == provenance.compile_input_sha256), None)
+    key = next(
+        (
+            f["attachment-key"]
+            for f in provenance.fulltext
+            if f.get("sha256") == provenance.compile_input_sha256
+        ),
+        None,
+    )
     if key is None:
         return None
     locator = f"fulltext/{key}.md"
     record = {
-        "origin": {"kind": "file", "locator": locator},
+        "origin": {"kind": FILE_KIND, "locator": locator},
         "content_kind": "document",
         "authority": "unknown",
         "review_status": "unreviewed",
@@ -447,7 +497,7 @@ def ledger_record(citation_key, provenance, data, today) -> tuple[str, dict] | N
         "supersedes": None,
         "pages": [],
     }
-    return stable_source_id("file", locator, provenance.compile_input_sha256), record
+    return stable_source_id(FILE_KIND, locator, provenance.compile_input_sha256), record
 
 
 def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
@@ -461,51 +511,192 @@ def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
     return records
 
 
-def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
+def select(vault_root, keys, *, today=None) -> tuple[dict[str, dict], list[Outcome]]:
+    """The records a selection registers, and one row per requested key that
+    registers nothing (four-state: a skipped selection must not read as clean).
+
+    ``UNMATCHED … not-captured`` for a key outside the captured set — the
+    capture-to-compile seam's own code (spec §4.4) — and ``SKIPPED …
+    no-fulltext`` for a captured note whose ``compile-input-sha256`` is
+    absent or names no ``fulltext[]`` entry: the fourth state, as ``capture``
+    reports an item with no attachment to read. Each requested key answers
+    once, in request order.
+    """
+    vault = Path(vault_root)
+    records = records_for(vault, keys, today=today)
+    registered = {record["independence_key"] for record in records.values()}
+    known = captured.captured_set(vault)
+    rows = []
+    for key in dict.fromkeys(keys):
+        if key in registered:
+            continue
+        if key in known:
+            rows.append(
+                Outcome(
+                    CHECK,
+                    key,
+                    Result.SKIPPED,
+                    "no-fulltext — no compile input recorded; nothing to register",
+                )
+            )
+        else:
+            rows.append(
+                Outcome(
+                    CHECK,
+                    key,
+                    Result.UNMATCHED,
+                    "not-captured — no literature note; capture it first",
+                )
+            )
+    return records, rows
+
+
+def _same_locator(record, locator: str) -> bool:
+    """Whether a ledger record's ``origin.locator`` is ``locator``.
+
+    Only a record in the tool's shape (an object whose ``origin`` is an
+    object) can match; anything else is left alone for the tool's own
+    validation to report.
+    """
+    if not isinstance(record, dict):
+        return False
+    origin = record.get("origin")
+    return isinstance(origin, dict) and origin.get("locator") == locator
+
+
+def _claim_bundle(bundle_dir: Path, stamp: str) -> tuple[str, Path, BinaryIO]:
+    """The first unclaimed ``research-vault-compile-<stamp>[-N].json``, created
+    exclusively, with its operation id.
+
+    Two plans within one second (a re-run after a refused apply) would
+    otherwise name one path and the second would silently overwrite the
+    first. Exclusive creation, not an existence check, so two processes
+    cannot claim the same path either; the suffix stays inside the tool's
+    operation-id charset (``[A-Za-z0-9-_.]``, at most 128). The loop is
+    bounded by ``_BUNDLE_CLAIM_ATTEMPTS`` so that no mutation of its counter
+    can spin it; past the bound it raises ``BundleClaimError``.
+    """
+    for attempt in range(_BUNDLE_CLAIM_ATTEMPTS):
+        operation_id = f"research-vault-compile-{stamp}" + (
+            f"-{attempt}" if attempt else ""
+        )
+        path = bundle_dir / f"{operation_id}.json"
+        try:
+            return operation_id, path, path.open("xb")
+        except FileExistsError:
+            continue
+    raise BundleClaimError(
+        f"no free bundle path under {bundle_dir} after {_BUNDLE_CLAIM_ATTEMPTS} attempts"
+    )
+
+
+def _run(script: Path, vault: Path, *args) -> subprocess.CompletedProcess:
+    # The wrapper's own interpreter, not a bare `python3` looked up on PATH:
+    # it is the one known to exist (a missing one was an uncaught
+    # FileNotFoundError). ruff PLW1510 requires `check=` spelled out
+    # explicitly; `False` is subprocess.run's own default, so a
+    # `check=False` -> `check=None` mutant is behaviorally equivalent (both
+    # are falsy to the `if check` test inside subprocess.run). Baselined
+    # (R21): mutation-baseline.txt already carries the identical shape for
+    # gitstate.py's own `_git`.
     return subprocess.run(
-        ["python3", str(root / "scripts" / "claude-obsidian.py"), *args, "--vault", str(vault)],
-        capture_output=True, text=True, check=False,
+        [sys.executable, str(script), *args, "--vault", str(vault)],
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
 
 def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
+    """Write the bundle registering the selection and run ``transaction inspect``.
+
+    Raises ``ToolMissingError`` when the tool cannot run and
+    ``notes.LedgerUnreadableError`` when the ledger exists but is not the
+    tool's document — an outage, never an empty ledger to merge into (the
+    same split ``notes.compiled_pages`` makes).
+    """
     vault = Path(vault_root)
-    root = tool_root(vault)
-    if root is None:
-        raise ToolMissingError("claude-obsidian is not installed")
+    script = tool_script(vault)
     today = clock.today(today)
     ledger = vault / LEDGER_PATH
     if ledger.is_file():
-        raw = ledger.read_bytes()
-        current = json.loads(raw)
+        try:
+            raw = ledger.read_bytes()
+            current = json.loads(raw)
+        except (OSError, ValueError) as error:
+            raise notes.LedgerUnreadableError(
+                f"{LEDGER_PATH} unreadable: {error}"
+            ) from error
+        if not isinstance(current, dict):
+            raise notes.LedgerUnreadableError(
+                f"{LEDGER_PATH} unreadable: not an object"
+            )
         expected = hashlib.sha256(raw).hexdigest()
         mode = "replace"
     else:
-        current = {"schema": LEDGER_SCHEMA, "generated_at": f"{today}T00:00:00Z", "sources": {}}
+        current = {
+            "schema": LEDGER_SCHEMA,
+            "generated_at": f"{today}T00:00:00Z",
+            "sources": {},
+        }
         expected = None
         mode = "create"
     sources = dict(current.get("sources", {}))
     for source_id, record in records_for(vault, keys, today=today).items():
+        # A changed text has a new id, and the record it replaces must go (R30):
+        # the tool checks every file record's content_sha256 against the
+        # file's current bytes on every bundle, so a stale record for the same
+        # locator wedges every later compile, vault-wide. The new record names
+        # the retired id; pages[] is not carried — pages are the tool's (spec
+        # §4.5), filled once its pages exist, and a stale embed would
+        # misrepresent the refreshed note. At most one record per locator
+        # survives this rule, so `stale` holds several only for a ledger
+        # written before it.
+        locator = record["origin"]["locator"]
+        stale = [
+            existing_id
+            for existing_id, existing in sources.items()
+            if existing_id != source_id and _same_locator(existing, locator)
+        ]
+        for existing_id in stale:
+            del sources[existing_id]
+        if stale:
+            record["supersedes"] = stale[-1]
         # An id already registered keeps its record: its review_status and
-        # pages[] are the tool's (spec §4.5), and a changed text has a new id.
+        # pages[] are the tool's (spec §4.5, R19).
         sources.setdefault(source_id, record)
-    merged = {**current, "schema": LEDGER_SCHEMA, "generated_at": f"{today}T00:00:00Z", "sources": sources}
+    merged = {
+        **current,
+        "schema": LEDGER_SCHEMA,
+        "generated_at": f"{today}T00:00:00Z",
+        "sources": sources,
+    }
     content = json.dumps(merged, indent=2, sort_keys=True) + "\n"
-    operation_id = "research-vault-compile-" + datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+    bundle_dir = vault / BUNDLE_DIR
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    operation_id, bundle_path, handle = _claim_bundle(bundle_dir, stamp)
     bundle = {
         "schema": BUNDLE_SCHEMA,
         "operation_id": operation_id,
         "operation_type": "ingest",
         "expected_hashes": {LEDGER_PATH: expected},
-        "writes": [{"path": LEDGER_PATH, "mode": mode, "content": content, "sha256": hashlib.sha256(content.encode()).hexdigest()}],
+        "writes": [
+            {
+                "path": LEDGER_PATH,
+                "mode": mode,
+                "content": content,
+                "sha256": hashlib.sha256(content.encode()).hexdigest(),
+            }
+        ],
     }
-    bundle_dir = vault / BUNDLE_DIR
-    bundle_dir.mkdir(parents=True, exist_ok=True)
-    bundle_path = bundle_dir / f"{operation_id}.json"
-    bundle_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
-    completed = _run(root, vault, "transaction", "inspect", str(bundle_path))
+    # A binary handle + str.encode()'s default utf-8: no literal codec name
+    # here either, same reasoning as _selected_notes' read.
+    with handle:
+        handle.write((json.dumps(bundle, indent=2) + "\n").encode())
+    completed = _run(script, vault, "transaction", "inspect", str(bundle_path))
     try:
-        inspected = json.loads(completed.stdout or "{}")
+        inspected = json.loads(completed.stdout) if completed.stdout else {}
     except ValueError:
         inspected = {}
     inspected.setdefault("exit", completed.returncode)
@@ -515,40 +706,122 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
 
 def apply(vault_root, bundle_path, approved_sha256) -> Outcome:
     vault = Path(vault_root)
-    root = tool_root(vault)
     operation = Path(bundle_path).stem
-    if root is None:
-        return Outcome(CHECK, operation, Result.UNREACHABLE, "outage — claude-obsidian is not installed")
-    completed = _run(root, vault, "transaction", "apply", str(bundle_path), "--approved-plan-sha256", approved_sha256)
+    try:
+        script = tool_script(vault)
+    except ToolMissingError as error:
+        return Outcome(CHECK, operation, Result.UNREACHABLE, f"outage — {error}")
+    completed = _run(
+        script,
+        vault,
+        "transaction",
+        "apply",
+        str(bundle_path),
+        "--approved-plan-sha256",
+        approved_sha256,
+    )
     if completed.returncode == 0:
         try:
             changed = json.loads(completed.stdout).get("changed_paths", [])
         except ValueError:
             changed = []
-        return Outcome(CHECK, operation, Result.MATCHED, "matched — " + (", ".join(changed) or "no paths reported"))
-    detail = (completed.stderr or completed.stdout).strip().splitlines()[-1:] or [f"exit {completed.returncode}"]
+        return Outcome(
+            CHECK,
+            operation,
+            Result.MATCHED,
+            "matched — " + (", ".join(changed) or "no paths reported"),
+        )
+    detail = (completed.stderr or completed.stdout).strip().splitlines()[-1:] or [
+        f"exit {completed.returncode}"
+    ]
     return Outcome(CHECK, operation, Result.UNMATCHED, f"mismatch — {detail[0]}")
 ```
 
 CLI:
 
 ```python
+def _print_and_hold(vault, outcomes, check: str) -> int:
+    """One line per outcome, holds filed under the verb's ``check``; the exit
+    code the ingest verbs (``capture``, ``add``, ``compile``) share.
+
+    The verb's check, not each row's: ``capture()`` returns the lifecycle
+    linter's vault-level refusal rows as they are (check ``lifecycle``), and
+    the queue attributes them to the run that met them. Only ``UNMATCHED``
+    and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is automatic-only and
+    never a finding (an item with no attachment to read is a class this
+    iteration does not handle, not a capture failure), and ``record_finding``
+    would refuse it anyway. Exit 0 when every outcome is MATCHED, 1 when any
+    is UNMATCHED, 3 when any is UNREACHABLE and none is UNMATCHED.
+    """
+    worst = 0
+    for outcome in outcomes:
+        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
+            _hold(
+                vault,
+                check,
+                outcome.target,
+                outcome.result,
+                outcome.reason,
+                target_kind=outcome.target_kind,
+            )
+        if outcome.result is Result.UNMATCHED:
+            worst = 1
+        elif outcome.result is Result.UNREACHABLE and worst == 0:
+            worst = 3
+    return worst
+
+
 def cmd_compile(args):
-    keys = list(args.keys) or (sorted(captured.captured_set(args.vault)) if args.all else [])
+    """The compile wrapper's CLI face (ingest spec §4.5): plan, then apply.
+
+    Without ``--approved-plan-sha256``, selects from ``keys`` or (with
+    ``--all``) the whole captured set. One line per requested key that
+    registers nothing, printed and held as ``capture``'s rows are:
+    ``UNMATCHED … not-captured`` (held) for a key outside the captured set,
+    ``SKIPPED … no-fulltext`` (never held) for a captured note with no text.
+    With something to register it writes the transaction bundle, runs the
+    tool's own ``transaction inspect``, prints the plan and — only when the
+    tool says ``valid`` — the apply line with the plan's hash; read-only
+    against the vault. With ``--approved-plan-sha256`` (and ``--bundle``),
+    drives ``transaction apply`` and reports the four-state outcome, held
+    the same way.
+
+    The exit contract, once: 0 when no row is UNMATCHED and the plan is valid
+    (or the apply MATCHED); 1 on any UNMATCHED row, an invalid plan, or a
+    selection that registered nothing — the one place a SKIPPED row moves
+    the exit, because a bundle that would only rewrite ``generated_at`` must
+    not read as a pass, and no bundle is written then; 2 when the verb could
+    not run (a named failure — an unreadable ledger, a disk fault — one
+    stderr line); 3 when the tool cannot run on either leg (not installed,
+    or its script missing under the resolved root).
+    """
     if args.approved_plan_sha256:
         outcome = compile_mod.apply(args.vault, args.bundle, args.approved_plan_sha256)
-        print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if outcome.result is not Result.MATCHED:
-            _hold(args.vault, compile_mod.CHECK, outcome.target, outcome.result, outcome.reason)
-        return {Result.MATCHED: 0, Result.UNMATCHED: 1, Result.UNREACHABLE: 3, Result.SKIPPED: 0}[outcome.result]
+        return _print_and_hold(args.vault, [outcome], compile_mod.CHECK)
+    # The parser refused an empty selection already: no keys means --all.
+    keys = list(args.keys) or sorted(captured.captured_set(args.vault))
     try:
+        records, rows = compile_mod.select(args.vault, keys)
+        worst = _print_and_hold(args.vault, rows, compile_mod.CHECK)
+        if not records:
+            print("compile: nothing to register", file=sys.stderr)
+            return max(worst, 1)
         bundle_path, inspected = compile_mod.plan(args.vault, keys)
     except compile_mod.ToolMissingError as error:
         print(f"UNREACHABLE compile — outage — {error}", file=sys.stderr)
         return 3
+    except _NAMED_FAILURES as error:
+        print(f"compile unavailable: {error}", file=sys.stderr)
+        return 2
     print(json.dumps({"bundle": str(bundle_path), **inspected}, indent=2))
-    print(f"apply with: python3 -m research_vault compile --vault {args.vault} --bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}")
-    return 0 if inspected.get("valid") else 1
+    valid = bool(inspected.get("valid"))
+    if valid:
+        print(
+            f"apply with: python3 -m research_vault compile --vault {args.vault} "
+            f"--bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}"
+        )
+    return max(worst, 0 if valid else 1)
 ```
 
 parser: `compile_cmd = sub.add_parser("compile", parents=[common]); compile_cmd.add_argument("keys", nargs="*"); compile_cmd.add_argument("--vault", required=True); compile_cmd.add_argument("--all", action="store_true"); compile_cmd.add_argument("--bundle"); compile_cmd.add_argument("--approved-plan-sha256")`; `main()` errors when `--approved-plan-sha256` is given without `--bundle`. Import as `from . import compile as compile_mod` (the module shadows a builtin name only inside the package namespace; ruff `A005` may object — if it does, name the module `research_vault/compiler.py` and update the Interface index and this task consistently).
@@ -1001,7 +1274,7 @@ claude plugin marketplace add AgriciDaniel/claude-obsidian
 claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
-Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. `$ROOT` is the plugin's `installPath` recorded in `~/.claude/plugins/installed_plugins.json` (the record doctor's `compile-tool` probe reads); `.research-vault/machine.json` may name a `claude_obsidian_root` that overrides it. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
+Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. `$ROOT` is the plugin's `installPath` recorded in `~/.claude/plugins/installed_plugins.json` (the record doctor's `compile-tool` probe reads); `.research-vault/machine.json` may name a `claude_obsidian_root` that overrides it. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run, JSON on stdout), then `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH --apply --approved-plan-sha256 <approved_plan_sha256> --operation-id <operation.operation_id> --generated-at <generated_at>`, the three values read from the dry run's JSON — the approval hash covers `generated_at` and `operation_id`, which the apply run would otherwise regenerate from the clock and answer `PLAN_CHANGED`. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
 ````
 
 `skills/synthesis-conventions/SKILL.md`:
@@ -1248,10 +1521,10 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
 
 ```bash
 RV_LIVE=1 .venv/bin/python -m pytest tests/test_capture_live.py -q -k round_trip
-RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest tests/test_capture_live.py -q -k transitions -s
+RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 .venv/bin/python -m pytest tests/test_capture_live.py -q -k transitions -s --basetemp=/tmp/rvlive -o tmp_path_retention_policy=all   # pyproject's retention policy "failed" deletes a PASSING run's tmp_vault, fixture included (measured 2026-09-16, run 3)
 ```
 
-Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Unmeasured:** whether a second `authorize` for the same `appName` after **Always Allow** returns the remembered key silently or re-opens the dialog — the sitting authorized once, and `tmp_vault` is fresh per run so the key store never carries over. If the dialog reappears, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
+Expected: both PASS (answer **Always Allow** on the test instance's dialog the first time). **Measured 2026-09-16 (runs 3 and 4):** a second `authorize` for the same `appName` after **Always Allow** re-opens the dialog against a fresh `tmp_vault` — the grant lives in the key store, not in Zotero. For an unattended re-run, read the granted key from the attended run's `<basetemp>/.../.research-vault/zotero-keys.json` and export it as `RV_LIVE_WRITE_KEY`; the leg then runs unattended (`add` uses a preset `client.api_key` before consulting the store). Record which of the two happened in `tests/fixtures/lifecycle/README.md`. Copy the written `items-trashed.json` from the test's `tmp_vault` (pytest prints the path with `--basetemp`; use `--basetemp=/tmp/rvlive`) to `tests/fixtures/lifecycle/items-trashed.json`.
 
 - [ ] **Step 3: Implement the two write helpers and the replay test**
 
@@ -1268,14 +1541,17 @@ AUTHORIZE_TIMEOUT = 180.0
 
 ```python
 def test_authorize_waits_for_the_person_not_the_network(fake):
-    fake.server_id = "SRV"
-    fake.register("/api/local/authorize", 200, {"key": "k"})
-    fake.authorize()
-    (call,) = [c for c in fake.calls if "/api/local/authorize" in c.url]
-    assert call.timeout == zotero.AUTHORIZE_TIMEOUT
+    """The consent dialog is answered by a person, not the network: `authorize`
+    must ride `AUTHORIZE_TIMEOUT`, not the client's 5 s default (measured
+    2026-09-16)."""
+    fake.client.server_id = "6LpvURP2E933"
+    fake.post("/api/local/authorize", body={"key": "k"})
+    fake.client.authorize()
+    index = next(i for i, c in enumerate(fake.calls) if c[1] == "/api/local/authorize")
+    assert fake.timeouts[index] == zotero.AUTHORIZE_TIMEOUT
 ```
 
-(Adapt the fixture's registration and call-record shape to `tests/fakes.py` as it is; the assertion is the pin.) The gate re-measures `zotero.py` with the rest of this task's changes.
+(`FakeZotero` records a `timeouts` list parallel to `calls`; the assertion is the pin.) The gate re-measures `zotero.py` with the rest of this task's changes.
 
 ```python
     def trash_item(self, key: str, version: int) -> int:
