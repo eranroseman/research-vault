@@ -119,6 +119,17 @@ def records_for(vault_root, keys, *, today=None) -> dict[str, dict]:
     return records
 
 
+def _same_locator(record, locator: str) -> bool:
+    """Whether a ledger record's ``origin.locator`` is ``locator``.
+
+    Only a record in the tool's shape (an object whose ``origin`` is an
+    object) can match; anything else is left alone for the tool's own
+    validation to report.
+    """
+    origin = record.get("origin", {}) if isinstance(record, dict) else {}
+    return isinstance(origin, dict) and origin.get("locator") == locator
+
+
 def _run(root: Path, vault: Path, *args) -> subprocess.CompletedProcess:
     # ruff PLW1510 requires `check=` spelled out explicitly; `False` is
     # subprocess.run's own default, so a `check=False` -> `check=None`
@@ -161,8 +172,27 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
         mode = "create"
     sources = dict(current.get("sources", {}))
     for source_id, record in records_for(vault, keys, today=today).items():
+        # A changed text has a new id, and the record it replaces must go (R30):
+        # the tool checks every file record's content_sha256 against the
+        # file's current bytes on every bundle, so a stale record for the same
+        # locator wedges every later compile, vault-wide. The new record names
+        # the retired id; pages[] is not carried — pages are the tool's (spec
+        # §4.5), filled once its pages exist, and a stale embed would
+        # misrepresent the refreshed note. At most one record per locator
+        # survives this rule, so `stale` holds several only for a ledger
+        # written before it.
+        locator = record["origin"]["locator"]
+        stale = [
+            existing_id
+            for existing_id, existing in sources.items()
+            if existing_id != source_id and _same_locator(existing, locator)
+        ]
+        for existing_id in stale:
+            del sources[existing_id]
+        if stale:
+            record["supersedes"] = stale[-1]
         # An id already registered keeps its record: its review_status and
-        # pages[] are the tool's (spec §4.5), and a changed text has a new id.
+        # pages[] are the tool's (spec §4.5, R19).
         sources.setdefault(source_id, record)
     merged = {
         **current,

@@ -392,6 +392,90 @@ def test_plan_keeps_an_existing_record_with_the_notes_source_id(
     assert merged[source_id] == existing_record
 
 
+def test_plan_retires_the_stale_record_for_a_refreshed_text(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """R30 (review C1): a refreshed text has a new id, and the old record for
+    the same locator must go — the tool validates every file record's
+    ``content_sha256`` against the file's current bytes on every bundle, so a
+    stale record wedges every later ``compile``, vault-wide. The new record
+    names the dropped id in ``supersedes``; ``pages[]`` is not carried (spec
+    §4.5: pages are the tool's, filled once its pages exist). A record for
+    another locator is untouched."""
+    _note(tmp_vault)  # sha A
+    _fake_tool(tmp_path, monkeypatch)
+    old_id = compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "f" * 64)
+    bundle_path, _ = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    # The tool applied that plan and later compiled a page from the text.
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    applied = json.loads(json.loads(bundle_path.read_text())["writes"][0]["content"])
+    applied["sources"][old_id]["review_status"] = "active"
+    applied["sources"][old_id]["pages"] = ["wiki/sources/Co-writing.md"]
+    applied["sources"]["src-keep"] = {
+        "origin": {"kind": "url", "locator": "https://x/"}
+    }
+    ledger.write_text(json.dumps(applied))
+    # The text refreshed (a Zotero re-index) and capture rewrote the note: sha B.
+    _note(tmp_vault, sha="b" * 64)
+    (tmp_vault / "fulltext" / "D7EJ9FTG.md").write_text(
+        '---\ntype: "fulltext"\n---\ntext, re-indexed\n'
+    )
+    bundle_path, _ = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-08"
+    )
+    merged = json.loads(json.loads(bundle_path.read_text())["writes"][0]["content"])[
+        "sources"
+    ]
+    new_id = compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "b" * 64)
+    assert [
+        sid
+        for sid, record in merged.items()
+        if record["origin"]["locator"] == "fulltext/D7EJ9FTG.md"
+    ] == [new_id]
+    assert merged[new_id]["supersedes"] == old_id
+    assert merged[new_id]["pages"] == []
+    assert merged[new_id]["content_sha256"] == "b" * 64
+    assert merged[new_id]["review_status"] == "unreviewed"
+    assert "src-keep" in merged
+
+
+def test_plan_leaves_a_record_whose_origin_is_not_the_tools_shape_alone(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """The locator comparison reads ``origin.locator`` only where a record has
+    the tool's shape; a hand-edited record whose ``origin`` is not an object
+    matches nothing and stays — the tool's own validation reports it."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(
+        json.dumps(
+            {
+                "schema": "claude-obsidian.source-ledger.v1",
+                "generated_at": "2026-09-01T00:00:00Z",
+                "sources": {
+                    "src-odd": {"origin": "fulltext/D7EJ9FTG.md"},
+                    "src-bare": 7,
+                },
+            }
+        )
+    )
+    bundle_path, _ = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    merged = json.loads(json.loads(bundle_path.read_text())["writes"][0]["content"])[
+        "sources"
+    ]
+    assert merged["src-odd"] == {"origin": "fulltext/D7EJ9FTG.md"}
+    assert merged["src-bare"] == 7
+    new_id = compile_mod.stable_source_id("file", "fulltext/D7EJ9FTG.md", "f" * 64)
+    assert merged[new_id]["supersedes"] is None
+
+
 def test_plan_bundle_and_ledger_content_are_exact(tmp_vault, tmp_path, monkeypatch):
     """One golden-content check for both JSON documents ``plan()`` writes:
     the ledger the tool will read, and the bundle wrapping it. Exact string
