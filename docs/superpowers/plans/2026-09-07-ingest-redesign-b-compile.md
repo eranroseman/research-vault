@@ -539,7 +539,7 @@ Independent of Tasks 1–3 (no compile dependency); runs at once, in parallel wi
 
 **Files:**
 
-- Modify: `research_vault/lints.py` (`lint_evidence_layer`, `_frontmatter_attestation_outcomes`; add `_write_attested`, `_note_identity`), `tests/test_lints.py` (`test_body_change_always_yields_typed_evidence_finding_with_fresh_witness` replaced by the two parametrized tests below; `test_prose_appended_below_the_note_is_a_body_change` rewritten; the reason string in `test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate`'s expected set), `docs/superpowers/specs/2026-09-06-import-redesign-design.md` §6 (the dated sentence is already on `main` at the commit that added this task; nothing to write), `docs/terminology.md` (nothing: check id and reason code unchanged)
+- Modify: `research_vault/lints.py` (`lint_evidence_layer`, `_frontmatter_attestation_outcomes`; add `_write_attested`, `_note_identity`; the per-key diagnostic reaches renamed pairs, which closes #21), `tests/test_lints.py` (`test_body_change_always_yields_typed_evidence_finding_with_fresh_witness` replaced by the two parametrized tests below; `test_prose_appended_below_the_note_is_a_body_change` rewritten; the reason string in `test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate`'s expected set), `docs/superpowers/specs/2026-09-06-import-redesign-design.md` §6 (the dated sentence is already on `main` at the commit that added this task; nothing to write), `docs/terminology.md` (nothing: check id and reason code unchanged)
 
 **Interfaces:**
 
@@ -658,6 +658,26 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
     assert matching[0].target_kind == "repo-path"
     if write == "rename":
         assert matching[0].extra["prior_path"] == RepoPath(b"literatures/smith2020.md")
+
+
+def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
+    """#21: the per-key attestation diagnostic reaches a renamed pair, so a
+    bare `mv` that also edits a machine-owned key reports the key beside the
+    wholesale rename row."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    renamed = fixture_vault / "literatures" / "renamed.md"
+    renamed.write_text(
+        must_replace(source.read_text(), "zotero-item-version: 12", "zotero-item-version: 13")
+    )
+    source.unlink()
+
+    reasons = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert reasons == {
+        ("path-bytes:literatures/renamed.md", "drift — literature note renamed without writer attestation"),
+        ("path-bytes:literatures/renamed.md", "drift — zotero-item-version changed without writer attestation"),
+    }, reasons
 
 
 def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
@@ -806,9 +826,13 @@ def lint_evidence_layer(
             reason = "drift — literature note added without writer attestation"
             extra: dict[str, object] = {}
         else:
-            attested = _write_attested(_frontmatter(base_files[old_path]), candidate_data)
+            base_data = _frontmatter(base_files[old_path])
+            attested = _write_attested(base_data, candidate_data)
             reason = "drift — literature note renamed without writer attestation"
             extra = {"prior_path": RepoPath(old_path)}
+            # The per-key diagnostic runs across the pair too (#21): a rename
+            # that also hand-edits a machine-owned key names the key.
+            outcomes.extend(_frontmatter_attestation_outcomes(raw_path, base_data, candidate_data))
         if not attested:
             outcomes.append(
                 Outcome("evidence-layer", RepoPath(raw_path), Result.UNMATCHED, reason, extra=extra)
