@@ -67,6 +67,7 @@ Compile is the adopted tool's job (claude-obsidian; see `setup-vault`). The wrap
 
 ```sh
 python3 -m research_vault compile KEY [KEY ...] --vault PATH        # prints the tool's plan and approval hash
+python3 -m research_vault compile --all --vault PATH                # the whole captured set; a note without text is a SKIPPED row
 python3 -m research_vault compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA
 ```
 

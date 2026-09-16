@@ -1,15 +1,6 @@
 """Live legs against Zotero 10 (spec §7). Read legs need RV_LIVE=1; the write
 leg needs RV_LIVE_WRITE_BASE too and refuses the production instance."""
 
-# An automated propagate leg (Part A Task 20 Step 1 ran it attended on
-# 2026-09-13) re-keys an item over the local API: measured, PATCH accepts the
-# native ``citationKey`` field — ``PATCH /api/users/0/items/<key>`` with
-# ``If-Unmodified-Since-Version`` answered 204 and Better BibTeX agreed within
-# seconds; the legacy Extra line was never needed (research records 449-451,
-# appended by this task from the Task 20 report). Print the leg from those
-# records: authorize once, PATCH the native field, run the linter, propagate,
-# restore the key with a second PATCH.
-
 import json
 import os
 import time
@@ -17,6 +8,7 @@ import time
 import pytest
 
 from research_vault import Result, capture, lifecycle, notes, zotero
+from tests.conftest import is_production_base
 
 READ_BASE = os.environ.get("RV_LIVE_WRITE_BASE") or zotero.DEFAULT_BASE
 
@@ -47,7 +39,7 @@ def test_capture_round_trip_on_a_live_item(tmp_vault):
 @pytest.mark.live_write
 def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_vault):
     base = os.environ["RV_LIVE_WRITE_BASE"]
-    assert base.rstrip("/") != zotero.DEFAULT_BASE, "write legs never touch production"
+    assert not is_production_base(base), "write legs never touch production"
     client = zotero.ZoteroClient(
         base=base, api_key=os.environ.get("RV_LIVE_WRITE_KEY") or None
     )

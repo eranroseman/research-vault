@@ -20,7 +20,7 @@ The offline suite is hermetic through four mechanisms in `tests/conftest.py`: th
 
 `RV_LIVE` unlocks the local-Zotero legs; `RV_LIVE_NET` the external-registry legs (the mailto rides the polite pools — Crossref etiquette). `RV_LIVE_WRITE_BASE` unlocks the write-capable leg, which carries both the `live` and the `live_write` markers — the hermeticity fixtures honour `live`; `live_write` only adds the base gate. With all three set the suite has no remaining skip. Gated tests are invisible to offline suite-green — after renames or seam moves, run the live legs before claiming the wave complete.
 
-The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. If a later run re-opens the dialog, export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. `--as-of YYYY-MM-DD` on `verify` and `inbox` pins the instant a check compares against, which is how a recorded fixture replays without drifting (spec §7).
+The first write leg on a machine pops Zotero's consent dialog on the test instance; answer **Always Allow** there and the key persists in the scratch vault's `.research-vault/zotero-keys.json` for the run. A later run re-opens the dialog (the grant lives in the vault's key store, measured 2026-09-16); export that key as `RV_LIVE_WRITE_KEY` and the leg runs unattended. `--as-of YYYY-MM-DD` on `verify` and `inbox` pins the instant a check compares against, which is how a recorded fixture replays without drifting (spec §7).
 
 ## Poking Zotero
 

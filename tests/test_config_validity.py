@@ -35,6 +35,7 @@ from tests.conftest import (
     OFFLINE_GIT_IDENTITY,
     _home_env,
     _make_home,
+    is_production_base,
     package_ast,
 )
 
@@ -687,6 +688,27 @@ def test_fixture_substitutions_cannot_become_no_ops():
         )
     ]
     assert offenders == [], f"use must_replace for fixture substitutions: {offenders}"
+
+
+@pytest.mark.parametrize(
+    ("base", "production"),
+    [
+        ("http://localhost:23119", True),
+        ("http://localhost:23119/", True),
+        ("http://127.0.0.1:23119", True),
+        ("http://[::1]:23119", True),
+        ("HTTP://LOCALHOST:23119", True),
+        ("http://localhost:23129", False),
+        ("http://127.0.0.1:23129", False),
+        ("http://zotero.example:23119", False),
+    ],
+)
+def test_write_leg_guard_recognises_production_by_endpoint_not_string(base, production):
+    """Review M8: the write leg's guard was string equality on
+    ``zotero.DEFAULT_BASE``, so ``http://127.0.0.1:23119`` — the same
+    production instance by another loopback spelling — walked through it.
+    Host and port after ``urlsplit``, every loopback name alike."""
+    assert is_production_base(base) is production
 
 
 def test_offline_tests_cannot_open_a_tcp_connection(dead_base):

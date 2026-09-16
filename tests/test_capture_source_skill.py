@@ -33,6 +33,7 @@ def test_capture_source_keeps_the_kept_rules():
         "no-fulltext",
         "database-changed",
         "python3 -m research_vault compile",
+        "python3 -m research_vault compile --all --vault PATH",
         "--approved-plan-sha256",
         "wiki-ingest",
         "recompile-needed",

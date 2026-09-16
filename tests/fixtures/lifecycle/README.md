@@ -15,11 +15,11 @@ keeps only the keys the tests name. Shapes are the observed shapes: flat
   recorded live on 2026-09-16 by `tests/test_capture_live.py`'s attended
   write leg. Two measured facts from that sitting:
   - The consent dialog re-opened on a second run against a fresh `tmp_vault`
-    (no key store carried over; Always Allow does not silence a later
-    `authorize`), so an unattended re-run needs `RV_LIVE_WRITE_KEY` exported
+    (a fresh `tmp_vault` has no key store, so the dialog re-opened; measured
+    2026-09-16), so an unattended re-run needs `RV_LIVE_WRITE_KEY` exported
     from an attended run's `<basetemp>/<test dir>/.research-vault/zotero-keys.json`.
   - `pyproject.toml`'s `tmp_path_retention_policy = "failed"` deletes a
     PASSING test's `tmp_vault`, fixture included — the attended run that
     records the fixture must pass `-o tmp_path_retention_policy=all` beside
-    `--basetemp` (measured today: the first passing run's fixture was gone;
+    `--basetemp` (measured 2026-09-16: the first passing run's fixture was gone;
     the second, with the option, retained it).
