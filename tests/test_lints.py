@@ -746,6 +746,7 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
 
     matching = [item for item in rows if (item.target, item.reason) == expected]
     assert len(matching) == 1, rows
+    assert matching[0].check == "evidence-layer"
     assert matching[0].result is Result.UNMATCHED
     assert matching[0].target_kind == "repo-path"
     if write == "rename":
@@ -861,11 +862,14 @@ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     )
 
     expected_reason = f"drift — {key} changed without writer attestation"
-    assert any(
-        item.target == "path-bytes:literatures/smith2020.md"
-        and item.reason == expected_reason
+    matching = [
+        item
         for item in outcomes
-    ), outcomes
+        if item.target == "path-bytes:literatures/smith2020.md"
+        and item.reason == expected_reason
+    ]
+    assert matching, outcomes
+    assert matching[0].check == "evidence-layer"
 
 
 @pytest.mark.parametrize(
@@ -1268,3 +1272,19 @@ def test_body_bytes_and_frontmatter_need_a_file_image():
     empty = _file(b"literatures/a.md", b"")
     assert lints._body_bytes(empty) == b""
     assert lints._frontmatter(empty) == lints._frontmatter(_file(b"x.md", b"body\n"))
+
+
+def test_note_identity_needs_a_file_image_and_a_complete_tuple():
+    """`_note_identity` accepts `None` directly — `.kind` must not be read off
+    it (`or`, not `and`, guards the second operand). A directory and a note
+    with no complete Zotero tuple both read as no identity too."""
+    directory = gitstate.FileImage(b"literatures/d", "directory", 0o40000, None)
+    assert lints._note_identity(None) is None
+    assert lints._note_identity(directory) is None
+    assert lints._note_identity(_file(b"literatures/a.md", _CLAIM)) is None
+    tupled = _file(
+        b"literatures/a.md",
+        b'---\nzotero-server-id: "S1"\nzotero-item-key: "ABCDEFG1"\n'
+        b'zotero-item-version: 1\ncitationKey: "a2020"\n---\nbody\n',
+    )
+    assert lints._note_identity(tupled) == ("S1", "ABCDEFG1")
