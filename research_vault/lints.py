@@ -610,6 +610,41 @@ def _machine_attested(generated) -> bool:
     )
 
 
+def _write_attested(base_data: dict | None, candidate_data: dict | None) -> bool:
+    """Whether a change to this note in this diff carries the writer attestation.
+
+    One legality rule for the body and for every machine-owned key: a change
+    is attested iff `generated` also changed in the same diff and the
+    candidate's `generated` is validly shaped with a machine-class `by`. An
+    unparseable base (`base_data is None`) has no prior state to compare
+    against, so a validly machine-shaped candidate `generated` must not be
+    read as evidence of a legitimate write — that would let an unreadable
+    base auto-attest whatever hides behind it.
+    """
+    base_generated = _field(base_data, "generated")
+    candidate_generated = _field(candidate_data, "generated")
+    return (
+        base_data is not None
+        and base_generated != candidate_generated
+        and _machine_attested(candidate_generated)
+    )
+
+
+def _note_identity(image: gitstate.FileImage | None) -> tuple[str, str] | None:
+    """Decision 08's identity of a literature note, `(server id, item key)`,
+    or None for a note that carries no complete tuple."""
+    if image is None or image.kind != "file":
+        return None
+    try:
+        text = (image.data or b"").decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    provenance = notes.read_provenance(text)
+    if provenance is None:
+        return None
+    return provenance.server_id, provenance.item_key
+
+
 def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     """Flag a machine-owned frontmatter change with no matching writer attestation.
 
@@ -626,18 +661,7 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     piggy-backing an unrelated edit onto someone else's legitimate bump;
     neither is this check's job to catch.
     """
-    base_generated = _field(base_data, "generated")
-    candidate_generated = _field(candidate_data, "generated")
-    generated_changed = base_generated != candidate_generated
-    # An unparseable base (`base_data is None`) has no prior state to compare
-    # against, so a validly machine-shaped candidate `generated` must not be
-    # read as evidence of a legitimate write — that would let an unreadable
-    # base auto-attest a sibling machine-owned key change hiding behind it.
-    attested = (
-        base_data is not None
-        and generated_changed
-        and _machine_attested(candidate_generated)
-    )
+    attested = _write_attested(base_data, candidate_data)
     return [
         Outcome(
             "evidence-layer",
@@ -654,7 +678,18 @@ def lint_evidence_layer(
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
 ) -> list[Outcome]:
-    """Validate witnesses and expose every base-to-candidate body change."""
+    """Validate witnesses; report a deleted note and any write without attestation.
+
+    Capture, the compile refresh and propagate are the only writers of
+    `literatures/` (ingest spec §3; §6 amended 2026-09-16), and each of their
+    writes bumps `generated` under the machine actor (`notes.render_note`).
+    So an added note, a changed body and a renamed note are findings only
+    when that attestation is absent — `_write_attested`, the rule the
+    machine-owned keys already live under — and a deletion always is (ADR
+    0003: no verb deletes a literature note). Stated boundary, shared with
+    `_frontmatter_attestation_outcomes`: a forged attestation is deliberate
+    circumvention, not this check's job.
+    """
     outcomes = []
     base_files = _literature_files(base_snapshot)
     candidate_files = _literature_files(candidate_snapshot)
@@ -663,49 +698,53 @@ def lint_evidence_layer(
         result, reason = notes.validate_managed_witness(image.data or b"")
         if result is not Result.MATCHED:
             outcomes.append(
-                Outcome(
-                    "evidence-layer",
-                    RepoPath(raw_path),
-                    result,
-                    reason,
-                )
+                Outcome("evidence-layer", RepoPath(raw_path), result, reason)
             )
 
     removed = set(base_files) - set(candidate_files)
     added = set(candidate_files) - set(base_files)
-    paired_removed = set()
-    paired_added = set()
-    removed_by_body: dict[bytes, list[bytes]] = {}
-    for raw_path in removed:
-        body = _body_bytes(base_files[raw_path])
-        if body is not None:
-            removed_by_body.setdefault(body, []).append(raw_path)
+    # A rename is a removed path and an added path carrying the same note:
+    # the same Zotero identity first (propagate re-keys and re-renders, so
+    # the bytes differ), then the same body bytes for a note with no tuple.
+    pairs: dict[bytes, bytes] = {}  # added path -> removed path
+    unpaired_removed = set(removed)
+    for pair_key in (_note_identity, _body_bytes):
+        removed_by_key: dict[object, list[bytes]] = {}
+        for raw_path in sorted(unpaired_removed):
+            key = pair_key(base_files[raw_path])
+            if key is not None:
+                removed_by_key.setdefault(key, []).append(raw_path)
+        for raw_path in sorted(added - set(pairs)):
+            key = pair_key(candidate_files[raw_path])
+            candidates = removed_by_key.get(key, []) if key is not None else []
+            if candidates:
+                removed_path = candidates.pop(0)
+                pairs[raw_path] = removed_path
+                unpaired_removed.discard(removed_path)
+
     for raw_path in sorted(added):
-        body = _body_bytes(candidate_files[raw_path])
-        candidates = removed_by_body.get(body, []) if body is not None else []
-        if candidates:
-            old_path = min(candidates)
-            candidates.remove(old_path)
-            paired_removed.add(old_path)
-            paired_added.add(raw_path)
+        old_path = pairs.get(raw_path)
+        candidate_data = _frontmatter(candidate_files[raw_path])
+        if old_path is None:
+            attested = _machine_attested(_field(candidate_data, "generated"))
+            reason = "drift — literature note added without writer attestation"
+            extra: dict[str, object] = {}
+        else:
+            attested = _write_attested(
+                _frontmatter(base_files[old_path]), candidate_data
+            )
+            reason = "drift — literature note renamed without writer attestation"
+            extra = {"prior_path": RepoPath(old_path)}
+        if not attested:
             outcomes.append(
                 Outcome(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    "drift — literature note renamed",
-                    extra={"prior_path": RepoPath(old_path)},
+                    reason,
+                    extra=extra,
                 )
             )
-    outcomes.extend(
-        Outcome(
-            "evidence-layer",
-            RepoPath(raw_path),
-            Result.UNMATCHED,
-            "drift — literature note added",
-        )
-        for raw_path in sorted(added - paired_added)
-    )
     outcomes.extend(
         Outcome(
             "evidence-layer",
@@ -713,25 +752,24 @@ def lint_evidence_layer(
             Result.UNMATCHED,
             "drift — literature note deleted",
         )
-        for raw_path in sorted(removed - paired_removed)
+        for raw_path in sorted(unpaired_removed)
     )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
-        old = _body_bytes(base_files[raw_path])
-        new = _body_bytes(candidate_files[raw_path])
-        if old != new:
+        base_data = _frontmatter(base_files[raw_path])
+        candidate_data = _frontmatter(candidate_files[raw_path])
+        body_changed = _body_bytes(base_files[raw_path]) != _body_bytes(
+            candidate_files[raw_path]
+        )
+        if body_changed and not _write_attested(base_data, candidate_data):
             outcomes.append(
                 Outcome(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    "drift — literature note body changed",
+                    "drift — literature note body changed without writer attestation",
                 )
             )
         outcomes.extend(
-            _frontmatter_attestation_outcomes(
-                raw_path,
-                _frontmatter(base_files[raw_path]),
-                _frontmatter(candidate_files[raw_path]),
-            )
+            _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data)
         )
     return _deduplicate(outcomes)
