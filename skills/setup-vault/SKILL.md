@@ -45,6 +45,15 @@ Zotero .xpi installs are human-only wizard steps. The add-ons the vault asks for
 
 Doctor can only read those facts when `.research-vault/machine.json` names the Zotero profile directory under `zotero_profile` (on this class of machine: `/mnt/c/Users/<user>/AppData/Roaming/Zotero/Zotero/Profiles/<id>.default`). Ask the person for it once; without it doctor reports `fulltext-sync`, `bbt-git` and `plugins` as SKIPPED, never as passed.
 
+The compile tool is a Claude Code plugin and installs from its own marketplace, after per-item consent, with two commands the person runs (restart-to-activate):
+
+```sh
+claude plugin marketplace add AgriciDaniel/claude-obsidian
+claude plugin install claude-obsidian@agricidaniel-claude-obsidian
+```
+
+Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run), then the same command with `--apply --approved-plan-sha256 <hash>` from the dry run. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
+
 ## Migrate an older vault
 
 A vault whose literature notes carry the old `citekey:` frontmatter key runs the one-shot migration before its first capture:

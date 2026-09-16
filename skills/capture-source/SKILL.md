@@ -1,6 +1,6 @@
 ---
 name: capture-source
-description: Use when a person asks to capture, refresh, or add a source in a research-vault vault, or to propagate a citation-key change
+description: Use when a person asks to capture, refresh, add, or compile a source in a research-vault vault, or to propagate a citation-key change
 disable-model-invocation: true
 ---
 
@@ -61,6 +61,17 @@ python3 -m research_vault propagate --vault PATH --plan FILE --approved-plan-sha
 
 The plan lists the rename, the item key and every file it will rewrite, and ends with the apply line carrying the plan's hash; show it to the person and run that line unchanged. If anything the plan named moved in between, apply refuses with `mismatch — plan changed`: plan again. Apply renames the note, rewrites `[@key]` and `[[key]]` in drafts and wiki pages, re-captures the item, and keeps the applied plan under `system/propagations/` — the record a reader follows an old key forward through. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a key an applied plan mapped away.
 
+## 5. Compile: `compile`
+
+Compile is the adopted tool's job (claude-obsidian; see `setup-vault`). The wrapper registers the captured sources in the tool's ledger and never writes under `wiki/`:
+
+```sh
+python3 -m research_vault compile KEY [KEY ...] --vault PATH        # prints the tool's plan and approval hash
+python3 -m research_vault compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA
+```
+
+Show the person the plan before applying; the approval hash is the tool's own human gate, and there is no second one. Then run the tool's wiki-ingest skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. Then run `capture KEY` again (or `capture --all`): the note now embeds the compiled page, `![[<page path>]]`, from the ledger's `pages[]`. Until that second capture the embed is absent — expected, not an error. A note whose text changed after compile is reported `recompile-needed` by `verify`.
+
 ## Four-state honesty
 
 | Result      | Meaning at capture                                                                                                     |
@@ -74,10 +85,10 @@ The same honesty covers your own reading. A source you read only in part is repo
 
 ## Routing
 
-| Need                                | Route to                                     |
-| ----------------------------------- | -------------------------------------------- |
-| Find sources to add                 | `find-sources`                               |
-| Rules for the compiled layer        | `synthesis-conventions`                      |
-| Run the deterministic checks        | `verify-citations`                           |
-| Acknowledge a finding capture filed | `project-flow` or `publish` (the `ack` verb) |
-| Install Zotero add-ons              | `setup-vault`                                |
+| Need                                       | Route to                                     |
+| ------------------------------------------ | -------------------------------------------- |
+| Find sources to add                        | `find-sources`                               |
+| Rules for the compiled layer               | `synthesis-conventions`                      |
+| Run the deterministic checks               | `verify-citations`                           |
+| Acknowledge a finding capture filed        | `project-flow` or `publish` (the `ack` verb) |
+| Install Zotero add-ons or the compile tool | `setup-vault`                                |

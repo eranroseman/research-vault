@@ -20,7 +20,10 @@ VAULT_DIRS = [
     "system/templates",
     "system/bases",
 ]
-PROVISION_COMPANIONS = ["kepano/obsidian-skills"]
+PROVISION_COMPANIONS = [
+    "kepano/obsidian-skills",
+    "claude-obsidian@agricidaniel-claude-obsidian",
+]
 _EMPTY_ROOTS = ("literatures", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
 GLOSSARY_PATH = "system/glossary.md"
