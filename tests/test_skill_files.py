@@ -98,6 +98,8 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
         "claude plugin install claude-obsidian@agricidaniel-claude-obsidian"
         in companion_section
     )
+    assert "installed_plugins.json" in companion_section
+    assert "claude_obsidian_root" in companion_section
     assert "restart-to-activate" in text
     assert "Zotero .xpi installs are human-only wizard steps" in text
     for forbidden in ("download", "click", "close Zotero"):
