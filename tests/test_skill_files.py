@@ -100,6 +100,12 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
     )
     assert "installed_plugins.json" in companion_section
     assert "claude_obsidian_root" in companion_section
+    # Review I1: the approval hash covers the dry run's generated_at and
+    # operation_id, both regenerated from the clock on an apply run, so an
+    # apply that names only the hash answers PLAN_CHANGED — the four-flag
+    # form is the actionable one.
+    assert "--operation-id <operation.operation_id>" in companion_section
+    assert "--generated-at <generated_at>" in companion_section
     assert "restart-to-activate" in text
     assert "Zotero .xpi installs are human-only wizard steps" in text
     for forbidden in ("download", "click", "close Zotero"):
