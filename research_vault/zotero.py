@@ -30,6 +30,10 @@ _USER = "/api/users/0"
 # still clears; only the two whole-library export calls use it (never a
 # per-item read, and never `ready()` — a busy Zotero must not hang the loop).
 EXPORT_TIMEOUT = 30.0
+# The consent dialog is answered by a person; a network timeout is the wrong
+# clock for it. Measured 2026-09-16: an unanswered dialog under the default 5 s
+# reads as an outage in `add` and in the live leg.
+AUTHORIZE_TIMEOUT = 180.0
 
 
 class ZoteroError(Exception):
@@ -160,7 +164,15 @@ class ZoteroClient:
         except OSError as error:
             raise ZoteroError(f"Zotero unreachable at {self.base}: {error}") from error
 
-    def _local(self, path, *, data=None, method=None, expect=(200,)) -> Response:
+    def _local(
+        self,
+        path,
+        *,
+        data=None,
+        method=None,
+        expect=(200,),
+        timeout: float | None = None,
+    ) -> Response:
         response = self._http(
             f"{self.base}{path}",
             data=data,
@@ -168,6 +180,7 @@ class ZoteroClient:
                 {"Content-Type": "application/json"} if data is not None else None
             ),
             method=method,
+            timeout=timeout,
         )
         if response.status in expect:
             return response
@@ -339,6 +352,7 @@ class ZoteroClient:
             data=json.dumps({"appName": app_name}).encode(),
             method="POST",
             expect=(200, 403, 429),
+            timeout=AUTHORIZE_TIMEOUT,
         )
         if response.status == 429:
             retry = response.headers.get("Retry-After", "60")

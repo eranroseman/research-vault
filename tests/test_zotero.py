@@ -269,6 +269,17 @@ def test_authorize_denial_stays_a_denial(fake):
     assert not isinstance(error.value, zotero.LocalApiDisabledError)
 
 
+def test_authorize_waits_for_the_person_not_the_network(fake):
+    """The consent dialog is answered by a person, not the network: `authorize`
+    must ride `AUTHORIZE_TIMEOUT`, not the client's 5 s default (measured
+    2026-09-16)."""
+    fake.client.server_id = "6LpvURP2E933"
+    fake.post("/api/local/authorize", body={"key": "k"})
+    fake.client.authorize()
+    index = next(i for i, c in enumerate(fake.calls) if c[1] == "/api/local/authorize")
+    assert fake.timeouts[index] == zotero.AUTHORIZE_TIMEOUT
+
+
 def test_create_items_sends_key_and_id_and_returns_the_envelope(fake):
     fake.client.server_id = "6LpvURP2E933"
     fake.client.api_key = "k" * 32
