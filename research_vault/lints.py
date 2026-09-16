@@ -633,10 +633,10 @@ def _write_attested(base_data: dict | None, candidate_data: dict | None) -> bool
 def _note_identity(image: gitstate.FileImage | None) -> tuple[str, str] | None:
     """Decision 08's identity of a literature note, `(server id, item key)`,
     or None for a note that carries no complete tuple."""
-    if image is None or image.kind != "file":
+    if image is None or image.kind != "file" or image.data is None:
         return None
     try:
-        text = (image.data or b"").decode("utf-8")
+        text = image.data.decode()
     except UnicodeDecodeError:
         return None
     provenance = notes.read_provenance(text)
@@ -716,7 +716,9 @@ def lint_evidence_layer(
                 removed_by_key.setdefault(key, []).append(raw_path)
         for raw_path in sorted(added - set(pairs)):
             key = pair_key(candidate_files[raw_path])
-            candidates = removed_by_key.get(key, []) if key is not None else []
+            if key is None:
+                continue
+            candidates = removed_by_key.get(key)
             if candidates:
                 removed_path = candidates.pop(0)
                 pairs[raw_path] = removed_path
