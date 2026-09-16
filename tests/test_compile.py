@@ -631,6 +631,72 @@ def test_plan_never_overwrites_a_bundle_written_in_the_same_second(
         assert json.loads(path.read_text())["operation_id"] == path.stem
 
 
+def test_plan_claims_the_next_free_suffix_past_pre_existing_bundles(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """The stamp's own path and ``-1`` already claimed (by earlier runs, not
+    this process): the claim walks past both to ``-2`` — the ``continue``
+    must continue, not fall through to the exhaustion error."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    monkeypatch.setattr(compile_mod.datetime, "datetime", _FrozenOperationClock)
+    bundle_dir = tmp_vault / ".research-vault" / "compile"
+    bundle_dir.mkdir(parents=True)
+    (bundle_dir / "research-vault-compile-20260908T043000Z.json").write_text("{}")
+    (bundle_dir / "research-vault-compile-20260908T043000Z-1.json").write_text("{}")
+    bundle_path, _ = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    assert bundle_path.name == "research-vault-compile-20260908T043000Z-2.json"
+    assert json.loads(bundle_path.read_text())["operation_id"] == bundle_path.stem
+
+
+def test_plan_reports_an_exhausted_bundle_directory_as_a_named_error(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """The claim loop is bounded (a counter mutation must not spin it): past
+    ``_BUNDLE_CLAIM_ATTEMPTS`` it raises ``BundleClaimError``, an ``OSError``
+    the CLI already maps to exit 2 — never a silent overwrite, never a hang."""
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    monkeypatch.setattr(compile_mod.datetime, "datetime", _FrozenOperationClock)
+    monkeypatch.setattr(compile_mod, "_BUNDLE_CLAIM_ATTEMPTS", 2)
+    bundle_dir = tmp_vault / ".research-vault" / "compile"
+    bundle_dir.mkdir(parents=True)
+    (bundle_dir / "research-vault-compile-20260908T043000Z.json").write_text("{}")
+    (bundle_dir / "research-vault-compile-20260908T043000Z-1.json").write_text("{}")
+    with pytest.raises(compile_mod.BundleClaimError) as excinfo:
+        compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
+    assert isinstance(excinfo.value, OSError)
+    assert (
+        str(excinfo.value) == f"no free bundle path under {bundle_dir} after 2 attempts"
+    )
+    assert sorted(path.name for path in bundle_dir.iterdir()) == [
+        "research-vault-compile-20260908T043000Z-1.json",
+        "research-vault-compile-20260908T043000Z.json",
+    ]
+
+
+def test_cmd_compile_reports_an_exhausted_bundle_directory_as_exit_2(
+    tmp_vault, tmp_path, monkeypatch, capsys
+):
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    monkeypatch.setattr(compile_mod.datetime, "datetime", _FrozenOperationClock)
+    monkeypatch.setattr(compile_mod, "_BUNDLE_CLAIM_ATTEMPTS", 1)
+    bundle_dir = tmp_vault / ".research-vault" / "compile"
+    bundle_dir.mkdir(parents=True)
+    (bundle_dir / "research-vault-compile-20260908T043000Z.json").write_text("{}")
+    code = main(["compile", "jakesch.etal2023a", "--vault", str(tmp_vault)])
+    out, err = capsys.readouterr()
+    assert code == 2
+    assert out == ""
+    assert (
+        err
+        == f"compile unavailable: no free bundle path under {bundle_dir} after 1 attempts\n"
+    )
+
+
 def test_plan_raises_tool_missing_with_the_exact_message(tmp_vault, monkeypatch):
     _note(tmp_vault)
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)

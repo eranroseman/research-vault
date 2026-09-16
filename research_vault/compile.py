@@ -27,6 +27,19 @@ BUNDLE_DIR = ".research-vault/compile"
 # the stable_source_id() call that hashes it must always agree, or the id
 # would no longer match what the record itself declares.
 FILE_KIND = "file"
+# How many same-second bundle names _claim_bundle tries before it gives up.
+# A bound, not `while True`: the loop must not be able to spin under any
+# mutation of its counter (a timeout verdict is environment-dependent), and
+# a thousand plans in one second is not a case the wrapper serves.
+_BUNDLE_CLAIM_ATTEMPTS = 1000
+
+
+class BundleClaimError(OSError):
+    """No free ``research-vault-compile-<stamp>[-N].json`` within the bound.
+
+    An ``OSError`` so the CLI's named-failure net maps it to exit 2 — the
+    verb could not run — never a silent overwrite of an earlier plan.
+    """
 
 
 class ToolMissingError(RuntimeError):
@@ -196,10 +209,11 @@ def _claim_bundle(bundle_dir: Path, stamp: str) -> tuple[str, Path, BinaryIO]:
     otherwise name one path and the second would silently overwrite the
     first. Exclusive creation, not an existence check, so two processes
     cannot claim the same path either; the suffix stays inside the tool's
-    operation-id charset (``[A-Za-z0-9-_.]``, at most 128).
+    operation-id charset (``[A-Za-z0-9-_.]``, at most 128). The loop is
+    bounded by ``_BUNDLE_CLAIM_ATTEMPTS`` so that no mutation of its counter
+    can spin it; past the bound it raises ``BundleClaimError``.
     """
-    attempt = 0
-    while True:
+    for attempt in range(_BUNDLE_CLAIM_ATTEMPTS):
         operation_id = f"research-vault-compile-{stamp}" + (
             f"-{attempt}" if attempt else ""
         )
@@ -207,7 +221,10 @@ def _claim_bundle(bundle_dir: Path, stamp: str) -> tuple[str, Path, BinaryIO]:
         try:
             return operation_id, path, path.open("xb")
         except FileExistsError:
-            attempt += 1
+            continue
+    raise BundleClaimError(
+        f"no free bundle path under {bundle_dir} after {_BUNDLE_CLAIM_ATTEMPTS} attempts"
+    )
 
 
 def _run(script: Path, vault: Path, *args) -> subprocess.CompletedProcess:
