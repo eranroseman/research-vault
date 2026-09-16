@@ -753,9 +753,42 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
         assert matching[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
 
 
+def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
+    """#21: the per-key attestation diagnostic reaches a renamed pair, so a
+    bare `mv` that also edits a machine-owned key reports the key beside the
+    wholesale rename row."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    renamed = fixture_vault / "literatures" / "renamed.md"
+    renamed.write_text(
+        must_replace(
+            source.read_text(), "zotero-item-version: 12", "zotero-item-version: 13"
+        )
+    )
+    source.unlink()
+
+    reasons = {
+        (item.target, item.reason) for item in _evidence_rows(fixture_vault, base)
+    }
+
+    assert reasons == {
+        (
+            "path-bytes:literatures/renamed.md",
+            "drift — literature note renamed without writer attestation",
+        ),
+        (
+            "path-bytes:literatures/renamed.md",
+            "drift — zotero-item-version changed without writer attestation",
+        ),
+    }, reasons
+
+
 def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     """Propagate re-keys and re-renders, so the bytes differ; the pairing is
-    decision 08's identity. A note with no tuple still pairs by body bytes."""
+    decision 08's identity. A note with no tuple still pairs by body bytes.
+    `_refresh_body_witness` also moves `managed-sha256` with no `generated`
+    bump, so the per-key diagnostic that now reaches renamed pairs (#21)
+    names that too — the rename row is not the only finding here."""
     base = _base_tree(fixture_vault)
     source = fixture_vault / "literatures" / "smith2020.md"
     renamed = fixture_vault / "literatures" / "smith2020b.md"
@@ -770,7 +803,8 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     rows = _evidence_rows(fixture_vault, base)
 
     assert [item.reason for item in rows] == [
-        "drift — literature note renamed without writer attestation"
+        "drift — literature note renamed without writer attestation",
+        "drift — managed-sha256 changed without writer attestation",
     ], rows
     assert rows[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
 

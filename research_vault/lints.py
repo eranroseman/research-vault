@@ -730,11 +730,15 @@ def lint_evidence_layer(
             reason = "drift — literature note added without writer attestation"
             extra: dict[str, object] = {}
         else:
-            attested = _write_attested(
-                _frontmatter(base_files[old_path]), candidate_data
-            )
+            base_data = _frontmatter(base_files[old_path])
+            attested = _write_attested(base_data, candidate_data)
             reason = "drift — literature note renamed without writer attestation"
             extra = {"prior_path": RepoPath(old_path)}
+            # The per-key diagnostic runs across the pair too (#21): a rename
+            # that also hand-edits a machine-owned key names the key.
+            outcomes.extend(
+                _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data)
+            )
         if not attested:
             outcomes.append(
                 Outcome(
