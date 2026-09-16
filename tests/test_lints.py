@@ -809,6 +809,51 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     assert rows[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
 
 
+def test_a_note_without_a_tuple_does_not_stop_identity_pairing(fixture_vault):
+    """A note with no complete Zotero tuple has no identity; the pairing skips
+    it (`continue`, not `break`, on a None key) and still pairs the next
+    added note by identity, sorted right after it.
+
+    Both the tuple-less note's body and the rename's body have to differ
+    from the base note's own body — otherwise either one pairs with
+    `smith2020.md` on the body-bytes fallback pass regardless of whether the
+    identity pass ran, and hides a broken identity pass entirely (verified by
+    hand: with an unchanged body on either note, this test still passes under
+    a hand-flipped `break`)."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    # Sorts before the rename below; no Zotero tuple, so `_note_identity`
+    # returns None for it — and a body that cannot fallback-pair either, so
+    # it never consumes `smith2020.md`'s removed slot on its own.
+    bare = fixture_vault / "literatures" / "aaa-bare.md"
+    bare.write_text(
+        must_replace(
+            must_replace(
+                source.read_text() + "a distinct bare body\n",
+                'citationKey: "smith2020"',
+                'citationKey: "aaa-bare"',
+            ),
+            'zotero-item-key: "SMITH020"\n',
+            "",
+        )
+    )
+    # Sorts after; same Zotero identity as the base note, but a changed body,
+    # so only the identity pass -- not the body-bytes fallback -- can pair it.
+    renamed = fixture_vault / "literatures" / "zzz-renamed.md"
+    renamed.write_text(
+        must_replace(
+            source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed"
+        )
+    )
+    source.unlink()
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert not any(item.reason == "drift — literature note deleted" for item in rows), (
+        rows
+    )
+
+
 def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
     fixture_vault,
 ):
@@ -1308,12 +1353,12 @@ def test_body_bytes_and_frontmatter_need_a_file_image():
     assert lints._frontmatter(empty) == lints._frontmatter(_file(b"x.md", b"body\n"))
 
 
-def test_note_identity_needs_a_file_image_and_a_complete_tuple():
-    """`_note_identity` accepts `None` directly — `.kind` must not be read off
-    it (`or`, not `and`, guards the second operand). A directory and a note
-    with no complete Zotero tuple both read as no identity too."""
+def test_note_identity_needs_data_and_a_complete_tuple():
+    """`_note_identity` takes only images `_literature_files` can yield — no
+    `None`, no non-"file" kind is a call it has to handle — so its only guard
+    is `image.data is None`. A note with no complete Zotero tuple also reads
+    as no identity."""
     directory = gitstate.FileImage(b"literatures/d", "directory", 0o40000, None)
-    assert lints._note_identity(None) is None
     assert lints._note_identity(directory) is None
     assert lints._note_identity(_file(b"literatures/a.md", _CLAIM)) is None
     tupled = _file(

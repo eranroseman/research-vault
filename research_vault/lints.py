@@ -630,10 +630,12 @@ def _write_attested(base_data: dict | None, candidate_data: dict | None) -> bool
     )
 
 
-def _note_identity(image: gitstate.FileImage | None) -> tuple[str, str] | None:
+def _note_identity(image: gitstate.FileImage) -> tuple[str, str] | None:
     """Decision 08's identity of a literature note, `(server id, item key)`,
-    or None for a note that carries no complete tuple."""
-    if image is None or image.kind != "file" or image.data is None:
+    or None for a note that carries no complete tuple. Every caller passes an
+    image straight from `_literature_files`, so it is always a `kind == "file"`
+    image; only its `data` needs a guard here."""
+    if image.data is None:
         return None
     try:
         text = image.data.decode()
