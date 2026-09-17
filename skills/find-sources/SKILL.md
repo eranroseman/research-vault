@@ -1,12 +1,12 @@
 ---
 name: find-sources
-description: Use when a person asks to find, search, or look up literature, papers, citations, DOIs, PMIDs, arXiv IDs, or open-access sources for a research-vault project, before anything is admitted into Zotero
+description: Use when a person asks to find, search, or look up literature, papers, citations, DOIs, PMIDs, arXiv IDs, or open-access sources for a research-vault project, before anything is added to Zotero
 disable-model-invocation: true
 ---
 
 # Find sources
 
-Literature search upstream of Zotero admission — this skill answers "what is out there," never "what is now citable." Admission is the human act of accepting a source into Zotero, and it is the **only** way anything becomes citable; this skill never performs it and never writes the evidence layer.
+Literature search upstream of selection — this skill answers "what is out there," never "what is now citable." Selection is the person's act of adding a source into Zotero, and it is the **only** way anything becomes citable; this skill never performs it and never writes the evidence layer.
 
 This is a vendored fork of K-Dense Inc.'s paper-lookup skill (`skills/paper-lookup/` at `https://github.com/K-Dense-AI/scientific-agent-skills` @ `336c4f838a6c21b54e1e1f58cbbeae143d151fe2`, license MIT, © 2025 K-Dense Inc.), renamed into this plugin's namespace. Its `references/` (11 per-database files) and `scripts/` (5 stdlib-only Python CLIs — no bundled credentials, though `paginate.py` reads `OPENALEX_EMAIL`, `OPENALEX_API_KEY`, and `CROSSREF_MAILTO` from the environment when they are set) live beside this file, unmodified except for a provenance header on each — re-vendor from upstream to update them, never hand-edit. Upstream prose describes upstream's corpus and upstream's behaviour, not necessarily this fork's; where a vendored file and this one disagree, this one governs. What upstream terminates at (a retrieval report) is where this skill adds two things: search-log provenance and an explicit admission boundary.
 
@@ -81,7 +81,7 @@ python3 -m research_vault search-log --vault PATH --project NAME \
 
 `QUERY AS RUN` is the literal string sent to the API — not your intent, not a paraphrase (arXiv, for one, silently rewrites an unrecognized field prefix, so the query *as executed* can differ from what you typed; log what actually ran). `DATABASE NAME` is the database queried (`PubMed`, `Europe PMC`, `arXiv`, …). `N` is the literal hit count.
 
-Every candidate a person looks at and declines to admit into Zotero also gets its own line, with a reason code from the shared registry (`evidence-conventions` owns the vocabulary; `not-admitted` is the one most searches reach for):
+Every candidate a person looks at and declines to add to Zotero also gets its own line, with a reason code from the shared registry (`evidence-conventions` owns the vocabulary; `not-admitted` is the one most searches reach for):
 
 ```sh
 python3 -m research_vault search-log --vault PATH --project NAME \
@@ -111,7 +111,7 @@ Report results the way the retrieval can be repeated — per candidate: title, a
 That report is the entire deliverable. This skill **terminates at the person's selection**:
 
 - It never writes `literatures/`, never creates a literature note, and never invents a citation key — that projection exists only after `capture-source` runs against an item the person selected and added to Zotero.
-- It never decides admission on the person's behalf. Present candidates; the person chooses what goes into Zotero.
+- It never selects on the person's behalf. Present candidates; the person chooses what goes into Zotero.
 - Once something is selected, route to `capture-source` to add and capture it — this skill's job ends at the search log and the report.
 
 ## Routing

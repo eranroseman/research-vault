@@ -106,9 +106,8 @@ def test_parse_rejects_nested_maps():
 
 
 # --- `render_field`: the one spelling of a frontmatter line -----------------
-# `archive.set_archive_url` and `archive._bump_generated` are byte-surgical
-# single-field writers that share this with `serialize`, so it had no direct
-# test of its own before this round even though `serialize` exercised it
+# Byte-surgical single-field writers share this with `serialize`, so it had no
+# direct test of its own before this round even though `serialize` exercised it
 # indirectly.
 
 

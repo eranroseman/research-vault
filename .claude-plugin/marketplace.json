@@ -7,7 +7,7 @@
     {
       "name": "research-vault",
       "source": "./",
-      "description": "Trust-first academic research on an Obsidian-convention vault: Zotero bridge, per-claim provenance, deterministic citation gates."
+      "description": "Trust-first academic research on an Obsidian-convention vault: Zotero capture, a compiled layer, deterministic citation gates."
     }
   ]
 }

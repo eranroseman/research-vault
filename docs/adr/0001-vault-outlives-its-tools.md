@@ -14,9 +14,7 @@ research-vault-private convention.
 which was growing an ecosystem of agent-facing knowledge tools at adoption. **Conformance is
 pinned, not merely versioned**: the vault targets OKF v0.2 as published at
 `open-knowledge-format@ad30107`, `SPEC.md` sha256
-`26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`. The pin exists because
-v0.2 has already been amended in place without a version bump, so a bare version number is not
-an anchor.
+`26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`.
 
 §11's three rules are reproduced verbatim rather than paraphrased, because the paraphrase is
 what drifted:
@@ -61,9 +59,9 @@ Every family carries a disposition — adopted or declined with a cost class —
 [docs/agents/terminology.md](../terminology.md); silence is not a disposition.
 
 The deviations that survive that rule are recorded there, not here. The load-bearing one is
-per-claim attribution: it renders as pandoc `[@citekey, locator]` rather than §5.1's `[^id]`
+per-claim attribution: it renders as pandoc `[@citation-key, locator]` rather than §5.1's `[^id]`
 footnote, a permanent mismatch with a toolchain the vault does not control (cost class 1). It is
-a rendering difference over the same join — `sources[].id` is the citekey, and §5.1 directs
+a rendering difference over the same join — `sources[].id` is the citation key, and §5.1 directs
 consumers to resolve attribution "through the matching entry, not by parsing the footnote prose"
 — except for the pinpoint, which OKF v0.2 has no way to carry at all.
 

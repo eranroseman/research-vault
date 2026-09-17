@@ -53,22 +53,3 @@ claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
 Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. `$ROOT` is the plugin's `installPath` recorded in `~/.claude/plugins/installed_plugins.json` (the record doctor's `compile-tool` probe reads); `.research-vault/machine.json` may name a `claude_obsidian_root` that overrides it. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run, JSON on stdout), then `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH --apply --approved-plan-sha256 <approved_plan_sha256> --operation-id <operation.operation_id> --generated-at <generated_at>`, the three values read from the dry run's JSON — the approval hash covers `generated_at` and `operation_id`, which the apply run would otherwise regenerate from the clock and answer `PLAN_CHANGED`. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
-
-## Migrate an older vault
-
-A vault whose literature notes carry the old `citekey:` frontmatter key runs the one-shot migration before its first capture:
-
-```sh
-python3 - <<'PY'
-from pathlib import Path
-from research_vault import notes
-for path in sorted(Path("literatures").glob("*.md")):
-    text = path.read_text(encoding="utf-8", newline="")
-    renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
-    if renamed != text:
-        path.write_text(renamed, encoding="utf-8", newline="")
-        print("migrated", path)
-PY
-```
-
-Run it from the vault root and report the paths it printed. Then `capture --all`: it requests every note under `literatures/` by its `citationKey`, and a note that carries no Zotero tuple yet is captured by that name and given one. **The capture rewrites each note whole from Zotero** — the design is greenfield, and prose an older note carried does not survive it; move anything worth keeping into `wiki/` first. Afterwards `inbox` names what did not migrate, and each row is the person's to resolve, never the tool's to delete: `not-admitted` means Zotero holds no item under that citation key (the source was removed, or the key was never Zotero's), and a note that stays `no provenance tuple` beside a freshly written one means Zotero's key for that item has changed since the note was written. Acknowledgments made against a migrated note lapse: the ack scope moves from the retired fixity-sha256 witness to the capture's `managed-sha256`, so a standing acknowledgment on a note this run rewrites is re-filed by the next `verify` and is the person's to re-acknowledge or act on.

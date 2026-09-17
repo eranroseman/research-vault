@@ -1,6 +1,6 @@
 # research-vault
 
-A Claude Code plugin for knowledge work — academic research first (question → literature → synthesis → draft → submit), then analysis/reports, personal knowledge management, and long-form writing.
+A Claude Code plugin for knowledge work — academic research first (question → literature → compile → draft → submit), then analysis/reports, personal knowledge management, and long-form writing.
 
 Success criterion: **trustworthy output** — every claim traceable to a real source, zero fabricated citations.
 
@@ -12,7 +12,7 @@ research-vault is an Obsidian vault, a Python CLI (`research_vault`), and a set 
 
 A claim line exists only after its literature note exists and its citation key resolves. Prose written ahead of its evidence goes to `inbox/`, never `projects/` — it stays fleeting prose, not a tagged claim, until the source is captured.
 
-**Admission is a human act.** Accepting a source into Zotero is the only way anything becomes citable, and no import, search, or agent step can substitute for it.
+**Selection is the person's act.** Adding a source to Zotero is the only way anything becomes citable, and no capture, search, or agent step can substitute for it.
 
 ## Claims carry their own evidence
 
@@ -26,7 +26,7 @@ Claims are written in project drafts and arranged into `wiki/` pages by the comp
 - The **citation key and locator** parse losslessly to CSL `locator` + `label`.
 - The **anchor** derives from stable content (a Zotero annotation key, else a quote hash), never from render order, so re-rendering never breaks an existing claim link.
 
-Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it. Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citation-key#^claim-id]]`) rather than creating a second, unverified copy.
+Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it (that check is frozen while the compiled layer settles; see CONTEXT.md). Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citation-key#^claim-id]]`) rather than creating a second, unverified copy.
 
 **Claims are deprecated, never deleted.** Retirement is a transition record written on the same line — status, date, actor, reason, and a `superseded-by` link where a successor exists. The anchor survives the transition.
 
@@ -111,10 +111,6 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 | "It's paywalled, I can't check the wording." | Use `paraphrase` or `inference`. A `quote` tag commits to text a checker can byte-compare.                                           |
 | "`UNREACHABLE` is basically fine."           | It holds the gate. An outage is never a failure and never a pass.                                                                    |
 | "They said go ahead, so the ack is covered." | Consent spoken in conversation writes nothing. Only the verb writes.                                                                 |
-
-## Planning
-
-The foundation was planned on a wayfinder map (issue #1, closed 2026-08-16, label `wayfinder:map`); current sequencing lives in the active plan under `docs/superpowers/plans/`, with the issue tracker holding the work queue. `docs/research/harness-audits/dev-harness-analysis.md` is the anatomy of the software-dev harness this re-imagines.
 
 ## Zotero add-ons
 

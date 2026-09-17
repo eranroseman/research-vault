@@ -48,9 +48,9 @@ interface ThemeConfig {
 
 ## Prior requests
 
-- #42: "Add dark mode support"
-- #87: "Night theme for accessibility"
-- #134: "Dark theme option"
+- #NN: "Add dark mode support"
+- #NN: "Night theme for accessibility"
+- #NN: "Dark theme option"
 ````
 
 ### Naming the file
@@ -73,7 +73,7 @@ During triage (Step 1: Gather context), read all files in `.out-of-scope/`. When
 
 - Check if the request matches an existing out-of-scope concept
 - Matching is by concept similarity, not keyword: "night theme" matches `dark-mode.md`
-- If there's a match, surface it to the maintainer: "This is similar to `.out-of-scope/dark-mode.md`. We rejected this before because [reason]. Do you still feel the same way?"
+- If there's a match, surface it to the maintainer: "This is similar to `.out-of-scope/<concept>.md`. We rejected this before because [reason]. Do you still feel the same way?"
 
 The maintainer may:
 

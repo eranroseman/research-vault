@@ -1,4 +1,4 @@
-"""Parser for §5 claim lines — the shared reader every checker and lint uses."""
+"""Parser for claim lines in drafts — the shared reader every checker and lint uses; capture writes none."""
 
 import re
 from dataclasses import dataclass, field

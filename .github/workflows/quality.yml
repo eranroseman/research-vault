@@ -96,7 +96,7 @@ jobs:
       # No-op on push by construction (origin/main...HEAD is empty after a landing);
       # this gate earns its keep on pull_request and workflow_dispatch. It runs
       # mutmut over the research_vault modules the diff touches and fails on any
-      # survivor that mutation-baseline.txt (all 34 modules) does not carry; the
+      # survivor that mutation-baseline.txt (every module measured) does not carry; the
       # gate sets PYTHONPATH to its own shims, so the [dev] install is all it needs.
       # --max-children 2 with --child-address-space 3GiB: 2 × 3 GiB = 6 GiB bounds
       # the children on both the 7 GB and the 16 GB ubuntu-latest runners. A bound,

@@ -29,7 +29,7 @@ What binds: the **measured environment** (§14) and the **author's choices** (§
 
 What does not bind, and why each is still useful:
 
-- `CONTEXT.md` and `docs/adr/` are non-binding. ADRs 0004 and 0005 carry `Status: suspended (2026-09-03)` and say on their face that nothing new builds on them until they return to accepted or are superseded. Their disposition belongs to issue #116, not here; the vocabulary will not be stable until the lanes have run.
+- `CONTEXT.md` and `docs/adr/` are non-binding. ADRs 0004 and 0005 were deleted on 2026-09-07 once the ingest spec supplied their successors; while suspended they said on their face that nothing new builds on them until they return to accepted or are superseded. Their disposition belongs to issue #116, not here; the vocabulary will not be stable until the lanes have run.
 - `docs/superpowers/specs/2026-09-06-import-redesign-design.md` is demoted from decision to **fact source**. Its probes remain citable under §1's shelf-life rule; its choices are re-opened.
 - The foundation specification (`2026-08-16-foundation-spec.md`, retired 2026-09-16 — its rules live in ADR 0002, `docs/agents/sourcing.md`, the skills and the code; its deferred register became issues) was demoted on the same terms, and this spec re-opened three of its choices by name: **research-vault-owned note generation** (an unscreened `build` under §5.2), **MarkDB-Connect as the sole vault→Zotero write-back** (a Zotero plugin not among the 23 installed, which is why lane 2's scope reads "all 23 installed, plus the author's named not-installed candidates"), and **ZotLit as later-adoptable UI**. Its file conventions, including the daily log, live in the vault template.
 - Existing code enters as **cost** and as **evidence**, never as authority. §11 states the audit that acts on that.
@@ -55,7 +55,7 @@ All **chosen** 2026-09-05 unless noted.
 
 05. **Lane order is the dependency order in §7**: 0, then 1, then 2 and 3a concurrently, then 3b, then 4. *This supersedes the earlier choice of Zotero plugin curation as first lane* — curation produces a document, while a distribution's claim is install + pin + drift, and lanes 1 and 2 are mutually dependent until lane 0 breaks the cycle.
 
-06. **A status-marking pass runs before this spec's lanes.** §10.
+06. **A status-marking pass ran before this spec's lanes** (2026-09-05); its marker system was deleted on 2026-09-07 (§10).
 
 07. **Requirements are indexed, not translated.** §4.
 
@@ -73,11 +73,11 @@ All **chosen** 2026-09-05 unless noted.
 
 13. **The build bar leaves this document.** It moves to `docs/agents/sourcing.md`, pointed to from `AGENTS.md`, because it is long and episodic — it fires only when a screen concludes `build` or `adapt`. A durable rule does not live in a spec that expires when the lanes finish. *Supersedes decision 08 and deletes §5.2.*
 
-14. **The register carries facts and pointers, not justification.** Eight columns in `docs/component-register.md`. `pin`, `pin_semantics` and `provisioning` leave because each class's own registry holds them — and for two classes there is nothing to hold. `class` leaves because the registries partition the components between them, so the row need not restate which one a component is in. `candidates_screened` leaves because nothing in this document ever defined its contents, and `decided_by`/`decided_on` are subsumed by `decided_in`, which names a dated screen. *Supersedes §5.1's column table. `tier` also leaves, but for a reason this row got wrong — see decision 18.*
+14. **The register carries facts and pointers, not justification.** Eight columns in `docs/component-register.md` (not yet created; lane 0 opens it). `pin`, `pin_semantics` and `provisioning` leave because each class's own registry holds them — and for two classes there is nothing to hold. `class` leaves because the registries partition the components between them, so the row need not restate which one a component is in. `candidates_screened` leaves because nothing in this document ever defined its contents, and `decided_by`/`decided_on` are subsumed by `decided_in`, which names a dated screen. *Supersedes §5.1's column table. `tier` also leaves, but for a reason this row got wrong — see decision 18.*
 
 15. **Lanes run sourcing screens, not scoping reviews.** A scoping review is a research method over literature — a question, a search, eligibility screening, charting, a flow diagram. Choosing software against acceptance criteria is not that, and §7.3 previously admitted the collision (*"names both a workflow step and the method a lane runs"*) without fixing it. The repository's own prior art already uses the right word: `docs/superpowers/specs/2026-09-05-assembly-design-sourcing-screen-evidence.md`. `scoping-review` in §5.0 returns to meaning only the research method, owned by #119. *Supersedes §7.3's naming **and §10's `should-be-scoping-review` flag**.*
 
-    The flag is the wider half. It is set on **42 documents** in `docs/document-dispositions.tsv`, and they are not one kind of thing: some are literature comparisons, but others — `docs/superpowers/specs/2026-09-05-assembly-design-sourcing-screen-evidence.md` most plainly — are sourcing screens, so the flag currently promises to replace them with a research method they were never an instance of. **The TSV is a reviewed artifact and this spec does not touch it**; §15.19 carries the split.
+    The flag is the wider half. It was set on **42 documents** in the status-marking pass's table (deleted with the marker system, `7ec2c95`), and they were not one kind of thing: some are literature comparisons, but others — `docs/superpowers/specs/2026-09-05-assembly-design-sourcing-screen-evidence.md` most plainly — are sourcing screens, so the flag currently promises to replace them with a research method they were never an instance of. §15.19 carries the split.
 
 16. **No second setup mechanism.** research-vault extends `research_vault/scaffold.py`'s existing `doctor()` with a read-only `--check-only` mode. The sibling's `bin/setup` shape — declarations in-repo never read from the machine, one script with check as its second mode, a scratch `HOME` as a complete test fixture — is adopted as *principles*; the script is not copied, because this repository already has the thing it would duplicate. *Confirms §9 against a contrary proposal.*
 
@@ -171,7 +171,7 @@ The steps are the register's key domain, closed for this spec's lanes and extend
 
 ### 5.1 Register shape
 
-**The artifact is `docs/component-register.md`** — a committed markdown table, the shape `docs/issue-dispositions.md` already proves: a human reads it on GitHub, a linter parses it, mdformat owns its form. The width objection that argued against a table at fourteen columns does not survive at eight: laying the eight columns out over the components §14 already names gives rows of roughly 110 characters, against the issue table's committed rows of 120 and more. That is an estimate over an artifact that does not exist yet, not a measurement, and it is written here as one.
+**The artifact is `docs/component-register.md`** (not yet created) — a committed markdown table, the shape the status-marking pass's issue-dispositions table proved before it was deleted with the marker system: a human reads it on GitHub, a linter parses it, mdformat owns its form. The width objection that argued against a table at fourteen columns does not survive at eight: laying the eight columns out over the components §14 already names gives rows of roughly 110 characters, against the issue table's committed rows of 120 and more. That is an estimate over an artifact that does not exist yet, not a measurement, and it is written here as one.
 
 Keyed on `(step, component)`, with an empty `step` permitted for a component that serves none. Lanes append rows and may supersede their own; a named header block carries what is not a row.
 
@@ -223,7 +223,7 @@ The two unpinned classes are not thereby unmanaged. What we owe them is a **decl
 
 **The pin legs are gone** (decision 12, superseding this section's earlier three-leg table). The prior design held the pin through the author's global auto-update toggle. Measured 2026-09-06 from `omni.ja`: `extensions.update.autoUpdateDefault` **defaults to `true`**, so that toggle was an artifact of this session, not a property of a Zotero install. A distribution whose pin requires every user to find a global preference and hold it off indefinitely has not pinned anything — it has written a rule where it needed a mechanism, which is the ladder's bottom rung. Zotero plugins update themselves; the design now says so.
 
-**`README.md` is the declaration** (Q15). Not a docs page and not a code constant: the human who has to run the Zotero UI wizard reads the README, and a list they cannot see is a list they will not install from. The addon id column is what makes the same table machine-readable, so doctor parses the artifact the human reads rather than a second copy that can disagree with it. This is the shape `docs/issue-dispositions.md` already proves in this repo. `skills/setup-vault/SKILL.md:44` today names two plugins in prose with no ids; it becomes a pointer to the table.
+**`README.md` is the declaration** (Q15). Not a docs page and not a code constant: the human who has to run the Zotero UI wizard reads the README, and a list they cannot see is a list they will not install from. The addon id column is what makes the same table machine-readable, so doctor parses the artifact the human reads rather than a second copy that can disagree with it. This is the shape the status-marking pass's issue-dispositions table proved in this repo before it was deleted with the marker system. `skills/setup-vault/SKILL.md:44` today names two plugins in prose with no ids; it becomes a pointer to the table.
 
 **`appDisabled` is Zotero's own verdict on the question doctor would otherwise have to compute.** `extensions.json` carries a computed `appDisabled` boolean per addon — Zotero has already evaluated the manifest's version range against the running application. Doctor reads that field rather than parsing `strict_min_version`/`strict_max_version` and reimplementing the comparison, which would be a second, worse copy of a decision the host already made.
 
@@ -308,7 +308,7 @@ What Plan W settles for this spec: §15 item 06 (the `.py.manifest.json` sidecar
 
 **Lane 1 confirmed the cut and overturned half its framing.** The first clause stands: a URL-only source goes into Zotero rather than through parallel machinery of the vault's own. The second clause — "consulted only → no item, never citable" — was withdrawn as incoherent rather than adopted: a source either enters through Zotero and the whole process or it is not in the vault, so there is no consulted-only record to rule about. **`archive.py` does not survive**, and the reason is sharper than the row anticipated. It was not outweighed; it was a *second machine writer* into a record the ingest spec makes capture's alone, and Zotero already stores an archive URL and an access date the snapshot carries for free. `lint_web_archive`, verify's archive leg and the `archive-url` field retire with it. The cost is stated in the ingest spec §3 rather than implied: **automated snapshotting leaves the design and nothing replaces it.** The original row:
 
-The claim that a URL-only entry gains nothing from Zotero is right about organisation and wrong about three things. **Identity**: a cited URL needs a bibliography entry with an accessed date, and only Zotero plus Better BibTeX mints one here. **Link rot**: this is the one source class that disappears, and `research_vault/archive.py` — sole writer of `archive-url`, Wayback-confirmed, four-state honest — already answers it and keys on the citekey, so skipping Zotero leaves it nothing to key on. **PRISMA**: PRISMA-S covers grey literature and web searching, and a scoping review citing a source whose provenance it cannot report fails its own checklist.
+The claim that a URL-only entry gains nothing from Zotero is right about organisation and wrong about three things. **Identity**: a cited URL needs a bibliography entry with an accessed date, and only Zotero plus Better BibTeX mints one here. **Link rot**: this is the one source class that disappears, and `research_vault/archive.py` (since deleted by lane 1's Part A, 2026-09-13; §7.2) — sole writer of `archive-url`, Wayback-confirmed, four-state honest — already answered it and keys on the citekey, so skipping Zotero leaves it nothing to key on. **PRISMA**: PRISMA-S covers grey literature and web searching, and a scoping review citing a source whose provenance it cannot report fails its own checklist.
 
 **Proposed cut**: cited or plausibly cited → Zotero; consulted only → no item, never citable. A wrong save costs a junk item attachment-scanner already cleans; a wrong skip costs an unrecoverable dead link. If consulted-not-cited volume becomes noise, the remedy is Zotero-side, never a second identity system. Lane 1 confirms or overturns it, and the row also decides whether `archive.py` survives §11's audit.
 
@@ -408,42 +408,7 @@ For Zotero and Obsidian there is no pin to move, so there is no upgrade act — 
 
 ## 10. The status-marking pass
 
-Runs before this spec's lanes, as its own bounded task with its own approval. Nothing moves, nothing is deleted.
-
-Scope, measured after the pass ran: **180 markdown files** — `docs/` 106, `.superpowers/` 71, root 3. This amendment then added `docs/agents/sourcing.md`, making it 181 and `docs/` 107; the count is a dated scope for that pass, not a standing fact. The figure this section first carried, 202, predated the `skills/` exclusion below.
-
-**The pass writes a second, distinct line and does not touch the existing `Status:` line.** That line's vocabulary (`accepted`, `suspended`, `draft`, `APPROVED`, `SUPERSEDED`) is a lifecycle axis this pass has no business overwriting — §2 depends on ADRs 0004 and 0005 still reading `suspended`. The new line is `Disposition: <value> (<date>)`, written **immediately after the document's first heading of any level** (`^#{1,6}\s`), with top-of-file as the fallback for the four files that carry no heading at all. `CLAUDE.md` is out of scope by name: it is an 11-byte import directive, not a document.
-
-**No frontmatter route, because `skills/` is out of scope.** An earlier draft put the marker in a `disposition:` frontmatter key for files opening with YAML, and was rejected for shipping a repo-internal marker into an installed plugin. The body route that replaced it shipped one too — as the first line of nine `SKILL.md` prompt bodies — which this pass's own review caught. `skills/**` is therefore excluded outright, on the rule the exclusion list now runs on: **does this path ship to a consumer?** `research_vault/templates/**` ships and was already excluded; `skills/**` ships and now is. Nothing in scope opens with YAML, so the frontmatter question has no remaining member.
-
-**The any-level anchor is a measurement, not a preference.** Twenty-one in-scope files — the `.superpowers/sdd/…/task-*-brief.md` set — open at `###`, so a `^#\s` anchor would have no anchor for them. Only the four bare-prose `docs/research/**/README.md` files carry no heading of any level. Two classes, not three.
-
-Closed vocabulary, with a precedence rule because more than one value can fit — **first match wins, in this order**:
-
-| Status                    | Test                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| `sibling-project`         | belongs to another product's register                                                |
-| `superseded-by: <path>`   | an explicit supersession already exists                                              |
-| `pending-issue: <number>` | disposition belongs to a tracked issue — ADRs 0004 and 0005 are `pending-issue: 116` |
-| `historical`              | a dated pass that closed — evidence, never a live decision                           |
-| `pending-map`             | disposition needs the register                                                       |
-| `current`                 | still binding                                                                        |
-
-`pending-map` and `pending-issue` are load-bearing. Without them the pass guesses the dispositions it was sequenced to avoid, and the two documents §2 singles out fit no other value.
-
-Orthogonal flag, not a status: `should-be-scoping-review`. A document may be `historical` **and** flagged as work the workflow should later replace. That flag produces the test-case set. **Decision 15 supersedes its name and narrows its meaning**: it was set on 42 documents that are not one kind of thing, and for the sourcing screens among them it names the wrong successor entirely. §15.19 carries the split; the flagged set is unchanged until then.
-
-**Issues are in scope too.** The 66 open issues get a parallel one-word disposition — `absorbed-by: <spec §>`, `superseded`, `still-open`, `pending-map` — under the same linter. #96, #97, #62, #63, #78 and #118 are the first six to close against this spec; #116, #117 and #119 stay open and are named in §2, §4 and §7.3.
-
-Three premises the pass started with were false, and it is scoped to the corrected ones (all measured):
-
-- The named siblings — the coaching apps, the ADHD pilot, archify, Memoria — own **zero** files in the main tree. The sibling that does own files is `software-development`/`sensemaking`, whose **six** documents self-declare it. The figure this section first carried, two, came from a filename regex rather than a content test.
-- `superseded` is a **domain term for source state** here, not a status marker. Explicit document-to-document supersession is **one whole-document pair**, not the 44 a naive grep suggests and not the three this section first carried — the other two are section-scoped.
-- The `.superpowers/sdd/` workspace is retained-and-closed by deliberate commits, not abandoned.
-
-**Its own linter**, per this repository's rule that a mechanical process gets a mechanical check: every `.md` in scope carries exactly one `Disposition:` line, positionally defined as the first line matching `^Disposition:` within the five lines after the document's first heading of any level, or at top of file for the four headingless ones; every `superseded-by` target resolves. `Status:` lines elsewhere in a body are out of scope, so the six sdd review files whose per-finding verdicts read `Status: **CONFIRMED.**` do not fail it.
-
-**Scope bound.** The pass marks documents. The material that most often goes stale here is **environment facts**, and `AGENTS.md` already carries the rule for those. §1's shelf-life clause is where environment staleness is handled; the pass does not duplicate it.
+Ran on 2026-09-05 as its own bounded task: every in-scope Markdown file received a `Disposition:` header from a closed vocabulary, checked by a linter, with a table of dispositions beside it. The marker system, its table and its linter were deleted on 2026-09-07 (`7ec2c95`, `8e2721b`); what survives is the `historical` header on dated records, which is a true statement, and this spec's decision 15 on the `should-be-scoping-review` flag.
 
 ## 11. Code disposition audit
 
@@ -603,7 +568,7 @@ Zotero runtime rows re-measured 2026-09-05 evening, after the author enabled PMC
 
     *The move itself remains the author's and undecided. What is closed is the claim that deferring it has a cost.*
 
-19. **`should-be-scoping-review` is set on 42 documents and means two different things** (§10, decision 15). Some carry it because they are informal literature comparisons a real scoping review should replace; others are **sourcing screens**, where the flag names the wrong successor entirely — `docs/superpowers/specs/2026-09-05-assembly-design-sourcing-screen-evidence.md` is the clearest case, since decision 15 cites it as the repository's own correct use of the word. Splitting the flag means re-reading 42 rows of a human-reviewed artifact, so it is scheduled rather than done here, and `docs/document-dispositions.tsv` is untouched by this amendment.
+19. **`should-be-scoping-review` is set on 42 documents and means two different things** (§10, decision 15). Some carry it because they are informal literature comparisons a real scoping review should replace; others are **sourcing screens**, where the flag names the wrong successor entirely — `docs/superpowers/specs/2026-09-05-assembly-design-sourcing-screen-evidence.md` is the clearest case, since decision 15 cites it as the repository's own correct use of the word. Splitting the flag means re-reading 42 rows of a human-reviewed artifact, so it is scheduled rather than done here; the table that carried the flag was deleted with the marker system, and the flag survives only as a header on dated records.
 
 20. **The write-side gate is a mechanism hung on a seam that alters nothing** — the repository's own instance of the defect this spec keeps finding. Measured 2026-09-06: `main` has **no branch protection and no rulesets**, and every workflow run in repository history is a `push`, so the **186 consecutive red runs since 2026-08-25** blocked nothing and gated nothing. Meanwhile `.git/hooks/pre-commit` does not exist in this checkout, so `git commit` never runs the six form owners — while `scaffold.py:272` installs a `pre-commit` hook into **every consumer vault** the product creates. Commit time is an existing seam with a proven adapter; the development checkout is the one place it was never wired. The 2026-08-22 ruling declined the pre-commit *framework's* stashing hook and was recorded as declining the rung. Naming the lane `(advisory)` describes a posture nothing implements. *Dated addendum 2026-09-14: the `quality` job is green on push since Part A's CRAP fix and Plan W (run 34852106556 at `384d562`), so the red-run count stopped; the finding is unchanged — the run blocks nothing, and the decision is #130.*
 

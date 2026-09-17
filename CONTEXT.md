@@ -21,13 +21,13 @@ _Avoid_: synthesis layer, synthesis note (the layer moved under `wiki/` and took
 
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 
-**Inbox**: Fleeting captures and the review queue (`inbox/`); never an admission path for citable sources.
+**Inbox**: Fleeting captures and the review queue (`inbox/`); never a path by which a source becomes citable.
 
 **Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
 
 **System folder**: The vault's support artifacts (`system/`): templates, bases, the CSL file (`system/bibliography.json`) and the applied propagation plans (`system/propagations/`).
 
-**Propagation plan**: The computed description of one re-key pass — the old→new mapping, the item key behind it, the note rename, every surface to rewrite with its hash as it stands — printed for a person to approve and applied only against its own sha256. The applied plan, kept under `system/propagations/` and never rewritten, is the record a reader follows an old key forward through and the residue check reads. There is no separate rename log.
+**Propagation plan**: The computed description of one re-key pass — the old→new mapping, the item key behind it, the note rename, every surface to rewrite with its hash as it stands — printed for a person to approve and applied only against its own sha256. The applied plan, kept under `system/propagations/` and never rewritten, is the record a reader follows an old key forward through and the residue check reads.
 
 ### Ingest
 

@@ -1,4 +1,4 @@
-# mutation-baseline.txt -- every research_vault module measured by scripts/mutation_gate.py --update-baseline over mutmut; one survivor key per line, format in the script header
+# mutation-baseline.txt -- every survivor of the research_vault modules measured by scripts/mutation_gate.py --update-baseline over mutmut; one survivor key per line, format in the script header
 research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(None, file=sys.stderr)
 research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(f"warning: review record refused: {detail}", )
 research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(f"warning: review record refused: {detail}", file=None)

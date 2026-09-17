@@ -12,14 +12,14 @@ ______________________________________________________________________
 ## Founding guidelines
 
 These bind the design and are indexed, never translated, by the assembly
-spec's obligations index. Ideas only — no code or content is copied from any
+spec's obligations index (`docs/superpowers/specs/2026-09-05-assembly-design.md` §4). Ideas only — no code or content is copied from any
 of them.
 
 | Guideline                 | Author or body                  | Use                                                                                                                                                                                    |
 | ------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The LLM-wiki pattern      | Andrej Karpathy                 | The shape of the compile step: an LLM building and maintaining a structured wiki from captured sources. An independent implementation, and the same pattern `claude-obsidian` credits. |
 | Notetaking for Historians | the `history-notes` publication | The method behind annotation handling and the split from source into research notes.                                                                                                   |
-| PRISMA-S                  | the PRISMA statement            | Search-strategy reporting; one of lane 4's screening floors.                                                                                                                           |
+| PRISMA-S                  | the PRISMA statement            | Search-strategy reporting.                                                                                                                                                             |
 | PRISMA-ScR                | the PRISMA statement            | Scoping-review conduct and flow counts.                                                                                                                                                |
 | ACM submission guidelines | ACM                             | Manuscript and reference-format obligations for the publication step.                                                                                                                  |
 
@@ -37,7 +37,7 @@ in [docs/agents/terminology.md](docs/agents/terminology.md).
 | Component                                                          | Author                          | License | Adopted as                                                                                                                                                                                                                  |
 | ------------------------------------------------------------------ | ------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian) | AgriciDaniel / AI Marketing Hub | MIT     | The compile step, installed whole and unmodified at pin `32ac5a0` and driven by a wrapper. No fork, no vendored prose — see [.out-of-scope/vendoring-compile-tool-prose.md](.out-of-scope/vendoring-compile-tool-prose.md). |
-| [defuddle](https://github.com/kepano/defuddle)                     | kepano                          | MIT     | Candidate for URL-source acquisition, screened in lane 2.                                                                                                                                                                   |
+| [defuddle](https://github.com/kepano/defuddle)                     | kepano                          | MIT     | Candidate for URL-source acquisition; screened, not adopted.                                                                                                                                                                |
 | Better BibTeX                                                      | Emiliano Heyns (retorquere)     | MIT     | Citation keys and CSL rendering. A Zotero plugin, installed by the person, never by this repository.                                                                                                                        |
 
 **The exit, for the one adoption that writes into the vault:** stop invoking
@@ -58,20 +58,20 @@ PMC, Europe PMC, arXiv, bioRxiv, medRxiv, CORE, Unpaywall) and five scripts
 Vincent. Skill workflows vendored under their own provenance headers, with
 local changes limited to frontmatter descriptions and marked as such.
 
-## Resources for lane 3 (the Obsidian half)
+## Obsidian resources, screened
 
-Recorded so lane 3a screens rather than searches. Nothing here is adopted or
-installed; the seeded `.obsidian/` folder is lane 3a's own work.
+Recorded so a later screen starts here rather than from a search. Nothing here is adopted or
+installed.
 
-| Resource                                                                     | Author                                               | License     | Note                                                                                                                                                                     |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `vault-colors.css`                                                           | claude-obsidian                                      | MIT         | Folder-type colour coding and callout styles; the only snippet that project distributes. Compatible with this repository's licence.                                      |
-| [Obsidian ITS Theme snippets](https://github.com/SlRvb/Obsidian--ITS-Theme)  | SlRvb                                                | **GPL-2.0** | **Licence hazard.** Attractive Dataview-card and image snippets, but GPL-2.0 into an MIT repository is a one-way door. Cite the technique; do not vendor the file.       |
-| [obsidian-skills](https://github.com/kepano/obsidian-skills)                 | kepano                                               | MIT         | Named by `skills/setup-vault` as a scriptable companion install, restart-to-activate.                                                                                    |
-| Calendar, Thino, Excalidraw, Banners                                         | Liam Cain; Quorafind; Zsolt Viczian; Danny Hernandez | various     | Present in `claude-obsidian`'s contributor vault and **not endorsed by it** — listed there as historical state absent from its artifact. Screen independently.           |
-| [obsidian-reference-map](https://github.com/anoopkcn/obsidian-reference-map) | anoopkcn                                             | —           | Screened and rejected for capture: within-note and stale (ingest spec §3.8).                                                                                             |
-| [ZotLit](https://github.com/aidenlx/zotlit)                                  | aidenlx                                              | —           | Screened: clears three floors, reads SQLite directly, never reads the extracted-text cache.                                                                              |
-| [MarkDB-Connect](https://github.com/daeh/zotero-markdb-connect)              | daeh                                                 | —           | Composes with this design, writing one tag and no files. **Currently misconfigured destructively on the author's machine** — see decomposition §15.16 before running it. |
+| Resource                                                                     | Author                                               | License     | Note                                                                                                                                                               |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `vault-colors.css`                                                           | claude-obsidian                                      | MIT         | Folder-type colour coding and callout styles; the only snippet that project distributes. Compatible with this repository's licence.                                |
+| [Obsidian ITS Theme snippets](https://github.com/SlRvb/Obsidian--ITS-Theme)  | SlRvb                                                | **GPL-2.0** | **Licence hazard.** Attractive Dataview-card and image snippets, but GPL-2.0 into an MIT repository is a one-way door. Cite the technique; do not vendor the file. |
+| [obsidian-skills](https://github.com/kepano/obsidian-skills)                 | kepano                                               | MIT         | Named by `skills/setup-vault` as a scriptable companion install, restart-to-activate.                                                                              |
+| Calendar, Thino, Excalidraw, Banners                                         | Liam Cain; Quorafind; Zsolt Viczian; Danny Hernandez | various     | Present in `claude-obsidian`'s contributor vault and **not endorsed by it** — listed there as historical state absent from its artifact. Screen independently.     |
+| [obsidian-reference-map](https://github.com/anoopkcn/obsidian-reference-map) | anoopkcn                                             | —           | Screened and rejected for capture: within-note and stale (`docs/superpowers/specs/2026-09-06-import-redesign-design.md` §3.8).                                     |
+| [ZotLit](https://github.com/aidenlx/zotlit)                                  | aidenlx                                              | —           | Screened: clears three floors, reads SQLite directly, never reads the extracted-text cache.                                                                        |
+| [MarkDB-Connect](https://github.com/daeh/zotero-markdb-connect)              | daeh                                                 | —           | Composes with this design, writing one tag and no files.                                                                                                           |
 
 Two hazards `claude-obsidian`'s own plugin guidance names, both of which apply
 here and neither of which is obvious: an Obsidian **Git or sync plugin** races

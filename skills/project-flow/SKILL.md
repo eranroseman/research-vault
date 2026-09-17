@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Start or resume a project
 
-This is the real-life entry point — the project flow (question → literature → synthesis → draft → publish) starts and resumes here. In every command, `PATH` is the vault and `NAME` is the project's name under `projects/` — `brief`, not `projects/brief`.
+This is the real-life entry point — the project flow (question → literature → compile → draft → publish) starts and resumes here. In every command, `PATH` is the vault and `NAME` is the project's name under `projects/` — `brief`, not `projects/brief`.
 
 ## Orient, every time
 
@@ -51,9 +51,9 @@ Write the framed question, in the person's own words, into `projects/NAME/draft.
 
 Once a project has a framed question, compare it against what the vault already knows — `wiki/` pages and the bibliography (`system/bibliography.json`) — and sort what you find into three buckets:
 
-- **Covered** — the question, or a piece of it, is already answered by synthesis claims with solid backing.
-- **Contested** — synthesis claims bear on the question but carry `[disputes:: ...]` links against them; surface those disputing claim links explicitly, not just the claim they attach to. Disconfirmation must be seen, never silently folded into "covered."
-- **Missing** — no synthesis claim addresses this part of the question at all.
+- **Covered** — the question, or a piece of it, is already answered by claims on compiled pages with solid backing.
+- **Contested** — compiled claims bear on the question but carry `[disputes:: ...]` links against them; surface those disputing claim links explicitly, not just the claim they attach to. Disconfirmation must be seen, never silently folded into "covered."
+- **Missing** — no compiled claim addresses this part of the question at all.
 
 The missing bucket becomes the gap list — hand it to `find-sources` as the next step. Do not paper over a gap with an inference of your own.
 

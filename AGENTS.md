@@ -13,12 +13,10 @@ Environment facts are not written down. Live values come from `python3 -m resear
 - `research_vault/templates/vault` is the distributable seed. Root `wiki/`, `.raw/`, and
   `.vault-meta/` are contributor state and are excluded from public artifacts.
 - Never derive a user vault from the plugin cache or `${CLAUDE_PLUGIN_ROOT}`.
-- A checkout containing contributor-vault state has no marketplace catalog.
-  `config/public-marketplace.json` is injected as
-  `.claude-plugin/marketplace.json` only inside the audited release artifact.
-  An extracted distribution-clean artifact may retain that exact manifest and
-  rebuild idempotently. A public default branch must be populated from the clean
-  artifact, never by pushing contributor-vault state.
+- The repository is its own marketplace: `.claude-plugin/plugin.json` and
+  `.claude-plugin/marketplace.json` are tracked here. A public default branch is
+  populated from a distribution-clean artifact, never by pushing
+  contributor-vault state.
 
 ## Agent skills
 

@@ -1,4 +1,4 @@
-"""Quote verification against managed literature-note quote claims (spec §6)."""
+"""Quote verification of a draft's quote claims against the cited literature note (frozen; ingest spec §6)."""
 
 import os
 from pathlib import Path

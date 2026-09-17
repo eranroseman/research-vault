@@ -31,7 +31,7 @@ Preference order:
    `python -m research_vault probe --base http://localhost:23129` names the test instance.
 2. **pyzotero** (dev extra, pinned) — richer read API for test authoring and diagnostics:
    `python -c "from pyzotero import zotero; z = zotero.Zotero('0','user',local=True); print(z.top(limit=5))"`
-   Posture: local mode is read-only by default and stays that way — local writes sit behind Zotero's own GUI consent dialog (admission is a human act). Web API for tests: read-only key by default; a write-capable key only for a test that needs it, only against a scratch/group library, and no key is ever stored in this repo.
+   Posture: local mode is read-only by default and stays that way — local writes sit behind Zotero's own GUI consent dialog (accepting a source is the person's act). Web API for tests: read-only key by default; a write-capable key only for a test that needs it, only against a scratch/group library, and no key is ever stored in this repo.
 3. **Raw JSON-RPC** (escape hatch when neither client covers a probe):
    `curl -s -X POST http://localhost:23119/better-bibtex/json-rpc -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"api.ready","id":1}'`
    Record a newly discovered API fact where the design uses it, with its date and how it was established. There is no standing facts file: one went stale for three weeks while claiming to be live-verified.

@@ -1,6 +1,6 @@
 {
   "name": "research-vault",
-  "description": "Trust-first academic research on an Obsidian-convention vault: Zotero bridge, per-claim provenance, deterministic citation gates.",
+  "description": "Trust-first academic research on an Obsidian-convention vault: Zotero capture, a compiled layer, deterministic citation gates.",
   "version": "0.1.0",
   "author": {
     "name": "Eran Roseman"
