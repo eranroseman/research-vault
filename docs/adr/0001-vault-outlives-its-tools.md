@@ -16,27 +16,27 @@ research-vault-private convention.
 `26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101` — a bare version number was
 rejected because v0.2 was amended in place the day after adoption, and nothing noticed.
 
-§11's three rules are reproduced verbatim, because paraphrase is what drifted:
+OKF §11's three rules are reproduced verbatim, because paraphrase is what drifted:
 
 1. Every non-reserved `.md` file in the tree contains a parseable YAML frontmatter block.
 2. Every frontmatter block contains a non-empty `type` field.
 3. Every reserved filename (`index.md`, `log.md`) follows the structure in §8 and §9
    respectively when present.
 
-§3.1 fixes reserved-ness to `index.md` and `log.md` alone. Two exemptions are recorded:
+OKF §3.1 fixes reserved-ness to `index.md` and `log.md` alone. Two exemptions are recorded:
 `inbox/` fleeting captures may sit untyped until triage stamps `type: "fleeting"` (this ADR
 protects the record, not the airlock); and `wiki/index.md`, written by an adopted compile tool
 whose own lint requires frontmatter that OKF forbids on an index — the vault carries this
 one-file deviation rather than fork the tool. Both are priced in the deviation register at
 [docs/agents/terminology.md](../agents/terminology.md).
 
-**Conformance is structural and semantic.** Beyond §11, the vault adopts OKF's optional
+**Conformance is structural and semantic.** Beyond OKF §11, the vault adopts OKF's optional
 families (actor prefixes, trust tiers, lifecycle values) wherever adoption is additive, since
-§4.1 permits producer keys alongside OKF's reserved ones. Deviations from an adopted family are
-recorded in that same register, not here — except the load-bearing one: per-claim attribution
-renders as pandoc `[@citation-key, locator]` rather than §5.1's `[^id]` footnote, a permanent
-mismatch with a toolchain the vault doesn't control. `sources[].id` is still the join key OKF
-expects; only the pinpoint locator has no home in OKF v0.2.
+OKF §4.1 permits producer keys alongside OKF's reserved ones. Deviations from an adopted family
+are recorded in that same register, not here — except the load-bearing one: per-claim
+attribution renders as pandoc `[@citation-key, locator]` rather than OKF §5.1's `[^id]`
+footnote, a permanent mismatch with a toolchain the vault doesn't control. `sources[].id` is
+still the join key OKF expects; only the pinpoint locator has no home in OKF v0.2.
 
 **Scope bound:** the vault preserves the *record*, not evidence artifacts. PDFs and snapshots
 live in Zotero storage, outside the git boundary, so artifact recoverability is delegated to
