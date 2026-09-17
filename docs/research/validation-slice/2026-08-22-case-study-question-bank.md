@@ -1,6 +1,6 @@
 # Case-study question bank
 
-Recorded 2026-08-22. Research questions that serve double duty: real research research-vault runs end-to-end (find → admit → import → synthesize → verify → publish), whose findings feed a named research-vault design decision. Portfolio-wide, the corpora collectively stress every gate: DOI-rich, web-rot, retraction-rich, contradiction-rich, gray-literature-heavy.
+Recorded 2026-08-22. Research questions that serve double duty: real research that ran end-to-end through the harness of that date (find → admit → import → synthesize → verify → publish; today's flow is capture → compile → verify → publish), whose findings feed a named research-vault design decision. Portfolio-wide, the corpora collectively stress every gate: DOI-rich, web-rot, retraction-rich, contradiction-rich, gray-literature-heavy.
 
 Standing first case: `summary-fidelity` (the §9 validation slice, selected 2026-08-28): “Which failure modes make LLM-authored source Summaries unfaithful or unstable, and which low-cost checks catch them when first written or regenerated?” It supersedes the former `trust-gates-prior-art` selection, which returns to the queue below. This bank is the queue behind it; the author selects, nothing here is scheduled.
 

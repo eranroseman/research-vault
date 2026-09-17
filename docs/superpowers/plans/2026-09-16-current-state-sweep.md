@@ -51,7 +51,7 @@ Only rows where the text asserts something the tree contradicts. True dated narr
 - `AGENTS.md:12` `litrature/` — the directory is `literatures/`.
 - `docs/terminology.md:69` the literature-screening-states row points at a CONTEXT.md section that no longer defines them; `:78` `fixity-sha256` (retired; `managed-sha256` is the witness); `:136` `synthesis-conventions` as a governed skill name — whatever Part B Task 3 ships; `:194–196` the stale-name list (`knowledge-harness`, `.harness/`, `HARNESS_*`, `hk-`) describes an "unfinished rename" that is finished.
 - `docs/testing.md:30` "admission is a human act".
-- `docs/agents/domain.md:11` `/grill-with-docs`, `/improve-codebase-architecture` (neither exists; `domain-modeling` and `grilling` do); `docs/agents/issue-tracker.md:26` `/triage` and `:44–53` the `/wayfinder` section (no such skills here; the `wayfinder:*` labels in `.github/labels.yml` and on GitHub go with it); `docs/agents/triage-labels.md:5` a "mattpocock/skills" column and `:15` unedited template boilerplate.
+- `docs/agents/triage-labels.md:5` a "mattpocock/skills" column and `:15` unedited template boilerplate. (`/grill-with-docs`, `/improve-codebase-architecture`, `/triage` and `/wayfinder` are user-invoked skills that exist; the survey could not see them. Not findings.)
 - `docs/adr/0001:64, :66` `citekey` for the field the tree calls `citationKey`; `:34` records a "second exemption" — true, but check it against `research_vault/structure.py:37` (which cites "ADR 0001, second exemption") when editing.
 - `ATTRIBUTION.md:74` "currently misconfigured destructively on the author's machine — decomposition §15.16": a machine-specific fact with no date or method, and no document named "decomposition"; `:14, :22, :40, :61–64, :72` lane numbers and spec pointers a reader cannot follow — point at the assembly spec by file name or drop.
 - Skills: `capture-source:40` "a later lane's work"; `evidence-conventions:82` "Admission is a human act"; `factcheck-draft:36, :39, :42, :56` "managed region" (the region is retired; the whole note body is capture's); `find-sources:9, :114` admission; `project-flow:9, :54–56` synthesis stage and "synthesis claims"; `setup-vault:48–65` the `citekey:` migration section (a pre-release spelling; the design is greenfield — check `notes.rename_frontmatter_key` for other callers) and `:65` "the retired fixity-sha256 witness".
@@ -95,6 +95,8 @@ ______________________________________________________________________
 
 ## D. Decisions for the operator
 
+Decided 2026-09-16: 1 — #67 closed wontfix, the mutate4py file goes; 2 — moot, no record links the plan (the survey's claim was wrong; `grep -rn status-marking-pass docs` finds only the plan itself); 3 — leave the flag; 4 — the skill wins, README:19 reworded; 5 — per ticket: #41, #44, #45, #71 closed as dissolved or answered, #18, #30, #46 kept. Also decided: the vault directory is `literature/` (#142).
+
 1. **#67 and the mutate4py drafts** — A2 deletes the file holding four of the queued upstream reports. File them, move the drafts to the issue, or close #67 as "will not file" first. (The mutmut drafts stay: `docs/research/2026-08-23-mutmut-defect-reports.md` is about the current tool and two live shims cite it.)
 2. **Dangling links inside historical records** — two 2026-08 records link the deleted status-marking plan; after A, the links 404. Accept it in dated records, or repair the two links (a one-line edit each).
 3. **The `[should-be-scoping-review]` flag** on 30 `historical` headers — a retired recommendation on otherwise-true headers. Leave as is, or strip in one pass.
@@ -115,4 +117,3 @@ ______________________________________________________________________
 
 - Closed on Part B's merge: #21 (Task 2b); #113 if the upstream post is made in Task 6, else it stays `ready-for-human`.
 - The `pre-lane-2` milestone holds the follow-ups; nothing else closes on the strength of this sweep (D5 decides the programme tickets one by one).
-- Labels: the five `wayfinder:*` labels go with B2's issue-tracker section.

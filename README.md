@@ -16,7 +16,7 @@ A claim line exists only after its literature note exists and its citation key r
 
 ## Claims carry their own evidence
 
-Claims are written in project drafts — never in the machine-written literature note — and arranged into `wiki/` pages by the compile tool; whatever is not on the line does not travel with it. So everything rides the line:
+Claims are written in project drafts and arranged into `wiki/` pages by the compile tool. A verified quote lives once, in the literature note capture writes from Zotero; a draft links it and never retypes it. Whatever is not on the line does not travel with it. So everything rides the line:
 
 ```
 - (quote|paraphrase|inference|open-question) <text> [@citation-key, locator] [field:: value ...] ^claim-id

@@ -1,7 +1,7 @@
-# mutmut / pytest defect reports — ready to file
+# mutmut / pytest defect reports
 
-The author files these two reports upstream, drawn from a hands-on adoption of mutmut 3.7.0
-against a real Python test suite.
+Two defects met adopting mutmut 3.7.0 against a real Python test suite; `scripts/mutmut_shims/`
+works around both. Not filed upstream (#67, closed 2026-09-16).
 
 ## Report 1: configuration loaded at import time breaks subprocess imports from a foreign cwd
 
