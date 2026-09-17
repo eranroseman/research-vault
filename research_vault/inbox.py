@@ -86,6 +86,8 @@ CHECK_IDS = frozenset(
         "propagation",
         # The capture-to-compile seam lint (ingest spec §4.4, decision 04).
         "captured-set",
+        # The compile wrapper's own holds (ingest spec §4.5, decision 04).
+        "compile",
     }
 )
 _REASON = re.compile(

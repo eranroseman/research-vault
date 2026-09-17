@@ -90,6 +90,22 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
     assert companion_section.index("per-item consent") < companion_section.index(
         "claude plugin install"
     )
+    assert (
+        "claude plugin marketplace add AgriciDaniel/claude-obsidian"
+        in companion_section
+    )
+    assert (
+        "claude plugin install claude-obsidian@agricidaniel-claude-obsidian"
+        in companion_section
+    )
+    assert "installed_plugins.json" in companion_section
+    assert "claude_obsidian_root" in companion_section
+    # Review I1: the approval hash covers the dry run's generated_at and
+    # operation_id, both regenerated from the clock on an apply run, so an
+    # apply that names only the hash answers PLAN_CHANGED — the four-flag
+    # form is the actionable one.
+    assert "--operation-id <operation.operation_id>" in companion_section
+    assert "--generated-at <generated_at>" in companion_section
     assert "restart-to-activate" in text
     assert "Zotero .xpi installs are human-only wizard steps" in text
     for forbidden in ("download", "click", "close Zotero"):
@@ -124,7 +140,10 @@ def test_setup_vault_reports_only_scaffold_created_commit_paths():
 
 def test_scaffold_provisioning_companions_are_exact_and_current():
     """Changing the companion package spelling must fail."""
-    assert scaffold.PROVISION_COMPANIONS == ["kepano/obsidian-skills"]
+    assert scaffold.PROVISION_COMPANIONS == [
+        "kepano/obsidian-skills",
+        "claude-obsidian@agricidaniel-claude-obsidian",
+    ]
 
 
 def test_no_old_skill_names_survive():

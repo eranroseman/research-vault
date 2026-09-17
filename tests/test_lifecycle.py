@@ -159,6 +159,18 @@ def test_trashed_and_deleted_from_the_sitting():
     assert deleted == ("deleted", "II7E6CVR")
 
 
+def test_trashed_transition_replays_from_the_live_snapshot():
+    fixture = json.loads((FIXTURES / "items-trashed.json").read_text())
+    (item_key,) = fixture["live"]
+    prov = _prov(
+        item_key=item_key, version=fixture["live"][item_key], citation_key="live2026"
+    )
+    assert lifecycle.classify(prov, _live(fixture["live"], {}, {}))[0] == "current"
+    assert lifecycle.classify(
+        prov, _live(fixture["trashed_items"], fixture["trashed_trash"], {})
+    ) == ("trashed", item_key)
+
+
 def test_lint_reads_three_routes_with_the_recorded_server_id(tmp_vault, monkeypatch):
     fake = FakeZotero(server_id="Tdoqsn2J4q4h")
     fake.get(

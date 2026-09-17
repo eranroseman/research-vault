@@ -615,85 +615,264 @@ def _refresh_body_witness(path):
     path.write_text(frontmatter.serialize(data) + body)
 
 
-@pytest.mark.parametrize("change", ["add", "edit", "delete", "rename"])
-def test_body_change_always_yields_typed_evidence_finding_with_fresh_witness(
-    fixture_vault, change
-):
-    base = subprocess.run(
+_FIXTURE_GENERATED = (
+    'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}'
+)
+
+
+def _bump_generated(text: str, by: str = "research_vault/0.1.0") -> str:
+    """What `notes.render_note` does on every content change: a fresh `at`."""
+    return must_replace(
+        text,
+        _FIXTURE_GENERATED,
+        f'generated: {{by: "{by}", at: "2026-09-16T09:00:00Z"}}',
+    )
+
+
+def _base_tree(vault) -> str:
+    return subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],
-        cwd=fixture_vault,
+        cwd=vault,
         check=True,
         text=True,
         capture_output=True,
     ).stdout.strip()
+
+
+def _evidence_rows(vault, base):
+    return [
+        item
+        for item in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(vault, base), gitstate.snapshot_worktree(vault)
+        )
+        if item.result is not Result.MATCHED
+    ]
+
+
+@pytest.mark.parametrize("write", ["add", "refresh", "rename"])
+def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, write):
+    """Capture, the compile refresh and propagate bump `generated` under the
+    machine actor on every content change (`notes.render_note`); the commit
+    surface must let those writes through, or every capture blocks the next
+    commit (ingest spec §6 amendment of 2026-09-16, Part B Task 1 T4)."""
+    base = _base_tree(fixture_vault)
     source = fixture_vault / "literatures" / "smith2020.md"
-    expected_reason = {
-        "add": "drift — literature note added",
-        "edit": "drift — literature note body changed",
-        "delete": "drift — literature note deleted",
-        "rename": "drift — literature note renamed",
-    }[change]
-    if change == "add":
+    if write == "add":
+        # A new capture: a note carrying a valid witness and a machine-class `generated`.
         added = fixture_vault / "literatures" / "added.md"
-        added.write_bytes(source.read_bytes())
-        expected = "path-bytes:literatures/added.md"
-    elif change == "edit":
+        added.write_text(
+            must_replace(
+                source.read_text(), 'citationKey: "smith2020"', 'citationKey: "added"'
+            )
+        )
+        _refresh_body_witness(added)
+    elif write == "refresh":
+        # The compile refresh: the body changes, `generated` moves, the witness is fresh.
+        source.write_text(
+            _bump_generated(
+                source.read_text()
+                + "\n## Compiled\n\n![[wiki/sources/Mortality decline.md]]\n"
+            )
+        )
+        _refresh_body_witness(source)
+    else:
+        # Propagate: the note re-keys, is re-rendered at the new path, same Zotero identity.
+        renamed = fixture_vault / "literatures" / "smith2020b.md"
+        renamed.write_text(
+            _bump_generated(
+                must_replace(
+                    source.read_text(),
+                    'citationKey: "smith2020"',
+                    'citationKey: "smith2020b"',
+                )
+            )
+        )
+        _refresh_body_witness(renamed)
+        source.unlink()
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert rows == [], rows
+
+
+@pytest.mark.parametrize("write", ["add", "edit", "rename", "delete"])
+def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write):
+    """The same four shapes with no writer attestation — a hand-written note,
+    a hand edit that refreshed the witness, a bare `mv`, a deletion — each
+    surface as exactly the drift row the shape names."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    if write == "add":
+        added = fixture_vault / "literatures" / "added.md"
+        added.write_text(
+            must_replace(
+                must_replace(
+                    source.read_text(),
+                    'citationKey: "smith2020"',
+                    'citationKey: "added"',
+                ),
+                _FIXTURE_GENERATED,
+                'generated: {by: "human:eran", at: "2026-09-16T09:00:00Z"}',
+            )
+        )
+        _refresh_body_witness(added)
+        expected = (
+            "path-bytes:literatures/added.md",
+            "drift — literature note added without writer attestation",
+        )
+    elif write == "edit":
         source.write_text(
             must_replace(source.read_text(), "# Mortality decline", "# Changed")
         )
         _refresh_body_witness(source)
-        expected = "path-bytes:literatures/smith2020.md"
-    elif change == "delete":
-        source.unlink()
-        expected = "path-bytes:literatures/smith2020.md"
+        expected = (
+            "path-bytes:literatures/smith2020.md",
+            "drift — literature note body changed without writer attestation",
+        )
+    elif write == "rename":
+        source.rename(fixture_vault / "literatures" / "renamed.md")
+        expected = (
+            "path-bytes:literatures/renamed.md",
+            "drift — literature note renamed without writer attestation",
+        )
     else:
-        renamed = fixture_vault / "literatures" / "renamed.md"
-        source.rename(renamed)
-        expected = "path-bytes:literatures/renamed.md"
+        source.unlink()
+        expected = (
+            "path-bytes:literatures/smith2020.md",
+            "drift — literature note deleted",
+        )
 
-    outcomes = lints.lint_evidence_layer(
-        gitstate.snapshot_tree(fixture_vault, base),
-        gitstate.snapshot_worktree(fixture_vault),
+    rows = _evidence_rows(fixture_vault, base)
+
+    matching = [item for item in rows if (item.target, item.reason) == expected]
+    assert len(matching) == 1, rows
+    assert matching[0].check == "evidence-layer"
+    assert matching[0].result is Result.UNMATCHED
+    assert matching[0].target_kind == "repo-path"
+    if write == "rename":
+        assert matching[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
+
+
+def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
+    """#21: the per-key attestation diagnostic reaches a renamed pair, so a
+    bare `mv` that also edits a machine-owned key reports the key beside the
+    wholesale rename row."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    renamed = fixture_vault / "literatures" / "renamed.md"
+    renamed.write_text(
+        must_replace(
+            source.read_text(), "zotero-item-version: 12", "zotero-item-version: 13"
+        )
+    )
+    source.unlink()
+
+    reasons = {
+        (item.target, item.reason) for item in _evidence_rows(fixture_vault, base)
+    }
+
+    assert reasons == {
+        (
+            "path-bytes:literatures/renamed.md",
+            "drift — literature note renamed without writer attestation",
+        ),
+        (
+            "path-bytes:literatures/renamed.md",
+            "drift — zotero-item-version changed without writer attestation",
+        ),
+    }, reasons
+
+
+def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
+    """Propagate re-keys and re-renders, so the bytes differ; the pairing is
+    decision 08's identity. A note with no tuple still pairs by body bytes.
+    `_refresh_body_witness` also moves `managed-sha256` with no `generated`
+    bump, so the per-key diagnostic that now reaches renamed pairs (#21)
+    names that too — the rename row is not the only finding here."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    renamed = fixture_vault / "literatures" / "smith2020b.md"
+    renamed.write_text(
+        must_replace(
+            source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed"
+        )
+    )
+    _refresh_body_witness(renamed)  # bytes differ from the base; `generated` untouched
+    source.unlink()
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert [item.reason for item in rows] == [
+        "drift — literature note renamed without writer attestation",
+        "drift — managed-sha256 changed without writer attestation",
+    ], rows
+    assert rows[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
+
+
+def test_a_note_without_a_tuple_does_not_stop_identity_pairing(fixture_vault):
+    """A note with no complete Zotero tuple has no identity; the pairing skips
+    it (`continue`, not `break`, on a None key) and still pairs the next
+    added note by identity, sorted right after it.
+
+    Both the tuple-less note's body and the rename's body have to differ
+    from the base note's own body — otherwise either one pairs with
+    `smith2020.md` on the body-bytes fallback pass regardless of whether the
+    identity pass ran, and hides a broken identity pass entirely (verified by
+    hand: with an unchanged body on either note, this test still passes under
+    a hand-flipped `break`)."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literatures" / "smith2020.md"
+    # Sorts before the rename below; no Zotero tuple, so `_note_identity`
+    # returns None for it — and a body that cannot fallback-pair either, so
+    # it never consumes `smith2020.md`'s removed slot on its own.
+    bare = fixture_vault / "literatures" / "aaa-bare.md"
+    bare.write_text(
+        must_replace(
+            must_replace(
+                source.read_text() + "a distinct bare body\n",
+                'citationKey: "smith2020"',
+                'citationKey: "aaa-bare"',
+            ),
+            'zotero-item-key: "SMITH020"\n',
+            "",
+        )
+    )
+    # Sorts after; same Zotero identity as the base note, but a changed body,
+    # so only the identity pass -- not the body-bytes fallback -- can pair it.
+    renamed = fixture_vault / "literatures" / "zzz-renamed.md"
+    renamed.write_text(
+        must_replace(
+            source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed"
+        )
+    )
+    source.unlink()
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert not any(item.reason == "drift — literature note deleted" for item in rows), (
+        rows
     )
 
-    findings = [
-        item
-        for item in outcomes
-        if item.result is Result.UNMATCHED and item.target == expected
-    ]
-    assert findings, outcomes
-    for finding in findings:
-        assert finding.check == "evidence-layer"
-        assert finding.target_kind == "repo-path"
-    # Pinned, not prefix-matched: the `edit` case's witness refresh also
-    # changes `managed-sha256` with no writer attestation, so this target
-    # can carry a second same-target "drift" finding. A prefix check would
-    # let that second finding stand in for this one if the managed-region
-    # comparison itself ever regressed — pin the exact reason instead.
-    assert any(finding.reason == expected_reason for finding in findings), findings
 
-
-def test_prose_appended_below_the_note_is_a_body_change(fixture_vault):
-    """The free region is retired: the whole body is capture's, so hand-added
-    prose is drift rather than the one edit the linter used to wave through."""
-    base = subprocess.run(
-        ["git", "rev-parse", "HEAD^{tree}"],
-        cwd=fixture_vault,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
+def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
+    fixture_vault,
+):
+    """The free region is retired: the whole body is capture's. Hand-added
+    prose is a stale witness when the person did not refresh it, and an
+    unattested body change when they did; it is never silent."""
+    base = _base_tree(fixture_vault)
     source = fixture_vault / "literatures" / "smith2020.md"
     source.write_text(source.read_text() + "hand-written prose\n")
 
-    outcomes = lints.lint_evidence_layer(
-        gitstate.snapshot_tree(fixture_vault, base),
-        gitstate.snapshot_worktree(fixture_vault),
-    )
+    stale = {item.reason for item in _evidence_rows(fixture_vault, base)}
+    assert any(reason.startswith("schema-violation") for reason in stale), stale
 
-    assert "drift — literature note body changed" in {
-        item.reason for item in outcomes if item.result is Result.UNMATCHED
-    }
+    _refresh_body_witness(source)
+    fresh = {item.reason for item in _evidence_rows(fixture_vault, base)}
+    assert "drift — literature note body changed without writer attestation" in fresh, (
+        fresh
+    )
+    assert not any(reason.startswith("schema-violation") for reason in fresh), fresh
 
 
 def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
@@ -762,11 +941,14 @@ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     )
 
     expected_reason = f"drift — {key} changed without writer attestation"
-    assert any(
-        item.target == "path-bytes:literatures/smith2020.md"
-        and item.reason == expected_reason
+    matching = [
+        item
         for item in outcomes
-    ), outcomes
+        if item.target == "path-bytes:literatures/smith2020.md"
+        and item.reason == expected_reason
+    ]
+    assert matching, outcomes
+    assert matching[0].check == "evidence-layer"
 
 
 @pytest.mark.parametrize(
@@ -977,7 +1159,7 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
     } | {
         # `_body_bytes` fails closed on the unparseable side too, so the body
         # comparison cannot be silenced by the frontmatter that hid it.
-        "drift — literature note body changed",
+        "drift — literature note body changed without writer attestation",
     }
 
 
@@ -1169,3 +1351,19 @@ def test_body_bytes_and_frontmatter_need_a_file_image():
     empty = _file(b"literatures/a.md", b"")
     assert lints._body_bytes(empty) == b""
     assert lints._frontmatter(empty) == lints._frontmatter(_file(b"x.md", b"body\n"))
+
+
+def test_note_identity_needs_data_and_a_complete_tuple():
+    """`_note_identity` takes only images `_literature_files` can yield — no
+    `None`, no non-"file" kind is a call it has to handle — so its only guard
+    is `image.data is None`. A note with no complete Zotero tuple also reads
+    as no identity."""
+    directory = gitstate.FileImage(b"literatures/d", "directory", 0o40000, None)
+    assert lints._note_identity(directory) is None
+    assert lints._note_identity(_file(b"literatures/a.md", _CLAIM)) is None
+    tupled = _file(
+        b"literatures/a.md",
+        b'---\nzotero-server-id: "S1"\nzotero-item-key: "ABCDEFG1"\n'
+        b'zotero-item-version: 1\ncitationKey: "a2020"\n---\nbody\n',
+    )
+    assert lints._note_identity(tupled) == ("S1", "ABCDEFG1")

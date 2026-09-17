@@ -13,7 +13,7 @@ A claim line exists only after its literature note exists and its citation key r
 
 ## Claim syntax (§5)
 
-Every claim is one line, and it carries its own tag, citation, and anchor. Claims get copied — from a literature note into a synthesis page, from synthesis into a draft — and whatever is not on the line does not travel with it, so attribution held in frontmatter survives exactly one hop:
+Every claim is one line, and it carries its own tag, citation, and anchor. Claims get copied — from a literature note into the compiled layer under `wiki/`, from there into a draft — and whatever is not on the line does not travel with it, so attribution held in frontmatter survives exactly one hop:
 
 ```
 - (quote|paraphrase|inference|open-question) <text> [@citation-key, locator] [field:: value ...] ^claim-id

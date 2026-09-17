@@ -32,8 +32,30 @@ def test_capture_source_keeps_the_kept_rules():
         "a SKIPPED line is never filed",
         "no-fulltext",
         "database-changed",
+        "python3 -m research_vault compile",
+        "python3 -m research_vault compile --all --vault PATH",
+        "--approved-plan-sha256",
+        "wiki-ingest",
+        "recompile-needed",
+        "![[<page path>]]",
     ):
         assert needle in text, needle
     assert "import-note" not in text
     assert "managed region" not in text
     assert "auto-export" not in text
+
+
+def test_synthesis_conventions_names_the_tool_and_the_seam():
+    text = (REPOSITORY / "skills" / "synthesis-conventions" / "SKILL.md").read_text()
+    for needle in (
+        "claude-obsidian",
+        "transaction inspect",
+        "wiki-ingest",
+        "`captured-set`",
+        "[[<citation key>]]",
+        "wiki/index.md",
+        "two or more captured sources",
+        "python3 -m research_vault compile",
+    ):
+        assert needle in text, needle
+    assert "synthesis/" not in text

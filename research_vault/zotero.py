@@ -30,6 +30,10 @@ _USER = "/api/users/0"
 # still clears; only the two whole-library export calls use it (never a
 # per-item read, and never `ready()` — a busy Zotero must not hang the loop).
 EXPORT_TIMEOUT = 30.0
+# The consent dialog is answered by a person; a network timeout is the wrong
+# clock for it. Measured 2026-09-16: an unanswered dialog under the default 5 s
+# reads as an outage in `add` and in the live leg.
+AUTHORIZE_TIMEOUT = 180.0
 
 
 class ZoteroError(Exception):
@@ -160,7 +164,15 @@ class ZoteroClient:
         except OSError as error:
             raise ZoteroError(f"Zotero unreachable at {self.base}: {error}") from error
 
-    def _local(self, path, *, data=None, method=None, expect=(200,)) -> Response:
+    def _local(
+        self,
+        path,
+        *,
+        data=None,
+        method=None,
+        expect=(200,),
+        timeout: float | None = None,
+    ) -> Response:
         response = self._http(
             f"{self.base}{path}",
             data=data,
@@ -168,6 +180,7 @@ class ZoteroClient:
                 {"Content-Type": "application/json"} if data is not None else None
             ),
             method=method,
+            timeout=timeout,
         )
         if response.status in expect:
             return response
@@ -339,6 +352,7 @@ class ZoteroClient:
             data=json.dumps({"appName": app_name}).encode(),
             method="POST",
             expect=(200, 403, 429),
+            timeout=AUTHORIZE_TIMEOUT,
         )
         if response.status == 429:
             retry = response.headers.get("Retry-After", "60")
@@ -393,6 +407,34 @@ class ZoteroClient:
                 "malformed create response: expected successful/unchanged/failed"
             )
         return dict(payload)
+
+    def trash_item(self, key: str, version: int) -> int:
+        return self._mutate(
+            key, version, method="PATCH", data=json.dumps({"deleted": True}).encode()
+        )
+
+    def delete_item(self, key: str, version: int) -> int:
+        return self._mutate(key, version, method="DELETE")
+
+    def _mutate(self, key, version, *, method, data=None) -> int:
+        if not self.api_key:
+            raise ZoteroError(
+                f"{method} needs an API key from authorize", Result.UNMATCHED
+            )
+        headers = self._headers(
+            {
+                "If-Unmodified-Since-Version": str(version),
+                "Content-Type": "application/json",
+            }
+        )
+        response = self._http(
+            f"{self.base}{_USER}/items/{key}", data=data, headers=headers, method=method
+        )
+        if response.status == 412:
+            raise ZoteroError(f"{method} {key}: version moved (412)", Result.UNMATCHED)
+        if response.status not in (200, 204):
+            raise ZoteroError(f"{method} {key}: HTTP {response.status}")
+        return response.status
 
     # -- Better BibTeX JSON-RPC -------------------------------------------------
 

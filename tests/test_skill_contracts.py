@@ -602,3 +602,29 @@ def test_evidence_conventions_accounts_for_every_reason_code():
     assert re.search(rf"\b{word}\b", closing, re.IGNORECASE), (
         f"the closing sentence exempts {len(exempt)} code(s) but does not say {word!r}"
     )
+
+
+def test_terminology_registries_match_the_code():
+    import re
+
+    from research_vault import __main__ as cli
+    from research_vault import inbox
+
+    text = (REPOSITORY / "docs" / "terminology.md").read_text()
+    rows = {
+        m.group(1): set(re.findall(r"`([a-z-]+)`", m.group(2)))
+        for m in re.finditer(
+            r"^\| (check ids|doctor probe ids|reason codes) +\| (.+) \|$",
+            text,
+            re.MULTILINE,
+        )
+    }
+    assert rows["check ids"] == set(inbox.CHECK_IDS)
+    assert rows["reason codes"] == set(inbox.REASON_CODES)
+    assert (
+        rows["doctor probe ids"]
+        == cli.DOCTOR_HARD_UNMATCHED
+        | cli.DOCTOR_HARD_UNREACHABLE
+        | cli.DOCTOR_WARN_ONLY
+        | {"tree", "machine-config"}
+    )

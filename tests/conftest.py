@@ -5,12 +5,13 @@ import re
 import shutil
 import socket
 import subprocess
+import urllib.parse
 from pathlib import Path
 from typing import AnyStr
 
 import pytest
 
-from research_vault import scaffold
+from research_vault import scaffold, zotero
 
 
 def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
@@ -363,6 +364,12 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_live)
         if "live_net" in item.keywords and os.environ.get("RV_LIVE_NET") != "1":
             item.add_marker(skip_net)
+    skip_write = pytest.mark.skip(
+        reason="write-capable live leg not enabled (RV_LIVE_WRITE_BASE=http://localhost:23129)"
+    )
+    for item in items:
+        if "live_write" in item.keywords and not os.environ.get("RV_LIVE_WRITE_BASE"):
+            item.add_marker(skip_write)
 
 
 @pytest.fixture(autouse=True)
@@ -392,10 +399,25 @@ class SocketBlockedError(RuntimeError):
     """
 
 
+# Loopback by name or literal — one endpoint, however a base URL spells it.
+_LOOPBACK_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
 # The hosts a name lookup may answer for in the offline suite: no host, and
-# loopback by name or literal. Every other name is a leak, blocked before it
-# leaves the process.
-_LOOPBACK_HOSTS = frozenset({None, "", "localhost", "127.0.0.1", "::1"})
+# loopback. Every other name is a leak, blocked before it leaves the process.
+_LOOPBACK_HOSTS = _LOOPBACK_NAMES | {None, ""}
+
+
+def _endpoint(base: str) -> tuple[str | None, int | None]:
+    """A base URL's (host, port), every loopback spelling folded to one name."""
+    parts = urllib.parse.urlsplit(base)
+    host = parts.hostname
+    return ("loopback" if host in _LOOPBACK_NAMES else host), parts.port
+
+
+def is_production_base(base: str) -> bool:
+    """Whether ``base`` names the production Zotero instance — by endpoint,
+    not by string: ``http://127.0.0.1:23119`` is ``zotero.DEFAULT_BASE`` by
+    another loopback spelling, and the write legs must refuse it too."""
+    return _endpoint(base) == _endpoint(zotero.DEFAULT_BASE)
 
 
 @pytest.fixture(autouse=True)

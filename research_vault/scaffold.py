@@ -20,7 +20,10 @@ VAULT_DIRS = [
     "system/templates",
     "system/bases",
 ]
-PROVISION_COMPANIONS = ["kepano/obsidian-skills"]
+PROVISION_COMPANIONS = [
+    "kepano/obsidian-skills",
+    "claude-obsidian@agricidaniel-claude-obsidian",
+]
 _EMPTY_ROOTS = ("literatures", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
 GLOSSARY_PATH = "system/glossary.md"
@@ -321,7 +324,7 @@ def _backup_probe(config: dict) -> Probe:
 
 _WRONG_ID = "research-vault-wrong-id"
 _COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
-_COMPILE_PIN = "ad67087"
+_COMPILE_PIN = "32ac5a0"
 _UNSET = "unset (Zotero default)"
 _PAGE_SIZE = 50
 _MAX_PAGES = 20

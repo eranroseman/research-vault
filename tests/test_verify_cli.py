@@ -2126,7 +2126,22 @@ def test_literature_note_add_is_collected_and_projected_as_evidence_finding(
     fixture_vault,
 ):
     added = fixture_vault / "literatures" / "added.md"
-    added.write_bytes((fixture_vault / "literatures" / "smith2020.md").read_bytes())
+    # A hand-written note: no writer attestation (the fixture's machine-class
+    # `generated` is replaced with a human actor), so the write itself is the
+    # drift this test collects and projects. A plain byte-for-byte copy would
+    # no longer do: its machine-class `generated` is now accepted as attested
+    # by the write leg itself (evidence-layer's write legs, Part B Task 2b).
+    added.write_text(
+        must_replace(
+            must_replace(
+                (fixture_vault / "literatures" / "smith2020.md").read_text(),
+                'citationKey: "smith2020"',
+                'citationKey: "added"',
+            ),
+            'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}',
+            'generated: {by: "human:eran", at: "2026-08-16T09:00:00Z"}',
+        )
+    )
 
     report, effective, hashes, _warnings = verify_state(
         fixture_vault, network=False, detection_date="2026-08-16"
@@ -2137,7 +2152,7 @@ def test_literature_note_add_is_collected_and_projected_as_evidence_finding(
         for outcome in report["outcomes"]
         if outcome.check == "evidence-layer"
         and outcome.target == "path-bytes:literatures/added.md"
-        and outcome.reason == "drift — literature note added"
+        and outcome.reason == "drift — literature note added without writer attestation"
     )
     assert finding in effective
     assert hashes[id(finding)] is not None

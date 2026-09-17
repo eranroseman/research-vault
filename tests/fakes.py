@@ -16,6 +16,7 @@ class FakeZotero:
         self.server_id = server_id
         self.library_name = library_name
         self.calls: list[tuple[str, str, dict]] = []
+        self.timeouts: list[float | None] = []  # parallel to `calls`, same index
         self._gets: dict[str, tuple[int, bytes, dict]] = {}
         self._posts: dict[str, tuple[int, bytes, dict]] = {}
         self._rpc: dict[str, object] = {}
@@ -45,6 +46,7 @@ class FakeZotero:
         path = parts.path + (f"?{parts.query}" if parts.query else "")
         verb = method or ("POST" if data is not None else "GET")
         self.calls.append((verb, path, dict(headers or {})))
+        self.timeouts.append(timeout)
         if verb == "POST":
             self._last_post_body = data
         sent_id = (headers or {}).get("Zotero-Server-ID")
@@ -63,6 +65,7 @@ class FakeZotero:
 
     def _rpc_call(self, method, params, *, timeout=None):
         self.calls.append(("RPC", method, {"params": params}))
+        self.timeouts.append(timeout)
         if method not in self._rpc:
             raise zotero.ZoteroError(f"JSON-RPC error: unknown method {method}")
         return self._rpc[method]

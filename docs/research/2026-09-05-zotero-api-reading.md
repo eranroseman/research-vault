@@ -4499,3 +4499,45 @@ answered after 5.0 s: remember=True key_len=32
 ```
 
 Where: the test instance, observed 2026-09-13T16:28:46Z–16:28:51Z, through `ZoteroClient.authorize()` with `timeout=180`. Read in: Task 20 attended leg, 2026-09-13. Record id `Z1-live-authorize-always-allow-10.0.2`.
+
+### 2026-09-16 — Part B Task 5's attended half (test instance, Zotero 10.0.2 / Better BibTeX 9.0.64; read-only GETs, no consent dialog, no production contact)
+
+**452.** Live: `GET /api/users/0/items/trash?format=versions`, as `ZoteroClient.trash_versions()` sends it, answers 200 with a flat map of 212 trashed-item keys to integer versions — the corroboration behind `trash_versions`'s reading, which the spec's own measurement had none of.
+
+```
+GET http://localhost:23129/api/users/0/items/trash?format=versions
+headers: Zotero-Server-ID: Tdoqsn2J4q4h
+HTTP 200
+X-Zotero-Version: 10.0.2
+X-Zotero-Connector-API-Version: 3
+Total-Results: 212
+Link: <http://localhost:23129/api/users/0/items/trash?format=versions>; rel="last", <https://www.zotero.org/users/16413661/items/trash>; rel="alternate"
+Last-Modified-Version: 1715
+Content-Type: application/json
+Zotero-API-Version: 3
+Zotero-Schema-Version: 44
+Zotero-Server-ID: Tdoqsn2J4q4h
+body: a flat object of 212 entries, each key → an integer version; one example: "HEJXIP6W": 14
+```
+
+Where: the test instance, Zotero 10.0.2 / server id `Tdoqsn2J4q4h`, observed 2026-09-16T19:54:59Z. Sent through `ZoteroClient._http` with `ZoteroClient._headers`. Read in: Part B Task 5 attended half, 2026-09-16. Record id `Z2-live-trash-versions-map`.
+
+**453.** Live, re-measured a second time: `GET /api/users/0/items/top?format=csljson&limit=1` still answers 200 with a CSL JSON body on this instance — the same route the spec's §9 row measured 500 on 2026-09-04 (Zotero 10.0.1) and Part A's Task 16 leg measured 200 on 2026-09-13. The answer's `Content-Type` is `text/plain`, not `application/json`, even though the body is a JSON array.
+
+```
+GET http://localhost:23129/api/users/0/items/top?format=csljson&limit=1
+headers: Zotero-Server-ID: Tdoqsn2J4q4h
+HTTP 200
+X-Zotero-Version: 10.0.2
+X-Zotero-Connector-API-Version: 3
+Total-Results: 1461
+Link: <http://localhost:23129/api/users/0/items/top?format=csljson&limit=1&start=1460>; rel="last", <http://localhost:23129/api/users/0/items/top?format=csljson&limit=1&start=1>; rel="next", <https://www.zotero.org/users/16413661/items/top>; rel="alternate"
+Last-Modified-Version: 1715
+Content-Type: text/plain
+Zotero-API-Version: 3
+Zotero-Schema-Version: 44
+Zotero-Server-ID: Tdoqsn2J4q4h
+body: a JSON array of one CSL item; the item's "id" is "aston-jones2005INTEGRATIVE", its "type" is "article-journal"
+```
+
+Where: the test instance, Zotero 10.0.2 / server id `Tdoqsn2J4q4h` / Better BibTeX 9.0.64 (`ready()`: `{"zotero": "10.0.2", "betterbibtex": "9.0.64"}`), observed 2026-09-16T19:55:06Z. Sent through `ZoteroClient._http` with `ZoteroClient._headers`. Read in: Part B Task 5 attended half, 2026-09-16. Record id `Z1-live-csljson-reopened-again`.

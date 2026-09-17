@@ -269,6 +269,17 @@ def test_authorize_denial_stays_a_denial(fake):
     assert not isinstance(error.value, zotero.LocalApiDisabledError)
 
 
+def test_authorize_waits_for_the_person_not_the_network(fake):
+    """The consent dialog is answered by a person, not the network: `authorize`
+    must ride `AUTHORIZE_TIMEOUT`, not the client's 5 s default (measured
+    2026-09-16)."""
+    fake.client.server_id = "6LpvURP2E933"
+    fake.post("/api/local/authorize", body={"key": "k"})
+    fake.client.authorize()
+    index = next(i for i, c in enumerate(fake.calls) if c[1] == "/api/local/authorize")
+    assert fake.timeouts[index] == zotero.AUTHORIZE_TIMEOUT
+
+
 def test_create_items_sends_key_and_id_and_returns_the_envelope(fake):
     fake.client.server_id = "6LpvURP2E933"
     fake.client.api_key = "k" * 32
@@ -299,6 +310,112 @@ def test_create_items_refuses_before_sending_without_a_key_or_a_server_id(fake):
         fake.client.create_items([{"itemType": "journalArticle"}])
     assert error.value.result is Result.UNMATCHED
     assert fake.calls == []
+
+
+def test_trash_and_delete_item_refuse_before_sending_without_a_key(fake):
+    """Neither write helper's precondition is server-id-gated (§2's key
+    precedes it); both are UNMATCHED and neither request leaves the client.
+    The message names the method that refused, not just the outcome."""
+    with pytest.raises(
+        zotero.ZoteroError, match=r"^PATCH needs an API key from authorize$"
+    ) as error:
+        fake.client.trash_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+    with pytest.raises(
+        zotero.ZoteroError, match=r"^DELETE needs an API key from authorize$"
+    ) as error:
+        fake.client.delete_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+    assert fake.calls == []
+
+
+def test_trash_item_returns_204_and_carries_the_version_precondition(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="PATCH")
+
+    assert fake.client.trash_item("E352DFS8", 544) == 204
+
+    verb, path, headers = fake.calls[-1]
+    assert (verb, path) == ("PATCH", "/api/users/0/items/E352DFS8")
+    assert headers["If-Unmodified-Since-Version"] == "544"
+    assert headers["Content-Type"] == "application/json"
+    assert headers["Zotero-API-Key"] == "k" * 32
+
+    # 200 is also accepted, not just 204: `_mutate`'s accepted-status tuple
+    # is `(200, 204)`, and a caller of `trash_item`/`delete_item` gets the
+    # status back rather than a raised error on either one.
+    fake.get("/api/users/0/items/E352DFS8", status=200, body=b"", method="PATCH")
+    assert fake.client.trash_item("E352DFS8", 544) == 200
+
+
+def test_delete_item_returns_204_and_carries_the_version_precondition(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="DELETE")
+
+    assert fake.client.delete_item("E352DFS8", 544) == 204
+
+    verb, path, headers = fake.calls[-1]
+    assert (verb, path) == ("DELETE", "/api/users/0/items/E352DFS8")
+    assert headers["If-Unmodified-Since-Version"] == "544"
+    assert headers["Content-Type"] == "application/json"
+    assert headers["Zotero-API-Key"] == "k" * 32
+
+
+def test_trash_item_sends_deleted_true_delete_item_sends_no_body(fake, monkeypatch):
+    """``fake.calls`` logs only ``(verb, path, headers)`` (tests/fakes.py), so
+    the body each helper puts on the wire is checked by wrapping the fake's
+    own transport, the way ``test_export_calls_...`` above already does."""
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="PATCH")
+    fake.get("/api/users/0/items/E352DFS8", status=204, body=b"", method="DELETE")
+    real_http = fake.client._http
+    sent: list[tuple[str | None, bytes | None]] = []
+
+    def recording_http(url, data=None, headers=None, method=None, *, timeout=None):
+        sent.append((method, data))
+        return real_http(
+            url, data=data, headers=headers, method=method, timeout=timeout
+        )
+
+    monkeypatch.setattr(fake.client, "_http", recording_http)
+
+    assert fake.client.trash_item("E352DFS8", 544) == 204
+    assert fake.client.delete_item("E352DFS8", 544) == 204
+
+    assert sent == [("PATCH", json.dumps({"deleted": True}).encode()), ("DELETE", None)]
+
+
+def test_trash_or_delete_item_412_is_version_moved_and_unmatched(fake):
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=412, body=b"", method="PATCH")
+    with pytest.raises(zotero.ZoteroError, match="version moved") as error:
+        fake.client.trash_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+
+    fake.get("/api/users/0/items/E352DFS8", status=412, body=b"", method="DELETE")
+    with pytest.raises(zotero.ZoteroError, match="version moved") as error:
+        fake.client.delete_item("E352DFS8", 544)
+    assert error.value.result is Result.UNMATCHED
+
+
+def test_trash_or_delete_item_other_status_is_an_outage(fake):
+    """The message names the method, the key and the status — not just the
+    outcome — so an operator reading the raised error can tell which write
+    on which item hit an unexpected status."""
+    fake.client.api_key = "k" * 32
+    fake.get("/api/users/0/items/E352DFS8", status=500, body=b"", method="PATCH")
+    with pytest.raises(
+        zotero.ZoteroError, match=r"^PATCH E352DFS8: HTTP 500$"
+    ) as error:
+        fake.client.trash_item("E352DFS8", 544)
+    assert error.value.result is Result.UNREACHABLE
+
+    fake.get("/api/users/0/items/E352DFS8", status=500, body=b"", method="DELETE")
+    with pytest.raises(
+        zotero.ZoteroError, match=r"^DELETE E352DFS8: HTTP 500$"
+    ) as error:
+        fake.client.delete_item("E352DFS8", 544)
+    assert error.value.result is Result.UNREACHABLE
 
 
 def test_rpc_fallbacks_survive(fake):

@@ -200,6 +200,28 @@ def test_no_usable_text_writes_the_note_and_files_no_fulltext(tmp_vault, monkeyp
     assert not (tmp_vault / "fulltext").exists()
 
 
+def test_cmd_capture_holds_a_lifecycle_row_under_the_capture_check(
+    tmp_vault, monkeypatch, capsys
+):
+    """``capture()`` returns ``lint_lifecycle``'s vault-level refusal rows as
+    they are (check ``lifecycle``); the verb holds every row under its own
+    check, ``capture`` — the id a reader of the queue attributes the run to.
+    Pinned when ``_print_and_hold`` grew a ``check`` parameter for ``compile``'s
+    reuse (Task 6 fix wave): the hold must not follow the row's check."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox, lifecycle
+
+    row = lifecycle.blocked(lifecycle.CHECK, "vault", zotero.DatabaseChangedError())
+    assert row.check == "lifecycle"
+    monkeypatch.setattr(cli.capture, "capture", lambda *_args, **_kwargs: [row])
+    monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: object())
+    assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 1
+    assert capsys.readouterr().out.startswith("UNMATCHED vault — database-changed")
+    (held,) = inbox.load(tmp_vault)
+    assert held.check == "capture"
+    assert held.target == "vault"
+
+
 def test_url_only_item_without_attachment_is_skipped_not_a_finding(
     tmp_vault, monkeypatch, capsys
 ):
