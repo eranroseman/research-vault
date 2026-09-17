@@ -8,6 +8,8 @@
 
 **Order:** after Part B merges. Pointers are repaired before the three files they point at are deleted.
 
+**Executed 2026-09-16** (main through `4df5e95`): A, B, C2, C3 and E as listed, with the operator's amendments recorded under D; C1 became the retirement of the foundation specification itself. Section E's three mechanisms are `tests/test_current_state.py`.
+
 ______________________________________________________________________
 
 ## A. Delete — subject gone
