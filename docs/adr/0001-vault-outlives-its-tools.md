@@ -58,7 +58,7 @@ and the vault adopts each one wherever adoption is additive, because §4.1 admit
 and §11 forbids consumers rejecting them, so the vault's own schema rides alongside OKF's
 rather than inside its reserved names. No OKF-reserved key carries a value OKF would misread.
 Every family carries a disposition — adopted or declined with a cost class — recorded once in
-[docs/terminology.md](../terminology.md); silence is not a disposition.
+[docs/agents/terminology.md](../terminology.md); silence is not a disposition.
 
 The deviations that survive that rule are recorded there, not here. The load-bearing one is
 per-claim attribution: it renders as pandoc `[@citekey, locator]` rather than §5.1's `[^id]`

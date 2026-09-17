@@ -484,7 +484,7 @@ def dead_base(_no_socket):
     """A base URL nothing listens on: an ephemeral port, bound and released.
 
     A connect there is refused at once; port 1 hangs for the whole connect
-    timeout under WSL2 (docs/testing.md, "The WSL2 low-port trap"). This is
+    timeout under WSL2 (docs/agents/testing.md, "The WSL2 low-port trap"). This is
     the base for every test that needs a real refusal — in-process, where the
     socket block lets this one address through, or through a subprocess CLI,
     which no in-process patch can reach.

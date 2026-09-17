@@ -1,7 +1,7 @@
 # Terminology reference
 
-Use [CONTEXT.md](../CONTEXT.md) for domain terms and avoided synonyms, and
-[the ADRs](adr/) for architectural decisions. This file only defines how to
+Use [CONTEXT.md](../../CONTEXT.md) for domain terms and avoided synonyms, and
+[the ADRs](../adr/) for architectural decisions. This file only defines how to
 choose names and records spellings or exceptions not owned by those sources.
 
 ## 1. Deviating from the standard term
@@ -29,7 +29,7 @@ plans; git retains the earlier wording.
 For the target surface, use the first applicable tier:
 
 - **T1 — OKF**, within the structural scope set by
-  [ADR 0001](adr/0001-vault-outlives-its-tools.md).
+  [ADR 0001](../adr/0001-vault-outlives-its-tools.md).
 - **T2 — User-visible toolchain**: CSL first on bibliographic surfaces; then
   Zotero, BBT/ZotLit, Obsidian, Dataview, and Markdown.
 - **T3 — Authorities of record**: Crossref, DataCite, DOI, W3C, CiTO/SPAR, and
@@ -58,31 +58,31 @@ only its domain.
 Record an adoption once, with its source, in the relevant §4 section. Record a
 T8 coinage there with its local rule. Record a deviation once in the table
 below, naming the declined anchor and §1 cost class. Put architectural rationale
-in an ADR and term meanings in [CONTEXT.md](../CONTEXT.md), then link to them
+in an ADR and term meanings in [CONTEXT.md](../../CONTEXT.md), then link to them
 instead of restating them here.
 
-| Governed spelling                                                                                   | Declined anchor                                         | Cost                                                                                                                                                                                                                                                                                               |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pandoc `[@citation-key, locator]`                                                                   | OKF §5.1 footnote attribution                           | 1 — permanent toolchain mismatch; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                 |
-| `citation key` as the source's name; the Zotero item key qualified by the server id is its identity | OKF `sources`/`resource`                                | Superseded 2026-09-07 by the ingest redesign spec §3.1, which mints the second identity the earlier row said was avoided. The `sources`/`resource` adoption stays deferred; the open cost is ongoing double-bookkeeping, not a lost distinction                                                    |
-| `supports` / `disputes`                                                                             | OKF untyped lineage                                     | 2 — stance would be lost; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                         |
-| Literature screening states in [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                      | OKF document lifecycle                                  | Superseded 2026-09-08 by the ingest redesign, which retired note-level screening state                                                                                                                                                                                                             |
-| Project `draft` / `parked` / `published` / `corrected` / `withdrawn`                                | OKF document lifecycle                                  | 2 — publication states would be lost                                                                                                                                                                                                                                                               |
-| `source` for the cited document; `venue` for its outlet                                             | OpenAlex `source` for an outlet                         | 4 — the senses collide; see [CONTEXT.md](../CONTEXT.md#evidence-and-claims)                                                                                                                                                                                                                        |
-| Frontmatter on `wiki/index.md`, written by the adopted compile tool                                 | OKF §8 (index files carry no frontmatter)               | 1 — permanent mismatch with a tool whose index path is hard-coded and whose own lint requires the frontmatter OKF forbids; the deviation is one file in a machine-owned tree, and a consumer that ignores unknown frontmatter reads it correctly; [ADR 0001](adr/0001-vault-outlives-its-tools.md) |
-| No vault-owned freshness field; `refresh_due` on the compile tool's ledger                          | OKF §5.5 `stale_after`                                  | Not a deviation — the concept is kept, in one system. OKF's absolute instant and the tool's `refresh_due` are the same field under two names; the vault writes neither and reads the ledger's. `verify --as-of` supplies the comparison's other operand (ingest spec §3.2, §7)                     |
-| Untyped `inbox/` fleeting captures at creation                                                      | OKF §11 rule 1 (frontmatter on every non-reserved file) | 1 — permanent mismatch with the capture-time editor, the uncontrolled surface; `stamp-type` converges frontmatter at triage; [ADR 0001](adr/0001-vault-outlives-its-tools.md)                                                                                                                      |
-| `verified[].check` field and coverage-derived trust tiers                                           | OKF §5.2 `{by, at}` event shape                         | 3 — collapsing to `{by, at}` alone would lose which check passed, the tier-coverage derivation it drives                                                                                                                                                                                           |
-| `verified[].at` as a calendar date                                                                  | OKF §5 ISO 8601 datetime with UTC offset                | 3 — recorded pending an ADR 0002 reconciliation; [ADR 0002](adr/0002-verification-records-tell-the-truth.md)'s no-padded-precision rule vs the genuinely date-valued upstreams                                                                                                                     |
-| `[[citation-key#^claim-id]]` claim and stance links                                                 | OKF §6.1 markdown link form                             | 1 — the Dataview inline-field grammar requires the wikilink form; a markdown link's `]` would close the field early                                                                                                                                                                                |
-| No adoption of OKF §10 Attested Computation                                                         | OKF §10 Attested Computation                            | Declined — `fixity-sha256` and the bibliography byte-comparison can't be attested consumer-side; `managed-sha256` and the quote check remain tool-only computations                                                                                                                                |
+| Governed spelling                                                                                   | Declined anchor                                         | Cost                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pandoc `[@citation-key, locator]`                                                                   | OKF §5.1 footnote attribution                           | 1 — permanent toolchain mismatch; [ADR 0001](../adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                 |
+| `citation key` as the source's name; the Zotero item key qualified by the server id is its identity | OKF `sources`/`resource`                                | Superseded 2026-09-07 by the ingest redesign spec §3.1, which mints the second identity the earlier row said was avoided. The `sources`/`resource` adoption stays deferred; the open cost is ongoing double-bookkeeping, not a lost distinction                                                       |
+| `supports` / `disputes`                                                                             | OKF untyped lineage                                     | 2 — stance would be lost; [ADR 0001](../adr/0001-vault-outlives-its-tools.md)                                                                                                                                                                                                                         |
+| Literature screening states in [CONTEXT.md](../../CONTEXT.md#evidence-and-claims)                   | OKF document lifecycle                                  | Superseded 2026-09-08 by the ingest redesign, which retired note-level screening state                                                                                                                                                                                                                |
+| Project `draft` / `parked` / `published` / `corrected` / `withdrawn`                                | OKF document lifecycle                                  | 2 — publication states would be lost                                                                                                                                                                                                                                                                  |
+| `source` for the cited document; `venue` for its outlet                                             | OpenAlex `source` for an outlet                         | 4 — the senses collide; see [CONTEXT.md](../../CONTEXT.md#evidence-and-claims)                                                                                                                                                                                                                        |
+| Frontmatter on `wiki/index.md`, written by the adopted compile tool                                 | OKF §8 (index files carry no frontmatter)               | 1 — permanent mismatch with a tool whose index path is hard-coded and whose own lint requires the frontmatter OKF forbids; the deviation is one file in a machine-owned tree, and a consumer that ignores unknown frontmatter reads it correctly; [ADR 0001](../adr/0001-vault-outlives-its-tools.md) |
+| No vault-owned freshness field; `refresh_due` on the compile tool's ledger                          | OKF §5.5 `stale_after`                                  | Not a deviation — the concept is kept, in one system. OKF's absolute instant and the tool's `refresh_due` are the same field under two names; the vault writes neither and reads the ledger's. `verify --as-of` supplies the comparison's other operand (ingest spec §3.2, §7)                        |
+| Untyped `inbox/` fleeting captures at creation                                                      | OKF §11 rule 1 (frontmatter on every non-reserved file) | 1 — permanent mismatch with the capture-time editor, the uncontrolled surface; `stamp-type` converges frontmatter at triage; [ADR 0001](../adr/0001-vault-outlives-its-tools.md)                                                                                                                      |
+| `verified[].check` field and coverage-derived trust tiers                                           | OKF §5.2 `{by, at}` event shape                         | 3 — collapsing to `{by, at}` alone would lose which check passed, the tier-coverage derivation it drives                                                                                                                                                                                              |
+| `verified[].at` as a calendar date                                                                  | OKF §5 ISO 8601 datetime with UTC offset                | 3 — recorded pending an ADR 0002 reconciliation; [ADR 0002](../adr/0002-verification-records-tell-the-truth.md)'s no-padded-precision rule vs the genuinely date-valued upstreams                                                                                                                     |
+| `[[citation-key#^claim-id]]` claim and stance links                                                 | OKF §6.1 markdown link form                             | 1 — the Dataview inline-field grammar requires the wikilink form; a markdown link's `]` would close the field early                                                                                                                                                                                   |
+| No adoption of OKF §10 Attested Computation                                                         | OKF §10 Attested Computation                            | Declined — `fixity-sha256` and the bibliography byte-comparison can't be attested consumer-side; `managed-sha256` and the quote check remain tool-only computations                                                                                                                                   |
 
 ## 4. Governed spellings
 
 ### 4.1 Vault paths and note kinds
 
-[CONTEXT.md](../CONTEXT.md#vault) owns the standard vault paths and note names.
-[ADR 0001](adr/0001-vault-outlives-its-tools.md) owns the OKF-required root files
+[CONTEXT.md](../../CONTEXT.md#vault) owns the standard vault paths and note names.
+[ADR 0001](../adr/0001-vault-outlives-its-tools.md) owns the OKF-required root files
 and frontmatter. This section adds only spellings not named there.
 
 | Spelling                                              | Source or rule                                                                                        |
@@ -94,12 +94,12 @@ and frontmatter. This section adds only spellings not named there.
 
 ### 4.2 Claim and metadata language
 
-Use the claim and verification terms in [CONTEXT.md](../CONTEXT.md), the
+Use the claim and verification terms in [CONTEXT.md](../../CONTEXT.md), the
 verification record defined by
-[ADR 0002](adr/0002-verification-records-tell-the-truth.md), the transition
-language in [ADR 0003](adr/0003-deprecate-never-delete.md), the identity rule and the
+[ADR 0002](../adr/0002-verification-records-tell-the-truth.md), the transition
+language in [ADR 0003](../adr/0003-deprecate-never-delete.md), the identity rule and the
 bibliography authority in
-[the ingest redesign spec](superpowers/specs/2026-09-06-import-redesign-design.md)
+[the ingest redesign spec](../superpowers/specs/2026-09-06-import-redesign-design.md)
 (§3.1 and §3.2), which supersede the two suspended decision records that
 previously held them.
 
@@ -127,7 +127,7 @@ A new CLI command takes the first matching branch:
 | Mechanical ingest step         | Bare imperative verb                                   | `capture`, `add`, `propagate`; `compile` is Part B's fourth                                                             |
 | Other projection or derivation | Imperative verb-noun kebab                             | `stamp-type`; `scaffold` is the established single-verb exception                                                       |
 
-Use kebab-case and exact [CONTEXT.md](../CONTEXT.md) nouns. Do not invent
+Use kebab-case and exact [CONTEXT.md](../../CONTEXT.md) nouns. Do not invent
 abbreviations, compatibility aliases, or multiple verbs for one act. Command
 names do not persist in vault records and may be renamed outright.
 
@@ -155,7 +155,7 @@ Allowed register splits:
 - `surface` means an enforcement point in `--surface` and
   `CLOSING_BY_SURFACE`; *tool surface* appears only in naming prose.
 - `source` on `search-log` means the database or API searched, following
-  PRISMA-S. It is distinct from [Source](../CONTEXT.md#evidence-and-claims), the
+  PRISMA-S. It is distinct from [Source](../../CONTEXT.md#evidence-and-claims), the
   cited document.
 - `ack` is the CLI's serialization of **Acknowledgment** (CONTEXT.md); `rw` is Retraction Watch's shorthand; `rv-` is the
   registered product prefix in §4.5.
@@ -168,8 +168,8 @@ field. Keep kind words such as `plugin` and `bundle` in the description, not the
 name. Use kebab-case and no invented abbreviations.
 
 `research-vault` follows the durable-artifact branch: `vault` is the artifact
-defined in [CONTEXT.md](../CONTEXT.md#vault) and protected by
-[ADR 0001](adr/0001-vault-outlives-its-tools.md); `research` disambiguates it.
+defined in [CONTEXT.md](../../CONTEXT.md#vault) and protected by
+[ADR 0001](../adr/0001-vault-outlives-its-tools.md); `research` disambiguates it.
 The name of a researcher's own vault or repository is outside this ruling.
 
 | Surface                                        | Governed spelling                                                                            |

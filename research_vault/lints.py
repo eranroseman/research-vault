@@ -568,7 +568,7 @@ def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
 # without a `generated` bump by the machine actor is drift. Legality rides on
 # the `generated` writer attestation, not on where in the note the field sits.
 _MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS
-# docs/terminology.md's actor convention: process-written records carry
+# docs/agents/terminology.md's actor convention: process-written records carry
 # `research_vault/<version>`, so this class test — not an exact-version
 # match — survives a `__version__` bump without flagging every prior note.
 _MACHINE_ACTOR_PREFIX = "research_vault/"

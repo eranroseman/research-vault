@@ -610,7 +610,7 @@ def test_terminology_registries_match_the_code():
     from research_vault import __main__ as cli
     from research_vault import inbox
 
-    text = (REPOSITORY / "docs" / "terminology.md").read_text()
+    text = (REPOSITORY / "docs" / "agents" / "terminology.md").read_text()
     rows = {
         m.group(1): set(re.findall(r"`([a-z-]+)`", m.group(2)))
         for m in re.finditer(

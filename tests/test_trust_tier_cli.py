@@ -5,7 +5,7 @@
 resume-orientation step needs to display each cited note's tier, and a
 prompt skill cannot call a Python function, so this is the invocable
 surface: the `factcheck` precedent (a read-only mechanical part joins the
-one binary as a branch-1 bare report noun, docs/terminology.md §4.3; spec
+one binary as a branch-1 bare report noun, docs/agents/terminology.md §4.3; spec
 §7's one-binary/one-exit-code-contract CLI). It writes nothing — no event,
 status, tag, hold, or ack — the same shape as `verify`/`factcheck`.
 """

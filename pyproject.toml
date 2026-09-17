@@ -233,7 +233,7 @@ tmp_path_retention_policy = "failed"
 #   hooks                     test_hooks, test_publish run the hook scripts
 #   skills                    skill contract/file tests, find-sources vendor
 #   scripts                   test_mutation_gate imports scripts.mutation_gate
-#   docs                      test_config_validity reads docs/terminology.md
+#   docs                      test_config_validity reads docs/agents/terminology.md
 #                             (a file entry needs its parent to exist, so the
 #                             directory)
 #   .claude-plugin            test_skeleton, test_config_validity manifests

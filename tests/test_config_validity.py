@@ -5,7 +5,7 @@ plugin loader or a human reader trusts, which nothing mechanically checks:
 
 * a malformed ``hooks.json`` or plugin manifest is swallowed at plugin load;
 * a typo'd ``SKILL.md`` frontmatter key is swallowed the same way;
-* an identifier coined in code but never given a row in ``docs/terminology.md``
+* an identifier coined in code but never given a row in ``docs/agents/terminology.md``
   §4.4 stays ungoverned until somebody happens to run a naming audit.
 
 The JSON half doubles as the *formatter*: ``json.tool``'s canonical form is
@@ -118,7 +118,7 @@ def _governance_row(group: str) -> str:
     prefix = re.compile(rf"\|\s*{re.escape(group)}\s*\|")
     rows = [
         line
-        for line in (ROOT / "docs/terminology.md")
+        for line in (ROOT / "docs/agents/terminology.md")
         .read_text(encoding="utf-8")
         .splitlines()
         if prefix.match(line)

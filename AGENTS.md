@@ -2,7 +2,7 @@
 
 Commit with explicit pathspec (`git commit -- <files>`); parallel sessions share this checkout — never revert or restore another session's uncommitted files, report the precondition as unmeetable instead. (Index-only changes like `git rm --cached` can't ride a pathspec commit — verify a clean `git status --porcelain`, then commit through the index.)
 
-Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/testing.md`.
+Testing and Zotero probing — including the live legs that offline runs silently skip: `docs/agents/testing.md`.
 
 Environment facts are not written down. Live values come from `python3 -m research_vault probe`; facts a probe cannot answer are recorded where they are used, each with its method and date.
 
@@ -33,6 +33,10 @@ GitHub Issues (`gh` CLI). A review finding a task will not fix is an issue, open
 ### Triage labels
 
 Default five canonical labels (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Naming
+
+How a name is chosen, and the governed spellings not owned by CONTEXT.md or an ADR. See `docs/agents/terminology.md`.
 
 ### Sourcing
 

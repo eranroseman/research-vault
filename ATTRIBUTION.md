@@ -30,7 +30,7 @@ The vault's survivability guarantee, pinned rather than versioned: v0.2 at
 `open-knowledge-format@ad30107`, `SPEC.md` sha256
 `26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`. See
 [ADR 0001](docs/adr/0001-vault-outlives-its-tools.md); deviations are priced
-in [docs/terminology.md](docs/terminology.md).
+in [docs/agents/terminology.md](docs/agents/terminology.md).
 
 ## Adopted components
 
