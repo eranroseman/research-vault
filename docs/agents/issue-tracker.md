@@ -21,6 +21,10 @@ So before opening an issue, name the spec that would carry it. If one exists or 
 
 A fix that converts one failure mode into another does not close the issue describing the first: comment with the new mode's shape and keep it open (or open a successor and cross-link) — the record tracks the position, not just the outcome.
 
+## Findings raised while a plan runs
+
+A plan claims scope, not findings. A review finding a task will not fix becomes an issue when it is deferred, titled with its plan and task. The plan's whole-branch review walks those open issues; its workspace closes when every Concern in its reports is a commit or an issue.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

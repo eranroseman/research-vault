@@ -9,7 +9,7 @@ Environment facts are not written down. Live values come from `python3 -m resear
 ## Product and vault boundaries
 
 - This repository is the product source. It is not the default user vault.
-- A user vault is the directory containing `inbox/`, `wiki/`, `litrature/` and `.raw/`. Mutable state always belongs there.
+- A user vault is the directory containing `inbox/`, `wiki/`, `literatures/` and `.raw/`. Mutable state always belongs there.
 - `research_vault/templates/vault` is the distributable seed. Root `wiki/`, `.raw/`, and
   `.vault-meta/` are contributor state and are excluded from public artifacts.
 - Never derive a user vault from the plugin cache or `${CLAUDE_PLUGIN_ROOT}`.
@@ -28,7 +28,7 @@ Merge back to main locally and push main to origin in the same motion. Fetch bef
 
 ### Issue tracker
 
-GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
+GitHub Issues (`gh` CLI). A review finding a task will not fix is an issue, opened when deferred. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -51,11 +51,3 @@ The `.out-of-scope/` directory in a repo stores persistent records of rejected f
 Eliminate the problem > add a mechanism > add a rule; prose is the last resort.
 
 Climb from the top and stop at the first rung that holds. A rule nobody can enforce is the weakest thing you can ship, and it goes stale silently. When prose really is the last resort, **say which higher rungs you tried and why they were unavailable** — an unexplained rule is indistinguishable from a lazy one, and the next reader cannot tell whether to re-attempt the climb.
-
-### Task reports
-
-The SDD skill never commits its `.superpowers/sdd/` reports, and its Finish step
-deletes the workspace — a report is not a durable home. Reports name a
-destination per Concern at write time; a plan's workspace closes only after
-every Concern's disposition has landed in that home — an issue, a spec entry, or
-a recorded decline.
