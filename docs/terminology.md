@@ -142,10 +142,7 @@ durable surfaces. Use kebab-case. Update the appropriate row in the same change
 that adds an identifier, and keep each registry on one physical Markdown table
 row for the parity checks. Per-claim check values use
 `<check>:<claim-link>:<target-kind>`, for example
-`quote:<claim-link>:managed-region`. Their behavior was specified by the
-[foundation specification](superpowers/specs/2026-08-16-foundation-spec.md), which the
-[assembly design](superpowers/specs/2026-09-05-assembly-design.md) §2 demotes to a fact
-source; this table owns their spellings regardless.
+`quote:<claim-link>:managed-region`. This table owns their spellings.
 
 | Group            | Governed identifiers                                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -160,8 +157,7 @@ Allowed register splits:
 - `source` on `search-log` means the database or API searched, following
   PRISMA-S. It is distinct from [Source](../CONTEXT.md#evidence-and-claims), the
   cited document.
-- `ack` is the foundation specification's serialization of
-  **Acknowledgment**; `rw` is Retraction Watch's shorthand; `rv-` is the
+- `ack` is the CLI's serialization of **Acknowledgment** (CONTEXT.md); `rw` is Retraction Watch's shorthand; `rv-` is the
   registered product prefix in §4.5.
 
 ### 4.5 Product identity

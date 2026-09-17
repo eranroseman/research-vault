@@ -613,7 +613,7 @@ def test_markdown_table_rows_have_no_truncated_code_spans(path):
     """A `|` inside an inline code span truncates its table cell, silently.
 
     Measured, not theoretical: the 2026-08-22 canonical-form churn ran mdformat
-    over this set, and three rows of the foundation spec's frontmatter table
+    over this set, and three rows of a since-retired spec's frontmatter table
     carried `status: unscreened | included | excluded | superseded`. GFM ends the
     cell at the first unescaped `|` REGARDLESS of the code span, so mdformat
     reformatted the truncated parse back out and the enum values plus an entire

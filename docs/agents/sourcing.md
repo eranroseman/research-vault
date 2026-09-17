@@ -24,6 +24,8 @@ This file carries one rule.
 
 `adopt`, `gap`, `reject` and `open` carry no constraint at any tier.
 
+**Runtime dependencies** are admitted case by case by contract match: default to the library for a commodity hard problem; write it in-tree only when the contract mismatch can be named out loud. Nothing heavy is imported on the gate path — hooks invoke the CLI per tool call, so import weight is latency; capability dependencies lazy-import, optional extras are feature-detected, and a dependency whose behaviour must stay frozen is vendored.
+
 `adapt` carries the same constraint as `build` at the high bar. Without that, a lane that wants to build without screening writes `adapt` instead — and in this repository the evasion is already available, because `research_vault/zotero.py` exists to adapt.
 
 **Capture is a mature tool, not glue**, and saying so is the point of the tiers. Its candidates carry years of edge-case handling this repository has already hit. A Python connector reads as "a doctor probe, a tag map, a lint" if nobody names its tier, and glue owes only one line of reason — which would exempt the exact decision the rule was written for.

@@ -1,4 +1,4 @@
-"""Deterministic core for the research-vault plugin (spec docs/superpowers/specs/2026-08-16-foundation-spec.md)."""
+"""Deterministic core for the research-vault plugin (specs under docs/superpowers/specs/)."""
 
 from .outcome import Result  # noqa: F401  (re-exported vocabulary)
 
