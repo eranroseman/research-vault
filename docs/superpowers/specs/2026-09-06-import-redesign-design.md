@@ -324,7 +324,7 @@ Once that client exists, the rest is the same round trip. `/items/<key>`, `/chil
 
 ## 4. Compile
 
-Evidence files beside this spec, absorbed from research notes of 2026-09-05 and binding nothing: `2026-09-06-import-redesign-compile-layout-evidence.md` (what the two compile-step candidates let a caller name, probed on scratch vaults) and `2026-09-06-import-redesign-partial-adoption-evidence.md` (every mechanism for adopting a Claude Code plugin in part, tested by installing the shapes).
+The layout of the two compile-step candidates and the mechanisms for adopting a Claude Code plugin in part were probed on scratch vaults on 2026-09-05; the choices below absorb what those probes showed, and Part B's tracers re-measured them at the pin.
 
 Chosen outputs (2026-09-04): a source page and cross-source concept pages, both in the adopted wiki's own shape. Claims with locators are dropped as a vault syntax; the requirement that a quoted passage be traceable to a page and byte-checkable on demand is carried by Zotero annotations captured at ingest. Charting belongs to the scoping review and is not a compile output, so the earlier requirement D2 (a caller-supplied per-source template) leaves this set and moves to the scoping review spec.
 
