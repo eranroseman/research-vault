@@ -25,4 +25,4 @@ only a repository-wide claim derived from `append_entry` argument syntax.
 
 ## Prior requests
 
-- [#26 — Reason-code placement: AST scan of inbox.append_entry reason arguments](https://github.com/eranroseman/knowledge-harness/issues/26)
+- [#26 — Reason-code placement: AST scan of inbox.append_entry reason arguments](https://github.com/eranroseman/research-vault/issues/26)
