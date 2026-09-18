@@ -21,13 +21,13 @@ class LedgerUnreadableError(Exception):
     An outage, never an empty: a missing ledger is the true empty before the
     first compile, and the two must not share a value (ADR 0002). Deliberately
     not a ``ValueError`` or ``OSError``, so a caller's broad ``except`` around
-    the read cannot fold it back into ``[]``; ``notes`` stays transport-free,
+    the read cannot fold it back into ``[]``; ``literature_notes`` stays transport-free,
     so this is not a ``ZoteroError`` either. The caller decides the hold.
     """
 
 
 _UNSAFE_IDENTIFIER = re.compile(r"[\s\x00-\x1f\x7f]")
-# Duplicated from ``zotero.ITEM_KEY`` rather than imported, so ``notes`` stays
+# Duplicated from ``zotero.ITEM_KEY`` rather than imported, so ``literature_notes`` stays
 # transport-free.
 ITEM_KEY_RE = re.compile(r"^[A-Z0-9]{8}$")
 

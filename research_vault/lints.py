@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import claims as claims_mod
-from . import frontmatter, gitstate, notes
+from . import frontmatter, gitstate, literature_notes
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -538,7 +538,7 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
 def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileImage]:
     """Every literature note in the snapshot: `literature/<key>.md`, flat.
 
-    The one shape capture writes (`notes.note_path` refuses a `/` in the key)
+    The one shape capture writes (`literature_notes.note_path` refuses a `/` in the key)
     and the captured set's own definition (decision 08: `literature/*.md`);
     every reader of the directory globs flat so a nested file is a literature
     note nowhere rather than somewhere.
@@ -559,7 +559,7 @@ def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
         return None
     try:
         text = (image.data or b"").decode("utf-8")
-        return notes.note_body(text).encode("utf-8")
+        return literature_notes.note_body(text).encode("utf-8")
     except (UnicodeDecodeError, frontmatter.FrontmatterError):
         return None
 
@@ -567,7 +567,7 @@ def _body_bytes(image: gitstate.FileImage | None) -> bytes | None:
 # Machine-owned frontmatter fields: every field capture writes; a change to any
 # without a `generated` bump by the machine actor is drift. Legality rides on
 # the `generated` writer attestation, not on where in the note the field sits.
-_MACHINE_OWNED_FRONTMATTER_KEYS = notes.CAPTURE_FIELDS
+_MACHINE_OWNED_FRONTMATTER_KEYS = literature_notes.CAPTURE_FIELDS
 # docs/agents/terminology.md's actor convention: process-written records carry
 # `research_vault/<version>`, so this class test — not an exact-version
 # match — survives a `__version__` bump without flagging every prior note.
@@ -601,11 +601,11 @@ def _field(data: dict | None, key: str):
 def _machine_attested(generated) -> bool:
     """Whether `generated` is validly shaped AND its `by` is machine-class.
 
-    Shape first: `notes._valid_generated` is the one place this field's shape
+    Shape first: `literature_notes._valid_generated` is the one place this field's shape
     is defined, so a malformed `generated` (missing `at`, extra keys, a bad
     timestamp) can never attest a change here even if `by` looks right.
     """
-    return notes._valid_generated(generated) and generated["by"].startswith(
+    return literature_notes._valid_generated(generated) and generated["by"].startswith(
         _MACHINE_ACTOR_PREFIX
     )
 
@@ -641,7 +641,7 @@ def _note_identity(image: gitstate.FileImage) -> tuple[str, str] | None:
         text = image.data.decode()
     except UnicodeDecodeError:
         return None
-    provenance = notes.read_provenance(text)
+    provenance = literature_notes.read_provenance(text)
     if provenance is None:
         return None
     return provenance.server_id, provenance.item_key
@@ -684,7 +684,7 @@ def lint_evidence_layer(
 
     Capture, the compile refresh and propagate are the only writers of
     `literature/` (ingest spec §3; §6 amended 2026-09-16), and each of their
-    writes bumps `generated` under the machine actor (`notes.render_note`).
+    writes bumps `generated` under the machine actor (`literature_notes.render_note`).
     So an added note, a changed body and a renamed note are findings only
     when that attestation is absent — `_write_attested`, the rule the
     machine-owned keys already live under — and a deletion always is (ADR
@@ -697,7 +697,7 @@ def lint_evidence_layer(
     candidate_files = _literature_files(candidate_snapshot)
 
     for raw_path, image in sorted(candidate_files.items()):
-        result, reason = notes.validate_managed_witness(image.data or b"")
+        result, reason = literature_notes.validate_managed_witness(image.data or b"")
         if result is not Result.MATCHED:
             outcomes.append(
                 Outcome("evidence-layer", RepoPath(raw_path), result, reason)

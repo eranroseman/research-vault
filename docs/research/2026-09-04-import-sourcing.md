@@ -4056,7 +4056,7 @@ IP assertions: the licence appendix copyright line is unfilled boilerplate with 
 
 Three local backends, all on the loopback interface and none of them the web API: a read-only SQLite read of the live profile, which is what most read commands use; Zotero's local API under a personal-library scope with an API version header, used for quick search, CSL rendering and export; and the repository's own add-on exposing an evaluation endpoint. Item metadata, attachments with a resolved path, and annotations are all reachable. One defect is worth recording: neither annotation path is complete. The SQLite path returns untruncated annotation text and comment but the base select carries no page label, colour or annotation type, while the documented annotation commands go through the bridge, which carries type, colour and page but truncates the highlight to 200 characters. No path yields full annotation text together with a page locator. The SQLite annotation route is also undocumented, and because annotations are children of the attachment it takes two hops.
 
-**C2 does not** (evidence). `cli_anything/zotero/core/notes.py` lines 151-152, the note write, with the format option in the command surface.
+**C2 does not** (evidence). `cli_anything/zotero/core/literature_notes.py` lines 151-152, the note write, with the format option in the command surface.
 
 ```
         f"note.setNote('{safe_html}'); "

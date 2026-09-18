@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from research_vault import Result, frontmatter, gitstate, lints, notes
+from research_vault import Result, frontmatter, gitstate, lints, literature_notes
 from research_vault.pathcodec import RepoPath
 from tests.conftest import must_replace
 
@@ -611,7 +611,7 @@ def test_citing_the_counterevidence_address_is_clean(fixture_vault):
 def _refresh_body_witness(path):
     text = path.read_text()
     data, body = frontmatter.parse(text)
-    data["managed-sha256"] = notes.body_sha256(text)
+    data["managed-sha256"] = literature_notes.body_sha256(text)
     path.write_text(frontmatter.serialize(data) + body)
 
 
@@ -621,7 +621,7 @@ _FIXTURE_GENERATED = (
 
 
 def _bump_generated(text: str, by: str = "research_vault/0.1.0") -> str:
-    """What `notes.render_note` does on every content change: a fresh `at`."""
+    """What `literature_notes.render_note` does on every content change: a fresh `at`."""
     return must_replace(
         text,
         _FIXTURE_GENERATED,
@@ -652,7 +652,7 @@ def _evidence_rows(vault, base):
 @pytest.mark.parametrize("write", ["add", "refresh", "rename"])
 def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, write):
     """Capture, the compile refresh and propagate bump `generated` under the
-    machine actor on every content change (`notes.render_note`); the commit
+    machine actor on every content change (`literature_notes.render_note`); the commit
     surface must let those writes through, or every capture blocks the next
     commit (ingest spec §6 amendment of 2026-09-16, Part B Task 1 T4)."""
     base = _base_tree(fixture_vault)
@@ -964,7 +964,7 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
 ):
     """A `generated` whose `by` looks machine-class but whose shape is invalid
     (bad `at`, or no `at` at all) must not legalize anything —
-    `notes._valid_generated` is the one place this field's shape is defined.
+    `literature_notes._valid_generated` is the one place this field's shape is defined.
     """
     base = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"],

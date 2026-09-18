@@ -19,7 +19,7 @@ from . import (
     frontmatter,
     fulltext,
     lifecycle,
-    notes,
+    literature_notes,
     okf,
     stamp,
 )
@@ -165,11 +165,11 @@ def _capture_one(
     item = read.item
     citation_key = item["data"].get("citationKey")
     # Resolved before anything is written: an unsafe key refuses the whole item.
-    path = notes.note_path(vault, citation_key)
+    path = literature_notes.note_path(vault, citation_key)
     entries, usable, reasons = _write_texts(vault, read)
     best = _best_attachment(item, usable)
     digest_by_key = {e["attachment-key"]: e["sha256"] for e in entries}
-    provenance = notes.Provenance(
+    provenance = literature_notes.Provenance(
         server_id=server_id,
         item_key=item["key"],
         item_version=read.version,
@@ -191,24 +191,26 @@ def _capture_one(
     ]
     try:
         # Absent until the first compile; the refresh after it completes the note.
-        pages = notes.compiled_pages(vault, provenance)
-    except notes.LedgerUnreadableError as error:
+        pages = literature_notes.compiled_pages(vault, provenance)
+    except literature_notes.LedgerUnreadableError as error:
         # An outage for this item, not an empty view: rendering without the embed
         # would strip ## Compiled and bump generated for a transient fault, so the
         # note is left as it stands.
         return [Outcome(CHECK, citation_key, Result.UNREACHABLE, f"outage — {error}")]
-    candidate = notes.render_note(
+    candidate = literature_notes.render_note(
         item["data"],
         provenance,
         read.children,
         child_notes,
         existing,
         accessed=now.date().isoformat(),
-        generated_at=notes.generated_at_now(now),
+        generated_at=literature_notes.generated_at_now(now),
         pages=pages,
     )
     outcomes = []
-    if existing is not None and not notes.content_changed(existing, candidate):
+    if existing is not None and not literature_notes.content_changed(
+        existing, candidate
+    ):
         outcomes.append(Outcome(CHECK, citation_key, Result.MATCHED, "matched — NOOP"))
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -391,8 +393,8 @@ def _refused(vault: Path, prior: Outcome | None, requested_key: str) -> Outcome 
     if code != "re-keyed":
         return None
     try:
-        old_note = notes.note_path(vault, prior.target)
-    except notes.InvalidCitationKeyError:
+        old_note = literature_notes.note_path(vault, prior.target)
+    except literature_notes.InvalidCitationKeyError:
         # A recorded key no filename can carry is a hand edit this check
         # cannot place; capture proceeds as it did before the check existed.
         return None
@@ -518,7 +520,10 @@ def capture(
             outcomes.append(
                 Outcome(CHECK, requested_key, Result.UNREACHABLE, f"outage — {error}")
             )
-        except (notes.InvalidCitationKeyError, frontmatter.FrontmatterError) as error:
+        except (
+            literature_notes.InvalidCitationKeyError,
+            frontmatter.FrontmatterError,
+        ) as error:
             # A corrupt existing note reaches render_note as FrontmatterError; the
             # linter cannot see it (read_provenance declines it), so this is the
             # only place it becomes a finding.
@@ -542,7 +547,7 @@ def capture(
 
 
 KEY_STORE = ".research-vault/zotero-keys.json"
-_ITEM_FIELDS = frozenset(notes.SNAPSHOT_FIELDS) | {"collections"}
+_ITEM_FIELDS = frozenset(literature_notes.SNAPSHOT_FIELDS) | {"collections"}
 
 
 def _validate_items(items) -> str | None:

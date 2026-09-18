@@ -10,12 +10,12 @@ import os
 import re
 from pathlib import Path
 
-from . import clock, frontmatter, notes, structure
+from . import clock, frontmatter, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
 CHECK = "captured-set"
-LEDGER_PATH = notes.LEDGER_PATH
+LEDGER_PATH = literature_notes.LEDGER_PATH
 _CITATION = re.compile(r"\[@(?P<key>[A-Za-z0-9_.:-]+)")
 _WIKILINK = re.compile(r"\[\[(?P<target>[^\]\n#|]+)")
 _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
@@ -23,14 +23,14 @@ _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 
 def _read_notes(
     vault: Path,
-) -> tuple[list[tuple[dict, notes.Provenance]], list[Outcome]]:
+) -> tuple[list[tuple[dict, literature_notes.Provenance]], list[Outcome]]:
     """Every note under literature/ with its tuple — and a row for every note the reader cannot take.
 
     lifecycle._provenances skips such a note silently, and capture reports it only when its key is
     requested; decision 08 then drops the key from the captured set and so from the CSL file. This
     lint is the mechanism that design relies on: the omission is reported here, never silent.
     """
-    entries: list[tuple[dict, notes.Provenance]] = []
+    entries: list[tuple[dict, literature_notes.Provenance]] = []
     outcomes: list[Outcome] = []
     for path in sorted((vault / "literature").glob("*.md")):
         target = RepoPath(os.fsencode(f"literature/{path.name}"))
@@ -58,7 +58,7 @@ def _read_notes(
                 Outcome(CHECK, target, Result.UNMATCHED, f"schema-violation — {error}")
             )
             continue
-        provenance = notes.read_provenance(text)
+        provenance = literature_notes.read_provenance(text)
         if provenance is None:
             outcomes.append(
                 Outcome(
@@ -73,7 +73,7 @@ def _read_notes(
     return entries, outcomes
 
 
-def _notes(vault: Path) -> list[tuple[dict, notes.Provenance]]:
+def _notes(vault: Path) -> list[tuple[dict, literature_notes.Provenance]]:
     return _read_notes(vault)[0]
 
 
@@ -123,7 +123,7 @@ def _reportable(text: str) -> str:
 
     A line break fails earlier still: ``Outcome.__post_init__`` validates the reason at
     construction, so an unterminated ``[[`` or a page named ``A\nB.md`` raises inside the
-    lint itself. ``notes.display_text``'s idiom is used rather than a newline strip
+    lint itself. ``literature_notes.display_text``'s idiom is used rather than a newline strip
     because it is total for every separator ``str.splitlines()`` honours.
     """
     decoded = text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")

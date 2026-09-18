@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import NamedTuple
 
-from . import fulltext, notes
+from . import fulltext, literature_notes
 from .outcome import Outcome, Result
 from .zotero import DatabaseChangedError, ZoteroClient, ZoteroError
 
@@ -74,7 +74,7 @@ def _successor(item_key: str, live: Live) -> str | None:
     return None
 
 
-def classify(provenance: notes.Provenance, live: Live) -> tuple[str, str]:
+def classify(provenance: literature_notes.Provenance, live: Live) -> tuple[str, str]:
     key = provenance.item_key
     successor = _successor(key, live)
     if successor is not None:
@@ -107,7 +107,10 @@ def classify(provenance: notes.Provenance, live: Live) -> tuple[str, str]:
 
 
 def _drift_detail(
-    client: ZoteroClient, vault: Path, provenance: notes.Provenance, detail: str
+    client: ZoteroClient,
+    vault: Path,
+    provenance: literature_notes.Provenance,
+    detail: str,
 ) -> str:
     """Name whether a moved attachment's file changed or only its metadata did (§3.4 step 5)."""
     if "attachment" not in detail:
@@ -138,11 +141,13 @@ def _drift_detail(
     return detail + ("; " + "; ".join(notes_out) if notes_out else "")
 
 
-def _provenances(vault: Path) -> list[tuple[Path, notes.Provenance]]:
-    found: list[tuple[Path, notes.Provenance]] = []
+def _provenances(vault: Path) -> list[tuple[Path, literature_notes.Provenance]]:
+    found: list[tuple[Path, literature_notes.Provenance]] = []
     for path in sorted((vault / "literature").glob("*.md")):
         try:
-            provenance = notes.read_provenance(path.read_text(encoding="utf-8"))
+            provenance = literature_notes.read_provenance(
+                path.read_text(encoding="utf-8")
+            )
         except (OSError, UnicodeError):
             continue
         if provenance is not None:

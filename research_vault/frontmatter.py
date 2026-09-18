@@ -77,7 +77,7 @@ def render_field(key: str, value) -> str:
     ``value`` may be a scalar or a one-level mapping (rendered ``{a: b, ...}``,
     matching a parsed ``generated``-shaped field). This is the one spelling of
     that grammar: ``serialize`` is its sole caller, so what it emits and what
-    ``frontmatter.parse``/``notes._valid_generated`` expect back cannot drift
+    ``frontmatter.parse``/``literature_notes._valid_generated`` expect back cannot drift
     apart.
     """
     if isinstance(value, dict):

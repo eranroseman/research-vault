@@ -14,10 +14,10 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
-from . import captured, clock, frontmatter, notes, paths
+from . import captured, clock, frontmatter, literature_notes, paths
 from .outcome import Outcome, Result
 
-LEDGER_PATH = notes.LEDGER_PATH
+LEDGER_PATH = literature_notes.LEDGER_PATH
 LEDGER_SCHEMA = "claude-obsidian.source-ledger.v1"
 BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
@@ -99,7 +99,7 @@ def _selected_notes(vault: Path, keys):
             # Skipped exactly as an unparseable note is (read_provenance ->
             # None); captured-set/okf-frontmatter are where it's reported.
             continue
-        provenance = notes.read_provenance(text)
+        provenance = literature_notes.read_provenance(text)
         if provenance is None or provenance.citation_key not in wanted:
             continue
         data, _ = frontmatter.parse(text)
@@ -248,9 +248,9 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
     """Write the bundle registering the selection and run ``transaction inspect``.
 
     Raises ``ToolMissingError`` when the tool cannot run and
-    ``notes.LedgerUnreadableError`` when the ledger exists but is not the
+    ``literature_notes.LedgerUnreadableError`` when the ledger exists but is not the
     tool's document — an outage, never an empty ledger to merge into (the
-    same split ``notes.compiled_pages`` makes).
+    same split ``literature_notes.compiled_pages`` makes).
     """
     vault = Path(vault_root)
     script = tool_script(vault)
@@ -261,11 +261,11 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
             raw = ledger.read_bytes()
             current = json.loads(raw)
         except (OSError, ValueError) as error:
-            raise notes.LedgerUnreadableError(
+            raise literature_notes.LedgerUnreadableError(
                 f"{LEDGER_PATH} unreadable: {error}"
             ) from error
         if not isinstance(current, dict):
-            raise notes.LedgerUnreadableError(
+            raise literature_notes.LedgerUnreadableError(
                 f"{LEDGER_PATH} unreadable: not an object"
             )
         expected = hashlib.sha256(raw).hexdigest()

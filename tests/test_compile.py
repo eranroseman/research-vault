@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, inbox, notes
+from research_vault import Result, inbox, literature_notes
 from research_vault import compile as compile_mod
 from research_vault.__main__ import main
 from tests.conftest import must_replace
@@ -709,14 +709,14 @@ def test_plan_reports_a_corrupt_ledger_as_a_named_error(
     tmp_vault, tmp_path, monkeypatch
 ):
     """Review I3: an unparseable ledger was a JSONDecodeError traceback.
-    ``notes.LedgerUnreadableError`` is the named error the CLI turns into
+    ``literature_notes.LedgerUnreadableError`` is the named error the CLI turns into
     exit 2 — an outage, never an empty ledger to merge into."""
     _note(tmp_vault)
     _fake_tool(tmp_path, monkeypatch)
     ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
     ledger.parent.mkdir(parents=True)
     ledger.write_text("{not json")
-    with pytest.raises(notes.LedgerUnreadableError) as excinfo:
+    with pytest.raises(literature_notes.LedgerUnreadableError) as excinfo:
         compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
     assert str(excinfo.value).startswith(
         "wiki/meta/ledgers/source-ledger.json unreadable: "
@@ -733,7 +733,7 @@ def test_plan_reports_a_ledger_that_is_not_an_object_as_a_named_error(
     ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
     ledger.parent.mkdir(parents=True)
     ledger.write_text("[]")
-    with pytest.raises(notes.LedgerUnreadableError) as excinfo:
+    with pytest.raises(literature_notes.LedgerUnreadableError) as excinfo:
         compile_mod.plan(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
     assert (
         str(excinfo.value)

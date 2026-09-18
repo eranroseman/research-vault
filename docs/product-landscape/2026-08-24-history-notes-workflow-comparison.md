@@ -42,7 +42,7 @@ History Notes side, read directly (not summarized by an intermediate model):
   Part III: it is the only place the workflow's claims are checkable against real files rather
   than a template listing.
 
-research-vault side, read directly from this repository: `research_vault/notes.py`,
+research-vault side, read directly from this repository: `research_vault/literature_notes.py`,
 `research_vault/frontmatter.py`, `research_vault/__main__.py`, `docs/adr/0003-*.md`,
 `skills/evidence-conventions/SKILL.md`, `skills/synthesis-conventions/SKILL.md`,
 `skills/publish/SKILL.md`, `skills/verify-citations/SKILL.md`, `CONTEXT.md`. Claims cite
@@ -89,7 +89,7 @@ ______________________________________________________________________
 | Search / discovery              | not covered by the guide — assumes items are already found                                                                                                                                                                                                                                                                                                                                        | `find-sources` skill: 11 bibliographic databases, PRISMA-S search-log provenance, explicitly upstream of Zotero                                                                                                                                                     |
 | Admission                       | ordinary Zotero import, no distinct name                                                                                                                                                                                                                                                                                                                                                          | **admission**: named as the sole path to citability; `find-sources` never performs it (`skills/find-sources/SKILL.md`)                                                                                                                                              |
 | Annotate                        | Zotero 6 built-in PDF reader, 5-color highlight palette + free comments                                                                                                                                                                                                                                                                                                                           | same tool, research-vault has no opinion on annotation                                                                                                                                                                                                              |
-| Import → note                   | Zotero Integration renders one **research note** per Zotero item from a Templater template — fully editable top to bottom                                                                                                                                                                                                                                                                         | `import-note` CLI renders one **literature note** per citekey; frontmatter + a machine-owned **managed region** the CLI regenerates, never hand-edited (`notes.py:211-257`); free prose lives below it, preserved across re-renders (`notes.py:257`, `_split_free`) |
+| Import → note                   | Zotero Integration renders one **research note** per Zotero item from a Templater template — fully editable top to bottom                                                                                                                                                                                                                                                                         | `import-note` CLI renders one **literature note** per citekey; frontmatter + a machine-owned **managed region** the CLI regenerates, never hand-edited (`literature_notes.py:211-257`); free prose lives below it, preserved across re-renders (`literature_notes.py:257`, `_split_free`) |
 | Atomize multi-topic source      | the system's defining move, not an edge case — the guide explicitly rejects the popular "one literature note per source" pattern: "different annotations from the same source actually might belong in different places in your draft," so a Templater hotkey extracts selected text into a **new file**, with a reciprocal link left in the original (`extract research note from selection.md`) | claims are atomized at the **line** inside one file: `- (quote\|paraphrase\|inference\|open-question) text [@citekey, locator] ^claim-id` (`skills/evidence-conventions/SKILL.md:12-26`); no new file, a stable anchor instead                                      |
 | Arrange across sources          | Graph view, backlinks, and a separate `02 analysis/` note type that transcludes claim blocks from multiple research notes (`obsidian-history-vault`, `02 analysis/3. boycotts...md`)                                                                                                                                                                                                              | **synthesis layer**: pages arrange claims across ≥2 sources on one topic (`2+-source threshold`, `skills/synthesis-conventions/SKILL.md:14`), minimum 2 outgoing links (`:18`), registered in `synthesis/index.md`                                                  |
 | Entities (people/places/events) | first-class note types in `04 index/` — person, place, event, work notes, each with their own frontmatter (`start-date`, `country`, `occupation`), linked from research notes, rendered as a social/spatial network in Graph view                                                                                                                                                                 | none — no entity note type exists                                                                                                                                                                                                                                   |
@@ -130,7 +130,7 @@ there too: the import template maps hex codes to callout headers (`#ff6666` → 
 `#5fb236` → "Reference," `#2ea8e5`/`#a28ae5` left for the researcher to define), styled by a
 `callouts.css` snippet; only the default yellow imports as plain text.
 
-A research-vault claim has neither. `render_claim()` (`notes.py:302-329`) cites
+A research-vault claim has neither. `render_claim()` (`literature_notes.py:302-329`) cites
 `[@citekey, p. N]` — text, not a link — and shapes every highlight the same way regardless of
 color: `annotationText` present → `(quote)`, else a bare `comment` → `(paraphrase)`.
 
@@ -144,7 +144,7 @@ it feeds `normalize_annotation()` a live-shaped annotation dict carrying `"annot
 (`__main__.py:54-79`) is an explicit field allowlist — `type`, `comment`, `pageLabel`, `key`,
 `annotationText`, `citekey`, plus optional `context_prefix`/`context_suffix` — that never copies
 either value through. Both are dropped at that one normalization boundary, one hop before
-`notes.py` ever runs. Restoring them is a two-field change to one function, not new integration
+`literature_notes.py` ever runs. Restoring them is a two-field change to one function, not new integration
 work.
 
 ## 3. No manuscript-assembly structure
@@ -204,7 +204,7 @@ The template converts Zotero item tags into a hierarchy: `secondary`/`primary` �
 else → `#subject/<tag>` — confirmed live in `01 notes/1. cuban film....md`:
 `#source/secondary` `#project/film-censorship`.
 
-`grep -n '"tags?"' research_vault/frontmatter.py research_vault/notes.py research_vault/zotero.py` returns nothing. Zotero item tags never reach the literature note.
+`grep -n '"tags?"' research_vault/frontmatter.py research_vault/literature_notes.py research_vault/zotero.py` returns nothing. Zotero item tags never reach the literature note.
 
 ## 7. Thin per-note bibliographic metadata
 
@@ -212,7 +212,7 @@ The research-note YAML carries `type`, creators normalized by role (`interviewee
 `presenter`, … all folded into a queryable `author` field), `title`, `publication`, `date`,
 `archive`, `archive-location`, `citekey` — a full citation visible at a glance, collapsible.
 
-The literature-note frontmatter (`notes.py:217-229`) carries only `citekey`, `type: literature`,
+The literature-note frontmatter (`literature_notes.py:217-229`) carries only `citekey`, `type: literature`,
 `doi`, `url`, `pmid`, `version`, `accessed`, `fixity-sha256`, `status`, `aliases`. No author, no
 date, no archive location. Full bibliographic detail lives centrally in `system/bibliography.json`
 (`bibliography.py:16`) instead of on the note — a deliberate anti-duplication choice, but the
@@ -250,7 +250,7 @@ For balance — the comparison runs both ways.
   has no equivalent boundary — importing into Zotero is just an ordinary step.
 - **Machine/human ownership split inside one file.** The managed region is bridge-rendered and
   never hand-edited; free prose sits below it and survives re-renders untouched
-  (`notes.py:257`). History Notes' research note is one undifferentiated editable file from
+  (`literature_notes.py:257`). History Notes' research note is one undifferentiated editable file from
   import onward.
 - **Claim-level atomicity with stable anchors.** `^claim-id` derives from a Zotero annotation key
   or a content hash, never render order, so re-rendering never breaks a link
@@ -270,7 +270,7 @@ For balance — the comparison runs both ways.
   (`docs/adr/0003-deprecate-never-delete.md:1-15`). History Notes files can be edited or deleted
   with no trace.
 - **PRISMA screening state.** Literature notes carry a `status` field (defaulting to
-  `unscreened`, `notes.py:228`), and the full `unscreened`/`included`/`excluded`/`superseded` set
+  `unscreened`, `literature_notes.py:228`), and the full `unscreened`/`included`/`excluded`/`superseded` set
   is enforced by the screening-state check (`lints.py:515`) and adopted from PRISMA/Covidence
   (`docs/terminology.md:49`) — a systematic-review inclusion judgment History Notes' four note
   categories don't encode as durable state.
@@ -293,7 +293,7 @@ ______________________________________________________________________
    `comment` in three files. `claims.py:25,54-56` shows every claim line already accepts
    arbitrary `[field:: value]` pairs — narrowed to "no convention," not "no mechanism."
 4. §2 first claimed the round-trip link and color data were simply absent, based on grepping only
-   `notes.py`. Tracing the actual Zotero bridge found both arrive from Better BibTeX already and
+   `literature_notes.py`. Tracing the actual Zotero bridge found both arrive from Better BibTeX already and
    are dropped one function later, by `normalize_annotation()`'s field allowlist
    (`__main__.py:54-79`) — narrowed from "absent integration" to "one boundary drops two fields."
 
@@ -369,7 +369,7 @@ controller's call, not this file's.
   detail in `system/bibliography.json` instead of duplicating author/date onto every literature
   note avoids exactly the drift risk a second copy would create. But that trade-off has never
   been written down as a decision anywhere this pass found, only made implicitly by what
-  `notes.py:217-229` happens to include. It should be recorded the way ADR 0004 recorded why
+  `literature_notes.py:217-229` happens to include. It should be recorded the way ADR 0004 recorded why
   citekey carries no alias — a line in `docs/terminology.md` or a short ADR, so "nobody got
   around to it" and "this was decided, here's why" stop being indistinguishable from outside.
 

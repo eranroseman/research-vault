@@ -211,7 +211,7 @@ for example `2026-06-30T14:00:00Z`."
 
 `events.py:26-32` requires `YYYY-MM-DD` and `events.py:102-104` writes it. Actual bytes:
 `verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-01", check: "doi"}`. Note the
-contrast with `generated.at`, which `notes.py:213-220` renders correctly as Z-suffixed ISO —
+contrast with `generated.at`, which `literature_notes.py:213-220` renders correctly as Z-suffixed ISO —
 so the vault already knows how.
 
 This is a §5 producer SHOULD, not a §11 MUST, so the cheap disposition is a recorded
@@ -240,7 +240,7 @@ reading `generated.at` gets an unparseable literal.
 **Fix.** Either delete the line (§5: "All are optional. Their absence carries meaning" — but
 this contradicts `foundation-spec.md:61-62`, which requires generation metadata, so the spec
 needs the matching amendment), or have the skills write
-`generated: {by: "human:<id>", at: "<generated_at_now()>"}`, reusing `notes.py:213`.
+`generated: {by: "human:<id>", at: "<generated_at_now()>"}`, reusing `literature_notes.py:213`.
 
 ## 3. Unadopted optional families
 
@@ -249,7 +249,7 @@ All conformant. Each needs a disposition — adoption or a recorded declination 
 
 | Family                        | Status                           | Recommendation                                                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `resource` (§4.1)             | Never written                    | **Adopt.** Literature notes already carry `doi`/`url` (`notes.py:229-236`); `resource: https://doi.org/…` names the paper, not the note. Not universally free: §5.1 makes `resource` REQUIRED within a `sources` entry, and a DOI-less source (a book, an ISO standard) needs a resolvable URL or one of §5.1's scope descriptors instead.                                                                   |
+| `resource` (§4.1)             | Never written                    | **Adopt.** Literature notes already carry `doi`/`url` (`literature_notes.py:229-236`); `resource: https://doi.org/…` names the paper, not the note. Not universally free: §5.1 makes `resource` REQUIRED within a `sources` entry, and a DOI-less source (a book, an ISO standard) needs a resolvable URL or one of §5.1's scope descriptors instead.                                                        |
 | `sources` (§5.1)              | Never written                    | **Adopt.** `sources: [{id: <citekey>, resource: <doi-url>, title: …}]` from data in hand. `resource` is REQUIRED within an entry, so the DOI must carry — the citekey alone is not enough.                                                                                                                                                                                                                   |
 | `title`, `description` (§4.1) | Never written                    | **Adopt.** Both values are already in hand at render time; `description` feeds §8 index entries and search snippets.                                                                                                                                                                                                                                                                                         |
 | `tags` (§4.1)                 | Never written                    | Assess. Obsidian tags exist; whether they belong in OKF `tags` is a modelling call.                                                                                                                                                                                                                                                                                                                          |
@@ -261,7 +261,7 @@ All conformant. Each needs a disposition — adoption or a recorded declination 
 `docs/terminology.md:67` declines `sources`/`resource` because "the citekey is source
 identity" ([ADR 0004](../adr/0004-citekey-is-the-only-identity.md)). ADR 0004's argument is
 about minting a second *identity*; neither field is one. §2 makes the Concept ID the file
-path with `.md` removed — here `literature/<citekey>` (`notes.py:129`), so the citekey is the
+path with `.md` removed — here `literature/<citekey>` (`literature_notes.py:129`), so the citekey is the
 Concept ID's leaf, not the whole of it — and §5.1's `id` is
 "a stable key used to attribute individual claims", precisely the slot the citekey fills.
 §4.1's `resource` names the underlying asset, i.e. the paper.
@@ -337,7 +337,7 @@ any level of the hierarchy"), would be flagged missing-type. The probe is also w
 Worth stating, and worth recording in `docs/terminology.md` §4 where D10 removed it.
 
 - **`generated`** is written exactly per §5.2 and §5: required `by`, and `at` as a Z-suffixed
-  ISO 8601 datetime (`notes.py:213-220`).
+  ISO 8601 datetime (`literature_notes.py:213-220`).
 - **§7 actor convention** followed exactly by every code-written record —
   `research_vault/<version>` and `human:<id>`.
 - **§5.3 trust tiers** — `unverified` / `machine-confirmed` / `human-reviewed`, the spec's

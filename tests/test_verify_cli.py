@@ -19,7 +19,7 @@ from research_vault import (
     frontmatter,
     gitstate,
     inbox,
-    notes,
+    literature_notes,
     zotero,
 )
 from research_vault.__main__ import cmd_inbox, cmd_verify, main
@@ -60,8 +60,8 @@ def _move_note_body(source):
     source.write_text(
         must_replace(
             new_text,
-            f'managed-sha256: "{notes.body_sha256(old_text)}"',
-            f'managed-sha256: "{notes.body_sha256(new_text)}"',
+            f'managed-sha256: "{literature_notes.body_sha256(old_text)}"',
+            f'managed-sha256: "{literature_notes.body_sha256(new_text)}"',
         )
     )
 
@@ -69,7 +69,9 @@ def _move_note_body(source):
 def _without_witness(text):
     """The note as capture never wrote it: no `managed-sha256`, so
     `_citation_key_hash` takes its `_note_bytes` fallback."""
-    return must_replace(text, f'managed-sha256: "{notes.body_sha256(text)}"\n', "")
+    return must_replace(
+        text, f'managed-sha256: "{literature_notes.body_sha256(text)}"\n', ""
+    )
 
 
 def _git_bytes(vault, *args, stdin=None):
@@ -301,7 +303,7 @@ def test_malformed_managed_sha256_falls_through_to_the_note_bytes_digest(
     source.write_text(
         must_replace(
             text,
-            f'managed-sha256: "{notes.body_sha256(text)}"',
+            f'managed-sha256: "{literature_notes.body_sha256(text)}"',
             f'managed-sha256: "{placeholder}"',
         )
     )

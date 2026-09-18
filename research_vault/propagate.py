@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
 
-from . import capture, lifecycle, notes, structure
+from . import capture, lifecycle, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 from .zotero import ZoteroError
@@ -97,7 +97,7 @@ def _refusal(old: str, detail: str) -> Outcome:
 
 def _sources(
     vault: Path, mapping: dict[str, str]
-) -> tuple[dict[str, tuple[Path, notes.Provenance]], list[Outcome]]:
+) -> tuple[dict[str, tuple[Path, literature_notes.Provenance]], list[Outcome]]:
     """The note behind each old key, found by its recorded ``citationKey``.
 
     Decision 08's identity, not the filename: after a partial apply — an
@@ -106,12 +106,12 @@ def _sources(
     ``literature/<old>.md`` would refuse the very state it produced. Found by
     the recorded key, a re-run treats that note as already at its target.
     """
-    by_key: dict[str, list[tuple[Path, notes.Provenance]]] = {}
-    by_name: dict[str, notes.Provenance] = {}
+    by_key: dict[str, list[tuple[Path, literature_notes.Provenance]]] = {}
+    by_name: dict[str, literature_notes.Provenance] = {}
     for path, provenance in lifecycle._provenances(vault):
         by_key.setdefault(provenance.citation_key, []).append((path, provenance))
         by_name[path.name] = provenance
-    found: dict[str, tuple[Path, notes.Provenance]] = {}
+    found: dict[str, tuple[Path, literature_notes.Provenance]] = {}
     outcomes: list[Outcome] = []
     for old in mapping:
         candidates = by_key.get(old, [])
@@ -177,8 +177,8 @@ def plan(
             continue
         source, provenance = sources[old]
         try:
-            target = notes.note_path(vault, new)
-        except notes.InvalidCitationKeyError as error:
+            target = literature_notes.note_path(vault, new)
+        except literature_notes.InvalidCitationKeyError as error:
             outcomes.append(_refusal(old, str(error)))
             continue
         if source.name != target.name and (target.exists() or target.is_symlink()):
@@ -353,7 +353,7 @@ def apply(
     outcomes = []
     for old, new in approved.mapping.items():
         source, _provenance = sources[old]
-        target = notes.note_path(vault, new)
+        target = literature_notes.note_path(vault, new)
         if source.name != target.name:
             source.rename(target)
         changed = rewrite_surfaces(vault, old, new)

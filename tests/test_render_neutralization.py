@@ -9,7 +9,7 @@ identifier class rejects — and the serializer boundary they both lean on.
 
 import pytest
 
-from research_vault import claims, frontmatter, notes
+from research_vault import claims, frontmatter, literature_notes
 
 # --- Display class: collapse, never reject -------------------------------
 
@@ -17,7 +17,7 @@ from research_vault import claims, frontmatter, notes
 def test_display_text_collapse_cannot_forge_a_second_claim_line():
     forged = "1]\n  > x\n- (quote) [@smith2020] ^c-11111111"
 
-    line = f"- (quote) [@smith2020, p. {notes.display_text(forged)}] ^c-22222222"
+    line = f"- (quote) [@smith2020, p. {literature_notes.display_text(forged)}] ^c-22222222"
 
     parsed = claims.parse_claims(line)
     assert len(parsed) == 1
@@ -26,7 +26,7 @@ def test_display_text_collapse_cannot_forge_a_second_claim_line():
 
 
 def test_display_text_collapse_keeps_ugly_but_real_metadata():
-    assert notes.display_text("S12–S14") == "S12–S14"
+    assert literature_notes.display_text("S12–S14") == "S12–S14"
 
 
 # --- Identifier class: reject, never alter -------------------------------
@@ -37,8 +37,8 @@ def test_display_text_collapse_keeps_ugly_but_real_metadata():
     ["smith\n2020", "smith\r2020", "smith 2020", "smith\t2020", "smith\x0b2020"],
 )
 def test_citation_key_carrying_whitespace_is_rejected_not_repaired(tmp_path, hostile):
-    with pytest.raises(notes.InvalidCitationKeyError):
-        notes.note_path(tmp_path, hostile)
+    with pytest.raises(literature_notes.InvalidCitationKeyError):
+        literature_notes.note_path(tmp_path, hostile)
 
 
 # --- Serializer boundary: fail loudly ------------------------------------

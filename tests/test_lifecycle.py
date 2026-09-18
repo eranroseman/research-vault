@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from research_vault import Result, fulltext, lifecycle, notes, zotero
+from research_vault import Result, fulltext, lifecycle, literature_notes, zotero
 from tests.fakes import FakeZotero
 
 FIXTURES = Path(__file__).parent / "fixtures" / "lifecycle"
@@ -21,7 +21,7 @@ def _map(name):
 def _prov(
     item_key="ALKT2NF7", version=0, citation_key="alkt2026", attachments=(), fulltext=()
 ):
-    return notes.Provenance(
+    return literature_notes.Provenance(
         "Tdoqsn2J4q4h",
         item_key,
         version,
@@ -610,7 +610,7 @@ def test_lint_lifecycle_rows_every_note_after_a_foreign_one_and_a_current_one(
             {"key": "MOVED001", "data": {"citationKey": "moved2026"}},
         ],
     )
-    foreign = notes.Provenance(
+    foreign = literature_notes.Provenance(
         "Zzzzzzzzzzzz", "FOREIGN1", 0, "a-foreign2026", (), (), None
     )
     _write_note(tmp_vault, foreign)

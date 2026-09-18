@@ -55,9 +55,9 @@ def package_ast(path: Path) -> ast.Module:
 
 
 def _with_body_witness(text):
-    from research_vault import notes
+    from research_vault import literature_notes
 
-    digest = notes.body_sha256(text)
+    digest = literature_notes.body_sha256(text)
     return must_replace(
         text,
         'type: "literature"\n',

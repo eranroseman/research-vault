@@ -388,7 +388,7 @@ are grouped by durable home below; every one carries provenance.
     of the mutation blanket died at 35m08s; the hypothesis — a duration-triggered
     background-task cap firing on the process group, not per agent-turn — predicted a death
     time (~20:19) and the orphaned worker tree dated 20:21 matched it. Silent hazard: orphaned
-    workers' late restore-to-original corrupts derived state (notes.py reverted mid-session;
+    workers' late restore-to-original corrupts derived state (literature_notes.py reverted mid-session;
     lcov/.contexts rebuilt as untrustworthy). Workaround: `setsid` to detach from the group.
     Provenance: `b1fcd241` @ 2026-08-23T00:47:08Z, @ 03:25:36Z.
 

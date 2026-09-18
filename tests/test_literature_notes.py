@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from research_vault import AGENT_ACTOR, Result, frontmatter, notes
+from research_vault import AGENT_ACTOR, Result, frontmatter, literature_notes
 from tests.conftest import must_replace
 from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM
 
@@ -22,7 +22,7 @@ def _note(body: str = BODY, **frontmatter_lines: str) -> str:
 
 def test_note_path(tmp_vault):
     assert (
-        notes.note_path(tmp_vault, "smith2020")
+        literature_notes.note_path(tmp_vault, "smith2020")
         .as_posix()
         .endswith("literature/smith2020.md")
     )
@@ -35,43 +35,49 @@ def test_note_path(tmp_vault):
     ["", "../escape", "/tmp/escape", "..\\escape", "nested/escape"],  # noqa: S108
 )
 def test_note_path_rejects_unsafe_citation_keys(tmp_vault, citation_key):
-    with pytest.raises(notes.InvalidCitationKeyError):
-        notes.note_path(tmp_vault, citation_key)
+    with pytest.raises(literature_notes.InvalidCitationKeyError):
+        literature_notes.note_path(tmp_vault, citation_key)
 
 
 def test_sha256_file(tmp_path):
     f = tmp_path / "x.pdf"
     f.write_bytes(b"pdfbytes")
-    assert len(notes.sha256_file(f)) == 64
+    assert len(literature_notes.sha256_file(f)) == 64
 
 
 def test_body_sha256_hashes_everything_below_the_frontmatter():
     text = '---\ntype: "literature"\n---\n# Title\n\nbody\n'
-    assert notes.note_body(text) == "# Title\n\nbody\n"
-    assert notes.body_sha256(text) == hashlib.sha256(b"# Title\n\nbody\n").hexdigest()
+    assert literature_notes.note_body(text) == "# Title\n\nbody\n"
+    assert (
+        literature_notes.body_sha256(text)
+        == hashlib.sha256(b"# Title\n\nbody\n").hexdigest()
+    )
 
 
 def test_body_witness_validation_is_four_state():
     body = "# Title\n"
     digest = hashlib.sha256(body.encode()).hexdigest()
     good = f'---\ntype: "literature"\nmanaged-sha256: "{digest}"\n---\n{body}'.encode()
-    assert notes.validate_managed_witness(good) == (Result.MATCHED, "matched")
+    assert literature_notes.validate_managed_witness(good) == (
+        Result.MATCHED,
+        "matched",
+    )
 
     stale = must_replace(good, body.encode(), b"# Edited\n")
-    assert notes.validate_managed_witness(stale) == (
+    assert literature_notes.validate_managed_witness(stale) == (
         Result.UNMATCHED,
         "schema-violation — stale managed-sha256",
     )
     missing = f'---\ntype: "literature"\n---\n{body}'.encode()
-    assert notes.validate_managed_witness(missing) == (
+    assert literature_notes.validate_managed_witness(missing) == (
         Result.UNMATCHED,
         "schema-violation — missing managed-sha256",
     )
-    assert notes.validate_managed_witness(b"\xff\xfe") == (
+    assert literature_notes.validate_managed_witness(b"\xff\xfe") == (
         Result.UNREACHABLE,
         "outage — literature note is not UTF-8",
     )
-    assert notes.validate_managed_witness(b"---\nunterminated\n") == (
+    assert literature_notes.validate_managed_witness(b"---\nunterminated\n") == (
         Result.UNMATCHED,
         "schema-violation — malformed frontmatter",
     )
@@ -79,7 +85,7 @@ def test_body_witness_validation_is_four_state():
 
 def test_managed_region_surface_is_gone():
     for name in ("MANAGED_OPEN", "managed_slice_bytes", "render_claim"):
-        assert not hasattr(notes, name)
+        assert not hasattr(literature_notes, name)
 
 
 @pytest.mark.parametrize(
@@ -95,7 +101,7 @@ def test_managed_witness_validation_rejects_missing_malformed_or_stale(witness):
         data["managed-sha256"] = witness
     invalid = (frontmatter.serialize(data) + body).encode()
 
-    result, reason = notes.validate_managed_witness(invalid)
+    result, reason = literature_notes.validate_managed_witness(invalid)
 
     assert result is Result.UNMATCHED
     assert reason.startswith("schema-violation")
@@ -110,7 +116,7 @@ def test_managed_witness_rejects_duplicate_top_level_keys_in_either_order(valid_
     original_line = f'managed-sha256: "{valid}"\n'
     note = must_replace(text, original_line, duplicate).encode()
 
-    result, reason = notes.validate_managed_witness(note)
+    result, reason = literature_notes.validate_managed_witness(note)
 
     assert result is Result.UNMATCHED
     assert reason.startswith("schema-violation")
@@ -125,10 +131,10 @@ def test_generated_metadata_is_substantive_canonical_content():
         f'generated: {{by: "{AGENT_ACTOR}", at: "2026-08-20T12:34:56Z"}}\n'
         "---\n# Mortality decline\n",
     )
-    assert notes._valid_generated(frontmatter.parse(first)[0]["generated"])
+    assert literature_notes._valid_generated(frontmatter.parse(first)[0]["generated"])
     changed = must_replace(first, "2026-08-20T12:34:56Z", "2026-08-21T01:02:03Z")
 
-    assert notes.content_changed(first, changed)
+    assert literature_notes.content_changed(first, changed)
 
 
 def test_content_changed_compares_only_the_verifier_owned_surface():
@@ -141,9 +147,9 @@ def test_content_changed_compares_only_the_verifier_owned_surface():
     )
     changed = _note(body="# Updated title\n")
 
-    assert notes.content_changed(base, verified) is False
-    assert notes.content_changed(base, changed) is True
-    assert notes.content_changed(None, base) is True
+    assert literature_notes.content_changed(base, verified) is False
+    assert literature_notes.content_changed(base, changed) is True
+    assert literature_notes.content_changed(None, base) is True
 
 
 def test_canonical_content_excludes_only_valid_verifier_owned_surfaces():
@@ -160,12 +166,16 @@ plain [failed-verification:: quote/2026-08-16]
     changed_marker = must_replace(base, "quote/2026-08-16", "quote/2026-08-17")
     deprecated = must_replace(base, 'status: "included"', 'status: "deprecated"')
 
-    assert notes.canonical_content(base) == notes.canonical_content(changed_events)
-    assert notes.canonical_content(base) != notes.canonical_content(changed_marker)
-    assert notes.content_changed(base, changed_events) is False
-    assert notes.content_changed(base, changed_marker) is True
-    assert notes.content_changed(base, deprecated) is True
-    assert "plain [failed-verification" in notes.canonical_content(base)
+    assert literature_notes.canonical_content(
+        base
+    ) == literature_notes.canonical_content(changed_events)
+    assert literature_notes.canonical_content(
+        base
+    ) != literature_notes.canonical_content(changed_marker)
+    assert literature_notes.content_changed(base, changed_events) is False
+    assert literature_notes.content_changed(base, changed_marker) is True
+    assert literature_notes.content_changed(base, deprecated) is True
+    assert "plain [failed-verification" in literature_notes.canonical_content(base)
 
 
 def test_canonical_content_keeps_malformed_verified_scalar_and_marker_lookalike():
@@ -174,7 +184,7 @@ verified: "not-a-list"
 ---
 - (quote) text [failed-verification:: bad date] ^c-1
 """
-    assert notes.canonical_content(text) == text
+    assert literature_notes.canonical_content(text) == text
 
 
 def test_canonical_content_keeps_mixed_verified_list_byte_for_byte():
@@ -186,7 +196,7 @@ verified:
 - (quote) live [failed-verification:: quote/2026-08-16] ^c-1
 """
 
-    canonical = notes.canonical_content(text)
+    canonical = literature_notes.canonical_content(text)
 
     assert '  - "not-an-event"\n' in canonical
     assert "live [failed-verification" in canonical
@@ -209,7 +219,9 @@ body
         must_replace(base, 'reason: ""', 'reason: "superseded source"'),
     ]
 
-    assert all(notes.content_changed(base, changed) for changed in transitions)
+    assert all(
+        literature_notes.content_changed(base, changed) for changed in transitions
+    )
 
 
 def test_canonical_content_preserves_markers_in_frontmatter_prose_fences_and_continuations():
@@ -224,7 +236,7 @@ prose [failed-verification:: quote/2026-08-16]
 - (quote) live [failed-verification:: quote/2026-08-16] ^c-2
   > continuation [failed-verification:: quote/2026-08-16]
 """
-    canonical = notes.canonical_content(text)
+    canonical = literature_notes.canonical_content(text)
     assert 'marker: "[failed-verification:: quote/2026-08-16]"' in canonical
     assert "prose [failed-verification" in canonical
     assert "code [failed-verification" in canonical
@@ -234,12 +246,12 @@ prose [failed-verification:: quote/2026-08-16]
 
 def test_canonical_content_preserves_crlf_and_unterminated_frontmatter():
     text = '---\r\nverified:\r\n  - {by: "bot"}\r\n---\r\n- (quote) x [failed-verification:: quote/2026-08-16] ^c-1\r\n'
-    assert "\r\n" in notes.canonical_content(text)
+    assert "\r\n" in literature_notes.canonical_content(text)
     malformed = (
         '---\nverified:\n  - {by: "bot"}\n'
         "- (quote) unterminated [failed-verification:: quote/2026-08-16] ^c-1\n"
     )
-    assert notes.canonical_content(malformed) == malformed
+    assert literature_notes.canonical_content(malformed) == malformed
 
 
 def test_canonical_content_keeps_fenced_marker_rows_until_matching_closure():
@@ -253,7 +265,7 @@ def test_canonical_content_keeps_fenced_marker_rows_until_matching_closure():
 - (quote) live [failed-verification:: quote/2026-08-16] ^c-4
 """
 
-    canonical = notes.canonical_content(text)
+    canonical = literature_notes.canonical_content(text)
 
     assert canonical == text
 
@@ -261,7 +273,7 @@ def test_canonical_content_keeps_fenced_marker_rows_until_matching_closure():
 def test_canonical_content_preserves_short_fence_lookalike_outside_a_fence():
     text = "~~\nprose [failed-verification:: quote/2026-08-16]\n"
 
-    assert notes.canonical_content(text) == text
+    assert literature_notes.canonical_content(text) == text
 
 
 def test_canonical_content_keeps_multiple_terminal_markers_substantive():
@@ -272,7 +284,7 @@ def test_canonical_content_keeps_multiple_terminal_markers_substantive():
         "[failed-verification:: citation-key/2026-08-17]\n"
     )
 
-    assert notes.canonical_content(text) == text
+    assert literature_notes.canonical_content(text) == text
 
 
 # A parsed frontmatter dict from a source line with a duplicate `by`: the
@@ -325,12 +337,12 @@ _DUPLICATE_BY_LAST_WINS = frontmatter.parse(
     ],
 )
 def test_valid_generated_rejects_every_malformed_shape(value):
-    assert notes._valid_generated(value) is False
+    assert literature_notes._valid_generated(value) is False
 
 
 def test_valid_generated_accepts_the_one_true_shape():
     assert (
-        notes._valid_generated(
+        literature_notes._valid_generated(
             {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z"}
         )
         is True
@@ -341,16 +353,16 @@ def test_valid_generated_accepts_the_one_true_shape():
 
 
 def test_generated_at_now_output_satisfies_valid_generated():
-    stamp = notes.generated_at_now()
+    stamp = literature_notes.generated_at_now()
     assert stamp.endswith("Z")
     assert "." not in stamp
-    assert notes._valid_generated({"by": AGENT_ACTOR, "at": stamp}) is True
+    assert literature_notes._valid_generated({"by": AGENT_ACTOR, "at": stamp}) is True
 
 
 def test_generated_at_now_truncates_microseconds_and_formats_utc_offset_as_z():
     moment = datetime.datetime(2026, 8, 24, 15, 4, 5, 123456, tzinfo=datetime.UTC)
 
-    assert notes.generated_at_now(moment) == "2026-08-24T15:04:05Z"
+    assert literature_notes.generated_at_now(moment) == "2026-08-24T15:04:05Z"
 
 
 # --- the citekey -> citationKey migration (ingest spec §1.1) ----------------
@@ -358,30 +370,35 @@ def test_generated_at_now_truncates_microseconds_and_formats_utc_offset_as_z():
 
 def test_rename_frontmatter_key_is_byte_surgical():
     text = '---\ncitekey: "smith2020"\ntype: "literature"\n---\n# T\ncitekey: in body\n'
-    renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
+    renamed = literature_notes.rename_frontmatter_key(text, "citekey", "citationKey")
     assert (
         renamed
         == '---\ncitationKey: "smith2020"\ntype: "literature"\n---\n# T\ncitekey: in body\n'
     )
-    assert notes.rename_frontmatter_key(renamed, "citekey", "citationKey") == renamed
     assert (
-        notes.rename_frontmatter_key("no frontmatter\n", "citekey", "citationKey")
+        literature_notes.rename_frontmatter_key(renamed, "citekey", "citationKey")
+        == renamed
+    )
+    assert (
+        literature_notes.rename_frontmatter_key(
+            "no frontmatter\n", "citekey", "citationKey"
+        )
         == "no frontmatter\n"
     )
     # `new` is inserted literally, never read as a replacement template (row 14).
-    assert notes.rename_frontmatter_key(text, "citekey", "a\\g<0>b").startswith(
-        '---\na\\g<0>b: "smith2020"\n'
-    )
+    assert literature_notes.rename_frontmatter_key(
+        text, "citekey", "a\\g<0>b"
+    ).startswith('---\na\\g<0>b: "smith2020"\n')
 
 
 def test_invalid_citation_key_error_is_the_spelling():
-    with pytest.raises(notes.InvalidCitationKeyError):
-        notes.note_path("/tmp", "a/b")  # noqa: S108
+    with pytest.raises(literature_notes.InvalidCitationKeyError):
+        literature_notes.note_path("/tmp", "a/b")  # noqa: S108
 
 
 # --- the literature note record: snapshot, provenance tuple, body (ingest spec §3.2) ---
 
-PROVENANCE = notes.Provenance(
+PROVENANCE = literature_notes.Provenance(
     server_id="6LpvURP2E933",
     item_key="E352DFS8",
     item_version=544,
@@ -401,7 +418,7 @@ PROVENANCE = notes.Provenance(
 
 
 def _render(existing=None, generated_at="2026-09-07T10:00:00Z", pages=()):
-    return notes.render_note(
+    return literature_notes.render_note(
         ITEM["data"],
         PROVENANCE,
         [ATTACHMENT],
@@ -439,7 +456,7 @@ def test_render_note_carries_snapshot_tuple_and_witness_in_order():
     assert data["fulltext"] == [{"attachment-key": "D7EJ9FTG", "sha256": "f" * 64}]
     assert data["compile-input-sha256"] == "f" * 64
     assert data["accessed"] == "2026-09-07"
-    assert data["managed-sha256"] == notes.body_sha256(text)
+    assert data["managed-sha256"] == literature_notes.body_sha256(text)
     assert data["generated"] == {"by": AGENT_ACTOR, "at": "2026-09-07T10:00:00Z"}
     assert keys.index("generated") == len(keys) - 1
 
@@ -469,7 +486,7 @@ def test_body_embeds_the_compiled_page_by_ledger_path_when_one_exists():
 
 
 def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
-    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+    assert literature_notes.compiled_pages(tmp_path, PROVENANCE) == []
     ledger = tmp_path / "wiki" / "meta" / "ledgers" / "source-ledger.json"
     ledger.parent.mkdir(parents=True)
     ledger.write_text(
@@ -489,15 +506,15 @@ def test_compiled_pages_reads_the_ledger_by_locator(tmp_path):
             }
         )
     )
-    assert notes.compiled_pages(tmp_path, PROVENANCE) == [
+    assert literature_notes.compiled_pages(tmp_path, PROVENANCE) == [
         "wiki/sources/A.md",
         "wiki/sources/B.md",
     ]
 
 
 def test_compiled_pages_missing_ledger_is_a_true_empty(tmp_path):
-    assert not (tmp_path / notes.LEDGER_PATH).exists()
-    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+    assert not (tmp_path / literature_notes.LEDGER_PATH).exists()
+    assert literature_notes.compiled_pages(tmp_path, PROVENANCE) == []
 
 
 @pytest.mark.parametrize(
@@ -530,21 +547,21 @@ def test_compiled_pages_unreadable_ledger_raises_rather_than_reading_as_empty(
     document the tool's schema would never write (no `sources` object) is
     malformed, not "no compile yet", and lands here too.
     """
-    ledger = tmp_path / notes.LEDGER_PATH
+    ledger = tmp_path / literature_notes.LEDGER_PATH
     ledger.parent.mkdir(parents=True)
     ledger.write_bytes(payload)
-    with pytest.raises(notes.LedgerUnreadableError) as caught:
-        notes.compiled_pages(tmp_path, PROVENANCE)
+    with pytest.raises(literature_notes.LedgerUnreadableError) as caught:
+        literature_notes.compiled_pages(tmp_path, PROVENANCE)
     # Subject first: capture's hold reason and this error both start with
     # "<ledger path> unreadable".
-    assert str(caught.value).startswith(f"{notes.LEDGER_PATH} unreadable: ")
+    assert str(caught.value).startswith(f"{literature_notes.LEDGER_PATH} unreadable: ")
     assert "source-ledger.json unreadable" in str(caught.value)
     # Only the decode branch has an underlying error to report; the schema
     # branch must not invent one.
     assert "None" not in str(caught.value)
     # Not a ValueError or OSError: a caller's broad `except` around the JSON
     # read cannot fold the outage back into the empty it is not.
-    assert not issubclass(notes.LedgerUnreadableError, (ValueError, OSError))
+    assert not issubclass(literature_notes.LedgerUnreadableError, (ValueError, OSError))
 
 
 def test_compiled_pages_schema_conformant_empty_ledger_is_the_one_true_empty(
@@ -552,12 +569,12 @@ def test_compiled_pages_schema_conformant_empty_ledger_is_the_one_true_empty(
 ):
     """`{"sources": {}}` is what the tool writes before any source is registered:
     the one present-and-empty shape that must still yield `[]`."""
-    ledger = tmp_path / notes.LEDGER_PATH
+    ledger = tmp_path / literature_notes.LEDGER_PATH
     ledger.parent.mkdir(parents=True)
     ledger.write_text(
         json.dumps({"schema": "claude-obsidian.source-ledger.v1", "sources": {}})
     )
-    assert notes.compiled_pages(tmp_path, PROVENANCE) == []
+    assert literature_notes.compiled_pages(tmp_path, PROVENANCE) == []
 
 
 def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
@@ -567,7 +584,7 @@ def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
         "---\n## Item",
         'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-07", check: "update-notice"}\n---\n## Item',
     )
-    second = notes.render_note(
+    second = literature_notes.render_note(
         ITEM["data"],
         PROVENANCE,
         [ATTACHMENT],
@@ -580,13 +597,13 @@ def test_rerender_keeps_accessed_generated_and_foreign_fields_when_unchanged():
     assert data["accessed"] == "2026-09-07"
     assert data["generated"]["at"] == "2026-09-07T10:00:00Z"
     assert data["verified"][0]["check"] == "update-notice"
-    assert not notes.content_changed(with_events, second)
+    assert not literature_notes.content_changed(with_events, second)
 
 
 def test_rerender_bumps_generated_when_the_projection_moved():
     first = _render()
     moved = dataclasses.replace(PROVENANCE, item_version=545)
-    second = notes.render_note(
+    second = literature_notes.render_note(
         ITEM["data"],
         moved,
         [ATTACHMENT],
@@ -603,12 +620,14 @@ def test_rerender_bumps_generated_when_the_projection_moved():
 
 def test_read_provenance_round_trips_and_rejects_partial_tuples():
     text = _render()
-    assert notes.read_provenance(text) == PROVENANCE
+    assert literature_notes.read_provenance(text) == PROVENANCE
     assert (
-        notes.read_provenance('---\ntype: "literature"\ncitationKey: "x"\n---\n')
+        literature_notes.read_provenance(
+            '---\ntype: "literature"\ncitationKey: "x"\n---\n'
+        )
         is None
     )
-    assert notes.read_provenance("no frontmatter") is None
+    assert literature_notes.read_provenance("no frontmatter") is None
 
 
 def test_linked_attachment_says_it_has_no_fixity():
@@ -623,7 +642,7 @@ def test_linked_attachment_says_it_has_no_fixity():
             "url": "https://x",
         },
     }
-    text = notes.render_note(
+    text = literature_notes.render_note(
         ITEM["data"],
         dataclasses.replace(
             PROVENANCE,
@@ -663,21 +682,25 @@ def test_canonical_content_excludes_the_verifier_owned_failure_rows():
     passed = events.record_pass(failed, "doi", Result.MATCHED, at="2026-08-16")
     assert failed != base
     assert passed != failed
-    assert notes.canonical_content(failed) == notes.canonical_content(base)
-    assert notes.canonical_content(passed) == notes.canonical_content(base)
-    assert notes.content_changed(base, failed) is False
+    assert literature_notes.canonical_content(
+        failed
+    ) == literature_notes.canonical_content(base)
+    assert literature_notes.canonical_content(
+        passed
+    ) == literature_notes.canonical_content(base)
+    assert literature_notes.content_changed(base, failed) is False
 
     hand_written = must_replace(
         failed,
         'failed-verification:\n  - {check: "doi", result: "UNMATCHED"}\n',
         'failed-verification:\n  - {check: "doi", result: "MATCHED"}\n',
     )
-    assert notes.canonical_content(hand_written) == hand_written
+    assert literature_notes.canonical_content(hand_written) == hand_written
 
     body = "- (quote) body ^c-1\n"
     enveloped = events.record_failure(body, "doi", Result.UNMATCHED)
     assert enveloped.startswith("---\nfailed-verification:\n")
-    assert notes.canonical_content(enveloped) == body
+    assert literature_notes.canonical_content(enveloped) == body
 
 
 # --- boundaries pinned against mutation survivors -----------------------------
@@ -687,17 +710,17 @@ def test_canonical_content_drops_an_empty_verified_list_that_closes_the_frontmat
     """The owned-list header is found anywhere before the closing delimiter,
     including on the line right above it."""
     text = '---\ntitle: "x"\nverified:\n---\nbody\n'
-    assert notes.canonical_content(text) == '---\ntitle: "x"\n---\nbody\n'
+    assert literature_notes.canonical_content(text) == '---\ntitle: "x"\n---\nbody\n'
 
 
 def test_rename_frontmatter_key_renames_the_first_of_a_duplicated_key_only():
-    assert notes.rename_frontmatter_key("---\na: 1\na: 2\n---\n", "a", "b") == (
-        "---\nb: 1\na: 2\n---\n"
-    )
+    assert literature_notes.rename_frontmatter_key(
+        "---\na: 1\na: 2\n---\n", "a", "b"
+    ) == ("---\nb: 1\na: 2\n---\n")
 
 
 def test_rename_frontmatter_key_reaches_a_key_below_the_first_line_of_the_block():
-    assert notes.rename_frontmatter_key(
+    assert literature_notes.rename_frontmatter_key(
         "---\nx: 0\na: 1\n---\na: body\n", "a", "b"
     ) == ("---\nx: 0\nb: 1\n---\na: body\n")
 
@@ -706,7 +729,7 @@ def test_canonical_content_owns_a_verified_header_with_trailing_blanks():
     text = (
         '---\ntitle: "x"\nverified:  \t\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n'
     )
-    assert notes.canonical_content(text) == '---\ntitle: "x"\n---\nbody\n'
+    assert literature_notes.canonical_content(text) == '---\ntitle: "x"\n---\nbody\n'
 
 
 def test_render_note_writes_the_title_once():
@@ -718,7 +741,7 @@ def test_attachment_line_names_an_imported_url_attachment_with_its_md5():
         "key": "URL00001",
         "data": {"linkMode": "imported_url", "md5": "abc", "filename": "page.html"},
     }
-    line = notes._attachment_line(child)
+    line = literature_notes._attachment_line(child)
     assert line.startswith("- [page.html](zotero://open-pdf/library/items/URL00001)")
     assert "no fixity" not in line
 
@@ -731,11 +754,11 @@ def test_read_provenance_reads_a_tuple_without_list_fields_and_refuses_a_bad_ite
         '---\nzotero-server-id: "S"\nzotero-item-key: "E352DFS8"\n'
         'zotero-item-version: 1\ncitationKey: "x"\n---\n'
     )
-    assert notes.read_provenance(bare) == notes.Provenance(
+    assert literature_notes.read_provenance(bare) == literature_notes.Provenance(
         "S", "E352DFS8", 1, "x", (), (), None
     )
     bad_key = bare.replace('"E352DFS8"', '"bad"')
-    assert notes.read_provenance(bad_key) is None
+    assert literature_notes.read_provenance(bad_key) is None
 
 
 def test_attachment_line_needs_both_an_imported_link_mode_and_an_md5():
@@ -747,15 +770,19 @@ def test_attachment_line_needs_both_an_imported_link_mode_and_an_md5():
         "key": "IMP00001",
         "data": {"linkMode": "imported_file", "filename": "f.pdf"},
     }
-    assert notes._attachment_line(linked_with_md5) == "- LINK0001 — linked, no fixity"
     assert (
-        notes._attachment_line(imported_without_md5) == "- IMP00001 — linked, no fixity"
+        literature_notes._attachment_line(linked_with_md5)
+        == "- LINK0001 — linked, no fixity"
+    )
+    assert (
+        literature_notes._attachment_line(imported_without_md5)
+        == "- IMP00001 — linked, no fixity"
     )
 
 
 def test_render_body_ends_with_one_newline_and_joins_the_child_notes_it_can_read():
-    prov = notes.Provenance("S", "E352DFS8", 1, "x", (), (), None)
-    assert notes.render_body(prov, [], []) == (
+    prov = literature_notes.Provenance("S", "E352DFS8", 1, "x", (), (), None)
+    assert literature_notes.render_body(prov, [], []) == (
         "## Item\n\n- [Open in Zotero](zotero://select/library/items/E352DFS8)\n"
     )
     child_notes = [
@@ -764,7 +791,7 @@ def test_render_body_ends_with_one_newline_and_joins_the_child_notes_it_can_read
         {"key": "N0DATA01"},
         {"data": {"note": "<p>b</p>"}},
     ]
-    assert notes.render_body(prov, [], child_notes) == (
+    assert literature_notes.render_body(prov, [], child_notes) == (
         "## Item\n\n- [Open in Zotero](zotero://select/library/items/E352DFS8)\n\n"
         "## Zotero notes\n\na\n\nb\n"
     )
@@ -780,7 +807,7 @@ def test_rerender_replaces_a_blank_or_non_string_prior_accessed_and_drops_a_stal
             first, 'accessed: "2026-09-07"', f"accessed: {prior_accessed}"
         )
         data, _ = frontmatter.parse(
-            notes.render_note(
+            literature_notes.render_note(
                 ITEM["data"],
                 PROVENANCE,
                 [ATTACHMENT],
@@ -793,7 +820,7 @@ def test_rerender_replaces_a_blank_or_non_string_prior_accessed_and_drops_a_stal
         assert data["accessed"] == "2026-09-08"
     without_digest = dataclasses.replace(PROVENANCE, compile_input_sha256=None)
     data, _ = frontmatter.parse(
-        notes.render_note(
+        literature_notes.render_note(
             ITEM["data"],
             without_digest,
             [ATTACHMENT],

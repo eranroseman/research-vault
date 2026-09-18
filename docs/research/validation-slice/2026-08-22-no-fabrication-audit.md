@@ -14,16 +14,16 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 2. **UNMATCHED rounded to MATCHED** — checks.py:1024 discards a genuine non-blocking version-mismatch UNMATCHED when the RW leg is MATCHED-with-warns; mints a verified update-notice event and unblocks publish.
 3. **Vacuous machine-confirmed tier** — events.py:255: no DOI + no PMID means empty applicable-check set, subset test passes vacuously, top machine tier minted with zero MATCHED ever recorded. Spec §86 shares the gap (never states the zero-applicable-checks tier).
 4. **Tier-2 citability unenforced** — checks.py:151 validates whole-library bibliography membership only; a never-imported citation reports MATCHED and publishes where spec L45 requires the literature note to exist.
-5. **Free-region destruction** — notes.py:151: an existing note without the exact %%/rv-managed%% marker line loses its whole body to the pristine seed on import/backfill, silently, printed as success. Violates §5 never-delete.
+5. **Free-region destruction** — literature_notes.py:151: an existing note without the exact %%/rv-managed%% marker line loses its whole body to the pristine seed on import/backfill, silently, printed as success. Violates §5 never-delete.
 
 **Fabricated values on durable surfaces:**
 
 06. **Date-precision fabrication** — checks.py:522 pads year-only/year-month Crossref notice dates to Jan 1; invented precision drives the reinstatement-clears-retraction ordering and persists in inbox notice-dates and ack fingerprints.
 07. **Placeholder as ack anchor** — __main__.py:234 writes literal "unresolved" into fixity-sha256; verify.py:209 adopts it as the acknowledgment target-hash — acks scope to a constant, not content.
 08. **Unverified snapshot recorded** — archive.py:191 supplied-snapshot branch records any live archive.org URL as archive-url MATCHED without confirming it is a Wayback snapshot of anything.
-09. **Citekey-as-title substitution unrecorded** — notes.py:133/229.
+09. **Citekey-as-title substitution unrecorded** — literature_notes.py:133/229.
 10. **Ambiguous citekey resolved arbitrarily** — __main__.py:207 takes matches[0] across libraries; item["id"] overwrite erases which record was chosen.
-11. **Midnight-UTC generated.at default** — notes.py:215 (latent; CLI passes real time).
+11. **Midnight-UTC generated.at default** — literature_notes.py:215 (latent; CLI passes real time).
 12. **Backdated log line wears today's HH:MM** — publish.py:357.
 
 **Prose/template/config surfaces:**
@@ -105,11 +105,11 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 
 **Verifier:** CONFIRMED, empirically reproduced: a literature note with neither doi nor pmid, no managed quote claims, and no verified events returns "machine-confirmed" from events.trust_tier. Decisive lines: research_vault/events.py:239 (`_applicable_note_checks` falls through to `return set()`) and :255 (`machine_confirmed = _applicable_note_checks(data) <= checks` — `set() <= set()` is vacuously True, and no floor requires even one event). Ran it: a url-only note with empty `verified` prints "machine-confirmed". The class is real and first-class — lints.py:573 and skills/import-source/SKILL.md §9 def …[trimmed; full verdict in the workflow journal]
 
-### research_vault/notes.py:151 — HIGH, class F (render lane)
+### research_vault/literature_notes.py:151 — HIGH, class F (render lane)
 
 **Claim:** If an existing note at literature/<citekey>.md lacks the exact %%/rv-managed%% marker line (hand-written note, or a note whose marker was edited), \_split_free discards its entire body and render_note replaces it with the pristine SEED_FREE scaffold, so import-note silently destroys the free region and the resulting empty '## Notes' section reads as if no notes were ever taken while the CLI prints the path as success.
 
-**Verifier:** CONFIRMED. notes.py:145-151 matches only the three exact standalone spellings of %%/rv-managed%%; any existing note without that exact line hits `return SEED_FREE` (line 151), and render_note:257 emits frontmatter + fresh managed body + SEED_FREE, dropping the whole prior body. Reachable in production: __main__.py cmd_import_note (lines 223, 271, 301-303) overwrites via \_write_note_text and prints the path with exit 0; the guarded FrontmatterError never fires because frontmatter.parse returns ({}, text) for a no-frontmatter body (frontmatter.py:134-137), so hand-written notes and notes with a …[trimmed; full verdict in the workflow journal]
+**Verifier:** CONFIRMED. literature_notes.py:145-151 matches only the three exact standalone spellings of %%/rv-managed%%; any existing note without that exact line hits `return SEED_FREE` (line 151), and render_note:257 emits frontmatter + fresh managed body + SEED_FREE, dropping the whole prior body. Reachable in production: __main__.py cmd_import_note (lines 223, 271, 301-303) overwrites via \_write_note_text and prints the path with exit 0; the guarded FrontmatterError never fires because frontmatter.parse returns ({}, text) for a no-frontmatter body (frontmatter.py:134-137), so hand-written notes and notes with a …[trimmed; full verdict in the workflow journal]
 
 ### research_vault/verify.py:209 — HIGH, class A (verification lane)
 
@@ -123,11 +123,11 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 
 **Verifier:** CONFIRMED. The search is library-unscoped while the integrity gate is library-scoped, so an ambiguous citekey resolves silently to an arbitrary record. Decisive lines: zotero.py:111 sends item.search with no library scope (repo's own docs/research/raw/zotero-integration.json:29 records that results carry "citekey and library fields", i.e. span libraries), while zotero.py:147 export_csl(None) reads /api/users/0/ — My Library only — so the autoexport gate at __main__.py:210 cannot see a group-library item sharing the citekey. __main__.py:192-207 keeps every same-citekey match and takes matches[0]; li …[trimmed; full verdict in the workflow journal]
 
-### research_vault/notes.py:133 — MEDIUM, class C (render lane)
+### research_vault/literature_notes.py:133 — MEDIUM, class C (render lane)
 
 **Claim:** When the Zotero item has no title, the citekey is silently substituted into the title's slots — the managed H1 heading and the aliases frontmatter entry — with no record of the substitution; a present-but-empty title instead renders a bare '# ' heading and aliases: [""] (empty string as a value).
 
-**Verifier:** CONFIRMED, reproduced end to end. Missing-key half: notes.py:133 (`heading = display_text(item.get("title", item["id"]))`) and notes.py:229 (`fm["aliases"] = [display_text(item.get("title", item["id"]))]`) write the citekey into the title's two slots of the durable note `literature/<citekey>.md`; a live run of render_note with a title-less item emits `# smith2020` and `aliases: - "smith2020"` with no record of the substitution — classic class C. Reachable: zotero.py `_validate_object_list` imposes no title requirement on `item.search` results, and `__main__.py:207-208,271` passes the match st …[trimmed; full verdict in the workflow journal]
+**Verifier:** CONFIRMED, reproduced end to end. Missing-key half: literature_notes.py:133 (`heading = display_text(item.get("title", item["id"]))`) and literature_notes.py:229 (`fm["aliases"] = [display_text(item.get("title", item["id"]))]`) write the citekey into the title's two slots of the durable note `literature/<citekey>.md`; a live run of render_note with a title-less item emits `# smith2020` and `aliases: - "smith2020"` with no record of the substitution — classic class C. Reachable: zotero.py `_validate_object_list` imposes no title requirement on `item.search` results, and `__main__.py:207-208,271` passes the match st …[trimmed; full verdict in the workflow journal]
 
 ### research_vault/templates/git/pre-commit:12 — MEDIUM, class E (spec lane)
 
@@ -153,11 +153,11 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 
 **Verifier:** CONFIRMED. skills/evidence-conventions/SKILL.md:94's own first sentence names the scenario "a memory of the abstract", then the second branch — "or mark `(inference)` and accept the lower confidence" — permits keeping that memory-derived content as a durable tagged claim: summarizing from memory, class D by definition, no ruling extension needed. The tag-is-the-disclosure defense is foreclosed by the author ruling in docs/superpowers/specs/2026-08-16-foundation-spec-validation-slice-results.md finding 16 ("a tag does not launder it"), which governs the same claim grammar — the ruled digest form is itself evidence-conventions tagged clai …[trimmed; full verdict in the workflow journal]
 
-### research_vault/notes.py:215 — LOW, class A (render lane)
+### research_vault/literature_notes.py:215 — LOW, class A (render lane)
 
 **Claim:** When a caller omits generated_at, render_note fabricates a midnight-UTC generation timestamp from the accessed date and writes it into the durable generated.at frontmatter field, indistinguishable from a real timestamp; the production CLI passes the real time, so this is a latent library-API path (exercised throughout the tests).
 
-**Verifier:** Confirmed but latent. research_vault/notes.py:214-215 (`if generated_at is None: generated_at = f"{accessed}T00:00:00Z"`) synthesizes a midnight-UTC timestamp that lines 246-248 write into the durable `generated.at` frontmatter field, byte-indistinguishable from a clock reading; foundation-spec §5 defines `generated.at` as "the last meaningful content change" and Plan Q's author ruling requires machine timestamps to derive from an explicit timezone-aware UTC clock, so the default asserts a change time nobody measured. Nothing in the rendered note records that the value was defaulted. Howeve …[trimmed; full verdict in the workflow journal]
+**Verifier:** Confirmed but latent. research_vault/literature_notes.py:214-215 (`if generated_at is None: generated_at = f"{accessed}T00:00:00Z"`) synthesizes a midnight-UTC timestamp that lines 246-248 write into the durable `generated.at` frontmatter field, byte-indistinguishable from a clock reading; foundation-spec §5 defines `generated.at` as "the last meaningful content change" and Plan Q's author ruling requires machine timestamps to derive from an explicit timezone-aware UTC clock, so the default asserts a change time nobody measured. Nothing in the rendered note records that the value was defaulted. Howeve …[trimmed; full verdict in the workflow journal]
 
 ### research_vault/publish.py:357 — LOW, class A (writers lane)
 

@@ -27,7 +27,7 @@ from . import (
     inbox,
     lifecycle,
     lints,
-    notes,
+    literature_notes,
     propagate,
     quotes,
     structure,
@@ -122,13 +122,13 @@ def _extra_path(vault_root, outcome, key):
 
 def _note_bytes(data: bytes) -> bytes:
     """A note's scope bytes: verifier events and verify's own marks excluded."""
-    text = notes.canonical_content(data.decode(errors="surrogateescape"))
+    text = literature_notes.canonical_content(data.decode(errors="surrogateescape"))
     return _without_own_marks(text).encode(errors="surrogateescape")
 
 
 def _claim_bytes_from_text(text, claim_id):
     """Hash one anchored claim and its continuations, ignoring our marker."""
-    lines = notes.canonical_content(text).splitlines(keepends=True)
+    lines = literature_notes.canonical_content(text).splitlines(keepends=True)
     for index, line in enumerate(lines):
         content, _ = _split_line_ending(line)
         if _terminal_anchor_match(content, claim_id):
@@ -222,9 +222,9 @@ def _snapshot_directory_bytes(snapshot, raw_path):
 def _note_for_citation_key(vault_root, citation_key):
     try:
         vault = Path(vault_root)
-        candidate = notes.note_path(vault, citation_key)
+        candidate = literature_notes.note_path(vault, citation_key)
         raw_path = os.fsencode(candidate.relative_to(vault))
-    except notes.InvalidCitationKeyError:
+    except literature_notes.InvalidCitationKeyError:
         return None
     except ValueError:
         return None
@@ -249,9 +249,9 @@ def _citation_key_hash(vault_root, citation_key, candidate_snapshot=None):
     """
     if candidate_snapshot is not None:
         try:
-            candidate = notes.note_path(Path(vault_root), citation_key)
+            candidate = literature_notes.note_path(Path(vault_root), citation_key)
             raw_path = os.fsencode(candidate.relative_to(vault_root))
-        except (notes.InvalidCitationKeyError, ValueError):
+        except (literature_notes.InvalidCitationKeyError, ValueError):
             return None
         image = candidate_snapshot.image(raw_path)
         if image is None or image.kind != "file":

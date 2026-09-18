@@ -87,9 +87,9 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Claim:** The import-source description asserts free prose survives every render, but the audit confirmed import-note silently destroys the entire free region of any existing note lacking the exact managed-region marker line.
 
-**Evidence:** "renders `literature/CITEKEY.md` from Zotero into a managed region, leaving free prose below untouched" — audit defect 5 (notes.py:151): a note without the exact %%/rv-managed%% marker "loses its whole body to the pristine seed on import/backfill, silently, printed as success"; the same defect undercuts line 1271's "the note is a render, not an LL
+**Evidence:** "renders `literature/CITEKEY.md` from Zotero into a managed region, leaving free prose below untouched" — audit defect 5 (literature_notes.py:151): a note without the exact %%/rv-managed%% marker "loses its whole body to the pristine seed on import/backfill, silently, printed as success"; the same defect undercuts line 1271's "the note is a render, not an LL
 
-**Verifier:** CONFIRMED against the tree. Doc line 1238 states unqualified: import-note renders "into a managed region, leaving free prose below untouched"; line 1271 builds on it ("the note is a render, not an LLM write, so re-import is a mechanical no-op and drift is lintable"). Ground truth contradicts both: research_vault/notes.py:141-151 (\_split_free) matches only the three exact standalone spellings of the %%/rv-managed%% close marker (line 146) and o …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED against the tree. Doc line 1238 states unqualified: import-note renders "into a managed region, leaving free prose below untouched"; line 1271 builds on it ("the note is a render, not an LLM write, so re-import is a mechanical no-op and drift is lintable"). Ground truth contradicts both: research_vault/literature_notes.py:141-151 (\_split_free) matches only the three exact standalone spellings of the %%/rv-managed%% close marker (line 146) and o …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:1866 — HIGH (self-claims)
 

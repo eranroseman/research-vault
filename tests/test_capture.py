@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from research_vault import Result, capture, frontmatter, notes, zotero
+from research_vault import Result, capture, frontmatter, literature_notes, zotero
 from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM, FakeZotero, canned_item
 
 LIBRARY = [
@@ -651,7 +651,7 @@ def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch
         (Result.UNMATCHED, "schema-violation")
     ]
     assert (
-        notes.read_provenance(legacy.read_text()) is not None
+        literature_notes.read_provenance(legacy.read_text()) is not None
     )  # the capture gave it its tuple
     assert (
         "old prose" not in legacy.read_text()

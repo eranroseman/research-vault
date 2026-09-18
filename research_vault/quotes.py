@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from . import claims as claims_mod
-from .notes import note_path
+from .literature_notes import note_path
 from .outcome import Outcome, Result, normalize_text
 from .pathcodec import RepoPath
 

@@ -674,7 +674,7 @@ def test_fixture_substitutions_cannot_become_no_ops():
             "test_verify_cli.py",
             "test_lints.py",
             "test_events.py",
-            "test_notes.py",
+            "test_literature_notes.py",
         )
         for node in ast.walk(
             ast.parse((ROOT / "tests" / name).read_text(encoding="utf-8"))

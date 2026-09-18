@@ -65,7 +65,7 @@ def test_record_pass_preserves_crlf_body_without_double_carriage_returns():
 
 
 def test_record_pass_lexically_changes_only_verified_events_with_crlf():
-    from research_vault import notes
+    from research_vault import literature_notes
 
     text = (
         "---\r\n"
@@ -81,7 +81,9 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     assert "\r\r\n" not in out
     assert "citationKey: smith2020\r\nstatus: included\r\n" in out
     assert out.endswith("- (quote) body ^c-11111111\r\n")
-    assert notes.canonical_content(out) == notes.canonical_content(text)
+    assert literature_notes.canonical_content(
+        out
+    ) == literature_notes.canonical_content(text)
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
@@ -89,7 +91,7 @@ def test_record_pass_lexically_changes_only_verified_events_with_crlf():
     "frontmatter_line", ["", 'status: "included"'], ids=["empty", "nonempty"]
 )
 def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_line):
-    from research_vault import notes
+    from research_vault import literature_notes
 
     existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
     body = f"- (quote) body ^c-11111111{newline}"
@@ -108,7 +110,9 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
     assert events.verified_checks(out) == [
         {"by": "research_vault/0.1.0", "at": "2026-08-17", "check": "doi"}
     ]
-    assert notes.canonical_content(out) == notes.canonical_content(text)
+    assert literature_notes.canonical_content(
+        out
+    ) == literature_notes.canonical_content(text)
     if newline == "\r\n":
         assert "\r\r\n" not in out
         assert "\n" not in must_replace(out, "\r\n", "", -1)
@@ -116,7 +120,7 @@ def test_record_pass_inserts_events_before_preclose_blank(newline, frontmatter_l
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
-    from research_vault import notes
+    from research_vault import literature_notes
 
     body = f"- (quote) body-only ^c-11111111{newline}"
     first = events.record_pass(body, "doi", Result.MATCHED, at="2026-08-16")
@@ -129,8 +133,12 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
     if newline == "\r\n":
         assert "\r\r\n" not in first
         assert "\n" not in must_replace(first, "\r\n", "", -1)
-    assert notes.canonical_content(first) == notes.canonical_content(body)
-    assert notes.canonical_content(second) == notes.canonical_content(body)
+    assert literature_notes.canonical_content(
+        first
+    ) == literature_notes.canonical_content(body)
+    assert literature_notes.canonical_content(
+        second
+    ) == literature_notes.canonical_content(body)
     assert events.verified_checks(second) == [
         {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"},
         {
@@ -139,7 +147,7 @@ def test_record_pass_owned_only_envelope_canonicalizes_to_body(newline):
             "check": "metadata",
         },
     ]
-    assert notes.content_changed(body, with_status)
+    assert literature_notes.content_changed(body, with_status)
 
 
 def test_record_pass_rejects_non_matched():

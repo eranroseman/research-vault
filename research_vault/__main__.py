@@ -17,7 +17,7 @@ from . import (
     frontmatter,
     gitstate,
     inbox,
-    notes,
+    literature_notes,
     propagate,
     publish,
     scaffold,
@@ -71,8 +71,8 @@ _NAMED_FAILURES = (
     bibliography.BibliographyError,
     inbox.InboxError,
     frontmatter.FrontmatterError,
-    notes.InvalidCitationKeyError,
-    notes.LedgerUnreadableError,
+    literature_notes.InvalidCitationKeyError,
+    literature_notes.LedgerUnreadableError,
     OSError,
     UnicodeDecodeError,
 )
@@ -187,7 +187,7 @@ def _hold(
 
 def _hold_reason(code: str, detail: str) -> str:
     """Compose a reason-coded line from a code and free-text detail."""
-    detail = notes.display_text(detail)
+    detail = literature_notes.display_text(detail)
     return f"{code} — {detail}" if detail else code
 
 
@@ -401,8 +401,8 @@ def cmd_trust_tier(args):
     the exit-code contract's "could not run", never a four-state verdict.
     """
     try:
-        path = notes.note_path(args.vault, args.citation_key)
-    except notes.InvalidCitationKeyError:
+        path = literature_notes.note_path(args.vault, args.citation_key)
+    except literature_notes.InvalidCitationKeyError:
         print(f"invalid citation key: {args.citation_key!r}", file=sys.stderr)
         return 2
     if not path.is_file():
@@ -448,7 +448,7 @@ def _run_disposition(action):
         bibliography.BibliographyError,
         inbox.InboxError,
         frontmatter.FrontmatterError,
-        notes.InvalidCitationKeyError,
+        literature_notes.InvalidCitationKeyError,
         OSError,
     ) as error:
         print(f"cannot complete this disposition: {error}", file=sys.stderr)
