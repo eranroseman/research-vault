@@ -254,5 +254,6 @@ also_copy = [
   ".pre-commit-config.yaml",
   "CONTEXT.md",
   "README.md",
+  ".gitignore",
 ]
 pytest_add_cli_args = [ "-p", "no:cacheprovider" ]
