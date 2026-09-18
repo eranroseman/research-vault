@@ -115,6 +115,10 @@ def test_a_path_that_ends_its_line_is_checked():
 def test_the_active_specs_are_derived_not_listed():
     """This spec's successor enters the scan without an edit; the historical
     spec and the evidence siblings stay out."""
+    if not _tracked("docs/superpowers/specs/*-design.md"):
+        pytest.skip(
+            "no tracked spec: not the repository checkout (mutmut's mutants/ tree)"
+        )
     specs = _active_design_specs()
     assert "docs/superpowers/specs/2026-09-17-pre-lane-2-design.md" in specs
     assert "docs/superpowers/specs/2026-09-05-assembly-design.md" in specs
