@@ -15,9 +15,9 @@ This repository is the product source and is read as a repository: vault rules a
   `.vault-meta/` are contributor state and are excluded from public artifacts.
 - Never derive a user vault from the plugin cache or `${CLAUDE_PLUGIN_ROOT}`.
 - The repository is its own marketplace: `.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json` are tracked here. A public default branch is
-  populated from a distribution-clean artifact, never by pushing
-  contributor-vault state.
+  `.claude-plugin/marketplace.json` are tracked here. This repository is public.
+  Root `wiki/`, `.raw/` and `.vault-meta/` are ignored and a test asserts they
+  are untracked; `sources/` stays ignored.
 
 ## Agent skills
 

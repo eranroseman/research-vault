@@ -909,3 +909,25 @@ def test_strict_markers_is_on_so_a_misspelled_marker_cannot_collect(request):
     make real external API calls. The option is what this pins; the collection
     error it produces is pytest's own behaviour, not provoked here."""
     assert request.config.getoption("strict_markers") is True
+
+
+def test_contributor_vault_state_is_ignored_and_untracked():
+    """`AGENTS.md`'s product boundary as a mechanism: root `wiki/`, `.raw/`
+    and `.vault-meta/` are contributor state, ignored by `.gitignore` and
+    tracked by nothing (the repository is public)."""
+    roots = ("wiki", ".raw", ".vault-meta")
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", *roots],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    assert tracked == "", f"contributor vault state is tracked: {tracked}"
+    for root in roots:
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", f"{root}/anything.md"],
+            cwd=ROOT,
+            check=False,
+        )
+        assert ignored.returncode == 0, f"{root}/ is not ignored by .gitignore"

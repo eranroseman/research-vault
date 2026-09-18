@@ -10,6 +10,13 @@ sources/
 lcov.info
 # mutmut's working copy: schemata, .meta results, stats cache (scripts/mutation_gate.py)
 mutants/
+# Contributor vault state (AGENTS.md, "Product and vault boundaries"): the
+# root of this checkout may hold a working vault's compiled layer and the
+# compile tool's stores; none of it is product source, and the repository is
+# public. tests/test_config_validity.py asserts nothing under them is tracked.
+/wiki/
+/.raw/
+/.vault-meta/
 
 # Python
 __pycache__/
